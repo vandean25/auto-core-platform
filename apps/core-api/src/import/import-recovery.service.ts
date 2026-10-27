@@ -10,13 +10,7 @@ export class ImportRecoveryService {
 
   @Cron(CronExpression.EVERY_MINUTE, { name: 'import-job-worker-recovery' })
   async recover(): Promise<void> {
-    try {
-      await this.run();
-    } catch (error) {
-      this.logger.warn(
-        `Import worker recovery failed: ${error instanceof Error ? error.name : 'unknown'}`,
-      );
-    }
+    await this.run();
   }
 
   async run(): Promise<boolean> {

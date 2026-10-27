@@ -64,7 +64,7 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       jobId: 'job-1',
       phase: 'apply',
       chunkSeq: 10,
-      claimSeq: 4,
+      claimSeq: 5,
       recoverySeq: 0,
     });
     const firstEnqueue = enqueueImportWorker.mock.calls[0]?.[0];
@@ -72,7 +72,7 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       jobId: 'job-1',
       phase: 'apply',
       chunkSeq: 10,
-      claimSeq: 4,
+      claimSeq: 5,
       recoverySeq: 0,
     });
     expect(
@@ -81,7 +81,7 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
         jobId: 'job-1',
         phase: 'apply',
         chunkSeq: 10,
-        claimSeq: 4,
+        claimSeq: 5,
         recoverySeq: 0,
       }),
     ).toBe(expectedName);

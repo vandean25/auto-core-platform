@@ -34,7 +34,10 @@ export function assertJobCanBeApplied(status: ImportJobStatus): void {
       message: 'Import job was already applied',
     });
   }
-  if (status !== ImportJobStatus.DRY_RUN_DONE) {
+  if (
+    status !== ImportJobStatus.DRY_RUN_DONE &&
+    status !== ImportJobStatus.FAILED
+  ) {
     throw new ConflictException({
       code: IMPORT_ERROR_CODES.JOB_STALE,
       message: 'Import job cannot be applied in its current status',

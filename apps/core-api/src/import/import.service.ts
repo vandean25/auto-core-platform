@@ -626,12 +626,6 @@ export class ImportService {
         this.workerFlowForJob(params.tenantId, params.jobId),
         params,
       );
-      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
-      if (job?.status === ImportJobStatus.FAILED) {
-        await this.deleteJobUploadIfPresent(
-          job.options_json as ImportJobOptionsWithWorker,
-        );
-      }
       return;
     }
     const job = await this.jobStore.findJob(params.tenantId, params.jobId);
@@ -654,9 +648,6 @@ export class ImportService {
     },
     error: unknown,
   ): Promise<void> {
-    if (isImportWorkerContentionError(error)) {
-      return;
-    }
     if (isRetryableImportWorkerError(error)) {
       const job = await this.jobStore.findJob(params.tenantId, params.jobId);
       if (job && job.status === ImportJobStatus.APPLYING) {
@@ -669,9 +660,17 @@ export class ImportService {
             claimSeq: job.worker_claim_seq,
             recoverySeq: job.worker_recovery_seq,
             delaySeconds: importWorkerRetryDelaySeconds(),
+            recordHandoffAfterSuccess: true,
           },
         );
       }
+      return;
+    }
+    if (isImportWorkerContentionError(error)) {
+      await requeueImportWorkerAfterLeaseSkip(
+        this.workerFlowForJob(params.tenantId, params.jobId),
+        params,
+      );
       return;
     }
     await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
@@ -722,20 +721,33 @@ export class ImportService {
               candidate.tenantId,
               () =>
                 enqueueImportWorkerRecoveryHandoff(
-                  this.workerFlowForJob(candidate.tenantId, candidate.jobId),
+                  this.workerFlowForRecovery(
+                    candidate.tenantId,
+                    candidate.jobId,
+                  ),
                   candidate,
                 ),
               { workerId: 'import-job-worker-recovery' },
             );
           } catch (cause) {
-            this.logger.warn(
-              `Import worker recovery failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown'}`,
+            this.logger.error(
+              `Import worker recovery enqueue failed: ${cause instanceof Error ? cause.message : 'unknown'}`,
             );
+            throw cause;
           }
         }
       },
       this.logger,
     );
+  }
+
+  private workerFlowForRecovery(
+    tenantId: string,
+    jobId: string,
+  ): ImportWorkerFlowDeps {
+    return this.importWorkerFlowDeps(() => {
+      throw new Error('Import worker recovery must not run inline');
+    });
   }
 
   private async runBackgroundDryRunBatch(
@@ -757,6 +769,7 @@ export class ImportService {
     const mapping = job.mapping_json as Record<string, string>;
     const totals = job.totals_json as ImportJobTotals;
     const startOffset = worker.processed_rows;
+    const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
     const parsedBatch = await readImportCsvDataRowSlice(
       this.fileStorage.openReadStream(upload),
       startOffset,
@@ -792,12 +805,28 @@ export class ImportService {
           },
           parsedBatch,
         );
-        const rows = planned.map((row, index) => ({
+        let rows = planned.map((row, index) => ({
           ...row,
           row_no: startOffset + index + 1,
         }));
-        const processed = startOffset + batchRows.length;
+        if (Date.now() >= chunkDeadlineMs) {
+          rows = rows.slice(0, 0);
+        }
+        const processed = startOffset + rows.length;
         const mergedTotals = mergeDryRunBatchTotals(totals, rows, processed);
+        if (rows.length === 0 && batchRows.length > 0) {
+          await handoffImportWorkerAfterBatch(
+            this.workerFlowForJob(tenantId, jobId),
+            {
+              tenantId,
+              jobId,
+              phase: 'dry_run',
+              leaseToken: worker.lease_token,
+              nextChunkSeq: startOffset,
+            },
+          );
+          return;
+        }
         await persistDryRunBatchAndHandoff({
           jobStore: this.jobStore,
           flow: this.workerFlowForJob(tenantId, jobId),
@@ -999,6 +1028,7 @@ export class ImportService {
         jobId: params.jobId,
         phase: 'apply',
         leaseToken,
+        nextChunkSeq: lastCommitted,
       },
     );
   }

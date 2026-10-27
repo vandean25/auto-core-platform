@@ -1,4 +1,5 @@
 import { isImportWorkerContentionError } from './import-worker.errors.js';
+import { isRetryableImportWorkerError } from './import-worker-retry.js';
 
 function driverAdapterWriteConflict(): Error {
   const error = new Error('write conflict');
@@ -8,10 +9,11 @@ function driverAdapterWriteConflict(): Error {
 }
 
 describe('import worker contention (wrapped errors)', () => {
-  it('treats a nested adapter write conflict as contention, not a fatal worker error', () => {
+  it('routes nested adapter write conflicts to retry, not lease contention', () => {
     const wrapped = new Error('prisma transaction failed', {
       cause: driverAdapterWriteConflict(),
     });
-    expect(isImportWorkerContentionError(wrapped)).toBe(true);
+    expect(isImportWorkerContentionError(wrapped)).toBe(false);
+    expect(isRetryableImportWorkerError(wrapped)).toBe(true);
   });
 });

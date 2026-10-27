@@ -49,6 +49,15 @@ export function readImportApplyBatchSize(): number {
   return readPositiveInt(process.env.IMPORT_APPLY_BATCH_SIZE, 50);
 }
 
+const DEFAULT_UPLOAD_RETENTION_DAYS = 7;
+
+export function readImportUploadRetentionDays(): number {
+  return readPositiveInt(
+    process.env.IMPORT_UPLOAD_RETENTION_DAYS,
+    DEFAULT_UPLOAD_RETENTION_DAYS,
+  );
+}
+
 export function isBackgroundImportCandidate(params: {
   fileBytes: number;
   rowCount?: number;

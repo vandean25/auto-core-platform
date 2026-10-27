@@ -25,10 +25,7 @@ import {
   commitApplyWorkerRowInTransaction,
   markImportRowFailed,
 } from './import-job.store.js';
-import {
-  ImportWorkerLeaseLostError,
-  isImportWorkerContentionError,
-} from './import-worker.errors.js';
+import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
 import {
   IMPORT_LOGGER_CONTEXT,
@@ -132,10 +129,7 @@ export class RowByRowApplyRunner {
   }
 
   private shouldRethrowApplyRunError(error: unknown): boolean {
-    return (
-      error instanceof ImportWorkerLeaseLostError ||
-      isImportWorkerContentionError(error)
-    );
+    return error instanceof ImportWorkerLeaseLostError;
   }
 
   private async serializeSequenceAppliedJob(

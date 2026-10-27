@@ -83,6 +83,10 @@ describe('ImportService.recoverStaleImportJobs', () => {
 
     expect(h.cloudTasks.enqueueImportWorker).toHaveBeenCalled();
     expect(h.service.runImportWorkerAttempt).not.toHaveBeenCalled();
-    expect(Logger.prototype.warn).toHaveBeenCalled();
+    expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ worker_recovery_seq: 2 }),
+      }),
+    );
   });
 });

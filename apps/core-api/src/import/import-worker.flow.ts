@@ -34,6 +34,12 @@ export function readImportWorkerChunkSeq(
   return worker.processed_rows ?? 0;
 }
 
+export function importWorkerTaskClaimSeqForHandoff(
+  workerClaimSeq: number,
+): number {
+  return workerClaimSeq + 1;
+}
+
 export async function enqueueImportWorkerContinuation(
   deps: ImportWorkerFlowDeps,
   params: {
@@ -43,6 +49,9 @@ export async function enqueueImportWorkerContinuation(
     claimSeq: number;
     recoverySeq: number;
     delaySeconds?: number;
+    chunkSeq?: number;
+    taskClaimSeq?: number;
+    recordHandoffAfterSuccess?: boolean;
   },
 ): Promise<void> {
   const job = await deps.jobStore.findJob(params.tenantId, params.jobId);
@@ -50,7 +59,10 @@ export async function enqueueImportWorkerContinuation(
     return;
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
-  const chunkSeq = readImportWorkerChunkSeq(options, params.phase);
+  const chunkSeq =
+    params.chunkSeq ?? readImportWorkerChunkSeq(options, params.phase);
+  const taskClaimSeq =
+    params.taskClaimSeq ?? importWorkerTaskClaimSeqForHandoff(params.claimSeq);
   await enqueueImportWorkerHandoff(
     {
       jobStore: deps.jobStore,
@@ -58,13 +70,14 @@ export async function enqueueImportWorkerContinuation(
       targetBaseUrl: deps.targetBaseUrl,
       nodeEnv: deps.nodeEnv,
       runInline: () => deps.runInline(params.phase),
+      recordHandoffAfterSuccess: params.recordHandoffAfterSuccess,
     },
     {
       tenantId: params.tenantId,
       jobId: params.jobId,
       phase: params.phase,
       chunkSeq,
-      claimSeq: params.claimSeq,
+      claimSeq: taskClaimSeq,
       recoverySeq: params.recoverySeq,
       delaySeconds: params.delaySeconds,
     },
@@ -109,6 +122,7 @@ export async function requeueImportWorkerAfterLeaseSkip(
     claimSeq: job!.worker_claim_seq,
     recoverySeq: job!.worker_recovery_seq,
     delaySeconds,
+    recordHandoffAfterSuccess: true,
   });
 }
 
@@ -119,18 +133,24 @@ export async function handoffImportWorkerAfterBatch(
     jobId: string;
     phase: ImportWorkerPhase;
     leaseToken: string;
+    nextChunkSeq: number;
   },
 ): Promise<void> {
-  const extended = await deps.jobStore.extendWorkerLease(
+  const released = await deps.jobStore.releaseWorkerLeaseForHandoff(
     params.tenantId,
     params.jobId,
     params.leaseToken,
   );
-  if (!extended) {
-    return;
-  }
   const job = await deps.jobStore.findJob(params.tenantId, params.jobId);
   if (!job) {
+    return;
+  }
+  if (!released) {
+    await requeueImportWorkerAfterLeaseSkip(deps, {
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      phase: params.phase,
+    });
     return;
   }
   await enqueueImportWorkerContinuation(deps, {
@@ -139,6 +159,8 @@ export async function handoffImportWorkerAfterBatch(
     phase: params.phase,
     claimSeq: job.worker_claim_seq,
     recoverySeq: job.worker_recovery_seq,
+    chunkSeq: params.nextChunkSeq,
+    taskClaimSeq: importWorkerTaskClaimSeqForHandoff(job.worker_claim_seq),
   });
 }
 
@@ -150,20 +172,36 @@ export async function enqueueImportWorkerRecoveryHandoff(
     phase: ImportWorkerPhase;
   },
 ): Promise<void> {
-  const recoverySeq = await deps.jobStore.bumpWorkerRecoverySeq(
-    params.tenantId,
-    params.jobId,
-  );
   const job = await deps.jobStore.findJob(params.tenantId, params.jobId);
   if (!job) {
     return;
   }
+  const nextRecoverySeq = job.worker_recovery_seq + 1;
   const claimSeq = job.worker_claim_seq;
-  await enqueueImportWorkerContinuation(deps, {
-    tenantId: params.tenantId,
-    jobId: params.jobId,
-    phase: params.phase,
-    claimSeq,
-    recoverySeq,
-  });
+  const options = job.options_json as ImportJobOptionsWithWorker;
+  const chunkSeq = readImportWorkerChunkSeq(options, params.phase);
+  const taskClaimSeq = importWorkerTaskClaimSeqForHandoff(claimSeq);
+  await enqueueImportWorkerHandoff(
+    {
+      jobStore: deps.jobStore,
+      cloudTasks: deps.cloudTasks,
+      targetBaseUrl: deps.targetBaseUrl,
+      nodeEnv: deps.nodeEnv,
+      runInline: () => deps.runInline(params.phase),
+      recordHandoffAfterSuccess: false,
+    },
+    {
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      phase: params.phase,
+      chunkSeq,
+      claimSeq: taskClaimSeq,
+      recoverySeq: nextRecoverySeq,
+    },
+  );
+  await deps.jobStore.confirmWorkerRecoveryHandoff(
+    params.tenantId,
+    params.jobId,
+    nextRecoverySeq,
+  );
 }

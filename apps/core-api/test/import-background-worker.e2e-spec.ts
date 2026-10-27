@@ -5,7 +5,10 @@ import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 import { ImportCloudTasksService } from '../src/import/import-cloud-tasks.service.js';
+import { ImportJobStore } from '../src/import/import-job.store.js';
 import { ImportRecoveryService } from '../src/import/import-recovery.service.js';
+import { deterministicImportWorkerTaskId } from '../src/import/import-worker-task-identity.js';
+import { Prisma } from '@prisma/client';
 import { signImportTaskPayload } from '../src/import/import-task.payload.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
@@ -129,6 +132,19 @@ describe('Import background worker (e2e)', () => {
     expect(new Set(mappings.map((mapping) => mapping.external_id)).size).toBe(
       3,
     );
+  }
+
+  async function runDryRunUntilDone(jobId: string, timeoutMs = 60_000) {
+    const deadline = Date.now() + timeoutMs;
+    let job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    while (
+      Date.now() < deadline &&
+      job?.status !== ImportJobStatus.DRY_RUN_DONE
+    ) {
+      await deliverWorker(jobId, 'dry_run').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
+    return job;
   }
 
   const deliverWorker = (
@@ -367,4 +383,130 @@ describe('Import background worker (e2e)', () => {
     });
     expect(rows).toBeGreaterThan(0);
   });
+
+  it('completes multi-chunk dry-run handoffs without waiting for recovery', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['MC-1', 'PRIVATE', 'A', 'One', 'mc1@example.com', '', '', 'AT'],
+      ['MC-2', 'PRIVATE', 'B', 'Two', 'mc2@example.com', '', '', 'AT'],
+      ['MC-3', 'PRIVATE', 'C', 'Three', 'mc3@example.com', '', '', 'AT'],
+      ['MC-4', 'PRIVATE', 'D', 'Four', 'mc4@example.com', '', '', 'AT'],
+      ['MC-5', 'PRIVATE', 'E', 'Five', 'mc5@example.com', '', '', 'AT'],
+    ]);
+    const enqueuedTaskIds = new Set<string>();
+    cloudTasks.enqueueImportWorker.mockImplementation(async (params) => {
+      enqueuedTaskIds.add(
+        deterministicImportWorkerTaskId(params.taskIdentity),
+      );
+    });
+
+    const job = await runDryRunUntilDone(jobId);
+    expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    expect(enqueuedTaskIds.size).toBeGreaterThanOrEqual(2);
+    expect(cloudTasks.enqueueImportWorker).toHaveBeenCalled();
+  });
+
+  it('resumes after a transaction timeout without ERROR rows', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['TX-1', 'PRIVATE', 'T', 'One', 'tx1@example.com', '', '', 'AT'],
+      ['TX-2', 'PRIVATE', 'T', 'Two', 'tx2@example.com', '', '', 'AT'],
+      ['TX-3', 'PRIVATE', 'T', 'Three', 'tx3@example.com', '', '', 'AT'],
+    ]);
+    const store = app.get(ImportJobStore);
+    const realAppend = store.appendDryRunRows.bind(store);
+    let failOnce = true;
+    jest
+      .spyOn(store, 'appendDryRunRows')
+      .mockImplementation(async (...args) => {
+        if (failOnce) {
+          failOnce = false;
+          throw new Prisma.PrismaClientKnownRequestError(
+            'Transaction API error: Unable to start a transaction in the given time.',
+            { code: 'P2028', clientVersion: 'test' },
+          );
+        }
+        return realAppend(...args);
+      });
+
+    const job = await runDryRunUntilDone(jobId);
+    expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const errorRows = await tenantPrisma().importJobRow.count({
+      where: { import_job_id: jobId, action: ImportRowAction.ERROR },
+    });
+    expect(errorRows).toBe(0);
+    jest.restoreAllMocks();
+  });
+
+  it('leaves a single successor chain when a worker is killed mid-batch', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['KILL-1', 'PRIVATE', 'K', 'One', 'kill1@example.com', '', '', 'AT'],
+      ['KILL-2', 'PRIVATE', 'K', 'Two', 'kill2@example.com', '', '', 'AT'],
+      ['KILL-3', 'PRIVATE', 'K', 'Three', 'kill3@example.com', '', '', 'AT'],
+    ]);
+    const successorIds: string[] = [];
+    cloudTasks.enqueueImportWorker.mockImplementation(async (params) => {
+      successorIds.push(
+        deterministicImportWorkerTaskId(params.taskIdentity),
+      );
+    });
+
+    await deliverWorker(jobId, 'dry_run').expect(204);
+    const mid = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    const options = (mid?.options_json ?? {}) as Record<string, unknown>;
+    const worker = (options.worker ?? {}) as Record<string, unknown>;
+    await tenantPrisma().importJob.updateMany({
+      where: { id: jobId },
+      data: {
+        options_json: {
+          ...options,
+          worker: {
+            ...worker,
+            lease_until: new Date(0).toISOString(),
+          },
+        },
+      },
+    });
+
+    await Promise.all([
+      deliverWorker(jobId, 'dry_run').expect(204),
+      deliverWorker(jobId, 'dry_run').expect(204),
+    ]);
+
+    const uniqueSuccessors = new Set(successorIds);
+    expect(uniqueSuccessors.size).toBe(1);
+  });
+
+  it('matches final totals to the dry-run row list', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['TOT-1', 'PRIVATE', 'S', 'One', 'tot1@example.com', '', '', 'AT'],
+      ['TOT-2', 'PRIVATE', 'S', 'Two', 'tot2@example.com', '', '', 'AT'],
+      ['TOT-3', 'PRIVATE', 'S', 'Three', 'tot3@example.com', '', '', 'AT'],
+    ]);
+
+    const job = await runDryRunUntilDone(jobId);
+    expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+
+    const rows = await tenantPrisma().importJobRow.findMany({
+      where: { import_job_id: jobId },
+    });
+    const totals = job?.totals_json as ImportJobTotals;
+    const counted = {
+      create: rows.filter((r) => r.action === ImportRowAction.CREATE).length,
+      update: rows.filter((r) => r.action === ImportRowAction.UPDATE).length,
+      skip: rows.filter((r) => r.action === ImportRowAction.SKIP).length,
+      error: rows.filter((r) => r.action === ImportRowAction.ERROR).length,
+    };
+    expect(totals.rows).toBe(rows.length);
+    expect(totals.create).toBe(counted.create);
+    expect(totals.update).toBe(counted.update);
+    expect(totals.skip).toBe(counted.skip);
+    expect(totals.error).toBe(counted.error);
+  });
 });
+
+type ImportJobTotals = {
+  rows: number;
+  create: number;
+  update: number;
+  skip: number;
+  error: number;
+};

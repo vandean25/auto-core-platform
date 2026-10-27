@@ -50,12 +50,12 @@ export async function enqueueImportWorkerHandoff(
     targetBaseUrl: string | undefined;
     nodeEnv?: string;
     runInline: () => Promise<void>;
+    recordHandoffAfterSuccess?: boolean;
   },
   params: EnqueueImportWorkerHandoffParams,
 ): Promise<{ mode: ImportDispatchMode }> {
-  await recordImportWorkerHandoff(deps.jobStore, params.tenantId, params.jobId);
   const taskIdentity = buildImportWorkerTaskIdentity(params);
-  return enqueueOrRunImportWorker({
+  const result = await enqueueOrRunImportWorker({
     tenantId: params.tenantId,
     jobId: params.jobId,
     phase: params.phase,
@@ -66,6 +66,14 @@ export async function enqueueImportWorkerHandoff(
     delaySeconds: params.delaySeconds,
     runInline: deps.runInline,
   });
+  if (deps.recordHandoffAfterSuccess) {
+    await recordImportWorkerHandoff(
+      deps.jobStore,
+      params.tenantId,
+      params.jobId,
+    );
+  }
+  return result;
 }
 
 export function importWorkerTaskIdForParams(

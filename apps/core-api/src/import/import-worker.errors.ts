@@ -1,12 +1,8 @@
-import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
-
 export class ImportWorkerLeaseLostError extends Error {
   readonly name = 'ImportWorkerLeaseLostError';
 }
 
+/** Lease loss during apply — not retryable Prisma/storage errors (those re-queue separately). */
 export function isImportWorkerContentionError(error: unknown): boolean {
-  if (error instanceof ImportWorkerLeaseLostError) {
-    return true;
-  }
-  return isRetryableTransactionError(error);
+  return error instanceof ImportWorkerLeaseLostError;
 }

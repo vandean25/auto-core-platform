@@ -5,6 +5,8 @@ import type { ImportJobStore } from './import-job.store.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
 import {
   enqueueImportWorkerContinuation,
+  importWorkerTaskClaimSeqForHandoff,
+  requeueImportWorkerAfterLeaseSkip,
   type ImportWorkerFlowDeps,
 } from './import-worker.flow.js';
 
@@ -37,6 +39,10 @@ export async function persistDryRunBatchAndHandoff(params: {
   totalRows: number;
   completeDryRun: () => Promise<void>;
 }): Promise<void> {
+  const leaseToken = params.options.worker?.lease_token;
+  if (!leaseToken) {
+    return;
+  }
   const appended = await params.jobStore.appendDryRunRows(
     params.tenantId,
     params.jobId,
@@ -44,35 +50,30 @@ export async function persistDryRunBatchAndHandoff(params: {
     params.mergedTotals,
     { processed_rows: params.processed },
     params.options,
+    leaseToken,
   );
   if (!appended) {
+    await requeueImportWorkerAfterLeaseSkip(params.flow, {
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      phase: 'dry_run',
+    });
     return;
   }
   if (params.processed >= params.totalRows) {
     await params.completeDryRun();
     return;
   }
-  const refreshed = await params.jobStore.findJob(
-    params.tenantId,
-    params.jobId,
-  );
-  if (!refreshed) {
-    return;
-  }
-  const leaseToken = (refreshed.options_json as ImportJobOptionsWithWorker)
-    .worker?.lease_token;
-  if (leaseToken) {
-    await params.jobStore.extendWorkerLease(
-      params.tenantId,
-      params.jobId,
-      leaseToken,
-    );
-  }
+  const refreshed = appended;
   await enqueueImportWorkerContinuation(params.flow, {
     tenantId: params.tenantId,
     jobId: params.jobId,
     phase: 'dry_run',
     claimSeq: refreshed.worker_claim_seq,
     recoverySeq: refreshed.worker_recovery_seq,
+    chunkSeq: params.processed,
+    taskClaimSeq: importWorkerTaskClaimSeqForHandoff(
+      refreshed.worker_claim_seq,
+    ),
   });
 }

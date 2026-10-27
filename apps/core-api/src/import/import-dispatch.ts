@@ -54,13 +54,13 @@ export async function enqueueOrRunImportWorker(params: {
       delaySeconds: params.delaySeconds,
     });
     return { mode };
-  } catch {
+  } catch (cause) {
     if (params.nodeEnv === 'production') {
       throw new InternalServerErrorException(
         'Failed to enqueue import background worker',
+        { cause },
       );
     }
-    await params.runInline();
-    return { mode: 'inline' };
+    throw cause;
   }
 }
