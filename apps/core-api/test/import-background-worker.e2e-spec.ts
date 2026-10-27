@@ -194,13 +194,19 @@ describe('Import background worker (e2e)', () => {
     expect(applied?.status).toBe(ImportJobStatus.APPLIED);
     expect((applied?.totals_json as { rows: number }).rows).toBe(3);
 
-    const totals = applied?.totals_json as {
-      create: number;
-      update: number;
-      error: number;
-    };
-    expect(totals.create).toBe(3);
-    expect(totals.error).toBe(0);
+    const applySeqRows = await tenantPrisma().importJobRow.findMany({
+      where: { import_job_id: jobId },
+      select: { apply_seq: true },
+      orderBy: { apply_seq: 'asc' },
+    });
+    expect(applySeqRows.map((row) => row.apply_seq)).toEqual([1, 2, 3]);
+
+    const worker = (
+      (applied?.options_json ?? {}) as {
+        worker?: { last_committed_apply_seq?: number };
+      }
+    ).worker;
+    expect(worker?.last_committed_apply_seq).toBe(3);
 
     const mappings = await tenantPrisma().externalIdMapping.findMany({
       where: {
