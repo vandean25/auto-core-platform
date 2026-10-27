@@ -40,6 +40,19 @@ test.describe('Dialog fields on a phone (AUT-753)', () => {
     await expectNoPageScroll(page)
   })
 
+  test('Umlagerung anfordern: a default site that is not in the directory shows the placeholder, not an empty box', async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('e2e-active-site-id', 'site-not-listed'))
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) => route.fulfill(json([site])))
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sites'), (route) => route.fulfill(json([{ ...site, id: 'site-2', code: 'MUC', name: 'München' }])))
+    await page.route(AutoCorePage.apiRouteMatcher('/api/stock-transfers'), (route) => route.fulfill(json([])))
+    const corePage = new AutoCorePage(page, DE_INVENTORY.stockTransfers.list.newTransfer)
+    await corePage.navigate('/stock-transfers')
+    await corePage.createButton.click()
+
+    const toSite = page.getByRole('dialog').getByLabel(DE_INVENTORY.stockTransfers.create.toSite)
+    await expect(toSite).toHaveText(DE_INVENTORY.stockTransfers.create.selectDestSite)
+  })
+
   test('Werkstattauftrag anlegen: odometer and fuel level have visible labels', async ({ page }) => {
     await mockList(page, '/api/workshop/orders')
     await new AutoCorePage(page, deWorkshop.orders.list.newOrder).navigate('/workshop/orders')
