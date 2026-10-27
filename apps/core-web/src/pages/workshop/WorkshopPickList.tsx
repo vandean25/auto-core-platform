@@ -17,6 +17,7 @@ import {
   getRequiredPartLines,
   getTotalRequiredQuantity,
 } from '@/features/workshop/pick-utils'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 interface WorkshopPickQueueRow {
   id: string
@@ -114,12 +115,12 @@ export default function WorkshopPickList() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between mb-8'>
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className='min-w-0 max-sm:w-full'>
           <h1 className='text-2xl font-semibold tracking-tight'>{t('pick.queue.title')}</h1>
           <p className='text-slate-500'>{t('pick.queue.description')}</p>
         </div>
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-2 max-sm:flex-wrap'>
           <Button variant='outline' onClick={() => navigate('/workshop/orders')}>
             <ListChecks className='h-4 w-4 mr-2' />
             {t('pick.queue.workshopOrders')}

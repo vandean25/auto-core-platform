@@ -171,7 +171,7 @@ export function StockTransferCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent fullScreenOnPhone className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('inventory:stockTransfers.create.title')}</DialogTitle>
         </DialogHeader>
@@ -304,7 +304,7 @@ export function StockTransferCreateDialog({
           </div>
         ) : null}
 
-        <DialogFooter>
+        <DialogFooter className="max-sm:gap-2">
           <Button variant="outline" onClick={() => handleClose(false)}>
             {t('common:actions.cancel')}
           </Button>

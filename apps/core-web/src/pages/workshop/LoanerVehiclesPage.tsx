@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 type FleetRow = {
   id: string
@@ -323,8 +324,8 @@ export default function LoanerVehiclesPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='mb-8 flex items-center justify-between'>
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className='min-w-0 max-sm:w-full'>
           <div className='flex items-center gap-3'>
             <h1 className='text-2xl font-semibold tracking-tight'>{t('loaner.title')}</h1>
             {overdueCount > 0 ? (

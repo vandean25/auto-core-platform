@@ -8,6 +8,7 @@ import { useWorkshopSearch } from '@/api/workshop'
 import { QuickRegisterDialog } from '@/components/workshop/QuickRegisterDialog'
 import { StartServiceDialog } from '@/components/workshop/StartServiceDialog'
 import { Plus, Wrench } from 'lucide-react'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 export function IntakeDashboard() {
   const { t } = useTranslation('workshop')
@@ -27,8 +28,8 @@ export function IntakeDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('intakeDashboard.title')}</h1>
         </div>
         <Button onClick={() => setIsRegisterOpen(true)}>

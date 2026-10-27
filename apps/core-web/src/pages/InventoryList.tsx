@@ -16,6 +16,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/sources'
 import { formatCurrency } from '@/lib/format'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 export default function InventoryList() {
     const { t } = useTranslation('inventory')
@@ -109,8 +110,8 @@ export default function InventoryList() {
 
     return (
         <>
-            <div className="flex items-center justify-between mb-8">
-                <div>
+            <div className={PAGE_HEADER_ROW}>
+                <div className="min-w-0 max-sm:w-full">
                     <h1 className="text-2xl font-semibold tracking-tight">{t('partsList.title')}</h1>
                     <p className="text-slate-500">{t('partsList.description')}</p>
                 </div>
