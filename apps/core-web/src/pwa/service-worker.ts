@@ -70,6 +70,8 @@ export function runServiceWorker(scope: ServiceWorkerScope, version: string): vo
     // Only page navigations of this origin; the API and the Firebase auth handler are network only.
     if (url.origin !== scope.location.origin) return
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/__/')) return
+    // Files (/version.json, /assets/*, /sw.js, the manifest) are not app pages; the SPA rewrite skips them too.
+    if (url.pathname.split('/').pop()?.includes('.')) return
 
     // Network first. The offline page is only the answer to a network error, never to an HTTP error.
     event.respondWith(

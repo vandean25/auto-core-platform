@@ -14,7 +14,7 @@ module follows the same architectural patterns.
 # From apps/core-web directory
 npm run test:e2e          # Build the E2E bundle, then run all E2E tests (headless)
 npm run test:e2e -- --shard=1/3  # Run one of three shards (CI runs them in parallel)
-npx playwright test --ui  # Interactive UI mode (run `npm run build:e2e` first)
+npx playwright test --ui  # Interactive UI mode (run `npm run build:e2e && npm run build:pwa` first)
 E2E_LIVE_BACKEND=true npm run test:e2e  # Include seed-based smoke tests against a live seeded backend
 ```
 
@@ -23,7 +23,11 @@ The suite runs against a production bundle built by `npm run build:e2e` (mode `e
 wait on on-demand module transforms. `npx playwright test` does not rebuild the bundle: run
 `npm run build:e2e` first after changing app code (`npm run test:e2e` does this for you).
 
-The exception is `login.spec.ts`. It rewrites dev-server module URLs (`/src/lib/runtime-flags.ts`) to show
+`pwa-shell.spec.ts` needs the real production build (the service worker is not registered in the e2e bundle):
+`npm run build:pwa` writes `dist-pwa`, served on port 5176 for the `chromium-pwa` project. `npm run test:e2e`
+builds both bundles; `npx playwright test` needs `dist-e2e` and `dist-pwa` to exist.
+
+The other exception is `login.spec.ts`. It rewrites dev-server module URLs (`/src/lib/runtime-flags.ts`) to show
 the sign-in form, so it runs in the `chromium-dev-server` project against the Vite dev server on port 5175.
 
 ---

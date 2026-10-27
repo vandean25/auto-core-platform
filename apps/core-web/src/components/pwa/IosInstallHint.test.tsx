@@ -44,7 +44,18 @@ describe('IosInstallHint', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('counts closing the sheet as a dismissal and the Install button is 44px', () => {
+  it('does not bring the sheet back after a reload with it still open', () => {
+    setEnvironment(IPHONE_SAFARI)
+    const first = render(<IosInstallHint />)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    first.unmount()
+    render(<IosInstallHint />)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('counts closing the sheet as a dismissal and its button is 44px', () => {
     setEnvironment(IPHONE_SAFARI)
     render(<IosInstallHint />)
 

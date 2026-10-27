@@ -72,6 +72,38 @@ describe('useInstallPrompt', () => {
     expect(result.current.canInstall).toBe(false)
   })
 
+  it('uses the event once even when the browser rejects the prompt', async () => {
+    setDisplayMode(false)
+    const { result } = renderHook(() => useInstallPrompt())
+    const event = installPromptEvent()
+    event.prompt = vi.fn().mockRejectedValue(new Error('InvalidStateError'))
+    act(() => {
+      window.dispatchEvent(event)
+    })
+
+    await act(async () => {
+      await result.current.promptInstall()
+      await result.current.promptInstall()
+    })
+
+    expect(event.prompt).toHaveBeenCalledTimes(1)
+    expect(result.current.canInstall).toBe(false)
+  })
+
+  it('stays hidden in the installed iOS home screen app (navigator.standalone)', () => {
+    setDisplayMode(false)
+    Object.defineProperty(navigator, 'standalone', { configurable: true, value: true })
+    try {
+      const { result } = renderHook(() => useInstallPrompt())
+      act(() => {
+        window.dispatchEvent(installPromptEvent())
+      })
+      expect(result.current.canInstall).toBe(false)
+    } finally {
+      Reflect.deleteProperty(navigator, 'standalone')
+    }
+  })
+
   it('goes away when the app gets installed', () => {
     setDisplayMode(false)
     const { result } = renderHook(() => useInstallPrompt())

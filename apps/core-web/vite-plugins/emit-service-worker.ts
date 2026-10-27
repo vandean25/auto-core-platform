@@ -17,7 +17,7 @@ export function buildServiceWorkerSource(version: string, killSwitch: boolean): 
  * every release ships a different worker file. With PWA_KILL_SWITCH=true the worker is the self-removing variant.
  */
 export function emitServiceWorkerPlugin(appVersion: string, env: Record<string, string>): Plugin {
-  const version = appVersion || process.env.SENTRY_RELEASE || 'dev'
+  const version = appVersion.trim() || process.env.SENTRY_RELEASE || 'dev'
   const killSwitch = (env.PWA_KILL_SWITCH ?? process.env.PWA_KILL_SWITCH) === 'true'
   let outDir = 'dist'
 

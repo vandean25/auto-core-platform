@@ -49,8 +49,12 @@ export function useInstallPrompt() {
     if (!prompt) return
     // The browser lets each event be used once, so the entry goes away whatever the user chooses.
     setDeferredPrompt(null)
-    await prompt.prompt()
-    await prompt.userChoice
+    try {
+      await prompt.prompt()
+      await prompt.userChoice
+    } catch {
+      // The browser refused a second use of the event; there is nothing left to offer.
+    }
   }
 
   return { canInstall, promptInstall }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Share } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -21,16 +21,25 @@ export function shouldShowIosInstallHint(): boolean {
   }
 }
 
+function rememberIosInstallHint() {
+  try {
+    window.localStorage.setItem(IOS_INSTALL_HINT_DISMISSED_KEY, '1')
+  } catch {
+    // Private mode: the hint may show again next time.
+  }
+}
+
 export function IosInstallHint() {
   const { t } = useTranslation('nav')
   const [open, setOpen] = useState(shouldShowIosInstallHint)
 
+  // Shown once per device: remembered when it appears, so reloading with the sheet open does not bring it back.
+  useEffect(() => {
+    if (open) rememberIosInstallHint()
+  }, [open])
+
   const dismiss = () => {
-    try {
-      window.localStorage.setItem(IOS_INSTALL_HINT_DISMISSED_KEY, '1')
-    } catch {
-      // Private mode: the hint may show again next time.
-    }
+    rememberIosInstallHint()
     setOpen(false)
   }
 
