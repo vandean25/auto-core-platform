@@ -526,6 +526,7 @@ describe('import apply final totals (e2e)', () => {
             lease_until: new Date(0).toISOString(),
             processed_rows: 0,
             last_committed_apply_seq: 0,
+            claimed_processed_rows: 0,
             started_at: new Date().toISOString(),
           },
         },
