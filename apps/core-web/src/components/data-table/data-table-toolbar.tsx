@@ -49,7 +49,7 @@ export function DataTableToolbar<TData extends object>({
             onChange={(event) =>
                 table.getColumn(searchColumn)?.setFilterValue(event.target.value)
             }
-            className="h-8 w-[150px] lg:w-[250px]"
+            className="h-11 md:h-8 md:w-[150px] lg:w-[250px]"
             />
         ) : (
             <Input
@@ -58,7 +58,7 @@ export function DataTableToolbar<TData extends object>({
             onChange={(event) =>
                 table.setGlobalFilter(event.target.value)
             }
-            className="h-8 w-[150px] lg:w-[250px]"
+            className="h-11 md:h-8 md:w-[150px] lg:w-[250px]"
             />
         )}
         <DataTableColumnFilters table={table} />
@@ -70,7 +70,7 @@ export function DataTableToolbar<TData extends object>({
               table.resetColumnFilters()
               table.setGlobalFilter("")
             }}
-            className="h-8 px-2 lg:px-3"
+            className="h-11 px-2 md:h-8 lg:px-3"
           >
             {t('dataTable.reset')}
             <X className="ml-2 h-4 w-4" />
@@ -84,7 +84,7 @@ export function DataTableToolbar<TData extends object>({
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-11 md:h-8"
             title={t('dataTable.exportCsvTitle')}
             disabled={isLoading || table.getRowModel().rows.length === 0 || getDataTableExportColumns(table).length === 0}
             onClick={() => {

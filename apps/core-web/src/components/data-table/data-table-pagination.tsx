@@ -35,7 +35,7 @@ export function DataTablePagination<TData extends object>({
               table.setPagination({ pageIndex: 0, pageSize: Number(value) })
             }
           >
-            <SelectTrigger aria-label={t('dataTable.rowsPerPageAria')} className="h-8 w-[76px]">
+            <SelectTrigger aria-label={t('dataTable.rowsPerPageAria')} className="h-11 w-[76px] md:h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -52,6 +52,7 @@ export function DataTablePagination<TData extends object>({
         <Button
           variant="outline"
           size="sm"
+          className="max-md:h-11"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
@@ -66,6 +67,7 @@ export function DataTablePagination<TData extends object>({
         <Button
           variant="outline"
           size="sm"
+          className="max-md:h-11"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >

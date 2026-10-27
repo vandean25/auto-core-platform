@@ -65,6 +65,7 @@ export default function CustomerList() {
     },
     {
       accessorKey: 'company_name',
+      meta: { mobile: 'title' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.name')} />
       ),
@@ -97,6 +98,7 @@ export default function CustomerList() {
     },
     {
       accessorKey: 'address_city',
+      meta: { mobile: 'subtitle' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.location')} />
       ),

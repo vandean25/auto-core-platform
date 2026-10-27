@@ -53,7 +53,7 @@ export default function WorkshopOrderList() {
   const columns: ColumnDef<WorkshopOrderListRow>[] = [
     {
       accessorKey: 'orderNo',
-      meta: { rowLink: true, label: t('orders.list.columns.orderNo') },
+      meta: { rowLink: true, mobile: 'trailing', label: t('orders.list.columns.orderNo') },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('orders.list.columns.orderNo')} />
       ),
@@ -61,14 +61,14 @@ export default function WorkshopOrderList() {
     },
     {
       accessorKey: 'customer',
-      meta: { label: t('orders.list.columns.customer') },
+      meta: { mobile: 'title', label: t('orders.list.columns.customer') },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('orders.list.columns.customer')} />
       ),
     },
     {
       accessorKey: 'vehicle',
-      meta: { label: t('orders.list.columns.vehicle') },
+      meta: { mobile: 'subtitle', label: t('orders.list.columns.vehicle') },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('orders.list.columns.vehicle')} />
       ),
@@ -83,7 +83,7 @@ export default function WorkshopOrderList() {
     },
     {
       accessorKey: 'status',
-      meta: { label: t('orders.list.columns.status') },
+      meta: { mobile: 'status', label: t('orders.list.columns.status') },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('orders.list.columns.status')} />
       ),

@@ -58,7 +58,7 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
   return (
     <>
       <TooltipHint hint={t('dashboard.addToDashboardHint')}>
-        <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2 max-md:h-11">
           <Star className="h-4 w-4" />
           {t('dashboard.addToDashboard')}
         </Button>
