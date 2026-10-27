@@ -5,6 +5,7 @@ import { planVehiclePartyDryRun } from './vehicle-party-import.dry-run.js';
 import { planVehicleDryRun } from './vehicle-import.dry-run.js';
 import { planLaborOperationDryRun } from './labor-operation-import.dry-run.js';
 import { planSupplierPriceListRows } from './supplier-price-list-import.dry-run.js';
+import { planVehicleDueDateDryRun } from './vehicle-due-date-import.dry-run.js';
 import { toParsedCsvFromRecords } from './import-dry-run-reconcile.records.js';
 import type { DryRunRowResult } from './import.types.js';
 import type { ParsedCsv } from './csv-parse.util.js';
@@ -12,11 +13,13 @@ import type { ImportDryRunInput } from './import-type-handler.js';
 import type { ImportDryRunReconcileUnit } from './import-job.worker-state.js';
 
 const BATCH = 3;
+const RECONCILE_BATCH = 2;
 
 function signatures(rows: DryRunRowResult[]) {
   return rows.map((row) => ({
     row_no: row.row_no,
     action: row.action,
+    codes: row.errors.map((issue) => issue.code),
     messages: row.errors.map((issue) => issue.message),
   }));
 }
@@ -53,7 +56,7 @@ async function planBatched(
   return merged;
 }
 
-async function replanUnit(
+async function replanWindows(
   plan: (
     input: ImportDryRunInput,
     parsed: ParsedCsv,
@@ -62,33 +65,65 @@ async function replanUnit(
   parsed: ParsedCsv,
   unit: ImportDryRunReconcileUnit,
   target: DryRunRowResult[],
+  reconcileBatchSize = RECONCILE_BATCH,
 ) {
-  const rowNos = [...unit.replan_row_nos].sort((a, b) => a - b);
-  const records = rowNos.map((rowNo) => ({
-    rowNo,
-    record: rowToRecord(parsed.headers, parsed.rows[rowNo - 1]),
-  }));
-  const sparse = toParsedCsvFromRecords(
-    parsed.headers,
-    records,
-    parsed.sha256 ?? 'test-sha',
-  );
-  const replanned = await plan(
-    {
-      ...input,
-      planBudget: {
-        deadlineMs: Date.now() + 60_000,
-        rowNoOffset: rowNos[0],
-        rowNumbers: rowNos,
-      },
-    },
-    sparse,
-  );
-  for (const row of replanned) {
-    const index = target.findIndex((item) => item.row_no === row.row_no);
-    if (index >= 0) {
-      target[index] = row;
+  const unitSet = new Set(unit.replan_row_nos);
+  let targetIndex = 0;
+  while (targetIndex < unit.replan_row_nos.length) {
+    const targets: number[] = [];
+    let selectionEnd = targetIndex;
+    while (
+      selectionEnd < unit.replan_row_nos.length &&
+      targets.length < reconcileBatchSize
+    ) {
+      targets.push(unit.replan_row_nos[selectionEnd]);
+      selectionEnd += 1;
     }
+    if (targets.length === 0) {
+      break;
+    }
+    const contextRowNos = unit.replan_row_nos
+      .filter((rowNo) => rowNo <= Math.max(...targets))
+      .sort((a, b) => a - b);
+    const records = contextRowNos.map((rowNo) => ({
+      rowNo,
+      record: rowToRecord(parsed.headers, parsed.rows[rowNo - 1]),
+    }));
+    const sparse = toParsedCsvFromRecords(
+      parsed.headers,
+      records,
+      parsed.sha256 ?? 'test-sha',
+    );
+    const replanned = await plan(
+      {
+        ...input,
+        planBudget: {
+          deadlineMs: Date.now() + 60_000,
+          rowNoOffset: records[0].rowNo,
+          rowNumbers: records.map((record) => record.rowNo),
+        },
+      },
+      sparse,
+    );
+    for (const row of replanned.filter((item) => unitSet.has(item.row_no))) {
+      const index = target.findIndex((item) => item.row_no === row.row_no);
+      if (index >= 0) {
+        target[index] = row;
+      }
+    }
+    const plannedSet = new Set(replanned.map((row) => row.row_no));
+    let nextIndex = targetIndex;
+    for (let cursor = targetIndex; cursor < selectionEnd; cursor += 1) {
+      const rowNo = unit.replan_row_nos[cursor];
+      if (!plannedSet.has(rowNo)) {
+        break;
+      }
+      nextIndex = cursor + 1;
+    }
+    if (nextIndex === targetIndex) {
+      break;
+    }
+    targetIndex = nextIndex;
   }
 }
 
@@ -169,7 +204,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
     expect(batched[3].action).toBe(ImportRowAction.CREATE);
-    await replanUnit(plan, input, parsed, {
+    await replanWindows(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -225,7 +260,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planVehiclePartyDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanUnit(plan, input, parsed, {
+    await replanWindows(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 2, 3, 4],
@@ -268,7 +303,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planVehicleDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanUnit(plan, input, parsed, {
+    await replanWindows(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -308,7 +343,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planLaborOperationDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanUnit(plan, input, parsed, {
+    await replanWindows(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -316,22 +351,25 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
     expect(signatures(batched)).toEqual(signatures(sync));
   });
 
-  it('supplier duplicate external_id across batches matches sync after sparse replan', async () => {
+  it('supplier duplicate article number across batches matches sync after sparse replan', async () => {
     const mapping = {
-      external_id: 'Artikel-Nr',
-      article_number: 'Artikel-Nr',
-      description: 'Bezeichnung',
-      unit_price: 'Preis',
+      supplier_article_no: 'Lieferanten-Artikelnummer',
+      ean: 'EAN',
+      description: 'Beschreibung',
+      brand: 'Marke',
+      cost_price: 'Einkaufspreis',
+      rrp: 'UVP',
+      unit: 'Einheit',
     };
     const parsed = parseCsvFile(
       Buffer.from(
         serializeCsv(
           Object.values(mapping),
           [
-            ['sku-1', 'sku-1', 'One', '10'],
-            ['sku-2', 'sku-2', 'Two', '20'],
-            ['sku-3', 'sku-3', 'Three', '30'],
-            ['sku-1', 'sku-1', 'Dup', '40'],
+            ['ART-1', '', 'One', '', '10,00', '', 'Stk'],
+            ['ART-2', '', 'Two', '', '20,00', '', 'Stk'],
+            ['ART-3', '', 'Three', '', '30,00', '', 'Stk'],
+            ['ART-1', '', 'Dup', '', '40,00', '', 'Stk'],
           ],
         ),
         'utf8',
@@ -357,13 +395,244 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       );
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanUnit(plan, input, parsed,
+    await replanWindows(plan, input, parsed, {
+      context_from_row: 1,
+      context_to_row: 4,
+      replan_row_nos: [1, 4],
+    }, batched);
+    expect(signatures(batched)).toEqual(signatures(sync));
+  });
+
+  it('vehicle due-date duplicate natural key across batches matches sync after windowed replan', async () => {
+    prisma.externalIdMapping = {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          entity_type: ImportEntityType.VEHICLE,
+          external_id: 'VEHICLE-001',
+          entity_id: 'veh-1',
+        },
+      ]),
+    };
+    const mapping = Object.fromEntries(
+      [
+        'external_id',
+        'vehicle_external_id',
+        'kind',
+        'inspected_on',
+        'plaketten_valid_until_year',
+        'plaketten_valid_until_month',
+        'due_date',
+        'due_mileage',
+        'external_ref',
+        'station_name',
+        'notes',
+      ].map((name) => [name, name]),
+    );
+    const dueTail = (
+      externalRef: string,
+      inspectedOn = '2026-06-15',
+    ): string[] => [
+      inspectedOn,
+      '2027',
+      '6',
+      '',
+      '',
+      externalRef,
+      '',
+      '',
+    ];
+    const parsed = parseCsvFile(
+      Buffer.from(
+        serializeCsv(
+          Object.values(mapping),
+          [
+            ['DUE-1', 'VEHICLE-001', 'INSPECTION_57A', ...dueTail('REP-A')],
+            ['DUE-2', 'VEHICLE-001', 'INSPECTION_57A', ...dueTail('', '')],
+            ['DUE-3', 'VEHICLE-001', 'INSPECTION_57A', ...dueTail('', '')],
+            ['DUE-4', 'VEHICLE-001', 'INSPECTION_57A', ...dueTail('REP-B')],
+          ],
+        ),
+        'utf8',
+      ),
+    );
+    const input = {
+      tenantId: 'tenant-1',
+      sourceSystem: 'legacy',
+      mapping,
+      options: { cutover_date: '2026-11-01' },
+    };
+    const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
+      planVehicleDueDateDryRun(prisma as never, dryRunInput, slice);
+    const sync = await plan(input, parsed);
+    const batched = await planBatched(plan, input, parsed);
+    await replanWindows(plan, input, parsed, {
+      context_from_row: 1,
+      context_to_row: 4,
+      replan_row_nos: [1, 4],
+    }, batched);
+    expect(signatures(batched)).toEqual(signatures(sync));
+  });
+
+  it('vehicle party overlap group larger than one reconcile window matches sync', async () => {
+    prisma.externalIdMapping = {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          entity_type: ImportEntityType.VEHICLE,
+          external_id: 'VEHICLE-001',
+          entity_id: 'veh-1',
+        },
+        {
+          entity_type: ImportEntityType.CUSTOMER,
+          external_id: 'CUSTOMER-A',
+          entity_id: 'cust-a',
+        },
+        {
+          entity_type: ImportEntityType.CUSTOMER,
+          external_id: 'CUSTOMER-B',
+          entity_id: 'cust-b',
+        },
+      ]),
+    };
+    const mapping = Object.fromEntries(
+      [
+        'external_id',
+        'vehicle_external_id',
+        'customer_external_id',
+        'role',
+        'valid_from',
+        'valid_to',
+        'notes',
+      ].map((name) => [name, name]),
+    );
+    const partyRow = (
+      rowNo: number,
+      customer: string,
+      validFrom = '2024-01-01',
+    ) => [
+      `PARTY-${rowNo}`,
+      'VEHICLE-001',
+      customer,
+      'OWNER',
+      validFrom,
+      '',
+      '',
+    ];
+    const parsed = parseCsvFile(
+      Buffer.from(
+        serializeCsv(
+          Object.values(mapping),
+          [
+            partyRow(1, 'CUSTOMER-A'),
+            partyRow(2, 'CUSTOMER-B', '2025-01-01'),
+            partyRow(3, 'CUSTOMER-A'),
+            partyRow(4, 'CUSTOMER-B', '2025-01-01'),
+            partyRow(5, 'CUSTOMER-A'),
+            partyRow(6, 'CUSTOMER-B', '2025-01-01'),
+          ],
+        ),
+        'utf8',
+      ),
+    );
+    const input = {
+      tenantId: 'tenant-1',
+      sourceSystem: 'legacy',
+      mapping,
+      options: { cutover_date: '2026-11-01' },
+    };
+    const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
+      planVehiclePartyDryRun(prisma as never, dryRunInput, slice);
+    const sync = await plan(input, parsed);
+    const batched = await planBatched(plan, input, parsed);
+    await replanWindows(
+      plan,
+      input,
+      parsed,
       {
         context_from_row: 1,
-        context_to_row: 4,
-        replan_row_nos: [1, 4],
+        context_to_row: 6,
+        replan_row_nos: [1, 2, 3, 4, 5, 6],
       },
       batched,
+      2,
+    );
+    expect(signatures(batched)).toEqual(signatures(sync));
+  });
+
+  it('vehicle due-date overlap group larger than one reconcile window matches sync', async () => {
+    prisma.externalIdMapping = {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          entity_type: ImportEntityType.VEHICLE,
+          external_id: 'VEHICLE-001',
+          entity_id: 'veh-1',
+        },
+      ]),
+    };
+    const mapping = Object.fromEntries(
+      [
+        'external_id',
+        'vehicle_external_id',
+        'kind',
+        'inspected_on',
+        'plaketten_valid_until_year',
+        'plaketten_valid_until_month',
+        'due_date',
+        'due_mileage',
+        'external_ref',
+        'station_name',
+        'notes',
+      ].map((name) => [name, name]),
+    );
+    const inspection = (rowNo: number, ref: string) => [
+      `DUE-${rowNo}`,
+      'VEHICLE-001',
+      'INSPECTION_57A',
+      '2026-06-15',
+      '2027',
+      '6',
+      '',
+      '',
+      ref,
+      'Station',
+      '',
+    ];
+    const parsed = parseCsvFile(
+      Buffer.from(
+        serializeCsv(
+          Object.values(mapping),
+          [
+            inspection(1, 'REP-1'),
+            inspection(2, 'REP-2'),
+            inspection(3, 'REP-3'),
+            inspection(4, 'REP-4'),
+            inspection(5, 'REP-5'),
+            inspection(6, 'REP-6'),
+          ],
+        ),
+        'utf8',
+      ),
+    );
+    const input = {
+      tenantId: 'tenant-1',
+      sourceSystem: 'legacy',
+      mapping,
+      options: { cutover_date: '2026-11-01' },
+    };
+    const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
+      planVehicleDueDateDryRun(prisma as never, dryRunInput, slice);
+    const sync = await plan(input, parsed);
+    const batched = await planBatched(plan, input, parsed);
+    await replanWindows(
+      plan,
+      input,
+      parsed,
+      {
+        context_from_row: 1,
+        context_to_row: 6,
+        replan_row_nos: [1, 2, 3, 4, 5, 6],
+      },
+      batched,
+      2,
     );
     expect(signatures(batched)).toEqual(signatures(sync));
   });

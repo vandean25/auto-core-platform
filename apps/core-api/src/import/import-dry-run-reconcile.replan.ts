@@ -139,7 +139,7 @@ export async function replanImportDryRunUnitChunk(params: {
     fileSha256: params.fileSha256,
   });
   if (combined.length === 0) {
-    return { rows: [], nextTargetIndex: index };
+    return { rows: [], nextTargetIndex: targetStartIndex };
   }
 
   const headers = await loadFileHeaders(
@@ -164,7 +164,33 @@ export async function replanImportDryRunUnitChunk(params: {
     parsed,
   );
 
-  const targetSet = new Set(targets);
-  const rows = planned.filter((row) => targetSet.has(row.row_no));
-  return { rows, nextTargetIndex: index };
+  const unitRowSet = new Set(unit.replan_row_nos);
+  const rows = planned.filter((row) => unitRowSet.has(row.row_no));
+
+  const nextTargetIndex = computeReconcileTargetCursor(
+    unit,
+    targetStartIndex,
+    index,
+    planned,
+  );
+
+  return { rows, nextTargetIndex };
+}
+
+export function computeReconcileTargetCursor(
+  unit: ImportDryRunReconcileUnit,
+  targetStartIndex: number,
+  selectionEndIndex: number,
+  planned: DryRunRowResult[],
+): number {
+  const plannedRowNos = new Set(planned.map((row) => row.row_no));
+  let nextTargetIndex = targetStartIndex;
+  for (let cursor = targetStartIndex; cursor < selectionEndIndex; cursor += 1) {
+    const rowNo = unit.replan_row_nos[cursor];
+    if (!plannedRowNos.has(rowNo)) {
+      break;
+    }
+    nextTargetIndex = cursor + 1;
+  }
+  return nextTargetIndex;
 }
