@@ -5,6 +5,7 @@ import {
   ImportJobStatus,
   ImportRowAction,
   Prisma,
+  PrismaClient,
 } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { AppModule } from '../src/app.module.js';
@@ -404,12 +405,13 @@ describe('import apply_seq fill (e2e)', () => {
         code: 'P2028',
         clientVersion: 'test',
       });
-    const boundTransaction = prisma.$transaction.bind(prisma);
+    const prismaClient = prisma.client;
+    const boundTransaction = prismaClient.$transaction.bind(prismaClient);
     let transactionCalls = 0;
-    const prismaWithTransaction = prisma as PrismaService & {
-      $transaction: typeof prisma.$transaction;
+    const clientWithTransaction = prismaClient as PrismaClient & {
+      $transaction: typeof prismaClient.$transaction;
     };
-    prismaWithTransaction.$transaction = async (fn, options) => {
+    clientWithTransaction.$transaction = async (fn, options) => {
       transactionCalls += 1;
       if (transactionCalls <= 2) {
         throw p2028();
@@ -448,7 +450,7 @@ describe('import apply_seq fill (e2e)', () => {
       },
       { userId: actor.id },
     );
-    prismaWithTransaction.$transaction = boundTransaction;
+    clientWithTransaction.$transaction = boundTransaction;
     expect(exhausted).toBeInstanceOf(ImportApplyRetryExhaustedError);
     expect(transactionCalls).toBe(3);
     const failed = await tenantPrisma.importJob.findFirst({
