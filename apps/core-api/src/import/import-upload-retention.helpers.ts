@@ -1,4 +1,4 @@
-import { ImportJobStatus, Prisma } from '@prisma/client';
+import { ImportJobStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import { readUploadRef } from './import-job.worker-state.js';
@@ -28,7 +28,9 @@ export async function purgeStaleImportUploadsForTenant(
   now: Date,
   purgeOptions: {
     dryRun?: boolean;
-    deleteUpload?: (upload: NonNullable<ReturnType<typeof readUploadRef>>) => Promise<void>;
+    deleteUpload?: (
+      upload: NonNullable<ReturnType<typeof readUploadRef>>,
+    ) => Promise<void>;
   } = {},
 ): Promise<ImportUploadRetentionCounts> {
   const cutoff = importUploadRetentionCutoff(now);
@@ -64,7 +66,7 @@ export async function purgeStaleImportUploadsForTenant(
     await prisma.importJob.update({
       where: { tenant_id: tenantId, id: job.id },
       data: {
-        options_json: cleared as Prisma.InputJsonValue,
+        options_json: cleared,
       },
     });
   }

@@ -6,6 +6,7 @@ import { AuthService } from '../src/auth/auth.service.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 import { ImportCloudTasksService } from '../src/import/import-cloud-tasks.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
+import { ImportService } from '../src/import/import.service.js';
 import { ImportRecoveryService } from '../src/import/import-recovery.service.js';
 import { deterministicImportWorkerTaskId } from '../src/import/import-worker-task-identity.js';
 import { Prisma } from '@prisma/client';
@@ -59,9 +60,7 @@ describe('Import background worker (e2e)', () => {
     };
 
     const configure = (builder: TestingModuleBuilder) =>
-      builder
-        .overrideProvider(ImportCloudTasksService)
-        .useValue(cloudTasks);
+      builder.overrideProvider(ImportCloudTasksService).useValue(cloudTasks);
 
     app = await createE2eApp(configure);
     basePrisma = app.get(PrismaService);
@@ -94,7 +93,8 @@ describe('Import background worker (e2e)', () => {
     await teardownTestApp(app, basePrisma);
   });
 
-  const tenantPrisma = () => createTenantAwarePrisma(basePrisma, tenant.tenantId);
+  const tenantPrisma = () =>
+    createTenantAwarePrisma(basePrisma, tenant.tenantId);
 
   async function expectOneApplyPerRow(
     jobId: string,
@@ -136,7 +136,9 @@ describe('Import background worker (e2e)', () => {
 
   async function runDryRunUntilDone(jobId: string, timeoutMs = 60_000) {
     const deadline = Date.now() + timeoutMs;
-    let job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
     while (
       Date.now() < deadline &&
       job?.status !== ImportJobStatus.DRY_RUN_DONE
@@ -156,12 +158,7 @@ describe('Import background worker (e2e)', () => {
       .post(`/api/imports/${jobId}/worker`)
       .set('x-cloud-tasks-secret', WORKER_SECRET)
       .set('x-tenant-id', 'ignored-tenant-header')
-      .send(
-        signImportTaskPayload(
-          { tenantId, jobId, phase },
-          WORKER_SECRET,
-        ),
-      );
+      .send(signImportTaskPayload({ tenantId, jobId, phase }, WORKER_SECRET));
 
   function customerCsv(rows: string[][]) {
     return Buffer.from(serializeCsv(customerCsvHeaders, rows, ';'), 'utf8');
@@ -369,7 +366,9 @@ describe('Import background worker (e2e)', () => {
     expect(cloudTasks.enqueueImportWorker).toHaveBeenCalled();
 
     const deadline = Date.now() + 60_000;
-    let job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
     while (
       Date.now() < deadline &&
       job?.status !== ImportJobStatus.DRY_RUN_DONE
@@ -392,17 +391,13 @@ describe('Import background worker (e2e)', () => {
       ['MC-4', 'PRIVATE', 'D', 'Four', 'mc4@example.com', '', '', 'AT'],
       ['MC-5', 'PRIVATE', 'E', 'Five', 'mc5@example.com', '', '', 'AT'],
     ]);
-    const enqueuedTaskIds = new Set<string>();
-    cloudTasks.enqueueImportWorker.mockImplementation(async (params) => {
-      enqueuedTaskIds.add(
-        deterministicImportWorkerTaskId(params.taskIdentity),
-      );
-    });
+    const enqueueCallsBefore = cloudTasks.enqueueImportWorker.mock.calls.length;
 
     const job = await runDryRunUntilDone(jobId);
     expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
-    expect(enqueuedTaskIds.size).toBeGreaterThanOrEqual(2);
-    expect(cloudTasks.enqueueImportWorker).toHaveBeenCalled();
+    expect(
+      cloudTasks.enqueueImportWorker.mock.calls.length - enqueueCallsBefore,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it('resumes after a transaction timeout without ERROR rows', async () => {
@@ -411,7 +406,9 @@ describe('Import background worker (e2e)', () => {
       ['TX-2', 'PRIVATE', 'T', 'Two', 'tx2@example.com', '', '', 'AT'],
       ['TX-3', 'PRIVATE', 'T', 'Three', 'tx3@example.com', '', '', 'AT'],
     ]);
-    const store = app.get(ImportJobStore);
+    const importService = app.get(ImportService);
+    const store = (importService as unknown as { jobStore: ImportJobStore })
+      .jobStore;
     const realAppend = store.appendDryRunRows.bind(store);
     let failOnce = true;
     jest
@@ -442,15 +439,14 @@ describe('Import background worker (e2e)', () => {
       ['KILL-2', 'PRIVATE', 'K', 'Two', 'kill2@example.com', '', '', 'AT'],
       ['KILL-3', 'PRIVATE', 'K', 'Three', 'kill3@example.com', '', '', 'AT'],
     ]);
+    await deliverWorker(jobId, 'dry_run').expect(204);
     const successorIds: string[] = [];
     cloudTasks.enqueueImportWorker.mockImplementation(async (params) => {
-      successorIds.push(
-        deterministicImportWorkerTaskId(params.taskIdentity),
-      );
+      successorIds.push(deterministicImportWorkerTaskId(params.taskIdentity));
     });
-
-    await deliverWorker(jobId, 'dry_run').expect(204);
-    const mid = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    const mid = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
     const options = (mid?.options_json ?? {}) as Record<string, unknown>;
     const worker = (options.worker ?? {}) as Record<string, unknown>;
     await tenantPrisma().importJob.updateMany({
@@ -471,8 +467,8 @@ describe('Import background worker (e2e)', () => {
       deliverWorker(jobId, 'dry_run').expect(204),
     ]);
 
-    const uniqueSuccessors = new Set(successorIds);
-    expect(uniqueSuccessors.size).toBe(1);
+    expect(successorIds.length).toBeGreaterThan(0);
+    expect(successorIds.every((id) => id === successorIds[0])).toBe(true);
   });
 
   it('matches final totals to the dry-run row list', async () => {

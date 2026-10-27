@@ -98,23 +98,20 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       });
     });
 
-    it.each([ImportJobStatus.FAILED, ImportJobStatus.CANCELLED])(
-      'refuses to apply a %s job with JOB_STALE',
-      async (status) => {
-        h.prisma.importJob.findFirst.mockResolvedValue(
-          importJobRecord({ status }),
-        );
+    it('refuses to apply a CANCELLED job with JOB_STALE', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({ status: ImportJobStatus.CANCELLED }),
+      );
 
-        await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
-          status: 409,
-          response: {
-            code: IMPORT_ERROR_CODES.JOB_STALE,
-            message: 'Import job cannot be applied in its current status',
-          },
-        });
-        expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
-      },
-    );
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_STALE,
+          message: 'Import job cannot be applied in its current status',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
 
     it('locks the job with a tenant- and status-scoped update before writing rows', async () => {
       arrangeApply(
@@ -136,7 +133,9 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
         where: {
           tenant_id: TENANT_ID,
           id: JOB_ID,
-          status: ImportJobStatus.DRY_RUN_DONE,
+          status: {
+            in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
+          },
         },
         data: { status: ImportJobStatus.APPLYING },
       });

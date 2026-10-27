@@ -721,10 +721,7 @@ export class ImportService {
               candidate.tenantId,
               () =>
                 enqueueImportWorkerRecoveryHandoff(
-                  this.workerFlowForRecovery(
-                    candidate.tenantId,
-                    candidate.jobId,
-                  ),
+                  this.workerFlowForRecovery(),
                   candidate,
                 ),
               { workerId: 'import-job-worker-recovery' },
@@ -741,10 +738,7 @@ export class ImportService {
     );
   }
 
-  private workerFlowForRecovery(
-    tenantId: string,
-    jobId: string,
-  ): ImportWorkerFlowDeps {
+  private workerFlowForRecovery(): ImportWorkerFlowDeps {
     return this.importWorkerFlowDeps(() => {
       throw new Error('Import worker recovery must not run inline');
     });
