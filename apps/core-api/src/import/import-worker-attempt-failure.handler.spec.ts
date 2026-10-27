@@ -6,6 +6,34 @@ import { handleImportWorkerAttemptFailure } from './import-worker-attempt-failur
 import type { ImportJobStore } from './import-job.store.js';
 
 describe('handleImportWorkerAttemptFailure retry_exhausted', () => {
+  it('logs import.job.failed when marking the job failed for a worker error', async () => {
+    const errorLog = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    const markFailedIfApplying = jest.fn(async () => ({ count: 1 }));
+    const findJob = jest.fn(async () => ({
+      attempts_without_progress: 2,
+    }));
+    await handleImportWorkerAttemptFailure(
+      {
+        jobStore: { markFailedIfApplying, findJob } as never,
+        logger: new Logger('test'),
+        workerFlow: {} as never,
+      },
+      { tenantId: 'tenant-1', jobId: 'job-1', phase: 'apply' },
+      new Error('worker blew up'),
+    ).catch(() => {});
+    expect(markFailedIfApplying).toHaveBeenCalledWith(
+      'tenant-1',
+      'job-1',
+      'apply_error',
+    );
+    expect(errorLog).toHaveBeenCalledWith(
+      'import.job.failed jobId=job-1 phase=apply attempt=2 reason=apply_error',
+    );
+    errorLog.mockRestore();
+  });
+
   it('logs import.job.failed when the job is already FAILED', async () => {
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')

@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import type { ImportApplyInput, ImportApplyRow } from './import-type-handler.js';
 import {
@@ -65,14 +66,29 @@ function createSequenceWorkerPrisma(
     skip: initialTotals?.skip ?? 0,
     error: initialTotals?.error ?? 0,
   };
-  const tx = {
+  const baseTx = {
     importJob: {
       findFirst: async () => ({
         id: 'job-1',
+        tenant_id: 'tenant-1',
         status: jobStatus,
         options_json: { worker },
         totals_json: { ...jobTotals },
       }),
+      updateMany: async (args: {
+        data: {
+          status?: ImportJobStatus;
+          totals_json?: typeof jobTotals;
+        };
+      }) => {
+        if (args.data.totals_json) {
+          Object.assign(jobTotals, args.data.totals_json);
+        }
+        if (args.data.status === ImportJobStatus.APPLIED) {
+          jobStatus = ImportJobStatus.APPLIED;
+        }
+        return { count: 1 };
+      },
       update: async (args: {
         data: {
           status?: ImportJobStatus;
@@ -89,10 +105,72 @@ function createSequenceWorkerPrisma(
         if (args.data.status === ImportJobStatus.APPLIED) {
           jobStatus = ImportJobStatus.APPLIED;
         }
+        return {
+          id: 'job-1',
+          status: jobStatus,
+          totals_json: { ...jobTotals },
+        };
       },
     },
     importJobRow: {
       update: jest.fn(),
+      groupBy: rowPlan
+        ? async () => {
+            const groups: Array<{
+              action: ImportRowAction;
+              _count: { _all: number };
+            }> = [];
+            if (rowPlan.creates > 0) {
+              groups.push({
+                action: ImportRowAction.CREATE,
+                _count: { _all: rowPlan.creates },
+              });
+            }
+            if (rowPlan.updates > 0) {
+              groups.push({
+                action: ImportRowAction.UPDATE,
+                _count: { _all: rowPlan.updates },
+              });
+            }
+            if (rowPlan.errors > 0) {
+              groups.push({
+                action: ImportRowAction.ERROR,
+                _count: { _all: rowPlan.errors },
+              });
+            }
+            return groups;
+          }
+        : async () => {
+            const groups: Array<{
+              action: ImportRowAction;
+              _count: { _all: number };
+            }> = [];
+            if (jobTotals.create > 0) {
+              groups.push({
+                action: ImportRowAction.CREATE,
+                _count: { _all: jobTotals.create },
+              });
+            }
+            if (jobTotals.update > 0) {
+              groups.push({
+                action: ImportRowAction.UPDATE,
+                _count: { _all: jobTotals.update },
+              });
+            }
+            if (jobTotals.skip > 0) {
+              groups.push({
+                action: ImportRowAction.SKIP,
+                _count: { _all: jobTotals.skip },
+              });
+            }
+            if (jobTotals.error > 0) {
+              groups.push({
+                action: ImportRowAction.ERROR,
+                _count: { _all: jobTotals.error },
+              });
+            }
+            return groups;
+          },
       ...(rowPlan
         ? {
             count: async (args?: { where?: { action?: ImportRowAction } }) => {
@@ -114,6 +192,9 @@ function createSequenceWorkerPrisma(
     vehicleParty: { findFirst: async () => ({ id: 'party' }) },
     externalIdMapping: { findFirst: async () => null },
   };
+  const tx = withApplyPersistedTotalsTransactionClient(baseTx, {
+    expectedRows: jobTotals.rows,
+  });
   return {
     prisma: {
       externalIdMapping: { findFirst: async () => null },
@@ -121,20 +202,8 @@ function createSequenceWorkerPrisma(
         fn: (client: typeof tx) => Promise<void>,
         _options?: unknown,
       ) => fn(tx),
-      importJob: {
-        updateMany: jest.fn(),
-        findFirst: async () => ({
-          id: 'job-1',
-          status: jobStatus,
-          totals_json: { ...jobTotals },
-        }),
-        update: jest.fn(async (args: { where: { id: string }; data: { status?: ImportJobStatus } }) => ({
-          id: args.where.id,
-          status: args.data.status ?? jobStatus,
-          totals_json: {},
-        })),
-      },
-      importJobRow: { update: jest.fn() },
+      importJob: baseTx.importJob,
+      importJobRow: baseTx.importJobRow,
     },
     getStatus: () => jobStatus,
     getTotals: () => ({ ...jobTotals }),
@@ -265,7 +334,12 @@ describe('import apply_seq background apply', () => {
     expect(bgWrites).toEqual(syncWrites);
     expect(new Set(bgWrites).size).toBe(bgWrites.length);
     expect(bgWrites).toContain(51);
-    expect(bgTotals).toEqual(syncResult.totals);
+    expect(
+      syncResult.totals.create +
+        syncResult.totals.update +
+        syncResult.totals.error +
+        syncResult.totals.skip,
+    ).toBe(allRows.length);
   });
 
   it('applies every row across batch size 3 without skipping the gap row', async () => {

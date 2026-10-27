@@ -9,6 +9,7 @@ import {
 } from './import.constants.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 
 function makeRows(
@@ -25,30 +26,82 @@ function makeRows(
   }));
 }
 
-function createWorkerPrisma(worker: ImportJobWorkerState) {
+function createWorkerPrisma(worker: ImportJobWorkerState, totalRows: number) {
   let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
   const appliedUpdates: unknown[] = [];
+  const jobTotals = {
+    rows: totalRows,
+    create: 0,
+    update: 0,
+    skip: 0,
+    error: 0,
+  };
+  const importJobRow = {
+    update: jest.fn(),
+    groupBy: async () => {
+      const groups = [];
+      if (jobTotals.skip > 0) {
+        groups.push({
+          action: ImportRowAction.SKIP,
+          _count: { _all: jobTotals.skip },
+        });
+      }
+      if (jobTotals.error > 0) {
+        groups.push({
+          action: ImportRowAction.ERROR,
+          _count: { _all: jobTotals.error },
+        });
+      }
+      return groups;
+    },
+  };
+  const importJob = {
+    updateMany: async (args: { data: Record<string, unknown> }) => {
+      if (args.data.totals_json) {
+        Object.assign(jobTotals, args.data.totals_json);
+      }
+      if (args.data.status === ImportJobStatus.APPLIED) {
+        appliedUpdates.push(args.data);
+        jobStatus = ImportJobStatus.APPLIED;
+      }
+      return { count: 1 };
+    },
+    findFirst: async () => ({
+      id: 'job-1',
+      tenant_id: 'tenant-1',
+      status: jobStatus,
+      options_json: { worker },
+      totals_json: { ...jobTotals },
+    }),
+    update: async (args: {
+      data: {
+        status?: ImportJobStatus;
+        options_json?: { worker: ImportJobWorkerState };
+        totals_json?: Record<string, number>;
+      };
+    }) => {
+      if (args.data.options_json?.worker) {
+        Object.assign(worker, args.data.options_json.worker);
+      }
+      if (args.data.status === ImportJobStatus.APPLIED) {
+        jobStatus = ImportJobStatus.APPLIED;
+      }
+      return {
+        id: 'job-1',
+        status: jobStatus,
+        totals_json: args.data.totals_json,
+      };
+    },
+  };
   return {
     appliedUpdates,
     prisma: {
       externalIdMapping: { findFirst: async () => null },
       $transaction: async (fn: (tx: unknown) => Promise<void>) => {
-        const tx = {
-          importJob: {
-            findFirst: async () => ({
-              id: 'job-1',
-              status: ImportJobStatus.APPLYING,
-              options_json: { worker },
-            }),
-            update: async (args: {
-              data: { options_json?: { worker: ImportJobWorkerState } };
-            }) => {
-              if (args.data.options_json?.worker) {
-                Object.assign(worker, args.data.options_json.worker);
-              }
-            },
-          },
-        };
+        const tx = withApplyPersistedTotalsTransactionClient(
+          { importJob, importJobRow },
+          { expectedRows: totalRows },
+        );
         return fn(tx);
       },
       importJob: {
@@ -82,7 +135,7 @@ describe('RowByRowApplyRunner worker cursor', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    const { prisma, appliedUpdates } = createWorkerPrisma(worker);
+    const { prisma, appliedUpdates } = createWorkerPrisma(worker, totalRows);
     const runner = new RowByRowApplyRunner(
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,

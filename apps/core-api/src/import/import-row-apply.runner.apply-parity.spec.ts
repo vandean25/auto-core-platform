@@ -12,6 +12,7 @@ import { assignVehiclePartyApplySeqs } from './import-apply-sequence.test-util.j
 import type { ImportApplyRow } from './import-type-handler.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { VEHICLE_PARTY_RULE_CODES } from '../vehicle/vehicle-party.rules.js';
 
@@ -133,7 +134,7 @@ function createSequencePrisma(
     error: 0,
   };
   let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
-  const tx = {
+  const baseTx = {
     importJob: {
       findFirst: async () => ({
         id: 'job-parity',
@@ -209,6 +210,9 @@ function createSequencePrisma(
       },
     },
   };
+  const tx = withApplyPersistedTotalsTransactionClient(baseTx, {
+    expectedRows: jobTotals.rows,
+  });
   return {
     externalIdMapping: {
       findFirst: async ({ where }: { where: { external_id?: string } }) => {
@@ -266,7 +270,7 @@ function createSequencePrisma(
 function createSyncPrisma(
   rowUpdates: Array<{ row_no: number; data: unknown }>,
 ) {
-  const tx = {
+  const baseTx = {
     externalIdMapping: {
       findFirst: async ({ where }: { where: { external_id?: string } }) => {
         if (where.external_id === 'ext-dup-job') {
@@ -288,6 +292,17 @@ function createSyncPrisma(
       },
       count: jest.fn(async () => 5),
     },
+  };
+  const tx = withApplyPersistedTotalsTransactionClient(baseTx, {
+    expectedRows: 5,
+  });
+  const importJob = {
+    update: jest.fn(async () => ({
+      id: 'job-parity',
+      status: ImportJobStatus.APPLIED,
+    })),
+    updateMany: jest.fn(),
+    findFirst: jest.fn(),
   };
   return {
     externalIdMapping: {
@@ -329,16 +344,9 @@ function createSyncPrisma(
       count: jest.fn(async () => 5),
     },
     $transaction: async (fn: (client: typeof tx) => Promise<void>) => {
-      await fn(tx);
+      await fn({ ...tx, importJob });
     },
-    importJob: {
-      update: jest.fn(async () => ({
-        id: 'job-parity',
-        status: ImportJobStatus.APPLIED,
-      })),
-      updateMany: jest.fn(),
-      findFirst: jest.fn(),
-    },
+    importJob,
   };
 }
 

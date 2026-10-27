@@ -8,6 +8,7 @@ import {
   IMPORT_WORKER_BATCH_SIZE,
 } from './import.constants.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 
 function makeSkipRows(count: number, startRowNo = 1) {
@@ -24,25 +25,47 @@ describe('RowByRowApplyRunner background batch continuation', () => {
   it('stays APPLYING when the page is full but more rows remain', async () => {
     const appliedUpdates: unknown[] = [];
     let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
+    const totalRows = IMPORT_APPLY_BATCH_SIZE + 1;
+    const importJob = {
+      updateMany: async (args: { data: Record<string, unknown> }) => {
+        if (args.data.status === ImportJobStatus.APPLIED) {
+          appliedUpdates.push(args.data);
+          jobStatus = ImportJobStatus.APPLIED;
+        }
+        return { count: 1 };
+      },
+      findFirst: async () => ({
+        id: 'job-1',
+        tenant_id: 'tenant-1',
+        status: jobStatus,
+        totals_json: { rows: totalRows, create: 0, update: 0, skip: 0, error: 0 },
+      }),
+      update: jest.fn(async (args: { data: Record<string, unknown> }) => ({
+        id: 'job-1',
+        status: ImportJobStatus.APPLIED,
+        totals_json: args.data.totals_json,
+      })),
+    };
+    const importJobRow = {
+      update: jest.fn(),
+      groupBy: async () => [
+        {
+          action: ImportRowAction.SKIP,
+          _count: { _all: totalRows },
+        },
+      ],
+    };
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
-      $transaction: async (fn: (tx: unknown) => Promise<void>) => fn({}),
-      importJob: {
-        updateMany: async (args: { data: Record<string, unknown> }) => {
-          if (args.data.status === ImportJobStatus.APPLIED) {
-            appliedUpdates.push(args.data);
-            jobStatus = ImportJobStatus.APPLIED;
-          }
-          return { count: 1 };
-        },
-        findFirst: async () => ({
-          id: 'job-1',
-          status: jobStatus,
-          totals_json: {},
-        }),
-        update: jest.fn(),
-      },
-      importJobRow: { update: jest.fn() },
+      $transaction: async (fn: (tx: unknown) => Promise<void>) =>
+        fn(
+          withApplyPersistedTotalsTransactionClient(
+            { importJob, importJobRow },
+            { expectedRows: totalRows },
+          ),
+        ),
+      importJob,
+      importJobRow,
     };
     const runner = new RowByRowApplyRunner(
       prisma as never,
@@ -115,25 +138,46 @@ describe('RowByRowApplyRunner background batch continuation', () => {
     const totalRows = IMPORT_WORKER_BATCH_SIZE + 1;
     const appliedUpdates: unknown[] = [];
     let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
+    const importJob = {
+      updateMany: async (args: { data: Record<string, unknown> }) => {
+        if (args.data.status === ImportJobStatus.APPLIED) {
+          appliedUpdates.push(args.data);
+          jobStatus = ImportJobStatus.APPLIED;
+        }
+        return { count: 1 };
+      },
+      findFirst: async () => ({
+        id: 'job-1',
+        tenant_id: 'tenant-1',
+        status: jobStatus,
+        totals_json: { rows: totalRows, create: 0, update: 0, skip: 0, error: 0 },
+      }),
+      update: jest.fn(async (args: { data: Record<string, unknown> }) => ({
+        id: 'job-1',
+        status: ImportJobStatus.APPLIED,
+        totals_json: args.data.totals_json,
+      })),
+    };
+    const importJobRow = {
+      update: jest.fn(),
+      groupBy: async () => [
+        {
+          action: ImportRowAction.SKIP,
+          _count: { _all: totalRows },
+        },
+      ],
+    };
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
-      $transaction: async (fn: (tx: unknown) => Promise<void>) => fn({}),
-      importJob: {
-        updateMany: async (args: { data: Record<string, unknown> }) => {
-          if (args.data.status === ImportJobStatus.APPLIED) {
-            appliedUpdates.push(args.data);
-            jobStatus = ImportJobStatus.APPLIED;
-          }
-          return { count: 1 };
-        },
-        findFirst: async () => ({
-          id: 'job-1',
-          status: jobStatus,
-          totals_json: {},
-        }),
-        update: jest.fn(),
-      },
-      importJobRow: { update: jest.fn() },
+      $transaction: async (fn: (tx: unknown) => Promise<void>) =>
+        fn(
+          withApplyPersistedTotalsTransactionClient(
+            { importJob, importJobRow },
+            { expectedRows: totalRows },
+          ),
+        ),
+      importJob,
+      importJobRow,
     };
     const runner = new RowByRowApplyRunner(
       prisma as never,

@@ -59,7 +59,13 @@ import type {
   ImportApplyRow,
 } from './import-type-handler.js';
 import type { ImportJobTotals } from './import.types.js';
+import {
+  coalesceApplyTotalsWhenGroupByEmpty,
+  readImportJobExpectedRowCount,
+  tallyImportApplyTotalsFromRows,
+} from './import-apply-persisted-totals.js';
 import { mergeImportJobApplyFailureReason } from './import-apply-failure.util.js';
+import { logImportJobFailed } from './import-job-failed-log.util.js';
 
 /** Writes one planned row inside the transaction that also runs the freshness check. */
 export type ImportRowWriter = (
@@ -152,10 +158,10 @@ export class RowByRowApplyRunner {
     if (kind === 'lease_lost' || kind === 'retryable') {
       return;
     }
-    const failureReason =
+    const failureReason: ImportApplyFailureReason =
       error instanceof ImportApplyRetryExhaustedError
-        ? ('retry_exhausted' satisfies ImportApplyFailureReason)
-        : undefined;
+        ? 'retry_exhausted'
+        : 'apply_error';
     await this.markJobFailed(
       jobId,
       totals,
@@ -298,24 +304,46 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     guardedWrite: boolean,
   ) {
-    if (guardedWrite) {
-      await this.prisma.importJob.updateMany({
-        where: { id: jobId, status: ImportJobStatus.APPLYING },
-        data: {
-          status: ImportJobStatus.APPLIED,
-          appliedAt: new Date(),
-          totals_json: totals,
-        },
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.importJob.findFirst({
+        where: { id: jobId },
+        select: { tenant_id: true },
       });
-      return this.prisma.importJob.findFirst({ where: { id: jobId } });
-    }
-    return this.prisma.importJob.update({
-      where: { id: jobId },
-      data: {
+      if (!job) {
+        return null;
+      }
+      const { expectedRows, flaggedJumps } = await readImportJobExpectedRowCount(
+        tx,
+        job.tenant_id,
+        jobId,
+      );
+      const persistedTotals = coalesceApplyTotalsWhenGroupByEmpty(
+        await tallyImportApplyTotalsFromRows(
+          tx,
+          job.tenant_id,
+          jobId,
+          expectedRows || totals.rows,
+          flaggedJumps,
+        ),
+        totals,
+      );
+      const appliedAt = new Date();
+      const data = {
         status: ImportJobStatus.APPLIED,
-        appliedAt: new Date(),
-        totals_json: totals,
-      },
+        appliedAt,
+        totals_json: persistedTotals,
+      };
+      if (guardedWrite) {
+        await tx.importJob.updateMany({
+          where: { id: jobId, status: ImportJobStatus.APPLYING },
+          data,
+        });
+        return tx.importJob.findFirst({ where: { id: jobId } });
+      }
+      return tx.importJob.update({
+        where: { id: jobId },
+        data,
+      });
     });
   }
 
@@ -323,34 +351,51 @@ export class RowByRowApplyRunner {
     jobId: string,
     totals: ImportJobTotals,
     guardedWrite: boolean,
-    failureReason?: ImportApplyFailureReason,
+    failureReason: ImportApplyFailureReason,
     options?: ImportApplyBatchOptions,
   ): Promise<void> {
     const persist = async () => {
-      const failurePatch = failureReason
-        ? await mergeImportJobApplyFailureReason(
-            this.prisma,
-            jobId,
-            failureReason,
-          )
-        : {};
+      const failurePatch = await mergeImportJobApplyFailureReason(
+        this.prisma,
+        jobId,
+        failureReason,
+      );
       const data = {
         status: ImportJobStatus.FAILED,
         totals_json: totals,
         failed_at: new Date(),
         ...failurePatch,
       };
+      let updated = false;
       if (guardedWrite) {
-        await this.prisma.importJob.updateMany({
+        const result = await this.prisma.importJob.updateMany({
           where: { id: jobId, status: ImportJobStatus.APPLYING },
           data,
         });
-        return;
+        updated = result.count > 0;
+      } else {
+        try {
+          await this.prisma.importJob.update({
+            where: { id: jobId },
+            data,
+          });
+          updated = true;
+        } catch {
+          updated = false;
+        }
       }
-      await this.prisma.importJob.update({
-        where: { id: jobId },
-        data,
-      });
+      if (updated) {
+        const job = await this.prisma.importJob.findFirst({
+          where: { id: jobId },
+          select: { attempts_without_progress: true },
+        });
+        logImportJobFailed(this.logger, {
+          jobId,
+          phase: 'apply',
+          attempt: job?.attempts_without_progress ?? 0,
+          reason: failureReason,
+        });
+      }
     };
     if (
       failureReason === 'retry_exhausted' &&

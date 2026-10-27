@@ -697,12 +697,13 @@ export class ImportService {
       if (jobAfterClaim?.status === ImportJobStatus.FAILED) {
         const optionsAfterClaim =
           jobAfterClaim.options_json as ImportJobOptions;
-        if (optionsAfterClaim.apply_failure_reason === 'poison_cap') {
+        const failureReason = optionsAfterClaim.apply_failure_reason;
+        if (failureReason) {
           logImportJobFailed(this.logger, {
             jobId: params.jobId,
             phase: params.phase,
             attempt: jobAfterClaim.attempts_without_progress,
-            reason: 'poison_cap',
+            reason: failureReason,
           });
         }
       } else {
@@ -1075,7 +1076,20 @@ export class ImportService {
     const maxApplySeq = await this.jobStore.maxApplySeq(tenantId, jobId);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     if (rowCount > 0 && maxApplySeq === 0) {
-      await this.jobStore.markFailedIfApplying(tenantId, jobId);
+      const failed = await this.jobStore.markFailedIfApplying(
+        tenantId,
+        jobId,
+        'apply_seq_missing',
+      );
+      if (failed.count > 0) {
+        const failedJob = await this.jobStore.findJob(tenantId, jobId);
+        logImportJobFailed(this.logger, {
+          jobId,
+          phase: 'apply',
+          attempt: failedJob?.attempts_without_progress ?? 0,
+          reason: 'apply_seq_missing',
+        });
+      }
       return null;
     }
     assertImplementedImportEntityType(job.entity_type);

@@ -7,6 +7,7 @@ import {
 import { assignVehiclePartyApplySeqs } from './import-apply-sequence.test-util.js';
 import type { ImportApplyRow } from './import-type-handler.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { VEHICLE_PARTY_RULE_CODES } from '../vehicle/vehicle-party.rules.js';
 
@@ -62,29 +63,35 @@ describe('RowByRowApplyRunner apply-time 409 on one of many rows', () => {
 
   it('records ERROR on the conflict row and APPLIES on sync legacy apply', async () => {
     const rowUpdates: unknown[] = [];
-    const tx = {
-      externalIdMapping: { findFirst: async () => null },
-      importJobRow: { findFirst: async () => null },
+    const importJobRow = {
+      findFirst: async () => null,
+      update: jest.fn(async (args: { data: unknown }) => {
+        rowUpdates.push(args.data);
+      }),
     };
+    const importJob = {
+      update: jest.fn(async () => ({
+        id: 'job-409',
+        status: ImportJobStatus.APPLIED,
+      })),
+      updateMany: jest.fn(),
+      findFirst: jest.fn(),
+    };
+    const tx = withApplyPersistedTotalsTransactionClient(
+      {
+        externalIdMapping: { findFirst: async () => null },
+        importJobRow,
+        importJob,
+      },
+      { expectedRows: 3 },
+    );
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
-      importJobRow: {
-        findFirst: async () => null,
-        update: jest.fn(async (args: { data: unknown }) => {
-          rowUpdates.push(args.data);
-        }),
-      },
+      importJobRow,
       $transaction: async (fn: (client: typeof tx) => Promise<void>) => {
         await fn(tx);
       },
-      importJob: {
-        update: jest.fn(async () => ({
-          id: 'job-409',
-          status: ImportJobStatus.APPLIED,
-        })),
-        updateMany: jest.fn(),
-        findFirst: jest.fn(),
-      },
+      importJob,
     };
     const runner = new RowByRowApplyRunner(
       prisma as never,
@@ -137,31 +144,34 @@ describe('RowByRowApplyRunner apply-time 409 on one of many rows', () => {
     const rows = assignVehiclePartyApplySeqs(buildRows());
     const maxApplySeq = 3;
     const rowUpdates: unknown[] = [];
-    const tx = {
-      importJob: {
-        findFirst: async () => ({
-          id: 'job-409',
-          tenant_id: 'tenant-1',
-          status: ImportJobStatus.APPLYING,
-          totals_json: baseJob.totals_json,
-          options_json: { worker },
-        }),
-        update: async (args: {
-          data: { options_json?: { worker: ImportJobWorkerState } };
-        }) => {
-          if (args.data.options_json?.worker) {
-            Object.assign(worker, args.data.options_json.worker);
-          }
+    const tx = withApplyPersistedTotalsTransactionClient(
+      {
+        importJob: {
+          findFirst: async () => ({
+            id: 'job-409',
+            tenant_id: 'tenant-1',
+            status: ImportJobStatus.APPLYING,
+            totals_json: baseJob.totals_json,
+            options_json: { worker },
+          }),
+          update: async (args: {
+            data: { options_json?: { worker: ImportJobWorkerState } };
+          }) => {
+            if (args.data.options_json?.worker) {
+              Object.assign(worker, args.data.options_json.worker);
+            }
+          },
         },
+        importJobRow: {
+          findFirst: async () => null,
+          update: jest.fn(async (args: { data: unknown }) => {
+            rowUpdates.push(args.data);
+          }),
+        },
+        externalIdMapping: { findFirst: async () => null },
       },
-      importJobRow: {
-        findFirst: async () => null,
-        update: jest.fn(async (args: { data: unknown }) => {
-          rowUpdates.push(args.data);
-        }),
-      },
-      externalIdMapping: { findFirst: async () => null },
-    };
+      { expectedRows: 3 },
+    );
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
       $transaction: async (fn: (client: typeof tx) => Promise<unknown>) =>

@@ -4,6 +4,7 @@ import {
   ImportJobStatus,
   ImportRowAction,
 } from '@prisma/client';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 
 describe('RowByRowApplyRunner batch duration metric', () => {
@@ -24,14 +25,17 @@ describe('RowByRowApplyRunner batch duration metric', () => {
         },
       },
     };
-    const tx = {
-      importJob: {
-        findFirst: async () => jobRecord,
-        update: jest.fn(),
+    const tx = withApplyPersistedTotalsTransactionClient(
+      {
+        importJob: {
+          findFirst: async () => jobRecord,
+          update: jest.fn(),
+        },
+        externalIdMapping: { findFirst: async () => null },
+        importJobRow: { update: jest.fn() },
       },
-      externalIdMapping: { findFirst: async () => null },
-      importJobRow: { update: jest.fn() },
-    };
+      { expectedRows: 1 },
+    );
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
       $transaction: async (fn: (innerTx: typeof tx) => Promise<void>) => fn(tx),

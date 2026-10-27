@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { assignVehiclePartyApplySeqs } from './import-apply-sequence.test-util.js';
 
@@ -29,31 +30,34 @@ function createWorker(): ImportJobWorkerState {
 
 function createSequencePrisma(worker: ImportJobWorkerState) {
   let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
-  const tx = {
-    importJob: {
-      findFirst: async () => ({
-        id: 'job-1',
-        status: jobStatus,
-        options_json: { worker },
-      }),
-      update: async (args: {
-        data: {
-          status?: ImportJobStatus;
-          options_json?: { worker: ImportJobWorkerState };
-        };
-      }) => {
-        if (args.data.options_json?.worker) {
-          Object.assign(worker, args.data.options_json.worker);
-        }
-        if (args.data.status === ImportJobStatus.APPLIED) {
-          jobStatus = ImportJobStatus.APPLIED;
-        }
+  const tx = withApplyPersistedTotalsTransactionClient(
+    {
+      importJob: {
+        findFirst: async () => ({
+          id: 'job-1',
+          status: jobStatus,
+          options_json: { worker },
+        }),
+        update: async (args: {
+          data: {
+            status?: ImportJobStatus;
+            options_json?: { worker: ImportJobWorkerState };
+          };
+        }) => {
+          if (args.data.options_json?.worker) {
+            Object.assign(worker, args.data.options_json.worker);
+          }
+          if (args.data.status === ImportJobStatus.APPLIED) {
+            jobStatus = ImportJobStatus.APPLIED;
+          }
+        },
       },
+      importJobRow: { update: jest.fn() },
+      vehicleParty: { findFirst: async () => ({ id: 'party' }) },
+      externalIdMapping: { findFirst: async () => null },
     },
-    importJobRow: { update: jest.fn() },
-    vehicleParty: { findFirst: async () => ({ id: 'party' }) },
-    externalIdMapping: { findFirst: async () => null },
-  };
+    { expectedRows: 1 },
+  );
   return {
     externalIdMapping: { findFirst: async () => null },
     $transaction: async (

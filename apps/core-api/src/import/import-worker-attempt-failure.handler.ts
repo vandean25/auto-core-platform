@@ -59,7 +59,20 @@ export async function handleImportWorkerAttemptFailure(
     await requeueImportWorkerAfterLeaseSkip(deps.workerFlow, params);
     return;
   }
-  await deps.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
+  const failed = await deps.jobStore.markFailedIfApplying(
+    params.tenantId,
+    params.jobId,
+    'apply_error',
+  );
+  if (failed.count > 0) {
+    const job = await deps.jobStore.findJob(params.tenantId, params.jobId);
+    logImportJobFailed(deps.logger, {
+      jobId: params.jobId,
+      phase: params.phase,
+      attempt: job?.attempts_without_progress ?? 0,
+      reason: 'apply_error',
+    });
+  }
   throw error;
 }
 

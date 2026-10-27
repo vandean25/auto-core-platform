@@ -26,44 +26,76 @@ function createSyncPrisma(
   const rowUpdates: Array<Record<string, unknown>> = [];
   const jobUpdates: unknown[] = [];
   let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
+  const actionCounts = new Map<ImportRowAction, number>();
+  const importJobRow = {
+    findFirst: async () => null,
+    update: jest.fn(async (args: { data: { action?: ImportRowAction } }) => {
+      rowUpdates.push(args.data as Record<string, unknown>);
+      if (args.data.action) {
+        actionCounts.set(
+          args.data.action,
+          (actionCounts.get(args.data.action) ?? 0) + 1,
+        );
+      }
+    }),
+    groupBy: jest.fn(async () => {
+      if (actionCounts.size === 0) {
+        return [{ action: ImportRowAction.CREATE, _count: { _all: 1 } }];
+      }
+      return [...actionCounts.entries()].map(([action, count]) => ({
+        action,
+        _count: { _all: count },
+      }));
+    }),
+  };
+  const importJob = {
+    updateMany: jest.fn(
+      async (args: { data: { status?: ImportJobStatus } }) => {
+        jobUpdates.push(args);
+        if (args.data.status) {
+          jobStatus = args.data.status;
+        }
+      },
+    ),
+    findFirst: jest.fn(async () => ({
+      id: 'job-sync',
+      tenant_id: 'tenant-1',
+      status: jobStatus,
+      options_json: {},
+      totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 0 },
+      attempts_without_progress: 0,
+    })),
+    update: jest.fn(async (args: { data: { status?: ImportJobStatus } }) => {
+      jobUpdates.push(args);
+      if (args.data.status) {
+        jobStatus = args.data.status;
+      }
+      return {
+        id: 'job-sync',
+        tenant_id: 'tenant-1',
+        status: jobStatus,
+        totals_json: args.data.totals_json ?? {
+          rows: 1,
+          create: 1,
+          update: 0,
+          skip: 0,
+          error: 0,
+        },
+      };
+    }),
+  };
   const tx = {
     externalIdMapping: { findFirst: async () => null },
-    importJobRow: { findFirst: async () => null },
+    importJob,
+    importJobRow,
   };
   return {
     prisma: {
       externalIdMapping: { findFirst: async () => null },
-      $transaction: async (fn: (client: typeof tx) => Promise<void>) => {
-        await fn(tx);
-      },
-      importJob: {
-        updateMany: jest.fn(
-          async (args: { data: { status?: ImportJobStatus } }) => {
-            jobUpdates.push(args);
-            if (args.data.status) {
-              jobStatus = args.data.status;
-            }
-          },
-        ),
-        findFirst: jest.fn(async () => ({
-          id: 'job-sync',
-          status: jobStatus,
-          options_json: {},
-        })),
-        update: jest.fn(
-          async (args: { data: { status?: ImportJobStatus } }) => {
-            jobUpdates.push(args);
-            if (args.data.status) {
-              jobStatus = args.data.status;
-            }
-          },
-        ),
-      },
-      importJobRow: {
-        update: jest.fn(async (args: { data: unknown }) => {
-          rowUpdates.push(args.data as Record<string, unknown>);
-        }),
-      },
+      $transaction: async (fn: (client: typeof tx) => Promise<unknown>) =>
+        fn(tx),
+      importJob,
+      importJobRow,
     },
     rowUpdates,
     jobUpdates,

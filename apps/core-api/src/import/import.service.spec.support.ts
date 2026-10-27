@@ -8,6 +8,7 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { ImportFileStorageService } from './import-file.storage.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { ImportService } from './import.service.js';
 
 export const TENANT_ID = 'tenant-1';
@@ -93,7 +94,13 @@ function applyDefaults(harness: ImportHarness): void {
     },
   );
   harness.prisma.$transaction.mockImplementation(
-    (callback: (tx: MockPrisma) => unknown) => callback(harness.prisma),
+    (callback: (tx: MockPrisma) => unknown) =>
+      callback(
+        withApplyPersistedTotalsTransactionClient(harness.prisma, {
+          tenantId: TENANT_ID,
+          expectedRows: 1,
+        }) as MockPrisma,
+      ),
   );
   harness.tenantContext.getTenantId.mockResolvedValue(TENANT_ID);
   harness.tenantContext.getAuthenticatedUser.mockReturnValue({
