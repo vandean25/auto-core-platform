@@ -240,7 +240,7 @@ export class MarginRuleService {
 
   async getThreshold(): Promise<PriceJumpThresholdResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
-    const settings = await this.prisma.financeSettings.findUnique({
+    const settings = await this.prisma.financeSettings.findFirst({
       where: { tenant_id: tenantId },
       select: { price_jump_threshold_percent: true },
     });

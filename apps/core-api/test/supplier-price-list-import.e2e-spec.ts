@@ -326,7 +326,14 @@ describe('Supplier Price List Import (e2e)', () => {
       })
       .expect(403);
 
-    // 3. TECH threshold update receives 403 Forbidden
+    // 3. GET threshold returns the saved finance setting
+    const thresholdGet = await request(app.getHttpServer())
+      .get('/api/margin-rules/threshold')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .expect(200);
+    expect(thresholdGet.body.price_jump_threshold_percent).toBe(20);
+
+    // 4. TECH threshold update receives 403 Forbidden
     await request(app.getHttpServer())
       .put('/api/margin-rules/threshold')
       .set('Authorization', `Bearer ${techTokenA}`)
