@@ -37,7 +37,7 @@ describe('ImportService worker retryable apply errors', () => {
         jobStore,
         cloudTasks: h.cloudTasks,
         targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
-        runInline: jest.fn().mockResolvedValue(undefined),
+        runInline: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
       });
     h.prisma.importJob.findFirst = jest.fn(async () => ({
       id: 'job-1',
@@ -50,11 +50,20 @@ describe('ImportService worker retryable apply errors', () => {
     }));
     jest
       .spyOn(
-        (h.service as unknown as { jobStore: { releaseWorkerLeaseForRetry: jest.Mock } })
-          .jobStore,
+        (
+          h.service as unknown as {
+            jobStore: {
+              releaseWorkerLeaseForRetry: (
+                tenantId: string,
+                jobId: string,
+                leaseToken: string,
+              ) => Promise<void>;
+            };
+          }
+        ).jobStore,
         'releaseWorkerLeaseForRetry',
       )
-      .mockResolvedValue(undefined);
+      .mockImplementation(() => Promise.resolve());
   });
 
   afterEach(() => {

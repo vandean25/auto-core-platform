@@ -42,7 +42,7 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    let jobStatus = ImportJobStatus.APPLYING;
+    let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
     const updateMany = jest.fn(async (args: { data: { status?: ImportJobStatus } }) => {
       if (args.data.status === ImportJobStatus.FAILED) {
         jobStatus = ImportJobStatus.FAILED;
@@ -105,7 +105,7 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
   it('retries sync P2034 on the APPLIED transition', async () => {
     let txCalls = 0;
     let finishAttempts = 0;
-    let jobStatus = ImportJobStatus.APPLYING;
+    let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
     const prisma = {
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
         txCalls += 1;
