@@ -8,4 +8,5 @@ export const CHECK_IN_OFFLINE_DRAFT_TTL_MS = 24 * 60 * 60 * 1000
 export const CHECK_IN_OFFLINE_UPLOAD_RETRY_DELAYS_MS = [1000, 4000] as const
 
 export const CHECK_IN_OFFLINE_DB_NAME = 'auto-core-check-in-offline'
-export const CHECK_IN_OFFLINE_DB_VERSION = 2
+// 3: adds the mechanic notes draft store (AUT-739).
+export const CHECK_IN_OFFLINE_DB_VERSION = 3

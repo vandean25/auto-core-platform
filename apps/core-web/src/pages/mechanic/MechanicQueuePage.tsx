@@ -56,8 +56,8 @@ export default function MechanicQueuePage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-5xl space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t('mechanic.queue.title')}</h1>
           <p className="text-slate-500">{t('mechanic.queue.description')}</p>

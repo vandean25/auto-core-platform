@@ -68,8 +68,8 @@ export function SwitchTaskDialog({
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>{t('actions.cancel')}</AlertDialogCancel>
-          <Button onClick={onConfirm} disabled={pending}>
+          <AlertDialogCancel className="min-h-11" disabled={pending}>{t('actions.cancel')}</AlertDialogCancel>
+          <Button className="min-h-11" onClick={onConfirm} disabled={pending}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
             {t('mechanic.taskDetail.switch.confirm')}
           </Button>

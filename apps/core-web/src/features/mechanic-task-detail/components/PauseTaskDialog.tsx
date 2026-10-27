@@ -65,8 +65,8 @@ export function PauseTaskDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
-          <Button onClick={onConfirm} disabled={pending}>
+          <AlertDialogCancel className="min-h-11">{t('actions.cancel')}</AlertDialogCancel>
+          <Button className="min-h-11" onClick={onConfirm} disabled={pending}>
             {t('mechanic.taskDetail.pause.confirm')}
           </Button>
         </AlertDialogFooter>

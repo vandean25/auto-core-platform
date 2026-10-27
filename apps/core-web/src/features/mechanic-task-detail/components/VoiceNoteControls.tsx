@@ -105,15 +105,16 @@ export function VoiceNoteControls({
             value={voiceDraftValue}
             onChange={(event) => onDraftChange(event.target.value)}
             rows={4}
-            className="w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-base md:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
+            className="min-h-11 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-base md:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
             disabled={disabled}
           />
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onDiscardDraft} disabled={disabled}>
+            <Button type="button" variant="outline" className="min-h-11" onClick={onDiscardDraft} disabled={disabled}>
               {t('mechanic.taskDetail.voiceNote.discardDraft')}
             </Button>
             <Button
               type="button"
+              className="min-h-11"
               onClick={onAcceptDraft}
               disabled={disabled || voiceDraftValue.trim().length === 0}
             >

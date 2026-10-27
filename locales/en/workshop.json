@@ -113,6 +113,7 @@
       },
       "media": {
         "title": "Media",
+        "photoFinding": "Photo finding",
         "uploading": "Uploading…",
         "upload": "Upload Photo / Video",
         "uploaded": "Uploaded ✓",

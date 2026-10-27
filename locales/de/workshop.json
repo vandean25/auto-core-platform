@@ -113,6 +113,7 @@
       },
       "media": {
         "title": "Medien",
+        "photoFinding": "Foto-Befund",
         "uploading": "Wird hochgeladen…",
         "upload": "Foto / Video hochladen",
         "uploaded": "Hochgeladen ✓",
