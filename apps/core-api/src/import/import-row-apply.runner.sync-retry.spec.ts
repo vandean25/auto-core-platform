@@ -25,7 +25,7 @@ function createSyncPrisma(
 ) {
   const rowUpdates: Array<Record<string, unknown>> = [];
   const jobUpdates: unknown[] = [];
-  let jobStatus = ImportJobStatus.APPLYING;
+  let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
   const tx = {
     externalIdMapping: { findFirst: async () => null },
     importJobRow: { findFirst: async () => null },
@@ -33,7 +33,6 @@ function createSyncPrisma(
   return {
     prisma: {
       externalIdMapping: { findFirst: async () => null },
-      importJobRow: { findFirst: async () => null },
       $transaction: async (fn: (client: typeof tx) => Promise<void>) => {
         await fn(tx);
       },
