@@ -151,7 +151,7 @@ export function VehicleRegulatorySection({
   return (
     <div className="space-y-4 rounded-lg border p-4">
       <h3 className="text-sm font-semibold text-slate-700">{sectionTitle}</h3>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm">
           <span className="text-slate-600">
             {bilingualLabel(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
@@ -229,7 +229,7 @@ export function VehicleRegulatorySection({
             </SelectContent>
           </Select>
         </label>
-        <label className="space-y-1 text-sm col-span-2">
+        <label className="space-y-1 text-sm sm:col-span-2">
           <span className="text-slate-600">
             {bilingualLabel(VEHICLE_REGULATORY_FIELDS.emissionClass)}
           </span>

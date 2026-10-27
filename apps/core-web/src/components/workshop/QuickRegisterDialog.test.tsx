@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { QuickRegisterDialog } from './QuickRegisterDialog'
 import * as workshopApi from '@/api/workshop'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
@@ -34,5 +34,16 @@ describe('QuickRegisterDialog', () => {
       expectFieldErrorLinked(screen.getByLabelText(label), qr.required)
     }
     expectFieldValid(screen.getByLabelText(qr.year))
+  })
+
+  it('is full screen on a phone with the primary action outside the scroll region', () => {
+    render(<QuickRegisterDialog open onOpenChange={vi.fn()} />)
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.className).toContain('max-sm:h-dvh')
+    const submit = screen.getByRole('button', { name: qr.register })
+    expect(submit).toHaveAttribute('form', 'quick-register-form')
+    expect(dialog.querySelector('.dialog-body')?.contains(submit)).toBe(false)
+    expect(dialog.querySelector('.grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2')
   })
 })
