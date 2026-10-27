@@ -406,16 +406,18 @@ describe('import apply_seq fill (e2e)', () => {
       });
     const originalTransaction = prisma.$transaction.bind(prisma);
     let transactionCalls = 0;
-    prisma.$transaction = (async (
-      fn: (tx: Prisma.TransactionClient) => Promise<unknown>,
-      options?: unknown,
-    ) => {
-      transactionCalls += 1;
-      if (transactionCalls <= 2) {
-        throw p2028();
-      }
-      return originalTransaction(fn, options as never);
-    }) as typeof prisma.$transaction;
+    const transactionSpy = jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (fn, options) => {
+        transactionCalls += 1;
+        if (transactionCalls <= 2) {
+          throw p2028();
+        }
+        return originalTransaction(
+          fn as (tx: Prisma.TransactionClient) => Promise<unknown>,
+          options,
+        );
+      });
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
@@ -445,7 +447,7 @@ describe('import apply_seq fill (e2e)', () => {
       },
       { userId: actor.id },
     );
-    prisma.$transaction = originalTransaction;
+    transactionSpy.mockRestore();
     expect(exhausted).toBeInstanceOf(ImportApplyRetryExhaustedError);
     expect(transactionCalls).toBe(3);
     const failed = await tenantPrisma.importJob.findFirst({
@@ -537,7 +539,7 @@ describe('import apply_seq fill (e2e)', () => {
       [['ext-1'], ['ext-2'], ['ext-3'], ['ext-4']],
     );
     const fileStorage = {
-      openReadStream: () => Readable.from([csvBody]),
+      openReadStream: () => Readable.from([Buffer.from(csvBody, 'utf8')]),
     } as unknown as ImportFileStorageService;
     const handlerStub = {
       entityType: ImportEntityType.CUSTOMER,
