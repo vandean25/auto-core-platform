@@ -1,5 +1,17 @@
+import { HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
+import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
+import { isTransientImportStorageReadError } from './import-worker-retry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+
+export type ImportApplyErrorKind =
+  | 'lease_lost'
+  | 'retryable'
+  | 'row'
+  | 'fatal';
+
+export type ImportApplyFailureReason = 'retry_exhausted' | 'poison_cap';
 
 export class ApplyRowStaleError extends Error {
   constructor(message = 'Import row plan is stale') {
@@ -17,21 +29,140 @@ export class ImportDuplicateCreateInJobError extends Error {
   }
 }
 
-// Only conflicts with this row's own data are recorded as ERROR rows: a stale plan, a
-// unique violation, a foreign key failure or a referenced record that is gone. Deadlocks,
-// write conflicts, pool or transaction timeouts and connection loss are not row problems
-// and must surface instead of being turned into row errors.
-export function isRowLevelApplyError(error: unknown): boolean {
+/** Row-level domain failure surfaced from HTTP writers during apply (404/409/422). */
+export class ImportRowDomainError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ImportRowDomainError';
+  }
+}
+
+/** Sync apply exhausted in-process retries for a retryable error; job may be resumed. */
+export class ImportApplyRetryExhaustedError extends Error {
+  constructor(readonly cause: unknown) {
+    super('Import apply retryable attempts exhausted');
+    this.name = 'ImportApplyRetryExhaustedError';
+  }
+}
+
+const MAX_CAUSE_DEPTH = 8;
+
+function readCause(error: unknown): unknown {
+  if (!error || typeof error !== 'object' || !('cause' in error)) {
+    return undefined;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  if (cause === error) {
+    return undefined;
+  }
+  return cause;
+}
+
+function adapterCauseKind(node: unknown): string | undefined {
+  if (!node || typeof node !== 'object') {
+    return undefined;
+  }
+  const kind = (node as { kind?: unknown }).kind;
+  return typeof kind === 'string' ? kind : undefined;
+}
+
+function isDriverAdapterRowConstraintNode(node: unknown): boolean {
+  if (node instanceof Error && node.name === 'DriverAdapterError') {
+    const kind = adapterCauseKind(readCause(node));
+    return (
+      kind === 'UniqueConstraintViolation' ||
+      kind === 'ForeignKeyConstraintViolation'
+    );
+  }
+  const kind = adapterCauseKind(node);
+  return (
+    kind === 'UniqueConstraintViolation' ||
+    kind === 'ForeignKeyConstraintViolation'
+  );
+}
+
+function isDriverAdapterRowConstraint(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH && current; depth++) {
+    if (isDriverAdapterRowConstraintNode(current)) {
+      return true;
+    }
+    current = readCause(current);
+  }
+  return false;
+}
+
+function isPrismaRowConstraint(
+  error: Prisma.PrismaClientKnownRequestError,
+): boolean {
+  return ['P2002', 'P2003', 'P2025'].includes(error.code);
+}
+
+function isRowConstraintError(error: unknown): boolean {
   if (
     error instanceof ApplyRowStaleError ||
-    error instanceof ImportDuplicateCreateInJobError
+    error instanceof ImportDuplicateCreateInJobError ||
+    error instanceof ImportRowDomainError
   ) {
     return true;
   }
-  return (
+  if (
     error instanceof Prisma.PrismaClientKnownRequestError &&
-    ['P2002', 'P2003', 'P2025'].includes(error.code)
-  );
+    isPrismaRowConstraint(error)
+  ) {
+    return true;
+  }
+  return isDriverAdapterRowConstraint(error);
+}
+
+/** Classifies apply errors for retry, row ERROR, or job-level failure. */
+export function classifyImportApplyError(error: unknown): ImportApplyErrorKind {
+  if (error instanceof ImportWorkerLeaseLostError) {
+    return 'lease_lost';
+  }
+  if (error instanceof ImportApplyRetryExhaustedError) {
+    return 'fatal';
+  }
+  if (
+    isRetryableTransactionError(error) ||
+    isTransientImportStorageReadError(error)
+  ) {
+    return 'retryable';
+  }
+  if (isRowConstraintError(error)) {
+    return 'row';
+  }
+  return 'fatal';
+}
+
+export function isRowLevelApplyError(error: unknown): boolean {
+  return classifyImportApplyError(error) === 'row';
+}
+
+export function coerceWriteRowToDomainError(error: unknown): unknown {
+  if (error instanceof HttpException) {
+    const status = error.getStatus();
+    if (status === 404 || status === 409 || status === 422) {
+      const response = error.getResponse();
+      const body =
+        typeof response === 'object' && response !== null
+          ? (response as Record<string, unknown>)
+          : {};
+      const code =
+        typeof body.code === 'string'
+          ? body.code
+          : IMPORT_ERROR_CODES.APPLY_FAILED;
+      const message =
+        typeof body.message === 'string'
+          ? body.message
+          : 'Row failed during apply';
+      return new ImportRowDomainError(code, message);
+    }
+  }
+  return error;
 }
 
 /** The code and message stored on a row that failed during apply. */
@@ -47,6 +178,9 @@ export function toRowApplyError(error: unknown): {
       code: IMPORT_ERROR_CODES.DUPLICATE_EXTERNAL_ID_IN_FILE,
       message: error.message,
     };
+  }
+  if (error instanceof ImportRowDomainError) {
+    return { code: error.code, message: error.message };
   }
   return {
     code: IMPORT_ERROR_CODES.APPLY_FAILED,

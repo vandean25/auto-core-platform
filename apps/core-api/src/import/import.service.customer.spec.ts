@@ -773,7 +773,7 @@ describe('ImportService customer import (characterization)', () => {
       );
     });
 
-    it('turns any per-row failure into an APPLY_FAILED row and keeps the job applied', async () => {
+    it('fails the job when a row write hits a non-row-level error', async () => {
       h.prisma.customer.create.mockRejectedValue(new Error('Connection lost'));
       arrangeApply(
         h,
@@ -781,30 +781,17 @@ describe('ImportService customer import (characterization)', () => {
         [createRow(1, 'K-1', { first_name: 'Anna', last_name: 'Berger' })],
       );
 
-      const result = await h.service.applyJob(JOB_ID);
+      await expect(h.service.applyJob(JOB_ID)).rejects.toThrow('Connection lost');
 
-      expect(h.prisma.importJobRow.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            action: ImportRowAction.ERROR,
-            errors_json: [
-              {
-                code: IMPORT_ERROR_CODES.APPLY_FAILED,
-                message: 'Row failed during apply',
-              },
-            ],
-          },
-        }),
-      );
-      expect(result.status).toBe(ImportJobStatus.APPLIED);
-      expect(h.prisma.importJob.update).not.toHaveBeenCalledWith(
+      expect(h.prisma.importJobRow.update).not.toHaveBeenCalled();
+      expect(h.prisma.importJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ status: ImportJobStatus.FAILED }),
         }),
       );
     });
 
-    it('marks a serialization failure as a row ERROR during synchronous apply', async () => {
+    it('returns IMPORT_APPLY_INTERRUPTED when sync retries exhaust on P2034', async () => {
       h.prisma.customer.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('serialization', {
           code: 'P2034',
@@ -817,15 +804,24 @@ describe('ImportService customer import (characterization)', () => {
         [createRow(1, 'K-1', { first_name: 'Anna', last_name: 'Berger' })],
       );
 
-      const result = await h.service.applyJob(JOB_ID);
-
-      expect(h.prisma.importJobRow.update).toHaveBeenCalledWith(
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 503,
+        response: {
+          code: IMPORT_ERROR_CODES.APPLY_INTERRUPTED,
+        },
+      });
+      expect(h.prisma.importJobRow.update).not.toHaveBeenCalled();
+      expect(h.prisma.importJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ action: ImportRowAction.ERROR }),
+          data: expect.objectContaining({
+            status: ImportJobStatus.FAILED,
+            options_json: expect.objectContaining({
+              apply_failure_reason: 'retry_exhausted',
+            }),
+          }),
         }),
       );
-      expect(result.status).toBe(ImportJobStatus.APPLIED);
-    });
+    }, 60_000);
 
     it('fails the job with the totals so far when recording a row error itself fails', async () => {
       h.prisma.customer.create.mockRejectedValue(
@@ -848,13 +844,15 @@ describe('ImportService customer import (characterization)', () => {
         'db unavailable',
       );
 
-      expect(h.prisma.importJob.update).toHaveBeenCalledWith({
-        where: { id: JOB_ID },
-        data: {
-          status: ImportJobStatus.FAILED,
-          totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 1 },
-        },
-      });
+      expect(h.prisma.importJob.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: JOB_ID },
+          data: expect.objectContaining({
+            status: ImportJobStatus.FAILED,
+            totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 1 },
+          }),
+        }),
+      );
     });
 
     it('counts SKIP and ERROR rows without writing anything for them', async () => {

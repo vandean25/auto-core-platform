@@ -154,6 +154,7 @@
     "IMPLAUSIBLE_MEASUREMENT": "Implausible measurement.",
     "IMPORT_AMBIGUOUS_VENDOR": "Import ambiguous vendor.",
     "IMPORT_APPLY_FAILED": "Import apply failed.",
+    "IMPORT_APPLY_INTERRUPTED": "Import apply interrupted.",
     "IMPORT_APPLY_IN_PROGRESS": "Import apply in progress.",
     "IMPORT_ARTICLE_NOT_FOUND": "Import article not found.",
     "IMPORT_CONSENT_COLUMN_IGNORED": "Import consent column ignored.",

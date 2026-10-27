@@ -139,6 +139,14 @@ async function failImportJobForWorkerPoison(
   jobId: string,
   nextAttempts: number,
 ): Promise<void> {
+  const job = await tx.importJob.findFirst({
+    where: { tenant_id: tenantId, id: jobId },
+    select: { options_json: true },
+  });
+  const options = {
+    ...((job?.options_json as Record<string, unknown> | null) ?? {}),
+    apply_failure_reason: 'poison_cap',
+  };
   await tx.importJob.updateMany({
     where: {
       tenant_id: tenantId,
@@ -149,6 +157,7 @@ async function failImportJobForWorkerPoison(
       status: ImportJobStatus.FAILED,
       attempts_without_progress: nextAttempts,
       failed_at: new Date(),
+      options_json: options as Prisma.InputJsonValue,
     },
   });
 }

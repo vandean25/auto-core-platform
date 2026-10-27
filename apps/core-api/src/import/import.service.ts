@@ -21,9 +21,14 @@ import {
   applyInProgress,
   assertFailedImportJobCanReApply,
   assertJobCanBeApplied,
+  importApplyInterrupted,
   importJobCannotCancel,
   importJobNotFound,
 } from './import-job.errors.js';
+import {
+  classifyImportApplyError,
+  ImportApplyRetryExhaustedError,
+} from './import-apply.errors.js';
 import {
   buildImportErrorReportCsv,
   serializeImportJob,
@@ -77,10 +82,7 @@ import {
   runBackgroundDryRunReconcileChunk,
   scheduleBackgroundDryRunAfterRowBatches,
 } from './import-background-dry-run.reconcile.js';
-import {
-  importWorkerRetryDelaySeconds,
-  isRetryableImportWorkerError,
-} from './import-worker-retry.js';
+import { importWorkerRetryDelaySeconds } from './import-worker-retry.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
@@ -429,16 +431,24 @@ export class ImportService {
       throw applyInProgress();
     }
 
-    const applied = await traceImportCommit(job.entity_type, rows.length, () =>
-      handler.apply({
-        tenantId,
-        job,
-        rows,
-        actorUserId: currentUser.id,
-        effectiveOptions,
-        preparation,
-      }),
-    );
+    let applied: SerializedImportJob;
+    try {
+      applied = await traceImportCommit(job.entity_type, rows.length, () =>
+        handler.apply({
+          tenantId,
+          job,
+          rows,
+          actorUserId: currentUser.id,
+          effectiveOptions,
+          preparation,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ImportApplyRetryExhaustedError) {
+        throw importApplyInterrupted();
+      }
+      throw error;
+    }
     if (applied.status === ImportJobStatus.APPLIED) {
       await this.deleteJobUploadIfPresent(
         job.options_json as ImportJobOptionsWithWorker,
@@ -669,7 +679,7 @@ export class ImportService {
     },
     error: unknown,
   ): Promise<void> {
-    if (isRetryableImportWorkerError(error)) {
+    if (classifyImportApplyError(error) === 'retryable') {
       const job = await this.jobStore.findJob(params.tenantId, params.jobId);
       if (job && job.status === ImportJobStatus.APPLYING) {
         const options = job.options_json as ImportJobOptionsWithWorker;
@@ -689,9 +699,15 @@ export class ImportService {
             phase: params.phase,
             claimSeq: job.worker_claim_seq,
             recoverySeq: job.worker_recovery_seq,
-            delaySeconds: importWorkerRetryDelaySeconds(),
+            delaySeconds: importWorkerRetryDelaySeconds(
+              job.attempts_without_progress,
+            ),
             recordHandoffAfterSuccess: true,
           },
+        );
+      } else {
+        this.logger.warn(
+          `Import worker retryable error with job not APPLYING jobId=${params.jobId}`,
         );
       }
       return;

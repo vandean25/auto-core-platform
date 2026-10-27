@@ -605,6 +605,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_APPLY_INTERRUPTED": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_APPLY_IN_PROGRESS": {
       "public": true,
       "params": []

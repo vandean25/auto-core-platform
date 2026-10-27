@@ -7,12 +7,14 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
 import {
+  classifyImportApplyError,
+  coerceWriteRowToDomainError,
+  ImportApplyRetryExhaustedError,
   ImportDuplicateCreateInJobError,
-  isRowLevelApplyError,
   resolveImportExternalId,
   toRowApplyError,
+  type ImportApplyFailureReason,
 } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
@@ -32,6 +34,7 @@ import {
   IMPORT_LOGGER_CONTEXT,
   IMPORT_ROW_TX_MAX_ATTEMPTS,
   IMPORT_SERIALIZABLE_TX,
+  IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS,
 } from './import.constants.js';
 import {
   delayMs,
@@ -68,8 +71,11 @@ function describeCause(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown';
 }
 
-function isBackgroundWorkerApply(options?: ImportApplyBatchOptions): boolean {
-  return Boolean(options?.leaseToken || options?.useApplySequence);
+function legacyRowTxMaxAttempts(options?: ImportApplyBatchOptions): number {
+  if (options?.leaseToken || options?.stopAfterBatch) {
+    return IMPORT_ROW_TX_MAX_ATTEMPTS;
+  }
+  return IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS;
 }
 
 /**
@@ -121,16 +127,17 @@ export class RowByRowApplyRunner {
         options,
       );
     } catch (error) {
-      if (this.shouldRethrowApplyRunError(error)) {
+      const kind = classifyImportApplyError(error);
+      if (kind === 'lease_lost' || kind === 'retryable') {
         throw error;
       }
-      await this.markJobFailed(job.id, totals, guardedWrite);
+      const failureReason =
+        error instanceof ImportApplyRetryExhaustedError
+          ? ('retry_exhausted' satisfies ImportApplyFailureReason)
+          : undefined;
+      await this.markJobFailed(job.id, totals, guardedWrite, failureReason);
       throw error;
     }
-  }
-
-  private shouldRethrowApplyRunError(error: unknown): boolean {
-    return error instanceof ImportWorkerLeaseLostError;
   }
 
   private async serializeSequenceAppliedJob(
@@ -284,18 +291,44 @@ export class RowByRowApplyRunner {
     jobId: string,
     totals: ImportJobTotals,
     guardedWrite: boolean,
+    failureReason?: ImportApplyFailureReason,
   ): Promise<void> {
+    const failurePatch = failureReason
+      ? await this.mergeApplyFailureReason(jobId, failureReason)
+      : {};
+    const data = {
+      status: ImportJobStatus.FAILED,
+      totals_json: totals,
+      failed_at: new Date(),
+      ...failurePatch,
+    };
     if (guardedWrite) {
       await this.prisma.importJob.updateMany({
         where: { id: jobId, status: ImportJobStatus.APPLYING },
-        data: { status: ImportJobStatus.FAILED, totals_json: totals },
+        data,
       });
       return;
     }
     await this.prisma.importJob.update({
       where: { id: jobId },
-      data: { status: ImportJobStatus.FAILED, totals_json: totals },
+      data,
     });
+  }
+
+  private async mergeApplyFailureReason(
+    jobId: string,
+    failureReason: ImportApplyFailureReason,
+  ): Promise<{ options_json: Prisma.InputJsonValue }> {
+    const job = await this.prisma.importJob.findFirst({
+      where: { id: jobId },
+      select: { options_json: true },
+    });
+    return {
+      options_json: {
+        ...((job?.options_json as Record<string, unknown> | null) ?? {}),
+        apply_failure_reason: failureReason,
+      } as Prisma.InputJsonValue,
+    };
   }
 
   private async earliestCommittedCreateRowNoInJob(
@@ -465,13 +498,11 @@ export class RowByRowApplyRunner {
     error: unknown,
     attempt: number,
   ): 'retry' | 'rethrow' | 'mark_failed' {
-    if (error instanceof ImportWorkerLeaseLostError) {
-      return 'rethrow';
-    }
-    if (isRowLevelApplyError(error)) {
+    const kind = classifyImportApplyError(error);
+    if (kind === 'row') {
       return 'mark_failed';
     }
-    if (isRetryableTransactionError(error)) {
+    if (kind === 'retryable') {
       return attempt < IMPORT_ROW_TX_MAX_ATTEMPTS - 1 ? 'retry' : 'rethrow';
     }
     return 'rethrow';
@@ -592,7 +623,11 @@ export class RowByRowApplyRunner {
       input.job.source_system,
       row,
     );
-    await writeRow(tx, row);
+    try {
+      await writeRow(tx, row);
+    } catch (error) {
+      throw coerceWriteRowToDomainError(error);
+    }
     return 'written';
   }
 
@@ -637,48 +672,87 @@ export class RowByRowApplyRunner {
         await this.advanceWorkerCursor(input, applySeqForRow(row), options);
         return;
       }
-      await this.prisma.$transaction(async (tx) => {
-        await assertApplyRowIsFresh(
-          tx,
-          input.tenantId,
-          entityType,
-          input.job.source_system,
-          row,
-        );
-        await writeRow(tx, row);
-        if (options?.onRowCommitted && options.leaseToken) {
-          await options.onRowCommitted(tx, row.row_no);
-        } else if (options?.leaseToken) {
-          await commitApplyWorkerRowInTransaction(
-            tx,
+      const maxAttempts = legacyRowTxMaxAttempts(options);
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          await this.prisma.$transaction(async (tx) => {
+            await assertApplyRowIsFresh(
+              tx,
+              input.tenantId,
+              entityType,
+              input.job.source_system,
+              row,
+            );
+            try {
+              await writeRow(tx, row);
+            } catch (rowError) {
+              throw coerceWriteRowToDomainError(rowError);
+            }
+            if (options?.onRowCommitted && options.leaseToken) {
+              await options.onRowCommitted(tx, row.row_no);
+            } else if (options?.leaseToken) {
+              await commitApplyWorkerRowInTransaction(
+                tx,
+                input.tenantId,
+                input.job.id,
+                options.leaseToken,
+                applySeqForRow(row),
+              );
+            }
+          }, IMPORT_SERIALIZABLE_TX);
+          tallyWrittenRow(totals, row.action);
+          return;
+        } catch (error) {
+          const outcome = this.legacyRowAttemptOutcome(error, attempt, maxAttempts);
+          if (outcome === 'retry') {
+            await delayMs(retryableTransactionDelayMs(attempt));
+            continue;
+          }
+          if (outcome === 'rethrow') {
+            throw error;
+          }
+          this.logger.warn(
+            `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+          );
+          totals.error += 1;
+          await markImportRowFailed(
+            this.prisma,
             input.tenantId,
             input.job.id,
-            options.leaseToken,
-            applySeqForRow(row),
+            row.row_no,
+            toRowApplyError(error),
           );
+          await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+          return;
         }
-      }, IMPORT_SERIALIZABLE_TX);
-      tallyWrittenRow(totals, row.action);
+      }
     } catch (error) {
       if (error instanceof ImportWorkerLeaseLostError) {
         throw error;
       }
-      if (!isRowLevelApplyError(error) && isBackgroundWorkerApply(options)) {
-        throw error;
+      if (
+        classifyImportApplyError(error) === 'retryable' &&
+        legacyRowTxMaxAttempts(options) === IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS
+      ) {
+        throw new ImportApplyRetryExhaustedError(error);
       }
-      this.logger.warn(
-        `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
-      );
-      totals.error += 1;
-      await markImportRowFailed(
-        this.prisma,
-        input.tenantId,
-        input.job.id,
-        row.row_no,
-        toRowApplyError(error),
-      );
-      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      throw error;
     }
+  }
+
+  private legacyRowAttemptOutcome(
+    error: unknown,
+    attempt: number,
+    maxAttempts: number,
+  ): 'retry' | 'rethrow' | 'mark_failed' {
+    const kind = classifyImportApplyError(error);
+    if (kind === 'row') {
+      return 'mark_failed';
+    }
+    if (kind === 'retryable') {
+      return attempt < maxAttempts - 1 ? 'retry' : 'rethrow';
+    }
+    return 'rethrow';
   }
 
   private async advanceWorkerCursor(
