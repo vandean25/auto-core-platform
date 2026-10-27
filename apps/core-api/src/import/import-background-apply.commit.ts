@@ -1,12 +1,8 @@
-import {
-  ImportJobStatus,
-  ImportRowAction,
-  type ImportEntityType,
-  type Prisma,
-} from '@prisma/client';
+import { ImportJobStatus, type Prisma } from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
+import { reconcileFinishedApplyTotals } from './import-background-apply.totals.js';
 const APPLY_TOTAL_KEYS = [
   'rows',
   'create',
@@ -24,44 +20,6 @@ function mergeMonotonicApplyTotals(
     merged[key] = Math.max(storedTotals[key] ?? 0, nextTotals[key] ?? 0);
   }
   return merged;
-}
-
-async function reconcileFinishedApplyTotals(
-  tx: Prisma.TransactionClient,
-  params: {
-    tenantId: string;
-    jobId: string;
-    entityType: ImportEntityType;
-  },
-  totals: ImportJobTotals,
-): Promise<ImportJobTotals> {
-  if (
-    typeof tx.externalIdMapping.count !== 'function' ||
-    typeof tx.importJobRow.count !== 'function'
-  ) {
-    return totals;
-  }
-  const [createFromMappings, errorRows] = await Promise.all([
-    tx.externalIdMapping.count({
-      where: {
-        tenant_id: params.tenantId,
-        first_seen_import_job_id: params.jobId,
-        entity_type: params.entityType,
-      },
-    }),
-    tx.importJobRow.count({
-      where: {
-        tenant_id: params.tenantId,
-        import_job_id: params.jobId,
-        action: ImportRowAction.ERROR,
-      },
-    }),
-  ]);
-  return {
-    ...totals,
-    create: Math.max(totals.create, createFromMappings),
-    error: Math.max(totals.error, errorRows),
-  };
 }
 
 export async function assertApplyWorkerLease(

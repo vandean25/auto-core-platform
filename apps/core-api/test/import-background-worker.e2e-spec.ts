@@ -212,30 +212,26 @@ describe('Import background worker (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    const drainApplyWorkers = async () => {
-      const deadline = Date.now() + 60_000;
-      let job = await tenantPrisma().importJob.findFirst({
-        where: { id: jobId },
-      });
-      while (Date.now() < deadline && job?.status !== ImportJobStatus.APPLIED) {
-        await deliverWorker(jobId, 'apply').expect(204);
-        job = await tenantPrisma().importJob.findFirst({
-          where: { id: jobId },
-        });
-      }
-      return job;
-    };
-
     await Promise.all([
       deliverWorker(jobId, 'apply').expect(204),
       deliverWorker(jobId, 'apply').expect(204),
     ]);
 
+    const deadline = Date.now() + 60_000;
     let applied = await tenantPrisma().importJob.findFirst({
       where: { id: jobId },
     });
-    if (applied?.status !== ImportJobStatus.APPLIED) {
-      applied = await drainApplyWorkers();
+    while (
+      Date.now() < deadline &&
+      applied?.status !== ImportJobStatus.APPLIED
+    ) {
+      await Promise.all([
+        deliverWorker(jobId, 'apply').expect(204),
+        deliverWorker(jobId, 'apply').expect(204),
+      ]);
+      applied = await tenantPrisma().importJob.findFirst({
+        where: { id: jobId },
+      });
     }
 
     expect(applied?.status).toBe(ImportJobStatus.APPLIED);

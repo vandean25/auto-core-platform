@@ -20,6 +20,7 @@ import {
   assertApplyWorkerLease,
   commitBackgroundApplyRowInTransaction,
 } from './import-background-apply.commit.js';
+import { reconcileFinishedApplyTotals } from './import-background-apply.totals.js';
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import {
   commitApplyWorkerRowInTransaction,
@@ -116,6 +117,7 @@ export class RowByRowApplyRunner {
       );
       return await this.finishApplyRun(
         input,
+        entityType,
         totals,
         guardedWrite,
         plan.batchIncomplete,
@@ -139,6 +141,7 @@ export class RowByRowApplyRunner {
 
   private async finishApplyRun(
     input: ImportApplyInput,
+    entityType: ImportEntityType,
     totals: ImportJobTotals,
     guardedWrite: boolean,
     batchIncomplete: boolean,
@@ -149,9 +152,27 @@ export class RowByRowApplyRunner {
       where: { id: job.id },
     });
     if (options?.useApplySequence) {
-      const appliedTotals =
-        (refreshed?.totals_json as ImportJobTotals) ?? totals;
+      let appliedTotals = (refreshed?.totals_json as ImportJobTotals) ?? totals;
       if (refreshed?.status === ImportJobStatus.APPLIED) {
+        const reconciled = await reconcileFinishedApplyTotals(
+          this.prisma,
+          {
+            tenantId,
+            jobId: job.id,
+            entityType,
+          },
+          appliedTotals,
+        );
+        const totalsChanged =
+          reconciled.create !== appliedTotals.create ||
+          reconciled.error !== appliedTotals.error;
+        if (totalsChanged) {
+          appliedTotals = reconciled;
+          await this.prisma.importJob.update({
+            where: { id: job.id },
+            data: { totals_json: reconciled },
+          });
+        }
         await this.audit.writeImportJobAudit(
           this.prisma,
           tenantId,
@@ -160,7 +181,10 @@ export class RowByRowApplyRunner {
           'applied',
           appliedTotals,
         );
-        return this.serialize(refreshed, appliedTotals);
+        const appliedJob = totalsChanged
+          ? await this.prisma.importJob.findFirst({ where: { id: job.id } })
+          : refreshed;
+        return this.serialize(appliedJob!, appliedTotals);
       }
       // Row commits already persist totals_json; do not overwrite with batch-local totals.
       return this.serialize(refreshed!, appliedTotals);
