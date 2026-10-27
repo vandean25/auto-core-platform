@@ -77,20 +77,24 @@ export function runWithTenantContext<T>(
     activeSiteId?: string | null;
   },
 ): T {
-  const execute = (): T => {
+  const setUser = () => {
     TenantContextStorage.setUser({
       ...buildTestTenantIdentity(tenantId),
       ...identity,
     });
-    return fn();
   };
 
   const activeUser = TenantContextStorage.getUser();
   if (activeUser?.tenantId === tenantId) {
-    return execute();
+    return Promise.resolve(fn()) as T;
   }
 
-  return TenantContextStorage.run(execute);
+  return new Promise<T>((resolve, reject) => {
+    TenantContextStorage.run(() => {
+      setUser();
+      Promise.resolve(fn()).then(resolve, reject);
+    });
+  }) as T;
 }
 
 export function createTestAuthToken(
