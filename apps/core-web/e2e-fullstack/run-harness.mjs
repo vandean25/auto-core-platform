@@ -35,12 +35,14 @@ function run(command, args, cwd, env = {}) {
 
 async function waitForUrl(url, timeoutMs = 120_000) {
   const started = Date.now()
+  let reported = false
   while (Date.now() - started < timeoutMs) {
     try {
       const response = await fetch(url)
       if (response.ok) return
-    } catch {
-      // still booting
+      if (!reported) { console.log('READINESS RESPONSE', url, response.status, (await response.text()).slice(0, 1000)); reported = true }
+    } catch (error) {
+      if (!reported) { console.log('READINESS ERROR', url, error); reported = true }
     }
     await new Promise((r) => setTimeout(r, 500))
   }
