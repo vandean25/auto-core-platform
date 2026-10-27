@@ -404,20 +404,21 @@ describe('import apply_seq fill (e2e)', () => {
         code: 'P2028',
         clientVersion: 'test',
       });
-    const originalTransaction = prisma.$transaction.bind(prisma);
+    const boundTransaction = prisma.$transaction.bind(prisma);
     let transactionCalls = 0;
-    const transactionSpy = jest
-      .spyOn(prisma, '$transaction')
-      .mockImplementation(async (fn, options) => {
-        transactionCalls += 1;
-        if (transactionCalls <= 2) {
-          throw p2028();
-        }
-        return originalTransaction(
-          fn as (tx: Prisma.TransactionClient) => Promise<unknown>,
-          options,
-        );
-      });
+    const prismaWithTransaction = prisma as PrismaService & {
+      $transaction: typeof prisma.$transaction;
+    };
+    prismaWithTransaction.$transaction = async (fn, options) => {
+      transactionCalls += 1;
+      if (transactionCalls <= 2) {
+        throw p2028();
+      }
+      return boundTransaction(
+        fn as (tx: Prisma.TransactionClient) => Promise<unknown>,
+        options,
+      );
+    };
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
@@ -447,7 +448,7 @@ describe('import apply_seq fill (e2e)', () => {
       },
       { userId: actor.id },
     );
-    transactionSpy.mockRestore();
+    prismaWithTransaction.$transaction = boundTransaction;
     expect(exhausted).toBeInstanceOf(ImportApplyRetryExhaustedError);
     expect(transactionCalls).toBe(3);
     const failed = await tenantPrisma.importJob.findFirst({
@@ -562,6 +563,15 @@ describe('import apply_seq fill (e2e)', () => {
     };
     const handler = handlerStub as unknown as ImportTypeHandler;
     const requestContext = app.get(RequestContextService);
+    const workerFlow = {
+      jobStore: store,
+      cloudTasks: {
+        isEnabled: () => false,
+        enqueueImportWorker: async () => {},
+      },
+      targetBaseUrl: undefined,
+      runInline: async () => {},
+    };
     let clockReads = 0;
     const chunkStartMs = 5_000_000;
     const budgetStopClock = () => {
@@ -594,7 +604,7 @@ describe('import apply_seq fill (e2e)', () => {
               mapping_json: mapping,
               totals_json: loaded!.totals_json,
             },
-            flow: { enqueueImportWorkerContinuation: async () => {} } as never,
+            flow: workerFlow,
             completeDryRun: async () => {},
             nowMs: readNow,
           }),
