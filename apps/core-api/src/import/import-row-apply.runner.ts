@@ -139,6 +139,45 @@ export class RowByRowApplyRunner {
     );
   }
 
+  private async serializeSequenceAppliedJob(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    totals: ImportJobTotals,
+    refreshed: NonNullable<
+      Awaited<ReturnType<PrismaService['importJob']['findFirst']>>
+    >,
+  ): Promise<SerializedImportJob> {
+    const { tenantId, job, actorUserId } = input;
+    let appliedTotals = (refreshed.totals_json as ImportJobTotals) ?? totals;
+    const reconciled = await reconcileFinishedApplyTotals(
+      this.prisma,
+      { tenantId, jobId: job.id, entityType },
+      appliedTotals,
+    );
+    const totalsChanged =
+      reconciled.create !== appliedTotals.create ||
+      reconciled.error !== appliedTotals.error;
+    if (totalsChanged) {
+      appliedTotals = reconciled;
+      await this.prisma.importJob.update({
+        where: { id: job.id },
+        data: { totals_json: reconciled },
+      });
+    }
+    await this.audit.writeImportJobAudit(
+      this.prisma,
+      tenantId,
+      actorUserId,
+      job.id,
+      'applied',
+      appliedTotals,
+    );
+    const appliedJob = totalsChanged
+      ? await this.prisma.importJob.findFirst({ where: { id: job.id } })
+      : refreshed;
+    return this.serialize(appliedJob!, appliedTotals);
+  }
+
   private async finishApplyRun(
     input: ImportApplyInput,
     entityType: ImportEntityType,
@@ -152,39 +191,15 @@ export class RowByRowApplyRunner {
       where: { id: job.id },
     });
     if (options?.useApplySequence) {
-      let appliedTotals = (refreshed?.totals_json as ImportJobTotals) ?? totals;
+      const appliedTotals =
+        (refreshed?.totals_json as ImportJobTotals) ?? totals;
       if (refreshed?.status === ImportJobStatus.APPLIED) {
-        const reconciled = await reconcileFinishedApplyTotals(
-          this.prisma,
-          {
-            tenantId,
-            jobId: job.id,
-            entityType,
-          },
-          appliedTotals,
+        return this.serializeSequenceAppliedJob(
+          input,
+          entityType,
+          totals,
+          refreshed,
         );
-        const totalsChanged =
-          reconciled.create !== appliedTotals.create ||
-          reconciled.error !== appliedTotals.error;
-        if (totalsChanged) {
-          appliedTotals = reconciled;
-          await this.prisma.importJob.update({
-            where: { id: job.id },
-            data: { totals_json: reconciled },
-          });
-        }
-        await this.audit.writeImportJobAudit(
-          this.prisma,
-          tenantId,
-          actorUserId,
-          job.id,
-          'applied',
-          appliedTotals,
-        );
-        const appliedJob = totalsChanged
-          ? await this.prisma.importJob.findFirst({ where: { id: job.id } })
-          : refreshed;
-        return this.serialize(appliedJob!, appliedTotals);
       }
       // Row commits already persist totals_json; do not overwrite with batch-local totals.
       return this.serialize(refreshed!, appliedTotals);
