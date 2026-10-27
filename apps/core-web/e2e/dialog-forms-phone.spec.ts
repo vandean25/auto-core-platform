@@ -5,6 +5,7 @@ import { DE_VEHICLES } from './helpers/de-vehicles';
 import { DE_WORKSHOP } from './helpers/de-workshop';
 import { createMockBay, createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories';
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' };
+import { DE_INVENTORY } from './helpers/de-inventory';
 
 /**
  * AUT-738: create/edit forms are full-screen on a phone (single column, sticky footer with the primary action,
@@ -36,6 +37,30 @@ async function expectFullScreenForm(page: Page, primary: string | RegExp) {
   const buttonBox = await button.boundingBox();
   expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
   expect(buttonBox!.y + buttonBox!.height).toBeLessThanOrEqual(PHONE.height);
+
+  // Footer buttons stacked on top of each other do not touch.
+  const boxes = await Promise.all((await button.locator('xpath=..').getByRole('button').all()).map((item) => item.boundingBox()));
+  const stacked = boxes.filter((box): box is NonNullable<typeof box> => box !== null).sort((first, second) => first.y - second.y);
+  for (let index = 1; index < stacked.length; index += 1) {
+    const previous = stacked[index - 1];
+    if (stacked[index].x !== previous.x) continue;
+    expect(stacked[index].y - (previous.y + previous.height)).toBeGreaterThanOrEqual(4);
+  }
+}
+
+async function expectCloseClearOfTitle(page: Page) {
+  const dialog = page.getByRole('dialog');
+  const title = dialog.getByRole('heading').first();
+  const close = (await dialog.getByRole('button', { name: /schließen/i }).first().boundingBox())!;
+  expect(close.width).toBeGreaterThanOrEqual(44);
+  expect(close.x + close.width).toBeLessThanOrEqual(PHONE.width);
+  // The title keeps its own room: its content box (without padding) ends before the close button starts, so even a
+  // long title wraps instead of running under the button.
+  const contentRight = await title.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return node.getBoundingClientRect().right - parseFloat(style.paddingRight);
+  });
+  expect(contentRight).toBeLessThanOrEqual(close.x);
 }
 
 async function mockList(page: Page, path: string) {
@@ -83,6 +108,51 @@ test.describe('Dialog forms on a phone (AUT-738)', () => {
 
     await expectFullScreenForm(page, deWorkshop.quickRegister.register);
     await testInfo.attach('quick-register-375x812', { body: await page.screenshot(), contentType: 'image/png' });
+  });
+
+  test('work order intake dialog: full screen, whole tab bar, close button clear of the title', async ({ page }, testInfo) => {
+    await mockList(page, '/api/workshop/orders');
+    await new AutoCorePage(page, deWorkshop.orders.list.newOrder).navigate('/workshop/orders');
+    await page.getByRole('button', { name: deWorkshop.orders.list.newOrder, exact: true }).click();
+
+    await expectFullScreenForm(page, deWorkshop.orderIntake.createOrder);
+    const dialog = page.getByRole('dialog');
+    for (const label of [deWorkshop.orderIntake.tabExisting, deWorkshop.orderIntake.tabNewVehicle, deWorkshop.orderIntake.tabRegistration]) {
+      const tab = dialog.getByRole('tab', { name: label });
+      await expect(tab).toBeVisible();
+      const box = (await tab.boundingBox())!;
+      expect(box.height, `${label} tab height`).toBeGreaterThanOrEqual(44);
+      expect(box.x, `${label} tab left edge`).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, `${label} tab right edge`).toBeLessThanOrEqual(PHONE.width);
+      expect(await tab.evaluate((node) => node.scrollWidth - node.clientWidth), `${label} tab text clipped`).toBeLessThanOrEqual(0);
+    }
+    await expectCloseClearOfTitle(page);
+    await testInfo.attach('work-order-dialog-375x812', { body: await page.screenshot(), contentType: 'image/png' });
+  });
+
+  test('stock transfer dialog: full screen', async ({ page }, testInfo) => {
+    const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    const site = { id: 'site-1', code: 'WIE', name: 'Wien', legalEntityId: 'entity-1', legalEntityName: 'Demo GmbH' };
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) => route.fulfill(json([site])));
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sites'), (route) => route.fulfill(json([site])));
+    await page.route(AutoCorePage.apiRouteMatcher('/api/stock-transfers'), (route) => route.fulfill(json([])));
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), (route) => route.fulfill(json([])));
+    const corePage = new AutoCorePage(page, DE_INVENTORY.stockTransfers.list.newTransfer);
+    await corePage.navigate('/stock-transfers');
+    await corePage.createButton.click();
+
+    await expectFullScreenForm(page, DE_INVENTORY.actions.submitRequest);
+    await expectCloseClearOfTitle(page);
+    await testInfo.attach('stock-transfer-dialog-375x812', { body: await page.screenshot(), contentType: 'image/png' });
+  });
+
+  test('customer dialog: close button clear of the title', async ({ page }) => {
+    await mockList(page, '/api/customers');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
+    await corePage.navigate('/customers');
+    await corePage.createButton.click();
+
+    await expectCloseClearOfTitle(page);
   });
 
   test('planner create sheet', async ({ page }, testInfo) => {
