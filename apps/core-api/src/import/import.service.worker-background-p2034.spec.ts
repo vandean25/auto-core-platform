@@ -3,7 +3,6 @@ import { jest } from '@jest/globals';
 import { ImportJobStatus, Prisma } from '@prisma/client';
 import { IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS } from './import-worker-handoff.constants.js';
 import { ImportJobStore } from './import-job.store.js';
-import { importWorkerRetryDelaySeconds } from './import-worker-retry.js';
 import { setupImportHarness } from './import.service.spec.support.js';
 
 function p2034(): Prisma.PrismaClientKnownRequestError {
@@ -92,7 +91,9 @@ describe('Import worker background P2034 handling', () => {
         delaySeconds?: number;
       }
     )?.delaySeconds;
-    expect(delaySeconds).toBe(importWorkerRetryDelaySeconds(attempts));
+    const baseDelay = Math.min(60, 2 ** attempts);
+    expect(delaySeconds).toBeGreaterThanOrEqual(baseDelay);
+    expect(delaySeconds).toBeLessThanOrEqual(baseDelay + 2);
     const job = await jobStore.findJob('tenant-1', 'job-1');
     expect(job?.status).toBe(ImportJobStatus.APPLYING);
   });

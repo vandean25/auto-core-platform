@@ -182,6 +182,9 @@ function createSequencePrisma(
           const rowNo =
             args.where.row_no ??
             args.where.tenant_id_import_job_id_row_no?.row_no;
+          if (rowNo === undefined) {
+            throw new Error('importJobRow.update mock missing row_no');
+          }
           rowUpdates.push({ row_no: rowNo, data: args.data });
         },
       ),
@@ -248,6 +251,9 @@ function createSequencePrisma(
           const rowNo =
             args.where.row_no ??
             args.where.tenant_id_import_job_id_row_no?.row_no;
+          if (rowNo === undefined) {
+            throw new Error('importJobRow.update mock missing row_no');
+          }
           rowUpdates.push({ row_no: rowNo, data: args.data });
         },
       ),
@@ -314,6 +320,9 @@ function createSyncPrisma(
           const rowNo =
             args.where.row_no ??
             args.where.tenant_id_import_job_id_row_no?.row_no;
+          if (rowNo === undefined) {
+            throw new Error('importJobRow.update mock missing row_no');
+          }
           rowUpdates.push({ row_no: rowNo, data: args.data });
         },
       ),
