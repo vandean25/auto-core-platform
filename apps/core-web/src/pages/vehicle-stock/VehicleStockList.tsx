@@ -16,6 +16,7 @@ import {
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 function stockRowPath(row: VehicleStockRow) {
   return row.draft_purchase_id
@@ -122,12 +123,12 @@ export default function VehicleStockList() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('stockList.title')}</h1>
           <p className="text-slate-500">{t('stockList.description')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => navigate('/vehicle-stock/reports')}>
             {t('stockList.reports')}
           </Button>

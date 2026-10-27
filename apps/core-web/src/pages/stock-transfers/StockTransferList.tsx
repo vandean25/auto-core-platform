@@ -12,6 +12,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { formatDate } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { StockTransferCreateDialog } from './StockTransferCreateDialog'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 export default function StockTransferList() {
   const { t } = useTranslation('inventory')
@@ -117,8 +118,8 @@ export default function StockTransferList() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('stockTransfers.list.title')}</h1>
           <p className="text-slate-500">{t('stockTransfers.list.description')}</p>
         </div>

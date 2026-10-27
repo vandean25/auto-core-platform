@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 export default function PurchaseOrderList() {
     const { t } = useTranslation('finance')
@@ -75,8 +76,8 @@ export default function PurchaseOrderList() {
 
     return (
         <>
-            <div className="flex items-center justify-between mb-8">
-                <div>
+            <div className={PAGE_HEADER_ROW}>
+                <div className="min-w-0 max-sm:w-full">
                     <h1 className="text-2xl font-semibold tracking-tight">{t('purchaseOrders.list.title')}</h1>
                     <p className="text-slate-500">{t('purchaseOrders.list.subtitle')}</p>
                 </div>
