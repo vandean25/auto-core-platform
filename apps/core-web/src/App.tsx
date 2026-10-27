@@ -22,6 +22,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/s
 import { useAuth } from '@/auth/AuthProvider'
 import { isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
 import { AdminPhoneNav } from '@/components/navigation/AdminPhoneNav'
+import { IosInstallHint } from '@/components/pwa/IosInstallHint'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { useSidebarOpen } from '@/components/navigation/sidebar-state'
 import { GlobalSearch } from '@/components/GlobalSearch'
@@ -166,6 +167,7 @@ function AppShell({
 
               <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
               <EntityActionConfirmHost />
+              <IosInstallHint />
               <GlobalShortcutLayer />
               <AppMain />
               <AdminPhoneNav platformRole={platformRole} activeRole={activeRole} onOpenSearch={() => setSearchOpen(true)} />

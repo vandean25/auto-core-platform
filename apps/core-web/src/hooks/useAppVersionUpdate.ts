@@ -6,6 +6,7 @@ import {
   normalizeAppVersion,
   type VersionJsonPayload,
 } from '@/lib/app-version'
+import { updateServiceWorker } from '@/pwa/register-service-worker'
 
 const bundledAppVersion = normalizeAppVersion(import.meta.env.VITE_APP_VERSION)
 
@@ -16,6 +17,9 @@ export function useAppVersionUpdate() {
     if (!isAppVersionCheckEnabled(bundledAppVersion)) {
       return
     }
+
+    // A new release also means a new worker file: look for it together with the version check.
+    void updateServiceWorker()
 
     try {
       const response = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store' })
