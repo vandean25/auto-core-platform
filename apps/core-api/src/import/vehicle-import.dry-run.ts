@@ -1,7 +1,7 @@
 import { normalizePlate } from '../vehicle/vehicle-plate.util.js';
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
+import type { ParsedCsv } from './csv-parse.util.js';
 import { pickVehicleImportAuditSnapshot } from './vehicle-import-audit.snapshot.js';
 import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';

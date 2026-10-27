@@ -1,6 +1,6 @@
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
+import type { ParsedCsv } from './csv-parse.util.js';
 import {
   customerNameKey,
   normalizeCustomerRow,
