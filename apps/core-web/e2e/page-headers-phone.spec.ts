@@ -34,6 +34,8 @@ const PAGES = [
   ['Bestellungen', '/purchase-orders'],
   ['Lagerartikel', '/inventory'],
   ['Lieferanten', '/vendors'],
+  ['Annahme', '/workshop/intake'],
+  ['Kommissionierliste', '/workshop/pick-list'],
 ] as const
 
 test.describe('Page headers on a phone (AUT-751)', () => {

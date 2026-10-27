@@ -379,7 +379,7 @@ export default function LoanerVehiclesPage() {
                     <span className='absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-white bg-sky-500 ring-1 ring-sky-200' />
                     <div className='flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-start sm:justify-between'>
                       <div className='space-y-1'>
-                        <div className='flex items-center gap-2 max-sm:flex-wrap'>
+                        <div className='flex flex-wrap items-center gap-2'>
                           <StatusBadge status={booking.status} />
                           <span className='text-sm text-muted-foreground'>
                             {formatDateTime(booking.plannedFrom)} –{' '}
