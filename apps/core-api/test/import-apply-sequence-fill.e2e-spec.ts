@@ -12,7 +12,6 @@ import { orderVehiclePartyApplyRows } from '../src/import/vehicle-party-import.a
 import { toImportApplyRow } from '../src/import/import-job.store.js';
 import { IMPORT_RECONCILE_GROUP_MAX_ROWS } from '../src/import/import-dry-run-group-limit.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from '../src/import/import-worker-handoff.constants.js';
-import { runBackgroundDryRunReconcileChunk } from '../src/import/import-background-dry-run.reconcile.js';
 import * as planUnitModule from '../src/import/import-dry-run-reconcile.plan-unit.js';
 import type { DryRunRowResult } from '../src/import/import.types.js';
 import {
@@ -410,11 +409,14 @@ describe('import apply_seq fill (e2e)', () => {
     const chunkStartMs = 5_000_000;
     const nowMs = () => {
       clockReads += 1;
-      if (clockReads <= 4) {
+      if (clockReads <= 2) {
         return chunkStartMs;
       }
       return chunkStartMs + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
     };
+    const { runBackgroundDryRunReconcileChunk } = await import(
+      '../src/import/import-background-dry-run.reconcile.js'
+    );
     const completeDryRun = jest.fn(async () => {});
     const flow = {
       enqueueImportWorkerContinuation: jest.fn(async () => {}),
