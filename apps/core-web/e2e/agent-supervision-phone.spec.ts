@@ -44,7 +44,7 @@ const auditEntry = {
   entityType: 'SalesOrder',
   entityId: 'so-123',
   action: 'UPDATE',
-  actorEmail: 'supervisor@example.com',
+  actorEmail: 'supervisor.with.a.very.long.mailbox.name@subdomain.example-workshop-group.test',
   actorType: 'USER',
   occurredAt: '2026-10-04T12:05:01.000Z',
 }
