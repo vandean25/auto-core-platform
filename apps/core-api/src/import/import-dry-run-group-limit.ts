@@ -102,16 +102,15 @@ function trackVehicleExternalGroup(
   }
 }
 
-const PARSED_ROW_TRACKERS: Partial<
-  Record<ImportEntityType, ParsedRowTracker>
-> = {
-  [ImportEntityType.CUSTOMER]: trackCustomerEmailGroup,
-  [ImportEntityType.VEHICLE]: trackVehicleVinGroup,
-  [ImportEntityType.LABOR_OPERATION]: trackLaborCodeGroup,
-  [ImportEntityType.SUPPLIER_PRICE_LIST]: trackSupplierArticleGroup,
-  [ImportEntityType.VEHICLE_PARTY]: trackVehicleExternalGroup,
-  [ImportEntityType.VEHICLE_DUE_DATE]: trackVehicleExternalGroup,
-};
+const PARSED_ROW_TRACKERS: Partial<Record<ImportEntityType, ParsedRowTracker>> =
+  {
+    [ImportEntityType.CUSTOMER]: trackCustomerEmailGroup,
+    [ImportEntityType.VEHICLE]: trackVehicleVinGroup,
+    [ImportEntityType.LABOR_OPERATION]: trackLaborCodeGroup,
+    [ImportEntityType.SUPPLIER_PRICE_LIST]: trackSupplierArticleGroup,
+    [ImportEntityType.VEHICLE_PARTY]: trackVehicleExternalGroup,
+    [ImportEntityType.VEHICLE_DUE_DATE]: trackVehicleExternalGroup,
+  };
 
 function trackParsedCsvRowEntity(
   groups: Map<string, number[]>,
