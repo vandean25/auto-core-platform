@@ -800,7 +800,12 @@ describe('ImportService customer import (characterization)', () => {
     });
 
     it('fails the job with the totals so far when recording a row error itself fails', async () => {
-      h.prisma.customer.create.mockRejectedValue(new Error('boom'));
+      h.prisma.customer.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
       arrangeApply(
         h,
         importJobRecord({ entity_type: ImportEntityType.CUSTOMER }),
