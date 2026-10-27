@@ -147,8 +147,7 @@ export class RowByRowApplyRunner {
     >,
   ): Promise<SerializedImportJob> {
     const { tenantId, job, actorUserId } = input;
-    const appliedTotals =
-      (refreshed.totals_json as ImportJobTotals) ?? totals;
+    const appliedTotals = (refreshed.totals_json as ImportJobTotals) ?? totals;
     await this.audit.writeImportJobAudit(
       this.prisma,
       tenantId,
