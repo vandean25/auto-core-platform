@@ -98,12 +98,12 @@ describe('import apply final totals (e2e)', () => {
           actorUserId: actor.id,
           rows,
         }),
-      { userId: actor.id },
+      { userId: tenant.firebaseUid, email: tenant.email, role: 'ADMIN' },
     );
     await runWithTenantContext(
       tenant.tenantId,
       async () => importService.applyJob(job.id),
-      { userId: actor.id, role: 'ADMIN' },
+      { userId: tenant.firebaseUid, email: tenant.email, role: 'ADMIN' },
     );
     const applied = await tenantPrisma.importJob.findFirst({
       where: { id: job.id },

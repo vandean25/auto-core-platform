@@ -1,7 +1,7 @@
 import { ImportRowAction } from '@prisma/client';
 import { jest } from '@jest/globals';
 
-export function groupByCountsFromRowActions(
+function groupByCountsFromRowActions(
   rows: Array<{ action: ImportRowAction }>,
 ): Array<{ action: ImportRowAction; _count: { _all: number } }> {
   const counts = new Map<ImportRowAction, number>();
