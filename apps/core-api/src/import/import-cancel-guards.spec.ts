@@ -29,7 +29,10 @@ describe('ImportJobStore cancel and worker guards', () => {
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ status: ImportJobStatus.APPLYING }),
-        data: { status: ImportJobStatus.CANCELLED },
+        data: expect.objectContaining({
+          status: ImportJobStatus.CANCELLED,
+          cancelled_at: expect.any(Date),
+        }),
       }),
     );
   });

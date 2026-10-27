@@ -8,8 +8,9 @@ import { ImportCloudTasksService } from '../src/import/import-cloud-tasks.servic
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import { ImportService } from '../src/import/import.service.js';
 import { ImportRecoveryService } from '../src/import/import-recovery.service.js';
-import { ImportUploadRetentionService } from '../src/import/import-upload-retention.service.js';
 import { readUploadRef } from '../src/import/import-job.worker-state.js';
+import { RequestContextService } from '../src/common/services/request-context.service.js';
+import { ImportUploadRetentionService } from '../src/import/import-upload-retention.service.js';
 import { Prisma } from '@prisma/client';
 import { signImportTaskPayload } from '../src/import/import-task.payload.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -486,9 +487,14 @@ describe('Import background worker (e2e)', () => {
         failed_at: eightDaysAgo,
       },
     });
-    await app
-      .get(ImportUploadRetentionService)
-      .purgeForTenant(tenant.tenantId, new Date());
+    await app.get(RequestContextService).runAsWorker(
+      tenant.tenantId,
+      () =>
+        app
+          .get(ImportUploadRetentionService)
+          .purgeForTenant(tenant.tenantId, new Date()),
+      { workerId: 'import-upload-retention-e2e' },
+    );
     const refreshed = await tenantPrisma().importJob.findFirst({
       where: { id: jobId },
     });
