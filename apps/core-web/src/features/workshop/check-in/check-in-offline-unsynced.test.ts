@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { CHECK_IN_OFFLINE_DB_NAME } from './check-in-offline-constants'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CHECK_IN_OFFLINE_DB_NAME, CHECK_IN_OFFLINE_DRAFT_TTL_MS } from './check-in-offline-constants'
 import {
   hasUnsyncedCheckInOfflineData,
   summarizeCheckInOfflineUnsynced,
@@ -85,5 +85,17 @@ describe('check-in-offline-unsynced', () => {
 
     expect(summary.mechanicNoteDraftCount).toBe(1)
     expect(hasUnsyncedCheckInOfflineData(summary)).toBe(true)
+  })
+
+  it('does not warn about mechanic notes that are older than the draft time to live', async () => {
+    await saveMechanicNoteDraft('user-1/tenant-1/site-1/task/task-1', 'Forgotten', 'server notes')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.now() + CHECK_IN_OFFLINE_DRAFT_TTL_MS + 1000)
+
+    const summary = await summarizeCheckInOfflineUnsynced()
+    vi.useRealTimers()
+
+    expect(summary.mechanicNoteDraftCount).toBe(0)
+    expect(hasUnsyncedCheckInOfflineData(summary)).toBe(false)
   })
 })

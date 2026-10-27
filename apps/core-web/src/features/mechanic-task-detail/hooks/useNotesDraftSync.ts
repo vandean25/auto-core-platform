@@ -5,11 +5,13 @@ import type { MechanicNotesDraft } from './useMechanicNotesDraft'
 export function useNotesDraftSync(draft: MechanicNotesDraft, notesValueRef: MutableRefObject<string>) {
   const serverNotesRef = useRef('')
 
-  // A newer edit keeps its own draft until it is saved too.
+  // A newer edit keeps its own draft, now typed on top of the value that just reached the server.
   const markSaved = useCallback(
     (value: string) => {
       serverNotesRef.current = value
-      if (value === notesValueRef.current) draft.clear()
+      const current = notesValueRef.current
+      if (value === current) draft.clear()
+      else draft.save(current, value)
     },
     [draft, notesValueRef],
   )

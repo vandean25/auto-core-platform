@@ -376,6 +376,8 @@ export async function deleteMechanicNoteDraft(scopeKey: string): Promise<void> {
   await withStore(MECHANIC_NOTE_DRAFT_STORE, 'readwrite', (store) => store.delete(scopeKey))
 }
 
+/** Drafts that can still be restored: rows older than the check-in draft TTL do not count. */
 export async function countMechanicNoteDrafts(): Promise<number> {
-  return withStore<number>(MECHANIC_NOTE_DRAFT_STORE, 'readonly', (store) => store.count())
+  const rows = await withStore<MechanicNoteDraftRecord[]>(MECHANIC_NOTE_DRAFT_STORE, 'readonly', (store) => store.getAll())
+  return rows.filter((row) => Date.now() - row.lastLocalSavedAt <= CHECK_IN_OFFLINE_DRAFT_TTL_MS).length
 }

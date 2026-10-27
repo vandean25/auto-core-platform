@@ -122,4 +122,35 @@ describe('mechanic notes draft (reload and offline)', () => {
     expect(result.current.notesValue).toBe('Server')
     expect(mutateAsync).not.toHaveBeenCalled()
   })
+
+  it('keeps a newer edit when an earlier save finishes late and the newer save then fails', async () => {
+    let resolveFirst: () => void = () => undefined
+    const mutateAsync = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (resolveFirst = resolve)))
+      .mockRejectedValue(new Error('offline'))
+    asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({ mutateAsync })
+    const first = renderNotes('N0')
+
+    await act(async () => {
+      first.result.current.handleNotesChange('A')
+    })
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1), { timeout: 3000 })
+    // B is typed while A is still on its way to the server.
+    await act(async () => {
+      first.result.current.handleNotesChange('A and B')
+    })
+    await act(async () => {
+      resolveFirst()
+    })
+    await waitFor(() => expect(first.result.current.saveState).toBe('error'), { timeout: 3000 })
+    first.unmount()
+
+    // Reload: the server has A, the unsynced B is still restored.
+    const mutateAsyncAfter = vi.fn().mockResolvedValue({ taskId: TASK_ID })
+    asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({ mutateAsync: mutateAsyncAfter })
+    const second = renderNotes('A')
+
+    await waitFor(() => expect(second.result.current.notesValue).toBe('A and B'))
+  })
 })
