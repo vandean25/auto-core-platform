@@ -22,7 +22,6 @@ export function MechanicQueuePunch({
     <AttendancePunchBar
       state={clockResponse.state}
       pending={isPunchPending}
-      size="compact"
       touchFriendly
       onPunch={onPunch}
     />

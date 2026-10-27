@@ -9,6 +9,7 @@ import * as hrApi from '@/api/hr'
 import { toast } from 'sonner'
 import MechanicQueuePage from './MechanicQueuePage'
 import { changeUiLanguage } from '@/lib/i18n'
+import { findSmallTouchTargets } from '@/test/touch-targets'
 
 vi.mock('@/api/mechanic')
 vi.mock('@/api/hr')
@@ -284,8 +285,9 @@ describe('MechanicQueuePage', () => {
         }),
       )
 
-      renderQueuePage()
+      const { container } = renderQueuePage()
 
+      expect(findSmallTouchTargets(container)).toEqual([])
       expect(screen.getByLabelText('Refresh queue')).toHaveClass('min-h-11')
       expect(screen.getByPlaceholderText('Search tasks, plates, WO…')).toHaveClass('min-h-11')
       expect(screen.getByRole('link', { name: /Oil Change/ })).toHaveClass('min-h-11')

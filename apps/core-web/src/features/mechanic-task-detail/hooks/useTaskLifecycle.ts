@@ -10,6 +10,8 @@ export type UseTaskLifecycleOptions = {
   taskId: string
   refetch: () => Promise<unknown>
   cancelPendingSave: () => void
+  /** Called once the server has confirmed the completion (the unsynced notes draft is of no use anymore). */
+  onCompleted?: () => void
 }
 
 export interface ExecuteTaskStartParams {
@@ -184,7 +186,7 @@ export async function executeTaskSwitch({
   }
 }
 
-export function useTaskLifecycle({ taskId, refetch, cancelPendingSave }: UseTaskLifecycleOptions) {
+export function useTaskLifecycle({ taskId, refetch, cancelPendingSave, onCompleted }: UseTaskLifecycleOptions) {
   const navigate = useNavigate()
   const startTask = useStartTask()
   const switchTask = useSwitchTask()
@@ -230,7 +232,10 @@ export function useTaskLifecycle({ taskId, refetch, cancelPendingSave }: UseTask
       taskId,
       completeTask,
       cancelPendingSave,
-      onSuccess: () => navigate('/mechanic/queue'),
+      onSuccess: () => {
+        onCompleted?.()
+        navigate('/mechanic/queue')
+      },
     })
   }
 

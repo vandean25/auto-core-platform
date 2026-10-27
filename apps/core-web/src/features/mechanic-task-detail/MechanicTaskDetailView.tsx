@@ -15,6 +15,7 @@ import { SwitchTaskDialog } from "./components/SwitchTaskDialog";
 import { TaskHeader } from "./components/TaskHeader";
 import { VehicleInfoCard } from "./components/VehicleInfoCard";
 import { useDiagnosticsAutosave } from "./hooks/useDiagnosticsAutosave";
+import { useMechanicNotesDraft } from "./hooks/useMechanicNotesDraft";
 import { useMediaUpload } from "./hooks/useMediaUpload";
 import { useRequestPartForm } from "./hooks/useRequestPartForm";
 import { useTaskLifecycle } from "./hooks/useTaskLifecycle";
@@ -38,9 +39,12 @@ export function MechanicTaskDetailView({
     taskStatus: task.taskStatus,
     hasOpenLaborEntry: task.hasOpenLaborEntry,
   });
+  // A finished task is read-only: no restoring of old text into it.
+  const notesDraft = useMechanicNotesDraft(task.taskId, !capabilities.isDone);
   const diagnostics = useDiagnosticsAutosave({
     taskId: task.taskId,
     initialNotes: task.mechanicNotes,
+    draft: notesDraft,
   });
   const voiceNote = useVoiceNote({
     taskId: task.taskId,
@@ -52,6 +56,7 @@ export function MechanicTaskDetailView({
     taskId: task.taskId,
     refetch,
     cancelPendingSave: diagnostics.cancelPendingSave,
+    onCompleted: notesDraft.clear,
   });
   const partRequest = useRequestPartForm(task.taskId);
   const submitFinding = useSubmitMechanicFinding({
@@ -69,7 +74,7 @@ export function MechanicTaskDetailView({
   );
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-6 space-y-6">
+    <div className="w-full max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
       <TaskHeader
         task={task}
         isDone={capabilities.isDone}
@@ -136,9 +141,14 @@ export function MechanicTaskDetailView({
         <MediaSection
           uploadState={mediaUpload.uploadState}
           fileInputRef={mediaUpload.fileInputRef}
+          photoInputRef={mediaUpload.photoInputRef}
           onPickFile={() => {
             mediaUpload.setUploadState("idle");
             mediaUpload.fileInputRef.current?.click();
+          }}
+          onPickPhoto={() => {
+            mediaUpload.setUploadState("idle");
+            mediaUpload.photoInputRef.current?.click();
           }}
           onFileSelected={(file) => void mediaUpload.handleFileSelected(file)}
         />

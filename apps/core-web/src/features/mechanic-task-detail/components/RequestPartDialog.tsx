@@ -68,10 +68,10 @@ export function RequestPartDialog({
           </div>
           {partFormError && <p className="text-sm text-red-500">{partFormError}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
               {t('actions.cancel')}
             </Button>
-            <Button onClick={onSubmit} disabled={pending}>
+            <Button className="min-h-11" onClick={onSubmit} disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               {t('mechanic.taskDetail.requestPart.submit')}
             </Button>

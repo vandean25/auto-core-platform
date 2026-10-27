@@ -24,7 +24,7 @@ export function TaskHeaderActions({ state, handlers }: TaskHeaderActionsProps) {
   const { onStart, onOpenSwitch, onOpenPause, onComplete } = handlers
 
   return (
-    <div className="flex shrink-0 items-center gap-2 flex-wrap justify-end sm:flex-nowrap">
+    <div className="flex shrink-0 items-center gap-2 flex-wrap justify-start sm:justify-end sm:flex-nowrap">
       {canStart ? (
         <Button
           onClick={onStart}

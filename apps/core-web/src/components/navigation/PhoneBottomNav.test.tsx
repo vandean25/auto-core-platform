@@ -130,8 +130,8 @@ describe('mechanic phone bottom navigation', () => {
     mockMechanicApis([queueItem('t1', 'NOT_STARTED')])
     renderMechanic()
 
-    expect(barLabels()).toEqual(['Meine Aufgaben', 'Stempeln', 'Befund erfassen', 'Suche'])
-    expect(screen.getByRole('link', { name: 'Meine Aufgaben' })).toHaveAttribute('href', '/mechanic/queue')
+    expect(barLabels()).toEqual(['Aufgaben', 'Stempeln', 'Befund erfassen', 'Suche'])
+    expect(screen.getByRole('link', { name: 'Aufgaben' })).toHaveAttribute('href', '/mechanic/queue')
   })
 
   it('opens the existing search palette from Search', () => {

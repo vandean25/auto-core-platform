@@ -17,6 +17,7 @@ export function useMediaUpload(taskId: string) {
   const [uploadState, setUploadState] = useState<UploadState>('idle')
   const [uploadedMediaIds, setUploadedMediaIds] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const uploadDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export function useMediaUpload(taskId: string) {
     uploadState,
     setUploadState,
     fileInputRef,
+    photoInputRef,
     handleFileSelected,
     uploadedMediaIds,
   }

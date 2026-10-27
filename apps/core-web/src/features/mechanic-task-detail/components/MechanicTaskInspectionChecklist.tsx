@@ -44,6 +44,7 @@ export function MechanicTaskInspectionChecklist({
     <WorkshopTaskInspectionChecklistView
       checklist={checklistQuery.data}
       readOnly={readOnly}
+      touchFriendly
       saving={updateChecklist.isPending}
       onSave={saveItem}
     />

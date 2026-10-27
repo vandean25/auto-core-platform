@@ -67,7 +67,7 @@ export function DiagnosticsSection({
           onChange={(event) => onNotesChange(event.target.value)}
           placeholder={t('mechanic.taskDetail.diagnostics.placeholder')}
           rows={5}
-          className="w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-base md:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
+          className="min-h-11 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-base md:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
           disabled={disabled}
         />
         {onSubmitFinding && (

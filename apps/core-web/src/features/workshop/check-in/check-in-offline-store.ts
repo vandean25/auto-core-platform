@@ -12,6 +12,7 @@ import {
 const DRAFT_STORE = 'drafts'
 const PHOTO_STORE = 'photoQueue'
 const PENDING_CREATE_STORE = 'pendingCreates'
+const MECHANIC_NOTE_DRAFT_STORE = 'mechanicNoteDrafts'
 
 export type CheckInPendingCreateRecord = {
   orderScopeKey: string
@@ -32,6 +33,15 @@ export type CheckInOfflineDraftRecord = {
   pendingServerSync: boolean
   lastLocalSavedAt: number
   pendingCreate: boolean
+}
+
+/** Unsynced mechanic notes of one task, kept in the same offline database as the check-in drafts. */
+export type MechanicNoteDraftRecord = {
+  scopeKey: string
+  text: string
+  /** The server notes the draft was typed on top of; the draft is only restored while the server still has them. */
+  baseNotes: string
+  lastLocalSavedAt: number
 }
 
 export type CheckInQueuedPhotoStatus = 'queued' | 'uploading' | 'failed'
@@ -73,6 +83,9 @@ function openCheckInOfflineDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(PENDING_CREATE_STORE)) {
         db.createObjectStore(PENDING_CREATE_STORE, { keyPath: 'orderScopeKey' })
+      }
+      if (!db.objectStoreNames.contains(MECHANIC_NOTE_DRAFT_STORE)) {
+        db.createObjectStore(MECHANIC_NOTE_DRAFT_STORE, { keyPath: 'scopeKey' })
       }
     }
     request.onsuccess = () => resolve(request.result)
@@ -307,6 +320,7 @@ export async function purgeAllCheckInOfflineData(): Promise<void> {
   await clearObjectStore(DRAFT_STORE)
   await clearObjectStore(PHOTO_STORE)
   await clearObjectStore(PENDING_CREATE_STORE)
+  await clearObjectStore(MECHANIC_NOTE_DRAFT_STORE)
 }
 
 export async function listAllCheckInOfflineDrafts(): Promise<
@@ -327,4 +341,43 @@ export async function listAllPendingCheckInCreates(): Promise<
     (store) => store.getAll(),
   )
   return rows ?? []
+}
+
+export function buildMechanicNoteDraftKey(input: {
+  userId: string
+  tenantId: string
+  siteId: string
+  taskId: string
+}): string {
+  return [input.userId, input.tenantId, input.siteId, 'task', input.taskId].join('/')
+}
+
+export async function saveMechanicNoteDraft(scopeKey: string, text: string, baseNotes: string): Promise<void> {
+  const row: MechanicNoteDraftRecord = { scopeKey, text, baseNotes, lastLocalSavedAt: Date.now() }
+  await withStore(MECHANIC_NOTE_DRAFT_STORE, 'readwrite', (store) => store.put(row))
+}
+
+/** The draft, or null when there is none or it is older than the check-in draft TTL (an expired one is dropped). */
+export async function loadMechanicNoteDraft(scopeKey: string): Promise<MechanicNoteDraftRecord | null> {
+  const row = await withStore<MechanicNoteDraftRecord | undefined>(
+    MECHANIC_NOTE_DRAFT_STORE,
+    'readonly',
+    (store) => store.get(scopeKey),
+  )
+  if (!row) return null
+  if (Date.now() - row.lastLocalSavedAt > CHECK_IN_OFFLINE_DRAFT_TTL_MS) {
+    await deleteMechanicNoteDraft(scopeKey)
+    return null
+  }
+  return row
+}
+
+export async function deleteMechanicNoteDraft(scopeKey: string): Promise<void> {
+  await withStore(MECHANIC_NOTE_DRAFT_STORE, 'readwrite', (store) => store.delete(scopeKey))
+}
+
+/** Drafts that can still be restored: rows older than the check-in draft TTL do not count. */
+export async function countMechanicNoteDrafts(): Promise<number> {
+  const rows = await withStore<MechanicNoteDraftRecord[]>(MECHANIC_NOTE_DRAFT_STORE, 'readonly', (store) => store.getAll())
+  return rows.filter((row) => Date.now() - row.lastLocalSavedAt <= CHECK_IN_OFFLINE_DRAFT_TTL_MS).length
 }

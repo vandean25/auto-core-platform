@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor, act, within } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { formatOdometerKm } from '@/lib/format'
 import MechanicTaskDetailPage from './MechanicTaskDetailPage'
 import { changeUiLanguage } from '@/lib/i18n'
+import { findSmallTouchTargets } from '@/test/touch-targets'
 
 vi.mock('@/api/mechanic')
 vi.mock('sonner', () => ({
@@ -1039,6 +1040,113 @@ describe('MechanicTaskDetailPage', () => {
       // No price
       expect(screen.queryByText(/€/)).not.toBeInTheDocument()
       expect(screen.queryByText(/price/i)).not.toBeInTheDocument()
+    })
+  })
+
+  // ─── Phone: 44px tap targets ─────────────────────────────────────────────────
+
+  describe('44px touch targets', () => {
+    const partLine = {
+      id: 'line-1',
+      type: 'PART' as const,
+      description: 'Oil Filter',
+      qty: 2,
+      partExecutionStatus: 'PENDING_PICK' as const,
+    }
+
+    it.each([
+      ['NOT_STARTED', { taskStatus: 'NOT_STARTED' as const }],
+      ['IN_PROGRESS with an open labor entry', { taskStatus: 'IN_PROGRESS' as const, hasOpenLaborEntry: true }],
+      ['DONE', { taskStatus: 'DONE' as const }],
+    ])('has no small controls on a %s task', (_label, overrides) => {
+      setupDefaultMocks(makeTask({ ...overrides, lineItems: [partLine] }))
+
+      const { container } = renderDetailPage()
+
+      expect(findSmallTouchTargets(container)).toEqual([])
+    })
+
+    it('has no small controls on the Pickerl inspection checklist', () => {
+      setupDefaultMocks(makeTask({ taskTitle: '§57a Begutachtung', taskStatus: 'IN_PROGRESS', hasOpenLaborEntry: true }))
+      asMock(mechanicApi.useMechanicTaskChecklist).mockReturnValue({
+        isLoading: false,
+        isError: false,
+        data: {
+          id: 'checklist-1',
+          title: 'Pickerl',
+          items: [{ id: 'item-1', label_snapshot: 'Brakes', passed: null, notes: null }],
+        },
+      })
+      asMock(mechanicApi.useUpdateMechanicTaskChecklist).mockReturnValue(createMutationMock())
+
+      const { container } = renderDetailPage()
+
+      expect(screen.getByText('Brakes')).toBeInTheDocument()
+      expect(findSmallTouchTargets(container)).toEqual([])
+    })
+
+    it('has no small controls in the pause, switch and request part dialogs', () => {
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', hasOpenLaborEntry: true, lineItems: [partLine] }))
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /^Pause$/i }))
+      expect(findSmallTouchTargets(screen.getByRole('alertdialog'))).toEqual([])
+      fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }))
+
+      fireEvent.click(screen.getByRole('button', { name: /Request part/i }))
+      expect(findSmallTouchTargets(screen.getByRole('dialog'))).toEqual([])
+    })
+
+    it('has no small controls in the switch dialog', () => {
+      setupDefaultMocks(makeTask({ taskStatus: 'NOT_STARTED' }))
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /Switch Here/i }))
+      expect(findSmallTouchTargets(screen.getByRole('alertdialog'))).toEqual([])
+    })
+  })
+
+  // ─── Photo finding (rear camera) ─────────────────────────────────────────────
+
+  describe('photo finding', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('uploads a captured photo through the existing upload flow', async () => {
+      const createPolicy = vi.fn().mockResolvedValue({
+        uploadUrl: 'https://storage.example.invalid/upload',
+        formFields: { key: 'value' },
+        storageKey: 'media/key',
+        storageBucket: 'bucket',
+      })
+      const saveMeta = vi.fn().mockResolvedValue({ id: 'media-1' })
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', hasOpenLaborEntry: true }))
+      asMock(mechanicApi.useCreateMediaUploadPolicy).mockReturnValue(createMutationMock({ mutateAsync: createPolicy }))
+      asMock(mechanicApi.useSaveMediaMetadata).mockReturnValue(createMutationMock({ mutateAsync: saveMeta }))
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { container } = renderDetailPage()
+      const photo = new File(['jpeg'], 'finding.jpg', { type: 'image/jpeg' })
+      fireEvent.change(container.querySelector('input[capture="environment"]') as HTMLInputElement, {
+        target: { files: [photo] },
+      })
+
+      await waitFor(() => expect(saveMeta).toHaveBeenCalled())
+      expect(createPolicy).toHaveBeenCalledWith({
+        taskId: TASK_ID,
+        payload: { mimeType: 'image/jpeg', sizeBytes: photo.size, filename: 'finding.jpg' },
+      })
+      expect(fetchMock).toHaveBeenCalledWith('https://storage.example.invalid/upload', expect.objectContaining({ method: 'POST' }))
+    })
+
+    it('is not offered on a finished task', () => {
+      setupDefaultMocks(makeTask({ taskStatus: 'DONE' }))
+
+      renderDetailPage()
+
+      expect(screen.queryByRole('button', { name: 'Photo finding' })).not.toBeInTheDocument()
     })
   })
 })
