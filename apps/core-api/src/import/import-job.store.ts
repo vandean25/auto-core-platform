@@ -17,7 +17,10 @@ import {
   dryRunRowCreateInput,
   persistGroupedDryRunRowUpdates,
 } from './import-dry-run-reconcile.persist-rows.js';
-import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
+import {
+  ImportApplyRetryExhaustedError,
+  type ImportApplyFailureReason,
+} from './import-apply.errors.js';
 import {
   delayMs,
   retryableTransactionDelayMs,
@@ -810,11 +813,20 @@ export class ImportJobStore {
     });
   }
 
-  markFailedIfApplying(
+  async markFailedIfApplying(
     tenantId: string,
     jobId: string,
+    applyFailureReason: ImportApplyFailureReason = 'apply_error',
     totals?: ImportJobTotals,
   ) {
+    const job = await this.prisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
+      select: { options_json: true },
+    });
+    const options = {
+      ...((job?.options_json as Record<string, unknown> | null) ?? {}),
+      apply_failure_reason: applyFailureReason,
+    };
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
@@ -824,6 +836,7 @@ export class ImportJobStore {
       data: {
         status: ImportJobStatus.FAILED,
         failed_at: new Date(),
+        options_json: options,
         ...(totals ? { totals_json: totals } : {}),
       },
     });
@@ -915,6 +928,14 @@ export class ImportJobStore {
           applySequenceOrderKey,
         );
         if (dryRunTotals.rows === 0) {
+          const { tallyImportApplyTotalsFromRows } =
+            await import('./import-apply-persisted-totals.js');
+          const persistedTotals = await tallyImportApplyTotalsFromRows(
+            tx,
+            tenantId,
+            jobId,
+            0,
+          );
           await tx.importJob.updateMany({
             where: {
               tenant_id: tenantId,
@@ -924,6 +945,7 @@ export class ImportJobStore {
             data: {
               status: ImportJobStatus.APPLIED,
               appliedAt: new Date(),
+              totals_json: persistedTotals,
             },
           });
         }

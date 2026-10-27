@@ -10,7 +10,16 @@ import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 export type ImportApplyErrorKind = 'lease_lost' | 'retryable' | 'row' | 'fatal';
 
-export type ImportApplyFailureReason = 'retry_exhausted' | 'poison_cap';
+export type ImportApplyFailureReason =
+  'retry_exhausted' | 'poison_cap' | 'apply_error' | 'apply_seq_missing';
+
+/** Short label for import.job.failed logs (Prisma code or error name). */
+export function describeImportApplyCause(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code;
+  }
+  return error instanceof Error ? error.name : 'unknown';
+}
 
 export class ApplyRowStaleError extends Error {
   constructor(message = 'Import row plan is stale') {

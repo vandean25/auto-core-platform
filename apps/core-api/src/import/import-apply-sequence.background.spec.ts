@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import type { ImportApplyInput, ImportApplyRow } from './import-type-handler.js';
 import {
@@ -22,6 +23,26 @@ import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 
 const VEHICLE_ID = 'veh-1';
 const BATCH = 3;
+
+function actionPlanFromRows(rows: ImportApplyRow[]): {
+  creates: number;
+  updates: number;
+  errors: number;
+} {
+  let creates = 0;
+  let updates = 0;
+  let errors = 0;
+  for (const row of rows) {
+    if (row.action === ImportRowAction.CREATE) {
+      creates += 1;
+    } else if (row.action === ImportRowAction.UPDATE) {
+      updates += 1;
+    } else if (row.action === ImportRowAction.ERROR) {
+      errors += 1;
+    }
+  }
+  return { creates, updates, errors };
+}
 
 function plannedRow(
   rowNo: number,
@@ -65,14 +86,29 @@ function createSequenceWorkerPrisma(
     skip: initialTotals?.skip ?? 0,
     error: initialTotals?.error ?? 0,
   };
-  const tx = {
+  const baseTx = {
     importJob: {
       findFirst: async () => ({
         id: 'job-1',
+        tenant_id: 'tenant-1',
         status: jobStatus,
         options_json: { worker },
         totals_json: { ...jobTotals },
       }),
+      updateMany: async (args: {
+        data: {
+          status?: ImportJobStatus;
+          totals_json?: typeof jobTotals;
+        };
+      }) => {
+        if (args.data.totals_json) {
+          Object.assign(jobTotals, args.data.totals_json);
+        }
+        if (args.data.status === ImportJobStatus.APPLIED) {
+          jobStatus = ImportJobStatus.APPLIED;
+        }
+        return { count: 1 };
+      },
       update: async (args: {
         data: {
           status?: ImportJobStatus;
@@ -89,10 +125,72 @@ function createSequenceWorkerPrisma(
         if (args.data.status === ImportJobStatus.APPLIED) {
           jobStatus = ImportJobStatus.APPLIED;
         }
+        return {
+          id: 'job-1',
+          status: jobStatus,
+          totals_json: { ...jobTotals },
+        };
       },
     },
     importJobRow: {
       update: jest.fn(),
+      groupBy: rowPlan
+        ? async () => {
+            const groups: Array<{
+              action: ImportRowAction;
+              _count: { _all: number };
+            }> = [];
+            if (rowPlan.creates > 0) {
+              groups.push({
+                action: ImportRowAction.CREATE,
+                _count: { _all: rowPlan.creates },
+              });
+            }
+            if (rowPlan.updates > 0) {
+              groups.push({
+                action: ImportRowAction.UPDATE,
+                _count: { _all: rowPlan.updates },
+              });
+            }
+            if (rowPlan.errors > 0) {
+              groups.push({
+                action: ImportRowAction.ERROR,
+                _count: { _all: rowPlan.errors },
+              });
+            }
+            return groups;
+          }
+        : async () => {
+            const groups: Array<{
+              action: ImportRowAction;
+              _count: { _all: number };
+            }> = [];
+            if (jobTotals.create > 0) {
+              groups.push({
+                action: ImportRowAction.CREATE,
+                _count: { _all: jobTotals.create },
+              });
+            }
+            if (jobTotals.update > 0) {
+              groups.push({
+                action: ImportRowAction.UPDATE,
+                _count: { _all: jobTotals.update },
+              });
+            }
+            if (jobTotals.skip > 0) {
+              groups.push({
+                action: ImportRowAction.SKIP,
+                _count: { _all: jobTotals.skip },
+              });
+            }
+            if (jobTotals.error > 0) {
+              groups.push({
+                action: ImportRowAction.ERROR,
+                _count: { _all: jobTotals.error },
+              });
+            }
+            return groups;
+          },
       ...(rowPlan
         ? {
             count: async (args?: { where?: { action?: ImportRowAction } }) => {
@@ -114,6 +212,9 @@ function createSequenceWorkerPrisma(
     vehicleParty: { findFirst: async () => ({ id: 'party' }) },
     externalIdMapping: { findFirst: async () => null },
   };
+  const tx = withApplyPersistedTotalsTransactionClient(baseTx, {
+    expectedRows: jobTotals.rows,
+  });
   return {
     prisma: {
       externalIdMapping: { findFirst: async () => null },
@@ -121,20 +222,8 @@ function createSequenceWorkerPrisma(
         fn: (client: typeof tx) => Promise<void>,
         _options?: unknown,
       ) => fn(tx),
-      importJob: {
-        updateMany: jest.fn(),
-        findFirst: async () => ({
-          id: 'job-1',
-          status: jobStatus,
-          totals_json: { ...jobTotals },
-        }),
-        update: jest.fn(async (args: { where: { id: string }; data: { status?: ImportJobStatus } }) => ({
-          id: args.where.id,
-          status: args.data.status ?? jobStatus,
-          totals_json: {},
-        })),
-      },
-      importJobRow: { update: jest.fn() },
+      importJob: baseTx.importJob,
+      importJobRow: baseTx.importJobRow,
     },
     getStatus: () => jobStatus,
     getTotals: () => ({ ...jobTotals }),
@@ -170,18 +259,6 @@ describe('import apply_seq background apply', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    const { prisma } = createSequenceWorkerPrisma(worker);
-    const runner = new RowByRowApplyRunner(
-      prisma as never,
-      { writeImportJobAudit: jest.fn() } as never,
-      (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
-    );
-    const syncHandler = new TrackingVehiclePartyImportHandler(
-      prisma as never,
-      { writeImportJobAudit: jest.fn() } as never,
-      runner,
-    );
     const totalsJson = {
       rows: allRows.length,
       create: 0,
@@ -189,7 +266,24 @@ describe('import apply_seq background apply', () => {
       skip: 0,
       error: 0,
     };
-    const syncResult = await syncHandler.apply({
+    const rowPlan = actionPlanFromRows(allRows);
+    const { prisma: syncPrisma } = createSequenceWorkerPrisma(
+      worker,
+      totalsJson,
+      rowPlan,
+    );
+    const syncRunner = new RowByRowApplyRunner(
+      syncPrisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const syncHandlerWithPlan = new TrackingVehiclePartyImportHandler(
+      syncPrisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      syncRunner,
+    );
+    const syncResult = await syncHandlerWithPlan.apply({
       tenantId: 'tenant-1',
       job: {
         id: 'job-sync',
@@ -202,13 +296,8 @@ describe('import apply_seq background apply', () => {
       effectiveOptions: {},
       preparation: { vendor: null },
     });
-    const syncWrites = syncHandler.applied.map((row) => row.row_no);
+    const syncWrites = syncHandlerWithPlan.applied.map((row) => row.row_no);
 
-    const bgHandler = new TrackingVehiclePartyImportHandler(
-      prisma as never,
-      { writeImportJobAudit: jest.fn() } as never,
-      runner,
-    );
     const bgWorker: ImportJobWorkerState = {
       phase: 'apply',
       lease_token: 'lease-bg',
@@ -217,7 +306,11 @@ describe('import apply_seq background apply', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    const { prisma: bgPrisma } = createSequenceWorkerPrisma(bgWorker, totalsJson);
+    const { prisma: bgPrisma } = createSequenceWorkerPrisma(
+      bgWorker,
+      totalsJson,
+      rowPlan,
+    );
     const bgRunner = new RowByRowApplyRunner(
       bgPrisma as never,
       { writeImportJobAudit: jest.fn() } as never,
