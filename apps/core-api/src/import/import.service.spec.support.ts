@@ -1,5 +1,9 @@
 import { Test, type TestingModule } from '@nestjs/testing';
-import { ImportEntityType, ImportJobStatus } from '@prisma/client';
+import {
+  ImportEntityType,
+  ImportJobStatus,
+  ImportRowAction,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
@@ -309,6 +313,21 @@ export function arrangeApply(
   rows: Array<Record<string, unknown>>,
 ): void {
   const { prisma } = harness;
+  const totals = (job.totals_json ?? {}) as { rows?: number };
+  const expectedRows = totals.rows ?? rows.length;
+  const persistedRows = rows.map((row) => ({
+    action: row.action as ImportRowAction,
+  }));
+  prisma.$transaction.mockImplementation(
+    (callback: (tx: MockPrisma) => unknown) =>
+      callback(
+        withApplyPersistedTotalsTransactionClient(prisma, {
+          tenantId: TENANT_ID,
+          expectedRows,
+          persistedRows,
+        }),
+      ),
+  );
   prisma.importJob.findFirst.mockResolvedValue(job);
   prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
   prisma.importJobRow.findMany.mockResolvedValue(rows);

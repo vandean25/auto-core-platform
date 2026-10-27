@@ -887,7 +887,7 @@ describe('ImportService customer import (characterization)', () => {
       );
     });
 
-    it('runs one transaction per customer row and none for the applied bookkeeping', async () => {
+    it('runs one transaction per customer row plus one for persisted final totals', async () => {
       arrangeApply(
         h,
         importJobRecord({ entity_type: ImportEntityType.CUSTOMER }),
@@ -899,7 +899,7 @@ describe('ImportService customer import (characterization)', () => {
 
       await h.service.applyJob(JOB_ID);
 
-      expect(h.prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(h.prisma.$transaction).toHaveBeenCalledTimes(3);
     });
   });
 });

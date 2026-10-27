@@ -26,6 +26,14 @@ export function withApplyPersistedTotalsTransactionClient(
   const tenantId = defaults?.tenantId ?? 'tenant-1';
   const expectedRows = defaults?.expectedRows ?? 1;
   const actionCounts = new Map<ImportRowAction, number>();
+  if (defaults?.persistedRows?.length) {
+    for (const row of defaults.persistedRows) {
+      actionCounts.set(
+        row.action,
+        (actionCounts.get(row.action) ?? 0) + 1,
+      );
+    }
+  }
   const existingRowClient = (tx.importJobRow ?? {}) as Record<string, unknown>;
   const rowUpdate = existingRowClient.update as
     | jest.Mock
@@ -36,11 +44,6 @@ export function withApplyPersistedTotalsTransactionClient(
     groupBy:
       existingRowClient.groupBy ??
       jest.fn(() => {
-        if (defaults?.persistedRows?.length) {
-          return Promise.resolve(
-            groupByCountsFromRowActions(defaults.persistedRows),
-          );
-        }
         if (actionCounts.size === 0) {
           return Promise.resolve([
             { action: ImportRowAction.CREATE, _count: { _all: expectedRows } },

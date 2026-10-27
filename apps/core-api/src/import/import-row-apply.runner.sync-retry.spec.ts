@@ -78,23 +78,24 @@ function createSyncPrisma(
           };
         };
       }) => {
-      jobUpdates.push(args);
-      if (args.data.status) {
-        jobStatus = args.data.status;
-      }
-      return {
-        id: 'job-sync',
-        tenant_id: 'tenant-1',
-        status: jobStatus,
-        totals_json: args.data.totals_json ?? {
-          rows: 1,
-          create: 1,
-          update: 0,
-          skip: 0,
-          error: 0,
-        },
-      };
-    }),
+        jobUpdates.push(args);
+        if (args.data.status) {
+          jobStatus = args.data.status;
+        }
+        return {
+          id: 'job-sync',
+          tenant_id: 'tenant-1',
+          status: jobStatus,
+          totals_json: args.data.totals_json ?? {
+            rows: 1,
+            create: 1,
+            update: 0,
+            skip: 0,
+            error: 0,
+          },
+        };
+      },
+    ),
   };
   const tx = {
     externalIdMapping: { findFirst: async () => null },

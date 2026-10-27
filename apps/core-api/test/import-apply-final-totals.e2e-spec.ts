@@ -6,7 +6,6 @@ import {
   ImportRowAction,
 } from '@prisma/client';
 import { AppModule } from '../src/app.module.js';
-import { RequestContextService } from '../src/common/services/request-context.service.js';
 import { ImportService } from '../src/import/import.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import type { ImportJobTotals } from '../src/import/import.types.js';
@@ -102,13 +101,11 @@ describe('import apply final totals (e2e)', () => {
         }),
       { userId: actor.id },
     );
-    await requestContext.runAsWorker(tenant.tenantId, async () => {
-      await runWithTenantContext(
-        tenant.tenantId,
-        async () => importService.applyJob(job.id),
-        { userId: actor.id },
-      );
-    });
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () => importService.applyJob(job.id),
+      { userId: actor.id, role: 'ADMIN' },
+    );
     const applied = await tenantPrisma.importJob.findFirst({
       where: { id: job.id },
     });
