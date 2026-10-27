@@ -47,6 +47,8 @@ export type ImportDryRunInput = {
   mapping: Record<string, string>;
   options: ImportJobOptions;
   planBudget?: ImportDryRunPlanBudget;
+  /** Persisted dry-run rows from earlier targets in the same reconcile unit. */
+  reconcilePriorResults?: DryRunRowResult[];
 };
 
 export type ImportApplyBatchOptions = {

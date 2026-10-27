@@ -6,6 +6,10 @@ import { pickVehicleImportAuditSnapshot } from './vehicle-import-audit.snapshot.
 import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
+import {
+  seedExternalIdSeenFromPriors,
+  seedVinSeenFromPriors,
+} from './import-dry-run-reconcile.prior.js';
 import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
 import {
   planVehicleDryRunRow,
@@ -97,6 +101,9 @@ export async function planVehicleDryRun(
     input.tenantId,
     input.sourceSystem,
   );
+  const priors = input.reconcilePriorResults ?? [];
+  seedExternalIdSeenFromPriors(context.externalIdSeenInFile, priors);
+  seedVinSeenFromPriors(context.vinSeenInFile, priors);
   return planParsedCsvRowsWithBudget(
     parsed,
     input.planBudget,

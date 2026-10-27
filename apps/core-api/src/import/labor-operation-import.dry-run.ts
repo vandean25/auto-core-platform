@@ -5,6 +5,10 @@ import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 import {
+  seedExternalIdSeenFromPriors,
+  seedLaborCodeSeenFromPriors,
+} from './import-dry-run-reconcile.prior.js';
+import {
   normalizeLaborOperationRow,
   planLaborOperationDryRunRow,
   type LaborMatchContext,
@@ -124,6 +128,9 @@ export async function planLaborOperationDryRun(
     input.tenantId,
     input.sourceSystem,
   );
+  const priors = input.reconcilePriorResults ?? [];
+  seedExternalIdSeenFromPriors(context.externalIdSeenInFile, priors);
+  seedLaborCodeSeenFromPriors(context.codeSeenInFile, priors);
   return planParsedCsvRowsWithBudget(
     parsed,
     input.planBudget,

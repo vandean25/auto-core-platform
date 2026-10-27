@@ -9,10 +9,9 @@ import type { ImportDryRunReconcileUnit } from './import-job.worker-state.js';
 import type { ImportJobUploadRef } from './import-job.worker-state.js';
 import {
   loadCsvRowRecords,
-  recordFromStoredRow,
   toParsedCsvFromRecords,
-  type CsvRowRecord,
 } from './import-dry-run-reconcile.records.js';
+import { loadReconcilePriorDryRunResults } from './import-dry-run-reconcile.prior.js';
 import { shouldStopDryRunPlanningAfterRow } from './import-dry-run-plan-budget.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
 
@@ -30,70 +29,26 @@ async function loadFileHeaders(
   return head?.headers ?? [];
 }
 
-async function loadContextRecords(
-  prisma: PrismaService,
-  params: {
-    tenantId: string;
-    jobId: string;
-    mapping: Record<string, string>;
-    unit: ImportDryRunReconcileUnit;
-    targets: number[];
-    fileStorage: ImportFileStorageService;
-    upload: ImportJobUploadRef;
-    fileSha256: string;
-  },
-): Promise<CsvRowRecord[]> {
-  const maxTarget = Math.max(...params.targets);
-  const contextRowNos = [
-    ...new Set(
-      params.unit.replan_row_nos.filter((rowNo) => rowNo <= maxTarget),
-    ),
-  ].sort((a, b) => a - b);
-  const csvRows = await loadCsvRowRecords(
-    params.fileStorage,
-    params.upload,
-    params.fileSha256,
-    contextRowNos,
-  );
-  const csvByRow = new Map(csvRows.map((row) => [row.rowNo, row.record]));
-
-  const stored = await prisma.importJobRow.findMany({
-    where: {
-      tenant_id: params.tenantId,
-      import_job_id: params.jobId,
-      row_no: { in: contextRowNos },
-    },
-    select: {
-      row_no: true,
-      external_id: true,
-      normalized_json: true,
-    },
-    orderBy: { row_no: 'asc' },
-  });
-  const storedByRow = new Map(
-    stored.map((row) => [
-      row.row_no,
-      recordFromStoredRow(
-        params.mapping,
-        row.external_id,
-        row.normalized_json as Record<string, unknown> | null,
-      ),
-    ]),
-  );
-
-  const records: CsvRowRecord[] = [];
-  for (const rowNo of contextRowNos) {
-    const fromCsv = csvByRow.get(rowNo);
-    if (fromCsv) {
-      records.push({ rowNo, record: fromCsv });
-      continue;
-    }
-    const fromDb = storedByRow.get(rowNo);
-    if (fromDb) {
-      records.push({ rowNo, record: fromDb });
-    }
+export function pickReconcileTargets(
+  unit: ImportDryRunReconcileUnit,
+  targetStartIndex: number,
+  batchSize: number,
+  deadlineMs: number,
+): { targets: number[]; selectionEndIndex: number } {
+  const targets: number[] = [];
+  let selectionEndIndex = targetStartIndex;
+  while (
+    selectionEndIndex < unit.replan_row_nos.length &&
+    targets.length < batchSize &&
+    !shouldStopDryRunPlanningAfterRow(
+      { deadlineMs, rowNoOffset: 1 },
+      targets.length,
+    )
+  ) {
+    targets.push(unit.replan_row_nos[selectionEndIndex]);
+    selectionEndIndex += 1;
   }
-  return records;
+  return { targets, selectionEndIndex };
 }
 
 export async function replanImportDryRunUnitChunk(params: {
@@ -111,34 +66,31 @@ export async function replanImportDryRunUnitChunk(params: {
   deadlineMs: number;
 }): Promise<{ rows: DryRunRowResult[]; nextTargetIndex: number }> {
   const { unit, targetStartIndex, batchSize, deadlineMs } = params;
-  const targets: number[] = [];
-  let index = targetStartIndex;
-  while (
-    index < unit.replan_row_nos.length &&
-    targets.length < batchSize &&
-    !shouldStopDryRunPlanningAfterRow(
-      { deadlineMs, rowNoOffset: 1 },
-      targets.length,
-    )
-  ) {
-    targets.push(unit.replan_row_nos[index]);
-    index += 1;
-  }
+  const { targets, selectionEndIndex } = pickReconcileTargets(
+    unit,
+    targetStartIndex,
+    batchSize,
+    deadlineMs,
+  );
   if (targets.length === 0) {
-    return { rows: [], nextTargetIndex: index };
+    return { rows: [], nextTargetIndex: selectionEndIndex };
   }
 
-  const combined = await loadContextRecords(params.prisma, {
-    tenantId: params.tenantId,
-    jobId: params.jobId,
-    mapping: params.input.mapping,
-    unit,
+  const priorRowNos = unit.replan_row_nos.slice(0, targetStartIndex);
+  const reconcilePriorResults = await loadReconcilePriorDryRunResults(
+    params.prisma,
+    params.tenantId,
+    params.jobId,
+    priorRowNos,
+  );
+
+  const targetRecords = await loadCsvRowRecords(
+    params.fileStorage,
+    params.upload,
+    params.fileSha256,
     targets,
-    fileStorage: params.fileStorage,
-    upload: params.upload,
-    fileSha256: params.fileSha256,
-  });
-  if (combined.length === 0) {
+  );
+  if (targetRecords.length === 0) {
     return { rows: [], nextTargetIndex: targetStartIndex };
   }
 
@@ -149,30 +101,34 @@ export async function replanImportDryRunUnitChunk(params: {
   );
   const parsed = toParsedCsvFromRecords(
     headers.length > 0 ? headers : Object.values(params.input.mapping),
-    combined,
+    targetRecords,
     params.fileSha256,
   );
   const planned = await params.handler.planDryRun(
     {
       ...params.input,
+      reconcilePriorResults,
       planBudget: {
         deadlineMs,
-        rowNoOffset: combined[0].rowNo,
-        rowNumbers: combined.map((row) => row.rowNo),
+        rowNoOffset: targets[0],
+        rowNumbers: targets,
       },
     },
     parsed,
   );
 
-  const unitRowSet = new Set(unit.replan_row_nos);
-  const rows = planned.filter((row) => unitRowSet.has(row.row_no));
-
   const nextTargetIndex = computeReconcileTargetCursor(
     unit,
     targetStartIndex,
-    index,
+    selectionEndIndex,
     planned,
   );
+  if (nextTargetIndex === targetStartIndex) {
+    return { rows: [], nextTargetIndex: targetStartIndex };
+  }
+
+  const unitRowSet = new Set(unit.replan_row_nos);
+  const rows = planned.filter((row) => unitRowSet.has(row.row_no));
 
   return { rows, nextTargetIndex };
 }

@@ -4,6 +4,10 @@ import {
   VehicleRecordSource,
 } from '@prisma/client';
 import {
+  mergeReconcilePlanOutput,
+  seedExternalIdSeenFromPriors,
+} from './import-dry-run-reconcile.prior.js';
+import {
   findPartyConflict,
   isActiveOn,
   validatePartyShape,
@@ -504,15 +508,81 @@ function finishRow(
   };
 }
 
+function preparedPartyFromPrior(prior: DryRunRowResult): PreparedParty | null {
+  if (prior.errors.length > 0) {
+    return {
+      rowNo: prior.row_no,
+      externalId: prior.external_id,
+      issues: [...prior.errors],
+      warnings: [...prior.warnings],
+      action: prior.action,
+      entityId: prior.entity_id,
+    };
+  }
+  const normalized = prior.normalized;
+  if (!normalized) {
+    return null;
+  }
+  const vehicleId = normalized.vehicle_id;
+  const customerId = normalized.customer_id;
+  const role = normalized.role;
+  if (
+    typeof vehicleId !== 'string' ||
+    typeof customerId !== 'string' ||
+    typeof role !== 'string'
+  ) {
+    return null;
+  }
+  const partyRole = role as VehiclePartyRole;
+  const row: NormalizedPartyRow = {
+    external_id: String(normalized.external_id ?? prior.external_id ?? ''),
+    vehicle_external_id: '',
+    customer_external_id: '',
+    role: partyRole,
+    valid_from:
+      typeof normalized.valid_from === 'string' ? normalized.valid_from : null,
+    valid_to:
+      typeof normalized.valid_to === 'string' ? normalized.valid_to : null,
+    notes: typeof normalized.notes === 'string' ? normalized.notes : null,
+  };
+  return {
+    rowNo: prior.row_no,
+    externalId: prior.external_id,
+    issues: [],
+    warnings: [...prior.warnings],
+    action: prior.action,
+    entityId: prior.entity_id,
+    row,
+    vehicleId,
+    customerId,
+    interval: {
+      id: prior.entity_id ?? `row:${prior.row_no}`,
+      role: partyRole,
+      customer_id: customerId,
+      valid_from: row.valid_from,
+      valid_to: row.valid_to,
+    },
+  };
+}
+
 /** Plans every vehicle_parties.csv row against the file itself and the untouched target parties. */
 export function planVehiclePartyRows(
   rows: PartyCsvRow[],
   mapping: Record<string, string>,
   ctx: PartyPlanContext,
+  reconcilePriorResults?: DryRunRowResult[],
 ): DryRunRowResult[] {
+  const priors = reconcilePriorResults ?? [];
   const seen = new Map<string, number>();
+  seedExternalIdSeenFromPriors(seen, priors);
   const indexed = indexContext(ctx);
-  const prepared = rows.map((csv) => prepareRow(csv, mapping, indexed, seen));
-  const timeline = buildTimeline(prepared, indexed);
-  return prepared.map((item) => finishRow(item, timeline, indexed));
+  const preparedPriors = priors
+    .map((prior) => preparedPartyFromPrior(prior))
+    .filter((item): item is PreparedParty => item !== null);
+  const preparedNew = rows.map((csv) => prepareRow(csv, mapping, indexed, seen));
+  const combined = [...preparedPriors, ...preparedNew];
+  const timeline = buildTimeline(combined, indexed);
+  const finished = combined.map((item) => finishRow(item, timeline, indexed));
+  const newRowNos = new Set(rows.map((row) => row.rowNo));
+  return mergeReconcilePlanOutput(finished, newRowNos, priors);
 }

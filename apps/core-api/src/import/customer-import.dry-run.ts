@@ -12,6 +12,10 @@ import { normalizeMatchEmail } from '../customer/customer-match.util.js';
 import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
+import {
+  seedEmailSeenFromPriors,
+  seedExternalIdSeenFromPriors,
+} from './import-dry-run-reconcile.prior.js';
 
 type CustomerRecord = {
   id: string;
@@ -122,6 +126,9 @@ export async function planCustomerDryRun(
     input.tenantId,
     input.sourceSystem,
   );
+  const priors = input.reconcilePriorResults ?? [];
+  seedExternalIdSeenFromPriors(context.externalIdSeenInFile, priors);
+  seedEmailSeenFromPriors(context.emailSeenInFile, priors);
   return planParsedCsvRowsWithBudget(
     parsed,
     input.planBudget,

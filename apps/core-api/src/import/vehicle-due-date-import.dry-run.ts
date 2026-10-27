@@ -93,5 +93,10 @@ export async function planVehicleDueDateDryRun(
     }
   }
   const context = await loadDueDatePlanContext(prisma, input, rows);
-  return planVehicleDueDateRows(rows, input.mapping, context);
+  return planVehicleDueDateRows(
+    rows,
+    input.mapping,
+    context,
+    input.reconcilePriorResults,
+  );
 }

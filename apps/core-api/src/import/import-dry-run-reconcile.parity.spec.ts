@@ -82,10 +82,10 @@ async function replanWindows(
     if (targets.length === 0) {
       break;
     }
-    const contextRowNos = unit.replan_row_nos
-      .filter((rowNo) => rowNo <= Math.max(...targets))
-      .sort((a, b) => a - b);
-    const records = contextRowNos.map((rowNo) => ({
+    const priorResults = unit.replan_row_nos
+      .slice(0, targetIndex)
+      .map((rowNo) => target[rowNo - 1]);
+    const records = targets.map((rowNo) => ({
       rowNo,
       record: rowToRecord(parsed.headers, parsed.rows[rowNo - 1]),
     }));
@@ -97,10 +97,11 @@ async function replanWindows(
     const replanned = await plan(
       {
         ...input,
+        reconcilePriorResults: priorResults,
         planBudget: {
           deadlineMs: Date.now() + 60_000,
-          rowNoOffset: records[0].rowNo,
-          rowNumbers: records.map((record) => record.rowNo),
+          rowNoOffset: targets[0],
+          rowNumbers: targets,
         },
       },
       sparse,

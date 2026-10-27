@@ -77,5 +77,10 @@ export async function planVehiclePartyDryRun(
     }
   }
   const context = await loadPartyPlanContext(prisma, input, rows);
-  return planVehiclePartyRows(rows, input.mapping, context);
+  return planVehiclePartyRows(
+    rows,
+    input.mapping,
+    context,
+    input.reconcilePriorResults,
+  );
 }
