@@ -128,9 +128,11 @@ async function runInCapturedTenantContext<T>(fn: () => Promise<T>): Promise<T> {
   if (!tenantUser?.tenantId) {
     return fn();
   }
-  return TenantContextStorage.run(() => {
-    TenantContextStorage.setUser(tenantUser);
-    return fn();
+  return new Promise<T>((resolve, reject) => {
+    TenantContextStorage.run(() => {
+      TenantContextStorage.setUser(tenantUser);
+      Promise.resolve(fn()).then(resolve, reject);
+    });
   });
 }
 
