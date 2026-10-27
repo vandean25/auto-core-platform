@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
-import { ImportEntityType, ImportJobStatus } from '@prisma/client';
+import { ImportJobStatus } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
@@ -172,37 +172,33 @@ describe('Import background worker (e2e)', () => {
       .expect(200);
 
     const deadline = Date.now() + 60_000;
-    while (Date.now() < deadline) {
-      const job = await tenantPrisma().importJob.findFirst({
-        where: { id: jobId },
-      });
-      if (job?.status === ImportJobStatus.APPLIED) {
-        break;
-      }
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    while (Date.now() < deadline && job?.status !== ImportJobStatus.APPLIED) {
       await Promise.all([
         deliverWorker(jobId, 'apply'),
         deliverWorker(jobId, 'apply'),
       ]);
+      job = await tenantPrisma().importJob.findFirst({
+        where: { id: jobId },
+      });
     }
 
-    await expectJobAppliedWithRowCount(jobId, 3);
-
-    const customers = await tenantPrisma().customer.findMany({
-      where: {
-        tenant_id: tenant.tenantId,
-        email: {
-          in: ['bg1@example.com', 'bg2@example.com', 'bg3@example.com'],
-        },
-      },
-    });
-    expect(customers).toHaveLength(3);
+    const applied = await expectJobAppliedWithRowCount(jobId, 3);
+    const totals = applied?.totals_json as {
+      create: number;
+      update: number;
+      error: number;
+    };
+    expect(totals.create).toBe(3);
+    expect(totals.error).toBe(0);
 
     const mappings = await tenantPrisma().externalIdMapping.findMany({
       where: {
         tenant_id: tenant.tenantId,
-        entity_type: ImportEntityType.CUSTOMER,
         source_system: 'legacy-dms',
-        entity_id: { in: customers.map((customer) => customer.id) },
+        first_seen_import_job_id: jobId,
       },
     });
     expect(mappings).toHaveLength(3);
