@@ -125,8 +125,8 @@ describe('App authenticated unknown routes (AUT-222)', () => {
     renderAtPath('/hr')
 
     expect(
-      await screen.findByRole('heading', { name: deHr.employees.pageTitle }, { timeout: 10000 }),
+      await screen.findByRole('heading', { name: deHr.employees.pageTitle }, { timeout: 5000 }),
     ).toBeInTheDocument()
     expect(screen.getByText('ACP')).toBeInTheDocument()
-  }, 15000)
+  })
 })
