@@ -172,8 +172,17 @@ function createSequencePrisma(
         return null;
       },
       update: jest.fn(
-        async (args: { where: { row_no: number }; data: unknown }) => {
-          rowUpdates.push({ row_no: args.where.row_no, data: args.data });
+        async (args: {
+          where: {
+            row_no?: number;
+            tenant_id_import_job_id_row_no?: { row_no: number };
+          };
+          data: unknown;
+        }) => {
+          const rowNo =
+            args.where.row_no ??
+            args.where.tenant_id_import_job_id_row_no?.row_no;
+          rowUpdates.push({ row_no: rowNo, data: args.data });
         },
       ),
       count: jest.fn(
@@ -229,8 +238,17 @@ function createSequencePrisma(
         return null;
       },
       update: jest.fn(
-        async (args: { where: { row_no: number }; data: unknown }) => {
-          rowUpdates.push({ row_no: args.where.row_no, data: args.data });
+        async (args: {
+          where: {
+            row_no?: number;
+            tenant_id_import_job_id_row_no?: { row_no: number };
+          };
+          data: unknown;
+        }) => {
+          const rowNo =
+            args.where.row_no ??
+            args.where.tenant_id_import_job_id_row_no?.row_no;
+          rowUpdates.push({ row_no: rowNo, data: args.data });
         },
       ),
       count: jest.fn(async () => 5),
@@ -286,8 +304,17 @@ function createSyncPrisma(
         return null;
       },
       update: jest.fn(
-        async (args: { where: { row_no: number }; data: unknown }) => {
-          rowUpdates.push({ row_no: args.where.row_no, data: args.data });
+        async (args: {
+          where: {
+            row_no?: number;
+            tenant_id_import_job_id_row_no?: { row_no: number };
+          };
+          data: unknown;
+        }) => {
+          const rowNo =
+            args.where.row_no ??
+            args.where.tenant_id_import_job_id_row_no?.row_no;
+          rowUpdates.push({ row_no: rowNo, data: args.data });
         },
       ),
       count: jest.fn(async () => 5),
@@ -424,7 +451,7 @@ describe('RowByRowApplyRunner sync and background parity', () => {
       { code: VEHICLE_PARTY_RULE_CODES.INTERVAL_INVALID, message: 'invalid' },
     ]);
     expect(sync.rowErrors[3]).toEqual([
-      { code: 'APPLY_FAILED', message: 'Row failed during apply' },
+      { code: 'IMPORT_APPLY_FAILED', message: 'Row failed during apply' },
     ]);
     expect(sync.rowErrors[4]).toEqual([
       {

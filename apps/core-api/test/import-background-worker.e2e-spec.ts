@@ -595,60 +595,82 @@ describe('Import background worker (e2e)', () => {
     ).toBeNull();
   });
 
+  async function syncDryRunAndApplyCsv(
+    entityType: string,
+    headers: string[],
+    rows: string[][],
+    delimiter: ',' | ';' = ',',
+  ) {
+    const mapping = Object.fromEntries(headers.map((header) => [header, header]));
+    const csv = Buffer.from(serializeCsv(headers, rows, delimiter), 'utf8');
+    const created = await request(app.getHttpServer())
+      .post('/api/imports')
+      .set('Authorization', `Bearer ${token}`)
+      .field('entityType', entityType)
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(mapping))
+      .attach('file', csv, `${entityType}-seed.csv`)
+      .expect(201);
+    const jobId = created.body.id as string;
+    await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/dry-run`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    return jobId;
+  }
+
   it('marks an apply-time OWNER overlap as ERROR while siblings still apply', async () => {
     const sourceSystem = 'legacy-dms';
-    const customerA = await tenantPrisma().customer.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        first_name: 'Bg',
-        last_name: 'OwnerA',
-        email: `bg-owner-a-${Date.now()}@example.com`,
-      },
-    });
-    const customerB = await tenantPrisma().customer.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        first_name: 'Bg',
-        last_name: 'DriverB',
-        email: `bg-driver-b-${Date.now()}@example.com`,
-      },
-    });
-    const vehicle = await tenantPrisma().vehicle.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        make: 'Bg',
-        model: 'Worker',
-        year: 2020,
-        customer_id: customerA.id,
-      },
-    });
-    await tenantPrisma().externalIdMapping.createMany({
-      data: [
-        {
-          tenant_id: tenant.tenantId,
-          entity_type: 'CUSTOMER',
-          source_system: sourceSystem,
-          external_id: 'BG-CUST-A',
-          entity_id: customerA.id,
-          first_seen_import_job_id: 'seed-mapping',
-        },
-        {
-          tenant_id: tenant.tenantId,
-          entity_type: 'CUSTOMER',
-          source_system: sourceSystem,
-          external_id: 'BG-CUST-B',
-          entity_id: customerB.id,
-          first_seen_import_job_id: 'seed-mapping',
-        },
-        {
-          tenant_id: tenant.tenantId,
-          entity_type: 'VEHICLE',
-          source_system: sourceSystem,
-          external_id: 'BG-VEH-1',
-          entity_id: vehicle.id,
-          first_seen_import_job_id: 'seed-mapping',
-        },
+    const customerHeaders = [
+      'external_id',
+      'type',
+      'first_name',
+      'last_name',
+      'email',
+    ];
+    await syncDryRunAndApplyCsv('CUSTOMER', customerHeaders, [
+      ['BG-CUST-A', 'PRIVATE', 'Owner', 'Alpha', 'bg-owner-a@example.com'],
+      ['BG-CUST-B', 'PRIVATE', 'Driver', 'Beta', 'bg-driver-b@example.com'],
+    ]);
+    const vehicleHeaders = [
+      'external_id',
+      'vin',
+      'plate',
+      'make',
+      'model',
+      'year',
+      'first_registration_date',
+    ];
+    await syncDryRunAndApplyCsv('VEHICLE', vehicleHeaders, [
+      [
+        'BG-VEH-1',
+        '1HGCM82633A004399',
+        'W-BG-1',
+        'Bg',
+        'Worker',
+        '2020',
+        '2019-06-01',
       ],
+    ]);
+    const customerA = await tenantPrisma().externalIdMapping.findFirstOrThrow({
+      where: {
+        tenant_id: tenant.tenantId,
+        source_system: sourceSystem,
+        external_id: 'BG-CUST-A',
+        entity_type: 'CUSTOMER',
+      },
+    });
+    const vehicle = await tenantPrisma().externalIdMapping.findFirstOrThrow({
+      where: {
+        tenant_id: tenant.tenantId,
+        source_system: sourceSystem,
+        external_id: 'BG-VEH-1',
+        entity_type: 'VEHICLE',
+      },
     });
 
     const partyMapping = {
@@ -704,8 +726,8 @@ describe('Import background worker (e2e)', () => {
     await tenantPrisma().vehicleParty.create({
       data: {
         tenant_id: tenant.tenantId,
-        vehicle_id: vehicle.id,
-        customer_id: customerA.id,
+        vehicle_id: vehicle.entity_id,
+        customer_id: customerA.entity_id,
         role: 'OWNER',
         valid_from: new Date('2023-06-01'),
       },

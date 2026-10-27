@@ -47,7 +47,7 @@ describe('Import worker background P2034 handling', () => {
       .mockImplementation(() => Promise.resolve(true));
     jest
       .spyOn(jobStore, 'touchWorkerHandoff')
-      .mockResolvedValue({ count: 1 } as never);
+      .mockResolvedValue({ count: 1 });
     process.env.GOOGLE_CLOUD_PROJECT = 'test-project';
     process.env.CLOUD_TASKS_INVOKER_SA = 'sa@test';
     process.env.CLOUD_TASKS_LOCATION = 'europe-west1';
