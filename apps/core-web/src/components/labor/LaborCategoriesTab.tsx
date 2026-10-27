@@ -189,7 +189,7 @@ function CategoryTreeRow({
       <div
         className={cn(
           "flex items-center gap-2 p-2 rounded-md group transition-colors",
-          level > 0 && "ml-6 border-l-2 border-slate-100 pl-3",
+          level > 0 && "ml-3 border-l-2 border-slate-100 pl-2 sm:ml-6 sm:pl-3",
           isDragOver ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50",
         )}
         onContextMenu={e => onContextMenu(e, category)}
@@ -218,7 +218,7 @@ function CategoryTreeRow({
 
         {/* Name – click to edit */}
         <button
-          className="text-sm font-medium text-slate-800 hover:text-blue-600 truncate flex-1 text-left"
+          className="min-w-0 flex-1 break-words text-left text-sm font-medium text-slate-800 hover:text-blue-600 sm:truncate"
           onClick={() => onEdit(category)}
         >
           {category.name}

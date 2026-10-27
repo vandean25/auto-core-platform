@@ -414,7 +414,7 @@ export function WorkshopHoursSettingsPanel() {
         description={t('workshopHours.holidays.description')}
         headerActions={
           canManage ? (
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-2 max-sm:flex-wrap'>
               <Button
                 type='button'
                 variant='outline'

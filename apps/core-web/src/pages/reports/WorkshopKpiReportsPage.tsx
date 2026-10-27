@@ -11,6 +11,8 @@ import { useWorkshopKpiReport, type WorkshopKpiReport } from '@/api/workshop-kpi
 import { downloadCsv, serializeCsv } from '@/lib/csv'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { formatNumber } from '@/lib/format'
+import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
+import { cn } from '@/lib/utils'
 
 type ReportsTranslate = TFunction<'reports'>
 
@@ -169,9 +171,9 @@ export default function WorkshopKpiReportsPage() {
   }, [report.data, t])
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className={cn('space-y-6', PHONE_TOUCH_CONTROLS)}>
+      <div className="flex items-center justify-between max-sm:flex-wrap max-sm:gap-4">
+        <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('workshopKpi.pageTitle')}</h1>
           <p className="text-slate-500">{t('workshopKpi.pageDescription')}</p>
         </div>
@@ -222,7 +224,7 @@ export default function WorkshopKpiReportsPage() {
           <CardTitle>{t('workshopKpi.laborPerformance.title')}</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-max whitespace-nowrap text-sm">
             <thead>
               <tr className="border-b text-left">
                 {laborColumnHeadings.map((heading) => (
@@ -288,7 +290,7 @@ export default function WorkshopKpiReportsPage() {
           </p>
           <h3 className="mb-2 mt-5 text-sm font-semibold">{t('workshopKpi.partsTurnover.slowMoversTitle')}</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-max whitespace-nowrap text-sm">
               <thead>
                 <tr className="border-b text-left">
                   <th className="p-2">{t('workshopKpi.partsTurnover.columns.article')}</th>

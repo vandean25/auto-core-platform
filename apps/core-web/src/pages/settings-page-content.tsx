@@ -65,7 +65,7 @@ const LocationTreeItem = ({
             >
                 <button
                     type="button"
-                    className="flex flex-1 items-center gap-2 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     onClick={() => setExpanded(!expanded)}
                     aria-expanded={hasChildren ? expanded : undefined}
                 >
@@ -79,8 +79,8 @@ const LocationTreeItem = ({
                         location.type === 'bin' ? <Box className="h-4 w-4 text-green-500" /> :
                             <span className="h-2 w-2 rounded-full bg-slate-400 mx-1" />}
 
-                    <span className="font-medium text-sm">{location.name}</span>
-                    <Badge variant="outline" className="text-xs h-5 ml-2 font-mono text-slate-500 group-hover:text-slate-600 transition-colors">
+                    <span className="min-w-0 break-words font-medium text-sm">{location.name}</span>
+                    <Badge variant="outline" className="text-xs h-5 ml-2 shrink-0 whitespace-nowrap font-mono text-slate-500 group-hover:text-slate-600 transition-colors">
                         {location.code}
                     </Badge>
                 </button>

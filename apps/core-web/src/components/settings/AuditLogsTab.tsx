@@ -249,13 +249,13 @@ export function AuditLogsTab() {
             {t('auditLogs.description')}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Filter className="h-4 w-4 text-slate-400" />
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+          <Filter className="h-4 w-4 text-slate-400 max-sm:hidden" />
           <Select
             value={actionFilter}
             onValueChange={(val: 'ALL' | 'CREATE' | 'UPDATE' | 'DELETE') => setActionFilter(val)}
           >
-            <SelectTrigger className="w-[140px] h-9">
+            <SelectTrigger className="h-9 w-full sm:w-[140px]">
               <SelectValue placeholder={t('auditLogs.filters.action')} />
             </SelectTrigger>
             <SelectContent>
@@ -267,7 +267,7 @@ export function AuditLogsTab() {
           </Select>
           <input
             type="search"
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[140px]"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-[140px]"
             placeholder={t('auditLogs.filters.entityTypePlaceholder')}
             value={entityTypeFilter}
             onChange={(event) => setEntityTypeFilter(event.target.value)}
@@ -275,7 +275,7 @@ export function AuditLogsTab() {
           />
           <input
             type="search"
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[200px]"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-[200px]"
             placeholder={t('auditLogs.filters.entityIdPlaceholder')}
             value={entityIdFilter}
             onChange={(event) => setEntityIdFilter(event.target.value)}
