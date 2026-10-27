@@ -358,13 +358,13 @@ describe('import apply_seq fill (e2e)', () => {
     );
     const fileStorage = {
       openReadStream: () => Readable.from([csvBody]),
-    } as ImportFileStorageService;
+    } as unknown as ImportFileStorageService;
     const handler = {
       entityType: ImportEntityType.CUSTOMER,
       planDryRun: async (input, parsed) =>
         parsed.rows.map((row, index) => {
           const rowNo = (input.planBudget?.rowNoOffset ?? 1) + index;
-          const externalId = row[mapping.external_id] ?? `ext-${rowNo}`;
+          const externalId = row[0] ?? `ext-${rowNo}`;
           return {
             row_no: rowNo,
             external_id: externalId,
