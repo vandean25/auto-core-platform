@@ -135,6 +135,19 @@ function applyDefaults(harness: ImportHarness): void {
       ...data,
     }),
   );
+  harness.prisma.customer.create.mockResolvedValue({
+    id: 'cust-new',
+    type: 'PRIVATE',
+    first_name: 'Test',
+    last_name: 'User',
+    email: null,
+    phone: null,
+    vat_id: null,
+    address_street: null,
+    address_zip: null,
+    address_city: null,
+    address_country: 'AT',
+  });
   harness.prisma.importJob.create.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => ({
       ...data,

@@ -23,7 +23,7 @@ describe('MarginRuleService', () => {
       findFirst: jest.fn(),
     },
     financeSettings: {
-      findUnique: jest.fn(),
+      findFirst: jest.fn(),
       upsert: jest.fn(),
     },
   };
@@ -355,13 +355,13 @@ describe('MarginRuleService', () => {
 
   describe('threshold', () => {
     it('gets price jump threshold percentage from FinanceSettings (defaults to 20)', async () => {
-      mockPrisma.financeSettings.findUnique.mockResolvedValue({
+      mockPrisma.financeSettings.findFirst.mockResolvedValue({
         price_jump_threshold_percent: new Prisma.Decimal('15.50'),
       });
 
       const result = await service.getThreshold();
 
-      expect(mockPrisma.financeSettings.findUnique).toHaveBeenCalledWith({
+      expect(mockPrisma.financeSettings.findFirst).toHaveBeenCalledWith({
         where: { tenant_id: 'tenant-1' },
         select: { price_jump_threshold_percent: true },
       });
@@ -369,7 +369,7 @@ describe('MarginRuleService', () => {
     });
 
     it('returns default 20 if finance settings or threshold is null', async () => {
-      mockPrisma.financeSettings.findUnique.mockResolvedValue(null);
+      mockPrisma.financeSettings.findFirst.mockResolvedValue(null);
 
       const result = await service.getThreshold();
 

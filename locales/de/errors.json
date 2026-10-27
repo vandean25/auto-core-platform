@@ -154,6 +154,7 @@
     "IMPLAUSIBLE_MEASUREMENT": "Unplausible Messung.",
     "IMPORT_AMBIGUOUS_VENDOR": "Mehrdeutiger Lieferant beim Import.",
     "IMPORT_APPLY_FAILED": "Import-Anwendung fehlgeschlagen.",
+    "IMPORT_APPLY_INTERRUPTED": "Die Import-Anwendung wurde durch Datenbankkonflikte unterbrochen. Wenden Sie die Import-Aufgabe erneut an, um fortzufahren.",
     "IMPORT_APPLY_IN_PROGRESS": "Import-Anwendung läuft bereits.",
     "IMPORT_ARTICLE_NOT_FOUND": "Import-Artikel nicht gefunden.",
     "IMPORT_CONSENT_COLUMN_IGNORED": "Zustimmungsspalte beim Import ignoriert.",

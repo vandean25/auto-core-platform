@@ -196,8 +196,9 @@ describe('Import background worker (e2e)', () => {
     const mid = await tenantPrisma().importJob.findFirst({
       where: { id: jobId },
     });
-    const midWorker = (mid?.options_json as { worker?: { dry_run_reconcile_active?: boolean } })
-      .worker;
+    const midWorker = (
+      mid?.options_json as { worker?: { dry_run_reconcile_active?: boolean } }
+    ).worker;
     expect(midWorker?.dry_run_reconcile_active).toBe(true);
 
     const dryRunDone = await runDryRunUntilDone(jobId);
@@ -230,8 +231,26 @@ describe('Import background worker (e2e)', () => {
   it('reconciles cross-batch duplicate email to match sync dry-run', async () => {
     const jobId = await uploadBackgroundJob([
       ['BG-DUP-1', 'PRIVATE', 'Erika', 'Eins', 'dup@example.com', '', '', 'AT'],
-      ['BG-DUP-2', 'PRIVATE', 'Franz', 'Zwei', 'other@example.com', '', '', 'AT'],
-      ['BG-DUP-3', 'PRIVATE', 'Gabi', 'Drei', 'third@example.com', '', '', 'AT'],
+      [
+        'BG-DUP-2',
+        'PRIVATE',
+        'Franz',
+        'Zwei',
+        'other@example.com',
+        '',
+        '',
+        'AT',
+      ],
+      [
+        'BG-DUP-3',
+        'PRIVATE',
+        'Gabi',
+        'Drei',
+        'third@example.com',
+        '',
+        '',
+        'AT',
+      ],
       ['BG-DUP-4', 'PRIVATE', 'Hans', 'Vier', 'dup@example.com', '', '', 'AT'],
     ]);
 
@@ -460,10 +479,7 @@ describe('Import background worker (e2e)', () => {
   });
 
   it('completes multi-chunk dry-run handoffs without waiting for recovery', async () => {
-    const recoveryRun = jest.spyOn(
-      app.get(ImportRecoveryService),
-      'run',
-    );
+    const recoveryRun = jest.spyOn(app.get(ImportRecoveryService), 'run');
     const jobId = await uploadBackgroundJob([
       ['MC-1', 'PRIVATE', 'A', 'One', 'mc1@example.com', '', '', 'AT'],
       ['MC-2', 'PRIVATE', 'B', 'Two', 'mc2@example.com', '', '', 'AT'],
@@ -561,20 +577,183 @@ describe('Import background worker (e2e)', () => {
         failed_at: eightDaysAgo,
       },
     });
-    await app.get(RequestContextService).runAsWorker(
-      tenant.tenantId,
-      () =>
-        app
-          .get(ImportUploadRetentionService)
-          .purgeForTenant(tenant.tenantId, new Date()),
-      { workerId: 'import-upload-retention-e2e' },
-    );
+    await app
+      .get(RequestContextService)
+      .runAsWorker(
+        tenant.tenantId,
+        () =>
+          app
+            .get(ImportUploadRetentionService)
+            .purgeForTenant(tenant.tenantId, new Date()),
+        { workerId: 'import-upload-retention-e2e' },
+      );
     const refreshed = await tenantPrisma().importJob.findFirst({
       where: { id: jobId },
     });
     expect(
       readUploadRef(refreshed?.options_json as Record<string, unknown>),
     ).toBeNull();
+  });
+
+  async function syncDryRunAndApplyCsv(
+    entityType: string,
+    headers: string[],
+    rows: string[][],
+    delimiter: ',' | ';' = ',',
+  ) {
+    const mapping = Object.fromEntries(headers.map((header) => [header, header]));
+    const csv = Buffer.from(serializeCsv(headers, rows, delimiter), 'utf8');
+    const created = await request(app.getHttpServer())
+      .post('/api/imports')
+      .set('Authorization', `Bearer ${token}`)
+      .field('entityType', entityType)
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(mapping))
+      .attach('file', csv, `${entityType}-seed.csv`)
+      .expect(201);
+    const jobId = created.body.id as string;
+    expect(created.body.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    return jobId;
+  }
+
+  it('marks an apply-time OWNER overlap as ERROR while siblings still apply', async () => {
+    const sourceSystem = 'legacy-dms';
+    const customerHeaders = [
+      'external_id',
+      'type',
+      'first_name',
+      'last_name',
+      'email',
+    ];
+    await syncDryRunAndApplyCsv('CUSTOMER', customerHeaders, [
+      ['BG-CUST-A', 'PRIVATE', 'Owner', 'Alpha', 'bg-owner-a@example.com'],
+      ['BG-CUST-B', 'PRIVATE', 'Driver', 'Beta', 'bg-driver-b@example.com'],
+    ]);
+    const vehicleHeaders = [
+      'external_id',
+      'vin',
+      'plate',
+      'make',
+      'model',
+      'year',
+      'first_registration_date',
+    ];
+    await syncDryRunAndApplyCsv('VEHICLE', vehicleHeaders, [
+      [
+        'BG-VEH-1',
+        '1HGCM82633A004399',
+        'W-BG-1',
+        'Bg',
+        'Worker',
+        '2020',
+        '2019-06-01',
+      ],
+    ]);
+    const customerA = await tenantPrisma().externalIdMapping.findFirstOrThrow({
+      where: {
+        tenant_id: tenant.tenantId,
+        source_system: sourceSystem,
+        external_id: 'BG-CUST-A',
+        entity_type: 'CUSTOMER',
+      },
+    });
+    const vehicle = await tenantPrisma().externalIdMapping.findFirstOrThrow({
+      where: {
+        tenant_id: tenant.tenantId,
+        source_system: sourceSystem,
+        external_id: 'BG-VEH-1',
+        entity_type: 'VEHICLE',
+      },
+    });
+
+    const partyMapping = {
+      external_id: 'external_id',
+      vehicle_external_id: 'vehicle_external_id',
+      customer_external_id: 'customer_external_id',
+      role: 'role',
+      valid_from: 'valid_from',
+      valid_to: 'valid_to',
+      notes: 'notes',
+    };
+    const partyHeaders = [
+      'external_id',
+      'vehicle_external_id',
+      'customer_external_id',
+      'role',
+      'valid_from',
+      'valid_to',
+      'notes',
+    ];
+    const partyCsv = Buffer.from(
+      serializeCsv(
+        partyHeaders,
+        [
+          ['BG-P-1', 'BG-VEH-1', 'BG-CUST-B', 'DRIVER', '2020-01-01', '', ''],
+          ['BG-P-2', 'BG-VEH-1', 'BG-CUST-A', 'DRIVER', '2021-01-01', '', ''],
+          ['BG-P-3', 'BG-VEH-1', 'BG-CUST-A', 'OWNER', '2024-01-01', '', ''],
+        ],
+        ',',
+      ),
+      'utf8',
+    );
+    const createResponse = await request(app.getHttpServer())
+      .post('/api/imports')
+      .set('Authorization', `Bearer ${token}`)
+      .field('entityType', 'VEHICLE_PARTY')
+      .field('sourceSystem', sourceSystem)
+      .field('mapping', JSON.stringify(partyMapping))
+      .attach('file', partyCsv, 'bg-party-apply-conflict.csv')
+      .expect(201);
+    const jobId = createResponse.body.id as string;
+
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const dryRows = await tenantPrisma().importJobRow.findMany({
+      where: { import_job_id: jobId },
+      orderBy: { row_no: 'asc' },
+    });
+    expect(dryRows.every((row) => row.action === ImportRowAction.CREATE)).toBe(
+      true,
+    );
+
+    await tenantPrisma().vehicleParty.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        vehicle_id: vehicle.entity_id,
+        customer_id: customerA.entity_id,
+        role: 'OWNER',
+        valid_from: new Date('2023-06-01'),
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    const deadline = Date.now() + 90_000;
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    while (Date.now() < deadline && job?.status !== ImportJobStatus.APPLIED) {
+      await deliverWorker(jobId, 'apply').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
+    expect(job?.status).toBe(ImportJobStatus.APPLIED);
+    const totals = job?.totals_json as ImportJobTotals;
+    expect(totals.create).toBe(2);
+    expect(totals.error).toBe(1);
+    const overlapRow = await tenantPrisma().importJobRow.findFirst({
+      where: { import_job_id: jobId, row_no: 3 },
+    });
+    expect(overlapRow?.action).toBe(ImportRowAction.ERROR);
+    expect(JSON.stringify(overlapRow?.errors_json)).toContain(
+      'VEHICLE_PARTY_OVERLAP',
+    );
   });
 
   it('matches final totals to the dry-run row list', async () => {

@@ -42,7 +42,7 @@ type AdapterCauseShape = {
   code?: string;
 };
 
-function readCause(error: unknown): unknown {
+export function readErrorCause(error: unknown): unknown {
   if (!error || typeof error !== 'object' || !('cause' in error)) {
     return undefined;
   }
@@ -96,7 +96,7 @@ function isRetryablePrismaKnownError(
 
 function isRetryableAdapterShape(node: unknown): boolean {
   if (node instanceof Error && node.name === 'DriverAdapterError') {
-    const cause = readCause(node);
+    const cause = readErrorCause(node);
     if (cause && typeof cause === 'object') {
       return isAdapterCauseRetryable(
         adapterCauseFromRecord(cause as Record<string, unknown>),
@@ -129,7 +129,7 @@ export function isRetryableTransactionError(error: unknown): boolean {
     if (isRetryableErrorNode(current)) {
       return true;
     }
-    current = readCause(current);
+    current = readErrorCause(current);
   }
   return false;
 }

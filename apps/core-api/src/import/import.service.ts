@@ -21,9 +21,14 @@ import {
   applyInProgress,
   assertFailedImportJobCanReApply,
   assertJobCanBeApplied,
+  importApplyInterrupted,
   importJobCannotCancel,
   importJobNotFound,
 } from './import-job.errors.js';
+import {
+  classifyImportApplyError,
+  ImportApplyRetryExhaustedError,
+} from './import-apply.errors.js';
 import {
   buildImportErrorReportCsv,
   serializeImportJob,
@@ -77,10 +82,8 @@ import {
   runBackgroundDryRunReconcileChunk,
   scheduleBackgroundDryRunAfterRowBatches,
 } from './import-background-dry-run.reconcile.js';
-import {
-  importWorkerRetryDelaySeconds,
-  isRetryableImportWorkerError,
-} from './import-worker-retry.js';
+import { readErrorCause } from '../common/prisma/is-retryable-transaction-error.js';
+import { importWorkerRetryDelaySeconds } from './import-worker-retry.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
@@ -115,6 +118,17 @@ import { LaborOperationImportHandler } from './labor-operation-import.handler.js
 import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.js';
 import { VehicleImportHandler } from './vehicle-import.handler.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
+
+function describeImportWorkerRetryCause(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code;
+  }
+  const cause = readErrorCause(error);
+  if (cause instanceof Prisma.PrismaClientKnownRequestError) {
+    return cause.code;
+  }
+  return error instanceof Error ? error.name : 'unknown';
+}
 
 function buildRowsWhere(
   tenantId: string,
@@ -384,37 +398,77 @@ export class ImportService {
     const dryRunTotals = job.totals_json as ImportJobTotals;
 
     if (rowCount > readImportSyncMaxRowCount()) {
-      const rows = await this.jobStore.findApplyRowsAfter(
+      return this.queueBackgroundImportApply(
         tenantId,
         jobId,
-        0,
-        IMPORT_APPLY_BATCH_SIZE,
-      );
-      await handler.prepareApply({
-        tenantId,
         job,
-        rows,
+        handler,
+        dryRunTotals,
         applyOptions,
         effectiveOptions,
-      });
-      const lock = await this.jobStore.lockForBackgroundApply(
-        tenantId,
-        jobId,
-        job.options_json as ImportJobOptionsWithWorker,
-        dryRunTotals,
-        handler.applySequenceOrderKey(),
-      );
-      if (lock.count === 0) {
-        throw applyInProgress();
-      }
-      await this.enqueueInitialImportWorker(tenantId, jobId, 'apply');
-      const refreshed = await this.jobStore.findJob(tenantId, jobId);
-      return this.serializeJob(
-        refreshed!,
-        refreshed!.totals_json as ImportJobTotals,
       );
     }
 
+    return this.applyImportJobSynchronously(
+      tenantId,
+      jobId,
+      job,
+      handler,
+      currentUser.id,
+      applyOptions,
+      effectiveOptions,
+    );
+  }
+
+  private async queueBackgroundImportApply(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+    handler: ImportTypeHandler,
+    dryRunTotals: ImportJobTotals,
+    applyOptions: ImportJobOptions | undefined,
+    effectiveOptions: ImportJobOptions,
+  ): Promise<SerializedImportJob> {
+    const rows = await this.jobStore.findApplyRowsAfter(
+      tenantId,
+      jobId,
+      0,
+      IMPORT_APPLY_BATCH_SIZE,
+    );
+    await handler.prepareApply({
+      tenantId,
+      job,
+      rows,
+      applyOptions,
+      effectiveOptions,
+    });
+    const lock = await this.jobStore.lockForBackgroundApply(
+      tenantId,
+      jobId,
+      job.options_json as ImportJobOptionsWithWorker,
+      dryRunTotals,
+      handler.applySequenceOrderKey(),
+    );
+    if (lock.count === 0) {
+      throw applyInProgress();
+    }
+    await this.enqueueInitialImportWorker(tenantId, jobId, 'apply');
+    const refreshed = await this.jobStore.findJob(tenantId, jobId);
+    return this.serializeJob(
+      refreshed!,
+      refreshed!.totals_json as ImportJobTotals,
+    );
+  }
+
+  private async applyImportJobSynchronously(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+    handler: ImportTypeHandler,
+    actorUserId: string,
+    applyOptions: ImportJobOptions | undefined,
+    effectiveOptions: ImportJobOptions,
+  ): Promise<SerializedImportJob> {
     const rows = await this.jobStore.findApplyRows(tenantId, jobId);
     const preparation = await handler.prepareApply({
       tenantId,
@@ -429,16 +483,24 @@ export class ImportService {
       throw applyInProgress();
     }
 
-    const applied = await traceImportCommit(job.entity_type, rows.length, () =>
-      handler.apply({
-        tenantId,
-        job,
-        rows,
-        actorUserId: currentUser.id,
-        effectiveOptions,
-        preparation,
-      }),
-    );
+    let applied: SerializedImportJob;
+    try {
+      applied = await traceImportCommit(job.entity_type, rows.length, () =>
+        handler.apply({
+          tenantId,
+          job,
+          rows,
+          actorUserId,
+          effectiveOptions,
+          preparation,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ImportApplyRetryExhaustedError) {
+        throw importApplyInterrupted();
+      }
+      throw error;
+    }
     if (applied.status === ImportJobStatus.APPLIED) {
       await this.deleteJobUploadIfPresent(
         job.options_json as ImportJobOptionsWithWorker,
@@ -669,9 +731,12 @@ export class ImportService {
     },
     error: unknown,
   ): Promise<void> {
-    if (isRetryableImportWorkerError(error)) {
+    if (classifyImportApplyError(error) === 'retryable') {
       const job = await this.jobStore.findJob(params.tenantId, params.jobId);
       if (job && job.status === ImportJobStatus.APPLYING) {
+        this.logger.warn(
+          `Import worker retryable error; requeueing jobId=${params.jobId} cause=${describeImportWorkerRetryCause(error)}`,
+        );
         const options = job.options_json as ImportJobOptionsWithWorker;
         const worker = readWorkerState(options);
         if (worker?.lease_token) {
@@ -689,9 +754,15 @@ export class ImportService {
             phase: params.phase,
             claimSeq: job.worker_claim_seq,
             recoverySeq: job.worker_recovery_seq,
-            delaySeconds: importWorkerRetryDelaySeconds(),
+            delaySeconds: importWorkerRetryDelaySeconds(
+              job.attempts_without_progress,
+            ),
             recordHandoffAfterSuccess: true,
           },
+        );
+      } else {
+        this.logger.warn(
+          `Import worker retryable error with job not APPLYING jobId=${params.jobId}`,
         );
       }
       return;

@@ -12,6 +12,7 @@ export type ImportJobOptions = {
   vendor_id?: string;
   /** Migration cutover day (`YYYY-MM-DD`), taken from the canonical manifest. */
   cutover_date?: string;
+  apply_failure_reason?: 'retry_exhausted' | 'poison_cap';
 };
 
 export type ImportJobTotals = {
