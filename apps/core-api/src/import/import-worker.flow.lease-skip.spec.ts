@@ -75,7 +75,9 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
         tenantId: 'tenant-1',
         jobId: 'job-1',
         phase: 'apply',
-        ...firstIdentity!,
+        chunkSeq: firstIdentity?.chunkSeq ?? 0,
+        claimSeq: firstIdentity?.claimSeq ?? 0,
+        recoverySeq: firstIdentity?.recoverySeq ?? 0,
       }),
     ).toBe(expectedName);
     expect(enqueueImportWorker.mock.calls[0]?.[0]?.delaySeconds).toBeGreaterThan(

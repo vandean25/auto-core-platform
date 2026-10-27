@@ -1,13 +1,16 @@
 import { ImportRowAction } from '@prisma/client';
+import type { ParsedCsv } from './csv-parse.util.js';
 import {
   planParsedCsvRowsWithBudget,
   shouldStopDryRunPlanningAfterRow,
 } from './import-dry-run-plan-budget.js';
 
 describe('import dry-run plan budget', () => {
-  const parsed = {
+  const parsed: ParsedCsv = {
     headers: ['id'],
     rows: [['a'], ['b'], ['c'], ['d']],
+    delimiter: ';',
+    sha256: 'test-fixture',
   };
 
   it('always plans at least one row before stopping on deadline', () => {

@@ -1,7 +1,7 @@
 import { ImportRowAction } from '@prisma/client';
 import type { MarginRuleItem } from '../margin-rule/retail-from-cost.util.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
+import type { ParsedCsv } from './csv-parse.util.js';
 import {
   normalizeSupplierPriceListRow,
   planSupplierPriceListDryRunRow,

@@ -364,8 +364,7 @@ export class ImportService {
         uploadPresent: Boolean(
           readUploadRef(job.options_json as ImportJobOptionsWithWorker),
         ),
-        countApplyRows: () =>
-          this.jobStore.countApplyRows(tenantId, jobId),
+        countApplyRows: () => this.jobStore.countApplyRows(tenantId, jobId),
       });
     }
 

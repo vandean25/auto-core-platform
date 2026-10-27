@@ -1,4 +1,5 @@
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { ParsedCsv } from './csv-parse.util.js';
 import { planCustomerDryRun } from './customer-import.dry-run.js';
 
 describe('planCustomerDryRun planBudget', () => {
@@ -9,7 +10,7 @@ describe('planCustomerDryRun planBudget', () => {
 
   it('returns a partial slice when planning exceeds the chunk deadline', async () => {
     let now = 0;
-    const parsed = {
+    const parsed: ParsedCsv = {
       headers: [
         'Kunden-Nr',
         'Typ',
@@ -25,6 +26,8 @@ describe('planCustomerDryRun planBudget', () => {
         ['E2', 'PRIVATE', '', 'B', 'Two', 'b@example.com', '', 'AT'],
         ['E3', 'PRIVATE', '', 'C', 'Three', 'c@example.com', '', 'AT'],
       ],
+      delimiter: ';',
+      sha256: 'customer-dry-run-budget-fixture',
     };
     const rows = await planCustomerDryRun(
       prisma,

@@ -25,10 +25,7 @@ export function shouldStopDryRunPlanningAfterRow(
 export function planParsedCsvRowsWithBudget(
   parsed: ParsedCsv,
   budget: ImportDryRunPlanBudget | undefined,
-  planRow: (
-    rowNo: number,
-    record: Record<string, string>,
-  ) => DryRunRowResult,
+  planRow: (rowNo: number, record: Record<string, string>) => DryRunRowResult,
 ): DryRunRowResult[] {
   const rows: DryRunRowResult[] = [];
   for (let index = 0; index < parsed.rows.length; index++) {
@@ -36,9 +33,7 @@ export function planParsedCsvRowsWithBudget(
       break;
     }
     const rowNo = dryRunRowNoForSlice(budget, index);
-    rows.push(
-      planRow(rowNo, rowToRecord(parsed.headers, parsed.rows[index])),
-    );
+    rows.push(planRow(rowNo, rowToRecord(parsed.headers, parsed.rows[index])));
     budget?.onAfterRowPlanned?.();
     if (shouldStopDryRunPlanningAfterRow(budget, rows.length)) {
       break;

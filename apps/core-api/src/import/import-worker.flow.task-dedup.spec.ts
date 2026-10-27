@@ -6,6 +6,12 @@ import {
   requeueImportWorkerAfterLeaseSkip,
 } from './import-worker.flow.js';
 import { importWorkerTaskIdForParams } from './import-worker-enqueue.js';
+import type { ImportWorkerTaskIdentity } from './import-worker-task-identity.js';
+
+type EnqueueImportWorkerArgs = {
+  taskIdentity: ImportWorkerTaskIdentity;
+  delaySeconds?: number;
+};
 
 describe('import worker task identity dedup', () => {
   const leaseUntil = new Date(Date.now() + 30_000).toISOString();
@@ -27,7 +33,11 @@ describe('import worker task identity dedup', () => {
     },
   };
 
-  function buildDeps(enqueueImportWorker: jest.Mock) {
+  function buildDeps(
+    enqueueImportWorker: jest.Mock<
+      (args: EnqueueImportWorkerArgs) => Promise<void>
+    >,
+  ) {
     return {
       jobStore: {
         findJob: jest.fn(async () => job),
@@ -45,7 +55,9 @@ describe('import worker task identity dedup', () => {
   }
 
   it('uses one task name for duplicate lease-skips and the holder handoff', async () => {
-    const enqueueImportWorker = jest.fn(async () => undefined);
+    const enqueueImportWorker = jest.fn(
+      async (_args: EnqueueImportWorkerArgs) => undefined,
+    );
     const deps = buildDeps(enqueueImportWorker);
 
     await requeueImportWorkerAfterLeaseSkip(deps as never, {
@@ -73,16 +85,18 @@ describe('import worker task identity dedup', () => {
         tenantId: 'tenant-1',
         jobId: 'job-1',
         phase: 'apply',
-        chunkSeq: identity!.chunkSeq,
-        claimSeq: identity!.claimSeq,
-        recoverySeq: identity!.recoverySeq,
+        chunkSeq: identity?.chunkSeq ?? 0,
+        claimSeq: identity?.claimSeq ?? 0,
+        recoverySeq: identity?.recoverySeq ?? 0,
       });
     });
     expect(new Set(names).size).toBe(1);
   });
 
   it('uses a different task name after a retryable error handoff', async () => {
-    const enqueueImportWorker = jest.fn(async () => undefined);
+    const enqueueImportWorker = jest.fn(
+      async (_args: EnqueueImportWorkerArgs) => undefined,
+    );
     const deps = buildDeps(enqueueImportWorker);
 
     await requeueImportWorkerAfterLeaseSkip(deps as never, {

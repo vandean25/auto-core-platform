@@ -97,7 +97,9 @@ export async function planVehicleDryRun(
     input.tenantId,
     input.sourceSystem,
   );
-  return planParsedCsvRowsWithBudget(parsed, input.planBudget, (rowNo, record) =>
-    planVehicleCsvRow(rowNo, record, input, context),
+  return planParsedCsvRowsWithBudget(
+    parsed,
+    input.planBudget,
+    (rowNo, record) => planVehicleCsvRow(rowNo, record, input, context),
   );
 }
