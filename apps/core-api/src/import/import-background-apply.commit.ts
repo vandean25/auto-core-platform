@@ -1,4 +1,8 @@
-import { ImportJobStatus, type Prisma } from '@prisma/client';
+import {
+  ImportJobStatus,
+  type ImportEntityType,
+  type Prisma,
+} from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
@@ -47,6 +51,38 @@ export async function assertApplyWorkerLease(
   }
 }
 
+async function resolveBackgroundApplyFinishState(
+  tx: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    jobId: string;
+    entityType: ImportEntityType;
+    applySeq: number;
+    maxApplySeq: number;
+  },
+  totals: ImportJobTotals,
+): Promise<{ totals: ImportJobTotals; finished: boolean }> {
+  const reachedLastSeq = params.applySeq >= params.maxApplySeq;
+  if (!reachedLastSeq) {
+    return { totals, finished: false };
+  }
+  const reconciled = await reconcileFinishedApplyTotals(
+    tx,
+    {
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      entityType: params.entityType,
+    },
+    totals,
+  );
+  const complete = await isBackgroundApplyOutcomeComplete(
+    tx,
+    { tenantId: params.tenantId, jobId: params.jobId },
+    reconciled,
+  );
+  return { totals: reconciled, finished: complete };
+}
+
 /** Persists cursor, totals, and optionally APPLIED in the same transaction as the row write. */
 export async function commitBackgroundApplyRowInTransaction(
   tx: Prisma.TransactionClient,
@@ -76,30 +112,24 @@ export async function commitBackgroundApplyRowInTransaction(
   if (!worker) {
     throw new ImportWorkerLeaseLostError();
   }
-  let finished = params.applySeq >= params.maxApplySeq;
   const workerNext = {
     ...worker,
     last_committed_apply_seq: params.applySeq,
     processed_rows: params.applySeq,
   };
   const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
-  let totals = mergeMonotonicApplyTotals(storedTotals, params.totals);
-  if (finished) {
-    totals = await reconcileFinishedApplyTotals(
-      tx,
-      {
-        tenantId: params.tenantId,
-        jobId: params.jobId,
-        entityType: job.entity_type,
-      },
-      totals,
-    );
-    finished = await isBackgroundApplyOutcomeComplete(
-      tx,
-      { tenantId: params.tenantId, jobId: params.jobId },
-      totals,
-    );
-  }
+  const mergedTotals = mergeMonotonicApplyTotals(storedTotals, params.totals);
+  const { totals, finished } = await resolveBackgroundApplyFinishState(
+    tx,
+    {
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      entityType: job.entity_type,
+      applySeq: params.applySeq,
+      maxApplySeq: params.maxApplySeq,
+    },
+    mergedTotals,
+  );
   await tx.importJob.update({
     where: { id: params.jobId },
     data: {

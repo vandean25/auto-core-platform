@@ -49,7 +49,7 @@ export async function reconcileFinishedApplyTotals(
   };
 }
 
-/** True when every planned CREATE row is either written or marked ERROR. */
+/** True when apply totals account for every row and CREATE rows are written or ERROR. */
 export async function isBackgroundApplyOutcomeComplete(
   db: ApplyTotalsDb,
   params: { tenantId: string; jobId: string },
@@ -58,15 +58,25 @@ export async function isBackgroundApplyOutcomeComplete(
   if (typeof db.importJobRow.count !== 'function') {
     return true;
   }
-  const plannedCreates = await db.importJobRow.count({
-    where: {
-      tenant_id: params.tenantId,
-      import_job_id: params.jobId,
-      action: ImportRowAction.CREATE,
-    },
-  });
+  const rowWhere = {
+    tenant_id: params.tenantId,
+    import_job_id: params.jobId,
+  };
+  const [rowCount, plannedCreates] = await Promise.all([
+    db.importJobRow.count({ where: rowWhere }),
+    db.importJobRow.count({
+      where: { ...rowWhere, action: ImportRowAction.CREATE },
+    }),
+  ]);
+  if (rowCount === 0) {
+    return false;
+  }
+  const accounted = totals.create + totals.update + totals.skip + totals.error;
+  if (accounted < rowCount) {
+    return false;
+  }
   if (plannedCreates === 0) {
     return true;
   }
-  return totals.create + totals.error >= plannedCreates;
+  return totals.create >= plannedCreates || totals.error >= plannedCreates;
 }
