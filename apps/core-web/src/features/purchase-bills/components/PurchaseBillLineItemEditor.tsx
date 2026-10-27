@@ -56,8 +56,8 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
   return (
     <div className="space-y-3">
       <div ref={quickEntryRef} className="border rounded-xl bg-muted/40 px-3 py-2">
-        <div className="grid grid-cols-[1fr_70px_auto] gap-2">
-          <div className="relative">
+        <div className="grid grid-cols-[1fr_70px_auto] gap-2 max-sm:grid-cols-[1fr_auto] max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
+          <div className="relative max-sm:col-span-2">
             <Input
               ref={itemInputRef}
               disabled={!form.vendorId}

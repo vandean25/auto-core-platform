@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   buildRegisterPayload,
@@ -445,18 +446,26 @@ export function WorkshopOrderIntakeDialog({
           <div className="border rounded-lg p-3 space-y-3">
             <div className="text-sm font-medium">{t('orderIntake.orderIntakeSection')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input
-                placeholder={t('orderIntake.odometerPlaceholder')}
-                type="number"
-                value={odometer}
-                onChange={(e) => setOdometer(e.target.value)}
-              />
-              <Input
-                placeholder={t('orderIntake.fuelPlaceholder')}
-                type="number"
-                value={fuelLevel}
-                onChange={(e) => setFuelLevel(e.target.value)}
-              />
+              <div className="space-y-1.5">
+                <Label htmlFor="order-intake-odometer">{t('orderIntake.odometerPlaceholder')}</Label>
+                <Input
+                  id="order-intake-odometer"
+                  placeholder={t('orderIntake.odometerPlaceholder')}
+                  type="number"
+                  value={odometer}
+                  onChange={(e) => setOdometer(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="order-intake-fuel">{t('orderIntake.fuelPlaceholder')}</Label>
+                <Input
+                  id="order-intake-fuel"
+                  placeholder={t('orderIntake.fuelPlaceholder')}
+                  type="number"
+                  value={fuelLevel}
+                  onChange={(e) => setFuelLevel(e.target.value)}
+                />
+              </div>
             </div>
             <textarea
               className="w-full min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-base md:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
