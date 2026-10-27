@@ -8,8 +8,7 @@ import {
 import { isTransientImportStorageReadError } from './import-worker-retry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 
-export type ImportApplyErrorKind =
-  'lease_lost' | 'retryable' | 'row' | 'fatal';
+export type ImportApplyErrorKind = 'lease_lost' | 'retryable' | 'row' | 'fatal';
 
 export type ImportApplyFailureReason = 'retry_exhausted' | 'poison_cap';
 
