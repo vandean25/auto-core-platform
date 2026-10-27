@@ -343,6 +343,15 @@ describe('AgentSupervisionPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('lets the tab labels wrap and makes the controls 44px on a phone', () => {
+    renderSupervisionPage()
+
+    for (const testId of ['tab-approvals', 'tab-activity', 'tab-decision-shadow']) {
+      expect(screen.getByTestId(testId).className).toContain('whitespace-normal')
+    }
+    expect(screen.getByTestId('agent-supervision-page').className).toContain('max-sm:[&_button]:min-h-11')
+  })
+
   it('renders German copy by default via global i18n', () => {
     renderSupervisionPage()
     expect(screen.getByRole('heading', { level: 1, name: deAgent.header.title })).toBeInTheDocument()

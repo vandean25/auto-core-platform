@@ -90,9 +90,9 @@ export function ActivityTab({
     <div className="space-y-6" data-testid="activity-tab">
       {/* Filter toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           {/* Agent search */}
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search
               className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"
               aria-hidden="true"
@@ -107,7 +107,7 @@ export function ActivityTab({
             />
           </div>
 
-          <div className="relative w-72">
+          <div className="relative w-full sm:w-72">
             <Search
               className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"
               aria-hidden="true"
@@ -123,7 +123,7 @@ export function ActivityTab({
           </div>
 
           {/* Status selector */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="activity-status-select"
               className="text-xs text-slate-500 font-medium"
@@ -134,7 +134,7 @@ export function ActivityTab({
               id="activity-status-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none md:text-xs"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none sm:w-auto md:text-xs"
               data-testid="filter-status-select"
             >
               <option value="ALL">
@@ -147,7 +147,7 @@ export function ActivityTab({
           </div>
 
           {/* Tier selector */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="activity-tier-select"
               className="text-xs text-slate-500 font-medium"
@@ -158,7 +158,7 @@ export function ActivityTab({
               id="activity-tier-select"
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value)}
-              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none md:text-xs"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none sm:w-auto md:text-xs"
               data-testid="filter-tier-select"
             >
               <option value="ALL">
@@ -172,7 +172,7 @@ export function ActivityTab({
           </div>
 
           {/* Date range filters */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="activity-start-date"
               className="text-xs text-slate-500 font-medium"
@@ -184,12 +184,12 @@ export function ActivityTab({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 w-36 text-xs"
+              className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-start-date-input"
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="activity-end-date"
               className="text-xs text-slate-500 font-medium"
@@ -201,7 +201,7 @@ export function ActivityTab({
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="h-9 w-36 text-xs"
+              className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-end-date-input"
             />
           </div>
