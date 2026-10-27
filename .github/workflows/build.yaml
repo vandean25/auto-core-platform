@@ -352,7 +352,6 @@ jobs:
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
-
       - name: Run E2E tests
         # Each shard has its own Postgres service, so shards never share a database.
         timeout-minutes: 15
