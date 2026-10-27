@@ -7,18 +7,23 @@ import {
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
+const APPLY_TOTAL_KEYS = [
+  'rows',
+  'create',
+  'update',
+  'skip',
+  'error',
+] as const satisfies ReadonlyArray<keyof ImportJobTotals>;
+
 function mergeMonotonicApplyTotals(
   storedTotals: ImportJobTotals,
   nextTotals: ImportJobTotals,
 ): ImportJobTotals {
-  return {
-    ...nextTotals,
-    rows: Math.max(storedTotals.rows ?? 0, nextTotals.rows ?? 0),
-    create: Math.max(storedTotals.create ?? 0, nextTotals.create ?? 0),
-    update: Math.max(storedTotals.update ?? 0, nextTotals.update ?? 0),
-    skip: Math.max(storedTotals.skip ?? 0, nextTotals.skip ?? 0),
-    error: Math.max(storedTotals.error ?? 0, nextTotals.error ?? 0),
-  };
+  const merged = { ...nextTotals };
+  for (const key of APPLY_TOTAL_KEYS) {
+    merged[key] = Math.max(storedTotals[key] ?? 0, nextTotals[key] ?? 0);
+  }
+  return merged;
 }
 
 async function reconcileFinishedApplyTotals(

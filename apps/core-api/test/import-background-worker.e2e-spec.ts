@@ -143,25 +143,28 @@ describe('Import background worker (e2e)', () => {
     return Buffer.from(serializeCsv(headers, rows, ';'), 'utf8');
   }
 
-  async function uploadBackgroundJob() {
-    const csv = customerCsv([
-      ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
-      ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
-      ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
-    ]);
+  async function uploadBackgroundJob(
+    rows: string[][],
+    fileName = 'background.csv',
+  ) {
+    const csv = customerCsv(rows);
     const response = await request(app.getHttpServer())
       .post('/api/imports')
       .set('Authorization', `Bearer ${token}`)
       .field('entityType', 'CUSTOMER')
       .field('sourceSystem', 'legacy-dms')
       .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', csv, 'background.csv')
+      .attach('file', csv, fileName)
       .expect(201);
     return response.body.id as string;
   }
 
   it('runs background dry-run and apply through the signed worker route', async () => {
-    const jobId = await uploadBackgroundJob();
+    const jobId = await uploadBackgroundJob([
+      ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
+      ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
+      ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
+    ]);
 
     await deliverWorker(jobId, 'dry_run').expect(204);
     await deliverWorker(jobId, 'dry_run').expect(204);
@@ -187,7 +190,14 @@ describe('Import background worker (e2e)', () => {
   });
 
   it('applies each row once when two worker attempts overlap on apply', async () => {
-    const jobId = await uploadBackgroundJob();
+    const jobId = await uploadBackgroundJob(
+      [
+        ['BG-OV-1', 'PRIVATE', 'Erika', 'Eins', 'bgov1@example.com', '', '', 'AT'],
+        ['BG-OV-2', 'PRIVATE', 'Franz', 'Zwei', 'bgov2@example.com', '', '', 'AT'],
+        ['BG-OV-3', 'PRIVATE', 'Gabi', 'Drei', 'bgov3@example.com', '', '', 'AT'],
+      ],
+      'background-overlap.csv',
+    );
 
     await deliverWorker(jobId, 'dry_run').expect(204);
     await deliverWorker(jobId, 'dry_run').expect(204);
@@ -234,7 +244,14 @@ describe('Import background worker (e2e)', () => {
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
-    const jobId = await uploadBackgroundJob();
+    const jobId = await uploadBackgroundJob(
+      [
+        ['BG-REC-1', 'PRIVATE', 'Erika', 'Eins', 'bgrec1@example.com', '', '', 'AT'],
+        ['BG-REC-2', 'PRIVATE', 'Franz', 'Zwei', 'bgrec2@example.com', '', '', 'AT'],
+        ['BG-REC-3', 'PRIVATE', 'Gabi', 'Drei', 'bgrec3@example.com', '', '', 'AT'],
+      ],
+      'background-recovery.csv',
+    );
     const existing = await tenantPrisma().importJob.findFirst({
       where: { id: jobId },
     });
