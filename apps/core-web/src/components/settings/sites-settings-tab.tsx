@@ -10,6 +10,7 @@ import {
   useRemoveSiteMembership,
   useSiteMemberships,
 } from '@/api/site-admin'
+import { SitesTable } from '@/components/settings/sites-table'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { StatusBadge } from '@/components/status/StatusBadge'
 import {
   Table,
   TableBody,
@@ -100,37 +100,7 @@ export function SitesSettingsTab() {
         </p>
       </div>
 
-      <div className="rounded-lg border bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('sites.columns.code')}</TableHead>
-              <TableHead>{t('sites.columns.name')}</TableHead>
-              <TableHead>{t('sites.columns.legalEntity')}</TableHead>
-              <TableHead>{t('sites.columns.status')}</TableHead>
-              <TableHead>{t('sites.columns.members')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(sites ?? []).map((site) => (
-              <TableRow
-                key={site.id}
-                data-state={site.id === selectedSiteId ? 'selected' : undefined}
-                className={site.id === selectedSiteId ? 'bg-slate-50' : undefined}
-                onClick={() => setSelectedSiteId(site.id)}
-              >
-                <TableCell className="font-mono text-sm">{site.code}</TableCell>
-                <TableCell className="font-medium">{site.name}</TableCell>
-                <TableCell>{site.legal_entity?.name ?? '—'}</TableCell>
-                <TableCell>
-                  <StatusBadge status={site.is_active ? 'ACTIVE' : 'INACTIVE'} />
-                </TableCell>
-                <TableCell>{site._count?.memberships ?? 0}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <SitesTable sites={sites ?? []} selectedSiteId={selectedSiteId} onSelect={setSelectedSiteId} />
 
       {selectedSite ? (
         <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">

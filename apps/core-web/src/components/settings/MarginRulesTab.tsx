@@ -94,6 +94,17 @@ const DEFAULT_FORM_DATA: RuleFormData = {
   is_active: true,
 }
 
+/** Loading and empty text of the rules card: a block of its own, so it is not centred inside the wide table (off screen on a phone). */
+function MarginRulesPlaceholder({ loading }: { loading: boolean }) {
+  const { t } = useTranslation('settings')
+  return (
+    <p className="px-4 py-6 text-center text-muted-foreground">
+      {loading ? <Loader2 className="mr-2 inline h-5 w-5 animate-spin" /> : null}
+      {loading ? t('marginRules.loading') : t('marginRules.empty')}
+    </p>
+  )
+}
+
 export function MarginRulesTab() {
   const { t } = useTranslation(['settings', 'common'])
   const { data: rules = [], isLoading: isLoadingRules } = useMarginRules()
@@ -308,6 +319,9 @@ export function MarginRulesTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
+          {isLoadingRules || sortedRules.length === 0 ? (
+            <MarginRulesPlaceholder loading={isLoadingRules} />
+          ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -341,21 +355,7 @@ export function MarginRulesTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoadingRules ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
-                      <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
-                      {t('marginRules.loading')}
-                    </TableCell>
-                  </TableRow>
-                ) : sortedRules.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
-                      {t('marginRules.empty')}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedRules.map((rule) => (
+                {sortedRules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell className="font-mono font-medium">{rule.priority}</TableCell>
                       <TableCell className="font-medium">{rule.name}</TableCell>
@@ -393,11 +393,11 @@ export function MarginRulesTab() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           </div>
+          )}
         </CardContent>
       </Card>
 

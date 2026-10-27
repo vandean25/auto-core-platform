@@ -1,5 +1,6 @@
 {
   "page": {
+    "sectionLabel": "Section",
     "title": "Settings",
     "description": "Manage your platform configuration, master data, and storage locations."
   },
