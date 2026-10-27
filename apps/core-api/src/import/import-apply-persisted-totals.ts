@@ -18,7 +18,8 @@ function totalsFromActionGroups(
   }
   for (const group of groups) {
     if (group.action === ImportRowAction.CREATE) totals.create = group.count;
-    else if (group.action === ImportRowAction.UPDATE) totals.update = group.count;
+    else if (group.action === ImportRowAction.UPDATE)
+      totals.update = group.count;
     else if (group.action === ImportRowAction.SKIP) totals.skip = group.count;
     else if (group.action === ImportRowAction.ERROR) totals.error = group.count;
   }

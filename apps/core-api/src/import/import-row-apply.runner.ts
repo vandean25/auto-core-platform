@@ -312,11 +312,8 @@ export class RowByRowApplyRunner {
       if (!job) {
         return null;
       }
-      const { expectedRows, flaggedJumps } = await readImportJobExpectedRowCount(
-        tx,
-        job.tenant_id,
-        jobId,
-      );
+      const { expectedRows, flaggedJumps } =
+        await readImportJobExpectedRowCount(tx, job.tenant_id, jobId);
       const persistedTotals = coalesceApplyTotalsWhenGroupByEmpty(
         await tallyImportApplyTotalsFromRows(
           tx,
@@ -366,25 +363,21 @@ export class RowByRowApplyRunner {
         failed_at: new Date(),
         ...failurePatch,
       };
-      let updated = false;
-      if (guardedWrite) {
-        const result = await this.prisma.importJob.updateMany({
-          where: { id: jobId, status: ImportJobStatus.APPLYING },
-          data,
-        });
-        updated = result.count > 0;
-      } else {
-        try {
-          await this.prisma.importJob.update({
-            where: { id: jobId },
-            data,
-          });
-          updated = true;
-        } catch {
-          updated = false;
-        }
-      }
-      if (updated) {
+      const didMarkFailed = guardedWrite
+        ? (
+            await this.prisma.importJob.updateMany({
+              where: { id: jobId, status: ImportJobStatus.APPLYING },
+              data,
+            })
+          ).count > 0
+        : await this.prisma.importJob
+            .update({
+              where: { id: jobId },
+              data,
+            })
+            .then(() => true)
+            .catch(() => false);
+      if (didMarkFailed) {
         const job = await this.prisma.importJob.findFirst({
           where: { id: jobId },
           select: { attempts_without_progress: true },
