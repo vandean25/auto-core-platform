@@ -95,56 +95,16 @@ function mergeUnits(
   return merged;
 }
 
-function trackSecondarySpanForEntity(
-  entityType: ImportEntityType,
-  row: {
-    row_no: number;
-    external_id: string | null;
-    normalized_json: unknown;
-  },
-  secondarySpans: SpanTracker,
+type ReconcileRow = {
+  row_no: number;
+  external_id: string | null;
+  normalized_json: unknown;
+};
+
+function trackVehicleIdGroup(
+  row: ReconcileRow,
   vehicleRowNos: Map<string, number[]>,
 ): void {
-  if (entityType === ImportEntityType.CUSTOMER) {
-    trackNormalizedField(
-      secondarySpans,
-      row.normalized_json,
-      'email',
-      row.row_no,
-      true,
-    );
-    return;
-  }
-  if (entityType === ImportEntityType.VEHICLE) {
-    trackNormalizedField(
-      secondarySpans,
-      row.normalized_json,
-      'vin',
-      row.row_no,
-      true,
-    );
-    return;
-  }
-  if (entityType === ImportEntityType.LABOR_OPERATION) {
-    trackNormalizedField(
-      secondarySpans,
-      row.normalized_json,
-      'code',
-      row.row_no,
-      true,
-    );
-    return;
-  }
-  if (entityType === ImportEntityType.SUPPLIER_PRICE_LIST && row.external_id) {
-    trackKey(secondarySpans, row.external_id, row.row_no);
-    return;
-  }
-  if (
-    entityType !== ImportEntityType.VEHICLE_PARTY &&
-    entityType !== ImportEntityType.VEHICLE_DUE_DATE
-  ) {
-    return;
-  }
   const vehicleId = normalizedString(row.normalized_json, 'vehicle_id');
   if (!vehicleId) {
     return;
@@ -153,6 +113,43 @@ function trackSecondarySpanForEntity(
   list.push(row.row_no);
   vehicleRowNos.set(vehicleId, list);
 }
+
+const SECONDARY_SPAN_BY_ENTITY: Partial<
+  Record<
+    ImportEntityType,
+    (row: ReconcileRow, secondarySpans: SpanTracker) => void
+  >
+> = {
+  [ImportEntityType.CUSTOMER]: (row, secondarySpans) =>
+    trackNormalizedField(
+      secondarySpans,
+      row.normalized_json,
+      'email',
+      row.row_no,
+      true,
+    ),
+  [ImportEntityType.VEHICLE]: (row, secondarySpans) =>
+    trackNormalizedField(
+      secondarySpans,
+      row.normalized_json,
+      'vin',
+      row.row_no,
+      true,
+    ),
+  [ImportEntityType.LABOR_OPERATION]: (row, secondarySpans) =>
+    trackNormalizedField(
+      secondarySpans,
+      row.normalized_json,
+      'code',
+      row.row_no,
+      true,
+    ),
+  [ImportEntityType.SUPPLIER_PRICE_LIST]: (row, secondarySpans) => {
+    if (row.external_id) {
+      trackKey(secondarySpans, row.external_id, row.row_no);
+    }
+  },
+};
 
 /** Cross-batch reconcile units: only row numbers that may need overwrite, with a bounded context window. */
 export async function computeImportDryRunReconcileUnits(
@@ -185,12 +182,13 @@ export async function computeImportDryRunReconcileUnits(
     if (row.external_id) {
       trackKey(externalIdSpans, row.external_id, row.row_no);
     }
-    trackSecondarySpanForEntity(
-      params.entityType,
-      row,
-      secondarySpans,
-      vehicleRowNos,
-    );
+    SECONDARY_SPAN_BY_ENTITY[params.entityType]?.(row, secondarySpans);
+    if (
+      params.entityType === ImportEntityType.VEHICLE_PARTY ||
+      params.entityType === ImportEntityType.VEHICLE_DUE_DATE
+    ) {
+      trackVehicleIdGroup(row, vehicleRowNos);
+    }
   }
 
   const units = [

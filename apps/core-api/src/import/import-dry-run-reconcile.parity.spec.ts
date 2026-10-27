@@ -9,7 +9,7 @@ import { toParsedCsvFromRecords } from './import-dry-run-reconcile.records.js';
 import type { DryRunRowResult } from './import.types.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
-import type { ImportDryRunReconcileUnit } from './import-dry-run-reconcile.units.js';
+import type { ImportDryRunReconcileUnit } from './import-job.worker-state.js';
 
 const BATCH = 3;
 
@@ -34,6 +34,8 @@ async function planBatched(
     const slice: ParsedCsv = {
       headers: parsed.headers,
       rows: parsed.rows.slice(offset, offset + BATCH),
+      delimiter: parsed.delimiter,
+      sha256: parsed.sha256,
     };
     merged.push(
       ...(await plan(
@@ -90,8 +92,24 @@ async function replanUnit(
   }
 }
 
-describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
-  const prisma = {
+type ParityTestPrisma = {
+  externalIdMapping: { findMany: jest.Mock };
+  customer: { findMany: jest.Mock };
+  vehicle: { findMany: jest.Mock };
+  vehicleParty: { findMany: jest.Mock };
+  laborOperation: { findMany: jest.Mock };
+  laborCategory: { findMany: jest.Mock };
+  marginRule: { findMany: jest.Mock };
+  brand: { findMany: jest.Mock };
+  financeSettings: { findFirst: jest.Mock };
+  catalogItem: { findMany: jest.Mock };
+  vendorArticle: { findMany: jest.Mock };
+  vehicleInspectionRecord: { findMany: jest.Mock };
+  vehicleNotice: { findMany: jest.Mock };
+};
+
+function emptyParityPrisma(): ParityTestPrisma {
+  return {
     externalIdMapping: { findMany: jest.fn().mockResolvedValue([]) },
     customer: { findMany: jest.fn().mockResolvedValue([]) },
     vehicle: { findMany: jest.fn().mockResolvedValue([]) },
@@ -105,7 +123,15 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
     vendorArticle: { findMany: jest.fn().mockResolvedValue([]) },
     vehicleInspectionRecord: { findMany: jest.fn().mockResolvedValue([]) },
     vehicleNotice: { findMany: jest.fn().mockResolvedValue([]) },
-  } as never;
+  };
+}
+
+describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
+  let prisma: ParityTestPrisma;
+
+  beforeEach(() => {
+    prisma = emptyParityPrisma();
+  });
 
   it('customer duplicate email across batches matches sync after replanning the spanning range', async () => {
     const mapping = {
@@ -139,7 +165,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       options: {},
     };
     const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
-      planCustomerDryRun(prisma, dryRunInput, slice);
+      planCustomerDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
     expect(batched[3].action).toBe(ImportRowAction.CREATE);
@@ -196,7 +222,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       options: { cutover_date: '2026-11-01' },
     };
     const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
-      planVehiclePartyDryRun(prisma, dryRunInput, slice);
+      planVehiclePartyDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
     await replanUnit(plan, input, parsed, {
@@ -239,7 +265,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       options: {},
     };
     const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
-      planVehicleDryRun(prisma, dryRunInput, slice);
+      planVehicleDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
     await replanUnit(plan, input, parsed, {
@@ -279,7 +305,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       options: {},
     };
     const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
-      planLaborOperationDryRun(prisma, dryRunInput, slice);
+      planLaborOperationDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
     await replanUnit(plan, input, parsed, {
@@ -319,7 +345,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
     };
     const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
       planSupplierPriceListRows(
-        prisma,
+        prisma as never,
         {
           tenantId: dryRunInput.tenantId,
           vendorId: 'vendor-1',
