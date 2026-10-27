@@ -192,9 +192,36 @@ describe('Import background worker (e2e)', () => {
   it('applies each row once when two worker attempts overlap on apply', async () => {
     const jobId = await uploadBackgroundJob(
       [
-        ['BG-OV-1', 'PRIVATE', 'Erika', 'Eins', 'bgov1@example.com', '', '', 'AT'],
-        ['BG-OV-2', 'PRIVATE', 'Franz', 'Zwei', 'bgov2@example.com', '', '', 'AT'],
-        ['BG-OV-3', 'PRIVATE', 'Gabi', 'Drei', 'bgov3@example.com', '', '', 'AT'],
+        [
+          'BG-OV-1',
+          'PRIVATE',
+          'Olivia',
+          'Overlap',
+          'bgov1@example.com',
+          '',
+          '',
+          'AT',
+        ],
+        [
+          'BG-OV-2',
+          'PRIVATE',
+          'Paul',
+          'Overlap',
+          'bgov2@example.com',
+          '',
+          '',
+          'AT',
+        ],
+        [
+          'BG-OV-3',
+          'PRIVATE',
+          'Quinn',
+          'Overlap',
+          'bgov3@example.com',
+          '',
+          '',
+          'AT',
+        ],
       ],
       'background-overlap.csv',
     );
@@ -242,9 +269,36 @@ describe('Import background worker (e2e)', () => {
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
     const jobId = await uploadBackgroundJob(
       [
-        ['BG-REC-1', 'PRIVATE', 'Erika', 'Eins', 'bgrec1@example.com', '', '', 'AT'],
-        ['BG-REC-2', 'PRIVATE', 'Franz', 'Zwei', 'bgrec2@example.com', '', '', 'AT'],
-        ['BG-REC-3', 'PRIVATE', 'Gabi', 'Drei', 'bgrec3@example.com', '', '', 'AT'],
+        [
+          'BG-REC-1',
+          'PRIVATE',
+          'Rita',
+          'Recovery',
+          'bgrec1@example.com',
+          '',
+          '',
+          'AT',
+        ],
+        [
+          'BG-REC-2',
+          'PRIVATE',
+          'Stefan',
+          'Recovery',
+          'bgrec2@example.com',
+          '',
+          '',
+          'AT',
+        ],
+        [
+          'BG-REC-3',
+          'PRIVATE',
+          'Tina',
+          'Recovery',
+          'bgrec3@example.com',
+          '',
+          '',
+          'AT',
+        ],
       ],
       'background-recovery.csv',
     );
