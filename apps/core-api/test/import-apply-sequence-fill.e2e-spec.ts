@@ -424,8 +424,9 @@ describe('import apply_seq fill (e2e)', () => {
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
+    const requestContext = app.get(RequestContextService);
     let exhausted: unknown;
-    await runWithTenantContext(
+    await requestContext.runAsWorker(
       tenant.tenantId,
       async () => {
         try {
@@ -448,7 +449,7 @@ describe('import apply_seq fill (e2e)', () => {
           exhausted = error;
         }
       },
-      { userId: actor.id },
+      { workerId: 'p2028-reconcile-e2e' },
     );
     clientWithTransaction.$transaction = boundTransaction;
     expect(exhausted).toBeInstanceOf(ImportApplyRetryExhaustedError);
