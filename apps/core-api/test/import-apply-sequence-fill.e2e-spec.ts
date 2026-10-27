@@ -6,8 +6,8 @@ import {
   ImportRowAction,
 } from '@prisma/client';
 import { AppModule } from '../src/app.module.js';
+import { RequestContextService } from '../src/common/services/request-context.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import type { PrismaService as PrismaServiceType } from '../src/prisma/prisma.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import { orderVehiclePartyApplyRows } from '../src/import/vehicle-party-import.apply-order.js';
 import { toImportApplyRow } from '../src/import/import-job.store.js';
@@ -439,10 +439,7 @@ describe('import apply_seq fill (e2e)', () => {
       }
       return chunkStartMs + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
     };
-    const tenantScopedPrisma = createTenantAwarePrisma(
-      prisma,
-      tenant.tenantId,
-    ) as PrismaService;
+    const requestContext = app.get(RequestContextService);
     const runBudgetLoop = async (
       loaded: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
       unitIndex: number,
@@ -451,12 +448,12 @@ describe('import apply_seq fill (e2e)', () => {
       const options = loaded.options_json as ImportJobOptionsWithWorker;
       const totals = loaded.totals_json as ImportJobTotals;
       const read = readNow();
-      return runWithTenantContext(
+      return requestContext.runAsWorker(
         tenant.tenantId,
         async () =>
           await runReconcileUnitsWithinChunkBudget({
             jobStore: store,
-            prisma: tenantScopedPrisma,
+            prisma,
             fileStorage,
             flow: { enqueueImportWorkerContinuation: async () => {} } as never,
             tenantId: tenant.tenantId,
@@ -478,7 +475,7 @@ describe('import apply_seq fill (e2e)', () => {
             upload,
             completeDryRun: async () => {},
           }),
-        { userId: actor.id },
+        { workerId: 'reconcile-resume-e2e' },
       );
     };
     const jobRecord = await store.findJob(tenant.tenantId, job.id);
