@@ -16,6 +16,7 @@ import { DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS } from '@/features/dashboard-wid
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 export default function PurchaseBillsPage() {
     const { t } = useTranslation('finance')
@@ -125,8 +126,8 @@ export default function PurchaseBillsPage() {
 
     return (
         <>
-            <div className="flex items-center justify-between mb-8">
-                <div>
+            <div className={PAGE_HEADER_ROW}>
+                <div className="min-w-0 max-sm:w-full">
                     <h1 className="text-2xl font-semibold tracking-tight">{t('purchaseBills.list.title')}</h1>
                     <p className="text-slate-500">{t('purchaseBills.list.subtitle')}</p>
                 </div>

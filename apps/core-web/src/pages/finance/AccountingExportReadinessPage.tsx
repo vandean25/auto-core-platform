@@ -30,6 +30,7 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateShort } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 const ALL_FILTER_VALUE = 'all'
 
@@ -248,8 +249,8 @@ export default function AccountingExportReadinessPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">
             {t('accountingExportReadiness.title')}
           </h1>

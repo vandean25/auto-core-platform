@@ -14,6 +14,7 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 const formatDate = (value: string) => formatDateShort(value)
 
@@ -142,8 +143,8 @@ export default function InvoiceListPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('invoices.list.title')}</h1>
           <p className="text-slate-500">{t('invoices.list.description')}</p>
         </div>
