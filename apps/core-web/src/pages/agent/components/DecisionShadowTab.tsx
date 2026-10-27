@@ -64,8 +64,8 @@ export function DecisionShadowTab() {
 
       {/* Filter toolbar: filters apply on change, so there is no Apply button */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
+        <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="decision-shadow-use-case-select"
               className="text-xs text-slate-500 font-medium"
@@ -78,7 +78,7 @@ export function DecisionShadowTab() {
               onChange={(e) =>
                 setUseCaseFilter(e.target.value as 'ALL' | DecisionShadowUseCase)
               }
-              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none md:text-xs"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none sm:w-auto md:text-xs"
               data-testid="filter-decision-shadow-use-case-select"
             >
               <option value="ALL">
@@ -92,7 +92,7 @@ export function DecisionShadowTab() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="decision-shadow-start-date"
               className="text-xs text-slate-500 font-medium"
@@ -104,12 +104,12 @@ export function DecisionShadowTab() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 w-36 text-xs"
+              className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-decision-shadow-start-date-input"
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="decision-shadow-end-date"
               className="text-xs text-slate-500 font-medium"
@@ -121,7 +121,7 @@ export function DecisionShadowTab() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="h-9 w-36 text-xs"
+              className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-decision-shadow-end-date-input"
             />
           </div>

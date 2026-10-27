@@ -39,7 +39,7 @@ export function TraceAuditDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent fullScreenOnPhone className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t('traceDialog.title')}</DialogTitle>
           <DialogDescription>
@@ -76,7 +76,7 @@ export function TraceAuditDetailDialog({
                       key={act.id}
                       className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                         <span className="font-semibold text-slate-800">{act.actionType}</span>
                         <div className="flex items-center gap-1.5">
                           <StatusBadge status={act.tier} />
@@ -132,14 +132,14 @@ export function TraceAuditDetailDialog({
                       key={entry.id}
                       className="rounded-lg border border-slate-200 bg-white p-3 text-xs space-y-1"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                         <span className="font-mono font-medium text-slate-800">
                           {entry.entityType} ({entry.entityId.slice(0, 8)}...)
                         </span>
                         <StatusBadge status={entry.action} />
                       </div>
-                      <div className="flex items-center gap-4 text-slate-500">
-                        <span>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-500">
+                        <span className="min-w-0 break-all">
                           {t('traceDialog.user')}:{' '}
                           {entry.actorEmail ?? entry.actorUserId ?? t('traceDialog.systemActor')}
                         </span>

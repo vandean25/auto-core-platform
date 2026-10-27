@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
+import { cn } from '@/lib/utils'
 import { AgentSafetyBanner } from './components/AgentSafetyBanner'
 import { ApprovalsTab } from './components/ApprovalsTab'
 import { ActivityTab } from './components/ActivityTab'
@@ -10,6 +12,9 @@ import { DecisionShadowTab } from './components/DecisionShadowTab'
 import { TraceAuditDetailDialog } from './components/TraceAuditDetailDialog'
 
 type SupervisionTab = 'approvals' | 'activity' | 'decision-shadow'
+
+// Labels may wrap ("Entscheidungs-Schatten") so three tabs fit a 375px screen.
+const TAB_TRIGGER_CLASS = 'text-center max-sm:whitespace-normal max-sm:px-1'
 
 export default function AgentSupervisionPage() {
   const { t } = useTranslation('agent')
@@ -29,7 +34,7 @@ export default function AgentSupervisionPage() {
   }
 
   return (
-    <div className="space-y-6" data-testid="agent-supervision-page">
+    <div className={cn('space-y-6', PHONE_TOUCH_CONTROLS)} data-testid="agent-supervision-page">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <div>
@@ -48,14 +53,14 @@ export default function AgentSupervisionPage() {
         onValueChange={(val) => setCurrentTab(val as SupervisionTab)}
         className="space-y-6"
       >
-        <TabsList className="grid w-full max-w-lg grid-cols-3">
-          <TabsTrigger value="approvals" data-testid="tab-approvals">
+        <TabsList className="grid h-auto w-full max-w-lg grid-cols-3 max-sm:items-stretch sm:h-9">
+          <TabsTrigger value="approvals" data-testid="tab-approvals" className={TAB_TRIGGER_CLASS}>
             {t('tabs.approvals')}
           </TabsTrigger>
-          <TabsTrigger value="activity" data-testid="tab-activity">
+          <TabsTrigger value="activity" data-testid="tab-activity" className={TAB_TRIGGER_CLASS}>
             {t('tabs.activity')}
           </TabsTrigger>
-          <TabsTrigger value="decision-shadow" data-testid="tab-decision-shadow">
+          <TabsTrigger value="decision-shadow" data-testid="tab-decision-shadow" className={TAB_TRIGGER_CLASS}>
             {t('tabs.decisionShadow')}
           </TabsTrigger>
         </TabsList>

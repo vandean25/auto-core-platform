@@ -42,7 +42,7 @@ export function RejectProposalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent fullScreenOnPhone className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('rejectDialog.title')}</DialogTitle>
           <DialogDescription>{t('rejectDialog.description')}</DialogDescription>

@@ -343,6 +343,20 @@ describe('AgentSupervisionPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('lets the tab labels wrap on a phone only and makes the controls 44px there', () => {
+    renderSupervisionPage()
+
+    for (const testId of ['tab-approvals', 'tab-activity', 'tab-decision-shadow']) {
+      const className = screen.getByTestId(testId).className
+      expect(className).toContain('max-sm:whitespace-normal')
+      expect(className).not.toMatch(/(^|\s)whitespace-normal/)
+    }
+    expect(screen.getByRole('tablist').className).toContain('sm:h-9')
+    const root = screen.getByTestId('agent-supervision-page').className
+    expect(root).toContain('max-sm:[&_button:not([role=checkbox]):not([role=switch])]:min-h-11')
+    expect(root).toContain('max-sm:[&_select]:min-h-11')
+  })
+
   it('renders German copy by default via global i18n', () => {
     renderSupervisionPage()
     expect(screen.getByRole('heading', { level: 1, name: deAgent.header.title })).toBeInTheDocument()
