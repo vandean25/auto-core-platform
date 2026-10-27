@@ -43,12 +43,14 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
       started_at: new Date().toISOString(),
     };
     let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
-    const updateMany = jest.fn(async (args: { data: { status?: ImportJobStatus } }) => {
-      if (args.data.status === ImportJobStatus.FAILED) {
-        jobStatus = ImportJobStatus.FAILED;
-      }
-      return { count: 1 };
-    });
+    const updateMany = jest.fn(
+      async (args: { data: { status?: ImportJobStatus } }) => {
+        if (args.data.status === ImportJobStatus.FAILED) {
+          jobStatus = ImportJobStatus.FAILED;
+        }
+        return { count: 1 };
+      },
+    );
     const prisma = {
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
         const tx = {
@@ -77,7 +79,11 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
       (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+        ({
+          ...job,
+          totals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
     );
     await expect(
       runner.run(
@@ -150,5 +156,4 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
     expect(result.status).toBe(ImportJobStatus.APPLIED);
     expect(finishAttempts).toBe(3);
   });
-
 });

@@ -22,9 +22,14 @@ import type {
 } from './import-job.serializer.js';
 import { applySeqForRow } from './import-apply-sequence.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
-import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import {
+  IMPORT_LOGGER_CONTEXT,
+  IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS,
+} from './import.constants.js';
+import {
+  delayMs,
   isImportSyncLegacyApplyPath,
+  retryableTransactionDelayMs,
   withImportSyncApplyIoRetry,
 } from './import-transaction-retry.util.js';
 import {
@@ -111,7 +116,12 @@ export class SupplierChunkedApplyRunner {
           ? ('retry_exhausted' satisfies ImportApplyFailureReason)
           : undefined;
       if (!jobApplied) {
-        await this.markFailed(input.job.id, totals, failureReason);
+        await this.markFailed(
+          input.job.id,
+          totals,
+          failureReason,
+          batchOptions,
+        );
       }
       throw error;
     }
@@ -285,6 +295,93 @@ export class SupplierChunkedApplyRunner {
       return;
     }
 
+    if (isImportSyncLegacyApplyPath(batchOptions)) {
+      await this.applyRowAloneWithSyncRetry(
+        input,
+        ctx,
+        row,
+        totals,
+        batchOptions,
+      );
+      return;
+    }
+    await this.applyRowAloneOnce(input, ctx, row, totals, batchOptions);
+  }
+
+  private async applyRowAloneWithSyncRetry(
+    input: ImportApplyInput,
+    ctx: SupplierApplyContext,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    batchOptions?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    for (
+      let attempt = 0;
+      attempt < IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS;
+      attempt++
+    ) {
+      try {
+        await this.applyRowAloneOnce(input, ctx, row, totals, batchOptions);
+        return;
+      } catch (rowError) {
+        const handled = await this.handleSyncRowAloneAttemptFailure(
+          input,
+          ctx,
+          row,
+          totals,
+          batchOptions,
+          rowError,
+          attempt,
+        );
+        if (handled) {
+          return;
+        }
+      }
+    }
+  }
+
+  private async handleSyncRowAloneAttemptFailure(
+    input: ImportApplyInput,
+    ctx: SupplierApplyContext,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    batchOptions: ImportApplyBatchOptions | undefined,
+    error: unknown,
+    attempt: number,
+  ): Promise<boolean> {
+    if (error instanceof ImportWorkerLeaseLostError) {
+      throw error;
+    }
+    if (isRowLevelApplyError(error)) {
+      await markImportRowFailed(
+        this.prisma,
+        input.tenantId,
+        ctx.jobId,
+        row.row_no,
+        toRowApplyError(error),
+      );
+      totals.error += 1;
+      await this.advanceWorkerCursor(input, row, batchOptions);
+      return true;
+    }
+    const kind = classifyImportApplyError(error);
+    if (kind === 'retryable' && attempt < IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS - 1) {
+      await delayMs(retryableTransactionDelayMs(attempt));
+      return false;
+    }
+    if (kind === 'retryable') {
+      throw new ImportApplyRetryExhaustedError(error);
+    }
+    throw error;
+  }
+
+  private async applyRowAloneOnce(
+    input: ImportApplyInput,
+    ctx: SupplierApplyContext,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    batchOptions?: ImportApplyBatchOptions,
+  ): Promise<void> {
     try {
       const result = await this.prisma.$transaction(async (tx) => {
         const applied = await applySupplierImportRow(tx, ctx, row);
@@ -371,23 +468,34 @@ export class SupplierChunkedApplyRunner {
     jobId: string,
     totals: ImportJobTotals,
     failureReason?: ImportApplyFailureReason,
+    batchOptions?: ImportApplyBatchOptions,
   ): Promise<void> {
     try {
-      const failurePatch = failureReason
-        ? await mergeImportJobApplyFailureReason(
-            this.prisma,
-            jobId,
-            failureReason,
-          )
-        : {};
-      await this.prisma.importJob.updateMany({
-        where: { id: jobId, status: ImportJobStatus.APPLYING },
-        data: {
-          status: ImportJobStatus.FAILED,
-          totals_json: totals,
-          ...failurePatch,
-        },
-      });
+      const persist = async () => {
+        const failurePatch = failureReason
+          ? await mergeImportJobApplyFailureReason(
+              this.prisma,
+              jobId,
+              failureReason,
+            )
+          : {};
+        await this.prisma.importJob.updateMany({
+          where: { id: jobId, status: ImportJobStatus.APPLYING },
+          data: {
+            status: ImportJobStatus.FAILED,
+            totals_json: totals,
+            ...failurePatch,
+          },
+        });
+      };
+      if (
+        failureReason === 'retry_exhausted' &&
+        isImportSyncLegacyApplyPath(batchOptions)
+      ) {
+        await withImportSyncApplyIoRetry(true, persist);
+        return;
+      }
+      await persist();
     } catch (markError) {
       this.logger.error(
         `Could not mark import job ${jobId} as FAILED: ${describeError(markError)}`,

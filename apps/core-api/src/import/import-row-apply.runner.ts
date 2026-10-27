@@ -130,7 +130,13 @@ export class RowByRowApplyRunner {
         options,
       );
     } catch (error) {
-      await this.recordApplyRunFailure(job.id, totals, guardedWrite, error);
+      await this.recordApplyRunFailure(
+        job.id,
+        totals,
+        guardedWrite,
+        error,
+        options,
+      );
       throw error;
     }
   }
@@ -140,6 +146,7 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     guardedWrite: boolean,
     error: unknown,
+    options?: ImportApplyBatchOptions,
   ): Promise<void> {
     const kind = classifyImportApplyError(error);
     if (kind === 'lease_lost' || kind === 'retryable') {
@@ -149,7 +156,13 @@ export class RowByRowApplyRunner {
       error instanceof ImportApplyRetryExhaustedError
         ? ('retry_exhausted' satisfies ImportApplyFailureReason)
         : undefined;
-    await this.markJobFailed(jobId, totals, guardedWrite, failureReason);
+    await this.markJobFailed(
+      jobId,
+      totals,
+      guardedWrite,
+      failureReason,
+      options,
+    );
   }
 
   private async serializeSequenceAppliedJob(
@@ -182,10 +195,10 @@ export class RowByRowApplyRunner {
     options?: ImportApplyBatchOptions,
   ): Promise<SerializedImportJob> {
     const { tenantId, job, actorUserId } = input;
-    const refreshed = await this.prisma.importJob.findFirst({
-      where: { id: job.id },
-    });
     if (options?.useApplySequence) {
+      const refreshed = await this.prisma.importJob.findFirst({
+        where: { id: job.id },
+      });
       const appliedTotals =
         (refreshed?.totals_json as ImportJobTotals) ?? totals;
       if (refreshed?.status === ImportJobStatus.APPLIED) {
@@ -311,31 +324,42 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     guardedWrite: boolean,
     failureReason?: ImportApplyFailureReason,
+    options?: ImportApplyBatchOptions,
   ): Promise<void> {
-    const failurePatch = failureReason
-      ? await mergeImportJobApplyFailureReason(
-          this.prisma,
-          jobId,
-          failureReason,
-        )
-      : {};
-    const data = {
-      status: ImportJobStatus.FAILED,
-      totals_json: totals,
-      failed_at: new Date(),
-      ...failurePatch,
-    };
-    if (guardedWrite) {
-      await this.prisma.importJob.updateMany({
-        where: { id: jobId, status: ImportJobStatus.APPLYING },
+    const persist = async () => {
+      const failurePatch = failureReason
+        ? await mergeImportJobApplyFailureReason(
+            this.prisma,
+            jobId,
+            failureReason,
+          )
+        : {};
+      const data = {
+        status: ImportJobStatus.FAILED,
+        totals_json: totals,
+        failed_at: new Date(),
+        ...failurePatch,
+      };
+      if (guardedWrite) {
+        await this.prisma.importJob.updateMany({
+          where: { id: jobId, status: ImportJobStatus.APPLYING },
+          data,
+        });
+        return;
+      }
+      await this.prisma.importJob.update({
+        where: { id: jobId },
         data,
       });
+    };
+    if (
+      failureReason === 'retry_exhausted' &&
+      isImportSyncLegacyApplyPath(options)
+    ) {
+      await withImportSyncApplyIoRetry(true, persist);
       return;
     }
-    await this.prisma.importJob.update({
-      where: { id: jobId },
-      data,
-    });
+    await persist();
   }
 
   private async earliestCommittedCreateRowNoInJob(

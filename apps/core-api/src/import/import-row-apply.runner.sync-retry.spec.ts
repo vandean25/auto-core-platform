@@ -37,23 +37,27 @@ function createSyncPrisma(
         await fn(tx);
       },
       importJob: {
-        updateMany: jest.fn(async (args: { data: { status?: ImportJobStatus } }) => {
-          jobUpdates.push(args);
-          if (args.data.status) {
-            jobStatus = args.data.status;
-          }
-        }),
+        updateMany: jest.fn(
+          async (args: { data: { status?: ImportJobStatus } }) => {
+            jobUpdates.push(args);
+            if (args.data.status) {
+              jobStatus = args.data.status;
+            }
+          },
+        ),
         findFirst: jest.fn(async () => ({
           id: 'job-sync',
           status: jobStatus,
           options_json: {},
         })),
-        update: jest.fn(async (args: { data: { status?: ImportJobStatus } }) => {
-          jobUpdates.push(args);
-          if (args.data.status) {
-            jobStatus = args.data.status;
-          }
-        }),
+        update: jest.fn(
+          async (args: { data: { status?: ImportJobStatus } }) => {
+            jobUpdates.push(args);
+            if (args.data.status) {
+              jobStatus = args.data.status;
+            }
+          },
+        ),
       },
       importJobRow: {
         update: jest.fn(async (args: { data: unknown }) => {
@@ -121,9 +125,7 @@ describe('RowByRowApplyRunner sync retries', () => {
     expect(harness.rowUpdates).toHaveLength(0);
   });
 
-  it(
-    'fails the job without marking the row ERROR when sync retries exhaust',
-    async () => {
+  it('fails the job without marking the row ERROR when sync retries exhaust', async () => {
     const harness = createSyncPrisma(async () => {
       throw p2034();
     });
@@ -131,7 +133,11 @@ describe('RowByRowApplyRunner sync retries', () => {
       harness.prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
       (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+        ({
+          ...job,
+          totals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
     );
     await expect(
       runner.run(
@@ -162,9 +168,7 @@ describe('RowByRowApplyRunner sync retries', () => {
         }),
       }),
     );
-    },
-    60_000,
-  );
+  }, 60_000);
 
   it('records a domain overlap on the row and still applies the job', async () => {
     const harness = createSyncPrisma(async () => {
@@ -259,4 +263,79 @@ describe('RowByRowApplyRunner sync retries', () => {
     expect(appliedUpdateAttempts).toBe(3);
   });
 
+  it('re-applies after retry_exhausted without duplicating row writes', async () => {
+    let appliedUpdateAttempts = 0;
+    const harness = createSyncPrisma(async () => undefined);
+    const baseUpdate = harness.prisma.importJob.update as jest.Mock;
+    baseUpdate.mockImplementation(
+      async (args: {
+        data: {
+          status?: ImportJobStatus;
+          options_json?: Record<string, unknown>;
+        };
+      }) => {
+        if (args.data.status === ImportJobStatus.APPLIED) {
+          appliedUpdateAttempts += 1;
+          if (appliedUpdateAttempts <= 8) {
+            throw p2034();
+          }
+        }
+        harness.jobUpdates.push(args);
+        return {
+          id: 'job-sync',
+          status: args.data.status ?? ImportJobStatus.APPLYING,
+          options_json: args.data.options_json ?? {},
+        };
+      },
+    );
+    const runner = new RowByRowApplyRunner(
+      harness.prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({
+          ...job,
+          totals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
+    );
+    const row = {
+      row_no: 1,
+      action: ImportRowAction.CREATE,
+      entity_id: null,
+      external_id: 'ext-1',
+      normalized_json: { external_id: 'ext-1' },
+    };
+    let writeCount = 0;
+    const writeRow = async () => {
+      writeCount += 1;
+    };
+    await expect(
+      runner.run(
+        { ...baseInput, rows: [row] },
+        ImportEntityType.CUSTOMER,
+        writeRow,
+      ),
+    ).rejects.toBeInstanceOf(ImportApplyRetryExhaustedError);
+    expect(baseUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ImportJobStatus.FAILED,
+          options_json: expect.objectContaining({
+            apply_failure_reason: 'retry_exhausted',
+          }),
+        }),
+      }),
+    );
+    expect(writeCount).toBe(1);
+
+    appliedUpdateAttempts = 8;
+    const second = await runner.run(
+      { ...baseInput, rows: [row] },
+      ImportEntityType.CUSTOMER,
+      writeRow,
+    );
+    expect(second.status).toBe(ImportJobStatus.APPLIED);
+    expect(second.totals.create).toBe(1);
+    expect(writeCount).toBe(2);
+  }, 90_000);
 });
