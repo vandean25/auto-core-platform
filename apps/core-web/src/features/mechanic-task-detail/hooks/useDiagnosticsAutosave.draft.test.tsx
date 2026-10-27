@@ -153,4 +153,16 @@ describe('mechanic notes draft (reload and offline)', () => {
 
     await waitFor(() => expect(second.result.current.notesValue).toBe('A and B'))
   })
+
+  it('removes the leftover draft when the task is finished', async () => {
+    await saveMechanicNoteDraft(draftKey, 'Never synced', 'Server')
+    const { rerender } = renderHook(({ enabled }) => useMechanicNotesDraft(TASK_ID, enabled), {
+      initialProps: { enabled: true },
+    })
+    expect(await loadMechanicNoteDraft(draftKey)).not.toBeNull()
+
+    rerender({ enabled: false })
+
+    await waitFor(async () => expect(await loadMechanicNoteDraft(draftKey)).toBeNull())
+  })
 })
