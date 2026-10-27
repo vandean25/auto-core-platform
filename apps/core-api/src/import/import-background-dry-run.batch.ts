@@ -52,13 +52,15 @@ export async function persistDryRunBatchAndHandoff(params: {
     await params.completeDryRun();
     return;
   }
-  const refreshed = await params.jobStore.findJob(params.tenantId, params.jobId);
+  const refreshed = await params.jobStore.findJob(
+    params.tenantId,
+    params.jobId,
+  );
   if (!refreshed) {
     return;
   }
-  const leaseToken = (
-    refreshed.options_json as ImportJobOptionsWithWorker
-  ).worker?.lease_token;
+  const leaseToken = (refreshed.options_json as ImportJobOptionsWithWorker)
+    .worker?.lease_token;
   if (leaseToken) {
     await params.jobStore.extendWorkerLease(
       params.tenantId,

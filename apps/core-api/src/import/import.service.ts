@@ -64,6 +64,7 @@ import {
   enqueueImportWorkerContinuation,
   enqueueImportWorkerRecoveryHandoff,
   handoffImportWorkerAfterBatch,
+  isApplyingImportWorkerForPhase,
   requeueImportWorkerAfterLeaseSkip,
   type ImportWorkerFlowDeps,
 } from './import-worker.flow.js';
@@ -525,11 +526,7 @@ export class ImportService {
         job.id,
         'created',
       );
-      await this.enqueueInitialImportWorker(
-        params.tenantId,
-        job.id,
-        'dry_run',
-      );
+      await this.enqueueInitialImportWorker(params.tenantId, job.id, 'dry_run');
       return this.serializeJob(job, job.totals_json as ImportJobTotals);
     } catch (error) {
       if (uploadRef) {
@@ -569,8 +566,13 @@ export class ImportService {
     };
   }
 
-  private workerFlowForJob(tenantId: string, jobId: string): ImportWorkerFlowDeps {
-    return this.importWorkerFlowDeps(this.runWorkerInlineForJob(tenantId, jobId));
+  private workerFlowForJob(
+    tenantId: string,
+    jobId: string,
+  ): ImportWorkerFlowDeps {
+    return this.importWorkerFlowDeps(
+      this.runWorkerInlineForJob(tenantId, jobId),
+    );
   }
 
   private async enqueueInitialImportWorker(
@@ -633,12 +635,8 @@ export class ImportService {
       return;
     }
     const job = await this.jobStore.findJob(params.tenantId, params.jobId);
-    if (!job || job.status !== ImportJobStatus.APPLYING) {
-      return;
-    }
-    const options = job.options_json as ImportJobOptionsWithWorker;
-    const worker = readWorkerState(options);
-    if (!worker || worker.phase !== params.phase) {
+    const options = job?.options_json as ImportJobOptionsWithWorker;
+    if (!isApplyingImportWorkerForPhase(job, options, params.phase)) {
       return;
     }
     if (params.phase === 'dry_run') {

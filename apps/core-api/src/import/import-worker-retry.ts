@@ -31,7 +31,9 @@ export function importWorkerRetryDelaySeconds(attempt = 0): number {
   return base + jitter;
 }
 
-export function importWorkerLeaseSkipDelaySeconds(leaseUntilMs: number): number {
+export function importWorkerLeaseSkipDelaySeconds(
+  leaseUntilMs: number,
+): number {
   const remainingMs = Math.max(0, leaseUntilMs - Date.now());
   const jitterMs = Math.floor(Math.random() * 3000);
   return Math.max(1, Math.ceil((remainingMs + jitterMs) / 1000));

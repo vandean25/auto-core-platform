@@ -71,6 +71,18 @@ export async function enqueueImportWorkerContinuation(
   );
 }
 
+export function isApplyingImportWorkerForPhase(
+  job: { status: ImportJobStatus } | null | undefined,
+  options: ImportJobOptionsWithWorker | null | undefined,
+  phase: ImportWorkerPhase,
+): boolean {
+  if (!job || job.status !== ImportJobStatus.APPLYING) {
+    return false;
+  }
+  const worker = readWorkerState(options);
+  return Boolean(worker && worker.phase === phase);
+}
+
 export async function requeueImportWorkerAfterLeaseSkip(
   deps: ImportWorkerFlowDeps,
   params: {
@@ -80,25 +92,23 @@ export async function requeueImportWorkerAfterLeaseSkip(
   },
 ): Promise<void> {
   const job = await deps.jobStore.findJob(params.tenantId, params.jobId);
-  if (!job || job.status !== ImportJobStatus.APPLYING) {
+  const options = job?.options_json as ImportJobOptionsWithWorker;
+  if (!isApplyingImportWorkerForPhase(job, options, params.phase)) {
     return;
   }
-  const options = job.options_json as ImportJobOptionsWithWorker;
-  const worker = readWorkerState(options);
-  if (!worker || worker.phase !== params.phase) {
-    return;
-  }
+  const worker = readWorkerState(options)!;
   const leaseUntil = Date.parse(worker.lease_until);
-  if (!Number.isFinite(leaseUntil) || leaseUntil <= Date.now()) {
-    return;
-  }
+  const delaySeconds =
+    Number.isFinite(leaseUntil) && leaseUntil > Date.now()
+      ? importWorkerLeaseSkipDelaySeconds(leaseUntil)
+      : 0;
   await enqueueImportWorkerContinuation(deps, {
     tenantId: params.tenantId,
     jobId: params.jobId,
     phase: params.phase,
-    claimSeq: job.worker_claim_seq,
-    recoverySeq: job.worker_recovery_seq,
-    delaySeconds: importWorkerLeaseSkipDelaySeconds(leaseUntil),
+    claimSeq: job!.worker_claim_seq,
+    recoverySeq: job!.worker_recovery_seq,
+    delaySeconds,
   });
 }
 

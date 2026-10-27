@@ -169,8 +169,7 @@ export class ImportJobStore {
   ) {
     const previousProcessed = options.worker?.processed_rows ?? 0;
     const worker = { ...options.worker!, ...workerPatch };
-    const progressed =
-      (worker.processed_rows ?? 0) > previousProcessed;
+    const progressed = (worker.processed_rows ?? 0) > previousProcessed;
     const locked = await this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
@@ -191,52 +190,6 @@ export class ImportJobStore {
         rows: { create: rows.map(toRowCreate) },
       },
     });
-  }
-
-  async updateWorkerProgress(
-    tenantId: string,
-    jobId: string,
-    leaseToken: string,
-    patch: Partial<ImportJobWorkerState> & {
-      totals?: ImportJobTotals;
-      status?: ImportJobStatus;
-    },
-  ) {
-    const job = await this.findJob(tenantId, jobId);
-    if (!job) {
-      return null;
-    }
-    const options = job.options_json as ImportJobOptionsWithWorker;
-    if (options.worker?.lease_token !== leaseToken) {
-      return null;
-    }
-    const worker = { ...options.worker, ...patch };
-    const locked = await this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: ImportJobStatus.APPLYING,
-      },
-      data: {
-        ...(patch.totals ? { totals_json: patch.totals } : {}),
-        options_json: { ...options, worker },
-      },
-    });
-    if (locked.count === 0) {
-      return null;
-    }
-    if (patch.status && patch.status !== ImportJobStatus.APPLYING) {
-      return this.prisma.importJob.update({
-        where: { tenant_id: tenantId, id: jobId },
-        data: {
-          status: patch.status,
-          ...(patch.status === ImportJobStatus.APPLIED
-            ? { appliedAt: new Date() }
-            : {}),
-        },
-      });
-    }
-    return this.findJob(tenantId, jobId);
   }
 
   async cancelBackgroundDryRun(tenantId: string, jobId: string) {
@@ -267,7 +220,10 @@ export class ImportJobStore {
     });
   }
 
-  async bumpWorkerRecoverySeq(tenantId: string, jobId: string): Promise<number> {
+  async bumpWorkerRecoverySeq(
+    tenantId: string,
+    jobId: string,
+  ): Promise<number> {
     const job = await this.findJob(tenantId, jobId);
     if (!job) {
       return 0;
@@ -313,24 +269,6 @@ export class ImportJobStore {
       data: { options_json: { ...options, worker } },
     });
     return updated.count > 0;
-  }
-
-  async markPoisonedImportJobFailed(tenantId: string, jobId: string) {
-    return this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: ImportJobStatus.APPLYING,
-      },
-      data: { status: ImportJobStatus.FAILED },
-    });
-  }
-
-  resetAttemptsWithoutProgress(tenantId: string, jobId: string) {
-    return this.prisma.importJob.updateMany({
-      where: { tenant_id: tenantId, id: jobId },
-      data: { attempts_without_progress: 0 },
-    });
   }
 
   async claimWorkerLease(

@@ -81,6 +81,39 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
     );
   });
 
+  it('enqueues immediately when the lease has expired (claim contention)', async () => {
+    const enqueueImportWorker = jest.fn(async () => undefined);
+    const touchWorkerHandoff = jest.fn(async () => ({ count: 1 }));
+    const findJob = jest.fn(async () => ({
+      id: 'job-1',
+      tenant_id: 'tenant-1',
+      status: ImportJobStatus.APPLYING,
+      worker_claim_seq: 1,
+      worker_recovery_seq: 0,
+      options_json: {
+        worker: {
+          phase: 'apply',
+          lease_token: 'lease',
+          lease_until: new Date(0).toISOString(),
+          processed_rows: 0,
+          started_at: new Date().toISOString(),
+        },
+      },
+    }));
+    const deps = {
+      jobStore: { findJob, touchWorkerHandoff },
+      cloudTasks: { isEnabled: () => true, enqueueImportWorker },
+      targetBaseUrl: 'http://127.0.0.1:3000/api/',
+      runInline: jest.fn(),
+    };
+    await requeueImportWorkerAfterLeaseSkip(deps as never, {
+      tenantId: 'tenant-1',
+      jobId: 'job-1',
+      phase: 'apply',
+    });
+    expect(enqueueImportWorker.mock.calls[0]?.[0].delaySeconds).toBe(0);
+  });
+
   it('does not enqueue for a terminal job', async () => {
     const enqueueImportWorker = jest.fn();
     const deps = {

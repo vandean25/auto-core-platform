@@ -335,6 +335,7 @@ describe('Import background worker (e2e)', () => {
       where: { id: jobId },
       data: {
         status: ImportJobStatus.APPLYING,
+        worker_handoff_at: new Date(0),
         options_json: {
           ...options,
           worker: {
@@ -349,8 +350,17 @@ describe('Import background worker (e2e)', () => {
     });
 
     await app.get(ImportRecoveryService).run();
+    expect(cloudTasks.enqueueImportWorker).toHaveBeenCalled();
 
-    const job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    const deadline = Date.now() + 60_000;
+    let job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    while (
+      Date.now() < deadline &&
+      job?.status !== ImportJobStatus.DRY_RUN_DONE
+    ) {
+      await deliverWorker(jobId, 'dry_run').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
     expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
     const rows = await tenantPrisma().importJobRow.count({
       where: { import_job_id: jobId },
