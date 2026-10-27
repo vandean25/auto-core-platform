@@ -601,7 +601,9 @@ describe('Import background worker (e2e)', () => {
     rows: string[][],
     delimiter: ',' | ';' = ',',
   ) {
-    const mapping = Object.fromEntries(headers.map((header) => [header, header]));
+    const mapping = Object.fromEntries(
+      headers.map((header) => [header, header]),
+    );
     const csv = Buffer.from(serializeCsv(headers, rows, delimiter), 'utf8');
     const created = await request(app.getHttpServer())
       .post('/api/imports')
@@ -754,6 +756,26 @@ describe('Import background worker (e2e)', () => {
     expect(JSON.stringify(overlapRow?.errors_json)).toContain(
       'VEHICLE_PARTY_OVERLAP',
     );
+    const groups = await tenantPrisma().importJobRow.groupBy({
+      by: ['action'],
+      where: { tenant_id: tenant.tenantId, import_job_id: jobId },
+      _count: { _all: true },
+    });
+    const grouped = { create: 0, update: 0, skip: 0, error: 0 };
+    for (const group of groups) {
+      if (group.action === ImportRowAction.CREATE)
+        grouped.create = group._count._all;
+      if (group.action === ImportRowAction.UPDATE)
+        grouped.update = group._count._all;
+      if (group.action === ImportRowAction.SKIP)
+        grouped.skip = group._count._all;
+      if (group.action === ImportRowAction.ERROR)
+        grouped.error = group._count._all;
+    }
+    expect(totals.create).toBe(grouped.create);
+    expect(totals.update).toBe(grouped.update);
+    expect(totals.skip).toBe(grouped.skip);
+    expect(totals.error).toBe(grouped.error);
   });
 
   it('matches final totals to the dry-run row list', async () => {

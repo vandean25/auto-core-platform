@@ -1,10 +1,12 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ImportEntityType,
   ImportJobStatus,
   ImportRowAction,
+  Prisma,
 } from '@prisma/client';
+import { IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS } from '../src/import/import-worker-handoff.constants.js';
 import { AppModule } from '../src/app.module.js';
 import { ImportService } from '../src/import/import.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
@@ -31,10 +33,13 @@ async function totalsFromRowGroupBy(
   });
   const tallied = { create: 0, update: 0, skip: 0, error: 0 };
   for (const group of groups) {
-    if (group.action === ImportRowAction.CREATE) tallied.create = group._count._all;
-    if (group.action === ImportRowAction.UPDATE) tallied.update = group._count._all;
+    if (group.action === ImportRowAction.CREATE)
+      tallied.create = group._count._all;
+    if (group.action === ImportRowAction.UPDATE)
+      tallied.update = group._count._all;
     if (group.action === ImportRowAction.SKIP) tallied.skip = group._count._all;
-    if (group.action === ImportRowAction.ERROR) tallied.error = group._count._all;
+    if (group.action === ImportRowAction.ERROR)
+      tallied.error = group._count._all;
   }
   return tallied;
 }
@@ -185,5 +190,365 @@ describe('import apply final totals (e2e)', () => {
     });
     expect(totals.skip).toBe(1);
     expect(totals.error).toBe(1);
+  });
+
+  it('re-applies after retry_exhausted with totals from persisted rows', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const store = new ImportJobStore(prisma);
+    const importService = app.get(ImportService);
+    const actor = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true },
+    });
+    const rows = [makeCustomerRow(1), makeCustomerRow(2)];
+    const job = await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.createDryRunJob({
+          tenantId: tenant.tenantId,
+          entityType: ImportEntityType.CUSTOMER,
+          sourceSystem: 'legacy',
+          fileSha256: 'sha-reapply-exhausted',
+          mapping: { external_id: 'external_id' },
+          options: {},
+          totals: { rows: 2, create: 2, update: 0, skip: 0, error: 0 },
+          actorUserId: actor.id,
+          rows,
+        }),
+      { userId: tenant.firebaseUid, email: tenant.email, role: 'ADMIN' },
+    );
+    const client = prisma as PrismaService & {
+      $transaction: PrismaService['$transaction'];
+    };
+    const original = client.$transaction.bind(client);
+    let calls = 0;
+    client.$transaction = ((...args: unknown[]) => {
+      calls += 1;
+      if (calls > 2) {
+        throw new Prisma.PrismaClientKnownRequestError('write conflict', {
+          code: 'P2034',
+          clientVersion: 'test',
+        });
+      }
+      return (original as (...inner: unknown[]) => Promise<unknown>)(...args);
+    }) as PrismaService['$transaction'];
+    const errorLog = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    const identity = {
+      userId: tenant.firebaseUid,
+      email: tenant.email,
+      role: 'ADMIN',
+    };
+    await expect(
+      runWithTenantContext(
+        tenant.tenantId,
+        async () => importService.applyJob(job.id),
+        identity,
+      ),
+    ).rejects.toThrow();
+    client.$transaction = original;
+    expect(errorLog.mock.calls.map((call) => String(call[0]))).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          `import.job.failed jobId=${job.id} phase=apply`,
+        ),
+        expect.stringContaining('reason=retry_exhausted'),
+        expect.stringContaining('cause='),
+      ]),
+    );
+    const failed = await tenantPrisma.importJob.findFirst({
+      where: { id: job.id },
+    });
+    expect(failed?.status).toBe(ImportJobStatus.FAILED);
+    expect(
+      (failed?.options_json as { apply_failure_reason?: string })
+        .apply_failure_reason,
+    ).toBe('retry_exhausted');
+    errorLog.mockRestore();
+
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () => importService.applyJob(job.id),
+      identity,
+    );
+    const applied = await tenantPrisma.importJob.findFirst({
+      where: { id: job.id },
+    });
+    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
+    const totals = applied?.totals_json as ImportJobTotals;
+    const grouped = await totalsFromRowGroupBy(
+      tenantPrisma,
+      tenant.tenantId,
+      job.id,
+    );
+    expect(totals.create).toBe(grouped.create);
+    expect(totals.update).toBe(grouped.update);
+    expect(totals.skip).toBe(grouped.skip);
+    expect(totals.error).toBe(grouped.error);
+    expect(totals.create).toBe(2);
+  }, 120_000);
+
+  it('resumes a background apply across batches and stores grouped totals', async () => {
+    const previous = process.env.IMPORT_SYNC_MAX_ROW_COUNT;
+    process.env.IMPORT_SYNC_MAX_ROW_COUNT = '1';
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const store = new ImportJobStore(prisma);
+    const importService = app.get(ImportService);
+    const actor = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true },
+    });
+    const rowCount = 51;
+    const rows = Array.from({ length: rowCount }, (_, index) =>
+      makeCustomerRow(index + 1),
+    );
+    const identity = {
+      userId: tenant.firebaseUid,
+      email: tenant.email,
+      role: 'ADMIN',
+    };
+    try {
+      const job = await runWithTenantContext(
+        tenant.tenantId,
+        async () =>
+          store.createDryRunJob({
+            tenantId: tenant.tenantId,
+            entityType: ImportEntityType.CUSTOMER,
+            sourceSystem: 'legacy',
+            fileSha256: 'sha-bg-resume-totals',
+            mapping: { external_id: 'external_id' },
+            options: {},
+            totals: {
+              rows: rowCount,
+              create: rowCount,
+              update: 0,
+              skip: 0,
+              error: 0,
+            },
+            actorUserId: actor.id,
+            rows,
+          }),
+        identity,
+      );
+      await runWithTenantContext(
+        tenant.tenantId,
+        async () => importService.applyJob(job.id),
+        identity,
+      );
+      const deadline = Date.now() + 90_000;
+      let applied = await tenantPrisma.importJob.findFirst({
+        where: { id: job.id },
+      });
+      while (
+        Date.now() < deadline &&
+        applied?.status === ImportJobStatus.APPLYING
+      ) {
+        await importService.runImportWorkerAttempt({
+          tenantId: tenant.tenantId,
+          jobId: job.id,
+          phase: 'apply',
+        });
+        applied = await tenantPrisma.importJob.findFirst({
+          where: { id: job.id },
+        });
+      }
+      expect(applied?.status).toBe(ImportJobStatus.APPLIED);
+      const totals = applied?.totals_json as ImportJobTotals;
+      const grouped = await totalsFromRowGroupBy(
+        tenantPrisma,
+        tenant.tenantId,
+        job.id,
+      );
+      expect(totals.create).toBe(grouped.create);
+      expect(totals.error).toBe(grouped.error);
+      expect(totals.create).toBe(rowCount);
+    } finally {
+      if (previous === undefined) delete process.env.IMPORT_SYNC_MAX_ROW_COUNT;
+      else process.env.IMPORT_SYNC_MAX_ROW_COUNT = previous;
+    }
+  }, 120_000);
+
+  it('logs apply_error, apply_seq_missing, and poison_cap with stored reasons', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const store = new ImportJobStore(prisma);
+    const importService = app.get(ImportService);
+    const actor = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true },
+    });
+    const identity = {
+      userId: tenant.firebaseUid,
+      email: tenant.email,
+      role: 'ADMIN',
+    };
+    const errorJob = await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.createDryRunJob({
+          tenantId: tenant.tenantId,
+          entityType: ImportEntityType.CUSTOMER,
+          sourceSystem: 'legacy',
+          fileSha256: 'sha-apply-error',
+          mapping: { external_id: 'external_id' },
+          options: {},
+          totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+          actorUserId: actor.id,
+          rows: [makeCustomerRow(1)],
+        }),
+      identity,
+    );
+    const client = prisma as PrismaService & {
+      $transaction: PrismaService['$transaction'];
+    };
+    const original = client.$transaction.bind(client);
+    client.$transaction = (() => {
+      throw new Error('apply blew up');
+    }) as PrismaService['$transaction'];
+    const errorLog = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    await expect(
+      runWithTenantContext(
+        tenant.tenantId,
+        async () => importService.applyJob(errorJob.id),
+        identity,
+      ),
+    ).rejects.toThrow('apply blew up');
+    client.$transaction = original;
+    const failedApply = await tenantPrisma.importJob.findFirst({
+      where: { id: errorJob.id },
+    });
+    expect(
+      (failedApply?.options_json as { apply_failure_reason?: string })
+        .apply_failure_reason,
+    ).toBe('apply_error');
+    expect(
+      errorLog.mock.calls.map((call) => String(call[0])).join('\n'),
+    ).toContain(`import.job.failed jobId=${errorJob.id} phase=apply`);
+    expect(
+      errorLog.mock.calls.map((call) => String(call[0])).join('\n'),
+    ).toContain('reason=apply_error cause=Error');
+
+    const seqJob = await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.createDryRunJob({
+          tenantId: tenant.tenantId,
+          entityType: ImportEntityType.CUSTOMER,
+          sourceSystem: 'legacy',
+          fileSha256: 'sha-seq-missing',
+          mapping: { external_id: 'external_id' },
+          options: {},
+          totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+          actorUserId: actor.id,
+          rows: [makeCustomerRow(2)],
+        }),
+      identity,
+    );
+    await tenantPrisma.importJobRow.updateMany({
+      where: { import_job_id: seqJob.id },
+      data: { apply_seq: null },
+    });
+    await tenantPrisma.importJob.update({
+      where: { id: seqJob.id },
+      data: {
+        status: ImportJobStatus.APPLYING,
+        options_json: {
+          worker: {
+            phase: 'apply',
+            lease_token: 'lease-seq-missing',
+            lease_until: new Date(0).toISOString(),
+            processed_rows: 0,
+            last_committed_apply_seq: 0,
+            started_at: new Date().toISOString(),
+          },
+        },
+      },
+    });
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        importService.runImportWorkerAttempt({
+          tenantId: tenant.tenantId,
+          jobId: seqJob.id,
+          phase: 'apply',
+        }),
+      identity,
+    );
+    const seqFailed = await tenantPrisma.importJob.findFirst({
+      where: { id: seqJob.id },
+    });
+    expect(seqFailed?.status).toBe(ImportJobStatus.FAILED);
+    expect(
+      (seqFailed?.options_json as { apply_failure_reason?: string })
+        .apply_failure_reason,
+    ).toBe('apply_seq_missing');
+    expect(
+      errorLog.mock.calls.map((call) => String(call[0])).join('\n'),
+    ).toContain(`import.job.failed jobId=${seqJob.id} phase=apply`);
+    expect(
+      errorLog.mock.calls.map((call) => String(call[0])).join('\n'),
+    ).toContain('reason=apply_seq_missing');
+
+    const poisonJob = await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.createDryRunJob({
+          tenantId: tenant.tenantId,
+          entityType: ImportEntityType.CUSTOMER,
+          sourceSystem: 'legacy',
+          fileSha256: 'sha-poison',
+          mapping: { external_id: 'external_id' },
+          options: {},
+          totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+          actorUserId: actor.id,
+          rows: [makeCustomerRow(3)],
+        }),
+      identity,
+    );
+    await tenantPrisma.importJob.update({
+      where: { id: poisonJob.id },
+      data: {
+        status: ImportJobStatus.APPLYING,
+        attempts_without_progress:
+          IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS - 1,
+        options_json: {
+          worker: {
+            phase: 'apply',
+            lease_token: 'lease-poison',
+            lease_until: new Date(0).toISOString(),
+            processed_rows: 0,
+            last_committed_apply_seq: 0,
+            started_at: new Date().toISOString(),
+          },
+        },
+      },
+    });
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        importService.runImportWorkerAttempt({
+          tenantId: tenant.tenantId,
+          jobId: poisonJob.id,
+          phase: 'apply',
+        }),
+      identity,
+    );
+    const poisoned = await tenantPrisma.importJob.findFirst({
+      where: { id: poisonJob.id },
+    });
+    expect(poisoned?.status).toBe(ImportJobStatus.FAILED);
+    expect(
+      (poisoned?.options_json as { apply_failure_reason?: string })
+        .apply_failure_reason,
+    ).toBe('poison_cap');
+    expect(
+      errorLog.mock.calls.map((call) => String(call[0])).join('\n'),
+    ).toContain(`import.job.failed jobId=${poisonJob.id} phase=apply`);
+    expect(
+      errorLog.mock.calls.map((call) => String(call[0])).join('\n'),
+    ).toContain('reason=poison_cap');
+    errorLog.mockRestore();
   });
 });
