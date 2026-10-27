@@ -44,7 +44,7 @@ describe('RowByRowApplyRunner background retryable errors', () => {
         updateMany,
         findFirst: async () => ({
           id: 'job-1',
-          status: jobStatus,
+          status: 'APPLYING' as const,
           totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 0 },
         }),
         update: jest.fn(),
@@ -54,8 +54,12 @@ describe('RowByRowApplyRunner background retryable errors', () => {
     const runner = new RowByRowApplyRunner(
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
-      (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+      (job, rowTotals) =>
+        ({
+          ...job,
+          totals: rowTotals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
     );
     const rows = assignVehiclePartyApplySeqs([
       {
@@ -153,8 +157,12 @@ describe('RowByRowApplyRunner background retryable errors', () => {
     const runner = new RowByRowApplyRunner(
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
-      (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+      (job, rowTotals) =>
+        ({
+          ...job,
+          totals: rowTotals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
     );
     const rows = assignVehiclePartyApplySeqs([
       {
