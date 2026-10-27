@@ -23,6 +23,26 @@ export function importJobCannotCancel(): ConflictException {
   });
 }
 
+export function importJobApplyStale(): ConflictException {
+  return new ConflictException({
+    code: IMPORT_ERROR_CODES.JOB_STALE,
+    message: 'Import job cannot be applied in its current status',
+  });
+}
+
+export async function assertFailedImportJobCanReApply(params: {
+  uploadPresent: boolean;
+  countApplyRows: () => Promise<number>;
+}): Promise<void> {
+  if (params.uploadPresent) {
+    return;
+  }
+  const rowCount = await params.countApplyRows();
+  if (rowCount === 0) {
+    throw importJobApplyStale();
+  }
+}
+
 /** Only a dry-run job that is not already applying or applied can be applied. */
 export function assertJobCanBeApplied(status: ImportJobStatus): void {
   if (status === ImportJobStatus.APPLYING) {

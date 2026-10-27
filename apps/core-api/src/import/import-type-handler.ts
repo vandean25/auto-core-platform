@@ -31,11 +31,20 @@ export type VendorRef = { id: string; name: string };
 /** What a handler resolves before the job is locked. Only supplier imports set a vendor. */
 export type ImportApplyPreparation = { vendor: VendorRef | null };
 
+export type ImportDryRunPlanBudget = {
+  deadlineMs: number;
+  rowNoOffset: number;
+  nowMs?: () => number;
+  /** Test hook invoked after each planned row. */
+  onAfterRowPlanned?: () => void;
+};
+
 export type ImportDryRunInput = {
   tenantId: string;
   sourceSystem: string;
   mapping: Record<string, string>;
   options: ImportJobOptions;
+  planBudget?: ImportDryRunPlanBudget;
 };
 
 export type ImportApplyBatchOptions = {

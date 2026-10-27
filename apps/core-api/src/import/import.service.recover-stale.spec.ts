@@ -67,7 +67,6 @@ describe('ImportService.recoverStaleImportJobs', () => {
       },
     }));
     h.prisma.importJob.updateMany = jest.fn(async () => ({ count: 1 }));
-    h.prisma.importJob.update = jest.fn(async () => ({ worker_enqueue_seq: 1 }));
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     jest
       .spyOn(h.service, 'runImportWorkerAttempt')

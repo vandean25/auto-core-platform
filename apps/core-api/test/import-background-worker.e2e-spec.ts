@@ -197,6 +197,9 @@ describe('Import background worker (e2e)', () => {
       where: { id: jobId },
     });
     expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    expect(
+      readUploadRef(dryRunDone?.options_json as Record<string, unknown>),
+    ).toBeTruthy();
 
     const rowCount = await tenantPrisma().importJobRow.count({
       where: { import_job_id: jobId },

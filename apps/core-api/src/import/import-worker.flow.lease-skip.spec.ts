@@ -10,7 +10,7 @@ type EnqueueImportWorkerArgs = {
 };
 
 describe('requeueImportWorkerAfterLeaseSkip', () => {
-  it('enqueues one delayed task under the lease holder task name', async () => {
+  it('enqueues duplicate lease-skips under the same successor task name', async () => {
     const leaseUntil = new Date(Date.now() + 30_000).toISOString();
     const enqueueImportWorker = jest.fn(async (_args: EnqueueImportWorkerArgs) =>
       undefined,
@@ -33,16 +33,10 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
         },
       },
     }));
-    let enqueueSeq = 0;
-    const bumpWorkerEnqueueSeq = jest.fn(async () => {
-      enqueueSeq += 1;
-      return enqueueSeq;
-    });
     const deps = {
       jobStore: {
         findJob,
         touchWorkerHandoff,
-        bumpWorkerEnqueueSeq,
       },
       cloudTasks: {
         isEnabled: () => true,
@@ -72,29 +66,21 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       chunkSeq: 10,
       claimSeq: 5,
       recoverySeq: 0,
-      enqueueSeq: 2,
     });
-    const firstEnqueue = enqueueImportWorker.mock.calls[0]?.[0];
-    expect(firstEnqueue?.taskIdentity).toEqual({
-      jobId: 'job-1',
-      phase: 'apply',
-      chunkSeq: 10,
-      claimSeq: 5,
-      recoverySeq: 0,
-      enqueueSeq: 1,
-    });
+    const firstIdentity = enqueueImportWorker.mock.calls[0]?.[0]?.taskIdentity;
+    const secondIdentity = enqueueImportWorker.mock.calls[1]?.[0]?.taskIdentity;
+    expect(firstIdentity).toEqual(secondIdentity);
     expect(
       importWorkerTaskIdForParams({
         tenantId: 'tenant-1',
         jobId: 'job-1',
         phase: 'apply',
-        chunkSeq: 10,
-        claimSeq: 5,
-        recoverySeq: 0,
-        enqueueSeq: 2,
+        ...firstIdentity!,
       }),
     ).toBe(expectedName);
-    expect(firstEnqueue?.delaySeconds).toBeGreaterThan(0);
+    expect(enqueueImportWorker.mock.calls[0]?.[0]?.delaySeconds).toBeGreaterThan(
+      0,
+    );
   });
 
   it('enqueues immediately when the lease has expired (claim contention)', async () => {
@@ -122,7 +108,6 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       jobStore: {
         findJob,
         touchWorkerHandoff,
-        bumpWorkerEnqueueSeq: jest.fn(async () => 1),
       },
       cloudTasks: { isEnabled: () => true, enqueueImportWorker },
       targetBaseUrl: 'http://127.0.0.1:3000/api/',

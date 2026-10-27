@@ -3,6 +3,7 @@ import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
 import { pickVehicleImportAuditSnapshot } from './vehicle-import-audit.snapshot.js';
+import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
@@ -96,12 +97,7 @@ export async function planVehicleDryRun(
     input.tenantId,
     input.sourceSystem,
   );
-  return parsed.rows.map((cells, index) =>
-    planVehicleCsvRow(
-      index + 1,
-      rowToRecord(parsed.headers, cells),
-      input,
-      context,
-    ),
+  return planParsedCsvRowsWithBudget(parsed, input.planBudget, (rowNo, record) =>
+    planVehicleCsvRow(rowNo, record, input, context),
   );
 }

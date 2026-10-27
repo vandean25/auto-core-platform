@@ -63,10 +63,6 @@ export async function enqueueImportWorkerContinuation(
     params.chunkSeq ?? readImportWorkerChunkSeq(options, params.phase);
   const taskClaimSeq =
     params.taskClaimSeq ?? importWorkerTaskClaimSeqForHandoff(params.claimSeq);
-  const enqueueSeq = await deps.jobStore.bumpWorkerEnqueueSeq(
-    params.tenantId,
-    params.jobId,
-  );
   await enqueueImportWorkerHandoff(
     {
       jobStore: deps.jobStore,
@@ -83,7 +79,6 @@ export async function enqueueImportWorkerContinuation(
       chunkSeq,
       claimSeq: taskClaimSeq,
       recoverySeq: params.recoverySeq,
-      enqueueSeq,
       delaySeconds: params.delaySeconds,
     },
   );
@@ -186,10 +181,6 @@ export async function enqueueImportWorkerRecoveryHandoff(
   const options = job.options_json as ImportJobOptionsWithWorker;
   const chunkSeq = readImportWorkerChunkSeq(options, params.phase);
   const taskClaimSeq = importWorkerTaskClaimSeqForHandoff(claimSeq);
-  const enqueueSeq = await deps.jobStore.bumpWorkerEnqueueSeq(
-    params.tenantId,
-    params.jobId,
-  );
   await enqueueImportWorkerHandoff(
     {
       jobStore: deps.jobStore,
@@ -206,7 +197,6 @@ export async function enqueueImportWorkerRecoveryHandoff(
       chunkSeq,
       claimSeq: taskClaimSeq,
       recoverySeq: nextRecoverySeq,
-      enqueueSeq,
     },
   );
   await deps.jobStore.confirmWorkerRecoveryHandoff(

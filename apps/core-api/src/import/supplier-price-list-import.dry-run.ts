@@ -8,7 +8,9 @@ import {
   type SupplierPriceListCatalogItem,
   type SupplierPriceListMatchContext,
 } from './supplier-price-list-import.logic.js';
+import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { DryRunRowResult, ImportJobOptions } from './import.types.js';
+import type { ImportDryRunPlanBudget } from './import-type-handler.js';
 
 export type SupplierDryRunInput = {
   tenantId: string;
@@ -227,6 +229,7 @@ export async function planSupplierPriceListRows(
   prisma: PrismaService,
   input: SupplierDryRunInput,
   parsed: ParsedCsv,
+  planBudget?: ImportDryRunPlanBudget,
 ): Promise<DryRunRowResult[]> {
   const data = await loadSupplierDryRunData(
     prisma,
@@ -234,13 +237,7 @@ export async function planSupplierPriceListRows(
     input.vendorId,
   );
   const context = buildSupplierMatchContext(data, input.options);
-  return parsed.rows.map((cells, index) =>
-    planSupplierCsvRow(
-      index + 1,
-      rowToRecord(parsed.headers, cells),
-      input.mapping,
-      input.options,
-      context,
-    ),
+  return planParsedCsvRowsWithBudget(parsed, planBudget, (rowNo, record) =>
+    planSupplierCsvRow(rowNo, record, input.mapping, input.options, context),
   );
 }

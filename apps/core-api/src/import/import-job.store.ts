@@ -330,15 +330,6 @@ export class ImportJobStore {
     });
   }
 
-  async bumpWorkerEnqueueSeq(tenantId: string, jobId: string): Promise<number> {
-    const updated = await this.prisma.importJob.update({
-      where: { tenant_id: tenantId, id: jobId },
-      data: { worker_enqueue_seq: { increment: 1 } },
-      select: { worker_enqueue_seq: true },
-    });
-    return updated.worker_enqueue_seq;
-  }
-
   async releaseWorkerLeaseForRetry(
     tenantId: string,
     jobId: string,

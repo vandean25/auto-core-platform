@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { randomUUID as cryptoRandomUuid } from 'node:crypto';
 import {
@@ -19,6 +19,7 @@ import {
 import { CustomerImportHandler } from './customer-import.handler.js';
 import {
   applyInProgress,
+  assertFailedImportJobCanReApply,
   assertJobCanBeApplied,
   importJobCannotCancel,
   importJobNotFound,
@@ -90,7 +91,6 @@ import {
 } from './import-job.worker-state.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
-  IMPORT_ERROR_CODES,
   IMPORT_LOGGER_CONTEXT,
   IMPORT_APPLY_BATCH_SIZE,
   IMPORT_WORKER_BATCH_SIZE,
@@ -99,7 +99,6 @@ import { readImportSyncMaxRowCount } from './import-limits.js';
 import { computeDryRunTotals } from './import-totals.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
-import { takeDryRunRowsWithinBudget } from './import-background-dry-run.budget.js';
 import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
 import { isImportWorkerContentionError } from './import-worker.errors.js';
@@ -361,15 +360,13 @@ export class ImportService {
     }
     assertJobCanBeApplied(job.status);
     if (job.status === ImportJobStatus.FAILED) {
-      const upload = readUploadRef(
-        job.options_json as ImportJobOptionsWithWorker,
-      );
-      if (!upload) {
-        throw new ConflictException({
-          code: IMPORT_ERROR_CODES.JOB_STALE,
-          message: 'Import job cannot be applied in its current status',
-        });
-      }
+      await assertFailedImportJobCanReApply({
+        uploadPresent: Boolean(
+          readUploadRef(job.options_json as ImportJobOptionsWithWorker),
+        ),
+        countApplyRows: () =>
+          this.jobStore.countApplyRows(tenantId, jobId),
+      });
     }
 
     const effectiveOptions = mergeApplyOptions(
@@ -427,7 +424,7 @@ export class ImportService {
       throw applyInProgress();
     }
 
-    return traceImportCommit(job.entity_type, rows.length, () =>
+    const applied = await traceImportCommit(job.entity_type, rows.length, () =>
       handler.apply({
         tenantId,
         job,
@@ -437,6 +434,12 @@ export class ImportService {
         preparation,
       }),
     );
+    if (applied.status === ImportJobStatus.APPLIED) {
+      await this.deleteJobUploadIfPresent(
+        job.options_json as ImportJobOptionsWithWorker,
+      );
+    }
+    return applied;
   }
 
   /** Response shape of an import job. Kept on the facade as the single place it is built. */
@@ -812,35 +815,22 @@ export class ImportService {
         },
       },
       async () => {
-        const planned = await handler.planDryRun(
+        const rows = await handler.planDryRun(
           {
             tenantId,
             sourceSystem: job.source_system,
             mapping,
             options,
+            planBudget: {
+              deadlineMs: chunkDeadlineMs,
+              rowNoOffset: startOffset + 1,
+            },
           },
           parsedBatch,
-        );
-        const rows = takeDryRunRowsWithinBudget(
-          planned,
-          startOffset,
-          chunkDeadlineMs,
         );
         const processed = startOffset + rows.length;
         const mergedTotals = mergeDryRunBatchTotals(totals, rows, processed);
         if (rows.length === 0) {
-          if (planned.length > 0) {
-            await handoffImportWorkerAfterBatch(
-              this.workerFlowForJob(tenantId, jobId),
-              {
-                tenantId,
-                jobId,
-                phase: 'dry_run',
-                leaseToken: worker.lease_token,
-                nextChunkSeq: startOffset,
-              },
-            );
-          }
           return;
         }
         await persistDryRunBatchAndHandoff({
@@ -911,7 +901,6 @@ export class ImportService {
       totals_json: finalTotals,
       options_json: optionsForPersist,
     });
-    await this.deleteJobUploadIfPresent(options);
   }
 
   private async runBackgroundApplyBatch(
@@ -939,6 +928,11 @@ export class ImportService {
         chunkDeadlineMs: Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS,
       },
     });
+    if (result.status === ImportJobStatus.APPLIED) {
+      await this.deleteJobUploadIfPresent(
+        context.job.options_json as ImportJobOptionsWithWorker,
+      );
+    }
     await this.continueBackgroundApplyIfNeeded({
       tenantId,
       jobId,

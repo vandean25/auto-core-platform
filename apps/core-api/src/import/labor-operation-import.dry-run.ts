@@ -1,6 +1,7 @@
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
+import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 import {
@@ -123,12 +124,7 @@ export async function planLaborOperationDryRun(
     input.tenantId,
     input.sourceSystem,
   );
-  return parsed.rows.map((cells, index) =>
-    planLaborCsvRow(
-      index + 1,
-      rowToRecord(parsed.headers, cells),
-      input,
-      context,
-    ),
+  return planParsedCsvRowsWithBudget(parsed, input.planBudget, (rowNo, record) =>
+    planLaborCsvRow(rowNo, record, input, context),
   );
 }
