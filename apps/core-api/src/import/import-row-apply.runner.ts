@@ -7,7 +7,11 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { toRowApplyError } from './import-apply.errors.js';
+import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
+import {
+  isRowLevelApplyError,
+  toRowApplyError,
+} from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
@@ -24,10 +28,17 @@ import {
 import {
   ImportWorkerLeaseLostError,
   isImportWorkerContentionError,
-  isPrismaSerializationFailure,
 } from './import-worker.errors.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
-import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
+import {
+  IMPORT_LOGGER_CONTEXT,
+  IMPORT_ROW_TX_MAX_ATTEMPTS,
+  IMPORT_SERIALIZABLE_TX,
+} from './import.constants.js';
+import {
+  delayMs,
+  retryableTransactionDelayMs,
+} from './import-transaction-retry.util.js';
 import type {
   SerializedImportJob,
   SerializeImportJobFn,
@@ -59,23 +70,15 @@ function describeCause(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown';
 }
 
-const SERIALIZABLE_ROW_TX = { isolationLevel: 'Serializable' as const };
-const SERIALIZABLE_ROW_TX_MAX_ATTEMPTS = 3;
-
-function serializationRetryDelayMs(): number {
-  return 15 + Math.floor(Math.random() * 35);
-}
-
-function delayMs(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+function isBackgroundWorkerApply(options?: ImportApplyBatchOptions): boolean {
+  return Boolean(options?.leaseToken || options?.useApplySequence);
 }
 
 /**
- * Applies a job one row at a time, each row in its own transaction. Any row failure, whatever
- * its cause, becomes an ERROR row. A failure outside the rows marks the job FAILED and is
- * rethrown. Customer and vehicle imports use this runner.
+ * Applies a job one row at a time, each row in its own transaction. Row-level data problems
+ * become ERROR rows; transaction contention and timeouts are retried or rethrown. A failure
+ * outside the rows marks the job FAILED and is rethrown. Customer and vehicle imports use
+ * this runner.
  */
 export class RowByRowApplyRunner {
   private readonly logger = new Logger(IMPORT_LOGGER_CONTEXT);
@@ -113,6 +116,7 @@ export class RowByRowApplyRunner {
       );
       return await this.finishApplyRun(
         input,
+        entityType,
         totals,
         guardedWrite,
         plan.batchIncomplete,
@@ -134,8 +138,30 @@ export class RowByRowApplyRunner {
     );
   }
 
+  private async serializeSequenceAppliedJob(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    totals: ImportJobTotals,
+    refreshed: NonNullable<
+      Awaited<ReturnType<PrismaService['importJob']['findFirst']>>
+    >,
+  ): Promise<SerializedImportJob> {
+    const { tenantId, job, actorUserId } = input;
+    const appliedTotals = (refreshed.totals_json as ImportJobTotals) ?? totals;
+    await this.audit.writeImportJobAudit(
+      this.prisma,
+      tenantId,
+      actorUserId,
+      job.id,
+      'applied',
+      appliedTotals,
+    );
+    return this.serialize(refreshed, appliedTotals);
+  }
+
   private async finishApplyRun(
     input: ImportApplyInput,
+    entityType: ImportEntityType,
     totals: ImportJobTotals,
     guardedWrite: boolean,
     batchIncomplete: boolean,
@@ -149,23 +175,15 @@ export class RowByRowApplyRunner {
       const appliedTotals =
         (refreshed?.totals_json as ImportJobTotals) ?? totals;
       if (refreshed?.status === ImportJobStatus.APPLIED) {
-        await this.audit.writeImportJobAudit(
-          this.prisma,
-          tenantId,
-          actorUserId,
-          job.id,
-          'applied',
-          appliedTotals,
+        return this.serializeSequenceAppliedJob(
+          input,
+          entityType,
+          totals,
+          refreshed,
         );
-        return this.serialize(refreshed, appliedTotals);
       }
-      const partialJob = await persistImportJobApplyingTotals(
-        this.prisma,
-        job.id,
-        totals,
-        guardedWrite,
-      );
-      return this.serialize(partialJob!, appliedTotals);
+      // Row commits already persist totals_json; do not overwrite with batch-local totals.
+      return this.serialize(refreshed!, appliedTotals);
     }
     if (batchIncomplete) {
       const partialJob = await persistImportJobApplyingTotals(
@@ -270,10 +288,11 @@ export class RowByRowApplyRunner {
     input: ImportApplyInput,
     entityType: ImportEntityType,
     row: ImportApplyRow,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<boolean> {
     const payload = row.normalized_json as Record<string, unknown>;
     const externalId = resolveImportExternalId(payload, row.external_id);
-    const mapping = await this.prisma.externalIdMapping.findFirst({
+    const mapping = await db.externalIdMapping.findFirst({
       where: {
         tenant_id: input.tenantId,
         entity_type: entityType,
@@ -331,11 +350,7 @@ export class RowByRowApplyRunner {
     if (maxApplySeq === 0) {
       throw new Error('Background apply job has no apply_seq assigned');
     }
-    for (
-      let attempt = 0;
-      attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS;
-      attempt++
-    ) {
+    for (let attempt = 0; attempt < IMPORT_ROW_TX_MAX_ATTEMPTS; attempt++) {
       try {
         const { nextTotals } = await this.commitImportSequenceRow(
           input,
@@ -352,7 +367,7 @@ export class RowByRowApplyRunner {
       } catch (error) {
         const outcome = this.sequenceRowAttemptOutcome(error, attempt);
         if (outcome === 'retry') {
-          await delayMs(serializationRetryDelayMs());
+          await delayMs(retryableTransactionDelayMs(attempt));
           continue;
         }
         if (outcome === 'rethrow') {
@@ -380,12 +395,13 @@ export class RowByRowApplyRunner {
     if (error instanceof ImportWorkerLeaseLostError) {
       return 'rethrow';
     }
-    if (isPrismaSerializationFailure(error)) {
-      return attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS - 1
-        ? 'retry'
-        : 'rethrow';
+    if (isRowLevelApplyError(error)) {
+      return 'mark_failed';
     }
-    return 'mark_failed';
+    if (isRetryableTransactionError(error)) {
+      return attempt < IMPORT_ROW_TX_MAX_ATTEMPTS - 1 ? 'retry' : 'rethrow';
+    }
+    return 'rethrow';
   }
 
   private async commitImportSequenceRow(
@@ -426,7 +442,7 @@ export class RowByRowApplyRunner {
         maxApplySeq,
       });
       return { nextTotals };
-    }, SERIALIZABLE_ROW_TX);
+    }, IMPORT_SERIALIZABLE_TX);
   }
 
   private async markImportSequenceRowFailed(
@@ -468,7 +484,7 @@ export class RowByRowApplyRunner {
         totals: nextTotals,
         maxApplySeq,
       });
-    }, SERIALIZABLE_ROW_TX);
+    }, IMPORT_SERIALIZABLE_TX);
     return nextTotals;
   }
 
@@ -487,7 +503,7 @@ export class RowByRowApplyRunner {
     }
     if (
       row.action === ImportRowAction.CREATE &&
-      (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
+      (await this.isCreateAlreadyCommittedByJob(input, entityType, row, tx))
     ) {
       return 'noop';
     }
@@ -549,10 +565,13 @@ export class RowByRowApplyRunner {
             applySeqForRow(row),
           );
         }
-      });
+      }, IMPORT_SERIALIZABLE_TX);
       tallyWrittenRow(totals, row.action);
     } catch (error) {
       if (error instanceof ImportWorkerLeaseLostError) {
+        throw error;
+      }
+      if (!isRowLevelApplyError(error) && isBackgroundWorkerApply(options)) {
         throw error;
       }
       this.logger.warn(
@@ -587,6 +606,6 @@ export class RowByRowApplyRunner {
         leaseToken,
         applySeq,
       );
-    });
+    }, IMPORT_SERIALIZABLE_TX);
   }
 }

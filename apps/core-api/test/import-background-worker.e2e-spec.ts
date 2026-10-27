@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
-import { ImportJobStatus } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
@@ -37,6 +37,17 @@ describe('Import background worker (e2e)', () => {
     vat_id: 'UID',
     address_country: 'Land',
   };
+
+  const customerCsvHeaders = [
+    'Kunden-Nr',
+    'Typ',
+    'Vorname',
+    'Nachname',
+    'E-Mail',
+    'Telefon',
+    'UID',
+    'Land',
+  ];
 
   beforeAll(async () => {
     cloudTasks = {
@@ -82,6 +93,44 @@ describe('Import background worker (e2e)', () => {
 
   const tenantPrisma = () => createTenantAwarePrisma(basePrisma, tenant.tenantId);
 
+  async function expectOneApplyPerRow(
+    jobId: string,
+    scope?: { tenantId: string; prisma: typeof tenantPrisma },
+  ) {
+    const tenantId = scope?.tenantId ?? tenant.tenantId;
+    const prisma = scope?.prisma ?? tenantPrisma;
+    const job = await prisma().importJob.findFirst({
+      where: { id: jobId, tenant_id: tenantId },
+    });
+    const totals = job?.totals_json as {
+      rows: number;
+      create: number;
+      error: number;
+    };
+    expect(job?.status).toBe(ImportJobStatus.APPLIED);
+    expect(totals.rows).toBe(3);
+    expect(totals.create).toBe(3);
+    expect(totals.error).toBe(0);
+
+    const errorRowCount = await prisma().importJobRow.count({
+      where: { import_job_id: jobId, action: ImportRowAction.ERROR },
+    });
+    expect(errorRowCount).toBe(0);
+
+    const mappings = await prisma().externalIdMapping.findMany({
+      where: {
+        tenant_id: tenantId,
+        source_system: 'legacy-dms',
+        first_seen_import_job_id: jobId,
+      },
+      select: { external_id: true },
+    });
+    expect(mappings).toHaveLength(3);
+    expect(new Set(mappings.map((mapping) => mapping.external_id)).size).toBe(
+      3,
+    );
+  }
+
   const deliverWorker = (
     jobId: string,
     phase: 'dry_run' | 'apply',
@@ -99,29 +148,32 @@ describe('Import background worker (e2e)', () => {
       );
 
   function customerCsv(rows: string[][]) {
-    const headers = Object.keys(customerMapping);
-    return Buffer.from(serializeCsv(headers, rows, ';'), 'utf8');
+    return Buffer.from(serializeCsv(customerCsvHeaders, rows, ';'), 'utf8');
   }
 
-  async function uploadBackgroundJob() {
-    const csv = customerCsv([
-      ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
-      ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
-      ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
-    ]);
+  async function uploadBackgroundJob(
+    rows: string[][],
+    fileName = 'background.csv',
+    authToken = token,
+  ) {
+    const csv = customerCsv(rows);
     const response = await request(app.getHttpServer())
       .post('/api/imports')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .field('entityType', 'CUSTOMER')
       .field('sourceSystem', 'legacy-dms')
       .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', csv, 'background.csv')
+      .attach('file', csv, fileName)
       .expect(201);
     return response.body.id as string;
   }
 
   it('runs background dry-run and apply through the signed worker route', async () => {
-    const jobId = await uploadBackgroundJob();
+    const jobId = await uploadBackgroundJob([
+      ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
+      ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
+      ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
+    ]);
 
     await deliverWorker(jobId, 'dry_run').expect(204);
     await deliverWorker(jobId, 'dry_run').expect(204);
@@ -143,15 +195,136 @@ describe('Import background worker (e2e)', () => {
 
     await deliverWorker(jobId, 'apply').expect(204);
 
-    const applied = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
+    await expectOneApplyPerRow(jobId);
+  });
+
+  describe('overlapping apply (isolated tenant)', () => {
+    let overlapTenant: Awaited<ReturnType<typeof createTestTenant>>;
+    let overlapToken: string;
+
+    const overlapPrisma = () =>
+      createTenantAwarePrisma(basePrisma, overlapTenant.tenantId);
+
+    beforeAll(async () => {
+      overlapTenant = await createTestTenant(basePrisma, 'import-bg-overlap');
+      overlapToken = createTestAuthToken(app.get(AuthService), overlapTenant);
     });
-    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
-    expect((applied?.totals_json as { rows: number }).rows).toBe(3);
+
+    afterAll(async () => {
+      await cleanupTestTenantGraph(basePrisma, overlapTenant.tenantId);
+    });
+
+    it('applies each row once when two worker attempts overlap on apply', async () => {
+      const scope = {
+        tenantId: overlapTenant.tenantId,
+        prisma: overlapPrisma,
+      };
+      const jobId = await uploadBackgroundJob(
+        [
+          ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
+          ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
+          ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
+        ],
+        'background-overlap.csv',
+        overlapToken,
+      );
+
+      const dryRunDeadline = Date.now() + 60_000;
+      let dryRunJob = await overlapPrisma().importJob.findFirst({
+        where: { id: jobId },
+      });
+      while (
+        Date.now() < dryRunDeadline &&
+        dryRunJob?.status !== ImportJobStatus.DRY_RUN_DONE
+      ) {
+        await deliverWorker(jobId, 'dry_run', overlapTenant.tenantId).expect(
+          204,
+        );
+        dryRunJob = await overlapPrisma().importJob.findFirst({
+          where: { id: jobId },
+        });
+      }
+      const dryRunRowCount = await overlapPrisma().importJobRow.count({
+        where: { import_job_id: jobId },
+      });
+      expect(dryRunJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+      expect(dryRunRowCount).toBe(3);
+
+      const plannedCreates = await overlapPrisma().importJobRow.count({
+        where: {
+          import_job_id: jobId,
+          action: ImportRowAction.CREATE,
+        },
+      });
+      expect(plannedCreates).toBe(3);
+
+      await request(app.getHttpServer())
+        .post(`/api/imports/${jobId}/apply`)
+        .set('Authorization', `Bearer ${overlapToken}`)
+        .expect(200);
+
+      await Promise.all([
+        deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+        deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+      ]);
+
+      const deadline = Date.now() + 60_000;
+      let applied = await overlapPrisma().importJob.findFirst({
+        where: { id: jobId },
+      });
+      while (
+        Date.now() < deadline &&
+        applied?.status !== ImportJobStatus.APPLIED
+      ) {
+        await Promise.all([
+          deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+          deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+        ]);
+        applied = await overlapPrisma().importJob.findFirst({
+          where: { id: jobId },
+        });
+      }
+
+      await expectOneApplyPerRow(jobId, scope);
+    });
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
-    const jobId = await uploadBackgroundJob();
+    const jobId = await uploadBackgroundJob(
+      [
+        [
+          'BG-REC-1',
+          'PRIVATE',
+          'Rita',
+          'Recovery',
+          'bgrec1@example.com',
+          '',
+          '',
+          'AT',
+        ],
+        [
+          'BG-REC-2',
+          'PRIVATE',
+          'Stefan',
+          'Recovery',
+          'bgrec2@example.com',
+          '',
+          '',
+          'AT',
+        ],
+        [
+          'BG-REC-3',
+          'PRIVATE',
+          'Tina',
+          'Recovery',
+          'bgrec3@example.com',
+          '',
+          '',
+          'AT',
+        ],
+      ],
+      'background-recovery.csv',
+    );
     const existing = await tenantPrisma().importJob.findFirst({
       where: { id: jobId },
     });

@@ -12,6 +12,14 @@ export const IMPORT_UPLOAD_TOO_LARGE_MESSAGE =
 export const IMPORT_WORKER_BATCH_SIZE = readImportWorkerBatchSize();
 export const IMPORT_APPLY_BATCH_SIZE = readImportApplyBatchSize();
 
+export const IMPORT_SERIALIZABLE_TX = {
+  isolationLevel: 'Serializable' as const,
+  timeout: 15000,
+  maxWait: 5000,
+};
+
+export const IMPORT_ROW_TX_MAX_ATTEMPTS = 5;
+
 export const IMPORT_JOB_RETENTION_DAYS = 180;
 
 export const IMPORT_SOURCE = 'import';

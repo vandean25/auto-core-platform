@@ -4,6 +4,21 @@ import { commitApplyWorkerRowInTransaction } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 
 describe('import worker contention', () => {
+  it('claimWorkerLease returns null on driver adapter write conflict', async () => {
+    const conflict = new Error('write conflict');
+    conflict.name = 'DriverAdapterError';
+    Object.assign(conflict, { cause: { kind: 'TransactionWriteConflict' } });
+    const prisma = {
+      $transaction: async () => {
+        throw conflict;
+      },
+    };
+    const store = new ImportJobStore(prisma as never);
+    await expect(
+      store.claimWorkerLease('tenant-1', 'job-1', 'dry_run'),
+    ).resolves.toBeNull();
+  });
+
   it('claimWorkerLease returns null on serialization failure', async () => {
     const prisma = {
       $transaction: async () => {

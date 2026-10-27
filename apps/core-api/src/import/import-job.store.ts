@@ -6,6 +6,16 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
+import {
+  IMPORT_ROW_TX_MAX_ATTEMPTS,
+  IMPORT_SERIALIZABLE_TX,
+} from './import.constants.js';
+import {
+  delayMs,
+  retryableTransactionDelayMs,
+} from './import-transaction-retry.util.js';
+import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   IMPORT_WORKER_LEASE_MS,
@@ -250,9 +260,9 @@ export class ImportJobStore {
     jobId: string,
     phase: ImportWorkerPhase,
   ): Promise<ImportJobWorkerState | null> {
-    try {
-      return await this.prisma.$transaction(
-        async (tx) => {
+    for (let attempt = 0; attempt < IMPORT_ROW_TX_MAX_ATTEMPTS; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
           const job = await tx.importJob.findFirst({
             where: {
               tenant_id: tenantId,
@@ -296,18 +306,19 @@ export class ImportJobStore {
             return null;
           }
           return refreshed;
-        },
-        { isolationLevel: 'Serializable' },
-      );
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2034'
-      ) {
+        }, IMPORT_SERIALIZABLE_TX);
+      } catch (error) {
+        if (!isRetryableTransactionError(error)) {
+          throw error;
+        }
+        if (attempt < IMPORT_ROW_TX_MAX_ATTEMPTS - 1) {
+          await delayMs(retryableTransactionDelayMs(attempt));
+          continue;
+        }
         return null;
       }
-      throw error;
     }
+    return null;
   }
 
   findRowsPage(
@@ -537,10 +548,14 @@ export async function commitApplyWorkerRowInTransaction(
   if (!workerState) {
     throw new ImportWorkerLeaseLostError();
   }
+  const applyWatermark = advanceContiguousApplySeqWatermark(
+    workerState.last_committed_apply_seq ?? 0,
+    applySeq,
+  );
   const worker: ImportJobWorkerState = {
     ...workerState,
-    last_committed_apply_seq: applySeq,
-    processed_rows: applySeq,
+    last_committed_apply_seq: applyWatermark,
+    processed_rows: applyWatermark,
   };
   await tx.importJob.update({
     where: { id: jobId },

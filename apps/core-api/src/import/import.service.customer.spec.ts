@@ -804,8 +804,36 @@ describe('ImportService customer import (characterization)', () => {
       );
     });
 
+    it('marks a serialization failure as a row ERROR during synchronous apply', async () => {
+      h.prisma.customer.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('serialization', {
+          code: 'P2034',
+          clientVersion: 'test',
+        }),
+      );
+      arrangeApply(
+        h,
+        importJobRecord({ entity_type: ImportEntityType.CUSTOMER }),
+        [createRow(1, 'K-1', { first_name: 'Anna', last_name: 'Berger' })],
+      );
+
+      const result = await h.service.applyJob(JOB_ID);
+
+      expect(h.prisma.importJobRow.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ action: ImportRowAction.ERROR }),
+        }),
+      );
+      expect(result.status).toBe(ImportJobStatus.APPLIED);
+    });
+
     it('fails the job with the totals so far when recording a row error itself fails', async () => {
-      h.prisma.customer.create.mockRejectedValue(new Error('boom'));
+      h.prisma.customer.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
       arrangeApply(
         h,
         importJobRecord({ entity_type: ImportEntityType.CUSTOMER }),

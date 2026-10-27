@@ -699,7 +699,10 @@ export class ImportService {
       job.file_sha256,
     );
     if (!parsedBatch || parsedBatch.rows.length === 0) {
-      await this.completeBackgroundDryRun(tenantId, jobId, handler, options);
+      const processedRows = worker.processed_rows ?? 0;
+      if (processedRows >= totals.rows) {
+        await this.completeBackgroundDryRun(tenantId, jobId, handler, options);
+      }
       return;
     }
     const batchRows = parsedBatch.rows;
