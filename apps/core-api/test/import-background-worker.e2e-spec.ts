@@ -186,35 +186,34 @@ describe('Import background worker (e2e)', () => {
         tenantId: overlapTenant.tenantId,
         prisma: overlapPrisma,
       };
-      const emailPrefix = `ovl-${overlapTenant.tenantId}`;
       const jobId = await uploadBackgroundJob(
         [
           [
-            'BG-1',
+            'BGL-1',
             'PRIVATE',
             'Erika',
             'Eins',
-            `${emailPrefix}-1@example.com`,
+            'bgl1@example.com',
             '',
             '',
             'AT',
           ],
           [
-            'BG-2',
+            'BGL-2',
             'PRIVATE',
             'Franz',
             'Zwei',
-            `${emailPrefix}-2@example.com`,
+            'bgl2@example.com',
             '',
             '',
             'AT',
           ],
           [
-            'BG-3',
+            'BGL-3',
             'PRIVATE',
             'Gabi',
             'Drei',
-            `${emailPrefix}-3@example.com`,
+            'bgl3@example.com',
             '',
             '',
             'AT',
