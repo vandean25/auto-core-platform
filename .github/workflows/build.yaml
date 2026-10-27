@@ -19,18 +19,8 @@ permissions:
   contents: read
 
 jobs:
-  docs:
-    name: Mintlify docs guards
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Verify Mintlify excludes app assets
-        run: npm run docs:verify-mintignore
-
   api-contract:
-    name: API Contract (OpenAPI + Generated Types)
+    name: API Contract and Schema Guards
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,6 +42,9 @@ jobs:
           done
           exit 1
 
+      - name: Verify Mintlify excludes app assets
+        run: npm run docs:verify-mintignore
+
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
@@ -63,18 +56,6 @@ jobs:
 
       - name: Verify frontend generated API types are up to date
         run: npm run api:types:check --workspace=core-web
-
-  contract-guard:
-    name: Contract Guard (API Type Drift)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version-file: .nvmrc
 
       - name: Verify backend/frontend contract alignment
         run: |
@@ -222,6 +203,7 @@ jobs:
 
           console.log('Contract guard passed.')
           NODE
+
 
   backend:
     name: Backend Lint, Typecheck and Build
