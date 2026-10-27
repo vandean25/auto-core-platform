@@ -157,7 +157,7 @@ async function failImportJobForWorkerPoison(
       status: ImportJobStatus.FAILED,
       attempts_without_progress: nextAttempts,
       failed_at: new Date(),
-      options_json: options as Prisma.InputJsonValue,
+      options_json: options,
     },
   });
 }

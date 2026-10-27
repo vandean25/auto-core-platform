@@ -1,15 +1,15 @@
 import { HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
-import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
+import {
+  isRetryableTransactionError,
+  readErrorCause,
+} from '../common/prisma/is-retryable-transaction-error.js';
 import { isTransientImportStorageReadError } from './import-worker-retry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 export type ImportApplyErrorKind =
-  | 'lease_lost'
-  | 'retryable'
-  | 'row'
-  | 'fatal';
+  'lease_lost' | 'retryable' | 'row' | 'fatal';
 
 export type ImportApplyFailureReason = 'retry_exhausted' | 'poison_cap';
 
@@ -50,17 +50,6 @@ export class ImportApplyRetryExhaustedError extends Error {
 
 const MAX_CAUSE_DEPTH = 8;
 
-function readCause(error: unknown): unknown {
-  if (!error || typeof error !== 'object' || !('cause' in error)) {
-    return undefined;
-  }
-  const cause = (error as { cause?: unknown }).cause;
-  if (cause === error) {
-    return undefined;
-  }
-  return cause;
-}
-
 function adapterCauseKind(node: unknown): string | undefined {
   if (!node || typeof node !== 'object') {
     return undefined;
@@ -71,7 +60,7 @@ function adapterCauseKind(node: unknown): string | undefined {
 
 function isDriverAdapterRowConstraintNode(node: unknown): boolean {
   if (node instanceof Error && node.name === 'DriverAdapterError') {
-    const kind = adapterCauseKind(readCause(node));
+    const kind = adapterCauseKind(readErrorCause(node));
     return (
       kind === 'UniqueConstraintViolation' ||
       kind === 'ForeignKeyConstraintViolation'
@@ -90,7 +79,7 @@ function isDriverAdapterRowConstraint(error: unknown): boolean {
     if (isDriverAdapterRowConstraintNode(current)) {
       return true;
     }
-    current = readCause(current);
+    current = readErrorCause(current);
   }
   return false;
 }

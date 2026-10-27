@@ -31,7 +31,7 @@ function createWorker(): ImportJobWorkerState {
 describe('RowByRowApplyRunner background retryable errors', () => {
   it('rethrows persistent P2034 without marking the job FAILED or the row ERROR', async () => {
     const worker = createWorker();
-    let jobStatus = ImportJobStatus.APPLYING;
+    const jobStatus = ImportJobStatus.APPLYING;
     const rowUpdate = jest.fn();
     const updateMany = jest.fn();
     const transaction = jest.fn(async () => {

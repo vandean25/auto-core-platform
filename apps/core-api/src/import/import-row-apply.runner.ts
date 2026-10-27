@@ -127,17 +127,26 @@ export class RowByRowApplyRunner {
         options,
       );
     } catch (error) {
-      const kind = classifyImportApplyError(error);
-      if (kind === 'lease_lost' || kind === 'retryable') {
-        throw error;
-      }
-      const failureReason =
-        error instanceof ImportApplyRetryExhaustedError
-          ? ('retry_exhausted' satisfies ImportApplyFailureReason)
-          : undefined;
-      await this.markJobFailed(job.id, totals, guardedWrite, failureReason);
+      await this.recordApplyRunFailure(job.id, totals, guardedWrite, error);
       throw error;
     }
+  }
+
+  private async recordApplyRunFailure(
+    jobId: string,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+    error: unknown,
+  ): Promise<void> {
+    const kind = classifyImportApplyError(error);
+    if (kind === 'lease_lost' || kind === 'retryable') {
+      return;
+    }
+    const failureReason =
+      error instanceof ImportApplyRetryExhaustedError
+        ? ('retry_exhausted' satisfies ImportApplyFailureReason)
+        : undefined;
+    await this.markJobFailed(jobId, totals, guardedWrite, failureReason);
   }
 
   private async serializeSequenceAppliedJob(
@@ -639,7 +648,15 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     options?: ImportApplyBatchOptions,
   ): Promise<void> {
-    if (await this.applyLegacyPreflightRow(input, entityType, row, totals, options)) {
+    if (
+      await this.applyLegacyPreflightRow(
+        input,
+        entityType,
+        row,
+        totals,
+        options,
+      )
+    ) {
       return;
     }
     try {

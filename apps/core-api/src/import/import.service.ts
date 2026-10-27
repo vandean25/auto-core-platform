@@ -386,37 +386,77 @@ export class ImportService {
     const dryRunTotals = job.totals_json as ImportJobTotals;
 
     if (rowCount > readImportSyncMaxRowCount()) {
-      const rows = await this.jobStore.findApplyRowsAfter(
+      return this.queueBackgroundImportApply(
         tenantId,
         jobId,
-        0,
-        IMPORT_APPLY_BATCH_SIZE,
-      );
-      await handler.prepareApply({
-        tenantId,
         job,
-        rows,
+        handler,
+        dryRunTotals,
         applyOptions,
         effectiveOptions,
-      });
-      const lock = await this.jobStore.lockForBackgroundApply(
-        tenantId,
-        jobId,
-        job.options_json as ImportJobOptionsWithWorker,
-        dryRunTotals,
-        handler.applySequenceOrderKey(),
-      );
-      if (lock.count === 0) {
-        throw applyInProgress();
-      }
-      await this.enqueueInitialImportWorker(tenantId, jobId, 'apply');
-      const refreshed = await this.jobStore.findJob(tenantId, jobId);
-      return this.serializeJob(
-        refreshed!,
-        refreshed!.totals_json as ImportJobTotals,
       );
     }
 
+    return this.applyImportJobSynchronously(
+      tenantId,
+      jobId,
+      job,
+      handler,
+      currentUser.id,
+      applyOptions,
+      effectiveOptions,
+    );
+  }
+
+  private async queueBackgroundImportApply(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+    handler: ImportTypeHandler,
+    dryRunTotals: ImportJobTotals,
+    applyOptions: ImportJobOptions | undefined,
+    effectiveOptions: ImportJobOptions,
+  ): Promise<SerializedImportJob> {
+    const rows = await this.jobStore.findApplyRowsAfter(
+      tenantId,
+      jobId,
+      0,
+      IMPORT_APPLY_BATCH_SIZE,
+    );
+    await handler.prepareApply({
+      tenantId,
+      job,
+      rows,
+      applyOptions,
+      effectiveOptions,
+    });
+    const lock = await this.jobStore.lockForBackgroundApply(
+      tenantId,
+      jobId,
+      job.options_json as ImportJobOptionsWithWorker,
+      dryRunTotals,
+      handler.applySequenceOrderKey(),
+    );
+    if (lock.count === 0) {
+      throw applyInProgress();
+    }
+    await this.enqueueInitialImportWorker(tenantId, jobId, 'apply');
+    const refreshed = await this.jobStore.findJob(tenantId, jobId);
+    return this.serializeJob(
+      refreshed!,
+      refreshed!.totals_json as ImportJobTotals,
+    );
+  }
+
+  private async applyImportJobSynchronously(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+    handler: ImportTypeHandler,
+    actorUserId: string,
+    applyOptions: ImportJobOptions | undefined,
+    effectiveOptions: ImportJobOptions,
+  ): Promise<SerializedImportJob> {
     const rows = await this.jobStore.findApplyRows(tenantId, jobId);
     const preparation = await handler.prepareApply({
       tenantId,
@@ -438,7 +478,7 @@ export class ImportService {
           tenantId,
           job,
           rows,
-          actorUserId: currentUser.id,
+          actorUserId,
           effectiveOptions,
           preparation,
         }),
