@@ -9,11 +9,12 @@ import {
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
 import {
+  ImportDuplicateCreateInJobError,
   isRowLevelApplyError,
+  resolveImportExternalId,
   toRowApplyError,
 } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
-import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { applySeqForRow } from './import-apply-sequence.js';
 import {
@@ -297,6 +298,29 @@ export class RowByRowApplyRunner {
     });
   }
 
+  private async hasSiblingCreateRowInJob(
+    input: ImportApplyInput,
+    row: ImportApplyRow,
+    db: Prisma.TransactionClient | PrismaService,
+  ): Promise<boolean> {
+    const payload = row.normalized_json as Record<string, unknown>;
+    const externalId = resolveImportExternalId(payload, row.external_id);
+    if (!externalId) {
+      return false;
+    }
+    const sibling = await db.importJobRow.findFirst({
+      where: {
+        tenant_id: input.tenantId,
+        import_job_id: input.job.id,
+        external_id: externalId,
+        row_no: { not: row.row_no },
+        action: ImportRowAction.CREATE,
+      },
+      select: { row_no: true },
+    });
+    return sibling !== null;
+  }
+
   private async isCreateAlreadyCommittedByJob(
     input: ImportApplyInput,
     entityType: ImportEntityType,
@@ -518,6 +542,9 @@ export class RowByRowApplyRunner {
       row.action === ImportRowAction.CREATE &&
       (await this.isCreateAlreadyCommittedByJob(input, entityType, row, tx))
     ) {
+      if (await this.hasSiblingCreateRowInJob(input, row, tx)) {
+        throw new ImportDuplicateCreateInJobError();
+      }
       return 'noop';
     }
     await assertApplyRowIsFresh(
@@ -555,6 +582,18 @@ export class RowByRowApplyRunner {
         row.action === ImportRowAction.CREATE &&
         (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
       ) {
+        if (await this.hasSiblingCreateRowInJob(input, row, this.prisma)) {
+          totals.error += 1;
+          await markImportRowFailed(
+            this.prisma,
+            input.tenantId,
+            input.job.id,
+            row.row_no,
+            toRowApplyError(new ImportDuplicateCreateInJobError()),
+          );
+          await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+          return;
+        }
         await this.advanceWorkerCursor(input, applySeqForRow(row), options);
         return;
       }

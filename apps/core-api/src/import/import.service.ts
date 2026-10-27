@@ -74,6 +74,10 @@ import {
   persistDryRunBatchAndHandoff,
 } from './import-background-dry-run.batch.js';
 import {
+  runBackgroundDryRunReconcileChunk,
+  scheduleBackgroundDryRunAfterRowBatches,
+} from './import-background-dry-run.reconcile.js';
+import {
   importWorkerRetryDelaySeconds,
   isRetryableImportWorkerError,
 } from './import-worker-retry.js';
@@ -794,10 +798,43 @@ export class ImportService {
       IMPORT_WORKER_BATCH_SIZE,
       job.file_sha256,
     );
+    if (worker.dry_run_reconcile_active) {
+      await runBackgroundDryRunReconcileChunk({
+        jobStore: this.jobStore,
+        prisma: this.prisma,
+        fileStorage: this.fileStorage,
+        tenantId,
+        jobId,
+        handler,
+        options,
+        job,
+        flow: this.workerFlowForJob(tenantId, jobId),
+        completeDryRun: (finalTotals) =>
+          this.completeBackgroundDryRun(
+            tenantId,
+            jobId,
+            handler,
+            options,
+            finalTotals,
+          ),
+      });
+      return;
+    }
     if (!parsedBatch || parsedBatch.rows.length === 0) {
       const processedRows = worker.processed_rows ?? 0;
       if (processedRows >= totals.rows) {
-        await this.completeBackgroundDryRun(tenantId, jobId, handler, options);
+        await scheduleBackgroundDryRunAfterRowBatches({
+          jobStore: this.jobStore,
+          prisma: this.prisma,
+          tenantId,
+          jobId,
+          entityType: job.entity_type as ImplementedImportEntityType,
+          options,
+          totals,
+          flow: this.workerFlowForJob(tenantId, jobId),
+          completeDryRun: () =>
+            this.completeBackgroundDryRun(tenantId, jobId, handler, options),
+        });
       }
       return;
     }
@@ -843,8 +880,24 @@ export class ImportService {
           mergedTotals,
           processed,
           totalRows: totals.rows,
-          completeDryRun: () =>
-            this.completeBackgroundDryRun(tenantId, jobId, handler, options),
+          onAllRowBatchesDone: () =>
+            scheduleBackgroundDryRunAfterRowBatches({
+              jobStore: this.jobStore,
+              prisma: this.prisma,
+              tenantId,
+              jobId,
+              entityType: job.entity_type as ImplementedImportEntityType,
+              options,
+              totals: mergedTotals,
+              flow: this.workerFlowForJob(tenantId, jobId),
+              completeDryRun: () =>
+                this.completeBackgroundDryRun(
+                  tenantId,
+                  jobId,
+                  handler,
+                  options,
+                ),
+            }),
         });
       },
     );
@@ -855,12 +908,14 @@ export class ImportService {
     jobId: string,
     handler: ImportTypeHandler,
     options: ImportJobOptionsWithWorker,
+    totalsOverride?: ImportJobTotals,
   ) {
     const job = await this.jobStore.findJob(tenantId, jobId);
     if (!job) {
       return;
     }
-    let finalTotals = job.totals_json as ImportJobTotals;
+    let finalTotals =
+      totalsOverride ?? (job.totals_json as ImportJobTotals);
     if (handler.finishCreate) {
       const pageSize = IMPORT_WORKER_BATCH_SIZE;
       let skip = 0;

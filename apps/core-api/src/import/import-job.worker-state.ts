@@ -2,6 +2,11 @@ import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 
 export type ImportWorkerPhase = 'dry_run' | 'apply';
 
+export type ImportDryRunReconcileRange = {
+  from_row: number;
+  to_row: number;
+};
+
 export type ImportJobWorkerState = {
   phase: ImportWorkerPhase;
   lease_token: string;
@@ -12,7 +17,23 @@ export type ImportJobWorkerState = {
   /** Background apply cursor over import_job_rows.apply_seq. */
   last_committed_apply_seq?: number;
   started_at: string;
+  /** After row batches finish, cross-batch duplicate reconcile runs before dry-run completion. */
+  dry_run_reconcile_active?: boolean;
+  dry_run_reconcile_cursor?: number;
+  dry_run_reconcile_ranges?: ImportDryRunReconcileRange[];
 };
+
+export function importWorkerProgressCursor(
+  worker: ImportJobWorkerState,
+): number {
+  if (worker.dry_run_reconcile_active) {
+    return worker.dry_run_reconcile_cursor ?? 0;
+  }
+  if (worker.phase === 'apply') {
+    return worker.last_committed_apply_seq ?? 0;
+  }
+  return worker.processed_rows ?? 0;
+}
 
 export type ImportJobUploadRef = {
   object_key: string;
@@ -62,7 +83,7 @@ export function computeImportProgress(params: {
     return null;
   }
   const totalRows = Math.max(params.totals.rows, worker.processed_rows, 1);
-  const processed = worker.processed_rows;
+  const processed = importWorkerProgressCursor(worker);
   const startedAt = Date.parse(worker.started_at);
   const elapsedSec =
     Number.isFinite(startedAt) && startedAt > 0

@@ -2,6 +2,7 @@ import { ImportJobStatus } from '@prisma/client';
 import type { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import type { ImportJobStore } from './import-job.store.js';
 import {
+  importWorkerProgressCursor,
   readWorkerState,
   type ImportJobOptionsWithWorker,
   type ImportWorkerPhase,
@@ -28,10 +29,7 @@ export function readImportWorkerChunkSeq(
   if (!worker) {
     return 0;
   }
-  if (phase === 'apply') {
-    return worker.last_committed_apply_seq ?? 0;
-  }
-  return worker.processed_rows ?? 0;
+  return importWorkerProgressCursor(worker);
 }
 
 export function importWorkerTaskClaimSeqForHandoff(

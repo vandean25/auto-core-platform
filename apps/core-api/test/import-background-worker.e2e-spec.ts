@@ -183,6 +183,33 @@ describe('Import background worker (e2e)', () => {
     return response.body.id as string;
   }
 
+  it('reconciles cross-batch duplicate email to match sync dry-run', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['BG-DUP-1', 'PRIVATE', 'Erika', 'Eins', 'dup@example.com', '', '', 'AT'],
+      ['BG-DUP-2', 'PRIVATE', 'Franz', 'Zwei', 'other@example.com', '', '', 'AT'],
+      ['BG-DUP-3', 'PRIVATE', 'Gabi', 'Drei', 'third@example.com', '', '', 'AT'],
+      ['BG-DUP-4', 'PRIVATE', 'Hans', 'Vier', 'dup@example.com', '', '', 'AT'],
+    ]);
+
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const totals = dryRunDone?.totals_json as {
+      create: number;
+      error: number;
+    };
+    expect(totals.create).toBe(3);
+    expect(totals.error).toBe(1);
+
+    const rows = await tenantPrisma().importJobRow.findMany({
+      where: { import_job_id: jobId },
+      orderBy: { row_no: 'asc' },
+    });
+    expect(rows[3].action).toBe(ImportRowAction.ERROR);
+    expect(JSON.stringify(rows[3].errors_json)).toContain(
+      'Duplicate email in file (first seen on row 1)',
+    );
+  });
+
   it('runs background dry-run and apply through the signed worker route', async () => {
     const jobId = await uploadBackgroundJob([
       ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],

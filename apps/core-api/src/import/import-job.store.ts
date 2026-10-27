@@ -19,6 +19,7 @@ import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   IMPORT_WORKER_LEASE_MS,
+  importWorkerProgressCursor,
   readWorkerState,
   type ImportJobOptionsWithWorker,
   type ImportJobUploadRef,
@@ -147,7 +148,7 @@ async function claimWorkerLeaseInTransaction(
   if (workerLeaseBlocksClaim(worker, now)) {
     return null;
   }
-  const cursorAtClaim = worker.processed_rows ?? 0;
+  const cursorAtClaim = importWorkerProgressCursor(worker);
   const nextAttempts = nextAttemptsWithoutProgress(
     worker,
     cursorAtClaim,
@@ -270,13 +271,13 @@ export class ImportJobStore {
     options: ImportJobOptionsWithWorker,
     leaseToken: string,
   ) {
-    const previousProcessed = options.worker?.processed_rows ?? 0;
+    const previousProcessed = importWorkerProgressCursor(options.worker!);
     const worker = {
       ...options.worker!,
       ...workerPatch,
       lease_until: new Date(0).toISOString(),
     };
-    const progressed = (worker.processed_rows ?? 0) > previousProcessed;
+    const progressed = importWorkerProgressCursor(worker) > previousProcessed;
     return this.prisma.$transaction(async (tx) => {
       const locked = await tx.importJob.updateMany({
         where: {
@@ -301,6 +302,93 @@ export class ImportJobStore {
           worker_handoff_at: new Date(),
           ...(progressed ? { attempts_without_progress: 0 } : {}),
           rows: { create: rows.map(toRowCreate) },
+        },
+      });
+    });
+  }
+
+  async beginBackgroundDryRunReconcile(
+    tenantId: string,
+    jobId: string,
+    ranges: ImportJobWorkerState['dry_run_reconcile_ranges'],
+    options: ImportJobOptionsWithWorker,
+    leaseToken: string,
+  ) {
+    const worker: ImportJobWorkerState = {
+      ...options.worker!,
+      dry_run_reconcile_active: true,
+      dry_run_reconcile_cursor: 0,
+      dry_run_reconcile_ranges: ranges,
+      lease_until: new Date(0).toISOString(),
+    };
+    const updated = await this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+        options_json: {
+          path: ['worker', 'lease_token'],
+          equals: leaseToken,
+        },
+      },
+      data: {
+        options_json: { ...options, worker },
+        worker_handoff_at: new Date(),
+      },
+    });
+    return updated.count > 0;
+  }
+
+  async overwriteDryRunRows(
+    tenantId: string,
+    jobId: string,
+    rows: DryRunRowResult[],
+    workerPatch: Partial<ImportJobWorkerState>,
+    options: ImportJobOptionsWithWorker,
+    leaseToken: string,
+  ) {
+    const previousCursor = importWorkerProgressCursor(options.worker!);
+    const worker = {
+      ...options.worker!,
+      ...workerPatch,
+      lease_until: new Date(0).toISOString(),
+    };
+    const progressed = importWorkerProgressCursor(worker) > previousCursor;
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await tx.importJob.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: jobId,
+          status: ImportJobStatus.APPLYING,
+          options_json: {
+            path: ['worker', 'lease_token'],
+            equals: leaseToken,
+          },
+        },
+        data: {},
+      });
+      if (locked.count === 0) {
+        return null;
+      }
+      for (const row of rows) {
+        const data = toRowCreate(row);
+        await tx.importJobRow.update({
+          where: {
+            tenant_id_import_job_id_row_no: {
+              tenant_id: tenantId,
+              import_job_id: jobId,
+              row_no: row.row_no,
+            },
+          },
+          data,
+        });
+      }
+      return tx.importJob.update({
+        where: { tenant_id: tenantId, id: jobId },
+        data: {
+          options_json: { ...options, worker },
+          worker_handoff_at: new Date(),
+          ...(progressed ? { attempts_without_progress: 0 } : {}),
         },
       });
     });
