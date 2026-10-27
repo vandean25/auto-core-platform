@@ -487,17 +487,11 @@ jobs:
       - name: Runner CPU count
         run: echo "vCPUs=$(nproc)"
 
+      - name: Verify smoke retry behavior
+        run: node --test .github/scripts/run-ui-smoke.test.mjs
+
       - name: Run Playwright UI smoke tests
-        run: |
-          set -euo pipefail
-          for attempt in 1 2; do
-            if npm run test:e2e --workspace=core-web -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}; then
-              exit 0
-            fi
-            echo "UI smoke shard failed (attempt ${attempt}); retrying..."
-            sleep 20
-          done
-          exit 1
+        run: bash .github/scripts/run-ui-smoke.sh "${{ matrix.shard }}" "${{ strategy.job-total }}"
 
       - name: Upload Playwright report
         if: always()
@@ -507,6 +501,7 @@ jobs:
           path: |
             apps/core-web/playwright-report
             apps/core-web/test-results
+            apps/core-web/first-attempt
           retention-days: 14
           if-no-files-found: warn
 
