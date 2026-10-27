@@ -639,105 +639,181 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     options?: ImportApplyBatchOptions,
   ): Promise<void> {
+    if (await this.applyLegacyPreflightRow(input, entityType, row, totals, options)) {
+      return;
+    }
+    try {
+      await this.runLegacyRowRetryLoop(
+        input,
+        entityType,
+        writeRow,
+        row,
+        totals,
+        options,
+      );
+    } catch (error) {
+      throw this.rethrowLegacyApplyError(error, options);
+    }
+  }
+
+  private async applyLegacyPreflightRow(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    options?: ImportApplyBatchOptions,
+  ): Promise<boolean> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
       await this.advanceWorkerCursor(input, applySeqForRow(row), options);
-      return;
+      return true;
     }
     if (row.action === ImportRowAction.SKIP) {
       totals.skip += 1;
       await this.advanceWorkerCursor(input, applySeqForRow(row), options);
-      return;
+      return true;
     }
-
-    try {
-      const committedCreate = await this.resolveDuplicateCommittedCreateLegacy(
-        input,
-        entityType,
-        row,
+    const committedCreate = await this.resolveDuplicateCommittedCreateLegacy(
+      input,
+      entityType,
+      row,
+    );
+    if (committedCreate === 'noop') {
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      return true;
+    }
+    if (committedCreate === 'duplicate_error') {
+      totals.error += 1;
+      await markImportRowFailed(
+        this.prisma,
+        input.tenantId,
+        input.job.id,
+        row.row_no,
+        toRowApplyError(new ImportDuplicateCreateInJobError()),
       );
-      if (committedCreate === 'noop') {
-        await this.advanceWorkerCursor(input, applySeqForRow(row), options);
-        return;
-      }
-      if (committedCreate === 'duplicate_error') {
-        totals.error += 1;
-        await markImportRowFailed(
-          this.prisma,
-          input.tenantId,
-          input.job.id,
-          row.row_no,
-          toRowApplyError(new ImportDuplicateCreateInJobError()),
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      return true;
+    }
+    return false;
+  }
+
+  private async runLegacyRowRetryLoop(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    options?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const maxAttempts = legacyRowTxMaxAttempts(options);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await this.commitLegacyRowTransaction(
+          input,
+          entityType,
+          writeRow,
+          row,
+          options,
         );
-        await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+        tallyWrittenRow(totals, row.action);
         return;
-      }
-      const maxAttempts = legacyRowTxMaxAttempts(options);
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-          await this.prisma.$transaction(async (tx) => {
-            await assertApplyRowIsFresh(
-              tx,
-              input.tenantId,
-              entityType,
-              input.job.source_system,
-              row,
-            );
-            try {
-              await writeRow(tx, row);
-            } catch (rowError) {
-              throw coerceWriteRowToDomainError(rowError);
-            }
-            if (options?.onRowCommitted && options.leaseToken) {
-              await options.onRowCommitted(tx, row.row_no);
-            } else if (options?.leaseToken) {
-              await commitApplyWorkerRowInTransaction(
-                tx,
-                input.tenantId,
-                input.job.id,
-                options.leaseToken,
-                applySeqForRow(row),
-              );
-            }
-          }, IMPORT_SERIALIZABLE_TX);
-          tallyWrittenRow(totals, row.action);
-          return;
-        } catch (error) {
-          const outcome = this.legacyRowAttemptOutcome(error, attempt, maxAttempts);
-          if (outcome === 'retry') {
-            await delayMs(retryableTransactionDelayMs(attempt));
-            continue;
-          }
-          if (outcome === 'rethrow') {
-            throw error;
-          }
-          this.logger.warn(
-            `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
-          );
-          totals.error += 1;
-          await markImportRowFailed(
-            this.prisma,
-            input.tenantId,
-            input.job.id,
-            row.row_no,
-            toRowApplyError(error),
-          );
-          await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      } catch (error) {
+        const handled = await this.handleLegacyRowAttemptFailure(
+          input,
+          row,
+          totals,
+          options,
+          error,
+          attempt,
+          maxAttempts,
+        );
+        if (handled) {
           return;
         }
       }
-    } catch (error) {
-      if (error instanceof ImportWorkerLeaseLostError) {
-        throw error;
+    }
+  }
+
+  private async commitLegacyRowTransaction(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    options?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await assertApplyRowIsFresh(
+        tx,
+        input.tenantId,
+        entityType,
+        input.job.source_system,
+        row,
+      );
+      try {
+        await writeRow(tx, row);
+      } catch (rowError) {
+        throw coerceWriteRowToDomainError(rowError);
       }
-      if (
-        classifyImportApplyError(error) === 'retryable' &&
-        legacyRowTxMaxAttempts(options) === IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS
-      ) {
-        throw new ImportApplyRetryExhaustedError(error);
+      if (options?.onRowCommitted && options.leaseToken) {
+        await options.onRowCommitted(tx, row.row_no);
+      } else if (options?.leaseToken) {
+        await commitApplyWorkerRowInTransaction(
+          tx,
+          input.tenantId,
+          input.job.id,
+          options.leaseToken,
+          applySeqForRow(row),
+        );
       }
+    }, IMPORT_SERIALIZABLE_TX);
+  }
+
+  private async handleLegacyRowAttemptFailure(
+    input: ImportApplyInput,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    options: ImportApplyBatchOptions | undefined,
+    error: unknown,
+    attempt: number,
+    maxAttempts: number,
+  ): Promise<boolean> {
+    const outcome = this.legacyRowAttemptOutcome(error, attempt, maxAttempts);
+    if (outcome === 'retry') {
+      await delayMs(retryableTransactionDelayMs(attempt));
+      return false;
+    }
+    if (outcome === 'rethrow') {
       throw error;
     }
+    this.logger.warn(
+      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+    );
+    totals.error += 1;
+    await markImportRowFailed(
+      this.prisma,
+      input.tenantId,
+      input.job.id,
+      row.row_no,
+      toRowApplyError(error),
+    );
+    await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+    return true;
+  }
+
+  private rethrowLegacyApplyError(
+    error: unknown,
+    options?: ImportApplyBatchOptions,
+  ): unknown {
+    if (error instanceof ImportWorkerLeaseLostError) {
+      return error;
+    }
+    if (
+      classifyImportApplyError(error) === 'retryable' &&
+      legacyRowTxMaxAttempts(options) === IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS
+    ) {
+      return new ImportApplyRetryExhaustedError(error);
+    }
+    return error;
   }
 
   private legacyRowAttemptOutcome(
