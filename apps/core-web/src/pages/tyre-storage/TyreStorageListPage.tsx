@@ -188,8 +188,8 @@ export default function TyreStorageListPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
-          <div className="space-y-1">
+        <div className="grid grid-cols-2 gap-3 md:flex md:flex-row md:flex-wrap md:items-end">
+          <div className="col-span-2 space-y-1 md:col-span-1">
             <Label>{t('tyreStorage.list.filters.plateVin')}</Label>
             <Input
               className="max-w-md min-h-11 text-base"
@@ -200,7 +200,7 @@ export default function TyreStorageListPage() {
             />
           </div>
           <div
-            className={`space-y-1 min-w-[16rem] ${viewMode === 'due' ? 'pointer-events-none opacity-50' : ''}`}
+            className={`col-span-2 min-w-0 space-y-1 md:col-span-1 md:min-w-[16rem] ${viewMode === 'due' ? 'pointer-events-none opacity-50' : ''}`}
           >
             <Label>{t('tyreStorage.list.filters.customer')}</Label>
             <CustomerSearch value={customerFilter} onChange={setCustomerFilter} />
@@ -208,7 +208,7 @@ export default function TyreStorageListPage() {
           <div className="space-y-1">
             <Label>{t('tyreStorage.list.filters.season')}</Label>
             <Select value={season} onValueChange={setSeason} disabled={viewMode === 'due'}>
-              <SelectTrigger className="min-h-11 w-40">
+              <SelectTrigger className="min-h-11 w-full md:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -222,7 +222,7 @@ export default function TyreStorageListPage() {
           <div className="space-y-1">
             <Label>{t('tyreStorage.list.filters.status')}</Label>
             <Select value={status} onValueChange={setStatus} disabled={viewMode === 'due'}>
-              <SelectTrigger className="min-h-11 w-44">
+              <SelectTrigger className="min-h-11 w-full md:w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -236,7 +236,7 @@ export default function TyreStorageListPage() {
           <div className="space-y-1">
             <Label>{t('tyreStorage.list.filters.location')}</Label>
             <Select value={locationId} onValueChange={setLocationId} disabled={viewMode === 'due'}>
-              <SelectTrigger className="min-h-11 w-44">
+              <SelectTrigger className="min-h-11 w-full md:w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

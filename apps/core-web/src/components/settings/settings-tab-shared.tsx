@@ -81,19 +81,20 @@ export function SettingsTabPanel({
         title={title}
         description={description}
         descriptionClassName={descriptionClassName}
+        className={headerActions ? 'max-sm:w-full' : undefined}
       />
     ) : null
 
   return (
     <div
       className={cn(
-        'rounded-lg border bg-white p-6 shadow-sm',
+        'rounded-lg border bg-white p-4 shadow-sm sm:p-6',
         density === 'compact' ? 'space-y-4' : 'space-y-6',
         className,
       )}
     >
       {heading && headerActions ? (
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 max-sm:flex-wrap max-sm:[&_button]:min-h-11">
           {heading}
           {headerActions}
         </div>

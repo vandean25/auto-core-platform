@@ -19,7 +19,7 @@
       "title": "Arbeitsleistung",
       "loading": "Bericht wird geladen …",
       "empty": "Keine Daten für den ausgewählten Zeitraum.",
-      "metaFooter": "Zeitzone: {{timezone}}. {{count}} Mechaniker ohne gültige Standortzuordnung.",
+      "metaFooter": "Zeitzone: {{- timezone}}. {{count}} Mechaniker ohne gültige Standortzuordnung.",
       "columns": {
         "mechanic": "Mechaniker",
         "period": "Zeitraum",

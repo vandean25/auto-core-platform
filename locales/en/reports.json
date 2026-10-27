@@ -19,7 +19,7 @@
       "title": "Labor performance",
       "loading": "Loading report…",
       "empty": "No data for the selected period.",
-      "metaFooter": "Time zone: {{timezone}}. {{count}} mechanics without a valid site assignment.",
+      "metaFooter": "Time zone: {{- timezone}}. {{count}} mechanics without a valid site assignment.",
       "columns": {
         "mechanic": "Mechanic",
         "period": "Period",
