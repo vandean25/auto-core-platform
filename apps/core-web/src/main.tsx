@@ -8,10 +8,14 @@ import App from './App.tsx'
 import { AuthProvider } from '@/auth/AuthProvider'
 import { I18nProvider } from '@/lib/i18n'
 import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
+import { captureInstallPrompt } from '@/pwa/install-prompt'
+import { registerServiceWorker } from '@/pwa/register-service-worker'
 import { isPublicApprovalPath } from '@/lib/public-approval-path'
 import { PublicEstimateApprovalRoot } from '@/pages/public/PublicEstimateApprovalRoot'
 
 registerVitePreloadErrorHandler()
+captureInstallPrompt()
+registerServiceWorker()
 
 const queryClient = new QueryClient({
   defaultOptions: {

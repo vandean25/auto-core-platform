@@ -37,6 +37,15 @@
     "punchUnavailable": "Zeiterfassung ist nicht verfügbar.",
     "punchLoading": "Zeiterfassung wird geladen …"
   },
+  "install": {
+    "installApp": "App installieren",
+    "iosTitle": "Auto Core auf dem Home-Bildschirm",
+    "iosIntro": "So öffnen Sie die App wie eine normale App, ohne Browserleiste.",
+    "iosStepShare": "Tippen Sie in Safari auf „Teilen“",
+    "iosStepAdd": "Wählen Sie „Zum Home-Bildschirm“.",
+    "iosStepConfirm": "Bestätigen Sie mit „Hinzufügen“.",
+    "iosDismiss": "Verstanden"
+  },
   "modules": {
     "dashboard": "Dashboard",
     "platformTenants": "Mandanten",

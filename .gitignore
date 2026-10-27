@@ -25,6 +25,7 @@ apps/core-api/dist/
 apps/core-web/node_modules/
 apps/core-web/dist/
 apps/core-web/dist-e2e/
+apps/core-web/dist-pwa/
 apps/core-web/.e2e-fullstack/
 apps/core-web/e2e-fullstack/.pids.json
 

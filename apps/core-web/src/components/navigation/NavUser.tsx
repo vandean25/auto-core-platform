@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SidebarMenu, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import { InstallAppMenuItem } from '@/components/pwa/InstallAppMenuItem'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
 import { useUiLanguage, type UiLanguage } from '@/lib/i18n'
 import { SidebarDropdownButton } from './SidebarDropdownButton'
@@ -83,6 +84,7 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
             ) : null}
 
             <DropdownMenuSeparator />
+            <InstallAppMenuItem />
             <DropdownMenuItem asChild>
               <a
                 href={DOCUMENTATION_URL}

@@ -37,6 +37,15 @@
     "punchUnavailable": "Time clock is not available.",
     "punchLoading": "Loading time clock …"
   },
+  "install": {
+    "installApp": "Install app",
+    "iosTitle": "Auto Core on your home screen",
+    "iosIntro": "Open it like a regular app, without the browser bar.",
+    "iosStepShare": "Tap “Share” in Safari",
+    "iosStepAdd": "Choose “Add to Home Screen”.",
+    "iosStepConfirm": "Confirm with “Add”.",
+    "iosDismiss": "Got it"
+  },
   "modules": {
     "dashboard": "Dashboard",
     "platformTenants": "Tenants",

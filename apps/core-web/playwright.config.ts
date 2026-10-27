@@ -35,12 +35,18 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
       // login.spec.ts and landing-demo-email-link.spec.ts rewrite dev-server modules; they run on the dev server below.
-      testIgnore: /login\.spec\.ts$|landing-demo-email-link\.spec\.ts$|i18n-en-login\.spec\.ts$/,
+      testIgnore: /login\.spec\.ts$|landing-demo-email-link\.spec\.ts$|i18n-en-login\.spec\.ts$|pwa-shell\.spec\.ts$/,
     },
     {
       name: 'chromium-dev-server',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5175' },
       testMatch: /login\.spec\.ts$|landing-demo-email-link\.spec\.ts$|i18n-en-login\.spec\.ts$/,
+    },
+    {
+      // pwa-shell.spec.ts needs the real production build (`npm run build:pwa`): the service worker is not registered in the e2e bundle.
+      name: 'chromium-pwa',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5176' },
+      testMatch: /pwa-shell\.spec\.ts$/,
     },
   ],
 
@@ -49,6 +55,12 @@ export default defineConfig({
     {
       command: 'vite preview --outDir dist-e2e --port 5174 --strictPort',
       url: 'http://localhost:5174',
+      reuseExistingServer: !isCI,
+      cwd: './',
+    },
+    {
+      command: 'vite preview --outDir dist-pwa --port 5176 --strictPort',
+      url: 'http://localhost:5176',
       reuseExistingServer: !isCI,
       cwd: './',
     },

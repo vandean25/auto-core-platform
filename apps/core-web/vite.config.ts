@@ -4,6 +4,7 @@ import { configDefaults, defineConfig } from 'vitest/config'
 import { loadEnv } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
+import { emitServiceWorkerPlugin } from './vite-plugins/emit-service-worker.ts'
 import { emitVersionJsonPlugin } from './vite-plugins/emit-version-json.ts'
 // Production source maps are uploaded by Cloud Build under the git tag release.
 const hasSentryUploadCredentials = Boolean(
@@ -23,6 +24,7 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       emitVersionJsonPlugin(appVersion),
+      emitServiceWorkerPlugin(appVersion, env),
       ...(hasSentryUploadCredentials
         ? [
             sentryVitePlugin({

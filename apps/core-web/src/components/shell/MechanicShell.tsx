@@ -5,6 +5,8 @@ import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { MechanicPhoneNav } from '@/components/navigation/MechanicPhoneNav'
+import { InstallAppButton } from '@/components/pwa/InstallAppButton'
+import { IosInstallHint } from '@/components/pwa/IosInstallHint'
 import { Toaster } from '@/components/ui/sonner'
 
 const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
@@ -40,6 +42,7 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <InstallAppButton />
           {userEmail ? (
             <span className="hidden max-w-[160px] truncate text-xs text-slate-500 sm:block">{userEmail}</span>
           ) : null}
@@ -57,6 +60,7 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
       </main>
       {searchOpen ? <GlobalSearch open onOpenChange={setSearchOpen} /> : null}
       <MechanicPhoneNav onOpenSearch={() => setSearchOpen(true)} />
+      <IosInstallHint />
       <Toaster />
     </div>
   )
