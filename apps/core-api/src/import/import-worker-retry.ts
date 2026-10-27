@@ -1,4 +1,8 @@
-import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
+import { Prisma } from '@prisma/client';
+import {
+  isRetryableTransactionError,
+  readErrorCause,
+} from '../common/prisma/is-retryable-transaction-error.js';
 
 export function isTransientImportStorageReadError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -16,6 +20,17 @@ export function isTransientImportStorageReadError(error: unknown): boolean {
     message.includes('503') ||
     message.includes('429')
   );
+}
+
+export function describeImportWorkerRetryCause(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code;
+  }
+  const cause = readErrorCause(error);
+  if (cause instanceof Prisma.PrismaClientKnownRequestError) {
+    return cause.code;
+  }
+  return error instanceof Error ? error.name : 'unknown';
 }
 
 export function isRetryableImportWorkerError(error: unknown): boolean {

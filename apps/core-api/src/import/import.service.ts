@@ -25,10 +25,7 @@ import {
   importJobCannotCancel,
   importJobNotFound,
 } from './import-job.errors.js';
-import {
-  classifyImportApplyError,
-  ImportApplyRetryExhaustedError,
-} from './import-apply.errors.js';
+import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
 import {
   buildImportErrorReportCsv,
   serializeImportJob,
@@ -37,6 +34,8 @@ import {
   type SerializedImportJob,
 } from './import-job.serializer.js';
 import { ImportJobStore } from './import-job.store.js';
+import { logImportJobFailed } from './import-job-failed-log.util.js';
+import { handleImportWorkerAttemptFailure } from './import-worker-attempt-failure.handler.js';
 import { ImportAuditWriter } from './import-audit.writer.js';
 import {
   mergeApplyOptions,
@@ -82,8 +81,6 @@ import {
   runBackgroundDryRunReconcileChunk,
   scheduleBackgroundDryRunAfterRowBatches,
 } from './import-background-dry-run.reconcile.js';
-import { readErrorCause } from '../common/prisma/is-retryable-transaction-error.js';
-import { importWorkerRetryDelaySeconds } from './import-worker-retry.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
@@ -110,7 +107,6 @@ import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
-import { isImportWorkerContentionError } from './import-worker.errors.js';
 import { filterExpiredImportWorkerCandidates } from './import-recovery.helpers.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
@@ -118,17 +114,6 @@ import { LaborOperationImportHandler } from './labor-operation-import.handler.js
 import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.js';
 import { VehicleImportHandler } from './vehicle-import.handler.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
-
-function describeImportWorkerRetryCause(error: unknown): string {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code;
-  }
-  const cause = readErrorCause(error);
-  if (cause instanceof Prisma.PrismaClientKnownRequestError) {
-    return cause.code;
-  }
-  return error instanceof Error ? error.name : 'unknown';
-}
 
 function buildRowsWhere(
   tenantId: string,
@@ -705,10 +690,27 @@ export class ImportService {
       params.phase,
     );
     if (!claimed) {
-      await requeueImportWorkerAfterLeaseSkip(
-        this.workerFlowForJob(params.tenantId, params.jobId),
-        params,
+      const jobAfterClaim = await this.jobStore.findJob(
+        params.tenantId,
+        params.jobId,
       );
+      if (jobAfterClaim?.status === ImportJobStatus.FAILED) {
+        const optionsAfterClaim =
+          jobAfterClaim.options_json as ImportJobOptions;
+        if (optionsAfterClaim.apply_failure_reason === 'poison_cap') {
+          logImportJobFailed(this.logger, {
+            jobId: params.jobId,
+            phase: params.phase,
+            attempt: jobAfterClaim.attempts_without_progress,
+            reason: 'poison_cap',
+          });
+        }
+      } else {
+        await requeueImportWorkerAfterLeaseSkip(
+          this.workerFlowForJob(params.tenantId, params.jobId),
+          params,
+        );
+      }
       return;
     }
     const job = await this.jobStore.findJob(params.tenantId, params.jobId);
@@ -731,51 +733,15 @@ export class ImportService {
     },
     error: unknown,
   ): Promise<void> {
-    if (classifyImportApplyError(error) === 'retryable') {
-      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
-      if (job && job.status === ImportJobStatus.APPLYING) {
-        this.logger.warn(
-          `Import worker retryable error; requeueing jobId=${params.jobId} cause=${describeImportWorkerRetryCause(error)}`,
-        );
-        const options = job.options_json as ImportJobOptionsWithWorker;
-        const worker = readWorkerState(options);
-        if (worker?.lease_token) {
-          await this.jobStore.releaseWorkerLeaseForRetry(
-            params.tenantId,
-            params.jobId,
-            worker.lease_token,
-          );
-        }
-        await enqueueImportWorkerContinuation(
-          this.workerFlowForJob(params.tenantId, params.jobId),
-          {
-            tenantId: params.tenantId,
-            jobId: params.jobId,
-            phase: params.phase,
-            claimSeq: job.worker_claim_seq,
-            recoverySeq: job.worker_recovery_seq,
-            delaySeconds: importWorkerRetryDelaySeconds(
-              job.attempts_without_progress,
-            ),
-            recordHandoffAfterSuccess: true,
-          },
-        );
-      } else {
-        this.logger.warn(
-          `Import worker retryable error with job not APPLYING jobId=${params.jobId}`,
-        );
-      }
-      return;
-    }
-    if (isImportWorkerContentionError(error)) {
-      await requeueImportWorkerAfterLeaseSkip(
-        this.workerFlowForJob(params.tenantId, params.jobId),
-        params,
-      );
-      return;
-    }
-    await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
-    throw error;
+    await handleImportWorkerAttemptFailure(
+      {
+        jobStore: this.jobStore,
+        logger: this.logger,
+        workerFlow: this.workerFlowForJob(params.tenantId, params.jobId),
+      },
+      params,
+      error,
+    );
   }
 
   async recoverStaleImportJobs(): Promise<boolean> {
