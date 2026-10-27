@@ -58,6 +58,9 @@ jobs:
         run: npm exec --workspace=core-api -- prisma generate
 
 
+      - name: Verify full-stack Vite host
+        run: node --test apps/core-web/e2e-fullstack/run-vite.test.mjs
+
       - name: Run full-stack Playwright harness
         env:
           DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auto_core_test
