@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
-import { ImportJobStatus } from '@prisma/client';
+import { ImportEntityType, ImportJobStatus } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
@@ -82,6 +82,15 @@ describe('Import background worker (e2e)', () => {
 
   const tenantPrisma = () => createTenantAwarePrisma(basePrisma, tenant.tenantId);
 
+  async function expectJobAppliedWithRowCount(jobId: string, rowCount: number) {
+    const job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    expect(job?.status).toBe(ImportJobStatus.APPLIED);
+    expect((job?.totals_json as { rows: number }).rows).toBe(rowCount);
+    return job;
+  }
+
   const deliverWorker = (
     jobId: string,
     phase: 'dry_run' | 'apply',
@@ -143,11 +152,7 @@ describe('Import background worker (e2e)', () => {
 
     await deliverWorker(jobId, 'apply').expect(204);
 
-    const applied = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
-    });
-    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
-    expect((applied?.totals_json as { rows: number }).rows).toBe(3);
+    await expectJobAppliedWithRowCount(jobId, 3);
   });
 
   it('applies each row once when two worker attempts overlap on apply', async () => {
@@ -180,24 +185,28 @@ describe('Import background worker (e2e)', () => {
       ]);
     }
 
-    const applied = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
-    });
-    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
-    expect((applied?.totals_json as { rows: number }).rows).toBe(3);
+    await expectJobAppliedWithRowCount(jobId, 3);
 
     const mappings = await tenantPrisma().externalIdMapping.findMany({
       where: {
         tenant_id: tenant.tenantId,
-        entity_type: 'CUSTOMER',
+        entity_type: ImportEntityType.CUSTOMER,
         source_system: 'legacy-dms',
+        external_id: { in: ['BG-1', 'BG-2', 'BG-3'] },
       },
     });
     expect(mappings).toHaveLength(3);
     expect(new Set(mappings.map((row) => row.external_id)).size).toBe(3);
 
-    const options = (applied?.options_json ?? {}) as Record<string, unknown>;
-    expect(options.upload).toBeDefined();
+    const customers = await tenantPrisma().customer.findMany({
+      where: {
+        tenant_id: tenant.tenantId,
+        email: {
+          in: ['bg1@example.com', 'bg2@example.com', 'bg3@example.com'],
+        },
+      },
+    });
+    expect(customers).toHaveLength(3);
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {

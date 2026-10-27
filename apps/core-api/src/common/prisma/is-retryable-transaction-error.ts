@@ -84,14 +84,17 @@ function isNodeConnectionError(error: unknown): boolean {
   return typeof code === 'string' && CONNECTION_NODE_CODES.has(code);
 }
 
-function isRetryableErrorNode(node: unknown): boolean {
-  if (node instanceof Prisma.PrismaClientKnownRequestError) {
-    if (RETRYABLE_PRISMA_CODES.has(node.code)) {
-      return true;
-    }
-    const sqlState = prismaDatabaseSqlState(node);
-    return sqlState !== undefined && isPostgresRetrySqlState(sqlState);
+function isRetryablePrismaKnownError(
+  error: Prisma.PrismaClientKnownRequestError,
+): boolean {
+  if (RETRYABLE_PRISMA_CODES.has(error.code)) {
+    return true;
   }
+  const sqlState = prismaDatabaseSqlState(error);
+  return sqlState !== undefined && isPostgresRetrySqlState(sqlState);
+}
+
+function isRetryableAdapterShape(node: unknown): boolean {
   if (node instanceof Error && node.name === 'DriverAdapterError') {
     const cause = readCause(node);
     if (cause && typeof cause === 'object') {
@@ -105,6 +108,16 @@ function isRetryableErrorNode(node: unknown): boolean {
     if (typeof record.kind === 'string') {
       return isAdapterCauseRetryable(adapterCauseFromRecord(record));
     }
+  }
+  return false;
+}
+
+function isRetryableErrorNode(node: unknown): boolean {
+  if (node instanceof Prisma.PrismaClientKnownRequestError) {
+    return isRetryablePrismaKnownError(node);
+  }
+  if (isRetryableAdapterShape(node)) {
+    return true;
   }
   return isNodeConnectionError(node);
 }
