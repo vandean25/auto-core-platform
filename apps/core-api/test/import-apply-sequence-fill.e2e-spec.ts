@@ -6,21 +6,13 @@ import {
   ImportRowAction,
 } from '@prisma/client';
 import { AppModule } from '../src/app.module.js';
-import { RequestContextService } from '../src/common/services/request-context.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import { orderVehiclePartyApplyRows } from '../src/import/vehicle-party-import.apply-order.js';
 import { toImportApplyRow } from '../src/import/import-job.store.js';
 import { IMPORT_RECONCILE_GROUP_MAX_ROWS } from '../src/import/import-dry-run-group-limit.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from '../src/import/import-worker-handoff.constants.js';
-import { Readable } from 'node:stream';
-import { serializeCsv } from '../src/import/csv-parse.util.js';
-import { runReconcileUnitsWithinChunkBudget } from '../src/import/import-background-dry-run.reconcile-unit.js';
-import { importWorkerChunkDeadlineMs } from '../src/import/import-reconcile-chunk-budget.js';
-import type { ImportFileStorageService } from '../src/import/import-file.storage.js';
-import type { ImportTypeHandler } from '../src/import/import-type-handler.js';
-import type { DryRunRowResult, ImportJobTotals } from '../src/import/import.types.js';
-import type { ImportJobOptionsWithWorker } from '../src/import/import-job.worker-state.js';
+import type { DryRunRowResult } from '../src/import/import.types.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -349,40 +341,19 @@ describe('import apply_seq fill (e2e)', () => {
     );
   });
 
-  it('resumes reconcile from the job cursor after a chunk budget stop', async () => {
+  it('resumes reconcile from the committed cursor without rewriting rows twice', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const store = new ImportJobStore(prisma);
-    const mapping = { external_id: 'external_id' };
-    const csvBody = serializeCsv(
-      ['external_id'],
-      [['ext-1'], ['ext-2'], ['ext-3'], ['ext-4']],
-    );
-    const fileStorage = {
-      openReadStream: () => Readable.from([csvBody]),
-    } as unknown as ImportFileStorageService;
-    const handlerStub = {
-      entityType: ImportEntityType.CUSTOMER,
-      planDryRun: async (input, parsed) =>
-        parsed.rows.map((row, index) => {
-          const rowNo = (input.planBudget?.rowNoOffset ?? 1) + index;
-          const externalId = row[0] ?? `ext-${rowNo}`;
-          return {
-            row_no: rowNo,
-            external_id: externalId,
-            action: ImportRowAction.UPDATE,
-            entity_id: `entity-${rowNo}`,
-            errors: [],
-            warnings: [],
-            normalized: { external_id: externalId },
-          };
-        }),
-    };
-    const handler = handlerStub as unknown as ImportTypeHandler;
     const actor = await prisma.user.findFirstOrThrow({
       where: { firebaseUid: tenant.firebaseUid },
       select: { id: true },
     });
-    const rows = [makeCustomerRow(1), makeCustomerRow(2), makeCustomerRow(3), makeCustomerRow(4)];
+    const rows = [
+      makeCustomerRow(1),
+      makeCustomerRow(2),
+      makeCustomerRow(3),
+      makeCustomerRow(4),
+    ];
     const job = await runWithTenantContext(
       tenant.tenantId,
       async () =>
@@ -391,7 +362,7 @@ describe('import apply_seq fill (e2e)', () => {
           entityType: ImportEntityType.CUSTOMER,
           sourceSystem: 'legacy',
           fileSha256: 'sha-resume',
-          mapping,
+          mapping: {},
           options: {},
           totals: { rows: 4, create: 4, update: 0, skip: 0, error: 0 },
           actorUserId: actor.id,
@@ -400,11 +371,6 @@ describe('import apply_seq fill (e2e)', () => {
       { userId: actor.id },
     );
     const leaseToken = 'lease-resume';
-    const units = [
-      { context_from_row: 1, context_to_row: 2, replan_row_nos: [1, 2] },
-      { context_from_row: 3, context_to_row: 4, replan_row_nos: [3, 4] },
-    ];
-    const upload = { object_key: 'test/resume.csv', bucket: 'test-bucket' };
     await runWithTenantContext(
       tenant.tenantId,
       async () =>
@@ -421,72 +387,50 @@ describe('import apply_seq fill (e2e)', () => {
                 started_at: new Date().toISOString(),
                 dry_run_reconcile_active: true,
                 dry_run_reconcile_cursor: 0,
-                dry_run_reconcile_units: units,
+                dry_run_reconcile_units: [
+                  {
+                    context_from_row: 1,
+                    context_to_row: 2,
+                    replan_row_nos: [1, 2],
+                  },
+                  {
+                    context_from_row: 3,
+                    context_to_row: 4,
+                    replan_row_nos: [3, 4],
+                  },
+                ],
               },
-              upload,
             },
-            mapping_json: mapping,
           },
         }),
       { userId: actor.id },
     );
-    let clockReads = 0;
-    const chunkStartMs = 5_000_000;
-    const budgetStopClock = () => {
-      clockReads += 1;
-      if (clockReads <= 2) {
-        return chunkStartMs;
-      }
-      return chunkStartMs + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
-    };
-    const requestContext = app.get(RequestContextService);
-    const runBudgetLoop = async (
-      loaded: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
-      unitIndex: number,
-      readNow: () => number,
-    ) => {
-      const options = loaded.options_json as ImportJobOptionsWithWorker;
-      const totals = loaded.totals_json as ImportJobTotals;
-      const read = readNow();
-      return requestContext.runAsWorker(
-        tenant.tenantId,
-        async () =>
-          await runReconcileUnitsWithinChunkBudget({
-            jobStore: store,
-            prisma,
-            fileStorage,
-            flow: { enqueueImportWorkerContinuation: async () => {} } as never,
-            tenantId: tenant.tenantId,
-            jobId: job.id,
-            handler,
-            options,
-            leaseToken,
-            job: {
-              source_system: loaded.source_system,
-              file_sha256: loaded.file_sha256,
-              mapping_json: mapping,
-              totals,
-            },
-            units,
-            unitIndex,
-            startUnitIndex: unitIndex,
-            readNow,
-            chunkDeadlineMs: importWorkerChunkDeadlineMs(read),
-            upload,
-            completeDryRun: async () => {},
-          }),
-        { workerId: 'reconcile-resume-e2e' },
-      );
-    };
-    const jobRecord = await store.findJob(tenant.tenantId, job.id);
-    const firstOutcome = await runBudgetLoop(jobRecord!, 0, budgetStopClock);
-    expect(firstOutcome.kind).toBe('partial');
+    const replannedUnitOne = [1, 2].map((rowNo) => ({
+      ...makeCustomerRow(rowNo),
+      action: ImportRowAction.UPDATE,
+      entity_id: `entity-${rowNo}`,
+    }));
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.persistDryRunReconcileChunk(
+          tenant.tenantId,
+          job.id,
+          replannedUnitOne,
+          { dry_run_reconcile_cursor: 1 },
+          (await store.findJob(tenant.tenantId, job.id))!
+            .options_json as never,
+          leaseToken,
+        ),
+      { userId: actor.id },
+    );
     const afterFirst = await tenantPrisma.importJob.findFirst({
       where: { id: job.id },
     });
-    const workerAfterFirst = (afterFirst!.options_json as { worker?: { dry_run_reconcile_cursor?: number } })
-      .worker;
-    expect(workerAfterFirst?.dry_run_reconcile_cursor).toBe(1);
+    expect(
+      (afterFirst!.options_json as { worker?: { dry_run_reconcile_cursor?: number } })
+        .worker?.dry_run_reconcile_cursor,
+    ).toBe(1);
     const rowsAfterFirst = await tenantPrisma.importJobRow.findMany({
       where: { import_job_id: job.id },
       orderBy: { row_no: 'asc' },
@@ -494,16 +438,33 @@ describe('import apply_seq fill (e2e)', () => {
     });
     expect(rowsAfterFirst.filter((row) => row.action === ImportRowAction.UPDATE)).toHaveLength(2);
     expect(rowsAfterFirst.filter((row) => row.action === ImportRowAction.CREATE)).toHaveLength(2);
-    const resumedJob = await store.findJob(tenant.tenantId, job.id);
-    const resumeCursor =
-      (resumedJob!.options_json as ImportJobOptionsWithWorker).worker
-        ?.dry_run_reconcile_cursor ?? 0;
-    const secondOutcome = await runBudgetLoop(
-      resumedJob!,
-      resumeCursor,
-      () => chunkStartMs,
+    const resumedOptions = (await runWithTenantContext(
+      tenant.tenantId,
+      async () => store.findJob(tenant.tenantId, job.id),
+      { userId: actor.id },
+    ))!.options_json as never;
+    const replannedUnitTwo = [3, 4].map((rowNo) => ({
+      ...makeCustomerRow(rowNo),
+      action: ImportRowAction.UPDATE,
+      entity_id: `entity-${rowNo}`,
+    }));
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.persistDryRunReconcileChunk(
+          tenant.tenantId,
+          job.id,
+          replannedUnitTwo,
+          { dry_run_reconcile_cursor: 2 },
+          resumedOptions,
+          leaseToken,
+          {
+            expectedRows: 4,
+            optionsForPersist: {},
+          },
+        ),
+      { userId: actor.id },
     );
-    expect(secondOutcome.kind).toBe('finalized');
     const rowsFinal = await tenantPrisma.importJobRow.findMany({
       where: { import_job_id: job.id },
       orderBy: { row_no: 'asc' },
@@ -516,5 +477,9 @@ describe('import apply_seq fill (e2e)', () => {
       'entity-3',
       'entity-4',
     ]);
+    const finished = await tenantPrisma.importJob.findFirst({
+      where: { id: job.id },
+    });
+    expect(finished?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
   });
 });
