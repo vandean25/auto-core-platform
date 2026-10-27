@@ -38,6 +38,17 @@ describe('Import background worker (e2e)', () => {
     address_country: 'Land',
   };
 
+  const customerCsvHeaders = [
+    'Kunden-Nr',
+    'Typ',
+    'Vorname',
+    'Nachname',
+    'E-Mail',
+    'Telefon',
+    'UID',
+    'Land',
+  ];
+
   beforeAll(async () => {
     cloudTasks = {
       isEnabled: jest.fn().mockReturnValue(true),
@@ -82,15 +93,6 @@ describe('Import background worker (e2e)', () => {
 
   const tenantPrisma = () => createTenantAwarePrisma(basePrisma, tenant.tenantId);
 
-  async function expectJobAppliedWithRowCount(jobId: string, rowCount: number) {
-    const job = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
-    });
-    expect(job?.status).toBe(ImportJobStatus.APPLIED);
-    expect((job?.totals_json as { rows: number }).rows).toBe(rowCount);
-    return job;
-  }
-
   async function expectOneApplyPerRow(
     jobId: string,
     scope?: { tenantId: string; prisma: typeof tenantPrisma },
@@ -105,6 +107,8 @@ describe('Import background worker (e2e)', () => {
       create: number;
       error: number;
     };
+    expect(job?.status).toBe(ImportJobStatus.APPLIED);
+    expect(totals.rows).toBe(3);
     expect(totals.create).toBe(3);
     expect(totals.error).toBe(0);
 
@@ -144,8 +148,7 @@ describe('Import background worker (e2e)', () => {
       );
 
   function customerCsv(rows: string[][]) {
-    const headers = Object.keys(customerMapping);
-    return Buffer.from(serializeCsv(headers, rows, ';'), 'utf8');
+    return Buffer.from(serializeCsv(customerCsvHeaders, rows, ';'), 'utf8');
   }
 
   async function uploadBackgroundJob(
@@ -192,7 +195,7 @@ describe('Import background worker (e2e)', () => {
 
     await deliverWorker(jobId, 'apply').expect(204);
 
-    await expectJobAppliedWithRowCount(jobId, 3);
+    await expectOneApplyPerRow(jobId);
   });
 
   describe('overlapping apply (isolated tenant)', () => {
@@ -247,6 +250,14 @@ describe('Import background worker (e2e)', () => {
       expect(dryRunJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
       expect(dryRunRowCount).toBe(3);
 
+      const plannedCreates = await overlapPrisma().importJobRow.count({
+        where: {
+          import_job_id: jobId,
+          action: ImportRowAction.CREATE,
+        },
+      });
+      expect(plannedCreates).toBe(3);
+
       await request(app.getHttpServer())
         .post(`/api/imports/${jobId}/apply`)
         .set('Authorization', `Bearer ${overlapToken}`)
@@ -274,8 +285,6 @@ describe('Import background worker (e2e)', () => {
         });
       }
 
-      expect(applied?.status).toBe(ImportJobStatus.APPLIED);
-      expect((applied?.totals_json as { rows: number }).rows).toBe(3);
       await expectOneApplyPerRow(jobId, scope);
     });
   });
