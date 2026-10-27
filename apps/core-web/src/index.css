@@ -184,3 +184,17 @@
     padding-bottom: calc(env(safe-area-inset-bottom, 0px));
   }
 }
+
+/*
+ * Height the phone bottom navigation reserves (AUT-736). It is 0 unless the bar is mounted below md, so
+ * pages and sticky footers can always read it.
+ */
+:root {
+  --phone-nav-h: 0px;
+}
+
+@media (max-width: 767.98px) {
+  :root:has([data-phone-nav]) {
+    --phone-nav-h: calc(3.5rem + 1px + env(safe-area-inset-bottom, 0px));
+  }
+}

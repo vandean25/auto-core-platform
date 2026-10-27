@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import type { NavAccessContext } from '@/components/navigation/nav-config'
-import { getNavigationSection, getSettingsSection } from './global-search-navigation'
+import { getNavigationSection, getPaletteSections, getSettingsSection } from './global-search-navigation'
+import { getGlobalSearchQuickActionSections } from './global-search-quick-actions-data'
 
 const context = (activeRole: NavAccessContext['activeRole'], platformRole: string | null = null) => ({
   activeRole,
@@ -58,5 +59,33 @@ describe('global search navigation targets', () => {
     )
 
     expect(labels).toContain('Erlösgruppen')
+  })
+})
+
+describe('palette create entries (shared with the phone Create button)', () => {
+  const createHrefs = (role: NavAccessContext['activeRole']) =>
+    getPaletteSections(context(role), '')
+      .filter((section) => section.heading === getGlobalSearchQuickActionSections(null, role ?? undefined)[0].heading)
+      .flatMap((section) => hrefs(section))
+
+  it('offers work order and appointment creation to roles that may create them', () => {
+    for (const role of ['OWNER', 'ADMIN', 'SALES'] as const) {
+      expect(createHrefs(role)).toEqual(
+        expect.arrayContaining(['/workshop/intake', '/workshop/planner?action=create', '/sales-orders/new']),
+      )
+    }
+  })
+
+  it('gives mechanics no navigation or create entries', () => {
+    expect(getPaletteSections(context('TECH'), '')).toEqual([])
+    const sectionItems = getGlobalSearchQuickActionSections(null, 'TECH').flatMap((section) => hrefs(section))
+    expect(sectionItems).not.toContain('/workshop/intake')
+    expect(sectionItems).not.toContain('/workshop/planner?action=create')
+  })
+
+  it('keeps the intake prefill for the work order entry', () => {
+    const customerId = '0b8a0b44-5d53-4b8e-9f5e-1f0d2f6f6a11'
+    const items = getGlobalSearchQuickActionSections({ customerId }, 'ADMIN').flatMap((section) => hrefs(section))
+    expect(items).toContain(`/workshop/intake?customerId=${customerId}`)
   })
 })

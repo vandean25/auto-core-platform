@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { AuthSessionTenant } from '@/api/auth-session'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
+import { GlobalSearch } from '@/components/GlobalSearch'
+import { MechanicPhoneNav } from '@/components/navigation/MechanicPhoneNav'
 import { Toaster } from '@/components/ui/sonner'
 
 const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
@@ -16,6 +18,7 @@ export type MechanicShellProps = {
 
 export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: MechanicShellProps) {
   const { t } = useTranslation('common')
+  const [searchOpen, setSearchOpen] = React.useState(false)
 
   React.useEffect(() => {
     window.localStorage.removeItem(LEGACY_MECHANIC_ID_KEY)
@@ -49,9 +52,11 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
           </button>
         </div>
       </header>
-      <main>
+      <main className="pb-[var(--phone-nav-h)]">
         <GlobalErrorBoundary>{children}</GlobalErrorBoundary>
       </main>
+      {searchOpen ? <GlobalSearch open onOpenChange={setSearchOpen} /> : null}
+      <MechanicPhoneNav onOpenSearch={() => setSearchOpen(true)} />
       <Toaster />
     </div>
   )

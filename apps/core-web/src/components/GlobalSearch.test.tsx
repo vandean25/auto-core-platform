@@ -54,7 +54,7 @@ const customer = {
   score: 1,
 }
 
-function mockSession(activeRole: 'ADMIN' | 'TECH' = 'ADMIN') {
+function mockSession(activeRole: 'ADMIN' | 'SALES' | 'TECH' = 'ADMIN') {
   vi.mocked(authSession.useAuthSession).mockReturnValue({
     data: {
       userId: 'user-1',
@@ -181,7 +181,7 @@ describe('GlobalSearch', () => {
   })
 
   it('hides entries the role may not open', () => {
-    mockSession('TECH')
+    mockSession('SALES')
     renderPalette()
 
     expect(screen.queryByText('Credit Notes')).not.toBeInTheDocument()

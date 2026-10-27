@@ -72,12 +72,13 @@ export function getPaletteSections(
   query: string,
   intakePrefill?: WorkshopIntakePrefill | null,
 ): QuickActionSection[] {
-  if (!context || parseSearchInput(query).types) return []
+  // Mechanics (TECH) cannot open any admin-shell page, so the palette offers them no navigation or create entries.
+  if (!context || context.activeRole === 'TECH' || parseSearchInput(query).types) return []
 
   const navigation = getNavigationSection(context)
   const settings = query ? [getSettingsSection(context, navigation)] : []
   return filterQuickActionSections(
-    [navigation, ...settings, ...getGlobalSearchQuickActionSections(intakePrefill)],
+    [navigation, ...settings, ...getGlobalSearchQuickActionSections(intakePrefill, context.activeRole ?? undefined)],
     query,
   )
 }

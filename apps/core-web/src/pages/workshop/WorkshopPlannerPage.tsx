@@ -45,6 +45,7 @@ import { PlannerDayGrid, parsePlannerSlotId } from '@/components/workshop/planne
 import { PlannerWeekGrid, parsePlannerWeekSlotId } from '@/components/workshop/planner/PlannerWeekGrid'
 import { PlannerViewToggle, type PlannerViewMode } from '@/components/workshop/planner/PlannerViewToggle'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { PlannerCreateUrlOpener } from '@/components/workshop/planner/PlannerCreateUrlOpener'
 import { useTranslation } from 'react-i18next'
 
 const VIEW_MODE_KEY = 'workshop-planner-view'
@@ -417,6 +418,7 @@ export default function WorkshopPlannerPage() {
         </DndContext>
       )}
 
+      <PlannerCreateUrlOpener setPrefill={setCreatePrefill} setOpen={setCreateOpen} />
       <PlannerCreateSheet
         open={createOpen}
         onOpenChange={setCreateOpen}

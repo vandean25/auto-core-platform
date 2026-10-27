@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { buildActionDialogHref, useActionDialogParam } from './use-action-dialog-param'
+import { buildActionDialogHref, useActionDialogParam, useActionParamOpen } from './use-action-dialog-param'
 
 function ActionDialogHarness({ actionId }: { actionId: string | readonly string[] }) {
   const location = useLocation()
@@ -55,5 +55,39 @@ describe('useActionDialogParam', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open-dialog' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByTestId('search')).toHaveTextContent('?action=customer.create')
+  })
+})
+
+function OpenerHarness({ onOpen }: { onOpen: () => void }) {
+  useActionParamOpen(['create', 'appointment.create'], onOpen)
+  return <span data-testid="search">{useLocation().search}</span>
+}
+
+describe('useActionParamOpen', () => {
+  afterEach(cleanup)
+
+  it('opens once for a matching ?action and removes only that param', () => {
+    const onOpen = vi.fn()
+    render(
+      <MemoryRouter initialEntries={['/workshop/planner?date=2026-08-21&action=create']}>
+        <OpenerHarness onOpen={onOpen} />
+      </MemoryRouter>,
+    )
+
+    expect(onOpen).toHaveBeenCalled()
+    expect(screen.getByTestId('search')).toHaveTextContent('?date=2026-08-21')
+    expect(screen.getByTestId('search')).not.toHaveTextContent('action')
+  })
+
+  it('ignores other or missing action ids', () => {
+    const onOpen = vi.fn()
+    render(
+      <MemoryRouter initialEntries={['/workshop/planner?action=other']}>
+        <OpenerHarness onOpen={onOpen} />
+      </MemoryRouter>,
+    )
+
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(screen.getByTestId('search')).toHaveTextContent('?action=other')
   })
 })

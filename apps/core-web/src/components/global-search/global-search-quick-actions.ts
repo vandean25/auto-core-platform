@@ -5,6 +5,8 @@ export type QuickAction = {
   icon: LucideIcon
   label: string
   description: string
+  /** Role gate shared by the palette and the phone "Create" sheet. Absent means every role. */
+  isAllowedForRole?: (role: string | undefined) => boolean
 }
 
 export type QuickActionSection = {

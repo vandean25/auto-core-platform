@@ -42,7 +42,7 @@ export type NavAccessContext = {
   activeRole: components['schemas']['TenantMemberRole'] | null
 }
 
-type NavItem = {
+export type NavItem = {
   id: string
   labelKey: NavModuleLabelKey
   to: string

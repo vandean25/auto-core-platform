@@ -10,6 +10,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
         <Sonner
             theme={theme as ToasterProps["theme"]}
             className="toaster group"
+            // Sonner switches to its mobile offset at 600px, the bar shows up to 767px, so both reserve its height.
+            offset={{ bottom: 'calc(var(--phone-nav-h) + 24px)' }}
+            mobileOffset={{ bottom: 'calc(var(--phone-nav-h) + 1rem)' }}
             toastOptions={{
                 classNames: {
                     toast:
