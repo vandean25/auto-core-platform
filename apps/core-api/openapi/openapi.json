@@ -16153,18 +16153,6 @@
         "tags": [
           "Mcp"
         ]
-      },
-      "search": {
-        "operationId": "McpController_handleMcp_search",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Mcp"
-        ]
       }
     },
     "/api/tenant-api-keys": {
