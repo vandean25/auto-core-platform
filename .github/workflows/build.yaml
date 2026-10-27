@@ -604,7 +604,7 @@ jobs:
 
       - name: Fallow audit
         if: steps.override.outputs.skip != 'true'
-        uses: fallow-rs/fallow@6605f96806787f85124bfc144124ff7e44733b06 # v3.34.1
+        uses: fallow-rs/fallow@1f5a08d9addde37d81aefcf10407600307da393b # v3.35.0
         with:
           command: audit
           version: 3.34.1
