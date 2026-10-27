@@ -7,48 +7,61 @@ export function withApplyPersistedTotalsTransactionClient(
   defaults?: {
     tenantId?: string;
     expectedRows?: number;
-    persistedRows?: Array<{ action: ImportRowAction }>;
+    persistedRows?: Array<{ action: ImportRowAction; row_no?: number }>;
+    actionsByRow?: Map<number, ImportRowAction>;
   },
 ): Record<string, unknown> {
   const tenantId = defaults?.tenantId ?? 'tenant-1';
   const expectedRows = defaults?.expectedRows ?? 1;
-  const actionCounts = new Map<ImportRowAction, number>();
-  if (defaults?.persistedRows?.length) {
-    for (const row of defaults.persistedRows) {
-      actionCounts.set(row.action, (actionCounts.get(row.action) ?? 0) + 1);
-    }
+  const actionsByRow =
+    defaults?.actionsByRow ?? new Map<number, ImportRowAction>();
+  if (!defaults?.actionsByRow) {
+    defaults?.persistedRows?.forEach((row, index) => {
+      actionsByRow.set(row.row_no ?? index + 1, row.action);
+    });
   }
   const existingRowClient = (tx.importJobRow ?? {}) as Record<string, unknown>;
   const rowUpdate = existingRowClient.update as
     | jest.Mock
     | ((args: { data?: { action?: ImportRowAction } }) => Promise<unknown>)
     | undefined;
+  const groupedActions = () => {
+    const actionCounts = new Map<ImportRowAction, number>();
+    for (const action of actionsByRow.values()) {
+      actionCounts.set(action, (actionCounts.get(action) ?? 0) + 1);
+    }
+    if (actionCounts.size === 0) {
+      return [
+        { action: ImportRowAction.CREATE, _count: { _all: expectedRows } },
+      ];
+    }
+    return [...actionCounts.entries()].map(([action, count]) => ({
+      action,
+      _count: { _all: count },
+    }));
+  };
   const importJobRow = {
     ...existingRowClient,
     groupBy:
       existingRowClient.groupBy ??
-      jest.fn(() => {
-        if (actionCounts.size === 0) {
-          return Promise.resolve([
-            { action: ImportRowAction.CREATE, _count: { _all: expectedRows } },
-          ]);
+      jest.fn(() => Promise.resolve(groupedActions())),
+    update: jest.fn(
+      (args: {
+        where?: {
+          row_no?: number;
+          tenant_id_import_job_id_row_no?: { row_no?: number };
+        };
+        data?: { action?: ImportRowAction };
+      }) => {
+        const rowNo =
+          args.where?.tenant_id_import_job_id_row_no?.row_no ??
+          args.where?.row_no;
+        if (args.data?.action && rowNo !== undefined) {
+          actionsByRow.set(rowNo, args.data.action);
         }
-        return Promise.resolve(
-          [...actionCounts.entries()].map(([action, count]) => ({
-            action,
-            _count: { _all: count },
-          })),
-        );
-      }),
-    update: jest.fn((args: { data?: { action?: ImportRowAction } }) => {
-      if (args.data?.action) {
-        actionCounts.set(
-          args.data.action,
-          (actionCounts.get(args.data.action) ?? 0) + 1,
-        );
-      }
-      return rowUpdate?.(args);
-    }),
+        return rowUpdate?.(args);
+      },
+    ),
   };
   const existingJobClient = (tx.importJob ?? {}) as Record<string, unknown>;
   const importJob = {

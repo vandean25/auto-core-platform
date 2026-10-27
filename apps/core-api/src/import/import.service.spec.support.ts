@@ -315,16 +315,18 @@ export function arrangeApply(
   const { prisma } = harness;
   const totals = (job.totals_json ?? {}) as { rows?: number };
   const expectedRows = totals.rows ?? rows.length;
-  const persistedRows = rows.map((row) => ({
-    action: row.action as ImportRowAction,
-  }));
+  const rowActions = new Map<number, ImportRowAction>();
+  rows.forEach((row, index) => {
+    const rowNo = (row.row_no as number | undefined) ?? index + 1;
+    rowActions.set(rowNo, row.action as ImportRowAction);
+  });
   prisma.$transaction.mockImplementation(
     (callback: (tx: MockPrisma) => unknown) =>
       callback(
         withApplyPersistedTotalsTransactionClient(prisma, {
           tenantId: TENANT_ID,
           expectedRows,
-          persistedRows,
+          actionsByRow: rowActions,
         }),
       ),
   );

@@ -47,10 +47,11 @@ async function totalsFromRowGroupBy(
 function makeCustomerRow(
   rowNo: number,
   action: ImportRowAction = ImportRowAction.CREATE,
+  idPrefix = 'ext',
 ): DryRunRowResult {
   return {
     row_no: rowNo,
-    external_id: `ext-${rowNo}`,
+    external_id: `${idPrefix}-${rowNo}`,
     action,
     entity_id: null,
     errors:
@@ -200,7 +201,10 @@ describe('import apply final totals (e2e)', () => {
       where: { firebaseUid: tenant.firebaseUid },
       select: { id: true },
     });
-    const rows = [makeCustomerRow(1), makeCustomerRow(2)];
+    const rows = [
+      makeCustomerRow(1, ImportRowAction.CREATE, 'reapply'),
+      makeCustomerRow(2, ImportRowAction.CREATE, 'reapply'),
+    ];
     const job = await runWithTenantContext(
       tenant.tenantId,
       async () =>
@@ -217,12 +221,10 @@ describe('import apply final totals (e2e)', () => {
         }),
       { userId: tenant.firebaseUid, email: tenant.email, role: 'ADMIN' },
     );
-    const client = prisma as PrismaService & {
-      $transaction: PrismaService['$transaction'];
-    };
-    const original = client.$transaction.bind(client);
+    const db = prisma.client;
+    const original = db.$transaction.bind(db);
     let calls = 0;
-    client.$transaction = ((...args: unknown[]) => {
+    db.$transaction = ((...args: unknown[]) => {
       calls += 1;
       if (calls > 2) {
         throw new Prisma.PrismaClientKnownRequestError('write conflict', {
@@ -230,8 +232,8 @@ describe('import apply final totals (e2e)', () => {
           clientVersion: 'test',
         });
       }
-      return (original as (...inner: unknown[]) => Promise<unknown>)(...args);
-    }) as PrismaService['$transaction'];
+      return original(...(args as Parameters<typeof original>));
+    }) as typeof db.$transaction;
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
@@ -247,7 +249,7 @@ describe('import apply final totals (e2e)', () => {
         identity,
       ),
     ).rejects.toThrow();
-    client.$transaction = original;
+    db.$transaction = original;
     expect(errorLog.mock.calls.map((call) => String(call[0]))).toEqual(
       expect.arrayContaining([
         expect.stringContaining(
@@ -301,7 +303,7 @@ describe('import apply final totals (e2e)', () => {
     });
     const rowCount = 51;
     const rows = Array.from({ length: rowCount }, (_, index) =>
-      makeCustomerRow(index + 1),
+      makeCustomerRow(index + 1, ImportRowAction.CREATE, 'bgresume'),
     );
     const identity = {
       userId: tenant.firebaseUid,
@@ -394,17 +396,15 @@ describe('import apply final totals (e2e)', () => {
           options: {},
           totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
           actorUserId: actor.id,
-          rows: [makeCustomerRow(1)],
+          rows: [makeCustomerRow(1, ImportRowAction.CREATE, 'applyerr')],
         }),
       identity,
     );
-    const client = prisma as PrismaService & {
-      $transaction: PrismaService['$transaction'];
-    };
-    const original = client.$transaction.bind(client);
-    client.$transaction = (() => {
+    const db = prisma.client;
+    const original = db.$transaction.bind(db);
+    db.$transaction = (() => {
       throw new Error('apply blew up');
-    }) as PrismaService['$transaction'];
+    });
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
@@ -415,7 +415,7 @@ describe('import apply final totals (e2e)', () => {
         identity,
       ),
     ).rejects.toThrow('apply blew up');
-    client.$transaction = original;
+    db.$transaction = original;
     const failedApply = await tenantPrisma.importJob.findFirst({
       where: { id: errorJob.id },
     });
@@ -442,7 +442,7 @@ describe('import apply final totals (e2e)', () => {
           options: {},
           totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
           actorUserId: actor.id,
-          rows: [makeCustomerRow(2)],
+          rows: [makeCustomerRow(1, ImportRowAction.CREATE, 'seqmiss')],
         }),
       identity,
     );
@@ -503,7 +503,7 @@ describe('import apply final totals (e2e)', () => {
           options: {},
           totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
           actorUserId: actor.id,
-          rows: [makeCustomerRow(3)],
+          rows: [makeCustomerRow(1, ImportRowAction.CREATE, 'poison')],
         }),
       identity,
     );
