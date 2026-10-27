@@ -171,21 +171,29 @@ describe('Import background worker (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    const deadline = Date.now() + 60_000;
-    let job = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
-    });
-    while (Date.now() < deadline && job?.status !== ImportJobStatus.APPLIED) {
-      await Promise.all([
-        deliverWorker(jobId, 'apply'),
-        deliverWorker(jobId, 'apply'),
-      ]);
-      job = await tenantPrisma().importJob.findFirst({
+    const drainApplyWorkers = async () => {
+      const deadline = Date.now() + 60_000;
+      let job = await tenantPrisma().importJob.findFirst({
         where: { id: jobId },
       });
-    }
+      while (Date.now() < deadline && job?.status !== ImportJobStatus.APPLIED) {
+        await deliverWorker(jobId, 'apply').expect(204);
+        job = await tenantPrisma().importJob.findFirst({
+          where: { id: jobId },
+        });
+      }
+      return job;
+    };
 
-    const applied = await expectJobAppliedWithRowCount(jobId, 3);
+    const overlapping = Promise.all([
+      deliverWorker(jobId, 'apply'),
+      deliverWorker(jobId, 'apply'),
+    ]);
+    await overlapping;
+    const applied = await drainApplyWorkers();
+    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
+    expect((applied?.totals_json as { rows: number }).rows).toBe(3);
+
     const totals = applied?.totals_json as {
       create: number;
       update: number;
