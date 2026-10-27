@@ -39,7 +39,7 @@ export function TraceAuditDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent fullScreenOnPhone className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t('traceDialog.title')}</DialogTitle>
           <DialogDescription>

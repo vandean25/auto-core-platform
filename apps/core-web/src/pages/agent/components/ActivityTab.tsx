@@ -352,7 +352,7 @@ export function ActivityTab({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-slate-500 hover:text-slate-800"
+                            className="h-7 w-7 text-slate-500 hover:text-slate-800 max-sm:min-w-11"
                             aria-label={t('activity.copyTraceId')}
                             data-testid={`activity-trace-copy-btn-${log.id}`}
                             onClick={() => void copyTraceId(log.traceId)}
