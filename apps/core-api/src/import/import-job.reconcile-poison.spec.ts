@@ -81,6 +81,7 @@ function createStore(job: InMemoryJob) {
         },
         importJobRow: {
           update: async () => ({}),
+          updateMany: async () => ({ count: 1 }),
           findMany: async () => [],
         },
       }),

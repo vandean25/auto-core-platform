@@ -47,6 +47,16 @@ const replanImportDryRunUnit = jest.fn(
 );
 
 const enqueueImportWorkerContinuation = jest.fn();
+const extendWorkerLease = jest.fn(async () => true);
+
+function mockReconcileJobStore(
+  persist: PersistDryRunReconcileChunk,
+): ImportJobStore {
+  return {
+    persistDryRunReconcileChunk: persist,
+    extendWorkerLease,
+  } as never;
+}
 
 jest.unstable_mockModule('./import-dry-run-reconcile.plan-unit.js', () => ({
   replanImportDryRunUnit,
@@ -97,6 +107,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
   beforeEach(() => {
     replanImportDryRunUnit.mockClear();
     enqueueImportWorkerContinuation.mockClear();
+    extendWorkerLease.mockClear();
   });
 
   it('stops before the next unit when the chunk budget is exhausted', async () => {
@@ -116,7 +127,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
     };
 
     await runBackgroundDryRunReconcileChunk({
-      jobStore: { persistDryRunReconcileChunk: persist } as never,
+      jobStore: mockReconcileJobStore(persist),
       prisma: {} as never,
       fileStorage: {} as never,
       tenantId: 't',
@@ -149,7 +160,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
   });
 
   it('does not persist when the budget blocks every unit in the chunk', async () => {
-    const persist = jest.fn();
+    const persist = jest.fn<PersistDryRunReconcileChunk>();
     let clockReads = 0;
     const nowMs = () => {
       clockReads += 1;
@@ -160,7 +171,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
     };
 
     await runBackgroundDryRunReconcileChunk({
-      jobStore: { persistDryRunReconcileChunk: persist } as never,
+      jobStore: mockReconcileJobStore(persist),
       prisma: {} as never,
       fileStorage: {} as never,
       tenantId: 't',
@@ -214,7 +225,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
     };
 
     const common = {
-      jobStore: { persistDryRunReconcileChunk: persist } as never,
+      jobStore: mockReconcileJobStore(persist),
       prisma: {} as never,
       fileStorage: {} as never,
       tenantId: 't',
@@ -288,7 +299,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
         return 1_000 + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
       };
       await runBackgroundDryRunReconcileChunk({
-        jobStore: { persistDryRunReconcileChunk: persist } as never,
+        jobStore: mockReconcileJobStore(persist),
         prisma: {} as never,
         fileStorage: {} as never,
         tenantId: 't',
@@ -365,7 +376,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
       return 100 + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
     };
     await runBackgroundDryRunReconcileChunk({
-      jobStore: { persistDryRunReconcileChunk: persist } as never,
+      jobStore: mockReconcileJobStore(persist),
       prisma: {} as never,
       fileStorage: {} as never,
       tenantId: 't',

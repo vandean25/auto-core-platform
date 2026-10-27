@@ -18,6 +18,12 @@ export const IMPORT_SERIALIZABLE_TX = {
   maxWait: 5000,
 };
 
+/** Background dry-run reconcile: one connected unit per transaction. */
+export const IMPORT_RECONCILE_UNIT_TX = {
+  timeout: 30_000,
+  maxWait: 10_000,
+};
+
 export const IMPORT_ROW_TX_MAX_ATTEMPTS = 5;
 export const IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS = 8;
 
