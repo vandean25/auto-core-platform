@@ -187,7 +187,7 @@ describe('Import background worker (e2e)', () => {
 
     await expectJobAppliedWithRowCount(jobId, 3);
 
-    const customers = await basePrisma.customer.findMany({
+    const customers = await tenantPrisma().customer.findMany({
       where: {
         tenant_id: tenant.tenantId,
         email: {
@@ -197,12 +197,12 @@ describe('Import background worker (e2e)', () => {
     });
     expect(customers).toHaveLength(3);
 
-    const mappings = await basePrisma.externalIdMapping.findMany({
+    const mappings = await tenantPrisma().externalIdMapping.findMany({
       where: {
         tenant_id: tenant.tenantId,
         entity_type: ImportEntityType.CUSTOMER,
         source_system: 'legacy-dms',
-        first_seen_import_job_id: jobId,
+        entity_id: { in: customers.map((customer) => customer.id) },
       },
     });
     expect(mappings).toHaveLength(3);
