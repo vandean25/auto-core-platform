@@ -3,10 +3,7 @@
   "rootDir": "..",
   "testEnvironment": "node",
   "testRegex": "test/.*\\.e2e-spec\\.ts$",
-  "setupFiles": [
-    "<rootDir>/test/import-worker-batch-env.e2e-setup.ts",
-    "dotenv/config"
-  ],
+  "setupFiles": ["dotenv/config"],
   "setupFilesAfterEnv": [
     "<rootDir>/test/jest-esm-setup.ts",
     "<rootDir>/test/mcp-e2e-legacy-env.aut605.ts"

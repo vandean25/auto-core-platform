@@ -63,6 +63,22 @@ export function toImportApplyRow(
   };
 }
 
+function applyingWorkerLeaseWhere(
+  tenantId: string,
+  jobId: string,
+  leaseToken: string,
+) {
+  return {
+    tenant_id: tenantId,
+    id: jobId,
+    status: ImportJobStatus.APPLYING,
+    options_json: {
+      path: ['worker', 'lease_token'],
+      equals: leaseToken,
+    },
+  };
+}
+
 async function lockWorkerLeaseOnApplyingJob(
   tx: Prisma.TransactionClient,
   tenantId: string,
@@ -70,15 +86,7 @@ async function lockWorkerLeaseOnApplyingJob(
   leaseToken: string,
 ): Promise<boolean> {
   const locked = await tx.importJob.updateMany({
-    where: {
-      tenant_id: tenantId,
-      id: jobId,
-      status: ImportJobStatus.APPLYING,
-      options_json: {
-        path: ['worker', 'lease_token'],
-        equals: leaseToken,
-      },
-    },
+    where: applyingWorkerLeaseWhere(tenantId, jobId, leaseToken),
     data: {},
   });
   return locked.count > 0;
@@ -334,15 +342,7 @@ export class ImportJobStore {
       lease_until: new Date(0).toISOString(),
     };
     const updated = await this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: ImportJobStatus.APPLYING,
-        options_json: {
-          path: ['worker', 'lease_token'],
-          equals: leaseToken,
-        },
-      },
+      where: applyingWorkerLeaseWhere(tenantId, jobId, leaseToken),
       data: {
         options_json: { ...options, worker },
         worker_handoff_at: new Date(),
