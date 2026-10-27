@@ -128,7 +128,7 @@ export default function VehicleStockList() {
           <h1 className="text-2xl font-semibold tracking-tight">{t('stockList.title')}</h1>
           <p className="text-slate-500">{t('stockList.description')}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 max-sm:flex-wrap">
           <Button variant="outline" onClick={() => navigate('/vehicle-stock/reports')}>
             {t('stockList.reports')}
           </Button>

@@ -172,12 +172,12 @@ export default function VehicleStockReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 max-sm:[&_a]:min-h-11 max-sm:[&_button]:min-h-11">
+      <div className="flex items-center justify-between max-sm:flex-wrap max-sm:gap-4 max-sm:[&_a]:min-h-11 max-sm:[&_button]:min-h-11">
         <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('reports.title')}</h1>
           <p className="text-slate-500">{t('reports.description')}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 max-sm:flex-wrap">
           <Button variant="outline" onClick={() => navigate('/vehicle-stock')}>{t('reports.stock')}</Button>
           <Button onClick={() => downloadCsv(
             tab === 'age' ? serializeStockAgeCsv(stockAgeTableRows, t) : serializeMarginCsv(marginTableRows, t),

@@ -51,7 +51,7 @@ test.describe('Page headers on a phone (AUT-751)', () => {
         // The title block keeps a readable width: the actions wrap below it instead of squeezing it.
         const block = (await title.locator('xpath=..').boundingBox())!
         expect(block.width, 'title block width').toBeGreaterThanOrEqual(width - 80)
-        expect(await controlsShorterThan44(title.locator('xpath=../..')), 'header controls under 44px').toEqual([])
+        expect(await controlsShorterThan44(title.locator("xpath=ancestor::div[contains(@class,'justify-between')][1]")), 'header controls under 44px').toEqual([])
         await testInfo.attach(`${name}-${width}`, { body: await page.screenshot(), contentType: 'image/png' })
       })
     }
@@ -71,21 +71,24 @@ test.describe('Page headers on a phone (AUT-751)', () => {
     })
   }
 
-  for (const [name, path] of PAGES) {
-    test(`${name} header stays one row on a desktop`, async ({ page }) => {
-      await page.setViewportSize({ width: 1280, height: 800 })
-      await mockEmptyApi(page)
-      await new AutoCorePage(page, '').navigate(path)
-      const title = page.getByRole('heading', { level: 1 }).first()
-      await expect(title).toBeVisible()
+  // Tablet and desktop keep the one-row header (title left, actions right).
+  for (const width of [768, 1024, 1280]) {
+    for (const [name, path] of PAGES) {
+      test(`${name} header stays one row at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 800 })
+        await mockEmptyApi(page)
+        await new AutoCorePage(page, '').navigate(path)
+        const title = page.getByRole('heading', { level: 1 }).first()
+        await expect(title).toBeVisible()
 
-      const titleBox = (await title.boundingBox())!
-      const action = title.locator('xpath=../..').getByRole('button').or(title.locator('xpath=../..').getByRole('link')).first()
-      if ((await action.count()) === 0) return
-      const actionBox = (await action.boundingBox())!
-      // Same row as the title, on the right.
-      expect(actionBox.y).toBeLessThan(titleBox.y + titleBox.height)
-      expect(actionBox.x).toBeGreaterThan(titleBox.x + titleBox.width)
-    })
+        const row = title.locator("xpath=ancestor::div[contains(@class,'justify-between')][1]")
+        const actions = row.getByRole('button').or(row.getByRole('link'))
+        expect(await actions.count(), 'header actions').toBeGreaterThan(0)
+        const titleBox = (await row.locator('xpath=./*[1]').boundingBox())!
+        const actionBox = (await actions.first().boundingBox())!
+        expect(actionBox.y, 'action starts on the title row').toBeLessThan(titleBox.y + titleBox.height)
+        expect(actionBox.x, 'action is right of the title').toBeGreaterThanOrEqual(titleBox.x + titleBox.width - 0.5)
+      })
+    }
   }
 })

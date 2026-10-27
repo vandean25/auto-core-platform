@@ -120,7 +120,7 @@ export default function WorkshopPickList() {
           <h1 className='text-2xl font-semibold tracking-tight'>{t('pick.queue.title')}</h1>
           <p className='text-slate-500'>{t('pick.queue.description')}</p>
         </div>
-        <div className='flex flex-wrap items-center gap-2'>
+        <div className='flex items-center gap-2 max-sm:flex-wrap'>
           <Button variant='outline' onClick={() => navigate('/workshop/orders')}>
             <ListChecks className='h-4 w-4 mr-2' />
             {t('pick.queue.workshopOrders')}
