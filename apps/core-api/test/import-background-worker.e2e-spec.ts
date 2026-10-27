@@ -226,13 +226,28 @@ describe('Import background worker (e2e)', () => {
         overlapToken,
       );
 
-      await deliverWorker(jobId, 'dry_run', overlapTenant.tenantId).expect(204);
-      await deliverWorker(jobId, 'dry_run', overlapTenant.tenantId).expect(204);
-
-      const beforeApply = await overlapPrisma().importJob.findFirst({
+      const dryRunDeadline = Date.now() + 60_000;
+      let dryRunJob = await overlapPrisma().importJob.findFirst({
         where: { id: jobId },
       });
-      expect(beforeApply?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+      while (
+        Date.now() < dryRunDeadline &&
+        dryRunJob?.status !== ImportJobStatus.DRY_RUN_DONE
+      ) {
+        await deliverWorker(jobId, 'dry_run', overlapTenant.tenantId).expect(
+          204,
+        );
+        dryRunJob = await overlapPrisma().importJob.findFirst({
+          where: { id: jobId },
+        });
+      }
+      const dryRunRowCount = await overlapPrisma().importJobRow.count({
+        where: { import_job_id: jobId },
+      });
+      expect(dryRunJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+      expect(dryRunRowCount).toBe(3);
+
+      const beforeApply = dryRunJob;
 
       await request(app.getHttpServer())
         .post(`/api/imports/${jobId}/apply`)
