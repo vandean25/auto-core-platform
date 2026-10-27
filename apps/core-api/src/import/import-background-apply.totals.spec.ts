@@ -12,7 +12,7 @@ describe('reconcileFinishedApplyTotals', () => {
         importJobRow: {
           count: jest.fn(async () => 0),
         },
-      },
+      } as never,
       { tenantId: 'tenant-1', jobId: 'job-1' },
       totals,
     );
@@ -26,7 +26,7 @@ describe('reconcileFinishedApplyTotals', () => {
         importJobRow: {
           count: jest.fn(async () => 1),
         },
-      },
+      } as never,
       { tenantId: 'tenant-1', jobId: 'job-1' },
       totals,
     );
@@ -56,7 +56,7 @@ describe('isBackgroundApplyOutcomeComplete', () => {
 
   it('accepts UPDATE adopt with a new mapping when create stays 0', async () => {
     const complete = await isBackgroundApplyOutcomeComplete(
-      db({ rows: 1, creates: 0, updates: 1 }),
+      db({ rows: 1, creates: 0, updates: 1 }) as never,
       { tenantId: 'tenant-1', jobId: 'job-1' },
       { rows: 1, create: 0, update: 1, skip: 0, error: 0 },
     );
@@ -65,7 +65,7 @@ describe('isBackgroundApplyOutcomeComplete', () => {
 
   it('rejects finished apply when CREATE rows are not tallied', async () => {
     const complete = await isBackgroundApplyOutcomeComplete(
-      db({ rows: 3, creates: 3, updates: 0 }),
+      db({ rows: 3, creates: 3, updates: 0 }) as never,
       { tenantId: 'tenant-1', jobId: 'job-1' },
       { rows: 3, create: 0, update: 0, skip: 0, error: 0 },
     );
@@ -74,7 +74,7 @@ describe('isBackgroundApplyOutcomeComplete', () => {
 
   it('accepts CREATE rows tallied via noop retries', async () => {
     const complete = await isBackgroundApplyOutcomeComplete(
-      db({ rows: 3, creates: 3, updates: 0 }),
+      db({ rows: 3, creates: 3, updates: 0 }) as never,
       { tenantId: 'tenant-1', jobId: 'job-1' },
       { rows: 3, create: 3, update: 0, skip: 0, error: 0 },
     );
