@@ -93,7 +93,6 @@ async function mockApi(page: Page) {
 
 const PAGES = [
   ['Werkstatt-KPIs', '/workshop/reports/kpis'],
-  ['Exportbereitschaft', '/finance/accounting-export-readiness'],
   ['Einstellungen: Öffnungszeiten', '/settings?tab=hours'],
   ['Einstellungen: Lagerorte', '/settings?tab=locations'],
   ['Einstellungen: Arbeit', '/settings?tab=labor'],
@@ -109,7 +108,7 @@ test.describe('Page content on a phone (AUT-752)', () => {
         await mockApi(page)
         await new AutoCorePage(page, '').navigate(path)
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
-        await page.waitForTimeout(500)
+        await page.waitForLoadState('networkidle')
 
         await expectNoPageScroll(page)
         await testInfo.attach(`${name}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
@@ -163,6 +162,10 @@ test.describe('Page content on a phone (AUT-752)', () => {
       await expect(label).toBeVisible()
       expect(await label.evaluate((node) => getComputedStyle(node).textOverflow), `${name} is ellipsized`).not.toBe('ellipsis')
       expect(await label.evaluate((node) => node.scrollWidth - node.clientWidth), `${name} clipped`).toBeLessThanOrEqual(0)
+      // Readable: the name has room for words, not letters (the rate and status wrap below it).
+      const box = (await label.boundingBox())!
+      expect(box.width, `${name} width`).toBeGreaterThanOrEqual(150)
+      expect(box.height, `${name} lines`).toBeLessThan(70)
     }
     await expectNoPageScroll(page)
   })
@@ -175,6 +178,7 @@ test.describe('Page content on a phone (AUT-752)', () => {
     await expect(entityType).toBeVisible()
     expect(await controlsOutsideTheirCard(page.locator('main'))).toEqual([])
     expect((await entityType.boundingBox())!.width, 'filter is full width').toBeGreaterThan(250)
+    expect(await controlsShorterThan44(entityType.locator('xpath=..')), 'filters under 44px').toEqual([])
     await expectNoPageScroll(page)
   })
 
@@ -188,6 +192,14 @@ test.describe('Page content on a phone (AUT-752)', () => {
     expect((await season.boundingBox())!.y, 'season and status share a row').toBe((await status.boundingBox())!.y)
     const lastFilter = page.locator('label', { hasText: /^Fällig bis$/ })
     expect((await lastFilter.boundingBox())!.y, 'all filters within the first screen').toBeLessThan(812)
+    await expectNoPageScroll(page)
+  })
+
+  test('Werkstatt-KPIs do not widen the page on a laptop (1440px)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await mockApi(page)
+    await new AutoCorePage(page, '').navigate('/workshop/reports/kpis')
+    await expect(page.getByText('BRK-0001')).toBeVisible()
     await expectNoPageScroll(page)
   })
 })

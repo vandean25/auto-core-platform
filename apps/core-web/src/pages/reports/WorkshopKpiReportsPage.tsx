@@ -224,7 +224,7 @@ export default function WorkshopKpiReportsPage() {
           <CardTitle>{t('workshopKpi.laborPerformance.title')}</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-max whitespace-nowrap text-sm">
+          <table className="w-full text-sm max-sm:min-w-max max-sm:whitespace-nowrap">
             <thead>
               <tr className="border-b text-left">
                 {laborColumnHeadings.map((heading) => (
@@ -290,7 +290,7 @@ export default function WorkshopKpiReportsPage() {
           </p>
           <h3 className="mb-2 mt-5 text-sm font-semibold">{t('workshopKpi.partsTurnover.slowMoversTitle')}</h3>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-max whitespace-nowrap text-sm">
+            <table className="w-full text-sm max-sm:min-w-max max-sm:whitespace-nowrap">
               <thead>
                 <tr className="border-b text-left">
                   <th className="p-2">{t('workshopKpi.partsTurnover.columns.article')}</th>

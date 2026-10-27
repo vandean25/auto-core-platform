@@ -255,7 +255,7 @@ export function AuditLogsTab() {
             value={actionFilter}
             onValueChange={(val: 'ALL' | 'CREATE' | 'UPDATE' | 'DELETE') => setActionFilter(val)}
           >
-            <SelectTrigger className="h-9 w-full sm:w-[140px]">
+            <SelectTrigger className="h-9 w-full max-sm:min-h-11 sm:w-[140px]">
               <SelectValue placeholder={t('auditLogs.filters.action')} />
             </SelectTrigger>
             <SelectContent>
@@ -267,7 +267,7 @@ export function AuditLogsTab() {
           </Select>
           <input
             type="search"
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-[140px]"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm max-sm:min-h-11 sm:w-[140px]"
             placeholder={t('auditLogs.filters.entityTypePlaceholder')}
             value={entityTypeFilter}
             onChange={(event) => setEntityTypeFilter(event.target.value)}
@@ -275,7 +275,7 @@ export function AuditLogsTab() {
           />
           <input
             type="search"
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-[200px]"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm max-sm:min-h-11 sm:w-[200px]"
             placeholder={t('auditLogs.filters.entityIdPlaceholder')}
             value={entityIdFilter}
             onChange={(event) => setEntityIdFilter(event.target.value)}

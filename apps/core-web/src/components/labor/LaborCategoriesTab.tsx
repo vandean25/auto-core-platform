@@ -188,7 +188,7 @@ function CategoryTreeRow({
     <div className={cn("select-none", isDragging && "opacity-40")}>
       <div
         className={cn(
-          "flex items-center gap-2 p-2 rounded-md group transition-colors",
+          "flex items-center gap-2 p-2 rounded-md group transition-colors max-sm:flex-wrap",
           level > 0 && "ml-3 border-l-2 border-slate-100 pl-2 sm:ml-6 sm:pl-3",
           isDragOver ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50",
         )}
@@ -218,7 +218,7 @@ function CategoryTreeRow({
 
         {/* Name – click to edit */}
         <button
-          className="min-w-0 flex-1 break-words text-left text-sm font-medium text-slate-800 hover:text-blue-600 sm:truncate"
+          className="min-w-0 flex-1 break-words text-left text-sm font-medium text-slate-800 hover:text-blue-600 max-sm:min-w-[11rem] sm:truncate"
           onClick={() => onEdit(category)}
         >
           {category.name}
