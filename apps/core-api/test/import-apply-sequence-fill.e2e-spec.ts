@@ -424,12 +424,13 @@ describe('import apply_seq fill (e2e)', () => {
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
-    const requestContext = app.get(RequestContextService);
     let exhausted: unknown;
-    await requestContext.runAsWorker(
+    await runWithTenantContext(
       tenant.tenantId,
       async () => {
         try {
+          const options = (await store.findJob(tenant.tenantId, job.id))!
+            .options_json as never;
           await store.persistDryRunReconcileChunk(
             tenant.tenantId,
             job.id,
@@ -441,15 +442,14 @@ describe('import apply_seq fill (e2e)', () => {
               },
             ],
             { dry_run_reconcile_cursor: 1 },
-            (await store.findJob(tenant.tenantId, job.id))!
-              .options_json as never,
+            options,
             leaseToken,
           );
         } catch (error) {
           exhausted = error;
         }
       },
-      { workerId: 'p2028-reconcile-e2e' },
+      { userId: actor.id },
     );
     clientWithTransaction.$transaction = boundTransaction;
     expect(exhausted).toBeInstanceOf(ImportApplyRetryExhaustedError);
