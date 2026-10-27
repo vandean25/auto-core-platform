@@ -35,6 +35,84 @@ function trackKey(groups: Map<string, number[]>, key: string, rowNo: number) {
   groups.set(key, list);
 }
 
+type ParsedRowTracker = (
+  groups: Map<string, number[]>,
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  rowNo: number,
+) => void;
+
+function trackCustomerEmailGroup(
+  groups: Map<string, number[]>,
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  rowNo: number,
+) {
+  const email = cell(record, mapping, 'email').trim().toLowerCase();
+  if (email) {
+    trackKey(groups, `email:${email}`, rowNo);
+  }
+}
+
+function trackVehicleVinGroup(
+  groups: Map<string, number[]>,
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  rowNo: number,
+) {
+  const vin = cell(record, mapping, 'vin').trim().toUpperCase();
+  if (vin) {
+    trackKey(groups, `vin:${vin}`, rowNo);
+  }
+}
+
+function trackLaborCodeGroup(
+  groups: Map<string, number[]>,
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  rowNo: number,
+) {
+  const code = cell(record, mapping, 'code').trim().toLowerCase();
+  if (code) {
+    trackKey(groups, `code:${code}`, rowNo);
+  }
+}
+
+function trackSupplierArticleGroup(
+  groups: Map<string, number[]>,
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  rowNo: number,
+) {
+  const article = cell(record, mapping, 'supplier_article_no');
+  if (article) {
+    trackKey(groups, `article:${article}`, rowNo);
+  }
+}
+
+function trackVehicleExternalGroup(
+  groups: Map<string, number[]>,
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  rowNo: number,
+) {
+  const vehicleExternal = cell(record, mapping, 'vehicle_external_id');
+  if (vehicleExternal) {
+    trackKey(groups, `vehicle-ext:${vehicleExternal}`, rowNo);
+  }
+}
+
+const PARSED_ROW_TRACKERS: Partial<
+  Record<ImportEntityType, ParsedRowTracker>
+> = {
+  [ImportEntityType.CUSTOMER]: trackCustomerEmailGroup,
+  [ImportEntityType.VEHICLE]: trackVehicleVinGroup,
+  [ImportEntityType.LABOR_OPERATION]: trackLaborCodeGroup,
+  [ImportEntityType.SUPPLIER_PRICE_LIST]: trackSupplierArticleGroup,
+  [ImportEntityType.VEHICLE_PARTY]: trackVehicleExternalGroup,
+  [ImportEntityType.VEHICLE_DUE_DATE]: trackVehicleExternalGroup,
+};
+
 function trackParsedCsvRowEntity(
   groups: Map<string, number[]>,
   entityType: ImportEntityType,
@@ -42,46 +120,7 @@ function trackParsedCsvRowEntity(
   mapping: Record<string, string>,
   rowNo: number,
 ) {
-  switch (entityType) {
-    case ImportEntityType.CUSTOMER: {
-      const email = cell(record, mapping, 'email').trim().toLowerCase();
-      if (email) {
-        trackKey(groups, `email:${email}`, rowNo);
-      }
-      return;
-    }
-    case ImportEntityType.VEHICLE: {
-      const vin = cell(record, mapping, 'vin').trim().toUpperCase();
-      if (vin) {
-        trackKey(groups, `vin:${vin}`, rowNo);
-      }
-      return;
-    }
-    case ImportEntityType.LABOR_OPERATION: {
-      const code = cell(record, mapping, 'code').trim().toLowerCase();
-      if (code) {
-        trackKey(groups, `code:${code}`, rowNo);
-      }
-      return;
-    }
-    case ImportEntityType.SUPPLIER_PRICE_LIST: {
-      const article = cell(record, mapping, 'supplier_article_no');
-      if (article) {
-        trackKey(groups, `article:${article}`, rowNo);
-      }
-      return;
-    }
-    case ImportEntityType.VEHICLE_PARTY:
-    case ImportEntityType.VEHICLE_DUE_DATE: {
-      const vehicleExternal = cell(record, mapping, 'vehicle_external_id');
-      if (vehicleExternal) {
-        trackKey(groups, `vehicle-ext:${vehicleExternal}`, rowNo);
-      }
-      return;
-    }
-    default:
-      return;
-  }
+  PARSED_ROW_TRACKERS[entityType]?.(groups, record, mapping, rowNo);
 }
 
 function collectGroupsFromParsedCsv(

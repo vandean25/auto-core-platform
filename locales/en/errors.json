@@ -168,6 +168,7 @@
     "IMPORT_EXISTING_NOT_UPDATED": "Existing customer matched but update_existing is false",
     "IMPORT_EXTERNAL_ID_REQUIRED": "external_id is required",
     "IMPORT_FILE_TOO_LARGE": "Import file too large.",
+    "IMPORT_GROUP_TOO_LARGE": "Import group exceeds the maximum row count; split the file.",
     "IMPORT_INVALID_COST_PRICE": "Import invalid cost price.",
     "IMPORT_INVALID_ENCODING": "Import invalid encoding.",
     "IMPORT_INVALID_ENTITY_TYPE": "Import invalid entity type.",
