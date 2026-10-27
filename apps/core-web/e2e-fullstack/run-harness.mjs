@@ -101,7 +101,7 @@ function spawnDetached(command, args, options) {
   const child = spawn(command, args, {
     ...options,
     detached: true,
-    stdio: 'ignore',
+    stdio: 'inherit',
   })
   child.unref()
   if (child.pid) {
