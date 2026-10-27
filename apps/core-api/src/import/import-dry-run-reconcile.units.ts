@@ -1,10 +1,7 @@
 import { ImportEntityType } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ImportDryRunReconcileUnit } from './import-job.worker-state.js';
-import {
-  collectReconcileKeyGroups,
-  type ImportJobRowReconcileKeySource,
-} from './import-dry-run-reconcile.keys.js';
+import { collectReconcileKeyGroups } from './import-dry-run-reconcile.keys.js';
 
 type RowSpan = { min_row: number; max_row: number };
 
@@ -115,12 +112,11 @@ export async function computeImportDryRunReconcileUnits(
     orderBy: { row_no: 'asc' },
   });
 
-  const keyGroups = collectReconcileKeyGroups(
-    params.entityType,
-    rows as ImportJobRowReconcileKeySource[],
-  );
+  const keyGroups = collectReconcileKeyGroups(params.entityType, rows);
   const union = new RowUnionFind();
   unionActiveKeys(union, keyGroups, params.batchSize);
   const units = componentsFromUnion(union, keyGroups, params.batchSize);
-  return units.sort((left, right) => left.context_from_row - right.context_from_row);
+  return units.sort(
+    (left, right) => left.context_from_row - right.context_from_row,
+  );
 }

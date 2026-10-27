@@ -252,7 +252,9 @@ async function planReconcileUnitsUntilBudget(params: {
   const rows: import('./import.types.js').DryRunRowResult[] = [];
   let unitIndex = params.startUnitIndex;
   while (unitIndex < params.units.length) {
-    if (importWorkerChunkBudgetElapsed(params.readNow(), params.chunkDeadlineMs)) {
+    if (
+      importWorkerChunkBudgetElapsed(params.readNow(), params.chunkDeadlineMs)
+    ) {
       break;
     }
     rows.push(...(await params.replanUnit(params.units[unitIndex])));

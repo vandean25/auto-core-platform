@@ -57,7 +57,9 @@ export async function replanImportDryRunUnit(params: {
   input: ImportDryRunInput;
   unit: ImportDryRunReconcileUnit;
 }): Promise<DryRunRowResult[]> {
-  const rowNos = [...params.unit.replan_row_nos].sort((left, right) => left - right);
+  const rowNos = [...params.unit.replan_row_nos].sort(
+    (left, right) => left - right,
+  );
   const stored = await params.prisma.importJobRow.findMany({
     where: {
       tenant_id: params.tenantId,

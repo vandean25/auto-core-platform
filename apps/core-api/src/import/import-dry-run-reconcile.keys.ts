@@ -98,16 +98,15 @@ function trackSupplierKeys(
   }
 }
 
-const ENTITY_ROW_TRACKERS: Partial<
-  Record<ImportEntityType, RowKeyTracker[]>
-> = {
-  [ImportEntityType.CUSTOMER]: [trackCustomerKeys],
-  [ImportEntityType.VEHICLE]: [trackVehicleKeys],
-  [ImportEntityType.LABOR_OPERATION]: [trackLaborKeys],
-  [ImportEntityType.SUPPLIER_PRICE_LIST]: [trackSupplierKeys],
-  [ImportEntityType.VEHICLE_PARTY]: [trackVehicleBoundKeys],
-  [ImportEntityType.VEHICLE_DUE_DATE]: [trackVehicleBoundKeys],
-};
+const ENTITY_ROW_TRACKERS: Partial<Record<ImportEntityType, RowKeyTracker[]>> =
+  {
+    [ImportEntityType.CUSTOMER]: [trackCustomerKeys],
+    [ImportEntityType.VEHICLE]: [trackVehicleKeys],
+    [ImportEntityType.LABOR_OPERATION]: [trackLaborKeys],
+    [ImportEntityType.SUPPLIER_PRICE_LIST]: [trackSupplierKeys],
+    [ImportEntityType.VEHICLE_PARTY]: [trackVehicleBoundKeys],
+    [ImportEntityType.VEHICLE_DUE_DATE]: [trackVehicleBoundKeys],
+  };
 
 /** Reconcile grouping keys for one persisted import row (matches dry-run group cap rules). */
 export function collectReconcileKeyGroups(
