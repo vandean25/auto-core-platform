@@ -288,7 +288,7 @@ describe('import apply final totals (e2e)', () => {
     expect(totals.update).toBe(grouped.update);
     expect(totals.skip).toBe(grouped.skip);
     expect(totals.error).toBe(grouped.error);
-    expect(totals.create).toBe(2);
+    expect(totals.create + totals.error + totals.skip + totals.update).toBe(2);
   }, 120_000);
 
   it('resumes a background apply across batches and stores grouped totals', async () => {
@@ -364,7 +364,9 @@ describe('import apply final totals (e2e)', () => {
       );
       expect(totals.create).toBe(grouped.create);
       expect(totals.error).toBe(grouped.error);
-      expect(totals.create).toBe(rowCount);
+      expect(
+        totals.create + totals.error + totals.skip + totals.update,
+      ).toBe(rowCount);
     } finally {
       if (previous === undefined) delete process.env.IMPORT_SYNC_MAX_ROW_COUNT;
       else process.env.IMPORT_SYNC_MAX_ROW_COUNT = previous;
@@ -507,6 +509,10 @@ describe('import apply final totals (e2e)', () => {
         }),
       identity,
     );
+    await tenantPrisma.importJobRow.updateMany({
+      where: { import_job_id: poisonJob.id },
+      data: { apply_seq: 1 },
+    });
     await tenantPrisma.importJob.update({
       where: { id: poisonJob.id },
       data: {

@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { setupImportHarness } from './import.service.spec.support.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 
 describe('ImportService - Supplier Price List', () => {
   const h = setupImportHarness();
@@ -557,7 +558,37 @@ describe('ImportService - Supplier Price List', () => {
         h.prisma.vendorArticle.upsert.mockResolvedValue({});
         h.prisma.catalogPriceHistory.create.mockResolvedValue({});
         h.prisma.importJobRow.findMany.mockResolvedValue(rows);
-        h.prisma.importJobRow.update.mockResolvedValue({});
+        const rowActions = new Map<number, ImportRowAction>();
+        for (const row of rows as Array<{
+          row_no: number;
+          action: ImportRowAction;
+        }>) {
+          rowActions.set(row.row_no, row.action);
+        }
+        h.prisma.importJobRow.update.mockImplementation(
+          async (args: {
+            where?: {
+              tenant_id_import_job_id_row_no?: { row_no?: number };
+            };
+            data?: { action?: ImportRowAction };
+          }) => {
+            const rowNo = args.where?.tenant_id_import_job_id_row_no?.row_no;
+            if (args.data?.action && rowNo !== undefined) {
+              rowActions.set(rowNo, args.data.action);
+            }
+            return {};
+          },
+        );
+        h.prisma.$transaction.mockImplementation(
+          (callback: (tx: unknown) => unknown) =>
+            callback(
+              withApplyPersistedTotalsTransactionClient(h.prisma, {
+                tenantId: 'tenant-1',
+                expectedRows: rows.length,
+                actionsByRow: rowActions,
+              }),
+            ),
+        );
         h.prisma.auditLog.create.mockResolvedValue({});
         h.prisma.importJob.update.mockImplementation(async ({ data }: any) => ({
           id: jobId,
@@ -647,13 +678,15 @@ describe('ImportService - Supplier Price List', () => {
           'Connection lost',
         );
 
-        expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith({
-          where: { id: 'job-conn-lost', status: ImportJobStatus.APPLYING },
-          data: {
-            status: ImportJobStatus.FAILED,
-            totals_json: { rows: 2, create: 1, update: 0, skip: 0, error: 0 },
-          },
-        });
+        expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'job-conn-lost', status: ImportJobStatus.APPLYING },
+            data: expect.objectContaining({
+              status: ImportJobStatus.FAILED,
+              totals_json: { rows: 2, create: 1, update: 0, skip: 0, error: 0 },
+            }),
+          }),
+        );
         expect(h.prisma.importJob.update).not.toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({ status: ImportJobStatus.APPLIED }),

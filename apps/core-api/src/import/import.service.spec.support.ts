@@ -333,7 +333,22 @@ export function arrangeApply(
   prisma.importJob.findFirst.mockResolvedValue(job);
   prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
   prisma.importJobRow.findMany.mockResolvedValue(rows);
-  prisma.importJobRow.update.mockResolvedValue({});
+  prisma.importJobRow.update.mockImplementation(
+    async (args: {
+      where?: {
+        row_no?: number;
+        tenant_id_import_job_id_row_no?: { row_no?: number };
+      };
+      data?: { action?: ImportRowAction };
+    }) => {
+      const rowNo =
+        args.where?.tenant_id_import_job_id_row_no?.row_no ?? args.where?.row_no;
+      if (args.data?.action && rowNo !== undefined) {
+        rowActions.set(rowNo, args.data.action);
+      }
+      return {};
+    },
+  );
   prisma.auditLog.create.mockResolvedValue({});
   prisma.importJob.update.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => ({
