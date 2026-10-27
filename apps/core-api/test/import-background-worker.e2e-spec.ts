@@ -244,13 +244,16 @@ describe('Import background worker (e2e)', () => {
       });
       expect(dryRunJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
       expect(dryRunRowCount).toBe(3);
-      const dryRunCreates = await overlapPrisma().importJobRow.count({
-        where: {
-          import_job_id: jobId,
-          action: ImportRowAction.CREATE,
-        },
+      const dryRunPlanned = await overlapPrisma().importJobRow.findMany({
+        where: { import_job_id: jobId },
+        orderBy: { row_no: 'asc' },
+        select: { row_no: true, action: true },
       });
-      expect(dryRunCreates).toBe(3);
+      expect(dryRunPlanned.map((row) => row.action)).toEqual([
+        ImportRowAction.CREATE,
+        ImportRowAction.CREATE,
+        ImportRowAction.CREATE,
+      ]);
 
       await request(app.getHttpServer())
         .post(`/api/imports/${jobId}/apply`)
