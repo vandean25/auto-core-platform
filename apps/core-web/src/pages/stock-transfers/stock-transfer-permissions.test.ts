@@ -13,6 +13,7 @@ import {
   getLinesMissingShipSourceBins,
   hasReceiveMembership,
   hasShipMembership,
+  resolveDefaultToSiteId,
   shouldShowSourceBinDetails,
 } from './stock-transfer-permissions'
 
@@ -114,5 +115,19 @@ describe('stock-transfer-permissions', () => {
     expect(getLinesMissingShipSourceBins(approvedTransfer, {})).toHaveLength(1)
     expect(canSubmitShip(approvedTransfer, {})).toBe(false)
     expect(canSubmitShip(approvedTransfer, { 'line-1': 'bin-from' })).toBe(true)
+  })
+})
+
+describe('resolveDefaultToSiteId', () => {
+  it('prefers the active site, then the first own site, and only sites of the directory', () => {
+    expect(resolveDefaultToSiteId(['a', 'b'], 'b', ['a'])).toBe('b')
+    expect(resolveDefaultToSiteId(['a', 'b'], null, ['a'])).toBe('a')
+    expect(resolveDefaultToSiteId(['a', 'b'], 'x', ['b'])).toBe('b')
+  })
+
+  it('is empty (placeholder) while the directory is empty or lacks both sites', () => {
+    expect(resolveDefaultToSiteId([], 'a', ['a'])).toBe('')
+    expect(resolveDefaultToSiteId(['b'], 'x', ['y'])).toBe('')
+    expect(resolveDefaultToSiteId(['b'], undefined, [])).toBe('')
   })
 })

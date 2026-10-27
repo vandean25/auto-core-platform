@@ -29,6 +29,7 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import {
   buildMemberSiteIdSet,
   canSuggestSourceBin,
+  resolveDefaultToSiteId,
 } from './stock-transfer-permissions'
 
 type DraftLine = {
@@ -64,15 +65,11 @@ export function StockTransferCreateDialog({
     [mySites],
   )
 
-  // Only a site that is in the directory can be selected; otherwise the select shows its placeholder.
-  const directoryHas = (id: string | null | undefined) =>
-    siteDirectory.some((site) => site.id === id)
-  const activeSiteId = sessionQuery.data?.activeSiteId
-  const defaultToSiteId = directoryHas(activeSiteId)
-    ? activeSiteId!
-    : directoryHas(mySites[0]?.id)
-      ? mySites[0].id
-      : ''
+  const defaultToSiteId = resolveDefaultToSiteId(
+    siteDirectory.map((site) => site.id),
+    sessionQuery.data?.activeSiteId,
+    mySites.map((site) => site.id),
+  )
 
   const [fromSiteId, setFromSiteId] = useState('')
   const [toSiteId, setToSiteId] = useState(defaultToSiteId)
