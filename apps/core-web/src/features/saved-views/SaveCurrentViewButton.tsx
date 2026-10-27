@@ -71,7 +71,7 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 max-md:h-11"
             aria-label={t('savedViews.saveAria', { title })}
             onClick={() => {
               setName(t('savedViews.defaultName', { title }))

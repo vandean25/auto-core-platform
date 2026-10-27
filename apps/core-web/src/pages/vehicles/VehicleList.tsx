@@ -79,7 +79,7 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'vehicle',
-        meta: { rowLink: true },
+        meta: { rowLink: true, mobile: 'title' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.makeModel')} />
         ),
@@ -100,12 +100,14 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'plate',
+        meta: { mobile: 'trailing' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.plate')} />
         ),
       },
       {
         accessorKey: 'customer',
+        meta: { mobile: 'subtitle' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.customer')} />
         ),

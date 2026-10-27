@@ -32,7 +32,7 @@ export function DataTableDateRangeFilter<TData extends object>({ column, filter 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 border-dashed">
+        <Button variant="outline" size="sm" className="h-11 border-dashed md:h-8">
           <CalendarIcon className="mr-2 h-4 w-4" />
           {filter.title}
           {fromIso ? (

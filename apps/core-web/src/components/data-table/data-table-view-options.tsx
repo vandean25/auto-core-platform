@@ -52,7 +52,7 @@ export function DataTableViewOptions<TData extends object>({
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-8"
+          className="ml-auto h-11 md:h-8"
         >
           <Settings2 className="mr-2 h-4 w-4" />
           {t('dataTable.columns')}
