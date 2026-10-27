@@ -20,7 +20,6 @@ import {
   assertApplyWorkerLease,
   commitBackgroundApplyRowInTransaction,
 } from './import-background-apply.commit.js';
-import { reconcileFinishedApplyTotals } from './import-background-apply.totals.js';
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import {
   commitApplyWorkerRowInTransaction,
@@ -148,22 +147,8 @@ export class RowByRowApplyRunner {
     >,
   ): Promise<SerializedImportJob> {
     const { tenantId, job, actorUserId } = input;
-    let appliedTotals = (refreshed.totals_json as ImportJobTotals) ?? totals;
-    const reconciled = await reconcileFinishedApplyTotals(
-      this.prisma,
-      { tenantId, jobId: job.id },
-      appliedTotals,
-    );
-    const totalsChanged =
-      reconciled.create !== appliedTotals.create ||
-      reconciled.error !== appliedTotals.error;
-    if (totalsChanged) {
-      appliedTotals = reconciled;
-      await this.prisma.importJob.update({
-        where: { id: job.id },
-        data: { totals_json: reconciled },
-      });
-    }
+    const appliedTotals =
+      (refreshed.totals_json as ImportJobTotals) ?? totals;
     await this.audit.writeImportJobAudit(
       this.prisma,
       tenantId,
@@ -172,10 +157,7 @@ export class RowByRowApplyRunner {
       'applied',
       appliedTotals,
     );
-    const appliedJob = totalsChanged
-      ? await this.prisma.importJob.findFirst({ where: { id: job.id } })
-      : refreshed;
-    return this.serialize(appliedJob!, appliedTotals);
+    return this.serialize(refreshed, appliedTotals);
   }
 
   private async finishApplyRun(

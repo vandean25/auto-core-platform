@@ -3,31 +3,6 @@ import type { ImportJobTotals } from './import.types.js';
 
 type ApplyTotalsDb = Pick<Prisma.TransactionClient, 'importJobRow'>;
 
-/**
- * Monotonic error sync from committed ERROR rows. Create/update/skip stay on the
- * per-row apply tally; mappings are not used for totals.
- */
-export async function reconcileFinishedApplyTotals(
-  db: ApplyTotalsDb,
-  params: { tenantId: string; jobId: string },
-  totals: ImportJobTotals,
-): Promise<ImportJobTotals> {
-  if (typeof db.importJobRow.count !== 'function') {
-    return totals;
-  }
-  const errorRows = await db.importJobRow.count({
-    where: {
-      tenant_id: params.tenantId,
-      import_job_id: params.jobId,
-      action: ImportRowAction.ERROR,
-    },
-  });
-  return {
-    ...totals,
-    error: Math.max(totals.error, errorRows),
-  };
-}
-
 /** True when per-row apply totals account for every planned row once. */
 export async function isBackgroundApplyOutcomeComplete(
   db: ApplyTotalsDb,

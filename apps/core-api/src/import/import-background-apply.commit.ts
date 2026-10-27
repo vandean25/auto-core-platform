@@ -3,10 +3,7 @@ import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
-import {
-  isBackgroundApplyOutcomeComplete,
-  reconcileFinishedApplyTotals,
-} from './import-background-apply.totals.js';
+import { isBackgroundApplyOutcomeComplete } from './import-background-apply.totals.js';
 const APPLY_TOTAL_KEYS = [
   'rows',
   'create',
@@ -62,17 +59,12 @@ async function resolveBackgroundApplyFinishState(
   if (!reachedLastSeq) {
     return { totals, finished: false };
   }
-  const reconciled = await reconcileFinishedApplyTotals(
+  const complete = await isBackgroundApplyOutcomeComplete(
     tx,
     { tenantId: params.tenantId, jobId: params.jobId },
     totals,
   );
-  const complete = await isBackgroundApplyOutcomeComplete(
-    tx,
-    { tenantId: params.tenantId, jobId: params.jobId },
-    reconciled,
-  );
-  return { totals: reconciled, finished: complete };
+  return { totals, finished: complete };
 }
 
 /** Persists cursor, totals, and optionally APPLIED in the same transaction as the row write. */
@@ -115,11 +107,6 @@ export async function commitBackgroundApplyRowInTransaction(
   };
   const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
   const mergedTotals = mergeMonotonicApplyTotals(storedTotals, params.totals);
-  const reconciledTotals = await reconcileFinishedApplyTotals(
-    tx,
-    { tenantId: params.tenantId, jobId: params.jobId },
-    mergedTotals,
-  );
   const { totals, finished } = await resolveBackgroundApplyFinishState(
     tx,
     {
@@ -128,7 +115,7 @@ export async function commitBackgroundApplyRowInTransaction(
       applyWatermark,
       maxApplySeq: params.maxApplySeq,
     },
-    reconciledTotals,
+    mergedTotals,
   );
   await tx.importJob.update({
     where: { id: params.jobId },

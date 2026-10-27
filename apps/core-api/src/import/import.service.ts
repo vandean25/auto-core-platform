@@ -30,7 +30,6 @@ import {
   type ImportJobView,
   type SerializedImportJob,
 } from './import-job.serializer.js';
-import { reconcileFinishedApplyTotals } from './import-background-apply.totals.js';
 import { ImportJobStore } from './import-job.store.js';
 import { ImportAuditWriter } from './import-audit.writer.js';
 import {
@@ -873,33 +872,6 @@ export class ImportService {
       rows: context.rows,
       resumeAfter: context.resumeAfter,
       resultStatus: result.status,
-    });
-    await this.refreshAppliedImportJobTotals(tenantId, jobId);
-  }
-
-  private async refreshAppliedImportJobTotals(
-    tenantId: string,
-    jobId: string,
-  ): Promise<void> {
-    const job = await this.jobStore.findJob(tenantId, jobId);
-    if (!job || job.status !== ImportJobStatus.APPLIED) {
-      return;
-    }
-    const totals = job.totals_json as ImportJobTotals;
-    const reconciled = await reconcileFinishedApplyTotals(
-      this.prisma,
-      { tenantId, jobId },
-      totals,
-    );
-    if (
-      reconciled.create === totals.create &&
-      reconciled.error === totals.error
-    ) {
-      return;
-    }
-    await this.prisma.importJob.update({
-      where: { id: jobId },
-      data: { totals_json: reconciled },
     });
   }
 
