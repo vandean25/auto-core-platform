@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import type { PrismaService as PrismaServiceType } from '../src/prisma/prisma.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import { orderVehiclePartyApplyRows } from '../src/import/vehicle-party-import.apply-order.js';
 import { toImportApplyRow } from '../src/import/import-job.store.js';
@@ -359,7 +360,7 @@ describe('import apply_seq fill (e2e)', () => {
     const fileStorage = {
       openReadStream: () => Readable.from([csvBody]),
     } as unknown as ImportFileStorageService;
-    const handler = {
+    const handlerStub = {
       entityType: ImportEntityType.CUSTOMER,
       planDryRun: async (input, parsed) =>
         parsed.rows.map((row, index) => {
@@ -375,7 +376,8 @@ describe('import apply_seq fill (e2e)', () => {
             normalized: { external_id: externalId },
           };
         }),
-    } as ImportTypeHandler;
+    };
+    const handler = handlerStub as unknown as ImportTypeHandler;
     const actor = await prisma.user.findFirstOrThrow({
       where: { firebaseUid: tenant.firebaseUid },
       select: { id: true },
@@ -437,6 +439,10 @@ describe('import apply_seq fill (e2e)', () => {
       }
       return chunkStartMs + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
     };
+    const tenantScopedPrisma = createTenantAwarePrisma(
+      prisma,
+      tenant.tenantId,
+    ) as PrismaService;
     const runBudgetLoop = async (
       loaded: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
       unitIndex: number,
@@ -447,10 +453,10 @@ describe('import apply_seq fill (e2e)', () => {
       const read = readNow();
       return runWithTenantContext(
         tenant.tenantId,
-        () =>
-          runReconcileUnitsWithinChunkBudget({
+        async () =>
+          await runReconcileUnitsWithinChunkBudget({
             jobStore: store,
-            prisma,
+            prisma: tenantScopedPrisma,
             fileStorage,
             flow: { enqueueImportWorkerContinuation: async () => {} } as never,
             tenantId: tenant.tenantId,
