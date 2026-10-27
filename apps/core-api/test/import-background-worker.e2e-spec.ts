@@ -426,6 +426,29 @@ describe('Import background worker (e2e)', () => {
       });
 
     await deliverWorker(jobId, 'dry_run').expect(204);
+    const stalled = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    const stalledOptions = (stalled?.options_json ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const stalledWorker = (stalledOptions.worker ?? {}) as Record<
+      string,
+      unknown
+    >;
+    await tenantPrisma().importJob.updateMany({
+      where: { id: jobId },
+      data: {
+        options_json: {
+          ...stalledOptions,
+          worker: {
+            ...stalledWorker,
+            lease_until: new Date(0).toISOString(),
+          },
+        },
+      },
+    });
     const job = await runDryRunUntilDone(jobId);
     expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
     const errorRows = await tenantPrisma().importJobRow.count({
