@@ -123,8 +123,10 @@ function nextAttemptsWithoutProgress(
   return noProgressSinceLastClaim ? priorAttempts + 1 : 0;
 }
 
-async function runInCapturedTenantContext<T>(fn: () => Promise<T>): Promise<T> {
-  const tenantUser = TenantContextStorage.getUser();
+async function runInCapturedTenantContext<T>(
+  fn: () => Promise<T>,
+  tenantUser = TenantContextStorage.getUser(),
+): Promise<T> {
   if (!tenantUser?.tenantId) {
     return fn();
   }
@@ -462,6 +464,7 @@ export class ImportJobStore {
       optionsForPersist: ImportJobOptions;
     },
   ) {
+    const tenantUserForTransactions = TenantContextStorage.getUser();
     const previousProgress = importWorkerPoisonProgressCursor(options.worker!);
     const worker = {
       ...options.worker!,
@@ -517,7 +520,7 @@ export class ImportJobStore {
             });
             const totals = updated.totals_json as ImportJobTotals;
             return { job: updated, totals };
-          }),
+          }, tenantUserForTransactions),
         IMPORT_RECONCILE_UNIT_TX,
       );
 
