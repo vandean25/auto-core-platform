@@ -1,19 +1,6 @@
 import { ImportRowAction } from '@prisma/client';
 import { jest } from '@jest/globals';
 
-function groupByCountsFromRowActions(
-  rows: Array<{ action: ImportRowAction }>,
-): Array<{ action: ImportRowAction; _count: { _all: number } }> {
-  const counts = new Map<ImportRowAction, number>();
-  for (const row of rows) {
-    counts.set(row.action, (counts.get(row.action) ?? 0) + 1);
-  }
-  return [...counts.entries()].map(([action, count]) => ({
-    action,
-    _count: { _all: count },
-  }));
-}
-
 /** Adds groupBy + job metadata mocks needed when markJobApplied runs in tests. */
 export function withApplyPersistedTotalsTransactionClient(
   tx: Record<string, unknown>,
