@@ -828,7 +828,7 @@ export class ImportService {
           prisma: this.prisma,
           tenantId,
           jobId,
-          entityType: job.entity_type as ImplementedImportEntityType,
+          entityType: job.entity_type,
           options,
           totals,
           flow: this.workerFlowForJob(tenantId, jobId),
@@ -886,7 +886,7 @@ export class ImportService {
               prisma: this.prisma,
               tenantId,
               jobId,
-              entityType: job.entity_type as ImplementedImportEntityType,
+              entityType: job.entity_type,
               options,
               totals: mergedTotals,
               flow: this.workerFlowForJob(tenantId, jobId),
@@ -914,8 +914,7 @@ export class ImportService {
     if (!job) {
       return;
     }
-    let finalTotals =
-      totalsOverride ?? (job.totals_json as ImportJobTotals);
+    let finalTotals = totalsOverride ?? (job.totals_json as ImportJobTotals);
     if (handler.finishCreate) {
       const pageSize = IMPORT_WORKER_BATCH_SIZE;
       let skip = 0;

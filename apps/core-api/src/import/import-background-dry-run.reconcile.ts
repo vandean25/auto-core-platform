@@ -58,7 +58,10 @@ export async function scheduleBackgroundDryRunAfterRowBatches(params: {
     });
     return;
   }
-  const refreshed = await params.jobStore.findJob(params.tenantId, params.jobId);
+  const refreshed = await params.jobStore.findJob(
+    params.tenantId,
+    params.jobId,
+  );
   if (!refreshed) {
     return;
   }
@@ -69,7 +72,9 @@ export async function scheduleBackgroundDryRunAfterRowBatches(params: {
     claimSeq: refreshed.worker_claim_seq,
     recoverySeq: refreshed.worker_recovery_seq,
     chunkSeq: 0,
-    taskClaimSeq: importWorkerTaskClaimSeqForHandoff(refreshed.worker_claim_seq),
+    taskClaimSeq: importWorkerTaskClaimSeqForHandoff(
+      refreshed.worker_claim_seq,
+    ),
   });
 }
 

@@ -5,14 +5,25 @@ describe('computeImportDryRunReconcileRanges', () => {
   const tenantId = 'tenant-1';
   const jobId = 'job-1';
 
-  function prismaWithSpans(spans: { min_row: number; max_row: number }[]) {
+  function prismaWithRows(
+    rows: Array<{
+      row_no: number;
+      external_id: string | null;
+      normalized_json?: unknown;
+    }>,
+  ) {
     return {
-      $queryRaw: jest.fn(async () => spans),
+      importJobRow: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
     } as never;
   }
 
   it('returns no ranges when duplicate external ids stay within one batch', async () => {
-    const prisma = prismaWithSpans([{ min_row: 1, max_row: 2 }]);
+    const prisma = prismaWithRows([
+      { row_no: 1, external_id: 'dup' },
+      { row_no: 2, external_id: 'dup' },
+    ]);
     const ranges = await computeImportDryRunReconcileRanges(prisma, {
       tenantId,
       jobId,
@@ -23,9 +34,10 @@ describe('computeImportDryRunReconcileRanges', () => {
   });
 
   it('merges overlapping reconcile windows for cross-batch duplicates', async () => {
-    const prisma = prismaWithSpans([
-      { min_row: 10, max_row: 510 },
-      { min_row: 500, max_row: 511 },
+    const prisma = prismaWithRows([
+      { row_no: 10, external_id: 'a' },
+      { row_no: 510, external_id: 'b' },
+      { row_no: 511, external_id: 'a' },
     ]);
     const ranges = await computeImportDryRunReconcileRanges(prisma, {
       tenantId,

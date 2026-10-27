@@ -4,7 +4,11 @@ import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { ImportJobTotals } from './import.types.js';
 
 function isPriceJumpFlagged(normalized: Prisma.JsonValue | null): boolean {
-  if (!normalized || typeof normalized !== 'object' || Array.isArray(normalized)) {
+  if (
+    !normalized ||
+    typeof normalized !== 'object' ||
+    Array.isArray(normalized)
+  ) {
     return false;
   }
   return (normalized as Record<string, unknown>).price_jump_flagged === true;

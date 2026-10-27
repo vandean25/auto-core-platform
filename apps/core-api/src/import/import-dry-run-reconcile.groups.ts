@@ -4,6 +4,8 @@ import type { ImportDryRunReconcileRange } from './import-job.worker-state.js';
 
 type RowSpan = { min_row: number; max_row: number };
 
+type SpanTracker = Map<string, RowSpan & { count: number }>;
+
 function spansImportBatches(span: RowSpan, batchSize: number): boolean {
   const firstBatch = Math.floor((span.min_row - 1) / batchSize);
   const lastBatch = Math.floor((span.max_row - 1) / batchSize);
@@ -31,64 +33,53 @@ function mergeRowRanges(
 }
 
 function toRanges(
-  spans: RowSpan[],
+  spans: Iterable<RowSpan & { count: number }>,
   batchSize: number,
 ): ImportDryRunReconcileRange[] {
-  return spans
-    .filter((span) => spansImportBatches(span, batchSize))
+  return [...spans]
+    .filter((span) => span.count > 1 && spansImportBatches(span, batchSize))
     .map((span) => ({ from_row: span.min_row, to_row: span.max_row }));
 }
 
-async function duplicateExternalIdSpans(
-  prisma: PrismaService,
-  tenantId: string,
-  jobId: string,
-): Promise<RowSpan[]> {
-  return prisma.$queryRaw<RowSpan[]>`
-    SELECT MIN(row_no)::int AS min_row, MAX(row_no)::int AS max_row
-    FROM import_job_rows
-    WHERE tenant_id = ${tenantId}::uuid
-      AND import_job_id = ${jobId}::uuid
-      AND external_id IS NOT NULL
-    GROUP BY external_id
-    HAVING COUNT(*) > 1
-  `;
+function trackKey(tracker: SpanTracker, key: string, rowNo: number): void {
+  const existing = tracker.get(key);
+  if (!existing) {
+    tracker.set(key, { min_row: rowNo, max_row: rowNo, count: 1 });
+    return;
+  }
+  existing.min_row = Math.min(existing.min_row, rowNo);
+  existing.max_row = Math.max(existing.max_row, rowNo);
+  existing.count += 1;
 }
 
-async function duplicateJsonFieldSpans(
-  prisma: PrismaService,
-  tenantId: string,
-  jobId: string,
-  jsonField: string,
-): Promise<RowSpan[]> {
-  return prisma.$queryRaw<RowSpan[]>`
-    SELECT MIN(row_no)::int AS min_row, MAX(row_no)::int AS max_row
-    FROM import_job_rows
-    WHERE tenant_id = ${tenantId}::uuid
-      AND import_job_id = ${jobId}::uuid
-      AND normalized_json IS NOT NULL
-      AND normalized_json->>${jsonField} IS NOT NULL
-      AND TRIM(normalized_json->>${jsonField}) <> ''
-    GROUP BY LOWER(TRIM(normalized_json->>${jsonField}))
-    HAVING COUNT(*) > 1
-  `;
+function normalizedString(normalized: unknown, field: string): string | null {
+  if (
+    !normalized ||
+    typeof normalized !== 'object' ||
+    Array.isArray(normalized)
+  ) {
+    return null;
+  }
+  const value = (normalized as Record<string, unknown>)[field];
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
 }
 
-async function duplicateVehicleIdSpans(
-  prisma: PrismaService,
-  tenantId: string,
-  jobId: string,
-): Promise<RowSpan[]> {
-  return prisma.$queryRaw<RowSpan[]>`
-    SELECT MIN(row_no)::int AS min_row, MAX(row_no)::int AS max_row
-    FROM import_job_rows
-    WHERE tenant_id = ${tenantId}::uuid
-      AND import_job_id = ${jobId}::uuid
-      AND normalized_json IS NOT NULL
-      AND normalized_json->>'vehicle_id' IS NOT NULL
-    GROUP BY normalized_json->>'vehicle_id'
-    HAVING COUNT(*) >= 2
-  `;
+function trackNormalizedField(
+  tracker: SpanTracker,
+  normalized: unknown,
+  field: string,
+  rowNo: number,
+  lowercase = false,
+): void {
+  const raw = normalizedString(normalized, field);
+  if (!raw) {
+    return;
+  }
+  trackKey(tracker, lowercase ? raw.toLowerCase() : raw, rowNo);
 }
 
 /** Ranges that must be re-planned so cross-batch duplicate and overlap checks match sync dry-run. */
@@ -101,31 +92,71 @@ export async function computeImportDryRunReconcileRanges(
     batchSize: number;
   },
 ): Promise<ImportDryRunReconcileRange[]> {
-  const { tenantId, jobId, entityType, batchSize } = params;
-  const spans: RowSpan[] = [
-    ...(await duplicateExternalIdSpans(prisma, tenantId, jobId)),
-  ];
+  const rows = await prisma.importJobRow.findMany({
+    where: {
+      tenant_id: params.tenantId,
+      import_job_id: params.jobId,
+    },
+    select: {
+      row_no: true,
+      external_id: true,
+      normalized_json: true,
+    },
+    orderBy: { row_no: 'asc' },
+  });
 
-  if (entityType === ImportEntityType.CUSTOMER) {
-    spans.push(
-      ...(await duplicateJsonFieldSpans(prisma, tenantId, jobId, 'email')),
-    );
-  } else if (entityType === ImportEntityType.VEHICLE) {
-    spans.push(
-      ...(await duplicateJsonFieldSpans(prisma, tenantId, jobId, 'vin')),
-    );
-  } else if (entityType === ImportEntityType.LABOR_OPERATION) {
-    spans.push(
-      ...(await duplicateJsonFieldSpans(prisma, tenantId, jobId, 'code')),
-    );
-  } else if (
-    entityType === ImportEntityType.VEHICLE_PARTY ||
-    entityType === ImportEntityType.VEHICLE_DUE_DATE
-  ) {
-    spans.push(
-      ...(await duplicateVehicleIdSpans(prisma, tenantId, jobId)),
-    );
+  const externalIdSpans: SpanTracker = new Map();
+  const secondarySpans: SpanTracker = new Map();
+  const vehicleSpans: SpanTracker = new Map();
+
+  for (const row of rows) {
+    if (row.external_id) {
+      trackKey(externalIdSpans, row.external_id, row.row_no);
+    }
+    if (params.entityType === ImportEntityType.CUSTOMER) {
+      trackNormalizedField(
+        secondarySpans,
+        row.normalized_json,
+        'email',
+        row.row_no,
+        true,
+      );
+    } else if (params.entityType === ImportEntityType.VEHICLE) {
+      trackNormalizedField(
+        secondarySpans,
+        row.normalized_json,
+        'vin',
+        row.row_no,
+        true,
+      );
+    } else if (params.entityType === ImportEntityType.LABOR_OPERATION) {
+      trackNormalizedField(
+        secondarySpans,
+        row.normalized_json,
+        'code',
+        row.row_no,
+        true,
+      );
+    }
+    if (
+      params.entityType === ImportEntityType.VEHICLE_PARTY ||
+      params.entityType === ImportEntityType.VEHICLE_DUE_DATE
+    ) {
+      const vehicleId = normalizedString(row.normalized_json, 'vehicle_id');
+      if (vehicleId) {
+        trackKey(vehicleSpans, vehicleId, row.row_no);
+      }
+    }
   }
 
-  return mergeRowRanges(toRanges(spans, batchSize));
+  const spans = [
+    ...toRanges(externalIdSpans.values(), params.batchSize),
+    ...toRanges(secondarySpans.values(), params.batchSize),
+    ...toRanges(
+      [...vehicleSpans.values()].filter((span) => span.count >= 2),
+      params.batchSize,
+    ),
+  ];
+
+  return mergeRowRanges(spans);
 }

@@ -26,7 +26,7 @@ export function readImportWorkerChunkSeq(
   phase: ImportWorkerPhase,
 ): number {
   const worker = readWorkerState(options);
-  if (!worker) {
+  if (!worker || worker.phase !== phase) {
     return 0;
   }
   return importWorkerProgressCursor(worker);
