@@ -1,6 +1,7 @@
 import { ImportJobStatus, ImportRowAction, Prisma } from '@prisma/client';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 
 function p2034(): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError('write conflict', {
@@ -43,6 +44,7 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
       started_at: new Date().toISOString(),
     };
     let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
+    let txCalls = 0;
     const updateMany = jest.fn(
       async (args: { data: { status?: ImportJobStatus } }) => {
         if (args.data.status === ImportJobStatus.FAILED) {
@@ -53,24 +55,38 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
     );
     const prisma = {
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          importJob: {
-            update: async () => ({ id: 'job-supplier', status: jobStatus }),
-            findFirst: async () => ({
-              id: 'job-supplier',
-              tenant_id: 'tenant-1',
-              status: jobStatus,
-              options_json: { worker },
-            }),
+        txCalls += 1;
+        if (txCalls > 1) {
+          throw p2034();
+        }
+        const tx = withApplyPersistedTotalsTransactionClient(
+          {
+            importJob: {
+              update: async () => ({ id: 'job-supplier', status: jobStatus }),
+              findFirst: async () => ({
+                id: 'job-supplier',
+                tenant_id: 'tenant-1',
+                status: jobStatus,
+                options_json: { worker },
+                totals_json: { rows: 1, create: 0, update: 0, skip: 1, error: 0 },
+              }),
+            },
+            importJobRow: { update: jest.fn() },
           },
-        };
+          {
+            tenantId: 'tenant-1',
+            expectedRows: 1,
+            persistedRows: [{ action: ImportRowAction.SKIP }],
+          },
+        );
         return fn(tx);
       },
       importJob: {
         updateMany,
-        findFirst: async () => {
-          throw p2034();
-        },
+        findFirst: async () => ({
+          id: 'job-supplier',
+          status: jobStatus,
+        }),
         update: jest.fn(),
       },
       importJobRow: { update: jest.fn() },
@@ -116,23 +132,41 @@ describe('SupplierChunkedApplyRunner retryable finish errors', () => {
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
         txCalls += 1;
         if (txCalls === 1) {
-          const tx = {
-            importJob: { update: async () => ({}) },
-          };
+          const tx = withApplyPersistedTotalsTransactionClient(
+            {
+              importJob: { update: async () => ({}) },
+              importJobRow: { update: jest.fn() },
+            },
+            { tenantId: 'tenant-1', expectedRows: 1 },
+          );
           return fn(tx);
         }
         finishAttempts += 1;
         if (finishAttempts <= 2) {
           throw p2034();
         }
-        const tx = {
-          importJob: {
-            update: async () => {
-              jobStatus = ImportJobStatus.APPLIED;
-              return { id: 'job-supplier', status: jobStatus };
+        const tx = withApplyPersistedTotalsTransactionClient(
+          {
+            importJob: {
+              findFirst: async () => ({
+                id: 'job-supplier',
+                tenant_id: 'tenant-1',
+                totals_json: { rows: 1, create: 0, update: 0, skip: 1, error: 0 },
+              }),
+              update: async () => {
+                jobStatus = ImportJobStatus.APPLIED;
+                return { id: 'job-supplier', status: jobStatus };
+              },
+              updateMany: async () => ({ count: 1 }),
             },
+            importJobRow: { update: jest.fn() },
           },
-        };
+          {
+            tenantId: 'tenant-1',
+            expectedRows: 1,
+            persistedRows: [{ action: ImportRowAction.SKIP }],
+          },
+        );
         return fn(tx);
       },
       importJob: {

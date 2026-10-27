@@ -8,9 +8,14 @@ export function logImportJobFailed(
     phase: ImportWorkerPhase;
     attempt: number;
     reason: string;
+    cause?: string;
   },
 ): void {
+  const causeSuffix =
+    params.cause !== undefined && params.cause !== ''
+      ? ` cause=${params.cause}`
+      : '';
   logger.error(
-    `import.job.failed jobId=${params.jobId} phase=${params.phase} attempt=${params.attempt} reason=${params.reason}`,
+    `import.job.failed jobId=${params.jobId} phase=${params.phase} attempt=${params.attempt} reason=${params.reason}${causeSuffix}`,
   );
 }

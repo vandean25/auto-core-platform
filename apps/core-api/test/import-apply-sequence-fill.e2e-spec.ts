@@ -477,7 +477,7 @@ describe('import apply_seq fill (e2e)', () => {
       { userId: actor.id },
     );
     expect(errorLog).toHaveBeenCalledWith(
-      `import.job.failed jobId=${job.id} phase=dry_run attempt=0 reason=retry_exhausted`,
+      `import.job.failed jobId=${job.id} phase=dry_run attempt=0 reason=retry_exhausted cause=ImportApplyRetryExhaustedError`,
     );
     errorLog.mockRestore();
   });

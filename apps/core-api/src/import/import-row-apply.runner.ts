@@ -10,6 +10,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
   coerceWriteRowToDomainError,
+  describeImportApplyCause,
   ImportApplyRetryExhaustedError,
   ImportDuplicateCreateInJobError,
   resolveImportExternalId,
@@ -60,7 +61,6 @@ import type {
 } from './import-type-handler.js';
 import type { ImportJobTotals } from './import.types.js';
 import {
-  coalesceApplyTotalsWhenGroupByEmpty,
   readImportJobExpectedRowCount,
   tallyImportApplyTotalsFromRows,
 } from './import-apply-persisted-totals.js';
@@ -72,13 +72,6 @@ export type ImportRowWriter = (
   tx: Prisma.TransactionClient,
   row: ImportApplyRow,
 ) => Promise<void>;
-
-function describeCause(error: unknown): string {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code;
-  }
-  return error instanceof Error ? error.name : 'unknown';
-}
 
 function legacyRowTxMaxAttempts(options?: ImportApplyBatchOptions): number {
   if (options?.leaseToken || options?.stopAfterBatch) {
@@ -168,6 +161,7 @@ export class RowByRowApplyRunner {
       guardedWrite,
       failureReason,
       options,
+      describeImportApplyCause(error),
     );
   }
 
@@ -234,15 +228,17 @@ export class RowByRowApplyRunner {
         totals,
         guardedWrite,
       );
+      const appliedTotals =
+        (updatedJob?.totals_json as ImportJobTotals) ?? totals;
       await this.audit.writeImportJobAudit(
         this.prisma,
         tenantId,
         actorUserId,
         job.id,
         'applied',
-        totals,
+        appliedTotals,
       );
-      return this.serialize(updatedJob!, totals);
+      return this.serialize(updatedJob!, appliedTotals);
     });
   }
 
@@ -314,15 +310,12 @@ export class RowByRowApplyRunner {
       }
       const { expectedRows, flaggedJumps } =
         await readImportJobExpectedRowCount(tx, job.tenant_id, jobId);
-      const persistedTotals = coalesceApplyTotalsWhenGroupByEmpty(
-        await tallyImportApplyTotalsFromRows(
-          tx,
-          job.tenant_id,
-          jobId,
-          expectedRows || totals.rows,
-          flaggedJumps,
-        ),
-        totals,
+      const persistedTotals = await tallyImportApplyTotalsFromRows(
+        tx,
+        job.tenant_id,
+        jobId,
+        expectedRows || totals.rows,
+        flaggedJumps,
       );
       const appliedAt = new Date();
       const data = {
@@ -350,6 +343,7 @@ export class RowByRowApplyRunner {
     guardedWrite: boolean,
     failureReason: ImportApplyFailureReason,
     options?: ImportApplyBatchOptions,
+    cause?: string,
   ): Promise<void> {
     const persist = async () => {
       const failurePatch = await mergeImportJobApplyFailureReason(
@@ -387,6 +381,7 @@ export class RowByRowApplyRunner {
           phase: 'apply',
           attempt: job?.attempts_without_progress ?? 0,
           reason: failureReason,
+          cause,
         });
       }
     };
@@ -628,7 +623,7 @@ export class RowByRowApplyRunner {
     error: unknown,
   ): Promise<ImportJobTotals> {
     this.logger.warn(
-      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeImportApplyCause(error)}`,
     );
     const nextTotals = importTotalsAfterApplyRowTally(
       totals,
@@ -862,7 +857,7 @@ export class RowByRowApplyRunner {
       throw error;
     }
     this.logger.warn(
-      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeImportApplyCause(error)}`,
     );
     totals.error += 1;
     await markImportRowFailed(

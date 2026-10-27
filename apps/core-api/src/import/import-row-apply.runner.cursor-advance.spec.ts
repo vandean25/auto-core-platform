@@ -36,24 +36,18 @@ function createWorkerPrisma(worker: ImportJobWorkerState, totalRows: number) {
     skip: 0,
     error: 0,
   };
+  const skipCount = Math.min(IMPORT_APPLY_BATCH_SIZE, totalRows);
+  const errorCount = totalRows - skipCount;
+  const persistedRows = [
+    ...Array.from({ length: skipCount }, () => ({
+      action: ImportRowAction.SKIP,
+    })),
+    ...Array.from({ length: errorCount }, () => ({
+      action: ImportRowAction.ERROR,
+    })),
+  ];
   const importJobRow = {
     update: jest.fn(),
-    groupBy: async () => {
-      const groups = [];
-      if (jobTotals.skip > 0) {
-        groups.push({
-          action: ImportRowAction.SKIP,
-          _count: { _all: jobTotals.skip },
-        });
-      }
-      if (jobTotals.error > 0) {
-        groups.push({
-          action: ImportRowAction.ERROR,
-          _count: { _all: jobTotals.error },
-        });
-      }
-      return groups;
-    },
   };
   const importJob = {
     updateMany: async (args: { data: Record<string, unknown> }) => {
@@ -100,7 +94,7 @@ function createWorkerPrisma(worker: ImportJobWorkerState, totalRows: number) {
       $transaction: async (fn: (tx: unknown) => Promise<void>) => {
         const tx = withApplyPersistedTotalsTransactionClient(
           { importJob, importJobRow },
-          { expectedRows: totalRows },
+          { tenantId: 'tenant-1', expectedRows: totalRows, persistedRows },
         );
         return fn(tx);
       },

@@ -2,6 +2,7 @@ import type { Logger } from '@nestjs/common';
 import { ImportJobStatus } from '@prisma/client';
 import {
   classifyImportApplyError,
+  describeImportApplyCause,
   ImportApplyRetryExhaustedError,
 } from './import-apply.errors.js';
 import type { ImportJobStore } from './import-job.store.js';
@@ -47,6 +48,7 @@ export async function handleImportWorkerAttemptFailure(
         phase: params.phase,
         attempt: job.attempts_without_progress,
         reason: 'retry_exhausted',
+        cause: describeImportApplyCause(error),
       });
     }
     return;
@@ -71,6 +73,7 @@ export async function handleImportWorkerAttemptFailure(
       phase: params.phase,
       attempt: job?.attempts_without_progress ?? 0,
       reason: 'apply_error',
+      cause: describeImportApplyCause(error),
     });
   }
   throw error;

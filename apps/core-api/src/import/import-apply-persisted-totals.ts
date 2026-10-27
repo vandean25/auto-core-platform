@@ -49,27 +49,6 @@ export async function tallyImportApplyTotalsFromRows(
   );
 }
 
-/** Keeps in-memory apply totals when grouped row counts are all zero. */
-export function coalesceApplyTotalsWhenGroupByEmpty(
-  persisted: ImportJobTotals,
-  inMemory: ImportJobTotals,
-): ImportJobTotals {
-  const grouped =
-    persisted.create + persisted.update + persisted.skip + persisted.error;
-  const inMemoryCounted =
-    inMemory.create + inMemory.update + inMemory.skip + inMemory.error;
-  if (grouped === 0 && inMemoryCounted > 0) {
-    return {
-      ...persisted,
-      create: inMemory.create,
-      update: inMemory.update,
-      skip: inMemory.skip,
-      error: inMemory.error,
-    };
-  }
-  return persisted;
-}
-
 export async function readImportJobExpectedRowCount(
   tx: Prisma.TransactionClient,
   tenantId: string,

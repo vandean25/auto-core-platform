@@ -29,7 +29,7 @@ describe('handleImportWorkerAttemptFailure retry_exhausted', () => {
       'apply_error',
     );
     expect(errorLog).toHaveBeenCalledWith(
-      'import.job.failed jobId=job-1 phase=apply attempt=2 reason=apply_error',
+      'import.job.failed jobId=job-1 phase=apply attempt=2 reason=apply_error cause=Error',
     );
     errorLog.mockRestore();
   });
@@ -55,7 +55,7 @@ describe('handleImportWorkerAttemptFailure retry_exhausted', () => {
       new ImportApplyRetryExhaustedError(new Error('P2028')),
     );
     expect(errorLog).toHaveBeenCalledWith(
-      'import.job.failed jobId=job-1 phase=dry_run attempt=2 reason=retry_exhausted',
+      'import.job.failed jobId=job-1 phase=dry_run attempt=2 reason=retry_exhausted cause=ImportApplyRetryExhaustedError',
     );
   });
 });

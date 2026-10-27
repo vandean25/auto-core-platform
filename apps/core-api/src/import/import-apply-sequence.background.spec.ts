@@ -24,6 +24,26 @@ import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 const VEHICLE_ID = 'veh-1';
 const BATCH = 3;
 
+function actionPlanFromRows(rows: ImportApplyRow[]): {
+  creates: number;
+  updates: number;
+  errors: number;
+} {
+  let creates = 0;
+  let updates = 0;
+  let errors = 0;
+  for (const row of rows) {
+    if (row.action === ImportRowAction.CREATE) {
+      creates += 1;
+    } else if (row.action === ImportRowAction.UPDATE) {
+      updates += 1;
+    } else if (row.action === ImportRowAction.ERROR) {
+      errors += 1;
+    }
+  }
+  return { creates, updates, errors };
+}
+
 function plannedRow(
   rowNo: number,
   action: ImportRowAction,
@@ -239,18 +259,6 @@ describe('import apply_seq background apply', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    const { prisma } = createSequenceWorkerPrisma(worker);
-    const runner = new RowByRowApplyRunner(
-      prisma as never,
-      { writeImportJobAudit: jest.fn() } as never,
-      (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
-    );
-    const syncHandler = new TrackingVehiclePartyImportHandler(
-      prisma as never,
-      { writeImportJobAudit: jest.fn() } as never,
-      runner,
-    );
     const totalsJson = {
       rows: allRows.length,
       create: 0,
@@ -258,7 +266,24 @@ describe('import apply_seq background apply', () => {
       skip: 0,
       error: 0,
     };
-    const syncResult = await syncHandler.apply({
+    const rowPlan = actionPlanFromRows(allRows);
+    const { prisma: syncPrisma } = createSequenceWorkerPrisma(
+      worker,
+      totalsJson,
+      rowPlan,
+    );
+    const syncRunner = new RowByRowApplyRunner(
+      syncPrisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const syncHandlerWithPlan = new TrackingVehiclePartyImportHandler(
+      syncPrisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      syncRunner,
+    );
+    const syncResult = await syncHandlerWithPlan.apply({
       tenantId: 'tenant-1',
       job: {
         id: 'job-sync',
@@ -271,13 +296,8 @@ describe('import apply_seq background apply', () => {
       effectiveOptions: {},
       preparation: { vendor: null },
     });
-    const syncWrites = syncHandler.applied.map((row) => row.row_no);
+    const syncWrites = syncHandlerWithPlan.applied.map((row) => row.row_no);
 
-    const bgHandler = new TrackingVehiclePartyImportHandler(
-      prisma as never,
-      { writeImportJobAudit: jest.fn() } as never,
-      runner,
-    );
     const bgWorker: ImportJobWorkerState = {
       phase: 'apply',
       lease_token: 'lease-bg',
@@ -286,7 +306,11 @@ describe('import apply_seq background apply', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    const { prisma: bgPrisma } = createSequenceWorkerPrisma(bgWorker, totalsJson);
+    const { prisma: bgPrisma } = createSequenceWorkerPrisma(
+      bgWorker,
+      totalsJson,
+      rowPlan,
+    );
     const bgRunner = new RowByRowApplyRunner(
       bgPrisma as never,
       { writeImportJobAudit: jest.fn() } as never,
@@ -334,12 +358,7 @@ describe('import apply_seq background apply', () => {
     expect(bgWrites).toEqual(syncWrites);
     expect(new Set(bgWrites).size).toBe(bgWrites.length);
     expect(bgWrites).toContain(51);
-    expect(
-      syncResult.totals.create +
-        syncResult.totals.update +
-        syncResult.totals.error +
-        syncResult.totals.skip,
-    ).toBe(allRows.length);
+    expect(bgTotals).toEqual(syncResult.totals);
   });
 
   it('applies every row across batch size 3 without skipping the gap row', async () => {

@@ -39,15 +39,26 @@ async function totalsFromRowGroupBy(
   return tallied;
 }
 
-function makeCustomerRow(rowNo: number): DryRunRowResult {
+function makeCustomerRow(
+  rowNo: number,
+  action: ImportRowAction = ImportRowAction.CREATE,
+): DryRunRowResult {
   return {
     row_no: rowNo,
     external_id: `ext-${rowNo}`,
-    action: ImportRowAction.CREATE,
+    action,
     entity_id: null,
-    errors: [],
+    errors:
+      action === ImportRowAction.ERROR
+        ? [{ code: 'IMPORT_ROW_ERROR', message: 'planned error' }]
+        : [],
     warnings: [],
-    normalized: { external_id: `ext-${rowNo}` },
+    normalized: {
+      external_id: `ext-${rowNo}`,
+      ...(action === ImportRowAction.CREATE
+        ? { first_name: 'Test', last_name: `User${rowNo}` }
+        : {}),
+    },
   };
 }
 
@@ -120,5 +131,59 @@ describe('import apply final totals (e2e)', () => {
     expect(totals.skip).toBe(grouped.skip);
     expect(totals.error).toBe(grouped.error);
     expect(totals.rows).toBe(3);
+  });
+
+  it('stores APPLIED totals for skip and error rows from groupBy', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const store = new ImportJobStore(prisma);
+    const importService = app.get(ImportService);
+    const actor = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true },
+    });
+    const rows = [
+      makeCustomerRow(1, ImportRowAction.SKIP),
+      makeCustomerRow(2, ImportRowAction.ERROR),
+    ];
+    const job = await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.createDryRunJob({
+          tenantId: tenant.tenantId,
+          entityType: ImportEntityType.CUSTOMER,
+          sourceSystem: 'legacy',
+          fileSha256: 'sha-skip-error-totals',
+          mapping: { external_id: 'external_id' },
+          options: {},
+          totals: { rows: 2, create: 0, update: 0, skip: 1, error: 1 },
+          actorUserId: actor.id,
+          rows,
+        }),
+      { userId: tenant.firebaseUid, email: tenant.email, role: 'ADMIN' },
+    );
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () => importService.applyJob(job.id),
+      { userId: tenant.firebaseUid, email: tenant.email, role: 'ADMIN' },
+    );
+    const applied = await tenantPrisma.importJob.findFirst({
+      where: { id: job.id },
+    });
+    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
+    const totals = applied?.totals_json as ImportJobTotals;
+    const grouped = await totalsFromRowGroupBy(
+      tenantPrisma,
+      tenant.tenantId,
+      job.id,
+    );
+    expect(totals).toMatchObject({
+      rows: 2,
+      create: grouped.create,
+      update: grouped.update,
+      skip: grouped.skip,
+      error: grouped.error,
+    });
+    expect(totals.skip).toBe(1);
+    expect(totals.error).toBe(1);
   });
 });

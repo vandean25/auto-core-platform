@@ -4,7 +4,6 @@ import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import {
-  coalesceApplyTotalsWhenGroupByEmpty,
   readImportJobExpectedRowCount,
   tallyImportApplyTotalsFromRows,
 } from './import-apply-persisted-totals.js';
@@ -130,14 +129,13 @@ export async function commitBackgroundApplyRowInTransaction(
             params.tenantId,
             params.jobId,
           );
-        const persisted = await tallyImportApplyTotalsFromRows(
+        return tallyImportApplyTotalsFromRows(
           tx,
           params.tenantId,
           params.jobId,
           expectedRows,
           flaggedJumps,
         );
-        return coalesceApplyTotalsWhenGroupByEmpty(persisted, totals);
       })()
     : totals;
   const progressed = applyWatermark > (worker.last_committed_apply_seq ?? 0);
