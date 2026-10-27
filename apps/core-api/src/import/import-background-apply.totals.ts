@@ -76,7 +76,18 @@ export async function isBackgroundApplyOutcomeComplete(
     return false;
   }
   if (plannedCreates === 0) {
-    return true;
+    return accounted >= rowCount;
+  }
+  if (typeof db.externalIdMapping.count === 'function') {
+    const createFromMappings = await db.externalIdMapping.count({
+      where: {
+        tenant_id: params.tenantId,
+        first_seen_import_job_id: params.jobId,
+      },
+    });
+    if (createFromMappings + totals.error < plannedCreates) {
+      return false;
+    }
   }
   return totals.create >= plannedCreates || totals.error >= plannedCreates;
 }

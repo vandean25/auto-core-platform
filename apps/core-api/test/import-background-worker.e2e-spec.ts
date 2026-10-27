@@ -215,12 +215,39 @@ describe('Import background worker (e2e)', () => {
       const scope = {
         tenantId: overlapTenant.tenantId,
         prisma: overlapPrisma,
-      } as { tenantId: string; prisma: typeof tenantPrisma };
+      };
       const jobId = await uploadBackgroundJob(
         [
-          ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
-          ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
-          ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
+          [
+            'BG-OVL-1',
+            'PRIVATE',
+            'Erika',
+            'Overlap',
+            'bg-ovl-1@example.com',
+            '',
+            '',
+            'AT',
+          ],
+          [
+            'BG-OVL-2',
+            'PRIVATE',
+            'Franz',
+            'Overlap',
+            'bg-ovl-2@example.com',
+            '',
+            '',
+            'AT',
+          ],
+          [
+            'BG-OVL-3',
+            'PRIVATE',
+            'Gabi',
+            'Overlap',
+            'bg-ovl-3@example.com',
+            '',
+            '',
+            'AT',
+          ],
         ],
         'background-overlap.csv',
         overlapToken,
@@ -233,6 +260,13 @@ describe('Import background worker (e2e)', () => {
         where: { id: jobId },
       });
       expect(beforeApply?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+      const plannedCreates = await overlapPrisma().importJobRow.count({
+        where: {
+          import_job_id: jobId,
+          action: ImportRowAction.CREATE,
+        },
+      });
+      expect(plannedCreates).toBe(3);
 
       await request(app.getHttpServer())
         .post(`/api/imports/${jobId}/apply`)

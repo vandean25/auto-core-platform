@@ -124,6 +124,15 @@ export async function commitBackgroundApplyRowInTransaction(
   };
   const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
   const mergedTotals = mergeMonotonicApplyTotals(storedTotals, params.totals);
+  const mergedWithMappings = await reconcileFinishedApplyTotals(
+    tx,
+    {
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      entityType: job.entity_type,
+    },
+    mergedTotals,
+  );
   const { totals, finished } = await resolveBackgroundApplyFinishState(
     tx,
     {
@@ -133,7 +142,7 @@ export async function commitBackgroundApplyRowInTransaction(
       applyWatermark,
       maxApplySeq: params.maxApplySeq,
     },
-    mergedTotals,
+    mergedWithMappings,
   );
   await tx.importJob.update({
     where: { id: params.jobId },
