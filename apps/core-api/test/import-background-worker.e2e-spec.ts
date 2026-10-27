@@ -693,7 +693,7 @@ describe('Import background worker (e2e)', () => {
         partyHeaders,
         [
           ['BG-P-1', 'BG-VEH-1', 'BG-CUST-B', 'DRIVER', '2020-01-01', '', ''],
-          ['BG-P-2', 'BG-VEH-1', 'BG-CUST-B', 'DRIVER', '2021-01-01', '', ''],
+          ['BG-P-2', 'BG-VEH-1', 'BG-CUST-A', 'DRIVER', '2021-01-01', '', ''],
           ['BG-P-3', 'BG-VEH-1', 'BG-CUST-A', 'OWNER', '2024-01-01', '', ''],
         ],
         ',',
