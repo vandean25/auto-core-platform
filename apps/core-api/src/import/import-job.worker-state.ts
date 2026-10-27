@@ -2,9 +2,10 @@ import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 
 export type ImportWorkerPhase = 'dry_run' | 'apply';
 
-export type ImportDryRunReconcileRange = {
-  from_row: number;
-  to_row: number;
+export type ImportDryRunReconcileUnit = {
+  context_from_row: number;
+  context_to_row: number;
+  replan_row_nos: number[];
 };
 
 export type ImportJobWorkerState = {
@@ -20,14 +21,30 @@ export type ImportJobWorkerState = {
   /** After row batches finish, cross-batch duplicate reconcile runs before dry-run completion. */
   dry_run_reconcile_active?: boolean;
   dry_run_reconcile_cursor?: number;
-  dry_run_reconcile_ranges?: ImportDryRunReconcileRange[];
+  dry_run_reconcile_units?: ImportDryRunReconcileUnit[];
+  dry_run_reconcile_target_cursor?: number;
 };
+
+export function importDryRunReconcileProgress(
+  worker: ImportJobWorkerState,
+): number {
+  const units = worker.dry_run_reconcile_units ?? [];
+  const unitIndex = worker.dry_run_reconcile_cursor ?? 0;
+  let done = 0;
+  for (let index = 0; index < unitIndex && index < units.length; index++) {
+    done += units[index].replan_row_nos.length;
+  }
+  if (unitIndex < units.length) {
+    done += worker.dry_run_reconcile_target_cursor ?? 0;
+  }
+  return done;
+}
 
 export function importWorkerProgressCursor(
   worker: ImportJobWorkerState,
 ): number {
   if (worker.dry_run_reconcile_active) {
-    return worker.dry_run_reconcile_cursor ?? 0;
+    return importDryRunReconcileProgress(worker);
   }
   if (worker.phase === 'apply') {
     return worker.last_committed_apply_seq ?? 0;

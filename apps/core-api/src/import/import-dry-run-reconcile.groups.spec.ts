@@ -33,6 +33,30 @@ describe('computeImportDryRunReconcileRanges', () => {
     expect(ranges).toEqual([]);
   });
 
+  it('returns units with only duplicate row numbers, not filler rows between far-apart duplicates', async () => {
+    const prisma = prismaWithRows([
+      { row_no: 1, external_id: 'far' },
+      { row_no: 21_000, external_id: 'far' },
+    ]);
+    const units = await computeImportDryRunReconcileRanges(prisma, {
+      tenantId,
+      jobId,
+      entityType: ImportEntityType.CUSTOMER,
+      batchSize: 500,
+    });
+    expect(units).toEqual([{ from_row: 1, to_row: 21_000 }]);
+    const { computeImportDryRunReconcileUnits } = await import(
+      './import-dry-run-reconcile.units.js'
+    );
+    const reconcileUnits = await computeImportDryRunReconcileUnits(prisma, {
+      tenantId,
+      jobId,
+      entityType: ImportEntityType.CUSTOMER,
+      batchSize: 500,
+    });
+    expect(reconcileUnits[0].replan_row_nos).toEqual([1, 21_000]);
+  });
+
   it('merges overlapping reconcile windows for cross-batch duplicates', async () => {
     const prisma = prismaWithRows([
       { row_no: 10, external_id: 'a' },

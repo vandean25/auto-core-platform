@@ -97,9 +97,11 @@ import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
   IMPORT_LOGGER_CONTEXT,
   IMPORT_APPLY_BATCH_SIZE,
-  IMPORT_WORKER_BATCH_SIZE,
 } from './import.constants.js';
-import { readImportSyncMaxRowCount } from './import-limits.js';
+import {
+  readImportSyncMaxRowCount,
+  readImportWorkerBatchSize,
+} from './import-limits.js';
 import { computeDryRunTotals } from './import-totals.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
@@ -790,14 +792,6 @@ export class ImportService {
       this.handlers[job.entity_type as ImplementedImportEntityType];
     const mapping = job.mapping_json as Record<string, string>;
     const totals = job.totals_json as ImportJobTotals;
-    const startOffset = worker.processed_rows;
-    const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
-    const parsedBatch = await readImportCsvDataRowSlice(
-      this.fileStorage.openReadStream(upload),
-      startOffset,
-      IMPORT_WORKER_BATCH_SIZE,
-      job.file_sha256,
-    );
     if (worker.dry_run_reconcile_active) {
       await runBackgroundDryRunReconcileChunk({
         jobStore: this.jobStore,
@@ -820,6 +814,15 @@ export class ImportService {
       });
       return;
     }
+    const startOffset = worker.processed_rows;
+    const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
+    const workerBatchSize = readImportWorkerBatchSize();
+    const parsedBatch = await readImportCsvDataRowSlice(
+      this.fileStorage.openReadStream(upload),
+      startOffset,
+      workerBatchSize,
+      job.file_sha256,
+    );
     if (!parsedBatch || parsedBatch.rows.length === 0) {
       const processedRows = worker.processed_rows ?? 0;
       if (processedRows >= totals.rows) {
@@ -916,7 +919,7 @@ export class ImportService {
     }
     let finalTotals = totalsOverride ?? (job.totals_json as ImportJobTotals);
     if (handler.finishCreate) {
-      const pageSize = IMPORT_WORKER_BATCH_SIZE;
+      const pageSize = readImportWorkerBatchSize();
       let skip = 0;
       while (true) {
         const [batch] = await this.jobStore.findRowsPage(
@@ -950,10 +953,27 @@ export class ImportService {
     }
     const optionsForPersist = { ...options };
     delete (optionsForPersist as { worker?: unknown }).worker;
-    await this.jobStore.finishDryRunIfStillApplying(tenantId, jobId, {
-      totals_json: finalTotals,
-      options_json: optionsForPersist,
-    });
+    const finished = await this.jobStore.finishDryRunIfStillApplying(
+      tenantId,
+      jobId,
+      {
+        totals_json: finalTotals,
+        options_json: optionsForPersist,
+      },
+    );
+    if (finished.count === 0 && job.status === ImportJobStatus.DRY_RUN_DONE) {
+      await this.prisma.importJob.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: jobId,
+          status: ImportJobStatus.DRY_RUN_DONE,
+        },
+        data: {
+          totals_json: finalTotals,
+          options_json: optionsForPersist,
+        },
+      });
+    }
   }
 
   private async runBackgroundApplyBatch(

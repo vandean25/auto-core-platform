@@ -183,6 +183,50 @@ describe('Import background worker (e2e)', () => {
     return response.body.id as string;
   }
 
+  it('resumes reconcile after a partial worker chunk and finishes dry-run', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['BG-RES-1', 'PRIVATE', 'A', 'One', 'resume@example.com', '', '', 'AT'],
+      ['BG-RES-2', 'PRIVATE', 'B', 'Two', 'other2@example.com', '', '', 'AT'],
+      ['BG-RES-3', 'PRIVATE', 'C', 'Three', 'other3@example.com', '', '', 'AT'],
+      ['BG-RES-4', 'PRIVATE', 'D', 'Four', 'resume@example.com', '', '', 'AT'],
+    ]);
+
+    await deliverWorker(jobId, 'dry_run').expect(204);
+    await deliverWorker(jobId, 'dry_run').expect(204);
+    const mid = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    const midWorker = (mid?.options_json as { worker?: { dry_run_reconcile_active?: boolean } })
+      .worker;
+    expect(midWorker?.dry_run_reconcile_active).toBe(true);
+
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const totals = dryRunDone?.totals_json as { error: number };
+    expect(totals.error).toBe(1);
+  });
+
+  it('reconciles far-apart duplicate email without loading the full row span', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['BG-FAR-1', 'PRIVATE', 'A', 'One', 'far@example.com', '', '', 'AT'],
+      ['BG-FAR-2', 'PRIVATE', 'B', 'Two', 'other@example.com', '', '', 'AT'],
+      ['BG-FAR-3', 'PRIVATE', 'C', 'Three', 'third@example.com', '', '', 'AT'],
+      ['BG-FAR-4', 'PRIVATE', 'D', 'Two', 'fourth@example.com', '', '', 'AT'],
+      ['BG-FAR-5', 'PRIVATE', 'E', 'Five', 'far@example.com', '', '', 'AT'],
+    ]);
+
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const rows = await tenantPrisma().importJobRow.findMany({
+      where: { import_job_id: jobId },
+      orderBy: { row_no: 'asc' },
+    });
+    expect(rows[4].action).toBe(ImportRowAction.ERROR);
+    expect(JSON.stringify(rows[4].errors_json)).toContain(
+      'Duplicate email in file (first seen on row 1)',
+    );
+  });
+
   it('reconciles cross-batch duplicate email to match sync dry-run', async () => {
     const jobId = await uploadBackgroundJob([
       ['BG-DUP-1', 'PRIVATE', 'Erika', 'Eins', 'dup@example.com', '', '', 'AT'],

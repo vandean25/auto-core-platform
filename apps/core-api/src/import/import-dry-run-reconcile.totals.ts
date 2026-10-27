@@ -1,5 +1,4 @@
-import { ImportRowAction, Prisma } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service.js';
+import { ImportRowAction, type Prisma } from '@prisma/client';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { ImportJobTotals } from './import.types.js';
 
@@ -16,7 +15,7 @@ function isPriceJumpFlagged(normalized: Prisma.JsonValue | null): boolean {
 
 /** Recomputes dry-run totals from persisted import_job_rows after reconcile overwrites. */
 export async function tallyImportDryRunTotalsFromRows(
-  prisma: PrismaService,
+  prisma: Prisma.TransactionClient,
   tenantId: string,
   jobId: string,
   expectedRows: number,

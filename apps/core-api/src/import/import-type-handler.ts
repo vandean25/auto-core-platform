@@ -34,6 +34,8 @@ export type ImportApplyPreparation = { vendor: VendorRef | null };
 export type ImportDryRunPlanBudget = {
   deadlineMs: number;
   rowNoOffset: number;
+  /** When set, file row numbers for each parsed.rows index (sparse reconcile replans). */
+  rowNumbers?: number[];
   nowMs?: () => number;
   /** Test hook invoked after each planned row. */
   onAfterRowPlanned?: () => void;

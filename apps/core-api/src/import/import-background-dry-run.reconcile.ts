@@ -1,15 +1,14 @@
-import { ImportEntityType, ImportJobStatus } from '@prisma/client';
-import type { DryRunRowResult, ImportJobTotals } from './import.types.js';
+import type { ImportEntityType } from '@prisma/client';
+import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobStore } from './import-job.store.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
-import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
 import type { ImportFileStorageService } from './import-file.storage.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { IMPORT_WORKER_BATCH_SIZE } from './import.constants.js';
+import { readImportWorkerBatchSize } from './import-limits.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
-import { computeImportDryRunReconcileRanges } from './import-dry-run-reconcile.groups.js';
-import { tallyImportDryRunTotalsFromRows } from './import-dry-run-reconcile.totals.js';
+import { computeImportDryRunReconcileUnits } from './import-dry-run-reconcile.units.js';
+import { replanImportDryRunUnitChunk } from './import-dry-run-reconcile.replan.js';
 import {
   enqueueImportWorkerContinuation,
   importWorkerTaskClaimSeqForHandoff,
@@ -17,6 +16,55 @@ import {
   type ImportWorkerFlowDeps,
 } from './import-worker.flow.js';
 import { readUploadRef } from './import-job.worker-state.js';
+
+function advanceAfterChunk(
+  worker: NonNullable<ImportJobOptionsWithWorker['worker']>,
+  nextTargetIndex: number,
+) {
+  let unitIndex = worker.dry_run_reconcile_cursor ?? 0;
+  let targetIndex = nextTargetIndex;
+  const units = worker.dry_run_reconcile_units ?? [];
+  while (
+    unitIndex < units.length &&
+    targetIndex >= units[unitIndex].replan_row_nos.length
+  ) {
+    unitIndex += 1;
+    targetIndex = 0;
+  }
+  return {
+    dry_run_reconcile_cursor: unitIndex,
+    dry_run_reconcile_target_cursor: targetIndex,
+  };
+}
+
+export async function finalizeBackgroundDryRunReconcileIfComplete(params: {
+  jobStore: ImportJobStore;
+  tenantId: string;
+  jobId: string;
+  options: ImportJobOptionsWithWorker;
+  leaseToken: string;
+  expectedRows: number;
+  completeDryRun: (totals: ImportJobTotals) => Promise<void>;
+}): Promise<boolean> {
+  const worker = params.options.worker;
+  const units = worker?.dry_run_reconcile_units ?? [];
+  const unitIndex = worker?.dry_run_reconcile_cursor ?? 0;
+  if (!worker?.dry_run_reconcile_active || unitIndex < units.length) {
+    return false;
+  }
+  const finalized = await params.jobStore.finalizeBackgroundDryRunReconcile(
+    params.tenantId,
+    params.jobId,
+    params.leaseToken,
+    params.expectedRows,
+    params.options,
+  );
+  if (!finalized) {
+    return false;
+  }
+  await params.completeDryRun(finalized.totals);
+  return true;
+}
 
 export async function scheduleBackgroundDryRunAfterRowBatches(params: {
   jobStore: ImportJobStore;
@@ -33,20 +81,20 @@ export async function scheduleBackgroundDryRunAfterRowBatches(params: {
   if (!leaseToken) {
     return;
   }
-  const ranges = await computeImportDryRunReconcileRanges(params.prisma, {
+  const units = await computeImportDryRunReconcileUnits(params.prisma, {
     tenantId: params.tenantId,
     jobId: params.jobId,
     entityType: params.entityType,
-    batchSize: IMPORT_WORKER_BATCH_SIZE,
+    batchSize: readImportWorkerBatchSize(),
   });
-  if (ranges.length === 0) {
+  if (units.length === 0) {
     await params.completeDryRun();
     return;
   }
   const began = await params.jobStore.beginBackgroundDryRunReconcile(
     params.tenantId,
     params.jobId,
-    ranges,
+    units,
     params.options,
     leaseToken,
   );
@@ -98,59 +146,79 @@ export async function runBackgroundDryRunReconcileChunk(params: {
   const worker = params.options.worker;
   const upload = readUploadRef(params.options);
   const leaseToken = worker?.lease_token;
-  const ranges = worker?.dry_run_reconcile_ranges ?? [];
-  const startCursor = worker?.dry_run_reconcile_cursor ?? 0;
+  const units = worker?.dry_run_reconcile_units ?? [];
   if (!worker || !upload || !leaseToken || !worker.dry_run_reconcile_active) {
     return;
   }
-  const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
-  const mapping = params.job.mapping_json as Record<string, string>;
-  const totals = params.job.totals_json as ImportJobTotals;
-  const replanned: DryRunRowResult[] = [];
-  let cursor = startCursor;
-  while (cursor < ranges.length && Date.now() < chunkDeadlineMs) {
-    const range = ranges[cursor];
-    const rowCount = range.to_row - range.from_row + 1;
-    const parsed = await readImportCsvDataRowSlice(
-      params.fileStorage.openReadStream(upload),
-      range.from_row - 1,
-      rowCount,
-      params.job.file_sha256,
-    );
-    if (!parsed || parsed.rows.length === 0) {
-      cursor += 1;
-      continue;
-    }
-    const rows = await params.handler.planDryRun(
-      {
-        tenantId: params.tenantId,
-        sourceSystem: params.job.source_system,
-        mapping,
-        options: params.options,
-        planBudget: {
-          deadlineMs: chunkDeadlineMs,
-          rowNoOffset: range.from_row,
-        },
-      },
-      parsed,
-    );
-    replanned.push(...rows);
-    cursor += 1;
-  }
 
-  if (cursor === startCursor) {
+  const totals = params.job.totals_json as ImportJobTotals;
+  if (
+    await finalizeBackgroundDryRunReconcileIfComplete({
+      jobStore: params.jobStore,
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      options: params.options,
+      leaseToken,
+      expectedRows: totals.rows,
+      completeDryRun: params.completeDryRun,
+    })
+  ) {
     return;
   }
 
-  const appended = await params.jobStore.overwriteDryRunRows(
+  const unitIndex = worker.dry_run_reconcile_cursor ?? 0;
+  const targetIndex = worker.dry_run_reconcile_target_cursor ?? 0;
+  if (unitIndex >= units.length) {
+    return;
+  }
+
+  const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
+  const mapping = params.job.mapping_json as Record<string, string>;
+  const batchSize = readImportWorkerBatchSize();
+
+  const { rows, nextTargetIndex } = await replanImportDryRunUnitChunk({
+    prisma: params.prisma,
+    fileStorage: params.fileStorage,
+    upload,
+    fileSha256: params.job.file_sha256,
+    tenantId: params.tenantId,
+    jobId: params.jobId,
+    handler: params.handler,
+    input: {
+      tenantId: params.tenantId,
+      sourceSystem: params.job.source_system,
+      mapping,
+      options: params.options,
+    },
+    unit: units[unitIndex],
+    targetStartIndex: targetIndex,
+    batchSize,
+    deadlineMs: chunkDeadlineMs,
+  });
+
+  if (rows.length === 0 && nextTargetIndex === targetIndex) {
+    return;
+  }
+
+  const cursorPatch = advanceAfterChunk(worker, nextTargetIndex);
+  const unitDone = cursorPatch.dry_run_reconcile_cursor ?? 0;
+  const shouldFinalize = unitDone >= units.length;
+
+  const persisted = await params.jobStore.persistDryRunReconcileChunk(
     params.tenantId,
     params.jobId,
-    replanned,
-    { dry_run_reconcile_cursor: cursor },
+    rows,
+    cursorPatch,
     params.options,
     leaseToken,
+    shouldFinalize
+      ? {
+          expectedRows: totals.rows,
+          optionsForPersist: stripWorker(params.options),
+        }
+      : undefined,
   );
-  if (!appended) {
+  if (!persisted) {
     await requeueImportWorkerAfterLeaseSkip(params.flow, {
       tenantId: params.tenantId,
       jobId: params.jobId,
@@ -159,22 +227,8 @@ export async function runBackgroundDryRunReconcileChunk(params: {
     return;
   }
 
-  if (cursor >= ranges.length) {
-    const finalTotals = await tallyImportDryRunTotalsFromRows(
-      params.prisma,
-      params.tenantId,
-      params.jobId,
-      totals.rows,
-    );
-    await params.prisma.importJob.updateMany({
-      where: {
-        tenant_id: params.tenantId,
-        id: params.jobId,
-        status: ImportJobStatus.APPLYING,
-      },
-      data: { totals_json: finalTotals },
-    });
-    await params.completeDryRun(finalTotals);
+  if (shouldFinalize) {
+    await params.completeDryRun(persisted.totals);
     return;
   }
 
@@ -182,9 +236,17 @@ export async function runBackgroundDryRunReconcileChunk(params: {
     tenantId: params.tenantId,
     jobId: params.jobId,
     phase: 'dry_run',
-    claimSeq: appended.worker_claim_seq,
-    recoverySeq: appended.worker_recovery_seq,
-    chunkSeq: cursor,
-    taskClaimSeq: importWorkerTaskClaimSeqForHandoff(appended.worker_claim_seq),
+    claimSeq: persisted.job.worker_claim_seq,
+    recoverySeq: persisted.job.worker_recovery_seq,
+    chunkSeq: cursorPatch.dry_run_reconcile_cursor ?? 0,
+    taskClaimSeq: importWorkerTaskClaimSeqForHandoff(
+      persisted.job.worker_claim_seq,
+    ),
   });
+}
+
+function stripWorker(options: ImportJobOptionsWithWorker): ImportJobOptions {
+  const copy = { ...options };
+  delete (copy as { worker?: unknown }).worker;
+  return copy;
 }

@@ -298,27 +298,40 @@ export class RowByRowApplyRunner {
     });
   }
 
-  private async hasSiblingCreateRowInJob(
+  private async earliestCommittedCreateRowNoInJob(
     input: ImportApplyInput,
     row: ImportApplyRow,
     db: Prisma.TransactionClient | PrismaService,
-  ): Promise<boolean> {
+  ): Promise<number | null> {
     const payload = row.normalized_json as Record<string, unknown>;
     const externalId = resolveImportExternalId(payload, row.external_id);
     if (!externalId) {
-      return false;
+      return null;
     }
-    const sibling = await db.importJobRow.findFirst({
+    const earliest = await db.importJobRow.findFirst({
       where: {
         tenant_id: input.tenantId,
         import_job_id: input.job.id,
         external_id: externalId,
-        row_no: { not: row.row_no },
         action: ImportRowAction.CREATE,
       },
+      orderBy: { row_no: 'asc' },
       select: { row_no: true },
     });
-    return sibling !== null;
+    return earliest?.row_no ?? null;
+  }
+
+  private async isDuplicateCreateAfterAnotherRowCommitted(
+    input: ImportApplyInput,
+    row: ImportApplyRow,
+    db: Prisma.TransactionClient | PrismaService,
+  ): Promise<boolean> {
+    const earliest = await this.earliestCommittedCreateRowNoInJob(
+      input,
+      row,
+      db,
+    );
+    return earliest !== null && earliest !== row.row_no;
   }
 
   private async isCreateAlreadyCommittedByJob(
@@ -542,7 +555,7 @@ export class RowByRowApplyRunner {
       row.action === ImportRowAction.CREATE &&
       (await this.isCreateAlreadyCommittedByJob(input, entityType, row, tx))
     ) {
-      if (await this.hasSiblingCreateRowInJob(input, row, tx)) {
+      if (await this.isDuplicateCreateAfterAnotherRowCommitted(input, row, tx)) {
         throw new ImportDuplicateCreateInJobError();
       }
       return 'noop';
@@ -582,7 +595,13 @@ export class RowByRowApplyRunner {
         row.action === ImportRowAction.CREATE &&
         (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
       ) {
-        if (await this.hasSiblingCreateRowInJob(input, row, this.prisma)) {
+        if (
+          await this.isDuplicateCreateAfterAnotherRowCommitted(
+            input,
+            row,
+            this.prisma,
+          )
+        ) {
           totals.error += 1;
           await markImportRowFailed(
             this.prisma,
