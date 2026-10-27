@@ -79,7 +79,6 @@ describe('import apply final totals (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const store = new ImportJobStore(prisma);
     const importService = app.get(ImportService);
-    const requestContext = app.get(RequestContextService);
     const actor = await prisma.user.findFirstOrThrow({
       where: { firebaseUid: tenant.firebaseUid },
       select: { id: true },

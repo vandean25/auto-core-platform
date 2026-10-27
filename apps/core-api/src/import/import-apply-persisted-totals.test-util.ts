@@ -28,10 +28,7 @@ export function withApplyPersistedTotalsTransactionClient(
   const actionCounts = new Map<ImportRowAction, number>();
   if (defaults?.persistedRows?.length) {
     for (const row of defaults.persistedRows) {
-      actionCounts.set(
-        row.action,
-        (actionCounts.get(row.action) ?? 0) + 1,
-      );
+      actionCounts.set(row.action, (actionCounts.get(row.action) ?? 0) + 1);
     }
   }
   const existingRowClient = (tx.importJobRow ?? {}) as Record<string, unknown>;
