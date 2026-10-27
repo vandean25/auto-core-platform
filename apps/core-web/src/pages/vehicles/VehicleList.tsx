@@ -16,6 +16,7 @@ import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
 import { VehiclePeekSheet } from '@/features/peek/VehiclePeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useVehicleListRowBehaviour } from './useVehicleListRowBehaviour'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 type VehicleRow = VehicleListRow & {
   year: number
@@ -118,8 +119,8 @@ export default function VehicleList() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className={PAGE_HEADER_ROW}>
+        <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('list.title')}</h1>
           <p className="text-slate-500">{t('list.description')}</p>
         </div>
