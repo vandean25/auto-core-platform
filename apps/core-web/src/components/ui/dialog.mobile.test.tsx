@@ -39,6 +39,19 @@ describe('DialogContent mobile foundations', () => {
     expect(body?.className).toContain('overflow-y-auto')
   })
 
+  it('keeps the title clear of the close button on a phone', () => {
+    render(
+      <Dialog open>
+        <DialogContent fullScreenOnPhone aria-describedby={undefined}>
+          <DialogTitle>Long title next to the close button</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    )
+
+    expect(screen.getByText('Long title next to the close button').className).toContain('max-sm:pr-12')
+    expect(screen.getByRole('dialog').className).toContain('max-sm:[&>button:first-of-type]:right-2')
+  })
+
   it('keeps DialogHeader outside the scroll region', () => {
     render(
       <Dialog open>

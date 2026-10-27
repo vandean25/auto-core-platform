@@ -171,7 +171,7 @@ export function StockTransferCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent fullScreenOnPhone className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('inventory:stockTransfers.create.title')}</DialogTitle>
         </DialogHeader>

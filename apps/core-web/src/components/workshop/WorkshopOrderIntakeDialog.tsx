@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -212,25 +213,31 @@ export function WorkshopOrderIntakeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent fullScreenOnPhone className="flex flex-col overflow-hidden sm:max-w-4xl">
         {open && !workshopNamespaceReady ? (
           <PageLoader />
         ) : (
           <>
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t('orderIntake.title')}</DialogTitle>
           <DialogDescription>
             {pickerlMode ? t('orderIntake.descriptionPickerl') : t('orderIntake.description')}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="dialog-body min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pr-1">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as IntakeTab)}>
             {!pickerlMode ? (
-              <TabsList>
-                <TabsTrigger value="existing">{t('orderIntake.tabExisting')}</TabsTrigger>
-                <TabsTrigger value="new-vehicle">{t('orderIntake.tabNewVehicle')}</TabsTrigger>
-                <TabsTrigger value="registration-document">{t('orderIntake.tabRegistration')}</TabsTrigger>
+              <TabsList className="grid h-auto w-full grid-cols-1 sm:inline-flex sm:h-9 sm:w-auto">
+                <TabsTrigger value="existing" className="max-sm:min-h-11">
+                  {t('orderIntake.tabExisting')}
+                </TabsTrigger>
+                <TabsTrigger value="new-vehicle" className="max-sm:min-h-11">
+                  {t('orderIntake.tabNewVehicle')}
+                </TabsTrigger>
+                <TabsTrigger value="registration-document" className="max-sm:min-h-11">
+                  {t('orderIntake.tabRegistration')}
+                </TabsTrigger>
               </TabsList>
             ) : null}
 
@@ -475,8 +482,9 @@ export function WorkshopOrderIntakeDialog({
               </AlertDescription>
             </Alert>
           ) : null}
+        </div>
 
-          <div className="flex justify-end gap-2">
+        <DialogFooter className="shrink-0">
             <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
               {t('orderIntake.cancel')}
             </Button>
@@ -496,8 +504,7 @@ export function WorkshopOrderIntakeDialog({
                   ? t('orderIntake.createPickerl')
                   : t('orderIntake.createOrder')}
             </Button>
-          </div>
-        </div>
+        </DialogFooter>
           </>
         )}
       </DialogContent>
