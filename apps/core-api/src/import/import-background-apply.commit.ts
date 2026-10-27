@@ -1,8 +1,63 @@
-import { ImportJobStatus } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import {
+  ImportJobStatus,
+  ImportRowAction,
+  type ImportEntityType,
+  type Prisma,
+} from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
+function mergeMonotonicApplyTotals(
+  storedTotals: ImportJobTotals,
+  nextTotals: ImportJobTotals,
+): ImportJobTotals {
+  return {
+    ...nextTotals,
+    rows: Math.max(storedTotals.rows ?? 0, nextTotals.rows ?? 0),
+    create: Math.max(storedTotals.create ?? 0, nextTotals.create ?? 0),
+    update: Math.max(storedTotals.update ?? 0, nextTotals.update ?? 0),
+    skip: Math.max(storedTotals.skip ?? 0, nextTotals.skip ?? 0),
+    error: Math.max(storedTotals.error ?? 0, nextTotals.error ?? 0),
+  };
+}
+
+async function reconcileFinishedApplyTotals(
+  tx: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    jobId: string;
+    entityType: ImportEntityType;
+  },
+  totals: ImportJobTotals,
+): Promise<ImportJobTotals> {
+  if (
+    typeof tx.externalIdMapping.count !== 'function' ||
+    typeof tx.importJobRow.count !== 'function'
+  ) {
+    return totals;
+  }
+  const [createFromMappings, errorRows] = await Promise.all([
+    tx.externalIdMapping.count({
+      where: {
+        tenant_id: params.tenantId,
+        first_seen_import_job_id: params.jobId,
+        entity_type: params.entityType,
+      },
+    }),
+    tx.importJobRow.count({
+      where: {
+        tenant_id: params.tenantId,
+        import_job_id: params.jobId,
+        action: ImportRowAction.ERROR,
+      },
+    }),
+  ]);
+  return {
+    ...totals,
+    create: Math.max(totals.create, createFromMappings),
+    error: Math.max(totals.error, errorRows),
+  };
+}
 
 export async function assertApplyWorkerLease(
   tx: Prisma.TransactionClient,
@@ -61,10 +116,23 @@ export async function commitBackgroundApplyRowInTransaction(
     last_committed_apply_seq: params.applySeq,
     processed_rows: params.applySeq,
   };
+  const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
+  let totals = mergeMonotonicApplyTotals(storedTotals, params.totals);
+  if (finished) {
+    totals = await reconcileFinishedApplyTotals(
+      tx,
+      {
+        tenantId: params.tenantId,
+        jobId: params.jobId,
+        entityType: job.entity_type,
+      },
+      totals,
+    );
+  }
   await tx.importJob.update({
     where: { id: params.jobId },
     data: {
-      totals_json: params.totals,
+      totals_json: totals,
       options_json: { ...options, worker: workerNext },
       ...(finished
         ? {

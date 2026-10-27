@@ -276,10 +276,11 @@ export class RowByRowApplyRunner {
     input: ImportApplyInput,
     entityType: ImportEntityType,
     row: ImportApplyRow,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<boolean> {
     const payload = row.normalized_json as Record<string, unknown>;
     const externalId = resolveImportExternalId(payload, row.external_id);
-    const mapping = await this.prisma.externalIdMapping.findFirst({
+    const mapping = await db.externalIdMapping.findFirst({
       where: {
         tenant_id: input.tenantId,
         entity_type: entityType,
@@ -490,7 +491,7 @@ export class RowByRowApplyRunner {
     }
     if (
       row.action === ImportRowAction.CREATE &&
-      (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
+      (await this.isCreateAlreadyCommittedByJob(input, entityType, row, tx))
     ) {
       return 'noop';
     }
