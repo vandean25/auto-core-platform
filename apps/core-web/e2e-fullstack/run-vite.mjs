@@ -11,7 +11,7 @@ const apiPort = process.env.E2E_FULLSTACK_API_PORT ?? '3100'
 
 const child = spawn(
   'npx',
-  ['vite', '--port', webPort, '--strictPort'],
+  ['vite', '--host', '127.0.0.1', '--port', webPort, '--strictPort'],
   {
     cwd: webRoot,
     stdio: 'inherit',

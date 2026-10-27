@@ -147,7 +147,7 @@ try {
     INVOICE_BRANDING_WRITER_ENABLED: 'true',
     INVOICE_PDF_BUCKET: 'e2e-fullstack-invoice-pdf',
     E2E_FULLSTACK_IN_MEMORY_PDF: 'true',
-    FRONTEND_URL: `http://localhost:${webPort}`,
+    FRONTEND_URL: `http://127.0.0.1:${webPort}`,
   }
 
   spawnDetached(process.execPath, ['dist/main.js'], {
@@ -167,7 +167,7 @@ try {
   writeFileSync(pidFile, `${JSON.stringify(childPids)}\n`, 'utf8')
 
   await waitForUrl(`http://127.0.0.1:${apiPort}/api/health`)
-  await waitForUrl(`http://localhost:${webPort}`)
+  await waitForUrl(`http://127.0.0.1:${webPort}`)
 
   const playwright = spawnSync(
     process.execPath,

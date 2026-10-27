@@ -19,6 +19,12 @@ jobs:
     name: Full-stack Playwright (nightly / manual)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     services:
       postgres:
         # Docker Hub mirror: avoids the anonymous Docker Hub pull rate limit on shared runners
@@ -51,12 +57,13 @@ jobs:
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
-      - name: Install Playwright browsers
-        run: npm exec --workspace=core-api -- playwright install --with-deps chromium
+
+      - name: Verify full-stack Vite host
+        run: node --test apps/core-web/e2e-fullstack/run-vite.test.mjs
 
       - name: Run full-stack Playwright harness
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
+          DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auto_core_test
           CI: true
         run: npm run test:e2e:fullstack --workspace=core-web
 

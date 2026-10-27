@@ -12,6 +12,12 @@ const BUILD_WORKFLOW_PATH = path.join(
   'workflows',
   'build.yaml',
 );
+const FULLSTACK_WORKFLOW_PATH = path.join(
+  REPO_ROOT,
+  '.github',
+  'workflows',
+  'e2e-fullstack.yaml',
+);
 
 interface PackageManifest {
   engines?: {
@@ -80,6 +86,18 @@ describe('Production image version pins (AUT-167)', () => {
     for (const tag of tags) {
       expect(tag).toBe(readPlaywrightVersionFromLockfile());
     }
+  });
+
+  it('pins the nightly full-stack Playwright harness container to the lockfile version', () => {
+    const workflow = fs.readFileSync(FULLSTACK_WORKFLOW_PATH, 'utf8');
+    const tags = [
+      ...workflow.matchAll(
+        /^\s*image: mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble\s*$/gm,
+      ),
+    ].map((match) => match[1]);
+
+    expect(tags).toHaveLength(1);
+    expect(tags[0]).toBe(readPlaywrightVersionFromLockfile());
   });
 
   it('copies repo-root locales into the builder stage after npm ci', () => {

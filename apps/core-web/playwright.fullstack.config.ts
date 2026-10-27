@@ -18,7 +18,7 @@ export default defineConfig({
     ? [['github'], ['html', { open: 'never' }]]
     : 'html',
   use: {
-    baseURL: `http://localhost:${E2E_FULLSTACK_WEB_PORT}`,
+    baseURL: `http://127.0.0.1:${E2E_FULLSTACK_WEB_PORT}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',
