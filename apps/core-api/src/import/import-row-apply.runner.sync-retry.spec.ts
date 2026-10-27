@@ -65,7 +65,19 @@ function createSyncPrisma(
       totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 0 },
       attempts_without_progress: 0,
     })),
-    update: jest.fn(async (args: { data: { status?: ImportJobStatus } }) => {
+    update: jest.fn(
+      async (args: {
+        data: {
+          status?: ImportJobStatus;
+          totals_json?: {
+            rows: number;
+            create: number;
+            update: number;
+            skip: number;
+            error: number;
+          };
+        };
+      }) => {
       jobUpdates.push(args);
       if (args.data.status) {
         jobStatus = args.data.status;

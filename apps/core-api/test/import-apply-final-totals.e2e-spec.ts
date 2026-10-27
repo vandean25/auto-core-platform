@@ -21,7 +21,7 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 
 async function totalsFromRowGroupBy(
-  prisma: ReturnType<typeof createTenantAwarePrisma>,
+  prisma: ReturnType<typeof createTenantAwarePrisma<PrismaService>>,
   tenantId: string,
   jobId: string,
 ): Promise<Pick<ImportJobTotals, 'create' | 'update' | 'skip' | 'error'>> {
