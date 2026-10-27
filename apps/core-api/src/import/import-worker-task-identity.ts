@@ -7,6 +7,7 @@ export type ImportWorkerTaskIdentity = {
   chunkSeq: number;
   claimSeq: number;
   recoverySeq: number;
+  enqueueSeq: number;
 };
 
 export function deterministicImportWorkerTaskId(
@@ -20,6 +21,7 @@ export function deterministicImportWorkerTaskId(
         identity.chunkSeq,
         identity.claimSeq,
         identity.recoverySeq,
+        identity.enqueueSeq,
       ].join(':'),
     )
     .digest('hex');

@@ -8,6 +8,8 @@ import { ImportCloudTasksService } from '../src/import/import-cloud-tasks.servic
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import { ImportService } from '../src/import/import.service.js';
 import { ImportRecoveryService } from '../src/import/import-recovery.service.js';
+import { ImportUploadRetentionService } from '../src/import/import-upload-retention.service.js';
+import { readUploadRef } from '../src/import/import-job.worker-state.js';
 import { Prisma } from '@prisma/client';
 import { signImportTaskPayload } from '../src/import/import-task.payload.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -425,30 +427,6 @@ describe('Import background worker (e2e)', () => {
         return realAppend(...args);
       });
 
-    await deliverWorker(jobId, 'dry_run').expect(204);
-    const stalled = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
-    });
-    const stalledOptions = (stalled?.options_json ?? {}) as Record<
-      string,
-      unknown
-    >;
-    const stalledWorker = (stalledOptions.worker ?? {}) as Record<
-      string,
-      unknown
-    >;
-    await tenantPrisma().importJob.updateMany({
-      where: { id: jobId },
-      data: {
-        options_json: {
-          ...stalledOptions,
-          worker: {
-            ...stalledWorker,
-            lease_until: new Date(0).toISOString(),
-          },
-        },
-      },
-    });
     const job = await runDryRunUntilDone(jobId);
     expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
     const errorRows = await tenantPrisma().importJobRow.count({
@@ -494,6 +472,29 @@ describe('Import background worker (e2e)', () => {
       where: { import_job_id: jobId },
     });
     expect(rowCount).toBe(3);
+  });
+
+  it('purges uploads only for terminal jobs older than retention', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['PURGE-1', 'PRIVATE', 'P', 'One', 'purge1@example.com', '', '', 'AT'],
+    ]);
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    await tenantPrisma().importJob.updateMany({
+      where: { id: jobId },
+      data: {
+        status: ImportJobStatus.FAILED,
+        failed_at: eightDaysAgo,
+      },
+    });
+    await app
+      .get(ImportUploadRetentionService)
+      .purgeForTenant(tenant.tenantId, new Date());
+    const refreshed = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    expect(
+      readUploadRef(refreshed?.options_json as Record<string, unknown>),
+    ).toBeNull();
   });
 
   it('matches final totals to the dry-run row list', async () => {

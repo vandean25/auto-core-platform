@@ -17,6 +17,7 @@ export type EnqueueImportWorkerHandoffParams = {
   chunkSeq: number;
   claimSeq: number;
   recoverySeq: number;
+  enqueueSeq: number;
   delaySeconds?: number;
 };
 
@@ -29,6 +30,7 @@ export function buildImportWorkerTaskIdentity(
     chunkSeq: params.chunkSeq,
     claimSeq: params.claimSeq,
     recoverySeq: params.recoverySeq,
+    enqueueSeq: params.enqueueSeq,
   };
 }
 

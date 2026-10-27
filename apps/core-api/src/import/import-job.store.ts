@@ -221,8 +221,52 @@ export class ImportJobStore {
         id: jobId,
         status: ImportJobStatus.APPLYING,
       },
-      data: { status: ImportJobStatus.CANCELLED },
+      data: {
+        status: ImportJobStatus.CANCELLED,
+        cancelled_at: new Date(),
+      },
     });
+  }
+
+  async bumpWorkerEnqueueSeq(tenantId: string, jobId: string): Promise<number> {
+    const updated = await this.prisma.importJob.update({
+      where: { tenant_id: tenantId, id: jobId },
+      data: { worker_enqueue_seq: { increment: 1 } },
+      select: { worker_enqueue_seq: true },
+    });
+    return updated.worker_enqueue_seq;
+  }
+
+  async releaseWorkerLeaseForRetry(
+    tenantId: string,
+    jobId: string,
+    leaseToken: string,
+  ): Promise<boolean> {
+    const job = await this.findJob(tenantId, jobId);
+    if (!job) {
+      return false;
+    }
+    const options = job.options_json as ImportJobOptionsWithWorker;
+    if (options.worker?.lease_token !== leaseToken) {
+      return false;
+    }
+    const worker = {
+      ...options.worker,
+      lease_until: new Date(0).toISOString(),
+    };
+    const updated = await this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+        options_json: {
+          path: ['worker', 'lease_token'],
+          equals: leaseToken,
+        },
+      },
+      data: { options_json: { ...options, worker } },
+    });
+    return updated.count > 0;
   }
 
   touchWorkerHandoff(tenantId: string, jobId: string) {
@@ -341,7 +385,13 @@ export class ImportJobStore {
           if (Number.isFinite(leaseUntil) && leaseUntil > now) {
             return null;
           }
-          const nextAttempts = job.attempts_without_progress + 1;
+          const cursorAtClaim = worker.processed_rows ?? 0;
+          const noProgressSinceLastClaim =
+            worker.claimed_processed_rows !== undefined &&
+            cursorAtClaim === worker.claimed_processed_rows;
+          const nextAttempts = noProgressSinceLastClaim
+            ? job.attempts_without_progress + 1
+            : 0;
           if (nextAttempts >= IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS) {
             await tx.importJob.updateMany({
               where: {
@@ -352,6 +402,7 @@ export class ImportJobStore {
               data: {
                 status: ImportJobStatus.FAILED,
                 attempts_without_progress: nextAttempts,
+                failed_at: new Date(),
               },
             });
             return null;
@@ -360,6 +411,7 @@ export class ImportJobStore {
             ...worker,
             lease_token: randomUUID(),
             lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
+            claimed_processed_rows: cursorAtClaim,
           };
           const locked = await tx.importJob.updateMany({
             where: {
@@ -498,6 +550,7 @@ export class ImportJobStore {
       },
       data: {
         status: ImportJobStatus.FAILED,
+        failed_at: new Date(),
         ...(totals ? { totals_json: totals } : {}),
       },
     });

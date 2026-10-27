@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { randomUUID as cryptoRandomUuid } from 'node:crypto';
 import {
@@ -90,6 +90,7 @@ import {
 } from './import-job.worker-state.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
+  IMPORT_ERROR_CODES,
   IMPORT_LOGGER_CONTEXT,
   IMPORT_APPLY_BATCH_SIZE,
   IMPORT_WORKER_BATCH_SIZE,
@@ -98,6 +99,7 @@ import { readImportSyncMaxRowCount } from './import-limits.js';
 import { computeDryRunTotals } from './import-totals.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
+import { takeDryRunRowsWithinBudget } from './import-background-dry-run.budget.js';
 import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
 import { isImportWorkerContentionError } from './import-worker.errors.js';
@@ -358,6 +360,17 @@ export class ImportService {
       throw importJobNotFound();
     }
     assertJobCanBeApplied(job.status);
+    if (job.status === ImportJobStatus.FAILED) {
+      const upload = readUploadRef(
+        job.options_json as ImportJobOptionsWithWorker,
+      );
+      if (!upload) {
+        throw new ConflictException({
+          code: IMPORT_ERROR_CODES.JOB_STALE,
+          message: 'Import job cannot be applied in its current status',
+        });
+      }
+    }
 
     const effectiveOptions = mergeApplyOptions(
       (job.options_json as ImportJobOptions) ?? {},
@@ -651,6 +664,15 @@ export class ImportService {
     if (isRetryableImportWorkerError(error)) {
       const job = await this.jobStore.findJob(params.tenantId, params.jobId);
       if (job && job.status === ImportJobStatus.APPLYING) {
+        const options = job.options_json as ImportJobOptionsWithWorker;
+        const worker = readWorkerState(options);
+        if (worker?.lease_token) {
+          await this.jobStore.releaseWorkerLeaseForRetry(
+            params.tenantId,
+            params.jobId,
+            worker.lease_token,
+          );
+        }
         await enqueueImportWorkerContinuation(
           this.workerFlowForJob(params.tenantId, params.jobId),
           {
@@ -799,26 +821,26 @@ export class ImportService {
           },
           parsedBatch,
         );
-        let rows = planned.map((row, index) => ({
-          ...row,
-          row_no: startOffset + index + 1,
-        }));
-        if (Date.now() >= chunkDeadlineMs) {
-          rows = rows.slice(0, 0);
-        }
+        const rows = takeDryRunRowsWithinBudget(
+          planned,
+          startOffset,
+          chunkDeadlineMs,
+        );
         const processed = startOffset + rows.length;
         const mergedTotals = mergeDryRunBatchTotals(totals, rows, processed);
-        if (rows.length === 0 && batchRows.length > 0) {
-          await handoffImportWorkerAfterBatch(
-            this.workerFlowForJob(tenantId, jobId),
-            {
-              tenantId,
-              jobId,
-              phase: 'dry_run',
-              leaseToken: worker.lease_token,
-              nextChunkSeq: startOffset,
-            },
-          );
+        if (rows.length === 0) {
+          if (planned.length > 0) {
+            await handoffImportWorkerAfterBatch(
+              this.workerFlowForJob(tenantId, jobId),
+              {
+                tenantId,
+                jobId,
+                phase: 'dry_run',
+                leaseToken: worker.lease_token,
+                nextChunkSeq: startOffset,
+              },
+            );
+          }
           return;
         }
         await persistDryRunBatchAndHandoff({

@@ -98,6 +98,23 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       });
     });
 
+    it('refuses to apply a FAILED job when the upload was already purged', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.FAILED,
+          options_json: {},
+        }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_STALE,
+          message: 'Import job cannot be applied in its current status',
+        },
+      });
+    });
+
     it('refuses to apply a CANCELLED job with JOB_STALE', async () => {
       h.prisma.importJob.findFirst.mockResolvedValue(
         importJobRecord({ status: ImportJobStatus.CANCELLED }),

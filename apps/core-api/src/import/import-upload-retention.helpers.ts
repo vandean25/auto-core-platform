@@ -1,4 +1,4 @@
-import { ImportJobStatus } from '@prisma/client';
+import { ImportJobStatus, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import { readUploadRef } from './import-job.worker-state.js';
@@ -20,7 +20,30 @@ export function importUploadRetentionCutoff(
 const TERMINAL_UPLOAD_STATUSES: ImportJobStatus[] = [
   ImportJobStatus.APPLIED,
   ImportJobStatus.CANCELLED,
+  ImportJobStatus.FAILED,
 ];
+
+export function buildTerminalImportUploadRetentionWhere(
+  cutoff: Date,
+): Prisma.ImportJobWhereInput {
+  return {
+    status: { in: TERMINAL_UPLOAD_STATUSES },
+    OR: [
+      {
+        status: ImportJobStatus.APPLIED,
+        appliedAt: { lt: cutoff },
+      },
+      {
+        status: ImportJobStatus.FAILED,
+        failed_at: { lt: cutoff },
+      },
+      {
+        status: ImportJobStatus.CANCELLED,
+        cancelled_at: { lt: cutoff },
+      },
+    ],
+  };
+}
 
 export async function purgeStaleImportUploadsForTenant(
   prisma: PrismaService,
@@ -37,8 +60,7 @@ export async function purgeStaleImportUploadsForTenant(
   const jobs = await prisma.importJob.findMany({
     where: {
       tenant_id: tenantId,
-      status: { notIn: TERMINAL_UPLOAD_STATUSES },
-      updatedAt: { lt: cutoff },
+      ...buildTerminalImportUploadRetentionWhere(cutoff),
     },
     select: {
       id: true,

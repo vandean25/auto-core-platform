@@ -33,10 +33,16 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
         },
       },
     }));
+    let enqueueSeq = 0;
+    const bumpWorkerEnqueueSeq = jest.fn(async () => {
+      enqueueSeq += 1;
+      return enqueueSeq;
+    });
     const deps = {
       jobStore: {
         findJob,
         touchWorkerHandoff,
+        bumpWorkerEnqueueSeq,
       },
       cloudTasks: {
         isEnabled: () => true,
@@ -66,6 +72,7 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       chunkSeq: 10,
       claimSeq: 5,
       recoverySeq: 0,
+      enqueueSeq: 2,
     });
     const firstEnqueue = enqueueImportWorker.mock.calls[0]?.[0];
     expect(firstEnqueue?.taskIdentity).toEqual({
@@ -74,6 +81,7 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       chunkSeq: 10,
       claimSeq: 5,
       recoverySeq: 0,
+      enqueueSeq: 1,
     });
     expect(
       importWorkerTaskIdForParams({
@@ -83,6 +91,7 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
         chunkSeq: 10,
         claimSeq: 5,
         recoverySeq: 0,
+        enqueueSeq: 2,
       }),
     ).toBe(expectedName);
     expect(firstEnqueue?.delaySeconds).toBeGreaterThan(0);
@@ -110,7 +119,11 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       },
     }));
     const deps = {
-      jobStore: { findJob, touchWorkerHandoff },
+      jobStore: {
+        findJob,
+        touchWorkerHandoff,
+        bumpWorkerEnqueueSeq: jest.fn(async () => 1),
+      },
       cloudTasks: { isEnabled: () => true, enqueueImportWorker },
       targetBaseUrl: 'http://127.0.0.1:3000/api/',
       runInline: jest.fn(),

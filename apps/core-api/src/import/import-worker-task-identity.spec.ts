@@ -8,6 +8,7 @@ describe('deterministicImportWorkerTaskId', () => {
       chunkSeq: 50,
       claimSeq: 2,
       recoverySeq: 0,
+      enqueueSeq: 1,
     };
     expect(deterministicImportWorkerTaskId(identity)).toBe(
       deterministicImportWorkerTaskId(identity),
@@ -21,6 +22,7 @@ describe('deterministicImportWorkerTaskId', () => {
       chunkSeq: 50,
       claimSeq: 2,
       recoverySeq: 0,
+      enqueueSeq: 1,
     };
     expect(deterministicImportWorkerTaskId(base)).not.toBe(
       deterministicImportWorkerTaskId({ ...base, claimSeq: 3 }),
@@ -38,6 +40,7 @@ describe('deterministicImportWorkerTaskId', () => {
         chunkSeq: 0,
         claimSeq: 0,
         recoverySeq: 0,
+        enqueueSeq: 0,
       }),
     ).toMatch(/^import-worker-[a-f0-9]{40}$/);
   });

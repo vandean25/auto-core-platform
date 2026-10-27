@@ -21,6 +21,7 @@ describe('ImportJobStore poison job cap', () => {
           lease_token: 'token-a',
           lease_until: new Date(0).toISOString(),
           processed_rows: 0,
+          claimed_processed_rows: 0,
           last_committed_apply_seq: 0,
           started_at: new Date().toISOString(),
         },
@@ -41,6 +42,46 @@ describe('ImportJobStore poison job cap', () => {
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: ImportJobStatus.FAILED }),
+      }),
+    );
+  });
+
+  it('resets poison progress when the worker cursor advanced since the last claim', async () => {
+    const updateMany = jest
+      .fn()
+      .mockResolvedValueOnce({ count: 1 });
+    const job = {
+      id: 'job-1',
+      tenant_id: 'tenant-1',
+      status: ImportJobStatus.APPLYING,
+      worker_claim_seq: 2,
+      attempts_without_progress: 3,
+      options_json: {
+        worker: {
+          phase: 'dry_run',
+          lease_token: 'token-a',
+          lease_until: new Date(0).toISOString(),
+          processed_rows: 4,
+          claimed_processed_rows: 2,
+          started_at: new Date().toISOString(),
+        },
+      },
+    };
+    const prisma = {
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          importJob: {
+            findFirst: async () => job,
+            updateMany,
+          },
+        }),
+    };
+    const store = new ImportJobStore(prisma as never);
+    const claimed = await store.claimWorkerLease('tenant-1', 'job-1', 'dry_run');
+    expect(claimed).not.toBeNull();
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ attempts_without_progress: 0 }),
       }),
     );
   });
