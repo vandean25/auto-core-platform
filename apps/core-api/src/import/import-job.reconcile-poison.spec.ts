@@ -42,7 +42,7 @@ function workerLeaseTokenMatches(
 
 function applyJobUpdate(job: InMemoryJob, data: Record<string, unknown>) {
   if (data.options_json) {
-    job.options_json = data.options_json as ImportJobOptionsWithWorker;
+    job.options_json = data.options_json;
   }
   if (typeof data.worker_claim_seq === 'number') {
     job.worker_claim_seq = data.worker_claim_seq;
@@ -68,7 +68,7 @@ function createStore(job: InMemoryJob) {
             where: Record<string, unknown>;
             data: Record<string, unknown>;
           }) => {
-            if (!workerLeaseTokenMatches(where as never, job)) {
+            if (!workerLeaseTokenMatches(where, job)) {
               return { count: 0 };
             }
             applyJobUpdate(job, data);
@@ -92,7 +92,7 @@ function createStore(job: InMemoryJob) {
         where: Record<string, unknown>;
         data: Record<string, unknown>;
       }) => {
-        if (!workerLeaseTokenMatches(where as never, job)) {
+        if (!workerLeaseTokenMatches(where, job)) {
           return { count: 0 };
         }
         applyJobUpdate(job, data);
@@ -147,8 +147,11 @@ describe('reconcile poison progress', () => {
 
     const claimed = await store.claimWorkerLease('tenant-1', 'job-1', 'dry_run');
     expect(claimed).not.toBeNull();
+    if (!claimed) {
+      return;
+    }
     expect(job.attempts_without_progress).toBe(0);
-    expect(claimed!.claimed_processed_rows).toBe(0);
+    expect(claimed.claimed_processed_rows).toBe(0);
 
     const persisted = await store.persistDryRunReconcileChunk(
       'tenant-1',
