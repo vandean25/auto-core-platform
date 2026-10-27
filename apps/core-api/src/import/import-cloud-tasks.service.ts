@@ -13,6 +13,15 @@ import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import type { ImportWorkerPhase } from './import-job.worker-state.js';
 import { signImportTaskPayload } from './import-task.payload.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
+import {
+  cloudTasksErrorCode,
+  taskIdFromName,
+} from '../common/services/cloud-tasks.task-identity.js';
+import { IMPORT_WORKER_DISPATCH_DEADLINE_SECONDS } from './import-worker-handoff.constants.js';
+import {
+  deterministicImportWorkerTaskId,
+  type ImportWorkerTaskIdentity,
+} from './import-worker-task-identity.js';
 
 @Injectable()
 export class ImportCloudTasksService {
@@ -55,6 +64,7 @@ export class ImportCloudTasksService {
     tenantId: string;
     jobId: string;
     phase: ImportWorkerPhase;
+    taskIdentity: ImportWorkerTaskIdentity;
     delaySeconds?: number;
   }): Promise<void> {
     SideEffectGuard.assertAllowed('QUEUE_ENQUEUE');
@@ -79,7 +89,8 @@ export class ImportCloudTasksService {
       },
       workerSecret,
     );
-    const task = buildTaskRequest({
+    const taskId = deterministicImportWorkerTaskId(params.taskIdentity);
+    const taskBody = buildTaskRequest({
       url,
       workerSecret,
       tenantId: params.tenantId,
@@ -87,13 +98,38 @@ export class ImportCloudTasksService {
       invokerServiceAccount,
       targetBaseUrl,
       delaySeconds: params.delaySeconds,
+      dispatchDeadlineSeconds: IMPORT_WORKER_DISPATCH_DEADLINE_SECONDS,
     });
-    await this.client.createTask({
-      parent: this.client.queuePath(projectId, location, queue),
-      task,
-    });
+    const parent = this.client.queuePath(projectId, location, queue);
+    const name = this.client.taskPath(projectId, location, queue, taskId);
+    try {
+      await this.client.createTask({
+        parent,
+        task: { ...taskBody, name },
+      });
+    } catch (error) {
+      if (cloudTasksErrorCode(error) !== 6) {
+        throw error;
+      }
+      const existingId = taskIdFromName(name);
+      if (existingId !== taskId) {
+        throw error;
+      }
+      try {
+        await this.client.getTask({ name });
+      } catch (lookupError) {
+        if (cloudTasksErrorCode(lookupError) === 5) {
+          await this.client.createTask({
+            parent,
+            task: { ...taskBody, name },
+          });
+          return;
+        }
+        throw lookupError;
+      }
+    }
     this.logger.log(
-      `Enqueued import ${params.phase} worker for job ${params.jobId}`,
+      `Enqueued import ${params.phase} worker for job ${params.jobId} (${taskId})`,
     );
   }
 }

@@ -8,6 +8,10 @@ import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-s
 import { dateToDay } from '../vehicle/vehicle-party-date.util.js';
 import { loadVehicleBoundMappings } from './canonical-csv-cell.util.js';
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
+import {
+  dryRunRowNoForSlice,
+  shouldStopDryRunPlanningAfterRow,
+} from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 import {
@@ -74,10 +78,20 @@ export async function planVehicleDueDateDryRun(
   input: ImportDryRunInput,
   parsed: ParsedCsv,
 ): Promise<DryRunRowResult[]> {
-  const rows = parsed.rows.map((cells, index) => ({
-    rowNo: index + 1,
-    record: rowToRecord(parsed.headers, cells),
-  }));
+  const rows: { rowNo: number; record: Record<string, string> }[] = [];
+  for (let index = 0; index < parsed.rows.length; index++) {
+    if (shouldStopDryRunPlanningAfterRow(input.planBudget, rows.length)) {
+      break;
+    }
+    rows.push({
+      rowNo: dryRunRowNoForSlice(input.planBudget, index),
+      record: rowToRecord(parsed.headers, parsed.rows[index]),
+    });
+    input.planBudget?.onAfterRowPlanned?.();
+    if (shouldStopDryRunPlanningAfterRow(input.planBudget, rows.length)) {
+      break;
+    }
+  }
   const context = await loadDueDatePlanContext(prisma, input, rows);
   return planVehicleDueDateRows(rows, input.mapping, context);
 }

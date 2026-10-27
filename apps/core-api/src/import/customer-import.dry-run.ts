@@ -1,6 +1,6 @@
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
+import type { ParsedCsv } from './csv-parse.util.js';
 import {
   customerNameKey,
   normalizeCustomerRow,
@@ -9,6 +9,7 @@ import {
 } from './customer-import.logic.js';
 import { pickCustomerAuditSnapshot } from './import-audit.util.js';
 import { normalizeMatchEmail } from '../customer/customer-match.util.js';
+import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 
@@ -121,12 +122,9 @@ export async function planCustomerDryRun(
     input.tenantId,
     input.sourceSystem,
   );
-  return parsed.rows.map((cells, index) =>
-    planCustomerCsvRow(
-      index + 1,
-      rowToRecord(parsed.headers, cells),
-      input,
-      context,
-    ),
+  return planParsedCsvRowsWithBudget(
+    parsed,
+    input.planBudget,
+    (rowNo, record) => planCustomerCsvRow(rowNo, record, input, context),
   );
 }

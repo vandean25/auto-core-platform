@@ -1,6 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import type { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import type { ImportWorkerPhase } from './import-job.worker-state.js';
+import type { ImportWorkerTaskIdentity } from './import-worker-task-identity.js';
 
 export type ImportDispatchMode = 'enqueue' | 'inline';
 
@@ -31,6 +32,8 @@ export async function enqueueOrRunImportWorker(params: {
   >;
   targetBaseUrl: string | undefined;
   nodeEnv?: string;
+  taskIdentity: ImportWorkerTaskIdentity;
+  delaySeconds?: number;
   runInline: () => Promise<void>;
 }): Promise<{ mode: ImportDispatchMode }> {
   const mode = resolveImportDispatch({
@@ -47,15 +50,17 @@ export async function enqueueOrRunImportWorker(params: {
       tenantId: params.tenantId,
       jobId: params.jobId,
       phase: params.phase,
+      taskIdentity: params.taskIdentity,
+      delaySeconds: params.delaySeconds,
     });
     return { mode };
-  } catch {
+  } catch (cause) {
     if (params.nodeEnv === 'production') {
       throw new InternalServerErrorException(
         'Failed to enqueue import background worker',
+        { cause },
       );
     }
-    await params.runInline();
-    return { mode: 'inline' };
+    throw cause;
   }
 }

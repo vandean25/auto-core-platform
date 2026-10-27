@@ -117,11 +117,13 @@ export async function commitBackgroundApplyRowInTransaction(
     },
     mergedTotals,
   );
+  const progressed = applyWatermark > (worker.last_committed_apply_seq ?? 0);
   await tx.importJob.update({
     where: { id: params.jobId },
     data: {
       totals_json: totals,
       options_json: { ...options, worker: workerNext },
+      ...(progressed ? { attempts_without_progress: 0 } : {}),
       ...(finished
         ? {
             status: ImportJobStatus.APPLIED,

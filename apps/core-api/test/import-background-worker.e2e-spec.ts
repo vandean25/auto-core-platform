@@ -5,7 +5,13 @@ import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 import { ImportCloudTasksService } from '../src/import/import-cloud-tasks.service.js';
+import { ImportJobStore } from '../src/import/import-job.store.js';
+import { ImportService } from '../src/import/import.service.js';
 import { ImportRecoveryService } from '../src/import/import-recovery.service.js';
+import { readUploadRef } from '../src/import/import-job.worker-state.js';
+import { RequestContextService } from '../src/common/services/request-context.service.js';
+import { ImportUploadRetentionService } from '../src/import/import-upload-retention.service.js';
+import { Prisma } from '@prisma/client';
 import { signImportTaskPayload } from '../src/import/import-task.payload.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
@@ -56,9 +62,7 @@ describe('Import background worker (e2e)', () => {
     };
 
     const configure = (builder: TestingModuleBuilder) =>
-      builder
-        .overrideProvider(ImportCloudTasksService)
-        .useValue(cloudTasks);
+      builder.overrideProvider(ImportCloudTasksService).useValue(cloudTasks);
 
     app = await createE2eApp(configure);
     basePrisma = app.get(PrismaService);
@@ -91,7 +95,8 @@ describe('Import background worker (e2e)', () => {
     await teardownTestApp(app, basePrisma);
   });
 
-  const tenantPrisma = () => createTenantAwarePrisma(basePrisma, tenant.tenantId);
+  const tenantPrisma = () =>
+    createTenantAwarePrisma(basePrisma, tenant.tenantId);
 
   async function expectOneApplyPerRow(
     jobId: string,
@@ -131,6 +136,21 @@ describe('Import background worker (e2e)', () => {
     );
   }
 
+  async function runDryRunUntilDone(jobId: string, timeoutMs = 60_000) {
+    const deadline = Date.now() + timeoutMs;
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    while (
+      Date.now() < deadline &&
+      job?.status !== ImportJobStatus.DRY_RUN_DONE
+    ) {
+      await deliverWorker(jobId, 'dry_run').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
+    return job;
+  }
+
   const deliverWorker = (
     jobId: string,
     phase: 'dry_run' | 'apply',
@@ -140,12 +160,7 @@ describe('Import background worker (e2e)', () => {
       .post(`/api/imports/${jobId}/worker`)
       .set('x-cloud-tasks-secret', WORKER_SECRET)
       .set('x-tenant-id', 'ignored-tenant-header')
-      .send(
-        signImportTaskPayload(
-          { tenantId, jobId, phase },
-          WORKER_SECRET,
-        ),
-      );
+      .send(signImportTaskPayload({ tenantId, jobId, phase }, WORKER_SECRET));
 
   function customerCsv(rows: string[][]) {
     return Buffer.from(serializeCsv(customerCsvHeaders, rows, ';'), 'utf8');
@@ -182,6 +197,9 @@ describe('Import background worker (e2e)', () => {
       where: { id: jobId },
     });
     expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    expect(
+      readUploadRef(dryRunDone?.options_json as Record<string, unknown>),
+    ).toBeTruthy();
 
     const rowCount = await tenantPrisma().importJobRow.count({
       where: { import_job_id: jobId },
@@ -335,6 +353,7 @@ describe('Import background worker (e2e)', () => {
       where: { id: jobId },
       data: {
         status: ImportJobStatus.APPLYING,
+        worker_handoff_at: new Date(0),
         options_json: {
           ...options,
           worker: {
@@ -349,12 +368,176 @@ describe('Import background worker (e2e)', () => {
     });
 
     await app.get(ImportRecoveryService).run();
+    expect(cloudTasks.enqueueImportWorker).toHaveBeenCalled();
 
-    const job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    const deadline = Date.now() + 60_000;
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    while (
+      Date.now() < deadline &&
+      job?.status !== ImportJobStatus.DRY_RUN_DONE
+    ) {
+      await deliverWorker(jobId, 'dry_run').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
     expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
     const rows = await tenantPrisma().importJobRow.count({
       where: { import_job_id: jobId },
     });
     expect(rows).toBeGreaterThan(0);
   });
+
+  it('completes multi-chunk dry-run handoffs without waiting for recovery', async () => {
+    const recoveryRun = jest.spyOn(
+      app.get(ImportRecoveryService),
+      'run',
+    );
+    const jobId = await uploadBackgroundJob([
+      ['MC-1', 'PRIVATE', 'A', 'One', 'mc1@example.com', '', '', 'AT'],
+      ['MC-2', 'PRIVATE', 'B', 'Two', 'mc2@example.com', '', '', 'AT'],
+      ['MC-3', 'PRIVATE', 'C', 'Three', 'mc3@example.com', '', '', 'AT'],
+      ['MC-4', 'PRIVATE', 'D', 'Four', 'mc4@example.com', '', '', 'AT'],
+      ['MC-5', 'PRIVATE', 'E', 'Five', 'mc5@example.com', '', '', 'AT'],
+    ]);
+
+    const job = await runDryRunUntilDone(jobId);
+    expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    expect(recoveryRun).not.toHaveBeenCalled();
+    recoveryRun.mockRestore();
+  });
+
+  it('resumes after a transaction timeout without ERROR rows', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['TX-1', 'PRIVATE', 'T', 'One', 'tx1@example.com', '', '', 'AT'],
+      ['TX-2', 'PRIVATE', 'T', 'Two', 'tx2@example.com', '', '', 'AT'],
+      ['TX-3', 'PRIVATE', 'T', 'Three', 'tx3@example.com', '', '', 'AT'],
+    ]);
+    const importService = app.get(ImportService);
+    const store = (importService as unknown as { jobStore: ImportJobStore })
+      .jobStore;
+    const realAppend = store.appendDryRunRows.bind(store);
+    let appendAttempts = 0;
+    const appendSpy = jest
+      .spyOn(store, 'appendDryRunRows')
+      .mockImplementation(async (...args) => {
+        appendAttempts += 1;
+        if (appendAttempts === 1) {
+          throw new Prisma.PrismaClientKnownRequestError(
+            'Transaction API error: Unable to start a transaction in the given time.',
+            { code: 'P2028', clientVersion: 'test' },
+          );
+        }
+        return realAppend(...args);
+      });
+
+    const job = await runDryRunUntilDone(jobId);
+    expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const errorRows = await tenantPrisma().importJobRow.count({
+      where: { import_job_id: jobId, action: ImportRowAction.ERROR },
+    });
+    expect(errorRows).toBe(0);
+    appendSpy.mockRestore();
+  });
+
+  it('does not duplicate dry-run rows when parallel workers run after lease loss', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['KILL-1', 'PRIVATE', 'K', 'One', 'kill1@example.com', '', '', 'AT'],
+      ['KILL-2', 'PRIVATE', 'K', 'Two', 'kill2@example.com', '', '', 'AT'],
+      ['KILL-3', 'PRIVATE', 'K', 'Three', 'kill3@example.com', '', '', 'AT'],
+    ]);
+    await deliverWorker(jobId, 'dry_run').expect(204);
+    const mid = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    const options = (mid?.options_json ?? {}) as Record<string, unknown>;
+    const worker = (options.worker ?? {}) as Record<string, unknown>;
+    await tenantPrisma().importJob.updateMany({
+      where: { id: jobId },
+      data: {
+        options_json: {
+          ...options,
+          worker: {
+            ...worker,
+            lease_until: new Date(0).toISOString(),
+          },
+        },
+      },
+    });
+
+    await Promise.all([
+      deliverWorker(jobId, 'dry_run').expect(204),
+      deliverWorker(jobId, 'dry_run').expect(204),
+    ]);
+
+    const job = await runDryRunUntilDone(jobId);
+    expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const rowCount = await tenantPrisma().importJobRow.count({
+      where: { import_job_id: jobId },
+    });
+    expect(rowCount).toBe(3);
+  });
+
+  it('purges uploads only for terminal jobs older than retention', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['PURGE-1', 'PRIVATE', 'P', 'One', 'purge1@example.com', '', '', 'AT'],
+    ]);
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    await tenantPrisma().importJob.updateMany({
+      where: { id: jobId },
+      data: {
+        status: ImportJobStatus.FAILED,
+        failed_at: eightDaysAgo,
+      },
+    });
+    await app.get(RequestContextService).runAsWorker(
+      tenant.tenantId,
+      () =>
+        app
+          .get(ImportUploadRetentionService)
+          .purgeForTenant(tenant.tenantId, new Date()),
+      { workerId: 'import-upload-retention-e2e' },
+    );
+    const refreshed = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    expect(
+      readUploadRef(refreshed?.options_json as Record<string, unknown>),
+    ).toBeNull();
+  });
+
+  it('matches final totals to the dry-run row list', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['TOT-1', 'PRIVATE', 'S', 'One', 'tot1@example.com', '', '', 'AT'],
+      ['TOT-2', 'PRIVATE', 'S', 'Two', 'tot2@example.com', '', '', 'AT'],
+      ['TOT-3', 'PRIVATE', 'S', 'Three', 'tot3@example.com', '', '', 'AT'],
+    ]);
+
+    const job = await runDryRunUntilDone(jobId);
+    expect(job?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+
+    const rows = await tenantPrisma().importJobRow.findMany({
+      where: { import_job_id: jobId },
+    });
+    const totals = job?.totals_json as ImportJobTotals;
+    const counted = {
+      create: rows.filter((r) => r.action === ImportRowAction.CREATE).length,
+      update: rows.filter((r) => r.action === ImportRowAction.UPDATE).length,
+      skip: rows.filter((r) => r.action === ImportRowAction.SKIP).length,
+      error: rows.filter((r) => r.action === ImportRowAction.ERROR).length,
+    };
+    expect(totals.rows).toBe(rows.length);
+    expect(totals.create).toBe(counted.create);
+    expect(totals.update).toBe(counted.update);
+    expect(totals.skip).toBe(counted.skip);
+    expect(totals.error).toBe(counted.error);
+  });
 });
+
+type ImportJobTotals = {
+  rows: number;
+  create: number;
+  update: number;
+  skip: number;
+  error: number;
+};

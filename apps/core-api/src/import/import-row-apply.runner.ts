@@ -25,10 +25,7 @@ import {
   commitApplyWorkerRowInTransaction,
   markImportRowFailed,
 } from './import-job.store.js';
-import {
-  ImportWorkerLeaseLostError,
-  isImportWorkerContentionError,
-} from './import-worker.errors.js';
+import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
 import {
   IMPORT_LOGGER_CONTEXT,
@@ -132,10 +129,7 @@ export class RowByRowApplyRunner {
   }
 
   private shouldRethrowApplyRunError(error: unknown): boolean {
-    return (
-      error instanceof ImportWorkerLeaseLostError ||
-      isImportWorkerContentionError(error)
-    );
+    return error instanceof ImportWorkerLeaseLostError;
   }
 
   private async serializeSequenceAppliedJob(
@@ -226,7 +220,15 @@ export class RowByRowApplyRunner {
         },
       },
       async () => {
+        const batchStartedAt = Date.now();
+        let appliedInBatch = 0;
         for (const row of batchRows) {
+          if (
+            options?.chunkDeadlineMs !== undefined &&
+            Date.now() > options.chunkDeadlineMs
+          ) {
+            break;
+          }
           await this.applyOne(
             input,
             entityType,
@@ -234,6 +236,17 @@ export class RowByRowApplyRunner {
             row,
             totals,
             options,
+          );
+          appliedInBatch += 1;
+        }
+        if (options?.stopAfterBatch) {
+          this.logger.log(
+            JSON.stringify({
+              metric: 'import.worker.batch_duration_ms',
+              jobId: input.job.id,
+              durationMs: Date.now() - batchStartedAt,
+              rowsApplied: appliedInBatch,
+            }),
           );
         }
       },

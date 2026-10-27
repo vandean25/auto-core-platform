@@ -98,23 +98,72 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       });
     });
 
-    it.each([ImportJobStatus.FAILED, ImportJobStatus.CANCELLED])(
-      'refuses to apply a %s job with JOB_STALE',
-      async (status) => {
-        h.prisma.importJob.findFirst.mockResolvedValue(
-          importJobRecord({ status }),
-        );
+    it('refuses to apply a FAILED job when the upload was already purged and no rows remain', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.FAILED,
+          options_json: {},
+        }),
+      );
+      h.prisma.importJobRow.count = jest.fn(async () => 0);
 
-        await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
-          status: 409,
-          response: {
-            code: IMPORT_ERROR_CODES.JOB_STALE,
-            message: 'Import job cannot be applied in its current status',
-          },
-        });
-        expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
-      },
-    );
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_STALE,
+          message: 'Import job cannot be applied in its current status',
+        },
+      });
+    });
+
+    it('allows re-apply on a FAILED job that still has dry-run rows', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.FAILED,
+          options_json: {},
+        }),
+      );
+      h.prisma.importJobRow.count = jest
+        .fn()
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1);
+      arrangeApply(
+        h,
+        importJobRecord({ status: ImportJobStatus.FAILED }),
+        [
+          jobRowRecord({
+            row_no: 1,
+            action: ImportRowAction.CREATE,
+            external_id: 'K-1',
+            normalized_json: {
+              external_id: 'K-1',
+              type: 'PRIVATE',
+              first_name: 'Anna',
+              last_name: 'Berger',
+            },
+          }),
+        ],
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).resolves.toMatchObject({
+        status: ImportJobStatus.APPLIED,
+      });
+    });
+
+    it('refuses to apply a CANCELLED job with JOB_STALE', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({ status: ImportJobStatus.CANCELLED }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_STALE,
+          message: 'Import job cannot be applied in its current status',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
 
     it('locks the job with a tenant- and status-scoped update before writing rows', async () => {
       arrangeApply(
@@ -136,7 +185,9 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
         where: {
           tenant_id: TENANT_ID,
           id: JOB_ID,
-          status: ImportJobStatus.DRY_RUN_DONE,
+          status: {
+            in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
+          },
         },
         data: { status: ImportJobStatus.APPLYING },
       });

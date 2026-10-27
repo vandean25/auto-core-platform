@@ -2,6 +2,7 @@ import {
   readWorkerState,
   type ImportJobOptionsWithWorker,
 } from './import-job.worker-state.js';
+import { IMPORT_WORKER_HANDOFF_GRACE_MS } from './import-worker-handoff.constants.js';
 
 export type StaleImportJobCandidate = {
   tenantId: string;
@@ -13,7 +14,23 @@ export type ImportJobRecoveryRow = {
   id: string;
   tenant_id: string;
   options_json: unknown;
+  worker_handoff_at: Date | null;
 };
+
+export function isImportWorkerHandoffStale(
+  handoffAt: Date | null | undefined,
+  nowMs: number,
+  graceMs: number = IMPORT_WORKER_HANDOFF_GRACE_MS,
+): boolean {
+  if (!handoffAt) {
+    return true;
+  }
+  const handoffMs = handoffAt.getTime();
+  if (!Number.isFinite(handoffMs)) {
+    return true;
+  }
+  return nowMs - handoffMs >= graceMs;
+}
 
 export function filterExpiredImportWorkerCandidates(
   rows: ImportJobRecoveryRow[],
@@ -29,6 +46,9 @@ export function filterExpiredImportWorkerCandidates(
     }
     const leaseUntil = Date.parse(worker.lease_until);
     if (Number.isFinite(leaseUntil) && leaseUntil > nowMs) {
+      continue;
+    }
+    if (!isImportWorkerHandoffStale(row.worker_handoff_at, nowMs)) {
       continue;
     }
     candidates.push({

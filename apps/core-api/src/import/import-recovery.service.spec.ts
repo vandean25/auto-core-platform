@@ -20,14 +20,11 @@ describe('ImportRecoveryService', () => {
     warnSpy.mockRestore();
   });
 
-  it('recover warns and swallows errors from run (in-process @Cron path)', async () => {
+  it('recover propagates errors from run (in-process @Cron path)', async () => {
     recoverStaleJobs.mockRejectedValue(new Error('lease sweep failed'));
 
-    await service.recover();
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Import worker recovery failed: Error',
-    );
+    await expect(service.recover()).rejects.toThrow('lease sweep failed');
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('run returns the lock boolean and propagates errors for HTTP invoke', async () => {

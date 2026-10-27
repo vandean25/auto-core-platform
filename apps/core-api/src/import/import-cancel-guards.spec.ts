@@ -29,7 +29,10 @@ describe('ImportJobStore cancel and worker guards', () => {
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ status: ImportJobStatus.APPLYING }),
-        data: { status: ImportJobStatus.CANCELLED },
+        data: expect.objectContaining({
+          status: ImportJobStatus.CANCELLED,
+          cancelled_at: expect.any(Date),
+        }),
       }),
     );
   });
@@ -38,6 +41,13 @@ describe('ImportJobStore cancel and worker guards', () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 0 });
     const update = jest.fn();
     const prisma = {
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          importJob: {
+            updateMany,
+            update,
+          },
+        }),
       importJob: {
         updateMany,
         update,
@@ -59,6 +69,7 @@ describe('ImportJobStore cancel and worker guards', () => {
           started_at: new Date().toISOString(),
         },
       },
+      't',
     );
     expect(appended).toBeNull();
     expect(update).not.toHaveBeenCalled();

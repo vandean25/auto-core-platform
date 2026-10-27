@@ -7,6 +7,8 @@ export type ImportJobWorkerState = {
   lease_token: string;
   lease_until: string;
   processed_rows: number;
+  /** Cursor when this worker last claimed the lease (poison cap). */
+  claimed_processed_rows?: number;
   /** Background apply cursor over import_job_rows.apply_seq. */
   last_committed_apply_seq?: number;
   started_at: string;
