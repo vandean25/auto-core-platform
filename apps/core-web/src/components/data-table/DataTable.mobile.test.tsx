@@ -164,7 +164,10 @@ describe('DataTable list mode', () => {
   it('keeps display-column buttons (actions column) reachable in the row', () => {
     render(<Harness columns={[...baseColumns, actionsColumn]} />)
 
-    expect(within(screen.getAllByRole('listitem')[0]).getByRole('button', { name: 'Quittieren' })).toBeInTheDocument()
+    const row = screen.getAllByRole('listitem')[0]
+    // Wide cells wrap below the title instead of overflowing; their buttons get 44px targets.
+    expect(row).toHaveClass('flex-wrap')
+    expect(within(row).getByRole('button', { name: 'Quittieren' }).parentElement).toHaveClass('[&_button]:min-h-11')
   })
 
   it('shows a skeleton table while loading', () => {

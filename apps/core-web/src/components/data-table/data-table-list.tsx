@@ -22,7 +22,7 @@ type DataTableListProps<TData extends object> = {
   rowBehaviour?: DataTableRowBehaviour<TData>
 }
 
-const rowPrimaryClassName = 'flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 text-left'
+const rowPrimaryClassName = 'flex min-h-14 min-w-40 flex-1 items-center gap-3 py-2 pl-3 text-left'
 
 function TappableRow({ onActivate, children }: { onActivate: () => void; children: ReactNode }) {
   return (
@@ -146,11 +146,13 @@ function DataTableListRow<TData extends object>({ row, slots, rowBehaviour }: Da
   const actionsCell = slot('actions')
 
   return (
-    <li data-table-row="true" data-row-id={getTableRowId(record)} className="flex items-center">
+    <li data-table-row="true" data-row-id={getTableRowId(record)} className="flex flex-wrap items-center">
       <ListRowPrimary record={record} rowBehaviour={rowBehaviour}>
         <ListRowContent title={slot(slots.title)} subtitle={slot(slots.subtitle)} status={slot(slots.status)} trailing={slot(slots.trailing)} />
       </ListRowPrimary>
-      {actionsCell ? <div className="shrink-0">{actionsCell}</div> : null}
+      {actionsCell ? (
+        <div className="ml-auto max-w-full shrink-0 px-3 [&_button]:min-h-11 [&_button]:min-w-11">{actionsCell}</div>
+      ) : null}
       <DataTableRowActions row={record} rowBehaviour={rowBehaviour} />
     </li>
   )
