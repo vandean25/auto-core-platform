@@ -178,7 +178,7 @@ describe('dry-run reconcile production paths', () => {
       jobId: 'j',
       handler: {
         entityType: ImportEntityType.VEHICLE_PARTY,
-        planDryRun: (dryRunInput, slice) =>
+        planDryRun: (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
           planVehiclePartyDryRun(prisma as never, dryRunInput, slice),
       } as never,
       input,

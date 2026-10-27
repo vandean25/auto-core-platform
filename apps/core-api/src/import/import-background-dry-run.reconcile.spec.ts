@@ -2,6 +2,37 @@ import { jest } from '@jest/globals';
 import { ImportRowAction } from '@prisma/client';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 import { importDryRunReconcileProgress } from './import-job.worker-state.js';
+import type { ImportJobStore } from './import-job.store.js';
+import type { ImportJobTotals } from './import.types.js';
+
+type PersistDryRunReconcileChunk = ImportJobStore['persistDryRunReconcileChunk'];
+type PersistDryRunReconcileResult = Exclude<
+  Awaited<ReturnType<PersistDryRunReconcileChunk>>,
+  null
+>;
+
+async function noopCompleteDryRun(_totals: ImportJobTotals): Promise<void> {
+  return undefined;
+}
+
+function mockPersistResult(
+  partial: Partial<PersistDryRunReconcileResult> = {},
+): PersistDryRunReconcileResult {
+  return {
+    job: {
+      worker_claim_seq: 1,
+      worker_recovery_seq: 0,
+      ...partial.job,
+    } as PersistDryRunReconcileResult['job'],
+    totals: partial.totals ?? {
+      rows: 4,
+      create: 4,
+      update: 0,
+      skip: 0,
+      error: 0,
+    },
+  };
+}
 
 const replanImportDryRunUnit = jest.fn(
   async ({ unit }: { unit: { replan_row_nos: number[] } }) =>
@@ -69,13 +100,9 @@ describe('runBackgroundDryRunReconcileChunk', () => {
   });
 
   it('stops before the next unit when the chunk budget is exhausted', async () => {
-    const persist = jest.fn().mockResolvedValue({
-      job: {
-        worker_claim_seq: 1,
-        worker_recovery_seq: 0,
-      },
-      totals: { rows: 4, create: 4, update: 0, skip: 0, error: 0 },
-    });
+    const persist = jest
+      .fn<PersistDryRunReconcileChunk>()
+      .mockResolvedValue(mockPersistResult());
     let clockReads = 0;
     const nowMs = () => {
       clockReads += 1;
@@ -103,7 +130,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
         totals_json: { rows: 4, create: 0, update: 0, skip: 0, error: 0 },
       },
       flow: {} as never,
-      completeDryRun: jest.fn(),
+      completeDryRun: noopCompleteDryRun,
       nowMs,
     });
 
@@ -147,7 +174,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
         totals_json: { rows: 4, create: 0, update: 0, skip: 0, error: 0 },
       },
       flow: {} as never,
-      completeDryRun: jest.fn(),
+      completeDryRun: noopCompleteDryRun,
       nowMs,
     });
 
@@ -157,16 +184,26 @@ describe('runBackgroundDryRunReconcileChunk', () => {
 
   it('resumes at the next unit without replanning the committed unit', async () => {
     const persist = jest
-      .fn()
-      .mockResolvedValueOnce({
-        job: { worker_claim_seq: 2, worker_recovery_seq: 0 },
-        totals: { rows: 4, create: 2, update: 0, skip: 0, error: 0 },
-      })
-      .mockResolvedValueOnce({
-        job: { worker_claim_seq: 3, worker_recovery_seq: 0 },
-        totals: { rows: 4, create: 4, update: 0, skip: 0, error: 0 },
-      });
-    const completeDryRun = jest.fn();
+      .fn<PersistDryRunReconcileChunk>()
+      .mockResolvedValueOnce(
+        mockPersistResult({
+          job: {
+            worker_claim_seq: 2,
+            worker_recovery_seq: 0,
+          } as PersistDryRunReconcileResult['job'],
+          totals: { rows: 4, create: 2, update: 0, skip: 0, error: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockPersistResult({
+          job: {
+            worker_claim_seq: 3,
+            worker_recovery_seq: 0,
+          } as PersistDryRunReconcileResult['job'],
+          totals: { rows: 4, create: 4, update: 0, skip: 0, error: 0 },
+        }),
+      );
+    const completeDryRun = jest.fn(noopCompleteDryRun);
     let clockReads = 0;
     const nowMs = () => {
       clockReads += 1;
@@ -224,18 +261,20 @@ describe('runBackgroundDryRunReconcileChunk', () => {
       context_to_row: index * 2 + 2,
       replan_row_nos: [index * 2 + 1, index * 2 + 2],
     }));
-    const persist = jest.fn().mockImplementation(
-      async (_tenantId, _jobId, _rows, workerPatch, _options, _lease, finalize) => ({
-        job: {
-          worker_claim_seq: workerPatch.dry_run_reconcile_cursor ?? 0,
-          worker_recovery_seq: 0,
-        },
-        totals: finalize
-          ? { rows: 10, create: 10, update: 0, skip: 0, error: 0 }
-          : { rows: 10, create: 2, update: 0, skip: 0, error: 0 },
-      }),
-    );
-    const completeDryRun = jest.fn();
+    const persist = jest
+      .fn<PersistDryRunReconcileChunk>()
+      .mockImplementation(async (_tenantId, _jobId, _rows, workerPatch, _options, _lease, finalize) =>
+        mockPersistResult({
+          job: {
+            worker_claim_seq: workerPatch.dry_run_reconcile_cursor ?? 0,
+            worker_recovery_seq: 0,
+          } as PersistDryRunReconcileResult['job'],
+          totals: finalize
+            ? { rows: 10, create: 10, update: 0, skip: 0, error: 0 }
+            : { rows: 10, create: 2, update: 0, skip: 0, error: 0 },
+        }),
+      );
+    const completeDryRun = jest.fn(noopCompleteDryRun);
     let cursor = 0;
     let chunks = 0;
     while (cursor < units.length) {
@@ -310,10 +349,13 @@ describe('runBackgroundDryRunReconcileChunk', () => {
       dry_run_reconcile_units: units,
     };
     const progressBefore = importDryRunReconcileProgress(worker);
-    const persist = jest.fn().mockResolvedValue({
-      job: { worker_claim_seq: 1, worker_recovery_seq: 0 },
-      totals: { rows: 4, create: 2, update: 0, skip: 0, error: 0 },
-    });
+    const persist = jest
+      .fn<PersistDryRunReconcileChunk>()
+      .mockResolvedValue(
+        mockPersistResult({
+          totals: { rows: 4, create: 2, update: 0, skip: 0, error: 0 },
+        }),
+      );
     let clockReads = 0;
     const nowMs = () => {
       clockReads += 1;
@@ -337,7 +379,7 @@ describe('runBackgroundDryRunReconcileChunk', () => {
         totals_json: { rows: 4, create: 0, update: 0, skip: 0, error: 0 },
       },
       flow: {} as never,
-      completeDryRun: jest.fn(),
+      completeDryRun: noopCompleteDryRun,
       nowMs,
     });
     expect(importDryRunReconcileProgress({ ...worker, dry_run_reconcile_cursor: 1 })).toBe(
