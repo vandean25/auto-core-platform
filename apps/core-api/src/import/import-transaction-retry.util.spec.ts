@@ -26,14 +26,18 @@ describe('withImportSyncApplyIoRetry', () => {
   });
 
   it('retries retryable errors up to the sync cap', async () => {
+    jest.useFakeTimers();
     let calls = 0;
-    await expect(
+    const exhausted = expect(
       withImportSyncApplyIoRetry(true, async () => {
         calls += 1;
         throw p2034();
       }),
     ).rejects.toBeInstanceOf(ImportApplyRetryExhaustedError);
+    await jest.runAllTimersAsync();
+    await exhausted;
     expect(calls).toBe(IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS);
+    jest.useRealTimers();
   });
 });
 

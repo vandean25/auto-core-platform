@@ -210,7 +210,11 @@ export class RowByRowApplyRunner {
     }
     const syncPath = isImportSyncLegacyApplyPath(options);
     return withImportSyncApplyIoRetry(syncPath, async () => {
-      const updatedJob = await this.markJobApplied(job.id, totals, guardedWrite);
+      const updatedJob = await this.markJobApplied(
+        job.id,
+        totals,
+        guardedWrite,
+      );
       await this.audit.writeImportJobAudit(
         this.prisma,
         tenantId,
