@@ -23,7 +23,7 @@ export function CheckoutFooter({
   const { t } = useTranslation('workshop')
 
   return (
-    <section className={cn("sticky bottom-[var(--phone-nav-h)] z-20 -mx-4 border-t bg-background/95 px-4 pb-4 pt-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur md:-mx-6 md:px-6", isCheckoutOpen && "max-md:max-h-[calc(100dvh-var(--phone-nav-h))] max-md:overflow-y-auto")}>
+    <section className={cn("sticky bottom-[var(--phone-nav-h)] z-20 -mx-4 border-t bg-background/95 px-4 pb-4 pt-3 md:pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur md:-mx-6 md:px-6", isCheckoutOpen && "max-md:max-h-[calc(100dvh-var(--phone-nav-h))] max-md:overflow-y-auto")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

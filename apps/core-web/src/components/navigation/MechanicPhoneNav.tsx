@@ -46,7 +46,7 @@ export function MechanicPhoneNav({ onOpenSearch }: { onOpenSearch: () => void })
         }}
         end={[{ id: 'search', label: t('phoneNav.search'), icon: Search, onSelect: onOpenSearch }]}
       />
-      <PhonePunchSheet open={punchOpen} onOpenChange={setPunchOpen} />
+      {punchOpen ? <PhonePunchSheet open onOpenChange={setPunchOpen} /> : null}
     </>
   )
 }
