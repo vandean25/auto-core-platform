@@ -170,13 +170,8 @@ export class RowByRowApplyRunner {
         );
         return this.serialize(refreshed, appliedTotals);
       }
-      const partialJob = await persistImportJobApplyingTotals(
-        this.prisma,
-        job.id,
-        totals,
-        guardedWrite,
-      );
-      return this.serialize(partialJob!, appliedTotals);
+      // Row commits already persist totals_json; do not overwrite with batch-local totals.
+      return this.serialize(refreshed!, appliedTotals);
     }
     if (batchIncomplete) {
       const partialJob = await persistImportJobApplyingTotals(

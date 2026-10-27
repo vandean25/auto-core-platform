@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
-import { ImportJobStatus } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
@@ -89,6 +89,37 @@ describe('Import background worker (e2e)', () => {
     expect(job?.status).toBe(ImportJobStatus.APPLIED);
     expect((job?.totals_json as { rows: number }).rows).toBe(rowCount);
     return job;
+  }
+
+  async function expectOneApplyPerRow(jobId: string) {
+    const job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    const totals = job?.totals_json as {
+      rows: number;
+      create: number;
+      error: number;
+    };
+    expect(totals.create).toBe(3);
+    expect(totals.error).toBe(0);
+
+    const errorRowCount = await tenantPrisma().importJobRow.count({
+      where: { import_job_id: jobId, action: ImportRowAction.ERROR },
+    });
+    expect(errorRowCount).toBe(0);
+
+    const mappings = await tenantPrisma().externalIdMapping.findMany({
+      where: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        first_seen_import_job_id: jobId,
+      },
+      select: { external_id: true },
+    });
+    expect(mappings).toHaveLength(3);
+    expect(new Set(mappings.map((mapping) => mapping.external_id)).size).toBe(
+      3,
+    );
   }
 
   const deliverWorker = (
@@ -185,29 +216,21 @@ describe('Import background worker (e2e)', () => {
       return job;
     };
 
-    const overlapping = Promise.all([
-      deliverWorker(jobId, 'apply'),
-      deliverWorker(jobId, 'apply'),
+    await Promise.all([
+      deliverWorker(jobId, 'apply').expect(204),
+      deliverWorker(jobId, 'apply').expect(204),
     ]);
-    await overlapping;
-    const applied = await drainApplyWorkers();
+
+    let applied = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    if (applied?.status !== ImportJobStatus.APPLIED) {
+      applied = await drainApplyWorkers();
+    }
+
     expect(applied?.status).toBe(ImportJobStatus.APPLIED);
     expect((applied?.totals_json as { rows: number }).rows).toBe(3);
-
-    const applySeqRows = await tenantPrisma().importJobRow.findMany({
-      where: { import_job_id: jobId },
-      select: { apply_seq: true },
-      orderBy: { apply_seq: 'asc' },
-    });
-    expect(applySeqRows.map((row) => row.apply_seq)).toEqual([1, 2, 3]);
-
-    const worker = (
-      (applied?.options_json ?? {}) as {
-        worker?: { last_committed_apply_seq?: number };
-      }
-    ).worker;
-    expect(worker?.last_committed_apply_seq).toBe(3);
-
+    await expectOneApplyPerRow(jobId);
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {

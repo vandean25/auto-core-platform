@@ -61,6 +61,15 @@ describe('isRetryableTransactionError', () => {
     );
   });
 
+  it('classifies deadlock SQLSTATE on a non-retry Prisma code as retryable', () => {
+    const deadlock = new Prisma.PrismaClientKnownRequestError('deadlock', {
+      code: 'P2010',
+      clientVersion: 'test',
+      meta: { database_error_code: '40001' },
+    });
+    expect(isRetryableTransactionError(deadlock)).toBe(true);
+  });
+
   it('classifies serialization failure and deadlock SQLSTATE as retryable', () => {
     const serialization = new Prisma.PrismaClientKnownRequestError('conflict', {
       code: 'P2034',
