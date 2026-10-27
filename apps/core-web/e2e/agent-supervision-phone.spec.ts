@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_AGENT } from './helpers/de-agent'
-import { controlsOutsideTheirCard, controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
+import { contentClippedByAncestor, controlsOutsideTheirCard, controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 
 /** AUT-748: the three supervision tabs, their filters and cards fit a phone without horizontal page scroll. */
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
@@ -38,6 +38,16 @@ const logs = [
     createdAt: '2026-10-04T12:05:00.000Z',
   },
 ]
+const auditEntry = {
+  id: 'audit-1',
+  tenantId: 'test-tenant',
+  entityType: 'SalesOrder',
+  entityId: 'so-123',
+  action: 'UPDATE',
+  actorEmail: 'supervisor@example.com',
+  actorType: 'USER',
+  occurredAt: '2026-10-04T12:05:01.000Z',
+}
 const shadowLogs = [
   {
     id: 'shadow-1',
@@ -61,20 +71,8 @@ test.describe('Agent supervision on a phone (AUT-748)', () => {
       await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) => route.fulfill(json([])))
       await page.route(AutoCorePage.apiRouteMatcher('/api/agent-supervision/triage'), (route) => route.fulfill(json({ data: proposals.map((item) => ({ kind: 'PENDING_APPROVAL', entity_id: item.id, site_id: 'test-site', reason: 'AGENT_PROPOSAL_PENDING', created_at: item.created_at, due_at: item.expires_at, record_link: '/agent/supervision', allowed_action: 'APPROVE_REJECT' })), next_cursor: null })))
       await page.route(AutoCorePage.apiRouteMatcher('/api/agent-proposals'), (route) => route.fulfill(json({ data: proposals })))
-      await page.route(AutoCorePage.apiRouteMatcher('/api/agent-actions'), (route) =>
-        route.fulfill(
-          json(
-            route.request().url().includes(logs[0].traceId)
-              ? {
-                  logs,
-                  auditEntries: [
-                    { id: 'audit-1', tenantId: 'test-tenant', entityType: 'SalesOrder', entityId: 'so-123', action: 'UPDATE', actorEmail: 'supervisor@example.com', actorType: 'USER', occurredAt: '2026-10-04T12:05:01.000Z' },
-                  ],
-                }
-              : { data: logs },
-          ),
-        ),
-      )
+      await page.route(AutoCorePage.apiRouteMatcher('/api/agent-actions'), (route) => route.fulfill(json({ data: logs })))
+      await page.route(/\/api\/agent-actions\/[^?/]+(\?.*)?$/, (route) => route.fulfill(json({ logs, auditEntries: [auditEntry] })))
       await page.route(AutoCorePage.apiRouteMatcher('/api/decision-shadow-logs'), (route) => route.fulfill(json({ data: shadowLogs, nextCursor: null })))
 
       await new AutoCorePage(page, DE_AGENT.header.title).navigate('/agent/supervision')
@@ -106,8 +104,11 @@ test.describe('Agent supervision on a phone (AUT-748)', () => {
       await page.getByTestId('activity-trace-btn-log-1').click()
       const traceDialog = page.getByRole('dialog')
       await expect(traceDialog).toBeVisible()
+      await expect(traceDialog.getByText(DE_AGENT.traceDialog.actionHistory)).toBeVisible()
       expect((await traceDialog.boundingBox())!.width).toBe(width)
       expect(await controlsShorterThan44(traceDialog), 'trace dialog controls under 44px').toEqual([])
+      expect(await contentClippedByAncestor(traceDialog), 'trace dialog content clipped').toEqual([])
+      await expectNoPageScroll(page)
       await page.keyboard.press('Escape')
 
       await page.getByTestId('tab-approvals').click()
@@ -116,6 +117,8 @@ test.describe('Agent supervision on a phone (AUT-748)', () => {
       await expect(rejectDialog).toBeVisible()
       expect((await rejectDialog.boundingBox())!.width).toBe(width)
       expect(await controlsShorterThan44(rejectDialog), 'reject dialog controls under 44px').toEqual([])
+      expect(await contentClippedByAncestor(rejectDialog), 'reject dialog content clipped').toEqual([])
+      await expectNoPageScroll(page)
       await page.keyboard.press('Escape')
 
       const boxes = await Promise.all(['tab-approvals', 'tab-activity', 'tab-decision-shadow'].map((id) => page.getByTestId(id).boundingBox()))

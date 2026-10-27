@@ -23,7 +23,8 @@ export async function elementsPastTheScreen(page: Page): Promise<string[]> {
       return false
     }
     const past = [...document.body.querySelectorAll<HTMLElement>('*')]
-      .filter((node) => node.getClientRects().length > 0 && !insideClip(node))
+      // sr-only text is a 1px box, whatever its scroll width.
+      .filter((node) => node.getClientRects().length > 0 && !(node.offsetWidth <= 1 && node.offsetHeight <= 1) && !insideClip(node))
       .filter((node) => {
         const box = node.getBoundingClientRect()
         const content = scrolls(node) ? box.right : box.left + Math.max(node.scrollWidth, box.width)
@@ -70,5 +71,27 @@ export async function controlsShorterThan44(scope: Locator): Promise<string[]> {
       })
       .slice(0, 8)
       .map((node) => `${node.tagName.toLowerCase()}[${node.getAttribute('data-testid') ?? node.getAttribute('aria-label') ?? node.textContent?.trim().slice(0, 30) ?? ''}] ${Math.round(node.getBoundingClientRect().width)}x${Math.round(node.getBoundingClientRect().height)}`),
+  )
+}
+
+/**
+ * Elements in `scope` that stick out past the nearest ancestor that cuts its content off (`overflow-x: hidden` or
+ * `clip`): they are still inside the screen but half invisible, like a badge clipped at a dialog edge.
+ */
+export async function contentClippedByAncestor(scope: Locator): Promise<string[]> {
+  return scope.evaluate((root) =>
+    [...root.querySelectorAll<HTMLElement>('*')]
+      .filter((node) => node.getClientRects().length > 0)
+      .filter((node) => {
+        const box = node.getBoundingClientRect()
+        for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+          const overflow = getComputedStyle(parent).overflowX
+          if (/(auto|scroll)/.test(overflow)) return false
+          if (/(hidden|clip)/.test(overflow)) return box.right > parent.getBoundingClientRect().right + 1 && box.width < parent.getBoundingClientRect().width
+        }
+        return false
+      })
+      .slice(0, 8)
+      .map((node) => `${node.tagName.toLowerCase()}[${node.getAttribute('data-testid') ?? ''}].${String(node.className).slice(0, 60)}`),
   )
 }

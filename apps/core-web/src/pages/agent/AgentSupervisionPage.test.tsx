@@ -351,6 +351,7 @@ describe('AgentSupervisionPage', () => {
       expect(className).toContain('max-sm:whitespace-normal')
       expect(className).not.toMatch(/(^|\s)whitespace-normal/)
     }
+    expect(screen.getByRole('tablist').className).toContain('sm:h-9')
     const root = screen.getByTestId('agent-supervision-page').className
     expect(root).toContain('max-sm:[&_button:not([role=checkbox]):not([role=switch])]:min-h-11')
     expect(root).toContain('max-sm:[&_select]:min-h-11')

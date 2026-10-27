@@ -76,7 +76,7 @@ export function TraceAuditDetailDialog({
                       key={act.id}
                       className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                         <span className="font-semibold text-slate-800">{act.actionType}</span>
                         <div className="flex items-center gap-1.5">
                           <StatusBadge status={act.tier} />
