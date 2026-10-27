@@ -411,16 +411,16 @@ describe('import apply_seq fill (e2e)', () => {
     const clientWithTransaction = prismaClient as PrismaClient & {
       $transaction: typeof prismaClient.$transaction;
     };
-    clientWithTransaction.$transaction = async (fn, options) => {
+    clientWithTransaction.$transaction = (async (
+      fn: (tx: Prisma.TransactionClient) => Promise<unknown>,
+      options?: unknown,
+    ) => {
       transactionCalls += 1;
       if (transactionCalls <= 2) {
         throw p2028();
       }
-      return boundTransaction(
-        fn as (tx: Prisma.TransactionClient) => Promise<unknown>,
-        options,
-      );
-    };
+      return boundTransaction(fn, options as never);
+    }) as typeof prismaClient.$transaction;
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});

@@ -540,8 +540,10 @@ export class ImportJobStore {
     }
 
     const failed = await this.prisma.$transaction(async (tx) =>
-      runInCapturedTenantContext(async () =>
-        failImportJobForRetryExhausted(tx, tenantId, jobId, leaseToken),
+      runInCapturedTenantContext(
+        async () =>
+          failImportJobForRetryExhausted(tx, tenantId, jobId, leaseToken),
+        tenantUserForTransactions,
       ),
     );
     if (failed) {
