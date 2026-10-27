@@ -2,6 +2,12 @@ import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 
 export type ImportWorkerPhase = 'dry_run' | 'apply';
 
+export type ImportDryRunReconcileUnit = {
+  context_from_row: number;
+  context_to_row: number;
+  replan_row_nos: number[];
+};
+
 export type ImportJobWorkerState = {
   phase: ImportWorkerPhase;
   lease_token: string;
@@ -12,7 +18,45 @@ export type ImportJobWorkerState = {
   /** Background apply cursor over import_job_rows.apply_seq. */
   last_committed_apply_seq?: number;
   started_at: string;
+  /** After row batches finish, cross-batch duplicate reconcile runs before dry-run completion. */
+  dry_run_reconcile_active?: boolean;
+  dry_run_reconcile_cursor?: number;
+  dry_run_reconcile_units?: ImportDryRunReconcileUnit[];
 };
+
+export function importDryRunReconcileProgress(
+  worker: ImportJobWorkerState,
+): number {
+  const units = worker.dry_run_reconcile_units ?? [];
+  const unitIndex = worker.dry_run_reconcile_cursor ?? 0;
+  let done = 0;
+  for (let index = 0; index < unitIndex && index < units.length; index++) {
+    done += units[index].replan_row_nos.length;
+  }
+  return done;
+}
+
+export function importWorkerProgressCursor(
+  worker: ImportJobWorkerState,
+): number {
+  if (worker.dry_run_reconcile_active) {
+    return importDryRunReconcileProgress(worker);
+  }
+  if (worker.phase === 'apply') {
+    return worker.last_committed_apply_seq ?? 0;
+  }
+  return worker.processed_rows ?? 0;
+}
+
+/** Progress cursor for worker poison / lease claims (reconcile uses committed unit index). */
+export function importWorkerPoisonProgressCursor(
+  worker: ImportJobWorkerState,
+): number {
+  if (worker.dry_run_reconcile_active) {
+    return worker.dry_run_reconcile_cursor ?? 0;
+  }
+  return importWorkerProgressCursor(worker);
+}
 
 export type ImportJobUploadRef = {
   object_key: string;
@@ -62,7 +106,7 @@ export function computeImportProgress(params: {
     return null;
   }
   const totalRows = Math.max(params.totals.rows, worker.processed_rows, 1);
-  const processed = worker.processed_rows;
+  const processed = importWorkerProgressCursor(worker);
   const startedAt = Date.parse(worker.started_at);
   const elapsedSec =
     Number.isFinite(startedAt) && startedAt > 0

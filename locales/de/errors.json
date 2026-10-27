@@ -168,6 +168,7 @@
     "IMPORT_EXISTING_NOT_UPDATED": "Bestehender Kunde gefunden, aber „Bestehende aktualisieren“ ist nicht aktiviert.",
     "IMPORT_EXTERNAL_ID_REQUIRED": "Die externe Nummer ist erforderlich.",
     "IMPORT_FILE_TOO_LARGE": "Die Importdatei ist zu groß.",
+    "IMPORT_GROUP_TOO_LARGE": "Die Importgruppe überschreitet die maximale Zeilenanzahl; bitte die Datei aufteilen.",
     "IMPORT_INVALID_COST_PRICE": "Ungültiger Einkaufspreis beim Import.",
     "IMPORT_INVALID_ENCODING": "Ungültige Zeichenkodierung beim Import.",
     "IMPORT_INVALID_ENTITY_TYPE": "Ungültiger Entitätstyp beim Import.",

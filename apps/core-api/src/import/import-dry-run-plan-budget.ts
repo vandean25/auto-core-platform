@@ -6,6 +6,10 @@ export function dryRunRowNoForSlice(
   budget: ImportDryRunPlanBudget | undefined,
   indexInSlice: number,
 ): number {
+  const explicit = budget?.rowNumbers?.[indexInSlice];
+  if (explicit !== undefined) {
+    return explicit;
+  }
   const base = budget?.rowNoOffset ?? 1;
   return base + indexInSlice;
 }

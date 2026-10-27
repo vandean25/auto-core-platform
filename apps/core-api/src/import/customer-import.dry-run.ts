@@ -1,4 +1,4 @@
-import { ImportEntityType, ImportRowAction } from '@prisma/client';
+import { ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import {
@@ -12,6 +12,11 @@ import { normalizeMatchEmail } from '../customer/customer-match.util.js';
 import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
+import { ImportEntityType } from '@prisma/client';
+import {
+  guardDryRunGroupCap,
+  oversizedRowNosFromParsedCsv,
+} from './import-dry-run-group-limit.js';
 
 type CustomerRecord = {
   id: string;
@@ -122,9 +127,21 @@ export async function planCustomerDryRun(
     input.tenantId,
     input.sourceSystem,
   );
+  const oversized = oversizedRowNosFromParsedCsv(
+    parsed,
+    input.mapping,
+    ImportEntityType.CUSTOMER,
+    input.planBudget,
+  );
   return planParsedCsvRowsWithBudget(
     parsed,
     input.planBudget,
-    (rowNo, record) => planCustomerCsvRow(rowNo, record, input, context),
+    (rowNo, record) =>
+      guardDryRunGroupCap(
+        oversized,
+        rowNo,
+        record[input.mapping.external_id ?? ''] ?? null,
+        () => planCustomerCsvRow(rowNo, record, input, context),
+      ),
   );
 }

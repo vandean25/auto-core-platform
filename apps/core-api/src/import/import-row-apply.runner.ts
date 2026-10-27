@@ -9,11 +9,12 @@ import {
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
 import {
+  ImportDuplicateCreateInJobError,
   isRowLevelApplyError,
+  resolveImportExternalId,
   toRowApplyError,
 } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
-import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { applySeqForRow } from './import-apply-sequence.js';
 import {
@@ -297,6 +298,65 @@ export class RowByRowApplyRunner {
     });
   }
 
+  private async earliestCommittedCreateRowNoInJob(
+    input: ImportApplyInput,
+    row: ImportApplyRow,
+    db: Prisma.TransactionClient | PrismaService,
+  ): Promise<number | null> {
+    const payload = row.normalized_json as Record<string, unknown>;
+    const externalId = resolveImportExternalId(payload, row.external_id);
+    if (!externalId) {
+      return null;
+    }
+    const earliest = await db.importJobRow.findFirst({
+      where: {
+        tenant_id: input.tenantId,
+        import_job_id: input.job.id,
+        external_id: externalId,
+        action: ImportRowAction.CREATE,
+      },
+      orderBy: { row_no: 'asc' },
+      select: { row_no: true },
+    });
+    return earliest?.row_no ?? null;
+  }
+
+  private async isDuplicateCreateAfterAnotherRowCommitted(
+    input: ImportApplyInput,
+    row: ImportApplyRow,
+    db: Prisma.TransactionClient | PrismaService,
+  ): Promise<boolean> {
+    const earliest = await this.earliestCommittedCreateRowNoInJob(
+      input,
+      row,
+      db,
+    );
+    return earliest !== null && earliest !== row.row_no;
+  }
+
+  private async resolveDuplicateCommittedCreateLegacy(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    row: ImportApplyRow,
+  ): Promise<'noop' | 'duplicate_error' | null> {
+    if (row.action !== ImportRowAction.CREATE) {
+      return null;
+    }
+    if (!(await this.isCreateAlreadyCommittedByJob(input, entityType, row))) {
+      return null;
+    }
+    if (
+      await this.isDuplicateCreateAfterAnotherRowCommitted(
+        input,
+        row,
+        this.prisma,
+      )
+    ) {
+      return 'duplicate_error';
+    }
+    return 'noop';
+  }
+
   private async isCreateAlreadyCommittedByJob(
     input: ImportApplyInput,
     entityType: ImportEntityType,
@@ -518,6 +578,11 @@ export class RowByRowApplyRunner {
       row.action === ImportRowAction.CREATE &&
       (await this.isCreateAlreadyCommittedByJob(input, entityType, row, tx))
     ) {
+      if (
+        await this.isDuplicateCreateAfterAnotherRowCommitted(input, row, tx)
+      ) {
+        throw new ImportDuplicateCreateInJobError();
+      }
       return 'noop';
     }
     await assertApplyRowIsFresh(
@@ -551,10 +616,24 @@ export class RowByRowApplyRunner {
     }
 
     try {
-      if (
-        row.action === ImportRowAction.CREATE &&
-        (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
-      ) {
+      const committedCreate = await this.resolveDuplicateCommittedCreateLegacy(
+        input,
+        entityType,
+        row,
+      );
+      if (committedCreate === 'noop') {
+        await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+        return;
+      }
+      if (committedCreate === 'duplicate_error') {
+        totals.error += 1;
+        await markImportRowFailed(
+          this.prisma,
+          input.tenantId,
+          input.job.id,
+          row.row_no,
+          toRowApplyError(new ImportDuplicateCreateInJobError()),
+        );
         await this.advanceWorkerCursor(input, applySeqForRow(row), options);
         return;
       }

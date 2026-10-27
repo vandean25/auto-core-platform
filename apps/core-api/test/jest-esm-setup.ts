@@ -16,3 +16,10 @@ if (
 if (!process.env.IMPORT_UPLOAD_STORAGE?.trim()) {
   process.env.IMPORT_UPLOAD_STORAGE = 'local';
 }
+
+const runsImportWorkerE2e = process.argv.some((arg) =>
+  arg.includes('import-background-worker.e2e-spec'),
+);
+if (runsImportWorkerE2e && !process.env.IMPORT_WORKER_BATCH_SIZE?.trim()) {
+  process.env.IMPORT_WORKER_BATCH_SIZE = '2';
+}

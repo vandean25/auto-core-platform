@@ -37,7 +37,7 @@ export async function persistDryRunBatchAndHandoff(params: {
   mergedTotals: ImportJobTotals;
   processed: number;
   totalRows: number;
-  completeDryRun: () => Promise<void>;
+  onAllRowBatchesDone: () => Promise<void>;
 }): Promise<void> {
   const leaseToken = params.options.worker?.lease_token;
   if (!leaseToken) {
@@ -61,7 +61,7 @@ export async function persistDryRunBatchAndHandoff(params: {
     return;
   }
   if (params.processed >= params.totalRows) {
-    await params.completeDryRun();
+    await params.onAllRowBatchesDone();
     return;
   }
   const refreshed = appended;

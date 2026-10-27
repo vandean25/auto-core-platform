@@ -6,6 +6,10 @@ import { pickVehicleImportAuditSnapshot } from './vehicle-import-audit.snapshot.
 import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
+import {
+  guardDryRunGroupCap,
+  oversizedRowNosFromParsedCsv,
+} from './import-dry-run-group-limit.js';
 import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
 import {
   planVehicleDryRunRow,
@@ -97,9 +101,21 @@ export async function planVehicleDryRun(
     input.tenantId,
     input.sourceSystem,
   );
+  const oversized = oversizedRowNosFromParsedCsv(
+    parsed,
+    input.mapping,
+    ImportEntityType.VEHICLE,
+    input.planBudget,
+  );
   return planParsedCsvRowsWithBudget(
     parsed,
     input.planBudget,
-    (rowNo, record) => planVehicleCsvRow(rowNo, record, input, context),
+    (rowNo, record) =>
+      guardDryRunGroupCap(
+        oversized,
+        rowNo,
+        record[input.mapping.external_id ?? ''] ?? null,
+        () => planVehicleCsvRow(rowNo, record, input, context),
+      ),
   );
 }

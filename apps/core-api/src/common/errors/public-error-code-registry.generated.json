@@ -661,6 +661,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_GROUP_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_INVALID_COST_PRICE": {
       "public": true,
       "params": []
