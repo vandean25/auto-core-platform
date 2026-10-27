@@ -104,14 +104,13 @@ describe('WorkshopOrderIntakeDialog', () => {
     })
   })
 
-  it('fills the screen on a phone, stacks the 44px tabs and keeps the actions in a pinned footer', () => {
+  it('fills the screen on a phone, stacks the tabs and keeps the actions in a pinned footer', () => {
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
     const dialog = screen.getByRole('dialog')
     expect(dialog.className).toContain('max-sm:h-dvh')
     expect(dialog.className).toContain('max-sm:w-full')
     expect(screen.getByRole('tablist').className).toContain('grid-cols-1')
-    for (const tab of screen.getAllByRole('tab')) expect(tab.className).toContain('max-sm:min-h-11')
 
     const create = screen.getByRole('button', { name: oi.createOrder })
     expect(create.parentElement?.className).toContain('shrink-0')

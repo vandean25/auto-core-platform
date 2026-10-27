@@ -304,7 +304,7 @@ export function StockTransferCreateDialog({
           </div>
         ) : null}
 
-        <DialogFooter>
+        <DialogFooter className="max-sm:gap-2">
           <Button variant="outline" onClick={() => handleClose(false)}>
             {t('common:actions.cancel')}
           </Button>

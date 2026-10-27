@@ -48,7 +48,7 @@ describe('DialogContent mobile foundations', () => {
       </Dialog>,
     )
 
-    expect(screen.getByText('Long title next to the close button').className).toContain('max-sm:pr-12')
+    expect(screen.getByText('Long title next to the close button').className).toContain('max-sm:px-12')
     expect(screen.getByRole('dialog').className).toContain('max-sm:[&>button:first-of-type]:right-2')
   })
 

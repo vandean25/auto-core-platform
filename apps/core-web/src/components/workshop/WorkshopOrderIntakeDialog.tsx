@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogDescription,
@@ -225,17 +226,17 @@ export function WorkshopOrderIntakeDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="dialog-body min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pr-1">
+        <DialogBody className="space-y-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as IntakeTab)}>
             {!pickerlMode ? (
               <TabsList className="grid h-auto w-full grid-cols-1 sm:inline-flex sm:h-9 sm:w-auto">
-                <TabsTrigger value="existing" className="max-sm:min-h-11">
+                <TabsTrigger value="existing">
                   {t('orderIntake.tabExisting')}
                 </TabsTrigger>
-                <TabsTrigger value="new-vehicle" className="max-sm:min-h-11">
+                <TabsTrigger value="new-vehicle">
                   {t('orderIntake.tabNewVehicle')}
                 </TabsTrigger>
-                <TabsTrigger value="registration-document" className="max-sm:min-h-11">
+                <TabsTrigger value="registration-document">
                   {t('orderIntake.tabRegistration')}
                 </TabsTrigger>
               </TabsList>
@@ -482,28 +483,28 @@ export function WorkshopOrderIntakeDialog({
               </AlertDescription>
             </Alert>
           ) : null}
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="shrink-0">
-            <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
-              {t('orderIntake.cancel')}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleCreateOrder}
-              disabled={
-                createOrder.isPending ||
-                registerIntake.isPending ||
-                !canSubmit ||
-                activeTab === 'registration-document'
-              }
-            >
-              {createOrder.isPending || registerIntake.isPending
-                ? t('orderIntake.creating')
-                : pickerlMode
-                  ? t('orderIntake.createPickerl')
-                  : t('orderIntake.createOrder')}
-            </Button>
+        <DialogFooter className="shrink-0 max-sm:gap-2">
+          <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
+            {t('orderIntake.cancel')}
+          </Button>
+          <Button
+            type="button"
+            onClick={handleCreateOrder}
+            disabled={
+              createOrder.isPending ||
+              registerIntake.isPending ||
+              !canSubmit ||
+              activeTab === 'registration-document'
+            }
+          >
+            {createOrder.isPending || registerIntake.isPending
+              ? t('orderIntake.creating')
+              : pickerlMode
+                ? t('orderIntake.createPickerl')
+                : t('orderIntake.createOrder')}
+          </Button>
         </DialogFooter>
           </>
         )}

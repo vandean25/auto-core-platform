@@ -37,20 +37,30 @@ async function expectFullScreenForm(page: Page, primary: string | RegExp) {
   const buttonBox = await button.boundingBox();
   expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
   expect(buttonBox!.y + buttonBox!.height).toBeLessThanOrEqual(PHONE.height);
+
+  // Footer buttons stacked on top of each other do not touch.
+  const boxes = await Promise.all((await button.locator('xpath=..').getByRole('button').all()).map((item) => item.boundingBox()));
+  const stacked = boxes.filter((box): box is NonNullable<typeof box> => box !== null).sort((first, second) => first.y - second.y);
+  for (let index = 1; index < stacked.length; index += 1) {
+    const previous = stacked[index - 1];
+    if (stacked[index].x !== previous.x) continue;
+    expect(stacked[index].y - (previous.y + previous.height)).toBeGreaterThanOrEqual(4);
+  }
 }
 
 async function expectCloseClearOfTitle(page: Page) {
   const dialog = page.getByRole('dialog');
+  const title = dialog.getByRole('heading').first();
   const close = (await dialog.getByRole('button', { name: /schließen/i }).first().boundingBox())!;
   expect(close.width).toBeGreaterThanOrEqual(44);
-  // The title text stops before the close button starts, so they never overlap.
-  const titleText = dialog.getByRole('heading').first();
-  const textRight = await titleText.evaluate((node) => {
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    return range.getBoundingClientRect().right;
+  expect(close.x + close.width).toBeLessThanOrEqual(PHONE.width);
+  // The title keeps its own room: its content box (without padding) ends before the close button starts, so even a
+  // long title wraps instead of running under the button.
+  const contentRight = await title.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return node.getBoundingClientRect().right - parseFloat(style.paddingRight);
   });
-  expect(textRight).toBeLessThanOrEqual(close.x);
+  expect(contentRight).toBeLessThanOrEqual(close.x);
 }
 
 async function mockList(page: Page, path: string) {
