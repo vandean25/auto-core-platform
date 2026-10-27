@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import {
     Dialog,
     DialogContent,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -105,12 +106,12 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
     return (
         <Dialog open={controlledOpen ?? open} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent fullScreenOnPhone className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>{isEdit ? t('dialog.editTitle') : t('dialog.addTitle')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form id="customer-dialog-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
                             name="type"
@@ -134,12 +135,12 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                         />
 
                         {type === 'COMPANY' && (
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <FormField
                                     control={form.control}
                                     name="company_name"
                                     render={({ field }) => (
-                                        <FormItem className="col-span-2">
+                                        <FormItem className="sm:col-span-2">
                                             <FormLabel>{t('dialog.companyName')}</FormLabel>
                                             <FormControl>
                                                 <Input {...field} value={field.value ?? ''} />
@@ -164,7 +165,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <FormField
                                 control={form.control}
                                 name="first_name"
@@ -193,7 +194,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <FormField
                                 control={form.control}
                                 name="email"
@@ -261,7 +262,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     </FormItem>
                                 )}
                             />
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                                 <FormField
                                     control={form.control}
                                     name="address_zip"
@@ -279,7 +280,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     control={form.control}
                                     name="address_city"
                                     render={({ field }) => (
-                                        <FormItem className="col-span-2">
+                                        <FormItem className="sm:col-span-2">
                                             <FormLabel>{t('dialog.city')}</FormLabel>
                                             <FormControl>
                                                 <Input {...field} value={field.value ?? ''} />
@@ -303,17 +304,20 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                 )}
                             />
                         </div>
-
-                        <div className="flex justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                                {t('dialog.cancel')}
-                            </Button>
-                            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                                {isEdit ? t('dialog.saveChanges') : t('dialog.createCustomer')}
-                            </Button>
-                        </div>
                     </form>
                 </Form>
+                <DialogFooter className="max-sm:gap-2">
+                    <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                        {t('dialog.cancel')}
+                    </Button>
+                    <Button
+                        type="submit"
+                        form="customer-dialog-form"
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                    >
+                        {isEdit ? t('dialog.saveChanges') : t('dialog.createCustomer')}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )

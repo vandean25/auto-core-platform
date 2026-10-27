@@ -155,7 +155,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
     return (
         <Dialog open={controlledOpen ?? open} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent fullScreenOnPhone className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>{isEdit ? t('vehicles:dialog.editTitle') : t('vehicles:dialog.addTitle')}</DialogTitle>
                 </DialogHeader>
@@ -165,7 +165,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                         onSubmit={form.handleSubmit(onSubmit)}
                         className="space-y-4"
                     >
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <FormField
                                 control={form.control}
                                 name="make"
@@ -194,7 +194,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <FormField
                                 control={form.control}
                                 name="year"
@@ -223,7 +223,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <FormField
                                 control={form.control}
                                 name="vin"
@@ -270,7 +270,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
 
                     </form>
                 </Form>
-                <DialogFooter>
+                <DialogFooter className="max-sm:gap-2">
                     <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                         {t('common:actions.cancel')}
                     </Button>

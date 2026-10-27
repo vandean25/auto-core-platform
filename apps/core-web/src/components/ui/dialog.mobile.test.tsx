@@ -121,4 +121,29 @@ describe('DialogContent mobile foundations', () => {
 
     expect(screen.getByRole('dialog').className).toContain('max-w-3xl')
   })
+
+  it('fills the screen below sm only when fullScreenOnPhone is set', () => {
+    const { rerender } = render(
+      <Dialog open>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>Default</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    )
+    expect(screen.getByRole('dialog').className).not.toContain('max-sm:h-dvh')
+
+    rerender(
+      <Dialog open>
+        <DialogContent fullScreenOnPhone aria-describedby={undefined}>
+          <DialogTitle>Full screen</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    )
+    const className = screen.getByRole('dialog').className
+    expect(className).toContain('max-sm:h-dvh')
+    expect(className).toContain('max-sm:w-full')
+    expect(className).toContain('max-sm:rounded-none')
+    expect(className).toContain('safe-area-inset-bottom')
+    expect(className).toContain('sm:w-full')
+  })
 })

@@ -25,6 +25,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
@@ -220,13 +221,13 @@ export function PlannerCreateSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-lg max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
         <SheetHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
             <SheetTitle>{t('planner.createSheet.title')}</SheetTitle>
             <SheetDescription>{t('planner.createSheet.description')}</SheetDescription>
           </div>
-          <Button onClick={handleCreate} disabled={!canSubmit}>
+          <Button className="max-sm:hidden" onClick={handleCreate} disabled={!canSubmit}>
             {t('planner.createSheet.createButton')}
           </Button>
         </SheetHeader>
@@ -270,7 +271,7 @@ export function PlannerCreateSheet({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>{t('planner.createSheet.bay')}</Label>
               <Select value={bayId} onValueChange={setBayId}>
@@ -305,7 +306,7 @@ export function PlannerCreateSheet({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="planner-start">{t('planner.createSheet.start')}</Label>
               <Input
@@ -372,6 +373,13 @@ export function PlannerCreateSheet({
             </Alert>
           )}
         </div>
+
+        {/* Phone: the primary action moves from the header to a pinned, safe-area aware footer. */}
+        <SheetFooter className="sticky bottom-0 -mx-6 -mb-6 mt-auto border-t bg-background px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-3 sm:hidden">
+          <Button className="min-h-11" onClick={handleCreate} disabled={!canSubmit}>
+            {t('planner.createSheet.createButton')}
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   )

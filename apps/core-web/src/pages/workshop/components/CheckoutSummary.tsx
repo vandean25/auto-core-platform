@@ -19,9 +19,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import type { Invoice } from '@/api/types'
 import type { GroupedCheckoutTask } from '../hooks/useWorkshopCalculations'
+
+// Phone layout stacks the table cells, so headers move into a data-label prefix.
+const mobileLabel =
+  'max-md:before:mr-1.5 max-md:before:text-xs max-md:before:font-normal max-md:before:text-muted-foreground max-md:before:content-[attr(data-label)]'
 
 export interface CheckoutSummaryProps {
   activeInvoiceId: string | null | undefined
@@ -81,12 +85,12 @@ export function CheckoutSummary({
   return (
     <Card className='border-primary/20'>
       <CardHeader className='pb-3'>
-        <div className='flex items-center justify-between gap-3'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
           <div>
             <CardTitle as='h3' className='text-base font-semibold'>{t('checkoutSummary.title')}</CardTitle>
             <p className='text-xs text-muted-foreground mt-1'>{t('checkoutSummary.hint')}</p>
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
             {activeInvoiceId && (
               <span className='text-xs text-muted-foreground'>
                 {t('checkoutSummary.invoiceLabel', {
@@ -97,6 +101,7 @@ export function CheckoutSummary({
             {!activeInvoiceId && (
               <Button
                 size='sm'
+                className='max-md:min-h-11'
                 onClick={onCreateDraftInvoice}
                 disabled={!canCreateDraftInCheckout || createDraftPending}
               >
@@ -106,6 +111,7 @@ export function CheckoutSummary({
             {activeInvoiceId && fetchedInvoice?.status === 'DRAFT' && (
               <Button
                 size='sm'
+                className='max-md:min-h-11'
                 onClick={onIssueInvoice}
                 disabled={!canIssueInvoiceInCheckout || issuePending}
               >
@@ -121,20 +127,20 @@ export function CheckoutSummary({
       <CardContent className='space-y-4'>
         {invoiceWarning}
         <div className='rounded-xl border overflow-hidden'>
-          <Table>
+          <Table className='max-md:block max-md:[&_thead]:hidden max-md:[&_tbody]:block max-md:[&_tr]:flex max-md:[&_tr]:flex-wrap max-md:[&_tr]:items-center max-md:[&_tr]:gap-x-4 max-md:[&_tr]:px-3 max-md:[&_tr]:py-2 max-md:[&_td]:p-0 max-md:[&_td]:py-1'>
             <TableHeader>
               <TableRow>
                 <TableHead>{t('checkoutSummary.colItem')}</TableHead>
-                <TableHead className='text-right w-[90px]'>{t('checkoutSummary.colQty')}</TableHead>
-                <TableHead className='text-right w-[140px]'>{t('checkoutSummary.colUnitPrice')}</TableHead>
-                <TableHead className='text-right w-[260px]'>{t('checkoutSummary.colDiscount')}</TableHead>
-                <TableHead className='text-right w-[160px]'>{t('checkoutSummary.colNet')}</TableHead>
+                <TableHead className='text-right md:w-[90px]'>{t('checkoutSummary.colQty')}</TableHead>
+                <TableHead className='text-right md:w-[140px]'>{t('checkoutSummary.colUnitPrice')}</TableHead>
+                <TableHead className='text-right md:w-[260px]'>{t('checkoutSummary.colDiscount')}</TableHead>
+                <TableHead className='text-right md:w-[160px]'>{t('checkoutSummary.colNet')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {groupedCheckoutTasks.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className='text-center text-sm text-muted-foreground py-6'>
+                  <TableCell colSpan={5} className='text-center text-sm text-muted-foreground py-6 max-md:basis-full'>
                     {t('checkoutSummary.empty')}
                   </TableCell>
                 </TableRow>
@@ -145,7 +151,7 @@ export function CheckoutSummary({
                 return (
                   <Fragment key={task.id}>
                     <TableRow className='bg-muted/40'>
-                      <TableCell colSpan={3}>
+                      <TableCell colSpan={3} className='max-md:basis-full'>
                         <div className='flex items-center justify-between gap-2'>
                           <div className='flex items-center gap-1'>
                             <Button
@@ -195,7 +201,7 @@ export function CheckoutSummary({
                             <Input
                               value={taskDiscountPercent}
                               onChange={(e) => onTaskDiscountValueChange(task.id, e.target.value)}
-                              className='h-8 w-[110px] text-right'
+                              className='h-8 w-full min-w-0 text-right max-md:h-11 md:w-[110px]'
                               inputMode='decimal'
                               placeholder='0'
                               disabled={isLocked || lines.length === 0}
@@ -203,14 +209,14 @@ export function CheckoutSummary({
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className='text-right font-semibold'>
+                      <TableCell className='text-right font-semibold max-md:ml-auto'>
                         {formatCurrency(netTotal)}
                       </TableCell>
                     </TableRow>
 
                     {isExpanded && lines.map((line) => (
                       <TableRow key={line.rowKey}>
-                        <TableCell>
+                        <TableCell className='max-md:basis-full'>
                           <div className='text-sm font-medium'>{line.lineItem.description}</div>
                           <div className='text-xs text-muted-foreground'>
                             {t('checkoutSummary.lineMeta', {
@@ -220,18 +226,18 @@ export function CheckoutSummary({
                             })}
                           </div>
                         </TableCell>
-                        <TableCell className='text-right'>{line.lineItem.qty}</TableCell>
-                        <TableCell className='text-right'>
+                        <TableCell className={cn('text-right', mobileLabel)} data-label={t('checkoutSummary.colQty')}>{line.lineItem.qty}</TableCell>
+                        <TableCell className={cn('text-right', mobileLabel)} data-label={t('checkoutSummary.colUnitPrice')}>
                           {formatCurrency(line.lineItem.unitPrice)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className='max-md:order-last max-md:basis-full'>
                           <div className='flex justify-end gap-2'>
                             <Select
                               value={line.discount.type ?? 'NONE'}
                               onValueChange={(value) => onLineDiscountTypeChange(line.rowKey, value)}
                               disabled={isLocked}
                             >
-                              <SelectTrigger className='h-8 w-[110px] text-xs'>
+                              <SelectTrigger className='h-8 w-full min-w-0 text-xs max-md:h-11 md:w-[110px]'>
                                 <SelectValue placeholder={t('checkoutSummary.noDiscount')} />
                               </SelectTrigger>
                               <SelectContent>
@@ -243,14 +249,14 @@ export function CheckoutSummary({
                           <Input
                             value={line.discount.value}
                             onChange={(e) => onLineDiscountValueChange(line.rowKey, e.target.value)}
-                            className='h-8 w-[110px] text-right'
+                            className='h-8 w-full min-w-0 text-right max-md:h-11 md:w-[110px]'
                             inputMode='decimal'
                             placeholder='0'
                             disabled={isLocked}
                           />
                         </div>
                       </TableCell>
-                      <TableCell className='text-right font-medium'>
+                      <TableCell className={cn('text-right font-medium max-md:ml-auto', mobileLabel)} data-label={t('checkoutSummary.colNet')}>
                         {formatCurrency(line.lineNet)}
                       </TableCell>
                     </TableRow>

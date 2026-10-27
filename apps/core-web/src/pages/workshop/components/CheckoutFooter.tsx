@@ -23,7 +23,7 @@ export function CheckoutFooter({
   const { t } = useTranslation('workshop')
 
   return (
-    <section className="sticky bottom-0 z-20 -mx-4 border-t bg-background/95 px-4 pb-4 pt-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur md:-mx-6 md:px-6">
+    <section className="sticky bottom-0 z-20 -mx-4 border-t bg-background/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur md:-mx-6 md:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -33,7 +33,7 @@ export function CheckoutFooter({
             {formatCurrency(checkoutFooterTotal)}
           </div>
         </div>
-        <Button onClick={onPrimaryAction}>{primaryActionLabel}</Button>
+        <Button className="max-md:min-h-11" onClick={onPrimaryAction}>{primaryActionLabel}</Button>
       </div>
 
       {isCheckoutOpen && (

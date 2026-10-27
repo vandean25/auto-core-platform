@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -42,12 +42,12 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent fullScreenOnPhone className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>{t('quickRegister.title')}</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                <form id="quick-register-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="vin">{t('quickRegister.vin')}</Label>
                             <Input
@@ -69,7 +69,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                             {errors.plate && <span id="plate-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                          <div className="space-y-2">
                             <Label htmlFor="make">{t('quickRegister.make')}</Label>
                             <Input
@@ -105,7 +105,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
 
                     <div className="pt-2 border-t">
                         <h3 className="text-sm font-medium mb-2">{t('quickRegister.newCustomer')}</h3>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="firstName">{t('quickRegister.firstName')}</Label>
                                 <Input
@@ -137,12 +137,12 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                         </div>
                     </div>
 
-                    <div className="flex justify-end pt-4">
-                        <Button type="submit" disabled={mutation.isPending}>
-                            {mutation.isPending ? t('quickRegister.registering') : t('quickRegister.register')}
-                        </Button>
-                    </div>
                 </form>
+                <DialogFooter>
+                    <Button type="submit" form="quick-register-form" disabled={mutation.isPending}>
+                        {mutation.isPending ? t('quickRegister.registering') : t('quickRegister.register')}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )

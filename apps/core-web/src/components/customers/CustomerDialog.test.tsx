@@ -195,3 +195,35 @@ describe('CustomerDialog email contact confirmation', () => {
     })
   })
 })
+
+describe('CustomerDialog on a phone', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('is full screen with a single-column form and the primary action in the pinned footer', () => {
+    vi.mocked(customersApi.useCreateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useCreateCustomer>)
+    vi.mocked(customersApi.useUpdateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useUpdateCustomer>)
+
+    render(
+      <MemoryRouter>
+        <CustomerDialog open={true} onOpenChange={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.className).toContain('max-sm:h-dvh')
+    const submit = screen.getByRole('button', { name: deCustomers.dialog.createCustomer })
+    expect(submit).toHaveAttribute('type', 'submit')
+    expect(submit).toHaveAttribute('form', 'customer-dialog-form')
+    expect(dialog.querySelector('.dialog-body')?.contains(submit)).toBe(false)
+    expect(dialog.querySelector('.grid')).toHaveClass('grid-cols-1', 'sm:grid-cols-2')
+    expect(dialog.querySelectorAll('.grid-cols-2:not(.sm\\:grid-cols-2)')).toHaveLength(0)
+  })
+})
