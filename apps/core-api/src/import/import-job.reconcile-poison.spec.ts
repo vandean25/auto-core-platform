@@ -50,8 +50,8 @@ function applyJobUpdate(job: InMemoryJob, data: Record<string, unknown>) {
   if (typeof data.attempts_without_progress === 'number') {
     job.attempts_without_progress = data.attempts_without_progress;
   }
-  if (data.status) {
-    job.status = data.status as ImportJobStatus;
+  if (data.status === ImportJobStatus.APPLYING || data.status === ImportJobStatus.FAILED) {
+    job.status = data.status;
   }
 }
 
@@ -178,7 +178,7 @@ describe('reconcile poison progress', () => {
       ],
       { dry_run_reconcile_cursor: 1 },
       job.options_json,
-      claimed!.lease_token,
+      claimed.lease_token,
     );
     expect(persisted).not.toBeNull();
     expect(job.attempts_without_progress).toBe(0);
@@ -186,8 +186,11 @@ describe('reconcile poison progress', () => {
 
     const reclaimed = await store.claimWorkerLease('tenant-1', 'job-1', 'dry_run');
     expect(reclaimed).not.toBeNull();
+    if (!reclaimed) {
+      return;
+    }
     expect(job.attempts_without_progress).toBe(0);
-    expect(reclaimed!.claimed_processed_rows).toBe(1);
+    expect(reclaimed.claimed_processed_rows).toBe(1);
   });
 
   it('increments attempts when reconcile cursor does not advance and eventually fails the job', async () => {
@@ -202,7 +205,10 @@ describe('reconcile poison progress', () => {
         worker: reconcileWorker('lease-stuck'),
       },
     };
-    job.options_json.worker!.claimed_processed_rows = 0;
+    const worker = job.options_json.worker;
+    if (worker) {
+      worker.claimed_processed_rows = 0;
+    }
     const store = createStore(job);
 
     for (let attempt = 0; attempt < IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS - 1; attempt += 1) {
@@ -210,7 +216,10 @@ describe('reconcile poison progress', () => {
       expect(claimed).not.toBeNull();
       expect(job.options_json.worker?.dry_run_reconcile_cursor).toBe(0);
       expect(job.attempts_without_progress).toBe(attempt + 1);
-      job.options_json.worker!.lease_until = new Date(0).toISOString();
+      const loopWorker = job.options_json.worker;
+      if (loopWorker) {
+        loopWorker.lease_until = new Date(0).toISOString();
+      }
     }
 
     const failed = await store.claimWorkerLease('tenant-1', 'job-1', 'dry_run');
