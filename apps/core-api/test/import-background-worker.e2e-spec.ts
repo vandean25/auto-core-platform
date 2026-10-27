@@ -577,6 +577,42 @@ describe('Import background worker (e2e)', () => {
     ).toBeNull();
   });
 
+  it('applies sibling rows when one dry-run ERROR row remains in the job', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['BG-ERR-1', 'PRIVATE', 'A', 'One', 'bgerr1@example.com', '', '', 'AT'],
+      ['BG-ERR-2', 'PRIVATE', 'B', 'Two', 'bgerr2@example.com', '', '', 'AT'],
+      ['BG-ERR-3', 'PRIVATE', 'C', 'Three', 'bgerr3@example.com', '', '', 'AT'],
+      ['BG-ERR-4', 'PRIVATE', 'D', 'Four', 'bgerr1@example.com', '', '', 'AT'],
+    ]);
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const dryTotals = dryRunDone?.totals_json as ImportJobTotals;
+    expect(dryTotals.error).toBe(1);
+
+    await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    const deadline = Date.now() + 60_000;
+    let job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    while (
+      Date.now() < deadline &&
+      job?.status !== ImportJobStatus.APPLIED
+    ) {
+      await deliverWorker(jobId, 'apply').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
+    expect(job?.status).toBe(ImportJobStatus.APPLIED);
+    const totals = job?.totals_json as ImportJobTotals;
+    expect(totals.create).toBe(3);
+    expect(totals.error).toBe(1);
+    const errorRows = await tenantPrisma().importJobRow.count({
+      where: { import_job_id: jobId, action: ImportRowAction.ERROR },
+    });
+    expect(errorRows).toBe(1);
+  });
+
   it('matches final totals to the dry-run row list', async () => {
     const jobId = await uploadBackgroundJob([
       ['TOT-1', 'PRIVATE', 'S', 'One', 'tot1@example.com', '', '', 'AT'],

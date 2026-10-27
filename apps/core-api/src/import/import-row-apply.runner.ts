@@ -38,7 +38,9 @@ import {
 } from './import.constants.js';
 import {
   delayMs,
+  isImportSyncLegacyApplyPath,
   retryableTransactionDelayMs,
+  withImportSyncApplyIoRetry,
 } from './import-transaction-retry.util.js';
 import type {
   SerializedImportJob,
@@ -57,6 +59,7 @@ import type {
   ImportApplyRow,
 } from './import-type-handler.js';
 import type { ImportJobTotals } from './import.types.js';
+import { mergeImportJobApplyFailureReason } from './import-apply-failure.util.js';
 
 /** Writes one planned row inside the transaction that also runs the freshness check. */
 export type ImportRowWriter = (
@@ -205,16 +208,19 @@ export class RowByRowApplyRunner {
       );
       return this.serialize(partialJob!, totals);
     }
-    const updatedJob = await this.markJobApplied(job.id, totals, guardedWrite);
-    await this.audit.writeImportJobAudit(
-      this.prisma,
-      tenantId,
-      actorUserId,
-      job.id,
-      'applied',
-      totals,
-    );
-    return this.serialize(updatedJob!, totals);
+    const syncPath = isImportSyncLegacyApplyPath(options);
+    return withImportSyncApplyIoRetry(syncPath, async () => {
+      const updatedJob = await this.markJobApplied(job.id, totals, guardedWrite);
+      await this.audit.writeImportJobAudit(
+        this.prisma,
+        tenantId,
+        actorUserId,
+        job.id,
+        'applied',
+        totals,
+      );
+      return this.serialize(updatedJob!, totals);
+    });
   }
 
   private async runApplyBatchSpan(
@@ -303,7 +309,11 @@ export class RowByRowApplyRunner {
     failureReason?: ImportApplyFailureReason,
   ): Promise<void> {
     const failurePatch = failureReason
-      ? await this.mergeApplyFailureReason(jobId, failureReason)
+      ? await mergeImportJobApplyFailureReason(
+          this.prisma,
+          jobId,
+          failureReason,
+        )
       : {};
     const data = {
       status: ImportJobStatus.FAILED,
@@ -322,22 +332,6 @@ export class RowByRowApplyRunner {
       where: { id: jobId },
       data,
     });
-  }
-
-  private async mergeApplyFailureReason(
-    jobId: string,
-    failureReason: ImportApplyFailureReason,
-  ): Promise<{ options_json: Prisma.InputJsonValue }> {
-    const job = await this.prisma.importJob.findFirst({
-      where: { id: jobId },
-      select: { options_json: true },
-    });
-    return {
-      options_json: {
-        ...((job?.options_json as Record<string, unknown> | null) ?? {}),
-        apply_failure_reason: failureReason,
-      } as Prisma.InputJsonValue,
-    };
   }
 
   private async earliestCommittedCreateRowNoInJob(
@@ -690,10 +684,9 @@ export class RowByRowApplyRunner {
       await this.advanceWorkerCursor(input, applySeqForRow(row), options);
       return true;
     }
-    const committedCreate = await this.resolveDuplicateCommittedCreateLegacy(
-      input,
-      entityType,
-      row,
+    const committedCreate = await withImportSyncApplyIoRetry(
+      isImportSyncLegacyApplyPath(options),
+      () => this.resolveDuplicateCommittedCreateLegacy(input, entityType, row),
     );
     if (committedCreate === 'noop') {
       await this.advanceWorkerCursor(input, applySeqForRow(row), options);

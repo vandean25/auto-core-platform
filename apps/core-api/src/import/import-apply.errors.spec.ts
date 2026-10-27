@@ -81,6 +81,10 @@ describe('classifyImportApplyError', () => {
         clientVersion: 'test',
       }),
       driverAdapterUniqueViolation(),
+      Object.assign(new Error('fk'), {
+        name: 'DriverAdapterError',
+        cause: { kind: 'ForeignKeyConstraintViolation' },
+      }),
       coerceWriteRowToDomainError(
         new ConflictException({
           code: VEHICLE_PARTY_RULE_CODES.OVERLAP,

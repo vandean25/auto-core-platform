@@ -82,6 +82,7 @@ import {
   runBackgroundDryRunReconcileChunk,
   scheduleBackgroundDryRunAfterRowBatches,
 } from './import-background-dry-run.reconcile.js';
+import { readErrorCause } from '../common/prisma/is-retryable-transaction-error.js';
 import { importWorkerRetryDelaySeconds } from './import-worker-retry.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
@@ -117,6 +118,17 @@ import { LaborOperationImportHandler } from './labor-operation-import.handler.js
 import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.js';
 import { VehicleImportHandler } from './vehicle-import.handler.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
+
+function describeImportWorkerRetryCause(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code;
+  }
+  const cause = readErrorCause(error);
+  if (cause instanceof Prisma.PrismaClientKnownRequestError) {
+    return cause.code;
+  }
+  return error instanceof Error ? error.name : 'unknown';
+}
 
 function buildRowsWhere(
   tenantId: string,
@@ -722,6 +734,9 @@ export class ImportService {
     if (classifyImportApplyError(error) === 'retryable') {
       const job = await this.jobStore.findJob(params.tenantId, params.jobId);
       if (job && job.status === ImportJobStatus.APPLYING) {
+        this.logger.warn(
+          `Import worker retryable error; requeueing jobId=${params.jobId} cause=${describeImportWorkerRetryCause(error)}`,
+        );
         const options = job.options_json as ImportJobOptionsWithWorker;
         const worker = readWorkerState(options);
         if (worker?.lease_token) {

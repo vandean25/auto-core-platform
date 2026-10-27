@@ -213,4 +213,50 @@ describe('RowByRowApplyRunner sync retries', () => {
     ]);
     expect(result.status).toBe(ImportJobStatus.APPLIED);
   });
+
+  it('retries transient P2034 on the APPLIED update', async () => {
+    let appliedUpdateAttempts = 0;
+    const harness = createSyncPrisma(async () => undefined);
+    const baseUpdate = harness.prisma.importJob.update as jest.Mock;
+    baseUpdate.mockImplementation(
+      async (args: { data: { status?: ImportJobStatus } }) => {
+        if (args.data.status === ImportJobStatus.APPLIED) {
+          appliedUpdateAttempts += 1;
+          if (appliedUpdateAttempts <= 2) {
+            throw p2034();
+          }
+        }
+        harness.jobUpdates.push(args);
+      },
+    );
+    const runner = new RowByRowApplyRunner(
+      harness.prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({
+          ...job,
+          totals,
+          status: ImportJobStatus.APPLIED,
+        }) as unknown as SerializedImportJob,
+    );
+    const result = await runner.run(
+      {
+        ...baseInput,
+        rows: [
+          {
+            row_no: 1,
+            action: ImportRowAction.CREATE,
+            entity_id: null,
+            external_id: 'ext-1',
+            normalized_json: { external_id: 'ext-1' },
+          },
+        ],
+      },
+      ImportEntityType.CUSTOMER,
+      harness.writeRow,
+    );
+    expect(result.status).toBe(ImportJobStatus.APPLIED);
+    expect(appliedUpdateAttempts).toBe(3);
+  });
+
 });
