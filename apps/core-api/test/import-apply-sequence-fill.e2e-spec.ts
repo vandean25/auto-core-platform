@@ -462,14 +462,19 @@ describe('import apply_seq fill (e2e)', () => {
       (failed?.options_json as { apply_failure_reason?: string })
         .apply_failure_reason,
     ).toBe('retry_exhausted');
-    await handleImportWorkerAttemptFailure(
-      {
-        jobStore: store,
-        logger: new Logger('import-p2028-e2e'),
-        workerFlow: {} as never,
-      },
-      { tenantId: tenant.tenantId, jobId: job.id, phase: 'dry_run' },
-      exhausted as ImportApplyRetryExhaustedError,
+    await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        handleImportWorkerAttemptFailure(
+          {
+            jobStore: store,
+            logger: new Logger('import-p2028-e2e'),
+            workerFlow: {} as never,
+          },
+          { tenantId: tenant.tenantId, jobId: job.id, phase: 'dry_run' },
+          exhausted as ImportApplyRetryExhaustedError,
+        ),
+      { userId: actor.id },
     );
     expect(errorLog).toHaveBeenCalledWith(
       `import.job.failed jobId=${job.id} phase=dry_run attempt=0 reason=retry_exhausted`,
