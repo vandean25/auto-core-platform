@@ -58,6 +58,10 @@ function createMockPrisma(): MockPrisma {
 
 export interface ImportHarness {
   service: ImportService;
+  cloudTasks: {
+    isEnabled: jest.Mock;
+    enqueueImportWorker: jest.Mock;
+  };
   prisma: MockPrisma;
   tenantContext: {
     getTenantId: jest.Mock;
@@ -146,8 +150,14 @@ function applyDefaults(harness: ImportHarness): void {
  * Call it inside a describe block. The returned object is filled in before each test.
  */
 export function setupImportHarness(): ImportHarness {
+  const cloudTasks = {
+    isEnabled: jest.fn().mockReturnValue(false),
+    enqueueImportWorker: jest.fn(),
+  };
+
   const harness: ImportHarness = {
     service: undefined as unknown as ImportService,
+    cloudTasks,
     prisma: createMockPrisma(),
     tenantContext: { getTenantId: jest.fn(), getAuthenticatedUser: jest.fn() },
     decisionLive: { applyCustomerImportDecisions: jest.fn() },
@@ -199,13 +209,7 @@ export function setupImportHarness(): ImportHarness {
             deleteUpload: jest.fn(),
           },
         },
-        {
-          provide: ImportCloudTasksService,
-          useValue: {
-            isEnabled: jest.fn().mockReturnValue(false),
-            enqueueImportWorker: jest.fn(),
-          },
-        },
+        { provide: ImportCloudTasksService, useValue: cloudTasks },
       ],
     }).compile();
     harness.service = moduleRef.get(ImportService);

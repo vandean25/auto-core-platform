@@ -25,6 +25,7 @@ import {
   type ImportJobWorkerState,
   type ImportWorkerPhase,
 } from './import-job.worker-state.js';
+import { IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS } from './import-worker-handoff.constants.js';
 import type { ImportApplyRow } from './import-type-handler.js';
 import { assertApplyWorkerLease } from './import-background-apply.commit.js';
 import { fillImportJobApplySequences } from './import-apply-sequence-fill.js';
@@ -166,7 +167,10 @@ export class ImportJobStore {
     workerPatch: Partial<ImportJobWorkerState>,
     options: ImportJobOptionsWithWorker,
   ) {
+    const previousProcessed = options.worker?.processed_rows ?? 0;
     const worker = { ...options.worker!, ...workerPatch };
+    const progressed =
+      (worker.processed_rows ?? 0) > previousProcessed;
     const locked = await this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
@@ -183,6 +187,7 @@ export class ImportJobStore {
       data: {
         totals_json: totals,
         options_json: { ...options, worker },
+        ...(progressed ? { attempts_without_progress: 0 } : {}),
         rows: { create: rows.map(toRowCreate) },
       },
     });
@@ -255,6 +260,79 @@ export class ImportJobStore {
     });
   }
 
+  touchWorkerHandoff(tenantId: string, jobId: string) {
+    return this.prisma.importJob.updateMany({
+      where: { tenant_id: tenantId, id: jobId },
+      data: { worker_handoff_at: new Date() },
+    });
+  }
+
+  async bumpWorkerRecoverySeq(tenantId: string, jobId: string): Promise<number> {
+    const job = await this.findJob(tenantId, jobId);
+    if (!job) {
+      return 0;
+    }
+    const next = job.worker_recovery_seq + 1;
+    await this.prisma.importJob.updateMany({
+      where: { tenant_id: tenantId, id: jobId },
+      data: {
+        worker_recovery_seq: next,
+        worker_handoff_at: new Date(),
+      },
+    });
+    return next;
+  }
+
+  async extendWorkerLease(
+    tenantId: string,
+    jobId: string,
+    leaseToken: string,
+  ): Promise<boolean> {
+    const job = await this.findJob(tenantId, jobId);
+    if (!job) {
+      return false;
+    }
+    const options = job.options_json as ImportJobOptionsWithWorker;
+    if (options.worker?.lease_token !== leaseToken) {
+      return false;
+    }
+    const leaseUntil = new Date(
+      Date.now() + IMPORT_WORKER_LEASE_MS,
+    ).toISOString();
+    const worker = { ...options.worker, lease_until: leaseUntil };
+    const updated = await this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+        options_json: {
+          path: ['worker', 'lease_token'],
+          equals: leaseToken,
+        },
+      },
+      data: { options_json: { ...options, worker } },
+    });
+    return updated.count > 0;
+  }
+
+  async markPoisonedImportJobFailed(tenantId: string, jobId: string) {
+    return this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
+      data: { status: ImportJobStatus.FAILED },
+    });
+  }
+
+  resetAttemptsWithoutProgress(tenantId: string, jobId: string) {
+    return this.prisma.importJob.updateMany({
+      where: { tenant_id: tenantId, id: jobId },
+      data: { attempts_without_progress: 0 },
+    });
+  }
+
   async claimWorkerLease(
     tenantId: string,
     jobId: string,
@@ -283,6 +361,21 @@ export class ImportJobStore {
           if (Number.isFinite(leaseUntil) && leaseUntil > now) {
             return null;
           }
+          const nextAttempts = job.attempts_without_progress + 1;
+          if (nextAttempts >= IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS) {
+            await tx.importJob.updateMany({
+              where: {
+                tenant_id: tenantId,
+                id: jobId,
+                status: ImportJobStatus.APPLYING,
+              },
+              data: {
+                status: ImportJobStatus.FAILED,
+                attempts_without_progress: nextAttempts,
+              },
+            });
+            return null;
+          }
           const refreshed: ImportJobWorkerState = {
             ...worker,
             lease_token: randomUUID(),
@@ -300,6 +393,8 @@ export class ImportJobStore {
             },
             data: {
               options_json: { ...options, worker: refreshed },
+              worker_claim_seq: job.worker_claim_seq + 1,
+              attempts_without_progress: nextAttempts,
             },
           });
           if (locked.count === 0) {

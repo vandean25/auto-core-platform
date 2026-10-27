@@ -5152,6 +5152,10 @@ model ImportJob {
   created_by                  String?
   createdAt                   DateTime              @default(now())
   appliedAt                   DateTime?
+  worker_handoff_at           DateTime?
+  worker_claim_seq            Int                   @default(0)
+  worker_recovery_seq         Int                   @default(0)
+  attempts_without_progress   Int                   @default(0)
   migration_run_id            String?               @db.Uuid
   migration_run               MigrationRun?         @relation(fields: [tenant_id, migration_run_id], references: [tenant_id, id])
   rows                        ImportJobRow[]

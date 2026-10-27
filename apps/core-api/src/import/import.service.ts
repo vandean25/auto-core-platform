@@ -60,7 +60,22 @@ import {
 import { getImportStagingKey } from './import-staging-path.js';
 import { pipeImportCsvToStorage } from './import-upload-pipeline.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
-import { enqueueOrRunImportWorker } from './import-dispatch.js';
+import {
+  enqueueImportWorkerContinuation,
+  enqueueImportWorkerRecoveryHandoff,
+  handoffImportWorkerAfterBatch,
+  requeueImportWorkerAfterLeaseSkip,
+  type ImportWorkerFlowDeps,
+} from './import-worker.flow.js';
+import {
+  mergeDryRunBatchTotals,
+  persistDryRunBatchAndHandoff,
+} from './import-background-dry-run.batch.js';
+import {
+  importWorkerRetryDelaySeconds,
+  isRetryableImportWorkerError,
+} from './import-worker-retry.js';
+import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 import {
@@ -376,20 +391,7 @@ export class ImportService {
       if (lock.count === 0) {
         throw applyInProgress();
       }
-      await enqueueOrRunImportWorker({
-        tenantId,
-        jobId,
-        phase: 'apply',
-        cloudTasks: this.cloudTasks,
-        targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
-        nodeEnv: process.env.NODE_ENV,
-        runInline: () =>
-          this.runImportWorkerAttempt({
-            tenantId,
-            jobId,
-            phase: 'apply',
-          }),
-      });
+      await this.enqueueInitialImportWorker(tenantId, jobId, 'apply');
       const refreshed = await this.jobStore.findJob(tenantId, jobId);
       return this.serializeJob(
         refreshed!,
@@ -523,20 +525,11 @@ export class ImportService {
         job.id,
         'created',
       );
-      await enqueueOrRunImportWorker({
-        tenantId: params.tenantId,
-        jobId: job.id,
-        phase: 'dry_run',
-        cloudTasks: this.cloudTasks,
-        targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
-        nodeEnv: process.env.NODE_ENV,
-        runInline: () =>
-          this.runImportWorkerAttempt({
-            tenantId: params.tenantId,
-            jobId: job.id,
-            phase: 'dry_run',
-          }),
-      });
+      await this.enqueueInitialImportWorker(
+        params.tenantId,
+        job.id,
+        'dry_run',
+      );
       return this.serializeJob(job, job.totals_json as ImportJobTotals);
     } catch (error) {
       if (uploadRef) {
@@ -559,6 +552,48 @@ export class ImportService {
     await this.fileStorage.deleteUpload(upload).catch(() => undefined);
   }
 
+  private runWorkerInlineForJob(tenantId: string, jobId: string) {
+    return (phase: 'dry_run' | 'apply') =>
+      this.runImportWorkerAttempt({ tenantId, jobId, phase });
+  }
+
+  private importWorkerFlowDeps(
+    runInline: (phase: 'dry_run' | 'apply') => Promise<void>,
+  ): ImportWorkerFlowDeps {
+    return {
+      jobStore: this.jobStore,
+      cloudTasks: this.cloudTasks,
+      targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
+      nodeEnv: process.env.NODE_ENV,
+      runInline,
+    };
+  }
+
+  private workerFlowForJob(tenantId: string, jobId: string): ImportWorkerFlowDeps {
+    return this.importWorkerFlowDeps(this.runWorkerInlineForJob(tenantId, jobId));
+  }
+
+  private async enqueueInitialImportWorker(
+    tenantId: string,
+    jobId: string,
+    phase: 'dry_run' | 'apply',
+  ): Promise<void> {
+    const job = await this.jobStore.findJob(tenantId, jobId);
+    if (!job) {
+      return;
+    }
+    await enqueueImportWorkerContinuation(
+      this.workerFlowForJob(tenantId, jobId),
+      {
+        tenantId,
+        jobId,
+        phase,
+        claimSeq: job.worker_claim_seq,
+        recoverySeq: job.worker_recovery_seq,
+      },
+    );
+  }
+
   async runImportWorkerAttempt(params: {
     tenantId: string;
     jobId: string;
@@ -567,7 +602,10 @@ export class ImportService {
     try {
       await this.runClaimedImportWorkerBatch(params);
     } catch (error) {
-      await this.failImportWorkerAttemptUnlessContention(params, error);
+      await this.failImportWorkerAttemptUnlessContention(
+        { ...params, phase: params.phase },
+        error,
+      );
     }
   }
 
@@ -582,6 +620,16 @@ export class ImportService {
       params.phase,
     );
     if (!claimed) {
+      await requeueImportWorkerAfterLeaseSkip(
+        this.workerFlowForJob(params.tenantId, params.jobId),
+        params,
+      );
+      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
+      if (job?.status === ImportJobStatus.FAILED) {
+        await this.deleteJobUploadIfPresent(
+          job.options_json as ImportJobOptionsWithWorker,
+        );
+      }
       return;
     }
     const job = await this.jobStore.findJob(params.tenantId, params.jobId);
@@ -601,19 +649,34 @@ export class ImportService {
   }
 
   private async failImportWorkerAttemptUnlessContention(
-    params: { tenantId: string; jobId: string },
+    params: {
+      tenantId: string;
+      jobId: string;
+      phase: 'dry_run' | 'apply';
+    },
     error: unknown,
   ): Promise<void> {
     if (isImportWorkerContentionError(error)) {
       return;
     }
-    await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
-    const job = await this.jobStore.findJob(params.tenantId, params.jobId);
-    if (job) {
-      await this.deleteJobUploadIfPresent(
-        job.options_json as ImportJobOptionsWithWorker,
-      );
+    if (isRetryableImportWorkerError(error)) {
+      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
+      if (job && job.status === ImportJobStatus.APPLYING) {
+        await enqueueImportWorkerContinuation(
+          this.workerFlowForJob(params.tenantId, params.jobId),
+          {
+            tenantId: params.tenantId,
+            jobId: params.jobId,
+            phase: params.phase,
+            claimSeq: job.worker_claim_seq,
+            recoverySeq: job.worker_recovery_seq,
+            delaySeconds: importWorkerRetryDelaySeconds(),
+          },
+        );
+      }
+      return;
     }
+    await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
     throw error;
   }
 
@@ -635,7 +698,12 @@ export class ImportService {
               async () => {
                 const stale = await this.prisma.importJob.findMany({
                   where: { status: ImportJobStatus.APPLYING },
-                  select: { id: true, tenant_id: true, options_json: true },
+                  select: {
+                    id: true,
+                    tenant_id: true,
+                    options_json: true,
+                    worker_handoff_at: true,
+                  },
                   take: 50,
                 });
                 candidates.push(
@@ -655,11 +723,10 @@ export class ImportService {
             await this.requestContext.runAsWorker(
               candidate.tenantId,
               () =>
-                this.runImportWorkerAttempt({
-                  tenantId: candidate.tenantId,
-                  jobId: candidate.jobId,
-                  phase: candidate.phase,
-                }),
+                enqueueImportWorkerRecoveryHandoff(
+                  this.workerFlowForJob(candidate.tenantId, candidate.jobId),
+                  candidate,
+                ),
               { workerId: 'import-job-worker-recovery' },
             );
           } catch (cause) {
@@ -731,53 +798,21 @@ export class ImportService {
           ...row,
           row_no: startOffset + index + 1,
         }));
-        const mergedTotals = { ...totals };
-        for (const row of rows) {
-          if (row.action === ImportRowAction.CREATE) mergedTotals.create += 1;
-          else if (row.action === ImportRowAction.UPDATE)
-            mergedTotals.update += 1;
-          else if (row.action === ImportRowAction.SKIP) mergedTotals.skip += 1;
-          else if (row.action === ImportRowAction.ERROR)
-            mergedTotals.error += 1;
-        }
         const processed = startOffset + batchRows.length;
-        mergedTotals.rows = Math.max(totals.rows, processed);
-        const appended = await this.jobStore.appendDryRunRows(
+        const mergedTotals = mergeDryRunBatchTotals(totals, rows, processed);
+        await persistDryRunBatchAndHandoff({
+          jobStore: this.jobStore,
+          flow: this.workerFlowForJob(tenantId, jobId),
           tenantId,
           jobId,
+          handler,
+          options,
           rows,
           mergedTotals,
-          {
-            processed_rows: processed,
-            lease_until: new Date(0).toISOString(),
-          },
-          options,
-        );
-        if (!appended) {
-          return;
-        }
-        if (processed >= totals.rows) {
-          await this.completeBackgroundDryRun(
-            tenantId,
-            jobId,
-            handler,
-            options,
-          );
-          return;
-        }
-        await enqueueOrRunImportWorker({
-          tenantId,
-          jobId,
-          phase: 'dry_run',
-          cloudTasks: this.cloudTasks,
-          targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
-          nodeEnv: process.env.NODE_ENV,
-          runInline: () =>
-            this.runImportWorkerAttempt({
-              tenantId,
-              jobId,
-              phase: 'dry_run',
-            }),
+          processed,
+          totalRows: totals.rows,
+          completeDryRun: () =>
+            this.completeBackgroundDryRun(tenantId, jobId, handler, options),
         });
       },
     );
@@ -858,13 +893,9 @@ export class ImportService {
         useApplySequence: true,
         maxApplySeq: context.maxApplySeq,
         leaseToken: context.worker.lease_token,
+        chunkDeadlineMs: Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS,
       },
     });
-    if (result.status === ImportJobStatus.FAILED) {
-      await this.deleteJobUploadIfPresent(
-        context.job.options_json as ImportJobOptionsWithWorker,
-      );
-    }
     await this.continueBackgroundApplyIfNeeded({
       tenantId,
       jobId,
@@ -963,29 +994,14 @@ export class ImportService {
     }
     const leaseToken =
       refreshedWorker?.lease_token ?? params.worker.lease_token;
-    await this.jobStore.updateWorkerProgress(
-      params.tenantId,
-      params.jobId,
-      leaseToken,
+    await handoffImportWorkerAfterBatch(
+      this.workerFlowForJob(params.tenantId, params.jobId),
       {
-        last_committed_apply_seq: lastCommitted,
-        processed_rows: lastCommitted,
-        lease_until: new Date(0).toISOString(),
+        tenantId: params.tenantId,
+        jobId: params.jobId,
+        phase: 'apply',
+        leaseToken,
       },
     );
-    await enqueueOrRunImportWorker({
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      phase: 'apply',
-      cloudTasks: this.cloudTasks,
-      targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
-      nodeEnv: process.env.NODE_ENV,
-      runInline: () =>
-        this.runImportWorkerAttempt({
-          tenantId: params.tenantId,
-          jobId: params.jobId,
-          phase: 'apply',
-        }),
-    });
   }
 }

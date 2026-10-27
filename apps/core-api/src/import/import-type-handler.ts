@@ -46,6 +46,7 @@ export type ImportApplyBatchOptions = {
   useApplySequence?: boolean;
   maxApplySeq?: number;
   leaseToken?: string;
+  chunkDeadlineMs?: number;
   onRowCommitted?: (
     tx: Prisma.TransactionClient,
     rowNo: number,

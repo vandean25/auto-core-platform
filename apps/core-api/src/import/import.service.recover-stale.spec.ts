@@ -8,6 +8,9 @@ describe('ImportService.recoverStaleImportJobs', () => {
 
   beforeEach(() => {
     activeTenant = '';
+    h.cloudTasks.isEnabled.mockReturnValue(true);
+    h.cloudTasks.enqueueImportWorker.mockResolvedValue(undefined);
+    process.env.CLOUD_TASKS_TARGET_BASE_URL = 'http://127.0.0.1:3000/api/';
     h.systemPrisma.withCronJobLock.mockImplementation(
       async (_name: string, fn: () => Promise<void>) => {
         await fn();
@@ -30,6 +33,7 @@ describe('ImportService.recoverStaleImportJobs', () => {
           {
             id: 'job-a',
             tenant_id: 'tenant-a',
+            worker_handoff_at: new Date(0),
             options_json: {
               worker: {
                 phase: 'dry_run',
@@ -47,6 +51,22 @@ describe('ImportService.recoverStaleImportJobs', () => {
       }
       return Promise.resolve([]);
     });
+    h.prisma.importJob.findFirst = jest.fn(async () => ({
+      id: 'job-a',
+      tenant_id: 'tenant-a',
+      worker_claim_seq: 2,
+      worker_recovery_seq: 1,
+      options_json: {
+        worker: {
+          phase: 'dry_run',
+          lease_token: 'lease',
+          lease_until: new Date(0).toISOString(),
+          processed_rows: 0,
+          started_at: new Date().toISOString(),
+        },
+      },
+    }));
+    h.prisma.importJob.updateMany = jest.fn(async () => ({ count: 1 }));
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     jest
       .spyOn(h.service, 'runImportWorkerAttempt')
@@ -55,16 +75,14 @@ describe('ImportService.recoverStaleImportJobs', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    delete process.env.CLOUD_TASKS_TARGET_BASE_URL;
   });
 
-  it('recovers stale jobs per tenant and continues when one tenant fails', async () => {
+  it('enqueues recovery tasks per tenant and never runs the worker inline', async () => {
     await h.service.recoverStaleImportJobs();
 
-    expect(h.service.runImportWorkerAttempt).toHaveBeenCalledWith({
-      tenantId: 'tenant-a',
-      jobId: 'job-a',
-      phase: 'dry_run',
-    });
+    expect(h.cloudTasks.enqueueImportWorker).toHaveBeenCalled();
+    expect(h.service.runImportWorkerAttempt).not.toHaveBeenCalled();
     expect(Logger.prototype.warn).toHaveBeenCalled();
   });
 });

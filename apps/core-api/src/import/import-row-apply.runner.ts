@@ -226,7 +226,15 @@ export class RowByRowApplyRunner {
         },
       },
       async () => {
+        const batchStartedAt = Date.now();
+        let appliedInBatch = 0;
         for (const row of batchRows) {
+          if (
+            options?.chunkDeadlineMs !== undefined &&
+            Date.now() > options.chunkDeadlineMs
+          ) {
+            break;
+          }
           await this.applyOne(
             input,
             entityType,
@@ -234,6 +242,17 @@ export class RowByRowApplyRunner {
             row,
             totals,
             options,
+          );
+          appliedInBatch += 1;
+        }
+        if (options?.stopAfterBatch) {
+          this.logger.log(
+            JSON.stringify({
+              metric: 'import.worker.batch_duration_ms',
+              jobId: input.job.id,
+              durationMs: Date.now() - batchStartedAt,
+              rowsApplied: appliedInBatch,
+            }),
           );
         }
       },
