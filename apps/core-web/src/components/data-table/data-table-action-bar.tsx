@@ -18,7 +18,7 @@ export function DataTableActionBar({ selectedCount, onClear, children }: DataTab
     <div
       role="toolbar"
       aria-label={t('dataTable.actionBar.label')}
-      className="fixed inset-x-4 bottom-6 z-40 mx-auto flex w-fit max-w-full flex-wrap items-center gap-2 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
+      className="fixed inset-x-4 bottom-[calc(var(--phone-nav-h)+1.5rem)] z-40 mx-auto flex w-fit max-w-full flex-wrap items-center gap-2 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
     >
       <span className="px-2 text-sm font-medium tabular-nums">{t('dataTable.actionBar.selected', { count: selectedCount })}</span>
       {children}

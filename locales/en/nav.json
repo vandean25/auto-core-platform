@@ -20,6 +20,22 @@
   "aria": {
     "mainNavigation": "Main navigation"
   },
+  "phoneNav": {
+    "aria": "Quick access",
+    "orders": "Orders",
+    "appointments": "Appointments",
+    "dashboard": "Dashboard",
+    "myTasks": "My tasks",
+    "punch": "Punch",
+    "finding": "Record finding",
+    "findingNoTask": "No task to record a finding on",
+    "create": "New",
+    "search": "Search",
+    "more": "More",
+    "createTitle": "Create new",
+    "punchTitle": "Time clock",
+    "punchUnavailable": "Time clock is not available."
+  },
   "modules": {
     "dashboard": "Dashboard",
     "platformTenants": "Tenants",
@@ -106,7 +122,11 @@
       "create": "Create",
       "createWorkOrder": {
         "label": "Create workshop order",
-        "description": "Open intake with this record prefilled."
+        "description": "Open intake for a new workshop order."
+      },
+      "createAppointment": {
+        "label": "Create appointment",
+        "description": "Schedule a new appointment in the workshop planner."
       },
       "createSalesOrder": {
         "label": "Create Sales Order",

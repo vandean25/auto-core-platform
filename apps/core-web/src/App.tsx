@@ -21,6 +21,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { useAuth } from '@/auth/AuthProvider'
 import { isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
+import { AdminPhoneNav } from '@/components/navigation/AdminPhoneNav'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { useSidebarOpen } from '@/components/navigation/sidebar-state'
 import { GlobalSearch } from '@/components/GlobalSearch'
@@ -57,7 +58,7 @@ import { GlobalShortcutLayer } from '@/features/shortcuts/GlobalShortcutLayer'
 
 function AppMain() {
   return (
-    <SidebarInset id="main-content" tabIndex={-1} className="safe-area-inset-bottom">
+    <SidebarInset id="main-content" tabIndex={-1} className="pb-[max(env(safe-area-inset-bottom,0px),var(--phone-nav-h))]">
       <header className="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[env(safe-area-inset-top,0px))]">
         <SidebarTrigger className="-ml-1" />
       </header>
@@ -164,6 +165,7 @@ function AppShell({
               />
 
               <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+              <AdminPhoneNav platformRole={platformRole} activeRole={activeRole} onOpenSearch={() => setSearchOpen(true)} />
               <EntityActionConfirmHost />
               <GlobalShortcutLayer />
               <AppMain />

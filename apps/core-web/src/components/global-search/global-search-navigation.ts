@@ -77,7 +77,7 @@ export function getPaletteSections(
   const navigation = getNavigationSection(context)
   const settings = query ? [getSettingsSection(context, navigation)] : []
   return filterQuickActionSections(
-    [navigation, ...settings, ...getGlobalSearchQuickActionSections(intakePrefill)],
+    [navigation, ...settings, ...getGlobalSearchQuickActionSections(intakePrefill, context.activeRole ?? undefined)],
     query,
   )
 }

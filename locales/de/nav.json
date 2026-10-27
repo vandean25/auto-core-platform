@@ -20,6 +20,22 @@
   "aria": {
     "mainNavigation": "Hauptnavigation"
   },
+  "phoneNav": {
+    "aria": "Schnellzugriff",
+    "orders": "Aufträge",
+    "appointments": "Termine",
+    "dashboard": "Dashboard",
+    "myTasks": "Meine Aufgaben",
+    "punch": "Stempeln",
+    "finding": "Befund erfassen",
+    "findingNoTask": "Keine Aufgabe für einen Befund",
+    "create": "Neu",
+    "search": "Suche",
+    "more": "Mehr",
+    "createTitle": "Neu anlegen",
+    "punchTitle": "Zeiterfassung",
+    "punchUnavailable": "Zeiterfassung ist nicht verfügbar."
+  },
   "modules": {
     "dashboard": "Dashboard",
     "platformTenants": "Mandanten",
@@ -106,7 +122,11 @@
       "create": "Anlegen",
       "createWorkOrder": {
         "label": "Werkstattauftrag anlegen",
-        "description": "Annahme mit vorausgefülltem Datensatz öffnen."
+        "description": "Annahme für einen neuen Werkstattauftrag öffnen."
+      },
+      "createAppointment": {
+        "label": "Termin anlegen",
+        "description": "Neuen Termin im Werkstattplaner einplanen."
       },
       "createSalesOrder": {
         "label": "Kundenauftrag anlegen",

@@ -10,6 +10,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         <Sonner
             theme={theme as ToasterProps["theme"]}
             className="toaster group"
+            mobileOffset={{ bottom: 'calc(var(--phone-nav-h) + 1rem)' }}
             toastOptions={{
                 classNames: {
                     toast:
