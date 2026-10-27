@@ -2,7 +2,10 @@ import { ImportJobStatus, type Prisma } from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
-import { reconcileFinishedApplyTotals } from './import-background-apply.totals.js';
+import {
+  isBackgroundApplyOutcomeComplete,
+  reconcileFinishedApplyTotals,
+} from './import-background-apply.totals.js';
 const APPLY_TOTAL_KEYS = [
   'rows',
   'create',
@@ -73,7 +76,7 @@ export async function commitBackgroundApplyRowInTransaction(
   if (!worker) {
     throw new ImportWorkerLeaseLostError();
   }
-  const finished = params.applySeq >= params.maxApplySeq;
+  let finished = params.applySeq >= params.maxApplySeq;
   const workerNext = {
     ...worker,
     last_committed_apply_seq: params.applySeq,
@@ -89,6 +92,11 @@ export async function commitBackgroundApplyRowInTransaction(
         jobId: params.jobId,
         entityType: job.entity_type,
       },
+      totals,
+    );
+    finished = await isBackgroundApplyOutcomeComplete(
+      tx,
+      { tenantId: params.tenantId, jobId: params.jobId },
       totals,
     );
   }

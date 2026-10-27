@@ -48,3 +48,25 @@ export async function reconcileFinishedApplyTotals(
     error: Math.max(totals.error, errorRows),
   };
 }
+
+/** True when every planned CREATE row is either written or marked ERROR. */
+export async function isBackgroundApplyOutcomeComplete(
+  db: ApplyTotalsDb,
+  params: { tenantId: string; jobId: string },
+  totals: ImportJobTotals,
+): Promise<boolean> {
+  if (typeof db.importJobRow.count !== 'function') {
+    return true;
+  }
+  const plannedCreates = await db.importJobRow.count({
+    where: {
+      tenant_id: params.tenantId,
+      import_job_id: params.jobId,
+      action: ImportRowAction.CREATE,
+    },
+  });
+  if (plannedCreates === 0) {
+    return true;
+  }
+  return totals.create + totals.error >= plannedCreates;
+}
