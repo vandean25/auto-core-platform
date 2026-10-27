@@ -21,8 +21,13 @@ export function SettingsTabNav({ tabs, labels, active, onChange }: SettingsTabNa
   const stripRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    const trigger = stripRef.current?.querySelector<HTMLElement>('[data-state="active"]')
-    trigger?.scrollIntoView?.({ block: 'nearest', inline: 'center' })
+    // Scroll the strip itself: scrollIntoView would also scroll the page sideways.
+    const strip = stripRef.current
+    const trigger = strip?.querySelector<HTMLElement>('[data-state="active"]')
+    if (!strip || !trigger) return
+    const stripBox = strip.getBoundingClientRect()
+    const triggerBox = trigger.getBoundingClientRect()
+    strip.scrollLeft += triggerBox.left - stripBox.left - (stripBox.width - triggerBox.width) / 2
   }, [active])
 
   return (
@@ -33,7 +38,7 @@ export function SettingsTabNav({ tabs, labels, active, onChange }: SettingsTabNa
         </SelectTrigger>
         <SelectContent>
           {tabs.map((tab) => (
-            <SelectItem key={tab} value={tab}>
+            <SelectItem key={tab} value={tab} className="min-h-11">
               {labels[tab]}
             </SelectItem>
           ))}

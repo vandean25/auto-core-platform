@@ -43,6 +43,7 @@ test.describe('Settings navigation on a phone (AUT-754)', () => {
     const options = page.getByRole('option')
     // All sections of an admin are in the list, including the ones the strip used to hide.
     await expect(options).toHaveCount(17)
+    expect((await options.first().boundingBox())!.height, 'option height').toBeGreaterThanOrEqual(44)
     await options.filter({ hasText: deSettings.tabs.auditLogs }).click()
 
     await expect(page).toHaveURL(/tab=audit-logs/)
@@ -78,6 +79,8 @@ test.describe('Settings tab strip on a laptop (AUT-754)', () => {
     const tabBox = (await active.boundingBox())!
     expect(tabBox.x).toBeGreaterThanOrEqual(stripBox.x - 1)
     expect(tabBox.x + tabBox.width).toBeLessThanOrEqual(stripBox.x + stripBox.width + 1)
+    // Only the strip scrolls, never the page.
+    expect(await page.evaluate(() => window.scrollX), 'page scrolled sideways').toBe(0)
   })
 })
 
