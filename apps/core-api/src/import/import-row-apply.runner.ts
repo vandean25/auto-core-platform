@@ -66,6 +66,10 @@ function describeCause(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown';
 }
 
+function isBackgroundWorkerApply(options?: ImportApplyBatchOptions): boolean {
+  return Boolean(options?.leaseToken || options?.useApplySequence);
+}
+
 function retryableTransactionDelayMs(attempt: number): number {
   const cappedBase = Math.min(50 * 2 ** attempt, 2000);
   const jitter = Math.floor(Math.random() * cappedBase * 0.25);
@@ -559,7 +563,7 @@ export class RowByRowApplyRunner {
       if (error instanceof ImportWorkerLeaseLostError) {
         throw error;
       }
-      if (!isRowLevelApplyError(error)) {
+      if (!isRowLevelApplyError(error) && isBackgroundWorkerApply(options)) {
         throw error;
       }
       this.logger.warn(

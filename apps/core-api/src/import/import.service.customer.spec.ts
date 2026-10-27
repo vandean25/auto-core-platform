@@ -773,7 +773,7 @@ describe('ImportService customer import (characterization)', () => {
       );
     });
 
-    it('rethrows connection loss during apply instead of marking the row ERROR', async () => {
+    it('turns any per-row failure into an APPLY_FAILED row and keeps the job applied', async () => {
       h.prisma.customer.create.mockRejectedValue(new Error('Connection lost'));
       arrangeApply(
         h,
@@ -781,22 +781,50 @@ describe('ImportService customer import (characterization)', () => {
         [createRow(1, 'K-1', { first_name: 'Anna', last_name: 'Berger' })],
       );
 
-      await expect(h.service.applyJob(JOB_ID)).rejects.toThrow(
-        'Connection lost',
+      const result = await h.service.applyJob(JOB_ID);
+
+      expect(h.prisma.importJobRow.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            action: ImportRowAction.ERROR,
+            errors_json: [
+              {
+                code: IMPORT_ERROR_CODES.APPLY_FAILED,
+                message: 'Row failed during apply',
+              },
+            ],
+          },
+        }),
+      );
+      expect(result.status).toBe(ImportJobStatus.APPLIED);
+      expect(h.prisma.importJob.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: ImportJobStatus.FAILED }),
+        }),
+      );
+    });
+
+    it('marks a serialization failure as a row ERROR during synchronous apply', async () => {
+      h.prisma.customer.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('serialization', {
+          code: 'P2034',
+          clientVersion: 'test',
+        }),
+      );
+      arrangeApply(
+        h,
+        importJobRecord({ entity_type: ImportEntityType.CUSTOMER }),
+        [createRow(1, 'K-1', { first_name: 'Anna', last_name: 'Berger' })],
       );
 
-      expect(h.prisma.importJobRow.update).not.toHaveBeenCalledWith(
+      const result = await h.service.applyJob(JOB_ID);
+
+      expect(h.prisma.importJobRow.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ action: ImportRowAction.ERROR }),
         }),
       );
-      expect(h.prisma.importJob.update).toHaveBeenCalledWith({
-        where: { id: JOB_ID },
-        data: {
-          status: ImportJobStatus.FAILED,
-          totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 0 },
-        },
-      });
+      expect(result.status).toBe(ImportJobStatus.APPLIED);
     });
 
     it('fails the job with the totals so far when recording a row error itself fails', async () => {

@@ -9,7 +9,6 @@ import {
   LoanerVehicleStatus,
   Prisma,
 } from '@prisma/client';
-import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -817,8 +816,8 @@ export class LoanerVehiclesService {
   /** @internal exposed for unit tests */
   rethrowLoanerBookingCreateError(error: unknown): void {
     if (
-      isRetryableTransactionError(error) &&
       error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034' &&
       error.meta?.modelName === 'LoanerBooking'
     ) {
       throw loanerOverlapException();

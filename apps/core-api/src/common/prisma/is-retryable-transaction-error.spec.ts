@@ -17,23 +17,48 @@ describe('isRetryableTransactionError', () => {
     );
   });
 
-  it('classifies P2028 as retryable', () => {
-    const error = new Prisma.PrismaClientKnownRequestError(
+  it('classifies a wrapped adapter write conflict as retryable', () => {
+    const wrapped = new Error('wrapped', { cause: driverAdapterWriteConflict() });
+    expect(isRetryableTransactionError(wrapped)).toBe(true);
+  });
+
+  it('classifies P2028 and P2024 as retryable', () => {
+    const timeout = new Prisma.PrismaClientKnownRequestError(
       'Transaction API error',
       { code: 'P2028', clientVersion: 'test' },
     );
+    const pool = new Prisma.PrismaClientKnownRequestError('Pool timeout', {
+      code: 'P2024',
+      clientVersion: 'test',
+    });
+    expect(isRetryableTransactionError(timeout)).toBe(true);
+    expect(isRetryableTransactionError(pool)).toBe(true);
+  });
+
+  it('classifies P2002, P2003, and P2025 as not retryable', () => {
+    for (const code of ['P2002', 'P2003', 'P2025'] as const) {
+      const error = new Prisma.PrismaClientKnownRequestError(code, {
+        code,
+        clientVersion: 'test',
+      });
+      expect(isRetryableTransactionError(error)).toBe(false);
+    }
+  });
+
+  it('classifies ECONNRESET as retryable', () => {
+    const error = Object.assign(new Error('reset'), { code: 'ECONNRESET' });
     expect(isRetryableTransactionError(error)).toBe(true);
   });
 
-  it('classifies P2002 as not retryable', () => {
-    const error = new Prisma.PrismaClientKnownRequestError(
-      'Unique constraint',
-      {
-        code: 'P2002',
-        clientVersion: 'test',
-      },
+  it('does not classify unrelated messages that mention connection reset', () => {
+    expect(
+      isRetryableTransactionError(
+        new Error('User said connection reset in a note field'),
+      ),
+    ).toBe(false);
+    expect(isRetryableTransactionError(new Error('Connection lost'))).toBe(
+      false,
     );
-    expect(isRetryableTransactionError(error)).toBe(false);
   });
 
   it('classifies serialization failure and deadlock SQLSTATE as retryable', () => {

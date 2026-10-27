@@ -150,6 +150,56 @@ describe('Import background worker (e2e)', () => {
     expect((applied?.totals_json as { rows: number }).rows).toBe(3);
   });
 
+  it('applies each row once when two worker attempts overlap on apply', async () => {
+    const jobId = await uploadBackgroundJob();
+
+    await deliverWorker(jobId, 'dry_run').expect(204);
+    await deliverWorker(jobId, 'dry_run').expect(204);
+
+    const beforeApply = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    expect(beforeApply?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+
+    await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      const job = await tenantPrisma().importJob.findFirst({
+        where: { id: jobId },
+      });
+      if (job?.status === ImportJobStatus.APPLIED) {
+        break;
+      }
+      await Promise.all([
+        deliverWorker(jobId, 'apply'),
+        deliverWorker(jobId, 'apply'),
+      ]);
+    }
+
+    const applied = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
+    expect((applied?.totals_json as { rows: number }).rows).toBe(3);
+
+    const mappings = await tenantPrisma().externalIdMapping.findMany({
+      where: {
+        tenant_id: tenant.tenantId,
+        entity_type: 'CUSTOMER',
+        source_system: 'legacy-dms',
+      },
+    });
+    expect(mappings).toHaveLength(3);
+    expect(new Set(mappings.map((row) => row.external_id)).size).toBe(3);
+
+    const options = (applied?.options_json ?? {}) as Record<string, unknown>;
+    expect(options.upload).toBeDefined();
+  });
+
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
     const jobId = await uploadBackgroundJob();
     const existing = await tenantPrisma().importJob.findFirst({

@@ -11,6 +11,8 @@ const CONNECTION_NODE_CODES = new Set([
   'EPIPE',
 ]);
 
+const MAX_CAUSE_DEPTH = 8;
+
 function prismaDatabaseSqlState(
   error: Prisma.PrismaClientKnownRequestError,
 ): string | undefined {
@@ -35,27 +37,32 @@ function isPostgresRetrySqlState(code: string): boolean {
   return RETRYABLE_PG_SQLSTATES.has(code);
 }
 
-type DriverAdapterCause = {
+type AdapterCauseShape = {
   kind?: string;
   code?: string;
 };
 
-function readDriverAdapterCause(error: Error): DriverAdapterCause | undefined {
-  if (!('cause' in error)) {
+function readCause(error: unknown): unknown {
+  if (!error || typeof error !== 'object' || !('cause' in error)) {
     return undefined;
   }
   const cause = (error as { cause?: unknown }).cause;
-  if (!cause || typeof cause !== 'object') {
+  if (cause === error) {
     return undefined;
   }
-  const record = cause as Record<string, unknown>;
+  return cause;
+}
+
+function adapterCauseFromRecord(
+  record: Record<string, unknown>,
+): AdapterCauseShape {
   return {
     kind: typeof record.kind === 'string' ? record.kind : undefined,
     code: typeof record.code === 'string' ? record.code : undefined,
   };
 }
 
-function isDriverAdapterRetryCause(cause: DriverAdapterCause): boolean {
+function isAdapterCauseRetryable(cause: AdapterCauseShape): boolean {
   if (cause.kind === 'TransactionWriteConflict') {
     return true;
   }
@@ -69,15 +76,6 @@ function isDriverAdapterRetryCause(cause: DriverAdapterCause): boolean {
   return false;
 }
 
-function isConnectionOrPoolMessage(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes('connection pool timeout') ||
-    lower.includes('connection terminated') ||
-    lower.includes('connection reset')
-  );
-}
-
 function isNodeConnectionError(error: unknown): boolean {
   if (!error || typeof error !== 'object' || !('code' in error)) {
     return false;
@@ -86,24 +84,39 @@ function isNodeConnectionError(error: unknown): boolean {
   return typeof code === 'string' && CONNECTION_NODE_CODES.has(code);
 }
 
-/** Deadlocks, write conflicts, pool timeouts and connection loss — not row data problems. */
-export function isRetryableTransactionError(error: unknown): boolean {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (RETRYABLE_PRISMA_CODES.has(error.code)) {
+function isRetryableErrorNode(node: unknown): boolean {
+  if (node instanceof Prisma.PrismaClientKnownRequestError) {
+    if (RETRYABLE_PRISMA_CODES.has(node.code)) {
       return true;
     }
-    const sqlState = prismaDatabaseSqlState(error);
+    const sqlState = prismaDatabaseSqlState(node);
     return sqlState !== undefined && isPostgresRetrySqlState(sqlState);
   }
-  if (error instanceof Error && error.name === 'DriverAdapterError') {
-    const cause = readDriverAdapterCause(error);
-    return cause !== undefined && isDriverAdapterRetryCause(cause);
+  if (node instanceof Error && node.name === 'DriverAdapterError') {
+    const cause = readCause(node);
+    if (cause && typeof cause === 'object') {
+      return isAdapterCauseRetryable(
+        adapterCauseFromRecord(cause as Record<string, unknown>),
+      );
+    }
   }
-  if (isNodeConnectionError(error)) {
-    return true;
+  if (node && typeof node === 'object') {
+    const record = node as Record<string, unknown>;
+    if (typeof record.kind === 'string') {
+      return isAdapterCauseRetryable(adapterCauseFromRecord(record));
+    }
   }
-  if (error instanceof Error && isConnectionOrPoolMessage(error.message)) {
-    return true;
+  return isNodeConnectionError(node);
+}
+
+/** Deadlocks, write conflicts, pool timeouts and connection loss — not row data problems. */
+export function isRetryableTransactionError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH && current; depth++) {
+    if (isRetryableErrorNode(current)) {
+      return true;
+    }
+    current = readCause(current);
   }
   return false;
 }
