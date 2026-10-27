@@ -55,7 +55,7 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
       <main className="pb-[var(--phone-nav-h)]">
         <GlobalErrorBoundary>{children}</GlobalErrorBoundary>
       </main>
-      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      {searchOpen ? <GlobalSearch open onOpenChange={setSearchOpen} /> : null}
       <MechanicPhoneNav onOpenSearch={() => setSearchOpen(true)} />
       <Toaster />
     </div>

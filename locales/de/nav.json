@@ -29,12 +29,13 @@
     "punch": "Stempeln",
     "finding": "Befund erfassen",
     "findingNoTask": "Keine Aufgabe für einen Befund",
-    "create": "Neu",
+    "create": "Neu anlegen",
     "search": "Suche",
     "more": "Mehr",
     "createTitle": "Neu anlegen",
     "punchTitle": "Zeiterfassung",
-    "punchUnavailable": "Zeiterfassung ist nicht verfügbar."
+    "punchUnavailable": "Zeiterfassung ist nicht verfügbar.",
+    "punchLoading": "Zeiterfassung wird geladen …"
   },
   "modules": {
     "dashboard": "Dashboard",

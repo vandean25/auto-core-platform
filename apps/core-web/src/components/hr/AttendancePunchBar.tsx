@@ -82,7 +82,7 @@ export function AttendancePunchBar({
   const isCompact = size === 'compact'
 
   return (
-    <div className={cn('flex items-center gap-2', isCompact && 'gap-1')}>
+    <div className={cn('flex flex-wrap items-center gap-2', isCompact && 'gap-1')}>
       <StatusBadge
         status={state}
         label={statusLabel}

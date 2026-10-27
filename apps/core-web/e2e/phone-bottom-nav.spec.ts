@@ -127,6 +127,7 @@ test.describe('Phone bottom navigation (AUT-736)', () => {
         }),
       ),
     );
+    await page.route(AutoCorePage.apiRouteMatcher('/api/hr/me/clock'), (route) => route.fulfill(json({ state: 'CLOCKED_IN', events: [] })));
     await new AutoCorePage(page, '').navigate('/mechanic/queue');
 
     await expect(bar(page).getByRole('link', { name: NAV.myTasks })).toBeVisible();
@@ -136,6 +137,17 @@ test.describe('Phone bottom navigation (AUT-736)', () => {
 
     await bar(page).getByRole('button', { name: NAV.search }).click();
     await expect(page.getByRole('dialog').getByRole('combobox')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // The time clock sheet keeps every punch button inside the screen.
+    await bar(page).getByRole('button', { name: NAV.punch }).click();
+    const punchSheet = page.getByRole('dialog');
+    await expect(punchSheet.getByRole('button').first()).toBeVisible();
+    expect(await punchSheet.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(0);
+    for (const button of await punchSheet.getByRole('button').all()) {
+      const box = await button.boundingBox();
+      expect(box!.x + box!.width).toBeLessThanOrEqual(PHONE.width);
+    }
     await page.keyboard.press('Escape');
 
     await bar(page).getByRole('button', { name: NAV.finding }).click();

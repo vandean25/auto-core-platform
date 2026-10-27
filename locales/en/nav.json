@@ -29,12 +29,13 @@
     "punch": "Punch",
     "finding": "Record finding",
     "findingNoTask": "No task to record a finding on",
-    "create": "New",
+    "create": "Create new",
     "search": "Search",
     "more": "More",
     "createTitle": "Create new",
     "punchTitle": "Time clock",
-    "punchUnavailable": "Time clock is not available."
+    "punchUnavailable": "Time clock is not available.",
+    "punchLoading": "Loading time clock …"
   },
   "modules": {
     "dashboard": "Dashboard",

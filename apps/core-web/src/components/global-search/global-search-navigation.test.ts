@@ -76,7 +76,8 @@ describe('palette create entries (shared with the phone Create button)', () => {
     }
   })
 
-  it('gives mechanics no work order or appointment create entries', () => {
+  it('gives mechanics no navigation or create entries', () => {
+    expect(getPaletteSections(context('TECH'), '')).toEqual([])
     const sectionItems = getGlobalSearchQuickActionSections(null, 'TECH').flatMap((section) => hrefs(section))
     expect(sectionItems).not.toContain('/workshop/intake')
     expect(sectionItems).not.toContain('/workshop/planner?action=create')

@@ -42,15 +42,15 @@ export function useActionDialogParam(actionId: string | readonly string[]) {
   return { open, onOpenChange }
 }
 
-/** One-shot variant for components that keep their own open state: `?action=<id>` calls `onOpenChange(true)`, then leaves the URL. */
-export function useActionParamOpen(actionId: string | readonly string[], onOpenChange: (open: boolean) => void) {
+/** One-shot variant for pages that keep their own open state: `?action=<id>` calls `onOpen`, then leaves the URL. */
+export function useActionParamOpen(actionId: string | readonly string[], onOpen: () => void) {
   const [searchParams, setSearchParams] = useSearchParams()
   const current = searchParams.get(ACTION_DIALOG_SEARCH_PARAM)
   const matches = current !== null && (typeof actionId === 'string' ? [actionId] : actionId).includes(current)
 
   useEffect(() => {
     if (!matches) return
-    onOpenChange(true)
+    onOpen()
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -59,5 +59,5 @@ export function useActionParamOpen(actionId: string | readonly string[], onOpenC
       },
       { replace: true },
     )
-  }, [matches, onOpenChange, setSearchParams])
+  }, [matches, onOpen, setSearchParams])
 }

@@ -1,5 +1,5 @@
 import { CalendarPlus, ClipboardList, ReceiptText, Truck, Wrench } from 'lucide-react'
-import { canCreateAppointment, canCreateWorkshopOrder } from '@/features/actions/action-role-predicates'
+import { canCreateWorkshopEntry } from '@/features/actions/action-role-predicates'
 import { buildActionDialogHref } from '@/features/actions/use-action-dialog-param'
 import { i18n } from '@/lib/i18n'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
@@ -20,14 +20,14 @@ export function getGlobalSearchQuickActionSections(
       icon: Wrench,
       label: i18n.t('nav:globalSearch.quickActions.createWorkOrder.label'),
       description: i18n.t('nav:globalSearch.quickActions.createWorkOrder.description'),
-      isAllowedForRole: canCreateWorkshopOrder,
+      isAllowedForRole: canCreateWorkshopEntry,
     },
     {
       href: buildActionDialogHref(APP_ROUTE_PATHS.workshopPlanner, PLANNER_CREATE_DIALOG_ACTION_IDS[0]),
       icon: CalendarPlus,
       label: i18n.t('nav:globalSearch.quickActions.createAppointment.label'),
       description: i18n.t('nav:globalSearch.quickActions.createAppointment.description'),
-      isAllowedForRole: canCreateAppointment,
+      isAllowedForRole: canCreateWorkshopEntry,
     },
     {
       href: '/sales-orders/new',

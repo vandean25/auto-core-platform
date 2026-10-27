@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { getGlobalSearchQuickActionSections } from '@/components/global-search/global-search-quick-actions-data'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 type PhoneCreateSheetProps = {
   open: boolean
@@ -18,10 +18,9 @@ export function PhoneCreateSheet({ open, onOpenChange, activeRole }: PhoneCreate
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
+      <SheetContent side="bottom" aria-describedby={undefined} className="max-h-[85dvh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{t('phoneNav.createTitle')}</SheetTitle>
-          <SheetDescription className="sr-only">{t('phoneNav.createTitle')}</SheetDescription>
         </SheetHeader>
         <ul className="mt-4 space-y-1">
           {items.map((item) => (

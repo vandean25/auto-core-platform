@@ -418,7 +418,7 @@ export default function WorkshopPlannerPage() {
         </DndContext>
       )}
 
-      <PlannerCreateUrlOpener onOpenChange={setCreateOpen} />
+      <PlannerCreateUrlOpener setPrefill={setCreatePrefill} setOpen={setCreateOpen} />
       <PlannerCreateSheet
         open={createOpen}
         onOpenChange={setCreateOpen}

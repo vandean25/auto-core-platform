@@ -3,12 +3,8 @@
  * and page/row-behaviour components. Backend authorization remains authoritative.
  */
 
-/** Create entry points of the admin shell. Mechanics (TECH) stay in the mechanic shell. */
-export function canCreateWorkshopOrder(role: string | null | undefined): boolean {
-  return role !== 'TECH'
-}
-
-export function canCreateAppointment(role: string | null | undefined): boolean {
+/** Work order and appointment creation (Cmd+K, phone Create button). Mechanics (TECH) stay in the mechanic shell. */
+export function canCreateWorkshopEntry(role: string | null | undefined): boolean {
   return role !== 'TECH'
 }
 

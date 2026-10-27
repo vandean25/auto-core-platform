@@ -165,10 +165,10 @@ function AppShell({
               />
 
               <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
-              <AdminPhoneNav platformRole={platformRole} activeRole={activeRole} onOpenSearch={() => setSearchOpen(true)} />
               <EntityActionConfirmHost />
               <GlobalShortcutLayer />
               <AppMain />
+              <AdminPhoneNav platformRole={platformRole} activeRole={activeRole} onOpenSearch={() => setSearchOpen(true)} />
             </SidebarProvider>
           </>
         </RealtimeDashboardSyncProvider>

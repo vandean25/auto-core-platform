@@ -58,8 +58,8 @@ describe('useActionDialogParam', () => {
   })
 })
 
-function OpenerHarness({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
-  useActionParamOpen(['create', 'appointment.create'], onOpenChange)
+function OpenerHarness({ onOpen }: { onOpen: () => void }) {
+  useActionParamOpen(['create', 'appointment.create'], onOpen)
   return <span data-testid="search">{useLocation().search}</span>
 }
 
@@ -67,27 +67,27 @@ describe('useActionParamOpen', () => {
   afterEach(cleanup)
 
   it('opens once for a matching ?action and removes only that param', () => {
-    const onOpenChange = vi.fn()
+    const onOpen = vi.fn()
     render(
       <MemoryRouter initialEntries={['/workshop/planner?date=2026-08-21&action=create']}>
-        <OpenerHarness onOpenChange={onOpenChange} />
+        <OpenerHarness onOpen={onOpen} />
       </MemoryRouter>,
     )
 
-    expect(onOpenChange).toHaveBeenCalledWith(true)
+    expect(onOpen).toHaveBeenCalled()
     expect(screen.getByTestId('search')).toHaveTextContent('?date=2026-08-21')
     expect(screen.getByTestId('search')).not.toHaveTextContent('action')
   })
 
   it('ignores other or missing action ids', () => {
-    const onOpenChange = vi.fn()
+    const onOpen = vi.fn()
     render(
       <MemoryRouter initialEntries={['/workshop/planner?action=other']}>
-        <OpenerHarness onOpenChange={onOpenChange} />
+        <OpenerHarness onOpen={onOpen} />
       </MemoryRouter>,
     )
 
-    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(onOpen).not.toHaveBeenCalled()
     expect(screen.getByTestId('search')).toHaveTextContent('?action=other')
   })
 })

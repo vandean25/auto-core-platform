@@ -49,10 +49,10 @@ function renderAdmin(activeRole: 'OWNER' | 'SALES', onOpenSearch = vi.fn()) {
   return { onOpenSearch }
 }
 
-function renderMechanic(onOpenSearch = vi.fn()) {
+function renderMechanic(onOpenSearch = vi.fn(), path = '/mechanic/queue') {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/mechanic/queue']}>
+      <MemoryRouter initialEntries={[path]}>
         <MechanicPhoneNav onOpenSearch={onOpenSearch} />
         <LocationProbe />
       </MemoryRouter>
@@ -80,13 +80,13 @@ describe('admin phone bottom navigation', () => {
   it('shows Orders, Appointments, + New, Search, More for a service advisor', () => {
     renderAdmin('SALES')
 
-    expect(barLabels()).toEqual(['Aufträge', 'Termine', 'Neu', 'Suche', 'Mehr'])
+    expect(barLabels()).toEqual(['Aufträge', 'Termine', 'Neu anlegen', 'Suche', 'Mehr'])
   })
 
   it('shows Dashboard, Orders, + New, Search, More for other roles and marks the current page', () => {
     renderAdmin('OWNER')
 
-    expect(barLabels()).toEqual(['Dashboard', 'Aufträge', 'Neu', 'Suche', 'Mehr'])
+    expect(barLabels()).toEqual(['Dashboard', 'Aufträge', 'Neu anlegen', 'Suche', 'Mehr'])
     expect(screen.getByRole('link', { name: 'Aufträge' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current')
   })
@@ -116,7 +116,7 @@ describe('admin phone bottom navigation', () => {
   it('opens the create sheet with the registry create entries of the role', async () => {
     renderAdmin('SALES')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Neu' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Neu anlegen' }))
 
     const sheet = await screen.findByRole('dialog')
     for (const label of ['Werkstattauftrag anlegen', 'Termin anlegen', 'Kundenauftrag anlegen']) {
@@ -155,6 +155,19 @@ describe('mechanic phone bottom navigation', () => {
     expect(screen.getByLabelText('location')).toHaveTextContent('/mechanic/tasks/t1')
   })
 
+  it('records the finding on the task being viewed, and never on a finished task', () => {
+    mockMechanicApis([queueItem('t1', 'IN_PROGRESS'), queueItem('t2', 'NOT_STARTED')])
+    renderMechanic(vi.fn(), '/mechanic/tasks/t2')
+    fireEvent.click(screen.getByRole('button', { name: 'Befund erfassen' }))
+    expect(screen.getByLabelText('location')).toHaveTextContent('/mechanic/tasks/t2')
+
+    cleanup()
+    mockMechanicApis([queueItem('t1', 'DONE'), queueItem('t2', 'NOT_STARTED')])
+    renderMechanic()
+    fireEvent.click(screen.getByRole('button', { name: 'Befund erfassen' }))
+    expect(screen.getByLabelText('location')).toHaveTextContent('/mechanic/tasks/t2')
+  })
+
   it('disables + Finding without a task', () => {
     mockMechanicApis([])
     renderMechanic()
@@ -170,6 +183,6 @@ describe('mechanic phone bottom navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stempeln' }))
     const sheet = await screen.findByRole('dialog')
     fireEvent.click(within(sheet).getByRole('button', { name: /Kommen|Einstempeln/ }))
-    expect(punch).toHaveBeenCalledWith({ type: 'CLOCK_IN' })
+    expect(punch).toHaveBeenCalledWith({ type: 'CLOCK_IN' }, expect.objectContaining({ onError: expect.any(Function) }))
   })
 })
