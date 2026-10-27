@@ -4,7 +4,11 @@ import { IMPORT_WORKER_LEASE_MS } from './import-job.worker-state.js';
 
 describe('ImportJobStore.extendWorkerLease', () => {
   it('extends the lease only for the current lease token', async () => {
-    const updateMany = jest.fn(async () => ({ count: 1 }));
+    const updateMany = jest.fn(
+      async (_args: {
+        data: { options_json: { worker: { lease_until: string } } };
+      }) => ({ count: 1 }),
+    );
     const job = {
       id: 'job-1',
       tenant_id: 'tenant-1',
@@ -29,9 +33,7 @@ describe('ImportJobStore.extendWorkerLease', () => {
     const before = Date.now();
     const ok = await store.extendWorkerLease('tenant-1', 'job-1', 'token-a');
     expect(ok).toBe(true);
-    const patch = updateMany.mock.calls[0]?.[0] as {
-      data: { options_json: { worker: { lease_until: string } } };
-    };
+    const patch = updateMany.mock.calls[0]![0];
     const leaseUntil = Date.parse(patch.data.options_json.worker.lease_until);
     expect(leaseUntil).toBeGreaterThanOrEqual(before + IMPORT_WORKER_LEASE_MS - 50);
   });

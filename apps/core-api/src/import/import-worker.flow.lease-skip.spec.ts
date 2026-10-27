@@ -2,11 +2,19 @@ import { ImportJobStatus } from '@prisma/client';
 import { jest } from '@jest/globals';
 import { requeueImportWorkerAfterLeaseSkip } from './import-worker.flow.js';
 import { importWorkerTaskIdForParams } from './import-worker-enqueue.js';
+import type { ImportWorkerTaskIdentity } from './import-worker-task-identity.js';
+
+type EnqueueImportWorkerArgs = {
+  taskIdentity: ImportWorkerTaskIdentity;
+  delaySeconds?: number;
+};
 
 describe('requeueImportWorkerAfterLeaseSkip', () => {
   it('enqueues one delayed task under the lease holder task name', async () => {
     const leaseUntil = new Date(Date.now() + 30_000).toISOString();
-    const enqueueImportWorker = jest.fn(async () => undefined);
+    const enqueueImportWorker = jest.fn(async (_args: EnqueueImportWorkerArgs) =>
+      undefined,
+    );
     const touchWorkerHandoff = jest.fn(async () => ({ count: 1 }));
     const findJob = jest.fn(async () => ({
       id: 'job-1',
@@ -59,7 +67,8 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       claimSeq: 4,
       recoverySeq: 0,
     });
-    expect(enqueueImportWorker.mock.calls[0]?.[0].taskIdentity).toEqual({
+    const firstEnqueue = enqueueImportWorker.mock.calls[0]?.[0];
+    expect(firstEnqueue?.taskIdentity).toEqual({
       jobId: 'job-1',
       phase: 'apply',
       chunkSeq: 10,
@@ -76,13 +85,13 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
         recoverySeq: 0,
       }),
     ).toBe(expectedName);
-    expect(enqueueImportWorker.mock.calls[0]?.[0].delaySeconds).toBeGreaterThan(
-      0,
-    );
+    expect(firstEnqueue?.delaySeconds).toBeGreaterThan(0);
   });
 
   it('enqueues immediately when the lease has expired (claim contention)', async () => {
-    const enqueueImportWorker = jest.fn(async () => undefined);
+    const enqueueImportWorker = jest.fn(async (_args: EnqueueImportWorkerArgs) =>
+      undefined,
+    );
     const touchWorkerHandoff = jest.fn(async () => ({ count: 1 }));
     const findJob = jest.fn(async () => ({
       id: 'job-1',
@@ -111,11 +120,13 @@ describe('requeueImportWorkerAfterLeaseSkip', () => {
       jobId: 'job-1',
       phase: 'apply',
     });
-    expect(enqueueImportWorker.mock.calls[0]?.[0].delaySeconds).toBe(0);
+    expect(enqueueImportWorker.mock.calls[0]?.[0]?.delaySeconds).toBe(0);
   });
 
   it('does not enqueue for a terminal job', async () => {
-    const enqueueImportWorker = jest.fn();
+    const enqueueImportWorker = jest.fn(
+      async (_args: EnqueueImportWorkerArgs) => undefined,
+    );
     const deps = {
       jobStore: {
         findJob: async () => ({
