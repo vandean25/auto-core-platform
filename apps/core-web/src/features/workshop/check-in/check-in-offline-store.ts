@@ -39,6 +39,8 @@ export type CheckInOfflineDraftRecord = {
 export type MechanicNoteDraftRecord = {
   scopeKey: string
   text: string
+  /** The server notes the draft was typed on top of; the draft is only restored while the server still has them. */
+  baseNotes: string
   lastLocalSavedAt: number
 }
 
@@ -350,13 +352,13 @@ export function buildMechanicNoteDraftKey(input: {
   return [input.userId, input.tenantId, input.siteId, 'task', input.taskId].join('/')
 }
 
-export async function saveMechanicNoteDraft(scopeKey: string, text: string): Promise<void> {
-  const row: MechanicNoteDraftRecord = { scopeKey, text, lastLocalSavedAt: Date.now() }
+export async function saveMechanicNoteDraft(scopeKey: string, text: string, baseNotes: string): Promise<void> {
+  const row: MechanicNoteDraftRecord = { scopeKey, text, baseNotes, lastLocalSavedAt: Date.now() }
   await withStore(MECHANIC_NOTE_DRAFT_STORE, 'readwrite', (store) => store.put(row))
 }
 
-/** The draft text, or null when there is none or it is older than the check-in draft TTL (an expired one is dropped). */
-export async function loadMechanicNoteDraft(scopeKey: string): Promise<string | null> {
+/** The draft, or null when there is none or it is older than the check-in draft TTL (an expired one is dropped). */
+export async function loadMechanicNoteDraft(scopeKey: string): Promise<MechanicNoteDraftRecord | null> {
   const row = await withStore<MechanicNoteDraftRecord | undefined>(
     MECHANIC_NOTE_DRAFT_STORE,
     'readonly',
@@ -367,9 +369,13 @@ export async function loadMechanicNoteDraft(scopeKey: string): Promise<string | 
     await deleteMechanicNoteDraft(scopeKey)
     return null
   }
-  return row.text
+  return row
 }
 
 export async function deleteMechanicNoteDraft(scopeKey: string): Promise<void> {
   await withStore(MECHANIC_NOTE_DRAFT_STORE, 'readwrite', (store) => store.delete(scopeKey))
+}
+
+export async function countMechanicNoteDrafts(): Promise<number> {
+  return withStore<number>(MECHANIC_NOTE_DRAFT_STORE, 'readonly', (store) => store.count())
 }

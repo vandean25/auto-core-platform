@@ -35,6 +35,7 @@ export function CheckInOfflinePurgeDialog({
             {t('checkIn.offline.purge.description', {
               drafts: summary.dirtyDraftCount,
               photos: summary.queuedPhotoCount,
+              notes: summary.mechanicNoteDraftCount,
             })}
           </AlertDialogDescription>
         </AlertDialogHeader>

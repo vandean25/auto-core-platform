@@ -8,8 +8,9 @@ import {
 } from '@/features/workshop/check-in/check-in-offline-store'
 
 export type MechanicNotesDraft = {
-  load: () => Promise<string | null>
-  save: (text: string) => void
+  /** The unsynced text and the server notes it was typed on, or null. */
+  load: () => Promise<{ text: string; baseNotes: string } | null>
+  save: (text: string, baseNotes: string) => void
   clear: () => void
 }
 
@@ -25,26 +26,26 @@ export const NO_MECHANIC_NOTES_DRAFT: MechanicNotesDraft = {
  * they survive a reload or a short offline period. Without a session it does nothing; storage errors
  * never block typing.
  */
-export function useMechanicNotesDraft(taskId: string): MechanicNotesDraft {
+export function useMechanicNotesDraft(taskId: string, enabled = true): MechanicNotesDraft {
   const { data: session } = useAuthSession()
   const userId = session?.userId
   const tenantId = session?.activeTenant?.id
   const siteId = session?.activeSiteId ?? 'none'
 
   return useMemo(() => {
-    const scopeKey = userId && tenantId ? buildMechanicNoteDraftKey({ userId, tenantId, siteId, taskId }) : null
+    const scopeKey = enabled && userId && tenantId ? buildMechanicNoteDraftKey({ userId, tenantId, siteId, taskId }) : null
 
     return {
-      load: async (): Promise<string | null> => {
+      load: async () => {
         if (!scopeKey) return null
         return loadMechanicNoteDraft(scopeKey).catch(() => null)
       },
-      save: (text: string) => {
-        if (scopeKey) void saveMechanicNoteDraft(scopeKey, text).catch(() => undefined)
+      save: (text: string, baseNotes: string) => {
+        if (scopeKey) void saveMechanicNoteDraft(scopeKey, text, baseNotes).catch(() => undefined)
       },
       clear: () => {
         if (scopeKey) void deleteMechanicNoteDraft(scopeKey).catch(() => undefined)
       },
     }
-  }, [userId, tenantId, siteId, taskId])
+  }, [enabled, userId, tenantId, siteId, taskId])
 }

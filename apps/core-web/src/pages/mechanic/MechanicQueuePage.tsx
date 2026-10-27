@@ -62,7 +62,7 @@ export default function MechanicQueuePage() {
           <h1 className="text-2xl font-semibold tracking-tight">{t('mechanic.queue.title')}</h1>
           <p className="text-slate-500">{t('mechanic.queue.description')}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <MechanicQueuePunch
             clockResponse={clockResponse}
             clockError={clockError}

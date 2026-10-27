@@ -39,7 +39,8 @@ export function MechanicTaskDetailView({
     taskStatus: task.taskStatus,
     hasOpenLaborEntry: task.hasOpenLaborEntry,
   });
-  const notesDraft = useMechanicNotesDraft(task.taskId);
+  // A finished task is read-only: no restoring of old text into it.
+  const notesDraft = useMechanicNotesDraft(task.taskId, !capabilities.isDone);
   const diagnostics = useDiagnosticsAutosave({
     taskId: task.taskId,
     initialNotes: task.mechanicNotes,

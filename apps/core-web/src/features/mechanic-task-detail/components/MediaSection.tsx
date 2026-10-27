@@ -38,7 +38,7 @@ export function MediaSection({
       <CardContent>
         <div className="flex flex-wrap items-center gap-3">
           <Button className="min-h-11 gap-2" disabled={uploading} onClick={onPickPhoto}>
-            <Camera className="h-4 w-4" />
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
             {t('mechanic.taskDetail.media.photoFinding')}
           </Button>
           <Button variant="outline" className="min-h-11 gap-2" disabled={uploading} onClick={onPickFile}>

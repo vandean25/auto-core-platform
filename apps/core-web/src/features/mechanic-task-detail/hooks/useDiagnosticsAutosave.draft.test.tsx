@@ -23,9 +23,9 @@ const draftKey = buildMechanicNoteDraftKey({ userId: 'u1', tenantId: 't1', siteI
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) => fn as unknown as ReturnType<typeof vi.fn>
 
-function renderNotes(initialNotes: string | null) {
+function renderNotes(initialNotes: string | null, draftEnabled = true) {
   return renderHook(() => {
-    const draft = useMechanicNotesDraft(TASK_ID)
+    const draft = useMechanicNotesDraft(TASK_ID, draftEnabled)
     return useDiagnosticsAutosave({ taskId: TASK_ID, initialNotes, draft })
   })
 }
@@ -47,7 +47,10 @@ describe('mechanic notes draft (reload and offline)', () => {
       first.result.current.handleNotesChange('Pads checked. Rear brake line leaks.')
     })
     await waitFor(() => expect(first.result.current.saveState).toBe('error'), { timeout: 3000 })
-    expect(await loadMechanicNoteDraft(draftKey)).toBe('Pads checked. Rear brake line leaks.')
+    expect(await loadMechanicNoteDraft(draftKey)).toMatchObject({
+      text: 'Pads checked. Rear brake line leaks.',
+      baseNotes: 'Pads checked',
+    })
     first.unmount()
 
     // Reload with connection: the server still has the old notes.
@@ -74,11 +77,49 @@ describe('mechanic notes draft (reload and offline)', () => {
 
   it('ignores a draft that equals the server notes', async () => {
     asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ taskId: TASK_ID }) })
-    await saveMechanicNoteDraft(draftKey, 'Same as server')
+    await saveMechanicNoteDraft(draftKey, 'Same as server', 'Same as server')
 
     const { result } = renderNotes('Same as server')
 
     await waitFor(() => expect(result.current.notesValue).toBe('Same as server'))
     expect(result.current.saveState).toBe('idle')
+    await waitFor(async () => expect(await loadMechanicNoteDraft(draftKey)).toBeNull())
+  })
+
+  it('drops a draft typed on notes the server has since changed (another device)', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ taskId: TASK_ID })
+    asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({ mutateAsync })
+    await saveMechanicNoteDraft(draftKey, 'Old local text', 'Old server notes')
+
+    const { result } = renderNotes('Newer notes from another device')
+
+    await waitFor(async () => expect(await loadMechanicNoteDraft(draftKey)).toBeNull())
+    expect(result.current.notesValue).toBe('Newer notes from another device')
+    expect(mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('does not restore over text the mechanic typed while the draft was loading', async () => {
+    asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ taskId: TASK_ID }) })
+    await saveMechanicNoteDraft(draftKey, 'Old draft', 'Server')
+
+    const { result } = renderNotes('Server')
+    act(() => {
+      result.current.handleNotesChange('Typed right away')
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(result.current.notesValue).toBe('Typed right away')
+  })
+
+  it('does not restore into a finished task', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ taskId: TASK_ID })
+    asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({ mutateAsync })
+    await saveMechanicNoteDraft(draftKey, 'Leftover draft', 'Server')
+
+    const { result } = renderNotes('Server', false)
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(result.current.notesValue).toBe('Server')
+    expect(mutateAsync).not.toHaveBeenCalled()
   })
 })

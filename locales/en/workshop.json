@@ -1295,7 +1295,7 @@
       "draftExpiryWarning": "This local draft is older than 24 hours. Please sync or discard it.",
       "purge": {
         "title": "Discard local check-in data?",
-        "description": "You still have unsynced check-in drafts ({{drafts}}) or queued photos ({{photos}}). Continuing will delete this local data.",
+        "description": "You still have unsynced check-in drafts ({{drafts}}), queued photos ({{photos}}) or mechanic task notes ({{notes}}). Continuing will delete this local data.",
         "confirm": "Discard and continue",
         "cancel": "Cancel"
       },

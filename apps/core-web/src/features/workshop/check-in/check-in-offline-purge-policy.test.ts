@@ -34,6 +34,7 @@ describe('check-in offline purge policy', () => {
         dirtyDraftCount: 1,
         queuedPhotoCount: 0,
         pendingCreateCount: 0,
+        mechanicNoteDraftCount: 0,
       }),
     ).toBe(true)
     expect(
@@ -41,6 +42,15 @@ describe('check-in offline purge policy', () => {
         dirtyDraftCount: 0,
         queuedPhotoCount: 0,
         pendingCreateCount: 0,
+        mechanicNoteDraftCount: 1,
+      }),
+    ).toBe(true)
+    expect(
+      hasUnsyncedCheckInOfflineData({
+        dirtyDraftCount: 0,
+        queuedPhotoCount: 0,
+        pendingCreateCount: 0,
+        mechanicNoteDraftCount: 0,
       }),
     ).toBe(false)
   })

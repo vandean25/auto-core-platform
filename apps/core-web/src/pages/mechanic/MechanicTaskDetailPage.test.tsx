@@ -1109,6 +1109,10 @@ describe('MechanicTaskDetailPage', () => {
   // ─── Photo finding (rear camera) ─────────────────────────────────────────────
 
   describe('photo finding', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
     it('uploads a captured photo through the existing upload flow', async () => {
       const createPolicy = vi.fn().mockResolvedValue({
         uploadUrl: 'https://storage.example.invalid/upload',
@@ -1135,7 +1139,6 @@ describe('MechanicTaskDetailPage', () => {
         payload: { mimeType: 'image/jpeg', sizeBytes: photo.size, filename: 'finding.jpg' },
       })
       expect(fetchMock).toHaveBeenCalledWith('https://storage.example.invalid/upload', expect.objectContaining({ method: 'POST' }))
-      vi.unstubAllGlobals()
     })
 
     it('is not offered on a finished task', () => {

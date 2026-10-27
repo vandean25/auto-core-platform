@@ -69,6 +69,15 @@ test.describe('Mechanic phone view (AUT-739)', () => {
     await testInfo.attach('mechanic-queue-375x812', { body: await page.screenshot(), contentType: 'image/png' });
   });
 
+  test('queue header still fits at tablet portrait width (768px)', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await mockMechanicApis(page);
+    await new AutoCorePage(page, '').navigate('/mechanic/queue');
+
+    await expect(page.getByText('Demo task')).toBeVisible();
+    await expectPhoneLayout(page);
+  });
+
   test('task detail: one column, 44px controls and a rear camera Photo finding', async ({ page }, testInfo) => {
     await mockMechanicApis(page);
     await new AutoCorePage(page, '').navigate(`/mechanic/tasks/${TASK_ID}`);

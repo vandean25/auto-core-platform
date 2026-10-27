@@ -9,6 +9,7 @@ import {
 import {
   purgeAllCheckInOfflineData,
   saveCheckInOfflineDraft,
+  saveMechanicNoteDraft,
   upsertQueuedPhoto,
 } from './check-in-offline-store'
 import type { CheckInOfflineScope } from './check-in-offline-scope'
@@ -75,5 +76,14 @@ describe('check-in-offline-unsynced', () => {
     expect(hasUnsyncedCheckInOfflineData(summary)).toBe(true)
     expect(summary.dirtyDraftCount).toBe(1)
     expect(summary.queuedPhotoCount).toBe(1)
+  })
+
+  it('counts unsynced mechanic task notes so sign-out and tenant switch warn before deleting them', async () => {
+    await saveMechanicNoteDraft('user-1/tenant-1/site-1/task/task-1', 'Brake line leaks', 'server notes')
+
+    const summary = await summarizeCheckInOfflineUnsynced()
+
+    expect(summary.mechanicNoteDraftCount).toBe(1)
+    expect(hasUnsyncedCheckInOfflineData(summary)).toBe(true)
   })
 })
