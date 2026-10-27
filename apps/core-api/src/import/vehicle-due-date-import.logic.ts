@@ -17,6 +17,7 @@ import type {
 } from './import.types.js';
 import {
   mergeReconcilePlanOutput,
+  normalizedStringField,
   seedExternalIdSeenFromPriors,
 } from './import-dry-run-reconcile.prior.js';
 
@@ -523,19 +524,19 @@ function dueRowFromPriorNormalized(
   prior: DryRunRowResult,
 ): NormalizedDueRow | null {
   const common = {
-    external_id: String(normalized.external_id ?? prior.external_id ?? ''),
+    external_id:
+      normalizedStringField(normalized, 'external_id') ??
+      prior.external_id ??
+      '',
     vehicle_external_id: '',
-    external_ref:
-      typeof normalized.external_ref === 'string'
-        ? normalized.external_ref
-        : null,
-    notes: typeof normalized.notes === 'string' ? normalized.notes : null,
+    external_ref: normalizedStringField(normalized, 'external_ref'),
+    notes: normalizedStringField(normalized, 'notes'),
   };
   if (normalized.kind === DUE_DATE_KIND.INSPECTION_57A) {
     return {
       ...common,
       kind: DUE_DATE_KIND.INSPECTION_57A,
-      inspected_on: String(normalized.inspected_on ?? ''),
+      inspected_on: normalizedStringField(normalized, 'inspected_on') ?? '',
       plaketten_valid_until_year: Number(normalized.plaketten_valid_until_year),
       plaketten_valid_until_month: Number(
         normalized.plaketten_valid_until_month,
@@ -553,7 +554,9 @@ function dueRowFromPriorNormalized(
       due_date:
         typeof normalized.due_date === 'string' ? normalized.due_date : null,
       due_mileage:
-        typeof normalized.due_mileage === 'number' ? normalized.due_mileage : null,
+        typeof normalized.due_mileage === 'number'
+          ? normalized.due_mileage
+          : null,
     };
   }
   return null;
@@ -608,7 +611,9 @@ export function planVehicleDueDateRows(
   const preparedPriors = priors
     .map((prior) => preparedDueFromPrior(prior))
     .filter((item): item is PreparedDue => item !== null);
-  const preparedNew = rows.map((csv) => prepareRow(csv, mapping, indexed, seen));
+  const preparedNew = rows.map((csv) =>
+    prepareRow(csv, mapping, indexed, seen),
+  );
   const combined = [...preparedPriors, ...preparedNew];
   flagFileConflicts(combined);
   const finished = combined.map(toResult);

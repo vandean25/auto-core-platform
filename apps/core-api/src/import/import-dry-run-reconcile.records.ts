@@ -27,33 +27,6 @@ function contiguousRuns(rowNos: number[]): Array<{ from: number; to: number }> {
   return runs;
 }
 
-export function recordFromStoredRow(
-  mapping: Record<string, string>,
-  externalId: string | null,
-  normalized: Record<string, unknown> | null,
-): Record<string, string> {
-  const record: Record<string, string> = {};
-  for (const column of Object.values(mapping)) {
-    record[column] = '';
-  }
-  if (externalId && mapping.external_id) {
-    record[mapping.external_id] = externalId;
-  }
-  if (normalized) {
-    for (const [field, column] of Object.entries(mapping)) {
-      const value = normalized[field];
-      if (
-        typeof value === 'string' ||
-        typeof value === 'number' ||
-        typeof value === 'boolean'
-      ) {
-        record[column] = String(value);
-      }
-    }
-  }
-  return record;
-}
-
 export async function loadCsvRowRecords(
   fileStorage: ImportFileStorageService,
   upload: ImportJobUploadRef,

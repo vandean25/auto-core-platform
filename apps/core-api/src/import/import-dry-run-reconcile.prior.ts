@@ -171,9 +171,15 @@ export function mergeReconcilePlanOutput(
     }
     const before = priorByRow.get(result.row_no);
     return (
-      before !== undefined &&
-      !dryRunRowSignaturesMatch(before, finished[index])
+      before !== undefined && !dryRunRowSignaturesMatch(before, finished[index])
     );
   });
 }
 
+export function normalizedStringField(
+  normalized: Record<string, unknown>,
+  field: string,
+): string | null {
+  const value = normalized[field];
+  return typeof value === 'string' ? value : null;
+}

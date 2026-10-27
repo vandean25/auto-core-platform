@@ -5,6 +5,7 @@ import {
 } from '@prisma/client';
 import {
   mergeReconcilePlanOutput,
+  normalizedStringField,
   seedExternalIdSeenFromPriors,
 } from './import-dry-run-reconcile.prior.js';
 import {
@@ -508,6 +509,22 @@ function finishRow(
   };
 }
 
+function partyIdsFromPriorNormalized(
+  normalized: Record<string, unknown>,
+): { vehicleId: string; customerId: string; role: VehiclePartyRole } | null {
+  const vehicleId = normalized.vehicle_id;
+  const customerId = normalized.customer_id;
+  const role = normalized.role;
+  if (
+    typeof vehicleId !== 'string' ||
+    typeof customerId !== 'string' ||
+    typeof role !== 'string'
+  ) {
+    return null;
+  }
+  return { vehicleId, customerId, role: role as VehiclePartyRole };
+}
+
 function preparedPartyFromPrior(prior: DryRunRowResult): PreparedParty | null {
   if (prior.errors.length > 0) {
     return {
@@ -523,27 +540,21 @@ function preparedPartyFromPrior(prior: DryRunRowResult): PreparedParty | null {
   if (!normalized) {
     return null;
   }
-  const vehicleId = normalized.vehicle_id;
-  const customerId = normalized.customer_id;
-  const role = normalized.role;
-  if (
-    typeof vehicleId !== 'string' ||
-    typeof customerId !== 'string' ||
-    typeof role !== 'string'
-  ) {
+  const ids = partyIdsFromPriorNormalized(normalized);
+  if (!ids) {
     return null;
   }
-  const partyRole = role as VehiclePartyRole;
   const row: NormalizedPartyRow = {
-    external_id: String(normalized.external_id ?? prior.external_id ?? ''),
+    external_id:
+      normalizedStringField(normalized, 'external_id') ??
+      prior.external_id ??
+      '',
     vehicle_external_id: '',
     customer_external_id: '',
-    role: partyRole,
-    valid_from:
-      typeof normalized.valid_from === 'string' ? normalized.valid_from : null,
-    valid_to:
-      typeof normalized.valid_to === 'string' ? normalized.valid_to : null,
-    notes: typeof normalized.notes === 'string' ? normalized.notes : null,
+    role: ids.role,
+    valid_from: normalizedStringField(normalized, 'valid_from'),
+    valid_to: normalizedStringField(normalized, 'valid_to'),
+    notes: normalizedStringField(normalized, 'notes'),
   };
   return {
     rowNo: prior.row_no,
@@ -553,12 +564,12 @@ function preparedPartyFromPrior(prior: DryRunRowResult): PreparedParty | null {
     action: prior.action,
     entityId: prior.entity_id,
     row,
-    vehicleId,
-    customerId,
+    vehicleId: ids.vehicleId,
+    customerId: ids.customerId,
     interval: {
       id: prior.entity_id ?? `row:${prior.row_no}`,
-      role: partyRole,
-      customer_id: customerId,
+      role: ids.role,
+      customer_id: ids.customerId,
       valid_from: row.valid_from,
       valid_to: row.valid_to,
     },
@@ -579,7 +590,9 @@ export function planVehiclePartyRows(
   const preparedPriors = priors
     .map((prior) => preparedPartyFromPrior(prior))
     .filter((item): item is PreparedParty => item !== null);
-  const preparedNew = rows.map((csv) => prepareRow(csv, mapping, indexed, seen));
+  const preparedNew = rows.map((csv) =>
+    prepareRow(csv, mapping, indexed, seen),
+  );
   const combined = [...preparedPriors, ...preparedNew];
   const timeline = buildTimeline(combined, indexed);
   const finished = combined.map((item) => finishRow(item, timeline, indexed));

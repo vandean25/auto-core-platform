@@ -22,7 +22,6 @@ jest.unstable_mockModule('./import-dry-run-reconcile.records.js', () => ({
     delimiter: ';',
     sha256,
   }),
-  recordFromStoredRow: () => ({}),
 }));
 
 jest.unstable_mockModule('./import-csv-stream.util.js', () => ({
