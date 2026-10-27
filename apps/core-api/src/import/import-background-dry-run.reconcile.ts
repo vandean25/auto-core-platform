@@ -6,7 +6,10 @@ import type { ImportTypeHandler } from './import-type-handler.js';
 import type { ImportFileStorageService } from './import-file.storage.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { readImportWorkerBatchSize } from './import-limits.js';
-import { reconcileChunkShouldStopBeforeNextUnit } from './import-reconcile-chunk-budget.js';
+import {
+  importWorkerChunkBudgetElapsed,
+  importWorkerChunkDeadlineMs,
+} from './import-reconcile-chunk-budget.js';
 import { computeImportDryRunReconcileUnits } from './import-dry-run-reconcile.units.js';
 import { replanImportDryRunUnit } from './import-dry-run-reconcile.plan-unit.js';
 import {
@@ -153,16 +156,15 @@ export async function runBackgroundDryRunReconcileChunk(params: {
   }
 
   const readNow = () => params.nowMs?.() ?? Date.now();
-  const chunkStartedMs = readNow();
+  const chunkDeadlineMs = importWorkerChunkDeadlineMs(readNow());
   const mapping = params.job.mapping_json as Record<string, string>;
-  const rows: import('./import.types.js').DryRunRowResult[] = [];
-
-  while (unitIndex < units.length) {
-    if (reconcileChunkShouldStopBeforeNextUnit(readNow(), chunkStartedMs)) {
-      break;
-    }
-    rows.push(
-      ...(await replanImportDryRunUnit({
+  const { rows, nextUnitIndex } = await planReconcileUnitsUntilBudget({
+    readNow,
+    chunkDeadlineMs,
+    units,
+    startUnitIndex: unitIndex,
+    replanUnit: (unit) =>
+      replanImportDryRunUnit({
         prisma: params.prisma,
         fileStorage: params.fileStorage,
         upload,
@@ -176,25 +178,23 @@ export async function runBackgroundDryRunReconcileChunk(params: {
           mapping,
           options: params.options,
         },
-        unit: units[unitIndex],
-      })),
-    );
-    unitIndex += 1;
-  }
+        unit,
+      }),
+  });
+  unitIndex = nextUnitIndex;
 
   const startIndex = worker.dry_run_reconcile_cursor ?? 0;
   if (unitIndex === startIndex) {
     return;
   }
 
-  const nextUnitIndex = unitIndex;
-  const shouldFinalize = nextUnitIndex >= units.length;
+  const shouldFinalize = unitIndex >= units.length;
 
   const persisted = await params.jobStore.persistDryRunReconcileChunk(
     params.tenantId,
     params.jobId,
     rows,
-    { dry_run_reconcile_cursor: nextUnitIndex },
+    { dry_run_reconcile_cursor: unitIndex },
     params.options,
     leaseToken,
     shouldFinalize
@@ -224,7 +224,7 @@ export async function runBackgroundDryRunReconcileChunk(params: {
     phase: 'dry_run',
     claimSeq: persisted.job.worker_claim_seq,
     recoverySeq: persisted.job.worker_recovery_seq,
-    chunkSeq: nextUnitIndex,
+    chunkSeq: unitIndex,
     taskClaimSeq: importWorkerTaskClaimSeqForHandoff(
       persisted.job.worker_claim_seq,
     ),
@@ -235,4 +235,28 @@ function stripWorker(options: ImportJobOptionsWithWorker): ImportJobOptions {
   const copy = { ...options };
   delete (copy as { worker?: unknown }).worker;
   return copy;
+}
+
+async function planReconcileUnitsUntilBudget(params: {
+  readNow: () => number;
+  chunkDeadlineMs: number;
+  units: import('./import-job.worker-state.js').ImportDryRunReconcileUnit[];
+  startUnitIndex: number;
+  replanUnit: (
+    unit: import('./import-job.worker-state.js').ImportDryRunReconcileUnit,
+  ) => Promise<import('./import.types.js').DryRunRowResult[]>;
+}): Promise<{
+  rows: import('./import.types.js').DryRunRowResult[];
+  nextUnitIndex: number;
+}> {
+  const rows: import('./import.types.js').DryRunRowResult[] = [];
+  let unitIndex = params.startUnitIndex;
+  while (unitIndex < params.units.length) {
+    if (importWorkerChunkBudgetElapsed(params.readNow(), params.chunkDeadlineMs)) {
+      break;
+    }
+    rows.push(...(await params.replanUnit(params.units[unitIndex])));
+    unitIndex += 1;
+  }
+  return { rows, nextUnitIndex: unitIndex };
 }

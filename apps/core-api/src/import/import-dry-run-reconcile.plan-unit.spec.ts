@@ -1,10 +1,10 @@
-import { ImportRowAction } from '@prisma/client';
+import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import { replanImportDryRunUnit } from './import-dry-run-reconcile.plan-unit.js';
 import { IMPORT_RECONCILE_GROUP_MAX_ROWS } from './import-dry-run-group-limit.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 describe('replanImportDryRunUnit', () => {
-  it('marks every row IMPORT_GROUP_TOO_LARGE when the unit exceeds the cap without planning', async () => {
+  it('marks every row IMPORT_GROUP_TOO_LARGE when one reconcile key exceeds the cap without planning', async () => {
     const rowNos = Array.from(
       { length: IMPORT_RECONCILE_GROUP_MAX_ROWS + 1 },
       (_, index) => index + 1,
@@ -14,6 +14,7 @@ describe('replanImportDryRunUnit', () => {
       rowNos.map((rowNo) => ({
         row_no: rowNo,
         external_id: `ext-${rowNo}`,
+        normalized_json: { vehicle_external_id: 'VEH-SAME' },
       })),
     );
     const result = await replanImportDryRunUnit({
@@ -23,7 +24,10 @@ describe('replanImportDryRunUnit', () => {
       fileSha256: 'sha',
       tenantId: 't',
       jobId: 'j',
-      handler: { planDryRun } as never,
+      handler: {
+        entityType: ImportEntityType.VEHICLE_PARTY,
+        planDryRun,
+      } as never,
       input: {
         tenantId: 't',
         sourceSystem: 'legacy',

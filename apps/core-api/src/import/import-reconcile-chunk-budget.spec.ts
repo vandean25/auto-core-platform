@@ -1,26 +1,15 @@
 import {
-  reconcileChunkDeadlineMs,
-  reconcileChunkShouldStopBeforeNextUnit,
+  importWorkerChunkBudgetElapsed,
+  importWorkerChunkDeadlineMs,
 } from './import-reconcile-chunk-budget.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 
-describe('reconcileChunkShouldStopBeforeNextUnit', () => {
-  it('does not stop at chunk start', () => {
-    const started = 1_000;
-    expect(reconcileChunkShouldStopBeforeNextUnit(started, started)).toBe(
-      false,
-    );
-  });
-
-  it('stops once the chunk budget elapses', () => {
+describe('importWorkerChunkDeadlineMs', () => {
+  it('matches the background dry-run chunk budget', () => {
     const started = 5_000;
-    const deadline = reconcileChunkDeadlineMs(started);
+    const deadline = importWorkerChunkDeadlineMs(started);
     expect(deadline).toBe(started + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS);
-    expect(reconcileChunkShouldStopBeforeNextUnit(deadline, started)).toBe(
-      true,
-    );
-    expect(
-      reconcileChunkShouldStopBeforeNextUnit(deadline - 1, started),
-    ).toBe(false);
+    expect(importWorkerChunkBudgetElapsed(deadline, deadline)).toBe(true);
+    expect(importWorkerChunkBudgetElapsed(deadline - 1, deadline)).toBe(false);
   });
 });

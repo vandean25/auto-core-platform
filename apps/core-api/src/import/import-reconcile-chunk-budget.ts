@@ -1,13 +1,13 @@
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 
-export function reconcileChunkDeadlineMs(chunkStartedMs: number): number {
-  return chunkStartedMs + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
+/** Same absolute deadline as background dry-run row batches (`import.service`). */
+export function importWorkerChunkDeadlineMs(fromMs: number): number {
+  return fromMs + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
 }
 
-/** True when the chunk budget is exhausted and the next unit must not start. */
-export function reconcileChunkShouldStopBeforeNextUnit(
+export function importWorkerChunkBudgetElapsed(
   nowMs: number,
-  chunkStartedMs: number,
+  chunkDeadlineMs: number,
 ): boolean {
-  return nowMs >= reconcileChunkDeadlineMs(chunkStartedMs);
+  return nowMs >= chunkDeadlineMs;
 }

@@ -5,6 +5,7 @@ import { dryRunRowNoForSlice } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunPlanBudget } from './import-type-handler.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { DryRunRowResult } from './import.types.js';
+import { collectReconcileKeyGroups } from './import-dry-run-reconcile.keys.js';
 
 /** Max rows per reconcile group (vehicle party block, duplicate-key span, etc.). */
 export const IMPORT_RECONCILE_GROUP_MAX_ROWS = 1000;
@@ -178,5 +179,18 @@ export function oversizedRowNosFromParsedCsv(
 ): Set<number> {
   return oversizedImportGroupRowNos(
     collectGroupsFromParsedCsv(parsed, mapping, entityType, budget),
+  );
+}
+
+export function oversizedRowNosFromImportJobRows(
+  entityType: ImportEntityType,
+  rows: Array<{
+    row_no: number;
+    external_id: string | null;
+    normalized_json: unknown;
+  }>,
+): Set<number> {
+  return oversizedImportGroupRowNos(
+    collectReconcileKeyGroups(entityType, rows),
   );
 }

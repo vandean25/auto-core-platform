@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { ImportRowAction } from '@prisma/client';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
+import { importDryRunReconcileProgress } from './import-job.worker-state.js';
 
 const replanImportDryRunUnit = jest.fn(
   async ({ unit }: { unit: { replan_row_nos: number[] } }) =>
@@ -215,5 +216,133 @@ describe('runBackgroundDryRunReconcileChunk', () => {
     ]);
     expect(completeDryRun).toHaveBeenCalled();
     expect(enqueueImportWorkerContinuation).toHaveBeenCalledTimes(1);
+  });
+
+  it('finishes many units across multiple chunk invocations', async () => {
+    const units = Array.from({ length: 5 }, (_, index) => ({
+      context_from_row: index * 2 + 1,
+      context_to_row: index * 2 + 2,
+      replan_row_nos: [index * 2 + 1, index * 2 + 2],
+    }));
+    const persist = jest.fn().mockImplementation(
+      async (_tenantId, _jobId, _rows, workerPatch, _options, _lease, finalize) => ({
+        job: {
+          worker_claim_seq: workerPatch.dry_run_reconcile_cursor ?? 0,
+          worker_recovery_seq: 0,
+        },
+        totals: finalize
+          ? { rows: 10, create: 10, update: 0, skip: 0, error: 0 }
+          : { rows: 10, create: 2, update: 0, skip: 0, error: 0 },
+      }),
+    );
+    const completeDryRun = jest.fn();
+    let cursor = 0;
+    let chunks = 0;
+    while (cursor < units.length) {
+      chunks += 1;
+      let clockReads = 0;
+      const nowMs = () => {
+        clockReads += 1;
+        if (clockReads <= 2) {
+          return 1_000;
+        }
+        return 1_000 + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
+      };
+      await runBackgroundDryRunReconcileChunk({
+        jobStore: { persistDryRunReconcileChunk: persist } as never,
+        prisma: {} as never,
+        fileStorage: {} as never,
+        tenantId: 't',
+        jobId: 'j',
+        handler: {} as never,
+        options: {
+          worker: {
+            phase: 'dry_run',
+            lease_token: 'lease',
+            lease_until: new Date().toISOString(),
+            processed_rows: 0,
+            started_at: new Date().toISOString(),
+            dry_run_reconcile_active: true,
+            dry_run_reconcile_cursor: cursor,
+            dry_run_reconcile_units: units,
+          },
+          upload: { object_key: 'imports/test.csv' },
+        },
+        job: {
+          source_system: 'legacy',
+          file_sha256: 'sha',
+          mapping_json: {},
+          totals_json: { rows: 10, create: 0, update: 0, skip: 0, error: 0 },
+        },
+        flow: {} as never,
+        completeDryRun,
+        nowMs,
+      });
+      cursor += 1;
+    }
+    expect(chunks).toBe(5);
+    expect(replanImportDryRunUnit).toHaveBeenCalledTimes(5);
+    expect(completeDryRun).toHaveBeenCalledTimes(1);
+    expect(persist).toHaveBeenCalledTimes(5);
+  });
+
+  it('budget stop after one unit increases reconcile progress only for completed units', async () => {
+    const units = [
+      {
+        context_from_row: 1,
+        context_to_row: 2,
+        replan_row_nos: [1, 2],
+      },
+      {
+        context_from_row: 10,
+        context_to_row: 11,
+        replan_row_nos: [10, 11],
+      },
+    ];
+    const worker = {
+      phase: 'dry_run' as const,
+      lease_token: 'lease',
+      lease_until: new Date().toISOString(),
+      processed_rows: 0,
+      started_at: new Date().toISOString(),
+      dry_run_reconcile_active: true,
+      dry_run_reconcile_cursor: 0,
+      dry_run_reconcile_units: units,
+    };
+    const progressBefore = importDryRunReconcileProgress(worker);
+    const persist = jest.fn().mockResolvedValue({
+      job: { worker_claim_seq: 1, worker_recovery_seq: 0 },
+      totals: { rows: 4, create: 2, update: 0, skip: 0, error: 0 },
+    });
+    let clockReads = 0;
+    const nowMs = () => {
+      clockReads += 1;
+      if (clockReads <= 2) {
+        return 100;
+      }
+      return 100 + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
+    };
+    await runBackgroundDryRunReconcileChunk({
+      jobStore: { persistDryRunReconcileChunk: persist } as never,
+      prisma: {} as never,
+      fileStorage: {} as never,
+      tenantId: 't',
+      jobId: 'j',
+      handler: {} as never,
+      options: { worker, upload: { object_key: 'imports/test.csv' } },
+      job: {
+        source_system: 'legacy',
+        file_sha256: 'sha',
+        mapping_json: {},
+        totals_json: { rows: 4, create: 0, update: 0, skip: 0, error: 0 },
+      },
+      flow: {} as never,
+      completeDryRun: jest.fn(),
+      nowMs,
+    });
+    expect(importDryRunReconcileProgress({ ...worker, dry_run_reconcile_cursor: 1 })).toBe(
+      progressBefore + units[0].replan_row_nos.length,
+    );
+    expect(replanImportDryRunUnit).toHaveBeenCalledTimes(1);
   });
 });

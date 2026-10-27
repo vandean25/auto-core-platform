@@ -13,7 +13,8 @@ import {
 } from './import-dry-run-reconcile.records.js';
 import {
   dryRunImportGroupTooLargeRow,
-  IMPORT_RECONCILE_GROUP_MAX_ROWS,
+  oversizedRowNosFromImportJobRows,
+  oversizedRowNosFromParsedCsv,
 } from './import-dry-run-group-limit.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
 
@@ -31,7 +32,20 @@ async function loadFileHeaders(
   return head?.headers ?? [];
 }
 
-/** Re-plans one reconcile unit (single key group) with the same planner as sync. */
+function allRowsOversized(rowNos: number[], oversized: Set<number>): boolean {
+  return rowNos.length > 0 && rowNos.every((rowNo) => oversized.has(rowNo));
+}
+
+function tooLargeResults(
+  rowNos: number[],
+  externalByRow: Map<number, string | null>,
+): DryRunRowResult[] {
+  return rowNos.map((rowNo) =>
+    dryRunImportGroupTooLargeRow(rowNo, externalByRow.get(rowNo) ?? null),
+  );
+}
+
+/** Re-plans one reconcile unit (connected key component) with the same planner as sync. */
 export async function replanImportDryRunUnit(params: {
   prisma: PrismaService;
   fileStorage: ImportFileStorageService;
@@ -43,22 +57,24 @@ export async function replanImportDryRunUnit(params: {
   input: ImportDryRunInput;
   unit: ImportDryRunReconcileUnit;
 }): Promise<DryRunRowResult[]> {
-  const rowNos = [...params.unit.replan_row_nos].sort((a, b) => a - b);
-  if (rowNos.length > IMPORT_RECONCILE_GROUP_MAX_ROWS) {
-    const stored = await params.prisma.importJobRow.findMany({
-      where: {
-        tenant_id: params.tenantId,
-        import_job_id: params.jobId,
-        row_no: { in: rowNos },
-      },
-      select: { row_no: true, external_id: true },
-    });
-    const externalByRow = new Map(
-      stored.map((row) => [row.row_no, row.external_id]),
-    );
-    return rowNos.map((rowNo) =>
-      dryRunImportGroupTooLargeRow(rowNo, externalByRow.get(rowNo) ?? null),
-    );
+  const rowNos = [...params.unit.replan_row_nos].sort((left, right) => left - right);
+  const stored = await params.prisma.importJobRow.findMany({
+    where: {
+      tenant_id: params.tenantId,
+      import_job_id: params.jobId,
+      row_no: { in: rowNos },
+    },
+    select: { row_no: true, external_id: true, normalized_json: true },
+  });
+  const externalByRow = new Map(
+    stored.map((row) => [row.row_no, row.external_id]),
+  );
+  const oversizedFromDb = oversizedRowNosFromImportJobRows(
+    params.handler.entityType,
+    stored,
+  );
+  if (allRowsOversized(rowNos, oversizedFromDb)) {
+    return tooLargeResults(rowNos, externalByRow);
   }
 
   const records = await loadCsvRowRecords(
@@ -81,17 +97,31 @@ export async function replanImportDryRunUnit(params: {
     records,
     params.fileSha256,
   );
+  const planBudget = {
+    deadlineMs: Number.MAX_SAFE_INTEGER,
+    rowNoOffset: rowNos[0],
+    rowNumbers: rowNos,
+  };
+  const oversizedFromCsv = oversizedRowNosFromParsedCsv(
+    parsed,
+    params.input.mapping,
+    params.handler.entityType,
+    planBudget,
+  );
+  if (allRowsOversized(rowNos, oversizedFromCsv)) {
+    return tooLargeResults(rowNos, externalByRow);
+  }
+
   const planned = await params.handler.planDryRun(
-    {
-      ...params.input,
-      planBudget: {
-        deadlineMs: Number.MAX_SAFE_INTEGER,
-        rowNoOffset: rowNos[0],
-        rowNumbers: rowNos,
-      },
-    },
+    { ...params.input, planBudget },
     parsed,
   );
   const unitSet = new Set(rowNos);
-  return planned.filter((row) => unitSet.has(row.row_no));
+  return planned
+    .filter((row) => unitSet.has(row.row_no))
+    .map((row) =>
+      oversizedFromCsv.has(row.row_no)
+        ? dryRunImportGroupTooLargeRow(row.row_no, row.external_id)
+        : row,
+    );
 }
