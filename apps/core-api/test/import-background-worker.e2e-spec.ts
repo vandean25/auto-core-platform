@@ -91,8 +91,11 @@ describe('Import background worker (e2e)', () => {
     return job;
   }
 
-  async function expectOneApplyPerRow(jobId: string) {
-    const job = await tenantPrisma().importJob.findFirst({
+  async function expectOneApplyPerRow(
+    jobId: string,
+    scope: { tenantId: string; prisma: ReturnType<typeof tenantPrisma> },
+  ) {
+    const job = await scope.prisma().importJob.findFirst({
       where: { id: jobId },
     });
     const totals = job?.totals_json as {
@@ -103,14 +106,14 @@ describe('Import background worker (e2e)', () => {
     expect(totals.create).toBe(3);
     expect(totals.error).toBe(0);
 
-    const errorRowCount = await tenantPrisma().importJobRow.count({
+    const errorRowCount = await scope.prisma().importJobRow.count({
       where: { import_job_id: jobId, action: ImportRowAction.ERROR },
     });
     expect(errorRowCount).toBe(0);
 
-    const mappings = await tenantPrisma().externalIdMapping.findMany({
+    const mappings = await scope.prisma().externalIdMapping.findMany({
       where: {
-        tenant_id: tenant.tenantId,
+        tenant_id: scope.tenantId,
         source_system: 'legacy-dms',
         first_seen_import_job_id: jobId,
       },
@@ -146,11 +149,12 @@ describe('Import background worker (e2e)', () => {
   async function uploadBackgroundJob(
     rows: string[][],
     fileName = 'background.csv',
+    authToken = token,
   ) {
     const csv = customerCsv(rows);
     const response = await request(app.getHttpServer())
       .post('/api/imports')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .field('entityType', 'CUSTOMER')
       .field('sourceSystem', 'legacy-dms')
       .field('mapping', JSON.stringify(customerMapping))
@@ -187,83 +191,82 @@ describe('Import background worker (e2e)', () => {
     await deliverWorker(jobId, 'apply').expect(204);
 
     await expectJobAppliedWithRowCount(jobId, 3);
+    await expectOneApplyPerRow(jobId, {
+      tenantId: tenant.tenantId,
+      prisma: tenantPrisma,
+    });
   });
 
-  it('applies each row once when two worker attempts overlap on apply', async () => {
-    const jobId = await uploadBackgroundJob(
-      [
-        [
-          'BG-OV-1',
-          'PRIVATE',
-          'Olivia',
-          'Overlap',
-          'bgov1@example.com',
-          '',
-          '',
-          'AT',
-        ],
-        [
-          'BG-OV-2',
-          'PRIVATE',
-          'Paul',
-          'Overlap',
-          'bgov2@example.com',
-          '',
-          '',
-          'AT',
-        ],
-        [
-          'BG-OV-3',
-          'PRIVATE',
-          'Quinn',
-          'Overlap',
-          'bgov3@example.com',
-          '',
-          '',
-          'AT',
-        ],
-      ],
-      'background-overlap.csv',
-    );
+  describe('overlapping apply (isolated tenant)', () => {
+    let overlapTenant: Awaited<ReturnType<typeof createTestTenant>>;
+    let overlapToken: string;
 
-    await deliverWorker(jobId, 'dry_run').expect(204);
-    await deliverWorker(jobId, 'dry_run').expect(204);
+    const overlapPrisma = () =>
+      createTenantAwarePrisma(basePrisma, overlapTenant.tenantId);
 
-    const beforeApply = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
+    beforeAll(async () => {
+      overlapTenant = await createTestTenant(basePrisma, 'import-bg-overlap');
+      overlapToken = createTestAuthToken(app.get(AuthService), overlapTenant);
     });
-    expect(beforeApply?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
 
-    await request(app.getHttpServer())
-      .post(`/api/imports/${jobId}/apply`)
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-
-    await Promise.all([
-      deliverWorker(jobId, 'apply').expect(204),
-      deliverWorker(jobId, 'apply').expect(204),
-    ]);
-
-    const deadline = Date.now() + 60_000;
-    let applied = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
+    afterAll(async () => {
+      await cleanupTestTenantGraph(basePrisma, overlapTenant.tenantId);
     });
-    while (
-      Date.now() < deadline &&
-      applied?.status !== ImportJobStatus.APPLIED
-    ) {
-      await Promise.all([
-        deliverWorker(jobId, 'apply').expect(204),
-        deliverWorker(jobId, 'apply').expect(204),
-      ]);
-      applied = await tenantPrisma().importJob.findFirst({
+
+    it('applies each row once when two worker attempts overlap on apply', async () => {
+      const scope = {
+        tenantId: overlapTenant.tenantId,
+        prisma: overlapPrisma,
+      };
+      const jobId = await uploadBackgroundJob(
+        [
+          ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
+          ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
+          ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
+        ],
+        'background-overlap.csv',
+        overlapToken,
+      );
+
+      await deliverWorker(jobId, 'dry_run', overlapTenant.tenantId).expect(204);
+      await deliverWorker(jobId, 'dry_run', overlapTenant.tenantId).expect(204);
+
+      const beforeApply = await overlapPrisma().importJob.findFirst({
         where: { id: jobId },
       });
-    }
+      expect(beforeApply?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
 
-    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
-    expect((applied?.totals_json as { rows: number }).rows).toBe(3);
-    await expectOneApplyPerRow(jobId);
+      await request(app.getHttpServer())
+        .post(`/api/imports/${jobId}/apply`)
+        .set('Authorization', `Bearer ${overlapToken}`)
+        .expect(200);
+
+      await Promise.all([
+        deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+        deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+      ]);
+
+      const deadline = Date.now() + 60_000;
+      let applied = await overlapPrisma().importJob.findFirst({
+        where: { id: jobId },
+      });
+      while (
+        Date.now() < deadline &&
+        applied?.status !== ImportJobStatus.APPLIED
+      ) {
+        await Promise.all([
+          deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+          deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
+        ]);
+        applied = await overlapPrisma().importJob.findFirst({
+          where: { id: jobId },
+        });
+      }
+
+      expect(applied?.status).toBe(ImportJobStatus.APPLIED);
+      expect((applied?.totals_json as { rows: number }).rows).toBe(3);
+      await expectOneApplyPerRow(jobId, scope);
+    });
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
