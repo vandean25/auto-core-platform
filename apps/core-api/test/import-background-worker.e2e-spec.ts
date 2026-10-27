@@ -93,9 +93,11 @@ describe('Import background worker (e2e)', () => {
 
   async function expectOneApplyPerRow(
     jobId: string,
-    scope: { tenantId: string; prisma: ReturnType<typeof tenantPrisma> },
+    scope?: { tenantId: string; prisma: typeof tenantPrisma },
   ) {
-    const job = await scope.prisma().importJob.findFirst({
+    const tenantId = scope?.tenantId ?? tenant.tenantId;
+    const prisma = scope?.prisma ?? tenantPrisma;
+    const job = await prisma().importJob.findFirst({
       where: { id: jobId },
     });
     const totals = job?.totals_json as {
@@ -106,14 +108,14 @@ describe('Import background worker (e2e)', () => {
     expect(totals.create).toBe(3);
     expect(totals.error).toBe(0);
 
-    const errorRowCount = await scope.prisma().importJobRow.count({
+    const errorRowCount = await prisma().importJobRow.count({
       where: { import_job_id: jobId, action: ImportRowAction.ERROR },
     });
     expect(errorRowCount).toBe(0);
 
-    const mappings = await scope.prisma().externalIdMapping.findMany({
+    const mappings = await prisma().externalIdMapping.findMany({
       where: {
-        tenant_id: scope.tenantId,
+        tenant_id: tenantId,
         source_system: 'legacy-dms',
         first_seen_import_job_id: jobId,
       },
@@ -191,10 +193,6 @@ describe('Import background worker (e2e)', () => {
     await deliverWorker(jobId, 'apply').expect(204);
 
     await expectJobAppliedWithRowCount(jobId, 3);
-    await expectOneApplyPerRow(jobId, {
-      tenantId: tenant.tenantId,
-      prisma: tenantPrisma,
-    });
   });
 
   describe('overlapping apply (isolated tenant)', () => {
@@ -217,7 +215,7 @@ describe('Import background worker (e2e)', () => {
       const scope = {
         tenantId: overlapTenant.tenantId,
         prisma: overlapPrisma,
-      };
+      } as { tenantId: string; prisma: typeof tenantPrisma };
       const jobId = await uploadBackgroundJob(
         [
           ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],

@@ -4,3 +4,17 @@ export function applySeqForRow(row: {
 }): number {
   return row.apply_seq ?? row.row_no;
 }
+
+/** Advances only on the next contiguous apply_seq so out-of-order commits cannot skip rows. */
+export function advanceContiguousApplySeqWatermark(
+  committedWatermark: number,
+  committedApplySeq: number,
+): number {
+  if (committedApplySeq <= committedWatermark) {
+    return committedWatermark;
+  }
+  if (committedApplySeq === committedWatermark + 1) {
+    return committedApplySeq;
+  }
+  return committedWatermark;
+}

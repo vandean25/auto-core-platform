@@ -15,6 +15,7 @@ import {
   delayMs,
   retryableTransactionDelayMs,
 } from './import-transaction-retry.util.js';
+import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   IMPORT_WORKER_LEASE_MS,
@@ -547,10 +548,14 @@ export async function commitApplyWorkerRowInTransaction(
   if (!workerState) {
     throw new ImportWorkerLeaseLostError();
   }
+  const applyWatermark = advanceContiguousApplySeqWatermark(
+    workerState.last_committed_apply_seq ?? 0,
+    applySeq,
+  );
   const worker: ImportJobWorkerState = {
     ...workerState,
-    last_committed_apply_seq: applySeq,
-    processed_rows: applySeq,
+    last_committed_apply_seq: applyWatermark,
+    processed_rows: applyWatermark,
   };
   await tx.importJob.update({
     where: { id: jobId },

@@ -6,6 +6,7 @@ import {
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
+import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import {
   isBackgroundApplyOutcomeComplete,
   reconcileFinishedApplyTotals,
@@ -57,12 +58,12 @@ async function resolveBackgroundApplyFinishState(
     tenantId: string;
     jobId: string;
     entityType: ImportEntityType;
-    applySeq: number;
+    applyWatermark: number;
     maxApplySeq: number;
   },
   totals: ImportJobTotals,
 ): Promise<{ totals: ImportJobTotals; finished: boolean }> {
-  const reachedLastSeq = params.applySeq >= params.maxApplySeq;
+  const reachedLastSeq = params.applyWatermark >= params.maxApplySeq;
   if (!reachedLastSeq) {
     return { totals, finished: false };
   }
@@ -112,10 +113,14 @@ export async function commitBackgroundApplyRowInTransaction(
   if (!worker) {
     throw new ImportWorkerLeaseLostError();
   }
+  const applyWatermark = advanceContiguousApplySeqWatermark(
+    worker.last_committed_apply_seq ?? 0,
+    params.applySeq,
+  );
   const workerNext = {
     ...worker,
-    last_committed_apply_seq: params.applySeq,
-    processed_rows: params.applySeq,
+    last_committed_apply_seq: applyWatermark,
+    processed_rows: applyWatermark,
   };
   const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
   const mergedTotals = mergeMonotonicApplyTotals(storedTotals, params.totals);
@@ -125,7 +130,7 @@ export async function commitBackgroundApplyRowInTransaction(
       tenantId: params.tenantId,
       jobId: params.jobId,
       entityType: job.entity_type,
-      applySeq: params.applySeq,
+      applyWatermark,
       maxApplySeq: params.maxApplySeq,
     },
     mergedTotals,
