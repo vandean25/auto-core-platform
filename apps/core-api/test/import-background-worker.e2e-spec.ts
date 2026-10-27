@@ -98,7 +98,7 @@ describe('Import background worker (e2e)', () => {
     const tenantId = scope?.tenantId ?? tenant.tenantId;
     const prisma = scope?.prisma ?? tenantPrisma;
     const job = await prisma().importJob.findFirst({
-      where: { id: jobId },
+      where: { id: jobId, tenant_id: tenantId },
     });
     const totals = job?.totals_json as {
       rows: number;
@@ -246,6 +246,13 @@ describe('Import background worker (e2e)', () => {
       });
       expect(dryRunJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
       expect(dryRunRowCount).toBe(3);
+      const dryRunCreates = await overlapPrisma().importJobRow.count({
+        where: {
+          import_job_id: jobId,
+          action: ImportRowAction.CREATE,
+        },
+      });
+      expect(dryRunCreates).toBe(3);
 
       const beforeApply = dryRunJob;
 
