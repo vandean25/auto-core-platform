@@ -35,6 +35,10 @@ import {
   IMPORT_ROW_TX_MAX_ATTEMPTS,
   IMPORT_SERIALIZABLE_TX,
 } from './import.constants.js';
+import {
+  delayMs,
+  retryableTransactionDelayMs,
+} from './import-transaction-retry.util.js';
 import type {
   SerializedImportJob,
   SerializeImportJobFn,
@@ -68,18 +72,6 @@ function describeCause(error: unknown): string {
 
 function isBackgroundWorkerApply(options?: ImportApplyBatchOptions): boolean {
   return Boolean(options?.leaseToken || options?.useApplySequence);
-}
-
-function retryableTransactionDelayMs(attempt: number): number {
-  const cappedBase = Math.min(50 * 2 ** attempt, 2000);
-  const jitter = Math.floor(Math.random() * cappedBase * 0.25);
-  return cappedBase + jitter;
-}
-
-function delayMs(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 /**
