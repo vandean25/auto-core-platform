@@ -42,7 +42,7 @@ async function waitForUrl(url, timeoutMs = 120_000) {
       if (response.ok) return
       if (!reported) { console.log('READINESS RESPONSE', url, response.status, (await response.text()).slice(0, 1000)); reported = true }
     } catch (error) {
-      if (!reported) { console.log('READINESS ERROR', url, error); reported = true }
+      if (!reported) { console.log('READINESS ERROR', url, error); if (url.includes('5175')) { try { const ipv6 = await fetch('http://[::1]:5175'); console.log('IPV6 RESPONSE', ipv6.status) } catch (e) { console.log('IPV6 ERROR', e) } } reported = true }
     }
     await new Promise((r) => setTimeout(r, 500))
   }
