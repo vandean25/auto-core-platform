@@ -84,7 +84,8 @@ export function DataTableToolbar<TData extends object>({
           <Button
             variant="outline"
             size="sm"
-            className="h-11 md:h-8"
+            // Hidden on phone: the export reads the rendered table cells, and list mode renders only a few per row.
+            className="h-8 max-md:hidden"
             title={t('dataTable.exportCsvTitle')}
             disabled={isLoading || table.getRowModel().rows.length === 0 || getDataTableExportColumns(table).length === 0}
             onClick={() => {

@@ -14,7 +14,7 @@ import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
  * instead of a horizontally scrolling table.
  */
 const PHONE = { width: 375, height: 812 };
-const ROW_ACTIONS = deCommon.dataTable.rowActions;
+const ROW_ACTIONS = new RegExp(`^${deCommon.dataTable.rowActionsFor.replace('{{name}}', '')}`);
 
 async function mockList(page: Page, path: string, items: unknown[]) {
   await page.route(AutoCorePage.apiRouteMatcher(path), async (route) => {

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import type { DataTableBodyRowModel } from './data-table-body-row'
+import { getTableRowId, type DataTableBodyRowModel } from './data-table-body-row'
 import { getDataTableMobileSlots, type DataTableMobileSlots } from './data-table-column-meta'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 
@@ -24,12 +24,11 @@ type DataTableListProps<TData extends object> = {
 
 const rowPrimaryClassName = 'flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 text-left'
 
-function TappableRow({ label, onActivate, children }: { label?: string; onActivate: () => void; children: ReactNode }) {
+function TappableRow({ onActivate, children }: { onActivate: () => void; children: ReactNode }) {
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label={label}
       className={cn(rowPrimaryClassName, 'cursor-pointer')}
       onClick={(event) => {
         // Controls rendered inside a cell keep their own behaviour.
@@ -57,11 +56,12 @@ function DataTableRowActions<TData extends object>({
   const { t } = useTranslation('common')
   const actions = rowBehaviour?.getRowContextActions?.(row) ?? []
   if (actions.length === 0) return null
+  const name = rowBehaviour?.getRowAccessibleName?.(row)
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label={t('dataTable.rowActions')}>
+        <Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label={name ? t('dataTable.rowActionsFor', { name }) : t('dataTable.rowActions')}>
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
@@ -115,19 +115,18 @@ function ListRowPrimary<TData extends object>({
   children: ReactNode
 }) {
   const rowHref = rowBehaviour?.getRowHref?.(record)
-  const rowName = rowBehaviour?.getRowAccessibleName?.(record)
   const onRowClick = rowBehaviour?.onRowClick
 
   if (onRowClick) {
     return (
-      <TappableRow label={rowName} onActivate={() => onRowClick(record)}>
+      <TappableRow onActivate={() => onRowClick(record)}>
         {children}
       </TappableRow>
     )
   }
   if (rowHref) {
     return (
-      <Link to={rowHref} aria-label={rowName} className={rowPrimaryClassName}>
+      <Link to={rowHref} className={rowPrimaryClassName}>
         {children}
       </Link>
     )
@@ -143,11 +142,15 @@ function DataTableListRow<TData extends object>({ row, slots, rowBehaviour }: Da
     return cell ? flexRender(cell.column.columnDef.cell as never, cell.getContext() as never) : null
   }
 
+  // Display-column buttons (id "actions") have no registry action behind them, so they stay reachable next to the "..." menu.
+  const actionsCell = slot('actions')
+
   return (
-    <li data-table-row="true" data-row-id={(record as { id?: string }).id} className="flex items-center">
+    <li data-table-row="true" data-row-id={getTableRowId(record)} className="flex items-center">
       <ListRowPrimary record={record} rowBehaviour={rowBehaviour}>
         <ListRowContent title={slot(slots.title)} subtitle={slot(slots.subtitle)} status={slot(slots.status)} trailing={slot(slots.trailing)} />
       </ListRowPrimary>
+      {actionsCell ? <div className="shrink-0">{actionsCell}</div> : null}
       <DataTableRowActions row={record} rowBehaviour={rowBehaviour} />
     </li>
   )

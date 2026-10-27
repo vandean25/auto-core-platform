@@ -42,6 +42,7 @@
     "of": "von",
     "closeContextMenu": "Kontextmenü schließen",
     "rowActions": "Zeilenaktionen",
+    "rowActionsFor": "Aktionen für {{name}}",
     "columns": "Spalten",
     "toggleColumns": "Spalten ein-/ausblenden",
     "showAll": "Alle anzeigen",

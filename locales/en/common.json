@@ -42,6 +42,7 @@
     "of": "of",
     "closeContextMenu": "Close context menu",
     "rowActions": "Row actions",
+    "rowActionsFor": "Actions for {{name}}",
     "columns": "Columns",
     "toggleColumns": "Toggle columns",
     "showAll": "Show all",
