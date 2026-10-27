@@ -888,7 +888,7 @@ export class ImportService {
     const totals = job.totals_json as ImportJobTotals;
     const reconciled = await reconcileFinishedApplyTotals(
       this.prisma,
-      { tenantId, jobId, entityType: job.entity_type },
+      { tenantId, jobId },
       totals,
     );
     if (

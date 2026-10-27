@@ -1,8 +1,4 @@
-import {
-  ImportJobStatus,
-  type ImportEntityType,
-  type Prisma,
-} from '@prisma/client';
+import { ImportJobStatus, type Prisma } from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
@@ -57,7 +53,6 @@ async function resolveBackgroundApplyFinishState(
   params: {
     tenantId: string;
     jobId: string;
-    entityType: ImportEntityType;
     applyWatermark: number;
     maxApplySeq: number;
   },
@@ -69,11 +64,7 @@ async function resolveBackgroundApplyFinishState(
   }
   const reconciled = await reconcileFinishedApplyTotals(
     tx,
-    {
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      entityType: params.entityType,
-    },
+    { tenantId: params.tenantId, jobId: params.jobId },
     totals,
   );
   const complete = await isBackgroundApplyOutcomeComplete(
@@ -124,13 +115,9 @@ export async function commitBackgroundApplyRowInTransaction(
   };
   const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
   const mergedTotals = mergeMonotonicApplyTotals(storedTotals, params.totals);
-  const mergedWithMappings = await reconcileFinishedApplyTotals(
+  const reconciledTotals = await reconcileFinishedApplyTotals(
     tx,
-    {
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      entityType: job.entity_type,
-    },
+    { tenantId: params.tenantId, jobId: params.jobId },
     mergedTotals,
   );
   const { totals, finished } = await resolveBackgroundApplyFinishState(
@@ -138,11 +125,10 @@ export async function commitBackgroundApplyRowInTransaction(
     {
       tenantId: params.tenantId,
       jobId: params.jobId,
-      entityType: job.entity_type,
       applyWatermark,
       maxApplySeq: params.maxApplySeq,
     },
-    mergedWithMappings,
+    reconciledTotals,
   );
   await tx.importJob.update({
     where: { id: params.jobId },

@@ -91,6 +91,8 @@ export function importTotalsAfterApplyRowTally(
     next.error += 1;
   } else if (tally === 'written') {
     tallyWrittenRow(next, action);
+  } else if (tally === 'noop') {
+    tallyWrittenRow(next, action);
   }
   return next;
 }

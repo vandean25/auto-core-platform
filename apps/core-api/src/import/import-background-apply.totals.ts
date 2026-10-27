@@ -1,55 +1,34 @@
-import {
-  ImportRowAction,
-  type ImportEntityType,
-  type Prisma,
-} from '@prisma/client';
+import { ImportRowAction, type Prisma } from '@prisma/client';
 import type { ImportJobTotals } from './import.types.js';
 
-type ApplyTotalsDb = Pick<
-  Prisma.TransactionClient,
-  'externalIdMapping' | 'importJobRow'
->;
+type ApplyTotalsDb = Pick<Prisma.TransactionClient, 'importJobRow'>;
 
-/** Align apply totals with committed mappings and ERROR rows when a job finishes. */
+/**
+ * Monotonic error sync from committed ERROR rows. Create/update/skip stay on the
+ * per-row apply tally; mappings are not used for totals.
+ */
 export async function reconcileFinishedApplyTotals(
   db: ApplyTotalsDb,
-  params: {
-    tenantId: string;
-    jobId: string;
-    entityType: ImportEntityType;
-  },
+  params: { tenantId: string; jobId: string },
   totals: ImportJobTotals,
 ): Promise<ImportJobTotals> {
-  if (
-    typeof db.externalIdMapping.count !== 'function' ||
-    typeof db.importJobRow.count !== 'function'
-  ) {
+  if (typeof db.importJobRow.count !== 'function') {
     return totals;
   }
-  const [createFromMappings, errorRows] = await Promise.all([
-    db.externalIdMapping.count({
-      where: {
-        tenant_id: params.tenantId,
-        first_seen_import_job_id: params.jobId,
-        entity_type: params.entityType,
-      },
-    }),
-    db.importJobRow.count({
-      where: {
-        tenant_id: params.tenantId,
-        import_job_id: params.jobId,
-        action: ImportRowAction.ERROR,
-      },
-    }),
-  ]);
+  const errorRows = await db.importJobRow.count({
+    where: {
+      tenant_id: params.tenantId,
+      import_job_id: params.jobId,
+      action: ImportRowAction.ERROR,
+    },
+  });
   return {
     ...totals,
-    create: Math.max(totals.create, createFromMappings),
     error: Math.max(totals.error, errorRows),
   };
 }
 
-/** True when apply totals account for every row and CREATE rows are written or ERROR. */
+/** True when per-row apply totals account for every planned row once. */
 export async function isBackgroundApplyOutcomeComplete(
   db: ApplyTotalsDb,
   params: { tenantId: string; jobId: string },
@@ -62,10 +41,13 @@ export async function isBackgroundApplyOutcomeComplete(
     tenant_id: params.tenantId,
     import_job_id: params.jobId,
   };
-  const [rowCount, plannedCreates] = await Promise.all([
+  const [rowCount, plannedCreates, plannedUpdates] = await Promise.all([
     db.importJobRow.count({ where: rowWhere }),
     db.importJobRow.count({
       where: { ...rowWhere, action: ImportRowAction.CREATE },
+    }),
+    db.importJobRow.count({
+      where: { ...rowWhere, action: ImportRowAction.UPDATE },
     }),
   ]);
   if (rowCount === 0) {
@@ -75,19 +57,11 @@ export async function isBackgroundApplyOutcomeComplete(
   if (accounted < rowCount) {
     return false;
   }
-  if (plannedCreates === 0) {
-    return accounted >= rowCount;
+  if (plannedCreates > 0 && totals.create + totals.error < plannedCreates) {
+    return false;
   }
-  if (typeof db.externalIdMapping.count === 'function') {
-    const createFromMappings = await db.externalIdMapping.count({
-      where: {
-        tenant_id: params.tenantId,
-        first_seen_import_job_id: params.jobId,
-      },
-    });
-    if (createFromMappings + totals.error < plannedCreates) {
-      return false;
-    }
+  if (plannedUpdates > 0 && totals.update + totals.error < plannedUpdates) {
+    return false;
   }
-  return totals.create >= plannedCreates || totals.error >= plannedCreates;
+  return accounted >= rowCount;
 }

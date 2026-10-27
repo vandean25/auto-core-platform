@@ -55,6 +55,7 @@ function createSequenceWorkerPrisma(
     skip: number;
     error: number;
   },
+  rowPlan?: { creates: number; updates: number },
 ) {
   let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
   const jobTotals = {
@@ -90,7 +91,26 @@ function createSequenceWorkerPrisma(
         }
       },
     },
-    importJobRow: { update: jest.fn() },
+    importJobRow: {
+      update: jest.fn(),
+      ...(rowPlan
+        ? {
+            count: async (args?: { where?: { action?: ImportRowAction } }) => {
+              const action = args?.where?.action;
+              if (action === ImportRowAction.ERROR) {
+                return 0;
+              }
+              if (action === ImportRowAction.CREATE) {
+                return rowPlan.creates;
+              }
+              if (action === ImportRowAction.UPDATE) {
+                return rowPlan.updates;
+              }
+              return rowPlan.creates + rowPlan.updates;
+            },
+          }
+        : {}),
+    },
     vehicleParty: { findFirst: async () => ({ id: 'party' }) },
     externalIdMapping: { findFirst: async () => null },
   };
@@ -117,6 +137,7 @@ function createSequenceWorkerPrisma(
       importJobRow: { update: jest.fn() },
     },
     getStatus: () => jobStatus,
+    getTotals: () => ({ ...jobTotals }),
   };
 }
 
@@ -417,6 +438,68 @@ describe('import apply_seq background apply', () => {
     );
     expect(worker.last_committed_apply_seq).toBe(2);
     expect(getStatus()).toBe(ImportJobStatus.APPLIED);
+  });
+
+  it('finishes with update=1 and create=0 when UPDATE adopts via a new mapping', async () => {
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-update-adopt',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_apply_seq: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma, getStatus, getTotals } = createSequenceWorkerPrisma(
+      worker,
+      {
+        rows: 1,
+        create: 0,
+        update: 0,
+        skip: 0,
+        error: 0,
+      },
+      { creates: 0, updates: 1 },
+    );
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const rows = assignVehiclePartyApplySeqs([
+      plannedRow(1, ImportRowAction.UPDATE, { adopts_existing: true }),
+    ]);
+    await runner.run(
+      {
+        tenantId: 'tenant-1',
+        job: {
+          id: 'job-1',
+          source_system: 'legacy',
+          options_json: { worker },
+          totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 0 },
+        },
+        rows,
+        actorUserId: 'user-1',
+        effectiveOptions: {},
+        preparation: { vendor: null },
+      },
+      ImportEntityType.VEHICLE_PARTY,
+      async () => undefined,
+      {
+        stopAfterBatch: true,
+        useApplySequence: true,
+        maxApplySeq: 1,
+        leaseToken: worker.lease_token,
+      },
+    );
+    expect(getStatus()).toBe(ImportJobStatus.APPLIED);
+    expect(getTotals()).toEqual({
+      rows: 1,
+      create: 0,
+      update: 1,
+      skip: 0,
+      error: 0,
+    });
   });
 
   it('resumes after lease loss without duplicating committed rows', async () => {

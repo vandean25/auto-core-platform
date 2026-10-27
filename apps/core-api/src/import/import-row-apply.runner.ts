@@ -151,7 +151,7 @@ export class RowByRowApplyRunner {
     let appliedTotals = (refreshed.totals_json as ImportJobTotals) ?? totals;
     const reconciled = await reconcileFinishedApplyTotals(
       this.prisma,
-      { tenantId, jobId: job.id, entityType },
+      { tenantId, jobId: job.id },
       appliedTotals,
     );
     const totalsChanged =
