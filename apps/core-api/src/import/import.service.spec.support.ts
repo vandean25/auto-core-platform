@@ -99,7 +99,7 @@ function applyDefaults(harness: ImportHarness): void {
         withApplyPersistedTotalsTransactionClient(harness.prisma, {
           tenantId: TENANT_ID,
           expectedRows: 1,
-        }) as MockPrisma,
+        }),
       ),
   );
   harness.tenantContext.getTenantId.mockResolvedValue(TENANT_ID);

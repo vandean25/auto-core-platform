@@ -1054,6 +1054,32 @@ export class ImportService {
     });
   }
 
+  private async failBackgroundApplyWhenApplySeqMissing(
+    tenantId: string,
+    jobId: string,
+    rowCount: number,
+    maxApplySeq: number,
+  ): Promise<boolean> {
+    if (rowCount === 0 || maxApplySeq !== 0) {
+      return false;
+    }
+    const failed = await this.jobStore.markFailedIfApplying(
+      tenantId,
+      jobId,
+      'apply_seq_missing',
+    );
+    if (failed.count > 0) {
+      const failedJob = await this.jobStore.findJob(tenantId, jobId);
+      logImportJobFailed(this.logger, {
+        jobId,
+        phase: 'apply',
+        attempt: failedJob?.attempts_without_progress ?? 0,
+        reason: 'apply_seq_missing',
+      });
+    }
+    return true;
+  }
+
   private async loadBackgroundApplyContext(tenantId: string, jobId: string) {
     const job = await this.jobStore.findJob(tenantId, jobId);
     if (!job) {
@@ -1075,21 +1101,14 @@ export class ImportService {
     const rows = page.slice(0, IMPORT_APPLY_BATCH_SIZE);
     const maxApplySeq = await this.jobStore.maxApplySeq(tenantId, jobId);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
-    if (rowCount > 0 && maxApplySeq === 0) {
-      const failed = await this.jobStore.markFailedIfApplying(
+    if (
+      await this.failBackgroundApplyWhenApplySeqMissing(
         tenantId,
         jobId,
-        'apply_seq_missing',
-      );
-      if (failed.count > 0) {
-        const failedJob = await this.jobStore.findJob(tenantId, jobId);
-        logImportJobFailed(this.logger, {
-          jobId,
-          phase: 'apply',
-          attempt: failedJob?.attempts_without_progress ?? 0,
-          reason: 'apply_seq_missing',
-        });
-      }
+        rowCount,
+        maxApplySeq,
+      )
+    ) {
       return null;
     }
     assertImplementedImportEntityType(job.entity_type);

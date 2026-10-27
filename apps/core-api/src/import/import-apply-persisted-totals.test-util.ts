@@ -35,21 +35,25 @@ export function withApplyPersistedTotalsTransactionClient(
     ...existingRowClient,
     groupBy:
       existingRowClient.groupBy ??
-      jest.fn(async () => {
+      jest.fn(() => {
         if (defaults?.persistedRows?.length) {
-          return groupByCountsFromRowActions(defaults.persistedRows);
+          return Promise.resolve(
+            groupByCountsFromRowActions(defaults.persistedRows),
+          );
         }
         if (actionCounts.size === 0) {
-          return [
+          return Promise.resolve([
             { action: ImportRowAction.CREATE, _count: { _all: expectedRows } },
-          ];
+          ]);
         }
-        return [...actionCounts.entries()].map(([action, count]) => ({
-          action,
-          _count: { _all: count },
-        }));
+        return Promise.resolve(
+          [...actionCounts.entries()].map(([action, count]) => ({
+            action,
+            _count: { _all: count },
+          })),
+        );
       }),
-    update: jest.fn(async (args: { data?: { action?: ImportRowAction } }) => {
+    update: jest.fn((args: { data?: { action?: ImportRowAction } }) => {
       if (args.data?.action) {
         actionCounts.set(
           args.data.action,
@@ -64,16 +68,18 @@ export function withApplyPersistedTotalsTransactionClient(
     ...existingJobClient,
     findFirst:
       existingJobClient.findFirst ??
-      jest.fn(async () => ({
-        tenant_id: tenantId,
-        totals_json: {
-          rows: expectedRows,
-          create: 0,
-          update: 0,
-          skip: 0,
-          error: 0,
-        },
-      })),
+      jest.fn(() =>
+        Promise.resolve({
+          tenant_id: tenantId,
+          totals_json: {
+            rows: expectedRows,
+            create: 0,
+            update: 0,
+            skip: 0,
+            error: 0,
+          },
+        }),
+      ),
   };
   return { ...tx, importJobRow, importJob };
 }

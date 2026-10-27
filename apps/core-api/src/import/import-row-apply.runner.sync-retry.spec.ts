@@ -30,7 +30,7 @@ function createSyncPrisma(
   const importJobRow = {
     findFirst: async () => null,
     update: jest.fn(async (args: { data: { action?: ImportRowAction } }) => {
-      rowUpdates.push(args.data as Record<string, unknown>);
+      rowUpdates.push(args.data);
       if (args.data.action) {
         actionCounts.set(
           args.data.action,

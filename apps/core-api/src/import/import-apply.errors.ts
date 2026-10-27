@@ -11,10 +11,7 @@ import { IMPORT_ERROR_CODES } from './import.constants.js';
 export type ImportApplyErrorKind = 'lease_lost' | 'retryable' | 'row' | 'fatal';
 
 export type ImportApplyFailureReason =
-  | 'retry_exhausted'
-  | 'poison_cap'
-  | 'apply_error'
-  | 'apply_seq_missing';
+  'retry_exhausted' | 'poison_cap' | 'apply_error' | 'apply_seq_missing';
 
 export class ApplyRowStaleError extends Error {
   constructor(message = 'Import row plan is stale') {
