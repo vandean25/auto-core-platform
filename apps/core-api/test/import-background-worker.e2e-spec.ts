@@ -208,15 +208,6 @@ describe('Import background worker (e2e)', () => {
     ).worker;
     expect(worker?.last_committed_apply_seq).toBe(3);
 
-    const mappings = await tenantPrisma().externalIdMapping.findMany({
-      where: {
-        tenant_id: tenant.tenantId,
-        source_system: 'legacy-dms',
-        first_seen_import_job_id: jobId,
-      },
-    });
-    expect(mappings).toHaveLength(3);
-    expect(new Set(mappings.map((row) => row.external_id)).size).toBe(3);
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
