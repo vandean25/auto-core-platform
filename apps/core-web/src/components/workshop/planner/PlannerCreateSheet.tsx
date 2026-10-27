@@ -221,7 +221,7 @@ export function PlannerCreateSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-lg max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg max-sm:flex max-sm:flex-col max-sm:gap-0 max-sm:pb-0 max-sm:pt-[calc(1.5rem+env(safe-area-inset-top,0px))] max-sm:[&>button:first-of-type]:top-[calc(1rem+env(safe-area-inset-top,0px))] max-sm:[&_button]:min-h-11 max-sm:[&_input]:min-h-11">
         <SheetHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
             <SheetTitle>{t('planner.createSheet.title')}</SheetTitle>
@@ -375,7 +375,7 @@ export function PlannerCreateSheet({
         </div>
 
         {/* Phone: the primary action moves from the header to a pinned, safe-area aware footer. */}
-        <SheetFooter className="sticky bottom-0 -mx-6 -mb-6 mt-auto border-t bg-background px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-3 sm:hidden">
+        <SheetFooter className="sticky bottom-0 -mx-6 mt-auto border-t bg-background px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-3 sm:hidden">
           <Button className="min-h-11" onClick={handleCreate} disabled={!canSubmit}>
             {t('planner.createSheet.createButton')}
           </Button>

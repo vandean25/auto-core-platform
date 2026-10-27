@@ -65,6 +65,15 @@ test.describe('Dialog forms on a phone (AUT-738)', () => {
     await corePage.createButton.click();
 
     await expectFullScreenForm(page, DE_VEHICLES.dialog.create);
+    // Every rendered form grid, including the regulatory section, is a single column.
+    const columns = await page
+      .getByRole('dialog')
+      .locator('.grid')
+      .evaluateAll((nodes) =>
+        nodes.filter((node) => node.getClientRects().length > 0).map((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length),
+      );
+    expect(columns.length).toBeGreaterThan(0);
+    expect(columns, 'grids with more than one column').not.toContain(2);
     await testInfo.attach('vehicle-dialog-375x812', { body: await page.screenshot(), contentType: 'image/png' });
   });
 
@@ -107,6 +116,8 @@ test.describe('Dialog forms on a phone (AUT-738)', () => {
     await expect(create).toHaveCount(1);
     const box = await create.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
+    // The footer is pinned to the bottom edge of the sheet, not floating above its padding.
+    expect(box!.y + box!.height).toBeGreaterThanOrEqual(PHONE.height - 20);
     expect(box!.y + box!.height).toBeLessThanOrEqual(PHONE.height);
     await testInfo.attach('planner-sheet-375x812', { body: await page.screenshot(), contentType: 'image/png' });
   });
@@ -127,6 +138,13 @@ test.describe('Dialog forms on a phone (AUT-738)', () => {
     await open.click();
     await page.getByRole('button', { name: /aufklappen/ }).first().click();
     await expect(page.getByText('Oil Filter')).toBeVisible();
+
+    // The open checkout never outgrows the screen, so the total, the primary action and "close" stay reachable.
+    const footer = page.locator('section.sticky').filter({ has: page.getByRole('heading', { name: DE_WORKSHOP.checkout.title }) });
+    expect((await footer.boundingBox())!.height).toBeLessThanOrEqual(PHONE.height);
+    for (const name of [/aufklappen|zuklappen/, DE_WORKSHOP.checkout.close]) {
+      expect((await page.getByRole('button', { name }).first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
 
     await expectNoPageScroll(page);
     await testInfo.attach('checkout-375x812', { body: await page.screenshot(), contentType: 'image/png' });

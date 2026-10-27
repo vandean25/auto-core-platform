@@ -158,7 +158,7 @@ export function CheckoutSummary({
                               type='button'
                               variant='ghost'
                               size='icon'
-                              className='h-7 w-7'
+                              className='h-7 w-7 max-md:size-11'
                               aria-label={
                                 isExpanded
                                   ? t('checkoutSummary.collapse', { task: task.title })
@@ -174,7 +174,7 @@ export function CheckoutSummary({
                             </Button>
                             <button
                               type='button'
-                              className='font-semibold text-left'
+                              className='font-semibold text-left max-md:min-h-11'
                               onClick={() => onReopenTask(task.id)}
                             >
                               {task.title}
@@ -184,7 +184,7 @@ export function CheckoutSummary({
                             <Button
                               variant='ghost'
                               size='sm'
-                              className='h-7 px-2'
+                              className='h-7 px-2 max-md:min-h-11'
                               onClick={() => onReopenTask(task.id)}
                             >
                               {t('checkoutSummary.reopenTask')}
@@ -230,7 +230,7 @@ export function CheckoutSummary({
                         <TableCell className={cn('text-right', mobileLabel)} data-label={t('checkoutSummary.colUnitPrice')}>
                           {formatCurrency(line.lineItem.unitPrice)}
                         </TableCell>
-                        <TableCell className='max-md:order-last max-md:basis-full'>
+                        <TableCell className={cn('max-md:order-last max-md:basis-full', mobileLabel)} data-label={t('checkoutSummary.colDiscount')}>
                           <div className='flex justify-end gap-2'>
                             <Select
                               value={line.discount.type ?? 'NONE'}

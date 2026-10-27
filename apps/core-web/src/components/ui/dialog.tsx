@@ -117,6 +117,8 @@ const fullScreenOnPhoneClassName = cn(
   'max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0',
   'max-sm:pb-[calc(1rem+env(safe-area-inset-bottom,0px))] max-sm:pt-[calc(1rem+env(safe-area-inset-top,0px))]',
   'max-sm:[&_button:not([role=checkbox])]:min-h-11 max-sm:[&_input:not([type=checkbox])]:min-h-11',
+  // The close button must clear the notch like the content padding does.
+  'max-sm:[&>button:first-of-type]:top-[calc(1rem+env(safe-area-inset-top,0px))]',
 )
 
 function callerManagesDialogLayout(className: string) {
