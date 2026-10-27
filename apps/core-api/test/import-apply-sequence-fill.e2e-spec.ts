@@ -11,7 +11,6 @@ import { ImportJobStore } from '../src/import/import-job.store.js';
 import { orderVehiclePartyApplyRows } from '../src/import/vehicle-party-import.apply-order.js';
 import { toImportApplyRow } from '../src/import/import-job.store.js';
 import { IMPORT_RECONCILE_GROUP_MAX_ROWS } from '../src/import/import-dry-run-group-limit.js';
-import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from '../src/import/import-worker-handoff.constants.js';
 import type { DryRunRowResult } from '../src/import/import.types.js';
 import {
   cleanupTestTenantGraph,
