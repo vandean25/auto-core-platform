@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useAuthSession } from '@/api/auth-session'
 import {
   buildMechanicNoteDraftKey,
@@ -32,7 +32,7 @@ export function useMechanicNotesDraft(taskId: string, enabled = true): MechanicN
   const tenantId = session?.activeTenant?.id
   const siteId = session?.activeSiteId ?? 'none'
 
-  const draft = useMemo(() => {
+  return useMemo(() => {
     const scopeKey = userId && tenantId ? buildMechanicNoteDraftKey({ userId, tenantId, siteId, taskId }) : null
 
     return {
@@ -49,10 +49,4 @@ export function useMechanicNotesDraft(taskId: string, enabled = true): MechanicN
     }
   }, [enabled, userId, tenantId, siteId, taskId])
 
-  // A finished task is read-only: whatever was still unsynced can no longer be restored, so it goes.
-  useEffect(() => {
-    if (!enabled) draft.clear()
-  }, [enabled, draft])
-
-  return draft
 }

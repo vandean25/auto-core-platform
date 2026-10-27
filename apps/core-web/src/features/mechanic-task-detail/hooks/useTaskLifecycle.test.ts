@@ -179,6 +179,29 @@ describe('useTaskLifecycle', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/mechanic/queue')
     })
 
+    it('drops the unsynced notes draft only once the server confirmed the completion', async () => {
+      const onCompleted = vi.fn()
+      mockCompleteMutateAsync.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({})
+      const { result } = renderHook(() =>
+        useTaskLifecycle({
+          taskId: TASK_ID,
+          refetch: mockRefetch,
+          cancelPendingSave: mockCancelPendingSave,
+          onCompleted,
+        }),
+      )
+
+      await act(async () => {
+        await result.current.handleComplete()
+      })
+      expect(onCompleted).not.toHaveBeenCalled()
+
+      await act(async () => {
+        await result.current.handleComplete()
+      })
+      expect(onCompleted).toHaveBeenCalledTimes(1)
+    })
+
     it('displays error toast when completion fails', async () => {
       mockCompleteMutateAsync.mockRejectedValueOnce(new Error('Completion failed'))
       const { result } = setupHook()

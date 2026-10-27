@@ -154,14 +154,24 @@ describe('mechanic notes draft (reload and offline)', () => {
     await waitFor(() => expect(second.result.current.notesValue).toBe('A and B'))
   })
 
-  it('removes the leftover draft when the task is finished', async () => {
+  it('keeps the draft of a task that is not (yet) confirmed finished, even when the cached status turns DONE', async () => {
     await saveMechanicNoteDraft(draftKey, 'Never synced', 'Server')
     const { rerender } = renderHook(({ enabled }) => useMechanicNotesDraft(TASK_ID, enabled), {
       initialProps: { enabled: true },
     })
-    expect(await loadMechanicNoteDraft(draftKey)).not.toBeNull()
 
+    // The optimistic completion flips the read-only flag before the server answered.
     rerender({ enabled: false })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(await loadMechanicNoteDraft(draftKey)).not.toBeNull()
+  })
+
+  it('clears the draft on request, also for a read-only task', async () => {
+    await saveMechanicNoteDraft(draftKey, 'Never synced', 'Server')
+    const { result } = renderHook(() => useMechanicNotesDraft(TASK_ID, false))
+
+    result.current.clear()
 
     await waitFor(async () => expect(await loadMechanicNoteDraft(draftKey)).toBeNull())
   })

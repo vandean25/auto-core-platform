@@ -56,6 +56,7 @@ export function MechanicTaskDetailView({
     taskId: task.taskId,
     refetch,
     cancelPendingSave: diagnostics.cancelPendingSave,
+    onCompleted: notesDraft.clear,
   });
   const partRequest = useRequestPartForm(task.taskId);
   const submitFinding = useSubmitMechanicFinding({
