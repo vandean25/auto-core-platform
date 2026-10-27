@@ -334,6 +334,29 @@ export class RowByRowApplyRunner {
     return earliest !== null && earliest !== row.row_no;
   }
 
+  private async resolveDuplicateCommittedCreateLegacy(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    row: ImportApplyRow,
+  ): Promise<'noop' | 'duplicate_error' | null> {
+    if (row.action !== ImportRowAction.CREATE) {
+      return null;
+    }
+    if (!(await this.isCreateAlreadyCommittedByJob(input, entityType, row))) {
+      return null;
+    }
+    if (
+      await this.isDuplicateCreateAfterAnotherRowCommitted(
+        input,
+        row,
+        this.prisma,
+      )
+    ) {
+      return 'duplicate_error';
+    }
+    return 'noop';
+  }
+
   private async isCreateAlreadyCommittedByJob(
     input: ImportApplyInput,
     entityType: ImportEntityType,
@@ -555,7 +578,9 @@ export class RowByRowApplyRunner {
       row.action === ImportRowAction.CREATE &&
       (await this.isCreateAlreadyCommittedByJob(input, entityType, row, tx))
     ) {
-      if (await this.isDuplicateCreateAfterAnotherRowCommitted(input, row, tx)) {
+      if (
+        await this.isDuplicateCreateAfterAnotherRowCommitted(input, row, tx)
+      ) {
         throw new ImportDuplicateCreateInJobError();
       }
       return 'noop';
@@ -591,28 +616,24 @@ export class RowByRowApplyRunner {
     }
 
     try {
-      if (
-        row.action === ImportRowAction.CREATE &&
-        (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
-      ) {
-        if (
-          await this.isDuplicateCreateAfterAnotherRowCommitted(
-            input,
-            row,
-            this.prisma,
-          )
-        ) {
-          totals.error += 1;
-          await markImportRowFailed(
-            this.prisma,
-            input.tenantId,
-            input.job.id,
-            row.row_no,
-            toRowApplyError(new ImportDuplicateCreateInJobError()),
-          );
-          await this.advanceWorkerCursor(input, applySeqForRow(row), options);
-          return;
-        }
+      const committedCreate = await this.resolveDuplicateCommittedCreateLegacy(
+        input,
+        entityType,
+        row,
+      );
+      if (committedCreate === 'noop') {
+        await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+        return;
+      }
+      if (committedCreate === 'duplicate_error') {
+        totals.error += 1;
+        await markImportRowFailed(
+          this.prisma,
+          input.tenantId,
+          input.job.id,
+          row.row_no,
+          toRowApplyError(new ImportDuplicateCreateInJobError()),
+        );
         await this.advanceWorkerCursor(input, applySeqForRow(row), options);
         return;
       }

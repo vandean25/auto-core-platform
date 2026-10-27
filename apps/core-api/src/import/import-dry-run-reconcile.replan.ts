@@ -5,7 +5,7 @@ import type {
   ImportTypeHandler,
 } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
-import type { ImportDryRunReconcileUnit } from './import-dry-run-reconcile.units.js';
+import type { ImportDryRunReconcileUnit } from './import-job.worker-state.js';
 import type { ImportJobUploadRef } from './import-job.worker-state.js';
 import {
   loadCsvRowRecords,

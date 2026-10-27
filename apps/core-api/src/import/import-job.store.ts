@@ -63,6 +63,27 @@ export function toImportApplyRow(
   };
 }
 
+async function lockWorkerLeaseOnApplyingJob(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  jobId: string,
+  leaseToken: string,
+): Promise<boolean> {
+  const locked = await tx.importJob.updateMany({
+    where: {
+      tenant_id: tenantId,
+      id: jobId,
+      status: ImportJobStatus.APPLYING,
+      options_json: {
+        path: ['worker', 'lease_token'],
+        equals: leaseToken,
+      },
+    },
+    data: {},
+  });
+  return locked.count > 0;
+}
+
 function toRowCreate(row: DryRunRowResult) {
   return {
     row_no: row.row_no,
@@ -279,19 +300,9 @@ export class ImportJobStore {
     };
     const progressed = importWorkerProgressCursor(worker) > previousProcessed;
     return this.prisma.$transaction(async (tx) => {
-      const locked = await tx.importJob.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: jobId,
-          status: ImportJobStatus.APPLYING,
-          options_json: {
-            path: ['worker', 'lease_token'],
-            equals: leaseToken,
-          },
-        },
-        data: {},
-      });
-      if (locked.count === 0) {
+      if (
+        !(await lockWorkerLeaseOnApplyingJob(tx, tenantId, jobId, leaseToken))
+      ) {
         return null;
       }
       return tx.importJob.update({
@@ -347,23 +358,12 @@ export class ImportJobStore {
     expectedRows: number,
     options: ImportJobOptionsWithWorker,
   ): Promise<{ totals: ImportJobTotals } | null> {
-    const { tallyImportDryRunTotalsFromRows } = await import(
-      './import-dry-run-reconcile.totals.js'
-    );
+    const { tallyImportDryRunTotalsFromRows } =
+      await import('./import-dry-run-reconcile.totals.js');
     return this.prisma.$transaction(async (tx) => {
-      const locked = await tx.importJob.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: jobId,
-          status: ImportJobStatus.APPLYING,
-          options_json: {
-            path: ['worker', 'lease_token'],
-            equals: leaseToken,
-          },
-        },
-        data: {},
-      });
-      if (locked.count === 0) {
+      if (
+        !(await lockWorkerLeaseOnApplyingJob(tx, tenantId, jobId, leaseToken))
+      ) {
         return null;
       }
       const totals = await tallyImportDryRunTotalsFromRows(
@@ -412,23 +412,12 @@ export class ImportJobStore {
       lease_until: new Date(0).toISOString(),
     };
     const progressed = importWorkerProgressCursor(worker) > previousProgress;
-    const { tallyImportDryRunTotalsFromRows } = await import(
-      './import-dry-run-reconcile.totals.js'
-    );
+    const { tallyImportDryRunTotalsFromRows } =
+      await import('./import-dry-run-reconcile.totals.js');
     return this.prisma.$transaction(async (tx) => {
-      const locked = await tx.importJob.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: jobId,
-          status: ImportJobStatus.APPLYING,
-          options_json: {
-            path: ['worker', 'lease_token'],
-            equals: leaseToken,
-          },
-        },
-        data: {},
-      });
-      if (locked.count === 0) {
+      if (
+        !(await lockWorkerLeaseOnApplyingJob(tx, tenantId, jobId, leaseToken))
+      ) {
         return null;
       }
       for (const row of rows) {
@@ -473,61 +462,6 @@ export class ImportJobStore {
       });
       const totals = updated.totals_json as ImportJobTotals;
       return { job: updated, totals };
-    });
-  }
-
-  async overwriteDryRunRows(
-    tenantId: string,
-    jobId: string,
-    rows: DryRunRowResult[],
-    workerPatch: Partial<ImportJobWorkerState>,
-    options: ImportJobOptionsWithWorker,
-    leaseToken: string,
-  ) {
-    const previousCursor = importWorkerProgressCursor(options.worker!);
-    const worker = {
-      ...options.worker!,
-      ...workerPatch,
-      lease_until: new Date(0).toISOString(),
-    };
-    const progressed = importWorkerProgressCursor(worker) > previousCursor;
-    return this.prisma.$transaction(async (tx) => {
-      const locked = await tx.importJob.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: jobId,
-          status: ImportJobStatus.APPLYING,
-          options_json: {
-            path: ['worker', 'lease_token'],
-            equals: leaseToken,
-          },
-        },
-        data: {},
-      });
-      if (locked.count === 0) {
-        return null;
-      }
-      for (const row of rows) {
-        const data = toRowCreate(row);
-        await tx.importJobRow.update({
-          where: {
-            tenant_id_import_job_id_row_no: {
-              tenant_id: tenantId,
-              import_job_id: jobId,
-              row_no: row.row_no,
-            },
-          },
-          data,
-        });
-      }
-      return tx.importJob.update({
-        where: { tenant_id: tenantId, id: jobId },
-        data: {
-          options_json: { ...options, worker },
-          worker_handoff_at: new Date(),
-          ...(progressed ? { attempts_without_progress: 0 } : {}),
-        },
-      });
     });
   }
 

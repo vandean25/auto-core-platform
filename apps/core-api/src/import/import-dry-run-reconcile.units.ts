@@ -3,8 +3,8 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ImportDryRunReconcileUnit } from './import-job.worker-state.js';
 
 type RowSpan = { min_row: number; max_row: number };
-
-type SpanTracker = Map<string, RowSpan & { count: number; row_nos: number[] }>;
+type SpanEntry = RowSpan & { count: number; row_nos: number[] };
+type SpanTracker = Map<string, SpanEntry>;
 
 function spansImportBatches(span: RowSpan, batchSize: number): boolean {
   const firstBatch = Math.floor((span.min_row - 1) / batchSize);
@@ -15,7 +15,12 @@ function spansImportBatches(span: RowSpan, batchSize: number): boolean {
 function trackKey(tracker: SpanTracker, key: string, rowNo: number): void {
   const existing = tracker.get(key);
   if (!existing) {
-    tracker.set(key, { min_row: rowNo, max_row: rowNo, count: 1, row_nos: [rowNo] });
+    tracker.set(key, {
+      min_row: rowNo,
+      max_row: rowNo,
+      count: 1,
+      row_nos: [rowNo],
+    });
     return;
   }
   existing.min_row = Math.min(existing.min_row, rowNo);
@@ -54,7 +59,7 @@ function trackNormalizedField(
   trackKey(tracker, lowercase ? raw.toLowerCase() : raw, rowNo);
 }
 
-function unitFromDuplicateSpan(span: SpanTracker[string]): ImportDryRunReconcileUnit {
+function unitFromDuplicateSpan(span: SpanEntry): ImportDryRunReconcileUnit {
   const replan = [...span.row_nos].sort((a, b) => a - b);
   return {
     context_from_row: span.min_row,
@@ -63,7 +68,9 @@ function unitFromDuplicateSpan(span: SpanTracker[string]): ImportDryRunReconcile
   };
 }
 
-function mergeUnits(units: ImportDryRunReconcileUnit[]): ImportDryRunReconcileUnit[] {
+function mergeUnits(
+  units: ImportDryRunReconcileUnit[],
+): ImportDryRunReconcileUnit[] {
   const sorted = [...units].sort(
     (a, b) => a.context_from_row - b.context_from_row,
   );
@@ -76,13 +83,75 @@ function mergeUnits(units: ImportDryRunReconcileUnit[]): ImportDryRunReconcileUn
       unit.replan_row_nos.some((rowNo) => rowNo <= last.context_to_row + 1)
     ) {
       last.context_to_row = Math.max(last.context_to_row, unit.context_to_row);
-      const combined = new Set([...last.replan_row_nos, ...unit.replan_row_nos]);
+      const combined = new Set([
+        ...last.replan_row_nos,
+        ...unit.replan_row_nos,
+      ]);
       last.replan_row_nos = [...combined].sort((a, b) => a - b);
     } else {
       merged.push({ ...unit, replan_row_nos: [...unit.replan_row_nos] });
     }
   }
   return merged;
+}
+
+function trackSecondarySpanForEntity(
+  entityType: ImportEntityType,
+  row: {
+    row_no: number;
+    external_id: string | null;
+    normalized_json: unknown;
+  },
+  secondarySpans: SpanTracker,
+  vehicleRowNos: Map<string, number[]>,
+): void {
+  if (entityType === ImportEntityType.CUSTOMER) {
+    trackNormalizedField(
+      secondarySpans,
+      row.normalized_json,
+      'email',
+      row.row_no,
+      true,
+    );
+    return;
+  }
+  if (entityType === ImportEntityType.VEHICLE) {
+    trackNormalizedField(
+      secondarySpans,
+      row.normalized_json,
+      'vin',
+      row.row_no,
+      true,
+    );
+    return;
+  }
+  if (entityType === ImportEntityType.LABOR_OPERATION) {
+    trackNormalizedField(
+      secondarySpans,
+      row.normalized_json,
+      'code',
+      row.row_no,
+      true,
+    );
+    return;
+  }
+  if (entityType === ImportEntityType.SUPPLIER_PRICE_LIST && row.external_id) {
+    trackKey(secondarySpans, row.external_id, row.row_no);
+    return;
+  }
+  if (
+    entityType !== ImportEntityType.VEHICLE_PARTY &&
+    entityType !== ImportEntityType.VEHICLE_DUE_DATE
+  ) {
+    return;
+  }
+  const vehicleId = normalizedString(row.normalized_json, 'vehicle_id');
+  if (!vehicleId) {
+    return;
+  }
+  const list = vehicleRowNos.get(vehicleId) ?? [];
+  list.push(row.row_no);
+  vehicleRowNos.set(vehicleId, list);
 }
 
 /** Cross-batch reconcile units: only row numbers that may need overwrite, with a bounded context window. */
@@ -116,46 +185,12 @@ export async function computeImportDryRunReconcileUnits(
     if (row.external_id) {
       trackKey(externalIdSpans, row.external_id, row.row_no);
     }
-    if (params.entityType === ImportEntityType.CUSTOMER) {
-      trackNormalizedField(
-        secondarySpans,
-        row.normalized_json,
-        'email',
-        row.row_no,
-        true,
-      );
-    } else if (params.entityType === ImportEntityType.VEHICLE) {
-      trackNormalizedField(
-        secondarySpans,
-        row.normalized_json,
-        'vin',
-        row.row_no,
-        true,
-      );
-    } else if (params.entityType === ImportEntityType.LABOR_OPERATION) {
-      trackNormalizedField(
-        secondarySpans,
-        row.normalized_json,
-        'code',
-        row.row_no,
-        true,
-      );
-    } else if (params.entityType === ImportEntityType.SUPPLIER_PRICE_LIST) {
-      if (row.external_id) {
-        trackKey(secondarySpans, row.external_id, row.row_no);
-      }
-    }
-    if (
-      params.entityType === ImportEntityType.VEHICLE_PARTY ||
-      params.entityType === ImportEntityType.VEHICLE_DUE_DATE
-    ) {
-      const vehicleId = normalizedString(row.normalized_json, 'vehicle_id');
-      if (vehicleId) {
-        const list = vehicleRowNos.get(vehicleId) ?? [];
-        list.push(row.row_no);
-        vehicleRowNos.set(vehicleId, list);
-      }
-    }
+    trackSecondarySpanForEntity(
+      params.entityType,
+      row,
+      secondarySpans,
+      vehicleRowNos,
+    );
   }
 
   const units = [
@@ -202,5 +237,3 @@ function unitsFromVehicleGroups(
   }
   return units;
 }
-
-export type { ImportDryRunReconcileUnit };

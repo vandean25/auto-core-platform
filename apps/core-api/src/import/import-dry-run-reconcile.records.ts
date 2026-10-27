@@ -42,7 +42,11 @@ export function recordFromStoredRow(
   if (normalized) {
     for (const [field, column] of Object.entries(mapping)) {
       const value = normalized[field];
-      if (value !== undefined && value !== null && value !== '') {
+      if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+      ) {
         record[column] = String(value);
       }
     }

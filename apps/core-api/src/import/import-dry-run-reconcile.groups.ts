@@ -1,9 +1,6 @@
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { ImportEntityType } from '@prisma/client';
-import {
-  computeImportDryRunReconcileUnits,
-  type ImportDryRunReconcileUnit,
-} from './import-dry-run-reconcile.units.js';
+import { computeImportDryRunReconcileUnits } from './import-dry-run-reconcile.units.js';
 
 /** @deprecated Use computeImportDryRunReconcileUnits */
 export type ImportDryRunReconcileRange = {
@@ -26,5 +23,3 @@ export async function computeImportDryRunReconcileRanges(
     to_row: unit.context_to_row,
   }));
 }
-
-export { computeImportDryRunReconcileUnits, type ImportDryRunReconcileUnit };
