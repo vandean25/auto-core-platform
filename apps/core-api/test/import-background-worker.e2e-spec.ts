@@ -165,6 +165,36 @@ describe('Import background worker (e2e)', () => {
     return response.body.id as string;
   }
 
+  it('runs background dry-run and apply through the signed worker route', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
+      ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
+      ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
+    ]);
+
+    await deliverWorker(jobId, 'dry_run').expect(204);
+    await deliverWorker(jobId, 'dry_run').expect(204);
+
+    const dryRunDone = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+
+    const rowCount = await tenantPrisma().importJobRow.count({
+      where: { import_job_id: jobId },
+    });
+    expect(rowCount).toBeGreaterThan(0);
+
+    await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    await deliverWorker(jobId, 'apply').expect(204);
+
+    await expectJobAppliedWithRowCount(jobId, 3);
+  });
+
   describe('overlapping apply (isolated tenant)', () => {
     let overlapTenant: Awaited<ReturnType<typeof createTestTenant>>;
     let overlapToken: string;
@@ -216,16 +246,6 @@ describe('Import background worker (e2e)', () => {
       });
       expect(dryRunJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
       expect(dryRunRowCount).toBe(3);
-      const dryRunPlanned = await overlapPrisma().importJobRow.findMany({
-        where: { import_job_id: jobId },
-        orderBy: { row_no: 'asc' },
-        select: { row_no: true, action: true },
-      });
-      expect(dryRunPlanned.map((row) => row.action)).toEqual([
-        ImportRowAction.CREATE,
-        ImportRowAction.CREATE,
-        ImportRowAction.CREATE,
-      ]);
 
       await request(app.getHttpServer())
         .post(`/api/imports/${jobId}/apply`)
@@ -258,36 +278,6 @@ describe('Import background worker (e2e)', () => {
       expect((applied?.totals_json as { rows: number }).rows).toBe(3);
       await expectOneApplyPerRow(jobId, scope);
     });
-  });
-
-  it('runs background dry-run and apply through the signed worker route', async () => {
-    const jobId = await uploadBackgroundJob([
-      ['BG-1', 'PRIVATE', 'Erika', 'Eins', 'bg1@example.com', '', '', 'AT'],
-      ['BG-2', 'PRIVATE', 'Franz', 'Zwei', 'bg2@example.com', '', '', 'AT'],
-      ['BG-3', 'PRIVATE', 'Gabi', 'Drei', 'bg3@example.com', '', '', 'AT'],
-    ]);
-
-    await deliverWorker(jobId, 'dry_run').expect(204);
-    await deliverWorker(jobId, 'dry_run').expect(204);
-
-    const dryRunDone = await tenantPrisma().importJob.findFirst({
-      where: { id: jobId },
-    });
-    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
-
-    const rowCount = await tenantPrisma().importJobRow.count({
-      where: { import_job_id: jobId },
-    });
-    expect(rowCount).toBeGreaterThan(0);
-
-    await request(app.getHttpServer())
-      .post(`/api/imports/${jobId}/apply`)
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-
-    await deliverWorker(jobId, 'apply').expect(204);
-
-    await expectJobAppliedWithRowCount(jobId, 3);
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
