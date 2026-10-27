@@ -15,11 +15,6 @@ import type {
   ImportJobOptions,
   ImportRowIssue,
 } from './import.types.js';
-import {
-  mergeReconcilePlanOutput,
-  normalizedStringField,
-  seedExternalIdSeenFromPriors,
-} from './import-dry-run-reconcile.prior.js';
 
 /** The `kind` tokens of the canonical vehicle_due_dates.csv. */
 export const DUE_DATE_KIND = {
@@ -519,104 +514,15 @@ function toResult(item: PreparedDue): DryRunRowResult {
   };
 }
 
-function dueRowFromPriorNormalized(
-  normalized: Record<string, unknown>,
-  prior: DryRunRowResult,
-): NormalizedDueRow | null {
-  const common = {
-    external_id:
-      normalizedStringField(normalized, 'external_id') ??
-      prior.external_id ??
-      '',
-    vehicle_external_id: '',
-    external_ref: normalizedStringField(normalized, 'external_ref'),
-    notes: normalizedStringField(normalized, 'notes'),
-  };
-  if (normalized.kind === DUE_DATE_KIND.INSPECTION_57A) {
-    return {
-      ...common,
-      kind: DUE_DATE_KIND.INSPECTION_57A,
-      inspected_on: normalizedStringField(normalized, 'inspected_on') ?? '',
-      plaketten_valid_until_year: Number(normalized.plaketten_valid_until_year),
-      plaketten_valid_until_month: Number(
-        normalized.plaketten_valid_until_month,
-      ),
-      station_name:
-        typeof normalized.station_name === 'string'
-          ? normalized.station_name
-          : null,
-    };
-  }
-  if (normalized.kind === DUE_DATE_KIND.SERVICE) {
-    return {
-      ...common,
-      kind: DUE_DATE_KIND.SERVICE,
-      due_date:
-        typeof normalized.due_date === 'string' ? normalized.due_date : null,
-      due_mileage:
-        typeof normalized.due_mileage === 'number'
-          ? normalized.due_mileage
-          : null,
-    };
-  }
-  return null;
-}
-
-function preparedDueFromPrior(prior: DryRunRowResult): PreparedDue | null {
-  if (prior.errors.length > 0) {
-    return {
-      rowNo: prior.row_no,
-      externalId: prior.external_id,
-      issues: [...prior.errors],
-      warnings: [...prior.warnings],
-      action: prior.action,
-      entityId: prior.entity_id,
-    };
-  }
-  const normalized = prior.normalized;
-  if (!normalized) {
-    return null;
-  }
-  const vehicleId = normalized.vehicle_id;
-  if (typeof vehicleId !== 'string') {
-    return null;
-  }
-  const row = dueRowFromPriorNormalized(normalized, prior);
-  if (!row) {
-    return null;
-  }
-  return {
-    rowNo: prior.row_no,
-    externalId: prior.external_id,
-    issues: [],
-    warnings: [...prior.warnings],
-    action: prior.action,
-    entityId: prior.entity_id,
-    row,
-    vehicleId,
-  };
-}
-
 /** Plans every vehicle_due_dates.csv row against the file itself and the target records. */
 export function planVehicleDueDateRows(
   rows: DueDateCsvRow[],
   mapping: Record<string, string>,
   ctx: DueDatePlanContext,
-  reconcilePriorResults?: DryRunRowResult[],
 ): DryRunRowResult[] {
-  const priors = reconcilePriorResults ?? [];
   const seen = new Map<string, number>();
-  seedExternalIdSeenFromPriors(seen, priors);
   const indexed = indexContext(ctx);
-  const preparedPriors = priors
-    .map((prior) => preparedDueFromPrior(prior))
-    .filter((item): item is PreparedDue => item !== null);
-  const preparedNew = rows.map((csv) =>
-    prepareRow(csv, mapping, indexed, seen),
-  );
-  const combined = [...preparedPriors, ...preparedNew];
-  flagFileConflicts(combined);
-  const finished = combined.map(toResult);
-  const newRowNos = new Set(rows.map((row) => row.rowNo));
-  return mergeReconcilePlanOutput(finished, newRowNos, priors);
+  const prepared = rows.map((csv) => prepareRow(csv, mapping, indexed, seen));
+  flagFileConflicts(prepared);
+  return prepared.map(toResult);
 }

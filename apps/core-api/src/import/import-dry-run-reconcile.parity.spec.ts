@@ -13,7 +13,6 @@ import type { ImportDryRunInput } from './import-type-handler.js';
 import type { ImportDryRunReconcileUnit } from './import-job.worker-state.js';
 
 const BATCH = 3;
-const RECONCILE_BATCH = 2;
 
 function signatures(rows: DryRunRowResult[]) {
   return rows.map((row) => ({
@@ -56,7 +55,7 @@ async function planBatched(
   return merged;
 }
 
-async function replanWindows(
+async function replanUnit(
   plan: (
     input: ImportDryRunInput,
     parsed: ParsedCsv,
@@ -65,66 +64,30 @@ async function replanWindows(
   parsed: ParsedCsv,
   unit: ImportDryRunReconcileUnit,
   target: DryRunRowResult[],
-  reconcileBatchSize = RECONCILE_BATCH,
 ) {
-  const unitSet = new Set(unit.replan_row_nos);
-  let targetIndex = 0;
-  while (targetIndex < unit.replan_row_nos.length) {
-    const targets: number[] = [];
-    let selectionEnd = targetIndex;
-    while (
-      selectionEnd < unit.replan_row_nos.length &&
-      targets.length < reconcileBatchSize
-    ) {
-      targets.push(unit.replan_row_nos[selectionEnd]);
-      selectionEnd += 1;
-    }
-    if (targets.length === 0) {
-      break;
-    }
-    const priorResults = unit.replan_row_nos
-      .slice(0, targetIndex)
-      .map((rowNo) => target[rowNo - 1]);
-    const records = targets.map((rowNo) => ({
-      rowNo,
-      record: rowToRecord(parsed.headers, parsed.rows[rowNo - 1]),
-    }));
-    const sparse = toParsedCsvFromRecords(
-      parsed.headers,
-      records,
-      parsed.sha256 ?? 'test-sha',
-    );
-    const replanned = await plan(
-      {
-        ...input,
-        reconcilePriorResults: priorResults,
-        planBudget: {
-          deadlineMs: Date.now() + 60_000,
-          rowNoOffset: targets[0],
-          rowNumbers: targets,
-        },
+  const rowNos = [...unit.replan_row_nos].sort((a, b) => a - b);
+  const records = rowNos.map((rowNo) => ({
+    rowNo,
+    record: rowToRecord(parsed.headers, parsed.rows[rowNo - 1]),
+  }));
+  const sparse = toParsedCsvFromRecords(
+    parsed.headers,
+    records,
+    parsed.sha256 ?? 'test-sha',
+  );
+  const replanned = await plan(
+    {
+      ...input,
+      planBudget: {
+        deadlineMs: Date.now() + 60_000,
+        rowNoOffset: rowNos[0],
+        rowNumbers: rowNos,
       },
-      sparse,
-    );
-    for (const row of replanned.filter((item) => unitSet.has(item.row_no))) {
-      const index = target.findIndex((item) => item.row_no === row.row_no);
-      if (index >= 0) {
-        target[index] = row;
-      }
-    }
-    const plannedSet = new Set(replanned.map((row) => row.row_no));
-    let nextIndex = targetIndex;
-    for (let cursor = targetIndex; cursor < selectionEnd; cursor += 1) {
-      const rowNo = unit.replan_row_nos[cursor];
-      if (!plannedSet.has(rowNo)) {
-        break;
-      }
-      nextIndex = cursor + 1;
-    }
-    if (nextIndex === targetIndex) {
-      break;
-    }
-    targetIndex = nextIndex;
+    },
+    sparse,
+  );
+  for (const row of replanned) {
+    target[row.row_no - 1] = row;
   }
 }
 
@@ -205,7 +168,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
     expect(batched[3].action).toBe(ImportRowAction.CREATE);
-    await replanWindows(plan, input, parsed, {
+    await replanUnit(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -261,7 +224,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planVehiclePartyDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanWindows(plan, input, parsed, {
+    await replanUnit(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 2, 3, 4],
@@ -304,7 +267,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planVehicleDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanWindows(plan, input, parsed, {
+    await replanUnit(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -344,7 +307,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planLaborOperationDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanWindows(plan, input, parsed, {
+    await replanUnit(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -396,7 +359,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       );
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanWindows(plan, input, parsed, {
+    await replanUnit(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -466,7 +429,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planVehicleDueDateDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanWindows(plan, input, parsed, {
+    await replanUnit(plan, input, parsed, {
       context_from_row: 1,
       context_to_row: 4,
       replan_row_nos: [1, 4],
@@ -544,7 +507,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planVehiclePartyDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanWindows(
+    await replanUnit(
       plan,
       input,
       parsed,
@@ -554,7 +517,6 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
         replan_row_nos: [1, 2, 3, 4, 5, 6],
       },
       batched,
-      2,
     );
     expect(signatures(batched)).toEqual(signatures(sync));
   });
@@ -623,7 +585,7 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       planVehicleDueDateDryRun(prisma as never, dryRunInput, slice);
     const sync = await plan(input, parsed);
     const batched = await planBatched(plan, input, parsed);
-    await replanWindows(
+    await replanUnit(
       plan,
       input,
       parsed,
@@ -633,7 +595,6 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
         replan_row_nos: [1, 2, 3, 4, 5, 6],
       },
       batched,
-      2,
     );
     expect(signatures(batched)).toEqual(signatures(sync));
   });

@@ -11,14 +11,17 @@ import {
 import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { DryRunRowResult, ImportJobOptions } from './import.types.js';
 import type { ImportDryRunPlanBudget } from './import-type-handler.js';
-import { seedSupplierArticleSeenFromPriors } from './import-dry-run-reconcile.prior.js';
+import { ImportEntityType } from '@prisma/client';
+import {
+  guardDryRunGroupCap,
+  oversizedRowNosFromParsedCsv,
+} from './import-dry-run-group-limit.js';
 
 export type SupplierDryRunInput = {
   tenantId: string;
   vendorId: string;
   mapping: Record<string, string>;
   options: ImportJobOptions;
-  reconcilePriorResults?: DryRunRowResult[];
 };
 
 type SupplierDryRunData = Awaited<ReturnType<typeof loadSupplierDryRunData>>;
@@ -239,11 +242,25 @@ export async function planSupplierPriceListRows(
     input.vendorId,
   );
   const context = buildSupplierMatchContext(data, input.options);
-  const priors = input.reconcilePriorResults ?? [];
-  if (context.articleNoSeenInFile) {
-    seedSupplierArticleSeenFromPriors(context.articleNoSeenInFile, priors);
-  }
+  const oversized = oversizedRowNosFromParsedCsv(
+    parsed,
+    input.mapping,
+    ImportEntityType.SUPPLIER_PRICE_LIST,
+    planBudget,
+  );
   return planParsedCsvRowsWithBudget(parsed, planBudget, (rowNo, record) =>
-    planSupplierCsvRow(rowNo, record, input.mapping, input.options, context),
+    guardDryRunGroupCap(
+      oversized,
+      rowNo,
+      record[input.mapping.supplier_article_no ?? ''] ?? null,
+      () =>
+        planSupplierCsvRow(
+          rowNo,
+          record,
+          input.mapping,
+          input.options,
+          context,
+        ),
+    ),
   );
 }

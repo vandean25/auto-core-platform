@@ -22,7 +22,6 @@ export type ImportJobWorkerState = {
   dry_run_reconcile_active?: boolean;
   dry_run_reconcile_cursor?: number;
   dry_run_reconcile_units?: ImportDryRunReconcileUnit[];
-  dry_run_reconcile_target_cursor?: number;
 };
 
 export function importDryRunReconcileProgress(
@@ -33,9 +32,6 @@ export function importDryRunReconcileProgress(
   let done = 0;
   for (let index = 0; index < unitIndex && index < units.length; index++) {
     done += units[index].replan_row_nos.length;
-  }
-  if (unitIndex < units.length) {
-    done += worker.dry_run_reconcile_target_cursor ?? 0;
   }
   return done;
 }

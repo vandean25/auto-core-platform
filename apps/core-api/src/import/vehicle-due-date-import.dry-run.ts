@@ -15,6 +15,10 @@ import {
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 import {
+  dryRunImportGroupTooLargeRow,
+  oversizedRowNosFromParsedCsv,
+} from './import-dry-run-group-limit.js';
+import {
   planVehicleDueDateRows,
   type DueDateCsvRow,
   type DueDatePlanContext,
@@ -92,11 +96,17 @@ export async function planVehicleDueDateDryRun(
       break;
     }
   }
-  const context = await loadDueDatePlanContext(prisma, input, rows);
-  return planVehicleDueDateRows(
-    rows,
+  const oversized = oversizedRowNosFromParsedCsv(
+    parsed,
     input.mapping,
-    context,
-    input.reconcilePriorResults,
+    ImportEntityType.VEHICLE_DUE_DATE,
+    input.planBudget,
+  );
+  const context = await loadDueDatePlanContext(prisma, input, rows);
+  const planned = planVehicleDueDateRows(rows, input.mapping, context);
+  return planned.map((row) =>
+    oversized.has(row.row_no)
+      ? dryRunImportGroupTooLargeRow(row.row_no, row.external_id)
+      : row,
   );
 }

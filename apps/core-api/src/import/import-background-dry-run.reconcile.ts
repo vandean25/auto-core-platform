@@ -8,7 +8,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { readImportWorkerBatchSize } from './import-limits.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
 import { computeImportDryRunReconcileUnits } from './import-dry-run-reconcile.units.js';
-import { replanImportDryRunUnitChunk } from './import-dry-run-reconcile.replan.js';
+import { replanImportDryRunUnit } from './import-dry-run-reconcile.plan-unit.js';
 import {
   enqueueImportWorkerContinuation,
   importWorkerTaskClaimSeqForHandoff,
@@ -16,26 +16,6 @@ import {
   type ImportWorkerFlowDeps,
 } from './import-worker.flow.js';
 import { readUploadRef } from './import-job.worker-state.js';
-
-function advanceAfterChunk(
-  worker: NonNullable<ImportJobOptionsWithWorker['worker']>,
-  nextTargetIndex: number,
-) {
-  let unitIndex = worker.dry_run_reconcile_cursor ?? 0;
-  let targetIndex = nextTargetIndex;
-  const units = worker.dry_run_reconcile_units ?? [];
-  while (
-    unitIndex < units.length &&
-    targetIndex >= units[unitIndex].replan_row_nos.length
-  ) {
-    unitIndex += 1;
-    targetIndex = 0;
-  }
-  return {
-    dry_run_reconcile_cursor: unitIndex,
-    dry_run_reconcile_target_cursor: targetIndex,
-  };
-}
 
 export async function finalizeBackgroundDryRunReconcileIfComplete(params: {
   jobStore: ImportJobStore;
@@ -167,16 +147,17 @@ export async function runBackgroundDryRunReconcileChunk(params: {
   }
 
   const unitIndex = worker.dry_run_reconcile_cursor ?? 0;
-  const targetIndex = worker.dry_run_reconcile_target_cursor ?? 0;
   if (unitIndex >= units.length) {
     return;
   }
 
   const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
-  const mapping = params.job.mapping_json as Record<string, string>;
-  const batchSize = readImportWorkerBatchSize();
+  if (Date.now() >= chunkDeadlineMs) {
+    return;
+  }
 
-  const { rows, nextTargetIndex } = await replanImportDryRunUnitChunk({
+  const mapping = params.job.mapping_json as Record<string, string>;
+  const rows = await replanImportDryRunUnit({
     prisma: params.prisma,
     fileStorage: params.fileStorage,
     upload,
@@ -191,24 +172,16 @@ export async function runBackgroundDryRunReconcileChunk(params: {
       options: params.options,
     },
     unit: units[unitIndex],
-    targetStartIndex: targetIndex,
-    batchSize,
-    deadlineMs: chunkDeadlineMs,
   });
 
-  if (rows.length === 0 && nextTargetIndex === targetIndex) {
-    return;
-  }
-
-  const cursorPatch = advanceAfterChunk(worker, nextTargetIndex);
-  const unitDone = cursorPatch.dry_run_reconcile_cursor ?? 0;
-  const shouldFinalize = unitDone >= units.length;
+  const nextUnitIndex = unitIndex + 1;
+  const shouldFinalize = nextUnitIndex >= units.length;
 
   const persisted = await params.jobStore.persistDryRunReconcileChunk(
     params.tenantId,
     params.jobId,
     rows,
-    cursorPatch,
+    { dry_run_reconcile_cursor: nextUnitIndex },
     params.options,
     leaseToken,
     shouldFinalize
@@ -238,7 +211,7 @@ export async function runBackgroundDryRunReconcileChunk(params: {
     phase: 'dry_run',
     claimSeq: persisted.job.worker_claim_seq,
     recoverySeq: persisted.job.worker_recovery_seq,
-    chunkSeq: cursorPatch.dry_run_reconcile_cursor ?? 0,
+    chunkSeq: nextUnitIndex,
     taskClaimSeq: importWorkerTaskClaimSeqForHandoff(
       persisted.job.worker_claim_seq,
     ),

@@ -337,7 +337,6 @@ export class ImportJobStore {
       ...options.worker!,
       dry_run_reconcile_active: true,
       dry_run_reconcile_cursor: 0,
-      dry_run_reconcile_target_cursor: 0,
       dry_run_reconcile_units: units,
       lease_until: new Date(0).toISOString(),
     };

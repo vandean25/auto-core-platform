@@ -94,7 +94,6 @@ export class SupplierPriceListImportHandler implements ImportTypeHandler {
         vendorId: vendor.id,
         mapping: input.mapping,
         options: input.options,
-        reconcilePriorResults: input.reconcilePriorResults,
       },
       parsed,
       input.planBudget,

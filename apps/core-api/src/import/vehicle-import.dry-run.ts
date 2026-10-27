@@ -7,9 +7,9 @@ import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 import {
-  seedExternalIdSeenFromPriors,
-  seedVinSeenFromPriors,
-} from './import-dry-run-reconcile.prior.js';
+  guardDryRunGroupCap,
+  oversizedRowNosFromParsedCsv,
+} from './import-dry-run-group-limit.js';
 import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
 import {
   planVehicleDryRunRow,
@@ -101,12 +101,21 @@ export async function planVehicleDryRun(
     input.tenantId,
     input.sourceSystem,
   );
-  const priors = input.reconcilePriorResults ?? [];
-  seedExternalIdSeenFromPriors(context.externalIdSeenInFile, priors);
-  seedVinSeenFromPriors(context.vinSeenInFile, priors);
+  const oversized = oversizedRowNosFromParsedCsv(
+    parsed,
+    input.mapping,
+    ImportEntityType.VEHICLE,
+    input.planBudget,
+  );
   return planParsedCsvRowsWithBudget(
     parsed,
     input.planBudget,
-    (rowNo, record) => planVehicleCsvRow(rowNo, record, input, context),
+    (rowNo, record) =>
+      guardDryRunGroupCap(
+        oversized,
+        rowNo,
+        record[input.mapping.external_id ?? ''] ?? null,
+        () => planVehicleCsvRow(rowNo, record, input, context),
+      ),
   );
 }

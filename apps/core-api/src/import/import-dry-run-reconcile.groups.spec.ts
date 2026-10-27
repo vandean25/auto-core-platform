@@ -103,7 +103,6 @@ describe('finalizeBackgroundDryRunReconcileIfComplete', () => {
           started_at: new Date().toISOString(),
           dry_run_reconcile_active: true,
           dry_run_reconcile_cursor: 1,
-          dry_run_reconcile_target_cursor: 0,
           dry_run_reconcile_units: [
             {
               context_from_row: 1,
