@@ -6,6 +6,12 @@ const REPO_ROOT = path.resolve(CORE_API_ROOT, '../..');
 const LOCKFILE_PATH = path.join(REPO_ROOT, 'package-lock.json');
 const DOCKERFILE_PATH = path.join(CORE_API_ROOT, 'Dockerfile');
 const CLOUDBUILD_PATH = path.join(REPO_ROOT, 'cloudbuild.yaml');
+const BUILD_WORKFLOW_PATH = path.join(
+  REPO_ROOT,
+  '.github',
+  'workflows',
+  'build.yaml',
+);
 
 interface PackageManifest {
   engines?: {
@@ -59,6 +65,21 @@ describe('Production image version pins (AUT-167)', () => {
     const packageVersion = readPlaywrightVersionFromLockfile();
     const dockerTagVersion = readPlaywrightDockerTag();
     expect(dockerTagVersion).toBe(packageVersion);
+  });
+
+  it('pins every Playwright CI job container to the lockfile version', () => {
+    const workflow = fs.readFileSync(BUILD_WORKFLOW_PATH, 'utf8');
+    const tags = [
+      ...workflow.matchAll(
+        /^\s*image: mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble\s*$/gm,
+      ),
+    ].map((match) => match[1]);
+
+    // frontend-e2e and backend-e2e
+    expect(tags).toHaveLength(2);
+    for (const tag of tags) {
+      expect(tag).toBe(readPlaywrightVersionFromLockfile());
+    }
   });
 
   it('copies repo-root locales into the builder stage after npm ci', () => {
