@@ -66,7 +66,8 @@ describe('persistDryRunReconcileChunk P2028', () => {
       TenantContextStorage.setUser({
         tenantId: 'tenant-1',
         userId: 'user-1',
-        firebaseUid: 'fb-1',
+        email: 'admin@example.com',
+        role: 'ADMIN',
       });
       await expect(
         store.persistDryRunReconcileChunk(

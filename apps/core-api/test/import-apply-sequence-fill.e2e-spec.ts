@@ -14,7 +14,6 @@ import { IMPORT_RECONCILE_GROUP_MAX_ROWS } from '../src/import/import-dry-run-gr
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from '../src/import/import-worker-handoff.constants.js';
 import { runBackgroundDryRunReconcileChunk } from '../src/import/import-background-dry-run.reconcile.js';
 import * as planUnitModule from '../src/import/import-dry-run-reconcile.plan-unit.js';
-import { CustomerImportHandler } from '../src/import/customer-import.handler.js';
 import type { DryRunRowResult } from '../src/import/import.types.js';
 import {
   cleanupTestTenantGraph,
@@ -347,7 +346,7 @@ describe('import apply_seq fill (e2e)', () => {
   it('resumes reconcile from the job cursor after a chunk budget stop', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const store = new ImportJobStore(prisma);
-    const handler = app.get(CustomerImportHandler);
+    const handler = {} as never;
     const actor = await prisma.user.findFirstOrThrow({
       where: { firebaseUid: tenant.firebaseUid },
       select: { id: true },
