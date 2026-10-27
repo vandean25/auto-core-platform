@@ -48,6 +48,16 @@ export function importWorkerProgressCursor(
   return worker.processed_rows ?? 0;
 }
 
+/** Progress cursor for worker poison / lease claims (reconcile uses committed unit index). */
+export function importWorkerPoisonProgressCursor(
+  worker: ImportJobWorkerState,
+): number {
+  if (worker.dry_run_reconcile_active) {
+    return worker.dry_run_reconcile_cursor ?? 0;
+  }
+  return importWorkerProgressCursor(worker);
+}
+
 export type ImportJobUploadRef = {
   object_key: string;
 };

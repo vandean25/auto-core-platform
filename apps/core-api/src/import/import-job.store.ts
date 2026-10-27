@@ -19,6 +19,7 @@ import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   IMPORT_WORKER_LEASE_MS,
+  importWorkerPoisonProgressCursor,
   importWorkerProgressCursor,
   readWorkerState,
   type ImportJobOptionsWithWorker,
@@ -177,7 +178,7 @@ async function claimWorkerLeaseInTransaction(
   if (workerLeaseBlocksClaim(worker, now)) {
     return null;
   }
-  const cursorAtClaim = importWorkerProgressCursor(worker);
+  const cursorAtClaim = importWorkerPoisonProgressCursor(worker);
   const nextAttempts = nextAttemptsWithoutProgress(
     worker,
     cursorAtClaim,
@@ -338,6 +339,7 @@ export class ImportJobStore {
       dry_run_reconcile_active: true,
       dry_run_reconcile_cursor: 0,
       dry_run_reconcile_units: units,
+      claimed_processed_rows: 0,
       lease_until: new Date(0).toISOString(),
     };
     const updated = await this.prisma.importJob.updateMany({
@@ -404,13 +406,14 @@ export class ImportJobStore {
       optionsForPersist: ImportJobOptions;
     },
   ) {
-    const previousProgress = importWorkerProgressCursor(options.worker!);
+    const previousProgress = importWorkerPoisonProgressCursor(options.worker!);
     const worker = {
       ...options.worker!,
       ...workerPatch,
       lease_until: new Date(0).toISOString(),
     };
-    const progressed = importWorkerProgressCursor(worker) > previousProgress;
+    const progressed =
+      importWorkerPoisonProgressCursor(worker) > previousProgress;
     const { tallyImportDryRunTotalsFromRows } =
       await import('./import-dry-run-reconcile.totals.js');
     return this.prisma.$transaction(async (tx) => {
