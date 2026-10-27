@@ -187,18 +187,7 @@ describe('Import background worker (e2e)', () => {
 
     await expectJobAppliedWithRowCount(jobId, 3);
 
-    const mappings = await tenantPrisma().externalIdMapping.findMany({
-      where: {
-        tenant_id: tenant.tenantId,
-        entity_type: ImportEntityType.CUSTOMER,
-        source_system: 'legacy-dms',
-        external_id: { in: ['BG-1', 'BG-2', 'BG-3'] },
-      },
-    });
-    expect(mappings).toHaveLength(3);
-    expect(new Set(mappings.map((row) => row.external_id)).size).toBe(3);
-
-    const customers = await tenantPrisma().customer.findMany({
+    const customers = await basePrisma.customer.findMany({
       where: {
         tenant_id: tenant.tenantId,
         email: {
@@ -207,6 +196,17 @@ describe('Import background worker (e2e)', () => {
       },
     });
     expect(customers).toHaveLength(3);
+
+    const mappings = await basePrisma.externalIdMapping.findMany({
+      where: {
+        tenant_id: tenant.tenantId,
+        entity_type: ImportEntityType.CUSTOMER,
+        source_system: 'legacy-dms',
+        first_seen_import_job_id: jobId,
+      },
+    });
+    expect(mappings).toHaveLength(3);
+    expect(new Set(mappings.map((row) => row.external_id)).size).toBe(3);
   });
 
   it('recovery picks up a stale APPLYING job in the correct tenant context', async () => {
