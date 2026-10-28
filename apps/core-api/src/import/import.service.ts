@@ -16,7 +16,6 @@ import {
   assertTenantAdmin,
   requireActiveCurrentUser,
 } from '../site/site.authorization.js';
-import { CustomerImportHandler } from './customer-import.handler.js';
 import {
   assertFailedImportJobCanReApply,
   assertJobCanBeApplied,
@@ -51,15 +50,18 @@ import {
 } from './import-options.util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { traceImportParse, traceImportValidate } from './import-trace.js';
+import { assertImplementedImportEntityType } from './import-entity-type.guard.js';
 import {
-  assertImplementedImportEntityType,
+  IMPORT_ENTITY_TYPE_REGISTRY,
+  createImportHandlers,
+  getImportTemplate,
+  listImportEntityTypes,
   type ImplementedImportEntityType,
-} from './import-entity-type.guard.js';
+} from './import-entity-type.registry.js';
 import type {
   ImportApplyRow,
   ImportTypeHandler,
 } from './import-type-handler.js';
-import { ImportVendorResolver } from './import-vendor.resolver.js';
 import {
   assessImportUpload,
   openImportMulterStagingReadStream,
@@ -109,17 +111,12 @@ import {
 } from './import.constants.js';
 import { readImportWorkerBatchSize } from './import-limits.js';
 import { computeDryRunTotals } from './import-totals.util.js';
-import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
+import { buildTemplateCsv } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
 import { filterExpiredImportWorkerCandidates } from './import-recovery.helpers.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
-import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
-import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
-import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.js';
-import { VehicleImportHandler } from './vehicle-import.handler.js';
-import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 
 function statusRetriesTechnicalRows(status: ImportJobStatus): boolean {
   return (
@@ -175,42 +172,15 @@ export class ImportService {
       this.audit,
       serialize,
     );
-    this.handlers = {
-      [ImportEntityType.CUSTOMER]: new CustomerImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-        decisionHooks,
-        decisionLive,
-        requestContext,
-      ),
-      [ImportEntityType.VEHICLE]: new VehicleImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-      [ImportEntityType.SUPPLIER_PRICE_LIST]:
-        new SupplierPriceListImportHandler(
-          prisma,
-          new ImportVendorResolver(prisma),
-          supplierRunner,
-        ),
-      [ImportEntityType.LABOR_OPERATION]: new LaborOperationImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-      [ImportEntityType.VEHICLE_PARTY]: new VehiclePartyImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-      [ImportEntityType.VEHICLE_DUE_DATE]: new VehicleDueDateImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-    };
+    this.handlers = createImportHandlers({
+      prisma,
+      audit: this.audit,
+      rowRunner,
+      supplierRunner,
+      decisionHooks,
+      decisionLive,
+      requestContext,
+    });
   }
 
   async createDryRunFromUpload(params: {
@@ -700,12 +670,13 @@ export class ImportService {
       applyOptions,
       effectiveOptions,
     });
+    assertImplementedImportEntityType(job.entity_type);
     const lock = await this.jobStore.lockForBackgroundApply(
       tenantId,
       jobId,
       effectiveOptions,
       dryRunTotals,
-      handler.applySequenceOrderKey(),
+      IMPORT_ENTITY_TYPE_REGISTRY[job.entity_type].applyOrder,
     );
     if (lock.count === 0) {
       const current = await this.jobStore.findJob(tenantId, jobId);
@@ -750,8 +721,13 @@ export class ImportService {
     return {
       entity_type: template.entity_type,
       fields: template.fields,
-      csv: buildTemplateCsv(entityType),
+      csv: buildTemplateCsv(template),
     };
+  }
+
+  listEntityTypes() {
+    assertTenantAdmin(this.tenantContext);
+    return listImportEntityTypes();
   }
 
   async cancelJob(jobId: string) {

@@ -56,6 +56,7 @@ vi.mock('@/api/imports', async (importOriginal) => {
   return {
     ...actual,
     useImportTemplate: vi.fn(),
+    useImportEntityTypes: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -159,6 +160,24 @@ describe('DataImportSettingsTab characterization', () => {
       expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
         entityLabels.CUSTOMER,
       )
+    })
+
+    it('offers only the wizard entity types of the registry', async () => {
+      renderImportSettingsTab()
+
+      fireEvent.click(screen.getByRole('combobox', { name: di.source.entityLabel }))
+      const options = await screen.findAllByRole('option')
+
+      expect(options.map((option) => option.textContent)).toEqual([
+        entityLabels.CUSTOMER,
+        entityLabels.VEHICLE,
+        entityLabels.SUPPLIER_PRICE_LIST,
+        entityLabels.LABOR_OPERATION,
+      ])
+      expect(entityLabels.VEHICLE_PARTY).toBeTruthy()
+      expect(entityLabels.VEHICLE_DUE_DATE).toBeTruthy()
+      expect(screen.queryByRole('option', { name: entityLabels.VEHICLE_PARTY })).toBeNull()
+      expect(screen.queryByRole('option', { name: entityLabels.VEHICLE_DUE_DATE })).toBeNull()
     })
 
     it('pre-selects the entity type from the URL search params', () => {

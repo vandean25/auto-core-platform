@@ -39,6 +39,7 @@ export function DataImportSettingsTab() {
       {model.wizard.step === 1 ? (
         <DataImportSourceStep
           entityType={model.wizard.entityType}
+          entityTypes={model.entityTypes}
           onEntityTypeChange={model.handleEntityTypeChange}
           sourceSystem={model.sourceSystem}
           onSourceSystemChange={model.handleSourceSystemChange}

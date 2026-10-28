@@ -18,6 +18,7 @@ describe('ImportController', () => {
     applyJob: jest.fn(),
     applyJobHttp: jest.fn(),
     getTemplate: jest.fn(),
+    listEntityTypes: jest.fn(),
   };
 
   const mockMappingProfileService = {
@@ -39,7 +40,10 @@ describe('ImportController', () => {
           provide: ImportMappingProfileService,
           useValue: mockMappingProfileService,
         },
-        { provide: ImportDirectUploadService, useValue: mockDirectUploadService },
+        {
+          provide: ImportDirectUploadService,
+          useValue: mockDirectUploadService,
+        },
       ],
     }).compile();
 
@@ -47,14 +51,19 @@ describe('ImportController', () => {
     jest.clearAllMocks();
   });
 
-  describe('createDryRun', () => {    it('accepts SUPPLIER_PRICE_LIST entity type', async () => {
+  describe('createDryRun', () => {
+    it('accepts SUPPLIER_PRICE_LIST entity type', async () => {
       const file = {
-        buffer: Buffer.from('Lieferanten-Artikelnummer;Beschreibung;Einkaufspreis\nART-1;Filter;10.50'),
+        buffer: Buffer.from(
+          'Lieferanten-Artikelnummer;Beschreibung;Einkaufspreis\nART-1;Filter;10.50',
+        ),
         originalname: 'prices.csv',
         size: 100,
       } as Express.Multer.File;
 
-      mockImportService.createDryRunFromUpload.mockResolvedValue({ id: 'job-1' });
+      mockImportService.createDryRunFromUpload.mockResolvedValue({
+        id: 'job-1',
+      });
 
       const uploadRequest = {};
       const result = await controller.createDryRun(
@@ -113,6 +122,22 @@ describe('ImportController', () => {
     });
   });
 
+  describe('listEntityTypes', () => {
+    it('wraps the registry entries from the service in a data envelope', () => {
+      const entries = [
+        {
+          entity_type: ImportEntityType.CUSTOMER,
+          wizard: true,
+          required_fields: ['external_id'],
+        },
+      ];
+      mockImportService.listEntityTypes.mockReturnValue(entries);
+
+      expect(controller.listEntityTypes()).toEqual({ data: entries });
+      expect(mockImportService.listEntityTypes).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('apply', () => {
     it('forwards apply options body and returns 202 when the job is queued', async () => {
       mockImportService.applyJobHttp.mockResolvedValue({
@@ -128,7 +153,10 @@ describe('ImportController', () => {
 
       const result = await controller.apply('job-1', body, res as never);
 
-      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith('job-1', body);
+      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith(
+        'job-1',
+        body,
+      );
       expect(res.status).toHaveBeenCalledWith(202);
       expect(result).toEqual({ id: 'job-1', status: 'APPLYING' });
     });
@@ -142,7 +170,10 @@ describe('ImportController', () => {
 
       const result = await controller.apply('job-1', undefined, res as never);
 
-      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith('job-1', undefined);
+      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith(
+        'job-1',
+        undefined,
+      );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(result).toEqual({ id: 'job-1', status: 'APPLIED' });
     });

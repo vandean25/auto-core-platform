@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
 
 import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
-import { IMPORT_ENTITY_TYPE_VALUES } from '@/lib/i18n/enum-registry'
+import { toImportEntityTypeUi } from '@/lib/i18n/enum-registry'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,7 @@ import type { ImportEntityTypeUi } from './import-field-labels'
 
 export type DataImportSourceStepProps = {
   entityType: ImportEntityTypeUi
+  entityTypes: ImportEntityTypeUi[]
   onEntityTypeChange: (entityType: ImportEntityTypeUi) => void
   sourceSystem: string
   onSourceSystemChange: (sourceSystem: string) => void
@@ -43,13 +44,13 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
           <Label htmlFor="import-entity">{t('dataImport.source.entityLabel')}</Label>
           <Select
             value={props.entityType}
-            onValueChange={(value) => props.onEntityTypeChange(value as ImportEntityTypeUi)}
+            onValueChange={(value) => props.onEntityTypeChange(toImportEntityTypeUi(value))}
           >
             <SelectTrigger id="import-entity">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {IMPORT_ENTITY_TYPE_VALUES.map((value) => (
+              {props.entityTypes.map((value) => (
                 <SelectItem key={value} value={value}>
                   {formatImportEntityTypeLabel(value)}
                 </SelectItem>
