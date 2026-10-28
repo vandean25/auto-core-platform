@@ -80,6 +80,38 @@ function applyInlineCo2Change(
   }
 }
 
+function NovaClassSelect({
+  value,
+  onChange,
+  className,
+  ariaLabel,
+}: {
+  value: VehicleNovaClass | null | undefined
+  onChange: (next: VehicleNovaClass | null) => void
+  className?: string
+  ariaLabel?: string
+}) {
+  const localized = useLocalizedCopy()
+
+  return (
+    <Select
+      value={value ?? ''}
+      onValueChange={(next) => onChange((next || null) as VehicleNovaClass | null)}
+    >
+      <SelectTrigger className={className} aria-label={ariaLabel}>
+        <SelectValue placeholder={localized(VEHICLE_SELECT_PLACEHOLDER)} />
+      </SelectTrigger>
+      <SelectContent>
+        {VEHICLE_NOVA_CLASS_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {localized(option.copy)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 export function VehicleRegulatorySection({
   values,
   onChange,
@@ -129,26 +161,12 @@ export function VehicleRegulatorySection({
           <div className="text-muted-foreground text-xs mb-1">
             {localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
           </div>
-          <Select
-            value={values.nova_class ?? ''}
-            onValueChange={(next) =>
-              onChange({ nova_class: (next || null) as VehicleNovaClass | null })
-            }
-          >
-            <SelectTrigger
-              className="h-9"
-              aria-label={localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
-            >
-              <SelectValue placeholder={localized(VEHICLE_SELECT_PLACEHOLDER)} />
-            </SelectTrigger>
-            <SelectContent>
-              {VEHICLE_NOVA_CLASS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {localized(option.copy)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <NovaClassSelect
+            value={values.nova_class}
+            onChange={(nova_class) => onChange({ nova_class })}
+            className="h-9"
+            ariaLabel={localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
+          />
         </div>
       </div>
     )
@@ -217,23 +235,10 @@ export function VehicleRegulatorySection({
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.novaClass)}</span>
-          <Select
-            value={values.nova_class ?? ''}
-            onValueChange={(next) =>
-              onChange({ nova_class: (next || null) as VehicleNovaClass | null })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={localized(VEHICLE_SELECT_PLACEHOLDER)} />
-            </SelectTrigger>
-            <SelectContent>
-              {VEHICLE_NOVA_CLASS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {localized(option.copy)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <NovaClassSelect
+            value={values.nova_class}
+            onChange={(nova_class) => onChange({ nova_class })}
+          />
         </label>
         <label className="space-y-1 text-sm sm:col-span-2">
           <span className="text-slate-600">

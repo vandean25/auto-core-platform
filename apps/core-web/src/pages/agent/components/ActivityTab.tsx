@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { Copy, ExternalLink, Inbox, RefreshCw, Search } from 'lucide-react'
+import { Copy, ExternalLink, Inbox, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { DateField } from '@/components/ui/date-field'
+import { AgentDateRangeFields, AgentErrorState, AgentLoadingState, AgentRefreshButton } from './agent-tab-parts'
 import {
   Table,
   TableBody,
@@ -173,80 +173,25 @@ export function ActivityTab({
           </div>
 
           {/* Date range filters */}
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-            <label
-              htmlFor="activity-start-date"
-              className="text-xs text-slate-500 font-medium"
-            >
-              {t('activity.filters.startDateLabel')}:
-            </label>
-            <DateField
-              id="activity-start-date"
-              value={startDate}
-              onChange={setStartDate}
-              className="h-9 w-full text-xs sm:w-36"
-              data-testid="filter-start-date-input"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-            <label
-              htmlFor="activity-end-date"
-              className="text-xs text-slate-500 font-medium"
-            >
-              {t('activity.filters.endDateLabel')}:
-            </label>
-            <DateField
-              id="activity-end-date"
-              value={endDate}
-              onChange={setEndDate}
-              className="h-9 w-full text-xs sm:w-36"
-              data-testid="filter-end-date-input"
-            />
-          </div>
+          <AgentDateRangeFields
+            idPrefix="activity"
+            startDate={startDate}
+            endDate={endDate}
+            onStartChange={setStartDate}
+            onEndChange={setEndDate}
+            startTestId="filter-start-date-input"
+            endTestId="filter-end-date-input"
+          />
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => refetch()}
-          className="text-slate-500 hover:text-slate-900"
-          aria-label={t('common.refresh')}
-        >
-          <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {t('common.refresh')}
-        </Button>
+        <AgentRefreshButton onRefresh={() => refetch()} />
       </div>
 
       {/* Loading state */}
-      {isLoading && (
-        <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
-          <RefreshCw
-            className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
-            aria-hidden="true"
-          />
-          {t('common.loading')}
-        </div>
-      )}
+      {isLoading && <AgentLoadingState />}
 
       {/* Error state */}
-      {isError && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
-          <p className="text-sm font-medium text-rose-800">
-            {t('common.error')}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
-          >
-            {t('common.retry')}
-          </Button>
-        </div>
-      )}
+      {isError && <AgentErrorState onRetry={() => refetch()} />}
 
       {/* Empty state */}
       {!isLoading && !isError && logs.length === 0 && (
