@@ -32,6 +32,26 @@ describe('client-safe HTTP error codes', () => {
     ).toEqual({ orderId: 'wo-live', orderNumber: 'WO-2026-0007' });
   });
 
+  it('keeps a value from params when a non-nullable detail is null at the top level', () => {
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        message: 'Vehicle already has active order WO-2026-0007',
+        orderId: null,
+        params: { orderId: 'wo-7' },
+      }),
+    ).toEqual({ orderId: 'wo-7' });
+  });
+
+  it('drops a null non-nullable detail when there is no nested value', () => {
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        orderId: null,
+      }),
+    ).toEqual({});
+  });
+
   it('lists the estimate send gates the advisor dialog maps to German copy', () => {
     for (const code of [
       'ESTIMATE_NOT_DRAFT',

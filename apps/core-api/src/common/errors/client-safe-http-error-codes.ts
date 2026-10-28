@@ -319,13 +319,20 @@ export const CLIENT_SAFE_HTTP_ERROR_STRUCTURED_DETAIL_KEYS: Partial<
 
 /**
  * Body fields, beyond `code` and `message`, that the global filter forwards for a client-safe code. Only IDs, order
- * numbers and timestamps belong here, and a field is forwarded only when its value is a string or null.
+ * numbers and timestamps belong here, and a field is forwarded only when its value is a string.
  */
 export const CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS: Partial<
   Record<string, readonly string[]>
 > = {
   VEHICLE_HAS_ACTIVE_ORDER: ['orderId', 'orderNumber'],
   // A re-apply on a running import tells the client when the live apply lease ends.
+  IMPORT_APPLY_IN_PROGRESS: ['leaseExpiresAt'],
+};
+
+/** Allowlisted fields that may also report an explicit null, meaning there is nothing to report. */
+const CLIENT_SAFE_HTTP_ERROR_NULLABLE_DETAIL_KEYS: Partial<
+  Record<string, readonly string[]>
+> = {
   IMPORT_APPLY_IN_PROGRESS: ['leaseExpiresAt'],
 };
 
@@ -342,7 +349,7 @@ export function pickClientSafeHttpErrorDetails(
   return pickClientSafeHttpErrorParams(responseBody);
 }
 
-/** Typed `params` object for client-safe codes (allowlisted string fields and explicit nulls). */
+/** Typed `params` object for client-safe codes (allowlisted string fields, plus nullable fields with explicit null). */
 export function pickClientSafeHttpErrorParams(
   responseBody: Record<string, unknown>,
 ): Record<string, string | null> {
@@ -353,13 +360,16 @@ export function pickClientSafeHttpErrorParams(
 
   const params: Record<string, string | null> = {};
   for (const key of CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS[code] ?? []) {
-    const topLevel = clientSafeDetailValue(responseBody[key]);
+    const readDetail = allowsNullDetail(code, key)
+      ? stringOrNullDetailValue
+      : stringDetailValue;
+    const topLevel = readDetail(responseBody[key]);
     if (topLevel !== undefined) {
       params[key] = topLevel;
       continue;
     }
     const nested = isRecord(responseBody.params)
-      ? clientSafeDetailValue(responseBody.params[key])
+      ? readDetail(responseBody.params[key])
       : undefined;
     if (nested !== undefined) {
       params[key] = nested;
@@ -368,8 +378,17 @@ export function pickClientSafeHttpErrorParams(
   return params;
 }
 
-/** Allowlisted detail values are strings, or null when there is nothing to report (e.g. no lease). */
-function clientSafeDetailValue(value: unknown): string | null | undefined {
+function allowsNullDetail(code: string, key: string): boolean {
+  return (
+    CLIENT_SAFE_HTTP_ERROR_NULLABLE_DETAIL_KEYS[code]?.includes(key) ?? false
+  );
+}
+
+function stringDetailValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function stringOrNullDetailValue(value: unknown): string | null | undefined {
   if (typeof value === 'string' || value === null) {
     return value;
   }
