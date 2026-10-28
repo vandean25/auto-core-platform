@@ -22,6 +22,7 @@ import {
   type ImportApplyFailureReason,
   type ImportJobFailureDetail,
 } from './import-apply.errors.js';
+import { importJobOptionsWithFailure } from './import-apply-failure.util.js';
 import {
   delayMs,
   retryableTransactionDelayMs,
@@ -173,10 +174,10 @@ async function markImportJobFailedInTransaction(
     where: { tenant_id: params.tenantId, id: params.jobId },
     select: { options_json: true },
   });
-  const options = {
-    ...((job?.options_json as Record<string, unknown> | null) ?? {}),
-    apply_failure_reason: params.applyFailureReason,
-  };
+  const options = importJobOptionsWithFailure(
+    job?.options_json,
+    params.applyFailureReason,
+  );
   const updated = await tx.importJob.updateMany({
     where: params.where,
     data: {
@@ -931,16 +932,11 @@ export class ImportJobStore {
       where: { tenant_id: tenantId, id: jobId },
       select: { options_json: true },
     });
-    const options = {
-      ...((job?.options_json as Record<string, unknown> | null) ?? {}),
-      apply_failure_reason: applyFailureReason,
-      ...(failure
-        ? {
-            apply_failure_code: failure.code,
-            apply_failure_message: failure.message,
-          }
-        : {}),
-    };
+    const options = importJobOptionsWithFailure(
+      job?.options_json,
+      applyFailureReason,
+      failure,
+    );
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
