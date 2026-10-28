@@ -41,21 +41,11 @@ export function daysToMinutes(days: number, avgMinutesPerWorkday: number): numbe
   return Math.round(days * avgMinutesPerWorkday)
 }
 
-export function formatApproxDays(minutes: number, avgMinutesPerWorkday: number): string | null {
+/** Leave minutes as working days (one decimal), or null when the average workday is unknown. */
+export function approxLeaveDays(minutes: number, avgMinutesPerWorkday: number): number | null {
   if (avgMinutesPerWorkday <= 0) {
     return null
   }
 
-  const days = minutes / avgMinutesPerWorkday
-  const oneDecimal = Math.round(days * 10) / 10
-  const formatted = Number.isInteger(oneDecimal) ? String(oneDecimal) : oneDecimal.toFixed(1)
-  return `≈ ${formatted} days`
-}
-
-export function formatLeaveMinutesLabel(
-  minutes: number,
-  avgMinutesPerWorkday: number,
-): string {
-  const approx = formatApproxDays(minutes, avgMinutesPerWorkday)
-  return approx ? `${minutes} min (${approx})` : `${minutes} min`
+  return Math.round((minutes / avgMinutesPerWorkday) * 10) / 10
 }

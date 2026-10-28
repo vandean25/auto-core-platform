@@ -450,7 +450,7 @@ type ManagerPunchControlsProps = {
 
 function ManagerPunchControls({ t, selection, punch }: ManagerPunchControlsProps) {
   return (
-    <div className='flex flex-col gap-3 sm:flex-row sm:items-end' data-testid='hr-clock-manager-actions'>
+    <div className='flex flex-col gap-3 sm:flex-row sm:items-end max-sm:w-full max-sm:[&_button]:min-h-11' data-testid='hr-clock-manager-actions'>
       <div className='space-y-1'>
         <label htmlFor='attendance-employee' className='text-sm font-medium'>{t('clock.employee')}</label>
         <select
@@ -458,7 +458,7 @@ function ManagerPunchControls({ t, selection, punch }: ManagerPunchControlsProps
           value={selection.selectedEmployeeId}
           disabled={selection.isEmployeesLoading}
           onChange={(event) => selection.setSelectedEmployeeId(event.target.value)}
-          className='flex h-10 min-w-48 rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm'
+          className='flex h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-base max-sm:min-h-11 sm:w-auto sm:min-w-48 md:text-sm'
         >
           {selection.employeeOptions.map((employee) => (
             <option key={employee.id} value={employee.id}>{employee.name}</option>
@@ -490,11 +490,13 @@ function ClockHeaderActions({ t, view, canManageAttendance, ownClock, selection,
   if (canManageAttendance) return <ManagerPunchControls t={t} selection={selection} punch={punch} />
 
   return ownClock ? (
-    <AttendancePunchBar
-      state={ownClock.state}
-      pending={punch.isSelfPunchPending}
-      onPunch={punch.handleSelfPunch}
-    />
+    <div className='max-sm:w-full max-sm:[&_button]:min-h-11'>
+      <AttendancePunchBar
+        state={ownClock.state}
+        pending={punch.isSelfPunchPending}
+        onPunch={punch.handleSelfPunch}
+      />
+    </div>
   ) : null
 }
 
@@ -568,8 +570,8 @@ export default function HrClockPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between gap-4' data-testid='hr-clock-header'>
-        <div>
+      <div className='flex flex-wrap items-center justify-between gap-4' data-testid='hr-clock-header'>
+        <div className='min-w-0 max-sm:w-full'>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('clock.pageTitle')}</h2>
           <p className='text-slate-500'>{t('clock.pageDescription')}</p>
         </div>

@@ -5,7 +5,8 @@ import { toast } from 'sonner'
 
 import { formatLocalDateInZone } from '@/lib/format'
 import deHr from '../../../../../locales/de/hr.json'
-import { formatApproxDays } from '@/lib/hr-leave-minutes'
+import { approxLeaveDays } from '@/lib/hr-leave-minutes'
+import { formatNumber } from '@/lib/format'
 import { registerGermanUiForTests } from '@/test/german-ui'
 import HrLeavePage from './HrLeavePage'
 
@@ -204,13 +205,9 @@ describe('HrLeavePage', () => {
       </MemoryRouter>,
     )
 
-    const remainingApprox = formatApproxDays(HR_TEST_REMAINING_AFTER_WEEK_MINUTES, 515)
+    const remainingDays = formatNumber(approxLeaveDays(HR_TEST_REMAINING_AFTER_WEEK_MINUTES, 515) ?? 0, { maximumFractionDigits: 1 })
     expect(
-      screen.getByText(
-        deHr.leave.remaining
-          .replace('{{minutes}}', String(HR_TEST_REMAINING_AFTER_WEEK_MINUTES))
-          .replace('{{approx}}', ` (${remainingApprox})`),
-      ),
+      screen.getByText(deHr.leave.remaining.replace('{{days}}', remainingDays)),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: deHr.leave.bookLeave })).toBeInTheDocument()
     expect(screen.getByTestId('leave-table')).toHaveTextContent(String(HR_TEST_TWO_DAY_LEAVE_MINUTES))
@@ -221,6 +218,20 @@ describe('HrLeavePage', () => {
     expect(cancelLeave).toHaveBeenCalledWith('leave-1', expect.objectContaining({
       onError: expect.any(Function),
     }))
+  })
+
+  it('shows no remaining chip until the work schedule is known, so the days do not change afterwards', () => {
+    setupPage('SALES')
+    apiMocks.useEmployeeWorkSchedule.mockReturnValue({ data: undefined, isLoading: true })
+
+    render(
+      <MemoryRouter>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByText(/^Rest:/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deHr.leave.bookLeave })).toBeInTheDocument()
   })
 
   it('opens the booking sheet for OWNER when /hr/me returns 403', () => {

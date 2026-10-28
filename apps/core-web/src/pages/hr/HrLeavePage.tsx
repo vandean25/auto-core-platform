@@ -26,12 +26,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
-import { formatIsoDateOnly } from '@/lib/format'
+import { formatIsoDateOnly, formatNumber } from '@/lib/format'
 import { i18n } from '@/lib/i18n'
 import {
   averageExpectedMinutesPerWorkday,
   FALLBACK_AVG_WORKDAY_MINUTES,
-  formatApproxDays,
+  approxLeaveDays,
 } from '@/lib/hr-leave-minutes'
 import { formatLocalDateInZone, formatMonthYear } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
@@ -126,6 +126,22 @@ function MissingEmployeeState({ t }: { t: TFunction<'hr'> }) {
   )
 }
 
+/** Remaining leave in working days; nothing until the work schedule is known, so the number does not change afterwards. */
+function RemainingLeaveBadge({ minutes, avgMinutes, ready }: { minutes: number; avgMinutes: number; ready: boolean }) {
+  const { t } = useTranslation('hr')
+  if (!ready) return null
+  const days = approxLeaveDays(minutes, avgMinutes)
+  const label =
+    days === null
+      ? t('leave.remainingMinutes', { minutes })
+      : t('leave.remaining', { days: formatNumber(days, { maximumFractionDigits: 1 }) })
+  return (
+    <span title={t('leave.remainingMinutes', { minutes })}>
+      <StatusBadge status='ACTIVE' label={label} />
+    </span>
+  )
+}
+
 export default function HrLeavePage() {
   const { t } = useTranslation('hr')
   useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
@@ -189,7 +205,6 @@ export default function HrLeavePage() {
   }, [meScheduleQuery.data])
   const remainingMinutes =
     myLeaveQuery.data?.remainingMinutes ?? hrMeQuery.data?.remainingLeaveMinutes ?? 0
-  const remainingApprox = formatApproxDays(remainingMinutes, remainingAvgMinutes)
   const pageCount = Math.max(1, Math.ceil(sortedBookings.length / pagination.pageSize))
   const pagedBookings = sortedBookings.slice(
     pagination.pageIndex * pagination.pageSize,
@@ -262,15 +277,16 @@ export default function HrLeavePage() {
 
   return (
     <div className='space-y-8'>
-      <div className='flex items-center justify-between'>
-        <div>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <div className='min-w-0 max-sm:w-full'>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('leave.pageTitle')}</h2>
           <p className='text-slate-500'>{t('leave.pageDescription')}</p>
         </div>
-        <div className='flex items-center gap-3'>
-          <StatusBadge
-            status='ACTIVE'
-            label={t('leave.remaining', { minutes: remainingMinutes, approx: remainingApprox ? ` (${remainingApprox})` : '' })}
+        <div className='flex flex-wrap items-center gap-3 max-sm:[&_button]:min-h-11'>
+          <RemainingLeaveBadge
+            minutes={remainingMinutes}
+            avgMinutes={remainingAvgMinutes}
+            ready={!meScheduleQuery.isLoading}
           />
           <Button type='button' onClick={() => openCreateSheet()}>
             {t('leave.bookLeave')}
@@ -322,12 +338,12 @@ export default function HrLeavePage() {
 
       {showsTeamLeave ? (
         <section className='space-y-4' aria-labelledby='team-leave-heading'>
-          <div className='flex items-center justify-between'>
-            <div>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <div className='min-w-0 max-sm:w-full'>
               <h3 id='team-leave-heading' className='text-lg font-semibold'>{t('leave.teamLeave')}</h3>
               <p className='text-sm text-slate-500'>{t('leave.teamLeaveHint')}</p>
             </div>
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-2 max-sm:[&_button]:min-h-11'>
               <Button type='button' variant='outline' size='sm' onClick={() => setMonth((current) => shiftMonth(current, -1))}>
                 {t('leave.previous')}
               </Button>
