@@ -35,6 +35,7 @@
     "verify:esm-artifact": "node scripts/verify-esm-artifact.mjs",
     "gcs:lifecycle": "tsx scripts/apply-gcs-lifecycle.ts",
     "purge:tenant-vehicle-media": "tsx scripts/purge-tenant-vehicle-media-objects.ts",
+    "audit:purge-empty-vehicle-updates": "tsx scripts/purge-empty-vehicle-update-audits.ts",
     "db:seed:platform-admin": "tsx scripts/seed-platform-admin.ts",
     "db:seed:tenant-member": "tsx scripts/seed-tenant-member.ts",
     "db:seed:landing-demo-tenant": "tsx scripts/seed-landing-demo-tenant.ts",
