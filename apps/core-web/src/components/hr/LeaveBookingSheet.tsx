@@ -181,7 +181,7 @@ export function LeaveBookingSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side='right' className='w-full overflow-y-auto sm:max-w-xl'>
-        <SheetHeader className='mb-6 flex-row items-start justify-between pr-10 text-left'>
+        <SheetHeader className='mb-6 flex-row items-start justify-between text-left'>
           <div className='space-y-2'>
             <SheetTitle>{booking ? t('leave.bookingSheet.viewTitle') : t('leave.bookingSheet.bookTitle')}</SheetTitle>
             <SheetDescription>

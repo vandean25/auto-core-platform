@@ -20,9 +20,7 @@ docs/
 .github/
 README.md
 
-# Large API discovery dumps and repo metadata — not user-facing docs assets.
-identitytoolkit-v1-discovery.json
-identitytoolkit-v2-discovery.json
+# Repo metadata — not user-facing docs assets.
 cloudbuild.yaml
 cloudbuild.staging.yaml
 pr_description.md

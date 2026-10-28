@@ -14,8 +14,6 @@ docs
 stitch-downloads
 *.md
 *.mdx
-identitytoolkit-v1-discovery.json
-identitytoolkit-v2-discovery.json
 test_syntax.ts
 .firebase
 .vercel

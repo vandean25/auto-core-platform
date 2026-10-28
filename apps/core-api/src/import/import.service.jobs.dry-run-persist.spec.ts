@@ -107,6 +107,10 @@ describe('ImportService job lifecycle — createDryRunFromUpload persisted job',
         create_new_catalog_items: false,
         accept_all_price_jumps: false,
         accepted_row_numbers: [3, 4],
+        upload: {
+          object_key: 'tenant-1/job-1/source.csv',
+          headers: ['Kunden-Nr', 'Vorname', 'Nachname'],
+        },
       });
     });
 
@@ -203,5 +207,4 @@ describe('ImportService job lifecycle — createDryRunFromUpload persisted job',
       });
     });
   });
-
 });

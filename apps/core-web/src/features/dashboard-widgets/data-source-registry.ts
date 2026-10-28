@@ -3,11 +3,14 @@ import { fetchWithAuth } from '@/api/client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { applyClientFiltersAndSort, parseDataTableQueryParams } from '@/features/dashboard-widgets/utils'
 import { isAbortError } from '@/lib/error-utils'
+import { MAX_LIST_PAGE_SIZE, MAX_VEHICLE_LIST_PAGE_SIZE } from '@/lib/list-page-size'
 
 type WidgetSourceDefinition = {
   key: string
   pathPrefix: string
   buildApiUrl: (queryParams: DataTableQueryParams) => string
+  /** False when the API request carries no search term, so the widget's search is applied on the client only. */
+  searchSentToApi?: false
 }
 
 const widgetSourceDefinitions: WidgetSourceDefinition[] = [
@@ -33,7 +36,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_LIST_PAGE_SIZE))
       if (queryParams.sortField) params.set('sortBy', queryParams.sortField)
       if (queryParams.sortDirection) params.set('order', queryParams.sortDirection)
       const status = queryParams.filters.find((filter) => filter.field === 'status')?.value
@@ -64,7 +67,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_LIST_PAGE_SIZE))
       const nameFilter = queryParams.filters.find((filter) => filter.field === 'name')?.value
       const effectiveSearch = queryParams.search ?? nameFilter
       if (effectiveSearch) params.set('search', effectiveSearch)
@@ -79,7 +82,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_LIST_PAGE_SIZE))
       if (queryParams.search) params.set('search', queryParams.search)
       if (queryParams.sortField) params.set('sortField', queryParams.sortField)
       if (queryParams.sortDirection) params.set('sortDirection', queryParams.sortDirection)
@@ -99,10 +102,11 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
   {
     key: 'pickerl-due',
     pathPrefix: '/vehicles/pickerl-due',
+    searchSentToApi: false,
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_VEHICLE_LIST_PAGE_SIZE))
       const windowFilter = queryParams.filters.find((filter) => filter.field === 'window')?.value
       if (windowFilter) params.set('window', windowFilter)
       const statusFilter = queryParams.filters.find((filter) => filter.field === 'status')?.value
@@ -116,6 +120,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) =>
       buildDataTableUrl('/api/vehicles', queryParams, {
         searchFallbackFilterFields: ['make', 'model', 'vin', 'plate'],
+        maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE,
       }),
   },
 ]
@@ -130,6 +135,15 @@ function extractRows(payload: unknown): unknown[] {
   return []
 }
 
+/** The total the API reports for the query (`meta.total`), which can exceed the one page of rows fetched. */
+function extractTotal(payload: unknown, rowCount: number): number {
+  const total = (payload as { meta?: { total?: unknown } } | null)?.meta?.total
+  return typeof total === 'number' && Number.isFinite(total) ? Math.max(total, rowCount) : rowCount
+}
+
+/** What one widget request returns: the fetched page of rows and the total number of matches on the server. */
+export type WidgetRowsResult = { rows: unknown[]; total: number }
+
 export function resolveWidgetSourceByPath(pathname: string): WidgetSourceDefinition | null {
   return widgetSourceDefinitions.find((source) => pathname.startsWith(source.pathPrefix)) ?? null
 }
@@ -138,6 +152,11 @@ export type WidgetRequest = {
   apiUrl: string
   /** Query params parsed from the widget href; they are applied on the client over the fetched rows. */
   queryParams: DataTableQueryParams
+  /**
+   * The client narrows the fetched rows by something the server total does not reflect: any `filter_*` value (the API
+   * may not apply it, or only as a looser search term) or a search the API request does not carry.
+   */
+  hasClientOnlyFilters: boolean
 }
 
 /** The API request behind a widget href, or null when no widget source serves the href. */
@@ -150,14 +169,19 @@ export function resolveWidgetRequest(href: string): WidgetRequest | null {
   const queryForDashboard: DataTableQueryParams = {
     ...queryParams,
     page: 1,
-    pageSize: Math.max(200, queryParams.pageSize),
+    pageSize: MAX_LIST_PAGE_SIZE,
   }
 
-  return { apiUrl: source.buildApiUrl(queryForDashboard), queryParams }
+  const hasClientOnlySearch = Boolean(queryParams.search?.trim()) && source.searchSentToApi === false
+  return {
+    apiUrl: source.buildApiUrl(queryForDashboard),
+    queryParams,
+    hasClientOnlyFilters: queryParams.filters.length > 0 || hasClientOnlySearch,
+  }
 }
 
 /** Rows of one API URL, unfiltered: widgets with different client-side filters share them. */
-export async function fetchWidgetRows(apiUrl: string, sourceKey: string): Promise<unknown[]> {
+export async function fetchWidgetRows(apiUrl: string, sourceKey: string): Promise<WidgetRowsResult> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
@@ -166,11 +190,13 @@ export async function fetchWidgetRows(apiUrl: string, sourceKey: string): Promis
     if (!response.ok) {
       throw new Error(`Failed to fetch widget data for ${sourceKey}`)
     }
-    return extractRows((await response.json()) as unknown)
+    const payload = (await response.json()) as unknown
+    const rows = extractRows(payload)
+    return { rows, total: extractTotal(payload, rows.length) }
   } catch (error: unknown) {
     if (isAbortError(error)) {
       console.warn(`Fetch for widget ${sourceKey} timed out after 10s`)
-      return []
+      return { rows: [], total: 0 }
     }
     throw error
   } finally {

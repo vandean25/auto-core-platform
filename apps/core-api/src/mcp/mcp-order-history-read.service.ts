@@ -139,6 +139,7 @@ export class McpOrderHistoryReadService {
       address_country: detail.address_country,
       createdAt: detail.createdAt,
       updatedAt: detail.updatedAt,
+      legacy_ids: detail.legacy_ids,
       vehicles: detail.vehicles,
       orders,
     };

@@ -124,14 +124,20 @@ describe('VehicleQueryBuilder', () => {
       });
     });
 
-    it('caps pageSize to 100', () => {
-      const result = VehicleQueryBuilder.resolvePagination(1, 250);
-      expect(result).toEqual({
+    it('caps pageSize to 50 and pages by the capped size (AUT-807)', () => {
+      expect(VehicleQueryBuilder.resolvePagination(1, 250)).toEqual({
         page: 1,
-        pageSize: 100,
+        pageSize: 50,
         skip: 0,
-        take: 100,
+        take: 50,
       });
+      expect(VehicleQueryBuilder.resolvePagination(3, 200)).toEqual({
+        page: 3,
+        pageSize: 50,
+        skip: 100,
+        take: 50,
+      });
+      expect(VehicleQueryBuilder.resolvePagination(1, 50).pageSize).toBe(50);
     });
 
     it('defaults invalid or non-positive page and pageSize', () => {

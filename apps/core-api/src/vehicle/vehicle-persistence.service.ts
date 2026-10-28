@@ -1,9 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  ImportEntityType,
   Prisma,
   VehicleRecordSource,
   WorkshopOrderStatus,
 } from '@prisma/client';
+import {
+  attachLegacyIds,
+  findExternalEntityIds,
+} from '../import/import-external-id.store.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   invoicesHistorySlice,
@@ -29,6 +34,8 @@ import {
 } from './vehicle-party.writer.js';
 
 export interface VehicleListQuery {
+  tenantId: string;
+  search?: string;
   where: Prisma.VehicleWhereInput;
   orderBy: Prisma.VehicleOrderByWithRelationInput;
   skip: number;
@@ -183,7 +190,7 @@ export class VehiclePersistenceService {
     authorizedSiteIds: string[],
   ) {
     const historySlice = { take: DEFAULT_HISTORY_LIMIT };
-    return this.prisma.vehicle.findFirst({
+    const vehicle = await this.prisma.vehicle.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
         customer: true,
@@ -240,10 +247,31 @@ export class VehiclePersistenceService {
         },
       },
     });
+    if (!vehicle) return null;
+    const [detail] = await attachLegacyIds(
+      this.prisma,
+      { tenantId, entityType: ImportEntityType.VEHICLE },
+      [vehicle],
+    );
+    return detail;
   }
 
   async listVehicles(query: VehicleListQuery) {
-    const { where, orderBy, skip, take } = query;
+    const { tenantId, orderBy, skip, take } = query;
+    const legacyEntityIds = query.search
+      ? await findExternalEntityIds(this.prisma, {
+          tenantId,
+          entityType: ImportEntityType.VEHICLE,
+          externalId: query.search,
+        })
+      : [];
+    const where: Prisma.VehicleWhereInput = {
+      ...query.where,
+      tenant_id: tenantId,
+      ...(legacyEntityIds.length
+        ? { OR: [...(query.where.OR ?? []), { id: { in: legacyEntityIds } }] }
+        : {}),
+    };
     const [rows, total] = await Promise.all([
       this.prisma.vehicle.findMany({
         where,
@@ -258,7 +286,14 @@ export class VehiclePersistenceService {
       }),
       this.prisma.vehicle.count({ where }),
     ]);
-    return { rows, total };
+    return {
+      rows: await attachLegacyIds(
+        this.prisma,
+        { tenantId, entityType: ImportEntityType.VEHICLE },
+        rows,
+      ),
+      total,
+    };
   }
 
   async findPickerlCandidates(where: Prisma.VehicleWhereInput) {

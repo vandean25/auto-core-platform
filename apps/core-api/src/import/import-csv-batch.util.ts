@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { csvRecordEnd } from './csv-record-bytes.js';
 import {
   decodeCsvBuffer,
   detectDelimiterFromHeaderLine,
@@ -102,9 +103,11 @@ export function parseCsvBufferHeadersOnly(buffer: Buffer): {
   if (text.trim().length === 0) {
     return { headers: [], delimiter: ';', dataRowCount: 0, sha256 };
   }
-  const firstLineEnd = text.indexOf('\n');
-  const headerLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
-  const delimiter = detectDelimiterFromHeaderLine(headerLine);
+  const headerEnd = csvRecordEnd(buffer, 0);
+  const headerRecord = decodeCsvBuffer(
+    headerEnd < 0 ? buffer : buffer.subarray(0, headerEnd),
+  );
+  const delimiter = detectDelimiterFromHeaderLine(headerRecord);
   let headers: string[] = [];
   let dataRowCount = 0;
   forEachCsvRecord(text, delimiter, (cells, index) => {

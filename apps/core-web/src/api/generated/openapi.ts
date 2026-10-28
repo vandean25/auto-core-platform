@@ -4690,7 +4690,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download CSV of rows that failed validation */
+        /** Stream localized error rows with original source columns */
         get: operations["ImportController_downloadErrors"];
         put?: never;
         post?: never;
@@ -6211,6 +6211,10 @@ export interface components {
              */
             provisional: boolean;
         };
+        LegacyIdDto: {
+            source_system: string;
+            external_id: string;
+        };
         CustomerResponseDto: {
             /**
              * @description Indicates whether the request was executed in dry-run mode
@@ -6219,6 +6223,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -6313,6 +6318,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -6688,6 +6694,7 @@ export interface components {
             hasMore: boolean;
         };
         CustomerDetailResponseDto: {
+            readonly legacy_ids: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -7264,6 +7271,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -7306,6 +7314,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -7348,6 +7357,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -18959,6 +18969,7 @@ export interface operations {
         parameters: {
             query?: {
                 page?: number;
+                /** @description Larger values are clamped to 50. */
                 pageSize?: number;
                 status?: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
                 window?: 30 | 60 | 90;
@@ -19024,6 +19035,7 @@ export interface operations {
         parameters: {
             query?: {
                 page?: number;
+                /** @description Larger values are clamped to 50. */
                 pageSize?: number;
                 search?: string;
                 sortDirection?: "asc" | "desc";
@@ -21236,7 +21248,10 @@ export interface operations {
     ImportController_downloadErrors: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Report language (de or en); defaults to the user preference */
+                "Accept-Language"?: string;
+            };
             path: {
                 id: string;
             };
@@ -21248,7 +21263,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/csv": string;
+                };
             };
         };
     };

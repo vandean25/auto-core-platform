@@ -26,6 +26,7 @@ describe('VehicleService', () => {
       findFirstOrThrow: jest.Mock;
     };
     customer: { findFirst: jest.Mock };
+    externalIdMapping: { findMany: jest.Mock };
     vehicleParty: { findMany: jest.Mock; create: jest.Mock };
     workshopOrder: { findFirst: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
@@ -43,6 +44,7 @@ describe('VehicleService', () => {
         findFirstOrThrow: jest.fn(),
       },
       customer: { findFirst: jest.fn() },
+      externalIdMapping: { findMany: jest.fn().mockResolvedValue([]) },
       vehicleParty: {
         findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockImplementation(async ({ data }) => data),
@@ -95,6 +97,46 @@ describe('VehicleService', () => {
     }).compile();
 
     service = module.get(VehicleService);
+  });
+
+  it('searches exact legacy vehicle numbers across sources within the tenant', async () => {
+    prisma.externalIdMapping.findMany.mockResolvedValue([
+      { entity_id: 'vehicle-1' }, { entity_id: 'vehicle-2' },
+    ]);
+    prisma.vehicle.findMany.mockResolvedValue([]);
+    prisma.vehicle.count.mockResolvedValue(0);
+
+    await service.findAll({ search: '00123' });
+
+    expect(prisma.externalIdMapping.findMany).toHaveBeenCalledWith({
+      where: { tenant_id: tenantId, entity_type: 'VEHICLE', external_id: '00123' },
+      select: { entity_id: true },
+    });
+    expect(prisma.vehicle.findMany.mock.calls[0][0].where).toMatchObject({
+      tenant_id: tenantId,
+      OR: expect.arrayContaining([{ id: { in: ['vehicle-1', 'vehicle-2'] } }]),
+    });
+    expect(prisma.vehicle.count.mock.calls[0][0].where).toEqual(prisma.vehicle.findMany.mock.calls[0][0].where);
+  });
+
+  it('loads legacy vehicle numbers in one lookup for the whole page', async () => {
+    prisma.vehicle.findMany.mockResolvedValue([{ id: 'vehicle-1' }, { id: 'vehicle-2' }]);
+    prisma.vehicle.count.mockResolvedValue(2);
+    prisma.externalIdMapping.findMany.mockResolvedValue([
+      { entity_id: 'vehicle-1', source_system: 'legacy_system:company_a', external_id: '00123' },
+      { entity_id: 'vehicle-2', source_system: 'legacy_system:company_b', external_id: '00123' },
+    ]);
+
+    const result = await service.findAll({ page: 1, pageSize: 25 });
+
+    expect(result.data?.map((vehicle) => ({ id: vehicle.id, legacy_ids: Reflect.get(vehicle, 'legacy_ids') }))).toEqual([
+      { id: 'vehicle-1', legacy_ids: [{ source_system: 'legacy_system:company_a', external_id: '00123' }] },
+      { id: 'vehicle-2', legacy_ids: [{ source_system: 'legacy_system:company_b', external_id: '00123' }] },
+    ]);
+    expect(prisma.externalIdMapping.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.externalIdMapping.findMany.mock.calls[0][0].where).toEqual({
+      tenant_id: tenantId, entity_type: 'VEHICLE', entity_id: { in: ['vehicle-1', 'vehicle-2'] },
+    });
   });
 
   it('clears identity fields when the plate changes', async () => {
@@ -198,6 +240,7 @@ describe('VehicleService', () => {
     await expect(service.findOne(vehicleId)).resolves.toEqual({
       id: vehicleId,
       customer: null,
+      legacy_ids: [],
       sales: [],
       parties: [],
       open_due_dates: [],
@@ -256,13 +299,30 @@ describe('VehicleService', () => {
     prisma.vehicle.count.mockResolvedValue(1);
 
     await expect(service.findAll({})).resolves.toEqual({
-      data: [{ id: vehicleId, customer: null }],
+      data: [{ id: vehicleId, customer: null, legacy_ids: [] }],
       meta: {
         total: 1,
         page: 1,
         pageSize: 25,
         pageCount: 1,
       },
+    });
+  });
+
+  it('clamps a page size above the cap and reports the size it used (AUT-807)', async () => {
+    prisma.vehicle.findMany.mockResolvedValue([]);
+    prisma.vehicle.count.mockResolvedValue(7200);
+
+    const result = await service.findAll({ page: 3, pageSize: 200 });
+
+    expect(prisma.vehicle.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 100, take: 50 }),
+    );
+    expect(result.meta).toEqual({
+      total: 7200,
+      page: 3,
+      pageSize: 50,
+      pageCount: 144,
     });
   });
 

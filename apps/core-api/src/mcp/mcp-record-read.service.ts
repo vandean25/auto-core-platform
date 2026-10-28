@@ -85,21 +85,14 @@ export class McpRecordReadService {
     const pageSize = clampMcpPageSize(input.pageSize);
     const skip = (page - 1) * pageSize;
 
-    const { data, total } = await this.customerService.findAll({
-      where: input.search
-        ? {
-            OR: [
-              { first_name: { contains: input.search, mode: 'insensitive' } },
-              { last_name: { contains: input.search, mode: 'insensitive' } },
-              { company_name: { contains: input.search, mode: 'insensitive' } },
-              { email: { contains: input.search, mode: 'insensitive' } },
-            ],
-          }
-        : undefined,
-      skip,
-      take: pageSize,
-      orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
-    });
+    const { data, total } = await this.customerService.findAll(
+      {
+        skip,
+        take: pageSize,
+        orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
+      },
+      input.search,
+    );
 
     return {
       data,

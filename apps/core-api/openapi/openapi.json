@@ -11428,8 +11428,10 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
+            "description": "Larger values are clamped to 50.",
             "schema": {
               "minimum": 1,
+              "maximum": 50,
               "type": "number"
             }
           },
@@ -11573,9 +11575,11 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
+            "description": "Larger values are clamped to 50.",
             "schema": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 50
             }
           },
           {
@@ -15030,6 +15034,15 @@
         "operationId": "ImportController_downloadErrors",
         "parameters": [
           {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Report language (de or en); defaults to the user preference",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "id",
             "required": true,
             "in": "path",
@@ -15040,10 +15053,18 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
           }
         },
-        "summary": "Download CSV of rows that failed validation",
+        "summary": "Stream localized error rows with original source columns",
         "tags": [
           "imports"
         ]
@@ -19921,6 +19942,21 @@
           "provisional"
         ]
       },
+      "LegacyIdDto": {
+        "type": "object",
+        "properties": {
+          "source_system": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_system",
+          "external_id"
+        ]
+      },
       "CustomerResponseDto": {
         "type": "object",
         "properties": {
@@ -19934,6 +19970,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "id": {
@@ -20273,6 +20316,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "open_pickerl_order": {
@@ -21773,6 +21823,13 @@
       "CustomerDetailResponseDto": {
         "type": "object",
         "properties": {
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -21923,6 +21980,7 @@
           }
         },
         "required": [
+          "legacy_ids",
           "id",
           "type",
           "first_name",
@@ -23875,6 +23933,13 @@
               "$ref": "#/components/schemas/WouldChangeItemDto"
             }
           },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
+            }
+          },
           "open_pickerl_order": {
             "nullable": true,
             "type": "object",
@@ -24018,6 +24083,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "open_pickerl_order": {
@@ -24164,6 +24236,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "id": {

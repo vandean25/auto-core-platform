@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { TOptions } from 'i18next'
 
 import {
@@ -25,6 +26,16 @@ export function translateEnumOptions(parts: string[], options?: TOptions): strin
 /** Localized label for a shared status wire value (`enums:status.<VALUE>`). */
 export function formatStatusLabel(status: string): string {
   return translateEnum('status', status)
+}
+
+/**
+ * `formatStatusLabel` for components: subscribes to the UI language, so a badge that only renders a
+ * wire value re-renders in the new language instead of keeping the label of the previous one.
+ */
+export function useStatusLabel(status: string): string {
+  // Subscribes the component to `languageChanged`; the label itself is read from the active language.
+  useTranslation('enums')
+  return formatStatusLabel(status)
 }
 
 export function formatInventoryTransactionType(type: string): string {
