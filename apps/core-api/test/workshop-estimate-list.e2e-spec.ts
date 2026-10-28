@@ -38,7 +38,8 @@ describe('Workshop estimates list (e2e)', () => {
 
   const api = () => request(app.getHttpServer());
   const adminAuth = () => ({ Authorization: `Bearer ${adminToken}` });
-  const now = Date.now();
+  /** Fixed instant so site-local sent-range filters stay stable in CI (avoids DST edge cases). */
+  const now = Date.UTC(2026, 6, 15, 10, 0, 0);
 
   async function createEstimateVersion(label: string, auth = adminAuth()) {
     const vehicle = await prisma.vehicle.create({
@@ -270,24 +271,11 @@ describe('Workshop estimates list (e2e)', () => {
     ]);
 
     // The range is read in the site's time zone, so the days are taken there, not in UTC.
-    const viennaDay = (date: Date) =>
+    const day = (daysAgo: number) =>
       new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna' }).format(
-        date,
+        new Date(now - daysAgo * DAY),
       );
-    const sentRows = await prisma.workshopEstimateVersion.findMany({
-      where: { id: { in: [versionIds.A, versionIds.B, versionIds.C, versionIds.D] } },
-      select: { id: true, sent_at: true },
-    });
-    const sentAt = (id: string) => {
-      const row = sentRows.find((entry) => entry.id === id);
-      if (!row?.sent_at) {
-        throw new Error(`Expected sent_at for version ${id}`);
-      }
-      return row.sent_at;
-    };
-    const sentFrom = viennaDay(sentAt(versionIds.C));
-    const sentTo = viennaDay(sentAt(versionIds.B));
-    const range = await list({ sentFrom, sentTo }).expect(200);
+    const range = await list({ sentFrom: day(3), sentTo: day(2) }).expect(200);
     expect(ids(range.body)).toEqual(
       expect.arrayContaining([versionIds.B, versionIds.C]),
     );
