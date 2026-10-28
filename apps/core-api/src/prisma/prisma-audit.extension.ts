@@ -448,11 +448,25 @@ function buildAuditLogData(
   };
 }
 
+const BOOKKEEPING_AUDIT_FIELDS = new Set(['updatedAt', 'version']);
+
+/** Lock bumps and optimistic-lock ticks are not business changes. */
+function isBookkeepingOnlyUpdate(payload: AuditRecordPayload): boolean {
+  return (
+    payload.action === 'UPDATE' &&
+    payload.changedFields.every((field) => BOOKKEEPING_AUDIT_FIELDS.has(field))
+  );
+}
+
 async function writeAuditLog(
   delegate: AuditLogDelegate | undefined,
   actor: AuditActorContext,
   payload: AuditRecordPayload,
 ): Promise<void> {
+  if (isBookkeepingOnlyUpdate(payload)) {
+    return;
+  }
+
   if (SideEffectGuard.isDryRun()) {
     const collector = DryRunStorage.getCollector();
     if (collector && payload.entityId) {
