@@ -404,9 +404,14 @@ describe('import apply final totals (e2e)', () => {
     );
     const db = prisma.client;
     const original = db.$transaction.bind(db);
-    db.$transaction = (() => {
+    let transactions = 0;
+    db.$transaction = ((...args: unknown[]) => {
+      transactions += 1;
+      if (transactions === 1) {
+        return original(...(args as Parameters<typeof original>));
+      }
       throw new Error('apply blew up');
-    });
+    }) as typeof db.$transaction;
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});

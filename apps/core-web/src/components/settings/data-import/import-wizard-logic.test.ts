@@ -93,6 +93,31 @@ describe('import wizard logic', () => {
     expect(
       canApplyImport({
         dryRunJob: mockJob({
+          status: 'APPLIED',
+          options: { technical_error_rows: 2 },
+        }),
+        dryRunStale: false,
+        errorThreshold: 0,
+        isApplying: false,
+      }),
+    ).toBe(true)
+
+    expect(
+      canApplyImport({
+        dryRunJob: mockJob({
+          status: 'APPLIED',
+          options: { technical_error_rows: 0 },
+          totals: { rows: 2, create: 1, update: 0, skip: 0, error: 1 },
+        }),
+        dryRunStale: false,
+        errorThreshold: 10,
+        isApplying: false,
+      }),
+    ).toBe(false)
+
+    expect(
+      canApplyImport({
+        dryRunJob: mockJob({
           status: 'APPLYING',
           stalled: true,
           totals: { rows: 2, create: 1, update: 0, skip: 0, error: 12 },
