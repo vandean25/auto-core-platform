@@ -309,6 +309,12 @@
     "warrantyEnds": "Warranty ends",
     "year": "Year"
   },
+  "tenantMemberRole": {
+    "OWNER": "Owner",
+    "ADMIN": "Administrator",
+    "TECH": "Mechanic",
+    "SALES": "Sales"
+  },
   "vehiclePartyRole": {
     "OWNER": "Owner",
     "DRIVER": "Driver",

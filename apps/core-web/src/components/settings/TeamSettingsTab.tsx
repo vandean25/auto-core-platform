@@ -2,7 +2,6 @@ import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import { z } from 'zod'
 import { toast } from 'sonner'
 
 import {
@@ -14,7 +13,6 @@ import {
 } from '@/api/tenant-members'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import {
@@ -38,9 +36,9 @@ import {
 } from '@/components/ui/sheet'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatTenantMemberRole } from '@/lib/i18n'
 
 const TEAM_ROLE_OPTIONS = ['OWNER', 'ADMIN', 'TECH', 'SALES'] as const
-const TEAM_ROLE_SCHEMA = z.enum(TEAM_ROLE_OPTIONS)
 
 type InviteMemberFormState = {
   email: string
@@ -81,6 +79,7 @@ function matchesMemberSearch(member: TenantMember, term: string, t: TFunction<'s
     member.lastName ?? '',
     getDisplayName(member),
     member.role,
+    formatTenantMemberRole(member.role),
     member.isActive ? t('team.search.active') : t('team.search.inactive'),
   ]
 
@@ -102,7 +101,7 @@ function sortMembers(
     }
 
     if (sortField === 'role') {
-      return direction * left.role.localeCompare(right.role)
+      return direction * formatTenantMemberRole(left.role).localeCompare(formatTenantMemberRole(right.role))
     }
 
     if (sortField === 'isActive') {
@@ -204,6 +203,7 @@ export function TeamSettingsTab() {
         accessorKey: 'role',
         meta: { mobile: 'subtitle' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.role')} />,
+        cell: ({ row }) => formatTenantMemberRole(row.original.role),
       },
       {
         accessorKey: 'isActive',
@@ -296,7 +296,7 @@ export function TeamSettingsTab() {
                 <SelectContent>
                   {TEAM_ROLE_OPTIONS.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {role}
+                      {formatTenantMemberRole(role)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -330,26 +330,34 @@ export function TeamSettingsTab() {
 
               <div className='space-y-2'>
                 <Label>{t('team.sheet.role')}</Label>
-                <InlineEdit
+                <Select
                   value={selectedMember.role}
-                  schema={TEAM_ROLE_SCHEMA}
-                  ariaLabel={t('team.sheet.roleAria')}
-                  onSave={async (nextRole) => {
-                    const normalizedRole = nextRole.trim().toUpperCase() as TenantMemberRole
+                  disabled={updateMutation.isPending}
+                  onValueChange={async (nextRole) => {
+                    if (nextRole === selectedMember.role) return
                     try {
                       const updatedMember = await updateMutation.mutateAsync({
                         id: selectedMember.id,
-                        data: { role: normalizedRole },
+                        data: { role: nextRole as TenantMemberRole },
                       })
                       setSelectedMember(updatedMember)
                       toast.success(t('team.toast.roleUpdated'))
                     } catch (updateError: unknown) {
                       toast.error(getErrorMessage(updateError, t('team.toast.roleFailed')))
-                      throw updateError
                     }
                   }}
-                />
-                <p className='text-xs text-slate-500'>{t('team.sheet.allowedRoles')}</p>
+                >
+                  <SelectTrigger aria-label={t('team.sheet.roleAria')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEAM_ROLE_OPTIONS.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {formatTenantMemberRole(role)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className='space-y-2'>

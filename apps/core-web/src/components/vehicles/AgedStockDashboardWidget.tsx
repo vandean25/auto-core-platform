@@ -1,15 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { formatCurrency } from '@/lib/format'
 import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useVehicleStockAgeReport } from '@/api/vehicle-stock'
 import { Loader2 } from 'lucide-react'
-
-function formatEuro(value: string) {
-  const [whole, fraction = '00'] = value.split('.')
-  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  return `${groupedWhole},${fraction}\u00a0€`
-}
 
 function AgedStockDashboardWidgetContent() {
   const { t } = useTranslation('vehicles')
@@ -34,7 +29,7 @@ function AgedStockDashboardWidgetContent() {
           {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-slate-400" /> : data?.summary.over_90_count ?? 0}
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          {t('dashboardWidgets.agedStockCostBasis', { amount: formatEuro(data?.summary.over_90_cost_basis ?? '0.00') })}
+          {t('dashboardWidgets.agedStockCostBasis', { amount: formatCurrency(data?.summary.over_90_cost_basis ?? '0.00') })}
         </p>
       </CardContent>
     </Card>

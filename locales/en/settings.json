@@ -759,7 +759,6 @@
       "description": "Update a role or deactivate access. Security-sensitive changes force a claims refresh.",
       "role": "Role",
       "roleAria": "Tenant member role",
-      "allowedRoles": "Allowed values: OWNER, ADMIN, TECH, SALES.",
       "status": "Status",
       "deactivate": "Deactivate Member",
       "reactivate": "Reactivate Member"
