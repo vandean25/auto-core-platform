@@ -26,15 +26,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
-import { formatIsoDateOnly, formatNumber } from '@/lib/format'
+import { formatIsoDateOnly } from '@/lib/format'
 import { i18n } from '@/lib/i18n'
-import {
-  averageExpectedMinutesPerWorkday,
-  FALLBACK_AVG_WORKDAY_MINUTES,
-  approxLeaveDays,
-} from '@/lib/hr-leave-minutes'
 import { formatLocalDateInZone, formatMonthYear } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { RemainingLeaveBadge } from './RemainingLeaveBadge'
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -126,22 +122,6 @@ function MissingEmployeeState({ t }: { t: TFunction<'hr'> }) {
   )
 }
 
-/** Remaining leave in working days; nothing until the work schedule is known, so the number does not change afterwards. */
-function RemainingLeaveBadge({ minutes, avgMinutes, ready }: { minutes: number; avgMinutes: number; ready: boolean }) {
-  const { t } = useTranslation('hr')
-  if (!ready) return null
-  const days = approxLeaveDays(minutes, avgMinutes)
-  const label =
-    days === null
-      ? t('leave.remainingMinutes', { minutes })
-      : t('leave.remaining', { count: days, days: formatNumber(days, { maximumFractionDigits: 1 }) })
-  return (
-    <span title={t('leave.remainingMinutes', { minutes })}>
-      <StatusBadge status='ACTIVE' label={label} />
-    </span>
-  )
-}
-
 export default function HrLeavePage() {
   const { t } = useTranslation('hr')
   useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
@@ -196,16 +176,6 @@ export default function HrLeavePage() {
     () => sortLeaveRows(filteredBookings, sorting[0]?.id, sorting[0]?.desc),
     [filteredBookings, sorting],
   )
-  // 0 (unknown) unless the schedule loaded: then the chip shows minutes instead of days based on a guessed workday.
-  const remainingAvgMinutes = useMemo(() => {
-    if (!meScheduleQuery.isSuccess) {
-      return 0
-    }
-    const current = meScheduleQuery.data?.current
-    return current ? averageExpectedMinutesPerWorkday(current.days) : FALLBACK_AVG_WORKDAY_MINUTES
-  }, [meScheduleQuery.data, meScheduleQuery.isSuccess])
-  const remainingMinutes =
-    myLeaveQuery.data?.remainingMinutes ?? hrMeQuery.data?.remainingLeaveMinutes ?? 0
   const pageCount = Math.max(1, Math.ceil(sortedBookings.length / pagination.pageSize))
   const pagedBookings = sortedBookings.slice(
     pagination.pageIndex * pagination.pageSize,
@@ -284,11 +254,7 @@ export default function HrLeavePage() {
           <p className='text-slate-500'>{t('leave.pageDescription')}</p>
         </div>
         <div className='flex items-center gap-3 max-sm:flex-wrap max-sm:[&_button]:min-h-11'>
-          <RemainingLeaveBadge
-            minutes={remainingMinutes}
-            avgMinutes={remainingAvgMinutes}
-            ready={!hrMeQuery.isLoading && !myLeaveQuery.isLoading && !meScheduleQuery.isLoading}
-          />
+          <RemainingLeaveBadge hrMe={hrMeQuery} myLeave={myLeaveQuery} schedule={meScheduleQuery} />
           <Button type='button' onClick={() => openCreateSheet()}>
             {t('leave.bookLeave')}
           </Button>
