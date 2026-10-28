@@ -274,9 +274,10 @@ describe('Vehicle party and due date import (e2e)', () => {
 
     it('writes no empty Vehicle UPDATE audit rows for party writes and audits the main-contact change', async () => {
       const vehicleId = await idOf('VEHICLE', 'VEHICLE-002');
+      const ownerId = await idOf('CUSTOMER', 'CUSTOMER-B');
       const rows = [
-        ['PARTY-020', 'VEHICLE-002', 'CUSTOMER-A', 'OWNER', longAgo, '', ''],
-        ['PARTY-021', 'VEHICLE-002', 'CUSTOMER-B', 'DRIVER', '', '', ''],
+        ['PARTY-020', 'VEHICLE-002', 'CUSTOMER-B', 'OWNER', longAgo, '', ''],
+        ['PARTY-021', 'VEHICLE-002', 'CUSTOMER-X', 'DRIVER', '', '', ''],
         ['PARTY-022', 'VEHICLE-002', 'CUSTOMER-X', 'PREVIOUS_OWNER', '', longAgo, ''],
       ];
       const { applied } = await importAndApply('VEHICLE_PARTY', PARTY_HEADERS, rows, token);
@@ -304,7 +305,7 @@ describe('Vehicle party and due date import (e2e)', () => {
       );
       expect(contactAudit).toBeDefined();
       expect((contactAudit?.after as Record<string, unknown>).customer_id).toBe(
-        await idOf('CUSTOMER', 'CUSTOMER-A'),
+        ownerId,
       );
     });
 

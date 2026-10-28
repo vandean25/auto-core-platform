@@ -28,6 +28,17 @@ type PrismaTransactionCallback = (
   txClient: Prisma.TransactionClient,
 ) => unknown;
 
+const MISSING = Symbol('missing');
+
+const SERVICE_PROPERTIES = new Set<PropertyKey>([
+  'client',
+  'logger',
+  'pool',
+  'onModuleInit',
+  'onModuleDestroy',
+  'connectWithRetry',
+]);
+
 /** Runs interactive transaction callbacks with their client on the audit snapshot context. */
 function createTransactionRunner(client: PrismaClient): PrismaTransactionCall {
   const runTransaction = (
@@ -45,6 +56,48 @@ function createTransactionRunner(client: PrismaClient): PrismaTransactionCall {
       ...rest,
     );
   };
+}
+
+/** Inside a dry-run rollback transaction every read and write stays on that client. */
+function createDryRunTransactionCall(
+  tx: Prisma.TransactionClient,
+): PrismaTransactionCall {
+  return (first, ...rest) => {
+    if (typeof first === 'function') {
+      const callback = first as PrismaTransactionCallback;
+      return Promise.resolve().then(() => callback(tx));
+    }
+    if (Array.isArray(first)) {
+      return Promise.all(first);
+    }
+    const txObj = tx as Record<string, unknown>;
+    if (typeof txObj.$transaction === 'function') {
+      return (txObj.$transaction as PrismaTransactionCall)(first, ...rest);
+    }
+    return first;
+  };
+}
+
+function bindTransactionProperty(
+  txObj: Record<PropertyKey, unknown>,
+  value: unknown,
+): unknown {
+  return typeof value === 'function'
+    ? (value as (...args: unknown[]) => unknown).bind(txObj)
+    : value;
+}
+
+/** Returns MISSING when the dry-run client has no such property, so the outer client applies. */
+function getDryRunProperty(
+  tx: Prisma.TransactionClient,
+  property: PropertyKey,
+): unknown {
+  if (property === '$transaction') {
+    return createDryRunTransactionCall(tx);
+  }
+  const txObj = tx as Record<PropertyKey, unknown>;
+  const value = Reflect.get(txObj, property, txObj);
+  return value === undefined ? MISSING : bindTransactionProperty(txObj, value);
 }
 
 @Injectable()
@@ -79,50 +132,15 @@ export class PrismaService
 
     const serviceProxy = new Proxy(this, {
       get(target, property, receiver) {
-        if (
-          property === 'client' ||
-          property === 'logger' ||
-          property === 'pool' ||
-          property === 'onModuleInit' ||
-          property === 'onModuleDestroy' ||
-          property === 'connectWithRetry'
-        ) {
+        if (SERVICE_PROPERTIES.has(property)) {
           return Reflect.get(target, property, receiver);
         }
 
         const tx = DryRunStorage.getTransactionClient();
         if (tx) {
-          if (property === '$transaction') {
-            return (arg: unknown, ...rest: unknown[]): unknown => {
-              if (typeof arg === 'function') {
-                const callback = arg as (
-                  txClient: Prisma.TransactionClient,
-                ) => unknown;
-                return Promise.resolve().then(() => callback(tx));
-              }
-              if (Array.isArray(arg)) {
-                return Promise.all(arg);
-              }
-              const txObj = tx as Record<string, unknown>;
-              if (typeof txObj.$transaction === 'function') {
-                const nestedTx = txObj.$transaction as (
-                  ...args: unknown[]
-                ) => unknown;
-                return nestedTx(arg, ...rest);
-              }
-              return arg;
-            };
-          }
-
-          const txObj = tx as Record<string | symbol, unknown>;
-          const val: unknown = Reflect.get(txObj, property, txObj);
-          if (val !== undefined) {
-            if (typeof val === 'function') {
-              return (val as (...args: unknown[]) => unknown).bind(
-                txObj,
-              ) as unknown;
-            }
-            return val;
+          const fromTransaction = getDryRunProperty(tx, property);
+          if (fromTransaction !== MISSING) {
+            return fromTransaction;
           }
         }
 
