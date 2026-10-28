@@ -107,6 +107,9 @@ describe('Workshop estimates list (e2e)', () => {
     return api().get('/api/workshop/estimates').set(auth).query(query);
   }
 
+  /** Drafts have no sent date; they come last, by id descending. */
+  const drafts = () => [versionIds.F, versionIds.G].sort().reverse();
+
   const ids = (body: { data: { version_id: string }[] }) =>
     body.data.map((row) => row.version_id);
 
@@ -160,6 +163,7 @@ describe('Workshop estimates list (e2e)', () => {
       ['D', WorkshopEstimateStatus.SENT, 4, -1],
       ['E', WorkshopEstimateStatus.SUPERSEDED, 5, 30],
       ['F', WorkshopEstimateStatus.DRAFT, null, undefined],
+      ['G', WorkshopEstimateStatus.DRAFT, null, undefined],
     ];
     for (const [label, status, sentDaysAgo, validDays] of states) {
       const created = await createEstimateVersion(label);
@@ -192,7 +196,7 @@ describe('Workshop estimates list (e2e)', () => {
       versionIds.B,
       versionIds.C,
       versionIds.D,
-      versionIds.F,
+      ...drafts(),
     ]);
     expect(response.body.meta).toEqual({ page_size: 25, next_cursor: null });
     expect(response.body.data[0]).toMatchObject({
@@ -221,9 +225,25 @@ describe('Workshop estimates list (e2e)', () => {
     const expired = await list({ status: 'EXPIRED' }).expect(200);
     expect(ids(expired.body)).toEqual([versionIds.D]);
     expect(expired.body.data[0].status).toBe('EXPIRED');
-    expect(ids((await list({ status: 'DRAFT' }).expect(200)).body)).toEqual([
-      versionIds.F,
-    ]);
+    expect(ids((await list({ status: 'DRAFT' }).expect(200)).body)).toEqual(
+      drafts(),
+    );
+  });
+
+  it('pages across drafts, which have no sent date, without repeating or skipping one', async () => {
+    const [firstDraft, secondDraft] = drafts();
+    const first = await list({ status: 'DRAFT', pageSize: 1 }).expect(200);
+    expect(ids(first.body)).toEqual([firstDraft]);
+    const cursor = first.body.meta.next_cursor as string;
+    expect(cursor).toEqual(expect.any(String));
+
+    const second = await list({
+      status: 'DRAFT',
+      pageSize: 1,
+      cursor,
+    }).expect(200);
+    expect(ids(second.body)).toEqual([secondDraft]);
+    expect(second.body.meta.next_cursor).toBeNull();
   });
 
   it('shows superseded versions only when SUPERSEDED is asked for', async () => {
@@ -234,7 +254,7 @@ describe('Workshop estimates list (e2e)', () => {
   });
 
   it('filters by customer, order and the site-local sent range', async () => {
-    expect((await list({ customerId }).expect(200)).body.data).toHaveLength(5);
+    expect((await list({ customerId }).expect(200)).body.data).toHaveLength(6);
     expect(
       (await list({ customerId: randomUUID() }).expect(200)).body.data,
     ).toEqual([]);
@@ -249,8 +269,11 @@ describe('Workshop estimates list (e2e)', () => {
       versionIds.B,
     ]);
 
+    // The range is read in the site's time zone, so the days are taken there, not in UTC.
     const day = (daysAgo: number) =>
-      new Date(now - daysAgo * DAY).toISOString().slice(0, 10);
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna' }).format(
+        new Date(now - daysAgo * DAY),
+      );
     const range = await list({ sentFrom: day(3), sentTo: day(2) }).expect(200);
     expect(ids(range.body)).toEqual(
       expect.arrayContaining([versionIds.B, versionIds.C]),
@@ -280,7 +303,7 @@ describe('Workshop estimates list (e2e)', () => {
       pageSize: 2,
       cursor: secondPage.body.meta.next_cursor,
     }).expect(200);
-    expect(ids(thirdPage.body)).toEqual([versionIds.F]);
+    expect(ids(thirdPage.body)).toEqual(drafts());
     expect(thirdPage.body.meta.next_cursor).toBeNull();
 
     const seen = [
@@ -380,6 +403,6 @@ describe('Workshop estimates list (e2e)', () => {
 
     const back = ids((await list({ pageSize: 100 }).expect(200)).body);
     expect(back).toContain(versionIds.A);
-    expect(back.length).toBeGreaterThanOrEqual(5);
+    expect(back.length).toBeGreaterThanOrEqual(6);
   });
 });

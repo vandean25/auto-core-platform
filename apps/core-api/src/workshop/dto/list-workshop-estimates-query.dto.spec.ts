@@ -32,11 +32,32 @@ describe('ListWorkshopEstimatesQueryDto', () => {
   });
 
   it('needs both ends of the sent range, as dates', async () => {
-    expect(await failing({ sentFrom: '2026-10-01' })).toEqual(['sentTo']);
-    expect(await failing({ sentTo: '2026-10-31' })).toEqual(['sentFrom']);
+    expect(await failing({ sentFrom: '2026-10-01' })).toEqual([
+      'sentFrom',
+      'sentTo',
+    ]);
+    expect(await failing({ sentTo: '2026-10-31' })).toEqual([
+      'sentFrom',
+      'sentTo',
+    ]);
     expect(
       await failing({ sentFrom: '1.10.2026', sentTo: '2026-10-31' }),
-    ).toEqual(['sentFrom']);
+    ).toEqual(['sentFrom', 'sentTo']);
+  });
+
+  it('refuses a range that ends before it starts and days that do not exist', async () => {
+    expect(
+      await failing({ sentFrom: '2026-10-31', sentTo: '2026-10-01' }),
+    ).toEqual(['sentFrom', 'sentTo']);
+    expect(
+      await failing({ sentFrom: '2026-13-45', sentTo: '2026-10-31' }),
+    ).toEqual(['sentFrom', 'sentTo']);
+    expect(
+      await failing({ sentFrom: '2026-02-30', sentTo: '2026-03-01' }),
+    ).toEqual(['sentFrom', 'sentTo']);
+    expect(
+      await failing({ sentFrom: '2026-10-05', sentTo: '2026-10-05' }),
+    ).toEqual([]);
   });
 
   it('refuses an unknown status and ids that are not UUIDs', async () => {
