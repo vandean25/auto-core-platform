@@ -1,7 +1,13 @@
-import { ImportRowAction, Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { ImportJobStatus, ImportRowAction, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { isTechnicalImportRowErrorCode } from './import-apply.errors.js';
-import type { ImportJobWorkerState } from './import-job.worker-state.js';
+import { nextApplyLeaseUntil } from './import-apply-lease.js';
+import {
+  readWorkerState,
+  type ImportJobOptionsWithWorker,
+  type ImportJobWorkerState,
+} from './import-job.worker-state.js';
 import type { ImportApplyRow } from './import-type-handler.js';
 
 type ErrorRow = {
@@ -79,6 +85,45 @@ export async function resetTechnicalImportErrorRows(
       data: { action, errors_json: Prisma.JsonNull },
     });
   }
+}
+
+export function applyLockForReapply(
+  options: ImportJobOptionsWithWorker,
+  extraStatuses: ImportJobStatus[],
+  nowMs: number,
+): { options: ImportJobOptionsWithWorker; statuses: ImportJobStatus[] } {
+  const previous = readWorkerState(options);
+  const retryRowNos = technicalRetryRowNos(options, previous);
+  const optionsWithoutRetry = { ...options };
+  delete optionsWithoutRetry.technical_retry_row_nos;
+  const worker: ImportJobWorkerState = {
+    phase: 'apply',
+    lease_token: randomUUID(),
+    lease_until: nextApplyLeaseUntil(nowMs),
+    processed_rows: previous?.processed_rows ?? 0,
+    last_committed_apply_seq: previous?.last_committed_apply_seq ?? 0,
+    started_at: previous?.started_at ?? new Date(nowMs).toISOString(),
+  };
+  if (retryRowNos.length > 0) {
+    worker.technical_retry_row_nos = retryRowNos;
+  }
+  return {
+    options: { ...optionsWithoutRetry, worker },
+    statuses: [
+      ImportJobStatus.DRY_RUN_DONE,
+      ImportJobStatus.FAILED,
+      ...extraStatuses,
+    ],
+  };
+}
+
+function technicalRetryRowNos(
+  options: ImportJobOptionsWithWorker,
+  previous: ImportJobWorkerState | null,
+): number[] {
+  return (
+    options.technical_retry_row_nos ?? previous?.technical_retry_row_nos ?? []
+  );
 }
 
 export function withoutTechnicalRetryRow(

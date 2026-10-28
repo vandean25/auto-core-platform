@@ -134,6 +134,17 @@ import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.j
 import { VehicleImportHandler } from './vehicle-import.handler.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 
+function statusRetriesTechnicalRows(
+  status: ImportJobStatus,
+  staleApplying: boolean,
+): boolean {
+  return (
+    status === ImportJobStatus.FAILED ||
+    status === ImportJobStatus.APPLIED ||
+    staleApplying
+  );
+}
+
 function buildRowsWhere(
   tenantId: string,
   jobId: string,
@@ -473,39 +484,56 @@ export class ImportService {
     jobId: string,
     job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
   ) {
+    const jobWithOptions = await this.persistTechnicalRetryOptions(
+      tenantId,
+      jobId,
+      job,
+    );
+    return this.finishApplyTakeover(tenantId, jobId, jobWithOptions);
+  }
+
+  private async persistTechnicalRetryOptions(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+  ) {
     const options = job.options_json as ImportJobOptionsWithWorker;
     const staleCandidate =
       job.status === ImportJobStatus.APPLYING &&
       isStaleApplyingImportJob(job, Date.now());
-    const reapplyOptions =
-      job.status === ImportJobStatus.FAILED ||
-      job.status === ImportJobStatus.APPLIED ||
-      staleCandidate
-        ? await this.resetTechnicalRowsForReapply(
-            tenantId,
-            jobId,
-            job.status,
-            options,
-          )
-        : options;
+    if (!statusRetriesTechnicalRows(job.status, staleCandidate)) {
+      return { ...job, options_json: options };
+    }
+    const reapplyOptions = await this.resetTechnicalRowsForReapply(
+      tenantId,
+      jobId,
+      job.status,
+      options,
+    );
     if (reapplyOptions.technical_retry_row_nos?.length) {
       await this.prisma.importJob.updateMany({
         where: { tenant_id: tenantId, id: jobId, status: job.status },
         data: { options_json: reapplyOptions },
       });
     }
-    const jobWithOptions = { ...job, options_json: reapplyOptions };
-    const staleTakeover = await this.takeOverStaleApplyIfNeeded(
-      tenantId,
-      jobWithOptions,
-    );
+    return { ...job, options_json: reapplyOptions };
+  }
+
+  private async finishApplyTakeover(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+  ) {
+    const staleTakeover = await this.takeOverStaleApplyIfNeeded(tenantId, job);
     if (staleTakeover === 'busy') {
-      throw applyInProgress(leaseExpiresAtOf(options));
+      throw applyInProgress(
+        leaseExpiresAtOf(job.options_json as ImportJobOptionsWithWorker),
+      );
     }
     const applyingJob =
       staleTakeover === 'taken'
         ? await this.jobStore.findJob(tenantId, jobId)
-        : jobWithOptions;
+        : job;
     if (!applyingJob) {
       throw importJobNotFound();
     }
@@ -1378,16 +1406,11 @@ export class ImportService {
     return true;
   }
 
-  private async loadBackgroundApplyContext(tenantId: string, jobId: string) {
-    const job = await this.jobStore.findJob(tenantId, jobId);
-    if (!job) {
-      return null;
-    }
-    const options = job.options_json as ImportJobOptionsWithWorker;
-    const worker = readWorkerState(options);
-    if (!worker || worker.phase !== 'apply') {
-      return null;
-    }
+  private async readBackgroundApplyBatch(
+    tenantId: string,
+    jobId: string,
+    worker: NonNullable<ReturnType<typeof readWorkerState>>,
+  ) {
     const resumeAfter = worker.last_committed_apply_seq ?? 0;
     const retryRowNos = worker.technical_retry_row_nos ?? [];
     const retryRows =
@@ -1409,9 +1432,45 @@ export class ImportService {
       page,
       IMPORT_APPLY_BATCH_SIZE,
     );
-    const hasMoreRowsAfterBatch =
-      merged.hasMore || page.length > IMPORT_APPLY_BATCH_SIZE;
-    const rows = merged.rows;
+    return {
+      resumeAfter,
+      rows: merged.rows,
+      page,
+      hasMoreRowsAfterBatch:
+        merged.hasMore || page.length > IMPORT_APPLY_BATCH_SIZE,
+    };
+  }
+
+  private async backgroundApplyHasMore(
+    tenantId: string,
+    jobId: string,
+    lastCommitted: number,
+    technicalRetryRowNos: number[] | undefined,
+  ): Promise<boolean> {
+    if ((technicalRetryRowNos?.length ?? 0) > 0) {
+      return true;
+    }
+    const next = await this.jobStore.findApplyRowsAfterApplySeq(
+      tenantId,
+      jobId,
+      lastCommitted,
+      1,
+    );
+    return next.length > 0;
+  }
+
+  private async loadBackgroundApplyContext(tenantId: string, jobId: string) {
+    const job = await this.jobStore.findJob(tenantId, jobId);
+    if (!job) {
+      return null;
+    }
+    const options = job.options_json as ImportJobOptionsWithWorker;
+    const worker = readWorkerState(options);
+    if (!worker || worker.phase !== 'apply') {
+      return null;
+    }
+    const batch = await this.readBackgroundApplyBatch(tenantId, jobId, worker);
+    const { resumeAfter, rows, page, hasMoreRowsAfterBatch } = batch;
     const maxApplySeq = await this.jobStore.maxApplySeq(tenantId, jobId);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     if (
@@ -1472,18 +1531,12 @@ export class ImportService {
     );
     const lastCommitted =
       refreshedWorker?.last_committed_apply_seq ?? params.resumeAfter;
-    const retryLeft =
-      (refreshedWorker?.technical_retry_row_nos?.length ?? 0) > 0;
-    const hasMore =
-      retryLeft ||
-      (
-        await this.jobStore.findApplyRowsAfterApplySeq(
-          params.tenantId,
-          params.jobId,
-          lastCommitted,
-          1,
-        )
-      ).length > 0;
+    const hasMore = await this.backgroundApplyHasMore(
+      params.tenantId,
+      params.jobId,
+      lastCommitted,
+      refreshedWorker?.technical_retry_row_nos,
+    );
     const done = !hasMore;
     if (done || params.resultStatus !== ImportJobStatus.APPLYING) {
       return;

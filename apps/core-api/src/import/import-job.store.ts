@@ -26,7 +26,10 @@ import {
   retryableTransactionDelayMs,
 } from './import-transaction-retry.util.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
-import { withoutTechnicalRetryRow } from './import-technical-retry.js';
+import {
+  applyLockForReapply,
+  withoutTechnicalRetryRow,
+} from './import-technical-retry.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   isStaleApplyingImportJob,
@@ -950,40 +953,16 @@ export class ImportJobStore {
     const existing = await this.findJob(tenantId, jobId);
     const options = (existing?.options_json ??
       {}) as ImportJobOptionsWithWorker;
-    const previous = readWorkerState(options);
-    const now = Date.now();
-    const retryRowNos =
-      options.technical_retry_row_nos ??
-      previous?.technical_retry_row_nos ??
-      [];
-    const optionsWithoutRetry = { ...options };
-    delete optionsWithoutRetry.technical_retry_row_nos;
-    const worker: ImportJobWorkerState = {
-      phase: 'apply',
-      lease_token: randomUUID(),
-      lease_until: nextApplyLeaseUntil(now),
-      processed_rows: previous?.processed_rows ?? 0,
-      last_committed_apply_seq: previous?.last_committed_apply_seq ?? 0,
-      started_at: previous?.started_at ?? new Date(now).toISOString(),
-      ...(retryRowNos.length > 0
-        ? { technical_retry_row_nos: retryRowNos }
-        : {}),
-    };
+    const locked = applyLockForReapply(options, extraStatuses, Date.now());
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
         id: jobId,
-        status: {
-          in: [
-            ImportJobStatus.DRY_RUN_DONE,
-            ImportJobStatus.FAILED,
-            ...extraStatuses,
-          ],
-        },
+        status: { in: locked.statuses },
       },
       data: {
         status: ImportJobStatus.APPLYING,
-        options_json: { ...options, worker },
+        options_json: locked.options,
       },
     });
   }
