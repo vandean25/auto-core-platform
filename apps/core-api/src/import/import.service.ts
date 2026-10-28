@@ -852,6 +852,7 @@ export class ImportService {
     options: ImportJobOptions;
     uploadRef: StoredImportFileRef;
     expectedRows: number;
+    jobId?: string;
   }) {
     const job = await this.jobStore.createPendingBackgroundJob({
       tenantId: params.tenantId,
@@ -864,6 +865,7 @@ export class ImportService {
       actorUserId: params.actorUserId,
       upload: params.uploadRef,
       expectedRows: params.expectedRows,
+      jobId: params.jobId,
     });
     await this.audit.writeImportJobAudit(
       this.prisma,
@@ -881,6 +883,7 @@ export class ImportService {
    * import location, reusing the same job/audit/enqueue path as HTTP uploads.
    */
   async createDryRunFromStoredUpload(params: {
+    jobId: string;
     ref: StoredImportFileRef;
     fileName: string;
     entityType: ImportEntityType;
@@ -920,6 +923,7 @@ export class ImportService {
       options,
       uploadRef: params.ref,
       expectedRows: params.rowCount,
+      jobId: params.jobId,
     });
   }
 

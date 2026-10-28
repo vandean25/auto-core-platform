@@ -146,6 +146,7 @@ export class ImportDirectUploadService {
       );
       assertImportCsvContentUsable(assessed.headers, assessed.dataRowCount);
       return await this.importService.createDryRunFromStoredUpload({
+        jobId,
         ref,
         fileName,
         entityType: params.entityType,

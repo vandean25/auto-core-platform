@@ -278,7 +278,9 @@ describe('ImportDirectUploadService.finalize', () => {
     expect(storage.deleteStagingObject).toHaveBeenCalledWith(stagingKey);
     const destinationKey = storage.copyStagingToJobObject.mock
       .calls[0][0].destinationKey as string;
+    const jobId = destinationKey.split('/')[3];
     expect(createDryRunFromStoredUpload).toHaveBeenCalledWith({
+      jobId,
       ref: { object_key: destinationKey },
       fileName: 'report.csv',
       entityType: 'CUSTOMER',
