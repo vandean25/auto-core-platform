@@ -72,7 +72,7 @@ describe('Import background worker (e2e)', () => {
 
     for (const key of [
       'CLOUD_TASKS_WORKER_SECRET',
-      'IMPORT_SYNC_MAX_ROW_COUNT',
+      'IMPORT_SYNC_MAX_FILE_BYTES',
       'IMPORT_UPLOAD_STORAGE',
       'CLOUD_TASKS_TARGET_BASE_URL',
       'IMPORT_WORKER_BATCH_SIZE',
@@ -80,7 +80,7 @@ describe('Import background worker (e2e)', () => {
       saved[key] = process.env[key];
     }
     process.env.CLOUD_TASKS_WORKER_SECRET = WORKER_SECRET;
-    process.env.IMPORT_SYNC_MAX_ROW_COUNT = '2';
+    process.env.IMPORT_SYNC_MAX_FILE_BYTES = '1';
     process.env.IMPORT_UPLOAD_STORAGE = 'local';
     process.env.CLOUD_TASKS_TARGET_BASE_URL = 'http://127.0.0.1:3000/api/';
     process.env.IMPORT_WORKER_BATCH_SIZE = '2';
@@ -146,6 +146,18 @@ describe('Import background worker (e2e)', () => {
       job?.status !== ImportJobStatus.DRY_RUN_DONE
     ) {
       await deliverWorker(jobId, 'dry_run').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
+    return job;
+  }
+
+  async function runApplyUntilDone(jobId: string, timeoutMs = 60_000) {
+    const deadline = Date.now() + timeoutMs;
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    while (Date.now() < deadline && job?.status === ImportJobStatus.APPLYING) {
+      await deliverWorker(jobId, 'apply').expect(204);
       job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
     }
     return job;
@@ -299,7 +311,7 @@ describe('Import background worker (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${token}`)
-      .expect(200);
+      .expect(202);
 
     await deliverWorker(jobId, 'apply').expect(204);
 
@@ -369,7 +381,7 @@ describe('Import background worker (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/api/imports/${jobId}/apply`)
         .set('Authorization', `Bearer ${overlapToken}`)
-        .expect(200);
+        .expect(202);
 
       await Promise.all([
         deliverWorker(jobId, 'apply', overlapTenant.tenantId).expect(204),
@@ -614,11 +626,14 @@ describe('Import background worker (e2e)', () => {
       .attach('file', csv, `${entityType}-seed.csv`)
       .expect(201);
     const jobId = created.body.id as string;
-    expect(created.body.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
     await request(app.getHttpServer())
       .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${token}`)
-      .expect(200);
+      .expect(202);
+    const applied = await runApplyUntilDone(jobId);
+    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
     return jobId;
   }
 
@@ -735,7 +750,7 @@ describe('Import background worker (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${token}`)
-      .expect(200);
+      .expect(202);
 
     const deadline = Date.now() + 90_000;
     let job = await tenantPrisma().importJob.findFirst({

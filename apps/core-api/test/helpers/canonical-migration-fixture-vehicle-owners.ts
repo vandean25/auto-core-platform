@@ -118,5 +118,5 @@ export async function applyCanonicalMigrationVehicleOwnerCustomers(
   await request(app.getHttpServer())
     .post(`/imports/${applyJob.body.id}/apply`)
     .set('Authorization', authHeader)
-    .expect(200);
+    .expect(202);
 }

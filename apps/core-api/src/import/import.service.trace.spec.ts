@@ -126,12 +126,9 @@ describe('ImportService stage spans', () => {
 
     await h.service.applyJob(JOB_ID);
 
-    expect(spans.map((span) => span.op)).toContain('import.commit');
     expect(spans.map((span) => span.op)).toContain('import.apply.batch');
-    expect(spans[0].attributes).toEqual({
-      entity_type: 'CUSTOMER',
-      row_count: 2,
-    });
+    const batch = spans.find((span) => span.op === 'import.apply.batch');
+    expect(batch?.attributes).toMatchObject({ batchSize: 2 });
   });
 
   it('propagates a rejected upload unchanged and records only the parse span', async () => {

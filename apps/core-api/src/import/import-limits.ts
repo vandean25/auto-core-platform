@@ -3,7 +3,6 @@
 const DEFAULT_MAX_ROWS = 250_000;
 const DEFAULT_MAX_BYTES = 100 * 1024 * 1024;
 const DEFAULT_HTTP_UPLOAD_MAX_BYTES = 30 * 1024 * 1024;
-const DEFAULT_SYNC_MAX_ROWS = 20_000;
 const DEFAULT_SYNC_MAX_BYTES = 10 * 1024 * 1024;
 
 function readPositiveInt(raw: string | undefined, fallback: number): number {
@@ -24,13 +23,6 @@ export function readImportUploadMaxFileBytes(): number {
   return readPositiveInt(
     process.env.IMPORT_UPLOAD_MAX_FILE_BYTES,
     DEFAULT_HTTP_UPLOAD_MAX_BYTES,
-  );
-}
-
-export function readImportSyncMaxRowCount(): number {
-  return readPositiveInt(
-    process.env.IMPORT_SYNC_MAX_ROW_COUNT,
-    DEFAULT_SYNC_MAX_ROWS,
   );
 }
 
@@ -60,16 +52,6 @@ export function readImportUploadRetentionDays(): number {
 
 export function isBackgroundImportCandidate(params: {
   fileBytes: number;
-  rowCount?: number;
 }): boolean {
-  if (params.fileBytes > readImportSyncMaxFileBytes()) {
-    return true;
-  }
-  if (
-    params.rowCount !== undefined &&
-    params.rowCount > readImportSyncMaxRowCount()
-  ) {
-    return true;
-  }
-  return false;
+  return params.fileBytes > readImportSyncMaxFileBytes();
 }

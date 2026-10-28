@@ -176,7 +176,7 @@ describe('Canonical migration CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${applyJob.body.id}/apply`)
       .set('Authorization', authHeader)
-      .expect(200);
+      .expect(202);
 
     const manifest = parseMigrationManifestJson(
       readFileSync(join(migrationFixtureDir, 'manifest.json')),

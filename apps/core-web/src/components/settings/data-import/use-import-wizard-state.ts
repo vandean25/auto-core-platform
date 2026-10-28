@@ -171,7 +171,12 @@ export function useImportWizardState(params: {
 
   const syncBackgroundJobProgress = React.useCallback((job: ImportJob) => {
     setDryRunJob(job)
-    if (job.progress?.phase === 'apply') {
+    if (job.status === 'APPLIED' || job.status === 'FAILED') {
+      setAppliedJob(job)
+      setStep(5)
+      return
+    }
+    if (job.status === 'APPLYING' && job.progress?.phase === 'apply') {
       setAppliedJob(job)
       setStep(5)
       return

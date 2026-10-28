@@ -68,7 +68,7 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       });
     });
 
-    it('refuses a job that is already applying without loading its rows', async () => {
+    it('returns the live APPLYING job without starting another run', async () => {
       const leaseExpiresAt = new Date(Date.now() + 60_000).toISOString();
       h.prisma.importJob.findFirst.mockResolvedValue(
         importJobRecord({
@@ -86,30 +86,91 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
         }),
       );
 
-      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
-        status: 409,
-        response: {
-          code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
-          message: 'Import job is already being applied',
-          leaseExpiresAt,
-        },
+      await expect(h.service.applyJobHttp(JOB_ID)).resolves.toMatchObject({
+        httpStatus: 202,
+        job: { status: ImportJobStatus.APPLYING },
       });
       expect(h.prisma.importJobRow.findMany).not.toHaveBeenCalled();
       expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
     });
 
-    it('refuses to apply a job twice', async () => {
+    it('returns 202 for a job between batches and does not start a second run', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          updatedAt: new Date(),
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-between',
+              lease_until: new Date(0).toISOString(),
+              processed_rows: 4,
+              started_at: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+
+      await expect(h.service.applyJobHttp(JOB_ID)).resolves.toMatchObject({
+        httpStatus: 202,
+        job: { status: ImportJobStatus.APPLYING, stalled: false },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('takes over a released lease after the grace period', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          updatedAt: new Date(Date.now() - 120_000),
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-old',
+              lease_until: new Date(0).toISOString(),
+              processed_rows: 4,
+              started_at: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+
+      await h.service.applyJobHttp(JOB_ID).catch(() => undefined);
+      expect(h.prisma.importJob.updateMany).toHaveBeenCalled();
+    });
+
+    it('takes over a job whose real lease has expired', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          updatedAt: new Date(),
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-expired',
+              lease_until: new Date(Date.now() - 1000).toISOString(),
+              processed_rows: 4,
+              started_at: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+
+      await h.service.applyJobHttp(JOB_ID).catch(() => undefined);
+      expect(h.prisma.importJob.updateMany).toHaveBeenCalled();
+    });
+
+    it('returns 200 for an applied job with no technical error rows', async () => {
       h.prisma.importJob.findFirst.mockResolvedValue(
         importJobRecord({ status: ImportJobStatus.APPLIED }),
       );
+      h.prisma.importJobRow.findMany.mockResolvedValue([]);
 
-      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
-        status: 409,
-        response: {
-          code: IMPORT_ERROR_CODES.JOB_ALREADY_APPLIED,
-          message: 'Import job was already applied',
-        },
+      await expect(h.service.applyJobHttp(JOB_ID)).resolves.toMatchObject({
+        httpStatus: 200,
+        job: { status: ImportJobStatus.APPLIED },
       });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
     });
 
     it('refuses to apply a FAILED job when the upload was already purged and no rows remain', async () => {
@@ -187,32 +248,34 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       );
       h.prisma.importJob.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
-        status: 409,
-        response: { code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS },
+      await expect(h.service.applyJobHttp(JOB_ID)).resolves.toMatchObject({
+        httpStatus: 202,
+        job: { status: ImportJobStatus.DRY_RUN_DONE },
       });
 
       expect(h.prisma.importJob.findFirst).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID, id: JOB_ID },
       });
-      expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith({
-        where: {
-          tenant_id: TENANT_ID,
-          id: JOB_ID,
-          status: {
-            in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
-          },
-        },
-        data: {
-          status: ImportJobStatus.APPLYING,
-          options_json: expect.objectContaining({
-            worker: expect.objectContaining({
-              phase: 'apply',
-              lease_token: expect.any(String),
+      expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            id: JOB_ID,
+            status: {
+              in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
+            },
+          }),
+          data: expect.objectContaining({
+            status: ImportJobStatus.APPLYING,
+            options_json: expect.objectContaining({
+              worker: expect.objectContaining({
+                phase: 'apply',
+                lease_token: expect.any(String),
+              }),
             }),
           }),
-        },
-      });
+        }),
+      );
       expect(h.prisma.importJob.update).not.toHaveBeenCalled();
       expect(h.prisma.customer.create).not.toHaveBeenCalled();
       expect(h.prisma.importJobRow.update).not.toHaveBeenCalled();
@@ -269,14 +332,16 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       const result = await h.service.applyJob(JOB_ID);
 
       const totals = { rows: 3, create: 1, update: 0, skip: 1, error: 1 };
-      expect(h.prisma.importJob.update).toHaveBeenCalledWith({
-        where: { id: JOB_ID },
-        data: {
-          status: ImportJobStatus.APPLIED,
-          appliedAt: expect.any(Date),
-          totals_json: totals,
-        },
-      });
+      expect(h.prisma.importJob.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: JOB_ID },
+          data: expect.objectContaining({
+            status: ImportJobStatus.APPLIED,
+            appliedAt: expect.any(Date),
+            totals_json: totals,
+          }),
+        }),
+      );
       expect(h.prisma.auditLog.create).toHaveBeenLastCalledWith({
         data: {
           tenant_id: TENANT_ID,
@@ -296,6 +361,52 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
         totals,
         applied_at: expect.any(String),
       });
+    });
+
+    it('a second POST does not apply the same rows again', async () => {
+      arrangeApply(
+        h,
+        importJobRecord({
+          totals_json: DRY_RUN_CREATE_TOTALS,
+        }),
+        [
+          jobRowRecord({
+            row_no: 1,
+            action: ImportRowAction.CREATE,
+            external_id: 'K-1',
+            normalized_json: {
+              external_id: 'K-1',
+              type: 'PRIVATE',
+              first_name: 'Anna',
+              last_name: 'Berger',
+            },
+          }),
+        ],
+      );
+      h.prisma.customer.create.mockResolvedValue({
+        id: 'cust-1',
+        type: 'PRIVATE',
+        company_name: null,
+        first_name: 'Anna',
+        last_name: 'Berger',
+        email: null,
+        phone: null,
+        vat_id: null,
+        address_street: null,
+        address_zip: null,
+        address_city: null,
+        address_country: 'AT',
+      });
+      h.prisma.externalIdMapping.findFirst.mockResolvedValue(null);
+      h.prisma.externalIdMapping.create.mockResolvedValue({});
+
+      await h.service.applyJob(JOB_ID);
+      const creates = h.prisma.customer.create.mock.calls.length;
+      const second = await h.service.applyJobHttp(JOB_ID);
+
+      expect([200, 202]).toContain(second.httpStatus);
+      expect(second.job.status).toBe(ImportJobStatus.APPLIED);
+      expect(h.prisma.customer.create.mock.calls.length).toBe(creates);
     });
   });
 });

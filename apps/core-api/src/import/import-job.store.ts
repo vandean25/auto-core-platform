@@ -726,6 +726,7 @@ export class ImportJobStore {
       data: {
         options_json: { ...options, worker },
         worker_handoff_at: new Date(),
+        updatedAt: new Date(),
       },
     });
     return updated.count > 0;
@@ -826,7 +827,7 @@ export class ImportJobStore {
     tenantId: string,
     jobId: string,
     afterRowNo: number,
-    take: number,
+    take?: number,
   ) {
     return this.prisma.importJobRow.findMany({
       where: {
@@ -835,7 +836,21 @@ export class ImportJobStore {
         row_no: { gt: afterRowNo },
       },
       orderBy: { row_no: 'asc' },
-      take,
+      ...(take === undefined ? {} : { take }),
+    });
+  }
+
+  findPriceJumpRows(tenantId: string, jobId: string) {
+    return this.prisma.importJobRow.findMany({
+      where: {
+        tenant_id: tenantId,
+        import_job_id: jobId,
+        normalized_json: {
+          path: ['price_jump_flagged'],
+          equals: true,
+        },
+      },
+      orderBy: { row_no: 'asc' },
     });
   }
 

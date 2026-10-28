@@ -98,6 +98,7 @@ function applyDefaults(harness: ImportHarness): void {
     },
   );
   harness.prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
+  harness.prisma.$executeRaw = jest.fn(async () => 0);
   harness.prisma.$transaction.mockImplementation(
     (callback: (tx: MockPrisma) => unknown) =>
       callback(
@@ -307,7 +308,63 @@ export function jobRowRecord(
   };
 }
 
-/** Wires the mocks so applyJob can load a job and its rows and pass the status lock. */
+function assignRowAction(
+  row: Record<string, unknown>,
+  rowNo: number | undefined,
+  action: ImportRowAction | undefined,
+  rowActions: Map<number, ImportRowAction>,
+): void {
+  if (!action || typeof rowNo !== 'number') return;
+  row.action = action;
+  rowActions.set(rowNo, action);
+}
+
+function patchApplyRow(
+  rows: Array<Record<string, unknown>>,
+  rowActions: Map<number, ImportRowAction>,
+  args: {
+    where?: {
+      row_no?: number;
+      tenant_id_import_job_id_row_no?: { row_no?: number };
+    };
+    data?: { action?: ImportRowAction; errors_json?: unknown };
+  },
+): Record<string, unknown> {
+  const rowNo =
+    args.where?.tenant_id_import_job_id_row_no?.row_no ?? args.where?.row_no;
+  const row = rows.find((item) => item.row_no === rowNo);
+  if (!row || !args.data) return row ?? {};
+  assignRowAction(row, rowNo, args.data.action, rowActions);
+  if ('errors_json' in args.data) row.errors_json = args.data.errors_json;
+  return row;
+}
+
+function applySeqOf(row: Record<string, unknown>): number {
+  return typeof row.apply_seq === 'number' ? row.apply_seq : 0;
+}
+
+function rowsMatchingApplyQuery(
+  rows: Array<Record<string, unknown>>,
+  where: Record<string, unknown>,
+): Array<Record<string, unknown>> {
+  const action = where.action;
+  const seq = where.apply_seq;
+  const rowNo = where.row_no;
+  const minSeq =
+    seq && typeof seq === 'object' && 'gt' in seq ? Number(seq.gt) : null;
+  const wanted =
+    rowNo && typeof rowNo === 'object' && 'in' in rowNo
+      ? new Set(rowNo.in as number[])
+      : null;
+  return rows.filter((row) => {
+    if (action && row.action !== action) return false;
+    if (minSeq !== null && applySeqOf(row) <= minSeq) return false;
+    if (wanted && !wanted.has(row.row_no as number)) return false;
+    return true;
+  });
+}
+
+/** Wires the mocks so applyJob loads a job, locks it, and runs the worker inline. */
 export function arrangeApply(
   harness: ImportHarness,
   job: Record<string, unknown>,
@@ -316,11 +373,27 @@ export function arrangeApply(
   const { prisma } = harness;
   const totals = (job.totals_json ?? {}) as { rows?: number };
   const expectedRows = totals.rows ?? rows.length;
+  const totalsJson = {
+    ...((job.totals_json ?? {}) as Record<string, unknown>),
+  };
+  if (!totalsJson.rows) totalsJson.rows = rows.length;
+  const state: {
+    job: Record<string, unknown>;
+    rows: Array<Record<string, unknown>>;
+  } = {
+    job: { ...job, totals_json: totalsJson },
+    rows: rows.map((row, index) => ({
+      apply_seq: index + 1,
+      ...row,
+    })),
+  };
   const rowActions = new Map<number, ImportRowAction>();
-  rows.forEach((row, index) => {
+  state.rows.forEach((row, index) => {
     const rowNo = (row.row_no as number | undefined) ?? index + 1;
+    row.row_no = rowNo;
     rowActions.set(rowNo, row.action as ImportRowAction);
   });
+  prisma.$executeRaw = jest.fn(async () => 0);
   prisma.$transaction.mockImplementation(
     (callback: (tx: MockPrisma) => unknown) =>
       callback(
@@ -331,32 +404,66 @@ export function arrangeApply(
         }),
       ),
   );
-  prisma.importJob.findFirst.mockResolvedValue(job);
-  prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-  prisma.importJobRow.findMany.mockResolvedValue(rows);
+  prisma.importJob.findFirst.mockImplementation(async () => state.job);
+  prisma.importJob.updateMany.mockImplementation(
+    async ({ data }: { data?: Record<string, unknown> }) => {
+      if (data) {
+        state.job = {
+          ...state.job,
+          ...data,
+          status: data.status ?? state.job.status,
+          options_json: data.options_json ?? state.job.options_json,
+          totals_json: data.totals_json ?? state.job.totals_json,
+          appliedAt:
+            data.appliedAt === undefined ? state.job.appliedAt : data.appliedAt,
+        };
+      }
+      return { count: 1 };
+    },
+  );
+  prisma.importJobRow.findMany.mockImplementation(
+    async (args?: { where?: Record<string, unknown>; take?: number }) => {
+      const matched = rowsMatchingApplyQuery(state.rows, args?.where ?? {});
+      const sorted = [...matched].sort(
+        (left, right) => applySeqOf(left) - applySeqOf(right),
+      );
+      return sorted.slice(0, args?.take ?? sorted.length);
+    },
+  );
+  prisma.importJobRow.findFirst = jest.fn(async () => {
+    const withSeq = state.rows.filter((row) => row.apply_seq != null);
+    return (
+      [...withSeq].sort((left, right) => applySeqOf(right) - applySeqOf(left))[0] ??
+      null
+    );
+  });
+  prisma.importJobRow.count.mockImplementation(
+    async (args?: { where?: { action?: ImportRowAction } }) => {
+      const action = args?.where?.action;
+      if (!action) return state.rows.length;
+      return state.rows.filter((row) => row.action === action).length;
+    },
+  );
   prisma.importJobRow.update.mockImplementation(
     async (args: {
       where?: {
         row_no?: number;
         tenant_id_import_job_id_row_no?: { row_no?: number };
       };
-      data?: { action?: ImportRowAction };
-    }) => {
-      const rowNo =
-        args.where?.tenant_id_import_job_id_row_no?.row_no ?? args.where?.row_no;
-      if (args.data?.action && rowNo !== undefined) {
-        rowActions.set(rowNo, args.data.action);
-      }
-      return {};
-    },
+      data?: { action?: ImportRowAction; errors_json?: unknown };
+    }) => patchApplyRow(state.rows, rowActions, args),
   );
   prisma.auditLog.create.mockResolvedValue({});
   prisma.importJob.update.mockImplementation(
-    async ({ data }: { data: Record<string, unknown> }) => ({
-      ...job,
-      status: data.status,
-      totals_json: data.totals_json,
-      appliedAt: data.appliedAt ?? null,
-    }),
+    async ({ data }: { data: Record<string, unknown> }) => {
+      state.job = {
+        ...state.job,
+        ...data,
+        status: data.status ?? state.job.status,
+        totals_json: data.totals_json ?? state.job.totals_json,
+        appliedAt: data.appliedAt ?? state.job.appliedAt ?? null,
+      };
+      return state.job;
+    },
   );
 }
