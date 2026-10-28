@@ -21,7 +21,8 @@ export function PhonePunchSheet({ open, onOpenChange }: PhonePunchSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" aria-describedby={undefined}>
-        <SheetHeader>
+        {/* Centered on a phone: as much room on the left as the close button takes on the right. */}
+        <SheetHeader className="max-sm:pl-10">
           <SheetTitle>{t('phoneNav.punchTitle')}</SheetTitle>
         </SheetHeader>
         <div className="mt-4">
