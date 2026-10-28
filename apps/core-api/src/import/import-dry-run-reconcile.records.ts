@@ -1,4 +1,8 @@
-import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
+import {
+  rowToRecord,
+  unwrapImportErrorReportRow,
+  type ParsedCsv,
+} from './csv-parse.util.js';
 import { readCsvSliceByRange } from './import-csv-stream.util.js';
 import type { ImportFileStorageService } from './import-file.storage.js';
 import type { ImportJobUploadRef } from './import-job.worker-state.js';
@@ -60,10 +64,11 @@ export function toParsedCsvFromRecords(
   records: CsvRowRecord[],
   fileSha256: string,
 ): ParsedCsv {
+  const sourceHeaders = unwrapImportErrorReportRow(headers, []).headers;
   return {
-    headers,
+    headers: sourceHeaders,
     rows: records.map((row) =>
-      headers.map((header) => row.record[header] ?? ''),
+      sourceHeaders.map((header) => row.record[header] ?? ''),
     ),
     delimiter: ';',
     sha256: fileSha256,

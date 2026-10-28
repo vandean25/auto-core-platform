@@ -6,6 +6,7 @@ import { replanImportDryRunUnit } from './import-dry-run-reconcile.plan-unit.js'
 import { computeImportDryRunReconcileUnits } from './import-dry-run-reconcile.units.js';
 import { IMPORT_RECONCILE_GROUP_MAX_ROWS } from './import-dry-run-group-limit.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { buildImportErrorReportCsv } from './import-job.serializer.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import type { DryRunRowResult } from './import.types.js';
@@ -99,6 +100,83 @@ async function replanUnit(
 }
 
 describe('dry-run reconcile production paths', () => {
+  it.each(["'+123", "''+123", '+123'])(
+    'preserves source phone %s and protected headers while reconciling a correction report across batches',
+    async (phone) => {
+      const mapping = {
+        external_id: 'Source ID',
+        first_name: '+Given name',
+        last_name: 'Family name',
+        phone: 'Phone',
+      };
+      const report = Buffer.from(
+        buildImportErrorReportCsv(
+          Array.from({ length: 501 }, (_, index) => ({
+            row_no: index + 1,
+            errors_json: [{ code: IMPORT_ERROR_CODES.APPLY_FAILED }],
+            source_cells: [
+              index === 0 || index === 500 ? 'DUPLICATE' : `SOURCE-${index}`,
+              'Sample',
+              `Person ${index}`,
+              phone,
+            ],
+          })),
+          { headers: Object.values(mapping), mapping, locale: 'en' },
+        ),
+      );
+      const prisma = {
+        externalIdMapping: { findMany: jest.fn().mockResolvedValue([]) },
+        customer: { findMany: jest.fn().mockResolvedValue([]) },
+        importJobRow: {
+          findMany: jest.fn().mockResolvedValue(
+            [1, 501].map((rowNo) => ({
+              row_no: rowNo,
+              external_id: 'DUPLICATE',
+              normalized_json: {},
+            })),
+          ),
+        },
+      };
+      const result = await replanImportDryRunUnit({
+        prisma: prisma as never,
+        fileStorage: {
+          readByteRange: async (_upload: unknown, start: number, end: number) =>
+            report.subarray(start, end + 1),
+        } as never,
+        upload: { object_key: 'imports/synthetic-errors.csv' },
+        fileSha256: 'synthetic-sha',
+        tenantId: 'synthetic-tenant',
+        jobId: 'synthetic-job',
+        handler: {
+          entityType: ImportEntityType.CUSTOMER,
+          planDryRun: (input: ImportDryRunInput, parsed: ParsedCsv) =>
+            planCustomerDryRun(prisma as never, input, parsed),
+        } as never,
+        input: {
+          tenantId: 'synthetic-tenant',
+          sourceSystem: 'synthetic',
+          mapping,
+          options: {},
+        },
+        unit: {
+          context_from_row: 1,
+          context_to_row: 501,
+          replan_row_nos: [1, 501],
+        },
+      });
+
+      expect(result.map((row) => row.row_no)).toEqual([1, 501]);
+      expect(result[0].normalized).toMatchObject({
+        first_name: 'Sample',
+        phone,
+        external_id: 'DUPLICATE',
+      });
+      expect(result[1].errors[0]?.code).toBe(
+        IMPORT_ERROR_CODES.DUPLICATE_EXTERNAL_ID_IN_FILE,
+      );
+    },
+  );
+
   it('vehicle party sync and background replan both flag a single-key cap+1 group', async () => {
     const mapping = Object.fromEntries(
       [

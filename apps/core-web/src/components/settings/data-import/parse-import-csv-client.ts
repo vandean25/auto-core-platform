@@ -9,9 +9,9 @@ export type ParsedImportCsvPreview = {
 export const IMPORT_PREVIEW_MAX_BYTES = 1024 * 1024
 
 function detectDelimiter(headerLine: string): ';' | ',' {
-  const semicolons = (headerLine.match(/;/g) ?? []).length
-  const commas = (headerLine.match(/,/g) ?? []).length
-  return semicolons >= commas ? ';' : ','
+  const semicolonColumns = parseCsvRecords(headerLine, ';')[0]?.length ?? 0
+  const commaColumns = parseCsvRecords(headerLine, ',')[0]?.length ?? 0
+  return semicolonColumns >= commaColumns ? ';' : ','
 }
 
 function parseCsvRecords(text: string, delimiter: string): string[][] {
