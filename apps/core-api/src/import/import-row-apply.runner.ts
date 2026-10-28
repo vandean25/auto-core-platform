@@ -78,7 +78,7 @@ function isPastApplyUnitDeadline(deadlineMs: number | undefined): boolean {
 }
 
 function legacyRowTxMaxAttempts(options?: ImportApplyBatchOptions): number {
-  if (options?.leaseToken || options?.stopAfterBatch) {
+  if (options?.stopAfterBatch || options?.useApplySequence) {
     return IMPORT_ROW_TX_MAX_ATTEMPTS;
   }
   return IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS;

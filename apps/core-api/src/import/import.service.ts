@@ -146,9 +146,6 @@ function isSyncApplyConnectionFailure(error: unknown): boolean {
   if (classifyImportApplyError(error) === 'row') {
     return false;
   }
-  if (classifyImportApplyError(error) === 'retryable') {
-    return true;
-  }
   const message = error instanceof Error ? error.message : '';
   return /connection terminated|ECONNRESET|ECONNREFUSED|server closed the connection/i.test(
     message,
@@ -415,44 +412,86 @@ export class ImportService {
       });
     }
 
-    const effectiveOptions = mergeApplyOptions(
-      (applyingJob.options_json as ImportJobOptions) ?? {},
+    return this.dispatchImportApply({
+      tenantId,
+      jobId,
+      job: applyingJob,
+      actorUserId: currentUser.id,
       applyOptions,
-    );
-    const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
-    assertImplementedImportEntityType(applyingJob.entity_type);
-    const handler = this.handlers[applyingJob.entity_type];
-    const dryRunTotals = applyingJob.totals_json as ImportJobTotals;
+      alreadyLocked: staleTakeover === 'taken',
+    });
+  }
 
+  private async dispatchImportApply(params: {
+    tenantId: string;
+    jobId: string;
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>;
+    actorUserId: string;
+    applyOptions: ImportJobOptions | undefined;
+    alreadyLocked: boolean;
+  }): Promise<SerializedImportJob> {
+    const effectiveOptions = mergeApplyOptions(
+      (params.job.options_json as ImportJobOptions) ?? {},
+      params.applyOptions,
+    );
+    const rowCount = await this.jobStore.countApplyRows(
+      params.tenantId,
+      params.jobId,
+    );
+    assertImplementedImportEntityType(params.job.entity_type);
+    const handler = this.handlers[params.job.entity_type];
+    const dryRunTotals = params.job.totals_json as ImportJobTotals;
     if (rowCount > readImportSyncMaxRowCount()) {
-      if (staleTakeover === 'taken') {
-        await this.runBackgroundApplyBatch(tenantId, jobId);
-        const refreshed = await this.jobStore.findJob(tenantId, jobId);
-        return this.serializeJob(
-          refreshed!,
-          refreshed!.totals_json as ImportJobTotals,
-        );
-      }
-      return this.queueBackgroundImportApply(
-        tenantId,
-        jobId,
-        applyingJob,
+      return this.dispatchBackgroundApply(
+        params,
         handler,
         dryRunTotals,
-        applyOptions,
         effectiveOptions,
       );
     }
-
     return this.applyImportJobSynchronously(
-      tenantId,
-      jobId,
-      applyingJob,
+      params.tenantId,
+      params.jobId,
+      params.job,
       handler,
-      currentUser.id,
-      applyOptions,
+      params.actorUserId,
+      params.applyOptions,
       effectiveOptions,
-      staleTakeover === 'taken',
+      params.alreadyLocked,
+    );
+  }
+
+  private async dispatchBackgroundApply(
+    params: {
+      tenantId: string;
+      jobId: string;
+      job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>;
+      applyOptions: ImportJobOptions | undefined;
+      alreadyLocked: boolean;
+    },
+    handler: ImportTypeHandler,
+    dryRunTotals: ImportJobTotals,
+    effectiveOptions: ImportJobOptions,
+  ): Promise<SerializedImportJob> {
+    if (params.alreadyLocked) {
+      await this.runBackgroundApplyBatch(params.tenantId, params.jobId);
+      const refreshed = await this.jobStore.findJob(
+        params.tenantId,
+        params.jobId,
+      );
+      return this.serializeJob(
+        refreshed!,
+        refreshed!.totals_json as ImportJobTotals,
+      );
+    }
+    return this.queueBackgroundImportApply(
+      params.tenantId,
+      params.jobId,
+      params.job,
+      handler,
+      dryRunTotals,
+      params.applyOptions,
+      effectiveOptions,
     );
   }
 
@@ -545,29 +584,16 @@ export class ImportService {
 
     let applied: SerializedImportJob;
     try {
-      const lockedJob = await this.jobStore.findJob(tenantId, jobId);
-      const leaseToken =
-        readWorkerState(lockedJob?.options_json as ImportJobOptionsWithWorker)
-          ?.lease_token ?? null;
-      applied = await traceImportCommit(job.entity_type, rows.length, () =>
-        runSyncApplyUnits({
-          rows,
-          initialLeaseToken: leaseToken,
-          findJob: () => this.jobStore.findJob(tenantId, jobId),
-          extendLease: (token) =>
-            this.jobStore.extendWorkerLease(tenantId, jobId, token),
-          applyRows: (unitRows, batchOptions) =>
-            handler.apply({
-              tenantId,
-              job: lockedJob ?? job,
-              rows: unitRows,
-              actorUserId,
-              effectiveOptions,
-              preparation,
-              batchOptions,
-            }),
-        }),
-      );
+      applied = await this.commitSyncApplyUnits({
+        tenantId,
+        jobId,
+        job,
+        handler,
+        actorUserId,
+        effectiveOptions,
+        preparation,
+        rows,
+      });
     } catch (error) {
       if (error instanceof ImportApplyRetryExhaustedError) {
         throw importApplyInterrupted();
@@ -581,6 +607,44 @@ export class ImportService {
       );
     }
     return applied;
+  }
+
+  private async commitSyncApplyUnits(params: {
+    tenantId: string;
+    jobId: string;
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>;
+    handler: ImportTypeHandler;
+    actorUserId: string;
+    effectiveOptions: ImportJobOptions;
+    preparation: Awaited<ReturnType<ImportTypeHandler['prepareApply']>>;
+    rows: ImportApplyRow[];
+  }): Promise<SerializedImportJob> {
+    const lockedJob = await this.jobStore.findJob(
+      params.tenantId,
+      params.jobId,
+    );
+    const leaseToken =
+      readWorkerState(lockedJob?.options_json as ImportJobOptionsWithWorker)
+        ?.lease_token ?? null;
+    return traceImportCommit(params.job.entity_type, params.rows.length, () =>
+      runSyncApplyUnits({
+        rows: params.rows,
+        initialLeaseToken: leaseToken,
+        findJob: () => this.jobStore.findJob(params.tenantId, params.jobId),
+        extendLease: (token) =>
+          this.jobStore.extendWorkerLease(params.tenantId, params.jobId, token),
+        applyRows: (unitRows, batchOptions) =>
+          params.handler.apply({
+            tenantId: params.tenantId,
+            job: lockedJob ?? params.job,
+            rows: unitRows,
+            actorUserId: params.actorUserId,
+            effectiveOptions: params.effectiveOptions,
+            preparation: params.preparation,
+            batchOptions,
+          }),
+      }),
+    );
   }
 
   private async failSyncApplyOnConnectionError(

@@ -36484,7 +36484,7 @@
             "type": "boolean"
           },
           "recovery_hint": {
-            "type": "string",
+            "type": "object",
             "nullable": true
           },
           "created_by": {
