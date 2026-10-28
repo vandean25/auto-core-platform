@@ -41,6 +41,18 @@
       "public": false,
       "params": []
     },
+    "AUDIO_EMPTY": {
+      "public": false,
+      "params": []
+    },
+    "AUDIO_TOO_LARGE": {
+      "public": false,
+      "params": []
+    },
+    "AUDIO_UNSUPPORTED_TYPE": {
+      "public": false,
+      "params": []
+    },
     "AUSTAUSCHPLAKETTE_NOT_TRACKED": {
       "public": false,
       "params": []
@@ -217,6 +229,10 @@
       "public": false,
       "params": []
     },
+    "CONTRACT_VERSION_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
     "CREDIT_LIMIT_EXCEEDED": {
       "public": false,
       "params": []
@@ -274,6 +290,10 @@
       "params": []
     },
     "DUPLICATE_CUSTOMER": {
+      "public": false,
+      "params": []
+    },
+    "DURATION_REQUIRED": {
       "public": false,
       "params": []
     },
@@ -587,6 +607,10 @@
     },
     "HTTP_504": {
       "public": true,
+      "params": []
+    },
+    "HUMAN_ONLY_EXCLUDED": {
+      "public": false,
       "params": []
     },
     "IDEMPOTENCY_MISMATCH": {
@@ -1059,6 +1083,14 @@
       "public": true,
       "params": []
     },
+    "LOANER_NOT_PERMITTED": {
+      "public": false,
+      "params": []
+    },
+    "LOCALE_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
     "MANUAL_EXPIRY_AMBIGUITY": {
       "public": false,
       "params": []
@@ -1399,6 +1431,14 @@
       "public": true,
       "params": []
     },
+    "RESOURCE_AMBIGUOUS": {
+      "public": false,
+      "params": []
+    },
+    "RESOURCE_MISSING": {
+      "public": false,
+      "params": []
+    },
     "RESULT_UNCONFIRMED": {
       "public": false,
       "params": []
@@ -1423,12 +1463,20 @@
       "public": false,
       "params": []
     },
+    "SESSION_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
     "SETTLEMENT_AMOUNT_MISMATCH": {
       "public": true,
       "params": []
     },
     "SETTLEMENT_NOT_IN_SLICE": {
       "public": true,
+      "params": []
+    },
+    "SITE_MISMATCH": {
+      "public": false,
       "params": []
     },
     "SOURCE_CONFLICT": {
@@ -1448,6 +1496,22 @@
       "params": []
     },
     "STATION_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "TEXT_TOO_LONG": {
+      "public": false,
+      "params": []
+    },
+    "TIME_CONTRADICTORY": {
+      "public": false,
+      "params": []
+    },
+    "TIME_IN_PAST": {
+      "public": false,
+      "params": []
+    },
+    "TRANSCRIPT_EMPTY": {
       "public": false,
       "params": []
     },
@@ -1472,6 +1536,10 @@
       "params": []
     },
     "UNSUPPORTED_EXPORT_TAX_MODE": {
+      "public": false,
+      "params": []
+    },
+    "UNSUPPORTED_GRAMMAR": {
       "public": false,
       "params": []
     },

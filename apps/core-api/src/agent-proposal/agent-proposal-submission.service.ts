@@ -115,28 +115,12 @@ export class AgentProposalSubmissionService {
       payload,
       executor,
     );
-    if (evaluation.tier !== AgentPolicyTier.PROPOSE) {
-      throw new UnprocessableEntityException(
-        'Only actions currently evaluated as PROPOSE can be submitted for approval',
-      );
-    }
+    this.assertProposeTier(evaluation);
 
-    const executionContext = await executor.buildExecutionContext?.(payload);
-    const intendedSiteId =
-      typeof executionContext?.site_id === 'string'
-        ? executionContext.site_id
-        : undefined;
-    const simulation = await this.dryRun.executeInRollbackTransaction(() =>
-      executor.execute(payload, executionContext),
+    const { intendedSiteId, simulation } = await this.simulatePendingAction(
+      executor,
+      payload,
     );
-    if (
-      intendedSiteId &&
-      (await this.siteContext.getSiteId()) !== intendedSiteId
-    ) {
-      throw new UnprocessableEntityException(
-        'The active site changed while the pending action was simulated',
-      );
-    }
     const traceId = randomUUID();
     await this.agentActionLog.record({
       traceId,
@@ -148,33 +132,90 @@ export class AgentProposalSubmissionService {
       inputSummary: { payload },
       resultSummary: { would_change: simulation.wouldChange },
     });
-    const mcpIdempotency =
-      dto.command_id && !options?.command_id
-        ? {
-            mcp_command_idempotency: {
-              command_id: dto.command_id,
-              args_fingerprint: fingerprintMcpWriteArgs(actionType, payload),
-            },
-          }
-        : {};
 
     return this.persistPendingAction({
       action_type: actionType,
       payload_json: payload,
-      preview_json: {
-        result: simulation.result,
-        would_change: simulation.wouldChange,
-        // Nothing is committed until the pending action is applied, so the whole preview is provisional.
-        provisional: true,
-        ...(intendedSiteId
-          ? { execution_context: { site_id: intendedSiteId } }
-          : {}),
-        ...mcpIdempotency,
-        ...(options?.preview_json ?? {}),
-      },
+      preview_json: buildPreviewJson({
+        simulation,
+        intendedSiteId,
+        mcpIdempotency: mcpIdempotencyPreview(dto, options, actionType, payload),
+        extra: options?.preview_json,
+      }),
       tier: AgentPolicyTier.PROPOSE,
       trace_id: traceId,
       command_id: options?.command_id,
     });
   }
+
+  private assertProposeTier(evaluation: { tier: AgentPolicyTier }): void {
+    if (evaluation.tier !== AgentPolicyTier.PROPOSE) {
+      throw new UnprocessableEntityException(
+        'Only actions currently evaluated as PROPOSE can be submitted for approval',
+      );
+    }
+  }
+
+  private async simulatePendingAction(
+    executor: ReturnType<PendingActionExecutorService['resolve']>,
+    payload: unknown,
+  ): Promise<{
+    intendedSiteId: string | undefined;
+    simulation: Awaited<
+      ReturnType<DryRunService['executeInRollbackTransaction']>
+    >;
+  }> {
+    const executionContext = await executor.buildExecutionContext?.(payload);
+    const intendedSiteId = siteIdOf(executionContext);
+    const simulation = await this.dryRun.executeInRollbackTransaction(() =>
+      executor.execute(payload, executionContext),
+    );
+    if (
+      intendedSiteId &&
+      (await this.siteContext.getSiteId()) !== intendedSiteId
+    ) {
+      throw new UnprocessableEntityException(
+        'The active site changed while the pending action was simulated',
+      );
+    }
+    return { intendedSiteId, simulation };
+  }
+}
+
+function siteIdOf(context: { site_id?: unknown } | undefined): string | undefined {
+  return typeof context?.site_id === 'string' ? context.site_id : undefined;
+}
+
+function mcpIdempotencyPreview(
+  dto: SubmitPendingAgentActionDto,
+  options: SubmitPendingActionOptions | undefined,
+  actionType: string,
+  payload: unknown,
+): Record<string, unknown> {
+  if (!dto.command_id || options?.command_id) return {};
+  return {
+    mcp_command_idempotency: {
+      command_id: dto.command_id,
+      args_fingerprint: fingerprintMcpWriteArgs(actionType, payload),
+    },
+  };
+}
+
+function buildPreviewJson(input: {
+  simulation: Awaited<ReturnType<DryRunService['executeInRollbackTransaction']>>;
+  intendedSiteId: string | undefined;
+  mcpIdempotency: Record<string, unknown>;
+  extra: Record<string, unknown> | undefined;
+}): Record<string, unknown> {
+  return {
+    result: input.simulation.result,
+    would_change: input.simulation.wouldChange,
+    // Nothing is committed until the pending action is applied, so the whole preview is provisional.
+    provisional: true,
+    ...(input.intendedSiteId
+      ? { execution_context: { site_id: input.intendedSiteId } }
+      : {}),
+    ...input.mcpIdempotency,
+    ...(input.extra ?? {}),
+  };
 }

@@ -25,6 +25,7 @@ import {
   selectTokens,
   tokensOfParsed,
   type WorkshopCommandReplay,
+  type WorkshopCommandTokens,
 } from './workshop-command.tokens.js';
 import {
   WORKSHOP_COMMAND_ACTION_TYPE,
@@ -94,19 +95,7 @@ export class WorkshopCommandService {
   ): Promise<InterpretResult> {
     this.assertRole(INTERPRET_ROLES);
     this.assertContract(dto.contract_version);
-    if (dto.locale !== WORKSHOP_COMMAND_LOCALE) {
-      throw new BadRequestException({
-        code: 'LOCALE_UNSUPPORTED',
-        message: `locale must be ${WORKSHOP_COMMAND_LOCALE}`,
-      });
-    }
-    const text = dto.text.trim();
-    if (text.length === 0 || text.length > WORKSHOP_COMMAND_MAX_TEXT_LENGTH) {
-      throw new BadRequestException({
-        code: 'TEXT_TOO_LONG',
-        message: `text must be 1-${WORKSHOP_COMMAND_MAX_TEXT_LENGTH} characters`,
-      });
-    }
+    const text = this.readCommandText(dto);
 
     const tenantId = await this.tenantContext.getTenantId();
     const site = await this.siteContext.getSite();
@@ -124,34 +113,18 @@ export class WorkshopCommandService {
     const session = await this.sessions.find(tenantId, dto.command_id);
 
     if (proposal) {
-      if (proposal.status !== AgentProposalStatus.PENDING) {
-        throw conflict(
-          'COMMAND_ID_REUSED',
-          'This command already has a decided proposal.',
-        );
-      }
-      const fingerprint = commandFingerprint(tokens, selections);
-      if (
-        !session ||
-        fingerprint !== this.storedFingerprint(proposal.preview_json) ||
-        !sameSelections(selections, session.replay.selections)
-      ) {
-        throw conflict(
-          'COMMAND_ID_REUSED',
-          'Tokens or selections differ from the stored command.',
-        );
-      }
-      return this.resolveReplay(session.replay, site, dto.command_id, now);
+      return this.interpretStoredProposal(
+        proposal,
+        session,
+        tokens,
+        selections,
+        site,
+        dto.command_id,
+        now,
+      );
     }
-
     if (session) {
-      if (!sameTokens(selectTokens(session.replay), tokens)) {
-        throw conflict(
-          'COMMAND_ID_REUSED',
-          'Tokens differ from the stored command.',
-        );
-      }
-      this.assertSelectionsWereOffered(selections, session.replay);
+      this.assertReplayMatches(session.replay, tokens, selections);
     } else if (selections.length > 0) {
       throw conflict(
         'SELECTION_NOT_OFFERED',
@@ -183,6 +156,71 @@ export class WorkshopCommandService {
       }),
     });
     return result;
+  }
+
+  private readCommandText(dto: InterpretWorkshopCommandDto): string {
+    if (dto.locale !== WORKSHOP_COMMAND_LOCALE) {
+      throw new BadRequestException({
+        code: 'LOCALE_UNSUPPORTED',
+        message: `locale must be ${WORKSHOP_COMMAND_LOCALE}`,
+      });
+    }
+    const text = dto.text.trim();
+    if (text.length === 0 || text.length > WORKSHOP_COMMAND_MAX_TEXT_LENGTH) {
+      throw new BadRequestException({
+        code: 'TEXT_TOO_LONG',
+        message: `text must be 1-${WORKSHOP_COMMAND_MAX_TEXT_LENGTH} characters`,
+      });
+    }
+    return text;
+  }
+
+  private async interpretStoredProposal(
+    proposal: {
+      id: string;
+      trace_id: string;
+      status: AgentProposalStatus;
+      preview_json: Prisma.JsonValue | null;
+    },
+    session: Awaited<ReturnType<WorkshopCommandSessionService['find']>>,
+    tokens: WorkshopCommandTokens,
+    selections: CommandSelection[],
+    site: Site,
+    commandId: string,
+    now: Date,
+  ): Promise<InterpretResult> {
+    if (proposal.status !== AgentProposalStatus.PENDING) {
+      throw conflict(
+        'COMMAND_ID_REUSED',
+        'This command already has a decided proposal.',
+      );
+    }
+    const fingerprint = commandFingerprint(tokens, selections);
+    if (
+      !session ||
+      fingerprint !== this.storedFingerprint(proposal.preview_json) ||
+      !sameSelections(selections, session.replay.selections)
+    ) {
+      throw conflict(
+        'COMMAND_ID_REUSED',
+        'Tokens or selections differ from the stored command.',
+      );
+    }
+    return this.resolveReplay(session.replay, site, commandId, now);
+  }
+
+  private assertReplayMatches(
+    replay: WorkshopCommandReplay,
+    tokens: WorkshopCommandTokens,
+    selections: CommandSelection[],
+  ): void {
+    if (!sameTokens(selectTokens(replay), tokens)) {
+      throw conflict(
+        'COMMAND_ID_REUSED',
+        'Tokens differ from the stored command.',
+      );
+    }
+    this.assertSelectionsWereOffered(selections, replay);
   }
 
   async propose(

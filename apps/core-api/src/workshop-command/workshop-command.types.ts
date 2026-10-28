@@ -3,8 +3,6 @@ export const WORKSHOP_COMMAND_LOCALE = 'de-AT';
 export const WORKSHOP_COMMAND_MAX_TEXT_LENGTH = 500;
 export const WORKSHOP_COMMAND_ACTION_TYPE = 'workshop.booking_package';
 
-export type CommandSource = 'keyboard' | 'voice_transcript';
-
 export type CommandSelection = {
   slot: string;
   value: string;

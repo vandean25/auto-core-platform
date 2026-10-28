@@ -346,6 +346,83 @@ function resolveDay(day: ParsedDay, now: Date, timeZone: string): string {
   return `${String(year).padStart(4, '0')}-${String(day.month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
 }
 
+type Clause = { range: { start: number; end: number }; text: string; tokens: TokenRef[] };
+type TokenRef = { value: string; start: number };
+
+type ParsedIdentityMatch = {
+  identity: ParsedIdentity | null;
+  clauseIndex: number;
+  leftovers: string[];
+};
+
+function parseIdentity(
+  vin: WordMatch | null,
+  plate: WordMatch | null,
+  clauses: Clause[],
+): ParsedIdentityMatch {
+  if (vin) return { identity: { kind: 'vin', vin: vin.value }, clauseIndex: -1, leftovers: [] };
+  if (plate) {
+    return { identity: { kind: 'plate', plate: plate.value }, clauseIndex: -1, leftovers: [] };
+  }
+  const tokens = clauses[0]?.tokens ?? [];
+  if (tokens.length < 2) return { identity: null, clauseIndex: -1, leftovers: [] };
+  return {
+    identity: {
+      kind: 'surname_model',
+      surname: tokens[0].value,
+      model: tokens[1].value,
+    },
+    clauseIndex: 0,
+    leftovers: tokens.slice(2).map((token) => token.value),
+  };
+}
+
+function collectUnsupportedClauses(
+  clauses: Clause[],
+  identityClauseIndex: number,
+  leftovers: string[],
+): string[] {
+  const others = clauses
+    .filter((_, index) => index !== identityClauseIndex)
+    .map((clause) => clause.text);
+  return [...others, ...(leftovers.length > 0 ? [leftovers.join(' ')] : [])].filter(Boolean);
+}
+
+type ClockRef = { start: number; end: number; clock: string };
+
+function pickClock(
+  clocks: ClockRef[],
+  matches: (clock: ClockRef) => boolean,
+): string | null {
+  const match = clocks.find(matches);
+  return match ? match.clock : null;
+}
+
+function splitClocks(
+  clocks: ClockRef[],
+  lower: string,
+): { startClock: string | null; endClock: string | null } {
+  const bisIndex = lower.search(/\bbis\b/iu);
+  if (bisIndex < 0) return { startClock: pickClock(clocks, () => true), endClock: null };
+  return {
+    startClock: pickClock(clocks, (clock) => clock.start < bisIndex),
+    endClock: pickClock(clocks, (clock) => clock.start > bisIndex),
+  };
+}
+
+function buildRecognized(
+  identity: ParsedIdentity | null,
+  siteCode: string | undefined,
+): Record<string, unknown> {
+  const recognized: Record<string, unknown> = {};
+  if (identity?.kind === 'surname_model') {
+    recognized.customer_token = identity.surname;
+    recognized.vehicle_token = identity.model;
+  }
+  if (siteCode) recognized.named_site_code = siteCode;
+  return recognized;
+}
+
 export function parseCommandText(
   rawText: string,
   options: ParseCommandOptions,
@@ -374,73 +451,31 @@ export function parseCommandText(
   const siteMatch = findSite(normalized, lower, mask, options.sites);
   maskSeparators(lower, mask);
 
-  const ranges = clauseRanges(normalized, mask);
-  const clauses = ranges
+  const clauses = clauseRanges(normalized, mask)
     .map((range) => ({ range, ...unmaskedText(normalized, mask, range) }))
     .filter((clause) => clause.tokens.length > 0);
 
-  let identity: ParsedIdentity | null = null;
-  let identityClauseIndex = -1;
-  let identityLeftoverTokens: string[] = [];
-  if (vin) {
-    identity = { kind: 'vin', vin: vin.value };
-  } else if (plate) {
-    identity = { kind: 'plate', plate: plate.value };
-  } else if (clauses.length > 0) {
-    const tokens = clauses[0].tokens;
-    if (tokens.length > 1) {
-      identity = {
-        kind: 'surname_model',
-        surname: tokens[0].value,
-        model: tokens[1].value,
-      };
-      identityClauseIndex = 0;
-      identityLeftoverTokens = tokens.slice(2).map((token) => token.value);
-    }
-  }
-
-  const unsupportedClauses = [
-    ...clauses
-      .filter((_, index) => index !== identityClauseIndex)
-      .map((clause) => clause.text),
-    ...(identityLeftoverTokens.length > 0
-      ? [identityLeftoverTokens.join(' ')]
-      : []),
-  ].filter(Boolean);
-
-  const bisMatch = /\bbis\b/iu.exec(lower);
-  const bisIndex = bisMatch?.index ?? -1;
-  const startClocks =
-    bisIndex >= 0 ? clocks.filter((clock) => clock.start < bisIndex) : clocks;
-  const endClocks =
-    bisIndex >= 0 ? clocks.filter((clock) => clock.start > bisIndex) : [];
-  const startClock = startClocks[0]?.clock ?? null;
-  const endClock = endClocks[0]?.clock ?? null;
-
-  const recognized: Record<string, unknown> = {};
-  if (identity?.kind === 'surname_model') {
-    recognized.customer_token = identity.surname;
-    recognized.vehicle_token = identity.model;
-  }
-  if (siteMatch) {
-    recognized.named_site_code = siteMatch.code;
-  }
+  const identityMatch = parseIdentity(vin, plate, clauses);
+  const { startClock, endClock } = splitClocks(clocks, lower);
 
   return {
-    identity,
+    identity: identityMatch.identity,
     day: dayMatch ? resolveParsedDay(dayMatch.day, now, timeZone) : null,
-    startClock:
-      startClock && startClocks.length === 1 ? startClock : startClock,
+    startClock,
     endClock,
     clocks: clocks.map((clock) => clock.clock),
     presetKeys: presetResult.keys,
     loanerRequested: presetResult.loaner,
     namedSite: siteMatch?.code ?? null,
     namedSiteLabel: siteMatch?.label ?? null,
-    unsupportedClauses,
+    unsupportedClauses: collectUnsupportedClauses(
+      clauses,
+      identityMatch.clauseIndex,
+      identityMatch.leftovers,
+    ),
     humanOnly,
     unsupportedGrammar,
-    recognized,
+    recognized: buildRecognized(identityMatch.identity, siteMatch?.code),
   };
 }
 

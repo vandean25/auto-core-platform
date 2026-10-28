@@ -64,6 +64,153 @@ type ResolvedPreset = {
   quantityMilli: number | null;
 };
 
+type ClarificationPayload = {
+  code: ClarificationCode;
+  choices: CommandChoice[];
+  recognized: Record<string, unknown>;
+};
+
+type IdentityResolution =
+  | { customer: CustomerRow; vehicle: Vehicle }
+  | { clarification: ClarificationPayload };
+
+type PresetFailure = { missingKey: string };
+
+type PresetBuild = ResolvedPreset | PresetFailure | null;
+
+type PresetLoadResult = {
+  resolved: ResolvedPreset[];
+  durationMinutes: number[];
+  presetKeys: string[];
+  missingKey?: string;
+};
+
+type PresetContext = {
+  rows: WorkshopCommandPreset[];
+  laborById: Map<string, LaborOperationRow>;
+  catalogById: Map<string, CatalogItemRow>;
+};
+
+type LaborOperationRow = Awaited<
+  ReturnType<PrismaService['laborOperation']['findMany']>
+>[number];
+type CatalogItemRow = Awaited<
+  ReturnType<PrismaService['catalogItem']['findMany']>
+>[number];
+
+function isPresetFailure(value: PresetBuild): value is PresetFailure {
+  return value !== null && 'missingKey' in value;
+}
+
+function vehicleIdentityWhere(
+  tenantId: string,
+  identity: { kind: 'plate'; plate: string } | { kind: 'vin'; vin: string },
+) {
+  if (identity.kind === 'vin') {
+    return {
+      tenant_id: tenantId,
+      vin: { equals: identity.vin, mode: 'insensitive' as const },
+    };
+  }
+  return {
+    tenant_id: tenantId,
+    OR: [
+      { plate: { equals: identity.plate, mode: 'insensitive' as const } },
+      { plate_normalized: normalizePlate(identity.plate) },
+    ],
+  };
+}
+
+function customerChoices(
+  customers: CustomerRow[],
+  vehicles: Vehicle[],
+): CommandChoice[] {
+  return customers.map((customer) => {
+    const vehicle = vehicles.find((entry) => entry.customer_id === customer.id);
+    return choice('customer_id', customer.id, customerLabel(customer, vehicle), 'customer');
+  });
+}
+
+function matchingModelVehicles(
+  vehicles: Vehicle[],
+  customerId: string,
+  model: string,
+): Vehicle[] {
+  return vehicles.filter(
+    (vehicle) =>
+      vehicle.customer_id === customerId &&
+      vehicle.model.toLocaleLowerCase('de-AT') === model.toLocaleLowerCase('de-AT'),
+  );
+}
+
+function instantChoice(
+  startClock: string,
+  instant: Date,
+  timeZone: string,
+): CommandChoice {
+  const offset = offsetMinutesAt(instant, timeZone);
+  const dst = isDaylightSavingAt(instant, timeZone);
+  const label = `${startClock} ${dst ? 'Sommerzeit' : 'Winterzeit'} (UTC+${offset / 60})`;
+  return choice('start_at', instant.toISOString(), label, 'instant');
+}
+
+const KEEP_SITE_LABEL = 'Am aktiven Standort bleiben';
+const WITHOUT_LOANER_LABEL = 'Ohne Leihwagen fortsetzen';
+
+function buildPresetForKey(
+  key: string,
+  siteId: string,
+  context: PresetContext,
+): PresetBuild {
+  const candidates = context.rows.filter((row) => row.preset_key === key);
+  const preset =
+    candidates.find((row) => row.site_id === siteId) ??
+    candidates.find((row) => row.site_id === null);
+  if (!preset) return { missingKey: key };
+  if (preset.kind === 'LOANER_FLAG') return null;
+  return preset.kind === 'LABOR'
+    ? buildLaborPreset(preset, key, context)
+    : buildCatalogPreset(preset, key, context);
+}
+
+function buildLaborPreset(
+  preset: WorkshopCommandPreset,
+  key: string,
+  context: PresetContext,
+): PresetBuild {
+  const operation = preset.labor_operation_id
+    ? context.laborById.get(preset.labor_operation_id)
+    : undefined;
+  if (!operation || !operation.is_active) return { missingKey: key };
+  return {
+    preset,
+    description: operation.description,
+    durationMinutes: preset.duration_minutes,
+    unitPriceCents: Math.round(Number(operation.hourly_rate) * 100),
+    unit: 'h',
+    quantityMilli: null,
+  };
+}
+
+function buildCatalogPreset(
+  preset: WorkshopCommandPreset,
+  key: string,
+  context: PresetContext,
+): PresetBuild {
+  const catalogItem = preset.catalog_item_id
+    ? context.catalogById.get(preset.catalog_item_id)
+    : undefined;
+  if (!catalogItem) return { missingKey: key };
+  return {
+    preset,
+    description: catalogItem.name,
+    durationMinutes: null,
+    unitPriceCents: Math.round(Number(catalogItem.retail_price) * 100),
+    unit: catalogItem.unit,
+    quantityMilli: preset.quantity_milli,
+  };
+}
+
 type TimeResolution =
   | {
       kind: 'ok';
@@ -174,89 +321,30 @@ export class WorkshopCommandResolver {
       input.selections.map((entry) => [entry.slot, entry.value]),
     );
     const recognized = { ...parsed.recognized };
-
-    if (parsed.humanOnly) {
+    const guarded = this.guardParsed(parsed, input, selectionMap, recognized);
+    if (guarded) {
       return clarification(
         input.commandId,
-        'HUMAN_ONLY_EXCLUDED',
-        [],
-        recognized,
-      );
-    }
-    if (
-      parsed.unsupportedGrammar ||
-      !parsed.identity ||
-      !parsed.day ||
-      parsed.startClock === null
-    ) {
-      return clarification(
-        input.commandId,
-        'UNSUPPORTED_GRAMMAR',
-        [],
-        recognized,
+        guarded.code,
+        guarded.choices,
+        guarded.recognized,
       );
     }
 
-    if (
-      parsed.clocks.length > 1 &&
-      parsed.endClock === null &&
-      !selectionMap.has('local_start')
-    ) {
-      return clarification(
-        input.commandId,
-        'TIME_CONTRADICTORY',
-        parsed.clocks.map((clock) =>
-          choice('local_start', clock, clock, 'clock'),
-        ),
-        { ...recognized, clocks: parsed.clocks },
-      );
-    }
-
-    if (parsed.unsupportedClauses.length > 0) {
-      return clarification(input.commandId, 'UNSUPPORTED_SERVICE', [], {
-        ...recognized,
-        unsupported_clauses: parsed.unsupportedClauses,
-      });
-    }
-
-    if (
-      parsed.namedSite &&
-      parsed.namedSite !== input.site.code &&
-      selectionMap.get('site_constraint') !== 'continue_at_operative_site'
-    ) {
-      return clarification(
-        input.commandId,
-        'SITE_MISMATCH',
-        [
-          {
-            choice_id: 'site:continue',
-            slot: 'site_constraint',
-            value: 'continue_at_operative_site',
-            label: 'Am aktiven Standort bleiben',
-          },
-        ],
-        {
-          ...recognized,
-          named_site_code: parsed.namedSite,
-          operative_site_code: input.site.code,
-        },
-      );
-    }
-
-    const identityResult = await this.resolveIdentity(
+    const identity = await this.resolveIdentity(
       input.tenantId,
       parsed,
       selectionMap,
     );
-    if ('clarification' in identityResult) {
+    if ('clarification' in identity) {
       return clarification(
         input.commandId,
-        identityResult.clarification.code,
-        identityResult.clarification.choices,
-        identityResult.clarification.recognized,
+        identity.clarification.code,
+        identity.clarification.choices,
+        identity.clarification.recognized,
       );
     }
-    const { customer, vehicle } = identityResult;
+    const { customer, vehicle } = identity;
 
     const presets = await this.loadPresets(
       input.tenantId,
@@ -313,8 +401,128 @@ export class WorkshopCommandResolver {
       );
     }
 
+    return this.buildIntent(parsed, input, {
+      customer,
+      vehicle,
+      presets,
+      time,
+      bayId: physical.bayId,
+      loanerVehicleId: physical.loanerVehicleId,
+    });
+  }
+
+  private guardParsed(
+    parsed: ParsedCommand,
+    input: ResolveInput,
+    selectionMap: Map<string, string>,
+    recognized: Record<string, unknown>,
+  ): ClarificationPayload | null {
+    return (
+      this.guardShape(parsed, recognized) ??
+      this.guardClocks(parsed, selectionMap, recognized) ??
+      this.guardClauses(parsed, recognized) ??
+      this.guardNamedSite(parsed, input.site, selectionMap, recognized)
+    );
+  }
+
+  private guardShape(
+    parsed: ParsedCommand,
+    recognized: Record<string, unknown>,
+  ): ClarificationPayload | null {
+    if (parsed.humanOnly) {
+      return { code: 'HUMAN_ONLY_EXCLUDED', choices: [], recognized };
+    }
+    if (
+      parsed.unsupportedGrammar ||
+      !parsed.identity ||
+      !parsed.day ||
+      parsed.startClock === null
+    ) {
+      return { code: 'UNSUPPORTED_GRAMMAR', choices: [], recognized };
+    }
+    return null;
+  }
+
+  private guardClocks(
+    parsed: ParsedCommand,
+    selectionMap: Map<string, string>,
+    recognized: Record<string, unknown>,
+  ): ClarificationPayload | null {
+    if (
+      parsed.clocks.length <= 1 ||
+      parsed.endClock !== null ||
+      selectionMap.has('local_start')
+    ) {
+      return null;
+    }
+    return {
+      code: 'TIME_CONTRADICTORY',
+      choices: parsed.clocks.map((clock) =>
+        choice('local_start', clock, clock, 'clock'),
+      ),
+      recognized: { ...recognized, clocks: parsed.clocks },
+    };
+  }
+
+  private guardClauses(
+    parsed: ParsedCommand,
+    recognized: Record<string, unknown>,
+  ): ClarificationPayload | null {
+    if (parsed.unsupportedClauses.length === 0) return null;
+    return {
+      code: 'UNSUPPORTED_SERVICE',
+      choices: [],
+      recognized: {
+        ...recognized,
+        unsupported_clauses: parsed.unsupportedClauses,
+      },
+    };
+  }
+
+  private guardNamedSite(
+    parsed: ParsedCommand,
+    site: Site,
+    selectionMap: Map<string, string>,
+    recognized: Record<string, unknown>,
+  ): ClarificationPayload | null {
+    if (!parsed.namedSite || parsed.namedSite === site.code) return null;
+    if (selectionMap.get('site_constraint') === 'continue_at_operative_site') {
+      return null;
+    }
+    return {
+      code: 'SITE_MISMATCH',
+      choices: [
+        {
+          choice_id: 'site:continue',
+          slot: 'site_constraint',
+          value: 'continue_at_operative_site',
+          label: KEEP_SITE_LABEL,
+        },
+      ],
+      recognized: {
+        ...recognized,
+        named_site_code: parsed.namedSite,
+        operative_site_code: site.code,
+      },
+    };
+  }
+
+  private buildIntent(
+    parsed: ParsedCommand,
+    input: ResolveInput,
+    resolved: {
+      customer: CustomerRow;
+      vehicle: Vehicle;
+      presets: PresetLoadResult;
+      time: Extract<TimeResolution, { kind: 'ok' }>;
+      bayId: string;
+      loanerVehicleId?: string;
+    },
+  ): WorkshopIntent {
+    const { customer, vehicle, presets, time, bayId, loanerVehicleId } =
+      resolved;
     const lines = this.buildPositionLines(presets.resolved);
-    const intent: WorkshopIntent = {
+    return {
       contract_version: WORKSHOP_COMMAND_CONTRACT_VERSION,
       status: 'ready',
       command_id: input.commandId,
@@ -324,22 +532,20 @@ export class WorkshopCommandResolver {
       vehicle_id: vehicle.id,
       schedule: {
         local_date: this.localDate(parsed, input.now, input.site.timezone),
-        local_start: parsed.startClock,
+        local_start: parsed.startClock!,
         local_end: this.clockOf(time.endAt, input.site.timezone),
         start_at: time.startAt.toISOString(),
         end_at: time.endAt.toISOString(),
         duration_minutes: time.durationMinutes,
         duration_source: time.source,
       },
-      bay_id: physical.bayId,
+      bay_id: bayId,
       mechanic_id: null,
       loaner: {
-        requested: Boolean(physical.loanerVehicleId),
-        loaner_vehicle_id: physical.loanerVehicleId ?? null,
-        planned_from: physical.loanerVehicleId
-          ? time.startAt.toISOString()
-          : null,
-        planned_to: physical.loanerVehicleId ? time.endAt.toISOString() : null,
+        requested: Boolean(loanerVehicleId),
+        loaner_vehicle_id: loanerVehicleId ?? null,
+        planned_from: loanerVehicleId ? time.startAt.toISOString() : null,
+        planned_to: loanerVehicleId ? time.endAt.toISOString() : null,
       },
       position_plan: { version: 1, lines },
       purpose: 'CUSTOMER_REPAIR',
@@ -348,7 +554,6 @@ export class WorkshopCommandResolver {
         .map((item) => item.description)
         .join('; '),
     };
-    return intent;
   }
 
   private localDate(
@@ -395,95 +600,70 @@ export class WorkshopCommandResolver {
     tenantId: string,
     parsed: ReturnType<typeof parseCommandText>,
     selections: Map<string, string>,
-  ): Promise<
-    | { customer: CustomerRow; vehicle: Vehicle }
-    | {
-        clarification: {
-          code: ClarificationCode;
-          choices: CommandChoice[];
-          recognized: Record<string, unknown>;
-        };
-      }
-  > {
-    if (parsed.identity?.kind === 'plate' || parsed.identity?.kind === 'vin') {
-      const identity = parsed.identity;
-      const isPlate = identity.kind === 'plate';
-      const value = isPlate ? identity.plate : identity.vin;
-      const candidates = await this.prisma.vehicle.findMany({
-        where: {
-          tenant_id: tenantId,
-          ...(isPlate
-            ? {
-                OR: [
-                  { plate: { equals: value, mode: 'insensitive' } },
-                  { plate_normalized: normalizePlate(value) },
-                ],
-              }
-            : { vin: { equals: value, mode: 'insensitive' } }),
-        },
-        orderBy: { id: 'asc' },
-      });
-      if (candidates.length === 0) {
-        return {
-          clarification: {
-            code: 'VEHICLE_NOT_FOUND',
-            choices: [],
-            recognized: {},
-          },
-        };
-      }
-      const selected = this.pickById(candidates, selections.get('vehicle_id'));
-      if (!selected) {
-        return {
-          clarification: {
-            code: 'VEHICLE_AMBIGUOUS',
-            choices: candidates.map((vehicle) =>
-              choice(
-                'vehicle_id',
-                vehicle.id,
-                vehicleLabel(vehicle),
-                'vehicle',
-              ),
-            ),
-            recognized: {},
-          },
-        };
-      }
-      if (!selected.customer_id) {
-        return {
-          clarification: {
-            code: 'CUSTOMER_NOT_FOUND',
-            choices: [],
-            recognized: {},
-          },
-        };
-      }
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: selected.customer_id, tenant_id: tenantId },
-      });
-      if (!customer) {
-        return {
-          clarification: {
-            code: 'CUSTOMER_NOT_FOUND',
-            choices: [],
-            recognized: {},
-          },
-        };
-      }
-      return { customer, vehicle: selected };
+  ): Promise<IdentityResolution> {
+    const identity = parsed.identity;
+    if (identity?.kind === 'plate' || identity?.kind === 'vin') {
+      return this.resolveVehicleIdentity(tenantId, identity, selections);
     }
-
-    if (parsed.identity?.kind !== 'surname_model') {
-      return {
-        clarification: {
-          code: 'UNSUPPORTED_GRAMMAR',
-          choices: [],
-          recognized: {},
-        },
-      };
+    if (identity?.kind !== 'surname_model') {
+      return this.identityClarification('UNSUPPORTED_GRAMMAR', []);
     }
+    return this.resolveSurnameIdentity(tenantId, identity, selections);
+  }
 
-    const { surname, model } = parsed.identity;
+  private identityClarification(
+    code: ClarificationCode,
+    choices: CommandChoice[],
+    recognized: Record<string, unknown> = {},
+  ): IdentityResolution {
+    return { clarification: { code, choices, recognized } };
+  }
+
+  private async resolveVehicleIdentity(
+    tenantId: string,
+    identity: { kind: 'plate'; plate: string } | { kind: 'vin'; vin: string },
+    selections: Map<string, string>,
+  ): Promise<IdentityResolution> {
+    const candidates = await this.prisma.vehicle.findMany({
+      where: vehicleIdentityWhere(tenantId, identity),
+      orderBy: { id: 'asc' },
+    });
+    if (candidates.length === 0) {
+      return this.identityClarification('VEHICLE_NOT_FOUND', []);
+    }
+    const selected = this.pickById(candidates, selections.get('vehicle_id'));
+    if (!selected) {
+      return this.identityClarification(
+        'VEHICLE_AMBIGUOUS',
+        candidates.map((vehicle) =>
+          choice('vehicle_id', vehicle.id, vehicleLabel(vehicle), 'vehicle'),
+        ),
+      );
+    }
+    const customer = await this.findCustomerOfVehicle(tenantId, selected);
+    if (!customer) {
+      return this.identityClarification('CUSTOMER_NOT_FOUND', []);
+    }
+    return { customer, vehicle: selected };
+  }
+
+  private async findCustomerOfVehicle(
+    tenantId: string,
+    vehicle: Vehicle,
+  ): Promise<CustomerRow | null> {
+    if (!vehicle.customer_id) return null;
+    return this.prisma.customer.findFirst({
+      where: { id: vehicle.customer_id, tenant_id: tenantId },
+    });
+  }
+
+  private async resolveSurnameIdentity(
+    tenantId: string,
+    identity: { surname: string; model: string },
+    selections: Map<string, string>,
+  ): Promise<IdentityResolution> {
+    const { surname, model } = identity;
+    const tokens = { customer_token: surname, vehicle_token: model };
     const customers = await this.prisma.customer.findMany({
       where: {
         tenant_id: tenantId,
@@ -495,18 +675,14 @@ export class WorkshopCommandResolver {
       orderBy: { id: 'asc' },
     });
     if (customers.length === 0) {
-      return {
-        clarification: {
-          code: 'CUSTOMER_NOT_FOUND',
-          choices: [],
-          recognized: { customer_token: surname, vehicle_token: model },
-        },
-      };
+      return this.identityClarification('CUSTOMER_NOT_FOUND', [], tokens);
     }
 
-    const customerIds = customers.map((customer) => customer.id);
     const vehicles = await this.prisma.vehicle.findMany({
-      where: { tenant_id: tenantId, customer_id: { in: customerIds } },
+      where: {
+        tenant_id: tenantId,
+        customer_id: { in: customers.map((customer) => customer.id) },
+      },
       orderBy: { id: 'asc' },
     });
     const selectedCustomer = this.pickById(
@@ -514,51 +690,30 @@ export class WorkshopCommandResolver {
       selections.get('customer_id'),
     );
     if (!selectedCustomer) {
-      return {
-        clarification: {
-          code: 'CUSTOMER_AMBIGUOUS',
-          choices: customers.map((customer) => {
-            const vehicle = vehicles.find(
-              (entry) => entry.customer_id === customer.id,
-            );
-            return choice(
-              'customer_id',
-              customer.id,
-              customerLabel(customer, vehicle),
-              'customer',
-            );
-          }),
-          recognized: { customer_token: surname, vehicle_token: model },
-        },
-      };
+      return this.identityClarification(
+        'CUSTOMER_AMBIGUOUS',
+        customerChoices(customers, vehicles),
+        tokens,
+      );
     }
 
-    const matchingVehicles = vehicles.filter(
-      (vehicle) =>
-        vehicle.customer_id === selectedCustomer.id &&
-        vehicle.model.toLocaleLowerCase('de-AT') ===
-          model.toLocaleLowerCase('de-AT'),
+    const matchingVehicles = matchingModelVehicles(
+      vehicles,
+      selectedCustomer.id,
+      model,
     );
     const selectedVehicle = this.pickById(
       matchingVehicles,
       selections.get('vehicle_id'),
     );
     if (!selectedVehicle) {
-      return {
-        clarification: {
-          code:
-            matchingVehicles.length === 0
-              ? 'VEHICLE_NOT_FOUND'
-              : 'VEHICLE_AMBIGUOUS',
-          choices: matchingVehicles.map((vehicle) =>
-            choice('vehicle_id', vehicle.id, vehicleLabel(vehicle), 'vehicle'),
-          ),
-          recognized: {
-            customer_id: selectedCustomer.id,
-            vehicle_token: model,
-          },
-        },
-      };
+      return this.identityClarification(
+        matchingVehicles.length === 0 ? 'VEHICLE_NOT_FOUND' : 'VEHICLE_AMBIGUOUS',
+        matchingVehicles.map((vehicle) =>
+          choice('vehicle_id', vehicle.id, vehicleLabel(vehicle), 'vehicle'),
+        ),
+        { customer_id: selectedCustomer.id, vehicle_token: model },
+      );
     }
 
     return { customer: selectedCustomer, vehicle: selectedVehicle };
@@ -578,15 +733,30 @@ export class WorkshopCommandResolver {
     tenantId: string,
     siteId: string,
     presetKeys: string[],
-  ): Promise<{
-    resolved: ResolvedPreset[];
-    durationMinutes: number[];
-    presetKeys: string[];
-    missingKey?: string;
-  }> {
+  ): Promise<PresetLoadResult> {
     if (presetKeys.length === 0) {
       return { resolved: [], durationMinutes: [], presetKeys: [] };
     }
+    const context = await this.loadPresetContext(tenantId, siteId, presetKeys);
+    const resolved: ResolvedPreset[] = [];
+    const durationMinutes: number[] = [];
+    for (const key of presetKeys) {
+      const built = buildPresetForKey(key, siteId, context);
+      if (isPresetFailure(built)) {
+        return { resolved: [], durationMinutes: [], presetKeys, missingKey: key };
+      }
+      if (!built) continue;
+      if (built.durationMinutes) durationMinutes.push(built.durationMinutes);
+      resolved.push(built);
+    }
+    return { resolved, durationMinutes, presetKeys };
+  }
+
+  private async loadPresetContext(
+    tenantId: string,
+    siteId: string,
+    presetKeys: string[],
+  ): Promise<PresetContext> {
     const rows = await this.prisma.workshopCommandPreset.findMany({
       where: {
         tenant_id: tenantId,
@@ -613,74 +783,13 @@ export class WorkshopCommandResolver {
           })
         : Promise.resolve([]),
     ]);
-    const laborById = new Map(
-      laborOperations.map((operation) => [operation.id, operation]),
-    );
-    const catalogById = new Map(catalogItems.map((item) => [item.id, item]));
-
-    const resolved: ResolvedPreset[] = [];
-    const durationMinutes: number[] = [];
-    for (const key of presetKeys) {
-      const candidates = rows.filter((row) => row.preset_key === key);
-      const preset =
-        candidates.find((row) => row.site_id === siteId) ??
-        candidates.find((row) => row.site_id === null);
-      if (!preset) {
-        return {
-          resolved: [],
-          durationMinutes: [],
-          presetKeys,
-          missingKey: key,
-        };
-      }
-      if (preset.kind === 'LOANER_FLAG') {
-        continue;
-      }
-      if (preset.kind === 'LABOR') {
-        const operation = preset.labor_operation_id
-          ? laborById.get(preset.labor_operation_id)
-          : undefined;
-        if (!operation || !operation.is_active) {
-          return {
-            resolved: [],
-            durationMinutes: [],
-            presetKeys,
-            missingKey: key,
-          };
-        }
-        if (preset.duration_minutes)
-          durationMinutes.push(preset.duration_minutes);
-        resolved.push({
-          preset,
-          description: operation.description,
-          durationMinutes: preset.duration_minutes,
-          unitPriceCents: Math.round(Number(operation.hourly_rate) * 100),
-          unit: 'h',
-          quantityMilli: null,
-        });
-        continue;
-      }
-      const catalogItem = preset.catalog_item_id
-        ? catalogById.get(preset.catalog_item_id)
-        : undefined;
-      if (!catalogItem) {
-        return {
-          resolved: [],
-          durationMinutes: [],
-          presetKeys,
-          missingKey: key,
-        };
-      }
-      resolved.push({
-        preset,
-        description: catalogItem.name,
-        durationMinutes: null,
-        unitPriceCents: Math.round(Number(catalogItem.retail_price) * 100),
-        unit: catalogItem.unit,
-        quantityMilli: preset.quantity_milli,
-      });
-    }
-    return { resolved, durationMinutes, presetKeys };
+    return {
+      rows,
+      laborById: new Map(
+        laborOperations.map((operation) => [operation.id, operation]),
+      ),
+      catalogById: new Map(catalogItems.map((item) => [item.id, item])),
+    };
   }
 
   private resolveTime(
@@ -692,110 +801,140 @@ export class WorkshopCommandResolver {
     recognizedBase: Record<string, unknown>,
   ): TimeResolution {
     const localDate = resolveCommandDay(parsed.day!, now, site.timezone);
-    let startClock = parsed.startClock as string;
-    const selectedStartClock = selections.get('local_start');
-    if (selectedStartClock && parsed.clocks.includes(selectedStartClock)) {
-      startClock = selectedStartClock;
-    }
-
-    const startCandidates = resolveWallClock(
-      site.timezone,
+    const startClock = this.chooseStartClock(parsed, selections);
+    const start = this.resolveStartInstant(
+      site,
       localDate,
       startClock,
+      selections,
+      recognizedBase,
     );
-    const selectedInstant = selections.get('start_at');
-    let startAt: Date | undefined;
-    if (selectedInstant) {
-      startAt = startCandidates.find(
-        (instant) => instant.toISOString() === selectedInstant,
-      );
-    }
-    if (!startAt) {
-      if (startCandidates.length === 0) {
-        return {
-          kind: 'clarification',
-          code: 'TIME_DOES_NOT_EXIST',
-          choices: [],
-          recognized: {
-            ...recognizedBase,
-            local_date: localDate,
-            local_start: startClock,
-            timezone: site.timezone,
-          },
-        };
-      }
-      if (startCandidates.length > 1) {
-        return {
-          kind: 'clarification',
-          code: 'TIME_AMBIGUOUS',
-          choices: startCandidates.map((instant) => {
-            const offset = offsetMinutesAt(instant, site.timezone);
-            const dst = isDaylightSavingAt(instant, site.timezone);
-            const label = `${startClock} ${dst ? 'Sommerzeit' : 'Winterzeit'} (UTC+${offset / 60})`;
-            return choice('start_at', instant.toISOString(), label, 'instant');
-          }),
-          recognized: {
-            ...recognizedBase,
-            local_date: localDate,
-            local_start: startClock,
-            timezone: site.timezone,
-          },
-        };
-      }
-      startAt = startCandidates[0];
-    }
-
-    if (startAt.getTime() <= now.getTime()) {
+    if ('clarification' in start) return start.clarification;
+    if (start.startAt.getTime() <= now.getTime()) {
       return {
         kind: 'clarification',
         code: 'TIME_IN_PAST',
         choices: [],
-        recognized: { ...recognizedBase, start_at: startAt.toISOString() },
+        recognized: { ...recognizedBase, start_at: start.startAt.toISOString() },
       };
     }
-
     if (parsed.endClock) {
-      const endCandidates = resolveWallClock(
-        site.timezone,
+      return this.resolveEndClock(
+        site,
         localDate,
+        start.startAt,
         parsed.endClock,
+        startClock,
+        recognizedBase,
       );
-      if (endCandidates.length === 0) {
-        return {
-          kind: 'clarification',
-          code: 'TIME_DOES_NOT_EXIST',
-          choices: [],
-          recognized: {
-            ...recognizedBase,
-            local_date: localDate,
-            local_start: startClock,
-            local_end: parsed.endClock,
-            timezone: site.timezone,
-          },
-        };
-      }
-      const endAt = endCandidates[0];
-      if (endAt.getTime() <= startAt.getTime()) {
-        return {
-          kind: 'clarification',
-          code: 'TIME_CONTRADICTORY',
-          choices: [startClock, parsed.endClock].map((clock) =>
-            choice('local_start', clock, clock, 'clock'),
-          ),
-          recognized: { clocks: [startClock, parsed.endClock] },
-        };
-      }
+    }
+    return this.resolvePresetDuration(
+      start.startAt,
+      presetDurations,
+      recognizedBase,
+    );
+  }
+
+  private chooseStartClock(
+    parsed: ReturnType<typeof parseCommandText>,
+    selections: Map<string, string>,
+  ): string {
+    const selected = selections.get('local_start');
+    if (selected && parsed.clocks.includes(selected)) return selected;
+    return parsed.startClock as string;
+  }
+
+  private resolveStartInstant(
+    site: Site,
+    localDate: string,
+    startClock: string,
+    selections: Map<string, string>,
+    recognizedBase: Record<string, unknown>,
+  ):
+    | { startAt: Date }
+    | { clarification: TimeResolution } {
+    const candidates = resolveWallClock(site.timezone, localDate, startClock);
+    const selectedInstant = selections.get('start_at');
+    const selected = selectedInstant
+      ? candidates.find(
+          (instant) => instant.toISOString() === selectedInstant,
+        )
+      : undefined;
+    if (selected) return { startAt: selected };
+    if (candidates.length === 0) {
       return {
-        kind: 'ok',
-        startAt,
-        endAt,
-        durationMinutes: Math.round(
-          (endAt.getTime() - startAt.getTime()) / 60_000,
+        clarification: this.timeClarification(
+          'TIME_DOES_NOT_EXIST',
+          [],
+          recognizedBase,
+          { local_date: localDate, local_start: startClock, timezone: site.timezone },
         ),
-        source: 'end_clock',
       };
     }
+    if (candidates.length > 1) {
+      return {
+        clarification: this.timeClarification(
+          'TIME_AMBIGUOUS',
+          candidates.map((instant) =>
+            instantChoice(startClock, instant, site.timezone),
+          ),
+          recognizedBase,
+          { local_date: localDate, local_start: startClock, timezone: site.timezone },
+        ),
+      };
+    }
+    return { startAt: candidates[0] };
+  }
 
+  private resolveEndClock(
+    site: Site,
+    localDate: string,
+    startAt: Date,
+    endClock: string,
+    startClock: string,
+    recognizedBase: Record<string, unknown>,
+  ): TimeResolution {
+    const endCandidates = resolveWallClock(site.timezone, localDate, endClock);
+    if (endCandidates.length === 0) {
+      return this.timeClarification(
+        'TIME_DOES_NOT_EXIST',
+        [],
+        recognizedBase,
+        {
+          local_date: localDate,
+          local_start: startClock,
+          local_end: endClock,
+          timezone: site.timezone,
+        },
+      );
+    }
+    const endAt = endCandidates[0];
+    if (endAt.getTime() <= startAt.getTime()) {
+      return {
+        kind: 'clarification',
+        code: 'TIME_CONTRADICTORY',
+        choices: [startClock, endClock].map((clock) =>
+          choice('local_start', clock, clock, 'clock'),
+        ),
+        recognized: { clocks: [startClock, endClock] },
+      };
+    }
+    return {
+      kind: 'ok',
+      startAt,
+      endAt,
+      durationMinutes: Math.round(
+        (endAt.getTime() - startAt.getTime()) / 60_000,
+      ),
+      source: 'end_clock',
+    };
+  }
+
+  private resolvePresetDuration(
+    startAt: Date,
+    presetDurations: number[],
+    recognizedBase: Record<string, unknown>,
+  ): TimeResolution {
     if (presetDurations.length === 0) {
       return {
         kind: 'clarification',
@@ -817,6 +956,20 @@ export class WorkshopCommandResolver {
     };
   }
 
+  private timeClarification(
+    code: ClarificationCode,
+    choices: CommandChoice[],
+    recognizedBase: Record<string, unknown>,
+    extra: Record<string, unknown>,
+  ): TimeResolution {
+    return {
+      kind: 'clarification',
+      code,
+      choices,
+      recognized: { ...recognizedBase, ...extra },
+    };
+  }
+
   private async resolveResources(
     tenantId: string,
     site: Site,
@@ -825,14 +978,27 @@ export class WorkshopCommandResolver {
     selections: Map<string, string>,
   ): Promise<
     | { bayId: string; loanerVehicleId?: string }
-    | {
-        clarification: {
-          code: ClarificationCode;
-          choices: CommandChoice[];
-          recognized: Record<string, unknown>;
-        };
-      }
+    | { clarification: ClarificationPayload }
   > {
+    const bay = await this.resolveBay(tenantId, site, time, selections);
+    if ('clarification' in bay) return bay;
+    if (
+      !loanerRequested ||
+      selections.get('loaner') === 'continue_without_loaner'
+    ) {
+      return { bayId: bay.bayId };
+    }
+    const loaner = await this.resolveLoaner(tenantId, site, time, selections);
+    if ('clarification' in loaner) return loaner;
+    return { bayId: bay.bayId, loanerVehicleId: loaner.loanerVehicleId };
+  }
+
+  private async resolveBay(
+    tenantId: string,
+    site: Site,
+    time: Extract<TimeResolution, { kind: 'ok' }>,
+    selections: Map<string, string>,
+  ): Promise<{ bayId: string } | { clarification: ClarificationPayload }> {
     const bays = await this.prisma.bay.findMany({
       where: { tenant_id: tenantId, site_id: site.id, is_active: true },
       orderBy: { sort_order: 'asc' },
@@ -853,22 +1019,13 @@ export class WorkshopCommandResolver {
         .map((order) => order.bay_id)
         .filter((id): id is string => Boolean(id)),
     );
-    let eligibleBays = bays.filter((bay) => !occupiedBayIds.has(bay.id));
-    const selectedBay = selections.get('bay_id');
-    if (selectedBay) {
-      eligibleBays = eligibleBays.filter((bay) => bay.id === selectedBay);
-    }
+    const eligibleBays = bays
+      .filter((bay) => !occupiedBayIds.has(bay.id))
+      .filter((bay) => this.matchesSelection(bay.id, selections.get('bay_id')));
     if (eligibleBays.length === 0) {
-      return {
-        clarification: {
-          code: 'RESOURCE_MISSING',
-          choices: [],
-          recognized: {},
-        },
-      };
+      return { clarification: { code: 'RESOURCE_MISSING', choices: [], recognized: {} } };
     }
-    const bayId = eligibleBays.length === 1 ? eligibleBays[0].id : undefined;
-    if (!bayId) {
+    if (eligibleBays.length > 1) {
       return {
         clarification: {
           code: 'RESOURCE_AMBIGUOUS',
@@ -879,31 +1036,25 @@ export class WorkshopCommandResolver {
         },
       };
     }
+    return { bayId: eligibleBays[0].id };
+  }
 
-    if (
-      !loanerRequested ||
-      selections.get('loaner') === 'continue_without_loaner'
-    ) {
-      return { bayId };
-    }
+  private matchesSelection(id: string, selectedId: string | undefined): boolean {
+    return selectedId === undefined || id === selectedId;
+  }
 
+  private async resolveLoaner(
+    tenantId: string,
+    site: Site,
+    time: Extract<TimeResolution, { kind: 'ok' }>,
+    selections: Map<string, string>,
+  ): Promise<
+    { loanerVehicleId: string } | { clarification: ClarificationPayload }
+  > {
     try {
       await this.loanerAuthorization.assertWriteAccess();
     } catch {
-      return {
-        clarification: {
-          code: 'LOANER_NOT_PERMITTED',
-          choices: [
-            choice(
-              'loaner',
-              'continue_without_loaner',
-              'Ohne Leihwagen fortsetzen',
-              'loaner',
-            ),
-          ],
-          recognized: {},
-        },
-      };
+      return { clarification: this.loanerNotPermitted() };
     }
 
     const loaners = await this.prisma.loanerVehicle.findMany({
@@ -928,53 +1079,56 @@ export class WorkshopCommandResolver {
     const bookedIds = new Set(
       overlappingBookings.map((booking) => booking.loaner_vehicle_id),
     );
-    let eligibleLoaners = loaners.filter((loaner) => !bookedIds.has(loaner.id));
-    const selectedLoaner = selections.get('loaner_vehicle_id');
-    if (selectedLoaner) {
-      eligibleLoaners = eligibleLoaners.filter(
-        (loaner) => loaner.id === selectedLoaner,
+    const eligibleLoaners = loaners
+      .filter((loaner) => !bookedIds.has(loaner.id))
+      .filter((loaner) =>
+        this.matchesSelection(loaner.id, selections.get('loaner_vehicle_id')),
       );
-    }
     if (eligibleLoaners.length === 0) {
       return {
         clarification: {
           code: 'RESOURCE_MISSING',
+          choices: [this.withoutLoanerChoice()],
+          recognized: {},
+        },
+      };
+    }
+    if (eligibleLoaners.length > 1) {
+      return {
+        clarification: {
+          code: 'RESOURCE_AMBIGUOUS',
           choices: [
-            choice(
-              'loaner',
-              'continue_without_loaner',
-              'Ohne Leihwagen fortsetzen',
-              'loaner',
+            ...eligibleLoaners.map((loaner) =>
+              choice(
+                'loaner_vehicle_id',
+                loaner.id,
+                loaner.display_name,
+                'loaner',
+              ),
             ),
+            this.withoutLoanerChoice(),
           ],
           recognized: {},
         },
       };
     }
-    if (eligibleLoaners.length === 1) {
-      return { bayId, loanerVehicleId: eligibleLoaners[0].id };
-    }
+    return { loanerVehicleId: eligibleLoaners[0].id };
+  }
+
+  private withoutLoanerChoice(): CommandChoice {
+    return choice(
+      'loaner',
+      'continue_without_loaner',
+      WITHOUT_LOANER_LABEL,
+      'loaner',
+    );
+  }
+
+  private loanerNotPermitted(): ClarificationPayload {
     return {
-      clarification: {
-        code: 'RESOURCE_AMBIGUOUS',
-        choices: [
-          ...eligibleLoaners.map((loaner) =>
-            choice(
-              'loaner_vehicle_id',
-              loaner.id,
-              loaner.display_name,
-              'loaner',
-            ),
-          ),
-          choice(
-            'loaner',
-            'continue_without_loaner',
-            'Ohne Leihwagen fortsetzen',
-            'loaner',
-          ),
-        ],
-        recognized: {},
-      },
+      code: 'LOANER_NOT_PERMITTED',
+      choices: [this.withoutLoanerChoice()],
+      recognized: {},
     };
   }
 
