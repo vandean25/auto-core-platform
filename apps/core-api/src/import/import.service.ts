@@ -831,12 +831,7 @@ export class ImportService {
         'created',
       );
       await this.enqueueInitialImportWorker(params.tenantId, job.id, 'dry_run');
-      const refreshed = await this.jobStore.findJob(params.tenantId, job.id);
-      const finished = refreshed ?? job;
-      return this.serializeJob(
-        finished,
-        finished.totals_json as ImportJobTotals,
-      );
+      return this.serializeJob(job, job.totals_json as ImportJobTotals);
     } catch (error) {
       if (uploadRef) {
         await this.fileStorage.deleteUpload(uploadRef).catch(() => undefined);

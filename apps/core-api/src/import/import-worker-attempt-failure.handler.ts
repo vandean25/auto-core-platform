@@ -21,7 +21,6 @@ import {
   describeImportWorkerRetryCause,
   importWorkerRetryDelaySeconds,
 } from './import-worker-retry.js';
-import { resolveImportDispatch } from './import-dispatch.js';
 import { isImportWorkerContentionError } from './import-worker.errors.js';
 
 export async function handleImportWorkerAttemptFailure(
@@ -55,15 +54,6 @@ export async function handleImportWorkerAttemptFailure(
     return;
   }
   if (classifyImportApplyError(error) === 'retryable') {
-    const mode = resolveImportDispatch({
-      cloudTasksEnabled: deps.workerFlow.cloudTasks.isEnabled(),
-      targetBaseUrl: deps.workerFlow.targetBaseUrl,
-      nodeEnv: deps.workerFlow.nodeEnv,
-    });
-    if (mode === 'inline') {
-      await failInlineRetryableApply(deps, params, error);
-      throw error;
-    }
     await requeueImportWorkerAfterRetryableError(deps, params, error);
     return;
   }
@@ -87,34 +77,6 @@ export async function handleImportWorkerAttemptFailure(
     });
   }
   throw error;
-}
-
-async function failInlineRetryableApply(
-  deps: {
-    jobStore: ImportJobStore;
-    logger: Logger;
-  },
-  params: { tenantId: string; jobId: string; phase: ImportWorkerPhase },
-  error: unknown,
-): Promise<void> {
-  const failed = await deps.jobStore.markFailedIfApplying(
-    params.tenantId,
-    params.jobId,
-    'retry_exhausted',
-    undefined,
-    describeImportApplyCause(error),
-  );
-  if (failed.count === 0) {
-    return;
-  }
-  const job = await deps.jobStore.findJob(params.tenantId, params.jobId);
-  logImportJobFailed(deps.logger, {
-    jobId: params.jobId,
-    phase: params.phase,
-    attempt: job?.attempts_without_progress ?? 0,
-    reason: 'retry_exhausted',
-    cause: describeImportApplyCause(error),
-  });
 }
 
 async function requeueImportWorkerAfterRetryableError(

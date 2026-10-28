@@ -614,7 +614,8 @@ describe('Import background worker (e2e)', () => {
       .attach('file', csv, `${entityType}-seed.csv`)
       .expect(201);
     const jobId = created.body.id as string;
-    expect(created.body.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
     await request(app.getHttpServer())
       .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${token}`)

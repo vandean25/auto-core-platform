@@ -791,7 +791,7 @@ describe('ImportService customer import (characterization)', () => {
       );
     });
 
-    it('fails the job when row retries exhaust on P2034', async () => {
+    it('defers a P2034 instead of failing the job in the same attempt', async () => {
       h.prisma.customer.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('serialization', {
           code: 'P2034',
@@ -805,10 +805,7 @@ describe('ImportService customer import (characterization)', () => {
       );
 
       const result = await h.service.applyJob(JOB_ID);
-      expect(result.status).toBe(ImportJobStatus.FAILED);
-      expect(result.options).toMatchObject({
-        apply_failure_reason: 'poison_cap',
-      });
+      expect(result.status).toBe(ImportJobStatus.APPLYING);
       expect(h.prisma.importJobRow.update).not.toHaveBeenCalled();
     }, 60_000);
 

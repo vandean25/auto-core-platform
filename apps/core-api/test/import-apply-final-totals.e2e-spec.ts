@@ -242,38 +242,21 @@ describe('import apply final totals (e2e)', () => {
       email: tenant.email,
       role: 'ADMIN',
     };
-    await expect(
-      runWithTenantContext(
-        tenant.tenantId,
-        async () => importService.applyJob(job.id),
-        identity,
-      ),
-    ).rejects.toThrow();
-    db.$transaction = original;
-    expect(errorLog.mock.calls.map((call) => String(call[0]))).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining(
-          `import.job.failed jobId=${job.id} phase=apply`,
-        ),
-        expect.stringContaining('reason=retry_exhausted'),
-        expect.stringContaining('cause='),
-      ]),
-    );
-    const failed = await tenantPrisma.importJob.findFirst({
-      where: { id: job.id },
-    });
-    expect(failed?.status).toBe(ImportJobStatus.FAILED);
-    expect(
-      (failed?.options_json as { apply_failure_reason?: string })
-        .apply_failure_reason,
-    ).toBe('retry_exhausted');
-    errorLog.mockRestore();
-
     await runWithTenantContext(
       tenant.tenantId,
       async () => importService.applyJob(job.id),
       identity,
     );
+    db.$transaction = original;
+    errorLog.mockRestore();
+
+    await runWithTenantContext(tenant.tenantId, async () => {
+      await importService.runImportWorkerAttempt({
+        tenantId: tenant.tenantId,
+        jobId: job.id,
+        phase: 'apply',
+      });
+    }, identity);
     const applied = await tenantPrisma.importJob.findFirst({
       where: { id: job.id },
     });
