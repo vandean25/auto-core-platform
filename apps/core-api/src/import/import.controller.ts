@@ -28,6 +28,7 @@ import {
 import type { Response } from 'express';
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import { ImportService } from './import.service.js';
+import { ImportDirectUploadService } from './import-direct-upload.service.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { importUploadMulterOptions } from './import-multer.storage.js';
 import { ImportUploadInterceptor } from './import-upload.interceptor.js';
@@ -41,12 +42,18 @@ import {
 } from './dto/import-mapping-profile-response.dto.js';
 import { CreateImportMappingProfileDto } from './dto/create-import-mapping-profile.dto.js';
 import { ApplyImportJobDto } from './dto/apply-import-job.dto.js';
+import {
+  FinalizeDirectImportUploadDto,
+  StartDirectImportUploadDto,
+} from './dto/direct-import-upload.dto.js';
+import { StartDirectImportUploadResponseDto } from './dto/start-direct-import-upload-response.dto.js';
 
 @ApiTags('imports')
 @Controller('imports')
 export class ImportController {
   constructor(
     private readonly importService: ImportService,
+    private readonly directUploadService: ImportDirectUploadService,
     private readonly mappingProfileService: ImportMappingProfileService,
   ) {}
 
@@ -106,6 +113,37 @@ export class ImportController {
       sourceSystem: sourceSystem?.trim() ?? 'legacy',
       mappingJson: parsedMapping,
       optionsJson: parsedOptions,
+    });
+  }
+
+  @Post('direct-uploads')
+  @ApiOperation({
+    summary:
+      'Issue a signed resumable GCS upload URL for files above the HTTP limit',
+  })
+  @ApiCreatedResponse({ type: StartDirectImportUploadResponseDto })
+  startDirectUpload(@Body() body: StartDirectImportUploadDto) {
+    return this.directUploadService.start(body);
+  }
+
+  @Post('direct-uploads/:uploadId/finalize')
+  @ApiOperation({
+    summary:
+      'Verify and promote a staged direct upload, then start the background dry-run',
+  })
+  @ApiCreatedResponse({ type: ImportJobResponseDto })
+  finalizeDirectUpload(
+    @Param('uploadId') uploadId: string,
+    @Body() body: FinalizeDirectImportUploadDto,
+  ) {
+    return this.directUploadService.finalize({
+      uploadId,
+      fileName: body.fileName,
+      size: body.size,
+      entityType: body.entityType,
+      sourceSystem: body.sourceSystem.trim(),
+      mapping: body.mapping,
+      options: body.options,
     });
   }
 

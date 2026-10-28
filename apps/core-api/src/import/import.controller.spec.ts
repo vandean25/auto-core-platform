@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import { ImportController } from './import.controller.js';
 import { ImportService } from './import.service.js';
+import { ImportDirectUploadService } from './import-direct-upload.service.js';
 import { ImportMappingProfileService } from './import-mapping-profile.service.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 
@@ -24,12 +25,21 @@ describe('ImportController', () => {
     createProfile: jest.fn(),
   };
 
+  const mockDirectUploadService = {
+    start: jest.fn(),
+    finalize: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ImportController],
       providers: [
         { provide: ImportService, useValue: mockImportService },
-        { provide: ImportMappingProfileService, useValue: mockMappingProfileService },
+        {
+          provide: ImportMappingProfileService,
+          useValue: mockMappingProfileService,
+        },
+        { provide: ImportDirectUploadService, useValue: mockDirectUploadService },
       ],
     }).compile();
 
@@ -37,8 +47,7 @@ describe('ImportController', () => {
     jest.clearAllMocks();
   });
 
-  describe('createDryRun', () => {
-    it('accepts SUPPLIER_PRICE_LIST entity type', async () => {
+  describe('createDryRun', () => {    it('accepts SUPPLIER_PRICE_LIST entity type', async () => {
       const file = {
         buffer: Buffer.from('Lieferanten-Artikelnummer;Beschreibung;Einkaufspreis\nART-1;Filter;10.50'),
         originalname: 'prices.csv',
@@ -136,6 +145,45 @@ describe('ImportController', () => {
       expect(mockImportService.applyJobHttp).toHaveBeenCalledWith('job-1', undefined);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(result).toEqual({ id: 'job-1', status: 'APPLIED' });
+    });
+  });
+
+  describe('direct upload', () => {
+    it('starts a signed upload for the request body', async () => {
+      mockDirectUploadService.start.mockResolvedValue({
+        upload_id: 'upload-1',
+      });
+      const body = { fileName: 'big.csv', size: 64 * 1024 * 1024 };
+
+      await expect(controller.startDirectUpload(body)).resolves.toEqual({
+        upload_id: 'upload-1',
+      });
+      expect(mockDirectUploadService.start).toHaveBeenCalledWith(body);
+    });
+
+    it('finalizes a staged upload with trimmed source system and options', async () => {
+      mockDirectUploadService.finalize.mockResolvedValue({ id: 'job-1' });
+      const body = {
+        fileName: 'big.csv',
+        size: 64 * 1024 * 1024,
+        entityType: ImportEntityType.CUSTOMER,
+        sourceSystem: '  legacy-dms  ',
+        mapping: { external_id: 'Kunden-Nr' },
+        options: { update_existing: true },
+      };
+
+      await expect(
+        controller.finalizeDirectUpload('upload-1', body),
+      ).resolves.toEqual({ id: 'job-1' });
+      expect(mockDirectUploadService.finalize).toHaveBeenCalledWith({
+        uploadId: 'upload-1',
+        fileName: 'big.csv',
+        size: 64 * 1024 * 1024,
+        entityType: ImportEntityType.CUSTOMER,
+        sourceSystem: 'legacy-dms',
+        mapping: { external_id: 'Kunden-Nr' },
+        options: { update_existing: true },
+      });
     });
   });
 });

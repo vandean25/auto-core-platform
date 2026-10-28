@@ -95,6 +95,7 @@ import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 import {
   ImportFileStorageService,
   readMulterUploadContent,
+  type StoredImportFileRef,
 } from './import-file.storage.js';
 import {
   readUploadRef,
@@ -817,27 +818,18 @@ export class ImportService {
           'Import upload storage did not return a file reference',
         );
       }
-      const job = await this.jobStore.createPendingBackgroundJob({
+      return await this.startBackgroundDryRunJob({
         tenantId: params.tenantId,
+        actorUserId: params.actorUserId,
         entityType: params.entityType,
         sourceSystem: params.sourceSystem,
         fileName: params.file.originalname,
         fileSha256,
-        mapping: params.mappingJson,
+        mappingJson: params.mappingJson,
         options: params.options,
-        actorUserId: params.actorUserId,
-        upload: uploadRef,
+        uploadRef,
         expectedRows,
       });
-      await this.audit.writeImportJobAudit(
-        this.prisma,
-        params.tenantId,
-        params.actorUserId,
-        job.id,
-        'created',
-      );
-      await this.enqueueInitialImportWorker(params.tenantId, job.id, 'dry_run');
-      return this.serializeJob(job, job.totals_json as ImportJobTotals);
     } catch (error) {
       if (uploadRef) {
         await this.fileStorage.deleteUpload(uploadRef).catch(() => undefined);
@@ -847,6 +839,88 @@ export class ImportService {
       }
       rethrowImportStorageFailure(error);
     }
+  }
+
+  private async startBackgroundDryRunJob(params: {
+    tenantId: string;
+    actorUserId: string;
+    entityType: ImportEntityType;
+    sourceSystem: string;
+    fileName: string;
+    fileSha256: string;
+    mappingJson: Record<string, string>;
+    options: ImportJobOptions;
+    uploadRef: StoredImportFileRef;
+    expectedRows: number;
+  }) {
+    const job = await this.jobStore.createPendingBackgroundJob({
+      tenantId: params.tenantId,
+      entityType: params.entityType,
+      sourceSystem: params.sourceSystem,
+      fileName: params.fileName,
+      fileSha256: params.fileSha256,
+      mapping: params.mappingJson,
+      options: params.options,
+      actorUserId: params.actorUserId,
+      upload: params.uploadRef,
+      expectedRows: params.expectedRows,
+    });
+    await this.audit.writeImportJobAudit(
+      this.prisma,
+      params.tenantId,
+      params.actorUserId,
+      job.id,
+      'created',
+    );
+    await this.enqueueInitialImportWorker(params.tenantId, job.id, 'dry_run');
+    return this.serializeJob(job, job.totals_json as ImportJobTotals);
+  }
+
+  /**
+   * Starts the background dry-run for an object already copied into the job
+   * import location, reusing the same job/audit/enqueue path as HTTP uploads.
+   */
+  async createDryRunFromStoredUpload(params: {
+    ref: StoredImportFileRef;
+    fileName: string;
+    entityType: ImportEntityType;
+    sourceSystem: string;
+    mappingJson: Record<string, string>;
+    optionsJson: ImportJobOptions;
+    fileSha256: string;
+    rowCount: number;
+  }) {
+    assertTenantAdmin(this.tenantContext);
+    assertImplementedImportEntityType(params.entityType);
+    const tenantId = await this.tenantContext.getTenantId();
+    const currentUser = await requireActiveCurrentUser(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+    );
+    const migrationManifest = parseMigrationManifestFromDryRunOptions(
+      params.optionsJson,
+    );
+    const options: ImportJobOptions = {
+      ...normalizeImportOptions(params.optionsJson),
+      ...(migrationManifest
+        ? { cutover_date: migrationManifest.cutover_date }
+        : {}),
+    };
+    const handler = this.handlers[params.entityType];
+    await handler.prepareCreate(tenantId, params.sourceSystem, options);
+    return this.startBackgroundDryRunJob({
+      tenantId,
+      actorUserId: currentUser.id,
+      entityType: params.entityType,
+      sourceSystem: params.sourceSystem,
+      fileName: params.fileName,
+      fileSha256: params.fileSha256,
+      mappingJson: params.mappingJson,
+      options,
+      uploadRef: params.ref,
+      expectedRows: params.rowCount,
+    });
   }
 
   private async deleteJobUploadIfPresent(

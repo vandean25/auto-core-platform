@@ -627,6 +627,22 @@
       "public": true,
       "params": []
     },
+    "IMPORT_DIRECT_UPLOAD_CONTENT_TYPE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DIRECT_UPLOAD_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DIRECT_UPLOAD_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DIRECT_UPLOAD_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_DRY_RUN_IN_PROGRESS": {
       "public": true,
       "params": []

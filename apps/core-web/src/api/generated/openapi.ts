@@ -4547,6 +4547,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports/direct-uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a signed resumable GCS upload URL for files above the HTTP limit */
+        post: operations["ImportController_startDirectUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/direct-uploads/{uploadId}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify and promote a staged direct upload, then start the background dry-run */
+        post: operations["ImportController_finalizeDirectUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/mapping-profiles": {
         parameters: {
             query?: never;
@@ -10917,6 +10951,55 @@ export interface components {
             created_by: Record<string, never> | null;
             created_at: string;
             applied_at: Record<string, never> | null;
+        };
+        StartDirectImportUploadDto: {
+            /** @example kunden-export.csv */
+            fileName: string;
+            /**
+             * @description Declared file size in bytes; capped by the server limit
+             * @example 104857600
+             */
+            size: number;
+            /** @example text/csv */
+            contentType?: string;
+        };
+        StartDirectImportUploadResponseDto: {
+            upload_id: string;
+            /** @description Signed V4 resumable upload initiation URL */
+            upload_url: string;
+            /** @enum {string} */
+            method: "POST";
+            /** @description Headers required on the signed initiation POST */
+            headers: {
+                [key: string]: string;
+            };
+            content_type: string;
+            /** @description Declared size cap signed into the URL */
+            max_bytes: number;
+            expires_at: string;
+        };
+        FinalizeDirectImportUploadDto: {
+            /** @example kunden-export.csv */
+            fileName: string;
+            /**
+             * @description Size declared when the upload was started
+             * @example 104857600
+             */
+            size: number;
+            entityType: components["schemas"]["ImportEntityType"];
+            /** @example legacy-dms */
+            sourceSystem: string;
+            /**
+             * @example {
+             *       "external_id": "Kunden-Nr"
+             *     }
+             */
+            mapping: {
+                [key: string]: string;
+            };
+            options?: {
+                [key: string]: unknown;
+            };
         };
         ImportMappingProfileResponseDto: {
             id: string;
@@ -20796,6 +20879,54 @@ export interface operations {
                     /** @description JSON import options */
                     options?: string;
                 };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_startDirectUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartDirectImportUploadDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartDirectImportUploadResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_finalizeDirectUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizeDirectImportUploadDto"];
             };
         };
         responses: {

@@ -9,6 +9,7 @@ import { formatNumber } from '@/lib/format'
 export type DataImportUploadStepProps = {
   fileName: string | null
   columnCount: number
+  isDirectUpload: boolean
   onFileSelected: (file: File | null) => void
   onBack: () => void
   onContinue: () => void
@@ -38,6 +39,11 @@ export function DataImportUploadStep(props: DataImportUploadStepProps) {
               name: props.fileName,
               columns: formatNumber(props.columnCount),
             })}
+          </p>
+        ) : null}
+        {props.isDirectUpload ? (
+          <p className="text-sm text-muted-foreground">
+            {t('dataImport.upload.directUploadHint')}
           </p>
         ) : null}
       </div>
