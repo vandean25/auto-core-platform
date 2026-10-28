@@ -18,7 +18,16 @@ describe('legacy apply resume', () => {
       saved.worker = args.data.options_json.worker;
       return { count: 1 };
     });
-    const prisma = {
+    const db: {
+      client?: {
+        importJob: {
+          findFirst: () => Promise<unknown>;
+          updateMany: typeof updateMany;
+        };
+        $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+      };
+    } = {};
+    db.client = {
       importJob: {
         findFirst: async () => ({
           options_json: {
@@ -34,7 +43,10 @@ describe('legacy apply resume', () => {
         }),
         updateMany,
       },
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn(db.client),
     };
+    const prisma = db.client;
     const store = new ImportJobStore(prisma as never);
     await store.lockForApply('tenant-1', 'job-1');
     expect(saved.worker?.last_committed_apply_seq).toBe(7);

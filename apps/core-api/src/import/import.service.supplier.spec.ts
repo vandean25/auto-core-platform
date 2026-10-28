@@ -951,15 +951,11 @@ describe('ImportService supplier price list (characterization)', () => {
 
       const result = await h.service.applyJob(JOB_ID);
 
-      expect(h.prisma.$transaction).toHaveBeenCalledTimes(4);
-      expect(h.prisma.$transaction).toHaveBeenNthCalledWith(
-        1,
-        expect.any(Function),
-        {
-          timeout: 30000,
-          maxWait: 10000,
-        },
-      );
+      expect(h.prisma.$transaction).toHaveBeenCalledTimes(5);
+      expect(h.prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        timeout: 30000,
+        maxWait: 10000,
+      });
       expect(result.totals).toEqual({
         rows: 120,
         create: 0,

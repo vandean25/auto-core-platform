@@ -353,7 +353,7 @@
       "entityId": "Filter by entity ID",
       "entityIdPlaceholder": "Entity ID"
     },
-    "searchPlaceholder": "Search by entity, ID, actor, request ID...",
+    "searchPlaceholder": "Entity, ID, actor, request ID",
     "columns": {
       "timestamp": "Timestamp",
       "action": "Action",
@@ -970,7 +970,7 @@
     "history": {
       "title": "Export run history",
       "description": "Immutable completed runs. Downloads are audit-logged with run ID and checksum; they do not confirm DATEV import.",
-      "searchPlaceholder": "Search runs by ID, entity, or checksum...",
+      "searchPlaceholder": "ID, entity, checksum",
       "empty": "No authorized export runs yet.",
       "columns": {
         "legalEntity": "Legal entity",

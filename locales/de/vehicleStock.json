@@ -14,7 +14,7 @@
     "reports": "Berichte",
     "addVehicle": "Fahrzeug",
     "saveViewTitle": "Fahrzeugbestand",
-    "searchPlaceholder": "FIN, Kennzeichen, Marke, Modell, Farbe suchen…",
+    "searchPlaceholder": "FIN, Kennzeichen, Fahrzeug, Farbe",
     "deleteDraftConfirm": "Diesen Einkaufsentwurf wirklich löschen?",
     "draftDeleted": "Einkaufsentwurf gelöscht",
     "deleteDraftFailed": "Einkaufsentwurf konnte nicht gelöscht werden",

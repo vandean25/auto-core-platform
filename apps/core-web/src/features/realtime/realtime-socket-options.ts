@@ -6,10 +6,19 @@ export const REALTIME_RECONNECT_MAX_MS = 30_000
 export type RealtimeSocketOptionsInput = {
   path: string
   getIdToken: () => Promise<string | null>
+  /**
+   * The socket connects straight to the core-api origin (`VITE_SOCKET_BASE_URL`), not through Firebase Hosting.
+   * Then it uses WebSocket first with polling as the fallback.
+   */
+  direct?: boolean
 }
 
 export type HandshakeRetry = {
   onConnectError: () => void
+  /** The server ended the session on purpose (maximum connection age, revoked access): socket.io does not reconnect by itself. */
+  onDisconnect: (reason: string) => void
+  /** Brings a socket back that is neither connected nor retrying (the tab became visible again), on the same backoff. */
+  reconnect: () => void
   onConnect: () => void
   dispose: () => void
 }
@@ -17,21 +26,30 @@ export type HandshakeRetry = {
 /**
  * Socket.IO client options for the dashboard realtime namespace.
  *
- * Long-polling only. Assumed, unverified: Firebase Hosting's `/api/**` rewrite
- * does not forward WebSocket upgrades. The assumption was not checked against
- * Firebase documentation in AUT-432. It fits the HTTP 400 handshakes seen with a
- * WebSocket-first client. Polling sessions must stay on one Cloud Run replica
- * (session affinity). See
+ * Through Firebase Hosting (no `VITE_SOCKET_BASE_URL`): long-polling only.
+ * Hosting's `/api/**` rewrite does not proxy WebSocket upgrades (a WebSocket
+ * upgrade through web.app returns 400, directly on run.app it returns 101), and it
+ * strips the Cloud Run session-affinity cookie, so polling sessions can jump
+ * between core-api instances. This stays the default for local dev and e2e.
+ *
+ * Direct to the core-api origin (`direct`): WebSocket first, polling as the
+ * fallback. A WebSocket session needs no affinity. The Firebase ID token travels
+ * in the handshake `auth` payload, so cross-origin works without the Hosting
+ * `__session` cookie; `withCredentials` only lets the polling fallback carry the
+ * Cloud Run affinity cookie. See
  * docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md, sections 1 and 4.
  */
 export function buildRealtimeSocketOptions({
   path,
   getIdToken,
+  direct = false,
 }: RealtimeSocketOptionsInput): Partial<ManagerOptions & SocketOptions> {
   return {
     path,
-    transports: ['polling'],
-    upgrade: false,
+    ...(direct
+      ? // tryAllTransports: without it engine.io-client never moves on to polling after a failed WebSocket.
+        { transports: ['websocket', 'polling'], tryAllTransports: true }
+      : { transports: ['polling'], upgrade: false }),
     withCredentials: true,
     // Socket.IO calls this on every (re)connect. A reconnect after the Firebase
     // ID token expires (about an hour) therefore presents a current token.
@@ -73,20 +91,26 @@ export function createHandshakeRetry(
     }
   }
 
+  const schedule = () => {
+    if (socket.active || timer !== undefined) return
+    const base = Math.min(
+      REALTIME_RECONNECT_MAX_MS,
+      REALTIME_RECONNECT_MIN_MS * 2 ** attempts,
+    )
+    const jitter = base * 0.5 * (random() * 2 - 1)
+    attempts += 1
+    timer = setTimeout(() => {
+      timer = undefined
+      socket.connect()
+    }, Math.min(REALTIME_RECONNECT_MAX_MS, base + jitter))
+  }
+
   return {
-    onConnectError() {
-      if (socket.active || timer !== undefined) return
-      const base = Math.min(
-        REALTIME_RECONNECT_MAX_MS,
-        REALTIME_RECONNECT_MIN_MS * 2 ** attempts,
-      )
-      const jitter = base * 0.5 * (random() * 2 - 1)
-      attempts += 1
-      timer = setTimeout(() => {
-        timer = undefined
-        socket.connect()
-      }, Math.min(REALTIME_RECONNECT_MAX_MS, base + jitter))
+    onConnectError: schedule,
+    onDisconnect(reason) {
+      if (reason === 'io server disconnect') schedule()
     },
+    reconnect: schedule,
     onConnect() {
       attempts = 0
       clearTimer()

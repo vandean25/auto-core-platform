@@ -145,7 +145,7 @@
     "windowDays": "{{count}} Tage",
     "loadError": "Gewährleistungsfälligkeiten konnten nicht geladen werden.",
     "empty": "Keine fälligen Fahrzeuge im gewählten Zeitraum.",
-    "searchPlaceholder": "Fahrzeug, Kunde oder Frist suchen …",
+    "searchPlaceholder": "Fahrzeug, Kunde oder Frist",
     "columns": {
       "vehicle": "Fahrzeug",
       "customer": "Kunde",

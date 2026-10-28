@@ -34,19 +34,21 @@ export async function runSyncApplyUnits<T extends SyncApplyLeaseJob>(params: {
   let leaseToken = params.initialLeaseToken;
   let cursor = await readCursor(params.findJob);
   for (let unit = 0; unit < MAX_SYNC_APPLY_UNITS; unit++) {
-    const pending = params.rows.filter(
-      (row) => (row.apply_seq ?? row.row_no) > cursor,
+    const pending = await rowsPendingForSyncUnit(
+      params.findJob,
+      params.rows,
+      cursor,
     );
-    if (pending.length === 0) {
+    if (pending.rows.length === 0) {
       return params.applyRows([], {
         leaseToken,
         resumeAfterApplySeq: cursor,
         chunkDeadlineMs: Date.now() + IMPORT_APPLY_UNIT_BUDGET_MS,
       });
     }
-    const applied = await params.applyRows(pending, {
+    const applied = await params.applyRows(pending.rows, {
       leaseToken,
-      resumeAfterApplySeq: cursor,
+      resumeAfterApplySeq: 0,
       chunkDeadlineMs: Date.now() + IMPORT_APPLY_UNIT_BUDGET_MS,
     });
     if (applied.status !== ImportJobStatus.APPLYING) {
@@ -62,7 +64,8 @@ export async function runSyncApplyUnits<T extends SyncApplyLeaseJob>(params: {
     }
     leaseToken = worker.lease_token;
     const nextCursor = worker.last_committed_apply_seq ?? cursor;
-    if (nextCursor === cursor) {
+    const retryLeft = worker.technical_retry_row_nos?.length ?? 0;
+    if (nextCursor === cursor && retryLeft === pending.retryCount) {
       return applied;
     }
     cursor = nextCursor;
@@ -71,6 +74,27 @@ export async function runSyncApplyUnits<T extends SyncApplyLeaseJob>(params: {
     leaseToken,
     resumeAfterApplySeq: cursor,
   });
+}
+
+async function rowsPendingForSyncUnit(
+  findJob: () => Promise<SyncApplyLeaseJob | null>,
+  rows: ImportApplyRow[],
+  cursor: number,
+): Promise<{ rows: ImportApplyRow[]; retryCount: number }> {
+  const job = await findJob();
+  const worker = readWorkerState(
+    job?.options_json as ImportJobOptionsWithWorker,
+  );
+  const retryNos = new Set(worker?.technical_retry_row_nos ?? []);
+  const retryRows = rows.filter((row) => retryNos.has(row.row_no));
+  const afterCursor = rows.filter(
+    (row) =>
+      !retryNos.has(row.row_no) && (row.apply_seq ?? row.row_no) > cursor,
+  );
+  return {
+    rows: [...retryRows, ...afterCursor],
+    retryCount: retryNos.size,
+  };
 }
 
 async function readCursor(
