@@ -89,6 +89,6 @@ describe('route title table', () => {
   })
 
   it('titles the parts pick queue page with its UI label', () => {
-    expect(getRouteDocumentTitle('/workshop/pick-list')).toBe('Teilekommissionierung - Auto Core')
+    expect(getRouteDocumentTitle('/workshop/pick-list')).toBe('Teile-Kommissionierung - Auto Core')
   })
 })

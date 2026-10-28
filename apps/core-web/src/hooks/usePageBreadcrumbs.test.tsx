@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import {
@@ -7,6 +7,7 @@ import {
   PageContainerWithBreadcrumbs,
 } from '@/components/layout/PageBreadcrumbs'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { changeUiLanguage } from '@/lib/i18n'
 import { usePageBreadcrumbs } from './usePageBreadcrumbs'
 
 afterEach(cleanup)
@@ -47,6 +48,16 @@ describe('usePageBreadcrumbs', () => {
 
     expect(within(currentTrail()).getByText('SO-2026-0001')).toHaveAttribute('aria-current', 'page')
     expect(within(currentTrail()).queryByText('Sales order')).not.toBeInTheDocument()
+  })
+
+  it('retitles the list crumb when the UI language changes', async () => {
+    render(renderTree(<SalesOrderPage label="SO-2026-0001" />))
+
+    await act(() => changeUiLanguage('en'))
+    expect(screen.getByRole('link', { name: 'Sales Orders' })).toBeInTheDocument()
+
+    await act(() => changeUiLanguage('de'))
+    expect(screen.getByRole('link', { name: 'Kundenaufträge' })).toBeInTheDocument()
   })
 
   it('clears the trail when the page unmounts', () => {

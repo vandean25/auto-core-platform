@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
 import { RouteTitle } from '@/components/RouteTitle'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { changeUiLanguage } from '@/lib/i18n'
 
 function WorkshopOrderPage({ orderNumber }: { orderNumber?: string }) {
   useDocumentTitle(orderNumber)
@@ -72,6 +73,16 @@ describe('RouteTitle and useDocumentTitle', () => {
     fireEvent.click(screen.getByRole('button', { name: `Go to ${APP_ROUTE_PATHS.customers}` }))
 
     expect(document.title).toBe('Kunden - Auto Core')
+  })
+
+  it('keeps the entity in the title when the UI language changes', async () => {
+    render(<App initialPath="/workshop/orders/wo-2" orderNumber="WO-2026-0002" />)
+
+    await act(() => changeUiLanguage('en'))
+    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+
+    await act(() => changeUiLanguage('de'))
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
   })
 
   it('announces the page after a route change without moving focus', () => {

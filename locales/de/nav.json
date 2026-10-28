@@ -170,10 +170,10 @@
     "hrClock": "Zeiterfassung",
     "hrLeave": "Urlaub",
     "workshopIntake": "Fahrzeugannahme",
-    "workshopPick": "Teilekommissionierung",
+    "workshopPick": "Teile-Kommissionierung",
     "workshopLoanerBookingPrint": "Ersatzwagen Protokoll",
     "workshopOrderWarrantyClaims": "Garantie/Kulanz",
-    "mechanicQueue": "Meine Aufgaben",
+    "mechanicQueue": "Meine Warteschlange",
     "mechanicTask": "Aufgabe",
     "login": "Anmelden",
     "notFound": "Seite nicht gefunden"

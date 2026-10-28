@@ -39,7 +39,7 @@ function InvoiceDetailTitle({ invoice, coverageStatus }: { invoice: Invoice; cov
   const coverageLabelKey = coverageStatus ? COVERAGE_LABEL_KEYS[coverageStatus] : undefined
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="flex items-center gap-3 max-sm:flex-wrap max-sm:gap-y-2">
       <h1 className="whitespace-nowrap text-2xl font-semibold tracking-tight">
         {invoice.invoice_number ??
           t('shared.invoiceFallback', { id: invoice.id.slice(0, 8) })}
