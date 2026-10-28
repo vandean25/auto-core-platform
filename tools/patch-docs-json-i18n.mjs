@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { buildTabs } from './docs-i18n-pages.mjs';
 
-const docsPath = new URL('../docs.json', import.meta.url);
+const docsPath = new URL('../docs-site/docs.json', import.meta.url);
 const docs = JSON.parse(readFileSync(docsPath, 'utf8'));
 
 docs.seo = {
