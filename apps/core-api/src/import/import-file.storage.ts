@@ -5,13 +5,20 @@ import {
 } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, open, readFile, unlink, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import type { Readable, Transform, Writable } from 'node:stream';
+import { Readable as ReadableStream } from 'node:stream';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
+import { withTransientGcsAttempts } from './import-gcs-retry.js';
+import {
+  fetchGcsObjectMedia,
+  isRangeNotSatisfiable,
+} from './import-gcs-media.js';
 
 export type StoredImportFileRef = {
   object_key: string;
@@ -138,11 +145,22 @@ export interface ImportFileStorage {
     tenantId: string;
     jobId: string;
     fileName: string;
-    source: NodeJS.ReadableStream;
-    through?: Transform;
+    openSource: () => NodeJS.ReadableStream;
+    openThrough?: () => Transform;
+    contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef>;
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream;
+  openReadStream(
+    ref: StoredImportFileRef,
+    start?: number,
+  ): NodeJS.ReadableStream;
+
+  readByteRange(
+    ref: StoredImportFileRef,
+    start: number,
+    end: number,
+  ): Promise<Buffer>;
 
   readBytes(ref: StoredImportFileRef): Promise<Buffer>;
 
@@ -157,9 +175,99 @@ function resolveImportUploadBucket(): string {
   return resolvePdfStorageBucket();
 }
 
+const IMPORT_UPLOAD_SAVE_OPTIONS = {
+  resumable: false as const,
+  preconditionOpts: { ifGenerationMatch: 0 },
+  metadata: {
+    contentType: 'text/csv',
+    cacheControl: 'private, no-store',
+  },
+};
+
+type ImportObjectFile = {
+  save: (
+    data: Buffer,
+    options: typeof IMPORT_UPLOAD_SAVE_OPTIONS,
+  ) => Promise<unknown>;
+  delete: (options: { ignoreNotFound: boolean }) => Promise<unknown>;
+  createWriteStream: (options: typeof IMPORT_UPLOAD_SAVE_OPTIONS) => Writable;
+  getMetadata: () => Promise<[{ size?: string | number; md5Hash?: string }]>;
+  download: () => Promise<[Buffer]>;
+};
+
+export const IMPORT_READ_RANGE_BYTES = 2 * 1024 * 1024;
+
+function sha256(bytes: Buffer): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+async function objectMatchesBuffer(
+  file: ImportObjectFile,
+  content: Buffer,
+): Promise<boolean> {
+  const [metadata] = await file.getMetadata();
+  if (Number(metadata.size) !== content.length) {
+    return false;
+  }
+  const md5 = createHash('md5').update(content).digest('base64');
+  if (typeof metadata.md5Hash === 'string') {
+    return metadata.md5Hash === md5;
+  }
+  const [stored] = await file.download();
+  return sha256(stored) === sha256(content);
+}
+
+async function objectMatchesStream(
+  file: ImportObjectFile,
+  contentLength: number,
+  expectedMd5?: string,
+): Promise<boolean> {
+  const [metadata] = await file.getMetadata();
+  if (Number(metadata.size) !== contentLength) {
+    return false;
+  }
+  if (!expectedMd5) {
+    return true;
+  }
+  if (typeof metadata.md5Hash === 'string') {
+    return metadata.md5Hash === expectedMd5;
+  }
+  const [stored] = await file.download();
+  return createHash('md5').update(stored).digest('base64') === expectedMd5;
+}
+
+function releaseWritable(stream: Writable): void {
+  const swallow = () => undefined;
+  stream.on('error', swallow);
+  stream.destroy();
+  setImmediate(() => {
+    stream.removeAllListeners();
+  });
+}
+
+async function writeImportObject(
+  file: ImportObjectFile,
+  source: NodeJS.ReadableStream,
+  through?: Transform,
+): Promise<void> {
+  const writeStream = file.createWriteStream(IMPORT_UPLOAD_SAVE_OPTIONS);
+  const onError = () => undefined;
+  writeStream.once('error', onError);
+  try {
+    if (through) {
+      await pipeline(source as Readable, through, writeStream);
+      return;
+    }
+    await pipeline(source as Readable, writeStream);
+  } finally {
+    writeStream.off('error', onError);
+    releaseWritable(writeStream);
+  }
+}
+
 @Injectable()
 export class GcsImportFileStorage implements ImportFileStorage {
-  private readonly storage = new Storage();
+  protected storage: Storage = new Storage();
 
   async storeUpload(params: {
     tenantId: string;
@@ -167,73 +275,126 @@ export class GcsImportFileStorage implements ImportFileStorage {
     fileName: string;
     content: Buffer;
   }): Promise<StoredImportFileRef> {
-    SideEffectGuard.assertAllowed('GCS_WRITE');
-    const bucketName = resolveImportUploadBucket();
-    const objectKey = buildGcsImportObjectKey({
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      fileName: params.fileName,
-    });
-    const bucket = this.storage.bucket(bucketName);
-    await bucket.file(objectKey).save(params.content, {
-      resumable: false,
-      metadata: {
-        contentType: 'text/csv',
-        cacheControl: 'private, no-store',
-      },
-    });
-    return { object_key: objectKey };
+    return this.putNewObject(
+      params,
+      (file) => file.save(params.content, IMPORT_UPLOAD_SAVE_OPTIONS),
+      (file) => objectMatchesBuffer(file, params.content),
+    );
   }
 
   async storeUploadFromStream(params: {
     tenantId: string;
     jobId: string;
     fileName: string;
-    source: NodeJS.ReadableStream;
-    through?: Transform;
+    openSource: () => NodeJS.ReadableStream;
+    openThrough?: () => Transform;
+    contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef> {
-    SideEffectGuard.assertAllowed('GCS_WRITE');
-    const bucketName = resolveImportUploadBucket();
-    const objectKey = buildGcsImportObjectKey({
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      fileName: params.fileName,
-    });
-    const writeStream = this.storage
-      .bucket(bucketName)
-      .file(objectKey)
-      .createWriteStream({
-        resumable: false,
-        metadata: {
-          contentType: 'text/csv',
-          cacheControl: 'private, no-store',
-        },
-      });
-    if (params.through) {
-      await pipeline(params.source as Readable, params.through, writeStream);
-    } else {
-      await pipeline(params.source as Readable, writeStream);
-    }
-    return { object_key: objectKey };
+    return this.putNewObject(
+      params,
+      (file) =>
+        writeImportObject(file, params.openSource(), params.openThrough?.()),
+      (file) =>
+        params.contentLength === undefined
+          ? Promise.resolve(false)
+          : objectMatchesStream(
+              file,
+              params.contentLength,
+              params.expectedMd5?.(),
+            ),
+    );
   }
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
+  private importFile(objectKey: string): ImportObjectFile {
+    const bucket = resolveImportUploadBucket();
+    const gcsFile = this.storage.bucket(bucket).file(objectKey);
+    return {
+      save: (data, options) => gcsFile.save(data, options),
+      delete: (options) => gcsFile.delete(options),
+      createWriteStream: (options) => gcsFile.createWriteStream(options),
+      getMetadata: async () => {
+        const [metadata] = await gcsFile.getMetadata();
+        return [metadata];
+      },
+      download: async () => [
+        await fetchGcsObjectMedia(this.storage, bucket, objectKey),
+      ],
+    };
+  }
+
+  private putNewObject(
+    params: { tenantId: string; jobId: string; fileName: string },
+    write: (file: ImportObjectFile) => Promise<unknown>,
+    committed: (file: ImportObjectFile) => Promise<boolean>,
+  ): Promise<StoredImportFileRef> {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
+    const objectKey = buildGcsImportObjectKey(params);
+    const file = this.importFile(objectKey);
+    return withTransientGcsAttempts(
+      params.jobId,
+      () => write(file).then(() => undefined),
+      () => file.delete({ ignoreNotFound: true }).then(() => undefined),
+      () => committed(file),
+    ).then(() => ({ object_key: objectKey }));
+  }
+
+  openReadStream(ref: StoredImportFileRef, start = 0): NodeJS.ReadableStream {
+    let cursor = start;
+    const pull = (): Promise<Buffer | null> =>
+      this.readByteRange(ref, cursor, cursor + IMPORT_READ_RANGE_BYTES - 1)
+        .then((bytes) => {
+          if (bytes.length < IMPORT_READ_RANGE_BYTES) {
+            cursor += bytes.length;
+            return bytes.length > 0 ? bytes : null;
+          }
+          cursor += bytes.length;
+          return bytes;
+        })
+        .catch((error: unknown) => {
+          if (isRangeNotSatisfiable(error)) {
+            return null;
+          }
+          throw error;
+        });
+    return new ReadableStream({
+      read() {
+        pull().then(
+          (bytes) => {
+            this.push(bytes);
+          },
+          (error: unknown) => {
+            this.destroy(
+              error instanceof Error ? error : new Error('read failed'),
+            );
+          },
+        );
+      },
+    });
+  }
+
+  async readByteRange(
+    ref: StoredImportFileRef,
+    start: number,
+    end: number,
+  ): Promise<Buffer> {
     assertSafeGcsImportObjectKey(ref.object_key);
-    const bucketName = resolveImportUploadBucket();
-    return this.storage
-      .bucket(bucketName)
-      .file(ref.object_key)
-      .createReadStream();
+    return fetchGcsObjectMedia(
+      this.storage,
+      resolveImportUploadBucket(),
+      ref.object_key,
+      start,
+      end,
+    );
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
     assertSafeGcsImportObjectKey(ref.object_key);
-    const bucketName = resolveImportUploadBucket();
-    const [bytes] = await this.storage
-      .bucket(bucketName)
-      .file(ref.object_key)
-      .download();
-    return bytes;
+    return fetchGcsObjectMedia(
+      this.storage,
+      resolveImportUploadBucket(),
+      ref.object_key,
+    );
   }
 
   async deleteUpload(ref: StoredImportFileRef): Promise<void> {
@@ -274,8 +435,10 @@ export class LocalImportFileStorage implements ImportFileStorage {
     tenantId: string;
     jobId: string;
     fileName: string;
-    source: NodeJS.ReadableStream;
-    through?: Transform;
+    openSource: () => NodeJS.ReadableStream;
+    openThrough?: () => Transform;
+    contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef> {
     await mkdir(this.root, { recursive: true });
     const objectKey = buildTenantImportObjectKey({
@@ -286,20 +449,42 @@ export class LocalImportFileStorage implements ImportFileStorage {
     const target = resolveLocalImportPath(this.root, objectKey);
     await mkdir(dirname(target), { recursive: true });
     const writeStream = createWriteStream(target);
-    if (params.through) {
+    const through = params.openThrough?.();
+    if (through) {
       await pipeline(
-        params.source as Readable,
-        params.through,
+        params.openSource() as Readable,
+        through,
         writeStream as Writable,
       );
     } else {
-      await pipeline(params.source as Readable, writeStream as Writable);
+      await pipeline(params.openSource() as Readable, writeStream as Writable);
     }
     return { object_key: objectKey };
   }
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
-    return createReadStream(resolveLocalImportPath(this.root, ref.object_key));
+  openReadStream(ref: StoredImportFileRef, start = 0): NodeJS.ReadableStream {
+    return createReadStream(resolveLocalImportPath(this.root, ref.object_key), {
+      start,
+    });
+  }
+
+  async readByteRange(
+    ref: StoredImportFileRef,
+    start: number,
+    end: number,
+  ): Promise<Buffer> {
+    const handle = await open(
+      resolveLocalImportPath(this.root, ref.object_key),
+      'r',
+    );
+    try {
+      const length = end - start + 1;
+      const buf = Buffer.alloc(length);
+      const { bytesRead } = await handle.read(buf, 0, length, start);
+      return buf.subarray(0, bytesRead);
+    } finally {
+      await handle.close();
+    }
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
@@ -344,14 +529,24 @@ export class ImportFileStorageService implements ImportFileStorage {
     tenantId: string;
     jobId: string;
     fileName: string;
-    source: NodeJS.ReadableStream;
-    through?: Transform;
+    openSource: () => NodeJS.ReadableStream;
+    openThrough?: () => Transform;
+    contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef> {
     return this.delegate.storeUploadFromStream(params);
   }
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
-    return this.delegate.openReadStream(ref);
+  openReadStream(ref: StoredImportFileRef, start = 0): NodeJS.ReadableStream {
+    return this.delegate.openReadStream(ref, start);
+  }
+
+  readByteRange(
+    ref: StoredImportFileRef,
+    start: number,
+    end: number,
+  ): Promise<Buffer> {
+    return this.delegate.readByteRange(ref, start, end);
   }
 
   readBytes(ref: StoredImportFileRef): Promise<Buffer> {

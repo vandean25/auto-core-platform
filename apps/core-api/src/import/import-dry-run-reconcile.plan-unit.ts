@@ -16,15 +16,15 @@ import {
   oversizedRowNosFromImportJobRows,
   oversizedRowNosFromParsedCsv,
 } from './import-dry-run-group-limit.js';
-import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
+import { readCsvSliceByRange } from './import-csv-stream.util.js';
 
 async function loadFileHeaders(
   fileStorage: ImportFileStorageService,
   upload: ImportJobUploadRef,
   fileSha256: string,
 ): Promise<string[]> {
-  const head = await readImportCsvDataRowSlice(
-    fileStorage.openReadStream(upload),
+  const head = await readCsvSliceByRange(
+    (start, end) => fileStorage.readByteRange(upload, start, end),
     0,
     1,
     fileSha256,

@@ -3,10 +3,15 @@ import { createHash } from 'node:crypto';
 import type { ParsedCsv } from './csv-parse.util.js';
 import {
   CsvIncrementalParser,
+  readCsvDataRowSliceFromPull,
   readCsvDataRowSliceFromStream,
+  type CsvSliceResume,
 } from './csv-incremental.parser.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { IMPORT_READ_RANGE_BYTES } from './import-file.storage.js';
+import { isRangeNotSatisfiable } from './import-gcs-media.js';
+import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import { readImportMaxRowCount } from './import-limits.js';
 
 function nextDataRowCount(dataRowCount: number, maxDataRows: number): number {
@@ -33,16 +38,24 @@ export function applyEmittedCsvRecordCount(
   return count;
 }
 
+export type ImportCsvDataSlice = ParsedCsv & {
+  nextByteOffset: number;
+  streamBytesRead: number;
+  rowByteEnds: number[];
+};
+
 export async function readImportCsvDataRowSlice(
   stream: NodeJS.ReadableStream,
   skipDataRows: number,
   takeDataRows: number,
   fileSha256 = '',
-): Promise<ParsedCsv | null> {
+  resume?: CsvSliceResume,
+): Promise<ImportCsvDataSlice | null> {
   const slice = await readCsvDataRowSliceFromStream(
     stream,
     skipDataRows,
     takeDataRows,
+    resume,
   );
   if (!slice) {
     return null;
@@ -52,7 +65,131 @@ export async function readImportCsvDataRowSlice(
     rows: slice.rows,
     delimiter: slice.delimiter,
     sha256: fileSha256,
+    nextByteOffset: slice.nextByteOffset,
+    streamBytesRead: slice.streamBytesRead,
+    rowByteEnds: slice.rowByteEnds,
   };
+}
+
+export function byteOffsetAfterPersistedRows(
+  slice: ImportCsvDataSlice,
+  persistedRows: number,
+): number {
+  if (persistedRows <= 0) {
+    return 0;
+  }
+  if (persistedRows >= slice.rows.length) {
+    return slice.nextByteOffset;
+  }
+  return slice.rowByteEnds[persistedRows - 1] ?? slice.nextByteOffset;
+}
+
+export async function readWorkerCsvBatch(
+  open: (start: number) => NodeJS.ReadableStream,
+  worker: ImportJobWorkerState,
+  takeDataRows: number,
+  fileSha256: string,
+): Promise<ImportCsvDataSlice | null> {
+  const byteStart = worker.csv_next_byte ?? 0;
+  const ranged =
+    byteStart > 0 &&
+    worker.csv_headers !== undefined &&
+    worker.csv_delimiter !== undefined;
+  return readImportCsvDataRowSlice(
+    open(ranged ? byteStart : 0),
+    ranged ? 0 : worker.processed_rows,
+    takeDataRows,
+    fileSha256,
+    ranged
+      ? {
+          headers: worker.csv_headers,
+          delimiter: worker.csv_delimiter,
+          absoluteStart: byteStart,
+        }
+      : undefined,
+  );
+}
+
+export async function readWorkerCsvBatchFromRanges(
+  readRange: (start: number, end: number) => Promise<Buffer>,
+  worker: ImportJobWorkerState,
+  takeDataRows: number,
+  fileSha256: string,
+): Promise<ImportCsvDataSlice | null> {
+  const byteStart = worker.csv_next_byte ?? 0;
+  const ranged =
+    byteStart > 0 &&
+    worker.csv_headers !== undefined &&
+    worker.csv_delimiter !== undefined;
+  let cursor = ranged ? byteStart : 0;
+  let reachedEnd = false;
+  const slice = await readCsvDataRowSliceFromPull(
+    async () => {
+      if (reachedEnd) {
+        return null;
+      }
+      const end = cursor + IMPORT_READ_RANGE_BYTES - 1;
+      let bytes: Buffer;
+      try {
+        bytes = await readRange(cursor, end);
+      } catch (error) {
+        if (isRangeNotSatisfiable(error)) {
+          return null;
+        }
+        throw error;
+      }
+      const requested = end - cursor + 1;
+      if (bytes.length < requested) {
+        reachedEnd = true;
+      }
+      if (bytes.length === 0) {
+        return null;
+      }
+      cursor += bytes.length;
+      return bytes;
+    },
+    ranged ? 0 : worker.processed_rows,
+    takeDataRows,
+    ranged
+      ? {
+          headers: worker.csv_headers,
+          delimiter: worker.csv_delimiter,
+          absoluteStart: byteStart,
+        }
+      : undefined,
+  );
+  if (!slice) {
+    return null;
+  }
+  return {
+    headers: slice.headers,
+    rows: slice.rows,
+    delimiter: slice.delimiter,
+    sha256: fileSha256,
+    nextByteOffset: slice.nextByteOffset,
+    streamBytesRead: slice.streamBytesRead,
+    rowByteEnds: slice.rowByteEnds,
+  };
+}
+
+export function readCsvSliceByRange(
+  readRange: (start: number, end: number) => Promise<Buffer>,
+  skipDataRows: number,
+  takeDataRows: number,
+  fileSha256: string,
+): Promise<ImportCsvDataSlice | null> {
+  return readWorkerCsvBatchFromRanges(
+    readRange,
+    {
+      phase: 'dry_run',
+      lease_token: 'range',
+      lease_until: '',
+      processed_rows: skipDataRows,
+      started_at: '',
+    },
+    takeDataRows,
+    fileSha256,
+  );
 }
 
 export async function assessImportCsvFromReadable(

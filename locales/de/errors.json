@@ -192,6 +192,7 @@
     "IMPORT_PRICE_JUMP_REQUIRES_ACCEPTANCE": "Preissprung beim Import erfordert Bestätigung.",
     "IMPORT_ROW_LIMIT_EXCEEDED": "Zeilenlimit beim Import überschritten.",
     "IMPORT_ROW_STALE": "Importzeile ist veraltet.",
+    "IMPORT_STORAGE_UNAVAILABLE": "Die Importdatei konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
     "IMPORT_SUPPLIER_ARTICLE_NO_REQUIRED": "Lieferanten-Artikelnummer beim Import erforderlich.",
     "IMPORT_SUPPLIER_VENDOR_REQUIRED": "Lieferant beim Import erforderlich.",
     "IMPORT_UNKNOWN_OWNER": "Der angegebene Fahrzeughalter (externe Kundennummer) ist nicht vorhanden.",

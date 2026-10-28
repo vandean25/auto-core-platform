@@ -548,7 +548,13 @@ describe('import apply_seq fill (e2e)', () => {
       [['ext-1'], ['ext-2'], ['ext-3'], ['ext-4']],
     );
     const fileStorage = {
-      openReadStream: () => Readable.from([Buffer.from(csvBody, 'utf8')]),
+      readByteRange: async (_ref: unknown, start: number, end: number) => {
+        const buf = Buffer.from(csvBody, 'utf8');
+        if (start >= buf.length) {
+          throw Object.assign(new Error('range not satisfiable'), { status: 416 });
+        }
+        return buf.subarray(start, Math.min(buf.length, end + 1));
+      },
     } as unknown as ImportFileStorageService;
     const handlerStub = {
       entityType: ImportEntityType.CUSTOMER,
