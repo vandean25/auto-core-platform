@@ -38,5 +38,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0030 | Wear OS standalone watch for mechanic voice capture                    | Proposed | 2026-10-16                      | [2026-10-16-wear-os-standalone-watch-voice.md](2026-10-16-wear-os-standalone-watch-voice.md)                       |
 | ADR-0031 | incadea Migration and Hard Cutover to ACP                              | Accepted | 2026-10-19                      | [2026-10-19-incadea-migration-hard-cutover.md](2026-10-19-incadea-migration-hard-cutover.md)                       |
 | ADR-0032 | Collective Workshop Invoices Have Immutable Allocation Sources         | Accepted | 2026-10-19                      | [2026-10-19-collective-workshop-invoice-sources.md](2026-10-19-collective-workshop-invoice-sources.md)             |
+| ADR-0033 | Web Push for Staff Through the Notification Outbox (FCM)               | Proposed | 2026-10-28                      | [2026-10-28-web-push-for-staff.md](2026-10-28-web-push-for-staff.md)                                               |
 
-Next free number: **ADR-0033**.
+Next free number: **ADR-0034**.
