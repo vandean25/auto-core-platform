@@ -24,7 +24,7 @@ export function LeaveMinutesSummary({
   return (
     <span>
       {t('leaveMinutes.min', { count: minutes })}
-      {days !== null ? <span className='text-slate-500'> ({t('leaveMinutes.approx', { days: formatNumber(days, { maximumFractionDigits: 1 }) })})</span> : null}
+      {days !== null ? <span className='text-slate-500'> ({t('leaveMinutes.approx', { count: days, days: formatNumber(days, { maximumFractionDigits: 1 }) })})</span> : null}
     </span>
   )
 }

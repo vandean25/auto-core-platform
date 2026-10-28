@@ -146,6 +146,7 @@ function setupPage(
     data: { data: [{ id: 'employee-1', name: 'Ada Lovelace', role: 'SERVICE_ADVISOR' }] },
   })
   apiMocks.useEmployeeWorkSchedule.mockReturnValue({
+    isSuccess: true,
     data: {
       current: {
         id: 'schedule-1',
@@ -207,7 +208,7 @@ describe('HrLeavePage', () => {
 
     const remainingDays = formatNumber(approxLeaveDays(HR_TEST_REMAINING_AFTER_WEEK_MINUTES, 515) ?? 0, { maximumFractionDigits: 1 })
     expect(
-      screen.getByText(deHr.leave.remaining.replace('{{days}}', remainingDays)),
+      screen.getByText(deHr.leave.remaining_other.replace('{{days}}', remainingDays)),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: deHr.leave.bookLeave })).toBeInTheDocument()
     expect(screen.getByTestId('leave-table')).toHaveTextContent(String(HR_TEST_TWO_DAY_LEAVE_MINUTES))
@@ -232,6 +233,26 @@ describe('HrLeavePage', () => {
 
     expect(screen.queryByText(/^Rest:/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: deHr.leave.bookLeave })).toBeInTheDocument()
+  })
+
+  it('says "Tag" for exactly one day and shows minutes when the schedule could not be loaded', () => {
+    setupPage('SALES')
+    apiMocks.useMyLeave.mockReturnValue({ data: { year: 2026, allowanceMinutes: 515, carryoverMinutes: 0, remainingMinutes: 515, bookings: [] } })
+    const { unmount } = render(
+      <MemoryRouter>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText(deHr.leave.remaining_one.replace('{{days}}', '1'))).toBeInTheDocument()
+    unmount()
+
+    apiMocks.useEmployeeWorkSchedule.mockReturnValue({ data: undefined, isLoading: false, isSuccess: false, isError: true })
+    render(
+      <MemoryRouter>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText(deHr.leave.remainingMinutes.replace('{{minutes}}', '515'))).toBeInTheDocument()
   })
 
   it('opens the booking sheet for OWNER when /hr/me returns 403', () => {

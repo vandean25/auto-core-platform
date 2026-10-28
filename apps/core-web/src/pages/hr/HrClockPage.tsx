@@ -570,8 +570,8 @@ export default function HrClockPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex flex-wrap items-center justify-between gap-4' data-testid='hr-clock-header'>
-        <div className='min-w-0 max-sm:w-full'>
+      <div className='flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch' data-testid='hr-clock-header'>
+        <div>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('clock.pageTitle')}</h2>
           <p className='text-slate-500'>{t('clock.pageDescription')}</p>
         </div>

@@ -141,7 +141,8 @@
   "leave": {
     "pageTitle": "Urlaub",
     "pageDescription": "Teamurlaub buchen und prüfen.",
-    "remaining": "Rest: ≈ {{days}} Tage",
+    "remaining_one": "Rest: ≈ {{days}} Tag",
+    "remaining_other": "Rest: ≈ {{days}} Tage",
     "remainingMinutes": "Rest: {{minutes}} Min.",
     "bookLeave": "+ Urlaub",
     "myLeave": "Mein Urlaub",
@@ -267,6 +268,7 @@
   },
   "leaveMinutes": {
     "min": "{{count}} Min.",
-    "approx": "≈ {{days}} Tage"
+    "approx_one": "≈ {{days}} Tag",
+    "approx_other": "≈ {{days}} Tage"
   }
 }

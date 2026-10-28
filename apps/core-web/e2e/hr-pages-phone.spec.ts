@@ -28,29 +28,33 @@ const schedule = {
   history: [],
 }
 
-async function mockHr(page: Page, options: { scheduleDelayMs?: number } = {}) {
-  await page.route(AutoCorePage.apiRouteMatcher('/api/hr/me'), (route) =>
-    route.fulfill(
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function mockHr(page: Page, options: { scheduleDelayMs?: number; meDelayMs?: number; leaveDelayMs?: number } = {}) {
+  await page.route(AutoCorePage.apiRouteMatcher('/api/hr/me'), async (route) => {
+    if (options.meDelayMs) await wait(options.meDelayMs)
+    await route.fulfill(
       json({
         employee: { id: EMPLOYEE_ID, name: 'Max Mechaniker', role: 'MECHANIC', hiredOn: '2020-01-01', annualLeaveMinutes: 12875 },
         clockState: 'CLOCKED_OUT',
         remainingLeaveMinutes: 12875,
         timezone: 'Europe/Vienna',
       }),
-    ),
-  )
+    )
+  })
   await page.route(AutoCorePage.apiRouteMatcher('/api/hr/me/clock'), (route) => route.fulfill(json(clock)))
   await page.route(new RegExp(`/api/hr/attendance/${EMPLOYEE_ID}/clock`), (route) => route.fulfill(json(clock)))
   await page.route(AutoCorePage.apiRouteMatcher('/api/hr/attendance'), (route) => route.fulfill(json([])))
-  await page.route(AutoCorePage.apiRouteMatcher('/api/hr/me/leave'), (route) =>
-    route.fulfill(json({ year: 2026, allowanceMinutes: 12875, carryoverMinutes: 0, remainingMinutes: 12875, bookings: [] })),
-  )
+  await page.route(AutoCorePage.apiRouteMatcher('/api/hr/me/leave'), async (route) => {
+    if (options.leaveDelayMs) await wait(options.leaveDelayMs)
+    await route.fulfill(json({ year: 2026, allowanceMinutes: 12875, carryoverMinutes: 0, remainingMinutes: 12875, bookings: [] }))
+  })
   await page.route(AutoCorePage.apiRouteMatcher('/api/hr/leave'), (route) => route.fulfill(json([])))
   await page.route(AutoCorePage.apiRouteMatcher('/api/employees'), (route) =>
     route.fulfill(json({ data: [{ id: EMPLOYEE_ID, name: 'Max Mechaniker', role: 'MECHANIC', isActive: true }], meta: { total: 1, page: 1, limit: 100, pageCount: 1 } })),
   )
   await page.route(new RegExp(`/api/hr/employees/${EMPLOYEE_ID}/work-schedule`), async (route) => {
-    if (options.scheduleDelayMs) await new Promise((resolve) => setTimeout(resolve, options.scheduleDelayMs))
+    if (options.scheduleDelayMs) await wait(options.scheduleDelayMs)
     await route.fulfill(json(schedule))
   })
 }
@@ -98,16 +102,40 @@ test.describe('Personal pages on a phone (AUT-769)', () => {
     })
   }
 
-  test('Urlaub: the remaining days are the same while the work schedule is still loading', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 })
-    await mockHr(page, { scheduleDelayMs: 1500 })
-    await new AutoCorePage(page, '').navigate('/hr/leave')
+  for (const [name, options] of [
+    ['the work schedule', { scheduleDelayMs: 1500 }],
+    ['the profile (/hr/me)', { meDelayMs: 1500 }],
+    ['the profile and the leave balance', { meDelayMs: 1500, leaveDelayMs: 800 }],
+  ] as const) {
+    test(`Urlaub: the remaining days never show a wrong number while ${name} is loading`, async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 812 })
+      // Record every text the chip ever shows.
+      await page.addInitScript(() => {
+        const seen = new Set<string>()
+        ;(window as unknown as { __chips: Set<string> }).__chips = seen
+        new MutationObserver(() => {
+          for (const node of document.querySelectorAll('span')) {
+            if (node.textContent?.startsWith('Rest:')) seen.add(node.textContent)
+          }
+        }).observe(document, { childList: true, subtree: true, characterData: true })
+      })
+      await mockHr(page, options)
+      await new AutoCorePage(page, '').navigate('/hr/leave')
 
-    const badge = page.getByText(/^Rest:/)
-    await expect(badge).toBeVisible()
-    // Before the schedule is known the badge must not show a different number than afterwards (26,8 instead of 25).
-    const early = await badge.innerText()
-    await expect(badge).toContainText('25 Tage', { timeout: 10_000 })
-    expect(early).not.toMatch(/26[.,]8/)
+      await expect(page.getByText(/^Rest:/).first()).toContainText('25 Tage', { timeout: 10_000 })
+      const seen = await page.evaluate(() => [...(window as unknown as { __chips: Set<string> }).__chips])
+      expect(seen.filter((text) => /26[.,]8|≈ 0 /.test(text)), 'wrong numbers shown in between').toEqual([])
+    })
+  }
+
+  test('Zeiterfassung: on a desktop the select and the punch buttons stay in the header row, right of the title', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await mockHr(page)
+    await new AutoCorePage(page, '').navigate('/hr/clock')
+
+    const title = (await page.getByRole('heading', { name: 'Zeiterfassung', level: 2 }).boundingBox())!
+    const select = (await page.getByLabel('Mitarbeiter', { exact: true }).boundingBox())!
+    expect(select.x, 'select right of the title').toBeGreaterThan(title.x + title.width)
+    expect(select.y, 'select in the title row').toBeLessThan(title.y + 80)
   })
 })

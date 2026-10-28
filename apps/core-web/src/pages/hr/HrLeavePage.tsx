@@ -134,7 +134,7 @@ function RemainingLeaveBadge({ minutes, avgMinutes, ready }: { minutes: number; 
   const label =
     days === null
       ? t('leave.remainingMinutes', { minutes })
-      : t('leave.remaining', { days: formatNumber(days, { maximumFractionDigits: 1 }) })
+      : t('leave.remaining', { count: days, days: formatNumber(days, { maximumFractionDigits: 1 }) })
   return (
     <span title={t('leave.remainingMinutes', { minutes })}>
       <StatusBadge status='ACTIVE' label={label} />
@@ -196,13 +196,14 @@ export default function HrLeavePage() {
     () => sortLeaveRows(filteredBookings, sorting[0]?.id, sorting[0]?.desc),
     [filteredBookings, sorting],
   )
+  // 0 (unknown) unless the schedule loaded: then the chip shows minutes instead of days based on a guessed workday.
   const remainingAvgMinutes = useMemo(() => {
-    const current = meScheduleQuery.data?.current
-    if (!current) {
-      return FALLBACK_AVG_WORKDAY_MINUTES
+    if (!meScheduleQuery.isSuccess) {
+      return 0
     }
-    return averageExpectedMinutesPerWorkday(current.days)
-  }, [meScheduleQuery.data])
+    const current = meScheduleQuery.data?.current
+    return current ? averageExpectedMinutesPerWorkday(current.days) : FALLBACK_AVG_WORKDAY_MINUTES
+  }, [meScheduleQuery.data, meScheduleQuery.isSuccess])
   const remainingMinutes =
     myLeaveQuery.data?.remainingMinutes ?? hrMeQuery.data?.remainingLeaveMinutes ?? 0
   const pageCount = Math.max(1, Math.ceil(sortedBookings.length / pagination.pageSize))
@@ -277,16 +278,16 @@ export default function HrLeavePage() {
 
   return (
     <div className='space-y-8'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div className='min-w-0 max-sm:w-full'>
+      <div className='flex items-center justify-between max-sm:flex-wrap max-sm:gap-3'>
+        <div className='max-sm:w-full'>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('leave.pageTitle')}</h2>
           <p className='text-slate-500'>{t('leave.pageDescription')}</p>
         </div>
-        <div className='flex flex-wrap items-center gap-3 max-sm:[&_button]:min-h-11'>
+        <div className='flex items-center gap-3 max-sm:flex-wrap max-sm:[&_button]:min-h-11'>
           <RemainingLeaveBadge
             minutes={remainingMinutes}
             avgMinutes={remainingAvgMinutes}
-            ready={!meScheduleQuery.isLoading}
+            ready={!hrMeQuery.isLoading && !myLeaveQuery.isLoading && !meScheduleQuery.isLoading}
           />
           <Button type='button' onClick={() => openCreateSheet()}>
             {t('leave.bookLeave')}
@@ -338,8 +339,8 @@ export default function HrLeavePage() {
 
       {showsTeamLeave ? (
         <section className='space-y-4' aria-labelledby='team-leave-heading'>
-          <div className='flex flex-wrap items-center justify-between gap-3'>
-            <div className='min-w-0 max-sm:w-full'>
+          <div className='flex items-center justify-between max-sm:flex-wrap max-sm:gap-3'>
+            <div className='max-sm:w-full'>
               <h3 id='team-leave-heading' className='text-lg font-semibold'>{t('leave.teamLeave')}</h3>
               <p className='text-sm text-slate-500'>{t('leave.teamLeaveHint')}</p>
             </div>
