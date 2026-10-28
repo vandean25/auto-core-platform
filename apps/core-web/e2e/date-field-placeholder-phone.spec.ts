@@ -1,9 +1,9 @@
 import { test, expect, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { PHONE_WIDTHS, expectNoPageScroll } from './utils/phone-layout'
 
 /** AUT-791 follow-up: the date placeholder "TT.MM.JJJJ" of the date filters is readable in full at 375 and 390px. */
 const PLACEHOLDER = 'TT.MM.JJJJ'
-const WIDTHS = [375, 390] as const
 const PAGES = [
   ['Reifenlager', '/workshop/tyre-storage'],
   ['Kostenvoranschläge', '/workshop/estimates'],
@@ -28,20 +28,21 @@ async function dateFieldFits(page: Page): Promise<FieldFit[]> {
 }
 
 test.describe('Date filter placeholders on a phone (AUT-791)', () => {
-  for (const width of WIDTHS) {
+  for (const width of PHONE_WIDTHS) {
     for (const [name, path] of PAGES) {
       test(`${name} at ${width}px: every date placeholder fits`, async ({ page }) => {
         await page.setViewportSize({ width, height: 812 })
         await new AutoCorePage(page, '').navigate(path)
         await expect(page.locator(`input[placeholder="${PLACEHOLDER}"]`).first()).toBeVisible()
 
+        // The canvas measures with the font the page has loaded by now, not a fallback.
+        await page.evaluate(() => document.fonts.ready)
         const fits = await dateFieldFits(page)
         expect(fits.length, 'date fields on the page').toBeGreaterThan(0)
         for (const fit of fits) {
           expect(fit.inputWidth, `date field ${fit.index}: ${Math.ceil(fit.needed)}px needed`).toBeGreaterThanOrEqual(fit.needed)
         }
-        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-        expect(overflow, 'page is wider than the screen').toBeLessThanOrEqual(0)
+        await expectNoPageScroll(page)
       })
     }
   }

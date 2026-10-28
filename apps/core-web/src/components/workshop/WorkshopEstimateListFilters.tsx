@@ -40,7 +40,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
         ))}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
-        <div className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
+        <div className="col-span-2 flex min-w-0 flex-col gap-1">
           <Label>{t('estimateList.filters.customer')}</Label>
           <EstimateCustomerPicker
             customerId={view.customerId}
@@ -66,7 +66,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             data-testid="estimate-sent-to"
           />
         </div>
-        <div className="col-span-2 flex min-h-11 items-center gap-2 sm:col-span-1 sm:min-h-9">
+        <div className="col-span-2 flex min-h-11 items-center gap-2 sm:min-h-9">
           <Checkbox
             id="estimate-show-older"
             checked={view.showOlder}
