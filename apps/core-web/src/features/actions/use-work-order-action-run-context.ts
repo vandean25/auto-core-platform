@@ -30,7 +30,7 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
   const mechanics = useMemo(
     () =>
       workshopResourcesQuery?.data?.mechanics
-        .filter((mechanic) => mechanic.isActive)
+        ?.filter((mechanic) => mechanic.isActive)
         .map((mechanic) => ({ id: mechanic.id, name: mechanic.name })) ?? [],
     [workshopResourcesQuery?.data],
   )
