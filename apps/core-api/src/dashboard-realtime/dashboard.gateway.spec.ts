@@ -223,6 +223,37 @@ describe('resolveCorsOrigins', () => {
   });
 });
 
+describe('DashboardGateway socket CORS (AUT-747)', () => {
+  const gatewayOptions = Reflect.getMetadata(
+    'websockets:gateway_options',
+    DashboardGateway,
+  ) as {
+    namespace: string;
+    path: string;
+    cors: { origin: string[]; credentials: boolean };
+  };
+
+  it('allows exactly the configured web origins with credentials, so the browser can reach core-api directly', () => {
+    expect(gatewayOptions.cors.credentials).toBe(true);
+    expect(gatewayOptions.cors.origin).toEqual(resolveCorsOrigins());
+    expect(Array.isArray(gatewayOptions.cors.origin)).toBe(true);
+  });
+
+  it('never allows a wildcard origin', () => {
+    expect(gatewayOptions.cors.origin).not.toContain('*');
+    expect(
+      gatewayOptions.cors.origin.every((origin) =>
+        /^https?:\/\/[^*]+$/.test(origin),
+      ),
+    ).toBe(true);
+  });
+
+  it('serves the dashboard namespace on the path the client uses', () => {
+    expect(gatewayOptions.namespace).toBe('/dashboard-realtime');
+    expect(gatewayOptions.path).toBe('/api/socket.io');
+  });
+});
+
 describe('extractBearerToken and formatAuthHeader', () => {
   it('extracts token and trims whitespace', () => {
     expect(extractBearerToken('  abc  ')).toBe('abc');

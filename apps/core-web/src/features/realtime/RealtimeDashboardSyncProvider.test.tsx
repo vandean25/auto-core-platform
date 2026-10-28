@@ -162,7 +162,58 @@ describe("RealtimeDashboardSyncProvider", () => {
     ).toEqual({
       url: "https://core-api-895976476759.europe-west3.run.app/dashboard-realtime",
       path: "/api/socket.io",
+      direct: true,
     });
+  });
+
+  it("connects WebSocket first with polling fallback when VITE_SOCKET_BASE_URL points at core-api", async () => {
+    vi.stubEnv("VITE_SOCKET_BASE_URL", "https://core-api-123.europe-west3.run.app/");
+    const queryClient = createQueryClient();
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.io).toHaveBeenCalledWith(
+        "https://core-api-123.europe-west3.run.app/dashboard-realtime",
+        expect.objectContaining({
+          path: "/api/socket.io",
+          transports: ["websocket", "polling"],
+        }),
+      );
+    });
+  });
+
+  it("catches up with targeted invalidations on a reconnect, not on the first connect", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith("connect", expect.any(Function));
+    });
+    const connectHandlers = mocks.socket.on.mock.calls
+      .filter(([eventName]) => eventName === "connect")
+      .map(([, handler]) => handler as () => void);
+
+    await act(async () => {
+      connectHandlers.forEach((handler) => handler());
+    });
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      connectHandlers.forEach((handler) => handler());
+    });
+
+    expect(invalidateQueries.mock.calls.length).toBeGreaterThan(0);
+    for (const [filters] of invalidateQueries.mock.calls) {
+      expect(filters).toEqual({ queryKey: expect.any(Array), refetchType: "active" });
+      expect((filters as { queryKey: unknown[] }).queryKey.length).toBeGreaterThan(0);
+    }
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workshopKeys.all, refetchType: "active" });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["dashboard-widget-data"], refetchType: "active" });
   });
 
   it("connects long-polling only and presents the current Firebase ID token on each connect", async () => {

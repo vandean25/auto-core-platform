@@ -17,6 +17,26 @@ describe('buildRealtimeSocketOptions', () => {
     expect(options.upgrade).toBe(false)
   })
 
+  it('connects WebSocket first with polling as the fallback when the socket goes straight to core-api', () => {
+    const options = buildRealtimeSocketOptions({ path: '/api/socket.io', getIdToken: vi.fn(), direct: true })
+
+    expect(options.transports).toEqual(['websocket', 'polling'])
+    expect(options).not.toHaveProperty('upgrade')
+    expect(options.withCredentials).toBe(true)
+  })
+
+  it('keeps the same auth payload and backoff for a direct connection', async () => {
+    const options = buildRealtimeSocketOptions({
+      path: '/api/socket.io',
+      getIdToken: vi.fn().mockResolvedValue('token-1'),
+      direct: true,
+    })
+
+    expect(await readAuthPayload(options.auth)).toEqual({ token: 'token-1' })
+    expect(options.reconnectionDelay).toBe(1_000)
+    expect(options.reconnectionDelayMax).toBe(30_000)
+  })
+
   it('keeps the socket path and sends credentials', () => {
     const options = buildRealtimeSocketOptions({ path: '/socket.io', getIdToken: vi.fn() })
 

@@ -1,4 +1,4 @@
-import type { QueryKey } from "@tanstack/react-query";
+import { hashKey, type QueryKey } from "@tanstack/react-query";
 import { creditNoteKeys } from "@/api/useCreditNotes";
 import { customerKeys } from "@/api/customers";
 import { hrKeys } from "@/api/hr";
@@ -13,6 +13,8 @@ import { vehicleKeys } from "@/api/vehicles";
 import { vehicleStockKeys } from "@/api/vehicle-stock";
 import { vendorKeys } from "@/api/vendors";
 import { workshopKeys } from "@/api/workshop";
+import { authSessionKeys } from "@/api/auth-session";
+import { siteKeys } from "@/api/sites";
 import type {
   EntityUpdatedPayload,
   RealtimeEntityType,
@@ -159,6 +161,23 @@ export function getQueryKeysToInvalidateForEntityType(
     (sourceKey) => [DASHBOARD_WIDGET_DATA_KEY, sourceKey] as const,
   );
   return [...dashboardQueryKeys, ...target.domainQueryKeys];
+}
+
+/**
+ * Every query that a realtime event can invalidate, as targeted prefixes: the domain keys of the entity map, the
+ * dashboard widget data, and the session and site directory that claims and site events refresh. A reconnect
+ * invalidates exactly these (never the whole cache) to catch up on events missed while the socket was away.
+ */
+export function getRealtimeResyncQueryKeys(): QueryKey[] {
+  const unique = new Map<string, QueryKey>();
+  const add = (queryKey: QueryKey) => unique.set(hashKey(queryKey), queryKey);
+
+  for (const target of Object.values(entityInvalidationMap)) {
+    target.domainQueryKeys.forEach(add);
+  }
+  [[DASHBOARD_WIDGET_DATA_KEY], authSessionKeys.all, siteKeys.all].forEach(add);
+
+  return [...unique.values()];
 }
 
 export function isEntityUpdatedPayload(
