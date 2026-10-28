@@ -51,7 +51,7 @@ describe('WorkshopOrderLayout breadcrumbs', () => {
     renderLayout()
 
     const trail = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(trail).getByRole('link', { name: 'Workshop Orders' })).toHaveAttribute(
+    expect(within(trail).getByRole('link', { name: 'Werkstattaufträge' })).toHaveAttribute(
       'href',
       '/workshop/orders',
     )
