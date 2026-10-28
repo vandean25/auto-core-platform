@@ -159,14 +159,13 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     const handshakeRetry = createHandshakeRetry(socket)
     socket.on('connect', handshakeRetry.onConnect)
     socket.on('connect_error', handshakeRetry.onConnectError)
+    socket.on('disconnect', handshakeRetry.onDisconnect)
 
     // Events emitted while the socket was away are gone: catch up on every reconnect and when the tab shows again.
     const resync = createRealtimeResync({
       invalidate: (queryKey) => echoSafeInvalidatorRef.current?.invalidate(queryKey),
       isConnected: () => socket.connected,
-      reconnectSocket: () => {
-        socket.connect()
-      },
+      reconnectSocket: handshakeRetry.reconnect,
     })
     socket.on('connect', resync.onConnect)
     resync.start()

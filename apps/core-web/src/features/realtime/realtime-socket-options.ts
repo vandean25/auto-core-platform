@@ -15,6 +15,10 @@ export type RealtimeSocketOptionsInput = {
 
 export type HandshakeRetry = {
   onConnectError: () => void
+  /** The server ended the session on purpose (maximum connection age, revoked access): socket.io does not reconnect by itself. */
+  onDisconnect: (reason: string) => void
+  /** Brings a socket back that is neither connected nor retrying (the tab became visible again), on the same backoff. */
+  reconnect: () => void
   onConnect: () => void
   dispose: () => void
 }
@@ -87,20 +91,26 @@ export function createHandshakeRetry(
     }
   }
 
+  const schedule = () => {
+    if (socket.active || timer !== undefined) return
+    const base = Math.min(
+      REALTIME_RECONNECT_MAX_MS,
+      REALTIME_RECONNECT_MIN_MS * 2 ** attempts,
+    )
+    const jitter = base * 0.5 * (random() * 2 - 1)
+    attempts += 1
+    timer = setTimeout(() => {
+      timer = undefined
+      socket.connect()
+    }, Math.min(REALTIME_RECONNECT_MAX_MS, base + jitter))
+  }
+
   return {
-    onConnectError() {
-      if (socket.active || timer !== undefined) return
-      const base = Math.min(
-        REALTIME_RECONNECT_MAX_MS,
-        REALTIME_RECONNECT_MIN_MS * 2 ** attempts,
-      )
-      const jitter = base * 0.5 * (random() * 2 - 1)
-      attempts += 1
-      timer = setTimeout(() => {
-        timer = undefined
-        socket.connect()
-      }, Math.min(REALTIME_RECONNECT_MAX_MS, base + jitter))
+    onConnectError: schedule,
+    onDisconnect(reason) {
+      if (reason === 'io server disconnect') schedule()
     },
+    reconnect: schedule,
     onConnect() {
       attempts = 0
       clearTimer()

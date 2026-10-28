@@ -319,7 +319,13 @@ the gateway's CORS uses the same list, with credentials). The repository sets no
 Content-Security-Policy today; if one is added, `connect-src` needs exactly that
 core-api origin as `https://` and `wss://`. After a reconnect and when a hidden tab
 shows again, the client invalidates the realtime-backed queries by their targeted
-keys to catch up on missed events. Setting the variable in the QA or production build
+keys to catch up on missed events. Because the token is only checked in the
+handshake, core-api closes every realtime session after a maximum age
+(`REALTIME_MAX_CONNECTION_AGE_MS`, default 30 minutes, 0 turns it off); the client
+reconnects with a fresh token on its retry backoff, so a revoked or expired session
+stops receiving events. A WebSocket handshake that carries an `Origin` header must
+carry one from `FRONTEND_URL` (browsers do not apply CORS to WebSocket handshakes);
+a handshake without `Origin` still needs the token. Setting the variable in the QA or production build
 is an infra step (see the Socket.IO runbook, section 4). Do not move NestJS to Cloud
 Functions. Keep `VITE_API_BASE_URL` empty in the normal production build so REST
 remains same-origin.
