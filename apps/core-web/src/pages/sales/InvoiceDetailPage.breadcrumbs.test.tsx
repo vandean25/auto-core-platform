@@ -110,7 +110,7 @@ describe('InvoiceDetailPage breadcrumbs', () => {
     renderPage({ data: makeInvoice() })
 
     const trail = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(trail).getByRole('link', { name: 'Invoices' })).toHaveAttribute(
+    expect(within(trail).getByRole('link', { name: 'Rechnungen' })).toHaveAttribute(
       'href',
       '/sales/invoices',
     )

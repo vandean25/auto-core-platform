@@ -1,7 +1,7 @@
 {
   "banner": {
     "title": "Agent Supervision Active",
-    "description": "Agent supervision active: proposed agent actions require supervisor approval before execution. HUMAN_ONLY actions must be performed manually.",
+    "description": "Agent supervision active: proposed agent actions require supervisor approval before execution. “Human Only” actions must be performed manually.",
     "badge": "Supervision Mode"
   },
   "header": {
@@ -59,7 +59,7 @@
     "reject": "Reject",
     "rejecting": "Rejecting...",
     "doManually": "Do this manually",
-    "humanOnlyNotice": "This action is classified as HUMAN_ONLY and cannot be executed automatically. Please perform this action manually in the system.",
+    "humanOnlyNotice": "This action is classified as “Human Only” and cannot be executed automatically. Please perform this action manually in the system.",
     "emptyState": "No proposals waiting",
     "emptyStateDesc": "New agent proposals will appear here when submitted for approval.",
     "changePreview": "Planned changes",

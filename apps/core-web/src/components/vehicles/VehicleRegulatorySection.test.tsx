@@ -4,7 +4,13 @@ import {
   VehicleRegulatorySection,
   type VehicleRegulatoryValues,
 } from './VehicleRegulatorySection'
-import { bilingualLabel, VEHICLE_REGULATORY_FIELDS } from './vehicle-regulatory-copy'
+import { changeUiLanguage } from '@/lib/i18n'
+import { registerGermanUiForTests } from '@/test/german-ui'
+import { VEHICLE_REGULATORY_FIELDS } from './vehicle-regulatory-copy'
+
+registerGermanUiForTests()
+
+const german = (copy: { de: string }) => copy.de
 
 const emptyValues: VehicleRegulatoryValues = {
   first_registration_date: null,
@@ -24,16 +30,16 @@ describe('VehicleRegulatorySection', () => {
     )
 
     expect(
-      screen.getByText(bilingualLabel(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)),
+      screen.getByText(german(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)),
     ).toBeInTheDocument()
-    expect(screen.getByText(bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Wltp))).toBeInTheDocument()
-    expect(screen.getByText(bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Nedc))).toBeInTheDocument()
+    expect(screen.getByText(german(VEHICLE_REGULATORY_FIELDS.co2Wltp))).toBeInTheDocument()
+    expect(screen.getByText(german(VEHICLE_REGULATORY_FIELDS.co2Nedc))).toBeInTheDocument()
     expect(
-      screen.getByText(bilingualLabel(VEHICLE_REGULATORY_FIELDS.typenscheinNo)),
+      screen.getByText(german(VEHICLE_REGULATORY_FIELDS.typenscheinNo)),
     ).toBeInTheDocument()
-    expect(screen.getByText(bilingualLabel(VEHICLE_REGULATORY_FIELDS.novaClass))).toBeInTheDocument()
+    expect(screen.getByText(german(VEHICLE_REGULATORY_FIELDS.novaClass))).toBeInTheDocument()
     expect(
-      screen.getByText(bilingualLabel(VEHICLE_REGULATORY_FIELDS.emissionClass)),
+      screen.getByText(german(VEHICLE_REGULATORY_FIELDS.emissionClass)),
     ).toBeInTheDocument()
 
     const typenscheinInput = screen.getAllByRole('textbox')[0]
@@ -47,6 +53,14 @@ describe('VehicleRegulatorySection', () => {
     const co2Input = screen.getAllByRole('spinbutton')[0]
     fireEvent.change(co2Input, { target: { value: '142' } })
     expect(onChange).toHaveBeenCalledWith({ co2_wltp_g_km: 142 })
+  })
+
+  it('shows a single language, never both at once', async () => {
+    await changeUiLanguage('en')
+    render(<VehicleRegulatorySection mode="form" values={emptyValues} onChange={vi.fn()} />)
+
+    expect(screen.getByText(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate.en)).toBeInTheDocument()
+    expect(screen.queryByText(/ \/ /)).not.toBeInTheDocument()
   })
 
   it('calls renderInlineField for five text fields in inline mode', () => {

@@ -158,8 +158,8 @@ describe('AccountingExportSettingsPanel', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText(deSettings.accountingExport.filters.dateFrom), { target: { value: '2026-01-01' } })
-    fireEvent.change(screen.getByLabelText(deSettings.accountingExport.filters.dateTo), { target: { value: '2026-01-31' } })
+    fireEvent.change(screen.getByLabelText(deSettings.accountingExport.filters.dateFrom), { target: { value: '01.01.2026' } })
+    fireEvent.change(screen.getByLabelText(deSettings.accountingExport.filters.dateTo), { target: { value: '31.01.2026' } })
     fireEvent.click(screen.getByRole('button', { name: deSettings.accountingExport.actions.preview }))
 
     await waitFor(() => {

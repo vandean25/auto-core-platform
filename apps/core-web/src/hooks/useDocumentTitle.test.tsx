@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
 import { RouteTitle } from '@/components/RouteTitle'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { changeUiLanguage } from '@/lib/i18n'
 
 function WorkshopOrderPage({ orderNumber }: { orderNumber?: string }) {
   useDocumentTitle(orderNumber)
@@ -48,22 +49,22 @@ describe('RouteTitle and useDocumentTitle', () => {
   it('sets the route default title on a list page', () => {
     render(<App initialPath={APP_ROUTE_PATHS.customers} />)
 
-    expect(document.title).toBe('Customers - Auto Core')
+    expect(document.title).toBe('Kunden - Auto Core')
   })
 
   it('keeps the entity title on the same commit as the route default', () => {
     render(<App initialPath="/workshop/orders/wo-2" orderNumber="WO-2026-0002" />)
 
-    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
   })
 
   it('applies the entity once it loads', () => {
     const { rerender } = render(<App initialPath="/workshop/orders/wo-2" />)
-    expect(document.title).toBe('Workshop Orders - Auto Core')
+    expect(document.title).toBe('Werkstattaufträge - Auto Core')
 
     rerender(<App initialPath="/workshop/orders/wo-2" orderNumber="WO-2026-0002" />)
 
-    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
   })
 
   it('drops the previous entity when navigating to a list page', () => {
@@ -71,7 +72,17 @@ describe('RouteTitle and useDocumentTitle', () => {
 
     fireEvent.click(screen.getByRole('button', { name: `Go to ${APP_ROUTE_PATHS.customers}` }))
 
-    expect(document.title).toBe('Customers - Auto Core')
+    expect(document.title).toBe('Kunden - Auto Core')
+  })
+
+  it('keeps the entity in the title when the UI language changes', async () => {
+    render(<App initialPath="/workshop/orders/wo-2" orderNumber="WO-2026-0002" />)
+
+    await act(() => changeUiLanguage('en'))
+    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+
+    await act(() => changeUiLanguage('de'))
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
   })
 
   it('announces the page after a route change without moving focus', () => {
@@ -81,7 +92,7 @@ describe('RouteTitle and useDocumentTitle', () => {
 
     fireEvent.click(button)
 
-    expect(screen.getByText('Navigated to Customers')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('Navigiert zu Kunden')).toHaveAttribute('aria-live', 'polite')
     expect(document.activeElement).toBe(button)
   })
 
@@ -103,10 +114,10 @@ describe('RouteTitle and useDocumentTitle', () => {
         </Routes>
       </MemoryRouter>,
     )
-    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
 
     fireEvent.click(screen.getByRole('button', { name: `Go to ${APP_ROUTE_PATHS.customers}` }))
 
-    expect(document.title).toBe('Customers - Auto Core')
+    expect(document.title).toBe('Kunden - Auto Core')
   })
 })

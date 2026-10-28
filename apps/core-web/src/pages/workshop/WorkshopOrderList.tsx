@@ -139,7 +139,6 @@ export default function WorkshopOrderList() {
       <WorkshopOrderIntakeDialog open={createOpen} onOpenChange={setCreateOpen} />
       <WorkshopOrderPeekSheet
         t={t}
-        navigate={navigate}
         peekId={peek.peekId}
         isPeekOpen={peek.isPeekOpen}
         closePeek={peek.closePeek}

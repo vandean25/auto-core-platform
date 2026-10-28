@@ -29,6 +29,7 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import {
   buildMemberSiteIdSet,
   canSuggestSourceBin,
+  resolveDefaultToSiteId,
 } from './stock-transfer-permissions'
 
 type DraftLine = {
@@ -64,8 +65,11 @@ export function StockTransferCreateDialog({
     [mySites],
   )
 
-  const defaultToSiteId =
-    sessionQuery.data?.activeSiteId ?? mySites[0]?.id ?? ''
+  const defaultToSiteId = resolveDefaultToSiteId(
+    siteDirectory.map((site) => site.id),
+    sessionQuery.data?.activeSiteId,
+    mySites.map((site) => site.id),
+  )
 
   const [fromSiteId, setFromSiteId] = useState('')
   const [toSiteId, setToSiteId] = useState(defaultToSiteId)
@@ -210,7 +214,7 @@ export function StockTransferCreateDialog({
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="mt-4 space-y-2">
           <Label htmlFor="transfer-part-search">{t('inventory:stockTransfers.create.addParts')}</Label>
           <Input
             id="transfer-part-search"
@@ -244,7 +248,7 @@ export function StockTransferCreateDialog({
         </div>
 
         {lines.length > 0 ? (
-          <div className="space-y-3 rounded-md border border-slate-200 p-3">
+          <div className="mt-4 space-y-3 rounded-md border border-slate-200 p-3">
             {lines.map((line) => (
               <div key={line.catalogItemId} className="grid gap-2 sm:grid-cols-[1fr_120px]">
                 <div>

@@ -86,7 +86,7 @@
     "notAvailable": "N/A"
   },
   "addItemDialog": {
-    "trigger": "+ Item",
+    "trigger": "Item",
     "title": "Add inventory item",
     "sku": "SKU / MPN",
     "skuPlaceholder": "e.g., OF-1001",
@@ -95,6 +95,7 @@
     "namePlaceholder": "e.g., Oil filter",
     "costPrice": "Cost price (€)",
     "retailPrice": "Retail price (€)",
+    "submit": "Create",
     "creating": "Creating…",
     "createFailed": "Failed to create item",
     "created": "Inventory item created"

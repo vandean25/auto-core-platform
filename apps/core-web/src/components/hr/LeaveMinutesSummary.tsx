@@ -2,7 +2,8 @@ import type * as React from 'react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { formatApproxDays } from '@/lib/hr-leave-minutes'
+import { formatNumber } from '@/lib/format'
+import { approxLeaveDays } from '@/lib/hr-leave-minutes'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 export type LeaveMinutesSummaryProps = {
@@ -19,11 +20,11 @@ export function LeaveMinutesSummary({
     void ensureNamespaceLoaded('hr')
   }, [])
 
-  const approx = formatApproxDays(minutes, avgMinutesPerWorkday)
+  const days = approxLeaveDays(minutes, avgMinutesPerWorkday)
   return (
     <span>
       {t('leaveMinutes.min', { count: minutes })}
-      {approx ? <span className='text-slate-500'> ({approx})</span> : null}
+      {days !== null ? <span className='text-slate-500'> ({t('leaveMinutes.approx', { count: days, days: formatNumber(days, { maximumFractionDigits: 1 }) })})</span> : null}
     </span>
   )
 }

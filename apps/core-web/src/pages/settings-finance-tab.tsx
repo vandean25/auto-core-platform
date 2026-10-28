@@ -9,6 +9,7 @@ import { SettingsSectionHeading } from "@/components/settings/SettingsSectionHea
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateField } from '@/components/ui/date-field'
 import { Label } from "@/components/ui/label"
 import {
     AlertDialog,
@@ -101,11 +102,11 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
                     <SettingsSectionHeading title={t('finance.fiscal.title')} />
                     <div className="grid gap-2 max-w-sm">
                         <Label htmlFor="lock_date">{t('finance.fiscal.lockDate')}</Label>
-                        <Input
+                        <DateField
                             id="lock_date"
-                            type="date"
+                            aria-label={t('finance.fiscal.lockDate')}
                             value={formState.lock_date}
-                            onChange={e => setFormState(prev => ({ ...prev, lock_date: e.target.value }))}
+                            onChange={(lockDate) => setFormState(prev => ({ ...prev, lock_date: lockDate }))}
                         />
                         <p className="text-sm text-muted-foreground">
                             {t('finance.fiscal.lockDateHint')}
