@@ -611,7 +611,9 @@
     },
     "IMPORT_APPLY_IN_PROGRESS": {
       "public": true,
-      "params": []
+      "params": [
+        "leaseExpiresAt"
+      ]
     },
     "IMPORT_ARTICLE_NOT_FOUND": {
       "public": true,

@@ -3,9 +3,9 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ImportJobStatus, Prisma } from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
-import { applyInProgress } from './import-job.errors.js';
+import { applyInProgress, assertJobCanBeApplied } from './import-job.errors.js';
 import {
   ApplyRowStaleError,
   classifyImportApplyError,
@@ -29,6 +29,23 @@ function driverAdapterUniqueViolation(): Error {
   Object.assign(error, { cause: { kind: 'UniqueConstraintViolation' } });
   return error;
 }
+
+describe('assertJobCanBeApplied', () => {
+  it('forwards the live lease on an applying conflict', () => {
+    const leaseExpiresAt = '2026-10-28T12:00:00.000Z';
+    let response: unknown;
+    try {
+      assertJobCanBeApplied(ImportJobStatus.APPLYING, leaseExpiresAt);
+    } catch (error) {
+      response = (error as ConflictException).getResponse();
+    }
+    expect(response).toMatchObject({
+      code: 'IMPORT_APPLY_IN_PROGRESS',
+      message: 'Import job is already being applied',
+      leaseExpiresAt,
+    });
+  });
+});
 
 describe('classifyImportApplyError', () => {
   it('classifies retryable transaction and connection errors', () => {

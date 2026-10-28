@@ -1,6 +1,6 @@
 import { AuthService } from '../src/auth/auth.service.js';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, HttpStatus } from '@nestjs/common';
+import { Controller, INestApplication, HttpStatus, Post } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -9,7 +9,28 @@ import {
   createGlobalValidationPipe,
   GlobalExceptionFilter,
 } from '../src/common/index.js';
+import { Public } from '../src/common/decorators/public.decorator.js';
+import { applyInProgress } from '../src/import/import-job.errors.js';
 import { teardownTestApp } from './test-lifecycle.js';
+
+/**
+ * The apply endpoint no longer emits IMPORT_APPLY_IN_PROGRESS for a running job (AUT-788 returns 202), so this
+ * probe keeps the global filter contract pinned at the HTTP boundary.
+ */
+@Controller('import-apply-conflict-probe')
+class ImportApplyConflictProbeController {
+  @Public()
+  @Post('live-lease')
+  liveLease(): never {
+    throw applyInProgress('2026-10-28T12:00:00.000Z');
+  }
+
+  @Public()
+  @Post('no-lease')
+  noLease(): never {
+    throw applyInProgress();
+  }
+}
 
 describe('GlobalExceptionFilter (e2e)', () => {
   let app: INestApplication;
@@ -20,6 +41,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
+      controllers: [ImportApplyConflictProbeController],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -151,4 +173,34 @@ describe('GlobalExceptionFilter (e2e)', () => {
       expect(JSON.stringify(response.body)).not.toMatch(/Z_DATA_ERROR|zlib/i);
     },
   );
+
+  it('keeps leaseExpiresAt on an IMPORT_APPLY_IN_PROGRESS 409 response (AUT-796)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/import-apply-conflict-probe/live-lease')
+      .expect(HttpStatus.CONFLICT);
+
+    expect(response.body).toMatchObject({
+      statusCode: HttpStatus.CONFLICT,
+      message: 'Import job is already being applied',
+      error: 'Conflict',
+      code: 'IMPORT_APPLY_IN_PROGRESS',
+      leaseExpiresAt: '2026-10-28T12:00:00.000Z',
+      params: { leaseExpiresAt: '2026-10-28T12:00:00.000Z' },
+    });
+  });
+
+  it('reports a null leaseExpiresAt on an IMPORT_APPLY_IN_PROGRESS 409 without a lease (AUT-796)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/import-apply-conflict-probe/no-lease')
+      .expect(HttpStatus.CONFLICT);
+
+    expect(response.body).toMatchObject({
+      statusCode: HttpStatus.CONFLICT,
+      message: 'Import job is already being applied',
+      error: 'Conflict',
+      code: 'IMPORT_APPLY_IN_PROGRESS',
+      leaseExpiresAt: null,
+      params: { leaseExpiresAt: null },
+    });
+  });
 });

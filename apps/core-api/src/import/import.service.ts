@@ -26,6 +26,7 @@ import {
 import {
   IMPORT_APPLY_UNIT_BUDGET_MS,
   isStaleApplyingImportJob,
+  leaseExpiresAtOf,
 } from './import-apply-lease.js';
 import {
   mergeTechnicalRetryBatch,
@@ -376,7 +377,7 @@ export class ImportService {
       status !== ImportJobStatus.FAILED &&
       status !== ImportJobStatus.APPLIED
     ) {
-      assertJobCanBeApplied(status);
+      assertJobCanBeApplied(status, leaseExpiresAtOf(options));
       return { kind: 'options', options };
     }
     const errorRows =
@@ -419,7 +420,7 @@ export class ImportService {
     if (status === ImportJobStatus.APPLIED) {
       return { kind: 'applied' };
     }
-    assertJobCanBeApplied(status);
+    assertJobCanBeApplied(status, leaseExpiresAtOf(options));
     if (status === ImportJobStatus.FAILED) {
       this.logTechnicalRetry(jobId, plan);
     }
@@ -578,7 +579,12 @@ export class ImportService {
       staleTakeover !== 'taken' &&
       applyingJob.status !== ImportJobStatus.APPLIED
     ) {
-      assertJobCanBeApplied(applyingJob.status);
+      assertJobCanBeApplied(
+        applyingJob.status,
+        leaseExpiresAtOf(
+          applyingJob.options_json as ImportJobOptionsWithWorker,
+        ),
+      );
     }
     return { outcome: 'run' as const, job: applyingJob };
   }

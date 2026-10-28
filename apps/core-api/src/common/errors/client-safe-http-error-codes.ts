@@ -318,13 +318,22 @@ export const CLIENT_SAFE_HTTP_ERROR_STRUCTURED_DETAIL_KEYS: Partial<
 };
 
 /**
- * Body fields, beyond `code` and `message`, that the global filter forwards for a client-safe code. Only IDs and
- * order numbers belong here, and a field is forwarded only when its value is a string.
+ * Body fields, beyond `code` and `message`, that the global filter forwards for a client-safe code. Only IDs, order
+ * numbers and timestamps belong here, and a field is forwarded only when its value is a string.
  */
 export const CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS: Partial<
   Record<string, readonly string[]>
 > = {
   VEHICLE_HAS_ACTIVE_ORDER: ['orderId', 'orderNumber'],
+  // A re-apply on a running import tells the client when the live apply lease ends.
+  IMPORT_APPLY_IN_PROGRESS: ['leaseExpiresAt'],
+};
+
+/** Allowlisted fields that may also report an explicit null, meaning there is nothing to report. */
+const CLIENT_SAFE_HTTP_ERROR_NULLABLE_DETAIL_KEYS: Partial<
+  Record<string, readonly string[]>
+> = {
+  IMPORT_APPLY_IN_PROGRESS: ['leaseExpiresAt'],
 };
 
 export function isClientSafeOperationalHttpError(
@@ -336,34 +345,54 @@ export function isClientSafeOperationalHttpError(
 
 export function pickClientSafeHttpErrorDetails(
   responseBody: Record<string, unknown>,
-): Record<string, string> {
+): Record<string, string | null> {
   return pickClientSafeHttpErrorParams(responseBody);
 }
 
-/** Typed `params` object for client-safe codes (allowlisted string fields only). */
+/** Typed `params` object for client-safe codes (allowlisted string fields, plus nullable fields with explicit null). */
 export function pickClientSafeHttpErrorParams(
   responseBody: Record<string, unknown>,
-): Record<string, string> {
+): Record<string, string | null> {
   const code = responseBody.code;
   if (typeof code !== 'string' || !CLIENT_SAFE_HTTP_ERROR_CODES.has(code)) {
     return {};
   }
 
-  const params: Record<string, string> = {};
+  const params: Record<string, string | null> = {};
   for (const key of CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS[code] ?? []) {
-    const topLevel = responseBody[key];
-    if (typeof topLevel === 'string') {
+    const readDetail = allowsNullDetail(code, key)
+      ? stringOrNullDetailValue
+      : stringDetailValue;
+    const topLevel = readDetail(responseBody[key]);
+    if (topLevel !== undefined) {
       params[key] = topLevel;
       continue;
     }
     const nested = isRecord(responseBody.params)
-      ? responseBody.params[key]
+      ? readDetail(responseBody.params[key])
       : undefined;
-    if (typeof nested === 'string') {
+    if (nested !== undefined) {
       params[key] = nested;
     }
   }
   return params;
+}
+
+function allowsNullDetail(code: string, key: string): boolean {
+  return (
+    CLIENT_SAFE_HTTP_ERROR_NULLABLE_DETAIL_KEYS[code]?.includes(key) ?? false
+  );
+}
+
+function stringDetailValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function stringOrNullDetailValue(value: unknown): string | null | undefined {
+  if (typeof value === 'string' || value === null) {
+    return value;
+  }
+  return undefined;
 }
 
 export function pickClientSafeHttpErrorStructuredDetails(

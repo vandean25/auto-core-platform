@@ -13,6 +13,7 @@ import { jest as esmJest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
 import { ConflictError, NotFoundError } from '../errors/application-errors.js';
+import { applyInProgress } from '../../import/import-job.errors.js';
 
 const mockCaptureException =
   esmJest.fn<(exception: unknown) => string | undefined>();
@@ -415,6 +416,34 @@ describe('GlobalExceptionFilter', () => {
         orderNumber: 'WO-2026-0007',
       },
     });
+  });
+
+  it('forwards the live apply lease for an import apply conflict', () => {
+    const leaseExpiresAt = '2026-10-28T12:00:00.000Z';
+    filter.catch(applyInProgress(leaseExpiresAt), mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+    expect(mockJson).toHaveBeenCalledWith({
+      statusCode: 409,
+      message: 'Import job is already being applied',
+      error: 'Conflict',
+      code: 'IMPORT_APPLY_IN_PROGRESS',
+      leaseExpiresAt,
+      params: { leaseExpiresAt },
+    });
+  });
+
+  it('forwards an explicit null lease for an import apply conflict', () => {
+    filter.catch(applyInProgress(), mockHost);
+
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 409,
+        code: 'IMPORT_APPLY_IN_PROGRESS',
+        leaseExpiresAt: null,
+        params: { leaseExpiresAt: null },
+      }),
+    );
   });
 
   it('forwards the stable code of a 422 Gewährleistung shortening rejection', () => {

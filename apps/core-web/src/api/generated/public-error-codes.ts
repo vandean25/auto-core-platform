@@ -270,5 +270,6 @@ export const PUBLIC_API_ERROR_CODES = [
 ] as const
 export type PublicApiErrorCode = (typeof PUBLIC_API_ERROR_CODES)[number]
 export const PUBLIC_API_ERROR_CODE_PARAMS: Partial<Record<PublicApiErrorCode, readonly string[]>> = {
+  IMPORT_APPLY_IN_PROGRESS: ["leaseExpiresAt"],
   VEHICLE_HAS_ACTIVE_ORDER: ["orderId","orderNumber"],
 }

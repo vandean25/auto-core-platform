@@ -2,6 +2,7 @@ import { WARRANTY_CLAIM_ERROR_CODES } from '../../warranty-claim/warranty-claim.
 import {
   CLIENT_SAFE_HTTP_ERROR_CODES,
   pickClientSafeHttpErrorDetails,
+  pickClientSafeHttpErrorParams,
   pickClientSafeHttpErrorStructuredDetails,
 } from './client-safe-http-error-codes.js';
 
@@ -31,6 +32,26 @@ describe('client-safe HTTP error codes', () => {
     ).toEqual({ orderId: 'wo-live', orderNumber: 'WO-2026-0007' });
   });
 
+  it('keeps a value from params when a non-nullable detail is null at the top level', () => {
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        message: 'Vehicle already has active order WO-2026-0007',
+        orderId: null,
+        params: { orderId: 'wo-7' },
+      }),
+    ).toEqual({ orderId: 'wo-7' });
+  });
+
+  it('drops a null non-nullable detail when there is no nested value', () => {
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        orderId: null,
+      }),
+    ).toEqual({});
+  });
+
   it('lists the estimate send gates the advisor dialog maps to German copy', () => {
     for (const code of [
       'ESTIMATE_NOT_DRAFT',
@@ -58,6 +79,37 @@ describe('client-safe HTTP error codes', () => {
   it('forwards no detail fields for codes outside the allowlist', () => {
     expect(
       pickClientSafeHttpErrorDetails({ code: 'SOMETHING_ELSE', orderId: 'wo-live' }),
+    ).toEqual({});
+  });
+
+  it('forwards the live apply lease for IMPORT_APPLY_IN_PROGRESS', () => {
+    const leaseExpiresAt = '2026-10-28T12:00:00.000Z';
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'IMPORT_APPLY_IN_PROGRESS',
+        message: 'Import job is already being applied',
+        leaseExpiresAt,
+        internalNote: 'not for the client',
+      }),
+    ).toEqual({ leaseExpiresAt });
+  });
+
+  it('forwards an explicit null lease for IMPORT_APPLY_IN_PROGRESS', () => {
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'IMPORT_APPLY_IN_PROGRESS',
+        message: 'Import job is already being applied',
+        leaseExpiresAt: null,
+      }),
+    ).toEqual({ leaseExpiresAt: null });
+  });
+
+  it('omits the apply lease when the body has no lease field', () => {
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'IMPORT_APPLY_IN_PROGRESS',
+        message: 'Import job is already being applied',
+      }),
     ).toEqual({});
   });
 
