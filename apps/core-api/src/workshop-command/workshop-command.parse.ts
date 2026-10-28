@@ -346,7 +346,11 @@ function resolveDay(day: ParsedDay, now: Date, timeZone: string): string {
   return `${String(year).padStart(4, '0')}-${String(day.month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`;
 }
 
-type Clause = { range: { start: number; end: number }; text: string; tokens: TokenRef[] };
+type Clause = {
+  range: { start: number; end: number };
+  text: string;
+  tokens: TokenRef[];
+};
 type TokenRef = { value: string; start: number };
 
 type ParsedIdentityMatch = {
@@ -360,12 +364,22 @@ function parseIdentity(
   plate: WordMatch | null,
   clauses: Clause[],
 ): ParsedIdentityMatch {
-  if (vin) return { identity: { kind: 'vin', vin: vin.value }, clauseIndex: -1, leftovers: [] };
+  if (vin)
+    return {
+      identity: { kind: 'vin', vin: vin.value },
+      clauseIndex: -1,
+      leftovers: [],
+    };
   if (plate) {
-    return { identity: { kind: 'plate', plate: plate.value }, clauseIndex: -1, leftovers: [] };
+    return {
+      identity: { kind: 'plate', plate: plate.value },
+      clauseIndex: -1,
+      leftovers: [],
+    };
   }
   const tokens = clauses[0]?.tokens ?? [];
-  if (tokens.length < 2) return { identity: null, clauseIndex: -1, leftovers: [] };
+  if (tokens.length < 2)
+    return { identity: null, clauseIndex: -1, leftovers: [] };
   return {
     identity: {
       kind: 'surname_model',
@@ -385,7 +399,10 @@ function collectUnsupportedClauses(
   const others = clauses
     .filter((_, index) => index !== identityClauseIndex)
     .map((clause) => clause.text);
-  return [...others, ...(leftovers.length > 0 ? [leftovers.join(' ')] : [])].filter(Boolean);
+  return [
+    ...others,
+    ...(leftovers.length > 0 ? [leftovers.join(' ')] : []),
+  ].filter(Boolean);
 }
 
 type ClockRef = { start: number; end: number; clock: string };
@@ -403,7 +420,8 @@ function splitClocks(
   lower: string,
 ): { startClock: string | null; endClock: string | null } {
   const bisIndex = lower.search(/\bbis\b/iu);
-  if (bisIndex < 0) return { startClock: pickClock(clocks, () => true), endClock: null };
+  if (bisIndex < 0)
+    return { startClock: pickClock(clocks, () => true), endClock: null };
   return {
     startClock: pickClock(clocks, (clock) => clock.start < bisIndex),
     endClock: pickClock(clocks, (clock) => clock.start > bisIndex),

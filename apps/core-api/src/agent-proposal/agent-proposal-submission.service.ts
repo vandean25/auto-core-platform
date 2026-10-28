@@ -139,7 +139,12 @@ export class AgentProposalSubmissionService {
       preview_json: buildPreviewJson({
         simulation,
         intendedSiteId,
-        mcpIdempotency: mcpIdempotencyPreview(dto, options, actionType, payload),
+        mcpIdempotency: mcpIdempotencyPreview(
+          dto,
+          options,
+          actionType,
+          payload,
+        ),
         extra: options?.preview_json,
       }),
       tier: AgentPolicyTier.PROPOSE,
@@ -182,7 +187,9 @@ export class AgentProposalSubmissionService {
   }
 }
 
-function siteIdOf(context: { site_id?: unknown } | undefined): string | undefined {
+function siteIdOf(
+  context: { site_id?: unknown } | undefined,
+): string | undefined {
   return typeof context?.site_id === 'string' ? context.site_id : undefined;
 }
 
@@ -202,7 +209,9 @@ function mcpIdempotencyPreview(
 }
 
 function buildPreviewJson(input: {
-  simulation: Awaited<ReturnType<DryRunService['executeInRollbackTransaction']>>;
+  simulation: Awaited<
+    ReturnType<DryRunService['executeInRollbackTransaction']>
+  >;
   intendedSiteId: string | undefined;
   mcpIdempotency: Record<string, unknown>;
   extra: Record<string, unknown> | undefined;

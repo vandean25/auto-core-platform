@@ -127,7 +127,12 @@ function customerChoices(
 ): CommandChoice[] {
   return customers.map((customer) => {
     const vehicle = vehicles.find((entry) => entry.customer_id === customer.id);
-    return choice('customer_id', customer.id, customerLabel(customer, vehicle), 'customer');
+    return choice(
+      'customer_id',
+      customer.id,
+      customerLabel(customer, vehicle),
+      'customer',
+    );
   });
 }
 
@@ -139,7 +144,8 @@ function matchingModelVehicles(
   return vehicles.filter(
     (vehicle) =>
       vehicle.customer_id === customerId &&
-      vehicle.model.toLocaleLowerCase('de-AT') === model.toLocaleLowerCase('de-AT'),
+      vehicle.model.toLocaleLowerCase('de-AT') ===
+        model.toLocaleLowerCase('de-AT'),
   );
 }
 
@@ -708,7 +714,9 @@ export class WorkshopCommandResolver {
     );
     if (!selectedVehicle) {
       return this.identityClarification(
-        matchingVehicles.length === 0 ? 'VEHICLE_NOT_FOUND' : 'VEHICLE_AMBIGUOUS',
+        matchingVehicles.length === 0
+          ? 'VEHICLE_NOT_FOUND'
+          : 'VEHICLE_AMBIGUOUS',
         matchingVehicles.map((vehicle) =>
           choice('vehicle_id', vehicle.id, vehicleLabel(vehicle), 'vehicle'),
         ),
@@ -743,7 +751,12 @@ export class WorkshopCommandResolver {
     for (const key of presetKeys) {
       const built = buildPresetForKey(key, siteId, context);
       if (isPresetFailure(built)) {
-        return { resolved: [], durationMinutes: [], presetKeys, missingKey: key };
+        return {
+          resolved: [],
+          durationMinutes: [],
+          presetKeys,
+          missingKey: key,
+        };
       }
       if (!built) continue;
       if (built.durationMinutes) durationMinutes.push(built.durationMinutes);
@@ -815,7 +828,10 @@ export class WorkshopCommandResolver {
         kind: 'clarification',
         code: 'TIME_IN_PAST',
         choices: [],
-        recognized: { ...recognizedBase, start_at: start.startAt.toISOString() },
+        recognized: {
+          ...recognizedBase,
+          start_at: start.startAt.toISOString(),
+        },
       };
     }
     if (parsed.endClock) {
@@ -850,15 +866,11 @@ export class WorkshopCommandResolver {
     startClock: string,
     selections: Map<string, string>,
     recognizedBase: Record<string, unknown>,
-  ):
-    | { startAt: Date }
-    | { clarification: TimeResolution } {
+  ): { startAt: Date } | { clarification: TimeResolution } {
     const candidates = resolveWallClock(site.timezone, localDate, startClock);
     const selectedInstant = selections.get('start_at');
     const selected = selectedInstant
-      ? candidates.find(
-          (instant) => instant.toISOString() === selectedInstant,
-        )
+      ? candidates.find((instant) => instant.toISOString() === selectedInstant)
       : undefined;
     if (selected) return { startAt: selected };
     if (candidates.length === 0) {
@@ -867,7 +879,11 @@ export class WorkshopCommandResolver {
           'TIME_DOES_NOT_EXIST',
           [],
           recognizedBase,
-          { local_date: localDate, local_start: startClock, timezone: site.timezone },
+          {
+            local_date: localDate,
+            local_start: startClock,
+            timezone: site.timezone,
+          },
         ),
       };
     }
@@ -879,7 +895,11 @@ export class WorkshopCommandResolver {
             instantChoice(startClock, instant, site.timezone),
           ),
           recognizedBase,
-          { local_date: localDate, local_start: startClock, timezone: site.timezone },
+          {
+            local_date: localDate,
+            local_start: startClock,
+            timezone: site.timezone,
+          },
         ),
       };
     }
@@ -896,17 +916,12 @@ export class WorkshopCommandResolver {
   ): TimeResolution {
     const endCandidates = resolveWallClock(site.timezone, localDate, endClock);
     if (endCandidates.length === 0) {
-      return this.timeClarification(
-        'TIME_DOES_NOT_EXIST',
-        [],
-        recognizedBase,
-        {
-          local_date: localDate,
-          local_start: startClock,
-          local_end: endClock,
-          timezone: site.timezone,
-        },
-      );
+      return this.timeClarification('TIME_DOES_NOT_EXIST', [], recognizedBase, {
+        local_date: localDate,
+        local_start: startClock,
+        local_end: endClock,
+        timezone: site.timezone,
+      });
     }
     const endAt = endCandidates[0];
     if (endAt.getTime() <= startAt.getTime()) {
@@ -1023,7 +1038,13 @@ export class WorkshopCommandResolver {
       .filter((bay) => !occupiedBayIds.has(bay.id))
       .filter((bay) => this.matchesSelection(bay.id, selections.get('bay_id')));
     if (eligibleBays.length === 0) {
-      return { clarification: { code: 'RESOURCE_MISSING', choices: [], recognized: {} } };
+      return {
+        clarification: {
+          code: 'RESOURCE_MISSING',
+          choices: [],
+          recognized: {},
+        },
+      };
     }
     if (eligibleBays.length > 1) {
       return {
@@ -1039,7 +1060,10 @@ export class WorkshopCommandResolver {
     return { bayId: eligibleBays[0].id };
   }
 
-  private matchesSelection(id: string, selectedId: string | undefined): boolean {
+  private matchesSelection(
+    id: string,
+    selectedId: string | undefined,
+  ): boolean {
     return selectedId === undefined || id === selectedId;
   }
 
