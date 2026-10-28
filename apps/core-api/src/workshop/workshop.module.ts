@@ -5,6 +5,7 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { PushModule } from '../push/push.module.js';
 import { DomainEventStoreModule } from '../domain-event-store/domain-event-store.module.js';
 import { DomainEventConsumerModule } from '../domain-event-consumer/domain-event-consumer.module.js';
 import { DomainEventConsumerRecoveryService } from '../domain-event-consumer/domain-event-consumer-recovery.service.js';
@@ -79,6 +80,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     InspectionMeasurementModule,
     LoanerVehiclesModule,
     NotificationsModule,
+    PushModule,
     DomainEventStoreModule,
     DomainEventConsumerModule,
     DocumentBrandingModule,

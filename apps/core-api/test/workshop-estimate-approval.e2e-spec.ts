@@ -14,6 +14,8 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
+  seedTestEmployee,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
@@ -174,6 +176,7 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
     restoreEnv('ESTIMATE_APPROVAL_BASE_URL', previousApprovalBaseUrl);
 
     await prisma.notificationOutbox.deleteMany();
+    await prisma.pushPreference.deleteMany();
     await prisma.workshopEstimateOverrun.deleteMany();
     await prisma.workshopEstimateApproval.deleteMany();
     await prisma.workshopEstimateBrandAssetReference.deleteMany();
@@ -186,6 +189,7 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
     await prisma.workshopOrder.deleteMany();
     await prisma.vehicle.deleteMany();
     await prisma.customer.deleteMany();
+    await prisma.employee.deleteMany({ where: { name: { startsWith: 'Push ' } } });
     await cleanupTestUsers(basePrisma, createdUserIds);
     await teardownTestApp(app, prisma);
   });
@@ -242,6 +246,129 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
         version: 1,
       }),
     );
+  });
+
+  describe('push to staff (AUT-766)', () => {
+    async function staffMember(
+      name: string,
+      role: 'SERVICE_ADVISOR' | 'MECHANIC',
+      optedIn: boolean,
+    ) {
+      const user = await basePrisma.user.create({
+        data: {
+          firebaseUid: `e2e-push-${randomUUID()}`,
+          email: `push-${randomUUID()}@example.com`,
+        },
+        select: { id: true },
+      });
+      createdUserIds.push(user.id);
+      await seedTestTenantMember(basePrisma, {
+        tenantId,
+        userId: user.id,
+        role: 'SALES',
+      });
+      await prisma.siteMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: user.id,
+          site_id: await resolveTestMainSiteId(basePrisma, tenantId),
+          is_active: true,
+        },
+      });
+      const employee = await seedTestEmployee(prisma, {
+        tenantId,
+        name: `Push ${name}`,
+        role,
+        userId: user.id,
+      });
+      if (optedIn) {
+        await prisma.pushPreference.create({
+          data: {
+            tenant_id: tenantId,
+            user_id: user.id,
+            enabled_events: ['CUSTOMER_ESTIMATE_DECIDED'],
+          },
+        });
+      }
+      return { userId: user.id, employeeId: employee.id };
+    }
+
+    const pushRows = (orderId: string) =>
+      prisma.notificationOutbox.findMany({
+        where: { workshop_order_id: orderId, channel: 'PUSH' },
+        select: {
+          recipient_user_id: true,
+          event_type: true,
+          status: true,
+          payload: true,
+          body: true,
+        },
+      });
+
+    it('writes a push row for each opted-in advisor of the site, and for the order mechanic only on approval', async () => {
+      await prisma.pushPreference.deleteMany();
+      const advisor = await staffMember('Advisor', 'SERVICE_ADVISOR', true);
+      await staffMember('Advisor off', 'SERVICE_ADVISOR', false);
+      const mechanic = await staffMember('Mechanic', 'MECHANIC', true);
+
+      const approved = await createOrderWithLabor(1, 50);
+      await prisma.workshopTask.update({
+        where: { id: approved.taskId },
+        data: { mechanic_id: mechanic.employeeId },
+      });
+      await decide(await sentVersion(approved.orderId), {
+        ...validDecision,
+        amount_quoted_gross: '60.00',
+      }).expect(201);
+
+      const approvedRows = await pushRows(approved.orderId);
+      expect(approvedRows.map((row) => row.recipient_user_id).sort()).toEqual(
+        [advisor.userId, mechanic.userId].sort(),
+      );
+      for (const row of approvedRows) {
+        expect(row).toMatchObject({
+          event_type: 'CUSTOMER_ESTIMATE_DECIDED',
+          status: 'PENDING',
+          payload: { decision: 'APPROVED' },
+          body: null,
+        });
+      }
+
+      const declined = await createOrderWithLabor(1, 50);
+      await prisma.workshopTask.update({
+        where: { id: declined.taskId },
+        data: { mechanic_id: mechanic.employeeId },
+      });
+      await decide(await sentVersion(declined.orderId), {
+        decision: 'DECLINED',
+        channel: 'PHONE',
+        amount_quoted_gross: '60.00',
+        note: 'Kunde lehnt den Kostenvoranschlag telefonisch ab.',
+      }).expect(201);
+
+      const declinedRows = await pushRows(declined.orderId);
+      expect(declinedRows.map((row) => row.recipient_user_id)).toEqual([
+        advisor.userId,
+      ]);
+      expect(declinedRows[0].payload).toMatchObject({ decision: 'DECLINED' });
+    });
+
+    it('writes no push row when nobody opted in, and the in-app notice is unchanged', async () => {
+      await prisma.pushPreference.deleteMany();
+      const { orderId } = await createOrderWithLabor(1, 50);
+
+      await decide(await sentVersion(orderId), {
+        ...validDecision,
+        amount_quoted_gross: '60.00',
+      }).expect(201);
+
+      expect(await pushRows(orderId)).toEqual([]);
+      expect(
+        await prisma.notificationOutbox.count({
+          where: { workshop_order_id: orderId, channel: 'IN_APP' },
+        }),
+      ).toBe(1);
+    });
   });
 
   it('records a declined decision with the channel, reaction and note the advisor gave', async () => {
