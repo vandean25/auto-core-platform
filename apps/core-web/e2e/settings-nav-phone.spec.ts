@@ -52,6 +52,32 @@ test.describe('Settings navigation on a phone (AUT-754)', () => {
     await expectNoPageScroll(page)
   })
 
+  for (const [tab, label] of [
+    ['locations', deSettings.tabs.locations],
+    ['labor', deSettings.tabs.labor],
+    ['hours', deSettings.tabs.hours],
+    ['audit-logs', deSettings.tabs.auditLogs],
+  ] as const) {
+    test(`a direct link ?tab=${tab} opens with that section selected, not Finanzen`, async ({ page }) => {
+      await mockApi(page)
+      await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+
+      const select = page.getByTestId('settings-section-select')
+      await expect(select).toContainText(label)
+      await expect(select).not.toContainText(deSettings.tabs.finance)
+      await expect(page.getByRole('tabpanel')).toBeVisible()
+      await expect(page.locator('[role="tabpanel"][data-state="active"]')).toHaveAttribute('id', new RegExp(`content-${tab}$`))
+      await expectNoPageScroll(page)
+    })
+  }
+
+  test('an unknown ?tab= falls back to Finanzen', async ({ page }) => {
+    await mockApi(page)
+    await new AutoCorePage(page, '').navigate('/settings?tab=does-not-exist')
+
+    await expect(page.getByTestId('settings-section-select')).toContainText(deSettings.tabs.finance)
+  })
+
   test('Esc closes the select and focus returns to it', async ({ page }) => {
     await mockApi(page)
     await new AutoCorePage(page, '').navigate('/settings')
@@ -62,6 +88,33 @@ test.describe('Settings navigation on a phone (AUT-754)', () => {
     await expect(page.getByRole('option')).toHaveCount(0)
     await expect(select).toBeFocused()
   })
+})
+
+test.describe('Settings tab strip on a tablet (AUT-754)', () => {
+  test.use({ viewport: { width: 768, height: 900 } })
+
+  for (const [tab, label] of [
+    ['locations', deSettings.tabs.locations],
+    ['labor', deSettings.tabs.labor],
+    ['hours', deSettings.tabs.hours],
+  ] as const) {
+    test(`a direct link ?tab=${tab} highlights its tab and scrolls it into view`, async ({ page }) => {
+      await mockApi(page)
+      await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+
+      const strip = page.getByTestId('settings-tab-strip')
+      await expect(strip).toBeVisible()
+      await expect(strip.getByRole('tab', { selected: true })).toHaveCount(1)
+      const active = strip.getByRole('tab', { name: label, exact: true })
+      await expect(active).toHaveAttribute('data-state', 'active')
+      await expect(strip.getByRole('tab', { name: deSettings.tabs.finance })).toHaveAttribute('data-state', 'inactive')
+      await expect.poll(async () => {
+        const stripBox = (await strip.boundingBox())!
+        const tabBox = (await active.boundingBox())!
+        return tabBox.x >= stripBox.x - 1 && tabBox.x + tabBox.width <= stripBox.x + stripBox.width + 1
+      }).toBe(true)
+    })
+  }
 })
 
 test.describe('Settings tab strip on a laptop (AUT-754)', () => {
