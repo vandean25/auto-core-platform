@@ -124,7 +124,8 @@ test.describe('Personal pages on a phone (AUT-769)', () => {
 
       await expect(page.getByText(/^Rest:/).first()).toContainText('25 Tage', { timeout: 10_000 })
       const seen = await page.evaluate(() => [...(window as unknown as { __chips: Set<string> }).__chips])
-      expect(seen.filter((text) => /26[.,]8|≈ 0 /.test(text)), 'wrong numbers shown in between').toEqual([])
+      // Only the final number is ever shown: no minutes, no guessed 26,8, no 0.
+      expect(seen, 'texts the chip showed').toEqual(['Rest: ≈ 25 Tage'])
     })
   }
 

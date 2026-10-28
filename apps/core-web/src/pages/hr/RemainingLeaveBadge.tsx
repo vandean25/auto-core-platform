@@ -33,7 +33,9 @@ export function RemainingLeaveBadge({ hrMe, myLeave, schedule }: RemainingLeaveB
   const { t } = useTranslation('hr')
   if (hrMe.isLoading || myLeave.isLoading || schedule.isLoading) return null
 
-  const minutes = myLeave.data?.remainingMinutes ?? hrMe.data?.remainingLeaveMinutes ?? 0
+  const minutes = myLeave.data?.remainingMinutes ?? hrMe.data?.remainingLeaveMinutes
+  // No balance known (for example no employee record is linked to the account): no chip instead of "0".
+  if (minutes === undefined) return null
   const days = approxLeaveDays(minutes, averageWorkdayMinutes(schedule))
   const exact = t('leave.remainingMinutes', { minutes })
   const label =

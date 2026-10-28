@@ -255,6 +255,20 @@ describe('HrLeavePage', () => {
     expect(screen.getByText(deHr.leave.remainingMinutes.replace('{{minutes}}', '515'))).toBeInTheDocument()
   })
 
+  it('shows no remaining chip when no balance is known (no employee record linked)', () => {
+    setupPage('OWNER')
+    apiMocks.useHrMe.mockReturnValue({ data: undefined, isLoading: false, error: Object.assign(new Error('forbidden'), { status: 403 }) })
+    apiMocks.useMyLeave.mockReturnValue({ data: undefined, isLoading: false })
+
+    render(
+      <MemoryRouter>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByText(/^Rest:/)).not.toBeInTheDocument()
+  })
+
   it('opens the booking sheet for OWNER when /hr/me returns 403', () => {
     setupPage('OWNER')
     apiMocks.useHrMe.mockReturnValue({
