@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Readable, Writable } from 'node:stream';
+import express, { type Request, type Response } from 'express';
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import { ImportController } from './import.controller.js';
 import { ImportService } from './import.service.js';
@@ -39,7 +41,10 @@ describe('ImportController', () => {
           provide: ImportMappingProfileService,
           useValue: mockMappingProfileService,
         },
-        { provide: ImportDirectUploadService, useValue: mockDirectUploadService },
+        {
+          provide: ImportDirectUploadService,
+          useValue: mockDirectUploadService,
+        },
       ],
     }).compile();
 
@@ -47,14 +52,19 @@ describe('ImportController', () => {
     jest.clearAllMocks();
   });
 
-  describe('createDryRun', () => {    it('accepts SUPPLIER_PRICE_LIST entity type', async () => {
+  describe('createDryRun', () => {
+    it('accepts SUPPLIER_PRICE_LIST entity type', async () => {
       const file = {
-        buffer: Buffer.from('Lieferanten-Artikelnummer;Beschreibung;Einkaufspreis\nART-1;Filter;10.50'),
+        buffer: Buffer.from(
+          'Lieferanten-Artikelnummer;Beschreibung;Einkaufspreis\nART-1;Filter;10.50',
+        ),
         originalname: 'prices.csv',
         size: 100,
       } as Express.Multer.File;
 
-      mockImportService.createDryRunFromUpload.mockResolvedValue({ id: 'job-1' });
+      mockImportService.createDryRunFromUpload.mockResolvedValue({
+        id: 'job-1',
+      });
 
       const uploadRequest = {};
       const result = await controller.createDryRun(
@@ -97,6 +107,45 @@ describe('ImportController', () => {
     });
   });
 
+  describe('downloadErrors', () => {
+    it.each([
+      ['en-US,en;q=0.9,de;q=0.5', 'en'],
+      ['en;q=0.4,de-AT;q=0.8', 'de'],
+      ['fr', undefined],
+      [undefined, undefined],
+    ])('negotiates %s before streaming the CSV', async (header, locale) => {
+      const req = Object.create(express.request) as Request;
+      req.headers = header ? { 'accept-language': header } : {};
+      const chunks: Buffer[] = [];
+      const res = Object.assign(
+        new Writable({
+          write(chunk, _encoding, callback) {
+            chunks.push(Buffer.from(chunk));
+            callback();
+          },
+        }),
+        { setHeader: jest.fn() },
+      );
+      mockImportService.downloadErrorRowsCsv.mockResolvedValue(
+        Readable.from([
+          '\uFEFFrow_no;Source ID;error_field;error_message;error_code\r\n',
+        ]),
+      );
+      await controller.downloadErrors('job-1', req, res as unknown as Response);
+      expect(mockImportService.downloadErrorRowsCsv).toHaveBeenCalledWith(
+        'job-1',
+        locale,
+      );
+      expect(Buffer.concat(chunks).toString('utf8')).toContain(
+        '\uFEFFrow_no;Source ID;',
+      );
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'Cache-Control',
+        'private, no-store',
+      );
+    });
+  });
+
   describe('getTemplate', () => {
     it('supports SUPPLIER_PRICE_LIST template', async () => {
       mockImportService.getTemplate.mockReturnValue({
@@ -128,7 +177,10 @@ describe('ImportController', () => {
 
       const result = await controller.apply('job-1', body, res as never);
 
-      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith('job-1', body);
+      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith(
+        'job-1',
+        body,
+      );
       expect(res.status).toHaveBeenCalledWith(202);
       expect(result).toEqual({ id: 'job-1', status: 'APPLYING' });
     });
@@ -142,7 +194,10 @@ describe('ImportController', () => {
 
       const result = await controller.apply('job-1', undefined, res as never);
 
-      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith('job-1', undefined);
+      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith(
+        'job-1',
+        undefined,
+      );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(result).toEqual({ id: 'job-1', status: 'APPLIED' });
     });

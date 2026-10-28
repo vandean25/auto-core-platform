@@ -15019,6 +15019,15 @@
         "operationId": "ImportController_downloadErrors",
         "parameters": [
           {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Report language (de or en); defaults to the user preference",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "id",
             "required": true,
             "in": "path",
@@ -15029,10 +15038,18 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
           }
         },
-        "summary": "Download CSV of rows that failed validation",
+        "summary": "Stream localized error rows with original source columns",
         "tags": [
           "imports"
         ]

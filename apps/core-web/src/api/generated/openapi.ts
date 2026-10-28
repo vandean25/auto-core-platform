@@ -4673,7 +4673,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download CSV of rows that failed validation */
+        /** Stream localized error rows with original source columns */
         get: operations["ImportController_downloadErrors"];
         put?: never;
         post?: never;
@@ -21128,7 +21128,10 @@ export interface operations {
     ImportController_downloadErrors: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Report language (de or en); defaults to the user preference */
+                "Accept-Language"?: string;
+            };
             path: {
                 id: string;
             };
@@ -21140,7 +21143,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/csv": string;
+                };
             };
         };
     };

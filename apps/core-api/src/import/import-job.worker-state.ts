@@ -66,6 +66,7 @@ export function importWorkerPoisonProgressCursor(
 
 export type ImportJobUploadRef = {
   object_key: string;
+  headers?: string[];
 };
 
 export type ImportJobOptionsWithWorker = ImportJobOptions & {

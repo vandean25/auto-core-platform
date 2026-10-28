@@ -205,7 +205,7 @@ function listSourceFiles(dir) {
 function extractErrorCodeObjectValues(src) {
   const values = []
   for (const block of src.matchAll(
-    /export const [A-Z0-9_]+_ERROR_CODES\s*=\s*\{([\s\S]*?)\}\s+as const/g,
+    /export const [A-Z0-9_]+_(?:ERROR|ROW_ISSUE)_CODES\s*=\s*\{([\s\S]*?)\}\s+as const/g,
   )) {
     for (const m of block[1].matchAll(/:\s*'([A-Z][A-Z0-9_]+)'/g)) {
       values.push(m[1])

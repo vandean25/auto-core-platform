@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import { copyFile, mkdir, stat, unlink, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import {
@@ -145,7 +145,7 @@ function resolveLocalObjectPath(root: string, objectKey: string): string {
   const segments = objectKey.split('/').filter((segment) => segment.length > 0);
   const resolvedRoot = resolve(root);
   const target = resolve(resolvedRoot, ...segments);
-  if (target === resolvedRoot || !target.startsWith(`${resolvedRoot}/`)) {
+  if (target === resolvedRoot || !target.startsWith(`${resolvedRoot}${sep}`)) {
     throw new Error('Invalid direct import upload path');
   }
   return target;

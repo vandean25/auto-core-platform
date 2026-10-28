@@ -25,8 +25,19 @@ export function decodeCsvBuffer(buffer: Buffer): string {
 }
 
 export function detectDelimiterFromHeaderLine(headerLine: string): ';' | ',' {
-  const semicolons = (headerLine.match(/;/g) ?? []).length;
-  const commas = (headerLine.match(/,/g) ?? []).length;
+  let semicolons = 0;
+  let commas = 0;
+  let inQuotes = false;
+  for (let index = 0; index < headerLine.length; index += 1) {
+    const char = headerLine[index];
+    if (char === '"') {
+      if (inQuotes && headerLine[index + 1] === '"') index += 1;
+      else inQuotes = !inQuotes;
+    } else if (!inQuotes) {
+      if (char === ';') semicolons += 1;
+      else if (char === ',') commas += 1;
+    }
+  }
   return semicolons >= commas ? ';' : ',';
 }
 
@@ -46,8 +57,8 @@ type CsvRecordParseState = {
 };
 
 function pushCsvRow(state: CsvRecordParseState): void {
-  state.currentRow.push(state.currentCell.trim());
-  if (state.currentRow.some((cell) => cell.length > 0)) {
+  state.currentRow.push(state.currentCell);
+  if (state.currentRow.some((cell) => cell.trim().length > 0)) {
     state.rows.push(state.currentRow);
   }
   state.currentRow = [];
@@ -82,7 +93,7 @@ function consumeUnquotedCsvChar(
     return;
   }
   if (char === delimiter) {
-    state.currentRow.push(state.currentCell.trim());
+    state.currentRow.push(state.currentCell);
     state.currentCell = '';
     return;
   }
@@ -94,6 +105,15 @@ function consumeUnquotedCsvChar(
 }
 
 export function parseCsvRecords(text: string, delimiter: string): string[][] {
+  return parseCsvRecordsVerbatim(text, delimiter).map((row) =>
+    row.map((cell) => cell.trim()),
+  );
+}
+
+export function parseCsvRecordsVerbatim(
+  text: string,
+  delimiter: string,
+): string[][] {
   const state: CsvRecordParseState = {
     rows: [],
     currentRow: [],
@@ -154,13 +174,31 @@ export function parseCsvFile(buffer: Buffer): ParsedCsv {
   };
 }
 
+export function unwrapImportErrorReportRow(
+  headers: string[],
+  cells: string[],
+): { headers: string[]; cells: string[] } {
+  const diagnosticStart = headers.length - (headers.at(-1) === 'note' ? 4 : 3);
+  const isErrorReport =
+    headers[0] === 'row_no' &&
+    headers.slice(diagnosticStart, diagnosticStart + 3).join(';') ===
+      'error_field;error_message;error_code';
+  if (!isErrorReport) return { headers, cells };
+  const restore = (value: string) => value.replace(/^'(?=['=+\-@\t\r])/, '');
+  return {
+    headers: headers.slice(1, diagnosticStart).map(restore),
+    cells: cells.slice(1, diagnosticStart).map(restore),
+  };
+}
+
 export function rowToRecord(
   headers: string[],
   cells: string[],
 ): Record<string, string> {
+  const source = unwrapImportErrorReportRow(headers, cells);
   const record: Record<string, string> = {};
-  headers.forEach((header, index) => {
-    record[header] = cells[index] ?? '';
+  source.headers.forEach((header, index) => {
+    record[header] = source.cells[index] ?? '';
   });
   return record;
 }
