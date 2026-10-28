@@ -1,3 +1,4 @@
+import { createContext, useContext, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,13 @@ export function getPageSizeChoices(
 ): number[] {
   if (pageSizeOptions.length === 0) return []
   return [...new Set([...pageSizeOptions, pageSize])].sort((a, b) => a - b)
+}
+
+const PaginationHiddenContext = createContext(false)
+
+/** Wrap a DataTable of a cursor-loaded list (a "load more" button instead of page numbers) to drop its page footer. */
+export function DataTablePaginationHidden({ children }: { children: ReactNode }) {
+  return <PaginationHiddenContext.Provider value>{children}</PaginationHiddenContext.Provider>
 }
 
 type DataTablePaginationProps<TData extends object> = {
@@ -23,6 +31,9 @@ export function DataTablePagination<TData extends object>({
   const { t } = useTranslation('common')
   const pagination = table.getState().pagination
   const pageSizeChoices = getPageSizeChoices(pageSizeOptions, pagination.pageSize)
+  const hidden = useContext(PaginationHiddenContext)
+
+  if (hidden) return null
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 py-4">

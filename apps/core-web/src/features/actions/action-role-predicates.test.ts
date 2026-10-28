@@ -6,6 +6,7 @@ import {
   canDeleteCustomerFromList,
   canGenerateWorkshopJobCardPdf,
   canOpenCustomer,
+  canOpenEstimate,
   canOpenVehicle,
   canOpenWorkshopOrder,
   canUpdateWorkshopOrderTaskState,
@@ -33,6 +34,15 @@ describe('action-role-predicates', () => {
     expect(canGenerateWorkshopJobCardPdf('')).toBe(false)
     expect(canAssignWorkshopOrderMechanic('')).toBe(false)
     expect(canUpdateWorkshopOrderTaskState('')).toBe(false)
+  })
+
+  it('limits the estimates list to the roles that manage estimates', () => {
+    for (const role of ['OWNER', 'ADMIN', 'SALES']) {
+      expect(canOpenEstimate(role)).toBe(true)
+    }
+    for (const role of ['TECH', 'MECHANIC', '', undefined]) {
+      expect(canOpenEstimate(role)).toBe(false)
+    }
   })
 
   it('evaluates workshop order status predicates consistently', () => {

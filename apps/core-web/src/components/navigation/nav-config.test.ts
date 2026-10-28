@@ -67,6 +67,7 @@ const UNGATED_ROUTES = [
 
 const AGENT = '/agent/supervision'
 const KPI = '/workshop/reports/kpis'
+const ESTIMATES = '/workshop/estimates'
 const HR = '/hr/employees'
 const CREDIT_NOTES = '/finance/credit-notes'
 const EXPORT_READINESS = '/finance/accounting-export-readiness'
@@ -87,34 +88,34 @@ const ROLE_CASES: RoleCase[] = [
     activeRole: 'OWNER',
     platformRole: null,
     agentFlag: true,
-    gated: [AGENT, KPI, HR, CREDIT_NOTES, EXPORT_READINESS],
+    gated: [AGENT, KPI, ESTIMATES, HR, CREDIT_NOTES, EXPORT_READINESS],
   },
   {
     name: 'OWNER, agent flag off',
     activeRole: 'OWNER',
     platformRole: null,
     agentFlag: false,
-    gated: [KPI, HR, CREDIT_NOTES, EXPORT_READINESS],
+    gated: [KPI, ESTIMATES, HR, CREDIT_NOTES, EXPORT_READINESS],
   },
   {
     name: 'ADMIN, agent flag on',
     activeRole: 'ADMIN',
     platformRole: null,
     agentFlag: true,
-    gated: [AGENT, KPI, HR, CREDIT_NOTES, EXPORT_READINESS],
+    gated: [AGENT, KPI, ESTIMATES, HR, CREDIT_NOTES, EXPORT_READINESS],
   },
   {
     name: 'ADMIN, agent flag off',
     activeRole: 'ADMIN',
     platformRole: null,
     agentFlag: false,
-    gated: [KPI, HR, CREDIT_NOTES, EXPORT_READINESS],
+    gated: [KPI, ESTIMATES, HR, CREDIT_NOTES, EXPORT_READINESS],
   },
   // ADVISOR is not in the generated TenantMemberRole enum, but the former rule lists it, so it stays.
   { name: 'ADVISOR, agent flag on', activeRole: 'ADVISOR', platformRole: null, agentFlag: true, gated: [AGENT, HR] },
   { name: 'ADVISOR, agent flag off', activeRole: 'ADVISOR', platformRole: null, agentFlag: false, gated: [HR] },
-  { name: 'SALES, agent flag on', activeRole: 'SALES', platformRole: null, agentFlag: true, gated: [KPI, HR] },
-  { name: 'SALES, agent flag off', activeRole: 'SALES', platformRole: null, agentFlag: false, gated: [KPI, HR] },
+  { name: 'SALES, agent flag on', activeRole: 'SALES', platformRole: null, agentFlag: true, gated: [KPI, ESTIMATES, HR] },
+  { name: 'SALES, agent flag off', activeRole: 'SALES', platformRole: null, agentFlag: false, gated: [KPI, ESTIMATES, HR] },
   { name: 'TECH, agent flag on', activeRole: 'TECH', platformRole: null, agentFlag: true, gated: [] },
   { name: 'TECH, agent flag off', activeRole: 'TECH', platformRole: null, agentFlag: false, gated: [] },
   {
@@ -122,14 +123,14 @@ const ROLE_CASES: RoleCase[] = [
     activeRole: 'ADMIN',
     platformRole: 'SUPER_ADMIN',
     agentFlag: true,
-    gated: [PLATFORM, AGENT, KPI, HR, CREDIT_NOTES, EXPORT_READINESS],
+    gated: [PLATFORM, AGENT, KPI, ESTIMATES, HR, CREDIT_NOTES, EXPORT_READINESS],
   },
   {
     name: 'SUPER_ADMIN (tenant ADMIN), agent flag off',
     activeRole: 'ADMIN',
     platformRole: 'SUPER_ADMIN',
     agentFlag: false,
-    gated: [PLATFORM, KPI, HR, CREDIT_NOTES, EXPORT_READINESS],
+    gated: [PLATFORM, KPI, ESTIMATES, HR, CREDIT_NOTES, EXPORT_READINESS],
   },
 ]
 
@@ -152,12 +153,13 @@ describe('nav config: no route lost', () => {
     expect(ALL_ITEMS.map((item) => item.to)).toContain(route)
   })
 
-  it('adds the stock reports entry and keeps one entry per route', () => {
+  it('adds the stock reports and estimates entries and keeps one entry per route', () => {
     const routes = ALL_ITEMS.map((item) => item.to)
 
     expect(routes).toContain('/vehicle-stock/reports')
+    expect(routes).toContain('/workshop/estimates')
     expect(new Set(routes).size).toBe(routes.length)
-    expect(routes).toHaveLength(FORMER_SIDEBAR_ROUTES.length + 1)
+    expect(routes).toHaveLength(FORMER_SIDEBAR_ROUTES.length + 2)
   })
 })
 

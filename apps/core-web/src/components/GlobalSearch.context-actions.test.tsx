@@ -10,9 +10,11 @@ import * as authSession from '@/api/auth-session'
 import * as workshopApi from '@/api/workshop'
 import * as customersApi from '@/api/customers'
 import * as vehiclesApi from '@/api/vehicles'
+import * as estimatesApi from '@/api/workshop-estimates'
 
 const mockNavigate = vi.fn()
 const mockCustomerDelete = vi.fn()
+const authState = vi.hoisted(() => ({ role: 'ADMIN' }))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return { ...actual, useNavigate: () => mockNavigate }
@@ -24,7 +26,7 @@ vi.mock('@/api/sites', () => ({
   useMySites: () => ({ data: [{ id: 'site-1', code: 'W', name: 'Wien', legalEntityId: 'le-1' }] }),
 }))
 vi.mock('@/auth/AuthProvider', () => ({
-  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+  useAuth: () => ({ claims: { role: authState.role } }),
 }))
 vi.mock('@/api/workshop', async () => {
   const actual = await vi.importActual<typeof import('@/api/workshop')>('@/api/workshop')
@@ -44,6 +46,10 @@ vi.mock('@/api/customers', async () => {
 vi.mock('@/api/vehicles', async () => {
   const actual = await vi.importActual<typeof import('@/api/vehicles')>('@/api/vehicles')
   return { ...actual, useVehicle: vi.fn() }
+})
+vi.mock('@/api/workshop-estimates', async () => {
+  const actual = await vi.importActual<typeof import('@/api/workshop-estimates')>('@/api/workshop-estimates')
+  return { ...actual, useWorkshopEstimateVersion: vi.fn() }
 })
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => mockCustomerDelete,
@@ -123,6 +129,7 @@ describe('GlobalSearch context actions', () => {
     await ensureNamespaceLoaded('settings')
     await ensureNamespaceLoaded('customers')
     vi.clearAllMocks()
+    authState.role = 'ADMIN'
     mockSession()
     vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
       groups: [],
@@ -141,6 +148,10 @@ describe('GlobalSearch context actions', () => {
       data: undefined,
       isLoading: false,
     } as ReturnType<typeof vehiclesApi.useVehicle>)
+    vi.mocked(estimatesApi.useWorkshopEstimateVersion).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as unknown as ReturnType<typeof estimatesApi.useWorkshopEstimateVersion>)
   })
 
   afterEach(() => {
@@ -286,6 +297,71 @@ describe('GlobalSearch context actions', () => {
     expect(mockNavigate).toHaveBeenCalledWith(
       '/workshop/intake?vehicleId=veh-1&customerId=cust-1',
     )
+  })
+
+  describe('estimate row on the estimates list', () => {
+    const estimateVersion = {
+      id: 'ver-1',
+      estimate_number: 'KV-2026-0001',
+      version: 2,
+      workshop_order_id: 'order-9',
+    }
+
+    function renderEstimateList() {
+      vi.mocked(estimatesApi.useWorkshopEstimateVersion).mockReturnValue({
+        data: estimateVersion,
+        isLoading: false,
+      } as unknown as ReturnType<typeof estimatesApi.useWorkshopEstimateVersion>)
+      const tree = (open: boolean) => (
+        <MemoryRouter initialEntries={['/workshop/estimates']}>
+          <table>
+            <tbody>
+              <tr data-table-row="true" data-row-id="ver-1">
+                <td>
+                  <a href="/workshop/orders/order-9" data-testid="row-link">
+                    row
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <GlobalSearch open={open} onOpenChange={vi.fn()} />
+        </MemoryRouter>
+      )
+      const view = render(tree(false))
+      screen.getByTestId('row-link').focus()
+      view.rerender(tree(true))
+    }
+
+    it('offers estimate.open for the row that had focus and navigates to the version', () => {
+      renderEstimateList()
+
+      expect(screen.getByText('Current record')).toBeInTheDocument()
+      fireEvent.click(screen.getByText('Open estimate'))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-9#estimate-version-2')
+    })
+
+    it('offers no estimate action to a role that cannot manage estimates', () => {
+      authState.role = 'TECH'
+      renderEstimateList()
+
+      expect(screen.queryByText('Open estimate')).toBeNull()
+    })
+
+    it('offers no estimate action when no row had focus', () => {
+      vi.mocked(estimatesApi.useWorkshopEstimateVersion).mockReturnValue({
+        data: estimateVersion,
+        isLoading: false,
+      } as unknown as ReturnType<typeof estimatesApi.useWorkshopEstimateVersion>)
+      render(
+        <MemoryRouter initialEntries={['/workshop/estimates']}>
+          <GlobalSearch open={true} onOpenChange={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByText('Open estimate')).toBeNull()
+    })
   })
 
   it('shows no context group off a record page', () => {

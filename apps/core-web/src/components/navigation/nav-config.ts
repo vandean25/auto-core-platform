@@ -12,6 +12,7 @@ import {
   CircleDot,
   ClipboardCheck,
   ClipboardList,
+  FileSignature,
   FileText,
   Gauge,
   Landmark,
@@ -146,6 +147,14 @@ export const NAV_GROUPS: readonly NavGroup[] = [
           pathname.startsWith('/workshop/orders') ||
           pathname.startsWith('/workshop/intake') ||
           pathname.startsWith('/workshop/pick'),
+      },
+      {
+        id: 'workshop-estimates',
+        labelKey: 'modules.workshopEstimates',
+        to: APP_ROUTE_PATHS.workshopEstimates,
+        icon: FileSignature,
+        isVisible: (context) => hasRole(context, ['OWNER', 'ADMIN', 'SALES']),
+        isActive: prefixMatch('/workshop/estimates'),
       },
       {
         id: 'workshop-board',

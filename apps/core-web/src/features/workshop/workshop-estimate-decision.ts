@@ -61,6 +61,16 @@ export function formatEstimateMoney(value: string | null | undefined): string {
 const NOTE_MIN_LENGTH = 3
 const NOTE_MAX_LENGTH = 500
 
+/** The status key a `StatusBadge` colours an estimate version by: an expired one stands out. */
+export function estimateStatusTone(status: WorkshopEstimateStatus): string {
+  return status === 'EXPIRED' ? 'ESTIMATE_EXPIRED' : status
+}
+
+/** Status of one estimate version, as the version rows of the work order name it. */
+export function estimateVersionStatusLabel(status: WorkshopEstimateStatus): string {
+  return workshopT(`estimateCard.status.${status}`)
+}
+
 /** The derived badge of the estimate, next to its number. The order itself has no estimate status. */
 export function estimateBadgeLabel(status: WorkshopEstimateStatus): string {
   return i18n.t(`estimateDecision.badge.${status}`, { ns: 'workshop' })

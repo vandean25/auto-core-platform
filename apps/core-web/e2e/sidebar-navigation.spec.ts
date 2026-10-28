@@ -5,12 +5,12 @@ import { DE_SHELL } from './helpers/de-shell';
  * AUT-656: the grouped sidebar. On a 1366x768 laptop every entry is reachable in the scroll area, icon
  * mode keeps each entry named with its label in a tooltip, the mobile sheet opens from the header and
  * closes after a navigation, and the collapse and group state survive a reload. The e2e session is an
- * ADMIN with the agent flag on, so the navigation lists 27 entries.
+ * ADMIN with the agent flag on, so the navigation lists 28 entries.
  */
 
 const LAPTOP = { width: 1366, height: 768 };
 const MOBILE = { width: 390, height: 844 };
-const ADMIN_ENTRY_COUNT = 27;
+const ADMIN_ENTRY_COUNT = 28;
 const GROUP_LABELS = ['Übersicht', 'Verkauf', 'Werkstatt', 'Fahrzeuge', 'Lager & Einkauf', 'Finanzen', 'Verwaltung'];
 
 function mainNavigation(page: Page) {

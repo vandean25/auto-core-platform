@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
 import { workshopCommunicationKeys } from '@/api/workshop-communications'
@@ -9,6 +9,8 @@ import {
   fetchWorkshopEstimatePdfError,
   fetchWorkshopOrderEstimate,
   useCreateWorkshopEstimate,
+  useRecordWorkshopEstimateDecision,
+  useReviseWorkshopEstimate,
   useSendWorkshopEstimateVersion,
   workshopEstimateKeys,
   workshopEstimatePdfFilename,
@@ -147,5 +149,37 @@ describe('workshop estimate mutations', () => {
     const { result } = renderHook(() => useSendWorkshopEstimateVersion(), { wrapper: wrapperFor(queryClient) })
     result.current.mutate({ orderId: 'order-1', versionId: 'v1' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+})
+
+describe('estimate mutations refresh the estimates lists', () => {
+  const LIST_KEY = workshopEstimateKeys.list({ status: 'SENT' })
+
+  it('keys the lists under one prefix', () => {
+    expect(workshopEstimateKeys.lists()).toEqual(['workshop', 'estimates', 'list'])
+    expect(LIST_KEY.slice(0, 3)).toEqual(workshopEstimateKeys.lists())
+  })
+
+  it.each([
+    ['create', () => useCreateWorkshopEstimate(), 'order-1'],
+    ['revise', () => useReviseWorkshopEstimate(), 'order-1'],
+    ['send', () => useSendWorkshopEstimateVersion(), { orderId: 'order-1', versionId: 'ver-1' }],
+    [
+      'decision',
+      () => useRecordWorkshopEstimateDecision(),
+      { orderId: 'order-1', versionId: 'ver-1', body: { decision: 'APPROVED' } },
+    ],
+  ] as const)('after %s', async (_name, useHook, variables) => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    queryClient.setQueryData(LIST_KEY, { pages: [], pageParams: [] })
+    fetchMock.mockResolvedValue(jsonResponse({}))
+    const { result } = renderHook(() => useHook(), { wrapper: wrapperFor(queryClient) })
+    expect(queryClient.getQueryState(LIST_KEY)?.isInvalidated).toBe(false)
+
+    await act(async () => {
+      await (result.current.mutateAsync as (input: unknown) => Promise<unknown>)(variables)
+    })
+
+    expect(queryClient.getQueryState(LIST_KEY)?.isInvalidated).toBe(true)
   })
 })

@@ -1,6 +1,9 @@
 import type { TFunction } from 'i18next'
 import type { Customer } from '@/api/types'
 import type { Vehicle } from '@/api/types'
+import type { WorkshopEstimateVersionDetail } from '@/api/workshop-estimates'
+import type { EstimateRowActionContext } from '@/features/actions/estimate-row-actions'
+import { createEstimateRowActions } from '@/features/actions/estimate-row-actions'
 import type { WorkshopOrder } from '@/api/types'
 import type { CustomerRowActionContext } from '@/features/actions/customer-row-actions'
 import { createCustomerRowActions } from '@/features/actions/customer-row-actions'
@@ -10,6 +13,7 @@ import type { WorkshopOrderRowActionContext } from '@/features/actions/work-orde
 import { createWorkshopOrderRowActions } from '@/features/actions/work-order-row-actions'
 import {
   buildCustomerPaletteContextActions,
+  buildEstimatePaletteContextActions,
   buildVehiclePaletteContextActions,
   buildWorkshopOrderPaletteContextActions,
   filterPaletteContextActions,
@@ -28,6 +32,7 @@ type PaletteContextRunContexts = {
   workshop: WorkshopOrderRowActionContext
   customer: CustomerRowActionContext
   vehicle: VehicleRowActionContext
+  estimate: EstimateRowActionContext
 }
 
 export function buildPaletteContextSection(
@@ -38,6 +43,7 @@ export function buildPaletteContextSection(
     order?: WorkshopOrder
     customer?: Customer
     vehicle?: Vehicle
+    estimate?: WorkshopEstimateVersionDetail
   },
   translations: PaletteContextTranslations,
   runContexts: PaletteContextRunContexts,
@@ -70,6 +76,14 @@ export function buildPaletteContextSection(
       role,
       records.vehicle,
       runContexts.vehicle,
+      nav,
+    )
+  } else if (ref.entity === 'estimate' && records.estimate) {
+    items = buildEstimatePaletteContextActions(
+      createEstimateRowActions(workshop),
+      role,
+      records.estimate,
+      runContexts.estimate,
       nav,
     )
   }

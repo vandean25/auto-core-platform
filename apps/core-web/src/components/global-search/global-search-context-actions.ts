@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import type { TFunction } from 'i18next'
 
+import type { WorkshopEstimateVersionDetail } from '@/api/workshop-estimates'
 import type { Customer } from '@/api/types'
 import type { WorkshopOrder } from '@/api/types'
 import type { Vehicle } from '@/api/types'
@@ -12,6 +13,10 @@ import {
   type EntityActionDefinition,
 } from '@/features/actions/entity-action'
 import type { CustomerListRow } from '@/features/actions/customer-row-actions'
+import {
+  estimateVersionToActionRecord,
+  type EstimateActionRecord,
+} from '@/features/actions/estimate-row-actions'
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
 import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-actions'
 import { vehicleToListRow } from '@/features/peek/VehiclePeekContent'
@@ -144,6 +149,19 @@ export function buildVehiclePaletteContextActions<TRunContext>(
   const record = vehicleToListRow(vehicle)
   return mapRegistryActionsToPalette(definitions, role, record, runContext, () =>
     t('globalSearch.contextActions.vehicle', { vehicle: record.vehicle }),
+  )
+}
+
+export function buildEstimatePaletteContextActions<TRunContext>(
+  definitions: EntityActionDefinition<EstimateActionRecord, TRunContext>[],
+  role: string | undefined,
+  estimate: WorkshopEstimateVersionDetail,
+  runContext: TRunContext,
+  t: TFunction<'nav'>,
+): PaletteContextAction[] {
+  const record = estimateVersionToActionRecord(estimate)
+  return mapRegistryActionsToPalette(definitions, role, record, runContext, () =>
+    t('globalSearch.contextActions.estimate', { number: record.estimate_number, version: record.version }),
   )
 }
 

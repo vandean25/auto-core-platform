@@ -31,6 +31,9 @@ vi.mock('@/api/vehicles', async () => {
   const actual = await vi.importActual<typeof import('@/api/vehicles')>('@/api/vehicles')
   return { ...actual, useVehicle: () => ({ data: undefined, isLoading: false }) }
 })
+vi.mock('@/api/workshop-estimates', () => ({
+  useWorkshopEstimateVersion: () => ({ data: undefined, isLoading: false }),
+}))
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => vi.fn(),
 }))

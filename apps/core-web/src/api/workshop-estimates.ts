@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/api/client'
 import type { components } from '@/api/generated/openapi'
 import { workshopCommunicationKeys } from '@/api/workshop-communications'
@@ -8,12 +8,27 @@ export type WorkshopEstimateVersionSummary = components['schemas']['WorkshopEsti
 export type WorkshopEstimateVersionDetail = components['schemas']['WorkshopEstimateVersionDetailDto']
 export type WorkshopEstimateOverrunWarning = components['schemas']['WorkshopEstimateOverrunWarningDto']
 export type WorkshopEstimateStatus = WorkshopEstimateVersionSummary['status']
+export type WorkshopEstimateListRow = components['schemas']['WorkshopEstimateListRowDto']
+export type WorkshopEstimateListPage = components['schemas']['WorkshopEstimateListPageResponseDto']
+
+/** Filters of the estimates list (`GET /workshop/estimates`). A set status wins over the superseded rule of the API. */
+export type WorkshopEstimateListFilters = {
+  status?: WorkshopEstimateStatus
+  customerId?: string
+  /** Site-local days as YYYY-MM-DD; the API needs both or none. */
+  sentFrom?: string
+  sentTo?: string
+}
+
+const ESTIMATE_LIST_PAGE_SIZE = 25
 
 const WORKSHOP_API = '/api/workshop'
 
 /** One factory for the estimate domain. Invalidating ['workshop', 'estimates'] refreshes every estimate query. */
 export const workshopEstimateKeys = {
   all: ['workshop', 'estimates'] as const,
+  lists: () => [...workshopEstimateKeys.all, 'list'] as const,
+  list: (filters: WorkshopEstimateListFilters) => [...workshopEstimateKeys.all, 'list', filters] as const,
   order: (orderId: string) => [...workshopEstimateKeys.all, 'order', orderId] as const,
   version: (versionId: string) => [...workshopEstimateKeys.all, 'version', versionId] as const,
 }
@@ -39,6 +54,20 @@ export async function fetchWorkshopOrderEstimate(orderId: string): Promise<Works
 export async function fetchWorkshopEstimateVersion(versionId: string): Promise<WorkshopEstimateVersionDetail> {
   const response = await fetchWithAuth(`${WORKSHOP_API}/estimates/${versionId}`)
   return readJson<WorkshopEstimateVersionDetail>(response, 'Version konnte nicht geladen werden.')
+}
+
+export async function fetchWorkshopEstimateListPage(
+  filters: WorkshopEstimateListFilters,
+  cursor: string | undefined,
+): Promise<WorkshopEstimateListPage> {
+  const params = new URLSearchParams({ pageSize: String(ESTIMATE_LIST_PAGE_SIZE) })
+  for (const [key, value] of Object.entries({ ...filters, cursor })) {
+    if (value) {
+      params.set(key, value)
+    }
+  }
+  const response = await fetchWithAuth(`${WORKSHOP_API}/estimates?${params.toString()}`)
+  return readJson<WorkshopEstimateListPage>(response, 'Kostenvoranschläge konnten nicht geladen werden.')
 }
 
 export function workshopEstimatePdfPath(versionId: string): string {
@@ -67,6 +96,16 @@ export function useWorkshopOrderEstimate(orderId: string) {
   })
 }
 
+/** Estimates of the active site, newest first, loaded page by page with the cursor of the previous page. */
+export function useWorkshopEstimateList(filters: WorkshopEstimateListFilters) {
+  return useInfiniteQuery({
+    queryKey: workshopEstimateKeys.list(filters),
+    queryFn: ({ pageParam }) => fetchWorkshopEstimateListPage(filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.meta.next_cursor ?? undefined,
+  })
+}
+
 /** Full version detail. Used for the live totals of a DRAFT, which the list does not carry. */
 export function useWorkshopEstimateVersion(versionId: string | null) {
   return useQuery({
@@ -76,8 +115,10 @@ export function useWorkshopEstimateVersion(versionId: string | null) {
   })
 }
 
+/** Every estimate mutation also refreshes the estimates lists, whose rows carry status, sent date and totals. */
 function invalidateEstimate(queryClient: ReturnType<typeof useQueryClient>, orderId: string) {
   return Promise.all([
+    queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.lists() }),
     queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.order(orderId) }),
     queryClient.invalidateQueries({ queryKey: workshopCommunicationKeys.order(orderId) }),
   ])

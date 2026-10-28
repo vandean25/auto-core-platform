@@ -48,6 +48,7 @@ export const VehicleDetail = lazyWithRetry(() => import('@/pages/vehicles/Vehicl
 export const VehicleList = lazyWithRetry(() => import('@/pages/vehicles/VehicleList'))
 export const VehicleStockList = lazyWithRetry(() => import('@/pages/vehicle-stock/VehicleStockList'))
 export const VehicleStockReportsPage = lazyWithRetry(() => import('@/pages/vehicle-stock/VehicleStockReportsPage'))
+export const WorkshopEstimateList = lazyWithRetry(() => import('@/pages/workshop/WorkshopEstimateList'))
 export const WorkshopKpiReportsPage = lazyWithRetry(() => import('@/pages/reports/WorkshopKpiReportsPage'))
 export const VehicleStockDetail = lazyWithRetry(() => import('@/pages/vehicle-stock/VehicleStockDetail'))
 export const VehicleListingEditorPage = lazyWithRetry(

@@ -64,6 +64,7 @@
     "workshopPlanner": "Workshop Planner",
     "workshopCapacity": "Workshop Capacity",
     "workshopKpiReports": "Workshop KPIs",
+    "workshopEstimates": "Estimates",
     "workshopLoanerVehicles": "Loaner vehicles",
     "tyreStorage": "Tyre storage",
     "hr": "HR",
@@ -126,7 +127,8 @@
       "heading": "Current record",
       "customer": "Actions for this customer",
       "vehicle": "Actions for {{vehicle}}",
-      "workOrder": "Actions for {{orderNo}}"
+      "workOrder": "Actions for {{orderNo}}",
+      "estimate": "Actions for estimate {{number}} v{{version}}"
     },
     "quickActions": {
       "navigate": "Navigate",

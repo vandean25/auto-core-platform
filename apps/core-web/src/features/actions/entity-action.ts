@@ -24,6 +24,7 @@ export const ENTITY_ACTION_IDS = {
   workOrderAssignMechanic: 'workOrder.assignMechanic',
   workOrderTaskState: 'workOrder.taskState',
   vehicleOpen: 'vehicle.open',
+  estimateOpen: 'estimate.open',
 } as const
 
 export const REGISTERED_ENTITY_ACTION_IDS: readonly string[] = Object.values(ENTITY_ACTION_IDS)

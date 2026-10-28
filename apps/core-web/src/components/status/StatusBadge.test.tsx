@@ -23,6 +23,8 @@ describe('StatusBadge tones (AUT-655)', () => {
     ['CONFIRMED', 'info'],
     ['CANCELLED', 'destructive'],
     ['DRAFT', 'neutral'],
+    ['EXPIRED', 'neutral'],
+    ['ESTIMATE_EXPIRED', 'warning'],
     ['STATUS_WITHOUT_MAPPING', 'neutral'],
   ] as const)('renders %s with the %s tone', (status, tone) => {
     render(<StatusBadge status={status} />)
