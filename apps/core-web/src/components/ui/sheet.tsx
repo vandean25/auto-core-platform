@@ -82,7 +82,8 @@ const SheetHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-2 text-center sm:text-left",
+      // Leaves the corner to the close button (44px at 16px from the edge), so a wrapping title or description never runs under it.
+      "flex flex-col space-y-2 pr-10 text-center sm:text-left",
       className
     )}
     {...props}
