@@ -8,6 +8,32 @@ export type ParsedImportCsvPreview = {
 
 export const IMPORT_PREVIEW_MAX_BYTES = 1024 * 1024
 
+function firstCsvRecord(text: string): string {
+  let inQuotes = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (char === '"') inQuotes = !inQuotes
+    else if (!inQuotes && (char === '\r' || char === '\n'))
+      return text.slice(0, index)
+  }
+  return text
+}
+
+function restoreReportSourceHeaders(headers: string[]): string[] {
+  const diagnosticStart = headers.length - (headers.at(-1) === 'note' ? 4 : 3)
+  if (
+    headers[0] !== 'row_no' ||
+    headers.slice(diagnosticStart, diagnosticStart + 3).join(';') !==
+      'error_field;error_message;error_code'
+  )
+    return headers
+  return headers.map((header, index) =>
+    index > 0 && index < diagnosticStart
+      ? header.replace(/^'(?=['=+\-@\t\r])/, '')
+      : header,
+  )
+}
+
 function detectDelimiter(headerLine: string): ';' | ',' {
   const semicolonColumns = parseCsvRecords(headerLine, ';')[0]?.length ?? 0
   const commaColumns = parseCsvRecords(headerLine, ',')[0]?.length ?? 0
@@ -71,16 +97,21 @@ function parseCsvRecords(text: string, delimiter: string): string[][] {
   return rows
 }
 
-export async function parseImportCsvFile(file: File): Promise<ParsedImportCsvPreview> {
+export async function parseImportCsvFile(
+  file: File,
+): Promise<ParsedImportCsvPreview> {
   const truncated = file.size > IMPORT_UPLOAD_MAX_BYTES
   const buffer = truncated
     ? await file.slice(0, IMPORT_PREVIEW_MAX_BYTES).arrayBuffer()
     : await file.arrayBuffer()
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(buffer).replace(/^\uFEFF/, '')
-  const firstLine = text.split(/\r?\n/)[0] ?? ''
-  const delimiter = detectDelimiter(firstLine)
+  const text = new TextDecoder('utf-8', { fatal: false })
+    .decode(buffer)
+    .replace(/^\uFEFF/, '')
+  const delimiter = detectDelimiter(firstCsvRecord(text))
   const records = parseCsvRecords(text, delimiter)
-  const headers = records[0]?.map((cell) => cell.trim()) ?? []
+  const headers = restoreReportSourceHeaders(
+    records[0]?.map((cell) => cell.trim()) ?? [],
+  )
   const rows = records.slice(1)
   if (truncated && rows.length > 0) {
     rows.pop()

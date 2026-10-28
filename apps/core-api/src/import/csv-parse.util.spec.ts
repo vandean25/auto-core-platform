@@ -1,7 +1,22 @@
 import { parseCsvFile, rowToRecord, serializeCsv } from './csv-parse.util.js';
 import { buildImportErrorReportCsv } from './import-job.serializer.js';
+import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
 
 describe('csv-parse.util', () => {
+  it.each([
+    ['full upload', parseCsvFile],
+    ['header assessment', parseCsvBufferHeadersOnly],
+  ] as const)(
+    '%s detects comma separators from the complete multiline header',
+    (_name, parse) => {
+      const parsed = parse(
+        Buffer.from('"Description,\ncontinued",ID\nSample,A-1\n'),
+      );
+      expect(parsed.delimiter).toBe(',');
+      expect(parsed.headers).toEqual(['Description,\ncontinued', 'ID']);
+    },
+  );
+
   it('reimports semicolon reports whose original headers contain many commas', () => {
     const headers = ['Source ID', 'Description,a,b,c,d,e,f,g', 'Unused'];
     const csv = buildImportErrorReportCsv(

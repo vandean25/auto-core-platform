@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import iconv from 'iconv-lite';
+import { csvRecordEnd } from './csv-record-bytes.js';
 
 export type ParsedCsv = {
   headers: string[];
@@ -150,9 +151,11 @@ export function parseCsvFile(buffer: Buffer): ParsedCsv {
     };
   }
 
-  const firstLineEnd = text.indexOf('\n');
-  const headerLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
-  const delimiter = detectDelimiterFromHeaderLine(headerLine);
+  const headerEnd = csvRecordEnd(buffer, 0);
+  const headerRecord = decodeCsvBuffer(
+    headerEnd < 0 ? buffer : buffer.subarray(0, headerEnd),
+  );
+  const delimiter = detectDelimiterFromHeaderLine(headerRecord);
   const records = parseCsvRecords(text, delimiter);
 
   if (records.length === 0) {
