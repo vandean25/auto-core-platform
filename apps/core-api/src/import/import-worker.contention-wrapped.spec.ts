@@ -16,4 +16,13 @@ describe('import worker contention (wrapped errors)', () => {
     expect(isImportWorkerContentionError(wrapped)).toBe(false);
     expect(isRetryableImportWorkerError(wrapped)).toBe(true);
   });
+
+  it('classifies a worker GCS read failure as retryable', () => {
+    const reset = Object.assign(new Error('socket hang up'), {
+      code: 'ECONNRESET',
+    });
+    const unavailable = Object.assign(new Error('storage'), { code: 503 });
+    expect(isRetryableImportWorkerError(reset)).toBe(true);
+    expect(isRetryableImportWorkerError(unavailable)).toBe(true);
+  });
 });

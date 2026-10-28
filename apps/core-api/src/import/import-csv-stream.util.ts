@@ -4,9 +4,11 @@ import type { ParsedCsv } from './csv-parse.util.js';
 import {
   CsvIncrementalParser,
   readCsvDataRowSliceFromStream,
+  type CsvSliceResume,
 } from './csv-incremental.parser.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import { readImportMaxRowCount } from './import-limits.js';
 
 function nextDataRowCount(dataRowCount: number, maxDataRows: number): number {
@@ -33,16 +35,23 @@ export function applyEmittedCsvRecordCount(
   return count;
 }
 
+export type ImportCsvDataSlice = ParsedCsv & {
+  nextByteOffset: number;
+  streamBytesRead: number;
+};
+
 export async function readImportCsvDataRowSlice(
   stream: NodeJS.ReadableStream,
   skipDataRows: number,
   takeDataRows: number,
   fileSha256 = '',
-): Promise<ParsedCsv | null> {
+  resume?: CsvSliceResume,
+): Promise<ImportCsvDataSlice | null> {
   const slice = await readCsvDataRowSliceFromStream(
     stream,
     skipDataRows,
     takeDataRows,
+    resume,
   );
   if (!slice) {
     return null;
@@ -52,7 +61,35 @@ export async function readImportCsvDataRowSlice(
     rows: slice.rows,
     delimiter: slice.delimiter,
     sha256: fileSha256,
+    nextByteOffset: slice.nextByteOffset,
+    streamBytesRead: slice.streamBytesRead,
   };
+}
+
+export async function readWorkerCsvBatch(
+  open: (start: number) => NodeJS.ReadableStream,
+  worker: ImportJobWorkerState,
+  takeDataRows: number,
+  fileSha256: string,
+): Promise<ImportCsvDataSlice | null> {
+  const byteStart = worker.csv_next_byte ?? 0;
+  const ranged =
+    byteStart > 0 &&
+    worker.csv_headers !== undefined &&
+    worker.csv_delimiter !== undefined;
+  return readImportCsvDataRowSlice(
+    open(ranged ? byteStart : 0),
+    ranged ? 0 : worker.processed_rows,
+    takeDataRows,
+    fileSha256,
+    ranged
+      ? {
+          headers: worker.csv_headers,
+          delimiter: worker.csv_delimiter,
+          absoluteStart: byteStart,
+        }
+      : undefined,
+  );
 }
 
 export async function assessImportCsvFromReadable(

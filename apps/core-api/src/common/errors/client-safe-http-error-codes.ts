@@ -21,6 +21,7 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'HTTP_500',
   'HTTP_502',
   'HTTP_503',
+  'IMPORT_STORAGE_UNAVAILABLE',
   'HTTP_504',
   'PRISMA_P2000',
   'PRISMA_P2002',

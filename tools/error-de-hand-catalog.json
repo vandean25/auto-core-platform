@@ -152,6 +152,7 @@
   "IMPORT_DUPLICATE_CODE_IN_FILE": "Doppelter AW-Code in der Importdatei.",
   "IMPORT_DUPLICATE_VIN_IN_FILE": "Doppelte Fahrgestellnummer in der Importdatei.",
   "IMPORT_EMPTY_FILE": "Die Importdatei ist leer.",
+  "IMPORT_STORAGE_UNAVAILABLE": "Die Importdatei konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
   "IMPORT_EXISTING_NOT_UPDATED": "Bestehender Kunde gefunden, aber „Bestehende aktualisieren“ ist nicht aktiviert.",
   "IMPORT_EXTERNAL_ID_REQUIRED": "Die externe Nummer ist erforderlich.",
   "IMPORT_FIRST_REGISTRATION_DATE_FUTURE": "Das Erstzulassungsdatum darf nicht in der Zukunft liegen.",

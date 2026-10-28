@@ -192,6 +192,7 @@
     "IMPORT_PRICE_JUMP_REQUIRES_ACCEPTANCE": "Import price jump requires acceptance.",
     "IMPORT_ROW_LIMIT_EXCEEDED": "Import row limit exceeded.",
     "IMPORT_ROW_STALE": "Import row stale.",
+    "IMPORT_STORAGE_UNAVAILABLE": "Import storage unavailable.",
     "IMPORT_SUPPLIER_ARTICLE_NO_REQUIRED": "Import supplier article no required.",
     "IMPORT_SUPPLIER_VENDOR_REQUIRED": "Import supplier vendor required.",
     "IMPORT_UNKNOWN_OWNER": "owner customer external_id does not resolve in this tenant",

@@ -8,8 +8,24 @@ export function isTransientImportStorageReadError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
-  const code = (error as Error & { code?: string }).code;
-  if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') {
+  const coded = error as Error & { code?: string | number; status?: number };
+  if (
+    coded.code === 'ECONNRESET' ||
+    coded.code === 'ETIMEDOUT' ||
+    coded.code === 'ENOTFOUND'
+  ) {
+    return true;
+  }
+  if (
+    coded.code === 429 ||
+    (typeof coded.code === 'number' && coded.code >= 500)
+  ) {
+    return true;
+  }
+  if (
+    coded.status === 429 ||
+    (typeof coded.status === 'number' && coded.status >= 500)
+  ) {
     return true;
   }
   const message = error.message.toLowerCase();

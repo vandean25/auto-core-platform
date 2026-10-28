@@ -82,7 +82,8 @@ import {
   scheduleBackgroundDryRunAfterRowBatches,
 } from './import-background-dry-run.reconcile.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
-import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
+import { readWorkerCsvBatch } from './import-csv-stream.util.js';
+import { rethrowImportStorageFailure } from './import-gcs-retry.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 import {
   ImportFileStorageService,
@@ -603,7 +604,7 @@ export class ImportService {
       if (params.stagingRequest) {
         await unlinkImportMulterStagingFile(params.stagingRequest);
       }
-      throw error;
+      rethrowImportStorageFailure(error);
     }
   }
 
@@ -855,9 +856,9 @@ export class ImportService {
     const startOffset = worker.processed_rows;
     const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
     const workerBatchSize = readImportWorkerBatchSize();
-    const parsedBatch = await readImportCsvDataRowSlice(
-      this.fileStorage.openReadStream(upload),
-      startOffset,
+    const parsedBatch = await readWorkerCsvBatch(
+      (start) => this.fileStorage.openReadStream(upload, start),
+      worker,
       workerBatchSize,
       job.file_sha256,
     );
@@ -921,6 +922,11 @@ export class ImportService {
           mergedTotals,
           processed,
           totalRows: totals.rows,
+          csvCheckpoint: {
+            csv_next_byte: parsedBatch.nextByteOffset,
+            csv_headers: parsedBatch.headers,
+            csv_delimiter: parsedBatch.delimiter,
+          },
           onAllRowBatchesDone: () =>
             scheduleBackgroundDryRunAfterRowBatches({
               jobStore: this.jobStore,

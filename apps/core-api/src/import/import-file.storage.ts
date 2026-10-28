@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
+import { withTransientGcsAttempts } from './import-gcs-retry.js';
 
 export type StoredImportFileRef = {
   object_key: string;
@@ -142,7 +143,10 @@ export interface ImportFileStorage {
     through?: Transform;
   }): Promise<StoredImportFileRef>;
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream;
+  openReadStream(
+    ref: StoredImportFileRef,
+    start?: number,
+  ): NodeJS.ReadableStream;
 
   readBytes(ref: StoredImportFileRef): Promise<Buffer>;
 
@@ -157,9 +161,56 @@ function resolveImportUploadBucket(): string {
   return resolvePdfStorageBucket();
 }
 
+const IMPORT_UPLOAD_SAVE_OPTIONS = {
+  resumable: false as const,
+  preconditionOpts: { ifGenerationMatch: 0 },
+  metadata: {
+    contentType: 'text/csv',
+    cacheControl: 'private, no-store',
+  },
+};
+
+type ImportObjectFile = {
+  save: (
+    data: Buffer,
+    options: typeof IMPORT_UPLOAD_SAVE_OPTIONS,
+  ) => Promise<unknown>;
+  delete: (options: { ignoreNotFound: boolean }) => Promise<unknown>;
+  createWriteStream: (options: typeof IMPORT_UPLOAD_SAVE_OPTIONS) => Writable;
+};
+
+function releaseWritable(stream: Writable): void {
+  const swallow = () => undefined;
+  stream.on('error', swallow);
+  stream.destroy();
+  setImmediate(() => {
+    stream.removeAllListeners();
+  });
+}
+
+async function writeImportObject(
+  file: ImportObjectFile,
+  source: NodeJS.ReadableStream,
+  through?: Transform,
+): Promise<void> {
+  const writeStream = file.createWriteStream(IMPORT_UPLOAD_SAVE_OPTIONS);
+  const onError = () => undefined;
+  writeStream.once('error', onError);
+  try {
+    if (through) {
+      await pipeline(source as Readable, through, writeStream);
+      return;
+    }
+    await pipeline(source as Readable, writeStream);
+  } finally {
+    writeStream.off('error', onError);
+    releaseWritable(writeStream);
+  }
+}
+
 @Injectable()
 export class GcsImportFileStorage implements ImportFileStorage {
-  private readonly storage = new Storage();
+  protected storage: Storage = new Storage();
 
   async storeUpload(params: {
     tenantId: string;
@@ -167,22 +218,9 @@ export class GcsImportFileStorage implements ImportFileStorage {
     fileName: string;
     content: Buffer;
   }): Promise<StoredImportFileRef> {
-    SideEffectGuard.assertAllowed('GCS_WRITE');
-    const bucketName = resolveImportUploadBucket();
-    const objectKey = buildGcsImportObjectKey({
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      fileName: params.fileName,
-    });
-    const bucket = this.storage.bucket(bucketName);
-    await bucket.file(objectKey).save(params.content, {
-      resumable: false,
-      metadata: {
-        contentType: 'text/csv',
-        cacheControl: 'private, no-store',
-      },
-    });
-    return { object_key: objectKey };
+    return this.putNewObject(params, (file) =>
+      file.save(params.content, IMPORT_UPLOAD_SAVE_OPTIONS),
+    );
   }
 
   async storeUploadFromStream(params: {
@@ -192,38 +230,34 @@ export class GcsImportFileStorage implements ImportFileStorage {
     source: NodeJS.ReadableStream;
     through?: Transform;
   }): Promise<StoredImportFileRef> {
-    SideEffectGuard.assertAllowed('GCS_WRITE');
-    const bucketName = resolveImportUploadBucket();
-    const objectKey = buildGcsImportObjectKey({
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      fileName: params.fileName,
-    });
-    const writeStream = this.storage
-      .bucket(bucketName)
-      .file(objectKey)
-      .createWriteStream({
-        resumable: false,
-        metadata: {
-          contentType: 'text/csv',
-          cacheControl: 'private, no-store',
-        },
-      });
-    if (params.through) {
-      await pipeline(params.source as Readable, params.through, writeStream);
-    } else {
-      await pipeline(params.source as Readable, writeStream);
-    }
-    return { object_key: objectKey };
+    return this.putNewObject(params, (file) =>
+      writeImportObject(file, params.source, params.through),
+    );
   }
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
+  private putNewObject(
+    params: { tenantId: string; jobId: string; fileName: string },
+    write: (file: ImportObjectFile) => Promise<unknown>,
+  ): Promise<StoredImportFileRef> {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
+    const objectKey = buildGcsImportObjectKey(params);
+    const file = this.storage
+      .bucket(resolveImportUploadBucket())
+      .file(objectKey);
+    return withTransientGcsAttempts(
+      params.jobId,
+      () => write(file),
+      () => file.delete({ ignoreNotFound: true }).then(() => undefined),
+    ).then(() => ({ object_key: objectKey }));
+  }
+
+  openReadStream(ref: StoredImportFileRef, start = 0): NodeJS.ReadableStream {
     assertSafeGcsImportObjectKey(ref.object_key);
     const bucketName = resolveImportUploadBucket();
     return this.storage
       .bucket(bucketName)
       .file(ref.object_key)
-      .createReadStream();
+      .createReadStream(start > 0 ? { start } : {});
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
@@ -298,8 +332,10 @@ export class LocalImportFileStorage implements ImportFileStorage {
     return { object_key: objectKey };
   }
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
-    return createReadStream(resolveLocalImportPath(this.root, ref.object_key));
+  openReadStream(ref: StoredImportFileRef, start = 0): NodeJS.ReadableStream {
+    return createReadStream(resolveLocalImportPath(this.root, ref.object_key), {
+      start,
+    });
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
@@ -350,8 +386,8 @@ export class ImportFileStorageService implements ImportFileStorage {
     return this.delegate.storeUploadFromStream(params);
   }
 
-  openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
-    return this.delegate.openReadStream(ref);
+  openReadStream(ref: StoredImportFileRef, start = 0): NodeJS.ReadableStream {
+    return this.delegate.openReadStream(ref, start);
   }
 
   readBytes(ref: StoredImportFileRef): Promise<Buffer> {

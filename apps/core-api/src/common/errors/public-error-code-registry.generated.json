@@ -757,6 +757,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_STORAGE_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_SUPPLIER_ARTICLE_NO_REQUIRED": {
       "public": true,
       "params": []

@@ -588,7 +588,7 @@ describe('GlobalExceptionFilter', () => {
       filter.catch(exception, mockHost);
 
       expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockCaptureException).toHaveBeenCalledWith(exception);
+      expect(mockCaptureException.mock.calls[0]?.[0]).toBe(exception);
       expect(mockJson).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
@@ -608,7 +608,7 @@ describe('GlobalExceptionFilter', () => {
       filter.catch(exception, mockHost);
 
       expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockCaptureException).toHaveBeenCalledWith(exception);
+      expect(mockCaptureException.mock.calls[0]?.[0]).toBe(exception);
     });
 
     it('maps request.size.invalid to 400 without Sentry capture', () => {
@@ -688,7 +688,7 @@ describe('GlobalExceptionFilter', () => {
       filter.catch(exception, mockHost);
 
       expect(mockStatus).toHaveBeenCalledWith(500);
-      expect(mockCaptureException).toHaveBeenCalledWith(exception);
+      expect(mockCaptureException.mock.calls[0]?.[0]).toBe(exception);
       expect(mockJson).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
@@ -1204,7 +1204,7 @@ describe('GlobalExceptionFilter', () => {
         filter.catch(exception, mockHost);
 
         expect(mockCaptureException).toHaveBeenCalledTimes(1);
-        expect(mockCaptureException).toHaveBeenCalledWith(exception);
+        expect(mockCaptureException.mock.calls[0]?.[0]).toBe(exception);
         expect(body()).toMatchObject({ statusCode: 500, eventId: 'evt-1' });
 
         mockCaptureException.mockClear();
@@ -1213,7 +1213,7 @@ describe('GlobalExceptionFilter', () => {
           HttpStatus.GATEWAY_TIMEOUT,
         );
         filter.catch(gatewayTimeout, mockHost);
-        expect(mockCaptureException).toHaveBeenCalledWith(gatewayTimeout);
+        expect(mockCaptureException.mock.calls.at(-1)?.[0]).toBe(gatewayTimeout);
       });
 
       it('captures the original exception even when the response is masked in production', () => {
@@ -1226,7 +1226,7 @@ describe('GlobalExceptionFilter', () => {
         filter.catch(exception, mockHost);
 
         expect(mockCaptureException).toHaveBeenCalledTimes(1);
-        expect(mockCaptureException).toHaveBeenCalledWith(exception);
+        expect(mockCaptureException.mock.calls[0]?.[0]).toBe(exception);
         expect(body()).toMatchObject({
           message: 'Something went wrong',
           eventId: 'evt-prod',
@@ -1241,7 +1241,7 @@ describe('GlobalExceptionFilter', () => {
         });
         filter.catch(exception, mockHost);
 
-        expect(mockCaptureException).toHaveBeenCalledWith(exception);
+        expect(mockCaptureException.mock.calls[0]?.[0]).toBe(exception);
       });
 
       it('omits the event id when capture returns nothing or throws', () => {
