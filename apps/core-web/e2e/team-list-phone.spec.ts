@@ -32,10 +32,28 @@ test.describe('Team list on a phone (AUT-768)', () => {
       await expect(rows.first()).toContainText('Anna Muster')
       await expect(rows.first()).toContainText('anna.muster@werkstatt.example')
       await expect(rows.first()).toContainText('ADMIN')
+      await expect(rows.first()).toContainText('Aktiv')
+      // Title above, role below it (not swapped), and the status badge does not touch the list border.
+      const first = (await rows.first().boundingBox())!
+      const role = (await rows.first().getByText('ADMIN').boundingBox())!
+      const nameBox = (await rows.first().getByText('Anna Muster').boundingBox())!
+      expect(role.y).toBeGreaterThan(nameBox.y)
+      const badge = (await rows.first().getByText('Aktiv').boundingBox())!
+      expect(first.x + first.width - (badge.x + badge.width), 'space right of the status badge').toBeGreaterThanOrEqual(10)
       await expect(rows.nth(1)).toContainText('Tim Techniker')
       await expectNoPageScroll(page)
     })
   }
+
+  test('a member without a name shows the e-mail once', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), (route) =>
+      route.fulfill(json({ data: [{ ...member('m3', 'Nameless', 'Person', 'SALES'), firstName: null, lastName: null, email: 'invited@werkstatt.example' }], meta: { total: 1, page: 1, limit: 100, pageCount: 1 } })),
+    )
+    await new AutoCorePage(page, '').navigate('/settings?tab=team')
+    await expect(page.locator('[data-table-row="true"]').first()).toBeVisible()
+    await expect(page.getByText('invited@werkstatt.example')).toHaveCount(1)
+  })
 })
 
 test.describe('List row polish on a phone (AUT-768)', () => {
@@ -51,7 +69,10 @@ test.describe('List row polish on a phone (AUT-768)', () => {
     const row = page.locator('[data-table-row="true"]').first()
     await expect(row).toBeVisible()
     const title = row.getByText(/Multivan California Beach Camper/)
-    // The whole title fits in at most two lines (nothing is clipped).
+    // The title wraps (up to two lines) instead of being cut off on one line.
+    const titleBox = (await title.boundingBox())!
+    expect(await title.evaluate((node) => getComputedStyle(node).whiteSpace), 'title does not wrap').not.toBe('nowrap')
+    expect(titleBox.height, 'title spans two lines').toBeGreaterThan(30)
     expect(await title.evaluate((node) => node.scrollHeight - node.clientHeight), 'title clipped').toBeLessThanOrEqual(0)
     // The trailing value (plate, or "k. A." without one) is not tiny.
     const trailing = row.getByText('k. A.')

@@ -190,7 +190,9 @@ export function TeamSettingsTab() {
         cell: ({ row }) => (
           <div>
             <div className='font-medium'>{getDisplayName(row.original)}</div>
-            <div className='text-xs text-slate-500'>{row.original.email}</div>
+            {getDisplayName(row.original) !== row.original.email ? (
+              <div className='text-xs text-slate-500'>{row.original.email}</div>
+            ) : null}
           </div>
         ),
       },

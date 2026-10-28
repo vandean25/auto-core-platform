@@ -22,7 +22,7 @@ type DataTableListProps<TData extends object> = {
   rowBehaviour?: DataTableRowBehaviour<TData>
 }
 
-const rowPrimaryClassName = 'flex min-h-14 min-w-40 flex-1 items-center gap-3 py-2 pl-3 text-left'
+const rowPrimaryClassName = 'flex min-h-14 min-w-40 flex-1 items-center gap-3 py-2 pl-3 text-left last:pr-3'
 
 function TappableRow({ onActivate, children }: { onActivate: () => void; children: ReactNode }) {
   return (
