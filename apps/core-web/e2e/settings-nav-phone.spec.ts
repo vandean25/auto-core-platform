@@ -42,7 +42,7 @@ test.describe('Settings navigation on a phone (AUT-754)', () => {
     await select.click()
     const options = page.getByRole('option')
     // All sections of an admin are in the list, including the ones the strip used to hide.
-    await expect(options).toHaveCount(17)
+    await expect(options).toHaveCount(18)
     expect((await options.first().boundingBox())!.height, 'option height').toBeGreaterThanOrEqual(44)
     await options.filter({ hasText: deSettings.tabs.auditLogs }).click()
 
