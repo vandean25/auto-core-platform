@@ -11,37 +11,34 @@ export function isTransientImportStorageReadError(error: unknown): boolean {
   );
 }
 
+const TRANSIENT_STORAGE_CODE = new Set([
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+]);
+
+function retryableStorageSignal(value: unknown): boolean {
+  if (typeof value === 'number') {
+    return value === 429 || value >= 500;
+  }
+  return typeof value === 'string' && TRANSIENT_STORAGE_CODE.has(value);
+}
+
+function storageMessageIsTransient(message: string): boolean {
+  return /socket hang up|econnreset|timeout|503|429/.test(
+    message.toLowerCase(),
+  );
+}
+
 function storageReadErrorIsTransient(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
-  const coded = error as Error & { code?: string | number; status?: number };
-  if (
-    coded.code === 'ECONNRESET' ||
-    coded.code === 'ETIMEDOUT' ||
-    coded.code === 'ENOTFOUND'
-  ) {
-    return true;
-  }
-  if (
-    coded.code === 429 ||
-    (typeof coded.code === 'number' && coded.code >= 500)
-  ) {
-    return true;
-  }
-  if (
-    coded.status === 429 ||
-    (typeof coded.status === 'number' && coded.status >= 500)
-  ) {
-    return true;
-  }
-  const message = error.message.toLowerCase();
+  const coded = error as { code?: unknown; status?: unknown };
   return (
-    message.includes('socket hang up') ||
-    message.includes('econnreset') ||
-    message.includes('timeout') ||
-    message.includes('503') ||
-    message.includes('429')
+    retryableStorageSignal(coded.code) ||
+    retryableStorageSignal(coded.status) ||
+    storageMessageIsTransient(error.message)
   );
 }
 
