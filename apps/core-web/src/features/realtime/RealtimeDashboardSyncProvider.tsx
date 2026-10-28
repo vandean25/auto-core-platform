@@ -14,6 +14,7 @@ import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
+import { createRealtimeResync } from '@/features/realtime/realtime-resync'
 import { buildRealtimeSocketOptions, createHandshakeRetry } from '@/features/realtime/realtime-socket-options'
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
@@ -44,6 +45,8 @@ const SITE_SCOPED_QUERY_KEYS: QueryKey[] = [
 type RealtimeConnection = {
   url: string
   path: string
+  /** Set when `VITE_SOCKET_BASE_URL` points the socket straight at core-api. */
+  direct?: true
 }
 
 type ResolveRealtimeConnectionOptions = {
@@ -65,6 +68,7 @@ export function resolveRealtimeConnection({
     return {
       url: `${targetBaseUrl}/dashboard-realtime`,
       path: '/api/socket.io',
+      ...(socketBaseUrl ? { direct: true as const } : {}),
     }
   }
 
@@ -141,12 +145,23 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       connection.url,
       buildRealtimeSocketOptions({
         path: connection.path,
+        direct: connection.direct,
         getIdToken: async () => (await firebaseAuth?.currentUser?.getIdToken()) ?? null,
       }),
     )
     const handshakeRetry = createHandshakeRetry(socket)
     socket.on('connect', handshakeRetry.onConnect)
     socket.on('connect_error', handshakeRetry.onConnectError)
+    socket.on('disconnect', handshakeRetry.onDisconnect)
+
+    // Events emitted while the socket was away are gone: catch up on every reconnect and when the tab shows again.
+    const resync = createRealtimeResync({
+      invalidate: (queryKey) => echoSafeInvalidatorRef.current?.invalidate(queryKey),
+      isConnected: () => socket.connected,
+      reconnectSocket: handshakeRetry.reconnect,
+    })
+    socket.on('connect', resync.onConnect)
+    resync.start()
 
     // Echoes of the user's own optimistic mutations must not refetch over the optimistic state.
     const onEntityUpdated = (payload: unknown) => {
@@ -251,6 +266,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       socket.off(SITE_ACCESS_SCOPE_UPDATED_EVENT, onSiteAccessScopeUpdated)
       socket.off('connect', handshakeRetry.onConnect)
       socket.off('connect_error', handshakeRetry.onConnectError)
+      socket.off('connect', resync.onConnect)
+      resync.dispose()
       handshakeRetry.dispose()
       socket.disconnect()
     }

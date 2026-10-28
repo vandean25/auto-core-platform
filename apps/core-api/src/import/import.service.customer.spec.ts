@@ -899,7 +899,7 @@ describe('ImportService customer import (characterization)', () => {
 
       await h.service.applyJob(JOB_ID);
 
-      expect(h.prisma.$transaction).toHaveBeenCalledTimes(3);
+      expect(h.prisma.$transaction).toHaveBeenCalledTimes(4);
     });
   });
 });

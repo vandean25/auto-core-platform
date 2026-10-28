@@ -1,4 +1,4 @@
-import type { QueryKey } from "@tanstack/react-query";
+import { hashKey, type QueryKey } from "@tanstack/react-query";
 import { creditNoteKeys } from "@/api/useCreditNotes";
 import { customerKeys } from "@/api/customers";
 import { hrKeys } from "@/api/hr";
@@ -13,6 +13,8 @@ import { vehicleKeys } from "@/api/vehicles";
 import { vehicleStockKeys } from "@/api/vehicle-stock";
 import { vendorKeys } from "@/api/vendors";
 import { workshopKeys } from "@/api/workshop";
+import { authSessionKeys } from "@/api/auth-session";
+import { siteKeys } from "@/api/sites";
 import { dashboardWidgetKeys } from "@/features/dashboard-widgets/dashboard-widget-keys";
 import type {
   EntityUpdatedPayload,
@@ -158,6 +160,33 @@ export function getQueryKeysToInvalidateForEntityType(
     (sourceKey) => dashboardWidgetKeys.source(sourceKey),
   );
   return [...dashboardQueryKeys, ...target.domainQueryKeys];
+}
+
+/**
+ * Every query that a realtime event can invalidate, as targeted prefixes: the domain keys of the entity map, the
+ * dashboard widget data, and the session and site directory that claims and site events refresh. A reconnect
+ * invalidates exactly these (never the whole cache) to catch up on events missed while the socket was away.
+ */
+export function getRealtimeResyncQueryKeys(): QueryKey[] {
+  const unique = new Map<string, QueryKey>();
+  const add = (queryKey: QueryKey) => unique.set(hashKey(queryKey), queryKey);
+
+  for (const target of Object.values(entityInvalidationMap)) {
+    target.domainQueryKeys.forEach(add);
+  }
+  [dashboardWidgetKeys.all, authSessionKeys.all, siteKeys.all].forEach(add);
+
+  // A key under a shorter prefix in the list is covered by it: invalidating both would restart the same refetch.
+  const keys = [...unique.values()];
+  return keys.filter(
+    (queryKey) =>
+      !keys.some(
+        (other) =>
+          other !== queryKey &&
+          other.length < queryKey.length &&
+          other.every((part, index) => hashKey([part]) === hashKey([queryKey[index]])),
+      ),
+  );
 }
 
 export function isEntityUpdatedPayload(
