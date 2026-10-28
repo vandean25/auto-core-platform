@@ -59,9 +59,12 @@ export async function assertFailedImportJobCanReApply(params: {
 }
 
 /** Only a dry-run job that is not already applying or applied can be applied. */
-export function assertJobCanBeApplied(status: ImportJobStatus): void {
+export function assertJobCanBeApplied(
+  status: ImportJobStatus,
+  leaseExpiresAt: string | null = null,
+): void {
   if (status === ImportJobStatus.APPLYING) {
-    throw applyInProgress();
+    throw applyInProgress(leaseExpiresAt);
   }
   if (status === ImportJobStatus.APPLIED) {
     throw new ConflictException({

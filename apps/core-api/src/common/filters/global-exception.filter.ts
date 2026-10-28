@@ -38,8 +38,8 @@ type ResolvedError = {
   message: string | string[];
   error?: string;
   code?: string;
-  details?: Record<string, string>;
-  params?: Record<string, string>;
+  details?: Record<string, string | null>;
+  params?: Record<string, string | null>;
   structuredDetails?: Record<string, unknown>;
 };
 
@@ -176,8 +176,8 @@ function whenCode(code: string | undefined): { code?: string } {
   return code ? { code } : {};
 }
 
-function whenParams(params: Record<string, string> | undefined): {
-  params?: Record<string, string>;
+function whenParams(params: Record<string, string | null> | undefined): {
+  params?: Record<string, string | null>;
 } {
   if (!params || Object.keys(params).length === 0) {
     return {};

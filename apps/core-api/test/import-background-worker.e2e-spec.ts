@@ -318,6 +318,43 @@ describe('Import background worker (e2e)', () => {
     await expectOneApplyPerRow(jobId);
   });
 
+  it('answers a re-apply on a running import with 202 instead of IMPORT_APPLY_IN_PROGRESS', async () => {
+    const jobId = await uploadBackgroundJob([
+      ['BG-LIVE-1', 'PRIVATE', 'Lena', 'Live', 'live1@example.com', '', '', 'AT'],
+      ['BG-LIVE-2', 'PRIVATE', 'Luis', 'Live', 'live2@example.com', '', '', 'AT'],
+    ]);
+
+    const dryRunDone = await runDryRunUntilDone(jobId);
+    expect(dryRunDone?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+
+    const leaseUntil = new Date(Date.now() + 5 * 60_000).toISOString();
+    await tenantPrisma().importJob.update({
+      where: { id: jobId },
+      data: {
+        status: ImportJobStatus.APPLYING,
+        options_json: {
+          ...(dryRunDone?.options_json as Record<string, unknown>),
+          worker: {
+            phase: 'apply',
+            lease_token: 'live-apply-lease',
+            lease_until: leaseUntil,
+            processed_rows: 0,
+            started_at: new Date().toISOString(),
+          },
+        },
+      },
+    });
+
+    const response = await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(202);
+
+    expect(response.body.status).toBe(ImportJobStatus.APPLYING);
+    expect(response.body.code).toBeUndefined();
+    expect(response.body.leaseExpiresAt).toBeUndefined();
+  });
+
   describe('overlapping apply (isolated tenant)', () => {
     let overlapTenant: Awaited<ReturnType<typeof createTestTenant>>;
     let overlapToken: string;
