@@ -90,7 +90,7 @@ describe('WorkshopEstimateList', () => {
     expect(screen.getByText('WO-2026-0007')).toBeInTheDocument()
     expect(screen.getByText('Muster GmbH')).toBeInTheDocument()
     expect(screen.getByText('W-123AB')).toBeInTheDocument()
-    expect(screen.getAllByText('Kunde ausstehend')).toHaveLength(2) // the chip and the row's badge
+    expect(screen.getAllByText('Gesendet')).toHaveLength(2) // the chip and the row's badge
   })
 
   it('opens the work order at the estimate version when a row is clicked', () => {
@@ -148,6 +148,17 @@ describe('WorkshopEstimateList', () => {
     fireEvent.click(screen.getByRole('button', { name: text.loadMore }))
 
     expect(fetchNextPage).toHaveBeenCalledTimes(1)
+  })
+
+  it('says that search and sort cover the loaded entries while more can be loaded', () => {
+    mockList([row({})], { hasNextPage: true })
+    renderList('/workshop/estimates?search=KV')
+    expect(screen.getByText(text.partialHint)).toBeInTheDocument()
+    cleanup()
+
+    mockList([row({})], { hasNextPage: true })
+    renderList()
+    expect(screen.queryByText(text.partialHint)).toBeNull()
   })
 
   it('hides the load-more button on the last page and marks an expired validity', () => {

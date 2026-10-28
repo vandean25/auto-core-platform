@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DateField } from '@/components/ui/date-field'
 import { Label } from '@/components/ui/label'
-import { estimateBadgeLabel } from '@/features/workshop/workshop-estimate-decision'
+import { estimateVersionStatusLabel } from '@/features/workshop/workshop-estimate-decision'
 import {
   ESTIMATE_STATUS_CHIPS,
   hasInvalidSentRange,
@@ -35,7 +35,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             data-testid={`estimate-status-chip-${chip}`}
             onClick={() => onChange({ status: chip })}
           >
-            {chip === 'ALL' ? t('estimateList.filters.all') : estimateBadgeLabel(chip)}
+            {chip === 'ALL' ? t('estimateList.filters.all') : estimateVersionStatusLabel(chip)}
           </Button>
         ))}
       </div>

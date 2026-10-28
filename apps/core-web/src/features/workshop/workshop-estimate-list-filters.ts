@@ -23,15 +23,24 @@ function isStatusChip(value: string | null): value is EstimateStatusChip {
   return value === 'ALL' || ESTIMATE_STATUS_CHIPS.some((chip) => chip === value)
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/** A hand-edited URL must not send a malformed day to the API, or show a customer filter without a name. */
+function isoDayParam(params: URLSearchParams, key: string): string {
+  const value = params.get(key) ?? ''
+  return ISO_DAY.test(value) ? value : ''
+}
+
 export function parseEstimateListView(params: URLSearchParams): EstimateListView {
   const status = params.get('status')
+  const customerName = params.get('customerName') ?? ''
   return {
     status: isStatusChip(status) ? status : DEFAULT_ESTIMATE_STATUS,
     showOlder: params.get('older') === '1',
-    customerId: params.get('customerId') ?? '',
-    customerName: params.get('customerName') ?? '',
-    sentFrom: params.get('sentFrom') ?? '',
-    sentTo: params.get('sentTo') ?? '',
+    customerId: customerName ? (params.get('customerId') ?? '') : '',
+    customerName,
+    sentFrom: isoDayParam(params, 'sentFrom'),
+    sentTo: isoDayParam(params, 'sentTo'),
   }
 }
 

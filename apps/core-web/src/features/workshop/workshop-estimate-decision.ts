@@ -61,6 +61,11 @@ export function formatEstimateMoney(value: string | null | undefined): string {
 const NOTE_MIN_LENGTH = 3
 const NOTE_MAX_LENGTH = 500
 
+/** Status of one estimate version, as the version rows of the work order name it. */
+export function estimateVersionStatusLabel(status: WorkshopEstimateStatus): string {
+  return workshopT(`estimateCard.status.${status}`)
+}
+
 /** The derived badge of the estimate, next to its number. The order itself has no estimate status. */
 export function estimateBadgeLabel(status: WorkshopEstimateStatus): string {
   return i18n.t(`estimateDecision.badge.${status}`, { ns: 'workshop' })

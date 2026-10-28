@@ -1518,7 +1518,7 @@
     },
     "rowAria": "Open estimate {{number}} version {{version}}",
     "empty": "No estimates for this selection.",
-    "emptySearch": "No loaded estimates match the search. “Load more” searches more entries.",
+    "partialHint": "Search and sorting apply to the loaded entries. “Load more” fetches further ones.",
     "loadMore": "Load more",
     "loadingMore": "Loading…",
     "loadErrorTitle": "Estimates unavailable",

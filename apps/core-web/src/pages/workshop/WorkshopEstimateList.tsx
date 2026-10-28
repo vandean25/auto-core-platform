@@ -30,10 +30,11 @@ export default function WorkshopEstimateList() {
   )
 
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
-  const { query, rows, hasLoadedRows } = useEstimateListData(view, queryParams)
+  const { query, rows } = useEstimateListData(view, queryParams)
   const rowBehaviour = useEstimateListRowBehaviour(rows)
   const columns = useMemo(() => createEstimateListColumns(t), [t])
-  const emptyKey = hasLoadedRows ? 'estimateList.emptySearch' : 'estimateList.empty'
+  // Search and sort only see the loaded pages, which matters while there are more.
+  const isPartialView = Boolean(queryParams.search || queryParams.sortField)
 
   return (
     <>
@@ -48,13 +49,17 @@ export default function WorkshopEstimateList() {
             isLoading={query.isLoading}
             enableCsvExport={false}
             searchPlaceholder={t('estimateList.searchPlaceholder')}
-            emptyState={query.isError ? undefined : { message: t(emptyKey) }}
+            emptyState={query.isError ? undefined : { message: t('estimateList.empty') }}
             rowBehaviour={rowBehaviour}
             {...tableState}
           />
         </DataTablePaginationHidden>
         {query.hasNextPage ? (
-          <EstimateListLoadMore isLoading={query.isFetchingNextPage} onLoadMore={() => void query.fetchNextPage()} />
+          <EstimateListLoadMore
+            isLoading={query.isFetchingNextPage}
+            isPartialView={isPartialView}
+            onLoadMore={() => void query.fetchNextPage()}
+          />
         ) : null}
       </div>
     </>

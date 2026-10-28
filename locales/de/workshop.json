@@ -1518,7 +1518,7 @@
     },
     "rowAria": "Kostenvoranschlag {{number}} Version {{version}} öffnen",
     "empty": "Keine Kostenvoranschläge für diese Auswahl.",
-    "emptySearch": "Keine geladenen Kostenvoranschläge passen zur Suche. Mit „Weitere laden“ suchen Sie in mehr Einträgen.",
+    "partialHint": "Suche und Sortierung gelten für die geladenen Einträge. Mit „Weitere laden“ holen Sie weitere.",
     "loadMore": "Weitere laden",
     "loadingMore": "Wird geladen…",
     "loadErrorTitle": "Kostenvoranschläge nicht verfügbar",

@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { useWorkshopEstimateList } from '@/api/workshop-estimates'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { toEstimateListRow, type EstimateListRow } from '@/features/actions/estimate-row-actions'
-import { estimateBadgeLabel } from '@/features/workshop/workshop-estimate-decision'
+import { estimateVersionStatusLabel } from '@/features/workshop/workshop-estimate-decision'
 import { toEstimateApiFilters, type EstimateListView } from '@/features/workshop/workshop-estimate-list-filters'
 import { filterEstimateRows, sortEstimateRows } from '@/features/workshop/workshop-estimate-list-rows'
 
@@ -15,10 +15,10 @@ export function useEstimateListData(view: EstimateListView, queryParams: DataTab
   const loaded = useMemo(() => (query.data?.pages ?? []).flatMap((page) => page.data), [query.data])
   const rows = useMemo<EstimateListRow[]>(
     () =>
-      sortEstimateRows(filterEstimateRows(loaded, search, estimateBadgeLabel), sortField, sortDirection).map(
+      sortEstimateRows(filterEstimateRows(loaded, search, estimateVersionStatusLabel), sortField, sortDirection).map(
         toEstimateListRow,
       ),
     [loaded, search, sortDirection, sortField],
   )
-  return { query, rows, hasLoadedRows: loaded.length > 0 }
+  return { query, rows }
 }

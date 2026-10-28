@@ -4,7 +4,7 @@ import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { EstimateListRow } from '@/features/actions/estimate-row-actions'
-import { estimateBadgeLabel, formatEstimateMoney } from '@/features/workshop/workshop-estimate-decision'
+import { estimateVersionStatusLabel, formatEstimateMoney } from '@/features/workshop/workshop-estimate-decision'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -46,7 +46,7 @@ export function createEstimateListColumns(t: TFunction<'workshop'>): ColumnDef<E
       meta: { mobile: 'status', label: t('estimateList.columns.status') },
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('estimateList.columns.status')} />,
       cell: ({ row }) => (
-        <StatusBadge status={row.original.status} label={estimateBadgeLabel(row.original.status)} />
+        <StatusBadge status={row.original.status} label={estimateVersionStatusLabel(row.original.status)} />
       ),
     },
     {

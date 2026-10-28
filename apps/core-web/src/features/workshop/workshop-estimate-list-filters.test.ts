@@ -49,6 +49,13 @@ describe('estimate list filters', () => {
     expect(parseEstimateListView(new URLSearchParams('status=BOGUS')).status).toBe('SENT')
   })
 
+  it('ignores malformed days and a customer id without a name in the URL', () => {
+    const view = parseEstimateListView(new URLSearchParams('sentFrom=garbage&sentTo=2026-10-31&customerId=c-1'))
+    expect(view.sentFrom).toBe('')
+    expect(view.sentTo).toBe('2026-10-31')
+    expect(view.customerId).toBe('')
+  })
+
   it('sends the sent range only as a valid pair', () => {
     expect(toEstimateApiFilters({ ...emptyView, sentFrom: '2026-10-01' })).toEqual({ status: 'SENT' })
     expect(hasInvalidSentRange({ sentFrom: '2026-10-01', sentTo: '' })).toBe(true)
