@@ -293,6 +293,11 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.laborCategory.deleteMany();
     },
   },
+  { table: 'push_devices', clean: (p) => p.pushDevice.deleteMany() },
+  {
+    table: 'push_preferences',
+    clean: (p) => p.pushPreference.deleteMany(),
+  },
   {
     table: 'notification_outbox',
     clean: (p) => p.notificationOutbox.deleteMany(),

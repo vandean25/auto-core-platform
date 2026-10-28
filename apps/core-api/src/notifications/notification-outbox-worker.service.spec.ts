@@ -41,6 +41,7 @@ describe('NotificationOutboxWorkerService', () => {
   let providers: { resolve: jest.Mock };
   let wakeUps: { enqueueWakeUp: jest.Mock };
   let systemPrisma: { tenant: { findFirst: jest.Mock } };
+  let push: { deliver: jest.Mock };
   let service: NotificationOutboxWorkerService;
 
   /** Claim succeeds, the row is found, and the final write succeeds unless a test overrides it. */
@@ -77,12 +78,103 @@ describe('NotificationOutboxWorkerService', () => {
     systemPrisma = {
       tenant: { findFirst: jest.fn().mockResolvedValue({ is_active: true }) },
     };
+    push = { deliver: jest.fn() };
     service = new NotificationOutboxWorkerService(
       prisma as never,
       providers as never,
       wakeUps as never,
       systemPrisma as never,
+      push as never,
     );
+  });
+
+  describe('PUSH rows (ADR-0033)', () => {
+    const pushRow = () =>
+      makeRow({
+        channel: 'PUSH',
+        event_type: 'CUSTOMER_ESTIMATE_DECIDED',
+        recipient_user_id: 'user-1',
+        workshop_order_id: 'order-1',
+        createdAt: new Date('2026-10-12T07:59:00.000Z'),
+        recipient_email: null,
+        subject: null,
+        body: null,
+        sender_name: null,
+        payload: { decision: 'APPROVED' },
+      });
+
+    it('hands the row to the push sender and never to an email provider', async () => {
+      arrange(pushRow());
+      push.deliver.mockResolvedValue({ kind: 'accepted', acceptedDevices: 2 });
+
+      await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+      expect(push.deliver).toHaveBeenCalledWith(
+        {
+          outboxId: 'outbox-1',
+          tenantId: 'tenant-1',
+          eventType: 'CUSTOMER_ESTIMATE_DECIDED',
+          recipientUserId: 'user-1',
+          workshopOrderId: 'order-1',
+          payload: { decision: 'APPROVED' },
+          createdAt: new Date('2026-10-12T07:59:00.000Z'),
+        },
+        NOW,
+      );
+      expect(providers.resolve).not.toHaveBeenCalled();
+      expect(outcome()).toMatchObject({
+        status: 'ACCEPTED',
+        provider: 'fcm',
+        accepted_at: NOW,
+        last_error_code: null,
+      });
+    });
+
+    it('records a suppressed push with its reason', async () => {
+      arrange(pushRow());
+      push.deliver.mockResolvedValue({ kind: 'suppressed', reason: 'STALE' });
+
+      await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+      expect(outcome()).toMatchObject({
+        status: 'SUPPRESSED',
+        suppressed_reason: 'STALE',
+      });
+    });
+
+    it('schedules a retry for a transient provider failure and fails a row that cannot be sent', async () => {
+      arrange(pushRow());
+      push.deliver.mockResolvedValue({
+        kind: 'retry',
+        code: 'PUSH_PROVIDER_UNAVAILABLE',
+        message: 'The push provider did not accept the message',
+      });
+
+      await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+      expect(outcome()).toMatchObject({
+        status: 'PENDING',
+        last_error_code: 'PUSH_PROVIDER_UNAVAILABLE',
+      });
+      expect(wakeUps.enqueueWakeUp).toHaveBeenCalledTimes(1);
+
+      prisma.notificationOutbox.updateMany.mockReset();
+      wakeUps.enqueueWakeUp.mockClear();
+      arrange(pushRow());
+      push.deliver.mockResolvedValue({
+        kind: 'failed',
+        code: 'RECIPIENT_MISSING',
+        message: 'The outbox row has no recipient user',
+      });
+
+      await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+      expect(outcome()).toMatchObject({
+        status: 'FAILED',
+        last_error_code: 'RECIPIENT_MISSING',
+      });
+      expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+    });
   });
 
   it('records ACCEPTED with the provider id and clears the previous error', async () => {

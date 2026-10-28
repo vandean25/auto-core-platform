@@ -614,6 +614,14 @@ export async function cleanupTestTenantGraph(
     tenantId,
   );
   await prisma.$executeRawUnsafe(
+    `DELETE FROM push_devices WHERE tenant_id = $1`,
+    tenantId,
+  );
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM push_preferences WHERE tenant_id = $1`,
+    tenantId,
+  );
+  await prisma.$executeRawUnsafe(
     `DELETE FROM workshop_estimate_sequences WHERE tenant_id = $1`,
     tenantId,
   );

@@ -41,6 +41,8 @@ VALUES
   ('labor_price_groups'),
   ('legal_entities'),
   ('mcp_write_command_receipts'),
+  ('push_devices'),
+  ('push_preferences'),
   ('revenue_groups'),
   ('tenant_api_keys'),
   ('tenant_members'),
@@ -454,6 +456,10 @@ VALUES
   ('purchase_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'vendors', 'vendor_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('push_devices', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('push_devices', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('push_preferences', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('push_preferences', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('registration_document_intakes', 'customers', 'applied_customer_id', 'id', 'SET NULL', 'CASCADE'),
   ('registration_document_intakes', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('registration_document_intakes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -1096,6 +1102,10 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tenant_api_keys"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."revenue_groups"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."push_preferences"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."push_devices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."mcp_write_command_receipts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

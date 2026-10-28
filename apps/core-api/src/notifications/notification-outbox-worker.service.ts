@@ -1,12 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   NotificationChannel,
+  type NotificationEventType,
   NotificationOutboxStatus,
   NotificationRecipientKind,
   type Prisma,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
+import {
+  PushDeliveryService,
+  type PushDeliveryOutcome,
+} from '../push/push-delivery.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { isPlainEmailAddress } from './email/email-address.js';
@@ -43,7 +48,10 @@ const ACCEPTED_WRITE_ATTEMPTS = 3;
 
 interface ClaimedRow {
   channel: NotificationChannel;
-  event_type: string;
+  event_type: NotificationEventType;
+  recipient_user_id: string | null;
+  workshop_order_id: string | null;
+  createdAt: Date;
   recipient_kind: NotificationRecipientKind;
   payload: Prisma.JsonValue | null;
   recipient_email: string | null;
@@ -84,6 +92,7 @@ export class NotificationOutboxWorkerService {
     private readonly providers: EmailProviderResolver,
     private readonly wakeUps: NotificationCloudTasksService,
     private readonly systemPrisma: SystemPrismaService,
+    private readonly push: PushDeliveryService,
   ) {}
 
   /** One attempt for one row. Called by the Cloud Tasks worker route, never by a request handler. */
@@ -138,6 +147,9 @@ export class NotificationOutboxWorkerService {
       select: {
         channel: true,
         event_type: true,
+        recipient_user_id: true,
+        workshop_order_id: true,
+        createdAt: true,
         recipient_kind: true,
         payload: true,
         recipient_email: true,
@@ -179,6 +191,9 @@ export class NotificationOutboxWorkerService {
   }
 
   private async attempt(a: Attempt): Promise<void> {
+    if (a.row.channel === NotificationChannel.PUSH) {
+      return this.attemptPush(a);
+    }
     if (a.row.channel !== NotificationChannel.EMAIL) {
       // IN_APP rows are written ACCEPTED, so only a future writer can reach this guard.
       return this.fail(a, {
@@ -293,6 +308,51 @@ export class NotificationOutboxWorkerService {
       last_error_code: null,
       last_error_message: null,
     });
+  }
+
+  /** A PUSH row (ADR-0033): the push sender decides, and the outcome is written to the row like an email's. */
+  private async attemptPush(a: Attempt): Promise<void> {
+    const outcome = await this.push.deliver(
+      {
+        outboxId: a.outboxId,
+        tenantId: a.tenantId,
+        eventType: a.row.event_type,
+        recipientUserId: a.row.recipient_user_id,
+        workshopOrderId: a.row.workshop_order_id,
+        payload: a.row.payload,
+        createdAt: a.row.createdAt,
+      },
+      a.now,
+    );
+    return this.recordPushOutcome(a, outcome);
+  }
+
+  private recordPushOutcome(
+    a: Attempt,
+    outcome: PushDeliveryOutcome,
+  ): Promise<void> {
+    switch (outcome.kind) {
+      case 'accepted':
+        // A push is never resent once any device accepted it, so a failed status write is only retried, never rescheduled.
+        return this.recordAccepted(a, {
+          status: NotificationOutboxStatus.ACCEPTED,
+          provider: 'fcm',
+          accepted_at: a.now,
+          last_error_code: null,
+          last_error_message: null,
+        });
+      case 'suppressed':
+        return this.record(a, {
+          status: NotificationOutboxStatus.SUPPRESSED,
+          suppressed_reason: outcome.reason,
+          last_error_code: null,
+          last_error_message: null,
+        });
+      case 'retry':
+        return this.retryOrFail(a, outcome);
+      case 'failed':
+        return this.fail(a, outcome);
+    }
   }
 
   /** Read under SystemPrisma, like the sweeps that walk every tenant. */
