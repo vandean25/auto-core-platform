@@ -387,14 +387,12 @@ export class ImportService {
       plan.rowNos,
     );
     if (rowNos.length === 0) {
-      if (status === ImportJobStatus.APPLIED) {
-        return { kind: 'applied' };
-      }
-      assertJobCanBeApplied(status);
-      if (status === ImportJobStatus.FAILED) {
-        this.logTechnicalRetry(jobId, plan);
-      }
-      return { kind: 'options', options };
+      return this.finishReapplyWithoutTechnicalRows(
+        status,
+        options,
+        jobId,
+        plan,
+      );
     }
     this.logTechnicalRetry(jobId, plan);
     const worker = options.worker
@@ -408,6 +406,24 @@ export class ImportService {
         technical_retry_row_nos: rowNos,
       },
     };
+  }
+
+  private finishReapplyWithoutTechnicalRows(
+    status: ImportJobStatus,
+    options: ImportJobOptionsWithWorker,
+    jobId: string,
+    plan: { count: number; codes: string[] },
+  ):
+    | { kind: 'options'; options: ImportJobOptionsWithWorker }
+    | { kind: 'applied' } {
+    if (status === ImportJobStatus.APPLIED) {
+      return { kind: 'applied' };
+    }
+    assertJobCanBeApplied(status);
+    if (status === ImportJobStatus.FAILED) {
+      this.logTechnicalRetry(jobId, plan);
+    }
+    return { kind: 'options', options };
   }
 
   private logTechnicalRetry(

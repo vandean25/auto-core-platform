@@ -308,7 +308,7 @@ describe('import apply final totals (e2e)', () => {
       email: tenant.email,
       role: 'ADMIN',
     };
-    try {
+    {
       const job = await runWithTenantContext(
         tenant.tenantId,
         async () =>

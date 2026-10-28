@@ -155,6 +155,13 @@ export class RowByRowApplyRunner {
     if (kind === 'lease_lost' || kind === 'retryable') {
       return;
     }
+    const current = await this.prisma.importJob.findFirst({
+      where: { id: jobId },
+      select: { status: true },
+    });
+    if (current?.status === ImportJobStatus.APPLIED) {
+      return;
+    }
     const failureReason: ImportApplyFailureReason =
       error instanceof ImportApplyRetryExhaustedError
         ? 'retry_exhausted'
