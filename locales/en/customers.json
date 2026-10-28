@@ -189,6 +189,11 @@
     "updated": "Customer updated",
     "created": "Customer created",
     "saveFailed": "Failed to save customer",
+    "checkFields": "Please check the marked fields.",
+    "errors": {
+      "email": "Please enter a valid e-mail address or leave the field empty.",
+      "invalid": "Please check this entry."
+    },
     "type": "Type",
     "selectType": "Select type",
     "private": "Private",

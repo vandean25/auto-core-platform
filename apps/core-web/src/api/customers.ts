@@ -5,6 +5,7 @@ import type {
     NormalizedWorkshopOrder,
     NormalizedWorkshopTaskLineItem,
 } from './types'
+import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 
@@ -113,7 +114,7 @@ export function useCreateCustomer() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(customer),
             })
-            if (!response.ok) throw new Error('Failed to create customer')
+            if (!response.ok) await throwApiResponseError(response, 'Failed to create customer')
             return response.json()
         },
         onSuccess: () => {
@@ -132,7 +133,7 @@ export function useUpdateCustomer() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             })
-            if (!response.ok) throw new Error('Failed to update customer')
+            if (!response.ok) await throwApiResponseError(response, 'Failed to update customer')
             return response.json()
         },
         onSuccess: (data) => {

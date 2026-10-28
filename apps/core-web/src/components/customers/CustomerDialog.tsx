@@ -27,6 +27,7 @@ import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { getBadRequestFields } from '@/api/api-error'
 import { toastSuccessWithOpen } from '@/lib/toast-actions'
 
 interface CustomerDialogProps {
@@ -66,11 +67,14 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
         defaultValues: customer || DEFAULT_CUSTOMER,
     })
 
-    const onSubmit = async (data: Partial<Customer>) => {
+    const onSubmit = async (formData: Partial<Customer>) => {
+        // The address is optional: a blank field means no address (null clears it on an edit, a new customer just has none).
+        const email = formData.email?.trim() ?? ''
+        const data: Partial<Customer> = { ...formData, email: email || (isEdit ? null : undefined) }
         try {
             if (isEdit && customer) {
                 // A changed address withdraws the advisor's confirmation (ADR-0025 §8), so the flag is not sent as true.
-                const emailChanged = (data.email ?? '') !== (customer.email ?? '')
+                const emailChanged = email !== (customer.email ?? '')
                 const payload = emailChanged ? { ...data, contact_email_ok: false } : data
                 await updateMutation.mutateAsync({ id: customer.id, data: payload })
                 toast.success(t('dialog.updated'))
@@ -81,7 +85,10 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
             handleOpenChange(false)
             form.reset()
         } catch (error) {
-            toast.error(t('dialog.saveFailed'))
+            // A refused field is marked on the field itself; the toast then only points at it.
+            const refused = getBadRequestFields(error).filter((field): field is keyof Customer & string => field in DEFAULT_CUSTOMER)
+            refused.forEach((field) => form.setError(field, { type: 'server', message: t(field === 'email' ? 'dialog.errors.email' : 'dialog.errors.invalid') }))
+            toast.error(t(refused.length > 0 ? 'dialog.checkFields' : 'dialog.saveFailed'))
         }
     }
 

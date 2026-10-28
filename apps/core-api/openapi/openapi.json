@@ -21287,7 +21287,8 @@
             "type": "string"
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "contact_email_ok": {
             "type": "boolean"
@@ -21772,7 +21773,8 @@
             "type": "string"
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "phone": {
             "type": "string"

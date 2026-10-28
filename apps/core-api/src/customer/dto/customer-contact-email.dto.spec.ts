@@ -49,3 +49,53 @@ describe('contact_email_ok on the customer DTOs (ADR-0025 §8)', () => {
     expect(await failingProperties(UpdateCustomerDto, {})).toEqual([]);
   });
 });
+
+describe('blank email on the customer DTOs (AUT-800)', () => {
+  it.each(['', '   '])(
+    'treats %j as no address on create, so the form can leave the field empty',
+    async (blank) => {
+      const dto = plainToInstance(CreateCustomerDto, {
+        ...CREATE_BASE,
+        email: blank,
+      });
+
+      expect(await validate(dto)).toEqual([]);
+      expect(dto.email).toBeNull();
+    },
+  );
+
+  it('treats a blank address on update as clearing the address', async () => {
+    const dto = plainToInstance(UpdateCustomerDto, { email: '' });
+
+    expect(await validate(dto)).toEqual([]);
+    expect(dto.email).toBeNull();
+  });
+
+  it('trims a real address and still refuses text that is not an address', async () => {
+    const trimmed = plainToInstance(CreateCustomerDto, {
+      ...CREATE_BASE,
+      email: '  max@example.com ',
+    });
+    expect(await validate(trimmed)).toEqual([]);
+    expect(trimmed.email).toBe('max@example.com');
+
+    expect(
+      await failingProperties(CreateCustomerDto, {
+        ...CREATE_BASE,
+        email: 'not-an-address',
+      }),
+    ).toEqual(['email']);
+    expect(
+      await failingProperties(UpdateCustomerDto, { email: 'a b@c' }),
+    ).toEqual(['email']);
+  });
+
+  it('leaves a missing address alone on both DTOs', async () => {
+    expect(
+      await validate(plainToInstance(CreateCustomerDto, CREATE_BASE)),
+    ).toEqual([]);
+    const update = plainToInstance(UpdateCustomerDto, { phone: '123' });
+    expect(await validate(update)).toEqual([]);
+    expect(update.email).toBeUndefined();
+  });
+});
