@@ -120,13 +120,87 @@ describe('uploadImportFileDirectly', () => {
     expect(finalizeDirectImportUpload).not.toHaveBeenCalled()
   })
 
-  it('does not finalize until the server returns a final 200', async () => {
+  it('keeps querying a full-file 308 and finalizes only after a final 200', async () => {
     fetchMock
       .mockResolvedValueOnce(response(201, { location: 'https://storage.example/session' }))
       .mockResolvedValueOnce(response(308, { range: 'bytes=0-3' }))
+      .mockResolvedValueOnce(response(308, { range: 'bytes=0-3' }))
+      .mockResolvedValueOnce(response(200))
+
+    const job = await uploadImportFileDirectly(uploadParams(fileOfSize(4)))
+
+    expect(contentRanges(fetchMock)).toEqual(['bytes 0-3/4', 'bytes */4', 'bytes */4'])
+    expect(finalizeDirectImportUpload).toHaveBeenCalledTimes(1)
+    expect(job).toBe(dryRunJob)
+  })
+
+  it('recovers from a chunk 503 through a full-file 308 without finalizing early', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(201, { location: 'https://storage.example/session' }))
+      .mockResolvedValueOnce(response(503))
+      .mockResolvedValueOnce(response(308, { range: 'bytes=0-3' }))
+      .mockResolvedValueOnce(response(200))
+
+    const job = await uploadImportFileDirectly(uploadParams(fileOfSize(4)))
+
+    expect(contentRanges(fetchMock)).toEqual(['bytes 0-3/4', 'bytes */4', 'bytes */4'])
+    expect(finalizeDirectImportUpload).toHaveBeenCalledTimes(1)
+    expect(job).toBe(dryRunJob)
+  })
+
+  it('completes when the recovery probe returns a final 200', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(201, { location: 'https://storage.example/session' }))
+      .mockResolvedValueOnce(response(503))
+      .mockResolvedValueOnce(response(200))
+
+    const job = await uploadImportFileDirectly(uploadParams(fileOfSize(4)))
+
+    expect(contentRanges(fetchMock)).toEqual(['bytes 0-3/4', 'bytes */4'])
+    expect(finalizeDirectImportUpload).toHaveBeenCalledTimes(1)
+    expect(job).toBe(dryRunJob)
+  })
+
+  it('retries the probe after a transient probe failure', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(201, { location: 'https://storage.example/session' }))
+      .mockResolvedValueOnce(response(503))
+      .mockResolvedValueOnce(response(503))
+      .mockResolvedValueOnce(response(503))
+      .mockResolvedValueOnce(response(200))
+
+    const job = await uploadImportFileDirectly(uploadParams(fileOfSize(4)))
+
+    expect(contentRanges(fetchMock)).toEqual([
+      'bytes 0-3/4',
+      'bytes */4',
+      'bytes 0-3/4',
+      'bytes */4',
+    ])
+    expect(finalizeDirectImportUpload).toHaveBeenCalledTimes(1)
+    expect(job).toBe(dryRunJob)
+  })
+
+  it('stops when a probe acknowledges bytes beyond the file size', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(201, { location: 'https://storage.example/session' }))
+      .mockResolvedValueOnce(response(503))
+      .mockResolvedValueOnce(response(308, { range: 'bytes=0-9' }))
 
     await expect(uploadImportFileDirectly(uploadParams(fileOfSize(4)))).rejects.toThrow(
-      /without a final response/,
+      /more bytes than the file size/,
+    )
+    expect(finalizeDirectImportUpload).not.toHaveBeenCalled()
+  })
+
+  it('gives up when the server never returns a final response', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(201, { location: 'https://storage.example/session' }))
+      .mockResolvedValueOnce(response(308, { range: 'bytes=0-3' }))
+      .mockResolvedValue(response(308, { range: 'bytes=0-3' }))
+
+    await expect(uploadImportFileDirectly(uploadParams(fileOfSize(4)))).rejects.toThrow(
+      /did not return a final response/,
     )
     expect(finalizeDirectImportUpload).not.toHaveBeenCalled()
   })

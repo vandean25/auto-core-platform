@@ -9,6 +9,8 @@ import { serializeCsv } from '../src/import/csv-parse.util.js';
 import { ImportCloudTasksService } from '../src/import/import-cloud-tasks.service.js';
 import {
   IMPORT_DIRECT_UPLOAD_LOCAL_ROOT,
+  ImportDirectUploadStorageService,
+  LocalDirectImportUploadStorage,
   writeLocalDirectUploadStagingObject,
 } from '../src/import/import-direct-upload.storage.js';
 import { IMPORT_LOCAL_UPLOAD_ROOT } from '../src/import/import-file.storage.js';
@@ -25,6 +27,26 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 
 const MAX_BYTES = 4096;
+
+/** Lets a test rewrite the staging object between the stat and the copy. */
+class RacingDirectUploadStorage extends LocalDirectImportUploadStorage {
+  beforeCopy?: () => Promise<void>;
+
+  override async copyStagingToJobObject(params: {
+    sourceKey: string;
+    destinationKey: string;
+    sourceGeneration: string;
+  }): Promise<void> {
+    const hook = this.beforeCopy;
+    this.beforeCopy = undefined;
+    if (hook) {
+      await hook();
+    }
+    return super.copyStagingToJobObject(params);
+  }
+}
+
+const racingStorage = new RacingDirectUploadStorage();
 
 const customerMapping = {
   external_id: 'Kunden-Nr',
@@ -86,7 +108,11 @@ describe('Direct GCS import upload (e2e)', () => {
       enqueueImportWorker: jest.fn().mockResolvedValue(undefined),
     };
     app = await createE2eApp((builder) =>
-      builder.overrideProvider(ImportCloudTasksService).useValue(cloudTasks),
+      builder
+        .overrideProvider(ImportCloudTasksService)
+        .useValue(cloudTasks)
+        .overrideProvider(ImportDirectUploadStorageService)
+        .useValue(racingStorage),
     );
     basePrisma = app.get(PrismaService);
     const auth = app.get(AuthService);
@@ -387,5 +413,34 @@ describe('Direct GCS import upload (e2e)', () => {
     await expect(
       stagingExists(tenantA.tenantId, uploadId, 'customers.csv'),
     ).resolves.toBe(false);
+  });
+
+  it('rejects a staged object replaced with a larger version before the copy', async () => {
+    const started = await startDirectUpload({
+      fileName: 'report.csv',
+      size: 100,
+    }).expect(201);
+    const uploadId = started.body.upload_id as string;
+    await writeLocalDirectUploadStagingObject({
+      tenantId: tenantA.tenantId,
+      uploadId,
+      fileName: 'report.csv',
+      content: Buffer.from('Kunden-Nr\nK-1\n', 'utf8'),
+    });
+    racingStorage.beforeCopy = async () => {
+      await writeLocalDirectUploadStagingObject({
+        tenantId: tenantA.tenantId,
+        uploadId,
+        fileName: 'report.csv',
+        content: Buffer.alloc(MAX_BYTES + 1, 'a'),
+      });
+    };
+
+    const response = await finalizeDirectUpload(
+      uploadId,
+      finalizePayload('report.csv', 100),
+    ).expect(400);
+    expect(response.body.code).toBe('IMPORT_DIRECT_UPLOAD_INVALID');
+    await expect(stagingExists(tenantA.tenantId, uploadId)).resolves.toBe(false);
   });
 });

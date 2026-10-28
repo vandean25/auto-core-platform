@@ -10,7 +10,7 @@ import {
 } from './import-file.storage.js';
 import { buildDirectUploadStagingObjectKey } from './import-direct-upload.js';
 
-export type DirectImportUploadStat = { size: number };
+export type DirectImportUploadStat = { size: number; generation: string };
 
 export interface DirectImportUploadStorage {
   signResumableUpload(params: {
@@ -25,9 +25,18 @@ export interface DirectImportUploadStorage {
   copyStagingToJobObject(params: {
     sourceKey: string;
     destinationKey: string;
+    sourceGeneration: string;
   }): Promise<void>;
 
   deleteStagingObject(objectKey: string): Promise<void>;
+}
+
+/** Raised when the staged object changed between validation and promotion. */
+export class DirectUploadSourceChangedError extends Error {
+  constructor() {
+    super('Direct import upload changed after validation');
+    this.name = 'DirectUploadSourceChangedError';
+  }
 }
 
 const DIRECT_UPLOAD_COPY_OPTIONS = {
@@ -42,6 +51,14 @@ function isNotFoundError(error: unknown): boolean {
   }
   const code = (error as { code?: number | string }).code;
   return code === 404 || code === 'ENOENT';
+}
+
+function isSourceChangedError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const code = (error as { code?: number | string }).code;
+  return code === 404 || code === 412;
 }
 
 @Injectable()
@@ -75,7 +92,10 @@ export class GcsDirectImportUploadStorage implements DirectImportUploadStorage {
         .bucket(resolveImportUploadBucket())
         .file(objectKey)
         .getMetadata();
-      return { size: Number(metadata.size) };
+      return {
+        size: Number(metadata.size),
+        generation: String(metadata.generation),
+      };
     } catch (error) {
       if (isNotFoundError(error)) {
         return null;
@@ -87,12 +107,24 @@ export class GcsDirectImportUploadStorage implements DirectImportUploadStorage {
   async copyStagingToJobObject(params: {
     sourceKey: string;
     destinationKey: string;
+    sourceGeneration: string;
   }): Promise<void> {
     SideEffectGuard.assertAllowed('GCS_WRITE');
     const bucket = this.storage.bucket(resolveImportUploadBucket());
-    await bucket
-      .file(params.sourceKey)
-      .copy(bucket.file(params.destinationKey), DIRECT_UPLOAD_COPY_OPTIONS);
+    const source = bucket.file(params.sourceKey, {
+      generation: params.sourceGeneration,
+    });
+    try {
+      await source.copy(
+        bucket.file(params.destinationKey),
+        DIRECT_UPLOAD_COPY_OPTIONS,
+      );
+    } catch (error) {
+      if (isSourceChangedError(error)) {
+        throw new DirectUploadSourceChangedError();
+      }
+      throw error;
+    }
   }
 
   async deleteStagingObject(objectKey: string): Promise<void> {
@@ -128,6 +160,13 @@ function resolveLocalJobPath(objectKey: string): string {
   return resolveLocalObjectPath(IMPORT_LOCAL_UPLOAD_ROOT, objectKey);
 }
 
+function localObjectGeneration(info: {
+  mtimeMs: number;
+  size: number;
+}): string {
+  return `${info.mtimeMs}:${info.size}`;
+}
+
 /** Local mode for tests and credential-less runs; production always signs real URLs. */
 @Injectable()
 export class LocalDirectImportUploadStorage implements DirectImportUploadStorage {
@@ -147,7 +186,10 @@ export class LocalDirectImportUploadStorage implements DirectImportUploadStorage
   ): Promise<DirectImportUploadStat | null> {
     try {
       const info = await stat(resolveLocalStagingPath(objectKey));
-      return { size: info.size };
+      return {
+        size: info.size,
+        generation: localObjectGeneration(info),
+      };
     } catch (error) {
       if (isNotFoundError(error)) {
         return null;
@@ -159,10 +201,21 @@ export class LocalDirectImportUploadStorage implements DirectImportUploadStorage
   async copyStagingToJobObject(params: {
     sourceKey: string;
     destinationKey: string;
+    sourceGeneration: string;
   }): Promise<void> {
+    const source = resolveLocalStagingPath(params.sourceKey);
+    const current = await stat(source).catch((error: unknown) => {
+      if (isNotFoundError(error)) {
+        throw new DirectUploadSourceChangedError();
+      }
+      throw error;
+    });
+    if (localObjectGeneration(current) !== params.sourceGeneration) {
+      throw new DirectUploadSourceChangedError();
+    }
     const target = resolveLocalJobPath(params.destinationKey);
     await mkdir(dirname(target), { recursive: true });
-    await copyFile(resolveLocalStagingPath(params.sourceKey), target);
+    await copyFile(source, target);
   }
 
   async deleteStagingObject(objectKey: string): Promise<void> {
@@ -218,6 +271,7 @@ export class ImportDirectUploadStorageService implements DirectImportUploadStora
   copyStagingToJobObject(params: {
     sourceKey: string;
     destinationKey: string;
+    sourceGeneration: string;
   }): Promise<void> {
     return this.delegate.copyStagingToJobObject(params);
   }

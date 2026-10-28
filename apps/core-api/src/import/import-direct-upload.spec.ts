@@ -1,8 +1,7 @@
-import {
-  NotFoundException,
-  PayloadTooLargeException,
-} from '@nestjs/common';
+import { NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { ImportFileStorageService } from './import-file.storage.js';
@@ -12,8 +11,12 @@ import {
 } from './import-direct-upload.js';
 import { ImportDirectUploadService } from './import-direct-upload.service.js';
 import {
+  DirectUploadSourceChangedError,
   GcsDirectImportUploadStorage,
+  IMPORT_DIRECT_UPLOAD_LOCAL_ROOT,
+  LocalDirectImportUploadStorage,
   type DirectImportUploadStorage,
+  writeLocalDirectUploadStagingObject,
 } from './import-direct-upload.storage.js';
 import type { ImportService } from './import.service.js';
 
@@ -117,6 +120,58 @@ describe('GcsDirectImportUploadStorage signing', () => {
       contentType: 'text/csv',
       virtualHostedStyle: false,
     });
+  });
+});
+
+describe('GcsDirectImportUploadStorage copy', () => {
+  const sourceKey = `import-uploads/tenants/${TENANT_ID}/upload-id/report.csv`;
+  const destinationKey = `tenants/${TENANT_ID}/imports/job-1/report.csv`;
+  const sourceGeneration = '1712345678901234';
+
+  function storageWithCopy(copy: jest.Mock) {
+    const source = { copy };
+    const destination = { name: destinationKey };
+    const file = jest.fn((name: string) =>
+      name === destinationKey ? destination : source,
+    );
+    const bucket = jest.fn(() => ({ file }));
+    return { storage: new StorageUnderTest({ bucket }), file, source };
+  }
+
+  it('copies the exact generation that was validated', async () => {
+    const copy = jest.fn(async () => undefined);
+    const { storage, file, source } = storageWithCopy(copy);
+
+    await storage.copyStagingToJobObject({
+      sourceKey,
+      destinationKey,
+      sourceGeneration,
+    });
+
+    expect(file).toHaveBeenCalledWith(sourceKey, {
+      generation: sourceGeneration,
+    });
+    expect(source.copy).toHaveBeenCalledWith(
+      { name: destinationKey },
+      expect.objectContaining({
+        preconditionOpts: { ifGenerationMatch: 0 },
+      }),
+    );
+  });
+
+  it('treats a failed source precondition as a changed upload', async () => {
+    const copy = jest.fn(async () => {
+      throw Object.assign(new Error('precondition failed'), { code: 412 });
+    });
+    const { storage } = storageWithCopy(copy);
+
+    await expect(
+      storage.copyStagingToJobObject({
+        sourceKey,
+        destinationKey,
+        sourceGeneration,
+      }),
+    ).rejects.toBeInstanceOf(DirectUploadSourceChangedError);
   });
 });
 
@@ -231,7 +286,10 @@ describe('ImportDirectUploadService.finalize', () => {
       fileName: 'report.csv',
     });
     const storage = storageStub({
-      statStagingObject: jest.fn(async () => ({ size: MAX_BYTES + 1 })),
+      statStagingObject: jest.fn(async () => ({
+        size: MAX_BYTES + 1,
+        generation: 'gen-1',
+      })),
     });
     const service = serviceWith({ storage });
 
@@ -254,7 +312,10 @@ describe('ImportDirectUploadService.finalize', () => {
       fileName: 'report.csv',
     });
     const storage = storageStub({
-      statStagingObject: jest.fn(async () => ({ size: csv.byteLength })),
+      statStagingObject: jest.fn(async () => ({
+        size: csv.byteLength,
+        generation: 'gen-1',
+      })),
     });
     const fileStorage = {
       openReadStream: jest.fn(() => Readable.from([csv])),
@@ -279,6 +340,7 @@ describe('ImportDirectUploadService.finalize', () => {
           `^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`,
         ),
       ),
+      sourceGeneration: 'gen-1',
     });
     expect(storage.deleteStagingObject).toHaveBeenCalledWith(stagingKey);
     const destinationKey = storage.copyStagingToJobObject.mock
@@ -298,10 +360,63 @@ describe('ImportDirectUploadService.finalize', () => {
     expect(fileStorage.deleteUpload).not.toHaveBeenCalled();
   });
 
+  it('rejects a staged object that changed before the copy and cleans up both objects', async () => {
+    const uploadId = randomUUID();
+    const stagingKey = buildDirectUploadStagingObjectKey({
+      tenantId: TENANT_ID,
+      uploadId,
+      fileName: 'report.csv',
+    });
+    const storage = storageStub({
+      statStagingObject: jest.fn(async () => ({
+        size: 10,
+        generation: 'gen-1',
+      })),
+      copyStagingToJobObject: jest.fn(async () => {
+        throw new DirectUploadSourceChangedError();
+      }),
+    });
+    const fileStorage = {
+      openReadStream: jest.fn(),
+      deleteUpload: jest.fn(async () => undefined),
+    };
+    const createDryRunFromStoredUpload = jest.fn();
+    const service = serviceWith({
+      storage,
+      fileStorage,
+      importService: { createDryRunFromStoredUpload },
+    });
+
+    await expect(
+      service.finalize(finalizeParams(uploadId, 100)),
+    ).rejects.toMatchObject({
+      response: { code: 'IMPORT_DIRECT_UPLOAD_INVALID' },
+    });
+    expect(storage.copyStagingToJobObject).toHaveBeenCalledWith({
+      sourceKey: stagingKey,
+      destinationKey: expect.stringMatching(
+        new RegExp(
+          `^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`,
+        ),
+      ),
+      sourceGeneration: 'gen-1',
+    });
+    expect(storage.deleteStagingObject).toHaveBeenCalledWith(stagingKey);
+    expect(fileStorage.deleteUpload).toHaveBeenCalledWith({
+      object_key: expect.stringMatching(
+        new RegExp(`^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`),
+      ),
+    });
+    expect(createDryRunFromStoredUpload).not.toHaveBeenCalled();
+  });
+
   it('deletes the promoted object when the dry-run cannot be started', async () => {
     const csv = Buffer.from('Kunden-Nr\nK-1\n', 'utf8');
     const storage = storageStub({
-      statStagingObject: jest.fn(async () => ({ size: csv.byteLength })),
+      statStagingObject: jest.fn(async () => ({
+        size: csv.byteLength,
+        generation: 'gen-1',
+      })),
     });
     const fileStorage = {
       openReadStream: jest.fn(() => Readable.from([csv])),
@@ -325,6 +440,54 @@ describe('ImportDirectUploadService.finalize', () => {
         new RegExp(`^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`),
       ),
     });
+  });
+});
+
+describe('LocalDirectImportUploadStorage generation pinning', () => {
+  const cleanupPaths: string[] = [];
+
+  afterAll(async () => {
+    await Promise.all(
+      cleanupPaths.map((path) => rm(path, { recursive: true, force: true })),
+    );
+  });
+
+  it('refuses to copy a staging object that changed after it was validated', async () => {
+    const uploadId = randomUUID();
+    cleanupPaths.push(
+      join(
+        IMPORT_DIRECT_UPLOAD_LOCAL_ROOT,
+        'import-uploads',
+        'tenants',
+        TENANT_ID,
+        uploadId,
+      ),
+    );
+    const storage = new LocalDirectImportUploadStorage();
+    const sourceKey = await writeLocalDirectUploadStagingObject({
+      tenantId: TENANT_ID,
+      uploadId,
+      fileName: 'report.csv',
+      content: Buffer.from('Kunden-Nr\nK-1\n', 'utf8'),
+    });
+    const staged = await storage.statStagingObject(sourceKey);
+    if (!staged) {
+      throw new Error('staging object was not written');
+    }
+    await writeLocalDirectUploadStagingObject({
+      tenantId: TENANT_ID,
+      uploadId,
+      fileName: 'report.csv',
+      content: Buffer.alloc(MAX_BYTES + 1, 'a'),
+    });
+
+    await expect(
+      storage.copyStagingToJobObject({
+        sourceKey,
+        destinationKey: `tenants/${TENANT_ID}/imports/${randomUUID()}/report.csv`,
+        sourceGeneration: staged.generation,
+      }),
+    ).rejects.toBeInstanceOf(DirectUploadSourceChangedError);
   });
 });
 
