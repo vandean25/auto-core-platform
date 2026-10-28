@@ -399,6 +399,49 @@ describe("RealtimeDashboardSyncProvider", () => {
     });
   });
 
+  it("refetches the dashboard widgets and the customer list at most once per window while an import emits one event per row", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(
+        ENTITY_UPDATED_EVENT,
+        expect.any(Function),
+      );
+    });
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as (payload: unknown) => void;
+
+    const widgetCalls = () =>
+      invalidateQueries.mock.calls.filter(
+        ([filters]) => filters?.queryKey?.[0] === "dashboard-widget-data",
+      ).length;
+    const customerCalls = () =>
+      invalidateQueries.mock.calls.filter(
+        ([filters]) => filters?.queryKey?.[0] === customerKeys.all[0],
+      ).length;
+
+    await act(async () => {
+      for (let row = 0; row < 300; row += 1) {
+        entityUpdatedHandler({
+          type: "CUSTOMER",
+          action: "CREATED",
+          entityId: `customer-${row}`,
+          timestamp: "2026-10-28T10:00:00.000Z",
+        });
+      }
+    });
+
+    expect(widgetCalls()).toBe(1);
+    expect(customerCalls()).toBe(1);
+    expect(widgetCalls() + customerCalls()).toBeLessThan(300);
+  });
+
   it("invalidates HR queries when an ATTENDANCE_EVENT is received", async () => {
     const queryClient = createQueryClient();
     const invalidateQueries = vi

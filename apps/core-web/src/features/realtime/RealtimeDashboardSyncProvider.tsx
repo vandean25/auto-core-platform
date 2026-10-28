@@ -12,7 +12,7 @@ import { vehicleStockKeys } from '@/api/vehicle-stock'
 import { workshopKeys } from '@/api/workshop'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
-import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
+import { getQueryKeysToInvalidateForEntityType, getRealtimeInvalidationWindowMs, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { createRealtimeResync } from '@/features/realtime/realtime-resync'
 import { buildRealtimeSocketOptions, createHandshakeRetry } from '@/features/realtime/realtime-socket-options'
@@ -97,7 +97,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
   // One filter per queryClient, not per socket: a token refresh must not flush echoes held for a pending drag.
   const echoSafeInvalidatorRef = React.useRef<ReturnType<typeof createEchoSafeInvalidator> | null>(null)
   React.useEffect(() => {
-    const echoSafeInvalidator = createEchoSafeInvalidator(queryClient)
+    const echoSafeInvalidator = createEchoSafeInvalidator(queryClient, { windowMs: getRealtimeInvalidationWindowMs })
     echoSafeInvalidatorRef.current = echoSafeInvalidator
     return () => {
       echoSafeInvalidatorRef.current = null
