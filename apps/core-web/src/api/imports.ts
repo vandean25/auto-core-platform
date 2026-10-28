@@ -64,14 +64,32 @@ async function readErrorMessage(response: Response, fallback: string) {
 
 /** Apply lost the race to a live lease. The caller refreshes the job. */
 export class ImportApplyInProgressError extends Error {
-  readonly code = 'IMPORT_APPLY_IN_PROGRESS'
-  readonly leaseExpiresAt: string | null
-
-  constructor(leaseExpiresAt: string | null) {
+  constructor() {
     super('IMPORT_APPLY_IN_PROGRESS')
     this.name = 'ImportApplyInProgressError'
-    this.leaseExpiresAt = leaseExpiresAt
   }
+}
+
+function applyJobId(payload: ApplyImportJobPayload): string {
+  return typeof payload === 'string' ? payload : payload.jobId
+}
+
+function applyRequestInit(payload: ApplyImportJobPayload): RequestInit {
+  const options = typeof payload === 'string' ? undefined : payload.options
+  return {
+    method: 'POST',
+    headers: options ? { 'Content-Type': 'application/json' } : undefined,
+    body: options ? JSON.stringify(options) : undefined,
+  }
+}
+
+async function assertApplyAccepted(response: Response): Promise<void> {
+  if (response.ok) return
+  const payload = await readErrorPayload(response)
+  if (response.status === 409 && payload?.code === 'IMPORT_APPLY_IN_PROGRESS') {
+    throw new ImportApplyInProgressError()
+  }
+  throw new Error(payload?.message ?? 'Failed to apply import')
 }
 
 export function useImportTemplate(entityType: ImportEntityType | null) {
@@ -233,21 +251,11 @@ export function useCancelImportJob() {
 export function useApplyImportJob() {
   return useMutation({
     mutationFn: async (payload: ApplyImportJobPayload) => {
-      const jobId = typeof payload === 'string' ? payload : payload.jobId
-      const options = typeof payload === 'string' ? undefined : payload.options
-
-      const response = await fetchWithAuth(`/api/imports/${jobId}/apply`, {
-        method: 'POST',
-        headers: options ? { 'Content-Type': 'application/json' } : undefined,
-        body: options ? JSON.stringify(options) : undefined,
-      })
-      if (!response.ok) {
-        const payload = await readErrorPayload(response)
-        if (response.status === 409 && payload?.code === 'IMPORT_APPLY_IN_PROGRESS') {
-          throw new ImportApplyInProgressError(payload.leaseExpiresAt ?? null)
-        }
-        throw new Error(payload?.message ?? 'Failed to apply import')
-      }
+      const response = await fetchWithAuth(
+        `/api/imports/${applyJobId(payload)}/apply`,
+        applyRequestInit(payload),
+      )
+      await assertApplyAccepted(response)
       return response.json() as Promise<ImportJob>
     },
   })
