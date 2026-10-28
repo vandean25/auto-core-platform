@@ -161,7 +161,7 @@ describe('production build output', () => {
       expect(worker).toContain('"v9.9.9-pwa"')
       const listeners: string[] = []
       new Function('self', worker)({ addEventListener: (type: string) => listeners.push(type) })
-      expect(listeners.sort()).toEqual(['activate', 'fetch', 'install'])
+      expect(listeners.sort()).toEqual(['activate', 'fetch', 'install', 'notificationclick', 'push'])
     } finally {
       rmSync(outDir, { recursive: true, force: true })
     }
