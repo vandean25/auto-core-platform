@@ -151,6 +151,18 @@ describe('Import background worker (e2e)', () => {
     return job;
   }
 
+  async function runApplyUntilDone(jobId: string, timeoutMs = 60_000) {
+    const deadline = Date.now() + timeoutMs;
+    let job = await tenantPrisma().importJob.findFirst({
+      where: { id: jobId },
+    });
+    while (Date.now() < deadline && job?.status === ImportJobStatus.APPLYING) {
+      await deliverWorker(jobId, 'apply').expect(204);
+      job = await tenantPrisma().importJob.findFirst({ where: { id: jobId } });
+    }
+    return job;
+  }
+
   const deliverWorker = (
     jobId: string,
     phase: 'dry_run' | 'apply',
@@ -620,6 +632,8 @@ describe('Import background worker (e2e)', () => {
       .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${token}`)
       .expect(202);
+    const applied = await runApplyUntilDone(jobId);
+    expect(applied?.status).toBe(ImportJobStatus.APPLIED);
     return jobId;
   }
 
