@@ -12,6 +12,7 @@ import {
 } from '../common/services/tenant-context.storage.js';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 import { resolvePrismaModelDelegate } from './prisma-delegate.js';
+import { PrismaTransactionContext } from './prisma-transaction-context.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 
@@ -280,7 +281,17 @@ function resolveDelegates(
 } {
   const extensionContext = getExtensionRecord(extensionThis);
   const queryCtx = asRecord(queryContext) ?? {};
+  // Snapshot reads belong to the transaction that performs the write. The
+  // client captured at extension definition runs outside it and would return
+  // the committed row both before and after the write, emptying every diff
+  // (and so every changed_fields list) for in-transaction updates.
+  const snapshotCtx =
+    asRecord(PrismaTransactionContext.getClient()) ??
+    asRecord(DryRunStorage.getTransactionClient());
   const modelDelegate =
+    (snapshotCtx
+      ? resolvePrismaModelDelegate(snapshotCtx, model)
+      : undefined) ??
     resolvePrismaModelDelegate(queryCtx, model) ??
     resolvePrismaModelDelegate(extensionContext, model);
   const auditLogDelegate = resolveAuditLogDelegate(queryCtx, extensionContext);
@@ -448,7 +459,7 @@ function buildAuditLogData(
   };
 }
 
-const BOOKKEEPING_WRITE_FIELDS = new Set(['updatedAt']);
+const BOOKKEEPING_FIELDS = new Set(['updatedAt']);
 
 /** Skip only when the write itself touches nothing but updatedAt. */
 function isUpdatedAtOnlyWrite(data: unknown): boolean {
@@ -456,9 +467,17 @@ function isUpdatedAtOnlyWrite(data: unknown): boolean {
     return false;
   }
   const keys = Object.keys(data);
-  return (
-    keys.length > 0 && keys.every((key) => BOOKKEEPING_WRITE_FIELDS.has(key))
-  );
+  return keys.length > 0 && keys.every((key) => BOOKKEEPING_FIELDS.has(key));
+}
+
+/**
+ * An UPDATE whose diff only touches bookkeeping columns is not history.
+ * This is the last line of defence for every audited update path: even when
+ * the write itself names business columns, the row may end up unchanged
+ * (for example a main-contact sync that re-sets the same customer).
+ */
+function hasMeaningfulChanges(changedFields: string[]): boolean {
+  return changedFields.some((field) => !BOOKKEEPING_FIELDS.has(field));
 }
 
 async function writeAuditLog(
@@ -466,6 +485,13 @@ async function writeAuditLog(
   actor: AuditActorContext,
   payload: AuditRecordPayload,
 ): Promise<void> {
+  if (
+    payload.action === 'UPDATE' &&
+    !hasMeaningfulChanges(payload.changedFields)
+  ) {
+    return;
+  }
+
   if (SideEffectGuard.isDryRun()) {
     const collector = DryRunStorage.getCollector();
     if (collector && payload.entityId) {

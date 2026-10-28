@@ -21,6 +21,31 @@ import {
   releaseSharedRuntimePool,
 } from './shared-pg-pool.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import { PrismaTransactionContext } from './prisma-transaction-context.js';
+
+type PrismaTransactionCall = (first: unknown, ...args: unknown[]) => unknown;
+type PrismaTransactionCallback = (
+  txClient: Prisma.TransactionClient,
+) => unknown;
+
+/** Runs interactive transaction callbacks with their client on the audit snapshot context. */
+function createTransactionRunner(client: PrismaClient): PrismaTransactionCall {
+  const runTransaction = (
+    Reflect.get(client, '$transaction', client) as PrismaTransactionCall
+  ).bind(client);
+
+  return (first, ...rest) => {
+    if (typeof first !== 'function') {
+      return runTransaction(first, ...rest);
+    }
+    const callback = first as PrismaTransactionCallback;
+    return runTransaction(
+      (txClient: Prisma.TransactionClient) =>
+        PrismaTransactionContext.run(txClient, () => callback(txClient)),
+      ...rest,
+    );
+  };
+}
 
 @Injectable()
 export class PrismaService
@@ -99,6 +124,10 @@ export class PrismaService
             }
             return val;
           }
+        }
+
+        if (property === '$transaction') {
+          return createTransactionRunner(target.client);
         }
 
         return Reflect.get(target.client, property, target.client) as unknown;

@@ -272,6 +272,42 @@ describe('Vehicle party and due date import (e2e)', () => {
       );
     });
 
+    it('writes no empty Vehicle UPDATE audit rows for party writes and audits the main-contact change', async () => {
+      const vehicleId = await idOf('VEHICLE', 'VEHICLE-002');
+      const rows = [
+        ['PARTY-020', 'VEHICLE-002', 'CUSTOMER-A', 'OWNER', longAgo, '', ''],
+        ['PARTY-021', 'VEHICLE-002', 'CUSTOMER-B', 'DRIVER', '', '', ''],
+        ['PARTY-022', 'VEHICLE-002', 'CUSTOMER-X', 'PREVIOUS_OWNER', '', longAgo, ''],
+      ];
+      const { applied } = await importAndApply('VEHICLE_PARTY', PARTY_HEADERS, rows, token);
+      expect(applied.totals).toMatchObject({ create: 3, error: 0 });
+
+      const vehicleAudits = await prisma.auditLog.findMany({
+        where: {
+          tenant_id: tenant.tenantId,
+          entity_type: 'Vehicle',
+          action: 'UPDATE',
+        },
+      });
+
+      expect(
+        vehicleAudits.filter(
+          (log) => Array.isArray(log.changed_fields) && log.changed_fields.length === 0,
+        ),
+      ).toEqual([]);
+
+      const contactAudit = vehicleAudits.find(
+        (log) =>
+          log.entity_id === vehicleId &&
+          Array.isArray(log.changed_fields) &&
+          log.changed_fields.includes('customer_id'),
+      );
+      expect(contactAudit).toBeDefined();
+      expect((contactAudit?.after as Record<string, unknown>).customer_id).toBe(
+        await idOf('CUSTOMER', 'CUSTOMER-A'),
+      );
+    });
+
     it('exposes vehicles by role on the customer detail and blocks deleting a referenced customer', async () => {
       const customerId = await idOf('CUSTOMER', 'CUSTOMER-A');
       const detail = await request(app.getHttpServer())
