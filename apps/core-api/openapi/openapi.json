@@ -19914,6 +19914,21 @@
           "provisional"
         ]
       },
+      "LegacyIdDto": {
+        "type": "object",
+        "properties": {
+          "source_system": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_system",
+          "external_id"
+        ]
+      },
       "CustomerResponseDto": {
         "type": "object",
         "properties": {
@@ -19927,6 +19942,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "id": {
@@ -20266,6 +20288,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "open_pickerl_order": {
@@ -21766,6 +21795,13 @@
       "CustomerDetailResponseDto": {
         "type": "object",
         "properties": {
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -21916,6 +21952,7 @@
           }
         },
         "required": [
+          "legacy_ids",
           "id",
           "type",
           "first_name",
@@ -23868,6 +23905,13 @@
               "$ref": "#/components/schemas/WouldChangeItemDto"
             }
           },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
+            }
+          },
           "open_pickerl_order": {
             "nullable": true,
             "type": "object",
@@ -24011,6 +24055,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "open_pickerl_order": {
@@ -24157,6 +24208,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "id": {

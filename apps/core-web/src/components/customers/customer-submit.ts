@@ -10,7 +10,8 @@ import type { Customer } from '@/api/types'
  */
 export function buildCustomerPayload(formData: Partial<Customer>, existing?: Customer): Partial<Customer> {
   const email = formData.email?.trim() ?? ''
-  const payload: Partial<Customer> = { ...formData, email: email || (existing ? null : undefined) }
+  const payload = { ...formData, email: email || (existing ? null : undefined) }
+  delete payload.legacy_ids
   return existing && email !== (existing.email ?? '') ? { ...payload, contact_email_ok: false } : payload
 }
 

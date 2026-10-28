@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Customer, Prisma } from '@prisma/client';
+import { ImportEntityType } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import {
+  attachLegacyIds,
+  findExternalEntityIds,
+} from '../import/import-external-id.store.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { resolveHistoryPagination } from '../common/utils/history-pagination.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -38,9 +43,10 @@ function isPrismaCustomerQuery(
   );
 }
 
-function buildLegacySearchWhere(
+function buildCustomerSearchWhere(
   tenantId: string,
-  search?: string,
+  search: string | undefined,
+  legacyEntityIds: string[],
 ): Prisma.CustomerWhereInput {
   if (!search) {
     return { tenant_id: tenantId };
@@ -53,9 +59,12 @@ function buildLegacySearchWhere(
   ] as const;
   return {
     tenant_id: tenantId,
-    OR: searchFields.map((field) => ({
-      [field]: { contains: search, mode: 'insensitive' as const },
-    })),
+    OR: [
+      ...searchFields.map((field) => ({
+        [field]: { contains: search, mode: 'insensitive' as const },
+      })),
+      ...(legacyEntityIds.length ? [{ id: { in: legacyEntityIds } }] : []),
+    ],
   };
 }
 
@@ -72,7 +81,14 @@ async function queryTenantCustomers(
     prisma.customer.findMany({ ...params, where }),
     prisma.customer.count({ where }),
   ]);
-  return { data, total };
+  return {
+    data: await attachLegacyIds(
+      prisma,
+      { tenantId, entityType: ImportEntityType.CUSTOMER },
+      data,
+    ),
+    total,
+  };
 }
 
 async function getCustomerReferenceCounts(
@@ -150,19 +166,29 @@ export class CustomerService {
 
   async findAll(
     params?: string | Prisma.CustomerFindManyArgs,
-  ): Promise<{ data: Customer[]; total: number }> {
+    search?: string,
+  ) {
     const tenantId = await this.tenantContext.getTenantId();
-    if (isPrismaCustomerQuery(params)) {
-      return queryTenantCustomers(this.prisma, tenantId, params);
-    }
-
-    // Fallback for legacy calls (if any)
-    const search = typeof params === 'string' ? params : undefined;
-    const result = await this.prisma.customer.findMany({
-      where: buildLegacySearchWhere(tenantId, search),
-      orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
-    });
-    return { data: result, total: result.length };
+    const searchText = typeof params === 'string' ? params : search;
+    const legacyEntityIds = searchText
+      ? await findExternalEntityIds(this.prisma, {
+          tenantId,
+          entityType: ImportEntityType.CUSTOMER,
+          externalId: searchText,
+        })
+      : [];
+    const searchWhere = buildCustomerSearchWhere(
+      tenantId,
+      searchText,
+      legacyEntityIds,
+    );
+    const query: Prisma.CustomerFindManyArgs = isPrismaCustomerQuery(params)
+      ? { ...params, where: { AND: [params.where ?? {}, searchWhere] } }
+      : {
+          where: searchWhere,
+          orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
+        };
+    return queryTenantCustomers(this.prisma, tenantId, query);
   }
 
   async findOne(
@@ -201,15 +227,19 @@ export class CustomerService {
       throw new NotFoundException(`Customer with ID ${id} not found`);
     }
 
-    return projectCustomerDetail(
-      customer,
-      pagination,
-      {
-        workshopOrders: workshopOrdersTotal,
-        invoices: invoicesTotal,
-      },
-      authorizedSiteIds,
+    const [detail] = await attachLegacyIds(
+      this.prisma,
+      { tenantId, entityType: ImportEntityType.CUSTOMER },
+      [
+        projectCustomerDetail(
+          customer,
+          pagination,
+          { workshopOrders: workshopOrdersTotal, invoices: invoicesTotal },
+          authorizedSiteIds,
+        ),
+      ],
     );
+    return detail;
   }
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {

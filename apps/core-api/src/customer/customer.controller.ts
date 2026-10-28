@@ -68,7 +68,6 @@ export class CustomerController {
     const parsedPage = page ? parseInt(page, 10) : NaN;
     const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
 
-    if (search) queryParams.search = search;
     if (Number.isFinite(parsedPage) && parsedPage > 0) {
       queryParams.page = parsedPage;
     }
@@ -89,7 +88,7 @@ export class CustomerController {
       ];
     }
 
-    if (Object.keys(queryParams).length > 0) {
+    if (search || Object.keys(queryParams).length > 0) {
       const whitelist = [
         'first_name',
         'last_name',
@@ -100,13 +99,8 @@ export class CustomerController {
         'address_city',
         'createdAt',
       ];
-      const searchFields = ['first_name', 'last_name', 'company_name', 'email'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(
-        queryParams,
-        whitelist,
-        searchFields,
-      );
-      const result = await this.customerService.findAll(prismaQuery);
+      const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist);
+      const result = await this.customerService.findAll(prismaQuery, search);
 
       return {
         data: result.data,
