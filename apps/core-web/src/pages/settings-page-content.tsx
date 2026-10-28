@@ -337,6 +337,20 @@ export default function SettingsPage() {
     const visibleTabs = getVisibleTabs(canManageTeam)
     const activeTab = visibleTabs.find(tab => tab === searchParams.get("tab")) ?? "finance"
 
+    const stripRef = React.useRef<HTMLDivElement>(null)
+    const sessionLoading = sessionQuery.isLoading
+    // Tab widths change once the labels arrive, so the strip is positioned again then.
+    const labelsKey = t('tabs.finance')
+    React.useEffect(() => {
+        // Scroll the strip itself: scrollIntoView would also scroll the page sideways.
+        const strip = stripRef.current
+        const trigger = strip?.querySelector<HTMLElement>('[data-state="active"]')
+        if (!strip || !trigger) return
+        const stripBox = strip.getBoundingClientRect()
+        const triggerBox = trigger.getBoundingClientRect()
+        strip.scrollLeft += triggerBox.left - stripBox.left - (stripBox.width - triggerBox.width) / 2
+    }, [activeTab, sessionLoading, labelsKey])
+
     const finance = useFinanceSettingsForm()
     const { data: groups, isLoading: isLoadingGroups } = useRevenueGroups()
     const { data: brands, isLoading: isLoadingBrands } = useBrands()
@@ -399,7 +413,7 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={(value) => setSearchParams({ tab: value })} className="space-y-6">
-                <TabsList className="flex h-auto w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
+                <TabsList ref={stripRef} className="flex h-auto w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
                     {visibleTabs.map(tab => (
                         <TabsTrigger key={tab} className="shrink-0" value={tab}>{tabLabels[tab]}</TabsTrigger>
                     ))}
