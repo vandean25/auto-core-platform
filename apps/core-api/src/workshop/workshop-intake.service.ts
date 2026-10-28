@@ -10,6 +10,7 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { SiteContextService } from '../site/site-context.service.js';
 import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
 import { normalizeWorkshopOrder } from './workshop-order.helpers.js';
+import { computeWorkshopLaborSummary } from './workshop-labor-summary.helpers.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
@@ -138,7 +139,11 @@ export class WorkshopIntakeService {
       siteId,
       id,
     );
-    return { ...order, ready_email_notice };
+    return {
+      ...order,
+      labor_summary: computeWorkshopLaborSummary(order.tasks),
+      ready_email_notice,
+    };
   }
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {

@@ -349,6 +349,35 @@ const workshopOrderShape = {
     .optional(),
 };
 
+const workshopLaborSummaryLine = z.object({
+  id: idString,
+  task_id: idString,
+  revenue: decimalString,
+  cost: nullableDecimalString,
+  margin: nullableDecimalString,
+  efficiency: nullableDecimalString,
+});
+
+const workshopLaborSummary = z.object({
+  line_items: z.array(workshopLaborSummaryLine),
+  totals: z.object({
+    revenue: decimalString,
+    cost: nullableDecimalString,
+    margin: nullableDecimalString,
+    margin_percent: nullableDecimalString,
+    standard_hours: decimalString,
+    actual_hours: decimalString,
+    efficiency: nullableDecimalString,
+  }),
+  has_cost_data: z.boolean(),
+});
+
+/** Detail read: the order plus its labor margin and efficiency (AUT-40). */
+const workshopOrderDetailShape = {
+  ...workshopOrderShape,
+  labor_summary: workshopLaborSummary,
+};
+
 const workshopSlotRow = z.object({
   bay_id: idString,
   start_at: isoDateTime,
@@ -988,7 +1017,7 @@ export const mcpToolOutputSchemas = {
     data: z.array(z.looseObject(workshopOrderShape)),
     meta: camelOffsetMeta,
   }),
-  get_workshop_order: resultOf(workshopOrderShape, { loose: true }),
+  get_workshop_order: resultOf(workshopOrderDetailShape, { loose: true }),
   search_parts: searchPartsResult,
   get_stock_level: resultOf({
     catalog_item_id: idString.optional(),

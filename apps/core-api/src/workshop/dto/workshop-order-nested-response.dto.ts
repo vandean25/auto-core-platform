@@ -132,6 +132,60 @@ export class WorkshopTaskResponseDto {
   updatedAt!: Date;
 }
 
+export class WorkshopLaborSummaryLineDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  task_id!: string;
+
+  @ApiProperty()
+  revenue!: number;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  cost?: number | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  margin?: number | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  efficiency?: number | null;
+}
+
+export class WorkshopLaborSummaryTotalsDto {
+  @ApiProperty()
+  revenue!: number;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  cost?: number | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  margin?: number | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  margin_percent?: number | null;
+
+  @ApiProperty()
+  standard_hours!: number;
+
+  @ApiProperty()
+  actual_hours!: number;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  efficiency?: number | null;
+}
+
+export class WorkshopLaborSummaryDto {
+  @ApiProperty({ type: [WorkshopLaborSummaryLineDto] })
+  line_items!: WorkshopLaborSummaryLineDto[];
+
+  @ApiProperty({ type: () => WorkshopLaborSummaryTotalsDto })
+  totals!: WorkshopLaborSummaryTotalsDto;
+
+  @ApiProperty()
+  has_cost_data!: boolean;
+}
+
 export class WorkshopOrderLoanerBookingSummaryDto {
   @ApiProperty()
   id!: string;

@@ -1,5 +1,10 @@
 import { Prisma, WorkshopEstimateStatus } from '@prisma/client';
 import { localDateStartUtc } from '../workshop/workshop-kpi-reports.math.js';
+import type {
+  WorkshopLaborSummary,
+  WorkshopLaborSummaryLine,
+  WorkshopLaborSummaryTotals,
+} from '../workshop/workshop-labor-summary.helpers.js';
 import type { WorkshopOrderWithRelations } from '../workshop/workshop-order.helpers.js';
 import { normalizeWorkshopOrder } from '../workshop/workshop-order.helpers.js';
 
@@ -113,5 +118,45 @@ export function toMcpWorkshopOrderListRow(
   return {
     ...normalized,
     estimate: estimate ? toMcpEstimateSummary(estimate, now) : null,
+  };
+}
+
+function mcpDecimal(value: number): string {
+  return value.toFixed(2);
+}
+
+function mcpNullableDecimal(value: number | null): string | null {
+  return value === null ? null : mcpDecimal(value);
+}
+
+function toMcpLaborSummaryLine(line: WorkshopLaborSummaryLine) {
+  return {
+    id: line.id,
+    task_id: line.task_id,
+    revenue: mcpDecimal(line.revenue),
+    cost: mcpNullableDecimal(line.cost),
+    margin: mcpNullableDecimal(line.margin),
+    efficiency: mcpNullableDecimal(line.efficiency),
+  };
+}
+
+function toMcpLaborSummaryTotals(totals: WorkshopLaborSummaryTotals) {
+  return {
+    revenue: mcpDecimal(totals.revenue),
+    cost: mcpNullableDecimal(totals.cost),
+    margin: mcpNullableDecimal(totals.margin),
+    margin_percent: mcpNullableDecimal(totals.margin_percent),
+    standard_hours: mcpDecimal(totals.standard_hours),
+    actual_hours: mcpDecimal(totals.actual_hours),
+    efficiency: mcpNullableDecimal(totals.efficiency),
+  };
+}
+
+/** Labor margin and efficiency of the detail read, with MCP decimal strings. */
+export function toMcpWorkshopLaborSummary(summary: WorkshopLaborSummary) {
+  return {
+    line_items: summary.line_items.map(toMcpLaborSummaryLine),
+    totals: toMcpLaborSummaryTotals(summary.totals),
+    has_cost_data: summary.has_cost_data,
   };
 }
