@@ -463,10 +463,6 @@ async function writeAuditLog(
   actor: AuditActorContext,
   payload: AuditRecordPayload,
 ): Promise<void> {
-  if (isBookkeepingOnlyUpdate(payload)) {
-    return;
-  }
-
   if (SideEffectGuard.isDryRun()) {
     const collector = DryRunStorage.getCollector();
     if (collector && payload.entityId) {
@@ -477,6 +473,10 @@ async function writeAuditLog(
         op,
       });
     }
+    return;
+  }
+
+  if (isBookkeepingOnlyUpdate(payload)) {
     return;
   }
 

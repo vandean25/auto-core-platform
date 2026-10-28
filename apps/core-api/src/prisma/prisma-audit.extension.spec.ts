@@ -8,6 +8,8 @@ import {
   createAuditExtension,
 } from './prisma-audit.extension.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+import { DryRunChangeCollector } from '../dry-run/dry-run-change-collector.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import { REDACTED_VALUE } from '../audit/audit-redaction.util.js';
 import { lockVehicleForPartyWrite } from '../vehicle/vehicle-party.writer.js';
 
@@ -737,6 +739,45 @@ describe('Prisma Audit Extension', () => {
       expect(result).toEqual(afterRow);
       expect(queryFn).toHaveBeenCalledTimes(1);
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+
+    it('still records a dry-run change for an updatedAt-only update', async () => {
+      const beforeRow = {
+        id: 'task-1',
+        version: 1,
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      const afterRow = {
+        id: 'task-1',
+        version: 2,
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      mockContext.workshopTask = { findFirst: mockModelFindFirst };
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+      const collector = new DryRunChangeCollector();
+
+      await DryRunStorage.run({ isDryRun: true, collector }, () =>
+        runWithContext(undefined, undefined, () =>
+          applyAuditUpdate.call(
+            mockContext,
+            mockContext,
+            'WorkshopTask',
+            { where: { id: 'task-1' }, data: { version: 2 } },
+            queryFn,
+          ),
+        ),
+      );
+
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(collector.getChanges()).toEqual([
+        {
+          entity: 'WorkshopTask',
+          id: 'task-1',
+          op: 'update',
+          provisional: false,
+        },
+      ]);
     });
 
     it('writes no audit row when updateMany only changes updatedAt and version', async () => {
