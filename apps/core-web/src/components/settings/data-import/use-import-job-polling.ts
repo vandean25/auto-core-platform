@@ -37,12 +37,14 @@ export function useImportJobPolling(jobId: string | null) {
     enabled: Boolean(jobId),
     staleTime: 0,
     refetchIntervalInBackground: true,
-    queryFn: () => fetchImportJob(jobId!),
+    queryFn: async () => {
+      const job = await fetchImportJob(jobId!)
+      attempt.current += 1
+      return job
+    },
     refetchInterval: (query) => {
       if (!shouldPoll(query.state.data)) return false
-      const delay = pollDelayMs(attempt.current)
-      attempt.current += 1
-      return delay
+      return pollDelayMs(attempt.current)
     },
   })
 }
