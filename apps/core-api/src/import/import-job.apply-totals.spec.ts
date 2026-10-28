@@ -35,47 +35,71 @@ describe('ImportJobStore.lockForBackgroundApply', () => {
     expect(executeRaw).toHaveBeenCalled();
   });
 
-  it('stores the retry list before clearing technical error rows', async () => {
-    const order: string[] = [];
-    const updateMany = jest.fn(async () => {
-      order.push('job');
-      return { count: 1 };
-    });
-    const rowUpdateMany = jest.fn(async () => {
-      order.push('rows');
-      return { count: 1 };
-    });
+  it('clears technical error rows inside the lock transaction', async () => {
+    const committed: { status: string; action: ImportRowAction } = {
+      status: 'FAILED',
+      action: ImportRowAction.ERROR,
+    };
+    const outerJobUpdate = jest.fn(async () => ({ count: 1 }));
+    const outerRowUpdate = jest.fn(async () => ({ count: 1 }));
+    const txJobUpdate = jest.fn(async (_args: unknown) => ({ count: 1 }));
+    const txRowUpdate = jest.fn(async (_args: unknown) => ({ count: 1 }));
     const prisma = {
-      importJob: { updateMany, findFirst: async () => null },
+      importJob: { updateMany: outerJobUpdate, findFirst: async () => null },
       importJobRow: {
         findMany: async () => [
-          {
-            row_no: 2,
-            entity_id: null,
-            action: 'ERROR',
-          },
+          { row_no: 2, entity_id: null, action: ImportRowAction.ERROR },
         ],
-        updateMany: rowUpdateMany,
+        updateMany: outerRowUpdate,
       },
-      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn({
-          importJob: { updateMany },
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+        const draft = { ...committed };
+        const result = await fn({
+          importJob: {
+            updateMany: async (args: unknown) => {
+              draft.status = 'APPLYING';
+              return txJobUpdate(args);
+            },
+          },
           importJobRow: {
             findMany: async () => [
-              {
-                row_no: 2,
-                entity_id: null,
-                action: ImportRowAction.ERROR,
-              },
+              { row_no: 2, entity_id: null, action: ImportRowAction.ERROR },
             ],
-            updateMany: rowUpdateMany,
+            updateMany: async (args: unknown) => {
+              draft.action = ImportRowAction.CREATE;
+              return txRowUpdate(args);
+            },
           },
-        }),
+        });
+        committed.status = draft.status;
+        committed.action = draft.action;
+        return result;
+      },
     };
     const store = new ImportJobStore(prisma as never);
     await store.lockForApply('tenant-1', 'job-1', [], {
       technical_retry_row_nos: [2],
     });
-    expect(order).toEqual(['job', 'rows']);
+    expect(txJobUpdate).toHaveBeenCalled();
+    expect(txRowUpdate).toHaveBeenCalled();
+    expect(outerJobUpdate).not.toHaveBeenCalled();
+    expect(outerRowUpdate).not.toHaveBeenCalled();
+    expect(committed).toEqual({
+      status: 'APPLYING',
+      action: ImportRowAction.CREATE,
+    });
+
+    committed.status = 'FAILED';
+    committed.action = ImportRowAction.ERROR;
+    txRowUpdate.mockRejectedValueOnce(new Error('row reset failed'));
+    await expect(
+      store.lockForApply('tenant-1', 'job-1', [], {
+        technical_retry_row_nos: [2],
+      }),
+    ).rejects.toThrow('row reset failed');
+    expect(committed).toEqual({
+      status: 'FAILED',
+      action: ImportRowAction.ERROR,
+    });
   });
 });

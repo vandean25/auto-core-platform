@@ -139,6 +139,106 @@ describe('ImportService re-apply of technical error rows', () => {
     });
   });
 
+  it('takes over a stale APPLYING job and keeps the saved cursor', async () => {
+    const rows = [customerRow(5, ImportRowAction.CREATE, 'K-done')];
+    rows[0].apply_seq = 5;
+    arrange(ImportJobStatus.APPLYING, rows);
+    h.prisma.importJob.findFirst.mockResolvedValue(
+      importJobRecord({
+        status: ImportJobStatus.APPLYING,
+        entity_type: ImportEntityType.CUSTOMER,
+        worker_claim_seq: 1,
+        attempts_without_progress: 0,
+        options_json: {
+          worker: {
+            phase: 'apply',
+            lease_token: 'old-token',
+            lease_until: new Date(0).toISOString(),
+            processed_rows: 5,
+            last_committed_apply_seq: 5,
+            started_at: '2026-10-01T00:00:00.000Z',
+          },
+        },
+        totals_json: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+      }),
+    );
+
+    await expect(h.service.applyJob(JOB_ID)).resolves.toMatchObject({
+      status: ImportJobStatus.APPLIED,
+    });
+
+    const claimed = (
+      h.prisma.importJob.updateMany.mock.calls as Array<
+        [
+          {
+            data?: {
+              options_json?: {
+                worker?: {
+                  last_committed_apply_seq?: number;
+                  lease_token?: string;
+                };
+              };
+            };
+          },
+        ]
+      >
+    ).find((call) => {
+      const worker = call[0]?.data?.options_json?.worker;
+      return worker?.last_committed_apply_seq === 5;
+    });
+    expect(claimed?.[0]?.data?.options_json?.worker?.lease_token).not.toBe(
+      'old-token',
+    );
+  });
+
+  it('merges a new technical error with retry rows that are not ERROR yet', async () => {
+    const rows = [
+      customerRow(2, ImportRowAction.CREATE, 'K-reset'),
+      customerRow(4, ImportRowAction.CREATE, 'K-reset-2'),
+      customerRow(8, ImportRowAction.ERROR, 'K-tech', IMPORT_ERROR_CODES.APPLY_FAILED),
+    ];
+    arrange(ImportJobStatus.FAILED, rows);
+    h.prisma.importJob.findFirst.mockResolvedValue(
+      importJobRecord({
+        status: ImportJobStatus.FAILED,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: {
+          worker: {
+            phase: 'apply',
+            lease_token: 'old-token',
+            lease_until: new Date(0).toISOString(),
+            processed_rows: 0,
+            last_committed_apply_seq: 0,
+            started_at: '2026-10-01T00:00:00.000Z',
+            technical_retry_row_nos: [2, 4],
+          },
+        },
+        totals_json: { rows: 3, create: 2, update: 0, skip: 0, error: 1 },
+      }),
+    );
+
+    await h.service.applyJob(JOB_ID);
+
+    const locked = (
+      h.prisma.importJob.updateMany.mock.calls as Array<
+        [
+          {
+            data?: {
+              options_json?: {
+                worker?: { technical_retry_row_nos?: number[] };
+              };
+            };
+          },
+        ]
+      >
+    ).find((call) =>
+      Array.isArray(call[0]?.data?.options_json?.worker?.technical_retry_row_nos),
+    );
+    expect(
+      locked?.[0]?.data?.options_json?.worker?.technical_retry_row_nos,
+    ).toEqual(expect.arrayContaining([2, 4, 8]));
+  });
+
   it('rejects an APPLIED job with only business errors', async () => {
     h.prisma.importJob.findFirst.mockResolvedValue(
       importJobRecord({ status: ImportJobStatus.APPLIED }),

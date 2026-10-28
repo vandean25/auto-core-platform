@@ -1,6 +1,11 @@
-import { ImportJobStatus } from '@prisma/client';
+import {
+  ImportEntityType,
+  ImportJobStatus,
+  ImportRowAction,
+} from '@prisma/client';
 import { runSyncApplyUnits } from './import-sync-apply-lease.js';
-import { withoutTechnicalRetryRow } from './import-technical-retry.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
+import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 
 describe('runSyncApplyUnits', () => {
@@ -68,87 +73,98 @@ describe('runSyncApplyUnits', () => {
     expect(job.options_json.worker.last_committed_apply_seq).toBe(2);
   });
 
-  it('applies technical retry rows that sit before the saved cursor', async () => {
-    const applied: number[] = [];
-    const job: {
-      id: string;
-      status: ImportJobStatus;
-      options_json: {
-        worker: {
-          phase: 'apply';
-          lease_token: string;
-          lease_until: string;
-          processed_rows: number;
-          last_committed_apply_seq: number;
-          started_at: string;
-          technical_retry_row_nos: number[];
-        };
-      };
-    } = {
+  it('drops a committed retry row from the list inside the runner', async () => {
+    const written: number[] = [];
+    const job = {
       id: 'job-1',
-      status: ImportJobStatus.APPLYING,
+      tenant_id: 'tenant-1',
+      status: ImportJobStatus.APPLYING as ImportJobStatus,
       options_json: {
         worker: {
           phase: 'apply' as const,
           lease_token: 'lease-a',
-          lease_until: new Date(0).toISOString(),
+          lease_until: new Date(Date.now() + 60_000).toISOString(),
           processed_rows: 5,
           last_committed_apply_seq: 5,
           started_at: new Date().toISOString(),
           technical_retry_row_nos: [2],
         },
       },
+      totals_json: { rows: 3, create: 0, update: 0, skip: 0, error: 0 },
     };
-    const rows = [2, 6, 7].map((rowNo) => ({
+    const rows = [2, 6].map((rowNo) => ({
       row_no: rowNo,
       apply_seq: rowNo,
-      action: 'CREATE' as const,
+      action: ImportRowAction.CREATE,
       entity_id: null,
       external_id: `K-${rowNo}`,
       normalized_json: {},
     }));
+    const importJob = {
+      findFirst: async () => job,
+      update: async (args: {
+        data: {
+          status?: ImportJobStatus;
+          options_json?: { worker: typeof job.options_json.worker };
+        };
+      }) => {
+        if (args.data.options_json?.worker) {
+          job.options_json.worker = args.data.options_json.worker;
+        }
+        if (args.data.status) {
+          job.status = args.data.status;
+        }
+        return job;
+      },
+      updateMany: async () => ({ count: 1 }),
+    };
+    const tx = withApplyPersistedTotalsTransactionClient(
+      {
+        importJob,
+        externalIdMapping: { findFirst: async () => null },
+        importJobRow: { update: jest.fn() },
+      },
+      { tenantId: 'tenant-1', expectedRows: 2 },
+    );
+    const runner = new RowByRowApplyRunner(
+      {
+        ...tx,
+        $transaction: async (fn: (client: typeof tx) => Promise<unknown>) =>
+          fn(tx),
+      } as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (updated, totals) =>
+        ({
+          ...updated,
+          totals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
+    );
     await runSyncApplyUnits({
       rows,
       initialLeaseToken: 'lease-a',
       findJob: async () => job,
       extendLease: async () => true,
-      applyRows: async (pending) => {
-        const row = pending[0];
-        if (!row) {
-          job.status = ImportJobStatus.APPLIED;
-          return { status: job.status } as SerializedImportJob;
-        }
-        applied.push(row.row_no);
-        const worker = job.options_json.worker;
-        const nextWorker = withoutTechnicalRetryRow(worker, row.row_no);
-        const applySeq = row.apply_seq ?? row.row_no;
-        job.options_json.worker = {
-          phase: 'apply',
-          lease_token: nextWorker.lease_token,
-          lease_until: nextWorker.lease_until,
-          processed_rows: worker.processed_rows,
-          last_committed_apply_seq: worker.last_committed_apply_seq,
-          started_at: nextWorker.started_at,
-          technical_retry_row_nos: nextWorker.technical_retry_row_nos ?? [],
-        };
-        if (applySeq > job.options_json.worker.last_committed_apply_seq) {
-          job.options_json.worker.last_committed_apply_seq = applySeq;
-          job.options_json.worker.processed_rows = applySeq;
-        }
-        const more =
-          (job.options_json.worker.technical_retry_row_nos?.length ?? 0) > 0 ||
-          rows.some(
-            (candidate) =>
-              candidate.apply_seq >
-              job.options_json.worker.last_committed_apply_seq,
-          );
-        job.status = more
-          ? ImportJobStatus.APPLYING
-          : ImportJobStatus.APPLIED;
-        return { status: job.status } as SerializedImportJob;
-      },
+      applyRows: (pending, batchOptions) =>
+        runner.run(
+          {
+            tenantId: 'tenant-1',
+            job: job as unknown as never,
+            rows: pending,
+            actorUserId: 'actor',
+            effectiveOptions: {},
+            preparation: { vendor: null },
+          },
+          ImportEntityType.CUSTOMER,
+          async (_tx, row) => {
+            written.push(row.row_no);
+          },
+          batchOptions,
+        ),
     });
-    expect(applied).toEqual([2, 6, 7]);
-    expect(job.options_json.worker.technical_retry_row_nos ?? []).toEqual([]);
+    expect(written).toEqual([2, 6]);
+    expect(job.options_json.worker.technical_retry_row_nos ?? []).not.toContain(
+      2,
+    );
   });
 });
