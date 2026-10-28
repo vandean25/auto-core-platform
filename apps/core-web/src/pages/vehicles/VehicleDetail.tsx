@@ -9,6 +9,9 @@ import { StartServiceDialog } from '@/components/workshop/StartServiceDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
+import { cn } from '@/lib/utils'
 import { ChangeCustomerDialog } from './ChangeCustomerDialog'
 import { VehicleInfoCard } from './VehicleInfoCard'
 import { VehicleOpenDueDates } from './VehicleOpenDueDates'
@@ -33,32 +36,33 @@ function VehicleDetailContent({ vehicle }: { vehicle: VehicleDetailResponse }) {
   }
 
   return (
-    <div className='space-y-6'>
-      <div className='flex items-center justify-between mb-8'>
-        <div className='flex items-center gap-4'>
+    <div className={cn('space-y-6', PHONE_TOUCH_CONTROLS)}>
+      <div className={PAGE_HEADER_ROW}>
+        <div className='flex min-w-0 items-center gap-4 max-sm:w-full'>
           <Button
             variant='ghost'
             size='icon'
+            className='shrink-0 max-sm:min-w-11'
             onClick={() => navigate(-1)}
             aria-label={t('detail.aria.goBack')}
           >
             <ArrowLeft className='h-4 w-4' />
           </Button>
-          <div>
-            <h1 className='text-2xl font-semibold tracking-tight'>
+          <div className='min-w-0'>
+            <h1 className='break-words text-xl font-semibold tracking-tight sm:text-2xl'>
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h1>
-            <div className='flex items-center gap-2 text-slate-500 text-sm'>
+            <div className='flex flex-wrap items-center gap-2 text-slate-500 text-sm'>
               <span>{t('detail.idLabel', { id: vehicle.id.substring(0, 8) })}</span>
               {vehicle.plate && <Badge variant='outline'>{vehicle.plate}</Badge>}
             </div>
           </div>
         </div>
-        <div className='flex gap-2'>
-          <Button variant='outline' onClick={() => setEditDialogOpen(true)}>
+        <div className='flex gap-2 max-sm:w-full max-sm:flex-wrap'>
+          <Button variant='outline' className='max-sm:flex-1' onClick={() => setEditDialogOpen(true)}>
             {t('detail.editVehicle')}
           </Button>
-          <Button variant='outline' onClick={handleCreateServiceOrder}>
+          <Button variant='outline' className='max-sm:flex-1' onClick={handleCreateServiceOrder}>
             <Wrench className='mr-2 h-4 w-4' /> {t('detail.serviceOrder')}
           </Button>
         </div>
