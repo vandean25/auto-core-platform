@@ -186,10 +186,10 @@ describe('VehicleDetail', () => {
 
   afterEach(() => cleanup())
 
-  it('shows a legacy vehicle number as read-only text', () => {
-    renderVehicle({ legacy_ids: [{ source_system: 'legacy_system:company_a', external_id: '00123' }] })
+  it.each(['legacy_system:company_a', 'legacy_system:company_b'])('shows a single legacy vehicle number with its source %s as read-only text', (source_system) => {
+    renderVehicle({ legacy_ids: [{ source_system, external_id: '00123' }] })
 
-    expect(screen.getByText('Alte Fahrzeugnr. (Vorsystem)')).toBeInTheDocument()
+    expect(screen.getByText(`Alte Fahrzeugnr. (Vorsystem) — ${source_system}`)).toBeInTheDocument()
     fireEvent.click(screen.getByText('00123'))
     expect(screen.queryByRole('textbox', { name: /Alte Fahrzeugnr/ })).not.toBeInTheDocument()
     expect(mutateAsync).not.toHaveBeenCalled()

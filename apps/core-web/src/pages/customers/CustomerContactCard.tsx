@@ -56,7 +56,6 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
       <CardContent className='space-y-4'>
         <LegacyNumbers
           legacyIds={customer.legacy_ids}
-          label={t('detail.fields.legacyNumber')}
           sourceLabel={(source) => t('detail.fields.legacyNumberSource', { source })}
         />
         {customer.type === 'COMPANY' ? (

@@ -191,10 +191,10 @@ describe('CustomerDetail', () => {
     expect(screen.getByText(deCustomers.detail.notFound)).toBeInTheDocument()
   })
 
-  it('shows a legacy customer number as read-only text', () => {
-    renderDetail(baseCustomer({ legacy_ids: [{ source_system: 'legacy_system:company_a', external_id: '00123' }] }))
+  it.each(['legacy_system:company_a', 'legacy_system:company_b'])('shows a single legacy customer number with its source %s as read-only text', (source_system) => {
+    renderDetail(baseCustomer({ legacy_ids: [{ source_system, external_id: '00123' }] }))
 
-    expect(screen.getByText('Alte Kundennr. (Vorsystem)')).toBeInTheDocument()
+    expect(screen.getByText(`Alte Kundennr. (Vorsystem) — ${source_system}`)).toBeInTheDocument()
     const number = screen.getByText('00123')
     fireEvent.click(number)
     expect(screen.queryByRole('textbox', { name: /Alte Kundennr/ })).not.toBeInTheDocument()

@@ -38,6 +38,27 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [1280, 390]) {
+  test(`separate single-mapping records retain their source labels at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [sourceIndex, { source_system, external_id }] of legacyIds.entries()) {
+      for (const { record, path, label } of [
+        { record: customer, path: '/customers', label: 'Alte Kundennr. (Vorsystem)' },
+        { record: vehicle, path: '/vehicles', label: 'Alte Fahrzeugnr. (Vorsystem)' },
+      ]) {
+        const id = `${record.id}-${sourceIndex}`;
+        await page.route(`**/api${path}/${id}`, (route) => route.fulfill({
+          json: { ...record, id, legacy_ids: [{ source_system, external_id }] },
+        }));
+        await page.goto(`${path}/${id}`);
+        await expect(page.getByText(`${label} — ${source_system}`)).toBeVisible();
+        await expect(page.getByText(external_id, { exact: true })).toHaveCount(1);
+        await expect(page.getByRole('textbox', { name: label })).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        await page.screenshot({ path: test.info().outputPath(`${id}-${width}.png`), fullPage: true });
+      }
+    }
+  });
+
   test(`customer legacy search and read-only source labels at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);

@@ -105,7 +105,6 @@
       "city": "City",
       "country": "Country",
       "vatId": "VAT ID",
-      "legacyNumber": "Legacy customer no. (previous system)",
       "legacyNumberSource": "Legacy customer no. (previous system) — {{source}}"
     },
     "placeholders": {

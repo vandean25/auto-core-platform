@@ -95,7 +95,6 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
       <CardContent className='space-y-3 text-sm'>
         <LegacyNumbers
           legacyIds={vehicle.legacy_ids}
-          label={t('detail.legacyNumber')}
           sourceLabel={(source) => t('detail.legacyNumberSource', { source })}
         />
         {vehicle.customer?.id ? (

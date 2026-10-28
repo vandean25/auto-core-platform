@@ -48,7 +48,6 @@
     "model": "Modell",
     "vin": "FIN",
     "plate": "Kennzeichen",
-    "legacyNumber": "Alte Fahrzeugnr. (Vorsystem)",
     "legacyNumberSource": "Alte Fahrzeugnr. (Vorsystem) — {{source}}",
     "placeholders": {
       "year": "Baujahr",
