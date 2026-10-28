@@ -24,72 +24,71 @@ export async function pipeImportCsvToStorage(
     tenantId: string;
     jobId: string;
     fileName: string;
-    source: NodeJS.ReadableStream;
+    openSource: () => NodeJS.ReadableStream;
+    contentLength?: number;
   },
 ): Promise<ImportUploadPipeResult> {
+  let finished: ImportUploadPipeResult | undefined;
+  const ref = await storage.storeUploadFromStream({
+    tenantId: params.tenantId,
+    jobId: params.jobId,
+    fileName: params.fileName,
+    openSource: params.openSource,
+    contentLength: params.contentLength,
+    openThrough: () =>
+      inspectTransform((snapshot) => {
+        finished = { ref: { object_key: '' }, ...snapshot };
+      }),
+  });
+  if (!finished) {
+    throw new Error('Import upload did not finish reading the file');
+  }
+  return { ...finished, ref };
+}
+
+function inspectTransform(
+  onFlush: (snapshot: Omit<ImportUploadPipeResult, 'ref'>) => void,
+): Transform {
   const hash = createHash('sha256');
   const parser = new CsvIncrementalParser();
   const utf8 = createUtf8CsvStreamValidator();
   let dataRowCount = 0;
   const maxDataRows = readImportMaxRowCount();
-
-  const inspect = new Transform({
+  return new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       try {
         utf8.feed(chunk);
-      } catch (error) {
-        callback(error as Error);
-        return;
-      }
-      hash.update(chunk);
-      try {
+        hash.update(chunk);
         const records = parser.feedChunk(chunk);
         dataRowCount = applyEmittedCsvRecordCount(
           dataRowCount,
           records.length,
           maxDataRows,
         );
+        callback(null, chunk);
       } catch (error) {
         callback(error as Error);
-        return;
       }
-      callback(null, chunk);
     },
     flush(callback) {
       try {
         utf8.finish();
-      } catch (error) {
-        callback(error as Error);
-        return;
-      }
-      try {
         const tailRecords = parser.finish();
         dataRowCount = applyEmittedCsvRecordCount(
           dataRowCount,
           tailRecords.length,
           maxDataRows,
         );
+        onFlush({
+          sha256: hash.digest('hex'),
+          headers: parser.getHeaders(),
+          delimiter: parser.getDelimiter(),
+          dataRowCount,
+        });
+        callback();
       } catch (error) {
         callback(error as Error);
-        return;
       }
-      callback();
     },
   });
-
-  const ref = await storage.storeUploadFromStream({
-    tenantId: params.tenantId,
-    jobId: params.jobId,
-    fileName: params.fileName,
-    source: params.source,
-    through: inspect,
-  });
-
-  return {
-    ref,
-    sha256: hash.digest('hex'),
-    headers: parser.getHeaders(),
-    delimiter: parser.getDelimiter(),
-    dataRowCount,
-  };
 }

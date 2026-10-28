@@ -160,6 +160,7 @@ export type CsvStreamSliceResult = {
   rows: string[][];
   nextByteOffset: number;
   streamBytesRead: number;
+  rowByteEnds: number[];
 };
 
 export type CsvSliceResume = {
@@ -179,6 +180,7 @@ type SliceCollect = {
   absolute: number;
   streamBytesRead: number;
   headerDone: boolean;
+  rowByteEnds: number[];
 };
 
 function releaseReadable(stream: NodeJS.ReadableStream): void {
@@ -212,6 +214,7 @@ function takeRecords(state: SliceCollect): boolean {
       continue;
     }
     state.rows.push(parsed[0]);
+    state.rowByteEnds.push(state.absolute);
     state.collected += 1;
     if (state.collected >= state.takeDataRows) {
       return true;
@@ -237,6 +240,108 @@ function finishTail(state: SliceCollect): void {
     return;
   }
   state.rows.push(parsed[0]);
+  state.rowByteEnds.push(state.absolute);
+}
+
+function beginSlice(
+  skipDataRows: number,
+  takeDataRows: number,
+  resume?: CsvSliceResume,
+): {
+  parser: CsvIncrementalParser;
+  utf8: ReturnType<typeof createUtf8CsvStreamValidator>;
+  state: SliceCollect;
+} {
+  const parser = new CsvIncrementalParser();
+  const headerDone = Boolean(resume?.headers && resume.delimiter);
+  if (resume?.headers && resume.delimiter) {
+    parser.resume(resume.headers, resume.delimiter);
+  }
+  return {
+    parser,
+    utf8: createUtf8CsvStreamValidator(),
+    state: {
+      parser,
+      rows: [],
+      skipped: 0,
+      collected: 0,
+      skipDataRows,
+      takeDataRows,
+      pending: Buffer.alloc(0),
+      absolute: resume?.absoluteStart ?? 0,
+      streamBytesRead: 0,
+      headerDone,
+      rowByteEnds: [],
+    },
+  };
+}
+
+function acceptBytes(
+  state: SliceCollect,
+  utf8: { feed: (chunk: Buffer) => void },
+  bytes: Buffer,
+): boolean {
+  utf8.feed(bytes);
+  state.streamBytesRead += bytes.length;
+  state.pending = Buffer.concat([state.pending, bytes]);
+  return takeRecords(state);
+}
+
+function finishSlice(
+  state: SliceCollect,
+  parser: CsvIncrementalParser,
+  utf8: { finish: () => void },
+  takeDataRows: number,
+): CsvStreamSliceResult | null {
+  if (state.collected < takeDataRows) {
+    finishTail(state);
+  }
+  utf8.finish();
+  const headers = parser.getHeaders();
+  if (headers.length === 0) {
+    return null;
+  }
+  return {
+    headers,
+    delimiter: parser.getDelimiter(),
+    rows: state.rows,
+    nextByteOffset: state.absolute,
+    streamBytesRead: state.streamBytesRead,
+    rowByteEnds: state.rowByteEnds,
+  };
+}
+
+async function pullUntilDone(
+  pull: () => Promise<Buffer | null>,
+  skipDataRows: number,
+  takeDataRows: number,
+  resume?: CsvSliceResume,
+): Promise<CsvStreamSliceResult | null> {
+  const { parser, utf8, state } = beginSlice(
+    skipDataRows,
+    takeDataRows,
+    resume,
+  );
+  for (;;) {
+    const bytes = await pull();
+    if (!bytes || bytes.length === 0) {
+      break;
+    }
+    if (acceptBytes(state, utf8, bytes)) {
+      break;
+    }
+  }
+  return finishSlice(state, parser, utf8, takeDataRows);
+}
+
+/** Reads one batch from ranged buffers. Stops pulling once the batch is full. */
+export async function readCsvDataRowSliceFromPull(
+  pull: () => Promise<Buffer | null>,
+  skipDataRows: number,
+  takeDataRows: number,
+  resume?: CsvSliceResume,
+): Promise<CsvStreamSliceResult | null> {
+  return pullUntilDone(pull, skipDataRows, takeDataRows, resume);
 }
 
 /** Reads one batch. A resume offset skips bytes the caller already stored. */
@@ -246,51 +351,24 @@ export async function readCsvDataRowSliceFromStream(
   takeDataRows: number,
   resume?: CsvSliceResume,
 ): Promise<CsvStreamSliceResult | null> {
-  const parser = new CsvIncrementalParser();
-  const utf8 = createUtf8CsvStreamValidator();
-  const headerDone = Boolean(resume?.headers && resume.delimiter);
-  if (resume?.headers && resume.delimiter) {
-    parser.resume(resume.headers, resume.delimiter);
-  }
-  const state: SliceCollect = {
-    parser,
-    rows: [],
-    skipped: 0,
-    collected: 0,
-    skipDataRows,
-    takeDataRows,
-    pending: Buffer.alloc(0),
-    absolute: resume?.absoluteStart ?? 0,
-    streamBytesRead: 0,
-    headerDone,
-  };
+  const iterator = (stream as AsyncIterable<Buffer>)[Symbol.asyncIterator]();
   const onError = () => undefined;
   (stream as NodeJS.EventEmitter).once?.('error', onError);
   try {
-    for await (const chunk of stream as AsyncIterable<Buffer>) {
-      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      utf8.feed(bytes);
-      state.streamBytesRead += bytes.length;
-      state.pending = Buffer.concat([state.pending, bytes]);
-      if (takeRecords(state)) {
-        break;
-      }
-    }
-    if (state.collected < takeDataRows) {
-      finishTail(state);
-    }
-    utf8.finish();
-    const headers = parser.getHeaders();
-    if (headers.length === 0) {
-      return null;
-    }
-    return {
-      headers,
-      delimiter: parser.getDelimiter(),
-      rows: state.rows,
-      nextByteOffset: state.absolute,
-      streamBytesRead: state.streamBytesRead,
-    };
+    return await pullUntilDone(
+      async () => {
+        const next = await iterator.next();
+        if (next.done || next.value === undefined) {
+          return null;
+        }
+        return Buffer.isBuffer(next.value)
+          ? next.value
+          : Buffer.from(next.value);
+      },
+      skipDataRows,
+      takeDataRows,
+      resume,
+    );
   } finally {
     (stream as NodeJS.EventEmitter).off?.('error', onError);
     releaseReadable(stream);

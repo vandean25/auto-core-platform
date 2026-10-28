@@ -82,7 +82,10 @@ import {
   scheduleBackgroundDryRunAfterRowBatches,
 } from './import-background-dry-run.reconcile.js';
 import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
-import { readWorkerCsvBatch } from './import-csv-stream.util.js';
+import {
+  readWorkerCsvBatchFromRanges,
+  byteOffsetAfterPersistedRows,
+} from './import-csv-stream.util.js';
 import { rethrowImportStorageFailure } from './import-gcs-retry.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 import {
@@ -556,7 +559,9 @@ export class ImportService {
           tenantId: params.tenantId,
           jobId: placeholderJobId,
           fileName: params.file.originalname,
-          source: openImportMulterStagingReadStream(params.stagingRequest),
+          openSource: () =>
+            openImportMulterStagingReadStream(params.stagingRequest!),
+          contentLength: params.file.size,
         });
         uploadRef = piped.ref;
         fileSha256 = piped.sha256;
@@ -856,8 +861,8 @@ export class ImportService {
     const startOffset = worker.processed_rows;
     const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
     const workerBatchSize = readImportWorkerBatchSize();
-    const parsedBatch = await readWorkerCsvBatch(
-      (start) => this.fileStorage.openReadStream(upload, start),
+    const parsedBatch = await readWorkerCsvBatchFromRanges(
+      (start, end) => this.fileStorage.readByteRange(upload, start, end),
       worker,
       workerBatchSize,
       job.file_sha256,
@@ -923,7 +928,10 @@ export class ImportService {
           processed,
           totalRows: totals.rows,
           csvCheckpoint: {
-            csv_next_byte: parsedBatch.nextByteOffset,
+            csv_next_byte: byteOffsetAfterPersistedRows(
+              parsedBatch,
+              rows.length,
+            ),
             csv_headers: parsedBatch.headers,
             csv_delimiter: parsedBatch.delimiter,
           },

@@ -42,7 +42,16 @@ describe('GCS import upload retry', () => {
     const retryOptions = { autoRetry: true };
     const storage = new StorageUnderTest({
       retryOptions,
-      bucket: () => ({ file: () => ({ save, delete: jest.fn() }) }),
+      bucket: () => ({
+        file: () => ({
+          save,
+          delete: jest.fn(),
+          getMetadata: async () => {
+            throw Object.assign(new Error('missing'), { code: 404 });
+          },
+          download: async () => [Buffer.alloc(0)],
+        }),
+      }),
     });
     await storage.storeUpload({
       tenantId: 'tenant-a',
@@ -71,7 +80,16 @@ describe('GCS import upload retry', () => {
     const deleteObject = jest.fn(async () => undefined);
     const storage = new StorageUnderTest({
       retryOptions: { autoRetry: true },
-      bucket: () => ({ file: () => ({ save, delete: deleteObject }) }),
+      bucket: () => ({
+        file: () => ({
+          save,
+          delete: deleteObject,
+          getMetadata: async () => {
+            throw Object.assign(new Error('missing'), { code: 404 });
+          },
+          download: async () => [Buffer.alloc(0)],
+        }),
+      }),
     });
     const ref = await storage.storeUpload({
       tenantId: 'tenant-a',
@@ -92,7 +110,16 @@ describe('GCS import upload retry', () => {
     const jobs: string[] = [];
     const storage = new StorageUnderTest({
       retryOptions: { autoRetry: true },
-      bucket: () => ({ file: () => ({ save, delete: deleteObject }) }),
+      bucket: () => ({
+        file: () => ({
+          save,
+          delete: deleteObject,
+          getMetadata: async () => {
+            throw Object.assign(new Error('missing'), { code: 404 });
+          },
+          download: async () => [Buffer.alloc(0)],
+        }),
+      }),
     });
     let thrown: unknown;
     try {
@@ -247,7 +274,7 @@ describe('CSV byte-offset batches', () => {
           tenantId: 'tenant-a',
           jobId: `job-${index}`,
           fileName: 'party.csv',
-          source: Readable.from([Buffer.from('a;b\n1;2\n')]),
+          openSource: () => Readable.from([Buffer.from('a;b\n1;2\n')]),
         }),
       ),
     );
