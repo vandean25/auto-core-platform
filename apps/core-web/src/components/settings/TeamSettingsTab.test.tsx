@@ -97,11 +97,17 @@ describe('TeamSettingsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'owner@autocore.test' }))
 
     await screen.findByText(deSettings.team.sheet.title)
-    fireEvent.click(screen.getByText('TECH'))
-
-    const input = await screen.findByLabelText(deSettings.team.sheet.roleAria)
-    fireEvent.change(input, { target: { value: 'ADMIN' } })
-    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+    const trigger = await screen.findByLabelText(deSettings.team.sheet.roleAria)
+    expect(trigger).toHaveTextContent('Mechaniker')
+    expect(trigger).not.toHaveTextContent('TECH')
+    // Radix Select opens on pointer down and needs the pointer capture API, which jsdom lacks.
+    Object.assign(Element.prototype, {
+      hasPointerCapture: () => false,
+      setPointerCapture: () => undefined,
+      releasePointerCapture: () => undefined,
+    })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    fireEvent.click(await screen.findByRole('option', { name: 'Administrator' }))
 
     await waitFor(() => {
       expect(updateMutateAsync).toHaveBeenCalledWith({
