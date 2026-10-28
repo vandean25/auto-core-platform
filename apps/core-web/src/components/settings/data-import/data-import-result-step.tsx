@@ -13,12 +13,18 @@ export type DataImportResultStepProps = {
 /** Wizard step 5: summary of the applied import with a link to the audit log. */
 export function DataImportResultStep(props: DataImportResultStepProps) {
   const { t } = useTranslation(['settings', 'common'])
+  const finished = props.job.status === 'APPLIED'
+  const title = finished
+    ? t('dataImport.result.title')
+    : props.job.status === 'FAILED'
+      ? t('dataImport.result.failed')
+      : t('dataImport.result.running')
 
   return (
     <section className="space-y-3" aria-labelledby="import-step-result">
       <h4 id="import-step-result" className="font-medium flex items-center gap-2">
-        <CheckCircle2 className="h-5 w-5 text-green-600" />
-        {t('dataImport.result.title')}
+        {finished ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : null}
+        {title}
       </h4>
       <p className="text-sm text-muted-foreground">
         {t('dataImport.result.summary', {

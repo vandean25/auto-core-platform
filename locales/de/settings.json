@@ -1126,6 +1126,8 @@
     },
     "result": {
       "title": "Import abgeschlossen",
+      "running": "Import läuft",
+      "failed": "Import fehlgeschlagen",
       "summary": "Status: {{status}}. Neu {{created}}, aktualisiert {{updated}}, übersprungen {{skipped}}, Fehler {{errors}}.",
       "auditLink": "Audit-Log für diesen Import anzeigen"
     },
@@ -1152,6 +1154,7 @@
       "dryRunFailed": "Probelauf fehlgeschlagen",
       "applied": "Import erfolgreich angewendet",
       "applyFailed": "Import fehlgeschlagen",
+      "pollFailed": "Importstatus konnte nicht geladen werden",
       "cancelFailed": "Import konnte nicht abgebrochen werden",
       "templateFailed": "Vorlage konnte nicht heruntergeladen werden",
       "errorCsvFailed": "Fehler-CSV konnte nicht heruntergeladen werden"

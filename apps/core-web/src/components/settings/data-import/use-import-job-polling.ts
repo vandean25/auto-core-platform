@@ -1,5 +1,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import type { ImportJob } from '@/api/imports'
 import { importKeys } from '@/api/imports'
@@ -33,6 +35,7 @@ export function useImportJobPolling(jobId: string | null) {
   return useQuery({
     queryKey: jobId ? importKeys.job(jobId) : ['imports', 'job', 'none'],
     enabled: Boolean(jobId),
+    refetchIntervalInBackground: true,
     queryFn: () => fetchImportJob(jobId!),
     refetchInterval: (query) => {
       if (!shouldPoll(query.state.data)) return false
@@ -48,23 +51,47 @@ export function useSyncBackgroundDryRunJob(
   dryRunJob: ImportJob | null | undefined,
   syncBackgroundJobProgress: (job: ImportJob) => void,
 ) {
+  const { t } = useTranslation('settings')
   const poll = useImportJobPolling(
     dryRunJob?.status === 'APPLYING' ? dryRunJob.id : null,
   )
+  const pollErrorToasted = React.useRef(false)
+  const terminalToasted = React.useRef<string | null>(null)
   React.useEffect(() => {
-    if (!poll.data) return
+    if (!poll.isError || pollErrorToasted.current) return
+    pollErrorToasted.current = true
+    toast.error(t('dataImport.toast.pollFailed'))
+  }, [poll.isError, t])
+  React.useEffect(() => {
     const job = poll.data
-    if (
-      job.status === 'DRY_RUN_DONE' ||
-      job.status === 'APPLIED' ||
-      job.status === 'FAILED' ||
-      job.status === 'CANCELLED'
-    ) {
-      syncBackgroundJobProgress(job)
-      return
-    }
-    if (job.status === 'APPLYING') {
-      syncBackgroundJobProgress(job)
-    }
-  }, [poll.data, syncBackgroundJobProgress])
+    if (!job) return
+    toastFinishedImport(job, terminalToasted, {
+      applied: t('dataImport.toast.applied'),
+      failed: t('dataImport.toast.applyFailed'),
+    })
+    if (shouldSyncWizard(job.status)) syncBackgroundJobProgress(job)
+  }, [poll.data, syncBackgroundJobProgress, t])
+}
+
+function toastFinishedImport(
+  job: ImportJob,
+  toasted: React.MutableRefObject<string | null>,
+  messages: { applied: string; failed: string },
+): void {
+  if (job.status !== 'APPLIED' && job.status !== 'FAILED') return
+  const key = `${job.id}:${job.status}`
+  if (toasted.current === key) return
+  toasted.current = key
+  if (job.status === 'APPLIED') toast.success(messages.applied)
+  else toast.error(messages.failed)
+}
+
+function shouldSyncWizard(status: ImportJob['status']): boolean {
+  return (
+    status === 'DRY_RUN_DONE' ||
+    status === 'APPLIED' ||
+    status === 'FAILED' ||
+    status === 'CANCELLED' ||
+    status === 'APPLYING'
+  )
 }

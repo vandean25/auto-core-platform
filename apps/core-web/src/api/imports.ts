@@ -238,6 +238,7 @@ export function useCancelImportJob() {
 }
 
 export function useApplyImportJob() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payload: ApplyImportJobPayload) => {
       const response = await fetchWithAuth(
@@ -246,6 +247,10 @@ export function useApplyImportJob() {
       )
       await assertApplyAccepted(response)
       return response.json() as Promise<ImportJob>
+    },
+    onSuccess: (job) => {
+      queryClient.setQueryData(importKeys.job(job.id), job)
+      void queryClient.invalidateQueries({ queryKey: importKeys.job(job.id) })
     },
   })
 }

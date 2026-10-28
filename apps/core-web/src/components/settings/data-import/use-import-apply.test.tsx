@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ImportJob } from '@/api/imports'
+import { importKeys } from '@/api/imports'
 import { fetchWithAuth } from '@/api/client'
 
 import { useImportApply } from './use-import-apply'
@@ -77,5 +78,9 @@ describe('useImportApply stalled resume', () => {
     expect(onApplied).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'job-stalled', status: 'APPLYING' }),
     )
+    expect(client.getQueryData(importKeys.job('job-stalled'))).toMatchObject({
+      status: 'APPLYING',
+      stalled: false,
+    })
   })
 })

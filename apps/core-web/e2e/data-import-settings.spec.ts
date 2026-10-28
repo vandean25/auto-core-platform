@@ -234,6 +234,7 @@ test.describe('Data import settings wizard', () => {
       .dblclick()
 
     await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.result.title })).toBeVisible()
+    await expect(page.getByText(/Status: APPLIED/)).toBeVisible()
     expect(getApplyCount()).toBe(1)
   })
 

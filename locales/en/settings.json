@@ -1126,6 +1126,8 @@
     },
     "result": {
       "title": "Import complete",
+      "running": "Import in progress",
+      "failed": "Import failed",
       "summary": "Status: {{status}}. Created {{created}}, updated {{updated}}, skipped {{skipped}}, errors {{errors}}.",
       "auditLink": "View audit log for this import job"
     },
@@ -1152,6 +1154,7 @@
       "dryRunFailed": "Dry-run failed",
       "applied": "Import applied successfully",
       "applyFailed": "Apply failed",
+      "pollFailed": "Could not load the import status",
       "cancelFailed": "Could not cancel import",
       "templateFailed": "Template download failed",
       "errorCsvFailed": "Error CSV download failed"
