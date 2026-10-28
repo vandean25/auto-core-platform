@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useVehicleStockAgeReport, useVehicleStockMarginReport, type VehicleStockAgeBucket, type VehicleStockAgeReportRow, type VehicleStockMarginReportRow } from '@/api/vehicle-stock'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
-import { formatDate } from '@/lib/format'
+import { formatCurrency, formatDate, formatPercent } from '@/lib/format'
 import type { TFunction } from 'i18next'
 
 type ReportTab = 'age' | 'margin'
@@ -119,9 +119,7 @@ export default function VehicleStockReportsPage() {
     return t(key, { defaultValue: status })
   }
 
-  const formatMoney = (value: string | null) => {
-    return value === null ? emDash : `${csvAmount(value)}\u00a0€`
-  }
+  const formatMoney = (value: string | null) => (value === null ? emDash : formatCurrency(value))
 
   const ageFilters = {
     page, limit: 25,
@@ -265,7 +263,7 @@ export default function VehicleStockReportsPage() {
               formatDate(row.invoice_date), row.sale_number,
               `${row.make} ${row.model} (${row.year})`, formatRole(row.inventory_role),
               formatMoney(row.sale_price), formatMoney(row.cost_basis_snapshot),
-              formatMoney(row.gross_margin_eur), row.gross_margin_percent === null ? emDash : `${csvAmount(row.gross_margin_percent)}\u00a0%`,
+              formatMoney(row.gross_margin_eur), row.gross_margin_percent === null ? emDash : formatPercent(Number(row.gross_margin_percent), { maximumFractionDigits: 2 }),
               row.days_to_sell === null ? emDash : t('reports.daysUnit', { count: row.days_to_sell }), formatTaxMode(row.margin_taxed),
             ])}
           />

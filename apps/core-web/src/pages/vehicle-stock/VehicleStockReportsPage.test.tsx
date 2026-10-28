@@ -52,6 +52,54 @@ describe('VehicleStockReportsPage', () => {
     } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockMarginReport>)
   })
 
+  it('shows euro amounts with the German thousands separator on screen and keeps the CSV without one', async () => {
+    vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
+      data: {
+        data: [{
+          id: 'vehicle-2', make: 'BMW', model: '520d', year: 2022, vin: null, plate: null,
+          inventory_role: 'USED', stock_status: 'IN_STOCK', days_in_stock: 120, missing_stock_in_date: false,
+          stock_in_date: '2026-06-01T00:00:00.000Z', age_bucket: '91_180',
+          cost_basis: '23500.00', asking_price: '1234567.80', location: null,
+        }],
+        meta: { total: 1, page: 1, limit: 25, pageSize: 25, totalPages: 1, pageCount: 1 },
+        summary: { over_90_count: 1, over_90_cost_basis: '23500.00', bucket_counts: {} },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
+    renderPage()
+
+    const table = within(screen.getByRole('table'))
+    expect(table.getByText(/^€\s23\.500,00$/)).toBeInTheDocument()
+    expect(table.getByText(/^€\s1\.234\.567,80$/)).toBeInTheDocument()
+    expect(screen.getByText(/€\s23\.500,00/, { selector: 'p' })).toBeInTheDocument()
+    expect(screen.queryByText(/23500,00/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /CSV exportieren/i }))
+    await waitFor(async () => {
+      const [blob] = vi.mocked(triggerBlobDownload).mock.calls[0]!
+      expect(await blob.text()).toContain(';23500,00;1234567,80;')
+    })
+  })
+
+  it('shows a missing amount as the dash', () => {
+    vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
+      data: {
+        data: [{
+          id: 'vehicle-3', make: 'Fiat', model: 'Panda', year: 2019, vin: null, plate: null,
+          inventory_role: 'USED', stock_status: 'IN_STOCK', days_in_stock: 10, missing_stock_in_date: false,
+          stock_in_date: '2026-10-01T00:00:00.000Z', age_bucket: '0_30',
+          cost_basis: null, asking_price: null, location: null,
+        }],
+        meta: { total: 1, page: 1, limit: 25, pageSize: 25, totalPages: 1, pageCount: 1 },
+        summary: { over_90_count: 0, over_90_cost_basis: '0.00', bucket_counts: {} },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
+    renderPage()
+
+    expect(within(screen.getByRole('table')).getAllByText('—').length).toBeGreaterThanOrEqual(2)
+  })
+
   it('exports the exact visible stock age rows as German semicolon CSV', async () => {
     renderPage()
     expect(screen.getByText('Audi A4 (2020)')).toBeInTheDocument()
@@ -90,7 +138,8 @@ describe('VehicleStockReportsPage', () => {
     renderPage()
     fireEvent.click(screen.getByRole('tab', { name: 'Rohertrag' }))
     expect(screen.getByText('VS-1')).toBeInTheDocument()
-    expect(within(screen.getByRole('table')).getByText((content) => content.includes('-500,00'))).toBeInTheDocument()
+    expect(within(screen.getByRole('table')).getAllByText(/^-€\s500,00$/).length).toBeGreaterThanOrEqual(1)
+    expect(within(screen.getByRole('table')).getAllByText(/^-5\s%$/).length).toBeGreaterThanOrEqual(1)
     expect(within(screen.getByRole('table')).getByText('Gebraucht')).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('Marge')).toBeInTheDocument()
 
