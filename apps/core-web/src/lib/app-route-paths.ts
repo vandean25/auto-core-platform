@@ -20,6 +20,7 @@ export const APP_ROUTE_PATHS = {
   vehicleStock: '/vehicle-stock',
   vehicleStockReports: '/vehicle-stock/reports',
   workshopKpiReports: '/workshop/reports/kpis',
+  workshopEstimates: '/workshop/estimates',
   vehicleStockPurchaseNew: '/vehicle-stock/purchases/new',
   vehicleStockPurchaseDetail: '/vehicle-stock/purchases/:id',
   vehicleStockSaleNew: '/vehicle-stock/sales/new',

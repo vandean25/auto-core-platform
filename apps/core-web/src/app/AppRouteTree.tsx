@@ -48,6 +48,7 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.vehicleStock} element={<Lazy.VehicleStockList />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockReports} element={<Lazy.VehicleStockReportsPage />} />
               <Route path={APP_ROUTE_PATHS.workshopKpiReports} element={<Lazy.WorkshopKpiReportsPage />} />
+              <Route path={APP_ROUTE_PATHS.workshopEstimates} element={<Lazy.WorkshopEstimateList />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseNew} element={<Lazy.VehiclePurchasePage />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseDetail} element={<Lazy.VehiclePurchasePage />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockSaleNew} element={<Lazy.VehicleSalePage />} />

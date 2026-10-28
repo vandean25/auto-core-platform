@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { MemoryRouter } from 'react-router-dom'
 import type {
   WorkshopEstimate,
   WorkshopEstimateVersionDetail,
@@ -163,8 +164,14 @@ function card(orderStatus = 'IN_PROGRESS', isLocked = false, orderRevision?: str
   )
 }
 
+let initialPath = '/'
+
 function withClient(ui: ReactElement): ReactElement {
-  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  return (
+    <MemoryRouter initialEntries={[initialPath]}>
+      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    </MemoryRouter>
+  )
 }
 
 /** Feeds the current store into the hook mocks. Call before every render or rerender. */
@@ -197,6 +204,7 @@ function rerenderCard(view: ReturnType<typeof render>, orderStatus = 'IN_PROGRES
 
 beforeEach(() => {
   queryClient = new QueryClient()
+  initialPath = '/'
   store.versions = null
   store.sendEnabled = false
   store.customerSendBlockers = []
@@ -319,6 +327,16 @@ describe('WorkshopEstimateCard', () => {
     expect(within(banner).getByText(/€\s270,00/)).toBeTruthy()
     expect(within(banner).getByText(/Grenzwert: 15 %/)).toBeTruthy()
     expect(within(banner).getByText('2 neue Positionen gegenüber dem freigegebenen Kostenvoranschlag.')).toBeTruthy()
+  })
+
+  it('marks the version the estimates list links to', () => {
+    store.versions = [sentVersion('v1', 1), sentVersion('v2', 2)]
+    initialPath = '/workshop/orders/o-1#estimate-version-2'
+    renderCard()
+
+    expect(screen.getByTestId('estimate-version-2').id).toBe('estimate-version-2')
+    expect(screen.getByTestId('estimate-version-2').className).toContain('ring-2')
+    expect(screen.getByTestId('estimate-version-1').className).not.toContain('ring-2')
   })
 
   it('answers an overrun in one step: the revised version is created and its send dialog opens', async () => {

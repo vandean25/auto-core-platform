@@ -1483,5 +1483,45 @@
     "approvedAt": "Electronically confirmed on {{date}}",
     "decidedAt": "Decided on {{date}}",
     "uid": "VAT ID {{vatId}}"
+  },
+  "estimateList": {
+    "title": "Estimates",
+    "description": "All estimates of the site. A click opens the work order at that version.",
+    "searchPlaceholder": "Search number, work order, customer or plate",
+    "version": "v{{version}}",
+    "columns": {
+      "number": "Number",
+      "order": "Work order",
+      "customer": "Customer",
+      "plate": "Plate",
+      "status": "Status",
+      "sentAt": "Sent at",
+      "validUntil": "Valid until",
+      "total": "Gross"
+    },
+    "filters": {
+      "statusAria": "Status",
+      "all": "All",
+      "customer": "Customer",
+      "customerAll": "All customers",
+      "customerSearch": "Search customer",
+      "customerEmpty": "No customer found.",
+      "customerLoading": "Loading…",
+      "customerClear": "Clear customer filter",
+      "sentFrom": "Sent from",
+      "sentTo": "Sent to",
+      "showOlder": "Show older versions",
+      "rangeHint": "The range applies once both days are set and “from” is not after “to”."
+    },
+    "actions": {
+      "open": "Open estimate"
+    },
+    "rowAria": "Open estimate {{number}} version {{version}}",
+    "empty": "No estimates for this selection.",
+    "emptySearch": "No loaded estimates match the search. “Load more” searches more entries.",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "loadErrorTitle": "Estimates unavailable",
+    "loadErrorFallback": "Estimates could not be loaded."
   }
 }

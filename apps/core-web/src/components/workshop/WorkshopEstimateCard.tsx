@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { AlertTriangle, Download, Loader2, Plus, Send } from 'lucide-react'
@@ -43,6 +44,7 @@ import {
   formatEstimateMoney,
 } from '@/features/workshop/workshop-estimate-decision'
 import { formatDateTime, formatPercent } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
 import type { TFunction } from 'i18next'
 
@@ -364,6 +366,23 @@ interface VersionRowProps {
   onDownload: () => void
 }
 
+/** The estimates list links to `#estimate-version-N`: that version scrolls into view and is marked. */
+function useVersionAnchor(version: number) {
+  const id = `estimate-version-${version}`
+  const isLinkedTo = useLocation().hash === `#${id}`
+  const ref = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    if (isLinkedTo) ref.current?.scrollIntoView?.({ block: 'center' })
+  }, [isLinkedTo])
+
+  const className = cn(
+    'flex flex-wrap items-center justify-between gap-3 p-3',
+    isLinkedTo && 'bg-accent/50 ring-2 ring-ring ring-inset',
+  )
+  return { id, ref, className }
+}
+
 function VersionRow({
   version,
   isLatest,
@@ -378,9 +397,10 @@ function VersionRow({
 }: VersionRowProps) {
   const { t } = useTranslation('workshop')
   const isDraft = version.status === 'DRAFT'
+  const { id: anchorId, ref: anchorRef, className: anchorClassName } = useVersionAnchor(version.version)
 
   return (
-    <li className='flex flex-wrap items-center justify-between gap-3 p-3' data-testid={`estimate-version-${version.version}`}>
+    <li ref={anchorRef} id={anchorId} className={anchorClassName} data-testid={anchorId}>
       <div className='min-w-0 space-y-1'>
         <div className='flex items-center gap-2'>
           <span className='text-sm font-medium'>{t('estimateCard.versionLabel', { version: version.version })}</span>

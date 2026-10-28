@@ -3,6 +3,8 @@
  * and page/row-behaviour components. Backend authorization remains authoritative.
  */
 
+import { canManageWorkshopEstimates } from '@/features/workshop/workshop-estimate-permissions'
+
 /** Work order and appointment creation (Cmd+K, phone Create button). Mechanics (TECH) stay in the mechanic shell. */
 export function canCreateWorkshopEntry(role: string | null | undefined): boolean {
   return role !== 'TECH'
@@ -19,6 +21,11 @@ export function canDeleteCustomerFromList(role: string | null | undefined): bool
 
 export function canOpenVehicle(role: string | null | undefined): boolean {
   return role !== ''
+}
+
+/** Same roles as the estimate card on the work order (canManageWorkshopEstimates). */
+export function canOpenEstimate(role: string | null | undefined): boolean {
+  return canManageWorkshopEstimates(role)
 }
 
 export function canOpenWorkshopOrder(role: string | null | undefined): boolean {

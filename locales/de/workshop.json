@@ -1483,5 +1483,45 @@
     "approvedAt": "Elektronisch bestätigt am {{date}} Uhr",
     "decidedAt": "Entschieden am {{date}} Uhr",
     "uid": "UID {{vatId}}"
+  },
+  "estimateList": {
+    "title": "Kostenvoranschläge",
+    "description": "Alle Kostenvoranschläge des Standorts. Ein Klick öffnet den Auftrag mit der Version.",
+    "searchPlaceholder": "Nummer, Auftrag, Kunde oder Kennzeichen suchen",
+    "version": "v{{version}}",
+    "columns": {
+      "number": "Nummer",
+      "order": "Auftrag",
+      "customer": "Kunde",
+      "plate": "Kennzeichen",
+      "status": "Status",
+      "sentAt": "Gesendet am",
+      "validUntil": "Gültig bis",
+      "total": "Brutto"
+    },
+    "filters": {
+      "statusAria": "Status",
+      "all": "Alle",
+      "customer": "Kunde",
+      "customerAll": "Alle Kunden",
+      "customerSearch": "Kunde suchen",
+      "customerEmpty": "Kein Kunde gefunden.",
+      "customerLoading": "Wird geladen…",
+      "customerClear": "Kundenfilter entfernen",
+      "sentFrom": "Gesendet von",
+      "sentTo": "Gesendet bis",
+      "showOlder": "Ältere Versionen anzeigen",
+      "rangeHint": "Der Zeitraum gilt erst, wenn beide Tage gesetzt sind und „von“ nicht nach „bis“ liegt."
+    },
+    "actions": {
+      "open": "Kostenvoranschlag öffnen"
+    },
+    "rowAria": "Kostenvoranschlag {{number}} Version {{version}} öffnen",
+    "empty": "Keine Kostenvoranschläge für diese Auswahl.",
+    "emptySearch": "Keine geladenen Kostenvoranschläge passen zur Suche. Mit „Weitere laden“ suchen Sie in mehr Einträgen.",
+    "loadMore": "Weitere laden",
+    "loadingMore": "Wird geladen…",
+    "loadErrorTitle": "Kostenvoranschläge nicht verfügbar",
+    "loadErrorFallback": "Kostenvoranschläge konnten nicht geladen werden."
   }
 }

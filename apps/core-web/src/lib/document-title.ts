@@ -42,6 +42,7 @@ export const ROUTE_SECTION_TITLES: Record<RoutePattern, RouteTitleKey> = {
   [APP_ROUTE_PATHS.vehicleStockSaleNew]: 'routeTitles.vehicleStockSaleNew',
   [APP_ROUTE_PATHS.vehicleStockSaleDetail]: 'routeTitles.vehicleStockSaleDetail',
   [APP_ROUTE_PATHS.workshopKpiReports]: 'modules.workshopKpiReports',
+  [APP_ROUTE_PATHS.workshopEstimates]: 'modules.workshopEstimates',
   [APP_ROUTE_PATHS.salesOrders]: 'modules.salesOrders',
   [APP_ROUTE_PATHS.salesOrderNew]: 'routeTitles.salesOrderNew',
   [APP_ROUTE_PATHS.salesOrderDetail]: 'modules.salesOrders',

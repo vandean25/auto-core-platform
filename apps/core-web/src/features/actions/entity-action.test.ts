@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import deCommon from '../../../../../locales/de/common.json'
 import { EntityActionConfirmHost } from './action-confirm-host'
 import { createCustomerRowActions } from './customer-row-actions'
+import { createEstimateRowActions } from './estimate-row-actions'
 import {
   ENTITY_ACTION_IDS,
   executeEntityAction,
@@ -83,6 +84,7 @@ describe('entity action registry helpers', () => {
       ...createCustomerRowActions(passthroughT as TFunction<'customers'>),
       ...createWorkshopOrderRowActions(passthroughT as TFunction<'workshop'>),
       ...createVehicleRowActions(passthroughT as TFunction<'vehicles'>),
+      ...createEstimateRowActions(passthroughT as TFunction<'workshop'>),
     ]
 
     expect(allRegistered.map((action) => action.id)).toEqual([...REGISTERED_ENTITY_ACTION_IDS])
