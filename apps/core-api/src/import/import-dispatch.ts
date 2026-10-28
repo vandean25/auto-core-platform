@@ -22,6 +22,14 @@ export function resolveImportDispatch(params: {
   return 'inline';
 }
 
+const scheduledInlineWorkers = new Set<ReturnType<typeof setTimeout>>();
+
+/** Drops inline retries still waiting on a timer. Tests call this before closing the database. */
+export function clearScheduledInlineImportWorkers(): void {
+  for (const timer of scheduledInlineWorkers) clearTimeout(timer);
+  scheduledInlineWorkers.clear();
+}
+
 export async function enqueueOrRunImportWorker(params: {
   tenantId: string;
   jobId: string;
@@ -44,9 +52,12 @@ export async function enqueueOrRunImportWorker(params: {
   if (mode === 'inline') {
     const delaySeconds = params.delaySeconds ?? 0;
     if (delaySeconds > 0) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
+        scheduledInlineWorkers.delete(timer);
         void params.runInline();
       }, delaySeconds * 1000);
+      timer.unref?.();
+      scheduledInlineWorkers.add(timer);
       return { mode };
     }
     await params.runInline();

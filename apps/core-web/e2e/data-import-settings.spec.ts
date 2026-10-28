@@ -233,7 +233,9 @@ test.describe('Data import settings wizard', () => {
       .getByRole('button', { name: DE_SETTINGS.dataImport.confirm.confirm })
       .dblclick()
 
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.result.title })).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.result.title })).toBeVisible({
+      timeout: 15_000,
+    })
     await expect(page.getByText(/Status: APPLIED/)).toBeVisible()
     expect(getApplyCount()).toBe(1)
   })

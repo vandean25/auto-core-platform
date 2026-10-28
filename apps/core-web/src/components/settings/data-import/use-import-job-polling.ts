@@ -35,6 +35,7 @@ export function useImportJobPolling(jobId: string | null) {
   return useQuery({
     queryKey: jobId ? importKeys.job(jobId) : ['imports', 'job', 'none'],
     enabled: Boolean(jobId),
+    staleTime: 0,
     refetchIntervalInBackground: true,
     queryFn: () => fetchImportJob(jobId!),
     refetchInterval: (query) => {

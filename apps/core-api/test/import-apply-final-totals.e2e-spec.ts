@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS } from '../src/import/import-worker-handoff.constants.js';
 import { AppModule } from '../src/app.module.js';
+import { clearScheduledInlineImportWorkers } from '../src/import/import-dispatch.js';
 import { ImportService } from '../src/import/import.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import type { ImportJobTotals } from '../src/import/import.types.js';
@@ -84,6 +85,7 @@ describe('import apply final totals (e2e)', () => {
   });
 
   afterAll(async () => {
+    clearScheduledInlineImportWorkers();
     if (tenant) {
       await cleanupTestTenantGraph(prisma, tenant.tenantId);
     }
