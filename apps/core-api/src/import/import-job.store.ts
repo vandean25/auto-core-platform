@@ -726,6 +726,7 @@ export class ImportJobStore {
       data: {
         options_json: { ...options, worker },
         worker_handoff_at: new Date(),
+        updatedAt: new Date(),
       },
     });
     return updated.count > 0;

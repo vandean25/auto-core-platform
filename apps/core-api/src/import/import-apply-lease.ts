@@ -33,6 +33,9 @@ export function isStaleApplyingImportJob(
     job.options_json as ImportJobOptionsWithWorker,
   );
   if (worker) {
+    if (isReleasedApplyLease(worker.lease_until)) {
+      return updatedAtPastGrace(job.updatedAt, nowMs, IMPORT_WORKER_LEASE_MS);
+    }
     const leaseUntil = Date.parse(worker.lease_until);
     return !Number.isFinite(leaseUntil) || leaseUntil < nowMs;
   }
@@ -54,6 +57,26 @@ export function applyLeaseHolderPrefix(
 
 export function nextApplyLeaseUntil(nowMs: number): string {
   return new Date(nowMs + IMPORT_WORKER_LEASE_MS).toISOString();
+}
+
+/** Epoch or missing lease_until is the gap between worker units, not an expired lease. */
+function isReleasedApplyLease(leaseUntil: string | null | undefined): boolean {
+  if (!leaseUntil) {
+    return true;
+  }
+  return Date.parse(leaseUntil) === 0;
+}
+
+function updatedAtPastGrace(
+  updatedAt: Date | string | null | undefined,
+  nowMs: number,
+  graceMs: number,
+): boolean {
+  const updatedMs = readUpdatedAtMs(updatedAt);
+  if (updatedMs === null) {
+    return true;
+  }
+  return nowMs - updatedMs >= graceMs;
 }
 
 function readUpdatedAtMs(

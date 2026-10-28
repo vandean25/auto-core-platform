@@ -94,6 +94,72 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
     });
 
+    it('returns 202 for a job between batches and does not start a second run', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          updatedAt: new Date(),
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-between',
+              lease_until: new Date(0).toISOString(),
+              processed_rows: 4,
+              started_at: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+
+      await expect(h.service.applyJobHttp(JOB_ID)).resolves.toMatchObject({
+        httpStatus: 202,
+        job: { status: ImportJobStatus.APPLYING, stalled: false },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('takes over a released lease after the grace period', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          updatedAt: new Date(Date.now() - 120_000),
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-old',
+              lease_until: new Date(0).toISOString(),
+              processed_rows: 4,
+              started_at: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+
+      await h.service.applyJobHttp(JOB_ID).catch(() => undefined);
+      expect(h.prisma.importJob.updateMany).toHaveBeenCalled();
+    });
+
+    it('takes over a job whose real lease has expired', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          updatedAt: new Date(),
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-expired',
+              lease_until: new Date(Date.now() - 1000).toISOString(),
+              processed_rows: 4,
+              started_at: new Date().toISOString(),
+            },
+          },
+        }),
+      );
+
+      await h.service.applyJobHttp(JOB_ID).catch(() => undefined);
+      expect(h.prisma.importJob.updateMany).toHaveBeenCalled();
+    });
+
     it('returns 200 for an applied job with no technical error rows', async () => {
       h.prisma.importJob.findFirst.mockResolvedValue(
         importJobRecord({ status: ImportJobStatus.APPLIED }),
