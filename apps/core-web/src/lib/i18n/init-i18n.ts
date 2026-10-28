@@ -2,6 +2,7 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import {
   DEFAULT_UI_LANGUAGE,
+  LAZY_NAMESPACES,
   PRELOAD_NAMESPACES,
   type AppNamespace,
   type UiLanguage,
@@ -16,13 +17,19 @@ export type InitI18nOptions = {
   language?: UiLanguage
 }
 
-async function preloadNamespaces(language: UiLanguage): Promise<void> {
-  const bundles = await Promise.all(
-    PRELOAD_NAMESPACES.map(async (namespace) => [namespace, await loadNamespace(language, namespace)] as const),
-  )
-  for (const [namespace, resources] of bundles) {
-    i18n.addResourceBundle(language, namespace, resources, true, true)
+/** Every namespace the app can render. A switch has to cover all of them, not only the ones loaded so far. */
+const APP_NAMESPACES: readonly AppNamespace[] = [...PRELOAD_NAMESPACES, ...LAZY_NAMESPACES]
+
+async function loadBundle(language: UiLanguage, namespace: AppNamespace): Promise<void> {
+  if (i18n.hasResourceBundle(language, namespace)) {
+    return
   }
+  const resources = await loadNamespace(language, namespace)
+  i18n.addResourceBundle(language, namespace, resources, true, true)
+}
+
+async function preloadNamespaces(language: UiLanguage): Promise<void> {
+  await Promise.all(PRELOAD_NAMESPACES.map((namespace) => loadBundle(language, namespace)))
 }
 
 export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i18n> {
@@ -61,13 +68,19 @@ function listLoadedNamespaces(forLanguage: string): AppNamespace[] {
   return Object.keys(bundle) as AppNamespace[]
 }
 
+/**
+ * Adds one lazily loaded namespace. When the language changes while the bundle is in flight, the
+ * bundle for the new language is loaded as well; otherwise that namespace would keep rendering the
+ * fallback language (German) until the page is reloaded.
+ */
 export async function ensureNamespaceLoaded(namespace: AppNamespace): Promise<void> {
-  const language = i18n.language
-  if (i18n.hasResourceBundle(language, namespace)) {
-    return
+  const requestedLanguage = i18n.language as UiLanguage
+  await loadBundle(requestedLanguage, namespace)
+
+  const activeLanguage = i18n.language as UiLanguage
+  if (activeLanguage !== requestedLanguage) {
+    await loadBundle(activeLanguage, namespace)
   }
-  const resources = await loadNamespace(language, namespace)
-  i18n.addResourceBundle(language, namespace, resources, true, true)
 }
 
 export async function changeUiLanguage(nextLanguage: UiLanguage): Promise<void> {
@@ -76,17 +89,11 @@ export async function changeUiLanguage(nextLanguage: UiLanguage): Promise<void> 
     return
   }
 
-  const namespacesToLoad = new Set<AppNamespace>([
-    ...(i18n.options.ns ?? PRELOAD_NAMESPACES) as AppNamespace[],
-    ...listLoadedNamespaces(current),
-  ])
+  // Every namespace, not only the loaded ones: pages mount their bundle before rendering, so a
+  // namespace that was not loaded yet would otherwise stay in the fallback language.
+  const namespacesToLoad = new Set<AppNamespace>([...APP_NAMESPACES, ...listLoadedNamespaces(current)])
 
-  for (const namespace of namespacesToLoad) {
-    if (!i18n.hasResourceBundle(nextLanguage, namespace)) {
-      const resources = await loadNamespace(nextLanguage, namespace)
-      i18n.addResourceBundle(nextLanguage, namespace, resources, true, true)
-    }
-  }
+  await Promise.all([...namespacesToLoad].map((namespace) => loadBundle(nextLanguage, namespace)))
 
   await i18n.changeLanguage(nextLanguage)
   syncDocumentLang(nextLanguage)
