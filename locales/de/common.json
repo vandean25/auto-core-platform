@@ -292,5 +292,8 @@
     "toggle": "Seitenleiste ein- oder ausblenden",
     "mobileTitle": "Navigation",
     "mobileDescription": "Hauptnavigation auf kleinen Bildschirmen."
+  },
+  "timeField": {
+    "placeholder": "HH:MM"
   }
 }

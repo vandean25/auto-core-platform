@@ -28,6 +28,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { TimeField } from '@/components/ui/time-field'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -378,20 +379,18 @@ export function WorkshopHoursSettingsPanel() {
                     />
                     <Label htmlFor={`weekday-closed-${hour.weekday}`}>{t('workshopHours.closed')}</Label>
                   </div>
-                  <Input
-                    type='time'
+                  <TimeField
                     value={hour.openTime}
                     disabled={!canManage || hour.isClosed}
-                    onChange={(event) => {
-                      updateOpeningHour(hour.weekday, { openTime: event.target.value })
+                    onChange={(time) => {
+                      updateOpeningHour(hour.weekday, { openTime: time })
                     }}
                   />
-                  <Input
-                    type='time'
+                  <TimeField
                     value={hour.closeTime}
                     disabled={!canManage || hour.isClosed}
-                    onChange={(event) => {
-                      updateOpeningHour(hour.weekday, { closeTime: event.target.value })
+                    onChange={(time) => {
+                      updateOpeningHour(hour.weekday, { closeTime: time })
                     }}
                   />
                 </div>

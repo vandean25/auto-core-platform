@@ -292,5 +292,8 @@
     "toggle": "Show or hide the sidebar",
     "mobileTitle": "Navigation",
     "mobileDescription": "Main navigation on small screens."
+  },
+  "timeField": {
+    "placeholder": "HH:MM"
   }
 }

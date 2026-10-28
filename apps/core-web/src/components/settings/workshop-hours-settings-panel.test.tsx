@@ -148,10 +148,10 @@ describe('WorkshopHoursSettingsPanel', () => {
     })
 
     const wednesdayRow = document.getElementById('weekday-closed-3')?.closest('div.grid')
-    const timeInputs = wednesdayRow?.querySelectorAll('input[type="time"]')
+    const timeInputs = wednesdayRow?.querySelectorAll('input[placeholder="HH:MM"]')
     expect(timeInputs).toHaveLength(2)
-    fireEvent.change(timeInputs![0], { target: { value: '08:00:00' } })
-    fireEvent.change(timeInputs![1], { target: { value: '16:00:00' } })
+    fireEvent.change(timeInputs![0], { target: { value: '0800' } })
+    fireEvent.change(timeInputs![1], { target: { value: '1600' } })
 
     fireEvent.click(screen.getByRole('button', { name: deSettings.workshopHours.saveHours }))
 
