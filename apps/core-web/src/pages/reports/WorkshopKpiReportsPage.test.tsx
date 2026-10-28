@@ -55,6 +55,29 @@ describe('WorkshopKpiReportsPage', () => {
     expect(serializeWorkshopKpiCsv(reportData, reportsT)).toContain('10.00;7.50;6.00;100.00;25.50;75.00;80.00')
   })
 
+  it('shows euro amounts with the German thousands separator, the CSV keeps plain decimals', () => {
+    vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1' } } as never)
+    const big = { ...row, labor_net_revenue: '23500.00', parts_net_revenue: '1234567.80', average_net_revenue_per_order: '2350.50' }
+    vi.mocked(useWorkshopKpiReport).mockReturnValue({
+      isLoading: false, isError: false,
+      data: {
+        ...reportData,
+        data: [big],
+        totals: { ...big, key: 'total', mechanic_id: null, mechanic_name: null },
+        parts_turnover: { ...reportData.parts_turnover, issued_cost: '12000.00', average_stock_value: '45000.00', slow_movers: [{ ...reportData.parts_turnover.slow_movers[0], stock_value: '9876.54' }] },
+      },
+    } as never)
+    render(<MemoryRouter><WorkshopKpiReportsPage /></MemoryRouter>)
+
+    expect(screen.getAllByText(/^€\s23\.500,00$/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/^€\s1\.234\.567,80$/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/^€\s2\.350,50$/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/€\s9\.876,54/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(/23500|1234567/)).not.toBeInTheDocument()
+    expect(serializeWorkshopKpiCsv({ ...reportData, data: [big] }, reportsT)).toContain('23500.00;1234567.80')
+  })
+
   it('exports parts turnover and slow movers with the work performance rows', () => {
     const csv = serializeWorkshopKpiCsv(reportData, reportsT)
 
