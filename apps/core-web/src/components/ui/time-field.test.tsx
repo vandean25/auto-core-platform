@@ -77,6 +77,10 @@ describe('TimeField', () => {
     expect(input.checkValidity()).toBe(true)
     fireEvent.change(input, { target: { value: '25:7' } })
     expect(input.checkValidity()).toBe(false)
+
+    fireEvent.blur(input)
+    expect(input).toHaveValue('25:7')
+    expect(input.checkValidity()).toBe(false)
   })
 
   it('keeps backspace working after a formatted colon', () => {

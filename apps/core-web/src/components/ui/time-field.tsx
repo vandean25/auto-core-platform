@@ -70,7 +70,10 @@ export function TimeField({
       aria-invalid={draft !== '' && !isValidTime(draft) ? true : undefined}
       className={cn('max-sm:min-h-11 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive', className)}
       onChange={(event) => handleChange(event.target.value)}
-      onBlur={() => setDraft(value)}
+      // Inside a form an invalid text stays (red, and the browser blocks the submit); reverting it here would let a click on Submit save the old time unnoticed.
+      onBlur={(event) => {
+        if (!event.currentTarget.form) setDraft(value)
+      }}
     />
   )
 }
