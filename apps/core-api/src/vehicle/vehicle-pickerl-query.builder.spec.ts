@@ -179,6 +179,14 @@ describe('VehiclePickerlQueryBuilder', () => {
       });
     });
 
+    it('clamps a larger page size to 50 and offsets by the clamped size (AUT-807)', () => {
+      expect(VehiclePickerlQueryBuilder.resolvePage({ page: 2, pageSize: 200 })).toEqual({
+        page: 2,
+        pageSize: 50,
+        skip: 50,
+      });
+    });
+
     it('falls back to defaults for non-positive page and size values', () => {
       expect(VehiclePickerlQueryBuilder.resolvePage({ page: 0, pageSize: -1 })).toEqual({
         page: 1,

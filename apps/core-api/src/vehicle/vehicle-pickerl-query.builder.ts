@@ -19,6 +19,8 @@ export interface VehiclePickerlDueSummary {
 
 export class VehiclePickerlQueryBuilder {
   static readonly DEFAULT_PAGE_SIZE = 25;
+  /** Larger requests are clamped, not rejected (AUT-807), as on the vehicle list. */
+  static readonly MAX_PAGE_SIZE = 50;
 
   static buildCustomerWhere(
     tenantId: string,
@@ -83,10 +85,14 @@ export class VehiclePickerlQueryBuilder {
 
   static resolvePage(query: { page?: number; pageSize?: number }) {
     const page = query.page && query.page > 0 ? query.page : 1;
-    const pageSize =
+    const requestedSize =
       query.pageSize && query.pageSize > 0
         ? query.pageSize
         : VehiclePickerlQueryBuilder.DEFAULT_PAGE_SIZE;
+    const pageSize = Math.min(
+      requestedSize,
+      VehiclePickerlQueryBuilder.MAX_PAGE_SIZE,
+    );
 
     return { page, pageSize, skip: (page - 1) * pageSize };
   }

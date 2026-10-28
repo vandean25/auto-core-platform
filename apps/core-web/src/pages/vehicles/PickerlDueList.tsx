@@ -19,6 +19,7 @@ import { fetchWithAuth } from "@/api/client";
 import { RecordPickerlDialog } from "@/components/vehicles/RecordPickerlDialog";
 import { WorkshopOrderIntakeDialog } from "@/components/workshop/WorkshopOrderIntakeDialog";
 import { useAuthSession } from "@/api/auth-session";
+import { MAX_VEHICLE_LIST_PAGE_SIZE, VEHICLE_LIST_PAGE_SIZE_OPTIONS } from "@/lib/list-page-size";
 import { canRecordVehicleInspection } from "@/components/vehicles/vehicle-pickerl-permissions";
 import {
   Select,
@@ -87,7 +88,7 @@ export default function PickerlDueList() {
     globalFilter,
     setGlobalFilter,
     ...tableState
-  } = useDataTableQuery({ defaultPageSize: 25, initialSorting: [] });
+  } = useDataTableQuery({ defaultPageSize: 25, maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE, initialSorting: [] });
 
   const queryParams: QueryParamsType = {
     page: tableQueryParams.page,
@@ -366,6 +367,7 @@ export default function PickerlDueList() {
         data={filteredRows}
         isLoading={isLoading}
         pageCount={responseData?.meta.pageCount ?? 0}
+        pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
         enableCsvExport={false}
         rowBehaviour={{
           getRowAccessibleName: (row) => t('pickerlDue.vehicleRowAria', { plate: row.plate }),

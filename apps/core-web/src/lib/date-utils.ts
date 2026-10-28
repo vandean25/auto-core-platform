@@ -31,3 +31,11 @@ export function parseLocalDate(dateString?: string | null): Date | null {
   const date = new Date(trimmed);
   return Number.isNaN(date.getTime()) ? null : date;
 }
+
+/**
+ * True when `sinceMs` and `nowMs` fall on different UTC days. The API derives date-driven results (the Pickerl due
+ * status and window) from the current UTC day, so data fetched on an earlier day is out of date.
+ */
+export function hasUtcDayChanged(sinceMs: number, nowMs: number = Date.now()): boolean {
+  return new Date(sinceMs).toISOString().slice(0, 10) !== new Date(nowMs).toISOString().slice(0, 10)
+}

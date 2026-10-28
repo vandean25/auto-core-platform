@@ -111,3 +111,132 @@ describe('DashboardWidgetsGrid data fetching (AUT-776)', () => {
     expect(keys[0].queryKey.slice(0, 2)).toEqual(['dashboard-widget-data', 'vehicles'])
   })
 })
+
+describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => {
+  const manyVehicles = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `v${index}`,
+      make: index % 3 === 0 ? 'BMW' : 'Audi',
+      model: 'M',
+      plate: `W-${index}`,
+      year: 2000 + (index % 20),
+    }))
+
+  function respondWithPage(rows: unknown[], total: number) {
+    mocks.fetchWithAuth.mockImplementation(async () => new Response(JSON.stringify({ data: rows, meta: { total } })))
+  }
+
+  it('counts the 75 matching vehicles although only the first 50 were fetched', async () => {
+    mocks.widgets = [widget('count', '/vehicles')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('75')).toBeInTheDocument())
+    expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
+  })
+
+  it('does not show the server total as exact for a widget with a filter that every fetched row matches', async () => {
+    mocks.widgets = [widget('audi', '/vehicles?filter_model=M')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('50+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75')
+  })
+
+  it('marks a count as a lower bound when its own filter narrows a truncated page', async () => {
+    mocks.widgets = [widget('bmw', '/vehicles?search=bmw')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('17+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75')
+  })
+
+  it('shows 100+ for 100 of 125 fetched orders that all match the status filter of the widget', async () => {
+    const orders = Array.from({ length: 100 }, (_, index) => ({ id: `o${index}`, order_number: `WO-${index}`, status: 'IN_PROGRESS' }))
+    mocks.widgets = [widget('open', '/workshop/orders?filter_status=IN_PROGRESS', { sourceKey: 'workshop-orders' })]
+    respondWithPage(orders, 125)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('100+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 100 von 125')
+  })
+
+  it('does not claim "no data" when the first page has no match but more entries exist', async () => {
+    mocks.widgets = [widget('none', '/vehicles?search=zzz')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByTestId('widget-partial-empty')).toHaveTextContent('Keine Treffer in den ersten 50 von 75'))
+    expect(screen.queryByText('Keine Daten für dieses Widget.')).not.toBeInTheDocument()
+  })
+
+  it('says "no data" when the whole result was fetched and nothing matches', async () => {
+    mocks.widgets = [widget('none', '/vehicles?search=zzz')]
+    respondWithPage(manyVehicles(30), 30)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('Keine Daten für dieses Widget.')).toBeInTheDocument())
+    expect(screen.queryByTestId('widget-partial-empty')).not.toBeInTheDocument()
+  })
+
+  it('shows 50+ for a Pickerl search the API request does not carry, although every fetched row matches it', async () => {
+    const vehicles = Array.from({ length: 50 }, (_, index) => ({ id: `p${index}`, plate: `W-${index}`, make: 'VW', model: 'Golf' }))
+    mocks.widgets = [widget('pickerl', '/vehicles/pickerl-due?search=W-', { sourceKey: 'pickerl-due' })]
+    respondWithPage(vehicles, 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('50+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75')
+    expect(requestedUrls()[0]).not.toContain('search=')
+  })
+
+  it('still trusts the server total for a search the API request carries', async () => {
+    mocks.widgets = [widget('search', '/vehicles?search=M')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('75')).toBeInTheDocument())
+    expect(requestedUrls()[0]).toContain('search=M')
+    expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
+  })
+
+  it('says that a grouped widget is calculated from the first 50 of 75 entries', async () => {
+    mocks.widgets = [widget('donut', '/vehicles', { displayType: 'donut', groupByField: 'make' })]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75'))
+  })
+
+  it('says that a sum is calculated from the fetched rows only', async () => {
+    mocks.widgets = [widget('sum', '/vehicles', { displayType: 'metric', metricCalculation: 'sum', metricField: 'year' })]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75'))
+  })
+
+  it('shows no hint when the whole result fits the page', async () => {
+    mocks.widgets = [widget('donut', '/vehicles', { displayType: 'donut', groupByField: 'make' })]
+    respondWithPage(manyVehicles(30), 30)
+
+    renderGrid()
+
+    await waitFor(() => expect(mocks.fetchWithAuth).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByText('Widget wird geladen…')).not.toBeInTheDocument())
+    expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
+  })
+})
+

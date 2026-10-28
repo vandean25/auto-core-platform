@@ -12,6 +12,7 @@ import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/s
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { MAX_VEHICLE_LIST_PAGE_SIZE, VEHICLE_LIST_PAGE_SIZE_OPTIONS } from '@/lib/list-page-size'
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
 import { VehiclePeekSheet } from '@/features/peek/VehiclePeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
@@ -45,7 +46,7 @@ export default function VehicleList() {
     void ensureNamespaceLoaded('vehicles')
   }, [])
   const navigate = useNavigate()
-  const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
+  const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10, maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE })
   const { data: responseData, isLoading } = useVehicles(queryParams)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
@@ -137,6 +138,7 @@ export default function VehicleList() {
         saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
         pageCount={responseData?.meta?.pageCount ?? 1}
+        pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
         isLoading={isLoading}
         searchPlaceholder={t('list.searchPlaceholder')}
         rowBehaviour={rowBehaviour}

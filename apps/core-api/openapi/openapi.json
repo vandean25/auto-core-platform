@@ -11428,8 +11428,10 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
+            "description": "Larger values are clamped to 50.",
             "schema": {
               "minimum": 1,
+              "maximum": 50,
               "type": "number"
             }
           },
@@ -11573,9 +11575,11 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
+            "description": "Larger values are clamped to 50.",
             "schema": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 50
             }
           },
           {

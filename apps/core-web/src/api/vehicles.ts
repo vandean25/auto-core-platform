@@ -4,6 +4,8 @@ import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
 import { customerKeys } from './customers'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { hasUtcDayChanged } from '@/lib/date-utils'
+import { MAX_VEHICLE_LIST_PAGE_SIZE, clampPageSize } from '@/lib/list-page-size'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
 type PickerlDuePaginatedResponseDto = components['schemas']['PickerlDuePaginatedResponseDto']
@@ -123,6 +125,7 @@ export function useVehicles(queryParams?: DataTableQueryParams) {
     queryFn: async () => {
       const url = buildDataTableUrl('/api/vehicles', queryParams, {
         searchFallbackFilterFields: ['make', 'model', 'vin', 'plate'],
+        maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE,
       })
       const response = await fetchWithAuth(url)
       if (!response.ok) throw new Error('Failed to fetch vehicles')
@@ -227,7 +230,7 @@ export function usePickerlDueList(queryParams: Record<string, unknown>) {
   const searchParams = new URLSearchParams()
   Object.entries(queryParams).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
-      searchParams.set(key, String(value))
+      searchParams.set(key, key === 'pageSize' ? String(clampPageSize(Number(value), MAX_VEHICLE_LIST_PAGE_SIZE)) : String(value))
     }
   })
 
@@ -241,5 +244,9 @@ export function usePickerlDueList(queryParams: Record<string, unknown>) {
       return (await response.json()) as PickerlDuePaginatedResponseDto
     },
     staleTime: PICKERL_DUE_STALE_TIME_MS,
+    // Vehicle events and Pickerl mutations in this tab refresh it, and each refetch recomputes the whole due list on the
+    // server, so focusing the tab does not refetch. The due status depends on the current day, though: data from an
+    // earlier day is refreshed when the tab is shown again, with no vehicle write needed.
+    refetchOnWindowFocus: (query) => (hasUtcDayChanged(query.state.dataUpdatedAt) ? 'always' : false),
   })
 }

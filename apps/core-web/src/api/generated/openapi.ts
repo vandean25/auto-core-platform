@@ -18870,6 +18870,7 @@ export interface operations {
         parameters: {
             query?: {
                 page?: number;
+                /** @description Larger values are clamped to 50. */
                 pageSize?: number;
                 status?: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
                 window?: 30 | 60 | 90;
@@ -18935,6 +18936,7 @@ export interface operations {
         parameters: {
             query?: {
                 page?: number;
+                /** @description Larger values are clamped to 50. */
                 pageSize?: number;
                 search?: string;
                 sortDirection?: "asc" | "desc";
