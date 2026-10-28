@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { PushModule } from '../push/push.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { VoiceTranslationModule } from '../voice-translation/voice-translation.module.js';
 import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
@@ -25,6 +26,7 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
     VoiceTranslationModule,
     VehicleStockModule,
     NotificationsModule,
+    PushModule,
     AgentProposalModule,
     WorkshopModule,
     MechanicMcpModule,
