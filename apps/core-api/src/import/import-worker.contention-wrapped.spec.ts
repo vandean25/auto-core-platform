@@ -1,4 +1,5 @@
 import { isImportWorkerContentionError } from './import-worker.errors.js';
+import { classifyImportApplyError } from './import-apply.errors.js';
 import { isRetryableImportWorkerError } from './import-worker-retry.js';
 
 function driverAdapterWriteConflict(): Error {
@@ -24,5 +25,18 @@ describe('import worker contention (wrapped errors)', () => {
     const unavailable = Object.assign(new Error('storage'), { code: 503 });
     expect(isRetryableImportWorkerError(reset)).toBe(true);
     expect(isRetryableImportWorkerError(unavailable)).toBe(true);
+  });
+
+  it('retries a fetch failure whose reset is on the cause', () => {
+    const reset = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }),
+    });
+    const hungUp = new TypeError('fetch failed', {
+      cause: new Error('socket hang up'),
+    });
+    for (const error of [reset, hungUp]) {
+      expect(isRetryableImportWorkerError(error)).toBe(true);
+      expect(classifyImportApplyError(error)).toBe('retryable');
+    }
   });
 });

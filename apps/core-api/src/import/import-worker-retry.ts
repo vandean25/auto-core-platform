@@ -5,6 +5,13 @@ import {
 } from '../common/prisma/is-retryable-transaction-error.js';
 
 export function isTransientImportStorageReadError(error: unknown): boolean {
+  return (
+    storageReadErrorIsTransient(error) ||
+    storageReadErrorIsTransient(readErrorCause(error))
+  );
+}
+
+function storageReadErrorIsTransient(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
