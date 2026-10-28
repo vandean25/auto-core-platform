@@ -66,8 +66,8 @@ export function VehiclePartiesSection({ vehicleId, vehicleCustomer }: VehiclePar
 
   return (
     <Card>
-      <CardHeader className='flex-row items-start justify-between gap-2 space-y-0'>
-        <div className='space-y-1.5'>
+      <CardHeader className='flex-row items-start justify-between gap-2 space-y-0 max-sm:flex-col'>
+        <div className='min-w-0 space-y-1.5'>
           <CardTitle>{t('parties.title')}</CardTitle>
           <CardDescription>{t('parties.subtitle')}</CardDescription>
         </div>
