@@ -1,5 +1,5 @@
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
-import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
+import { readCsvSliceByRange } from './import-csv-stream.util.js';
 import type { ImportFileStorageService } from './import-file.storage.js';
 import type { ImportJobUploadRef } from './import-job.worker-state.js';
 
@@ -36,8 +36,8 @@ export async function loadCsvRowRecords(
   const runs = contiguousRuns(rowNos);
   const loaded: CsvRowRecord[] = [];
   for (const run of runs) {
-    const parsed = await readImportCsvDataRowSlice(
-      fileStorage.openReadStream(upload),
+    const parsed = await readCsvSliceByRange(
+      (start, end) => fileStorage.readByteRange(upload, start, end),
       run.from - 1,
       run.to - run.from + 1,
       fileSha256,

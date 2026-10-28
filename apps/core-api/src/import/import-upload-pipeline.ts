@@ -12,6 +12,7 @@ import type {
 export type ImportUploadPipeResult = {
   ref: StoredImportFileRef;
   sha256: string;
+  md5: string;
   headers: string[];
   delimiter: ';' | ',';
   dataRowCount: number;
@@ -29,14 +30,17 @@ export async function pipeImportCsvToStorage(
   },
 ): Promise<ImportUploadPipeResult> {
   let finished: ImportUploadPipeResult | undefined;
+  let sealedMd5: string | undefined;
   const ref = await storage.storeUploadFromStream({
     tenantId: params.tenantId,
     jobId: params.jobId,
     fileName: params.fileName,
     openSource: params.openSource,
     contentLength: params.contentLength,
+    expectedMd5: () => sealedMd5,
     openThrough: () =>
       inspectTransform((snapshot) => {
+        sealedMd5 = snapshot.md5;
         finished = { ref: { object_key: '' }, ...snapshot };
       }),
   });
@@ -50,6 +54,7 @@ function inspectTransform(
   onFlush: (snapshot: Omit<ImportUploadPipeResult, 'ref'>) => void,
 ): Transform {
   const hash = createHash('sha256');
+  const md5 = createHash('md5');
   const parser = new CsvIncrementalParser();
   const utf8 = createUtf8CsvStreamValidator();
   let dataRowCount = 0;
@@ -59,6 +64,7 @@ function inspectTransform(
       try {
         utf8.feed(chunk);
         hash.update(chunk);
+        md5.update(chunk);
         const records = parser.feedChunk(chunk);
         dataRowCount = applyEmittedCsvRecordCount(
           dataRowCount,
@@ -81,6 +87,7 @@ function inspectTransform(
         );
         onFlush({
           sha256: hash.digest('hex'),
+          md5: md5.digest('base64'),
           headers: parser.getHeaders(),
           delimiter: parser.getDelimiter(),
           dataRowCount,

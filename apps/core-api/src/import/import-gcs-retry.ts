@@ -63,7 +63,7 @@ export function classifyGcsUploadAttempt(
   error: unknown,
   attempt: number,
 ): AttemptKind {
-  if (attempt > 0 && isPreconditionFailure(error)) {
+  if (attempt >= 0 && isPreconditionFailure(error)) {
     return 'committed';
   }
   if (isTransientGcsUploadError(error) && attempt < UPLOAD_ATTEMPTS - 1) {
@@ -141,10 +141,14 @@ async function finishAttempt(
   committed: () => Promise<boolean>,
 ): Promise<boolean> {
   if (kind === 'committed') {
-    if (!(await committed())) {
-      throw new ImportStorageUnavailableError(jobId, new Error('412'));
+    const state = await objectState(committed);
+    if (state === 'yes') {
+      return true;
     }
-    return true;
+    if (state === 'unknown') {
+      return false;
+    }
+    throw new ImportStorageUnavailableError(jobId, new Error('412'));
   }
   const state = await objectState(committed);
   if (state === 'yes') {

@@ -10,6 +10,7 @@ import {
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { IMPORT_READ_RANGE_BYTES } from './import-file.storage.js';
+import { isRangeNotSatisfiable } from './import-gcs-media.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import { readImportMaxRowCount } from './import-limits.js';
 
@@ -121,10 +122,26 @@ export async function readWorkerCsvBatchFromRanges(
     worker.csv_headers !== undefined &&
     worker.csv_delimiter !== undefined;
   let cursor = ranged ? byteStart : 0;
+  let reachedEnd = false;
   const slice = await readCsvDataRowSliceFromPull(
     async () => {
+      if (reachedEnd) {
+        return null;
+      }
       const end = cursor + IMPORT_READ_RANGE_BYTES - 1;
-      const bytes = await readRange(cursor, end);
+      let bytes: Buffer;
+      try {
+        bytes = await readRange(cursor, end);
+      } catch (error) {
+        if (isRangeNotSatisfiable(error)) {
+          return null;
+        }
+        throw error;
+      }
+      const requested = end - cursor + 1;
+      if (bytes.length < requested) {
+        reachedEnd = true;
+      }
       if (bytes.length === 0) {
         return null;
       }
@@ -153,6 +170,26 @@ export async function readWorkerCsvBatchFromRanges(
     streamBytesRead: slice.streamBytesRead,
     rowByteEnds: slice.rowByteEnds,
   };
+}
+
+export function readCsvSliceByRange(
+  readRange: (start: number, end: number) => Promise<Buffer>,
+  skipDataRows: number,
+  takeDataRows: number,
+  fileSha256: string,
+): Promise<ImportCsvDataSlice | null> {
+  return readWorkerCsvBatchFromRanges(
+    readRange,
+    {
+      phase: 'dry_run',
+      lease_token: 'range',
+      lease_until: '',
+      processed_rows: skipDataRows,
+      started_at: '',
+    },
+    takeDataRows,
+    fileSha256,
+  );
 }
 
 export async function assessImportCsvFromReadable(

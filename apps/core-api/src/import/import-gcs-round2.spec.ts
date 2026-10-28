@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { PassThrough, Readable } from 'node:stream';
-import { GcsImportFileStorage, IMPORT_READ_RANGE_BYTES } from './import-file.storage.js';
+import { GcsImportFileStorage } from './import-file.storage.js';
+import { ImportStorageUnavailableError } from './import-gcs-retry.js';
 import {
   byteOffsetAfterPersistedRows,
   readWorkerCsvBatchFromRanges,
@@ -64,7 +65,10 @@ describe('committed upload 412', () => {
                 code: 'ECONNRESET',
               });
             }
-            return [{ size: content.length }];
+            return [{
+              size: content.length,
+              md5Hash: createHash('md5').update(content).digest('base64'),
+            }];
           }),
           download: jest.fn(async () => [content]),
         }),
@@ -174,54 +178,110 @@ describe('persisted-row byte checkpoint', () => {
   });
 });
 
-describe('ranged batch reads', () => {
-  it('downloads ranges in parallel without MaxListenersExceededWarning', async () => {
-    const warnings: Error[] = [];
-    const onWarning = (warning: Error) => {
-      if (warning.name === 'MaxListenersExceededWarning') {
-        warnings.push(warning);
+describe('short final range', () => {
+  it('finishes a 20999-row file on a short batch without reading past EOF', async () => {
+    const rowCount = 20_999;
+    const batch = 500;
+    const body = Array.from({ length: rowCount }, (_, index) => `${index + 1};x`).join('\n');
+    const file = Buffer.from(`h1;h2\n${body}\n`, 'utf8');
+    let pastEof = 0;
+    const readRange = async (start: number, end: number) => {
+      if (start >= file.length) {
+        pastEof += 1;
+        throw Object.assign(new Error('range not satisfiable'), { status: 416 });
       }
+      return file.subarray(start, Math.min(file.length, end + 1));
     };
-    process.on('warning', onWarning);
-    const file = Buffer.from(
-      `h1;h2\n${Array.from({ length: 30 }, (_, i) => `${i};x`).join('\n')}\n`,
-      'utf8',
-    );
-    let peak = 0;
-    const createReadStream = jest.fn();
-    const storage = new StorageUnderTest({
+    const collected: string[][] = [];
+    let worker = workerAt(0, 0);
+    let guard = 0;
+    while (worker.processed_rows < rowCount) {
+      const slice = await readWorkerCsvBatchFromRanges(readRange, worker, batch, 'sha');
+      expect(slice?.rows.length).toBeGreaterThan(0);
+      collected.push(...(slice?.rows ?? []));
+      worker = workerAt(
+        worker.processed_rows + (slice?.rows.length ?? 0),
+        slice?.nextByteOffset ?? 0,
+        slice?.headers,
+        slice?.delimiter,
+      );
+      guard += 1;
+      if (guard > 50) {
+        throw new Error('dry-run did not finish');
+      }
+    }
+    expect(collected).toHaveLength(rowCount);
+    expect(collected[0]).toEqual(['1', 'x']);
+    expect(collected[rowCount - 1]).toEqual([String(rowCount), 'x']);
+    expect(pastEof).toBe(0);
+    expect(worker.processed_rows).toBe(rowCount);
+  });
+});
+
+describe('412 confirmation retries', () => {
+  function storageFor(save: () => Promise<void>, committed: () => Promise<boolean>, deleteObject: jest.Mock) {
+    return new StorageUnderTest({
+      retryOptions: { autoRetry: true },
       bucket: () => ({
         file: () => ({
-          createReadStream,
-          download: jest.fn(async (options: { start: number; end: number }) => {
-            const slice = file.subarray(
-              options.start,
-              Math.min(file.length, options.end + 1),
-            );
-            peak = Math.max(peak, slice.length);
-            return [slice];
-          }),
+          save,
+          delete: deleteObject,
+          getMetadata: committed,
+          download: async () => [Buffer.alloc(0)],
         }),
       }),
     });
-    await Promise.all(
-      Array.from({ length: 12 }, () =>
-        readWorkerCsvBatchFromRanges(
-          (start, end) =>
-            storage.readByteRange(
-              { object_key: 'tenants/tenant-a/imports/job-b/party.csv' },
-              start,
-              end,
-            ),
-          workerAt(0, 0),
-          10,
-          'sha',
-        ),
-      ),
+  }
+
+  it('retries a transient confirmation and then accepts the object', async () => {
+    const content = Buffer.from('h1;h2\n1;2\n', 'utf8');
+    const md5 = createHash('md5').update(content).digest('base64');
+    let checks = 0;
+    const deleteObject = jest.fn(async () => undefined);
+    const storage = storageFor(
+      async () => {
+        throw Object.assign(new Error('precondition'), { code: 412 });
+      },
+      async () => {
+        checks += 1;
+        if (checks === 1) {
+          throw Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' });
+        }
+        return [{ size: content.length, md5Hash: md5 }] as unknown as boolean;
+      },
+      deleteObject,
     );
-    expect(createReadStream).not.toHaveBeenCalled();
-    expect(peak).toBeLessThanOrEqual(IMPORT_READ_RANGE_BYTES);
-    expect(warnings).toEqual([]);
-    process.off('warning', onWarning);
+    const ref = await storage.storeUpload({
+      tenantId: 'tenant-a',
+      jobId: 'job-confirm',
+      fileName: 'party.csv',
+      content,
+    });
+    expect(ref.object_key).toContain('job-confirm');
+    expect(deleteObject).not.toHaveBeenCalled();
+    expect(checks).toBe(2);
+  });
+
+  it('returns storage unavailable when confirmation keeps failing', async () => {
+    const content = Buffer.from('h1;h2\n1;2\n', 'utf8');
+    const deleteObject = jest.fn(async () => undefined);
+    const storage = storageFor(
+      async () => {
+        throw Object.assign(new Error('precondition'), { code: 412 });
+      },
+      async () => {
+        throw Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' });
+      },
+      deleteObject,
+    );
+    await expect(
+      storage.storeUpload({
+        tenantId: 'tenant-a',
+        jobId: 'job-confirm',
+        fileName: 'party.csv',
+        content,
+      }),
+    ).rejects.toBeInstanceOf(ImportStorageUnavailableError);
+    expect(deleteObject).not.toHaveBeenCalled();
   });
 });

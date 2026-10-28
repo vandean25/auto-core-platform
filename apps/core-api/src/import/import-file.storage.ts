@@ -9,11 +9,16 @@ import { createHash } from 'node:crypto';
 import { mkdir, open, readFile, unlink, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import type { Readable, Transform, Writable } from 'node:stream';
+import { Readable as ReadableStream } from 'node:stream';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
 import { withTransientGcsAttempts } from './import-gcs-retry.js';
+import {
+  fetchGcsObjectMedia,
+  isRangeNotSatisfiable,
+} from './import-gcs-media.js';
 
 export type StoredImportFileRef = {
   object_key: string;
@@ -143,6 +148,7 @@ export interface ImportFileStorage {
     openSource: () => NodeJS.ReadableStream;
     openThrough?: () => Transform;
     contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef>;
 
   openReadStream(
@@ -185,12 +191,8 @@ type ImportObjectFile = {
   ) => Promise<unknown>;
   delete: (options: { ignoreNotFound: boolean }) => Promise<unknown>;
   createWriteStream: (options: typeof IMPORT_UPLOAD_SAVE_OPTIONS) => Writable;
-  getMetadata: () => Promise<[{ size?: string | number }]>;
-  download: (options: {
-    start?: number;
-    end?: number;
-    validation?: false;
-  }) => Promise<[Buffer]>;
+  getMetadata: () => Promise<[{ size?: string | number; md5Hash?: string }]>;
+  download: () => Promise<[Buffer]>;
 };
 
 export const IMPORT_READ_RANGE_BYTES = 2 * 1024 * 1024;
@@ -207,16 +209,31 @@ async function objectMatchesBuffer(
   if (Number(metadata.size) !== content.length) {
     return false;
   }
-  const [stored] = await file.download({ validation: false });
+  const md5 = createHash('md5').update(content).digest('base64');
+  if (typeof metadata.md5Hash === 'string') {
+    return metadata.md5Hash === md5;
+  }
+  const [stored] = await file.download();
   return sha256(stored) === sha256(content);
 }
 
-async function objectMatchesLength(
+async function objectMatchesStream(
   file: ImportObjectFile,
   contentLength: number,
+  expectedMd5?: string,
 ): Promise<boolean> {
   const [metadata] = await file.getMetadata();
-  return Number(metadata.size) === contentLength;
+  if (Number(metadata.size) !== contentLength) {
+    return false;
+  }
+  if (!expectedMd5) {
+    return true;
+  }
+  if (typeof metadata.md5Hash === 'string') {
+    return metadata.md5Hash === expectedMd5;
+  }
+  const [stored] = await file.download();
+  return createHash('md5').update(stored).digest('base64') === expectedMd5;
 }
 
 function releaseWritable(stream: Writable): void {
@@ -272,6 +289,7 @@ export class GcsImportFileStorage implements ImportFileStorage {
     openSource: () => NodeJS.ReadableStream;
     openThrough?: () => Transform;
     contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef> {
     return this.putNewObject(
       params,
@@ -280,8 +298,29 @@ export class GcsImportFileStorage implements ImportFileStorage {
       (file) =>
         params.contentLength === undefined
           ? Promise.resolve(false)
-          : objectMatchesLength(file, params.contentLength),
+          : objectMatchesStream(
+              file,
+              params.contentLength,
+              params.expectedMd5?.(),
+            ),
     );
+  }
+
+  private importFile(objectKey: string): ImportObjectFile {
+    const bucket = resolveImportUploadBucket();
+    const gcsFile = this.storage.bucket(bucket).file(objectKey);
+    return {
+      save: (data, options) => gcsFile.save(data, options),
+      delete: (options) => gcsFile.delete(options),
+      createWriteStream: (options) => gcsFile.createWriteStream(options),
+      getMetadata: async () => {
+        const [metadata] = await gcsFile.getMetadata();
+        return [metadata];
+      },
+      download: async () => [
+        await fetchGcsObjectMedia(this.storage, bucket, objectKey),
+      ],
+    };
   }
 
   private putNewObject(
@@ -291,9 +330,7 @@ export class GcsImportFileStorage implements ImportFileStorage {
   ): Promise<StoredImportFileRef> {
     SideEffectGuard.assertAllowed('GCS_WRITE');
     const objectKey = buildGcsImportObjectKey(params);
-    const file = this.storage
-      .bucket(resolveImportUploadBucket())
-      .file(objectKey) as unknown as ImportObjectFile;
+    const file = this.importFile(objectKey);
     return withTransientGcsAttempts(
       params.jobId,
       () => write(file).then(() => undefined),
@@ -303,12 +340,37 @@ export class GcsImportFileStorage implements ImportFileStorage {
   }
 
   openReadStream(ref: StoredImportFileRef, start = 0): NodeJS.ReadableStream {
-    assertSafeGcsImportObjectKey(ref.object_key);
-    const bucketName = resolveImportUploadBucket();
-    return this.storage
-      .bucket(bucketName)
-      .file(ref.object_key)
-      .createReadStream(start > 0 ? { start } : {});
+    let cursor = start;
+    const pull = (): Promise<Buffer | null> =>
+      this.readByteRange(ref, cursor, cursor + IMPORT_READ_RANGE_BYTES - 1)
+        .then((bytes) => {
+          if (bytes.length < IMPORT_READ_RANGE_BYTES) {
+            cursor += bytes.length;
+            return bytes.length > 0 ? bytes : null;
+          }
+          cursor += bytes.length;
+          return bytes;
+        })
+        .catch((error: unknown) => {
+          if (isRangeNotSatisfiable(error)) {
+            return null;
+          }
+          throw error;
+        });
+    return new ReadableStream({
+      read() {
+        pull().then(
+          (bytes) => {
+            this.push(bytes);
+          },
+          (error: unknown) => {
+            this.destroy(
+              error instanceof Error ? error : new Error('read failed'),
+            );
+          },
+        );
+      },
+    });
   }
 
   async readByteRange(
@@ -317,21 +379,22 @@ export class GcsImportFileStorage implements ImportFileStorage {
     end: number,
   ): Promise<Buffer> {
     assertSafeGcsImportObjectKey(ref.object_key);
-    const [bytes] = await this.storage
-      .bucket(resolveImportUploadBucket())
-      .file(ref.object_key)
-      .download({ start, end, validation: false });
-    return bytes;
+    return fetchGcsObjectMedia(
+      this.storage,
+      resolveImportUploadBucket(),
+      ref.object_key,
+      start,
+      end,
+    );
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
     assertSafeGcsImportObjectKey(ref.object_key);
-    const bucketName = resolveImportUploadBucket();
-    const [bytes] = await this.storage
-      .bucket(bucketName)
-      .file(ref.object_key)
-      .download();
-    return bytes;
+    return fetchGcsObjectMedia(
+      this.storage,
+      resolveImportUploadBucket(),
+      ref.object_key,
+    );
   }
 
   async deleteUpload(ref: StoredImportFileRef): Promise<void> {
@@ -375,6 +438,7 @@ export class LocalImportFileStorage implements ImportFileStorage {
     openSource: () => NodeJS.ReadableStream;
     openThrough?: () => Transform;
     contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef> {
     await mkdir(this.root, { recursive: true });
     const objectKey = buildTenantImportObjectKey({
@@ -468,6 +532,7 @@ export class ImportFileStorageService implements ImportFileStorage {
     openSource: () => NodeJS.ReadableStream;
     openThrough?: () => Transform;
     contentLength?: number;
+    expectedMd5?: () => string | undefined;
   }): Promise<StoredImportFileRef> {
     return this.delegate.storeUploadFromStream(params);
   }
