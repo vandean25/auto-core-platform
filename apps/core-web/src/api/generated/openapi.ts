@@ -6160,6 +6160,10 @@ export interface components {
              */
             provisional: boolean;
         };
+        LegacyIdDto: {
+            source_system: string;
+            external_id: string;
+        };
         CustomerResponseDto: {
             /**
              * @description Indicates whether the request was executed in dry-run mode
@@ -6168,6 +6172,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -6262,6 +6267,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -6637,6 +6643,7 @@ export interface components {
             hasMore: boolean;
         };
         CustomerDetailResponseDto: {
+            readonly legacy_ids: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -7213,6 +7220,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -7255,6 +7263,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -7297,6 +7306,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";

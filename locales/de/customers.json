@@ -104,7 +104,9 @@
       "zip": "PLZ",
       "city": "Ort",
       "country": "Land",
-      "vatId": "UID"
+      "vatId": "UID",
+      "legacyNumber": "Alte Kundennr. (Vorsystem)",
+      "legacyNumberSource": "Alte Kundennr. (Vorsystem) — {{source}}"
     },
     "placeholders": {
       "companyName": "Firmenname",

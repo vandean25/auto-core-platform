@@ -63,6 +63,7 @@ describe('McpOrderHistoryReadService', () => {
         address_city: null,
         address_zip: null,
         address_country: 'AT',
+        legacy_ids: [],
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
         vehicles: [{ id: VEHICLE_ID, make: 'Testmarke', model: 'Modell T' }],
@@ -103,6 +104,21 @@ describe('McpOrderHistoryReadService', () => {
   });
 
   describe('getCustomer', () => {
+    it('includes legacy customer numbers from every source in the compact read', async () => {
+      const detail = await customerService.findOne();
+      customerService.findOne.mockResolvedValue({ ...detail, legacy_ids: [
+        { source_system: 'legacy_system:company_a', external_id: '00123' },
+        { source_system: 'legacy_system:company_b', external_id: '00456' },
+      ] });
+
+      const result = await service.getCustomer({ customer_id: CUSTOMER_ID });
+
+      expect(result).toHaveProperty('legacy_ids', [
+        { source_system: 'legacy_system:company_a', external_id: '00123' },
+        { source_system: 'legacy_system:company_b', external_id: '00456' },
+      ]);
+    });
+
     it('returns the contact data and vehicles, and drops the nested REST history arrays', async () => {
       const result = await service.getCustomer({ customer_id: CUSTOMER_ID });
 
@@ -120,6 +136,7 @@ describe('McpOrderHistoryReadService', () => {
         address_city: null,
         address_zip: null,
         address_country: 'AT',
+        legacy_ids: [],
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
         vehicles: [{ id: VEHICLE_ID, make: 'Testmarke', model: 'Modell T' }],

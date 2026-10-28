@@ -4,6 +4,7 @@ import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LegacyNumbers } from '@/components/LegacyNumbers'
 import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
 import { VehicleGewaehrleistungSection } from '@/components/vehicles/VehicleGewaehrleistungSection'
 import { VehiclePickerlSection } from '@/components/vehicles/VehiclePickerlSection'
@@ -92,6 +93,11 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
         <CardTitle className='text-base font-semibold'>{t('detail.vehicleInfo')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-3 text-sm'>
+        <LegacyNumbers
+          legacyIds={vehicle.legacy_ids}
+          label={t('detail.legacyNumber')}
+          sourceLabel={(source) => t('detail.legacyNumberSource', { source })}
+        />
         {vehicle.customer?.id ? (
           <TyreSetsSummary vehicleId={vehicle.id} customerId={vehicle.customer.id} />
         ) : null}

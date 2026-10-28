@@ -160,7 +160,13 @@ function resultOf<S extends Shape>(
 
 // --- Shared rows ---------------------------------------------------------------
 
+const legacyIdRow = z.object({
+  source_system: z.string(),
+  external_id: z.string(),
+});
+
 const customerFields = {
+  legacy_ids: z.array(legacyIdRow).optional(),
   id: idString,
   tenant_id: idString,
   type: z.enum(CustomerType),
@@ -265,6 +271,7 @@ const vehicleLinkRow = z.looseObject({
 });
 
 const vehicleListRow = z.looseObject({
+  legacy_ids: z.array(legacyIdRow),
   id: idString,
   tenant_id: idString,
   make: z.string(),
@@ -968,6 +975,7 @@ export const mcpToolOutputSchemas = {
   search_customers: resultOf(offsetPageShape(customerSearchRow)),
   get_customer: resultOf({
     ...customerFields,
+    legacy_ids: z.array(legacyIdRow),
     vehicles: z.array(vehicleLinkRow),
     orders: z.object(keysetPageShape(orderHistoryRow)),
   }),

@@ -13,6 +13,7 @@ describe('VehiclePersistenceService', () => {
       updateMany: jest.Mock;
     };
     customer: { findFirst: jest.Mock };
+    externalIdMapping: { findMany: jest.Mock };
     workshopOrder: { findFirst: jest.Mock; findMany: jest.Mock };
   };
   let service: VehiclePersistenceService;
@@ -27,6 +28,7 @@ describe('VehiclePersistenceService', () => {
         updateMany: jest.fn(),
       },
       customer: { findFirst: jest.fn() },
+      externalIdMapping: { findMany: jest.fn().mockResolvedValue([]) },
       workshopOrder: { findFirst: jest.fn(), findMany: jest.fn() },
     };
     service = new VehiclePersistenceService(prisma as unknown as PrismaService);
@@ -229,8 +231,8 @@ describe('VehiclePersistenceService', () => {
     prisma.vehicle.count.mockResolvedValue(1);
 
     await expect(
-      service.listVehicles({ where, orderBy, skip: 10, take: 10 }),
-    ).resolves.toEqual({ rows: [{ id: 'vehicle-1' }], total: 1 });
+      service.listVehicles({ tenantId, where, orderBy, skip: 10, take: 10 }),
+    ).resolves.toEqual({ rows: [{ id: 'vehicle-1', legacy_ids: [] }], total: 1 });
 
     expect(prisma.vehicle.findMany).toHaveBeenCalledWith({
       where,
