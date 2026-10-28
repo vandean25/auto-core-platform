@@ -16,6 +16,8 @@ export type ImportJobOptions = {
     'retry_exhausted' | 'poison_cap' | 'apply_error' | 'apply_seq_missing';
   /** Present only while a re-apply is being locked; copied onto the worker and then removed. */
   technical_retry_row_nos?: number[];
+  /** ERROR rows whose code is technical. Set on read for an APPLIED job. */
+  technical_error_rows?: number;
 };
 
 export type ImportJobTotals = {

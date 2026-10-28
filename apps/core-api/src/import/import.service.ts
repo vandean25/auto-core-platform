@@ -38,8 +38,9 @@ import {
 import { runSyncApplyUnits } from './import-sync-apply-lease.js';
 import {
   mergeTechnicalRetryBatch,
+  mergeTechnicalRetryRowNos,
   planTechnicalRetry,
-  resetTechnicalImportErrorRows,
+  technicalRetryRowNos,
 } from './import-technical-retry.js';
 import {
   buildImportErrorReportCsv,
@@ -134,14 +135,9 @@ import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.j
 import { VehicleImportHandler } from './vehicle-import.handler.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 
-function statusRetriesTechnicalRows(
-  status: ImportJobStatus,
-  staleApplying: boolean,
-): boolean {
+function statusRetriesTechnicalRows(status: ImportJobStatus): boolean {
   return (
-    status === ImportJobStatus.FAILED ||
-    status === ImportJobStatus.APPLIED ||
-    staleApplying
+    status === ImportJobStatus.FAILED || status === ImportJobStatus.APPLIED
   );
 }
 
@@ -351,7 +347,10 @@ export class ImportService {
     if (!job) {
       throw importJobNotFound();
     }
-    return this.serializeJob(job, job.totals_json as ImportJobTotals);
+    return this.annotateTechnicalErrors(
+      tenantId,
+      this.serializeJob(job, job.totals_json as ImportJobTotals),
+    );
   }
 
   async listJobRows(
@@ -398,8 +397,7 @@ export class ImportService {
   ): Promise<ImportJobOptionsWithWorker> {
     if (
       status !== ImportJobStatus.FAILED &&
-      status !== ImportJobStatus.APPLIED &&
-      status !== ImportJobStatus.APPLYING
+      status !== ImportJobStatus.APPLIED
     ) {
       assertJobCanBeApplied(status);
       return options;
@@ -407,28 +405,25 @@ export class ImportService {
     const errorRows =
       (await this.jobStore.findErrorRows(tenantId, jobId)) ?? [];
     const plan = planTechnicalRetry(errorRows);
-    if (plan.count === 0) {
+    const rowNos = mergeTechnicalRetryRowNos(
+      technicalRetryRowNos(options, options.worker ?? null),
+      plan.rowNos,
+    );
+    if (rowNos.length === 0) {
       assertJobCanBeApplied(status);
       if (status === ImportJobStatus.FAILED) {
         this.logTechnicalRetry(jobId, plan);
       }
       return options;
     }
-    await resetTechnicalImportErrorRows(
-      this.prisma,
-      tenantId,
-      jobId,
-      plan,
-      errorRows,
-    );
     this.logTechnicalRetry(jobId, plan);
     const worker = options.worker
-      ? { ...options.worker, technical_retry_row_nos: plan.rowNos }
+      ? { ...options.worker, technical_retry_row_nos: rowNos }
       : undefined;
     return {
       ...options,
       ...(worker ? { worker } : {}),
-      technical_retry_row_nos: plan.rowNos,
+      technical_retry_row_nos: rowNos,
     };
   }
 
@@ -469,7 +464,7 @@ export class ImportService {
       });
     }
 
-    return this.dispatchImportApply({
+    const applied = await this.dispatchImportApply({
       tenantId,
       jobId,
       job: applyingJob,
@@ -477,6 +472,24 @@ export class ImportService {
       applyOptions,
       alreadyLocked: applyingJob.status === ImportJobStatus.APPLYING,
     });
+    return this.annotateTechnicalErrors(tenantId, applied);
+  }
+
+  private async annotateTechnicalErrors(
+    tenantId: string,
+    job: SerializedImportJob,
+  ): Promise<SerializedImportJob> {
+    if (job.status !== ImportJobStatus.APPLIED) {
+      return job;
+    }
+    const technical_error_rows = await this.jobStore.countTechnicalErrorRows(
+      tenantId,
+      job.id,
+    );
+    return {
+      ...job,
+      options: { ...job.options, technical_error_rows },
+    };
   }
 
   private async prepareApplyJob(
@@ -498,11 +511,8 @@ export class ImportService {
     job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
   ) {
     const options = job.options_json as ImportJobOptionsWithWorker;
-    const staleCandidate =
-      job.status === ImportJobStatus.APPLYING &&
-      isStaleApplyingImportJob(job, Date.now());
-    if (!statusRetriesTechnicalRows(job.status, staleCandidate)) {
-      return { ...job, options_json: options };
+    if (!statusRetriesTechnicalRows(job.status)) {
+      return job;
     }
     const reapplyOptions = await this.resetTechnicalRowsForReapply(
       tenantId,
@@ -510,12 +520,6 @@ export class ImportService {
       job.status,
       options,
     );
-    if (reapplyOptions.technical_retry_row_nos?.length) {
-      await this.prisma.importJob.updateMany({
-        where: { tenant_id: tenantId, id: jobId, status: job.status },
-        data: { options_json: reapplyOptions },
-      });
-    }
     return { ...job, options_json: reapplyOptions };
   }
 
@@ -687,15 +691,14 @@ export class ImportService {
     effectiveOptions: ImportJobOptions,
     alreadyLocked = false,
   ): Promise<SerializedImportJob> {
-    const rows = await this.jobStore.findApplyRows(tenantId, jobId);
+    const previewRows = await this.jobStore.findApplyRows(tenantId, jobId);
     const preparation = await handler.prepareApply({
       tenantId,
       job,
-      rows,
+      rows: previewRows,
       applyOptions,
       effectiveOptions,
     });
-
     if (!alreadyLocked) {
       const retryRowNos =
         (job.options_json as ImportJobOptionsWithWorker)
@@ -704,6 +707,7 @@ export class ImportService {
         tenantId,
         jobId,
         retryRowNos.length > 0 ? [ImportJobStatus.APPLIED] : [],
+        job.options_json as ImportJobOptionsWithWorker,
       );
       if (lock.count === 0) {
         const current = await this.jobStore.findJob(tenantId, jobId);
@@ -712,6 +716,7 @@ export class ImportService {
         );
       }
     }
+    const rows = await this.jobStore.findApplyRows(tenantId, jobId);
 
     let applied: SerializedImportJob;
     try {

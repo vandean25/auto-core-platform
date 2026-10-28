@@ -1,4 +1,4 @@
-import { ImportJobStatus } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import { ImportJobStore } from './import-job.store.js';
 
 describe('ImportJobStore.lockForBackgroundApply', () => {
@@ -33,5 +33,49 @@ describe('ImportJobStore.lockForBackgroundApply', () => {
       }),
     );
     expect(executeRaw).toHaveBeenCalled();
+  });
+
+  it('stores the retry list before clearing technical error rows', async () => {
+    const order: string[] = [];
+    const updateMany = jest.fn(async () => {
+      order.push('job');
+      return { count: 1 };
+    });
+    const rowUpdateMany = jest.fn(async () => {
+      order.push('rows');
+      return { count: 1 };
+    });
+    const prisma = {
+      importJob: { updateMany, findFirst: async () => null },
+      importJobRow: {
+        findMany: async () => [
+          {
+            row_no: 2,
+            entity_id: null,
+            action: 'ERROR',
+          },
+        ],
+        updateMany: rowUpdateMany,
+      },
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          importJob: { updateMany },
+          importJobRow: {
+            findMany: async () => [
+              {
+                row_no: 2,
+                entity_id: null,
+                action: ImportRowAction.ERROR,
+              },
+            ],
+            updateMany: rowUpdateMany,
+          },
+        }),
+    };
+    const store = new ImportJobStore(prisma as never);
+    await store.lockForApply('tenant-1', 'job-1', [], {
+      technical_retry_row_nos: [2],
+    });
+    expect(order).toEqual(['job', 'rows']);
   });
 });

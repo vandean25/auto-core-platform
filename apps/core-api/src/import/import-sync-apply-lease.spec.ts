@@ -1,5 +1,6 @@
 import { ImportJobStatus } from '@prisma/client';
 import { runSyncApplyUnits } from './import-sync-apply-lease.js';
+import { withoutTechnicalRetryRow } from './import-technical-retry.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 
 describe('runSyncApplyUnits', () => {
@@ -98,7 +99,7 @@ describe('runSyncApplyUnits', () => {
         },
       },
     };
-    const rows = [2, 6].map((rowNo) => ({
+    const rows = [2, 6, 7].map((rowNo) => ({
       row_no: rowNo,
       apply_seq: rowNo,
       action: 'CREATE' as const,
@@ -112,14 +113,42 @@ describe('runSyncApplyUnits', () => {
       findJob: async () => job,
       extendLease: async () => true,
       applyRows: async (pending) => {
-        for (const row of pending) {
-          applied.push(row.row_no);
+        const row = pending[0];
+        if (!row) {
+          job.status = ImportJobStatus.APPLIED;
+          return { status: job.status } as SerializedImportJob;
         }
-        job.options_json.worker.technical_retry_row_nos = [];
-        job.status = ImportJobStatus.APPLIED;
+        applied.push(row.row_no);
+        const worker = job.options_json.worker;
+        const nextWorker = withoutTechnicalRetryRow(worker, row.row_no);
+        const applySeq = row.apply_seq ?? row.row_no;
+        job.options_json.worker = {
+          phase: 'apply',
+          lease_token: nextWorker.lease_token,
+          lease_until: nextWorker.lease_until,
+          processed_rows: worker.processed_rows,
+          last_committed_apply_seq: worker.last_committed_apply_seq,
+          started_at: nextWorker.started_at,
+          technical_retry_row_nos: nextWorker.technical_retry_row_nos ?? [],
+        };
+        if (applySeq > job.options_json.worker.last_committed_apply_seq) {
+          job.options_json.worker.last_committed_apply_seq = applySeq;
+          job.options_json.worker.processed_rows = applySeq;
+        }
+        const more =
+          (job.options_json.worker.technical_retry_row_nos?.length ?? 0) > 0 ||
+          rows.some(
+            (candidate) =>
+              candidate.apply_seq >
+              job.options_json.worker.last_committed_apply_seq,
+          );
+        job.status = more
+          ? ImportJobStatus.APPLYING
+          : ImportJobStatus.APPLIED;
         return { status: job.status } as SerializedImportJob;
       },
     });
-    expect(applied).toEqual([2, 6]);
+    expect(applied).toEqual([2, 6, 7]);
+    expect(job.options_json.worker.technical_retry_row_nos ?? []).toEqual([]);
   });
 });

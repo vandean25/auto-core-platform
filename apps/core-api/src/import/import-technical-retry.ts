@@ -56,31 +56,43 @@ function restoredAction(entityId: string | null): ImportRowAction {
   return entityId ? ImportRowAction.UPDATE : ImportRowAction.CREATE;
 }
 
-/** Puts technical ERROR rows back to CREATE/UPDATE so apply writes them again. */
+type RetryDb = Pick<PrismaService, 'importJobRow'>;
+
+/** Clears technical ERROR rows after the retry list is already stored. */
 export async function resetTechnicalImportErrorRows(
-  prisma: PrismaService,
+  db: RetryDb,
   tenantId: string,
   jobId: string,
-  plan: TechnicalRetryPlan,
-  rows: ErrorRow[],
+  rowNos: number[],
 ): Promise<void> {
-  const pending = new Set(plan.rowNos);
+  if (rowNos.length === 0) {
+    return;
+  }
+  const wanted = new Set(rowNos);
+  const loaded = await db.importJobRow.findMany({
+    where: {
+      tenant_id: tenantId,
+      import_job_id: jobId,
+      row_no: { in: rowNos },
+      action: ImportRowAction.ERROR,
+    },
+  });
+  const rows = loaded.filter(
+    (row) => wanted.has(row.row_no) && row.action === ImportRowAction.ERROR,
+  );
   const byAction = new Map<ImportRowAction, number[]>();
   for (const row of rows) {
-    if (!pending.has(row.row_no)) {
-      continue;
-    }
     const action = restoredAction(row.entity_id);
-    const rowNos = byAction.get(action) ?? [];
-    rowNos.push(row.row_no);
-    byAction.set(action, rowNos);
+    const group = byAction.get(action) ?? [];
+    group.push(row.row_no);
+    byAction.set(action, group);
   }
-  for (const [action, rowNos] of byAction) {
-    await prisma.importJobRow.updateMany({
+  for (const [action, grouped] of byAction) {
+    await db.importJobRow.updateMany({
       where: {
         tenant_id: tenantId,
         import_job_id: jobId,
-        row_no: { in: rowNos },
+        row_no: { in: grouped },
       },
       data: { action, errors_json: Prisma.JsonNull },
     });
@@ -117,7 +129,7 @@ export function applyLockForReapply(
   };
 }
 
-function technicalRetryRowNos(
+export function technicalRetryRowNos(
   options: ImportJobOptionsWithWorker,
   previous: ImportJobWorkerState | null,
 ): number[] {
@@ -150,6 +162,13 @@ export function withoutTechnicalRetryRow(
 }
 
 /** Retry rows first, then the cursor tail, without listing a row twice. */
+export function mergeTechnicalRetryRowNos(
+  existing: number[],
+  planned: number[],
+): number[] {
+  return [...new Set([...existing, ...planned])].sort((a, b) => a - b);
+}
+
 export function mergeTechnicalRetryBatch(
   retryRows: ImportApplyRow[],
   afterCursor: ImportApplyRow[],

@@ -28,6 +28,8 @@ import {
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import {
   applyLockForReapply,
+  planTechnicalRetry,
+  resetTechnicalImportErrorRows,
   withoutTechnicalRetryRow,
 } from './import-technical-retry.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
@@ -885,6 +887,14 @@ export class ImportJobStore {
     return row?.apply_seq ?? 0;
   }
 
+  async countTechnicalErrorRows(
+    tenantId: string,
+    jobId: string,
+  ): Promise<number> {
+    const rows = (await this.findErrorRows(tenantId, jobId)) ?? [];
+    return planTechnicalRetry(rows).count;
+  }
+
   countApplyRows(tenantId: string, jobId: string) {
     return this.prisma.importJobRow.count({
       where: { tenant_id: tenantId, import_job_id: jobId },
@@ -949,21 +959,37 @@ export class ImportJobStore {
     tenantId: string,
     jobId: string,
     extraStatuses: ImportJobStatus[] = [],
+    optionsOverride?: ImportJobOptionsWithWorker,
   ) {
-    const existing = await this.findJob(tenantId, jobId);
-    const options = (existing?.options_json ??
-      {}) as ImportJobOptionsWithWorker;
+    const existing = optionsOverride
+      ? null
+      : await this.findJob(tenantId, jobId);
+    const options =
+      optionsOverride ??
+      ((existing?.options_json ?? {}) as ImportJobOptionsWithWorker);
     const locked = applyLockForReapply(options, extraStatuses, Date.now());
-    return this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: { in: locked.statuses },
-      },
-      data: {
-        status: ImportJobStatus.APPLYING,
-        options_json: locked.options,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const lock = await tx.importJob.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: jobId,
+          status: { in: locked.statuses },
+        },
+        data: {
+          status: ImportJobStatus.APPLYING,
+          options_json: locked.options,
+        },
+      });
+      if (lock.count === 0) {
+        return lock;
+      }
+      await resetTechnicalImportErrorRows(
+        tx,
+        tenantId,
+        jobId,
+        locked.options.worker?.technical_retry_row_nos ?? [],
+      );
+      return lock;
     });
   }
 
@@ -1023,6 +1049,12 @@ export class ImportJobStore {
         if (lock.count === 0) {
           return lock;
         }
+        await resetTechnicalImportErrorRows(
+          tx,
+          tenantId,
+          jobId,
+          worker.technical_retry_row_nos ?? [],
+        );
         await fillImportJobApplySequences(
           tx,
           tenantId,

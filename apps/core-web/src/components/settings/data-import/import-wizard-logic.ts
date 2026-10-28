@@ -59,6 +59,11 @@ export function canApplyImport(params: {
   if (params.dryRunJob.stalled && params.dryRunJob.status === 'APPLYING') {
     return true
   }
+  if (params.dryRunJob.status === 'APPLIED') {
+    const technical = (params.dryRunJob.options as { technical_error_rows?: number })
+      .technical_error_rows
+    return (technical ?? 0) > 0
+  }
   if (params.dryRunStale) return false
   if (params.dryRunJob.status !== 'DRY_RUN_DONE') return false
   const errors = params.dryRunJob.totals?.error ?? 0

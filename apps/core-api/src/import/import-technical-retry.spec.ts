@@ -3,6 +3,7 @@ import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { isTechnicalImportRowErrorCode } from './import-apply.errors.js';
 import {
   mergeTechnicalRetryBatch,
+  mergeTechnicalRetryRowNos,
   planTechnicalRetry,
   withoutTechnicalRetryRow,
 } from './import-technical-retry.js';
@@ -19,6 +20,10 @@ describe('technical import row retry', () => {
     expect(
       isTechnicalImportRowErrorCode(IMPORT_ERROR_CODES.DUPLICATE_EXTERNAL_ID_IN_FILE),
     ).toBe(false);
+  });
+
+  it('keeps an uncommitted retry row when planning new technical errors', () => {
+    expect(mergeTechnicalRetryRowNos([2, 4], [4, 8])).toEqual([2, 4, 8]);
   });
 
   it('plans only technical error rows', () => {
