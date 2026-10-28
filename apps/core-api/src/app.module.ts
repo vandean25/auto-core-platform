@@ -66,6 +66,7 @@ import { ImportModule } from './import/import.module.js';
 import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
 import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
 import { AgentProposalModule } from './agent-proposal/agent-proposal.module.js';
+import { WorkshopCommandModule } from './workshop-command/workshop-command.module.js';
 import { AgentSupervisionModule } from './agent-supervision/agent-supervision.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { DecisionModule } from './decision/decision.module.js';
@@ -135,6 +136,7 @@ import { SchedulerModule } from './scheduler/scheduler.module.js';
     SearchModule,
     AgentPolicyModule,
     AgentProposalModule,
+    WorkshopCommandModule,
     AgentSupervisionModule,
     DecisionModule,
     DecisionShadowLogModule,

@@ -182,6 +182,7 @@ model Tenant {
   agentPolicyRules                 AgentPolicyRule[]
   agentProposals                   AgentProposal[]
   workshopCommandPresets           WorkshopCommandPreset[]
+  workshopCommandSessions          WorkshopCommandSession[]
   mcpWriteCommandReceipts          McpWriteCommandReceipt[]
   domainEvents                     DomainEvent[]
   domainEventConsumerProgress      DomainEventConsumerProgress[]
@@ -240,6 +241,7 @@ model AgentProposal {
   tenant_id        String
   tenant           Tenant              @relation(fields: [tenant_id], references: [id])
   trace_id         String              @db.Uuid
+  command_id       String?             @db.Uuid
   action_type      String
   payload_json     Json
   preview_json     Json?
@@ -254,6 +256,7 @@ model AgentProposal {
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, command_id])
   @@index([tenant_id, status, createdAt])
   @@index([tenant_id, trace_id])
   @@map("agent_proposals")
@@ -4889,6 +4892,23 @@ model LaborCategory {
   @@index([tenant_id])
   @@index([parent_id])
   @@map("labor_categories")
+}
+
+model WorkshopCommandSession {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenant_id       String
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  command_id      String   @db.Uuid
+  site_id         String   @db.Uuid
+  source          String
+  normalized_json Json
+  expires_at      DateTime
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@unique([tenant_id, command_id])
+  @@index([tenant_id, expires_at])
+  @@map("workshop_command_sessions")
 }
 
 model WorkshopCommandPreset {

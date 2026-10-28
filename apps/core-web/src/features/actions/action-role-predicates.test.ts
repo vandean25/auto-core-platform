@@ -10,6 +10,7 @@ import {
   canOpenVehicle,
   canOpenWorkshopOrder,
   canUpdateWorkshopOrderTaskState,
+  canUseWorkshopCommand,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
   isWorkshopTechAssignableStatus,
@@ -42,6 +43,15 @@ describe('action-role-predicates', () => {
     }
     for (const role of ['TECH', 'MECHANIC', '', undefined]) {
       expect(canOpenEstimate(role)).toBe(false)
+    }
+  })
+
+  it('opens the command mode only for the roles the command API accepts', () => {
+    for (const role of ['OWNER', 'ADMIN', 'SALES']) {
+      expect(canUseWorkshopCommand(role)).toBe(true)
+    }
+    for (const role of ['TECH', 'DEMO', '', null, undefined]) {
+      expect(canUseWorkshopCommand(role)).toBe(false)
     }
   })
 

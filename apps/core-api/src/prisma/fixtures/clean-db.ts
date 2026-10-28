@@ -394,6 +394,10 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     clean: (p) => p.workshopCommandPreset.deleteMany(),
   },
   {
+    table: 'workshop_command_sessions',
+    clean: (p) => p.workshopCommandSession.deleteMany(),
+  },
+  {
     table: 'workshop_estimate_approvals',
     clean: (p) => p.workshopEstimateApproval.deleteMany(),
   },

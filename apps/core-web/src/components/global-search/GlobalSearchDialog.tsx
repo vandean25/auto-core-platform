@@ -1,13 +1,24 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { MessageSquareText } from 'lucide-react'
 
 import { useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
-import { CommandDialog, CommandInput, CommandList } from '@/components/ui/command'
+import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { PageLoader } from '@/components/ui/PageLoader'
+import { canUseWorkshopCommand } from '@/features/actions/action-role-predicates'
+import { WorkshopCommandPanel } from '@/features/workshop-command/WorkshopCommandPanel'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 
 const GLOBAL_SEARCH_LAZY_NAMESPACES = ['settings', 'workshop', 'customers', 'vehicles'] as const
 import { GlobalSearchContextActionGroup } from './GlobalSearchContextActionGroup'
@@ -139,7 +150,9 @@ function usePaletteSubPages({
 
 function GlobalSearchDialogContent({ open, onOpenChange }: GlobalSearchDialogProps) {
   const { t } = useTranslation(['nav', 'settings'])
+  const { t: tCommand } = useTranslation('workshop')
   const [search, setSearch] = React.useState('')
+  const [commandMode, setCommandMode] = React.useState(false)
   // Cmd/Ctrl+Enter or Cmd/Ctrl+click opens a new tab. cmdk's onSelect carries no event, so the modifier is read first.
   const newTabRef = React.useRef(false)
   const navigate = useNavigate()
@@ -147,6 +160,10 @@ function GlobalSearchDialogContent({ open, onOpenChange }: GlobalSearchDialogPro
   const sites = useMySites().data
   const { groups, isLoading, error } = useGlobalSearch(search)
   const recent = useRecentItems(sessionMeta.recentKey, open)
+
+  React.useEffect(() => {
+    if (!open) setCommandMode(false)
+  }, [open])
 
   const query = search.trim()
   const paletteContext = useGlobalSearchPaletteContext(open, query)
@@ -159,6 +176,10 @@ function GlobalSearchDialogContent({ open, onOpenChange }: GlobalSearchDialogPro
     onOpenChange,
   })
   const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill)
+  const commandEntryVisible =
+    canUseWorkshopCommand(sessionMeta.roleInfo?.activeRole) &&
+    !query &&
+    !subPage.isSubPage
 
   const openHref = (href: string) => {
     const inNewTab = newTabRef.current
@@ -173,11 +194,37 @@ function GlobalSearchDialogContent({ open, onOpenChange }: GlobalSearchDialogPro
     openHref(item.href)
   }
 
-  return (
+  const handleEscapeKeyDown = (event: KeyboardEvent) => {
+    if (commandMode) {
+      event.preventDefault()
+      setCommandMode(false)
+      return
+    }
+    subPage.handleEscapeKeyDown(event)
+  }
+
+  const openOrders = () => {
+    setCommandMode(false)
+    setSearch('')
+    onOpenChange(false)
+    navigate(APP_ROUTE_PATHS.workshopOrders)
+  }
+
+  return commandMode ? (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="overflow-hidden p-0 sm:max-w-2xl" onEscapeKeyDown={handleEscapeKeyDown}>
+        <DialogHeader className="sr-only">
+          <DialogTitle>{tCommand('command.title')}</DialogTitle>
+          <DialogDescription>{tCommand('command.description')}</DialogDescription>
+        </DialogHeader>
+        <WorkshopCommandPanel onExit={() => setCommandMode(false)} onOpenOrders={openOrders} />
+      </DialogContent>
+    </Dialog>
+  ) : (
     <CommandDialog
       open={open}
       onOpenChange={onOpenChange}
-      onEscapeKeyDown={subPage.handleEscapeKeyDown}
+      onEscapeKeyDown={handleEscapeKeyDown}
       title={t('globalSearch.title')}
       description={t('globalSearch.description')}
       shouldFilter={false}
@@ -205,6 +252,23 @@ function GlobalSearchDialogContent({ open, onOpenChange }: GlobalSearchDialogPro
 
         {!subPage.isSubPage ? (
           <>
+            {commandEntryVisible ? (
+              <CommandGroup>
+                <CommandItem value="command:workshop" onSelect={() => setCommandMode(true)}>
+                  <MessageSquareText
+                    aria-hidden="true"
+                    className="mr-2 h-4 w-4 shrink-0 text-muted-foreground"
+                  />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-medium">{tCommand('command.openAction')}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {tCommand('command.openActionHint')}
+                    </span>
+                  </div>
+                </CommandItem>
+              </CommandGroup>
+            ) : null}
+
             {query ? (
               <SearchResults
                 groups={groups}

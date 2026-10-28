@@ -245,6 +245,7 @@ export const createMockProposal = (overrides?: Partial<any>) => ({
   id: proposalId,
   tenant_id: tenantId,
   trace_id: traceId,
+  command_id: null,
   action_type: 'workshop_order.add_line',
   payload_json: {
     agent_id: 'workshop-agent',

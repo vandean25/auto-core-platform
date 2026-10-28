@@ -3111,6 +3111,22 @@ export interface paths {
         patch: operations["VoiceTranslationController_updateSettings"];
         trace?: never;
     };
+    "/api/voice-translation/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VoiceTranslationController_transcribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent-proposals": {
         parameters: {
             query?: never;
@@ -5031,6 +5047,46 @@ export interface paths {
         get: operations["SearchController_search"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/commands/interpret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interpret an advisor sentence into a reviewed booking preview
+         * @description Local resolution only. No provider call and no domain write; one replay row is stored for the command.
+         */
+        post: operations["WorkshopCommandController_interpret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/commands/propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store the reviewed booking package in the proposal queue
+         * @description Recomputes the intent from the stored tokens and accepted selections, then persists one PENDING proposal. A matching retry returns the same ids.
+         */
+        post: operations["WorkshopCommandController_propose"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9210,6 +9266,18 @@ export interface components {
             /** @description Google service account JSON credentials. The API stores this encrypted and never returns the raw value. */
             googleServiceAccountJson?: string | null;
         };
+        VoiceTranscriptResponseDto: {
+            /** @description Recognized speech, ready to be edited before interpret. */
+            transcript: string;
+            /** @example de-AT */
+            sourceLanguageCode: string;
+            /** @example de-AT */
+            detectedLanguageCode?: string;
+            /** @example google-cloud */
+            provider: string;
+            /** @example latest_long */
+            model: string;
+        };
         AgentProposalEffectiveSummaryDto: {
             target_type: string | null;
             target_id: string | null;
@@ -11500,6 +11568,189 @@ export interface components {
         };
         SearchResponseDto: {
             groups: components["schemas"]["SearchGroupDto"][];
+        };
+        WorkshopCommandPositionLineDto: {
+            preset_key?: string;
+            /** @enum {string} */
+            kind: "LABOR" | "PART";
+            labor_operation_id: string | null;
+            catalog_item_id: string | null;
+            description: string;
+            /** @example 1.500 */
+            quantity: string;
+            /** @example h */
+            unit: string;
+            unit_price_cents: number;
+            net_cents: number;
+            /** @enum {string} */
+            reservation: "not_applicable" | "unbooked" | "reserved";
+        };
+        WorkshopCommandScheduleDto: {
+            /** @example 2026-10-16 */
+            local_date: string;
+            /** @example 08:00 */
+            local_start: string;
+            /** @example 10:30 */
+            local_end: string;
+            /** Format: date-time */
+            start_at: string;
+            /** Format: date-time */
+            end_at: string;
+            /** @example 150 */
+            duration_minutes: number;
+            /** @enum {string} */
+            duration_source: "preset_sum" | "end_clock";
+        };
+        WorkshopCommandLoanerDto: {
+            requested: boolean;
+            loaner_vehicle_id: string | null;
+            /** Format: date-time */
+            planned_from: string | null;
+            /** Format: date-time */
+            planned_to: string | null;
+        };
+        WorkshopCommandPositionPlanDto: {
+            /** @example 1 */
+            version: number;
+            lines: components["schemas"]["WorkshopCommandPositionLineDto"][];
+        };
+        WorkshopCommandIntentDto: {
+            /** @enum {string} */
+            contract_version: "workshop-command/v1";
+            /** Format: uuid */
+            command_id: string;
+            /** Format: uuid */
+            site_id: string;
+            timezone: string;
+            /** Format: uuid */
+            customer_id: string;
+            /** Format: uuid */
+            vehicle_id: string;
+            schedule: components["schemas"]["WorkshopCommandScheduleDto"];
+            /** Format: uuid */
+            bay_id: string;
+            mechanic_id: string | null;
+            loaner: components["schemas"]["WorkshopCommandLoanerDto"];
+            position_plan: components["schemas"]["WorkshopCommandPositionPlanDto"];
+            /** @enum {string} */
+            purpose: "CUSTOMER_REPAIR";
+            /** @enum {string} */
+            order_status: "SCHEDULED";
+            reported_issue: string;
+            /** @enum {string} */
+            status: "ready";
+        };
+        WorkshopCommandChoiceDto: {
+            /** @example customer:51500000-0000-4000-8000-000000000021 */
+            choice_id: string;
+            /** @example customer_id */
+            slot: string;
+            value: string;
+            label: string;
+        };
+        WorkshopCommandClarificationDto: {
+            /** @enum {string} */
+            contract_version: "workshop-command/v1";
+            /** @enum {string} */
+            status: "clarification";
+            /** Format: uuid */
+            command_id: string;
+            code: string;
+            prompt: string;
+            choices: components["schemas"]["WorkshopCommandChoiceDto"][];
+            recognized: {
+                [key: string]: unknown;
+            };
+            /** @example null */
+            proposal: string | null;
+        };
+        CommandSelectionDto: {
+            /** @example customer_id */
+            slot: string;
+            /** @example 51500000-0000-4000-8000-000000000021 */
+            value: string;
+        };
+        InterpretWorkshopCommandDto: {
+            /** @enum {string} */
+            contract_version: "workshop-command/v1";
+            /** Format: uuid */
+            command_id: string;
+            /** @enum {string} */
+            source: "keyboard" | "voice_transcript";
+            /** @enum {string} */
+            locale: "de-AT";
+            /** @description Advisor sentence or edited voice transcript. Never sent to a provider. */
+            text: string;
+            selections?: components["schemas"]["CommandSelectionDto"][];
+        };
+        ProposeWorkshopCommandDto: {
+            /** @enum {string} */
+            contract_version: "workshop-command/v1";
+            /** Format: uuid */
+            command_id: string;
+            selections?: components["schemas"]["CommandSelectionDto"][];
+        };
+        WorkshopCommandWouldChangeDto: {
+            /** @example WorkshopOrder */
+            entity: string;
+            /** @example create */
+            op: string;
+            /** @example true */
+            provisional: boolean;
+            /** @example null */
+            id: string | null;
+            /** @example SCHEDULED */
+            status?: string;
+            /** @example 3 */
+            count?: number;
+            /** Format: uuid */
+            site_id?: string;
+        };
+        WorkshopCommandIntentBodyDto: {
+            /** @enum {string} */
+            contract_version: "workshop-command/v1";
+            /** Format: uuid */
+            command_id: string;
+            /** Format: uuid */
+            site_id: string;
+            timezone: string;
+            /** Format: uuid */
+            customer_id: string;
+            /** Format: uuid */
+            vehicle_id: string;
+            schedule: components["schemas"]["WorkshopCommandScheduleDto"];
+            /** Format: uuid */
+            bay_id: string;
+            mechanic_id: string | null;
+            loaner: components["schemas"]["WorkshopCommandLoanerDto"];
+            position_plan: components["schemas"]["WorkshopCommandPositionPlanDto"];
+            /** @enum {string} */
+            purpose: "CUSTOMER_REPAIR";
+            /** @enum {string} */
+            order_status: "SCHEDULED";
+            reported_issue: string;
+        };
+        WorkshopCommandProposalResultDto: {
+            /** @enum {string} */
+            contract_version: "workshop-command/v1";
+            /** @enum {string} */
+            status: "needs_approval";
+            /** Format: uuid */
+            command_id: string;
+            /** Format: uuid */
+            pending_action_id: string;
+            /** Format: uuid */
+            trace_id: string;
+            /** @example workshop.booking_package */
+            action_type: string;
+            /** @enum {string} */
+            tier: "PROPOSE";
+            /** @example true */
+            provisional: boolean;
+            /** @example false */
+            applied: boolean;
+            would_change: components["schemas"]["WorkshopCommandWouldChangeDto"][];
+            intent: components["schemas"]["WorkshopCommandIntentBodyDto"];
         };
         AgentSupervisionTriageItemDto: {
             /** @enum {string} */
@@ -17984,6 +18235,56 @@ export interface operations {
             };
         };
     };
+    VoiceTranslationController_transcribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Speech recording. Max 25 MiB. Transcript only, no translation.
+                     */
+                    audio: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceTranscriptResponseDto"];
+                };
+            };
+            /** @description Unsupported audio type, empty recording, or no speech detected. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Speech provider failed. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Speech provider is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AgentProposalController_listProposals: {
         parameters: {
             query?: {
@@ -21850,6 +22151,90 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SearchResponseDto"];
                 };
+            };
+        };
+    };
+    WorkshopCommandController_interpret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterpretWorkshopCommandDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCommandIntentDto"] | components["schemas"]["WorkshopCommandClarificationDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopCommandController_propose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposeWorkshopCommandDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCommandProposalResultDto"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCommandProposalResultDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -9,6 +9,7 @@ import {
 } from './agent-proposal-financials.js';
 import { AgentProposalReadService } from './agent-proposal-read.service.js';
 import { AgentProposalSubmissionService } from './agent-proposal-submission.service.js';
+import type { SubmitPendingActionOptions } from './agent-proposal-submission.service.js';
 import type {
   BatchApplyAgentProposalsDto,
   BatchApplyAgentProposalsResponseDto,
@@ -92,14 +93,18 @@ export class AgentProposalService {
     tier: AgentPolicyTier;
     trace_id: string;
     created_by_agent?: string;
+    command_id?: string;
   }): Promise<AgentProposalResponseDto> {
     return this.submissions.persistPendingAction(input);
   }
 
   async submitPendingAction(
     dto: SubmitPendingAgentActionDto,
+    options?: SubmitPendingActionOptions,
   ): Promise<AgentProposalResponseDto> {
-    return this.submissions.submitPendingAction(dto);
+    return options
+      ? this.submissions.submitPendingAction(dto, options)
+      : this.submissions.submitPendingAction(dto);
   }
 
   resolveLineItemFinancials(

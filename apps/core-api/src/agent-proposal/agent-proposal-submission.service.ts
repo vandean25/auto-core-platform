@@ -18,6 +18,17 @@ import type {
 import { fingerprintMcpWriteArgs } from '../mcp/mcp-write-command-idempotency.util.js';
 import { AgentProposalSubmitPayloadNormalizer } from './agent-proposal-submit-payload-normalizer.service.js';
 
+/** Extra fields only server-side callers (e.g. the workshop command) may attach. */
+export type SubmitPendingActionOptions = {
+  /**
+   * Persists `AgentProposal.command_id` for the workshop command idempotency
+   * key. The REST submit route never sets this.
+   */
+  command_id?: string;
+  /** Extra keys merged into `preview_json` (e.g. `command_fingerprint`). */
+  preview_json?: Record<string, unknown>;
+};
+
 /** Creates pending proposals: direct creation, persisted pending actions, and simulated submissions. */
 @Injectable()
 export class AgentProposalSubmissionService {
@@ -70,6 +81,7 @@ export class AgentProposalSubmissionService {
     tier: AgentPolicyTier;
     trace_id: string;
     created_by_agent?: string;
+    command_id?: string;
   }): Promise<AgentProposalResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
     const created = await this.prisma.agentProposal.create({
@@ -82,6 +94,7 @@ export class AgentProposalSubmissionService {
         tier: input.tier,
         status: AgentProposalStatus.PENDING,
         created_by_agent: input.created_by_agent ?? null,
+        command_id: input.command_id ?? null,
       },
     });
     return toAgentProposalResponseDto(created);
@@ -89,6 +102,7 @@ export class AgentProposalSubmissionService {
 
   async submitPendingAction(
     dto: SubmitPendingAgentActionDto,
+    options?: SubmitPendingActionOptions,
   ): Promise<AgentProposalResponseDto> {
     const actionType = dto.action_type;
     const payload = await this.normalizeSubmitPayload(
@@ -134,14 +148,15 @@ export class AgentProposalSubmissionService {
       inputSummary: { payload },
       resultSummary: { would_change: simulation.wouldChange },
     });
-    const mcpIdempotency = dto.command_id
-      ? {
-          mcp_command_idempotency: {
-            command_id: dto.command_id,
-            args_fingerprint: fingerprintMcpWriteArgs(actionType, payload),
-          },
-        }
-      : {};
+    const mcpIdempotency =
+      dto.command_id && !options?.command_id
+        ? {
+            mcp_command_idempotency: {
+              command_id: dto.command_id,
+              args_fingerprint: fingerprintMcpWriteArgs(actionType, payload),
+            },
+          }
+        : {};
 
     return this.persistPendingAction({
       action_type: actionType,
@@ -155,9 +170,11 @@ export class AgentProposalSubmissionService {
           ? { execution_context: { site_id: intendedSiteId } }
           : {}),
         ...mcpIdempotency,
+        ...(options?.preview_json ?? {}),
       },
       tier: AgentPolicyTier.PROPOSE,
       trace_id: traceId,
+      command_id: options?.command_id,
     });
   }
 }
