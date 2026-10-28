@@ -421,6 +421,8 @@
     "saveChanges": "Save Changes"
   },
   "workshopHours": {
+    "openTimeAria": "Opening time {{day}}",
+    "closeTimeAria": "Closing time {{day}}",
     "loadFailed": "Failed to load workshop hours. Refresh and try again.",
     "title": "Workshop hours",
     "description": "Opening hours and holidays drive the Workshop Planner grid. Slot size sets the day-view column width.",

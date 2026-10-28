@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { TimeField } from '@/components/ui/time-field'
 import { Label } from '@/components/ui/label'
 import { getErrorMessage } from '@/lib/error-utils'
 
@@ -197,24 +198,22 @@ export function WorkshopHolidayDialog({
             <div className='grid grid-cols-2 gap-4'>
               <div className='space-y-2'>
                 <Label htmlFor='holiday-open'>{t('workshopHours.holidayDialog.open')}</Label>
-                <Input
+                <TimeField
                   id='holiday-open'
-                  type='time'
                   value={formState.openTime}
-                  onChange={(event) => {
-                    setFormState((previous) => ({ ...previous, openTime: event.target.value }))
+                  onChange={(time) => {
+                    setFormState((previous) => ({ ...previous, openTime: time }))
                   }}
                   required
                 />
               </div>
               <div className='space-y-2'>
                 <Label htmlFor='holiday-close'>{t('workshopHours.holidayDialog.close')}</Label>
-                <Input
+                <TimeField
                   id='holiday-close'
-                  type='time'
                   value={formState.closeTime}
-                  onChange={(event) => {
-                    setFormState((previous) => ({ ...previous, closeTime: event.target.value }))
+                  onChange={(time) => {
+                    setFormState((previous) => ({ ...previous, closeTime: time }))
                   }}
                   required
                 />

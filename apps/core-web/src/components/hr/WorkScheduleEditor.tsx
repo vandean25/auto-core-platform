@@ -11,6 +11,7 @@ import {
 import { useMySites } from '@/api/sites'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { TimeField } from '@/components/ui/time-field'
 import { Label } from '@/components/ui/label'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatIsoDateOnly } from '@/lib/format'
@@ -78,22 +79,20 @@ function ScheduleDayRow({
         />
       </td>
       <td className='px-3 py-2'>
-        <Input
-          type='time'
+        <TimeField
           aria-label={t('workSchedule.startAria', { day: dayName })}
           value={day.startTime ?? ''}
           disabled={!day.isWorking}
-          onChange={(event) => onChange(day.weekday, { startTime: event.target.value })}
+          onChange={(time) => onChange(day.weekday, { startTime: time })}
           className='h-8 w-[120px]'
         />
       </td>
       <td className='px-3 py-2'>
-        <Input
-          type='time'
+        <TimeField
           aria-label={t('workSchedule.endAria', { day: dayName })}
           value={day.endTime ?? ''}
           disabled={!day.isWorking}
-          onChange={(event) => onChange(day.weekday, { endTime: event.target.value })}
+          onChange={(time) => onChange(day.weekday, { endTime: time })}
           className='h-8 w-[120px]'
         />
       </td>

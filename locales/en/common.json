@@ -332,6 +332,9 @@
     "mobileTitle": "Navigation",
     "mobileDescription": "Main navigation on small screens."
   },
+  "timeField": {
+    "placeholder": "HH:MM"
+  },
   "inlineEdit": {
     "emptyText": "Click to edit",
     "invalidValue": "Invalid value"

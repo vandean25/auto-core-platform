@@ -19,6 +19,8 @@ type SettingsTabNavProps = {
 export function SettingsTabNav({ tabs, labels, active, onChange }: SettingsTabNavProps) {
   const { t } = useTranslation('settings')
   const stripRef = React.useRef<HTMLDivElement>(null)
+  // Tab widths follow the label text, so the strip is positioned again when the language changes.
+  const activeLabel = labels[active]
 
   React.useEffect(() => {
     // Scroll the strip itself: scrollIntoView would also scroll the page sideways.
@@ -28,7 +30,7 @@ export function SettingsTabNav({ tabs, labels, active, onChange }: SettingsTabNa
     const stripBox = strip.getBoundingClientRect()
     const triggerBox = trigger.getBoundingClientRect()
     strip.scrollLeft += triggerBox.left - stripBox.left - (stripBox.width - triggerBox.width) / 2
-  }, [active])
+  }, [active, activeLabel, tabs.length])
 
   return (
     <>
