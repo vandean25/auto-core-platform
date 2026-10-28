@@ -827,7 +827,7 @@ export class ImportJobStore {
     tenantId: string,
     jobId: string,
     afterRowNo: number,
-    take: number,
+    take?: number,
   ) {
     return this.prisma.importJobRow.findMany({
       where: {
@@ -836,7 +836,7 @@ export class ImportJobStore {
         row_no: { gt: afterRowNo },
       },
       orderBy: { row_no: 'asc' },
-      take,
+      ...(take === undefined ? {} : { take }),
     });
   }
 

@@ -377,7 +377,10 @@ export function arrangeApply(
     ...((job.totals_json ?? {}) as Record<string, unknown>),
   };
   if (!totalsJson.rows) totalsJson.rows = rows.length;
-  const state = {
+  const state: {
+    job: Record<string, unknown>;
+    rows: Array<Record<string, unknown>>;
+  } = {
     job: { ...job, totals_json: totalsJson },
     rows: rows.map((row, index) => ({
       apply_seq: index + 1,
@@ -441,8 +444,14 @@ export function arrangeApply(
       return state.rows.filter((row) => row.action === action).length;
     },
   );
-  prisma.importJobRow.update.mockImplementation(async (args) =>
-    patchApplyRow(state.rows, rowActions, args),
+  prisma.importJobRow.update.mockImplementation(
+    async (args: {
+      where?: {
+        row_no?: number;
+        tenant_id_import_job_id_row_no?: { row_no?: number };
+      };
+      data?: { action?: ImportRowAction; errors_json?: unknown };
+    }) => patchApplyRow(state.rows, rowActions, args),
   );
   prisma.auditLog.create.mockResolvedValue({});
   prisma.importJob.update.mockImplementation(

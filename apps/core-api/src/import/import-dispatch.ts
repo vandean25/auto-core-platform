@@ -42,6 +42,9 @@ export async function enqueueOrRunImportWorker(params: {
     nodeEnv: params.nodeEnv,
   });
   if (mode === 'inline') {
+    if ((params.delaySeconds ?? 0) > 0) {
+      return { mode };
+    }
     await params.runInline();
     return { mode };
   }

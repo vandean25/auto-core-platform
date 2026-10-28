@@ -685,12 +685,7 @@ export class ImportService {
     effectiveOptions: ImportJobOptions,
     actorUserId: string,
   ): Promise<SerializedImportJob> {
-    const rows = await this.jobStore.findApplyRowsAfter(
-      tenantId,
-      jobId,
-      0,
-      IMPORT_APPLY_BATCH_SIZE,
-    );
+    const rows = await this.jobStore.findApplyRowsAfter(tenantId, jobId, 0);
     await handler.prepareApply({
       tenantId,
       job,
@@ -836,7 +831,12 @@ export class ImportService {
         'created',
       );
       await this.enqueueInitialImportWorker(params.tenantId, job.id, 'dry_run');
-      return this.serializeJob(job, job.totals_json as ImportJobTotals);
+      const refreshed = await this.jobStore.findJob(params.tenantId, job.id);
+      const finished = refreshed ?? job;
+      return this.serializeJob(
+        finished,
+        finished.totals_json as ImportJobTotals,
+      );
     } catch (error) {
       if (uploadRef) {
         await this.fileStorage.deleteUpload(uploadRef).catch(() => undefined);

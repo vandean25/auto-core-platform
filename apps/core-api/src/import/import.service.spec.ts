@@ -16,7 +16,10 @@ describe('ImportService - Supplier Price List', () => {
     job: Record<string, unknown>,
     rows: Array<Record<string, unknown>>,
   ) {
-    const state = {
+    const state: {
+      job: Record<string, unknown>;
+      rows: Array<Record<string, unknown>>;
+    } = {
       job: {
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         appliedAt: null,
