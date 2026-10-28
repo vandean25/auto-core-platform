@@ -144,7 +144,7 @@ function MoreActionsSheet({ actions }: { actions: PaletteContextAction[] }) {
       <SheetTrigger asChild>
         <MoreActionsTrigger />
       </SheetTrigger>
-      <SheetContent side="bottom" className="space-y-1 px-2 pt-4" data-testid="entity-peek-more-actions">
+      <SheetContent side="bottom" className="max-h-[85dvh] space-y-1 overflow-y-auto px-2 pt-4" data-testid="entity-peek-more-actions">
         <SheetHeader className="px-3 text-left">
           <SheetTitle className="text-base">{t('peek.moreActions')}</SheetTitle>
           <SheetDescription className="sr-only">{t('peek.moreActions')}</SheetDescription>

@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import type { TFunction } from 'i18next'
-import { useNavigate } from 'react-router-dom'
 
-import { useGenerateWorkshopPdf, useWorkshopOrder } from '@/api/workshop'
+import { useWorkshopOrder } from '@/api/workshop'
 import { useAuthRole } from '@/features/actions/use-auth-role'
+import { useWorkOrderActionRunContext } from '@/features/actions/use-work-order-action-run-context'
 import { createWorkshopOrderRowActions } from '@/features/actions/work-order-row-actions'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { EntityPeekSheet } from './EntityPeekSheet'
@@ -13,23 +13,20 @@ import { WorkshopOrderPeekContent, workshopOrderToListRow } from './WorkshopOrde
 
 type WorkshopOrderPeekSheetProps = Pick<PeekListControl, 'peekId' | 'isPeekOpen' | 'closePeek'> & {
   t: TFunction<'workshop'>
-  navigate: ReturnType<typeof useNavigate>
 }
 
 export function WorkshopOrderPeekSheet({
   t,
-  navigate,
   peekId,
   isPeekOpen,
   closePeek,
 }: WorkshopOrderPeekSheetProps) {
   const { data: order, isLoading } = useWorkshopOrder(peekId ?? '')
   const role = useAuthRole()
-  const generatePdf = useGenerateWorkshopPdf()
+  const runContext = useWorkOrderActionRunContext()
 
   const listRow = useMemo(() => (order ? workshopOrderToListRow(order) : null), [order])
   const actionDefinitions = useMemo(() => createWorkshopOrderRowActions(t), [t])
-  const runContext = useMemo(() => ({ navigate, generatePdf, t }), [generatePdf, navigate, t])
 
   const openInFullHref = peekId
     ? APP_ROUTE_PATHS.workshopOrderDetail.replace(':id', peekId)

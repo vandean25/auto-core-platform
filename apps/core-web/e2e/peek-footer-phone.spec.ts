@@ -89,6 +89,10 @@ test.describe('Peek sheet footer on a phone (AUT-783)', () => {
   test('work order: the menu lists the registry actions without Öffnen', async ({ page }) => {
     await mockJson(page, '/api/workshop/orders', createMockListResponse([order]))
     await mockJson(page, `/api/workshop/orders/${order.id}`, order)
+    await mockJson(page, '/api/workshop/resources', {
+      mechanics: [{ id: 'mech-1', name: 'Max Mechaniker', isActive: true }],
+      bays: [],
+    })
     await page.goto(`/workshop/orders?peek=${order.id}`)
 
     const { sheet } = await expectOneRowFooter(page)
@@ -96,5 +100,11 @@ test.describe('Peek sheet footer on a phone (AUT-783)', () => {
     const menu = page.getByTestId('entity-peek-more-actions')
     await expect(menu.getByRole('button', { name: deWorkshop.orders.list.actions.jobCardPdf })).toBeVisible()
     await expect(menu.getByRole('button', { name: deWorkshop.orders.list.actions.open })).toHaveCount(0)
+    await expect(menu.getByRole('group', { name: deWorkshop.orders.list.actions.assignMechanic })).toBeVisible()
+    await expect(menu.getByRole('button', { name: 'Max Mechaniker' })).toBeVisible()
+    await expect(menu.getByRole('group', { name: deWorkshop.orders.list.actions.taskState })).toBeVisible()
+    const box = (await menu.boundingBox())!
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.y + box.height).toBeLessThanOrEqual(812)
   })
 })
