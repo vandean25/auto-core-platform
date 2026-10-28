@@ -8,7 +8,10 @@ import {
   createAuditExtension,
 } from './prisma-audit.extension.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+import { DryRunChangeCollector } from '../dry-run/dry-run-change-collector.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import { REDACTED_VALUE } from '../audit/audit-redaction.util.js';
+import { lockVehicleForPartyWrite } from '../vehicle/vehicle-party.writer.js';
 
 const TENANT_ID = 'tenant-audit-123';
 
@@ -72,6 +75,10 @@ describe('Prisma Audit Extension', () => {
         findMany: mockModelFindMany,
       },
       purchaseOrderItem: {
+        findFirst: mockModelFindFirst,
+        findMany: mockModelFindMany,
+      },
+      vehicle: {
         findFirst: mockModelFindFirst,
         findMany: mockModelFindMany,
       },
@@ -489,6 +496,31 @@ describe('Prisma Audit Extension', () => {
       );
     });
 
+    it('still writes a DELETE audit row when changed fields are empty', async () => {
+      mockModelFindFirst.mockResolvedValue({ id: 'veh-1', make: 'VW' });
+      const queryFn = jest.fn().mockResolvedValue({ id: 'veh-1', make: 'VW' });
+
+      await runWithContext(undefined, undefined, () =>
+        applyAuditDelete.call(
+          mockContext,
+          mockContext,
+          'Vehicle',
+          { where: { id: 'veh-1' } },
+          queryFn,
+        ),
+      );
+
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'Vehicle',
+          entity_id: 'veh-1',
+          action: 'DELETE',
+          changed_fields: [],
+        }),
+      });
+    });
+
     it('bypasses non-audited models on delete without writing AuditLog', async () => {
       const queryFn = jest.fn().mockResolvedValue({ id: 'tenant-1' });
 
@@ -641,6 +673,239 @@ describe('Prisma Audit Extension', () => {
           changed_fields: ['quantity'],
         }),
       });
+    });
+
+    it('writes a Vehicle UPDATE audit row when a business field changes', async () => {
+      const beforeRow = {
+        id: 'veh-1',
+        make: 'VW',
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+        version: 1,
+      };
+      const afterRow = {
+        id: 'veh-1',
+        make: 'Audi',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        version: 2,
+      };
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      await runWithContext(undefined, undefined, () =>
+        applyAuditUpdate.call(
+          mockContext,
+          mockContext,
+          'Vehicle',
+          { where: { id: 'veh-1' }, data: { make: 'Audi' } },
+          queryFn,
+        ),
+      );
+
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'Vehicle',
+          entity_id: 'veh-1',
+          action: 'UPDATE',
+          changed_fields: ['make', 'updatedAt', 'version'],
+        }),
+      });
+    });
+
+    it('writes no audit row for an updatedAt-only update', async () => {
+      const beforeRow = {
+        id: 'veh-1',
+        make: 'VW',
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      const afterRow = {
+        id: 'veh-1',
+        make: 'VW',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      const result = await runWithContext(undefined, undefined, () =>
+        applyAuditUpdate.call(
+          mockContext,
+          mockContext,
+          'Vehicle',
+          { where: { id: 'veh-1' }, data: { updatedAt: afterRow.updatedAt } },
+          queryFn,
+        ),
+      );
+
+      expect(result).toEqual(afterRow);
+      expect(queryFn).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+
+    it('still audits a WorkshopTask write that only sets line_items_version', async () => {
+      const beforeRow = {
+        id: 'task-1',
+        line_items_version: 1,
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      const afterRow = { ...beforeRow };
+      mockModelFindMany
+        .mockResolvedValueOnce([beforeRow])
+        .mockResolvedValueOnce([afterRow]);
+      const queryFn = jest.fn().mockResolvedValue({ count: 1 });
+
+      await runWithContext(undefined, undefined, () =>
+        applyAuditUpdateMany.call(
+          mockContext,
+          mockContext,
+          'WorkshopTask',
+          {
+            where: { id: 'task-1' },
+            data: { line_items_version: { increment: 1 } },
+          },
+          queryFn,
+        ),
+      );
+
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'WorkshopTask',
+          entity_id: 'task-1',
+          action: 'UPDATE',
+        }),
+      });
+    });
+
+    it('keeps a line_items_version write in the dry-run preview', async () => {
+      const beforeRow = { id: 'task-1', line_items_version: 1 };
+      const afterRow = { id: 'task-1', line_items_version: 2 };
+      mockModelFindMany
+        .mockResolvedValueOnce([beforeRow])
+        .mockResolvedValueOnce([afterRow]);
+      const collector = new DryRunChangeCollector();
+
+      await DryRunStorage.run({ isDryRun: true, collector }, () =>
+        runWithContext(undefined, undefined, () =>
+          applyAuditUpdateMany.call(
+            mockContext,
+            mockContext,
+            'WorkshopTask',
+            {
+              where: { id: 'task-1' },
+              data: { line_items_version: { increment: 1 } },
+            },
+            async () => ({ count: 1 }),
+          ),
+        ),
+      );
+
+      expect(collector.getChanges()).toEqual([
+        {
+          entity: 'WorkshopTask',
+          id: 'task-1',
+          op: 'update',
+          provisional: false,
+        },
+      ]);
+    });
+
+    it('still audits a WorkshopEstimateVersion write that sets version', async () => {
+      const beforeRow = { id: 'est-1', version: 1 };
+      const afterRow = { id: 'est-1', version: 2 };
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      mockContext.workshopEstimateVersion = { findFirst: mockModelFindFirst };
+
+      await runWithContext(undefined, undefined, () =>
+        applyAuditUpdate.call(
+          mockContext,
+          mockContext,
+          'WorkshopEstimateVersion',
+          { where: { id: 'est-1' }, data: { version: 2 } },
+          async () => afterRow,
+        ),
+      );
+
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'WorkshopEstimateVersion',
+          entity_id: 'est-1',
+          action: 'UPDATE',
+          changed_fields: ['version'],
+        }),
+      });
+    });
+
+    it('writes no Vehicle UPDATE audit row for a party-write lock', async () => {
+      const beforeRow = {
+        id: 'veh-1',
+        make: 'VW',
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      const afterRow = {
+        id: 'veh-1',
+        make: 'VW',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      mockModelFindMany
+        .mockResolvedValueOnce([beforeRow])
+        .mockResolvedValueOnce([afterRow]);
+
+      const tx = {
+        vehicle: {
+          updateMany: (args: {
+            where: Record<string, unknown>;
+            data: Record<string, unknown>;
+          }) =>
+            applyAuditUpdateMany.call(
+              mockContext,
+              mockContext,
+              'Vehicle',
+              args,
+              async () => ({ count: 1 }),
+            ),
+        },
+      };
+
+      await runWithContext(undefined, undefined, () =>
+        lockVehicleForPartyWrite(tx as never, TENANT_ID, 'veh-1'),
+      );
+
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+
+    it('records no dry-run change for a party-write lock', async () => {
+      const row = {
+        id: 'veh-1',
+        make: 'VW',
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      mockModelFindMany.mockResolvedValue([row]);
+      const collector = new DryRunChangeCollector();
+      const tx = {
+        vehicle: {
+          updateMany: (args: {
+            where: Record<string, unknown>;
+            data: Record<string, unknown>;
+          }) =>
+            applyAuditUpdateMany.call(
+              mockContext,
+              mockContext,
+              'Vehicle',
+              args,
+              async () => ({ count: 1 }),
+            ),
+        },
+      };
+
+      await DryRunStorage.run({ isDryRun: true, collector }, () =>
+        runWithContext(undefined, undefined, () =>
+          lockVehicleForPartyWrite(tx as never, TENANT_ID, 'veh-1'),
+        ),
+      );
+
+      expect(collector.getChanges()).toEqual([]);
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
     });
 
     it('writes 0 audit logs and returns count 0 when no rows match or atomic status guard fails', async () => {

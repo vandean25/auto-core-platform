@@ -448,6 +448,19 @@ function buildAuditLogData(
   };
 }
 
+const BOOKKEEPING_WRITE_FIELDS = new Set(['updatedAt']);
+
+/** Skip only when the write itself touches nothing but updatedAt. */
+function isUpdatedAtOnlyWrite(data: unknown): boolean {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return false;
+  }
+  const keys = Object.keys(data);
+  return (
+    keys.length > 0 && keys.every((key) => BOOKKEEPING_WRITE_FIELDS.has(key))
+  );
+}
+
 async function writeAuditLog(
   delegate: AuditLogDelegate | undefined,
   actor: AuditActorContext,
@@ -678,6 +691,9 @@ export async function applyAuditUpdate(
   }
 
   const afterRaw = await ctx.query(ctx.args);
+  if (isUpdatedAtOnlyWrite(ctx.args.data)) {
+    return afterRaw;
+  }
   const entityId = resolveEntityId(afterRaw, prepared.beforeRaw, ctx.args);
   const payload = createUpdateRecord(
     ctx.model,
@@ -722,6 +738,10 @@ export async function applyAuditUpdateMany(
   const prepared = await prepareBatchOperation(ctx);
   if ('earlyResult' in prepared) {
     return prepared.earlyResult;
+  }
+
+  if (isUpdatedAtOnlyWrite(ctx.args.data)) {
+    return prepared.result;
   }
 
   const affectedIds = extractAffectedIds(prepared.beforeRows);
