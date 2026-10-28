@@ -17,6 +17,9 @@ vi.mock('@/api/workshop', async (importOriginal) => {
     useWorkshopOrders: vi.fn(),
     useWorkshopOrder: vi.fn(),
     useGenerateWorkshopPdf: vi.fn(),
+    useWorkshopResources: vi.fn(),
+    useAssignBoard: vi.fn(),
+    useUpdateWorkshopTask: vi.fn(),
   }
 })
 vi.mock('@/auth/AuthProvider', () => ({
@@ -85,6 +88,9 @@ describe('WorkshopOrderList peek sheet', () => {
       isLoading: false,
     }))
     asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(workshopApi.useWorkshopResources).mockReturnValue({ data: undefined })
+    asMock(workshopApi.useAssignBoard).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue({ mutateAsync: vi.fn() })
   })
 
   it('opens the peek sheet on row click and keeps list query params', async () => {
@@ -134,6 +140,43 @@ describe('WorkshopOrderList peek sheet', () => {
     act(() => within(sheet).getByRole('link', { name: deCommon.peek.openInFull }).click())
 
     expect(await screen.findByRole('heading', { name: 'Full order page' })).toBeInTheDocument()
+  })
+
+  it('offers assign mechanic and task state in the ⋯ menu, without a second open action', async () => {
+    const assignBoard = vi.fn().mockResolvedValue(undefined)
+    asMock(workshopApi.useAssignBoard).mockReturnValue({ mutateAsync: assignBoard })
+    asMock(workshopApi.useWorkshopResources).mockReturnValue({
+      data: { mechanics: [{ id: 'mech-1', name: 'Max Mechaniker', isActive: true }], bays: [] },
+    })
+    asMock(workshopApi.useWorkshopOrder).mockReturnValue({
+      data: {
+        ...orderRow,
+        tasks: [{ id: 'task-1', title: 'Ölwechsel', status: 'IN_PROGRESS', done: false, lineItems: [] }],
+      },
+      isLoading: false,
+    })
+    renderList(`/workshop/orders?${PEEK_SEARCH_PARAM}=order-1`)
+    const sheet = await screen.findByTestId('entity-peek-sheet')
+
+    fireEvent.keyDown(within(sheet).getByRole('button', { name: deCommon.peek.moreActions }), { key: 'Enter' })
+    const menu = await screen.findByRole('menu')
+    const labels = within(menu).getAllByRole('menuitem').map((item) => item.textContent)
+
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        deWorkshop.orders.list.actions.jobCardPdf,
+        deWorkshop.orders.list.actions.assignMechanic,
+        deWorkshop.orders.list.actions.taskState,
+      ]),
+    )
+    expect(labels).not.toContain(deWorkshop.orders.list.actions.open)
+
+    const assign = within(menu).getByRole('menuitem', { name: deWorkshop.orders.list.actions.assignMechanic })
+    assign.focus()
+    fireEvent.keyDown(assign, { key: 'ArrowRight' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Max Mechaniker' }))
+
+    expect(assignBoard).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: 'mech-1' })
   })
 
   it('uses full-width sheet classes on small screens', async () => {

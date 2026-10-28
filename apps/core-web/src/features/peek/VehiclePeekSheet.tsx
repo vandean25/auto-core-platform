@@ -1,6 +1,6 @@
 import type { PeekListControl } from './peek-list-control'
-import { EntityPeekActionButtons } from './EntityPeekActionButtons'
 import { EntityPeekSheet } from './EntityPeekSheet'
+import { buildPeekMenuActions } from './peek-menu-actions'
 import { VehiclePeekContent } from './VehiclePeekContent'
 import { useVehiclePeekSheetData } from './use-vehicle-peek-sheet-data'
 
@@ -31,16 +31,7 @@ export function VehiclePeekSheet({ peekId, isPeekOpen, closePeek }: VehiclePeekS
       isLoading={Boolean(peekId) && isLoading}
       isNotFound={Boolean(peekId) && !isLoading && !vehicle}
       notFoundTitle={t('peek.notFound')}
-      actions={
-        listRow ? (
-          <EntityPeekActionButtons
-            definitions={actionDefinitions}
-            role={role}
-            record={listRow}
-            runContext={runContext}
-          />
-        ) : null
-      }
+      moreActions={listRow ? buildPeekMenuActions(actionDefinitions, role, listRow, runContext) : []}
     >
       {vehicle ? <VehiclePeekContent vehicle={vehicle} t={t} /> : null}
     </EntityPeekSheet>
