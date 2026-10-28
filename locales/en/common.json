@@ -104,6 +104,7 @@
     "noPreviewData": "No preview data",
     "summedValue": "Summed value",
     "totalItems": "Total items",
+    "partialResult": "Calculated from the first {{count}} of {{total}} entries.",
     "emptyWidgets": "No widgets yet. Open a list view, apply filters, then click Add to dashboard.",
     "sourceUnavailable": "Widget source is no longer available.",
     "unknownGroup": "Unknown",

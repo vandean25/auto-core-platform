@@ -111,3 +111,68 @@ describe('DashboardWidgetsGrid data fetching (AUT-776)', () => {
     expect(keys[0].queryKey.slice(0, 2)).toEqual(['dashboard-widget-data', 'vehicles'])
   })
 })
+
+describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => {
+  const manyVehicles = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `v${index}`,
+      make: index % 3 === 0 ? 'BMW' : 'Audi',
+      model: 'M',
+      plate: `W-${index}`,
+      year: 2000 + (index % 20),
+    }))
+
+  function respondWithPage(rows: unknown[], total: number) {
+    mocks.fetchWithAuth.mockImplementation(async () => new Response(JSON.stringify({ data: rows, meta: { total } })))
+  }
+
+  it('counts the 75 matching vehicles although only the first 50 were fetched', async () => {
+    mocks.widgets = [widget('count', '/vehicles')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('75')).toBeInTheDocument())
+    expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
+  })
+
+  it('marks a count as a lower bound when its own filter narrows a truncated page', async () => {
+    mocks.widgets = [widget('bmw', '/vehicles?search=bmw')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('17+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75')
+  })
+
+  it('says that a grouped widget is calculated from the first 50 of 75 entries', async () => {
+    mocks.widgets = [widget('donut', '/vehicles', { displayType: 'donut', groupByField: 'make' })]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75'))
+  })
+
+  it('says that a sum is calculated from the fetched rows only', async () => {
+    mocks.widgets = [widget('sum', '/vehicles', { displayType: 'metric', metricCalculation: 'sum', metricField: 'year' })]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75'))
+  })
+
+  it('shows no hint when the whole result fits the page', async () => {
+    mocks.widgets = [widget('donut', '/vehicles', { displayType: 'donut', groupByField: 'make' })]
+    respondWithPage(manyVehicles(30), 30)
+
+    renderGrid()
+
+    await waitFor(() => expect(mocks.fetchWithAuth).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByText('Widget wird geladen…')).not.toBeInTheDocument())
+    expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
+  })
+})
+

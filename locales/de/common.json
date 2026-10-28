@@ -104,6 +104,7 @@
     "noPreviewData": "Keine Vorschaudaten",
     "summedValue": "Summenwert",
     "totalItems": "Positionen gesamt",
+    "partialResult": "Berechnet aus den ersten {{count}} von {{total}} Einträgen.",
     "emptyWidgets": "Noch keine Widgets. Öffnen Sie eine Liste, setzen Sie Filter und klicken Sie auf „Zum Dashboard hinzufügen“.",
     "sourceUnavailable": "Widget-Quelle ist nicht mehr verfügbar.",
     "unknownGroup": "Unbekannt",

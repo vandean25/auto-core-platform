@@ -132,6 +132,15 @@ function extractRows(payload: unknown): unknown[] {
   return []
 }
 
+/** The total the API reports for the query (`meta.total`), which can exceed the one page of rows fetched. */
+function extractTotal(payload: unknown, rowCount: number): number {
+  const total = (payload as { meta?: { total?: unknown } } | null)?.meta?.total
+  return typeof total === 'number' && Number.isFinite(total) ? Math.max(total, rowCount) : rowCount
+}
+
+/** What one widget request returns: the fetched page of rows and the total number of matches on the server. */
+export type WidgetRowsResult = { rows: unknown[]; total: number }
+
 export function resolveWidgetSourceByPath(pathname: string): WidgetSourceDefinition | null {
   return widgetSourceDefinitions.find((source) => pathname.startsWith(source.pathPrefix)) ?? null
 }
@@ -159,7 +168,7 @@ export function resolveWidgetRequest(href: string): WidgetRequest | null {
 }
 
 /** Rows of one API URL, unfiltered: widgets with different client-side filters share them. */
-export async function fetchWidgetRows(apiUrl: string, sourceKey: string): Promise<unknown[]> {
+export async function fetchWidgetRows(apiUrl: string, sourceKey: string): Promise<WidgetRowsResult> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
@@ -168,11 +177,13 @@ export async function fetchWidgetRows(apiUrl: string, sourceKey: string): Promis
     if (!response.ok) {
       throw new Error(`Failed to fetch widget data for ${sourceKey}`)
     }
-    return extractRows((await response.json()) as unknown)
+    const payload = (await response.json()) as unknown
+    const rows = extractRows(payload)
+    return { rows, total: extractTotal(payload, rows.length) }
   } catch (error: unknown) {
     if (isAbortError(error)) {
       console.warn(`Fetch for widget ${sourceKey} timed out after 10s`)
-      return []
+      return { rows: [], total: 0 }
     }
     throw error
   } finally {
