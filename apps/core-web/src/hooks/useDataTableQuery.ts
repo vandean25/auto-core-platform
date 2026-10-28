@@ -197,18 +197,27 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
     setGlobalFilter((previous) => (previous === nextState.search ? previous : nextState.search))
   }, [searchParamsKey, defaultPageSize, stableInitialSorting])
 
+  // The debounced URL write reads the latest URL from a ref, not from its closure.
+  const latestSearchParamsRef = React.useRef(searchParams)
+  React.useEffect(() => {
+    latestSearchParamsRef.current = searchParams
+  }, [searchParams])
+
   // Debounce URL Updates
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      setSearchParams((prev) =>
-        buildUpdatedSearchParams(prev, {
-          columnFilters,
-          sorting,
-          pagination,
-          globalFilter,
-          defaultPageSize,
-        })
-      )
+      const current = latestSearchParamsRef.current
+      const next = buildUpdatedSearchParams(current, {
+        columnFilters,
+        sorting,
+        pagination,
+        globalFilter,
+        defaultPageSize,
+      })
+      // An unchanged URL must not be written: a push of the same URL adds a duplicate history entry, and then the first
+      // back gesture (for example out of a `?peek=` sheet that was opened right after the list rendered) goes nowhere.
+      if (next.toString() === current.toString()) return
+      setSearchParams(next)
     }, debounceMs)
 
     return () => clearTimeout(timeout)
