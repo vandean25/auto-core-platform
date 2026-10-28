@@ -11,7 +11,10 @@ const MULTI_BYTE_CHARS = [
   { label: '4-byte', char: '𝄞' },
 ];
 
-function pullFromCuts(file: Buffer, cuts: number[]): () => Promise<Buffer | null> {
+function pullFromCuts(
+  file: Buffer,
+  cuts: number[],
+): () => Promise<Buffer | null> {
   const bounds = [0, ...cuts, file.length];
   let index = 0;
   return async () => {
@@ -58,7 +61,9 @@ describe('range boundary inside a multi-byte character', () => {
           1,
         );
         expect(slice?.rows).toEqual([['1', 'Strasse']]);
-        expect(slice?.nextByteOffset).toBe(file.indexOf(Buffer.from('2;', 'utf8')));
+        expect(slice?.nextByteOffset).toBe(
+          file.indexOf(Buffer.from('2;', 'utf8')),
+        );
       });
     }
   }
@@ -118,8 +123,12 @@ describe('background dry run over a file larger than one read range', () => {
 
   function headerPaddingSplittingTheRange(): number {
     for (let padding = 0; padding < rowBytes; padding += 1) {
-      const headerBytes = Buffer.byteLength(`nr;name${'x'.repeat(padding)}\n`, 'utf8');
-      const offsetInRange = IMPORT_READ_RANGE_BYTES - 1 - headerBytes - umlautOffsetInRow;
+      const headerBytes = Buffer.byteLength(
+        `nr;name${'x'.repeat(padding)}\n`,
+        'utf8',
+      );
+      const offsetInRange =
+        IMPORT_READ_RANGE_BYTES - 1 - headerBytes - umlautOffsetInRow;
       if (offsetInRange >= 0 && offsetInRange % rowBytes === 0) {
         return padding;
       }
@@ -149,7 +158,12 @@ describe('background dry run over a file larger than one read range', () => {
     let lastRow: string[] | undefined;
     let batches = 0;
     while (worker.processed_rows < rowCount) {
-      const slice = await readWorkerCsvBatchFromRanges(readRange, worker, 5_000, 'sha');
+      const slice = await readWorkerCsvBatchFromRanges(
+        readRange,
+        worker,
+        5_000,
+        'sha',
+      );
       expect(slice?.rows.length).toBeGreaterThan(0);
       collected += slice?.rows.length ?? 0;
       lastRow = slice?.rows.at(-1);
