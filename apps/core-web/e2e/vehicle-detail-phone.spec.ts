@@ -38,7 +38,7 @@ async function openVehicle(page: Page) {
 
 test.describe('Vehicle detail on a phone (AUT-792)', () => {
   for (const width of PHONE_WIDTHS) {
-    test(`${width}px: title in at most 2 lines, actions below and fully visible, tabs fit`, async ({ page }) => {
+    test(`${width}px: title in at most 2 lines, actions below and fully visible, tabs stay on screen`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 })
       await openVehicle(page)
 
