@@ -325,9 +325,17 @@ describe('session maximum age (AUT-747)', () => {
 
     function liveGateway() {
       const gateway = new DashboardGateway(
-        asFake<AuthService>({ authenticateBearerToken: jest.fn() }),
+        asFake<AuthService>({
+          authenticateBearerToken: jest.fn<
+            (authorizationHeader?: string) => Promise<TenantAuthenticatedUser>
+          >(),
+        }),
       );
-      gateway.afterInit(asFake<Server>({ use: jest.fn(), engine: new EventEmitter() }), '');
+      const server = asFake<Server>({
+        use: jest.fn<(fn: unknown) => Server>(),
+        engine: new EventEmitter() as unknown as Server['engine'],
+      });
+      gateway.afterInit(server, '');
       return gateway;
     }
 
