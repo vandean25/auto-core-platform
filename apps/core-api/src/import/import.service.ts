@@ -685,7 +685,7 @@ export class ImportService {
     effectiveOptions: ImportJobOptions,
     actorUserId: string,
   ): Promise<SerializedImportJob> {
-    const rows = await this.jobStore.findApplyRowsAfter(tenantId, jobId, 0);
+    const rows = await this.jobStore.findPriceJumpRows(tenantId, jobId);
     await handler.prepareApply({
       tenantId,
       job,

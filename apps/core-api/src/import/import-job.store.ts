@@ -840,6 +840,20 @@ export class ImportJobStore {
     });
   }
 
+  findPriceJumpRows(tenantId: string, jobId: string) {
+    return this.prisma.importJobRow.findMany({
+      where: {
+        tenant_id: tenantId,
+        import_job_id: jobId,
+        normalized_json: {
+          path: ['price_jump_flagged'],
+          equals: true,
+        },
+      },
+      orderBy: { row_no: 'asc' },
+    });
+  }
+
   findApplyRowsByRowNos(tenantId: string, jobId: string, rowNos: number[]) {
     if (rowNos.length === 0) {
       return Promise.resolve([]);
