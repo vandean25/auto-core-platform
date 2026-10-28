@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 
 import { useAuthRole } from '@/features/actions/use-auth-role'
+import { getFocusedDataTableRowId } from '@/features/shortcuts/shortcut-guard'
 import { buildPaletteContextSection } from './build-palette-context-section'
 import { intakePrefillForRecord } from './global-search-context-actions'
 import { parseGlobalSearchRecordRef } from './global-search-record-route'
@@ -19,9 +20,11 @@ export function useGlobalSearchPaletteContext(open: boolean, query: string) {
   const location = useLocation()
   const runContexts = usePaletteContextRunContexts()
 
+  // Read as the palette opens, before the dialog takes the focus: the list row that had it is the record.
+  const focusedListRowId = useMemo(() => (open ? getFocusedDataTableRowId() : null), [open])
   const recordRef = useMemo(
-    () => parseGlobalSearchRecordRef(location.pathname),
-    [location.pathname],
+    () => parseGlobalSearchRecordRef(location.pathname, focusedListRowId),
+    [focusedListRowId, location.pathname],
   )
   const entityPrefixFilter = Boolean(parseSearchInput(query).types)
   const enabled = open && Boolean(recordRef) && !entityPrefixFilter

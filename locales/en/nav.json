@@ -127,7 +127,8 @@
       "heading": "Current record",
       "customer": "Actions for this customer",
       "vehicle": "Actions for {{vehicle}}",
-      "workOrder": "Actions for {{orderNo}}"
+      "workOrder": "Actions for {{orderNo}}",
+      "estimate": "Actions for estimate {{number}} v{{version}}"
     },
     "quickActions": {
       "navigate": "Navigate",

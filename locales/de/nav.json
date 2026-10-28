@@ -127,7 +127,8 @@
       "heading": "Aktueller Datensatz",
       "customer": "Aktionen für diesen Kunden",
       "vehicle": "Aktionen für {{vehicle}}",
-      "workOrder": "Aktionen für {{orderNo}}"
+      "workOrder": "Aktionen für {{orderNo}}",
+      "estimate": "Aktionen für Kostenvoranschlag {{number}} v{{version}}"
     },
     "quickActions": {
       "navigate": "Navigation",

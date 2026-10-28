@@ -27,6 +27,7 @@ const WORKSHOP_API = '/api/workshop'
 /** One factory for the estimate domain. Invalidating ['workshop', 'estimates'] refreshes every estimate query. */
 export const workshopEstimateKeys = {
   all: ['workshop', 'estimates'] as const,
+  lists: () => [...workshopEstimateKeys.all, 'list'] as const,
   list: (filters: WorkshopEstimateListFilters) => [...workshopEstimateKeys.all, 'list', filters] as const,
   order: (orderId: string) => [...workshopEstimateKeys.all, 'order', orderId] as const,
   version: (versionId: string) => [...workshopEstimateKeys.all, 'version', versionId] as const,
@@ -114,8 +115,10 @@ export function useWorkshopEstimateVersion(versionId: string | null) {
   })
 }
 
+/** Every estimate mutation also refreshes the estimates lists, whose rows carry status, sent date and totals. */
 function invalidateEstimate(queryClient: ReturnType<typeof useQueryClient>, orderId: string) {
   return Promise.all([
+    queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.lists() }),
     queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.order(orderId) }),
     queryClient.invalidateQueries({ queryKey: workshopCommunicationKeys.order(orderId) }),
   ])

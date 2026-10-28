@@ -18,6 +18,12 @@ describe('parseGlobalSearchRecordRef', () => {
     })
   })
 
+  it('reads the focused estimate list row on the estimates list only', () => {
+    expect(parseGlobalSearchRecordRef('/workshop/estimates', 'ver-1')).toEqual({ entity: 'estimate', id: 'ver-1' })
+    expect(parseGlobalSearchRecordRef('/workshop/estimates', null)).toBeNull()
+    expect(parseGlobalSearchRecordRef('/workshop/orders', 'ver-1')).toBeNull()
+  })
+
   it('ignores list routes and nested workshop paths', () => {
     expect(parseGlobalSearchRecordRef('/workshop/orders')).toBeNull()
     expect(parseGlobalSearchRecordRef('/workshop/orders/order-1/check-in')).toBeNull()

@@ -6,6 +6,8 @@ export type GlobalSearchRecordRef =
   | { entity: 'workshop_order'; id: string }
   | { entity: 'customer'; id: string }
   | { entity: 'vehicle'; id: string }
+  /** An estimate version of the estimates list, known only while its row has focus. */
+  | { entity: 'estimate'; id: string }
 
 const RESERVED_VEHICLE_DETAIL_SEGMENTS = new Set([
   APP_ROUTE_PATHS.vehiclePickerlDue.replace('/vehicles/', ''),
@@ -13,7 +15,14 @@ const RESERVED_VEHICLE_DETAIL_SEGMENTS = new Set([
   APP_ROUTE_PATHS.vehicleStockAlias.replace('/vehicles/', ''),
 ])
 
-export function parseGlobalSearchRecordRef(pathname: string): GlobalSearchRecordRef | null {
+export function parseGlobalSearchRecordRef(
+  pathname: string,
+  focusedListRowId?: string | null,
+): GlobalSearchRecordRef | null {
+  if (focusedListRowId && matchPath({ path: APP_ROUTE_PATHS.workshopEstimates, end: true }, pathname)) {
+    return { entity: 'estimate', id: focusedListRowId }
+  }
+
   const workshopOrder = matchPath({ path: APP_ROUTE_PATHS.workshopOrderDetail, end: true }, pathname)
   if (workshopOrder?.params.id) {
     return { entity: 'workshop_order', id: workshopOrder.params.id }
