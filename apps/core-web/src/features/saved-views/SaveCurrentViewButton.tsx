@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Star } from 'lucide-react'
+import { Bookmark } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -71,14 +71,14 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 max-md:h-11"
+            className="gap-2 max-md:size-11 max-md:px-0"
             aria-label={t('savedViews.saveAria', { title })}
             onClick={() => {
               setName(t('savedViews.defaultName', { title }))
             }}
           >
-            <Star className="h-4 w-4" />
-            {t('savedViews.saveButton')}
+            <Bookmark className="h-4 w-4" />
+            <span className="max-md:sr-only">{t('savedViews.saveButton')}</span>
           </Button>
         </DialogTrigger>
       </TooltipHint>

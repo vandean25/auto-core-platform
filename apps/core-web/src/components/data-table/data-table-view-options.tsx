@@ -52,10 +52,11 @@ export function DataTableViewOptions<TData extends object>({
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-11 md:h-8"
+          className="h-11 max-md:w-11 max-md:px-0 md:ml-auto md:h-8"
+          title={t('dataTable.toggleColumns')}
         >
-          <Settings2 className="mr-2 h-4 w-4" />
-          {t('dataTable.columns')}
+          <Settings2 className="h-4 w-4 md:mr-2" />
+          <span className="max-md:sr-only">{t('dataTable.columns')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">
