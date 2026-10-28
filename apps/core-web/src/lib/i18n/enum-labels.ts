@@ -38,6 +38,11 @@ export function formatAttendanceSource(source: string): string {
   return translateEnum('attendanceSource', source)
 }
 
+/** Localized label for a workshop member role (`enums:tenantMemberRole.<ROLE>`); an unknown role shows as sent. */
+export function formatTenantMemberRole(role: string): string {
+  return enumsT()(`tenantMemberRole.${role}`, { defaultValue: role })
+}
+
 export function formatImportEntityTypeLabel(entityType: ImportEntityTypeUi): string {
   return translateEnum('importEntityType', entityType)
 }

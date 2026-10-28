@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/sheet'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatTenantMemberRole } from '@/lib/i18n'
 
 const TEAM_ROLE_OPTIONS = ['OWNER', 'ADMIN', 'TECH', 'SALES'] as const
 const TEAM_ROLE_SCHEMA = z.enum(TEAM_ROLE_OPTIONS)
@@ -81,6 +82,7 @@ function matchesMemberSearch(member: TenantMember, term: string, t: TFunction<'s
     member.lastName ?? '',
     getDisplayName(member),
     member.role,
+    formatTenantMemberRole(member.role),
     member.isActive ? t('team.search.active') : t('team.search.inactive'),
   ]
 
@@ -204,6 +206,7 @@ export function TeamSettingsTab() {
         accessorKey: 'role',
         meta: { mobile: 'subtitle' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.role')} />,
+        cell: ({ row }) => formatTenantMemberRole(row.original.role),
       },
       {
         accessorKey: 'isActive',
@@ -296,7 +299,7 @@ export function TeamSettingsTab() {
                 <SelectContent>
                   {TEAM_ROLE_OPTIONS.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {role}
+                      {formatTenantMemberRole(role)}
                     </SelectItem>
                   ))}
                 </SelectContent>
