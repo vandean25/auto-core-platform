@@ -244,9 +244,9 @@ export function usePickerlDueList(queryParams: Record<string, unknown>) {
       return (await response.json()) as PickerlDuePaginatedResponseDto
     },
     staleTime: PICKERL_DUE_STALE_TIME_MS,
-    // Realtime vehicle events keep it current and each refetch recomputes the whole due list on the server, so focusing
-    // the tab does not refetch. The due status depends on the current day, though: data from an earlier day is
-    // refreshed when the tab is shown again, with no vehicle write needed.
+    // Vehicle events and Pickerl mutations in this tab refresh it, and each refetch recomputes the whole due list on the
+    // server, so focusing the tab does not refetch. The due status depends on the current day, though: data from an
+    // earlier day is refreshed when the tab is shown again, with no vehicle write needed.
     refetchOnWindowFocus: (query) => (hasUtcDayChanged(query.state.dataUpdatedAt) ? 'always' : false),
   })
 }

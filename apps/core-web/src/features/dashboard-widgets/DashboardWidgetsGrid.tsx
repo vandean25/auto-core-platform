@@ -34,6 +34,7 @@ function useWidgetRows(widget: DashboardWidget) {
       rows: filterWidgetRows(result.rows, request),
       fetchedCount: result.rows.length,
       total: result.total,
+      hasClientFilters: (request?.queryParams.filters.length ?? 0) > 0,
     }),
     [request],
   )
@@ -43,8 +44,9 @@ function useWidgetRows(widget: DashboardWidget) {
     queryFn: () => (request ? fetchWidgetRows(request.apiUrl, widget.sourceKey) : NO_ROWS),
     select,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    // Realtime events refresh the rows, so returning to the tab does not refetch every widget list. The Pickerl due
-    // status depends on the current day, though, so data from an earlier day is refreshed when the tab is shown again.
+    // Realtime events and mutations refresh the rows, so returning to the tab does not refetch every widget list. The
+    // Pickerl due status depends on the current day, though, so data from an earlier day is refreshed when the tab is
+    // shown again.
     refetchOnWindowFocus: (query) =>
       widget.sourceKey === PICKERL_DUE_SOURCE_KEY && hasUtcDayChanged(query.state.dataUpdatedAt) ? 'always' : false,
   })

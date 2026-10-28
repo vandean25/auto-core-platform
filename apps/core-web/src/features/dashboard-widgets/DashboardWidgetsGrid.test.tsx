@@ -136,6 +136,16 @@ describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => 
     expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
   })
 
+  it('does not show the server total as exact for a widget with a filter that every fetched row matches', async () => {
+    mocks.widgets = [widget('audi', '/vehicles?filter_model=M')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('50+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75')
+  })
+
   it('marks a count as a lower bound when its own filter narrows a truncated page', async () => {
     mocks.widgets = [widget('bmw', '/vehicles?search=bmw')]
     respondWithPage(manyVehicles(50), 75)

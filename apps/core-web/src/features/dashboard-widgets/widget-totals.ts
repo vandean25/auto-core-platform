@@ -8,6 +8,8 @@ export type WidgetData = {
   fetchedCount: number
   /** The matches the server reports for the request (`meta.total`). */
   total: number
+  /** The widget carries `filter_*` values: the API may not apply them, so the client narrows the rows itself. */
+  hasClientFilters: boolean
 }
 
 /** The request returned only one page of a longer result, so anything computed from the rows alone is partial. */
@@ -16,12 +18,13 @@ export function isTruncated({ fetchedCount, total }: Pick<WidgetData, 'fetchedCo
 }
 
 /**
- * The number a count widget shows. Without client-side filters the server's total is exact, whatever the page size.
- * With client-side filters over a truncated page only a lower bound is known, and the widget says so.
+ * The number a count widget shows. Over a truncated page the server's total is exact only when nothing narrowed the
+ * rows on the client: no `filter_*` values on the widget (they may be applied client-side only) and no row dropped.
+ * Otherwise only a lower bound is known, and the widget says so.
  */
 export function widgetCount(data: WidgetData): { value: number; isLowerBound: boolean } {
   if (!isTruncated(data)) return { value: data.rows.length, isLowerBound: false }
-  if (data.rows.length === data.fetchedCount) return { value: data.total, isLowerBound: false }
+  if (!data.hasClientFilters && data.rows.length === data.fetchedCount) return { value: data.total, isLowerBound: false }
   return { value: data.rows.length, isLowerBound: true }
 }
 
@@ -33,5 +36,5 @@ export function isPartialResult(widget: DashboardWidget, data: WidgetData): bool
   if (!isTruncated(data)) return false
   if (widget.displayType === 'donut') return true
   if (widget.displayType !== 'metric') return false
-  return widget.metricCalculation === 'sum' || widgetCount(data).isLowerBound
+  return (widget.metricCalculation === 'sum' && Boolean(widget.metricField)) || widgetCount(data).isLowerBound
 }
