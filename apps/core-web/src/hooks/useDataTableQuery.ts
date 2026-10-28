@@ -99,6 +99,16 @@ function convertParsedToTableState(
   return { columnFilters, sorting, pagination, search: parsed.search }
 }
 
+/** Same params, whatever their order: appending `peek` leaves the managed keys in a different order than the rebuild writes them. */
+function sameSearchParams(left: URLSearchParams, right: URLSearchParams): boolean {
+  const normalise = (params: URLSearchParams) => {
+    const sorted = new URLSearchParams(params)
+    sorted.sort()
+    return sorted.toString()
+  }
+  return normalise(left) === normalise(right)
+}
+
 function buildUpdatedSearchParams(
   prev: URLSearchParams,
   params: {
@@ -216,7 +226,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
       })
       // An unchanged URL must not be written: a push of the same URL adds a duplicate history entry, and then the first
       // back gesture (for example out of a `?peek=` sheet that was opened right after the list rendered) goes nowhere.
-      if (next.toString() === current.toString()) return
+      if (sameSearchParams(next, current)) return
       setSearchParams(next)
     }, debounceMs)
 

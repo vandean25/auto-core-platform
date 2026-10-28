@@ -18,6 +18,20 @@ test.describe('Peek and the back gesture (AUT-784)', () => {
     )
   })
 
+  test('one back closes the peek on a list with a search and page param', async ({ page }) => {
+    await page.goto('/customers?page=1&search=Anna')
+    const row = page.getByText('Anna Alpin').first()
+    await expect(row).toBeVisible()
+
+    await row.click()
+    await expect(page.getByTestId('entity-peek-sheet')).toBeVisible()
+    await page.waitForTimeout(900)
+    await page.goBack()
+
+    await expect(page.getByTestId('entity-peek-sheet')).toHaveCount(0)
+    await expect(page).not.toHaveURL(/[?&]peek=/)
+  })
+
   for (const [name, viewport] of [
     ['phone', { width: 390, height: 844 }],
     ['desktop', { width: 1280, height: 800 }],

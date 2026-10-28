@@ -64,7 +64,7 @@ describe('peek history entries (AUT-784)', () => {
     expect(screen.getByTestId('peek-id')).toHaveTextContent('')
   })
 
-  it('one back closes a peek that was opened after the debounce', async () => {
+  it('one back closes a peek that was opened after the first debounced write', async () => {
     renderList()
     await advance(DEBOUNCE_MS + 100)
 
@@ -85,6 +85,20 @@ describe('peek history entries (AUT-784)', () => {
 
     expect(screen.getByTestId('peek-id')).toHaveTextContent('')
   })
+
+  it.each(['?search=foo', '?page=2', '?filter_type=COMPANY&sortField=name&sortDirection=asc'])(
+    'one back closes a peek opened on a list URL that already has table params (%s)',
+    async (query) => {
+      renderList(`/customers${query}`)
+      await advance(DEBOUNCE_MS + 100)
+
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      await advance(DEBOUNCE_MS * 2)
+      fireEvent.click(screen.getByRole('button', { name: 'back' }))
+
+      expect(screen.getByTestId('peek-id')).toHaveTextContent('')
+    },
+  )
 
   it('keeps the peek param in a deep link and still writes real table changes', async () => {
     renderList(`/customers?${PEEK_SEARCH_PARAM}=cust-9`)
