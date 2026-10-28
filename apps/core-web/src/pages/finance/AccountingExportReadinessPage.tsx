@@ -13,7 +13,7 @@ import { useLegalEntities } from '@/api/site-admin'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -286,24 +286,22 @@ export default function AccountingExportReadinessPage() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="readiness-from">{t('accountingExportReadiness.from')}</Label>
-          <Input
+          <DateField
             id="readiness-from"
-            type="date"
             value={period.dateFrom}
-            onChange={(event) => {
-              setPeriod((current) => ({ ...current, dateFrom: event.target.value }))
+            onChange={(next) => {
+              setPeriod((current) => ({ ...current, dateFrom: next }))
               resetToFirstPage()
             }}
           />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="readiness-to">{t('accountingExportReadiness.to')}</Label>
-          <Input
+          <DateField
             id="readiness-to"
-            type="date"
             value={period.dateTo}
-            onChange={(event) => {
-              setPeriod((current) => ({ ...current, dateTo: event.target.value }))
+            onChange={(next) => {
+              setPeriod((current) => ({ ...current, dateTo: next }))
               resetToFirstPage()
             }}
           />

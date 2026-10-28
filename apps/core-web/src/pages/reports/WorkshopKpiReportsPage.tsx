@@ -11,7 +11,7 @@ import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport, type WorkshopKpiReport } from '@/api/workshop-kpi-reports'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { formatNumber } from '@/lib/format'
+import { formatDate, formatNumber } from '@/lib/format'
 import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +21,11 @@ function number(value: string | null | undefined, suffix = '', missing = '—'):
   return value == null
     ? missing
     : `${formatNumber(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}`
+}
+
+/** The report period arrives as "2026-10-01 – 2026-10-27"; the screen shows it as dd.MM.yyyy (the CSV keeps the raw text). */
+export function formatKpiPeriod(period: string): string {
+  return period.replace(/\d{4}-\d{2}-\d{2}/g, (isoDate) => formatDate(isoDate, { timeZone: 'UTC' }))
 }
 
 export function serializeWorkshopKpiCsv(report: WorkshopKpiReport, t: ReportsTranslate): string {
@@ -242,7 +247,7 @@ export default function WorkshopKpiReportsPage() {
                 [...visibleRows, ...(report.data ? [report.data.totals] : [])].map((row) => (
                   <tr key={row.key} className="border-b">
                     <td className="p-2">{row.mechanic_name ?? t('workshopKpi.total')}</td>
-                    <td className="p-2">{row.period}</td>
+                    <td className="p-2">{formatKpiPeriod(row.period)}</td>
                     <td className="p-2">{number(row.available_hours, '', missingValue)}</td>
                     <td className="p-2">{number(row.clocked_hours, '', missingValue)}</td>
                     <td className="p-2">{number(row.sold_hours, '', missingValue)}</td>

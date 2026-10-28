@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Pencil } from 'lucide-react'
 import { mobileFieldTextClass } from '@/lib/mobile-field-text'
 import { cn } from '@/lib/utils'
@@ -316,7 +317,7 @@ export function InlineEdit({
   schema,
   mode = 'text',
   placeholder = '',
-  emptyText = 'Click to edit',
+  emptyText,
   rows = 4,
   readOnly = false,
   className,
@@ -325,6 +326,8 @@ export function InlineEdit({
   ariaLabel,
   phone,
 }: InlineEditProps) {
+  const { t } = useTranslation('common')
+  const resolvedEmptyText = emptyText ?? t('inlineEdit.emptyText')
   const normalizedValue = value ?? ''
   const [isEditing, setIsEditing] = React.useState(false)
   const [draftValue, setDraftValue] = React.useState(normalizedValue)
@@ -373,7 +376,7 @@ export function InlineEdit({
     if (schema) {
       const result = schema.safeParse(draftValue)
       if (!result.success) {
-        setValidationError(result.error.issues[0]?.message ?? 'Invalid value')
+        setValidationError(result.error.issues[0]?.message ?? t('inlineEdit.invalidValue'))
         // Re-focus the input so the user can correct immediately
         requestAnimationFrame(() => {
           const node = mode === 'textarea' ? textareaRef.current : inputRef.current
@@ -393,7 +396,7 @@ export function InlineEdit({
     } finally {
       setIsSaving(false)
     }
-  }, [closeEditor, draftValue, mode, normalizedValue, onSave, schema])
+  }, [closeEditor, draftValue, mode, normalizedValue, onSave, schema, t])
 
   const handleBlur = () => {
     if (skipBlurCommitRef.current) {
@@ -445,7 +448,7 @@ export function InlineEdit({
   return (
     <InlineEditDisplay
       normalizedValue={normalizedValue}
-      emptyText={emptyText}
+      emptyText={resolvedEmptyText}
       mode={mode}
       readOnly={readOnly}
       isSaving={isSaving}
