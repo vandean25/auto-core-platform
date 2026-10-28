@@ -113,6 +113,8 @@ describe('GCS import upload retry', () => {
     );
     expect(http).toBeInstanceOf(ServiceUnavailableException);
     expect(http.getStatus()).toBe(503);
+    const previousDsn = process.env.SENTRY_DSN;
+    process.env.SENTRY_DSN = 'https://public@sentry.example/1';
     mockCaptureException.mockReturnValue('evt-1');
     const json = jest.fn();
     const filter = new GlobalExceptionFilter();
@@ -138,6 +140,11 @@ describe('GCS import upload retry', () => {
         tags: { requestId: 'req-764', jobId: 'job-left' },
       }),
     );
+    if (previousDsn === undefined) {
+      delete process.env.SENTRY_DSN;
+    } else {
+      process.env.SENTRY_DSN = previousDsn;
+    }
   });
 });
 
