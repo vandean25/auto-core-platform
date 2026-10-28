@@ -125,7 +125,7 @@
     "traceIdCopyFailed": "Copy failed. Select the trace ID and copy it manually."
   },
   "decisionShadow": {
-    "description": "Read-only view of Jev suggestions recorded in shadow mode. Suggestions are never applied and do not change any outcome.",
+    "description": "Read-only view of AI suggestions recorded in shadow mode. Suggestions are never applied and do not change any outcome.",
     "filters": {
       "useCaseLabel": "Use case",
       "allUseCases": "All use cases"
