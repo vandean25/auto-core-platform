@@ -286,7 +286,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const flush = (Sentry as { flush?: (timeout: number) => Promise<unknown> })
       .flush;
     const sentryConfigured = Boolean(process.env.SENTRY_DSN?.trim());
-    if (resolved.status >= 500 && sentryConfigured && typeof flush === 'function') {
+    if (
+      resolved.status >= 500 &&
+      sentryConfigured &&
+      typeof flush === 'function'
+    ) {
       void Promise.resolve(flush(2000)).finally(writeBody);
       return;
     }
