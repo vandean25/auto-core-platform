@@ -19,7 +19,7 @@ export function useWorkshopKpiReport(filters: WorkshopKpiReportFilters, enabled 
     queryFn: async (): Promise<WorkshopKpiReport> => {
       const params = new URLSearchParams(filters)
       const response = await fetchWithAuth(`/api/reports/workshop-kpis?${params}`)
-      if (!response.ok) throw new Error('Workshop-KPI-Bericht konnte nicht geladen werden')
+      if (!response.ok) throw new Error('Werkstatt-KPI-Bericht konnte nicht geladen werden')
       return response.json() as Promise<WorkshopKpiReport>
     },
   })

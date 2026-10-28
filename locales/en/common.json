@@ -332,6 +332,10 @@
     "mobileTitle": "Navigation",
     "mobileDescription": "Main navigation on small screens."
   },
+  "inlineEdit": {
+    "emptyText": "Click to edit",
+    "invalidValue": "Invalid value"
+  },
   "dateField": {
     "placeholder": "DD.MM.YYYY",
     "openCalendar": "Open calendar",

@@ -238,7 +238,7 @@ test.describe('Blueprint: Vehicles Module', () => {
       dialog.getByText('Zulassung & Emissionen'),
     ).toBeVisible();
 
-    await dialog.getByLabel('Erstzulassung').fill('2023-06-01');
+    await dialog.getByLabel('Erstzulassung', { exact: true }).fill('01.06.2023');
     await dialog.getByLabel('CO₂ WLTP (g/km)').fill('142');
 
     await dialog.getByRole('button', { name: DE_VEHICLES.dialog.create }).click();
@@ -278,8 +278,8 @@ test.describe('Blueprint: Vehicles Module', () => {
     const dialog = page.getByRole('dialog', { name: DE_VEHICLES.dialog.editTitle });
     await expect(dialog).toBeVisible();
 
-    await expect(dialog.getByLabel('Erstzulassung')).toHaveValue(
-      '2021-04-12',
+    await expect(dialog.getByLabel('Erstzulassung', { exact: true })).toHaveValue(
+      '12.04.2021',
     );
     await expect(dialog.getByLabel('CO₂ WLTP (g/km)')).toHaveValue('118');
     await expect(dialog.getByLabel('Typenschein-Nr.')).toHaveValue(

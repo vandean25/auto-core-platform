@@ -125,7 +125,7 @@
     "traceIdCopyFailed": "Kopieren fehlgeschlagen. Trace-ID manuell auswählen und kopieren."
   },
   "decisionShadow": {
-    "description": "Nur-Lese-Ansicht der im Schattenmodus protokollierten Jev-Vorschläge. Vorschläge werden nie angewendet und ändern kein Ergebnis.",
+    "description": "Nur-Lese-Ansicht der im Schattenmodus protokollierten KI-Vorschläge. Vorschläge werden nie angewendet und ändern kein Ergebnis.",
     "filters": {
       "useCaseLabel": "Anwendungsfall",
       "allUseCases": "Alle Anwendungsfälle"

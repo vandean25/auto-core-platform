@@ -6,7 +6,7 @@ import { useAuthSession } from '@/api/auth-session'
 import { useWorkshopKpiReport, type WorkshopKpiReport, type WorkshopKpiReportRow } from '@/api/workshop-kpi-reports'
 import { i18n } from '@/lib/i18n'
 import deReports from '../../../../../locales/de/reports.json'
-import WorkshopKpiReportsPage, { serializeWorkshopKpiCsv } from './WorkshopKpiReportsPage'
+import WorkshopKpiReportsPage, { formatKpiPeriod, serializeWorkshopKpiCsv } from './WorkshopKpiReportsPage'
 
 vi.mock('@/api/sites', () => ({ useMySites: vi.fn() }))
 vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
@@ -85,3 +85,15 @@ describe('WorkshopKpiReportsPage', () => {
     expect(csv).toContain('FILTER-1;"Filter; Öl";2.000;40.00;120')
   })
 })
+
+describe('KPI period on screen', () => {
+  it('shows ISO dates as dd.MM.yyyy and leaves other period labels alone', () => {
+    expect(formatKpiPeriod('2026-10-01 – 2026-10-27')).toBe('01.10.2026 – 27.10.2026')
+    expect(formatKpiPeriod('2026-01')).toBe('2026-01')
+  })
+
+  it('titles the page in German as Werkstatt-KPIs', () => {
+    expect(deReports.workshopKpi.pageTitle).toBe('Werkstatt-KPIs')
+  })
+})
+

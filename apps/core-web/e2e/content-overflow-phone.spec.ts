@@ -202,4 +202,14 @@ test.describe('Page content on a phone (AUT-752)', () => {
     await expect(page.getByText('BRK-0001')).toBeVisible()
     await expectNoPageScroll(page)
   })
+
+  test('Werkstatt-KPIs: a table wider than the page scrolls inside its card and never widens the page', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await mockApi(page)
+    await new AutoCorePage(page, '').navigate('/workshop/reports/kpis')
+    await expect(page.getByText('BRK-0001')).toBeVisible()
+    // A longer period text or a wider font (the dd.MM.yyyy period cannot break) must not push the page wider.
+    await page.addStyleTag({ content: 'table td:nth-child(2) { min-width: 900px }' })
+    await expectNoPageScroll(page)
+  })
 })

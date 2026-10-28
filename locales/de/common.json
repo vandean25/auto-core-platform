@@ -332,6 +332,10 @@
     "mobileTitle": "Navigation",
     "mobileDescription": "Hauptnavigation auf kleinen Bildschirmen."
   },
+  "inlineEdit": {
+    "emptyText": "Zum Bearbeiten klicken",
+    "invalidValue": "Ungültiger Wert"
+  },
   "dateField": {
     "placeholder": "TT.MM.JJJJ",
     "openCalendar": "Kalender öffnen",

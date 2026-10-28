@@ -170,6 +170,23 @@ describe('AccountingExportReadinessPage', () => {
     expect(screen.getByText('Invoice detail page')).toBeInTheDocument()
   })
 
+  it('takes the period in the German date format, not in a browser-dependent native date input', () => {
+    mockReadiness({ data: readinessResponse })
+    renderPage()
+
+    const from = screen.getByLabelText(deFinance.accountingExportReadiness.from)
+    const to = screen.getByLabelText(deFinance.accountingExportReadiness.to)
+    expect(from).toHaveAttribute('type', 'text')
+    expect(to).toHaveAttribute('type', 'text')
+    expect((from as HTMLInputElement).value).toMatch(/^\d{2}\.\d{2}\.\d{4}$/)
+
+    fireEvent.change(to, { target: { value: '31.03.2026' } })
+
+    expect(asMock(readinessApi.useAccountingExportReadiness)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dateTo: '2026-03-31' }),
+    )
+  })
+
   it('does not query until a legal entity is available', () => {
     asMock(siteAdminApi.useLegalEntities).mockReturnValue({
       data: [],

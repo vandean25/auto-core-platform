@@ -9,6 +9,15 @@ describe('InlineEdit', () => {
     cleanup()
   })
 
+  it('invites to edit an empty value in German, and a caller text wins', () => {
+    const { rerender } = render(<InlineEdit value='' onSave={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Zum Bearbeiten klicken' })).toBeInTheDocument()
+
+    rerender(<InlineEdit value='' emptyText='Notiz hinzufügen' onSave={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Notiz hinzufügen' })).toBeInTheDocument()
+    expect(screen.queryByText('Click to edit')).not.toBeInTheDocument()
+  })
+
   it('links the validation error to the input it describes', async () => {
     const onSave = vi.fn()
     render(

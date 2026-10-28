@@ -132,12 +132,9 @@ export function AuditLogsTab() {
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('auditLogs.columns.timestamp')} />,
         cell: ({ row }) => {
           return (
-            <div className="flex flex-col text-xs">
-              <span className="font-medium text-slate-800">
-                {formatAuditTimestamp(row.original.occurredAt, timezone)}
-              </span>
-              <span className="text-slate-400 font-mono text-[10px]">{row.original.occurredAt}</span>
-            </div>
+            <span className="text-xs font-medium text-slate-800">
+              {formatAuditTimestamp(row.original.occurredAt, timezone)}
+            </span>
           )
         },
       },

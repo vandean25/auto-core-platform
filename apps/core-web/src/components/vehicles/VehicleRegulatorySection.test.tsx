@@ -22,6 +22,34 @@ const emptyValues: VehicleRegulatoryValues = {
 }
 
 describe('VehicleRegulatorySection', () => {
+  it('shows the first registration as TT.MM.JJJJ in a text field, whatever the browser locale', () => {
+    render(
+      <VehicleRegulatorySection
+        mode="form"
+        values={{ ...emptyValues, first_registration_date: '2024-01-15' }}
+        onChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByLabelText(german(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate))).toHaveValue('15.01.2024')
+    expect(document.querySelector('input[type="date"]')).toBeNull()
+  })
+
+  it('clears the first registration when the text is emptied', () => {
+    const onChange = vi.fn()
+    render(
+      <VehicleRegulatorySection
+        mode="form"
+        values={{ ...emptyValues, first_registration_date: '2024-01-15' }}
+        onChange={onChange}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText(german(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)), { target: { value: '' } })
+
+    expect(onChange).toHaveBeenCalledWith({ first_registration_date: null })
+  })
+
   it('renders all six labels in form mode and calls onChange', () => {
     const onChange = vi.fn()
 
@@ -42,12 +70,12 @@ describe('VehicleRegulatorySection', () => {
       screen.getByText(german(VEHICLE_REGULATORY_FIELDS.emissionClass)),
     ).toBeInTheDocument()
 
-    const typenscheinInput = screen.getAllByRole('textbox')[0]
+    const typenscheinInput = screen.getByLabelText(german(VEHICLE_REGULATORY_FIELDS.typenscheinNo))
     fireEvent.change(typenscheinInput, { target: { value: 'TS-99' } })
     expect(onChange).toHaveBeenCalledWith({ typenschein_no: 'TS-99' })
 
-    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement
-    fireEvent.change(dateInput, { target: { value: '2024-01-15' } })
+    const dateInput = screen.getByLabelText(german(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate))
+    fireEvent.change(dateInput, { target: { value: '15.01.2024' } })
     expect(onChange).toHaveBeenCalledWith({ first_registration_date: '2024-01-15' })
 
     const co2Input = screen.getAllByRole('spinbutton')[0]

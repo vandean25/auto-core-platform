@@ -60,6 +60,16 @@ export function VehiclePickerlSection({
     (warning) => warning.code === 'NO_INSPECTION_RECORDS',
   )
 
+  /** The server sends the warning in one language; the screen shows it in the UI language and keeps the server text for a code it does not know. */
+  function formatWarning(warning: { code: string; message: string }) {
+    const month = /(\d{4})-(\d{2})/.exec(warning.message)
+    return t(`pickerlSection.warnings.${warning.code}`, {
+      defaultValue: warning.message,
+      interpolation: { escapeValue: false },
+      month: month ? `${month[2]}/${month[1]}` : '',
+    })
+  }
+
   function formatDueMonth(dueMonth: string | null | undefined) {
     if (!dueMonth) {
       return t('pickerlSection.unknownMonth')
@@ -130,7 +140,7 @@ export function VehiclePickerlSection({
       {pickerlDue?.warnings?.length ? (
         <ul className='text-xs text-amber-700 list-disc pl-4 space-y-1'>
           {pickerlDue.warnings.map((warning) => (
-            <li key={warning.code}>{warning.message}</li>
+            <li key={warning.code}>{formatWarning(warning)}</li>
           ))}
         </ul>
       ) : null}
