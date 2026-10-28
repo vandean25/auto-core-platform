@@ -185,6 +185,7 @@ export function TeamSettingsTab() {
     () => [
       {
         id: 'name',
+        meta: { mobile: 'title' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.name')} />,
         cell: ({ row }) => (
           <div>
@@ -195,10 +196,12 @@ export function TeamSettingsTab() {
       },
       {
         accessorKey: 'role',
+        meta: { mobile: 'subtitle' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.role')} />,
       },
       {
         accessorKey: 'isActive',
+        meta: { mobile: 'status' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.status')} />,
         cell: ({ row }) => (
           <StatusBadge status={row.original.isActive ? 'ACTIVE' : 'INACTIVE'} />
