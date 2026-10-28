@@ -99,6 +99,33 @@ describe('DateField', () => {
     expect(screen.queryByRole('grid')).not.toBeInTheDocument()
   })
 
+  it('re-formats text that replaces the whole value and keeps backspace working', () => {
+    render(<Harness />)
+    const input = screen.getByLabelText('Von')
+
+    fireEvent.change(input, { target: { value: '1203' } })
+    expect(input).toHaveValue('12.03.')
+
+    fireEvent.change(input, { target: { value: '12.03' } })
+    expect(input).toHaveValue('12.03')
+  })
+
+  it('blocks a form submit while the text is not a date, also after blur', () => {
+    render(
+      <form>
+        <DateField aria-label="Von" value="2026-10-04" onChange={() => undefined} />
+      </form>,
+    )
+    const input = screen.getByLabelText('Von') as HTMLInputElement
+
+    expect(input.checkValidity()).toBe(true)
+    fireEvent.change(input, { target: { value: '31.02.2026' } })
+    fireEvent.blur(input)
+
+    expect(input).toHaveValue('31.02.2026')
+    expect(input.checkValidity()).toBe(false)
+  })
+
   it('exposes a German placeholder and a calendar button', () => {
     render(<Harness initial="" />)
 

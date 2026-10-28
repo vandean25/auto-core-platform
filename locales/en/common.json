@@ -334,6 +334,7 @@
   },
   "dateField": {
     "placeholder": "DD.MM.YYYY",
-    "openCalendar": "Open calendar"
+    "openCalendar": "Open calendar",
+    "invalid": "Please enter a valid date as DD.MM.YYYY."
   }
 }

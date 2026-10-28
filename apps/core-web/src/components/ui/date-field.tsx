@@ -15,6 +15,11 @@ const ISO_FORMAT = 'yyyy-MM-dd'
 const MIN_YEAR = 1900
 const MAX_YEAR = 2100
 
+/** True when the user only removed characters from the end (backspace), so the text must not be re-formatted. */
+function isDeletion(next: string, previous: string): boolean {
+  return next.length < previous.length && previous.startsWith(next)
+}
+
 function toDisplay(iso: string): string {
   const date = iso ? parseISO(iso) : null
   return date && isValid(date) ? format(date, DISPLAY_FORMAT) : ''
@@ -65,9 +70,17 @@ export function DateField({
     setDraft((current) => (parseDisplayDate(current) === value ? current : toDisplay(value)))
   }, [value])
 
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const isInvalid = draft !== '' && parseDisplayDate(draft) === null
+
+  // Lets the browser block a form submit while the text is not a real date, so Submit never saves the previous date unnoticed.
+  React.useEffect(() => {
+    inputRef.current?.setCustomValidity(isInvalid ? t('dateField.invalid') : '')
+  }, [isInvalid, t])
+
   const handleChange = (rawText: string) => {
     const isIsoPaste = /^\d{4}-\d{2}-\d{2}$/.test(rawText)
-    const text = isIsoPaste ? toDisplay(rawText) : rawText.length < draft.length ? rawText : autoDotDate(rawText)
+    const text = isIsoPaste ? toDisplay(rawText) : isDeletion(rawText, draft) ? rawText : autoDotDate(rawText)
     setDraft(text)
     if (text === '') onChange('')
     else {
@@ -81,20 +94,24 @@ export function DateField({
   return (
     <div className="flex items-center gap-1">
       <Input
+        ref={inputRef}
         id={id}
         type="text"
         inputMode="numeric"
         autoComplete="off"
         placeholder={t('dateField.placeholder')}
         maxLength={10}
-        aria-invalid={draft !== '' && parseDisplayDate(draft) === null ? true : undefined}
+        aria-invalid={isInvalid ? true : undefined}
         value={draft}
         disabled={disabled}
         aria-label={ariaLabel}
         data-testid={testId}
         className={cn('max-sm:min-h-11 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive', className)}
         onChange={(event) => handleChange(event.target.value)}
-        onBlur={() => setDraft(toDisplay(value))}
+        // Inside a form an invalid text stays (red, and the browser blocks the submit); reverting it here would let a click on Submit save the old date unnoticed.
+        onBlur={(event) => {
+          if (!event.currentTarget.form) setDraft(toDisplay(value))
+        }}
       />
       <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
         <PopoverTrigger asChild>

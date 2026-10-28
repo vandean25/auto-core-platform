@@ -334,6 +334,7 @@
   },
   "dateField": {
     "placeholder": "TT.MM.JJJJ",
-    "openCalendar": "Kalender öffnen"
+    "openCalendar": "Kalender öffnen",
+    "invalid": "Bitte ein gültiges Datum im Format TT.MM.JJJJ eingeben."
   }
 }
