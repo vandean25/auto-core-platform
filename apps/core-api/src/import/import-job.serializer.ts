@@ -4,7 +4,9 @@ import type {
   ImportRowAction,
   Prisma,
 } from '@prisma/client';
-import { serializeCsv } from './csv-parse.util.js';
+import { sanitizeCsvInjectionValue } from './csv-parse.util.js';
+import { getImportReportCopy } from './import-error-report.i18n.js';
+import type { DisplayLanguage } from '../common/i18n/display-language.js';
 import type { ImportJobTotals } from './import.types.js';
 import { isStaleApplyingImportJob } from './import-apply-lease.js';
 import {
@@ -93,16 +95,88 @@ export function serializeImportRow(row: ImportJobRowView) {
   };
 }
 
-const ERROR_REPORT_HEADERS = ['row_no', 'external_id', 'errors'];
+export type ImportErrorReportRow = Pick<
+  ImportJobRowView,
+  'row_no' | 'errors_json'
+> & {
+  source_cells: string[];
+};
 
-/** Semicolon CSV of the rows that failed, with their errors as JSON. */
+export type ImportErrorReportOptions = {
+  headers: string[];
+  mapping: Record<string, string>;
+  locale: DisplayLanguage;
+  includeHeader?: boolean;
+  normalizedFallback?: boolean;
+};
+
+function escapeReportCell(value: string): string {
+  const safe = value.startsWith("'")
+    ? `'${value}`
+    : sanitizeCsvInjectionValue(value);
+  return /[;,"\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+function reportIssueCells(
+  row: ImportErrorReportRow,
+  options: ImportErrorReportOptions,
+): string[] {
+  const copy = getImportReportCopy(options.locale);
+  const issues = Array.isArray(row.errors_json)
+    ? row.errors_json.filter(
+        (issue): issue is Prisma.JsonObject =>
+          typeof issue === 'object' && issue !== null && !Array.isArray(issue),
+      )
+    : [];
+  const fields = issues
+    .map((issue) => {
+      const field = typeof issue.field === 'string' ? issue.field : '';
+      const mapped = options.mapping[field];
+      return (
+        options.headers.find((header) => header.trim() === mapped) ??
+        mapped ??
+        ''
+      );
+    })
+    .filter(Boolean);
+  const codes = issues.map((issue) =>
+    typeof issue.code === 'string' ? issue.code : '',
+  );
+  const messages = codes.map((code) =>
+    typeof copy.codes[code] === 'string' ? copy.codes[code] : copy.unknownError,
+  );
+  return [
+    fields.join(' | '),
+    messages.length ? messages.join(' | ') : copy.unknownError,
+    codes.join(' | '),
+  ];
+}
+
 export function buildImportErrorReportCsv(
-  rows: Array<Pick<ImportJobRowView, 'row_no' | 'external_id' | 'errors_json'>>,
+  rows: ImportErrorReportRow[],
+  options: ImportErrorReportOptions,
 ): string {
-  const data = rows.map((row) => [
-    String(row.row_no),
-    row.external_id ?? '',
-    JSON.stringify(row.errors_json ?? []),
-  ]);
-  return serializeCsv(ERROR_REPORT_HEADERS, data, ';');
+  const headers = [
+    'row_no',
+    ...options.headers,
+    'error_field',
+    'error_message',
+    'error_code',
+    ...(options.normalizedFallback ? ['note'] : []),
+  ];
+  const lines =
+    options.includeHeader === false
+      ? []
+      : [headers.map(escapeReportCell).join(';')];
+  for (const row of rows) {
+    const cells = [
+      String(row.row_no),
+      ...options.headers.map((_, index) => row.source_cells[index] ?? ''),
+      ...reportIssueCells(row, options),
+    ];
+    if (options.normalizedFallback)
+      cells.push(getImportReportCopy(options.locale).normalizedFallback);
+    lines.push(cells.map(escapeReportCell).join(';'));
+  }
+  return `${options.includeHeader === false ? '' : '\uFEFF'}${lines.join('\r\n')}${lines.length ? '\r\n' : ''}`;
 }

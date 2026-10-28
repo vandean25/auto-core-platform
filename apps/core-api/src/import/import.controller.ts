@@ -14,8 +14,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { pipeline } from 'node:stream/promises';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiHeader,
+  ApiProduces,
   ApiAcceptedResponse,
   ApiBody,
   ApiConsumes,
@@ -219,15 +222,37 @@ export class ImportController {
   }
 
   @Get(':id/errors.csv')
-  @ApiOperation({ summary: 'Download CSV of rows that failed validation' })
+  @ApiOperation({
+    summary: 'Stream localized error rows with original source columns',
+  })
+  @ApiHeader({
+    name: 'Accept-Language',
+    required: false,
+    description: 'Report language (de or en); defaults to the user preference',
+  })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  async downloadErrors(@Param('id') id: string, @Res() res: Response) {
-    const csv = await this.importService.downloadErrorRowsCsv(id);
+  async downloadErrors(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const language = req.get('Accept-Language');
+    const locale =
+      language && language.trim() !== '*'
+        ? req.acceptsLanguages('de', 'en')
+        : false;
+    const csv = await this.importService.downloadErrorRowsCsv(
+      id,
+      locale === 'de' || locale === 'en' ? locale : undefined,
+    );
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="import-${id}-errors.csv"`,
     );
-    res.send(csv);
+    res.setHeader('Cache-Control', 'private, no-store');
+    await pipeline(csv, res);
   }
 
   @Get(':id')
