@@ -15,9 +15,11 @@ const ISO_FORMAT = 'yyyy-MM-dd'
 const MIN_YEAR = 1900
 const MAX_YEAR = 2100
 
-/** True when the user only removed characters from the end (backspace), so the text must not be re-formatted. */
+/** True when the user removed characters from the end or a single character anywhere (backspace/delete), so the text must not be re-formatted. */
 function isDeletion(next: string, previous: string): boolean {
-  return next.length < previous.length && previous.startsWith(next)
+  if (next.length >= previous.length) return false
+  if (previous.startsWith(next)) return true
+  return next.length === previous.length - 1 && previous.split('').some((_, index) => previous.slice(0, index) + previous.slice(index + 1) === next)
 }
 
 function toDisplay(iso: string): string {

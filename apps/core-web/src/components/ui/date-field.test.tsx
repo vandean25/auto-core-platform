@@ -110,6 +110,17 @@ describe('DateField', () => {
     expect(input).toHaveValue('12.03')
   })
 
+  it('lets a single digit be corrected in the middle of the date', () => {
+    render(<Harness />)
+    const input = screen.getByLabelText('Von')
+
+    fireEvent.change(input, { target: { value: '04.1.2026' } })
+    expect(input).toHaveValue('04.1.2026')
+
+    fireEvent.change(input, { target: { value: '04.11.2026' } })
+    expect(screen.getByTestId('iso')).toHaveTextContent('2026-11-04')
+  })
+
   it('blocks a form submit while the text is not a date, also after blur', () => {
     render(
       <form>
