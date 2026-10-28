@@ -55,7 +55,11 @@ export function canApplyImport(params: {
   errorThreshold: number
   isApplying: boolean
 }): boolean {
-  if (!params.dryRunJob || params.dryRunStale || params.isApplying) return false
+  if (!params.dryRunJob || params.isApplying) return false
+  if (params.dryRunJob.stalled && params.dryRunJob.status === 'APPLYING') {
+    return true
+  }
+  if (params.dryRunStale) return false
   if (params.dryRunJob.status !== 'DRY_RUN_DONE') return false
   const errors = params.dryRunJob.totals?.error ?? 0
   return errors <= params.errorThreshold

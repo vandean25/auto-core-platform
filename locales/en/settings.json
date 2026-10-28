@@ -1073,7 +1073,8 @@
       "description": "Large files are validated in batches. You can leave this page open; progress updates automatically.",
       "rows": "{{processed}} / {{total}} rows",
       "eta": "About {{minutes}} min remaining",
-      "cancel": "Cancel import"
+      "cancel": "Cancel import",
+      "resume": "Resume"
     },
     "dryRun": {
       "title": "4. Dry-run report",
@@ -1149,6 +1150,7 @@
       "dryRunFailed": "Dry-run failed",
       "applied": "Import applied successfully",
       "applyFailed": "Apply failed",
+      "applyLeaseLive": "Apply is still running. The lease is still live.",
       "cancelFailed": "Could not cancel import",
       "templateFailed": "Template download failed",
       "errorCsvFailed": "Error CSV download failed"

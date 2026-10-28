@@ -44,7 +44,10 @@ export async function assertApplyWorkerLease(
     throw new ImportWorkerLeaseLostError();
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
-  if (options.worker?.lease_token !== leaseToken) {
+  if (!options.worker) {
+    return;
+  }
+  if (options.worker.lease_token !== leaseToken) {
     throw new ImportWorkerLeaseLostError();
   }
 }

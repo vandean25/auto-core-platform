@@ -1073,7 +1073,8 @@
       "description": "Große Dateien werden in Stapeln geprüft. Sie können diese Seite geöffnet lassen; der Fortschritt aktualisiert sich automatisch.",
       "rows": "{{processed}} / {{total}} Zeilen",
       "eta": "Noch etwa {{minutes}} Min.",
-      "cancel": "Import abbrechen"
+      "cancel": "Import abbrechen",
+      "resume": "Fortsetzen"
     },
     "dryRun": {
       "title": "4. Probelauf-Bericht",
@@ -1149,6 +1150,7 @@
       "dryRunFailed": "Probelauf fehlgeschlagen",
       "applied": "Import erfolgreich angewendet",
       "applyFailed": "Import fehlgeschlagen",
+      "applyLeaseLive": "Die Anwendung läuft noch. Die Lease ist aktiv.",
       "cancelFailed": "Import konnte nicht abgebrochen werden",
       "templateFailed": "Vorlage konnte nicht heruntergeladen werden",
       "errorCsvFailed": "Fehler-CSV konnte nicht heruntergeladen werden"
