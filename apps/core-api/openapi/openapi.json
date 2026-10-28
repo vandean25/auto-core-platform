@@ -36480,6 +36480,13 @@
               }
             ]
           },
+          "stalled": {
+            "type": "boolean"
+          },
+          "recovery_hint": {
+            "type": "string",
+            "nullable": true
+          },
           "created_by": {
             "type": "object",
             "nullable": true
@@ -36502,6 +36509,8 @@
           "mapping",
           "options",
           "totals",
+          "stalled",
+          "recovery_hint",
           "created_by",
           "created_at",
           "applied_at"

@@ -73,6 +73,10 @@ export type ImportRowWriter = (
   row: ImportApplyRow,
 ) => Promise<void>;
 
+function isPastApplyUnitDeadline(deadlineMs: number | undefined): boolean {
+  return deadlineMs !== undefined && Date.now() > deadlineMs;
+}
+
 function legacyRowTxMaxAttempts(options?: ImportApplyBatchOptions): number {
   if (options?.leaseToken || options?.stopAfterBatch) {
     return IMPORT_ROW_TX_MAX_ATTEMPTS;
@@ -111,7 +115,7 @@ export class RowByRowApplyRunner {
     const guardedWrite = Boolean(options?.stopAfterBatch);
 
     try {
-      await this.runApplyBatchSpan(
+      const stoppedEarly = await this.runApplyBatchSpan(
         input,
         entityType,
         writeRow,
@@ -125,7 +129,7 @@ export class RowByRowApplyRunner {
         entityType,
         totals,
         guardedWrite,
-        plan.batchIncomplete,
+        plan.batchIncomplete || stoppedEarly,
         options,
       );
     } catch (error) {
@@ -250,8 +254,8 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     resumeAfter: number,
     options?: ImportApplyInput['batchOptions'],
-  ): Promise<void> {
-    await Sentry.startSpan(
+  ): Promise<boolean> {
+    return Sentry.startSpan(
       {
         name: 'Import apply batch',
         op: 'import.apply.batch',
@@ -264,11 +268,10 @@ export class RowByRowApplyRunner {
       async () => {
         const batchStartedAt = Date.now();
         let appliedInBatch = 0;
+        let stoppedEarly = false;
         for (const row of batchRows) {
-          if (
-            options?.chunkDeadlineMs !== undefined &&
-            Date.now() > options.chunkDeadlineMs
-          ) {
+          if (isPastApplyUnitDeadline(options?.chunkDeadlineMs)) {
+            stoppedEarly = true;
             break;
           }
           await this.applyOne(
@@ -291,6 +294,7 @@ export class RowByRowApplyRunner {
             }),
           );
         }
+        return stoppedEarly;
       },
     );
   }

@@ -21,10 +21,13 @@ export function importApplyInterrupted(): ServiceUnavailableException {
   });
 }
 
-export function applyInProgress(): ConflictException {
+export function applyInProgress(
+  leaseExpiresAt: string | null = null,
+): ConflictException {
   return new ConflictException({
     code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
     message: 'Import job is already being applied',
+    leaseExpiresAt,
   });
 }
 

@@ -22,6 +22,8 @@ function mockJob(overrides: Partial<ImportJob> = {}): ImportJob {
     created_by: null,
     created_at: '2026-01-01T00:00:00.000Z',
     applied_at: null,
+    stalled: false,
+    recovery_hint: null,
     ...overrides,
   }
 }

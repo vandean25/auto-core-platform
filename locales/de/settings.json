@@ -1073,7 +1073,8 @@
       "description": "Große Dateien werden in Stapeln geprüft. Sie können diese Seite geöffnet lassen; der Fortschritt aktualisiert sich automatisch.",
       "rows": "{{processed}} / {{total}} Zeilen",
       "eta": "Noch etwa {{minutes}} Min.",
-      "cancel": "Import abbrechen"
+      "cancel": "Import abbrechen",
+      "resume": "Fortsetzen"
     },
     "dryRun": {
       "title": "4. Probelauf-Bericht",

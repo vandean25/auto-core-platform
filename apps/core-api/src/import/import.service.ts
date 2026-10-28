@@ -25,7 +25,17 @@ import {
   importJobCannotCancel,
   importJobNotFound,
 } from './import-job.errors.js';
-import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
+import {
+  classifyImportApplyError,
+  describeImportApplyCause,
+  ImportApplyRetryExhaustedError,
+} from './import-apply.errors.js';
+import {
+  IMPORT_APPLY_UNIT_BUDGET_MS,
+  isStaleApplyingImportJob,
+  leaseExpiresAtOf,
+} from './import-apply-lease.js';
+import { runSyncApplyUnits } from './import-sync-apply-lease.js';
 import {
   buildImportErrorReportCsv,
   serializeImportJob,
@@ -130,6 +140,19 @@ function buildRowsWhere(
     ...(query.action ? { action: query.action } : {}),
     ...(query.hasErrors === true ? { action: ImportRowAction.ERROR } : {}),
   };
+}
+
+function isSyncApplyConnectionFailure(error: unknown): boolean {
+  if (classifyImportApplyError(error) === 'row') {
+    return false;
+  }
+  if (classifyImportApplyError(error) === 'retryable') {
+    return true;
+  }
+  const message = error instanceof Error ? error.message : '';
+  return /connection terminated|ECONNRESET|ECONNREFUSED|server closed the connection/i.test(
+    message,
+  );
 }
 
 /**
@@ -367,30 +390,53 @@ export class ImportService {
     if (!job) {
       throw importJobNotFound();
     }
-    assertJobCanBeApplied(job.status);
-    if (job.status === ImportJobStatus.FAILED) {
+    const staleTakeover = await this.takeOverStaleApplyIfNeeded(tenantId, job);
+    if (staleTakeover === 'busy') {
+      throw applyInProgress(
+        leaseExpiresAtOf(job.options_json as ImportJobOptionsWithWorker),
+      );
+    }
+    const applyingJob =
+      staleTakeover === 'taken'
+        ? await this.jobStore.findJob(tenantId, jobId)
+        : job;
+    if (!applyingJob) {
+      throw importJobNotFound();
+    }
+    if (staleTakeover !== 'taken') {
+      assertJobCanBeApplied(applyingJob.status);
+    }
+    if (applyingJob.status === ImportJobStatus.FAILED) {
       await assertFailedImportJobCanReApply({
         uploadPresent: Boolean(
-          readUploadRef(job.options_json as ImportJobOptionsWithWorker),
+          readUploadRef(applyingJob.options_json as ImportJobOptionsWithWorker),
         ),
         countApplyRows: () => this.jobStore.countApplyRows(tenantId, jobId),
       });
     }
 
     const effectiveOptions = mergeApplyOptions(
-      (job.options_json as ImportJobOptions) ?? {},
+      (applyingJob.options_json as ImportJobOptions) ?? {},
       applyOptions,
     );
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
-    assertImplementedImportEntityType(job.entity_type);
-    const handler = this.handlers[job.entity_type];
-    const dryRunTotals = job.totals_json as ImportJobTotals;
+    assertImplementedImportEntityType(applyingJob.entity_type);
+    const handler = this.handlers[applyingJob.entity_type];
+    const dryRunTotals = applyingJob.totals_json as ImportJobTotals;
 
     if (rowCount > readImportSyncMaxRowCount()) {
+      if (staleTakeover === 'taken') {
+        await this.runBackgroundApplyBatch(tenantId, jobId);
+        const refreshed = await this.jobStore.findJob(tenantId, jobId);
+        return this.serializeJob(
+          refreshed!,
+          refreshed!.totals_json as ImportJobTotals,
+        );
+      }
       return this.queueBackgroundImportApply(
         tenantId,
         jobId,
-        job,
+        applyingJob,
         handler,
         dryRunTotals,
         applyOptions,
@@ -401,12 +447,31 @@ export class ImportService {
     return this.applyImportJobSynchronously(
       tenantId,
       jobId,
-      job,
+      applyingJob,
       handler,
       currentUser.id,
       applyOptions,
       effectiveOptions,
+      staleTakeover === 'taken',
     );
+  }
+
+  private async takeOverStaleApplyIfNeeded(
+    tenantId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+  ): Promise<'taken' | 'busy' | 'not-applying'> {
+    if (job.status !== ImportJobStatus.APPLYING) {
+      return 'not-applying';
+    }
+    if (!isStaleApplyingImportJob(job, Date.now())) {
+      return 'busy';
+    }
+    const taken = await this.jobStore.claimWorkerLease(
+      tenantId,
+      job.id,
+      'apply',
+    );
+    return taken ? 'taken' : 'busy';
   }
 
   private async queueBackgroundImportApply(
@@ -457,6 +522,7 @@ export class ImportService {
     actorUserId: string,
     applyOptions: ImportJobOptions | undefined,
     effectiveOptions: ImportJobOptions,
+    alreadyLocked = false,
   ): Promise<SerializedImportJob> {
     const rows = await this.jobStore.findApplyRows(tenantId, jobId);
     const preparation = await handler.prepareApply({
@@ -467,27 +533,46 @@ export class ImportService {
       effectiveOptions,
     });
 
-    const lock = await this.jobStore.lockForApply(tenantId, jobId);
-    if (lock.count === 0) {
-      throw applyInProgress();
+    if (!alreadyLocked) {
+      const lock = await this.jobStore.lockForApply(tenantId, jobId);
+      if (lock.count === 0) {
+        const current = await this.jobStore.findJob(tenantId, jobId);
+        throw applyInProgress(
+          leaseExpiresAtOf(current?.options_json as ImportJobOptionsWithWorker),
+        );
+      }
     }
 
     let applied: SerializedImportJob;
     try {
+      const lockedJob = await this.jobStore.findJob(tenantId, jobId);
+      const leaseToken =
+        readWorkerState(lockedJob?.options_json as ImportJobOptionsWithWorker)
+          ?.lease_token ?? null;
       applied = await traceImportCommit(job.entity_type, rows.length, () =>
-        handler.apply({
-          tenantId,
-          job,
+        runSyncApplyUnits({
           rows,
-          actorUserId,
-          effectiveOptions,
-          preparation,
+          initialLeaseToken: leaseToken,
+          findJob: () => this.jobStore.findJob(tenantId, jobId),
+          extendLease: (token) =>
+            this.jobStore.extendWorkerLease(tenantId, jobId, token),
+          applyRows: (unitRows, batchOptions) =>
+            handler.apply({
+              tenantId,
+              job: lockedJob ?? job,
+              rows: unitRows,
+              actorUserId,
+              effectiveOptions,
+              preparation,
+              batchOptions,
+            }),
         }),
       );
     } catch (error) {
       if (error instanceof ImportApplyRetryExhaustedError) {
         throw importApplyInterrupted();
       }
+      await this.failSyncApplyOnConnectionError(tenantId, jobId, error);
       throw error;
     }
     if (applied.status === ImportJobStatus.APPLIED) {
@@ -496,6 +581,37 @@ export class ImportService {
       );
     }
     return applied;
+  }
+
+  private async failSyncApplyOnConnectionError(
+    tenantId: string,
+    jobId: string,
+    error: unknown,
+  ): Promise<void> {
+    if (!isSyncApplyConnectionFailure(error)) {
+      return;
+    }
+    try {
+      const failed = await this.jobStore.markFailedIfApplying(
+        tenantId,
+        jobId,
+        'apply_error',
+        undefined,
+        describeImportApplyCause(error),
+      );
+      if (failed.count > 0) {
+        const job = await this.jobStore.findJob(tenantId, jobId);
+        logImportJobFailed(this.logger, {
+          jobId,
+          phase: 'apply',
+          attempt: job?.attempts_without_progress ?? 0,
+          reason: 'apply_error',
+          cause: describeImportApplyCause(error),
+        });
+      }
+    } catch {
+      // The expired lease is what lets a later re-apply take over.
+    }
   }
 
   /** Response shape of an import job. Kept on the facade as the single place it is built. */
@@ -637,6 +753,7 @@ export class ImportService {
       targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
       nodeEnv: process.env.NODE_ENV,
       runInline,
+      logger: this.logger,
     };
   }
 
@@ -1050,7 +1167,7 @@ export class ImportService {
         useApplySequence: true,
         maxApplySeq: context.maxApplySeq,
         leaseToken: context.worker.lease_token,
-        chunkDeadlineMs: Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS,
+        chunkDeadlineMs: Date.now() + IMPORT_APPLY_UNIT_BUDGET_MS,
       },
     });
     if (result.status === ImportJobStatus.APPLIED) {

@@ -66,7 +66,33 @@ describe('ImportService job lifecycle — getJob', () => {
         mapping: CUSTOMER_MAPPING,
         totals: DRY_RUN_CREATE_TOTALS,
         progress: null,
+        stalled: false,
+        recovery_hint: null,
         applied_at: null,
+      });
+    });
+
+    it('reports stalled when an APPLYING job lease has expired', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          totals_json: DRY_RUN_CREATE_TOTALS,
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-old',
+              lease_until: new Date(0).toISOString(),
+              processed_rows: 0,
+              started_at: new Date(0).toISOString(),
+            },
+          },
+        }),
+      );
+
+      await expect(h.service.getJob(JOB_ID)).resolves.toMatchObject({
+        status: ImportJobStatus.APPLYING,
+        stalled: true,
+        recovery_hint: 'Re-apply the job to resume.',
       });
     });
 

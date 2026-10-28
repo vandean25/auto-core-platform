@@ -67,6 +67,7 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
       <ImportBackgroundProgressAlert
         job={job}
         onCancelled={() => props.onBackgroundCancelled?.()}
+        onResume={props.onApply}
       />
 
       {props.dryRunStale ? (

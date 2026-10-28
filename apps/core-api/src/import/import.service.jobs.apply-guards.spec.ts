@@ -69,8 +69,21 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
     });
 
     it('refuses a job that is already applying without loading its rows', async () => {
+      const leaseExpiresAt = new Date(Date.now() + 60_000).toISOString();
       h.prisma.importJob.findFirst.mockResolvedValue(
-        importJobRecord({ status: ImportJobStatus.APPLYING }),
+        importJobRecord({
+          status: ImportJobStatus.APPLYING,
+          updatedAt: new Date(),
+          options_json: {
+            worker: {
+              phase: 'apply',
+              lease_token: 'token-live',
+              lease_until: leaseExpiresAt,
+              processed_rows: 0,
+              started_at: new Date().toISOString(),
+            },
+          },
+        }),
       );
 
       await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
@@ -78,6 +91,7 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
         response: {
           code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
           message: 'Import job is already being applied',
+          leaseExpiresAt,
         },
       });
       expect(h.prisma.importJobRow.findMany).not.toHaveBeenCalled();
@@ -189,7 +203,15 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
             in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
           },
         },
-        data: { status: ImportJobStatus.APPLYING },
+        data: {
+          status: ImportJobStatus.APPLYING,
+          options_json: expect.objectContaining({
+            worker: expect.objectContaining({
+              phase: 'apply',
+              lease_token: expect.any(String),
+            }),
+          }),
+        },
       });
       expect(h.prisma.importJob.update).not.toHaveBeenCalled();
       expect(h.prisma.customer.create).not.toHaveBeenCalled();
