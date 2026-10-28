@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { getApiErrorBody } from '@/api/api-error'
+import { fetchWithAuth } from '@/api/client'
 import { generateId } from '@/lib/id'
 import { createHttpError, getErrorMessage } from '@/lib/error-utils'
 import { invoiceKeys } from '@/api/sales'
@@ -85,7 +86,7 @@ export const invoiceSettlementKeys = {
 }
 
 async function fetchSettlement(invoiceId: string): Promise<SettlementResponse> {
-  const response = await fetch(`/api/invoices/${invoiceId}/settlement`, {
+  const response = await fetchWithAuth(`/api/invoices/${invoiceId}/settlement`, {
     credentials: 'include',
   })
   if (!response.ok) {
@@ -137,7 +138,7 @@ export function useRecordSettlement(invoiceId: string) {
       externalReceiptNumber?: string
       externalReceiptDate?: string
     }) => {
-      const response = await fetch(`/api/invoices/${invoiceId}/settlement`, {
+      const response = await fetchWithAuth(`/api/invoices/${invoiceId}/settlement`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -169,7 +170,7 @@ export function useReconcileSettlement(invoiceId: string, idempotencyKey: string
       if (!idempotencyKey) {
         throw new SettlementMutationError('settlement.errors.missingIdempotencyKey')
       }
-      const response = await fetch(`/api/invoices/${invoiceId}/settlement/reconcile`, {
+      const response = await fetchWithAuth(`/api/invoices/${invoiceId}/settlement/reconcile`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -194,7 +195,7 @@ export function useCancelFiscalReceipt(invoiceId: string) {
 
   return useMutation({
     mutationFn: async (fiscalReceiptId: string) => {
-      const response = await fetch(`/api/fiscal-receipts/${fiscalReceiptId}/cancellation`, {
+      const response = await fetchWithAuth(`/api/fiscal-receipts/${fiscalReceiptId}/cancellation`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
