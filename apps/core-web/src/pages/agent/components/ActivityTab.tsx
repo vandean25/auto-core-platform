@@ -5,7 +5,7 @@ import { Copy, ExternalLink, Inbox, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AgentDateRangeFields, AgentErrorState, AgentLoadingState, AgentRefreshButton } from './agent-tab-parts'
+import { AgentDateRangeFields, AgentErrorState, AgentLoadingState, AgentRefreshButton } from '@/components/agent/agent-tab-parts'
 import {
   Table,
   TableBody,

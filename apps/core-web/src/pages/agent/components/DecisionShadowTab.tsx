@@ -4,7 +4,7 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Inbox } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { AgentDateRangeFields, AgentErrorState, AgentLoadingState, AgentRefreshButton } from './agent-tab-parts'
+import { AgentDateRangeFields, AgentErrorState, AgentLoadingState, AgentRefreshButton } from '@/components/agent/agent-tab-parts'
 import {
   Table,
   TableBody,
