@@ -9,6 +9,13 @@ async function waitForControllingWorker(page: Page) {
   })
 }
 
+/** A navigation right after the worker took control can still fail once while it is starting; the worker answers the next one. */
+async function gotoOffline(page: Page) {
+  await expect(async () => {
+    await page.goto('/offline-check', { waitUntil: 'domcontentloaded' })
+  }).toPass({ timeout: 10_000 })
+}
+
 test.describe('PWA shell (production build)', () => {
   test('serves the manifest, the service worker and the offline page from the root', async ({ request }) => {
     const manifest = await request.get('/manifest.webmanifest')
@@ -36,8 +43,7 @@ test.describe('PWA shell (production build)', () => {
     expect(registration.scope).toBe(new URL('/', page.url()).href)
     expect(registration.updateViaCache).toBe('none')
 
-    const cacheKeys = await page.evaluate(() => caches.keys())
-    expect(cacheKeys).toEqual(['acp-shell-v1.0.0-pwa'])
+    await expect.poll(() => page.evaluate(() => caches.keys())).toEqual(['acp-shell-v1.0.0-pwa'])
 
     const fromWorker: Record<string, boolean> = {}
     page.on('response', (response) => {
@@ -52,9 +58,28 @@ test.describe('PWA shell (production build)', () => {
     expect(fromWorker).toEqual({ '/api/health': false, '/version.json': false })
 
     await context.setOffline(true)
-    await page.goto('/offline-check', { waitUntil: 'domcontentloaded' })
+    await gotoOffline(page)
     await expect(page).toHaveTitle('Auto Core · Offline')
     await expect(page.getByRole('heading', { name: 'Keine Verbindung' })).toBeVisible()
+    // One language, and the logo is part of the page (AUT-785): the image needs no request, which fails offline.
+    await expect(page.getByText('No connection')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Erneut versuchen', exact: true })).toBeVisible()
+    await expect(page.locator('img')).toHaveJSProperty('complete', true)
+    expect(await page.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+    await context.setOffline(false)
+  })
+
+  test('shows the offline page in English, and only English, when the app language is English', async ({ page, context }) => {
+    await page.goto('/')
+    await waitForControllingWorker(page)
+    await page.evaluate(() => localStorage.setItem('acp:ui-language', 'en'))
+
+    await context.setOffline(true)
+    await gotoOffline(page)
+    await expect(page.getByRole('heading', { name: 'No connection' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible()
+    await expect(page.getByText('Keine Verbindung')).toHaveCount(0)
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await context.setOffline(false)
   })
 })
