@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { formatDocumentTitle, getRouteSectionTitle } from '@/lib/document-title'
 
@@ -21,6 +22,7 @@ export function useDocumentTitle(
   options?: UseDocumentTitleOptions,
 ) {
   const { pathname } = useLocation()
+  const { i18n } = useTranslation('nav')
   const includeRouteSection = options?.includeRouteSection ?? true
 
   useEffect(() => {
@@ -28,5 +30,5 @@ export function useDocumentTitle(
       ? [entity, getRouteSectionTitle(pathname)]
       : [entity]
     document.title = formatDocumentTitle(parts)
-  }, [entity, includeRouteSection, pathname])
+  }, [entity, includeRouteSection, pathname, i18n.language])
 }

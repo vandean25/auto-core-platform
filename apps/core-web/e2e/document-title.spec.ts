@@ -21,15 +21,15 @@ test.describe('Per-route document title (AUT-473)', () => {
     );
     await new AutoCorePage(page, 'Customer').navigate('/customers');
 
-    await expect(page).toHaveTitle(/Customers - Auto Core/);
+    await expect(page).toHaveTitle(/Kunden - Auto Core/);
     await expectNoAxeViolationsForRules(page, ['document-title']);
   });
 
   const keyRoutes = [
     { path: '/dashboard', title: 'Dashboard - Auto Core' },
-    { path: '/workshop/orders', title: 'Workshop Orders - Auto Core' },
-    { path: '/sales-orders', title: 'Sales Orders - Auto Core' },
-    { path: '/settings', title: 'Settings - Auto Core' },
+    { path: '/workshop/orders', title: 'Werkstattaufträge - Auto Core' },
+    { path: '/sales-orders', title: 'Kundenaufträge - Auto Core' },
+    { path: '/settings', title: 'Einstellungen - Auto Core' },
   ];
 
   for (const { path, title } of keyRoutes) {
@@ -47,7 +47,7 @@ test.describe('Per-route document title (AUT-473)', () => {
     );
     await new AutoCorePage(page, 'Sales Order').navigate('/sales-orders/so-123');
 
-    await expect(page).toHaveTitle('SO-2026-0001 - Sales Orders - Auto Core');
+    await expect(page).toHaveTitle('SO-2026-0001 - Kundenaufträge - Auto Core');
     await expectNoAxeViolationsForRules(page, ['document-title']);
   });
 
@@ -90,7 +90,7 @@ test.describe('Per-route document title (AUT-473)', () => {
     await customersLink.click();
 
     await expect(page).toHaveURL(/\/customers$/);
-    await expect(page.getByText('Navigated to Customers', { exact: true })).toHaveAttribute('aria-live', 'polite');
+    await expect(page.getByText('Navigiert zu Kunden', { exact: true })).toHaveAttribute('aria-live', 'polite');
     await expect(customersLink).toBeFocused();
   });
 
@@ -102,13 +102,13 @@ test.describe('Per-route document title (AUT-473)', () => {
       route.fulfill(jsonResponse(createMockListResponse([]))),
     );
     await new AutoCorePage(page, 'Sales Order').navigate('/sales-orders/so-123');
-    await expect(page).toHaveTitle('SO-2026-0001 - Sales Orders - Auto Core');
+    await expect(page).toHaveTitle('SO-2026-0001 - Kundenaufträge - Auto Core');
 
     await page.getByRole('link', { name: DE_SHELL.modules.customers, exact: true }).first().click();
 
     // The list page mounts only after the outgoing page's exit animation has finished, so once its
     // heading is visible any stale write from the outgoing page has already happened.
     await expect(page.getByRole('heading', { name: DE_CUSTOMERS.list.title, exact: true })).toBeVisible();
-    await expect(page).toHaveTitle('Customers - Auto Core');
+    await expect(page).toHaveTitle('Kunden - Auto Core');
   });
 });

@@ -13,8 +13,8 @@
     "close": "Close"
   },
   "peek": {
-    "openInFull": "Open in full",
-    "actionsHeading": "Actions"
+    "openInFull": "Open",
+    "moreActions": "More actions"
   },
   "documentSave": {
     "saving": "Saving…",
@@ -106,7 +106,46 @@
     "totalItems": "Total items",
     "emptyWidgets": "No widgets yet. Open a list view, apply filters, then click Add to dashboard.",
     "sourceUnavailable": "Widget source is no longer available.",
-    "unknownGroup": "Unknown"
+    "unknownGroup": "Unknown",
+    "sources": {
+      "workshop-orders": "Workshop orders",
+      "purchase-bills": "Purchase bills",
+      "purchase-orders": "Purchase orders",
+      "sales-orders": "Sales orders",
+      "inventory": "Inventory",
+      "customers": "Customers",
+      "vendors": "Vendors",
+      "vehicles": "Vehicles",
+      "pickerl-due": "Pickerl due"
+    },
+    "fields": {
+      "orderNumber": "Order No.",
+      "orderNumberShort": "Order #",
+      "customer": "Customer",
+      "vehicleMake": "Vehicle make",
+      "status": "Status",
+      "billNumber": "Bill #",
+      "vendor": "Vendor",
+      "totalAmount": "Total amount",
+      "items": "Items",
+      "customerLastName": "Customer last name",
+      "partNumber": "Part number",
+      "description": "Description",
+      "brand": "Brand",
+      "price": "Price",
+      "type": "Type",
+      "lastName": "Last name",
+      "email": "Email",
+      "city": "City",
+      "name": "Name",
+      "accountNumber": "Account #",
+      "make": "Make",
+      "model": "Model",
+      "plate": "Plate",
+      "year": "Year",
+      "vehicle": "Vehicle",
+      "dueMonth": "Due month"
+    }
   },
   "savedViews": {
     "saveButton": "Save as sidebar view",
@@ -292,5 +331,10 @@
     "toggle": "Show or hide the sidebar",
     "mobileTitle": "Navigation",
     "mobileDescription": "Main navigation on small screens."
+  },
+  "dateField": {
+    "placeholder": "DD.MM.YYYY",
+    "openCalendar": "Open calendar",
+    "invalid": "Please enter a valid date as DD.MM.YYYY."
   }
 }

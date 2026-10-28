@@ -86,7 +86,7 @@ export function AddItemDialog() {
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('common:actions.cancel')}</Button>
                         <Button type="submit" disabled={createMutation.isPending}>
-                            {createMutation.isPending ? t('inventory:addItemDialog.creating') : t('inventory:addItemDialog.trigger')}
+                            {createMutation.isPending ? t('inventory:addItemDialog.creating') : t('inventory:addItemDialog.submit')}
                         </Button>
                     </DialogFooter>
                 </form>

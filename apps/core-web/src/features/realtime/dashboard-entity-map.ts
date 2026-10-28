@@ -15,6 +15,7 @@ import { vendorKeys } from "@/api/vendors";
 import { workshopKeys } from "@/api/workshop";
 import { authSessionKeys } from "@/api/auth-session";
 import { siteKeys } from "@/api/sites";
+import { dashboardWidgetKeys } from "@/features/dashboard-widgets/dashboard-widget-keys";
 import type {
   EntityUpdatedPayload,
   RealtimeEntityType,
@@ -24,8 +25,6 @@ type EntityInvalidationTarget = {
   dashboardSourceKeys: readonly string[];
   domainQueryKeys: readonly QueryKey[];
 };
-
-const DASHBOARD_WIDGET_DATA_KEY = "dashboard-widget-data";
 
 const workshopAndMechanicQueueKeys: readonly QueryKey[] = [
   workshopKeys.all,
@@ -158,7 +157,7 @@ export function getQueryKeysToInvalidateForEntityType(
 ): QueryKey[] {
   const target = getEntityInvalidationTarget(type);
   const dashboardQueryKeys = target.dashboardSourceKeys.map(
-    (sourceKey) => [DASHBOARD_WIDGET_DATA_KEY, sourceKey] as const,
+    (sourceKey) => dashboardWidgetKeys.source(sourceKey),
   );
   return [...dashboardQueryKeys, ...target.domainQueryKeys];
 }
@@ -175,7 +174,7 @@ export function getRealtimeResyncQueryKeys(): QueryKey[] {
   for (const target of Object.values(entityInvalidationMap)) {
     target.domainQueryKeys.forEach(add);
   }
-  [[DASHBOARD_WIDGET_DATA_KEY], authSessionKeys.all, siteKeys.all].forEach(add);
+  [dashboardWidgetKeys.all, authSessionKeys.all, siteKeys.all].forEach(add);
 
   // A key under a shorter prefix in the list is covered by it: invalidating both would restart the same refetch.
   const keys = [...unique.values()];

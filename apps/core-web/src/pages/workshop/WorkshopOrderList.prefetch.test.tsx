@@ -44,6 +44,11 @@ vi.mock('@/components/workshop/WorkshopOrderIntakeDialog', () => ({
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
   fn as unknown as ReturnType<typeof vi.fn>
 
+// The peek sheet's run context also reads the (shared, cached) workshop resources; only the order detail requests count here.
+function orderDetailRequests() {
+  return vi.mocked(fetchWithAuth).mock.calls.filter(([url]) => String(url).includes('/api/workshop/orders/order-1'))
+}
+
 describe('WorkshopOrderList row prefetch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -89,13 +94,13 @@ describe('WorkshopOrderList row prefetch', () => {
     )
 
     fireEvent.pointerEnter(screen.getByRole('button', { name: 'hover-row' }))
-    await waitFor(() => expect(fetchWithAuth).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(orderDetailRequests()).toHaveLength(1))
     expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
       queryKey: workshopKeys.detail('order-1'),
       staleTime: workshopApi.WORKSHOP_ORDER_DETAIL_STALE_MS,
     })
 
     fireEvent.pointerEnter(screen.getByRole('button', { name: 'hover-row' }))
-    await waitFor(() => expect(fetchWithAuth).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(orderDetailRequests()).toHaveLength(1))
   })
 })

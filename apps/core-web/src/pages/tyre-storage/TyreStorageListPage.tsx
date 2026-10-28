@@ -8,6 +8,7 @@ import { DataTableColumnHeader } from '@/components/data-table/data-table-column
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -251,21 +252,21 @@ export default function TyreStorageListPage() {
           </div>
           <div className="space-y-1">
             <Label>{t('tyreStorage.list.filters.dueFrom')}</Label>
-            <Input
-              type="date"
+            <DateField
+              aria-label={t('tyreStorage.list.filters.dueFrom')}
               className="min-h-11"
               value={dueFrom}
-              onChange={(e) => setDueFrom(e.target.value)}
+              onChange={setDueFrom}
               disabled={viewMode === 'due'}
             />
           </div>
           <div className="space-y-1">
             <Label>{t('tyreStorage.list.filters.dueTo')}</Label>
-            <Input
-              type="date"
+            <DateField
+              aria-label={t('tyreStorage.list.filters.dueTo')}
               className="min-h-11"
               value={dueTo}
-              onChange={(e) => setDueTo(e.target.value)}
+              onChange={setDueTo}
               disabled={viewMode === 'due'}
             />
           </div>

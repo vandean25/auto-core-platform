@@ -1,7 +1,7 @@
 {
   "banner": {
     "title": "Agenten-Überwachung aktiv",
-    "description": "Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung vor der Ausführung. HUMAN_ONLY Aktionen müssen manuell durchgeführt werden.",
+    "description": "Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung vor der Ausführung. Aktionen der Stufe „Nur manuell“ müssen manuell durchgeführt werden.",
     "badge": "Überwachungsmodus"
   },
   "header": {
@@ -59,7 +59,7 @@
     "reject": "Ablehnen",
     "rejecting": "Wird abgelehnt...",
     "doManually": "Manuell durchführen",
-    "humanOnlyNotice": "Diese Aktion ist als HUMAN_ONLY eingestuft und kann nicht automatisiert ausgeführt werden. Bitte führen Sie diesen Vorgang manuell durch.",
+    "humanOnlyNotice": "Diese Aktion ist als „Nur manuell“ eingestuft und kann nicht automatisiert ausgeführt werden. Bitte führen Sie diesen Vorgang manuell durch.",
     "emptyState": "Keine Vorschläge in der Warteschlange",
     "emptyStateDesc": "Neue Agenten-Vorschläge erscheinen hier, sobald sie zur Freigabe eingereicht werden.",
     "changePreview": "Geplante Änderungen",

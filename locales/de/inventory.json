@@ -86,7 +86,7 @@
     "notAvailable": "k. A."
   },
   "addItemDialog": {
-    "trigger": "+ Artikel",
+    "trigger": "Artikel",
     "title": "Lagerartikel anlegen",
     "sku": "SKU / MPN",
     "skuPlaceholder": "z. B. OF-1001",
@@ -95,6 +95,7 @@
     "namePlaceholder": "z. B. Ölfilter",
     "costPrice": "Einkaufspreis (€)",
     "retailPrice": "Verkaufspreis (€)",
+    "submit": "Anlegen",
     "creating": "Wird angelegt…",
     "createFailed": "Artikel konnte nicht angelegt werden",
     "created": "Lagerartikel angelegt"

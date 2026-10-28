@@ -780,6 +780,42 @@ describe("RealtimeDashboardSyncProvider", () => {
     });
   });
 
+  it("ignores a site context update that repeats the active site of the cached session", async () => {
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(authSessionKeys.user("user-1"), { activeSiteId: "site-1" });
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(
+        SITE_CONTEXT_UPDATED_EVENT,
+        expect.any(Function),
+      );
+    });
+
+    const siteContextHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === SITE_CONTEXT_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined;
+
+    await act(async () => {
+      siteContextHandler?.({ siteId: "site-1", timestamp: "2026-10-28T10:00:00.000Z" });
+    });
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      siteContextHandler?.({ siteId: "site-2", timestamp: "2026-10-28T10:00:01.000Z" });
+    });
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: workshopKeys.all,
+        refetchType: "active",
+      });
+    });
+  });
+
   it("drops site-directory and /me/sites caches on site access scope update", async () => {
     const queryClient = createQueryClient();
     const invalidateQueries = vi

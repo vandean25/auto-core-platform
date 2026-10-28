@@ -448,7 +448,7 @@ describe('AgentSupervisionPage', () => {
     expect(screen.getByText(deAgent.approvals.doManually)).toBeInTheDocument()
     expect(
       screen.getByText(
-        /Diese Aktion ist als HUMAN_ONLY eingestuft und kan/i,
+        /Diese Aktion ist als „Nur manuell“ eingestuft und kan/i,
       ),
     ).toBeInTheDocument()
   })
@@ -607,8 +607,8 @@ describe('AgentSupervisionPage', () => {
       }),
     )
 
-    fireEvent.change(startDateInput, { target: { value: '2026-10-01' } })
-    fireEvent.change(endDateInput, { target: { value: '2026-10-04' } })
+    fireEvent.change(startDateInput, { target: { value: '01.10.2026' } })
+    fireEvent.change(endDateInput, { target: { value: '04.10.2026' } })
 
     expect(vi.mocked(useAgentActions)).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -616,6 +616,24 @@ describe('AgentSupervisionPage', () => {
         endDate: new Date(2026, 9, 4, 23, 59, 59, 999).toISOString(),
       }),
     )
+  })
+
+  it('labels Activity tab status and tier filter options in German instead of raw enum values', () => {
+    renderSupervisionPage()
+    fireEvent.click(screen.getByTestId('tab-activity'))
+
+    const optionLabels = (testId: string) =>
+      within(screen.getByTestId(testId))
+        .getAllByRole('option')
+        .map((option) => option.textContent)
+
+    expect(optionLabels('filter-status-select')).toEqual(
+      expect.arrayContaining(['Ausgeführt', 'Fehlgeschlagen', 'Abgelehnt']),
+    )
+    expect(optionLabels('filter-tier-select')).toEqual(
+      expect.arrayContaining(['Nur manuell', 'Nicht bewertet']),
+    )
+    expect(optionLabels('filter-tier-select')).not.toContain('HUMAN_ONLY')
   })
 
   it('passes Activity tab agent search text to useAgentActions as agentId', () => {

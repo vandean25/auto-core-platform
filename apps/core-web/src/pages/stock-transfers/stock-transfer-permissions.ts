@@ -7,6 +7,19 @@ export function buildMemberSiteIdSet(siteIds: string[] | undefined) {
   return new Set(siteIds ?? [])
 }
 
+/**
+ * The destination site a new transfer starts with: the active site, else the first site of the user, but only a
+ * site that is in the directory (the options of the select). Otherwise '' so the select shows its placeholder.
+ */
+export function resolveDefaultToSiteId(
+  directorySiteIds: string[],
+  activeSiteId: string | null | undefined,
+  mySiteIds: string[],
+) {
+  const candidates = [activeSiteId, mySiteIds[0]]
+  return candidates.find((id): id is string => Boolean(id) && directorySiteIds.includes(id as string)) ?? ''
+}
+
 export function hasSiteMembership(siteId: string, memberSiteIds: Set<string>) {
   return memberSiteIds.has(siteId)
 }

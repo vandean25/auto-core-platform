@@ -1,4 +1,5 @@
 import { useLayoutEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { getRouteDocumentTitle, getRouteSectionTitle } from '@/lib/document-title'
 
@@ -12,12 +13,13 @@ import { getRouteDocumentTitle, getRouteSectionTitle } from '@/lib/document-titl
  */
 export function RouteTitle() {
   const { pathname } = useLocation()
+  const { t, i18n } = useTranslation('nav')
 
   useLayoutEffect(() => {
     document.title = getRouteDocumentTitle(pathname)
-  }, [pathname])
+  }, [pathname, i18n.language])
 
   // A plain polite live region, not role="status": other status regions (e.g. the version banner)
   // must keep their own role query and count.
-  return <p aria-live="polite" className="sr-only">{`Navigated to ${getRouteSectionTitle(pathname)}`}</p>
+  return <p aria-live="polite" className="sr-only">{t('aria.navigatedTo', { title: getRouteSectionTitle(pathname) })}</p>
 }
