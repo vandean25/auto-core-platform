@@ -42,6 +42,7 @@ function VehicleDetailContent({ vehicle }: { vehicle: VehicleDetailResponse }) {
           <Button
             variant='ghost'
             size='icon'
+            className='shrink-0 max-sm:min-w-11'
             onClick={() => navigate(-1)}
             aria-label={t('detail.aria.goBack')}
           >

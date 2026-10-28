@@ -46,11 +46,12 @@ test.describe('Vehicle detail on a phone (AUT-792)', () => {
       const lineHeight = await title.evaluate((node) => parseFloat(getComputedStyle(node).lineHeight))
       expect((await title.boundingBox())!.height).toBeLessThanOrEqual(lineHeight * 2 + 1)
 
-      for (const name of [deVehicles.detail.editVehicle, deVehicles.detail.serviceOrder]) {
+      for (const name of [deVehicles.detail.aria.goBack, deVehicles.detail.editVehicle, deVehicles.detail.serviceOrder]) {
         const box = (await page.getByRole('button', { name }).first().boundingBox())!
         expect(box.x).toBeGreaterThanOrEqual(0)
         expect(box.x + box.width).toBeLessThanOrEqual(width)
         expect(box.height).toBeGreaterThanOrEqual(44)
+        expect(box.width).toBeGreaterThanOrEqual(44)
       }
       const titleBox = (await title.boundingBox())!
       const editBox = (await page.getByRole('button', { name: deVehicles.detail.editVehicle }).boundingBox())!
@@ -78,6 +79,17 @@ test.describe('Vehicle detail on a phone (AUT-792)', () => {
     expect(await controlsOutsideTheirCard(section.locator('xpath=ancestor::div[contains(@class,"rounded")][1]'))).toEqual([])
     expect(await controlsShorterThan44(section)).toEqual([])
     await expectNoPageScroll(page)
+  })
+
+  test('desktop keeps the tab list as an inline pill that starts at the content edge', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await openVehicle(page)
+
+    const tabs = page.getByRole('tablist').first()
+    const tabsBox = (await tabs.boundingBox())!
+    const firstTab = (await tabs.getByRole('tab').first().boundingBox())!
+    expect(firstTab.x - tabsBox.x).toBeLessThan(12)
+    expect(tabsBox.width).toBeLessThan(560)
   })
 
   test('desktop keeps title and actions on one row', async ({ page }) => {
