@@ -5,10 +5,15 @@ import type { ImportJob } from '@/api/imports'
 import { importKeys } from '@/api/imports'
 import { fetchWithAuth } from '@/api/client'
 
-const POLL_MS = 2000
+const POLL_START_MS = 2000
+const POLL_MAX_MS = 16000
 
-function isInProgress(job: ImportJob | null | undefined): boolean {
-  return job?.status === 'APPLYING'
+function pollDelayMs(attempt: number): number {
+  return Math.min(POLL_START_MS * 2 ** attempt, POLL_MAX_MS)
+}
+
+function shouldPoll(job: ImportJob | null | undefined): boolean {
+  return job?.status === 'APPLYING' && !job.stalled
 }
 
 async function fetchImportJob(id: string): Promise<ImportJob> {
@@ -19,13 +24,22 @@ async function fetchImportJob(id: string): Promise<ImportJob> {
   return response.json() as Promise<ImportJob>
 }
 
-/** Polls a background import job until dry-run or apply finishes. */
+/** Polls a background import job until it finishes, stalls, or fails. */
 export function useImportJobPolling(jobId: string | null) {
+  const attempt = React.useRef(0)
+  React.useEffect(() => {
+    attempt.current = 0
+  }, [jobId])
   return useQuery({
     queryKey: jobId ? importKeys.job(jobId) : ['imports', 'job', 'none'],
     enabled: Boolean(jobId),
     queryFn: () => fetchImportJob(jobId!),
-    refetchInterval: (query) => (isInProgress(query.state.data) ? POLL_MS : false),
+    refetchInterval: (query) => {
+      if (!shouldPoll(query.state.data)) return false
+      const delay = pollDelayMs(attempt.current)
+      attempt.current += 1
+      return delay
+    },
   })
 }
 

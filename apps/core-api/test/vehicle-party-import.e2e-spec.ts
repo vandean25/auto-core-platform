@@ -138,7 +138,7 @@ describe('Vehicle party and due date import (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${bearer}`)
-      .expect(200);
+      .expect(202);
     return response.body as { totals: Record<string, number> };
   }
 

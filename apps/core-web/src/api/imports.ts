@@ -62,14 +62,6 @@ async function readErrorMessage(response: Response, fallback: string) {
   return payload?.message ?? fallback
 }
 
-/** Apply lost the race to a live lease. The caller refreshes the job. */
-export class ImportApplyInProgressError extends Error {
-  constructor() {
-    super('IMPORT_APPLY_IN_PROGRESS')
-    this.name = 'ImportApplyInProgressError'
-  }
-}
-
 function applyJobId(payload: ApplyImportJobPayload): string {
   return typeof payload === 'string' ? payload : payload.jobId
 }
@@ -86,9 +78,6 @@ function applyRequestInit(payload: ApplyImportJobPayload): RequestInit {
 async function assertApplyAccepted(response: Response): Promise<void> {
   if (response.ok) return
   const payload = await readErrorPayload(response)
-  if (response.status === 409 && payload?.code === 'IMPORT_APPLY_IN_PROGRESS') {
-    throw new ImportApplyInProgressError()
-  }
   throw new Error(payload?.message ?? 'Failed to apply import')
 }
 

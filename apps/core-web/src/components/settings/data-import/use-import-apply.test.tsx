@@ -44,18 +44,14 @@ describe('useImportApply stalled resume', () => {
     vi.mocked(fetchWithAuth).mockReset()
   })
 
-  it('posts apply for a stalled job and refreshes it on 409', async () => {
+  it('posts apply for a stalled job and keeps polling when apply is accepted', async () => {
+    const onApplied = vi.fn()
     vi.mocked(fetchWithAuth).mockResolvedValue({
-      ok: false,
-      status: 409,
-      json: async () => ({
-        code: 'IMPORT_APPLY_IN_PROGRESS',
-        message: 'Import job is already being applied',
-        leaseExpiresAt: '2026-10-28T03:00:00.000Z',
-      }),
+      ok: true,
+      status: 202,
+      json: async () => ({ ...stalledJob, stalled: false, status: 'APPLYING' }),
     } as Response)
     const client = new QueryClient()
-    const invalidate = vi.spyOn(client, 'invalidateQueries')
     const { result } = renderHook(
       () =>
         useImportApply({
@@ -65,7 +61,7 @@ describe('useImportApply stalled resume', () => {
           errorThreshold: 0,
           acceptAllPriceJumps: false,
           acceptedRowNumbers: [],
-          onApplied: vi.fn(),
+          onApplied,
         }),
       { wrapper: wrapper(client) },
     )
@@ -77,11 +73,9 @@ describe('useImportApply stalled resume', () => {
       '/api/imports/job-stalled/apply',
       expect.objectContaining({ method: 'POST' }),
     )
-    expect(toast.error).toHaveBeenCalledWith(
-      'Die Anwendung läuft noch. Die Lease ist aktiv.',
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(onApplied).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'job-stalled', status: 'APPLYING' }),
     )
-    expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ['imports', 'job', 'job-stalled'],
-    })
   })
 })

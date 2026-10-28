@@ -292,8 +292,6 @@ describe('import apply final totals (e2e)', () => {
   }, 120_000);
 
   it('resumes a background apply across batches and stores grouped totals', async () => {
-    const previous = process.env.IMPORT_SYNC_MAX_ROW_COUNT;
-    process.env.IMPORT_SYNC_MAX_ROW_COUNT = '1';
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const store = new ImportJobStore(prisma);
     const importService = app.get(ImportService);
@@ -367,9 +365,6 @@ describe('import apply final totals (e2e)', () => {
       expect(
         totals.create + totals.error + totals.skip + totals.update,
       ).toBe(rowCount);
-    } finally {
-      if (previous === undefined) delete process.env.IMPORT_SYNC_MAX_ROW_COUNT;
-      else process.env.IMPORT_SYNC_MAX_ROW_COUNT = previous;
     }
   }, 120_000);
 

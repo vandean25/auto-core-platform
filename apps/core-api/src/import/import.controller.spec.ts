@@ -15,6 +15,7 @@ describe('ImportController', () => {
     listJobRows: jest.fn(),
     downloadErrorRowsCsv: jest.fn(),
     applyJob: jest.fn(),
+    applyJobHttp: jest.fn(),
     getTemplate: jest.fn(),
   };
 
@@ -104,26 +105,36 @@ describe('ImportController', () => {
   });
 
   describe('apply', () => {
-    it('forwards apply options body to importService.applyJob', async () => {
-      mockImportService.applyJob.mockResolvedValue({ id: 'job-1', status: 'APPLIED' });
+    it('forwards apply options body and returns 202 when the job is queued', async () => {
+      mockImportService.applyJobHttp.mockResolvedValue({
+        httpStatus: 202,
+        job: { id: 'job-1', status: 'APPLYING' },
+      });
+      const res = { status: jest.fn() };
 
       const body = {
         accept_all_price_jumps: true,
         accepted_row_numbers: [1, 2],
       };
 
-      const result = await controller.apply('job-1', body);
+      const result = await controller.apply('job-1', body, res as never);
 
-      expect(mockImportService.applyJob).toHaveBeenCalledWith('job-1', body);
-      expect(result).toEqual({ id: 'job-1', status: 'APPLIED' });
+      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith('job-1', body);
+      expect(res.status).toHaveBeenCalledWith(202);
+      expect(result).toEqual({ id: 'job-1', status: 'APPLYING' });
     });
 
-    it('handles apply without body', async () => {
-      mockImportService.applyJob.mockResolvedValue({ id: 'job-1', status: 'APPLIED' });
+    it('returns 200 when an applied job has nothing left to retry', async () => {
+      mockImportService.applyJobHttp.mockResolvedValue({
+        httpStatus: 200,
+        job: { id: 'job-1', status: 'APPLIED' },
+      });
+      const res = { status: jest.fn() };
 
-      const result = await controller.apply('job-1');
+      const result = await controller.apply('job-1', undefined, res as never);
 
-      expect(mockImportService.applyJob).toHaveBeenCalledWith('job-1', undefined);
+      expect(mockImportService.applyJobHttp).toHaveBeenCalledWith('job-1', undefined);
+      expect(res.status).toHaveBeenCalledWith(200);
       expect(result).toEqual({ id: 'job-1', status: 'APPLIED' });
     });
   });

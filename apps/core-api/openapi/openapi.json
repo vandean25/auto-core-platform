@@ -14925,7 +14925,7 @@
           }
         ],
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -14944,9 +14944,19 @@
                 }
               }
             }
+          },
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
           }
         },
-        "summary": "Apply a completed dry-run import job",
+        "summary": "Enqueue apply for a dry-run import job and return the current job",
         "tags": [
           "imports"
         ]

@@ -4,8 +4,6 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import {
-  ImportApplyInProgressError,
-  importKeys,
   type ImportJob,
   useApplyImportJob,
   type ApplyImportJobPayload,
@@ -136,12 +134,6 @@ export function useImportApply(params: {
       params.onApplied(result)
       setConfirmApplyOpen(false)
     } catch (error) {
-      if (error instanceof ImportApplyInProgressError) {
-        toast.error(t('dataImport.toast.applyLeaseLive'))
-        void queryClient.invalidateQueries({ queryKey: importKeys.job(job.id) })
-        setConfirmApplyOpen(false)
-        return
-      }
       toast.error(getErrorMessage(error, t('dataImport.toast.applyFailed')))
     } finally {
       applyInFlightRef.current = false

@@ -4659,7 +4659,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Apply a completed dry-run import job */
+        /** Enqueue apply for a dry-run import job and return the current job */
         post: operations["ImportController_apply"];
         delete?: never;
         options?: never;
@@ -20969,13 +20969,21 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["ApplyImportJobDto"];
             };
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1152,7 +1152,6 @@
       "dryRunFailed": "Dry-run failed",
       "applied": "Import applied successfully",
       "applyFailed": "Apply failed",
-      "applyLeaseLive": "Apply is still running. The lease is still live.",
       "cancelFailed": "Could not cancel import",
       "templateFailed": "Template download failed",
       "errorCsvFailed": "Error CSV download failed"
