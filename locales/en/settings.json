@@ -1326,10 +1326,6 @@
       "WORKSHOP_TASK_WAITING_CUSTOMER": {
         "label": "Waiting for the customer",
         "hint": "A task is paused because the customer needs to be asked."
-      },
-      "WORKSHOP_ORDER_READY": {
-        "label": "Order ready",
-        "hint": "The vehicle is ready for pickup."
       }
     },
     "quietHours": {

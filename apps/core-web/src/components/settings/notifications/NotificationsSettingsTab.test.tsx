@@ -27,7 +27,7 @@ vi.mock('@/features/push/push-device', () => ({
   disablePushOnThisDevice: mocks.disablePushOnThisDevice,
 }))
 vi.mock('@/api/push', () => ({
-  PUSH_USER_EVENT_TYPES: ['CUSTOMER_ESTIMATE_DECIDED', 'WORKSHOP_TASK_WAITING_CUSTOMER', 'WORKSHOP_ORDER_READY'],
+  PUSH_USER_EVENT_TYPES: ['CUSTOMER_ESTIMATE_DECIDED', 'WORKSHOP_TASK_WAITING_CUSTOMER'],
   pushKeys: { devices: () => ['push', 'devices'] },
   usePushDevices: () => ({ data: mocks.devices }),
   usePushPreferences: () => ({ data: mocks.preferences }),

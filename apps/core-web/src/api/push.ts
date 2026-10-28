@@ -8,11 +8,11 @@ export type PushPreferences = components['schemas']['PushPreferencesDto']
 export type PushUserEventType = components['schemas']['PushUserEventType']
 export type RegisterPushDevicePayload = components['schemas']['RegisterPushDeviceDto']
 
-export const PUSH_USER_EVENT_TYPES: readonly PushUserEventType[] = [
+/** The events the server sends today. WORKSHOP_ORDER_READY is accepted by the API but not emitted yet, so it is not offered. */
+export const PUSH_USER_EVENT_TYPES = [
   'CUSTOMER_ESTIMATE_DECIDED',
   'WORKSHOP_TASK_WAITING_CUSTOMER',
-  'WORKSHOP_ORDER_READY',
-]
+] as const satisfies readonly PushUserEventType[]
 
 export const pushKeys = {
   all: ['push'] as const,
