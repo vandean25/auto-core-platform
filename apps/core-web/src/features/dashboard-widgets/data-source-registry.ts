@@ -9,6 +9,8 @@ type WidgetSourceDefinition = {
   key: string
   pathPrefix: string
   buildApiUrl: (queryParams: DataTableQueryParams) => string
+  /** False when the API request carries no search term, so the widget's search is applied on the client only. */
+  searchSentToApi?: false
 }
 
 const widgetSourceDefinitions: WidgetSourceDefinition[] = [
@@ -100,6 +102,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
   {
     key: 'pickerl-due',
     pathPrefix: '/vehicles/pickerl-due',
+    searchSentToApi: false,
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
@@ -149,6 +152,11 @@ export type WidgetRequest = {
   apiUrl: string
   /** Query params parsed from the widget href; they are applied on the client over the fetched rows. */
   queryParams: DataTableQueryParams
+  /**
+   * The client narrows the fetched rows by something the server total does not reflect: any `filter_*` value (the API
+   * may not apply it, or only as a looser search term) or a search the API request does not carry.
+   */
+  hasClientOnlyFilters: boolean
 }
 
 /** The API request behind a widget href, or null when no widget source serves the href. */
@@ -164,7 +172,12 @@ export function resolveWidgetRequest(href: string): WidgetRequest | null {
     pageSize: MAX_LIST_PAGE_SIZE,
   }
 
-  return { apiUrl: source.buildApiUrl(queryForDashboard), queryParams }
+  const hasClientOnlySearch = Boolean(queryParams.search?.trim()) && source.searchSentToApi === false
+  return {
+    apiUrl: source.buildApiUrl(queryForDashboard),
+    queryParams,
+    hasClientOnlyFilters: queryParams.filters.length > 0 || hasClientOnlySearch,
+  }
 }
 
 /** Rows of one API URL, unfiltered: widgets with different client-side filters share them. */

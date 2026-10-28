@@ -187,6 +187,29 @@ describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => 
     expect(screen.queryByTestId('widget-partial-empty')).not.toBeInTheDocument()
   })
 
+  it('shows 50+ for a Pickerl search the API request does not carry, although every fetched row matches it', async () => {
+    const vehicles = Array.from({ length: 50 }, (_, index) => ({ id: `p${index}`, plate: `W-${index}`, make: 'VW', model: 'Golf' }))
+    mocks.widgets = [widget('pickerl', '/vehicles/pickerl-due?search=W-', { sourceKey: 'pickerl-due' })]
+    respondWithPage(vehicles, 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('50+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75')
+    expect(requestedUrls()[0]).not.toContain('search=')
+  })
+
+  it('still trusts the server total for a search the API request carries', async () => {
+    mocks.widgets = [widget('search', '/vehicles?search=M')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('75')).toBeInTheDocument())
+    expect(requestedUrls()[0]).toContain('search=M')
+    expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
+  })
+
   it('says that a grouped widget is calculated from the first 50 of 75 entries', async () => {
     mocks.widgets = [widget('donut', '/vehicles', { displayType: 'donut', groupByField: 'make' })]
     respondWithPage(manyVehicles(50), 75)

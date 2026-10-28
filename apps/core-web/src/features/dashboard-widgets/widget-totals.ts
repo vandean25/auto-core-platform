@@ -8,7 +8,7 @@ export type WidgetData = {
   fetchedCount: number
   /** The matches the server reports for the request (`meta.total`). */
   total: number
-  /** The widget carries `filter_*` values: the API may not apply them, so the client narrows the rows itself. */
+  /** The client narrows the rows by a `filter_*` value or a search the server total does not reflect. */
   hasClientFilters: boolean
 }
 
@@ -19,7 +19,8 @@ export function isTruncated({ fetchedCount, total }: Pick<WidgetData, 'fetchedCo
 
 /**
  * The number a count widget shows. Over a truncated page the server's total is exact only when nothing narrowed the
- * rows on the client: no `filter_*` values on the widget (they may be applied client-side only) and no row dropped.
+ * rows on the client: nothing the server total does not reflect (`filter_*` values, a search the API request does not
+ * carry) and no row dropped.
  * Otherwise only a lower bound is known, and the widget says so.
  */
 export function widgetCount(data: WidgetData): { value: number; isLowerBound: boolean } {

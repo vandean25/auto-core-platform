@@ -34,7 +34,7 @@ function useWidgetRows(widget: DashboardWidget) {
       rows: filterWidgetRows(result.rows, request),
       fetchedCount: result.rows.length,
       total: result.total,
-      hasClientFilters: (request?.queryParams.filters.length ?? 0) > 0,
+      hasClientFilters: request?.hasClientOnlyFilters ?? false,
     }),
     [request],
   )
