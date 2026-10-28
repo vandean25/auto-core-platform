@@ -205,3 +205,12 @@ export function isEntityUpdatedPayload(
     candidate.action === "DELETED"
   );
 }
+
+/** Dashboard widgets refetch whole row lists, so a burst of events (an import) refetches them less often than the domain queries. */
+const DASHBOARD_WIDGET_WINDOW_MS = 10_000
+const DOMAIN_QUERY_WINDOW_MS = 2_000
+
+/** How long realtime events for this query key are coalesced into one refetch. */
+export function getRealtimeInvalidationWindowMs(queryKey: QueryKey): number {
+  return queryKey[0] === dashboardWidgetKeys.all[0] ? DASHBOARD_WIDGET_WINDOW_MS : DOMAIN_QUERY_WINDOW_MS;
+}
