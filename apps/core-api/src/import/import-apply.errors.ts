@@ -41,6 +41,32 @@ export function describeImportApplyCause(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown';
 }
 
+export type ImportJobFailureDetail = {
+  code: string;
+  message: string;
+};
+
+/** The import error code and message of a rejected request, for the failed job. */
+export function readImportFailureDetail(
+  error: unknown,
+): ImportJobFailureDetail | undefined {
+  if (!(error instanceof HttpException)) {
+    return undefined;
+  }
+  const response = error.getResponse();
+  const body =
+    typeof response === 'object' && response !== null
+      ? (response as Record<string, unknown>)
+      : {};
+  if (typeof body.code !== 'string') {
+    return undefined;
+  }
+  return {
+    code: body.code,
+    message: typeof body.message === 'string' ? body.message : error.message,
+  };
+}
+
 export class ApplyRowStaleError extends Error {
   constructor(message = 'Import row plan is stale') {
     super(message);

@@ -20,6 +20,7 @@ import {
 import {
   ImportApplyRetryExhaustedError,
   type ImportApplyFailureReason,
+  type ImportJobFailureDetail,
 } from './import-apply.errors.js';
 import {
   delayMs,
@@ -924,7 +925,7 @@ export class ImportJobStore {
     jobId: string,
     applyFailureReason: ImportApplyFailureReason = 'apply_error',
     totals?: ImportJobTotals,
-    cause?: string,
+    failure?: ImportJobFailureDetail,
   ) {
     const job = await this.prisma.importJob.findFirst({
       where: { tenant_id: tenantId, id: jobId },
@@ -933,7 +934,12 @@ export class ImportJobStore {
     const options = {
       ...((job?.options_json as Record<string, unknown> | null) ?? {}),
       apply_failure_reason: applyFailureReason,
-      ...(cause ? { apply_failure_cause: cause } : {}),
+      ...(failure
+        ? {
+            apply_failure_code: failure.code,
+            apply_failure_message: failure.message,
+          }
+        : {}),
     };
     return this.prisma.importJob.updateMany({
       where: {

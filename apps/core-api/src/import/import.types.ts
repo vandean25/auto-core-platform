@@ -14,6 +14,9 @@ export type ImportJobOptions = {
   cutover_date?: string;
   apply_failure_reason?:
     'retry_exhausted' | 'poison_cap' | 'apply_error' | 'apply_seq_missing';
+  /** Import error code of the request that failed the job, when it carried one. */
+  apply_failure_code?: string;
+  apply_failure_message?: string;
   /** Present only while a re-apply is being locked; copied onto the worker and then removed. */
   technical_retry_row_nos?: number[];
   /** ERROR rows whose code is technical. Set on read for an APPLIED job. */
