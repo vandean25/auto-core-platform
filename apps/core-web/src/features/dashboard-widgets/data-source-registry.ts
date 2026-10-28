@@ -3,6 +3,7 @@ import { fetchWithAuth } from '@/api/client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { applyClientFiltersAndSort, parseDataTableQueryParams } from '@/features/dashboard-widgets/utils'
 import { isAbortError } from '@/lib/error-utils'
+import { MAX_LIST_PAGE_SIZE, MAX_VEHICLE_LIST_PAGE_SIZE } from '@/lib/list-page-size'
 
 type WidgetSourceDefinition = {
   key: string
@@ -33,7 +34,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_LIST_PAGE_SIZE))
       if (queryParams.sortField) params.set('sortBy', queryParams.sortField)
       if (queryParams.sortDirection) params.set('order', queryParams.sortDirection)
       const status = queryParams.filters.find((filter) => filter.field === 'status')?.value
@@ -64,7 +65,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_LIST_PAGE_SIZE))
       const nameFilter = queryParams.filters.find((filter) => filter.field === 'name')?.value
       const effectiveSearch = queryParams.search ?? nameFilter
       if (effectiveSearch) params.set('search', effectiveSearch)
@@ -79,7 +80,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_LIST_PAGE_SIZE))
       if (queryParams.search) params.set('search', queryParams.search)
       if (queryParams.sortField) params.set('sortField', queryParams.sortField)
       if (queryParams.sortDirection) params.set('sortDirection', queryParams.sortDirection)
@@ -102,7 +103,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) => {
       const params = new URLSearchParams()
       params.set('page', '1')
-      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      params.set('pageSize', String(MAX_VEHICLE_LIST_PAGE_SIZE))
       const windowFilter = queryParams.filters.find((filter) => filter.field === 'window')?.value
       if (windowFilter) params.set('window', windowFilter)
       const statusFilter = queryParams.filters.find((filter) => filter.field === 'status')?.value
@@ -116,6 +117,7 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
     buildApiUrl: (queryParams) =>
       buildDataTableUrl('/api/vehicles', queryParams, {
         searchFallbackFilterFields: ['make', 'model', 'vin', 'plate'],
+        maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE,
       }),
   },
 ]
@@ -150,7 +152,7 @@ export function resolveWidgetRequest(href: string): WidgetRequest | null {
   const queryForDashboard: DataTableQueryParams = {
     ...queryParams,
     page: 1,
-    pageSize: Math.max(200, queryParams.pageSize),
+    pageSize: MAX_LIST_PAGE_SIZE,
   }
 
   return { apiUrl: source.buildApiUrl(queryForDashboard), queryParams }

@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useSearchParams } from "react-router-dom"
+import { MAX_LIST_PAGE_SIZE, clampPageSize } from "@/lib/list-page-size"
 import type {
   ColumnFiltersState,
   PaginationState,
@@ -8,6 +9,8 @@ import type {
 
 interface UseDataTableQueryOptions {
   defaultPageSize?: number
+  /** Largest page size the URL may ask for: a hand-edited or old link must not request a page the API refuses. */
+  maxPageSize?: number
   debounceMs?: number
   initialSorting?: SortingState
 }
@@ -39,7 +42,11 @@ interface ParsedUrlTableState {
   sorting: SortParam[]
 }
 
-function parseUrlTableState(searchParams: URLSearchParams, defaultPageSize: number): ParsedUrlTableState {
+function parseUrlTableState(
+  searchParams: URLSearchParams,
+  defaultPageSize: number,
+  maxPageSize: number,
+): ParsedUrlTableState {
   const page = Number(searchParams.get("page") ?? 1)
   const pageSize = Number(searchParams.get("pageSize") ?? defaultPageSize)
   const search = searchParams.get("search") ?? ""
@@ -62,7 +69,7 @@ function parseUrlTableState(searchParams: URLSearchParams, defaultPageSize: numb
 
   return {
     page: Number.isFinite(page) && page > 0 ? page : 1,
-    pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : defaultPageSize,
+    pageSize: Number.isFinite(pageSize) && pageSize > 0 ? clampPageSize(pageSize, maxPageSize) : defaultPageSize,
     search,
     filters,
     sorting,
@@ -175,14 +182,14 @@ function buildQueryParams(
 
 export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
-  const { defaultPageSize = 25, debounceMs = 500, initialSorting = [] } = options
+  const { defaultPageSize = 25, maxPageSize = MAX_LIST_PAGE_SIZE, debounceMs = 500, initialSorting = [] } = options
   const searchParamsKey = searchParams.toString()
   const initialSortingKey = JSON.stringify(initialSorting)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableInitialSorting = React.useMemo<SortingState>(() => initialSorting, [initialSortingKey])
 
   // Initial State from URL
-  const initialParsed = parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize)
+  const initialParsed = parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize, maxPageSize)
   const initialState = convertParsedToTableState(initialParsed, stableInitialSorting)
 
   // Table State
@@ -193,7 +200,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
 
   // Keep table state in sync when URL query changes from navigation (for saved views/history).
   React.useEffect(() => {
-    const nextParsed = parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize)
+    const nextParsed = parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize, maxPageSize)
     const nextState = convertParsedToTableState(nextParsed, stableInitialSorting)
 
     setColumnFilters((previous) => (areColumnFiltersEqual(previous, nextState.columnFilters) ? previous : nextState.columnFilters))
@@ -205,7 +212,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
       return nextState.pagination
     })
     setGlobalFilter((previous) => (previous === nextState.search ? previous : nextState.search))
-  }, [searchParamsKey, defaultPageSize, stableInitialSorting])
+  }, [searchParamsKey, defaultPageSize, maxPageSize, stableInitialSorting])
 
   // The debounced URL write reads the latest URL from a ref, not from its closure.
   const latestSearchParamsRef = React.useRef(searchParams)
@@ -229,7 +236,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
       if (sameSearchParams(next, current)) return
       // A URL that already describes the table (only spelt differently, e.g. `page=1`) is tidied in place; a push would
       // leave a duplicate history entry behind.
-      const shown = convertParsedToTableState(parseUrlTableState(current, defaultPageSize), stableInitialSorting)
+      const shown = convertParsedToTableState(parseUrlTableState(current, defaultPageSize, maxPageSize), stableInitialSorting)
       const tidiesUrlOnly =
         areColumnFiltersEqual(shown.columnFilters, columnFilters) &&
         areSortingEqual(shown.sorting, sorting) &&
@@ -240,7 +247,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
     }, debounceMs)
 
     return () => clearTimeout(timeout)
-  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, debounceMs, stableInitialSorting])
+  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, maxPageSize, debounceMs, stableInitialSorting])
 
   return {
     columnFilters,

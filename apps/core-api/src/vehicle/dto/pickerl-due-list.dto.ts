@@ -27,7 +27,13 @@ export class PickerlDueListQueryDto {
   @Min(1)
   page?: number;
 
-  @ApiProperty({ required: false, minimum: 1, type: Number })
+  @ApiProperty({
+    required: false,
+    minimum: 1,
+    maximum: 50,
+    description: 'Larger values are clamped to 50.',
+    type: Number,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

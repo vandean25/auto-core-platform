@@ -4,6 +4,7 @@ import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
 import { customerKeys } from './customers'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { MAX_VEHICLE_LIST_PAGE_SIZE, clampPageSize } from '@/lib/list-page-size'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
 type PickerlDuePaginatedResponseDto = components['schemas']['PickerlDuePaginatedResponseDto']
@@ -123,6 +124,7 @@ export function useVehicles(queryParams?: DataTableQueryParams) {
     queryFn: async () => {
       const url = buildDataTableUrl('/api/vehicles', queryParams, {
         searchFallbackFilterFields: ['make', 'model', 'vin', 'plate'],
+        maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE,
       })
       const response = await fetchWithAuth(url)
       if (!response.ok) throw new Error('Failed to fetch vehicles')
@@ -227,7 +229,7 @@ export function usePickerlDueList(queryParams: Record<string, unknown>) {
   const searchParams = new URLSearchParams()
   Object.entries(queryParams).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
-      searchParams.set(key, String(value))
+      searchParams.set(key, key === 'pageSize' ? String(clampPageSize(Number(value), MAX_VEHICLE_LIST_PAGE_SIZE)) : String(value))
     }
   })
 
@@ -241,5 +243,7 @@ export function usePickerlDueList(queryParams: Record<string, unknown>) {
       return (await response.json()) as PickerlDuePaginatedResponseDto
     },
     staleTime: PICKERL_DUE_STALE_TIME_MS,
+    // Realtime vehicle events keep it current; each refetch recomputes the whole due list on the server.
+    refetchOnWindowFocus: false,
   })
 }

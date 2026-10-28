@@ -33,6 +33,8 @@ function useWidgetRows(widget: DashboardWidget) {
     queryFn: () => (request ? fetchWidgetRows(request.apiUrl, widget.sourceKey) : []),
     select,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    // Realtime events refresh the rows; returning to the tab must not refetch every widget list.
+    refetchOnWindowFocus: false,
   })
 }
 

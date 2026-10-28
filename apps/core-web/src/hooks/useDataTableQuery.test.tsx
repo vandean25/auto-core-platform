@@ -20,11 +20,12 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function HookHarness() {
+function HookHarness({ maxPageSize }: { maxPageSize?: number }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { queryParams, setGlobalFilter, setPagination } = useDataTableQuery({
     defaultPageSize: 10,
+    maxPageSize,
     debounceMs: URL_DEBOUNCE_MS,
   })
 
@@ -77,6 +78,23 @@ describe('useDataTableQuery', () => {
     expect(screen.getByTestId('sort-field')).toHaveTextContent('createdAt')
     expect(screen.getByTestId('sort-direction')).toHaveTextContent('desc')
     expect(screen.getByTestId('filters')).toHaveTextContent('status:INVOICED')
+  })
+
+  it('clamps a page size in the URL to the cap of the list (AUT-807)', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/vehicles?pageSize=200']}>
+        <HookHarness />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('page-size')).toHaveTextContent('100')
+    unmount()
+
+    render(
+      <MemoryRouter initialEntries={['/vehicles?pageSize=200']}>
+        <HookHarness maxPageSize={50} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('page-size')).toHaveTextContent('50')
   })
 
   it('syncs hook state when URL changes on the same route (saved view selection)', async () => {

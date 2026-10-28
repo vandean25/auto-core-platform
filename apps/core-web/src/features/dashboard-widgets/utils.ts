@@ -1,4 +1,5 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { MAX_LIST_PAGE_SIZE } from '@/lib/list-page-size'
 
 export function getValueByPath(record: unknown, path: string): unknown {
   if (!record || typeof record !== 'object') return undefined
@@ -35,11 +36,11 @@ export function parseDataTableQueryParams(searchParams: URLSearchParams): DataTa
   }
 
   const page = Number(searchParams.get('page') ?? 1)
-  const pageSize = Number(searchParams.get('pageSize') ?? 200)
+  const pageSize = Number(searchParams.get('pageSize') ?? MAX_LIST_PAGE_SIZE)
 
   return {
     page: Number.isFinite(page) && page > 0 ? page : 1,
-    pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 200,
+    pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : MAX_LIST_PAGE_SIZE,
     search: searchParams.get('search') ?? undefined,
     sortField: searchParams.get('sortField') ?? undefined,
     sortDirection:
