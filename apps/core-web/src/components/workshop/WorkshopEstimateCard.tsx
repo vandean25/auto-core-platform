@@ -41,6 +41,7 @@ import {
   customerReactionOptions,
   describeApproval,
   estimateBadgeLabel,
+  estimateStatusTone,
   formatEstimateMoney,
 } from '@/features/workshop/workshop-estimate-decision'
 import { formatDateTime, formatPercent } from '@/lib/format'
@@ -168,7 +169,7 @@ function EstimateHeader({ estimate, latest, canCreate, canRevise, busy, onCreate
         {estimate && <p className='text-xs text-slate-500'>{estimate.estimate_number}</p>}
         {latest && (
           <span data-testid='estimate-derived-badge' className='mt-1 inline-block'>
-            <StatusBadge status={latest.status} label={estimateBadgeLabel(latest.status)} />
+            <StatusBadge status={estimateStatusTone(latest.status)} label={estimateBadgeLabel(latest.status)} />
           </span>
         )}
       </div>
@@ -404,7 +405,7 @@ function VersionRow({
       <div className='min-w-0 space-y-1'>
         <div className='flex items-center gap-2'>
           <span className='text-sm font-medium'>{t('estimateCard.versionLabel', { version: version.version })}</span>
-          <StatusBadge status={version.status} label={statusLabel(version.status, t)} />
+          <StatusBadge status={estimateStatusTone(version.status)} label={statusLabel(version.status, t)} />
         </div>
         <p className='text-xs text-slate-500'>{versionSubline(version, t)}</p>
         {version.approval && (

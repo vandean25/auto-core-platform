@@ -3,6 +3,7 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import {
   describeApproval,
   estimateBadgeLabel,
+  estimateStatusTone,
   isRecordableNote,
   isSameGrossAmount,
   messageForErrorCode,
@@ -79,6 +80,14 @@ describe('estimateBadgeLabel', () => {
     expect(estimateBadgeLabel('SENT')).toBe('Kunde ausstehend')
     expect(estimateBadgeLabel('APPROVED')).toBe('Freigegeben')
     expect(estimateBadgeLabel('SUPERSEDED')).toBe('Ersetzt')
+  })
+})
+
+describe('estimateStatusTone', () => {
+  it('lets only an expired estimate stand out', () => {
+    expect(estimateStatusTone('EXPIRED')).toBe('ESTIMATE_EXPIRED')
+    expect(estimateStatusTone('SENT')).toBe('SENT')
+    expect(estimateStatusTone('DECLINED')).toBe('DECLINED')
   })
 })
 
