@@ -107,7 +107,7 @@ function DashboardWidgetCard({
           >
             <CardTitle className="text-base font-semibold hover:text-primary transition-colors">{widget.name}</CardTitle>
           </button>
-          <p className="text-xs text-slate-500 mt-1">{source.sourceLabel}</p>
+          <p className="text-xs text-slate-500 mt-1">{t(source.labelKey)}</p>
         </div>
         <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}>
           <X className="h-4 w-4" />

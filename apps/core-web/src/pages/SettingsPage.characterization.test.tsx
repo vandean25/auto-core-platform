@@ -299,11 +299,11 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
   })
 
-  it('fills the form from the loaded settings and formats the lock date as yyyy-MM-dd', () => {
+  it('fills the form from the loaded settings and shows the lock date as TT.MM.JJJJ', () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'INV', next_invoice_number: 42 }
     renderSettings()
 
-    expect(lockDateInput()).toHaveValue('2026-03-31')
+    expect(lockDateInput()).toHaveValue('31.03.2026')
     expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toHaveValue('INV')
     expect(screen.getByLabelText(deSettings.finance.invoicing.nextNumber)).toHaveValue(42)
   })
@@ -328,7 +328,7 @@ describe('SettingsPage characterization: finance tab', () => {
   it('saves edited values directly when there is no existing lock date and shows a success toast', async () => {
     renderSettings()
 
-    fireEvent.change(lockDateInput(), { target: { value: '2026-05-01' } })
+    fireEvent.change(lockDateInput(), { target: { value: '01.05.2026' } })
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.prefix), { target: { value: 'AR' } })
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.nextNumber), { target: { value: '77' } })
     submitFinanceForm()
@@ -382,7 +382,7 @@ describe('SettingsPage characterization: finance tab', () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
     renderSettings()
 
-    fireEvent.change(lockDateInput(), { target: { value: '2026-02-01' } })
+    fireEvent.change(lockDateInput(), { target: { value: '01.02.2026' } })
     submitFinanceForm()
 
     await waitFor(() => {
@@ -412,7 +412,7 @@ describe('SettingsPage characterization: finance tab', () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
     renderSettings()
 
-    fireEvent.change(lockDateInput(), { target: { value: '2026-06-30' } })
+    fireEvent.change(lockDateInput(), { target: { value: '30.06.2026' } })
     submitFinanceForm()
 
     const dialog = await screen.findByRole('alertdialog')
@@ -439,7 +439,7 @@ describe('SettingsPage characterization: finance tab', () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
     renderSettings()
 
-    fireEvent.change(lockDateInput(), { target: { value: '2026-06-30' } })
+    fireEvent.change(lockDateInput(), { target: { value: '30.06.2026' } })
     submitFinanceForm()
 
     const dialog = await screen.findByRole('alertdialog')
@@ -456,7 +456,7 @@ describe('SettingsPage characterization: finance tab', () => {
     updateFinanceSettingsResult.mutateAsync.mockRejectedValueOnce(new Error('boom'))
     renderSettings()
 
-    fireEvent.change(lockDateInput(), { target: { value: '2026-06-30' } })
+    fireEvent.change(lockDateInput(), { target: { value: '30.06.2026' } })
     submitFinanceForm()
 
     const dialog = await screen.findByRole('alertdialog')

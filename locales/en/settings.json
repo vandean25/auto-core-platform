@@ -157,7 +157,9 @@
       "shelf": "Shelf",
       "bin": "Bin",
       "customer_storage": "Customer storage",
-      "staging_tote": "Staging tote"
+      "staging_tote": "Staging tote",
+      "vehicle_lot": "Vehicle lot",
+      "in_transit": "In transit"
     },
     "deleteConfirm": "Delete {{name}}?",
     "deleteAria": "Delete storage location {{name}} ({{code}})",
@@ -171,7 +173,7 @@
   "marginRules": {
     "title": "Margin rules",
     "description": "Rules for automatically calculating sales prices from purchase prices, brands, and revenue groups.",
-    "createButton": "+ Margin rule",
+    "createButton": "Margin rule",
     "priceJump": {
       "title": "Price jump threshold",
       "description": "Maximum percentage price jump before a warning and approval is required during price list import.",

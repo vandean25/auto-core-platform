@@ -5,6 +5,7 @@ import { Copy, ExternalLink, Inbox, RefreshCw, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { StatusBadge } from '@/components/status/StatusBadge'
+import { StatusBadge, formatStatusLabel } from '@/components/status/StatusBadge'
 import { useAgentActions } from '@/api/agent-actions'
 import type { AgentActionStatus, AgentActionTier } from '@/api/agent-actions'
 import { formatDateTime } from '@/lib/format'
@@ -140,9 +141,9 @@ export function ActivityTab({
               <option value="ALL">
                 {t('activity.filters.allStatuses')}
               </option>
-              <option value="EXECUTED">EXECUTED</option>
-              <option value="FAILED">FAILED</option>
-              <option value="REJECTED">REJECTED</option>
+              <option value="EXECUTED">{formatStatusLabel('EXECUTED')}</option>
+              <option value="FAILED">{formatStatusLabel('FAILED')}</option>
+              <option value="REJECTED">{formatStatusLabel('REJECTED')}</option>
             </select>
           </div>
 
@@ -164,10 +165,10 @@ export function ActivityTab({
               <option value="ALL">
                 {t('activity.filters.allTiers')}
               </option>
-              <option value="AUTO">AUTO</option>
-              <option value="PROPOSE">PROPOSE</option>
-              <option value="HUMAN_ONLY">HUMAN_ONLY</option>
-              <option value="NOT_EVALUATED">NOT_EVALUATED</option>
+              <option value="AUTO">{formatStatusLabel('AUTO')}</option>
+              <option value="PROPOSE">{formatStatusLabel('PROPOSE')}</option>
+              <option value="HUMAN_ONLY">{formatStatusLabel('HUMAN_ONLY')}</option>
+              <option value="NOT_EVALUATED">{formatStatusLabel('NOT_EVALUATED')}</option>
             </select>
           </div>
 
@@ -179,11 +180,10 @@ export function ActivityTab({
             >
               {t('activity.filters.startDateLabel')}:
             </label>
-            <Input
+            <DateField
               id="activity-start-date"
-              type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={setStartDate}
               className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-start-date-input"
             />
@@ -196,11 +196,10 @@ export function ActivityTab({
             >
               {t('activity.filters.endDateLabel')}:
             </label>
-            <Input
+            <DateField
               id="activity-end-date"
-              type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={setEndDate}
               className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-end-date-input"
             />

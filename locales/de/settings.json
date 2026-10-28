@@ -157,7 +157,9 @@
       "shelf": "Regal",
       "bin": "Fach",
       "customer_storage": "Kundenlager",
-      "staging_tote": "Bereitstellungsbox"
+      "staging_tote": "Bereitstellungsbox",
+      "vehicle_lot": "Fahrzeugstellplatz",
+      "in_transit": "Unterwegs"
     },
     "deleteConfirm": "{{name}} löschen?",
     "deleteAria": "Lagerort {{name}} ({{code}}) löschen",
@@ -171,7 +173,7 @@
   "marginRules": {
     "title": "Margenregeln",
     "description": "Regeln zur automatischen Berechnung von Verkaufspreisen basierend auf Einkaufspreisen, Marken und Erlösgruppen.",
-    "createButton": "+ Margenregel",
+    "createButton": "Margenregel",
     "priceJump": {
       "title": "Schwellenwert für Preissprünge",
       "description": "Definiert den maximalen prozentualen Preissprung vor Warnung und Genehmigungserfordernis beim Preislistenimport.",

@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -534,20 +534,18 @@ export function AccountingExportSettingsPanel({
         </div>
         <div className="grid gap-2">
           <Label htmlFor="export-date-from">{t('accountingExport.filters.dateFrom')}</Label>
-          <Input
+          <DateField
             id="export-date-from"
-            type="date"
             value={dateFrom}
-            onChange={(event) => setDateFrom(event.target.value)}
+            onChange={setDateFrom}
           />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="export-date-to">{t('accountingExport.filters.dateTo')}</Label>
-          <Input
+          <DateField
             id="export-date-to"
-            type="date"
             value={dateTo}
-            onChange={(event) => setDateTo(event.target.value)}
+            onChange={setDateTo}
           />
         </div>
       </div>

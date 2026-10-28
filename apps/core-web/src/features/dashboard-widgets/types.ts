@@ -5,13 +5,13 @@ export type DashboardWidgetFieldType = 'categorical' | 'number' | 'currency'
 
 export interface DashboardWidgetFieldDefinition {
   key: string
-  label: string
+  labelKey: string
   type: DashboardWidgetFieldType
 }
 
 export interface DashboardWidgetTableSource {
   sourceKey: string
-  sourceLabel: string
+  labelKey: string
   fields: DashboardWidgetFieldDefinition[]
   listPreviewFields: string[]
 }

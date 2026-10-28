@@ -208,8 +208,10 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     const endDateInput = page.getByTestId('filter-end-date-input')
     await expect(startDateInput).toBeVisible()
     await expect(endDateInput).toBeVisible()
-    await startDateInput.fill('2026-10-01')
-    await endDateInput.fill('2026-10-04')
+    await expect(startDateInput).toHaveAttribute('placeholder', 'TT.MM.JJJJ')
+    await startDateInput.fill('01.10.2026')
+    await endDateInput.fill('04.10.2026')
+    await expect(startDateInput).toHaveValue('01.10.2026')
 
     // Axe a11y audit on Activity view
     await expectNoCriticalA11yViolations(page)

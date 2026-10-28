@@ -10,8 +10,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  bilingualLabel,
+  type BilingualCopy,
+  useLocalizedCopy,
   VEHICLE_NOVA_CLASS_OPTIONS,
+  VEHICLE_SELECT_PLACEHOLDER,
   VEHICLE_REGULATORY_FIELDS,
   VEHICLE_REGULATORY_SECTION,
 } from './vehicle-regulatory-copy'
@@ -59,18 +61,21 @@ export function parseCo2FieldInput(next: string): number | null {
   return parsed
 }
 
-const CO2_INLINE_VALIDATION_ERROR =
-  'CO₂ must be a whole number between 0 and 600 / CO₂ muss eine ganze Zahl zwischen 0 und 600 sein'
+const CO2_INLINE_VALIDATION_ERROR: BilingualCopy = {
+  en: 'CO₂ must be a whole number between 0 and 600',
+  de: 'CO₂ muss eine ganze Zahl zwischen 0 und 600 sein',
+}
 
 function applyInlineCo2Change(
   field: 'co2_wltp_g_km' | 'co2_nedc_g_km',
   next: string,
   onChange: (patch: Partial<VehicleRegulatoryValues>) => void,
+  errorMessage: string,
 ): void {
   try {
     onChange({ [field]: parseCo2FieldInput(next) })
   } catch (error) {
-    toast.error(CO2_INLINE_VALIDATION_ERROR)
+    toast.error(errorMessage)
     throw error
   }
 }
@@ -81,7 +86,8 @@ export function VehicleRegulatorySection({
   mode,
   renderInlineField,
 }: VehicleRegulatorySectionProps) {
-  const sectionTitle = bilingualLabel(VEHICLE_REGULATORY_SECTION)
+  const localized = useLocalizedCopy()
+  const sectionTitle = localized(VEHICLE_REGULATORY_SECTION)
 
   if (mode === 'inline' && renderInlineField) {
     return (
@@ -90,38 +96,38 @@ export function VehicleRegulatorySection({
         <div className="grid grid-cols-2 gap-3 text-sm">
           {renderInlineField(
             'first_registration_date',
-            bilingualLabel(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate),
+            localized(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate),
             toInputString(values.first_registration_date),
             async (next) => onChange({ first_registration_date: next || null }),
           )}
           {renderInlineField(
             'co2_wltp_g_km',
-            bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Wltp),
+            localized(VEHICLE_REGULATORY_FIELDS.co2Wltp),
             toInputString(values.co2_wltp_g_km),
-            async (next) => applyInlineCo2Change('co2_wltp_g_km', next, onChange),
+            async (next) => applyInlineCo2Change('co2_wltp_g_km', next, onChange, localized(CO2_INLINE_VALIDATION_ERROR)),
           )}
           {renderInlineField(
             'co2_nedc_g_km',
-            bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Nedc),
+            localized(VEHICLE_REGULATORY_FIELDS.co2Nedc),
             toInputString(values.co2_nedc_g_km),
-            async (next) => applyInlineCo2Change('co2_nedc_g_km', next, onChange),
+            async (next) => applyInlineCo2Change('co2_nedc_g_km', next, onChange, localized(CO2_INLINE_VALIDATION_ERROR)),
           )}
           {renderInlineField(
             'typenschein_no',
-            bilingualLabel(VEHICLE_REGULATORY_FIELDS.typenscheinNo),
+            localized(VEHICLE_REGULATORY_FIELDS.typenscheinNo),
             toInputString(values.typenschein_no),
             async (next) => onChange({ typenschein_no: next || null }),
           )}
           {renderInlineField(
             'emission_class',
-            bilingualLabel(VEHICLE_REGULATORY_FIELDS.emissionClass),
+            localized(VEHICLE_REGULATORY_FIELDS.emissionClass),
             toInputString(values.emission_class),
             async (next) => onChange({ emission_class: next || null }),
           )}
         </div>
         <div>
           <div className="text-muted-foreground text-xs mb-1">
-            {bilingualLabel(VEHICLE_REGULATORY_FIELDS.novaClass)}
+            {localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
           </div>
           <Select
             value={values.nova_class ?? ''}
@@ -131,14 +137,14 @@ export function VehicleRegulatorySection({
           >
             <SelectTrigger
               className="h-9"
-              aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.novaClass)}
+              aria-label={localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
             >
-              <SelectValue placeholder={bilingualLabel({ en: 'Select', de: 'Auswählen' })} />
+              <SelectValue placeholder={localized(VEHICLE_SELECT_PLACEHOLDER)} />
             </SelectTrigger>
             <SelectContent>
               {VEHICLE_NOVA_CLASS_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {localized(option.copy)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -154,11 +160,11 @@ export function VehicleRegulatorySection({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm">
           <span className="text-slate-600">
-            {bilingualLabel(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
+            {localized(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
           </span>
           <Input
             type="date"
-            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
+            aria-label={localized(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
             value={toInputString(values.first_registration_date)}
             onChange={(event) =>
               onChange({ first_registration_date: event.target.value || null })
@@ -166,12 +172,12 @@ export function VehicleRegulatorySection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-600">{bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Wltp)}</span>
+          <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.co2Wltp)}</span>
           <Input
             type="number"
             min={0}
             max={600}
-            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Wltp)}
+            aria-label={localized(VEHICLE_REGULATORY_FIELDS.co2Wltp)}
             value={toInputString(values.co2_wltp_g_km)}
             onChange={(event) => {
               try {
@@ -183,12 +189,12 @@ export function VehicleRegulatorySection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-600">{bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Nedc)}</span>
+          <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.co2Nedc)}</span>
           <Input
             type="number"
             min={0}
             max={600}
-            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Nedc)}
+            aria-label={localized(VEHICLE_REGULATORY_FIELDS.co2Nedc)}
             value={toInputString(values.co2_nedc_g_km)}
             onChange={(event) => {
               try {
@@ -201,16 +207,16 @@ export function VehicleRegulatorySection({
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-600">
-            {bilingualLabel(VEHICLE_REGULATORY_FIELDS.typenscheinNo)}
+            {localized(VEHICLE_REGULATORY_FIELDS.typenscheinNo)}
           </span>
           <Input
-            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.typenscheinNo)}
+            aria-label={localized(VEHICLE_REGULATORY_FIELDS.typenscheinNo)}
             value={toInputString(values.typenschein_no)}
             onChange={(event) => onChange({ typenschein_no: event.target.value || null })}
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-600">{bilingualLabel(VEHICLE_REGULATORY_FIELDS.novaClass)}</span>
+          <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.novaClass)}</span>
           <Select
             value={values.nova_class ?? ''}
             onValueChange={(next) =>
@@ -218,12 +224,12 @@ export function VehicleRegulatorySection({
             }
           >
             <SelectTrigger>
-              <SelectValue placeholder={bilingualLabel({ en: 'Select', de: 'Auswählen' })} />
+              <SelectValue placeholder={localized(VEHICLE_SELECT_PLACEHOLDER)} />
             </SelectTrigger>
             <SelectContent>
               {VEHICLE_NOVA_CLASS_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {localized(option.copy)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -231,10 +237,10 @@ export function VehicleRegulatorySection({
         </label>
         <label className="space-y-1 text-sm sm:col-span-2">
           <span className="text-slate-600">
-            {bilingualLabel(VEHICLE_REGULATORY_FIELDS.emissionClass)}
+            {localized(VEHICLE_REGULATORY_FIELDS.emissionClass)}
           </span>
           <Input
-            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.emissionClass)}
+            aria-label={localized(VEHICLE_REGULATORY_FIELDS.emissionClass)}
             value={toInputString(values.emission_class)}
             onChange={(event) => onChange({ emission_class: event.target.value || null })}
           />

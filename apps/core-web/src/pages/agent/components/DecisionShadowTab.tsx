@@ -4,7 +4,7 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Inbox, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import {
   Table,
   TableBody,
@@ -99,11 +99,10 @@ export function DecisionShadowTab() {
             >
               {t('activity.filters.startDateLabel')}:
             </label>
-            <Input
+            <DateField
               id="decision-shadow-start-date"
-              type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={setStartDate}
               className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-decision-shadow-start-date-input"
             />
@@ -116,11 +115,10 @@ export function DecisionShadowTab() {
             >
               {t('activity.filters.endDateLabel')}:
             </label>
-            <Input
+            <DateField
               id="decision-shadow-end-date"
-              type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={setEndDate}
               className="h-9 w-full text-xs sm:w-36"
               data-testid="filter-decision-shadow-end-date-input"
             />

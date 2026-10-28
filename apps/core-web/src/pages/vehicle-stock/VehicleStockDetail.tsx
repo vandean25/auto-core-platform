@@ -23,7 +23,7 @@ import {
   type VehicleRegulatoryValues,
 } from '@/components/vehicles/VehicleRegulatorySection'
 import {
-  bilingualLabel,
+  useLocalizedCopy,
   REGISTRATION_CERTIFICATE_HELP,
   VEHICLE_REGULATORY_FIELDS,
 } from '@/components/vehicles/vehicle-regulatory-copy'
@@ -32,6 +32,7 @@ export default function VehicleStockDetail() {
   const { vehicleId = '' } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation('vehicleStock')
+  const localized = useLocalizedCopy()
 
   useEffect(() => {
     void ensureNamespaceLoaded('vehicleStock')
@@ -155,10 +156,10 @@ export default function VehicleStockDetail() {
           </div>
           <div>
             <div className="text-xs text-slate-500">
-              {bilingualLabel(VEHICLE_REGULATORY_FIELDS.registrationCertificate)}
+              {localized(VEHICLE_REGULATORY_FIELDS.registrationCertificate)}
             </div>
             <p className="text-xs text-slate-400 mb-1">
-              {bilingualLabel(REGISTRATION_CERTIFICATE_HELP)}
+              {localized(REGISTRATION_CERTIFICATE_HELP)}
             </p>
             <InlineEdit
               value={vehicle.registration_certificate_no}

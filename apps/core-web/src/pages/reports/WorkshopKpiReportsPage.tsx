@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { DateField } from '@/components/ui/date-field'
 import { Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -198,11 +199,11 @@ export default function WorkshopKpiReportsPage() {
         </div>
         <div className="grid gap-1 text-sm">
           <label htmlFor="workshop-report-from">{t('workshopKpi.from')}</label>
-          <input id="workshop-report-from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-10 rounded-md border px-3" />
+          <DateField id="workshop-report-from" value={from} onChange={setFrom} className="h-10" />
         </div>
         <div className="grid gap-1 text-sm">
           <label htmlFor="workshop-report-to">{t('workshopKpi.to')}</label>
-          <input id="workshop-report-to" type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-10 rounded-md border px-3" />
+          <DateField id="workshop-report-to" value={to} onChange={setTo} className="h-10" />
         </div>
         <div className="grid gap-1 text-sm">
           <label htmlFor="workshop-report-group">{t('workshopKpi.groupBy')}</label>

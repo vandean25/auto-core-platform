@@ -106,7 +106,46 @@
     "totalItems": "Positionen gesamt",
     "emptyWidgets": "Noch keine Widgets. Öffnen Sie eine Liste, setzen Sie Filter und klicken Sie auf „Zum Dashboard hinzufügen“.",
     "sourceUnavailable": "Widget-Quelle ist nicht mehr verfügbar.",
-    "unknownGroup": "Unbekannt"
+    "unknownGroup": "Unbekannt",
+    "sources": {
+      "workshop-orders": "Werkstattaufträge",
+      "purchase-bills": "Eingangsrechnungen",
+      "purchase-orders": "Bestellungen",
+      "sales-orders": "Kundenaufträge",
+      "inventory": "Lager",
+      "customers": "Kunden",
+      "vendors": "Lieferanten",
+      "vehicles": "Fahrzeuge",
+      "pickerl-due": "Pickerl fällig"
+    },
+    "fields": {
+      "orderNumber": "Auftragsnr.",
+      "orderNumberShort": "Auftrag Nr.",
+      "customer": "Kunde",
+      "vehicleMake": "Fahrzeugmarke",
+      "status": "Status",
+      "billNumber": "Rechnung Nr.",
+      "vendor": "Lieferant",
+      "totalAmount": "Gesamtbetrag",
+      "items": "Positionen",
+      "customerLastName": "Nachname des Kunden",
+      "partNumber": "Teilenummer",
+      "description": "Bezeichnung",
+      "brand": "Marke",
+      "price": "Preis",
+      "type": "Typ",
+      "lastName": "Nachname",
+      "email": "E-Mail",
+      "city": "Ort",
+      "name": "Name",
+      "accountNumber": "Kontonummer",
+      "make": "Marke",
+      "model": "Modell",
+      "plate": "Kennzeichen",
+      "year": "Baujahr",
+      "vehicle": "Fahrzeug",
+      "dueMonth": "Fälligkeitsmonat"
+    }
   },
   "savedViews": {
     "saveButton": "Als Seitenleisten-Ansicht speichern",
@@ -292,5 +331,9 @@
     "toggle": "Seitenleiste ein- oder ausblenden",
     "mobileTitle": "Navigation",
     "mobileDescription": "Hauptnavigation auf kleinen Bildschirmen."
+  },
+  "dateField": {
+    "placeholder": "TT.MM.JJJJ",
+    "openCalendar": "Kalender öffnen"
   }
 }
