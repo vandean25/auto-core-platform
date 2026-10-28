@@ -1150,6 +1150,7 @@
       "dryRunFailed": "Probelauf fehlgeschlagen",
       "applied": "Import erfolgreich angewendet",
       "applyFailed": "Import fehlgeschlagen",
+      "applyLeaseLive": "Die Anwendung läuft noch. Die Lease ist aktiv.",
       "cancelFailed": "Import konnte nicht abgebrochen werden",
       "templateFailed": "Vorlage konnte nicht heruntergeladen werden",
       "errorCsvFailed": "Fehler-CSV konnte nicht heruntergeladen werden"

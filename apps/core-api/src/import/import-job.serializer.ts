@@ -54,7 +54,9 @@ export function serializeImportJob(
     totals,
     progress,
     stalled,
-    recovery_hint: stalled ? 'Re-apply the job to resume.' : null,
+    recovery_hint: stalled
+      ? 'Job is stalled. Re-apply it (POST apply) to resume.'
+      : null,
     created_by: job.created_by,
     created_at: job.createdAt.toISOString(),
     applied_at: job.appliedAt?.toISOString() ?? null,

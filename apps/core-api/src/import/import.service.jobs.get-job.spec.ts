@@ -92,7 +92,7 @@ describe('ImportService job lifecycle — getJob', () => {
       await expect(h.service.getJob(JOB_ID)).resolves.toMatchObject({
         status: ImportJobStatus.APPLYING,
         stalled: true,
-        recovery_hint: 'Re-apply the job to resume.',
+        recovery_hint: 'Job is stalled. Re-apply it (POST apply) to resume.',
       });
     });
 

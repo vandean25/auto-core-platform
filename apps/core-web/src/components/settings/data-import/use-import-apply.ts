@@ -3,8 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import type { ImportJob } from '@/api/imports'
-import { useApplyImportJob, type ApplyImportJobPayload } from '@/api/imports'
+import {
+  ImportApplyInProgressError,
+  importKeys,
+  type ImportJob,
+  useApplyImportJob,
+  type ApplyImportJobPayload,
+} from '@/api/imports'
 import { laborKeys } from '@/api/labor'
 import { getErrorMessage } from '@/lib/error-utils'
 
@@ -131,6 +136,12 @@ export function useImportApply(params: {
       params.onApplied(result)
       setConfirmApplyOpen(false)
     } catch (error) {
+      if (error instanceof ImportApplyInProgressError) {
+        toast.error(t('dataImport.toast.applyLeaseLive'))
+        void queryClient.invalidateQueries({ queryKey: importKeys.job(job.id) })
+        setConfirmApplyOpen(false)
+        return
+      }
       toast.error(getErrorMessage(error, t('dataImport.toast.applyFailed')))
     } finally {
       applyInFlightRef.current = false

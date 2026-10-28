@@ -754,6 +754,7 @@ export class RowByRowApplyRunner {
       () => this.resolveDuplicateCommittedCreateLegacy(input, entityType, row),
     );
     if (committedCreate === 'noop') {
+      tallyWrittenRow(totals, row.action);
       await this.advanceWorkerCursor(input, applySeqForRow(row), options);
       return true;
     }

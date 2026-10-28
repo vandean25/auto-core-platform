@@ -929,14 +929,15 @@ export class ImportJobStore {
     const existing = await this.findJob(tenantId, jobId);
     const options = (existing?.options_json ??
       {}) as ImportJobOptionsWithWorker;
+    const previous = readWorkerState(options);
     const now = Date.now();
     const worker: ImportJobWorkerState = {
       phase: 'apply',
       lease_token: randomUUID(),
       lease_until: nextApplyLeaseUntil(now),
-      processed_rows: 0,
-      last_committed_apply_seq: 0,
-      started_at: new Date(now).toISOString(),
+      processed_rows: previous?.processed_rows ?? 0,
+      last_committed_apply_seq: previous?.last_committed_apply_seq ?? 0,
+      started_at: previous?.started_at ?? new Date(now).toISOString(),
     };
     return this.prisma.importJob.updateMany({
       where: {

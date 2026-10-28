@@ -47,11 +47,31 @@ export const importKeys = {
     [...importKeys.all, 'profiles', entityType, sourceSystem] as const,
 }
 
-async function readErrorMessage(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
+async function readErrorPayload(response: Response): Promise<{
+  message?: string
+  code?: string
+  leaseExpiresAt?: string | null
+} | undefined> {
+  return (await response.json().catch(() => undefined)) as
+    | { message?: string; code?: string; leaseExpiresAt?: string | null }
     | undefined
+}
+
+async function readErrorMessage(response: Response, fallback: string) {
+  const payload = await readErrorPayload(response)
   return payload?.message ?? fallback
+}
+
+/** Apply lost the race to a live lease. The caller refreshes the job. */
+export class ImportApplyInProgressError extends Error {
+  readonly code = 'IMPORT_APPLY_IN_PROGRESS'
+  readonly leaseExpiresAt: string | null
+
+  constructor(leaseExpiresAt: string | null) {
+    super('IMPORT_APPLY_IN_PROGRESS')
+    this.name = 'ImportApplyInProgressError'
+    this.leaseExpiresAt = leaseExpiresAt
+  }
 }
 
 export function useImportTemplate(entityType: ImportEntityType | null) {
@@ -222,7 +242,11 @@ export function useApplyImportJob() {
         body: options ? JSON.stringify(options) : undefined,
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to apply import'))
+        const payload = await readErrorPayload(response)
+        if (response.status === 409 && payload?.code === 'IMPORT_APPLY_IN_PROGRESS') {
+          throw new ImportApplyInProgressError(payload.leaseExpiresAt ?? null)
+        }
+        throw new Error(payload?.message ?? 'Failed to apply import')
       }
       return response.json() as Promise<ImportJob>
     },
