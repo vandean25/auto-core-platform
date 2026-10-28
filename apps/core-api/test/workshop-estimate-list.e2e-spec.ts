@@ -38,7 +38,8 @@ describe('Workshop estimates list (e2e)', () => {
 
   const api = () => request(app.getHttpServer());
   const adminAuth = () => ({ Authorization: `Bearer ${adminToken}` });
-  const now = Date.now();
+  // Anchored to midday, so a clock change cannot put two fixture days on the same site-local date.
+  const now = new Date().setUTCHours(12, 0, 0, 0);
 
   async function createEstimateVersion(label: string, auth = adminAuth()) {
     const vehicle = await prisma.vehicle.create({
