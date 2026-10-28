@@ -158,7 +158,9 @@
       "shelf": "Shelf",
       "bin": "Bin",
       "customer_storage": "Customer storage",
-      "staging_tote": "Staging tote"
+      "staging_tote": "Staging tote",
+      "vehicle_lot": "Vehicle lot",
+      "in_transit": "In transit"
     },
     "deleteConfirm": "Delete {{name}}?",
     "deleteAria": "Delete storage location {{name}} ({{code}})",
@@ -172,7 +174,7 @@
   "marginRules": {
     "title": "Margin rules",
     "description": "Rules for automatically calculating sales prices from purchase prices, brands, and revenue groups.",
-    "createButton": "+ Margin rule",
+    "createButton": "Margin rule",
     "priceJump": {
       "title": "Price jump threshold",
       "description": "Maximum percentage price jump before a warning and approval is required during price list import.",
@@ -199,7 +201,7 @@
       "actions": "Actions"
     },
     "loading": "Loading margin rules…",
-    "empty": "No margin rules defined. Create one with \"+ Margin rule\".",
+    "empty": "No margin rules defined. Create one with \"Margin rule\".",
     "costRange": {
       "all": "All",
       "from": "from {{amount}}",
@@ -1074,7 +1076,8 @@
       "description": "Large files are validated in batches. You can leave this page open; progress updates automatically.",
       "rows": "{{processed}} / {{total}} rows",
       "eta": "About {{minutes}} min remaining",
-      "cancel": "Cancel import"
+      "cancel": "Cancel import",
+      "resume": "Resume"
     },
     "dryRun": {
       "title": "4. Dry-run report",
@@ -1150,6 +1153,7 @@
       "dryRunFailed": "Dry-run failed",
       "applied": "Import applied successfully",
       "applyFailed": "Apply failed",
+      "applyLeaseLive": "Apply is still running. The lease is still live.",
       "cancelFailed": "Could not cancel import",
       "templateFailed": "Template download failed",
       "errorCsvFailed": "Error CSV download failed"

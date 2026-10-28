@@ -22,6 +22,8 @@ function mockJob(overrides: Partial<ImportJob> = {}): ImportJob {
     created_by: null,
     created_at: '2026-01-01T00:00:00.000Z',
     applied_at: null,
+    stalled: false,
+    recovery_hint: null,
     ...overrides,
   }
 }
@@ -87,6 +89,19 @@ describe('import wizard logic', () => {
         isApplying: false,
       }),
     ).toBe(false)
+
+    expect(
+      canApplyImport({
+        dryRunJob: mockJob({
+          status: 'APPLYING',
+          stalled: true,
+          totals: { rows: 2, create: 1, update: 0, skip: 0, error: 12 },
+        }),
+        dryRunStale: true,
+        errorThreshold: 0,
+        isApplying: false,
+      }),
+    ).toBe(true)
   })
 
   it('maps row filter to server query params', () => {

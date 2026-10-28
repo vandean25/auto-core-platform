@@ -10,6 +10,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
   coerceWriteRowToDomainError,
+  describeImportApplyCause,
   ImportApplyRetryExhaustedError,
   ImportDuplicateCreateInJobError,
   resolveImportExternalId,
@@ -59,7 +60,12 @@ import type {
   ImportApplyRow,
 } from './import-type-handler.js';
 import type { ImportJobTotals } from './import.types.js';
+import {
+  readImportJobExpectedRowCount,
+  tallyImportApplyTotalsFromRows,
+} from './import-apply-persisted-totals.js';
 import { mergeImportJobApplyFailureReason } from './import-apply-failure.util.js';
+import { logImportJobFailed } from './import-job-failed-log.util.js';
 
 /** Writes one planned row inside the transaction that also runs the freshness check. */
 export type ImportRowWriter = (
@@ -67,15 +73,12 @@ export type ImportRowWriter = (
   row: ImportApplyRow,
 ) => Promise<void>;
 
-function describeCause(error: unknown): string {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code;
-  }
-  return error instanceof Error ? error.name : 'unknown';
+function isPastApplyUnitDeadline(deadlineMs: number | undefined): boolean {
+  return deadlineMs !== undefined && Date.now() > deadlineMs;
 }
 
 function legacyRowTxMaxAttempts(options?: ImportApplyBatchOptions): number {
-  if (options?.leaseToken || options?.stopAfterBatch) {
+  if (options?.stopAfterBatch || options?.useApplySequence) {
     return IMPORT_ROW_TX_MAX_ATTEMPTS;
   }
   return IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS;
@@ -112,7 +115,7 @@ export class RowByRowApplyRunner {
     const guardedWrite = Boolean(options?.stopAfterBatch);
 
     try {
-      await this.runApplyBatchSpan(
+      const stoppedEarly = await this.runApplyBatchSpan(
         input,
         entityType,
         writeRow,
@@ -126,7 +129,7 @@ export class RowByRowApplyRunner {
         entityType,
         totals,
         guardedWrite,
-        plan.batchIncomplete,
+        plan.batchIncomplete || stoppedEarly,
         options,
       );
     } catch (error) {
@@ -152,16 +155,17 @@ export class RowByRowApplyRunner {
     if (kind === 'lease_lost' || kind === 'retryable') {
       return;
     }
-    const failureReason =
+    const failureReason: ImportApplyFailureReason =
       error instanceof ImportApplyRetryExhaustedError
-        ? ('retry_exhausted' satisfies ImportApplyFailureReason)
-        : undefined;
+        ? 'retry_exhausted'
+        : 'apply_error';
     await this.markJobFailed(
       jobId,
       totals,
       guardedWrite,
       failureReason,
       options,
+      describeImportApplyCause(error),
     );
   }
 
@@ -228,15 +232,17 @@ export class RowByRowApplyRunner {
         totals,
         guardedWrite,
       );
+      const appliedTotals =
+        (updatedJob?.totals_json as ImportJobTotals) ?? totals;
       await this.audit.writeImportJobAudit(
         this.prisma,
         tenantId,
         actorUserId,
         job.id,
         'applied',
-        totals,
+        appliedTotals,
       );
-      return this.serialize(updatedJob!, totals);
+      return this.serialize(updatedJob!, appliedTotals);
     });
   }
 
@@ -248,8 +254,8 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     resumeAfter: number,
     options?: ImportApplyInput['batchOptions'],
-  ): Promise<void> {
-    await Sentry.startSpan(
+  ): Promise<boolean> {
+    return Sentry.startSpan(
       {
         name: 'Import apply batch',
         op: 'import.apply.batch',
@@ -262,11 +268,10 @@ export class RowByRowApplyRunner {
       async () => {
         const batchStartedAt = Date.now();
         let appliedInBatch = 0;
+        let stoppedEarly = false;
         for (const row of batchRows) {
-          if (
-            options?.chunkDeadlineMs !== undefined &&
-            Date.now() > options.chunkDeadlineMs
-          ) {
+          if (isPastApplyUnitDeadline(options?.chunkDeadlineMs)) {
+            stoppedEarly = true;
             break;
           }
           await this.applyOne(
@@ -289,6 +294,7 @@ export class RowByRowApplyRunner {
             }),
           );
         }
+        return stoppedEarly;
       },
     );
   }
@@ -298,24 +304,40 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     guardedWrite: boolean,
   ) {
-    if (guardedWrite) {
-      await this.prisma.importJob.updateMany({
-        where: { id: jobId, status: ImportJobStatus.APPLYING },
-        data: {
-          status: ImportJobStatus.APPLIED,
-          appliedAt: new Date(),
-          totals_json: totals,
-        },
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.importJob.findFirst({
+        where: { id: jobId },
+        select: { tenant_id: true },
       });
-      return this.prisma.importJob.findFirst({ where: { id: jobId } });
-    }
-    return this.prisma.importJob.update({
-      where: { id: jobId },
-      data: {
+      if (!job) {
+        return null;
+      }
+      const { expectedRows, flaggedJumps } =
+        await readImportJobExpectedRowCount(tx, job.tenant_id, jobId);
+      const persistedTotals = await tallyImportApplyTotalsFromRows(
+        tx,
+        job.tenant_id,
+        jobId,
+        expectedRows || totals.rows,
+        flaggedJumps,
+      );
+      const appliedAt = new Date();
+      const data = {
         status: ImportJobStatus.APPLIED,
-        appliedAt: new Date(),
-        totals_json: totals,
-      },
+        appliedAt,
+        totals_json: persistedTotals,
+      };
+      if (guardedWrite) {
+        await tx.importJob.updateMany({
+          where: { id: jobId, status: ImportJobStatus.APPLYING },
+          data,
+        });
+        return tx.importJob.findFirst({ where: { id: jobId } });
+      }
+      return tx.importJob.update({
+        where: { id: jobId },
+        data,
+      });
     });
   }
 
@@ -323,34 +345,49 @@ export class RowByRowApplyRunner {
     jobId: string,
     totals: ImportJobTotals,
     guardedWrite: boolean,
-    failureReason?: ImportApplyFailureReason,
+    failureReason: ImportApplyFailureReason,
     options?: ImportApplyBatchOptions,
+    cause?: string,
   ): Promise<void> {
     const persist = async () => {
-      const failurePatch = failureReason
-        ? await mergeImportJobApplyFailureReason(
-            this.prisma,
-            jobId,
-            failureReason,
-          )
-        : {};
+      const failurePatch = await mergeImportJobApplyFailureReason(
+        this.prisma,
+        jobId,
+        failureReason,
+      );
       const data = {
         status: ImportJobStatus.FAILED,
         totals_json: totals,
         failed_at: new Date(),
         ...failurePatch,
       };
-      if (guardedWrite) {
-        await this.prisma.importJob.updateMany({
-          where: { id: jobId, status: ImportJobStatus.APPLYING },
-          data,
+      const didMarkFailed = guardedWrite
+        ? (
+            await this.prisma.importJob.updateMany({
+              where: { id: jobId, status: ImportJobStatus.APPLYING },
+              data,
+            })
+          ).count > 0
+        : await this.prisma.importJob
+            .update({
+              where: { id: jobId },
+              data,
+            })
+            .then(() => true)
+            .catch(() => false);
+      if (didMarkFailed) {
+        const job = await this.prisma.importJob.findFirst({
+          where: { id: jobId },
+          select: { attempts_without_progress: true },
         });
-        return;
+        logImportJobFailed(this.logger, {
+          jobId,
+          phase: 'apply',
+          attempt: job?.attempts_without_progress ?? 0,
+          reason: failureReason,
+          cause,
+        });
       }
-      await this.prisma.importJob.update({
-        where: { id: jobId },
-        data,
-      });
     };
     if (
       failureReason === 'retry_exhausted' &&
@@ -590,7 +627,7 @@ export class RowByRowApplyRunner {
     error: unknown,
   ): Promise<ImportJobTotals> {
     this.logger.warn(
-      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeImportApplyCause(error)}`,
     );
     const nextTotals = importTotalsAfterApplyRowTally(
       totals,
@@ -717,6 +754,7 @@ export class RowByRowApplyRunner {
       () => this.resolveDuplicateCommittedCreateLegacy(input, entityType, row),
     );
     if (committedCreate === 'noop') {
+      tallyWrittenRow(totals, row.action);
       await this.advanceWorkerCursor(input, applySeqForRow(row), options);
       return true;
     }
@@ -824,7 +862,7 @@ export class RowByRowApplyRunner {
       throw error;
     }
     this.logger.warn(
-      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeImportApplyCause(error)}`,
     );
     totals.error += 1;
     await markImportRowFailed(

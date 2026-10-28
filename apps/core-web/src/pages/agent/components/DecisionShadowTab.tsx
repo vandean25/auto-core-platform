@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { Inbox, RefreshCw } from 'lucide-react'
+import { Inbox } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { AgentDateRangeFields, AgentErrorState, AgentLoadingState, AgentRefreshButton } from '@/components/agent/agent-tab-parts'
 import {
   Table,
   TableBody,
@@ -92,80 +92,23 @@ export function DecisionShadowTab() {
             </select>
           </div>
 
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-            <label
-              htmlFor="decision-shadow-start-date"
-              className="text-xs text-slate-500 font-medium"
-            >
-              {t('activity.filters.startDateLabel')}:
-            </label>
-            <Input
-              id="decision-shadow-start-date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 w-full text-xs sm:w-36"
-              data-testid="filter-decision-shadow-start-date-input"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-            <label
-              htmlFor="decision-shadow-end-date"
-              className="text-xs text-slate-500 font-medium"
-            >
-              {t('activity.filters.endDateLabel')}:
-            </label>
-            <Input
-              id="decision-shadow-end-date"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-9 w-full text-xs sm:w-36"
-              data-testid="filter-decision-shadow-end-date-input"
-            />
-          </div>
+          <AgentDateRangeFields
+            idPrefix="decision-shadow"
+            startDate={startDate}
+            endDate={endDate}
+            onStartChange={setStartDate}
+            onEndChange={setEndDate}
+            startTestId="filter-decision-shadow-start-date-input"
+            endTestId="filter-decision-shadow-end-date-input"
+          />
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => refetch()}
-          className="text-slate-500 hover:text-slate-900"
-          aria-label={t('common.refresh')}
-        >
-          <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {t('common.refresh')}
-        </Button>
+        <AgentRefreshButton onRefresh={() => refetch()} />
       </div>
 
-      {isLoading && (
-        <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
-          <RefreshCw
-            className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
-            aria-hidden="true"
-          />
-          {t('common.loading')}
-        </div>
-      )}
+      {isLoading && <AgentLoadingState />}
 
-      {isError && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
-          <p className="text-sm font-medium text-rose-800">
-            {t('common.error')}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
-          >
-            {t('common.retry')}
-          </Button>
-        </div>
-      )}
+      {isError && <AgentErrorState onRetry={() => refetch()} />}
 
       {!isLoading && !isError && rows.length === 0 && (
         <div

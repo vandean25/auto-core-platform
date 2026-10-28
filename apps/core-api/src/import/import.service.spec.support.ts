@@ -1,5 +1,9 @@
 import { Test, type TestingModule } from '@nestjs/testing';
-import { ImportEntityType, ImportJobStatus } from '@prisma/client';
+import {
+  ImportEntityType,
+  ImportJobStatus,
+  ImportRowAction,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
@@ -8,6 +12,7 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { ImportFileStorageService } from './import-file.storage.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { ImportService } from './import.service.js';
 
 export const TENANT_ID = 'tenant-1';
@@ -93,7 +98,13 @@ function applyDefaults(harness: ImportHarness): void {
     },
   );
   harness.prisma.$transaction.mockImplementation(
-    (callback: (tx: MockPrisma) => unknown) => callback(harness.prisma),
+    (callback: (tx: MockPrisma) => unknown) =>
+      callback(
+        withApplyPersistedTotalsTransactionClient(harness.prisma, {
+          tenantId: TENANT_ID,
+          expectedRows: 1,
+        }),
+      ),
   );
   harness.tenantContext.getTenantId.mockResolvedValue(TENANT_ID);
   harness.tenantContext.getAuthenticatedUser.mockReturnValue({
@@ -302,10 +313,42 @@ export function arrangeApply(
   rows: Array<Record<string, unknown>>,
 ): void {
   const { prisma } = harness;
+  const totals = (job.totals_json ?? {}) as { rows?: number };
+  const expectedRows = totals.rows ?? rows.length;
+  const rowActions = new Map<number, ImportRowAction>();
+  rows.forEach((row, index) => {
+    const rowNo = (row.row_no as number | undefined) ?? index + 1;
+    rowActions.set(rowNo, row.action as ImportRowAction);
+  });
+  prisma.$transaction.mockImplementation(
+    (callback: (tx: MockPrisma) => unknown) =>
+      callback(
+        withApplyPersistedTotalsTransactionClient(prisma, {
+          tenantId: TENANT_ID,
+          expectedRows,
+          actionsByRow: rowActions,
+        }),
+      ),
+  );
   prisma.importJob.findFirst.mockResolvedValue(job);
   prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
   prisma.importJobRow.findMany.mockResolvedValue(rows);
-  prisma.importJobRow.update.mockResolvedValue({});
+  prisma.importJobRow.update.mockImplementation(
+    async (args: {
+      where?: {
+        row_no?: number;
+        tenant_id_import_job_id_row_no?: { row_no?: number };
+      };
+      data?: { action?: ImportRowAction };
+    }) => {
+      const rowNo =
+        args.where?.tenant_id_import_job_id_row_no?.row_no ?? args.where?.row_no;
+      if (args.data?.action && rowNo !== undefined) {
+        rowActions.set(rowNo, args.data.action);
+      }
+      return {};
+    },
+  );
   prisma.auditLog.create.mockResolvedValue({});
   prisma.importJob.update.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => ({

@@ -1,9 +1,13 @@
 import { matchRoutes, type RouteObject } from 'react-router-dom'
 import { APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { i18n } from '@/lib/i18n'
+import type nav from '../../../../locales/de/nav.json'
 
 export const APP_DOCUMENT_TITLE = 'Auto Core'
-export const NOT_FOUND_SECTION_TITLE = 'Page not found'
+
+type RouteTitleKey =
+  | `modules.${keyof typeof nav.modules}`
+  | `routeTitles.${Exclude<keyof typeof nav.routeTitles, 'notFound'>}`
 
 const TITLE_SEPARATOR = ' - '
 
@@ -13,78 +17,78 @@ type RoutePattern =
   | typeof LOGIN_PATH
 
 /**
- * Section title per route pattern, named after the sidebar entry the page belongs to.
+ * `nav` namespace key of the section title per route pattern, named after the sidebar entry the page belongs to.
  * Typed over every route constant, so a new route without a title fails the build.
  */
-export const ROUTE_SECTION_TITLES: Record<RoutePattern, string> = {
-  [APP_ROUTE_PATHS.home]: 'Inventory',
-  [APP_ROUTE_PATHS.inventory]: 'Inventory',
-  [APP_ROUTE_PATHS.inventoryLedger]: 'Inventory Ledger',
-  [APP_ROUTE_PATHS.dashboard]: 'Dashboard',
-  [APP_ROUTE_PATHS.agentSupervision]: 'Agent Supervision',
-  [APP_ROUTE_PATHS.customers]: 'Customers',
-  [APP_ROUTE_PATHS.customerDetail]: 'Customers',
-  [APP_ROUTE_PATHS.vehicles]: 'Vehicles',
-  [APP_ROUTE_PATHS.vehicleDetail]: 'Vehicles',
-  [APP_ROUTE_PATHS.vehiclePickerlDue]: 'Pickerl fällig',
-  [APP_ROUTE_PATHS.vehicleGewaehrleistungDue]: 'Gewährleistung fällig',
-  [APP_ROUTE_PATHS.vehicleStockAlias]: 'Vehicle Stock',
-  [APP_ROUTE_PATHS.vehicleStock]: 'Vehicle Stock',
-  [APP_ROUTE_PATHS.vehicleStockReports]: 'Vehicle Stock Reports',
-  [APP_ROUTE_PATHS.vehicleStockListing]: 'Vehicle Listing',
-  [APP_ROUTE_PATHS.vehicleStockDetail]: 'Vehicle Stock',
-  [APP_ROUTE_PATHS.vehicleStockPurchaseNew]: 'New Vehicle Purchase',
-  [APP_ROUTE_PATHS.vehicleStockPurchaseDetail]: 'Vehicle Purchase',
-  [APP_ROUTE_PATHS.vehicleStockSaleNew]: 'New Vehicle Sale',
-  [APP_ROUTE_PATHS.vehicleStockSaleDetail]: 'Vehicle Sale',
-  [APP_ROUTE_PATHS.workshopKpiReports]: 'Workshop KPIs',
-  [APP_ROUTE_PATHS.salesOrders]: 'Sales Orders',
-  [APP_ROUTE_PATHS.salesOrderNew]: 'New Sales Order',
-  [APP_ROUTE_PATHS.salesOrderDetail]: 'Sales Orders',
-  [APP_ROUTE_PATHS.vendors]: 'Vendors',
-  [APP_ROUTE_PATHS.vendorDetail]: 'Vendors',
-  [APP_ROUTE_PATHS.purchaseOrders]: 'Purchase Orders',
-  [APP_ROUTE_PATHS.purchaseOrderNew]: 'New Purchase Order',
-  [APP_ROUTE_PATHS.purchaseOrderDetail]: 'Purchase Orders',
-  [APP_ROUTE_PATHS.stockTransfers]: 'Transfers',
-  [APP_ROUTE_PATHS.stockTransferDetail]: 'Transfers',
-  [APP_ROUTE_PATHS.purchaseBills]: 'Purchase Bills',
-  [APP_ROUTE_PATHS.purchaseBillNew]: 'New Purchase Bill',
-  [APP_ROUTE_PATHS.purchaseBillDetail]: 'Purchase Bills',
-  [APP_ROUTE_PATHS.salesInvoices]: 'Invoices',
-  [APP_ROUTE_PATHS.salesInvoiceNew]: 'New Invoice',
-  [APP_ROUTE_PATHS.salesInvoiceEdit]: 'Edit Invoice',
-  [APP_ROUTE_PATHS.salesInvoiceDetail]: 'Invoices',
-  [APP_ROUTE_PATHS.financeInvoices]: 'Invoices',
-  [APP_ROUTE_PATHS.invoicesLegacy]: 'Invoices',
-  [APP_ROUTE_PATHS.creditNotes]: 'Credit Notes',
-  [APP_ROUTE_PATHS.creditNoteDetail]: 'Credit Notes',
-  [APP_ROUTE_PATHS.accountingExportReadiness]: 'Accounting Export Readiness',
-  [APP_ROUTE_PATHS.purchaseInvoiceNew]: 'New Purchase Invoice',
-  [APP_ROUTE_PATHS.settings]: 'Settings',
-  [APP_ROUTE_PATHS.hr]: 'HR',
-  [APP_ROUTE_PATHS.hrEmployees]: 'HR Employees',
-  [APP_ROUTE_PATHS.hrClock]: 'HR Clock',
-  [APP_ROUTE_PATHS.hrLeave]: 'HR Leave',
-  [APP_ROUTE_PATHS.platformTenants]: 'Tenants',
-  [APP_ROUTE_PATHS.workshopIntake]: 'Workshop Intake',
-  [APP_ROUTE_PATHS.workshopOrders]: 'Workshop Orders',
-  [APP_ROUTE_PATHS.workshopPick]: 'Parts pick queue',
-  [APP_ROUTE_PATHS.workshopPickList]: 'Parts pick queue',
-  [APP_ROUTE_PATHS.workshopBoard]: 'Workshop Board',
-  [APP_ROUTE_PATHS.workshopPlanner]: 'Workshop Planner',
-  [APP_ROUTE_PATHS.workshopCapacity]: 'Workshop Capacity',
-  [APP_ROUTE_PATHS.workshopLoanerVehicles]: 'Ersatzfahrzeuge',
-  [APP_ROUTE_PATHS.workshopLoanerBookingPrint]: 'Ersatzwagen Protokoll',
-  [APP_ROUTE_PATHS.workshopOrderDetail]: 'Workshop Orders',
-  [APP_ROUTE_PATHS.workshopOrderCheckIn]: 'Vehicle check-in',
-  [APP_ROUTE_PATHS.workshopOrderWarrantyClaims]: 'Garantie/Kulanz',
-  [APP_ROUTE_PATHS.tyreStorage]: 'Reifenlager',
-  [APP_ROUTE_PATHS.tyreStorageDetail]: 'Reifenlager',
-  [MECHANIC_ROUTE_PATHS.queue]: 'Mechanic Queue',
-  [MECHANIC_ROUTE_PATHS.taskDetail]: 'Mechanic Task',
-  [MECHANIC_ROUTE_PATHS.root]: 'Mechanic Queue',
-  [LOGIN_PATH]: 'Sign in',
+export const ROUTE_SECTION_TITLES: Record<RoutePattern, RouteTitleKey> = {
+  [APP_ROUTE_PATHS.home]: 'modules.inventory',
+  [APP_ROUTE_PATHS.inventory]: 'modules.inventory',
+  [APP_ROUTE_PATHS.inventoryLedger]: 'routeTitles.inventoryLedger',
+  [APP_ROUTE_PATHS.dashboard]: 'modules.dashboard',
+  [APP_ROUTE_PATHS.agentSupervision]: 'modules.agentSupervision',
+  [APP_ROUTE_PATHS.customers]: 'modules.customers',
+  [APP_ROUTE_PATHS.customerDetail]: 'modules.customers',
+  [APP_ROUTE_PATHS.vehicles]: 'modules.vehicles',
+  [APP_ROUTE_PATHS.vehicleDetail]: 'modules.vehicles',
+  [APP_ROUTE_PATHS.vehiclePickerlDue]: 'modules.pickerlDue',
+  [APP_ROUTE_PATHS.vehicleGewaehrleistungDue]: 'modules.gewaehrleistungDue',
+  [APP_ROUTE_PATHS.vehicleStockAlias]: 'modules.vehicleStock',
+  [APP_ROUTE_PATHS.vehicleStock]: 'modules.vehicleStock',
+  [APP_ROUTE_PATHS.vehicleStockReports]: 'modules.vehicleStockReports',
+  [APP_ROUTE_PATHS.vehicleStockListing]: 'routeTitles.vehicleStockListing',
+  [APP_ROUTE_PATHS.vehicleStockDetail]: 'modules.vehicleStock',
+  [APP_ROUTE_PATHS.vehicleStockPurchaseNew]: 'routeTitles.vehicleStockPurchaseNew',
+  [APP_ROUTE_PATHS.vehicleStockPurchaseDetail]: 'routeTitles.vehicleStockPurchaseDetail',
+  [APP_ROUTE_PATHS.vehicleStockSaleNew]: 'routeTitles.vehicleStockSaleNew',
+  [APP_ROUTE_PATHS.vehicleStockSaleDetail]: 'routeTitles.vehicleStockSaleDetail',
+  [APP_ROUTE_PATHS.workshopKpiReports]: 'modules.workshopKpiReports',
+  [APP_ROUTE_PATHS.salesOrders]: 'modules.salesOrders',
+  [APP_ROUTE_PATHS.salesOrderNew]: 'routeTitles.salesOrderNew',
+  [APP_ROUTE_PATHS.salesOrderDetail]: 'modules.salesOrders',
+  [APP_ROUTE_PATHS.vendors]: 'modules.vendors',
+  [APP_ROUTE_PATHS.vendorDetail]: 'modules.vendors',
+  [APP_ROUTE_PATHS.purchaseOrders]: 'modules.purchaseOrders',
+  [APP_ROUTE_PATHS.purchaseOrderNew]: 'routeTitles.purchaseOrderNew',
+  [APP_ROUTE_PATHS.purchaseOrderDetail]: 'modules.purchaseOrders',
+  [APP_ROUTE_PATHS.stockTransfers]: 'modules.stockTransfers',
+  [APP_ROUTE_PATHS.stockTransferDetail]: 'modules.stockTransfers',
+  [APP_ROUTE_PATHS.purchaseBills]: 'modules.purchaseBills',
+  [APP_ROUTE_PATHS.purchaseBillNew]: 'routeTitles.purchaseBillNew',
+  [APP_ROUTE_PATHS.purchaseBillDetail]: 'modules.purchaseBills',
+  [APP_ROUTE_PATHS.salesInvoices]: 'modules.salesInvoices',
+  [APP_ROUTE_PATHS.salesInvoiceNew]: 'routeTitles.salesInvoiceNew',
+  [APP_ROUTE_PATHS.salesInvoiceEdit]: 'routeTitles.salesInvoiceEdit',
+  [APP_ROUTE_PATHS.salesInvoiceDetail]: 'modules.salesInvoices',
+  [APP_ROUTE_PATHS.financeInvoices]: 'modules.salesInvoices',
+  [APP_ROUTE_PATHS.invoicesLegacy]: 'modules.salesInvoices',
+  [APP_ROUTE_PATHS.creditNotes]: 'modules.creditNotes',
+  [APP_ROUTE_PATHS.creditNoteDetail]: 'modules.creditNotes',
+  [APP_ROUTE_PATHS.accountingExportReadiness]: 'modules.accountingExportReadiness',
+  [APP_ROUTE_PATHS.purchaseInvoiceNew]: 'routeTitles.purchaseInvoiceNew',
+  [APP_ROUTE_PATHS.settings]: 'modules.settings',
+  [APP_ROUTE_PATHS.hr]: 'modules.hr',
+  [APP_ROUTE_PATHS.hrEmployees]: 'routeTitles.hrEmployees',
+  [APP_ROUTE_PATHS.hrClock]: 'routeTitles.hrClock',
+  [APP_ROUTE_PATHS.hrLeave]: 'routeTitles.hrLeave',
+  [APP_ROUTE_PATHS.platformTenants]: 'modules.platformTenants',
+  [APP_ROUTE_PATHS.workshopIntake]: 'routeTitles.workshopIntake',
+  [APP_ROUTE_PATHS.workshopOrders]: 'modules.workshopOrders',
+  [APP_ROUTE_PATHS.workshopPick]: 'routeTitles.workshopPick',
+  [APP_ROUTE_PATHS.workshopPickList]: 'routeTitles.workshopPick',
+  [APP_ROUTE_PATHS.workshopBoard]: 'modules.workshopBoard',
+  [APP_ROUTE_PATHS.workshopPlanner]: 'modules.workshopPlanner',
+  [APP_ROUTE_PATHS.workshopCapacity]: 'modules.workshopCapacity',
+  [APP_ROUTE_PATHS.workshopLoanerVehicles]: 'modules.workshopLoanerVehicles',
+  [APP_ROUTE_PATHS.workshopLoanerBookingPrint]: 'routeTitles.workshopLoanerBookingPrint',
+  [APP_ROUTE_PATHS.workshopOrderDetail]: 'modules.workshopOrders',
+  [APP_ROUTE_PATHS.workshopOrderCheckIn]: 'modules.workshopOrders',
+  [APP_ROUTE_PATHS.workshopOrderWarrantyClaims]: 'routeTitles.workshopOrderWarrantyClaims',
+  [APP_ROUTE_PATHS.tyreStorage]: 'modules.tyreStorage',
+  [APP_ROUTE_PATHS.tyreStorageDetail]: 'modules.tyreStorage',
+  [MECHANIC_ROUTE_PATHS.queue]: 'routeTitles.mechanicQueue',
+  [MECHANIC_ROUTE_PATHS.taskDetail]: 'routeTitles.mechanicTask',
+  [MECHANIC_ROUTE_PATHS.root]: 'routeTitles.mechanicQueue',
+  [LOGIN_PATH]: 'routeTitles.login',
 }
 
 const ROUTE_OBJECTS: RouteObject[] = (Object.keys(ROUTE_SECTION_TITLES) as RoutePattern[]).map(
@@ -101,12 +105,12 @@ export function matchRoutePattern(pathname: string): RoutePattern | null {
 export function getRouteSectionTitle(pathname: string): string {
   const pattern = matchRoutePattern(pathname)
   if (!pattern) {
-    return NOT_FOUND_SECTION_TITLE
+    return i18n.t('routeTitles.notFound', { ns: 'nav' })
   }
   if (pattern === APP_ROUTE_PATHS.workshopOrderCheckIn) {
     return i18n.t('checkIn.pageTitleFallback', { ns: 'workshop' })
   }
-  return ROUTE_SECTION_TITLES[pattern]
+  return i18n.t(ROUTE_SECTION_TITLES[pattern], { ns: 'nav' })
 }
 
 /** Joins the non-blank parts with the app name, e.g. `['WO-1', 'Workshop Orders']` → `WO-1 - Workshop Orders - Auto Core`. */

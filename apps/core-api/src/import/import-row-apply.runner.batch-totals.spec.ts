@@ -1,25 +1,46 @@
 import { ImportEntityType, ImportJobStatus, ImportRowAction } from '@prisma/client';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 
 describe('RowByRowApplyRunner batch totals', () => {
   it('accumulates totals across a partial batch instead of resetting them', async () => {
     const updates: Array<Record<string, unknown>> = [];
+    const importJob = {
+      updateMany: async (args: { data: Record<string, unknown> }) => {
+        updates.push(args.data);
+        return { count: 1 };
+      },
+      findFirst: async () => ({
+        id: 'job-1',
+        tenant_id: 'tenant-1',
+        status: ImportJobStatus.APPLYING,
+        totals_json: updates.at(-1) ?? {
+          rows: 4,
+          create: 2,
+          update: 1,
+          skip: 0,
+          error: 0,
+        },
+      }),
+      update: jest.fn(async (args: { data: Record<string, unknown> }) => ({
+        id: 'job-1',
+        status: ImportJobStatus.APPLIED,
+        totals_json: args.data.totals_json,
+      })),
+    };
+    const importJobRow = { update: jest.fn() };
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
-      $transaction: async (fn: (tx: unknown) => Promise<void>) => fn({}),
-      importJob: {
-        updateMany: async (args: { data: Record<string, unknown> }) => {
-          updates.push(args.data);
-          return { count: 1 };
-        },
-        findFirst: async () => ({
-          id: 'job-1',
-          status: ImportJobStatus.APPLYING,
-          totals_json: updates.at(-1) ?? {},
-        }),
-      },
-      importJobRow: { update: jest.fn() },
+      $transaction: async (fn: (tx: unknown) => Promise<void>) =>
+        fn(
+          withApplyPersistedTotalsTransactionClient(
+            { importJob, importJobRow },
+            { expectedRows: 4 },
+          ),
+        ),
+      importJob,
+      importJobRow,
     };
     const runner = new RowByRowApplyRunner(
       prisma as never,
@@ -59,7 +80,11 @@ describe('RowByRowApplyRunner batch totals', () => {
       },
       ImportEntityType.CUSTOMER,
       async () => undefined,
-      { resumeAfterApplySeq: 0, stopAfterBatch: true },
+      {
+        resumeAfterApplySeq: 0,
+        stopAfterBatch: true,
+        hasMoreRowsAfterBatch: true,
+      },
     );
     expect(result.totals.skip).toBe(2);
     expect(result.totals.create).toBe(2);

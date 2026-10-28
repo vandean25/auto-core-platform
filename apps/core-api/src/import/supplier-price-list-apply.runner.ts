@@ -3,6 +3,7 @@ import { ImportJobStatus, ImportRowAction, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
+  describeImportApplyCause,
   ImportApplyRetryExhaustedError,
   isRowLevelApplyError,
   toRowApplyError,
@@ -49,6 +50,11 @@ import {
   type SupplierApplyContext,
 } from './supplier-price-list-import.apply.js';
 import { mergeImportJobApplyFailureReason } from './import-apply-failure.util.js';
+import {
+  readImportJobExpectedRowCount,
+  tallyImportApplyTotalsFromRows,
+} from './import-apply-persisted-totals.js';
+import { logImportJobFailed } from './import-job-failed-log.util.js';
 
 /** Rows per transaction. A failing chunk is retried row by row. */
 const CHUNK_SIZE = 50;
@@ -90,7 +96,7 @@ export class SupplierChunkedApplyRunner {
     const ctx = this.buildContext(input, vendor);
     let jobApplied = false;
     try {
-      await this.applyPlannedChunks(
+      const stoppedEarly = await this.applyPlannedChunks(
         input,
         ctx,
         plan.batchRows,
@@ -101,25 +107,28 @@ export class SupplierChunkedApplyRunner {
         input,
         totals,
         guardedWrite,
-        plan.batchIncomplete,
+        plan.batchIncomplete || stoppedEarly,
         batchOptions,
       );
       jobApplied = finishedJob.applied;
-      return this.serialize(finishedJob.job, totals);
+      const appliedTotals =
+        (finishedJob.job.totals_json as ImportJobTotals) ?? totals;
+      return this.serialize(finishedJob.job, appliedTotals);
     } catch (error) {
       const kind = classifyImportApplyError(error);
       if (kind === 'lease_lost' || kind === 'retryable') {
         throw error;
       }
-      const failureReason =
+      const failureReason: ImportApplyFailureReason =
         error instanceof ImportApplyRetryExhaustedError
-          ? ('retry_exhausted' satisfies ImportApplyFailureReason)
-          : undefined;
+          ? 'retry_exhausted'
+          : 'apply_error';
       if (!jobApplied) {
         await this.markFailed(
           input.job.id,
           totals,
           failureReason,
+          describeImportApplyCause(error),
           batchOptions,
         );
       }
@@ -158,8 +167,14 @@ export class SupplierChunkedApplyRunner {
     batchRows: ImportApplyRow[],
     totals: ImportJobTotals,
     batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
+  ): Promise<boolean> {
     for (let offset = 0; offset < batchRows.length; offset += CHUNK_SIZE) {
+      if (
+        batchOptions?.chunkDeadlineMs !== undefined &&
+        Date.now() > batchOptions.chunkDeadlineMs
+      ) {
+        return true;
+      }
       await this.applyChunk(
         input,
         ctx,
@@ -169,6 +184,7 @@ export class SupplierChunkedApplyRunner {
         batchOptions,
       );
     }
+    return false;
   }
 
   private async finishApplyRun(
@@ -415,38 +431,44 @@ export class SupplierChunkedApplyRunner {
     guardedWrite: boolean,
   ) {
     const { tenantId, job, actorUserId, effectiveOptions } = input;
-    if (guardedWrite) {
-      await this.prisma.importJob.updateMany({
-        where: { id: job.id, status: ImportJobStatus.APPLYING },
-        data: {
-          status: ImportJobStatus.APPLIED,
-          appliedAt: new Date(),
-          totals_json: totals,
-          options_json: effectiveOptions,
-        },
-      });
-      const updatedJob = await this.prisma.importJob.findFirst({
-        where: { id: job.id },
-      });
-      await this.audit.writeImportJobAudit(
-        this.prisma,
-        tenantId,
-        actorUserId,
-        job.id,
-        'applied',
-        totals,
-      );
-      return updatedJob!;
-    }
     return this.prisma.$transaction(async (tx) => {
+      const { expectedRows, flaggedJumps } =
+        await readImportJobExpectedRowCount(tx, tenantId, job.id);
+      const persistedTotals = await tallyImportApplyTotalsFromRows(
+        tx,
+        tenantId,
+        job.id,
+        expectedRows || totals.rows,
+        flaggedJumps,
+      );
+      const appliedAt = new Date();
+      const data = {
+        status: ImportJobStatus.APPLIED,
+        appliedAt,
+        totals_json: persistedTotals,
+        options_json: effectiveOptions,
+      };
+      if (guardedWrite) {
+        await tx.importJob.updateMany({
+          where: { id: job.id, status: ImportJobStatus.APPLYING },
+          data,
+        });
+        const updatedJob = await tx.importJob.findFirst({
+          where: { id: job.id },
+        });
+        await this.audit.writeImportJobAudit(
+          tx,
+          tenantId,
+          actorUserId,
+          job.id,
+          'applied',
+          persistedTotals,
+        );
+        return updatedJob!;
+      }
       const applied = await tx.importJob.update({
         where: { id: job.id },
-        data: {
-          status: ImportJobStatus.APPLIED,
-          appliedAt: new Date(),
-          totals_json: totals,
-          options_json: effectiveOptions,
-        },
+        data,
       });
       await this.audit.writeImportJobAudit(
         tx,
@@ -454,7 +476,7 @@ export class SupplierChunkedApplyRunner {
         actorUserId,
         job.id,
         'applied',
-        totals,
+        persistedTotals,
       );
       return applied;
     });
@@ -467,19 +489,18 @@ export class SupplierChunkedApplyRunner {
   private async markFailed(
     jobId: string,
     totals: ImportJobTotals,
-    failureReason?: ImportApplyFailureReason,
+    failureReason: ImportApplyFailureReason,
+    cause: string,
     batchOptions?: ImportApplyBatchOptions,
   ): Promise<void> {
     try {
       const persist = async () => {
-        const failurePatch = failureReason
-          ? await mergeImportJobApplyFailureReason(
-              this.prisma,
-              jobId,
-              failureReason,
-            )
-          : {};
-        await this.prisma.importJob.updateMany({
+        const failurePatch = await mergeImportJobApplyFailureReason(
+          this.prisma,
+          jobId,
+          failureReason,
+        );
+        const updated = await this.prisma.importJob.updateMany({
           where: { id: jobId, status: ImportJobStatus.APPLYING },
           data: {
             status: ImportJobStatus.FAILED,
@@ -487,6 +508,19 @@ export class SupplierChunkedApplyRunner {
             ...failurePatch,
           },
         });
+        if (updated.count > 0) {
+          const job = await this.prisma.importJob.findFirst({
+            where: { id: jobId },
+            select: { attempts_without_progress: true },
+          });
+          logImportJobFailed(this.logger, {
+            jobId,
+            phase: 'apply',
+            attempt: job?.attempts_without_progress ?? 0,
+            reason: failureReason,
+            cause,
+          });
+        }
       };
       if (
         failureReason === 'retry_exhausted' &&

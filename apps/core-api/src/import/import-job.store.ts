@@ -17,13 +17,20 @@ import {
   dryRunRowCreateInput,
   persistGroupedDryRunRowUpdates,
 } from './import-dry-run-reconcile.persist-rows.js';
-import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
+import {
+  ImportApplyRetryExhaustedError,
+  type ImportApplyFailureReason,
+} from './import-apply.errors.js';
 import {
   delayMs,
   retryableTransactionDelayMs,
 } from './import-transaction-retry.util.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
+import {
+  isStaleApplyingImportJob,
+  nextApplyLeaseUntil,
+} from './import-apply-lease.js';
 import {
   IMPORT_WORKER_LEASE_MS,
   importWorkerPoisonProgressCursor,
@@ -229,7 +236,10 @@ async function claimWorkerLeaseInTransaction(
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
   const worker = readWorkerState(options);
-  if (!worker || worker.phase !== phase) {
+  if (!worker) {
+    return adoptStaleApplyLease(tx, tenantId, jobId, phase, job, options);
+  }
+  if (worker.phase !== phase) {
     return null;
   }
   const now = Date.now();
@@ -266,6 +276,57 @@ async function claimWorkerLeaseInTransaction(
       options_json: { ...options, worker: refreshed },
       worker_claim_seq: job.worker_claim_seq + 1,
       attempts_without_progress: nextAttempts,
+    },
+  });
+  if (locked.count === 0) {
+    return null;
+  }
+  return refreshed;
+}
+
+async function adoptStaleApplyLease(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  jobId: string,
+  phase: ImportWorkerPhase,
+  job: {
+    status: ImportJobStatus;
+    options_json: unknown;
+    updatedAt?: Date | null;
+    worker_claim_seq: number;
+  },
+  options: ImportJobOptionsWithWorker,
+): Promise<ImportJobWorkerState | null> {
+  const now = Date.now();
+  if (!isStaleApplyingImportJob(job, now)) {
+    return null;
+  }
+  const refreshed: ImportJobWorkerState = {
+    phase,
+    lease_token: randomUUID(),
+    lease_until: nextApplyLeaseUntil(now),
+    processed_rows: 0,
+    last_committed_apply_seq: 0,
+    started_at: new Date(now).toISOString(),
+  };
+  const locked = await tx.importJob.updateMany({
+    where: {
+      tenant_id: tenantId,
+      id: jobId,
+      status: ImportJobStatus.APPLYING,
+      OR: [
+        { options_json: { path: ['worker'], equals: Prisma.AnyNull } },
+        {
+          options_json: {
+            path: ['worker', 'lease_token'],
+            equals: Prisma.AnyNull,
+          },
+        },
+      ],
+    },
+    data: {
+      options_json: { ...options, worker: refreshed },
+      worker_claim_seq: job.worker_claim_seq + 1,
     },
   });
   if (locked.count === 0) {
@@ -810,11 +871,22 @@ export class ImportJobStore {
     });
   }
 
-  markFailedIfApplying(
+  async markFailedIfApplying(
     tenantId: string,
     jobId: string,
+    applyFailureReason: ImportApplyFailureReason = 'apply_error',
     totals?: ImportJobTotals,
+    cause?: string,
   ) {
+    const job = await this.prisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
+      select: { options_json: true },
+    });
+    const options = {
+      ...((job?.options_json as Record<string, unknown> | null) ?? {}),
+      apply_failure_reason: applyFailureReason,
+      ...(cause ? { apply_failure_cause: cause } : {}),
+    };
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
@@ -824,6 +896,7 @@ export class ImportJobStore {
       data: {
         status: ImportJobStatus.FAILED,
         failed_at: new Date(),
+        options_json: options,
         ...(totals ? { totals_json: totals } : {}),
       },
     });
@@ -851,8 +924,21 @@ export class ImportJobStore {
     });
   }
 
-  /** Moves a dry-run job to APPLYING. The status guard makes concurrent applies fail. */
-  lockForApply(tenantId: string, jobId: string) {
+  /** Moves a dry-run job to APPLYING and holds the apply lease. */
+  async lockForApply(tenantId: string, jobId: string) {
+    const existing = await this.findJob(tenantId, jobId);
+    const options = (existing?.options_json ??
+      {}) as ImportJobOptionsWithWorker;
+    const previous = readWorkerState(options);
+    const now = Date.now();
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: randomUUID(),
+      lease_until: nextApplyLeaseUntil(now),
+      processed_rows: previous?.processed_rows ?? 0,
+      last_committed_apply_seq: previous?.last_committed_apply_seq ?? 0,
+      started_at: previous?.started_at ?? new Date(now).toISOString(),
+    };
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
@@ -861,7 +947,10 @@ export class ImportJobStore {
           in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
         },
       },
-      data: { status: ImportJobStatus.APPLYING },
+      data: {
+        status: ImportJobStatus.APPLYING,
+        options_json: { ...options, worker },
+      },
     });
   }
 
@@ -915,6 +1004,14 @@ export class ImportJobStore {
           applySequenceOrderKey,
         );
         if (dryRunTotals.rows === 0) {
+          const { tallyImportApplyTotalsFromRows } =
+            await import('./import-apply-persisted-totals.js');
+          const persistedTotals = await tallyImportApplyTotalsFromRows(
+            tx,
+            tenantId,
+            jobId,
+            0,
+          );
           await tx.importJob.updateMany({
             where: {
               tenant_id: tenantId,
@@ -924,6 +1021,7 @@ export class ImportJobStore {
             data: {
               status: ImportJobStatus.APPLIED,
               appliedAt: new Date(),
+              totals_json: persistedTotals,
             },
           });
         }
@@ -952,7 +1050,7 @@ export async function commitApplyWorkerRowInTransaction(
   const options = job.options_json as ImportJobOptionsWithWorker;
   const workerState = options.worker;
   if (!workerState) {
-    throw new ImportWorkerLeaseLostError();
+    return;
   }
   const applyWatermark = advanceContiguousApplySeqWatermark(
     workerState.last_committed_apply_seq ?? 0,

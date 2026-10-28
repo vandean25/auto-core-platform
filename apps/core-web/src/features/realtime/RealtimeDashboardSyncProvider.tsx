@@ -1,9 +1,9 @@
 import * as React from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
-import { authSessionKeys } from '@/api/auth-session'
+import { authSessionKeys, type AuthSession } from '@/api/auth-session'
 import { siteKeys } from '@/api/sites'
 import { stockTransferKeys } from '@/api/stock-transfers'
 import { inventoryKeys } from '@/api/inventory'
@@ -39,6 +39,14 @@ const SITE_SCOPED_QUERY_KEYS: QueryKey[] = [
   inventoryKeys.all,
   stockTransferKeys.all,
 ]
+
+/** Active site of the cached session, or undefined while no session is cached. */
+function cachedActiveSiteId(queryClient: QueryClient): string | null | undefined {
+  for (const [, session] of queryClient.getQueriesData<AuthSession>({ queryKey: authSessionKeys.all })) {
+    if (session) return session.activeSiteId ?? null
+  }
+  return undefined
+}
 
 type RealtimeConnection = {
   url: string
@@ -198,6 +206,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
 
     const onSiteContextUpdated = (payload: unknown) => {
       if (!isSiteContextUpdatedPayload(payload)) return
+      // The tab that switched the site (or a reconnect that repeats the current one) already holds this site's data.
+      if (cachedActiveSiteId(queryClient) === payload.siteId) return
 
       void (async () => {
         // The initiating tab is not special: refetch the session so the

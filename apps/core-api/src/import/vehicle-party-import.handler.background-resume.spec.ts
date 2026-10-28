@@ -14,6 +14,7 @@ import {
   pageByApplySeq,
 } from './import-apply-sequence.test-util.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 
 function makeMixedPage(lastRowNo: number, updateRowNo: number) {
   return Array.from({ length: lastRowNo }, (_, index) => {
@@ -29,34 +30,40 @@ function makeMixedPage(lastRowNo: number, updateRowNo: number) {
   });
 }
 
-function createWorkerPrisma(worker: ImportJobWorkerState) {
+function createWorkerPrisma(
+  worker: ImportJobWorkerState,
+  expectedRows: number,
+) {
   let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
-  const tx = {
-    importJob: {
-      findFirst: async () => ({
-        id: 'job-1',
-        status: ImportJobStatus.APPLYING,
-        options_json: { worker },
-        totals_json: {},
-      }),
-      update: async (args: {
-        data: {
-          status?: ImportJobStatus;
-          options_json?: { worker: ImportJobWorkerState };
-        };
-      }) => {
-        if (args.data.options_json?.worker) {
-          Object.assign(worker, args.data.options_json.worker);
-        }
-        if (args.data.status === ImportJobStatus.APPLIED) {
-          jobStatus = ImportJobStatus.APPLIED;
-        }
+  const tx = withApplyPersistedTotalsTransactionClient(
+    {
+      importJob: {
+        findFirst: async () => ({
+          id: 'job-1',
+          status: ImportJobStatus.APPLYING,
+          options_json: { worker },
+          totals_json: { rows: expectedRows, create: 0, update: 0, skip: 0, error: 0 },
+        }),
+        update: async (args: {
+          data: {
+            status?: ImportJobStatus;
+            options_json?: { worker: ImportJobWorkerState };
+          };
+        }) => {
+          if (args.data.options_json?.worker) {
+            Object.assign(worker, args.data.options_json.worker);
+          }
+          if (args.data.status === ImportJobStatus.APPLIED) {
+            jobStatus = ImportJobStatus.APPLIED;
+          }
+        },
       },
+      vehicleParty: { findFirst: async () => ({ id: 'party' }) },
+      externalIdMapping: { findFirst: async () => null },
+      importJobRow: { update: jest.fn() },
     },
-    vehicleParty: { findFirst: async () => ({ id: 'party' }) },
-    externalIdMapping: { findFirst: async () => null },
-    importJobRow: { update: jest.fn() },
-  };
+    { tenantId: 'tenant-1', expectedRows },
+  );
   return {
     prisma: {
       externalIdMapping: { findFirst: async () => null },
@@ -103,7 +110,8 @@ describe('VehiclePartyImportHandler background resume', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    const { prisma } = createWorkerPrisma(worker);
+    const totalRows = IMPORT_APPLY_BATCH_SIZE + 1;
+    const { prisma } = createWorkerPrisma(worker, totalRows);
     const runner = new RowByRowApplyRunner(
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
@@ -116,7 +124,6 @@ describe('VehiclePartyImportHandler background resume', () => {
       runner,
     );
 
-    const totalRows = IMPORT_APPLY_BATCH_SIZE + 1;
     const updateRowNo = IMPORT_APPLY_BATCH_SIZE;
     const allRows = assignVehiclePartyApplySeqs(
       makeMixedPage(totalRows, updateRowNo),

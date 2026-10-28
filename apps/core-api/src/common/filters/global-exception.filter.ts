@@ -153,6 +153,52 @@ function resolveBodyDecompressionError(
   };
 }
 
+function readImportJobId(
+  exception: unknown,
+  request: Request,
+): string | undefined {
+  const tagged = exception as { importJobId?: unknown };
+  if (typeof tagged.importJobId === 'string' && tagged.importJobId.length > 0) {
+    return tagged.importJobId;
+  }
+  const params = request.params as
+    { jobId?: unknown; id?: unknown } | undefined;
+  if (typeof params?.jobId === 'string') {
+    return params.jobId;
+  }
+  if (typeof params?.id === 'string' && request.path?.includes('/imports/')) {
+    return params.id;
+  }
+  return undefined;
+}
+
+function whenCode(code: string | undefined): { code?: string } {
+  return code ? { code } : {};
+}
+
+function whenParams(params: Record<string, string> | undefined): {
+  params?: Record<string, string>;
+} {
+  if (!params || Object.keys(params).length === 0) {
+    return {};
+  }
+  return { params };
+}
+
+function whenEvent(eventId: string | undefined): { eventId?: string } {
+  return eventId ? { eventId } : {};
+}
+
+function whenRequestId(
+  status: number,
+  requestId: string | undefined,
+): { requestId?: string } {
+  if (status < 500 || !requestId) {
+    return {};
+  }
+  return { requestId };
+}
+
 function buildErrorRequestContext(request: Request): ErrorRequestContext {
   const user = TenantContextStorage.getUser();
   const requestMeta = TenantContextStorage.getRequestMeta();
@@ -216,26 +262,39 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const context = buildErrorRequestContext(request);
 
     const resolved = this.resolveException(exception, context);
-    const eventId = this.captureSentryIfInternal(exception, resolved.status);
+    const eventId = this.captureSentryIfInternal(
+      exception,
+      resolved.status,
+      context,
+      request,
+    );
 
     applyPdfDownloadCacheControlIfNeeded(request, response);
 
-    response.status(resolved.status).json({
-      statusCode: resolved.status,
-      message: resolved.message,
-      error: resolved.error || this.getHttpStatusName(resolved.status),
-      ...(resolved.code ? { code: resolved.code } : {}),
-      ...(resolved.details ?? {}),
-      ...(resolved.params && Object.keys(resolved.params).length > 0
-        ? { params: resolved.params }
-        : {}),
-      ...(resolved.structuredDetails ?? {}),
-      ...(eventId ? { eventId } : {}),
-      // The x-request-id the request was logged under, so a user can quote it to support.
-      ...(resolved.status >= 500 && context.requestId
-        ? { requestId: context.requestId }
-        : {}),
-    });
+    const writeBody = () =>
+      response.status(resolved.status).json({
+        statusCode: resolved.status,
+        message: resolved.message,
+        error: resolved.error || this.getHttpStatusName(resolved.status),
+        ...whenCode(resolved.code),
+        ...(resolved.details ?? {}),
+        ...whenParams(resolved.params),
+        ...(resolved.structuredDetails ?? {}),
+        ...whenEvent(eventId),
+        ...whenRequestId(resolved.status, context.requestId),
+      });
+    const flush = (Sentry as { flush?: (timeout: number) => Promise<unknown> })
+      .flush;
+    const sentryConfigured = Boolean(process.env.SENTRY_DSN?.trim());
+    if (
+      resolved.status >= 500 &&
+      sentryConfigured &&
+      typeof flush === 'function'
+    ) {
+      void Promise.resolve(flush(2000)).finally(writeBody);
+      return;
+    }
+    writeBody();
   }
 
   private resolveException(
@@ -455,12 +514,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private captureSentryIfInternal(
     exception: unknown,
     status: number,
+    context: ErrorRequestContext,
+    request: Request,
   ): string | undefined {
     if (status < 500) {
       return undefined;
     }
     try {
-      const captured = Sentry.captureException(exception);
+      const jobId = readImportJobId(exception, request);
+      const tags: Record<string, string> = {};
+      if (context.requestId) {
+        tags.requestId = context.requestId;
+      }
+      if (jobId) {
+        tags.jobId = jobId;
+      }
+      const captured = Sentry.captureException(exception, { tags });
       return captured || undefined;
     } catch {
       return undefined;

@@ -57,5 +57,6 @@ describe('isImportSyncLegacyApplyPath', () => {
   it('is true for plain synchronous apply', () => {
     expect(isImportSyncLegacyApplyPath(undefined)).toBe(true);
     expect(isImportSyncLegacyApplyPath({})).toBe(true);
+    expect(isImportSyncLegacyApplyPath({ leaseToken: 'lease' })).toBe(true);
   });
 });

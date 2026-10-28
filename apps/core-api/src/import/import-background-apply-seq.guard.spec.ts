@@ -31,7 +31,10 @@ describe('background apply missing apply_seq guard', () => {
       findApplyRowsAfterApplySeq: jest.fn(async () => []),
     } as unknown as ImportJobStore;
     const service = Object.create(ImportService.prototype) as ImportService;
-    Object.assign(service, { jobStore });
+    Object.assign(service, {
+      jobStore,
+      logger: { error: jest.fn(), warn: jest.fn(), log: jest.fn() },
+    });
     const context = await (
       service as unknown as {
         loadBackgroundApplyContext: (
@@ -41,6 +44,10 @@ describe('background apply missing apply_seq guard', () => {
       }
     ).loadBackgroundApplyContext('tenant-1', 'job-1');
     expect(context).toBeNull();
-    expect(markFailedIfApplying).toHaveBeenCalledWith('tenant-1', 'job-1');
+    expect(markFailedIfApplying).toHaveBeenCalledWith(
+      'tenant-1',
+      'job-1',
+      'apply_seq_missing',
+    );
   });
 });

@@ -12,25 +12,27 @@ import { getErrorMessage } from '@/lib/error-utils'
 type ImportBackgroundProgressAlertProps = {
   job: ImportJob
   onCancelled?: (job: ImportJob) => void
+  onResume?: () => void
 }
 
 export function ImportBackgroundProgressAlert({
   job,
   onCancelled,
+  onResume,
 }: ImportBackgroundProgressAlertProps) {
   const { t } = useTranslation(['settings', 'common'])
   const cancelMutation = useCancelImportJob()
-  if (job.status !== 'APPLYING' || !job.progress) {
+  if (job.status !== 'APPLYING' || (!job.progress && !job.stalled)) {
     return null
   }
 
   const percent =
-    job.progress.total_rows > 0
+    job.progress && job.progress.total_rows > 0
       ? (job.progress.processed_rows / job.progress.total_rows) * 100
       : 0
 
   const etaLabel =
-    job.progress.eta_seconds != null && job.progress.eta_seconds > 0
+    job.progress?.eta_seconds != null && job.progress.eta_seconds > 0
       ? ` · ${t('dataImport.background.eta', {
           minutes: Math.max(1, Math.ceil(job.progress.eta_seconds / 60)),
         })}`
@@ -42,14 +44,21 @@ export function ImportBackgroundProgressAlert({
       <AlertDescription className="space-y-2">
         <p>{t('dataImport.background.description')}</p>
         <Progress value={percent} />
-        <p className="text-sm text-muted-foreground">
-          {t('dataImport.background.rows', {
-            processed: formatNumber(job.progress.processed_rows),
-            total: formatNumber(job.progress.total_rows),
-          })}
-          {etaLabel}
-        </p>
-        {job.progress.phase === 'dry_run' ? (
+        {job.progress ? (
+          <p className="text-sm text-muted-foreground">
+            {t('dataImport.background.rows', {
+              processed: formatNumber(job.progress.processed_rows),
+              total: formatNumber(job.progress.total_rows),
+            })}
+            {etaLabel}
+          </p>
+        ) : null}
+        {job.stalled ? (
+          <Button type="button" size="sm" onClick={() => onResume?.()}>
+            {t('dataImport.background.resume')}
+          </Button>
+        ) : null}
+        {job.progress?.phase === 'dry_run' ? (
           <Button
             type="button"
             variant="outline"

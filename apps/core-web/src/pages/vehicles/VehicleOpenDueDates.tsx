@@ -23,7 +23,7 @@ export function VehicleOpenDueDates({ dueDates }: VehicleOpenDueDatesProps) {
           <ul className='space-y-3'>
             {dueDates.map((item) => (
               <li key={item.id} className='text-sm'>
-                <div className='font-medium'>{item.title}</div>
+                <div className='break-words font-medium'>{item.title}</div>
                 {item.due_date ? (
                   <div className='text-muted-foreground'>
                     {t('openDueDates.dueOn', { date: formatIsoDateOnly(item.due_date) })}

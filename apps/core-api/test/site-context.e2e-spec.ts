@@ -1,4 +1,5 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -10,7 +11,9 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
   runWithTenantContext,
+  seedTestTenantMember,
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
@@ -227,6 +230,95 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
         .set('Authorization', `Bearer ${token()}`)
         .send({ siteId: 'not-a-uuid' })
         .expect(400);
+    });
+  });
+
+  describe('mechanic mode (TECH) site recovery (AUT-780)', () => {
+    async function createTechSession() {
+      const suffix = randomUUID();
+      const firebaseUid = `aut780-tech-${suffix}`;
+      const email = `aut780-tech-${suffix}@workshop.local`;
+      const main = await resolveTestMainSiteId(prisma, tenantA.tenantId);
+      const userId = await runWithTenantContext(tenantA.tenantId, async () => {
+        const user = await prisma.user.create({
+          data: { firebaseUid, email },
+        });
+        await seedTestTenantMember(prisma, {
+          tenantId: tenantA.tenantId,
+          userId: user.id,
+          role: 'TECH',
+        });
+        await prisma.siteMembership.create({
+          data: {
+            tenant_id: tenantA.tenantId,
+            user_id: user.id,
+            site_id: main,
+            is_active: true,
+          },
+        });
+        return user.id;
+      });
+      const techToken = authService.createTestToken({
+        sub: firebaseUid,
+        email,
+        tenantId: tenantA.tenantId,
+        role: 'TECH',
+      });
+      return { userId, mainSiteId: main, techToken };
+    }
+
+    async function createSiteWithoutMember() {
+      const legalEntity = await tenantAPrisma().legalEntity.findFirstOrThrow({
+        where: { tenant_id: tenantA.tenantId },
+      });
+      return runWithTenantContext(tenantA.tenantId, () =>
+        siteService.createSite({
+          legalEntityId: legalEntity.id,
+          code: 'TECH-OTHER',
+          name: 'Other Site',
+        }),
+      );
+    }
+
+    it('lets a TECH session list only its own sites', async () => {
+      const { techToken, mainSiteId } = await createTechSession();
+      await createSiteWithoutMember();
+
+      const res = await request(app.getHttpServer())
+        .get('/api/me/sites')
+        .set('Authorization', `Bearer ${techToken}`)
+        .expect(200);
+
+      expect(res.body.map((site: { id: string }) => site.id)).toEqual([
+        mainSiteId,
+      ]);
+    });
+
+    it('lets a TECH session switch to a site it belongs to and rejects one it does not', async () => {
+      const { techToken, mainSiteId } = await createTechSession();
+      const foreign = await createSiteWithoutMember();
+
+      const ok = await request(app.getHttpServer())
+        .patch('/api/me/active-site')
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({ siteId: mainSiteId })
+        .expect(200);
+      expect(ok.body).toEqual({ activeSiteId: mainSiteId });
+
+      await request(app.getHttpServer())
+        .patch('/api/me/active-site')
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({ siteId: foreign.id })
+        .expect(422);
+    });
+
+    it('keeps other office endpoints closed to TECH sessions', async () => {
+      const { techToken } = await createTechSession();
+
+      await request(app.getHttpServer())
+        .get('/api/sites')
+        .set('Authorization', `Bearer ${techToken}`)
+        .expect(403);
     });
   });
 

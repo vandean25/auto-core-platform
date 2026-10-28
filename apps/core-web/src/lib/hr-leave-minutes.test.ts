@@ -5,8 +5,7 @@ import {
   averageExpectedMinutesPerWorkday,
   daysToMinutes,
   FALLBACK_AVG_WORKDAY_MINUTES,
-  formatApproxDays,
-  formatLeaveMinutesLabel,
+  approxLeaveDays,
   workdayMinutesFromTimes,
 } from './hr-leave-minutes'
 
@@ -44,8 +43,10 @@ describe('hr-leave-minutes', () => {
     expect(daysToMinutes(25, 515)).toBe(12875)
   })
 
-  it('formats optional approx day labels', () => {
-    expect(formatApproxDays(10025, 515)).toBe('≈ 19.5 days')
-    expect(formatLeaveMinutesLabel(12875, 515)).toBe('12875 min (≈ 25 days)')
+  it('converts leave minutes to days with one decimal, or null without a workday length', () => {
+    expect(approxLeaveDays(10025, 515)).toBe(19.5)
+    expect(approxLeaveDays(12875, 515)).toBe(25)
+    expect(approxLeaveDays(12875, 480)).toBe(26.8)
+    expect(approxLeaveDays(500, 0)).toBeNull()
   })
 })

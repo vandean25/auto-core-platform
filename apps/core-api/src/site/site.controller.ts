@@ -14,6 +14,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator.js';
 import {
   AccountingProfileResponseDto,
   UpdateAccountingProfileDto,
@@ -172,6 +173,7 @@ export class MeSiteController {
   constructor(private readonly siteService: SiteService) {}
 
   @Get('sites')
+  @MechanicAccessible()
   @ApiOperation({
     summary: 'List activatable sites for the current session (ruling 47)',
   })
@@ -181,6 +183,7 @@ export class MeSiteController {
   }
 
   @Patch('active-site')
+  @MechanicAccessible()
   @ApiOperation({
     summary: 'Set the session active site (ruling 9)',
     description:

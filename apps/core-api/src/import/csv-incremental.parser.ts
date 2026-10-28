@@ -1,4 +1,5 @@
 import { StringDecoder } from 'node:string_decoder';
+import { csvRecordEnd } from './csv-record-bytes.js';
 import {
   detectDelimiterFromHeaderLine,
   stripBomFromText,
@@ -97,6 +98,13 @@ export class CsvIncrementalParser {
     return this.delimiter ?? ';';
   }
 
+  /** Continues at a data-row byte offset. Header and delimiter come from worker state. */
+  resume(headers: string[], delimiter: ';' | ','): void {
+    this.headers = headers;
+    this.delimiter = delimiter;
+    this.headerLineRaw = headers.join(delimiter);
+  }
+
   private consumeText(text: string): string[][] {
     const completed: string[][] = [];
     if (this.delimiter === null) {
@@ -150,50 +158,145 @@ export type CsvStreamSliceResult = {
   headers: string[];
   delimiter: ';' | ',';
   rows: string[][];
+  nextByteOffset: number;
+  streamBytesRead: number;
+  rowByteEnds: number[];
 };
 
-/** Reads a batch of data rows from a stream without loading the whole file. */
-export async function readCsvDataRowSliceFromStream(
-  stream: NodeJS.ReadableStream,
+export type CsvSliceResume = {
+  headers?: string[];
+  delimiter?: ';' | ',';
+  absoluteStart?: number;
+};
+
+type SliceCollect = {
+  parser: CsvIncrementalParser;
+  rows: string[][];
+  skipped: number;
+  collected: number;
+  skipDataRows: number;
+  takeDataRows: number;
+  pending: Buffer;
+  absolute: number;
+  streamBytesRead: number;
+  headerDone: boolean;
+  rowByteEnds: number[];
+};
+
+function releaseReadable(stream: NodeJS.ReadableStream): void {
+  const emitter = stream as NodeJS.EventEmitter & { destroy?: () => void };
+  const swallow = () => undefined;
+  emitter.on?.('error', swallow);
+  emitter.destroy?.();
+  setImmediate(() => {
+    emitter.removeAllListeners?.();
+  });
+}
+
+function takeRecords(state: SliceCollect): boolean {
+  let end = csvRecordEnd(state.pending, 0);
+  while (end > 0) {
+    const record = state.pending.subarray(0, end);
+    state.pending = state.pending.subarray(end);
+    state.absolute += end;
+    end = csvRecordEnd(state.pending, 0);
+    if (!state.headerDone) {
+      state.parser.feedChunk(record);
+      state.headerDone = true;
+      continue;
+    }
+    const parsed = state.parser.feedChunk(record);
+    if (state.skipped < state.skipDataRows) {
+      state.skipped += parsed.length > 0 ? 1 : 0;
+      continue;
+    }
+    if (parsed.length === 0 || state.collected >= state.takeDataRows) {
+      continue;
+    }
+    state.rows.push(parsed[0]);
+    state.rowByteEnds.push(state.absolute);
+    state.collected += 1;
+    if (state.collected >= state.takeDataRows) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function finishTail(state: SliceCollect): void {
+  if (state.pending.length === 0 || state.collected >= state.takeDataRows) {
+    return;
+  }
+  const record = state.pending;
+  state.pending = Buffer.alloc(0);
+  state.absolute += record.length;
+  if (!state.headerDone) {
+    state.parser.feedChunk(record);
+    state.parser.finish();
+    return;
+  }
+  const parsed = [...state.parser.feedChunk(record), ...state.parser.finish()];
+  if (state.skipped < state.skipDataRows || parsed.length === 0) {
+    return;
+  }
+  state.rows.push(parsed[0]);
+  state.rowByteEnds.push(state.absolute);
+}
+
+function beginSlice(
   skipDataRows: number,
   takeDataRows: number,
-): Promise<CsvStreamSliceResult | null> {
+  resume?: CsvSliceResume,
+): {
+  parser: CsvIncrementalParser;
+  utf8: ReturnType<typeof createUtf8CsvStreamValidator>;
+  state: SliceCollect;
+} {
   const parser = new CsvIncrementalParser();
-  const utf8 = createUtf8CsvStreamValidator();
-  const rows: string[][] = [];
-  let skippedDataRows = 0;
-  let collectedDataRows = 0;
-
-  const collect = (records: string[][]): 'stop' | void => {
-    for (const cells of records) {
-      if (skippedDataRows < skipDataRows) {
-        skippedDataRows += 1;
-        continue;
-      }
-      if (collectedDataRows >= takeDataRows) {
-        return 'stop';
-      }
-      rows.push(cells);
-      collectedDataRows += 1;
-    }
-  };
-
-  for await (const chunk of stream as AsyncIterable<Buffer>) {
-    utf8.feed(chunk);
-    const stop = collect(parser.feedChunk(chunk));
-    if (stop === 'stop') {
-      const destroyable = stream as unknown as { destroy?: () => void };
-      if (typeof destroyable.destroy === 'function') {
-        destroyable.destroy();
-      }
-      break;
-    }
+  const headerDone = Boolean(resume?.headers && resume.delimiter);
+  if (resume?.headers && resume.delimiter) {
+    parser.resume(resume.headers, resume.delimiter);
   }
-  if (rows.length < takeDataRows) {
-    collect(parser.finish());
+  return {
+    parser,
+    utf8: createUtf8CsvStreamValidator(),
+    state: {
+      parser,
+      rows: [],
+      skipped: 0,
+      collected: 0,
+      skipDataRows,
+      takeDataRows,
+      pending: Buffer.alloc(0),
+      absolute: resume?.absoluteStart ?? 0,
+      streamBytesRead: 0,
+      headerDone,
+      rowByteEnds: [],
+    },
+  };
+}
+
+function acceptBytes(
+  state: SliceCollect,
+  utf8: { feed: (chunk: Buffer) => void },
+  bytes: Buffer,
+): boolean {
+  utf8.feed(bytes);
+  state.streamBytesRead += bytes.length;
+  state.pending = Buffer.concat([state.pending, bytes]);
+  return takeRecords(state);
+}
+
+function finishSlice(
+  state: SliceCollect,
+  parser: CsvIncrementalParser,
+  utf8: { finish: () => void },
+  takeDataRows: number,
+): CsvStreamSliceResult | null {
+  if (state.collected < takeDataRows) {
+    finishTail(state);
   }
   utf8.finish();
-
   const headers = parser.getHeaders();
   if (headers.length === 0) {
     return null;
@@ -201,6 +304,73 @@ export async function readCsvDataRowSliceFromStream(
   return {
     headers,
     delimiter: parser.getDelimiter(),
-    rows,
+    rows: state.rows,
+    nextByteOffset: state.absolute,
+    streamBytesRead: state.streamBytesRead,
+    rowByteEnds: state.rowByteEnds,
   };
+}
+
+async function pullUntilDone(
+  pull: () => Promise<Buffer | null>,
+  skipDataRows: number,
+  takeDataRows: number,
+  resume?: CsvSliceResume,
+): Promise<CsvStreamSliceResult | null> {
+  const { parser, utf8, state } = beginSlice(
+    skipDataRows,
+    takeDataRows,
+    resume,
+  );
+  for (;;) {
+    const bytes = await pull();
+    if (!bytes || bytes.length === 0) {
+      break;
+    }
+    if (acceptBytes(state, utf8, bytes)) {
+      break;
+    }
+  }
+  return finishSlice(state, parser, utf8, takeDataRows);
+}
+
+/** Reads one batch from ranged buffers. Stops pulling once the batch is full. */
+export async function readCsvDataRowSliceFromPull(
+  pull: () => Promise<Buffer | null>,
+  skipDataRows: number,
+  takeDataRows: number,
+  resume?: CsvSliceResume,
+): Promise<CsvStreamSliceResult | null> {
+  return pullUntilDone(pull, skipDataRows, takeDataRows, resume);
+}
+
+/** Reads one batch. A resume offset skips bytes the caller already stored. */
+export async function readCsvDataRowSliceFromStream(
+  stream: NodeJS.ReadableStream,
+  skipDataRows: number,
+  takeDataRows: number,
+  resume?: CsvSliceResume,
+): Promise<CsvStreamSliceResult | null> {
+  const iterator = (stream as AsyncIterable<Buffer>)[Symbol.asyncIterator]();
+  const onError = () => undefined;
+  (stream as NodeJS.EventEmitter).once?.('error', onError);
+  try {
+    return await pullUntilDone(
+      async () => {
+        const next = await iterator.next();
+        if (next.done || next.value === undefined) {
+          return null;
+        }
+        return Buffer.isBuffer(next.value)
+          ? next.value
+          : Buffer.from(next.value);
+      },
+      skipDataRows,
+      takeDataRows,
+      resume,
+    );
+  } finally {
+    (stream as NodeJS.EventEmitter).off?.('error', onError);
+    releaseReadable(stream);
+  }
 }

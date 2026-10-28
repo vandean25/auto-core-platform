@@ -17,7 +17,7 @@ describe('pipeImportCsvToStorage', () => {
       tenantId: 'tenant-1',
       jobId: 'job-1',
       fileName: 'data.csv',
-      source: Readable.from([Buffer.from(text, 'utf8')]),
+      openSource: () => Readable.from([Buffer.from(text, 'utf8')]),
     });
   }
 

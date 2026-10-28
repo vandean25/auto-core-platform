@@ -134,10 +134,17 @@ export function resolveWidgetSourceByPath(pathname: string): WidgetSourceDefinit
   return widgetSourceDefinitions.find((source) => pathname.startsWith(source.pathPrefix)) ?? null
 }
 
-export async function fetchRowsForWidgetHref(href: string): Promise<unknown[]> {
+export type WidgetRequest = {
+  apiUrl: string
+  /** Query params parsed from the widget href; they are applied on the client over the fetched rows. */
+  queryParams: DataTableQueryParams
+}
+
+/** The API request behind a widget href, or null when no widget source serves the href. */
+export function resolveWidgetRequest(href: string): WidgetRequest | null {
   const url = new URL(href, 'http://localhost')
   const source = resolveWidgetSourceByPath(url.pathname)
-  if (!source) return []
+  if (!source) return null
 
   const queryParams = parseDataTableQueryParams(url.searchParams)
   const queryForDashboard: DataTableQueryParams = {
@@ -146,22 +153,23 @@ export async function fetchRowsForWidgetHref(href: string): Promise<unknown[]> {
     pageSize: Math.max(200, queryParams.pageSize),
   }
 
-  const apiUrl = source.buildApiUrl(queryForDashboard)
+  return { apiUrl: source.buildApiUrl(queryForDashboard), queryParams }
+}
 
+/** Rows of one API URL, unfiltered: widgets with different client-side filters share them. */
+export async function fetchWidgetRows(apiUrl: string, sourceKey: string): Promise<unknown[]> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
   try {
     const response = await fetchWithAuth(apiUrl, { signal: controller.signal })
     if (!response.ok) {
-      throw new Error(`Failed to fetch widget data for ${source.key}`)
+      throw new Error(`Failed to fetch widget data for ${sourceKey}`)
     }
-    const payload = (await response.json()) as unknown
-    const rows = extractRows(payload)
-    return applyClientFiltersAndSort(rows, queryParams)
+    return extractRows((await response.json()) as unknown)
   } catch (error: unknown) {
     if (isAbortError(error)) {
-      console.warn(`Fetch for widget ${source.key} timed out after 10s`)
+      console.warn(`Fetch for widget ${sourceKey} timed out after 10s`)
       return []
     }
     throw error
@@ -170,3 +178,6 @@ export async function fetchRowsForWidgetHref(href: string): Promise<unknown[]> {
   }
 }
 
+export function filterWidgetRows(rows: unknown[], request: WidgetRequest | null): unknown[] {
+  return request ? applyClientFiltersAndSort(rows, request.queryParams) : rows
+}

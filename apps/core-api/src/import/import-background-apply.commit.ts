@@ -3,6 +3,10 @@ import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
+import {
+  readImportJobExpectedRowCount,
+  tallyImportApplyTotalsFromRows,
+} from './import-apply-persisted-totals.js';
 import { isBackgroundApplyOutcomeComplete } from './import-background-apply.totals.js';
 const APPLY_TOTAL_KEYS = [
   'rows',
@@ -40,7 +44,10 @@ export async function assertApplyWorkerLease(
     throw new ImportWorkerLeaseLostError();
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
-  if (options.worker?.lease_token !== leaseToken) {
+  if (!options.worker) {
+    return;
+  }
+  if (options.worker.lease_token !== leaseToken) {
     throw new ImportWorkerLeaseLostError();
   }
 }
@@ -117,11 +124,28 @@ export async function commitBackgroundApplyRowInTransaction(
     },
     mergedTotals,
   );
+  const totalsForPersist = finished
+    ? await (async () => {
+        const { expectedRows, flaggedJumps } =
+          await readImportJobExpectedRowCount(
+            tx,
+            params.tenantId,
+            params.jobId,
+          );
+        return tallyImportApplyTotalsFromRows(
+          tx,
+          params.tenantId,
+          params.jobId,
+          expectedRows,
+          flaggedJumps,
+        );
+      })()
+    : totals;
   const progressed = applyWatermark > (worker.last_committed_apply_seq ?? 0);
   await tx.importJob.update({
     where: { id: params.jobId },
     data: {
-      totals_json: totals,
+      totals_json: totalsForPersist,
       options_json: { ...options, worker: workerNext },
       ...(progressed ? { attempts_without_progress: 0 } : {}),
       ...(finished

@@ -10912,6 +10912,8 @@ export interface components {
             };
             totals: components["schemas"]["ImportJobTotalsDto"];
             progress?: components["schemas"]["ImportJobProgressDto"] | null;
+            stalled: boolean;
+            recovery_hint: Record<string, never> | null;
             created_by: Record<string, never> | null;
             created_at: string;
             applied_at: Record<string, never> | null;

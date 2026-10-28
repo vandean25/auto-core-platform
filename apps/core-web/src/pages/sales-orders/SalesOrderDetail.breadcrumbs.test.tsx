@@ -77,7 +77,7 @@ describe('SalesOrderDetail breadcrumbs', () => {
     renderPage()
 
     const trail = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(trail).getByRole('link', { name: 'Sales Orders' })).toHaveAttribute(
+    expect(within(trail).getByRole('link', { name: 'Kundenaufträge' })).toHaveAttribute(
       'href',
       '/sales-orders',
     )

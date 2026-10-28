@@ -1,6 +1,9 @@
 import { ImportRowAction } from '@prisma/client';
 import type { DryRunRowResult, ImportJobTotals } from './import.types.js';
-import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
+import type {
+  ImportJobOptionsWithWorker,
+  ImportJobWorkerState,
+} from './import-job.worker-state.js';
 import type { ImportJobStore } from './import-job.store.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
 import {
@@ -37,6 +40,10 @@ export async function persistDryRunBatchAndHandoff(params: {
   mergedTotals: ImportJobTotals;
   processed: number;
   totalRows: number;
+  csvCheckpoint?: Pick<
+    ImportJobWorkerState,
+    'csv_next_byte' | 'csv_headers' | 'csv_delimiter'
+  >;
   onAllRowBatchesDone: () => Promise<void>;
 }): Promise<void> {
   const leaseToken = params.options.worker?.lease_token;
@@ -48,7 +55,10 @@ export async function persistDryRunBatchAndHandoff(params: {
     params.jobId,
     params.rows,
     params.mergedTotals,
-    { processed_rows: params.processed },
+    {
+      processed_rows: params.processed,
+      ...params.csvCheckpoint,
+    },
     params.options,
     leaseToken,
   );

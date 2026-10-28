@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
@@ -6,7 +6,12 @@ import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recha
 import { X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { fetchRowsForWidgetHref } from '@/features/dashboard-widgets/data-source-registry'
+import { dashboardWidgetKeys } from '@/features/dashboard-widgets/dashboard-widget-keys'
+import {
+  fetchWidgetRows,
+  filterWidgetRows,
+  resolveWidgetRequest,
+} from '@/features/dashboard-widgets/data-source-registry'
 import { useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import type { DashboardWidget, DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
 import { getValueByPath, stringifyValue, toNumber } from '@/features/dashboard-widgets/utils'
@@ -18,10 +23,15 @@ type DashboardWidgetsGridProps = {
   sourcesByKey: Record<string, DashboardWidgetTableSource>
 }
 
+/** Widgets on the same source and API URL share one request; their own filters are applied to the shared rows. */
 function useWidgetRows(widget: DashboardWidget) {
+  const request = useMemo(() => resolveWidgetRequest(widget.href), [widget.href])
+  const select = useCallback((rows: unknown[]) => filterWidgetRows(rows, request), [request])
+
   return useQuery({
-    queryKey: ['dashboard-widget-data', widget.sourceKey, widget.id, widget.href],
-    queryFn: () => fetchRowsForWidgetHref(widget.href),
+    queryKey: dashboardWidgetKeys.rows(widget.sourceKey, request?.apiUrl ?? widget.href),
+    queryFn: () => (request ? fetchWidgetRows(request.apiUrl, widget.sourceKey) : []),
+    select,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
 }
@@ -107,7 +117,7 @@ function DashboardWidgetCard({
           >
             <CardTitle className="text-base font-semibold hover:text-primary transition-colors">{widget.name}</CardTitle>
           </button>
-          <p className="text-xs text-slate-500 mt-1">{source.sourceLabel}</p>
+          <p className="text-xs text-slate-500 mt-1">{t(source.labelKey)}</p>
         </div>
         <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}>
           <X className="h-4 w-4" />

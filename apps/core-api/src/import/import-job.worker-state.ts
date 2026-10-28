@@ -18,6 +18,10 @@ export type ImportJobWorkerState = {
   /** Background apply cursor over import_job_rows.apply_seq. */
   last_committed_apply_seq?: number;
   started_at: string;
+  /** Absolute file offset of the next unread CSV record. */
+  csv_next_byte?: number;
+  csv_headers?: string[];
+  csv_delimiter?: ';' | ',';
   /** After row batches finish, cross-batch duplicate reconcile runs before dry-run completion. */
   dry_run_reconcile_active?: boolean;
   dry_run_reconcile_cursor?: number;

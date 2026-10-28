@@ -5,7 +5,9 @@ import {
 } from './import.constants.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import type { ImportJobTotals } from './import.types.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
+import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 
 function makeRows(
   count: number,
@@ -33,25 +35,62 @@ describe('SupplierChunkedApplyRunner background batches', () => {
       started_at: new Date().toISOString(),
     };
     let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
+    let appliedTotalsJson: ImportJobTotals | undefined;
     const appliedUpdates: unknown[] = [];
+    const skipRows = Array.from({ length: totalRows }, () => ({
+      action: ImportRowAction.SKIP,
+    }));
     const prisma = {
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          importJob: {
-            findFirst: async () => ({
-              id: 'job-1',
-              status: ImportJobStatus.APPLYING,
-              options_json: { worker },
-            }),
-            update: async (args: {
-              data: { options_json?: { worker: ImportJobWorkerState } };
-            }) => {
-              if (args.data.options_json?.worker) {
-                Object.assign(worker, args.data.options_json.worker);
-              }
+        const tx = withApplyPersistedTotalsTransactionClient(
+          {
+            importJob: {
+              findFirst: async () => ({
+                id: 'job-1',
+                tenant_id: 'tenant-1',
+                status: jobStatus,
+                options_json: { worker },
+                totals_json:
+                  appliedTotalsJson ?? {
+                    rows: totalRows,
+                    create: 0,
+                    update: 0,
+                    skip: totalRows,
+                    error: 0,
+                  },
+              }),
+              update: async (args: {
+                data: {
+                  options_json?: { worker: ImportJobWorkerState };
+                  status?: ImportJobStatus;
+                };
+              }) => {
+                if (args.data.options_json?.worker) {
+                  Object.assign(worker, args.data.options_json.worker);
+                }
+                if (args.data.status === ImportJobStatus.APPLIED) {
+                  jobStatus = ImportJobStatus.APPLIED;
+                  appliedUpdates.push(args.data);
+                }
+                return { id: 'job-1', status: jobStatus };
+              },
+              updateMany: async (args: { data: Record<string, unknown> }) => {
+                if (args.data.status === ImportJobStatus.APPLIED) {
+                  appliedUpdates.push(args.data);
+                  jobStatus = ImportJobStatus.APPLIED;
+                  appliedTotalsJson = args.data.totals_json as ImportJobTotals;
+                }
+                return { count: 1 };
+              },
             },
+            importJobRow: { update: jest.fn() },
           },
-        };
+          {
+            tenantId: 'tenant-1',
+            expectedRows: totalRows,
+            persistedRows: skipRows,
+          },
+        );
         return fn(tx);
       },
       importJob: {
@@ -65,7 +104,13 @@ describe('SupplierChunkedApplyRunner background batches', () => {
         findFirst: async () => ({
           id: 'job-1',
           status: jobStatus,
-          totals_json: {},
+          totals_json: {
+            rows: totalRows,
+            create: 0,
+            update: 0,
+            skip: totalRows,
+            error: 0,
+          },
         }),
         update: jest.fn(),
       },

@@ -66,6 +66,12 @@ export class ImportJobResponseDto {
   @ApiPropertyOptional({ type: ImportJobProgressDto, nullable: true })
   progress?: ImportJobProgressDto | null;
 
+  @ApiProperty()
+  stalled!: boolean;
+
+  @ApiProperty({ nullable: true })
+  recovery_hint!: string | null;
+
   @ApiProperty({ nullable: true })
   created_by!: string | null;
 
