@@ -2,6 +2,7 @@ import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { authSessionKeys } from './auth-session'
+import { clearLocalSiteSwitch, markLocalSiteSwitch } from './local-site-switch'
 import { inventoryKeys } from './inventory'
 import { vehicleStockKeys } from './vehicle-stock'
 import { workshopKeys } from './workshop'
@@ -76,6 +77,7 @@ export function useSetActiveSite() {
   return useMutation({
     mutationFn: async (siteId: string | null) => {
       const payload: SetActiveSitePayload = { siteId }
+      markLocalSiteSwitch(siteId)
       return fetchJsonWithAuth<ActiveSiteResponse>(
         "/api/me/active-site",
         "Failed to switch active site",
@@ -86,6 +88,7 @@ export function useSetActiveSite() {
         },
       );
     },
+    onError: clearLocalSiteSwitch,
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: authSessionKeys.all,

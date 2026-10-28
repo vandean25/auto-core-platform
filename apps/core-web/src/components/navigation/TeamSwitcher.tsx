@@ -1,5 +1,6 @@
 import { Building2, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatTenantMemberRole } from '@/lib/i18n'
 import type { components } from '@/api/generated/openapi'
 import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
 import type { MeSite } from '@/api/sites'
@@ -31,7 +32,7 @@ function CurrentTenantLabel({ tenantName, role }: CurrentTenantLabelProps) {
       <span className="text-xs text-muted-foreground">{t('tenantSwitcher.currentTenant')}</span>
       <span className="flex items-center justify-between gap-2">
         <span className="truncate font-medium">{tenantName}</span>
-        {role ? <span className="shrink-0 text-xs text-muted-foreground">{role}</span> : null}
+        {role ? <span className="shrink-0 text-xs text-muted-foreground">{formatTenantMemberRole(role)}</span> : null}
       </span>
     </DropdownMenuLabel>
   )
@@ -92,7 +93,7 @@ function TenantMenuItems({ activeTenant, memberships, onSwitchTenant, isSwitchin
             <span className="truncate">{membership.tenantName}</span>
             <span className="truncate text-xs text-muted-foreground">{membership.tenantSlug}</span>
           </span>
-          <span className="shrink-0 text-xs text-muted-foreground">{membership.role}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{formatTenantMemberRole(membership.role)}</span>
         </DropdownMenuItem>
       ))}
     </>

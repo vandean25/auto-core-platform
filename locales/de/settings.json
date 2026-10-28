@@ -759,7 +759,6 @@
       "description": "Rolle ändern oder Zugriff deaktivieren. Sicherheitsrelevante Änderungen erzwingen eine Aktualisierung der Benutzerrechte.",
       "role": "Rolle",
       "roleAria": "Mandantenrolle des Mitglieds",
-      "allowedRoles": "Zulässige Werte: OWNER, ADMIN, TECH, SALES.",
       "status": "Status",
       "deactivate": "Mitglied deaktivieren",
       "reactivate": "Mitglied reaktivieren"

@@ -343,6 +343,12 @@
     "ro": "Romanian",
     "uk": "Ukrainian"
   },
+  "tenantMemberRole": {
+    "OWNER": "Owner",
+    "ADMIN": "Administrator",
+    "TECH": "Mechanic",
+    "SALES": "Sales"
+  },
   "vehiclePartyRole": {
     "OWNER": "Owner",
     "DRIVER": "Driver",
