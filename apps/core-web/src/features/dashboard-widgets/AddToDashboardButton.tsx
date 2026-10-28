@@ -58,9 +58,10 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
   return (
     <>
       <TooltipHint hint={t('dashboard.addToDashboardHint')}>
-        <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2 max-md:h-11">
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2 max-md:size-11 max-md:px-0">
           <Star className="h-4 w-4" />
-          {t('dashboard.addToDashboard')}
+          {/* On a phone the toolbar actions are icon buttons in one row; the text stays as the accessible name. */}
+          <span className="max-md:sr-only">{t('dashboard.addToDashboard')}</span>
         </Button>
       </TooltipHint>
 
