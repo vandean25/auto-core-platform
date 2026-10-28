@@ -266,6 +266,23 @@ describe('VehicleService', () => {
     });
   });
 
+  it('clamps a page size above the cap and reports the size it used (AUT-807)', async () => {
+    prisma.vehicle.findMany.mockResolvedValue([]);
+    prisma.vehicle.count.mockResolvedValue(7200);
+
+    const result = await service.findAll({ page: 3, pageSize: 200 });
+
+    expect(prisma.vehicle.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 100, take: 50 }),
+    );
+    expect(result.meta).toEqual({
+      total: 7200,
+      page: 3,
+      pageSize: 50,
+      pageCount: 144,
+    });
+  });
+
   it('redacts dealer operational fields outside the authorized lot sites', async () => {
     prisma.vehicle.findMany.mockResolvedValue([
       {

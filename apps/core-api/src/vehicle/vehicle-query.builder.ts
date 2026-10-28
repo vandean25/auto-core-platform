@@ -10,7 +10,8 @@ export interface VehiclePaginationParams {
 export class VehicleQueryBuilder {
   static readonly DEFAULT_PAGE = 1;
   static readonly DEFAULT_PAGE_SIZE = 25;
-  static readonly MAX_PAGE_SIZE = 100;
+  /** Larger requests are clamped, not rejected (AUT-807): a client that walks pages cannot pull big pages. */
+  static readonly MAX_PAGE_SIZE = 50;
   static readonly DEFAULT_SORT_DIRECTION = 'desc' as const;
 
   static buildWhere(

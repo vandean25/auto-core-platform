@@ -1,9 +1,12 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { clampPageSize } from '@/lib/list-page-size'
 
 interface BuildDataTableUrlOptions {
   sortFieldMap?: Record<string, string>
   searchFallbackFilterFields?: string[]
   exactFilterMap?: Record<string, string>
+  /** Cap of the endpoint; the page size is never sent above it. */
+  maxPageSize?: number
 }
 
 export function buildDataTableUrl(
@@ -15,7 +18,7 @@ export function buildDataTableUrl(
 
   const params = new URLSearchParams()
   params.append('page', String(queryParams.page))
-  params.append('pageSize', String(queryParams.pageSize))
+  params.append('pageSize', String(clampPageSize(queryParams.pageSize, options.maxPageSize)))
 
   if (queryParams.sortDirection) {
     params.append('sortDirection', queryParams.sortDirection)
