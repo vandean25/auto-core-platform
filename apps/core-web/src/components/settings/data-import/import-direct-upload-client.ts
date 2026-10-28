@@ -32,6 +32,16 @@ async function beginResumableSession(start: DirectImportUploadStart): Promise<st
   return location
 }
 
+/** GCS acknowledges committed bytes as `Range: bytes=0-N`; next offset is N+1. */
+function parseAcknowledgedBytes(rangeHeader: string | null): number {
+  const match = rangeHeader ? /(\d+)-(\d+)$/.exec(rangeHeader.trim()) : null
+  if (!match) {
+    return 0
+  }
+  const lastByte = Number(match[2])
+  return Number.isFinite(lastByte) ? lastByte + 1 : 0
+}
+
 async function resolveCommittedOffset(location: string, totalBytes: number): Promise<number> {
   const response = await fetch(location, {
     method: 'PUT',
@@ -41,11 +51,27 @@ async function resolveCommittedOffset(location: string, totalBytes: number): Pro
     return totalBytes
   }
   if (response.status === 308) {
-    const range = response.headers.get('Range')
-    const lastByte = range ? Number(range.split('-')[1]) : Number.NaN
-    return Number.isFinite(lastByte) ? lastByte + 1 : 0
+    return parseAcknowledgedBytes(response.headers.get('Range'))
   }
   return 0
+}
+
+type ChunkUploadOutcome =
+  | { status: 'done' }
+  | { status: 'more'; acknowledgedBytes: number }
+
+function isRetryableError(error: unknown): boolean {
+  const status = (error as { status?: number }).status
+  return status === undefined || isRetryableStatus(status)
+}
+
+function assertAcknowledgedWithinFile(acknowledgedBytes: number, totalBytes: number): void {
+  if (acknowledgedBytes > totalBytes) {
+    throw new Error('Resumable upload acknowledged more bytes than the file size')
+  }
+  if (acknowledgedBytes >= totalBytes) {
+    throw new Error('Resumable upload reported completion without a final response')
+  }
 }
 
 async function putChunk(params: {
@@ -54,7 +80,7 @@ async function putChunk(params: {
   chunk: Blob
   start: number
   totalBytes: number
-}): Promise<'done' | 'more'> {
+}): Promise<ChunkUploadOutcome> {
   const end = params.start + params.chunk.size - 1
   const response = await fetch(params.location, {
     method: 'PUT',
@@ -65,16 +91,55 @@ async function putChunk(params: {
     body: params.chunk,
   })
   if (response.status === 200 || response.status === 201) {
-    return 'done'
+    return { status: 'done' }
   }
   if (response.status === 308) {
-    return 'more'
+    return {
+      status: 'more',
+      acknowledgedBytes: parseAcknowledgedBytes(response.headers.get('Range')),
+    }
   }
   const error = new Error(`Chunk upload failed (${response.status})`) as Error & {
     status?: number
   }
   error.status = response.status
   throw error
+}
+
+function applyChunkAcknowledgment(params: {
+  acknowledgedBytes: number
+  offset: number
+  totalBytes: number
+  stalledAttempts: number
+}): { offset: number; stalledAttempts: number } {
+  assertAcknowledgedWithinFile(params.acknowledgedBytes, params.totalBytes)
+  if (params.acknowledgedBytes <= params.offset) {
+    const stalledAttempts = params.stalledAttempts + 1
+    if (stalledAttempts > DIRECT_UPLOAD_MAX_ATTEMPTS) {
+      throw new Error('Resumable upload made no progress')
+    }
+    return { offset: params.offset, stalledAttempts }
+  }
+  return { offset: params.acknowledgedBytes, stalledAttempts: 0 }
+}
+
+async function recoverFromChunkFailure(params: {
+  error: unknown
+  location: string
+  totalBytes: number
+  failedAttempts: number
+  onProgress?: DirectUploadProgress
+}): Promise<{ offset: number; failedAttempts: number }> {
+  if (!isRetryableError(params.error)) {
+    throw params.error
+  }
+  const failedAttempts = params.failedAttempts + 1
+  if (failedAttempts > DIRECT_UPLOAD_MAX_ATTEMPTS) {
+    throw params.error
+  }
+  const offset = await resolveCommittedOffset(params.location, params.totalBytes)
+  params.onProgress?.(offset, params.totalBytes)
+  return { offset, failedAttempts }
 }
 
 async function uploadFileInChunks(params: {
@@ -85,31 +150,47 @@ async function uploadFileInChunks(params: {
 }): Promise<void> {
   const totalBytes = params.file.size
   let offset = 0
-  let attempt = 0
+  let failedAttempts = 0
+  let stalledAttempts = 0
 
   while (offset < totalBytes) {
     const end = Math.min(offset + DIRECT_UPLOAD_CHUNK_BYTES, totalBytes)
+    let outcome: ChunkUploadOutcome
     try {
-      const outcome = await putChunk({
+      outcome = await putChunk({
         location: params.location,
         contentType: params.contentType,
         chunk: params.file.slice(offset, end),
         start: offset,
         totalBytes,
       })
-      offset = outcome === 'done' ? totalBytes : end
-      attempt = 0
-      params.onProgress?.(offset, totalBytes)
     } catch (error) {
-      const status = (error as { status?: number }).status
-      if (status !== undefined && !isRetryableStatus(status)) {
-        throw error
-      }
-      attempt += 1
-      if (attempt > DIRECT_UPLOAD_MAX_ATTEMPTS) {
-        throw error
-      }
-      offset = await resolveCommittedOffset(params.location, totalBytes)
+      const recovered = await recoverFromChunkFailure({
+        error,
+        location: params.location,
+        totalBytes,
+        failedAttempts,
+        onProgress: params.onProgress,
+      })
+      failedAttempts = recovered.failedAttempts
+      offset = recovered.offset
+      continue
+    }
+    failedAttempts = 0
+    if (outcome.status === 'done') {
+      params.onProgress?.(totalBytes, totalBytes)
+      return
+    }
+    const acknowledged = outcome.acknowledgedBytes
+    const advanced = applyChunkAcknowledgment({
+      acknowledgedBytes: acknowledged,
+      offset,
+      totalBytes,
+      stalledAttempts,
+    })
+    stalledAttempts = advanced.stalledAttempts
+    if (advanced.offset !== offset) {
+      offset = advanced.offset
       params.onProgress?.(offset, totalBytes)
     }
   }

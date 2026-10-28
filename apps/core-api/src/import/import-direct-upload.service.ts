@@ -82,7 +82,6 @@ export class ImportDirectUploadService {
       headers: {
         'x-goog-resumable': 'start',
         'Content-Type': contentType,
-        'x-goog-content-length-range': `0,${declaredBytes}`,
       },
       content_type: contentType,
       max_bytes: declaredBytes,
@@ -108,7 +107,6 @@ export class ImportDirectUploadService {
     const uploadId = assertDirectUploadId(params.uploadId);
     const fileName = assertDirectUploadFileName(params.fileName);
     const maxBytes = readImportDirectUploadMaxFileBytes();
-    const declaredBytes = assertDirectUploadSize(params.size, maxBytes);
     const stagingKey = buildDirectUploadStagingObjectKey({
       tenantId,
       uploadId,
@@ -120,27 +118,28 @@ export class ImportDirectUploadService {
     if (!staged) {
       throw importDirectUploadNotFound();
     }
-    if (!Number.isFinite(staged.size) || staged.size <= 0) {
-      throw importDirectUploadInvalid();
-    }
-    if (staged.size > maxBytes || staged.size > declaredBytes) {
-      throw importDirectUploadTooLarge();
-    }
 
     const jobId = randomUUID();
-    const destinationKey = buildGcsImportObjectKey({
-      tenantId,
-      jobId,
-      fileName,
-    });
-    await this.directStorage.copyStagingToJobObject({
-      sourceKey: stagingKey,
-      destinationKey,
-    });
-    await this.deleteStaging(stagingKey);
-
-    const ref = { object_key: destinationKey };
+    const ref = {
+      object_key: buildGcsImportObjectKey({ tenantId, jobId, fileName }),
+    };
+    let promoted = false;
     try {
+      const declaredBytes = assertDirectUploadSize(params.size, maxBytes);
+      if (!Number.isFinite(staged.size) || staged.size <= 0) {
+        throw importDirectUploadInvalid();
+      }
+      if (staged.size > maxBytes || staged.size > declaredBytes) {
+        throw importDirectUploadTooLarge();
+      }
+
+      await this.directStorage.copyStagingToJobObject({
+        sourceKey: stagingKey,
+        destinationKey: ref.object_key,
+      });
+      promoted = true;
+      await this.deleteStaging(stagingKey);
+
       const assessed = await assessImportCsvFromReadable(
         this.fileStorage.openReadStream(ref),
       );
@@ -157,7 +156,10 @@ export class ImportDirectUploadService {
         rowCount: assessed.dataRowCount,
       });
     } catch (error) {
-      await this.fileStorage.deleteUpload(ref).catch(() => undefined);
+      await this.deleteStaging(stagingKey);
+      if (promoted) {
+        await this.fileStorage.deleteUpload(ref).catch(() => undefined);
+      }
       throw error;
     }
   }

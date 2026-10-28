@@ -88,7 +88,7 @@ function serviceWith(params: {
 }
 
 describe('GcsDirectImportUploadStorage signing', () => {
-  it('signs a V4 resumable URL with fixed content type and a length range', async () => {
+  it('signs a V4 resumable URL with a fixed content type', async () => {
     const getSignedUrl = jest.fn(async () => [
       'https://storage.googleapis.com/signed',
     ]);
@@ -116,7 +116,6 @@ describe('GcsDirectImportUploadStorage signing', () => {
       expires: expiresAt,
       contentType: 'text/csv',
       virtualHostedStyle: false,
-      extensionHeaders: { 'x-goog-content-length-range': '0,4096' },
     });
   });
 });
@@ -145,7 +144,6 @@ describe('ImportDirectUploadService.start', () => {
     expect(started.headers).toEqual({
       'x-goog-resumable': 'start',
       'Content-Type': 'text/csv',
-      'x-goog-content-length-range': '0,100',
     });
     expect(storage.signResumableUpload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -225,16 +223,23 @@ describe('ImportDirectUploadService.finalize', () => {
     );
   });
 
-  it('rejects a staged object above the declared or server cap', async () => {
+  it('rejects and deletes a staged object above the declared or server cap', async () => {
+    const uploadId = randomUUID();
+    const stagingKey = buildDirectUploadStagingObjectKey({
+      tenantId: TENANT_ID,
+      uploadId,
+      fileName: 'report.csv',
+    });
     const storage = storageStub({
       statStagingObject: jest.fn(async () => ({ size: MAX_BYTES + 1 })),
     });
     const service = serviceWith({ storage });
 
     await expect(
-      service.finalize(finalizeParams(randomUUID(), MAX_BYTES)),
+      service.finalize(finalizeParams(uploadId, MAX_BYTES)),
     ).rejects.toBeInstanceOf(PayloadTooLargeException);
     expect(storage.copyStagingToJobObject).not.toHaveBeenCalled();
+    expect(storage.deleteStagingObject).toHaveBeenCalledWith(stagingKey);
   });
 
   it('promotes the staged object and starts the existing background dry-run', async () => {

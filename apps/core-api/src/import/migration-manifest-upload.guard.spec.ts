@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Express } from 'express';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
@@ -18,10 +17,7 @@ describe('assertCanonicalMigrationUploadAllowed', () => {
     );
     manifest.control_totals.stock_value = '100.00';
     const headerStats = parseCsvBufferHeadersOnly(customers);
-    const file = {
-      originalname: 'customers.csv',
-      buffer: undefined,
-    } as unknown as Express.Multer.File;
+    const file = { originalname: 'customers.csv' };
 
     expect(() =>
       assertCanonicalMigrationUploadAllowed(file, manifest, {

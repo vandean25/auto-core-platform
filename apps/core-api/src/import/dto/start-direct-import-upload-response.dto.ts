@@ -20,7 +20,10 @@ export class StartDirectImportUploadResponseDto {
   @ApiProperty()
   content_type!: string;
 
-  @ApiProperty({ description: 'Declared size cap signed into the URL' })
+  @ApiProperty({
+    description:
+      'Declared size cap; the server re-checks the object at finalize',
+  })
   max_bytes!: number;
 
   @ApiProperty()

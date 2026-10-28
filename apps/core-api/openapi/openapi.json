@@ -36651,7 +36651,7 @@
           },
           "max_bytes": {
             "type": "number",
-            "description": "Declared size cap signed into the URL"
+            "description": "Declared size cap; the server re-checks the object at finalize"
           },
           "expires_at": {
             "type": "string"

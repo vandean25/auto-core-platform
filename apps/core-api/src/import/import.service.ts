@@ -910,6 +910,13 @@ export class ImportService {
         ? { cutover_date: migrationManifest.cutover_date }
         : {}),
     };
+    if (migrationManifest) {
+      assertCanonicalMigrationUploadAllowed(
+        { originalname: params.fileName },
+        migrationManifest,
+        { sha256: params.fileSha256, dataRowCount: params.rowCount },
+      );
+    }
     const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
     return this.startBackgroundDryRunJob({

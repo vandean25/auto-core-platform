@@ -10974,7 +10974,7 @@ export interface components {
                 [key: string]: string;
             };
             content_type: string;
-            /** @description Declared size cap signed into the URL */
+            /** @description Declared size cap; the server re-checks the object at finalize */
             max_bytes: number;
             expires_at: string;
         };

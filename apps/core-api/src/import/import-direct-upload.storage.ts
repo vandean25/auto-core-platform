@@ -63,9 +63,6 @@ export class GcsDirectImportUploadStorage implements DirectImportUploadStorage {
         expires: params.expiresAt,
         contentType: params.contentType,
         virtualHostedStyle: false,
-        extensionHeaders: {
-          'x-goog-content-length-range': `0,${params.maxBytes}`,
-        },
       });
     return { signedUrl };
   }
