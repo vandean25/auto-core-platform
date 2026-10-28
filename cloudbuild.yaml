@@ -22,6 +22,9 @@ substitutions:
   # The tag pipeline deploys the QA/demo instance (auto-core-platform-vande).
   # Override with "false" on a trigger that must not expose the screen.
   _VITE_FEATURE_AGENT_SUPERVISION: "true"
+  # AUT-747: QA core-api origin for the direct WebSocket (Firebase Hosting does not
+  # forward WebSocket upgrades). Empty means the client stays on same-origin polling.
+  _VITE_SOCKET_BASE_URL: https://core-api-ha2yzynaqa-ey.a.run.app
   # QA/demo runtime flags (demo data only). Previously re-applied by hand after
   # every tag deploy because --set-env-vars resets them. Override per trigger.
   _MCP_SERVER_ENABLED: "true"
@@ -173,10 +176,11 @@ steps:
         # Request-based billing (min 0, CPU throttled when idle) to avoid always-on cost.
         # Socket.IO still works: an open long-poll is an in-flight request, so CPU stays
         # allocated for heartbeats while clients are connected.
-        # Socket.IO runs long-polling only behind Firebase Hosting. Assumed, unverified: the
-        # /api/** rewrite does not forward WebSocket upgrades (see runbook section 1), so each
-        # engine.io session must stay on one replica: --session-affinity. Runbook section 4 has
-        # the post-deploy verification.
+        # Behind Firebase Hosting the /api/** rewrite does not forward WebSocket upgrades
+        # (upgrade returns 400), so the web client connects the socket directly to the
+        # run.app origin (VITE_SOCKET_BASE_URL, AUT-747) and falls back to polling.
+        # Each engine.io session must stay on one replica: --session-affinity. Runbook
+        # section 4 has the post-deploy verification.
         # REDIS_URL is Upstash (public TLS) from GSM — no VPC connector.
         gcloud run deploy "${_RUN_SERVICE}" \
           --image "$$IMAGE" \
@@ -222,6 +226,7 @@ steps:
         export VITE_SENTRY_ENVIRONMENT="${_SENTRY_ENVIRONMENT}"
         export VITE_SENTRY_TRACES_SAMPLE_RATE="${_VITE_SENTRY_TRACES_SAMPLE_RATE}"
         export VITE_FEATURE_AGENT_SUPERVISION="${_VITE_FEATURE_AGENT_SUPERVISION}"
+        export VITE_SOCKET_BASE_URL="${_VITE_SOCKET_BASE_URL}"
         npm ci
         npm run build --workspace=core-web
         node tools/verify-build-chunks.mjs --dist apps/core-web/dist
