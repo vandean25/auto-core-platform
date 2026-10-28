@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { resolveAuthBootstrapScreen } from '@/components/shell/auth-bootstrap-screen'
 import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
 import { resolveAuthenticatedSessionGate } from '@/components/shell/authenticated-app-session-gate'
+import { keepPushRegistrationAlive, switchTenantWithPush } from '@/features/push/push-device'
 import { MechanicShell } from '@/components/shell/MechanicShell'
 import { shellSwitchSiteFailedMessage, shellSwitchTenantFailedMessage } from '@/lib/shell-session-toasts'
 import type { components } from '@/api/generated/openapi'
@@ -315,11 +316,16 @@ function AuthenticatedApp() {
 
   const completeTenantSwitch = React.useCallback(
     async (tenantId: string) => {
-      await switchTenantMutation.mutateAsync(tenantId)
+      await switchTenantWithPush(() => switchTenantMutation.mutateAsync(tenantId))
       await purgeAllCheckInOfflineData().catch(() => undefined)
     },
     [switchTenantMutation],
   )
+
+  const hasSession = Boolean(sessionQuery.data)
+  React.useEffect(() => {
+    if (hasSession) void keepPushRegistrationAlive()
+  }, [hasSession])
 
   const isUnknownPath = !isKnownAppPath(location.pathname)
 

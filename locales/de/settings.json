@@ -21,7 +21,8 @@
     "dataImport": "Datenimport",
     "team": "Team",
     "apiKeys": "API-Schlüssel",
-    "auditLogs": "Audit-Logs"
+    "auditLogs": "Audit-Logs",
+    "notifications": "Benachrichtigungen"
   },
   "employees": {
     "title": "Mitarbeiter",
@@ -1293,6 +1294,75 @@
         "tryLater": "Versuchen Sie es später erneut.",
         "discardFailed": "Extraktion konnte nicht verworfen werden",
         "tryAgain": "Versuchen Sie es erneut."
+      }
+    }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "description": "Push-Nachrichten auf diesem Gerät und die Ereignisse, die sie auslösen.",
+    "device": {
+      "title": "Dieses Gerät",
+      "active": "Push ist auf diesem Gerät aktiv.",
+      "inactive": "Push ist auf diesem Gerät nicht aktiv.",
+      "enable": "Push aktivieren",
+      "disable": "Push deaktivieren",
+      "enabled": "Push aktiviert.",
+      "disabled": "Push deaktiviert.",
+      "enableFailed": "Push konnte nicht aktiviert werden.",
+      "disableFailed": "Push konnte nicht deaktiviert werden.",
+      "off": "Push-Benachrichtigungen sind in dieser Umgebung nicht eingerichtet.",
+      "unsupported": "Dieser Browser unterstützt keine Push-Benachrichtigungen.",
+      "installRequired": "Auf iPhone und iPad funktioniert Push nur in der installierten App. In Safari „Teilen“ wählen, dann „Zum Home-Bildschirm“, die App von dort öffnen und Push hier aktivieren.",
+      "denied": "Benachrichtigungen sind im Browser blockiert. In den Website-Einstellungen des Browsers erlauben und die Seite neu laden."
+    },
+    "events": {
+      "title": "Ereignisse",
+      "description": "Gesendet werden nur die gewählten Ereignisse. Standardmäßig ist keines aktiv.",
+      "saveFailed": "Ereignisse konnten nicht gespeichert werden.",
+      "CUSTOMER_ESTIMATE_DECIDED": {
+        "label": "Kostenvoranschlag entschieden",
+        "hint": "Der Kunde hat einen Kostenvoranschlag freigegeben oder abgelehnt."
+      },
+      "WORKSHOP_TASK_WAITING_CUSTOMER": {
+        "label": "Wartet auf den Kunden",
+        "hint": "Eine Arbeit ist pausiert, weil eine Rückfrage beim Kunden nötig ist."
+      },
+      "WORKSHOP_ORDER_READY": {
+        "label": "Auftrag fertig",
+        "hint": "Das Fahrzeug ist abholbereit."
+      }
+    },
+    "quietHours": {
+      "title": "Ruhezeiten",
+      "description": "In dieser Zeit (Ortszeit des Standorts) werden keine Push-Nachrichten gesendet.",
+      "enabled": "Ruhezeiten verwenden",
+      "from": "Von",
+      "to": "Bis",
+      "saved": "Ruhezeiten gespeichert.",
+      "saveFailed": "Ruhezeiten konnten nicht gespeichert werden."
+    },
+    "test": {
+      "title": "Testnachricht",
+      "description": "Sendet eine Testnachricht an Ihre eigenen Geräte. Höchstens 5 pro Stunde.",
+      "send": "Testnachricht senden",
+      "sent": "Testnachricht gesendet.",
+      "noDevice": "Zuerst Push auf einem Gerät aktivieren.",
+      "limited": "Zu viele Testnachrichten. Bitte später erneut versuchen.",
+      "failed": "Die Testnachricht konnte nicht gesendet werden."
+    },
+    "devices": {
+      "title": "Registrierte Geräte",
+      "empty": "Kein Gerät registriert.",
+      "current": "Dieses Gerät",
+      "installed": "App installiert",
+      "lastSeen": "Zuletzt aktiv {{date}}",
+      "remove": "Entfernen",
+      "removed": "Gerät entfernt.",
+      "removeFailed": "Gerät konnte nicht entfernt werden.",
+      "platform": {
+        "IOS": "iPhone oder iPad",
+        "ANDROID": "Android",
+        "DESKTOP": "Computer"
       }
     }
   }

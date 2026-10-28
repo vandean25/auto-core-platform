@@ -27,6 +27,7 @@ const SETTINGS_TAB_LABEL_KEYS: Record<SettingsTab, `tabs.${keyof typeof settings
   team: 'tabs.team',
   'api-keys': 'tabs.apiKeys',
   'audit-logs': 'tabs.auditLogs',
+  notifications: 'tabs.notifications',
 }
 
 /** Sidebar entries the user may see, with the sidebar's own role filter. */
