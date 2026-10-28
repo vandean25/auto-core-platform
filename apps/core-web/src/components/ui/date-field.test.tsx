@@ -61,6 +61,16 @@ describe('DateField', () => {
     expect(screen.getByTestId('iso')).toHaveTextContent('2026-03-12')
   })
 
+  it('converts a pasted ISO date', () => {
+    render(<Harness initial="" />)
+    const input = screen.getByLabelText('Von')
+
+    fireEvent.change(input, { target: { value: '2026-05-12' } })
+
+    expect(input).toHaveValue('12.05.2026')
+    expect(screen.getByTestId('iso')).toHaveTextContent('2026-05-12')
+  })
+
   it('marks half-typed text as invalid', () => {
     render(<Harness initial="" />)
     const input = screen.getByLabelText('Von')

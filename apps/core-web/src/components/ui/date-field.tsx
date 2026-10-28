@@ -66,7 +66,8 @@ export function DateField({
   }, [value])
 
   const handleChange = (rawText: string) => {
-    const text = rawText.length < draft.length ? rawText : autoDotDate(rawText)
+    const isIsoPaste = /^\d{4}-\d{2}-\d{2}$/.test(rawText)
+    const text = isIsoPaste ? toDisplay(rawText) : rawText.length < draft.length ? rawText : autoDotDate(rawText)
     setDraft(text)
     if (text === '') onChange('')
     else {
@@ -91,7 +92,7 @@ export function DateField({
         disabled={disabled}
         aria-label={ariaLabel}
         data-testid={testId}
-        className={cn('max-sm:min-h-11', className)}
+        className={cn('max-sm:min-h-11 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive', className)}
         onChange={(event) => handleChange(event.target.value)}
         onBlur={() => setDraft(toDisplay(value))}
       />
