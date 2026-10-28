@@ -141,7 +141,9 @@
   "leave": {
     "pageTitle": "Leave",
     "pageDescription": "Book and review team leave.",
-    "remaining": "Remaining: {{minutes}} min{{approx}}",
+    "remaining_one": "Remaining: ≈ {{days}} day",
+    "remaining_other": "Remaining: ≈ {{days}} days",
+    "remainingMinutes": "Remaining: {{minutes}} min",
     "bookLeave": "+ Leave",
     "myLeave": "My leave",
     "myLeaveHint": "Your leave bookings for the selected year.",
@@ -265,6 +267,8 @@
     }
   },
   "leaveMinutes": {
-    "min": "{{count}} min"
+    "min": "{{count}} min",
+    "approx_one": "≈ {{days}} day",
+    "approx_other": "≈ {{days}} days"
   }
 }

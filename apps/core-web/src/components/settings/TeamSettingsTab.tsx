@@ -61,6 +61,17 @@ function getDisplayName(member: TenantMember) {
   return fullName || member.email
 }
 
+/** Name with the e-mail below it; an unnamed member shows the e-mail once. */
+function MemberNameCell({ member }: { member: TenantMember }) {
+  const displayName = getDisplayName(member)
+  return (
+    <div className='break-words'>
+      <div className='font-medium'>{displayName}</div>
+      {displayName !== member.email ? <div className='text-xs text-slate-500'>{member.email}</div> : null}
+    </div>
+  )
+}
+
 function matchesMemberSearch(member: TenantMember, term: string, t: TFunction<'settings'>) {
   if (!term) return true
 
@@ -185,20 +196,18 @@ export function TeamSettingsTab() {
     () => [
       {
         id: 'name',
+        meta: { mobile: 'title' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.name')} />,
-        cell: ({ row }) => (
-          <div>
-            <div className='font-medium'>{getDisplayName(row.original)}</div>
-            <div className='text-xs text-slate-500'>{row.original.email}</div>
-          </div>
-        ),
+        cell: ({ row }) => <MemberNameCell member={row.original} />,
       },
       {
         accessorKey: 'role',
+        meta: { mobile: 'subtitle' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.role')} />,
       },
       {
         accessorKey: 'isActive',
+        meta: { mobile: 'status' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.status')} />,
         cell: ({ row }) => (
           <StatusBadge status={row.original.isActive ? 'ACTIVE' : 'INACTIVE'} />

@@ -1,4 +1,5 @@
 import { useLayoutEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { usePageBreadcrumbsSetter } from '@/components/layout/PageBreadcrumbs'
 import { getRouteSectionTitle } from '@/lib/document-title'
 
@@ -11,9 +12,10 @@ import { getRouteSectionTitle } from '@/lib/document-title'
  */
 export function usePageBreadcrumbs({ listPath, currentLabel }: { listPath: string; currentLabel: string }) {
   const setBreadcrumbs = usePageBreadcrumbsSetter()
+  const { i18n } = useTranslation('nav')
 
   useLayoutEffect(() => {
     setBreadcrumbs([{ label: getRouteSectionTitle(listPath), to: listPath }, { label: currentLabel }])
     return () => setBreadcrumbs(undefined)
-  }, [setBreadcrumbs, listPath, currentLabel])
+  }, [setBreadcrumbs, listPath, currentLabel, i18n.language])
 }

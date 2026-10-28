@@ -138,13 +138,13 @@ export function InvoiceSettlementActions({
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-col items-end gap-2 max-sm:items-stretch">
       {rksvMode === 'REQUIRED_EXTERNAL_KASSE' && showRecord ? (
-        <div className="flex flex-wrap items-end justify-end gap-2">
+        <div className="flex flex-wrap items-end justify-end gap-2 max-sm:flex-col max-sm:items-stretch">
           <div className="space-y-1">
             <Label className="text-xs">{t('settlement.externalReceiptNo')}</Label>
             <Input
-              className="h-9 w-36"
+              className="h-9 w-36 max-sm:w-full"
               maxLength={40}
               value={externalNumber}
               onChange={(event) => setExternalNumber(event.target.value)}
@@ -153,7 +153,7 @@ export function InvoiceSettlementActions({
           <div className="space-y-1">
             <Label className="text-xs">{t('settlement.receiptDate')}</Label>
             <Input
-              className="h-9 w-36"
+              className="h-9 w-36 max-sm:w-full"
               type="date"
               value={externalDate}
               onChange={(event) => setExternalDate(event.target.value)}
@@ -161,11 +161,11 @@ export function InvoiceSettlementActions({
           </div>
         </div>
       ) : null}
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2 max-sm:flex-col">
         {showRecord ? (
           <>
             <Select value={method} onValueChange={(value) => setMethod(value as 'CASH' | 'CARD')}>
-              <SelectTrigger className="h-9 w-[120px]">
+              <SelectTrigger className="h-9 w-[120px] max-sm:w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

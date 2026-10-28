@@ -18,7 +18,8 @@
     "removeAria": "Remove saved view {{name}}"
   },
   "aria": {
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "navigatedTo": "Navigated to {{title}}"
   },
   "phoneNav": {
     "aria": "Quick access",
@@ -151,5 +152,30 @@
         "description": "Match a vendor invoice to receipts."
       }
     }
+  },
+  "routeTitles": {
+    "inventoryLedger": "Inventory ledger",
+    "vehicleStockListing": "Vehicle listing",
+    "vehicleStockPurchaseNew": "New vehicle purchase",
+    "vehicleStockPurchaseDetail": "Vehicle purchase",
+    "vehicleStockSaleNew": "New vehicle sale",
+    "vehicleStockSaleDetail": "Vehicle sale",
+    "salesOrderNew": "New sales order",
+    "purchaseOrderNew": "New purchase order",
+    "purchaseBillNew": "New purchase bill",
+    "salesInvoiceNew": "New invoice",
+    "salesInvoiceEdit": "Edit invoice",
+    "purchaseInvoiceNew": "New purchase invoice",
+    "hrEmployees": "Employees",
+    "hrClock": "Time clock",
+    "hrLeave": "Leave",
+    "workshopIntake": "Workshop intake",
+    "workshopPick": "Parts pick queue",
+    "workshopLoanerBookingPrint": "Loaner vehicle protocol",
+    "workshopOrderWarrantyClaims": "Warranty and goodwill",
+    "mechanicQueue": "My tasks",
+    "mechanicTask": "Task",
+    "login": "Sign in",
+    "notFound": "Page not found"
   }
 }

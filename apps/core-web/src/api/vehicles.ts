@@ -220,6 +220,9 @@ export function useUpdateVehicle() {
   })
 }
 
+/** Dashboard tiles and the list read the same counts; realtime vehicle events invalidate them when they change. */
+const PICKERL_DUE_STALE_TIME_MS = 60_000
+
 export function usePickerlDueList(queryParams: Record<string, unknown>) {
   const searchParams = new URLSearchParams()
   Object.entries(queryParams).forEach(([key, value]) => {
@@ -237,5 +240,6 @@ export function usePickerlDueList(queryParams: Record<string, unknown>) {
       }
       return (await response.json()) as PickerlDuePaginatedResponseDto
     },
+    staleTime: PICKERL_DUE_STALE_TIME_MS,
   })
 }

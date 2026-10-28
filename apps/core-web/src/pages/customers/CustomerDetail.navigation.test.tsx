@@ -102,7 +102,7 @@ describe('CustomerDetail navigation', () => {
     renderPage()
 
     const trail = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(trail).getByRole('link', { name: 'Customers' })).toHaveAttribute('href', '/customers')
+    expect(within(trail).getByRole('link', { name: 'Kunden' })).toHaveAttribute('href', '/customers')
     expect(within(trail).getByText('John Doe')).toHaveAttribute('aria-current', 'page')
   })
 })

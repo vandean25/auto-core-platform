@@ -70,14 +70,14 @@ export function VehiclePickerlSection({
 
   return (
     <div className='pt-4 border-t space-y-3'>
-      <div className='flex items-start justify-between gap-2'>
-        <div>
+      <div className='flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between'>
+        <div className='min-w-0'>
           <div className='text-sm font-medium'>{t('pickerlSection.title')}</div>
           <div className='text-xs text-muted-foreground'>
             {t('pickerlSection.subtitle')}
           </div>
         </div>
-        <div className='flex gap-2'>
+        <div className='flex flex-wrap gap-2'>
           {canRecord ? (
             <Button size='sm' onClick={() => setDialogOpen(true)}>
               {t('pickerlSection.recordPickerl')}

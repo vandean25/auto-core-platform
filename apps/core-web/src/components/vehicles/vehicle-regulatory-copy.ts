@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 export type BilingualCopy = { en: string; de: string };
 
 export const VEHICLE_REGULATORY_SECTION: BilingualCopy = {
@@ -43,16 +45,20 @@ export const REGISTRATION_CERTIFICATE_HELP: BilingualCopy = {
     'ZB I (Fahrzeugschein) ist die Zulassungsbescheinigung Teil I. Der Typenschein ist das Typgenehmigungsdokument — dessen Nummer tragen Sie im Feld Typenschein ein.',
 };
 
-export function bilingualLabel(copy: BilingualCopy): string {
-  return `${copy.en} / ${copy.de}`;
+export function localizedCopy(copy: BilingualCopy, language: string): string {
+  return language.startsWith('de') ? copy.de : copy.en;
 }
 
+export function useLocalizedCopy(): (copy: BilingualCopy) => string {
+  const { i18n } = useTranslation();
+  return (copy) => localizedCopy(copy, i18n.language);
+}
+
+export const VEHICLE_SELECT_PLACEHOLDER: BilingualCopy = { en: 'Select', de: 'Auswählen' };
+
 export const VEHICLE_NOVA_CLASS_OPTIONS = [
-  { value: 'NOT_SET', label: bilingualLabel({ en: 'Not set', de: 'Nicht gesetzt' }) },
-  { value: 'STANDARD', label: bilingualLabel({ en: 'Standard', de: 'Standard' }) },
-  {
-    value: 'ELECTRIC_EXEMPT',
-    label: bilingualLabel({ en: 'Electric exempt', de: 'Elektro befreit' }),
-  },
-  { value: 'OTHER', label: bilingualLabel({ en: 'Other', de: 'Sonstige' }) },
-] as const;
+  { value: 'NOT_SET', copy: { en: 'Not set', de: 'Nicht gesetzt' } },
+  { value: 'STANDARD', copy: { en: 'Standard', de: 'Standard' } },
+  { value: 'ELECTRIC_EXEMPT', copy: { en: 'Electric exempt', de: 'Elektro befreit' } },
+  { value: 'OTHER', copy: { en: 'Other', de: 'Sonstige' } },
+] as const satisfies readonly { value: string; copy: BilingualCopy }[];

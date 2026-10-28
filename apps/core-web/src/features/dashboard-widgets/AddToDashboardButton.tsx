@@ -48,12 +48,12 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
 
   React.useEffect(() => {
     if (!open) return
-    setName(t('dashboard.defaultWidgetName', { sourceLabel: source.sourceLabel }))
+    setName(t('dashboard.defaultWidgetName', { sourceLabel: t(source.labelKey) }))
     setDisplayType('list')
     setGroupByField(categoricalFields[0]?.key ?? '')
     setMetricCalculation('count')
     setMetricField(numericFields[0]?.key ?? '')
-  }, [open, source.sourceLabel, categoricalFields, numericFields, t])
+  }, [open, source.labelKey, categoricalFields, numericFields, t])
 
   return (
     <>
@@ -101,7 +101,7 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
                   <SelectContent>
                     {categoricalFields.map((field) => (
                       <SelectItem key={field.key} value={field.key}>
-                        {field.label}
+                        {t(field.labelKey)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -137,7 +137,7 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
                       <SelectContent>
                         {numericFields.map((field) => (
                           <SelectItem key={field.key} value={field.key}>
-                            {field.label}
+                            {t(field.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -171,7 +171,7 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
                 addWidget({
                   name: trimmedName,
                   sourceKey: source.sourceKey,
-                  sourceLabel: source.sourceLabel,
+                  sourceLabel: t(source.labelKey),
                   href: `${location.pathname}${location.search}`,
                   displayType,
                   groupByField: displayType === 'donut' ? groupByField : undefined,

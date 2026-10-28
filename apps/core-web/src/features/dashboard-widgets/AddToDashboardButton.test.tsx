@@ -66,4 +66,13 @@ describe('AddToDashboardButton', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: 'Widget zum Dashboard hinzufügen' })).toBeInTheDocument()
   })
+
+  it('names the default widget after the German source label', async () => {
+    renderAddButton()
+
+    fireEvent.click(screen.getByRole('button', { name: TRIGGER_NAME }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Widget-Name')).toHaveValue('Kunden Widget')
+  })
 })
