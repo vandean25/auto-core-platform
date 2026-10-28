@@ -99,6 +99,16 @@ function convertParsedToTableState(
   return { columnFilters, sorting, pagination, search: parsed.search }
 }
 
+/** Same params, whatever their order: appending `peek` leaves the managed keys in a different order than the rebuild writes them. */
+function sameSearchParams(left: URLSearchParams, right: URLSearchParams): boolean {
+  const normalise = (params: URLSearchParams) => {
+    const sorted = new URLSearchParams(params)
+    sorted.sort()
+    return sorted.toString()
+  }
+  return normalise(left) === normalise(right)
+}
+
 function buildUpdatedSearchParams(
   prev: URLSearchParams,
   params: {
@@ -197,22 +207,40 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
     setGlobalFilter((previous) => (previous === nextState.search ? previous : nextState.search))
   }, [searchParamsKey, defaultPageSize, stableInitialSorting])
 
+  // The debounced URL write reads the latest URL from a ref, not from its closure.
+  const latestSearchParamsRef = React.useRef(searchParams)
+  React.useEffect(() => {
+    latestSearchParamsRef.current = searchParams
+  }, [searchParams])
+
   // Debounce URL Updates
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      setSearchParams((prev) =>
-        buildUpdatedSearchParams(prev, {
-          columnFilters,
-          sorting,
-          pagination,
-          globalFilter,
-          defaultPageSize,
-        })
-      )
+      const current = latestSearchParamsRef.current
+      const next = buildUpdatedSearchParams(current, {
+        columnFilters,
+        sorting,
+        pagination,
+        globalFilter,
+        defaultPageSize,
+      })
+      // An unchanged URL must not be written: a push of the same URL adds a duplicate history entry, and then the first
+      // back gesture (for example out of a `?peek=` sheet that was opened right after the list rendered) goes nowhere.
+      if (sameSearchParams(next, current)) return
+      // A URL that already describes the table (only spelt differently, e.g. `page=1`) is tidied in place; a push would
+      // leave a duplicate history entry behind.
+      const shown = convertParsedToTableState(parseUrlTableState(current, defaultPageSize), stableInitialSorting)
+      const tidiesUrlOnly =
+        areColumnFiltersEqual(shown.columnFilters, columnFilters) &&
+        areSortingEqual(shown.sorting, sorting) &&
+        shown.pagination.pageIndex === pagination.pageIndex &&
+        shown.pagination.pageSize === pagination.pageSize &&
+        shown.search === globalFilter
+      setSearchParams(next, { replace: tidiesUrlOnly })
     }, debounceMs)
 
     return () => clearTimeout(timeout)
-  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, debounceMs])
+  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, debounceMs, stableInitialSorting])
 
   return {
     columnFilters,
