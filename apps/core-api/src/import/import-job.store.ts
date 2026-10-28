@@ -380,6 +380,8 @@ export class ImportJobStore {
     actorUserId: string;
     upload: ImportJobUploadRef;
     expectedRows: number;
+    /** Lets callers place the upload object under a path that names this job. */
+    jobId?: string;
   }) {
     const leaseToken = randomUUID();
     const now = new Date();
@@ -399,6 +401,7 @@ export class ImportJobStore {
     };
     return this.prisma.importJob.create({
       data: {
+        ...(input.jobId ? { id: input.jobId } : {}),
         tenant_id: input.tenantId,
         entity_type: input.entityType,
         source_system: input.sourceSystem,

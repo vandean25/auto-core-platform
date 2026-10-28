@@ -39,8 +39,8 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
           </Button>
         ))}
       </div>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-0 max-sm:basis-full flex-col gap-1">
+      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div className="col-span-2 flex min-w-0 flex-col gap-1">
           <Label>{t('estimateList.filters.customer')}</Label>
           <EstimateCustomerPicker
             customerId={view.customerId}
@@ -48,7 +48,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             onChange={(customer) => onChange({ customerId: customer?.id ?? '', customerName: customer?.name ?? '' })}
           />
         </div>
-        <div className="flex flex-col gap-1 max-sm:flex-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor="estimate-sent-from">{t('estimateList.filters.sentFrom')}</Label>
           <DateField
             id="estimate-sent-from"
@@ -57,7 +57,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             data-testid="estimate-sent-from"
           />
         </div>
-        <div className="flex flex-col gap-1 max-sm:flex-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor="estimate-sent-to">{t('estimateList.filters.sentTo')}</Label>
           <DateField
             id="estimate-sent-to"
@@ -66,7 +66,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             data-testid="estimate-sent-to"
           />
         </div>
-        <div className="flex min-h-11 items-center gap-2 sm:min-h-9">
+        <div className="col-span-2 flex min-h-11 items-center gap-2 sm:min-h-9">
           <Checkbox
             id="estimate-show-older"
             checked={view.showOlder}

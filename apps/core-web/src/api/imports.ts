@@ -62,6 +62,68 @@ async function readErrorMessage(response: Response, fallback: string) {
   return payload?.message ?? fallback
 }
 
+async function throwImportResponseError(response: Response, fallback: string): Promise<never> {
+  const payload = await readErrorPayload(response)
+  const error = new Error(payload?.message ?? fallback) as Error & {
+    response?: { status: number; data?: typeof payload }
+  }
+  error.response = { status: response.status, data: payload }
+  throw error
+}
+
+export type DirectImportUploadStart = {
+  upload_id: string
+  upload_url: string
+  method: 'POST'
+  headers: Record<string, string>
+  content_type: string
+  max_bytes: number
+  expires_at: string
+}
+
+export type DirectImportUploadFinalizePayload = {
+  fileName: string
+  size: number
+  entityType: ImportEntityType
+  sourceSystem: string
+  mapping: Record<string, string>
+  options: ImportWizardOptions
+}
+
+export async function startDirectImportUpload(params: {
+  fileName: string
+  size: number
+  contentType: string
+}): Promise<DirectImportUploadStart> {
+  const response = await fetchWithAuth('/api/imports/direct-uploads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!response.ok) {
+    return throwImportResponseError(response, 'Failed to start direct import upload')
+  }
+  return response.json() as Promise<DirectImportUploadStart>
+}
+
+export async function finalizeDirectImportUpload(
+  uploadId: string,
+  payload: DirectImportUploadFinalizePayload,
+): Promise<ImportJob> {
+  const response = await fetchWithAuth(
+    `/api/imports/direct-uploads/${encodeURIComponent(uploadId)}/finalize`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  )
+  if (!response.ok) {
+    return throwImportResponseError(response, 'Import dry-run failed')
+  }
+  return response.json() as Promise<ImportJob>
+}
+
 function applyJobId(payload: ApplyImportJobPayload): string {
   return typeof payload === 'string' ? payload : payload.jobId
 }

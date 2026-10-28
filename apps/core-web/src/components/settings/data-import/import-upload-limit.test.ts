@@ -1,29 +1,40 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  IMPORT_DIRECT_UPLOAD_MAX_BYTES,
   IMPORT_UPLOAD_MAX_BYTES,
-  IMPORT_UPLOAD_TOO_LARGE_MESSAGE,
   assertImportUploadFileSize,
+  usesDirectImportUpload,
 } from './import-upload-limit'
 
-describe('assertImportUploadFileSize', () => {
-  it('rejects files larger than 30 MiB with the German message', () => {
-    const file = new File(
-      [new Uint8Array(IMPORT_UPLOAD_MAX_BYTES + 1)],
-      'big.csv',
-      { type: 'text/csv' },
-    )
+const DIRECT_UPLOAD_REQUIRED_MESSAGE = 'too large'
 
-    expect(() => assertImportUploadFileSize(file)).toThrow(
-      IMPORT_UPLOAD_TOO_LARGE_MESSAGE,
-    )
+describe('usesDirectImportUpload', () => {
+  it('keeps files up to 30 MiB on the HTTP upload path', () => {
+    expect(usesDirectImportUpload({ size: IMPORT_UPLOAD_MAX_BYTES })).toBe(false)
   })
 
-  it('allows files at exactly 30 MiB', () => {
-    const file = new File([new Uint8Array(IMPORT_UPLOAD_MAX_BYTES)], 'ok.csv', {
-      type: 'text/csv',
-    })
+  it('sends files above 30 MiB to the direct GCS path', () => {
+    expect(usesDirectImportUpload({ size: IMPORT_UPLOAD_MAX_BYTES + 1 })).toBe(true)
+  })
+})
 
-    expect(() => assertImportUploadFileSize(file)).not.toThrow()
+describe('assertImportUploadFileSize', () => {
+  it('allows a file at the direct upload limit', () => {
+    expect(() =>
+      assertImportUploadFileSize(
+        { size: IMPORT_DIRECT_UPLOAD_MAX_BYTES },
+        DIRECT_UPLOAD_REQUIRED_MESSAGE,
+      ),
+    ).not.toThrow()
+  })
+
+  it('rejects files above the direct upload limit with the given message', () => {
+    expect(() =>
+      assertImportUploadFileSize(
+        { size: IMPORT_DIRECT_UPLOAD_MAX_BYTES + 1 },
+        DIRECT_UPLOAD_REQUIRED_MESSAGE,
+      ),
+    ).toThrow(DIRECT_UPLOAD_REQUIRED_MESSAGE)
   })
 })

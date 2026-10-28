@@ -9,6 +9,7 @@ import { DataImportResultStep } from './data-import-result-step'
 import { DataImportSourceStep } from './data-import-source-step'
 import { DataImportUploadStep } from './data-import-upload-step'
 import { DataImportWizardNav } from './data-import-wizard-nav'
+import { usesDirectImportUpload } from './import-upload-limit'
 import { useDataImportSettingsTab } from './use-data-import-settings-tab'
 
 export function DataImportSettingsTab() {
@@ -54,6 +55,9 @@ export function DataImportSettingsTab() {
         <DataImportUploadStep
           fileName={model.wizard.file?.name ?? null}
           columnCount={model.wizard.csvHeaders.length}
+          isDirectUpload={
+            model.wizard.file ? usesDirectImportUpload(model.wizard.file) : false
+          }
           onFileSelected={(selected) => void model.handleFileSelected(selected)}
           onBack={() => model.wizard.setStep(1)}
           onContinue={() => model.wizard.setStep(3)}
@@ -79,6 +83,7 @@ export function DataImportSettingsTab() {
           onOptionsChange={model.wizard.updateOptions}
           onRunDryRun={() => void model.dryRun.runDryRun()}
           isDryRunPending={model.dryRun.isPending}
+          uploadProgressPercent={model.dryRun.uploadProgressPercent}
           canRunDryRun={model.canRunDryRun}
           onBack={() => model.wizard.setStep(2)}
         />

@@ -19,7 +19,8 @@ export function PhoneCreateSheet({ open, onOpenChange, activeRole }: PhoneCreate
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" aria-describedby={undefined} className="max-h-[85dvh] overflow-y-auto">
-        <SheetHeader>
+        {/* Centered on a phone: as much room on the left as the close button takes on the right. */}
+        <SheetHeader className="max-sm:pl-10">
           <SheetTitle>{t('phoneNav.createTitle')}</SheetTitle>
         </SheetHeader>
         <ul className="mt-4 space-y-1">

@@ -1047,6 +1047,8 @@
       "title": "2. CSV hochladen",
       "fileLabel": "CSV-Datei",
       "fileSummary": "{{name}} ({{columns}} Spalten)",
+      "directUploadHint": "Dateien über 30 MiB werden beim Probelauf direkt in den Speicher übertragen; der Fortschritt wird dort angezeigt.",
+      "tooLarge": "Die Datei ist zu groß. Maximal {{max}} MiB sind möglich.",
       "back": "Zurück",
       "continue": "Weiter"
     },
@@ -1069,6 +1071,7 @@
         "createCatalogItems": "Neue Artikel im Katalog anlegen"
       },
       "previewTitle": "Vorschau (erste 20 Zeilen)",
+      "uploadProgress": "CSV wird hochgeladen… {{percent}} %",
       "back": "Zurück",
       "runDryRun": "Probelauf starten"
     },

@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Express } from 'express';
 import type { MigrationManifest } from './migration-manifest.types.js';
 import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import { validateMigrationBundle } from './migration-manifest.validator.js';
@@ -9,8 +8,14 @@ export type MigrationUploadAssessedStats = {
   dataRowCount: number;
 };
 
+/** Minimal file identity for uploads whose bytes are only available as stats. */
+export type MigrationUploadFileIdentity = {
+  originalname?: string;
+  buffer?: Buffer;
+};
+
 export function assertCanonicalMigrationUploadAllowed(
-  file: Express.Multer.File,
+  file: MigrationUploadFileIdentity,
   migrationManifest: MigrationManifest | undefined,
   assessed?: MigrationUploadAssessedStats,
 ): void {

@@ -3,6 +3,7 @@
 const DEFAULT_MAX_ROWS = 250_000;
 const DEFAULT_MAX_BYTES = 100 * 1024 * 1024;
 const DEFAULT_HTTP_UPLOAD_MAX_BYTES = 30 * 1024 * 1024;
+const DEFAULT_DIRECT_UPLOAD_MAX_BYTES = 250 * 1024 * 1024;
 const DEFAULT_SYNC_MAX_BYTES = 10 * 1024 * 1024;
 
 function readPositiveInt(raw: string | undefined, fallback: number): number {
@@ -23,6 +24,14 @@ export function readImportUploadMaxFileBytes(): number {
   return readPositiveInt(
     process.env.IMPORT_UPLOAD_MAX_FILE_BYTES,
     DEFAULT_HTTP_UPLOAD_MAX_BYTES,
+  );
+}
+
+/** Browser-to-GCS uploads bypass the 32 MiB Cloud Run request cap. */
+export function readImportDirectUploadMaxFileBytes(): number {
+  return readPositiveInt(
+    process.env.IMPORT_DIRECT_UPLOAD_MAX_FILE_BYTES,
+    DEFAULT_DIRECT_UPLOAD_MAX_BYTES,
   );
 }
 

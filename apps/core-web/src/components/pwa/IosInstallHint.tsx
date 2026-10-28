@@ -46,7 +46,8 @@ export function IosInstallHint() {
   return (
     <Sheet open={open} onOpenChange={(next) => (next ? setOpen(true) : dismiss())}>
       <SheetContent side="bottom">
-        <SheetHeader>
+        {/* Centered on a phone: as much room on the left as the close button takes on the right. */}
+        <SheetHeader className="max-sm:pl-10">
           <SheetTitle>{t('install.iosTitle')}</SheetTitle>
           <SheetDescription>{t('install.iosIntro')}</SheetDescription>
         </SheetHeader>

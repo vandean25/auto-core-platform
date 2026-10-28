@@ -14733,6 +14733,79 @@
         ]
       }
     },
+    "/api/imports/direct-uploads": {
+      "post": {
+        "operationId": "ImportController_startDirectUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartDirectImportUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartDirectImportUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Issue a signed resumable GCS upload URL for files above the HTTP limit",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/direct-uploads/{uploadId}/finalize": {
+      "post": {
+        "operationId": "ImportController_finalizeDirectUpload",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeDirectImportUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify and promote a staged direct upload, then start the background dry-run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/imports/mapping-profiles": {
       "get": {
         "operationId": "ImportController_listMappingProfiles",
@@ -36736,6 +36809,117 @@
           "created_by",
           "created_at",
           "applied_at"
+        ]
+      },
+      "StartDirectImportUploadDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "example": "kunden-export.csv"
+          },
+          "size": {
+            "type": "number",
+            "description": "Declared file size in bytes; capped by the server limit",
+            "example": 104857600
+          },
+          "contentType": {
+            "type": "string",
+            "example": "text/csv"
+          }
+        },
+        "required": [
+          "fileName",
+          "size"
+        ]
+      },
+      "StartDirectImportUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "upload_id": {
+            "type": "string"
+          },
+          "upload_url": {
+            "type": "string",
+            "description": "Signed V4 resumable upload initiation URL"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "POST"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Headers required on the signed initiation POST"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "max_bytes": {
+            "type": "number",
+            "description": "Declared size cap; the server re-checks the object at finalize"
+          },
+          "expires_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "upload_url",
+          "method",
+          "headers",
+          "content_type",
+          "max_bytes",
+          "expires_at"
+        ]
+      },
+      "FinalizeDirectImportUploadDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "example": "kunden-export.csv"
+          },
+          "size": {
+            "type": "number",
+            "description": "Size declared when the upload was started",
+            "example": 104857600
+          },
+          "entityType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportEntityType"
+              }
+            ]
+          },
+          "sourceSystem": {
+            "type": "string",
+            "example": "legacy-dms"
+          },
+          "mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "external_id": "Kunden-Nr"
+            }
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "fileName",
+          "size",
+          "entityType",
+          "sourceSystem",
+          "mapping"
         ]
       },
       "ImportMappingProfileResponseDto": {
