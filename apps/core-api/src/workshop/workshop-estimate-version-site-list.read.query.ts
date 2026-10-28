@@ -59,6 +59,14 @@ export async function querySiteEstimateVersionsPage(
             select: {
               customer_id: true,
               order_number: true,
+              customer: {
+                select: {
+                  company_name: true,
+                  first_name: true,
+                  last_name: true,
+                },
+              },
+              vehicle: { select: { plate: true } },
             },
           },
         },

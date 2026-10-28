@@ -6208,6 +6208,91 @@
         ]
       }
     },
+    "/api/workshop/estimates": {
+      "get": {
+        "operationId": "WorkshopEstimateController_listPage",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "customerId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sentFrom",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sentTo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/WorkshopEstimateStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopEstimateListPageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/estimates/{versionId}": {
       "get": {
         "operationId": "WorkshopEstimateController_getVersion",
@@ -26538,6 +26623,127 @@
           "estimate_id",
           "estimate_number",
           "workshop_order_id"
+        ]
+      },
+      "WorkshopEstimateStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "SENT",
+          "APPROVED",
+          "DECLINED",
+          "EXPIRED",
+          "SUPERSEDED"
+        ]
+      },
+      "WorkshopEstimateListRowDto": {
+        "type": "object",
+        "properties": {
+          "version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estimate_number": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopEstimateStatus"
+              }
+            ]
+          },
+          "order_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "order_number": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "customer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_plate": {
+            "type": "string",
+            "nullable": true
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "total_gross": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "version_id",
+          "estimate_number",
+          "version",
+          "status",
+          "order_id",
+          "order_number",
+          "customer_id",
+          "customer_name",
+          "vehicle_plate",
+          "sent_at",
+          "valid_until",
+          "decided_at",
+          "total_gross"
+        ]
+      },
+      "WorkshopEstimateListPageMetaDto": {
+        "type": "object",
+        "properties": {
+          "page_size": {
+            "type": "number"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "page_size",
+          "next_cursor"
+        ]
+      },
+      "WorkshopEstimateListPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateListRowDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/WorkshopEstimateListPageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "SendWorkshopEstimateVersionDto": {

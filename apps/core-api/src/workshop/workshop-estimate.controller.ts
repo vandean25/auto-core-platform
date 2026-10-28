@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import {
@@ -24,6 +25,13 @@ import {
   WorkshopEstimateResponseDto,
   WorkshopEstimateVersionDetailDto,
 } from './dto/workshop-estimate-response.dto.js';
+import {
+  ListWorkshopEstimatesQueryDto,
+  WORKSHOP_ESTIMATE_LIST_DEFAULT_PAGE_SIZE,
+} from './dto/list-workshop-estimates-query.dto.js';
+import { WorkshopEstimateListPageResponseDto } from './dto/workshop-estimate-list-page.dto.js';
+import { toEstimateListRowDto } from './workshop-estimate-list-page.mapper.js';
+import { WorkshopEstimateSiteVersionListService } from './workshop-estimate-site-version-list.service.js';
 import { WorkshopOrderCommunicationsResponseDto } from './dto/workshop-order-communications.dto.js';
 import { RecordWorkshopEstimateDecisionDto } from './dto/record-workshop-estimate-decision.dto.js';
 import {
@@ -68,6 +76,7 @@ export class WorkshopEstimateController {
     private readonly approvals: WorkshopEstimateApprovalService,
     private readonly overrunNotices: WorkshopOverrunNoticeService,
     private readonly mechanicFindings: WorkshopMechanicFindingService,
+    private readonly siteVersionList: WorkshopEstimateSiteVersionListService,
   ) {}
 
   @Get('orders/:id/mechanic-findings')
@@ -98,6 +107,32 @@ export class WorkshopEstimateController {
   @ApiCreatedResponse({ type: WorkshopEstimateVersionDetailDto })
   revise(@Param('id') id: string) {
     return this.estimates.createRevision(id);
+  }
+
+  /**
+   * Estimate versions of the active site, newest sent first, with an opaque cursor (AUT-795). A thin wrapper of the
+   * read model the MCP tool `list_estimates` uses; roles are the same as for `GET estimates/:versionId`.
+   */
+  @Get('estimates')
+  @ApiOkResponse({ type: WorkshopEstimateListPageResponseDto })
+  async listPage(
+    @Query() query: ListWorkshopEstimatesQueryDto,
+  ): Promise<WorkshopEstimateListPageResponseDto> {
+    const pageSize = query.pageSize ?? WORKSHOP_ESTIMATE_LIST_DEFAULT_PAGE_SIZE;
+    const { rows, nextCursor } = await this.siteVersionList.listPage({
+      customerId: query.customerId,
+      orderId: query.orderId,
+      status: query.status,
+      sentFrom: query.sentFrom,
+      sentTo: query.sentTo,
+      excludeSuperseded: true,
+      pageSize,
+      cursor: query.cursor,
+    });
+    return {
+      data: rows.map(toEstimateListRowDto),
+      meta: { page_size: pageSize, next_cursor: nextCursor },
+    };
   }
 
   @Get('estimates/:versionId')
