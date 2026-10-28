@@ -15,12 +15,15 @@ describe('buildRealtimeSocketOptions', () => {
 
     expect(options.transports).toEqual(['polling'])
     expect(options.upgrade).toBe(false)
+    expect(options).not.toHaveProperty('tryAllTransports')
   })
 
   it('connects WebSocket first with polling as the fallback when the socket goes straight to core-api', () => {
     const options = buildRealtimeSocketOptions({ path: '/api/socket.io', getIdToken: vi.fn(), direct: true })
 
     expect(options.transports).toEqual(['websocket', 'polling'])
+    // Without it engine.io-client never moves on to polling after a failed WebSocket.
+    expect(options.tryAllTransports).toBe(true)
     expect(options).not.toHaveProperty('upgrade')
     expect(options.withCredentials).toBe(true)
   })

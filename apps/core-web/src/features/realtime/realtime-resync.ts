@@ -6,6 +6,7 @@ export const REALTIME_RESYNC_MIN_INTERVAL_MS = 10_000
 
 type RealtimeResyncOptions = {
   invalidate: (queryKey: QueryKey) => void
+  isConnected: () => boolean
   /** Brings a socket back that dropped while the tab was hidden. */
   reconnectSocket: () => void
   now?: () => number
@@ -19,6 +20,7 @@ type RealtimeResyncOptions = {
  */
 export function createRealtimeResync({
   invalidate,
+  isConnected,
   reconnectSocket,
   now = () => Date.now(),
   visibilitySource = document,
@@ -35,7 +37,11 @@ export function createRealtimeResync({
 
   const onVisibilityChange = () => {
     if (visibilitySource.visibilityState !== 'visible') return
-    reconnectSocket()
+    // A dropped socket catches up when it connects again: resyncing now would miss what happens before it has joined its rooms.
+    if (!isConnected()) {
+      reconnectSocket()
+      return
+    }
     resync()
   }
 

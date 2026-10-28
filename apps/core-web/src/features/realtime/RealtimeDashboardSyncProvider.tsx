@@ -155,8 +155,9 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     // Events emitted while the socket was away are gone: catch up on every reconnect and when the tab shows again.
     const resync = createRealtimeResync({
       invalidate: (queryKey) => echoSafeInvalidatorRef.current?.invalidate(queryKey),
+      isConnected: () => socket.connected,
       reconnectSocket: () => {
-        if (!socket.connected) socket.connect()
+        socket.connect()
       },
     })
     socket.on('connect', resync.onConnect)

@@ -16,8 +16,10 @@ function setup() {
   }
   const invalidate = vi.fn()
   const reconnectSocket = vi.fn()
+  const socketState = { connected: true }
   const resync = createRealtimeResync({
     invalidate,
+    isConnected: () => socketState.connected,
     reconnectSocket,
     now: () => clock,
     visibilitySource: visibilitySource as unknown as Document,
@@ -29,6 +31,7 @@ function setup() {
     invalidate,
     reconnectSocket,
     visibilitySource,
+    socketState,
     advance: (ms: number) => {
       clock += ms
     },
@@ -60,12 +63,27 @@ describe('createRealtimeResync', () => {
     }
   })
 
-  it('resyncs and reconnects the socket when the tab becomes visible again', () => {
+  it('resyncs when the tab becomes visible again and the socket is connected', () => {
     const { invalidate, reconnectSocket, fireVisibility } = setup()
 
     fireVisibility()
 
+    expect(reconnectSocket).not.toHaveBeenCalled()
+    expect(invalidate).toHaveBeenCalledTimes(expectedCalls)
+  })
+
+  it('only reconnects a dropped socket when the tab becomes visible, and resyncs once it has connected', () => {
+    const { resync, invalidate, reconnectSocket, socketState, fireVisibility } = setup()
+    resync.onConnect()
+    socketState.connected = false
+
+    fireVisibility()
+
     expect(reconnectSocket).toHaveBeenCalledTimes(1)
+    expect(invalidate).not.toHaveBeenCalled()
+
+    socketState.connected = true
+    resync.onConnect()
     expect(invalidate).toHaveBeenCalledTimes(expectedCalls)
   })
 
@@ -112,5 +130,16 @@ describe('getRealtimeResyncQueryKeys', () => {
     expect(new Set(keys.map((queryKey) => JSON.stringify(queryKey))).size).toBe(keys.length)
     expect(keys).toContainEqual(['dashboard-widget-data'])
     expect(keys).toContainEqual(['auth-session'])
+  })
+
+  it('drops keys that a shorter prefix in the list already covers', () => {
+    const keys = getRealtimeResyncQueryKeys()
+
+    for (const queryKey of keys) {
+      const covered = keys.some(
+        (other) => other.length < queryKey.length && other.every((part, index) => part === queryKey[index]),
+      )
+      expect(covered).toBe(false)
+    }
   })
 })

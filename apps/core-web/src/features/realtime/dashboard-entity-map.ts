@@ -177,7 +177,17 @@ export function getRealtimeResyncQueryKeys(): QueryKey[] {
   }
   [[DASHBOARD_WIDGET_DATA_KEY], authSessionKeys.all, siteKeys.all].forEach(add);
 
-  return [...unique.values()];
+  // A key under a shorter prefix in the list is covered by it: invalidating both would restart the same refetch.
+  const keys = [...unique.values()];
+  return keys.filter(
+    (queryKey) =>
+      !keys.some(
+        (other) =>
+          other !== queryKey &&
+          other.length < queryKey.length &&
+          other.every((part, index) => hashKey([part]) === hashKey([queryKey[index]])),
+      ),
+  );
 }
 
 export function isEntityUpdatedPayload(

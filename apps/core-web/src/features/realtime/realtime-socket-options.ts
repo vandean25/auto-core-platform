@@ -42,7 +42,10 @@ export function buildRealtimeSocketOptions({
 }: RealtimeSocketOptionsInput): Partial<ManagerOptions & SocketOptions> {
   return {
     path,
-    ...(direct ? { transports: ['websocket', 'polling'] } : { transports: ['polling'], upgrade: false }),
+    ...(direct
+      ? // tryAllTransports: without it engine.io-client never moves on to polling after a failed WebSocket.
+        { transports: ['websocket', 'polling'], tryAllTransports: true }
+      : { transports: ['polling'], upgrade: false }),
     withCredentials: true,
     // Socket.IO calls this on every (re)connect. A reconnect after the Firebase
     // ID token expires (about an hour) therefore presents a current token.
