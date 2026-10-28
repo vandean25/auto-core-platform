@@ -41,6 +41,7 @@ function watchWarnings(): { warnings: Error[]; stop: () => void } {
 
 describe('real storage client media reads', () => {
   let server: Server;
+  let storage: StorageUnderTest;
   const objects = new Map<string, Buffer>();
 
   beforeAll(async () => {
@@ -114,13 +115,13 @@ describe('real storage client media reads', () => {
       });
     });
     const port = await listen(server);
-    const storage = new Storage({
-      apiEndpoint: `http://127.0.0.1:${port}`,
-      projectId: 'local',
-      authClient: new PassThroughClient(),
-    });
-    (globalThis as { importStorage?: StorageUnderTest }).importStorage =
-      new StorageUnderTest(storage);
+    storage = new StorageUnderTest(
+      new Storage({
+        apiEndpoint: `http://127.0.0.1:${port}`,
+        projectId: 'local',
+        authClient: new PassThroughClient(),
+      }),
+    );
   }, 15000);
 
   afterAll(() => {
@@ -134,7 +135,6 @@ describe('real storage client media reads', () => {
       'utf8',
     );
     objects.set('tenants/tenant-a/imports/job-b/party.csv', file);
-    const storage = (globalThis as { importStorage: StorageUnderTest }).importStorage;
     const seen = watchWarnings();
     const batches = await Promise.all(
       Array.from({ length: 12 }, () =>
@@ -163,7 +163,6 @@ describe('real storage client media reads', () => {
   });
 
   it('uploads N files through the real client without MaxListenersExceededWarning', async () => {
-    const storage = (globalThis as { importStorage: StorageUnderTest }).importStorage;
     const seen = watchWarnings();
     const content = Buffer.from('h1;h2\n1;2\n', 'utf8');
     await Promise.all(
