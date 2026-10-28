@@ -65,7 +65,7 @@ export class FirebasePushMessagingGateway extends PushMessagingGateway {
       targets.map(({ token }) => ({
         token,
         // Data-only: the service worker always shows the notification itself (a silent push is revoked on Safari).
-        data: message as Record<string, string>,
+        data: message,
         webpush: {
           headers: { TTL: String(PUSH_TTL_SECONDS), Urgency: 'normal' },
         },

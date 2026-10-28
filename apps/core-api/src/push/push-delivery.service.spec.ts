@@ -86,11 +86,12 @@ describe('PushDeliveryService', () => {
   it('sends nothing while the kill switch is off', async () => {
     const { service, gateway, prisma } = setup();
 
+    await expect(service.deliver(row(), NOW, {})).resolves.toEqual({
+      kind: 'suppressed',
+      reason: 'PUSH_DISABLED',
+    });
     await expect(
-      service.deliver(row(), NOW, {} as NodeJS.ProcessEnv),
-    ).resolves.toEqual({ kind: 'suppressed', reason: 'PUSH_DISABLED' });
-    await expect(
-      service.deliver(row(), NOW, { PUSH_ENABLED: 'yes' } as NodeJS.ProcessEnv),
+      service.deliver(row(), NOW, { PUSH_ENABLED: 'yes' }),
     ).resolves.toEqual({ kind: 'suppressed', reason: 'PUSH_DISABLED' });
 
     expect(gateway.sent).toHaveLength(0);
@@ -284,6 +285,30 @@ describe('PushDeliveryService', () => {
         where: expect.objectContaining({ id: { in: ['device-2'] } }),
       }),
     );
+  });
+
+  it('retries and revokes nothing when one device answers invalid-argument and another is unavailable', async () => {
+    const { service, prisma, gateway } = setup();
+    gateway.outcome = (targets) => [
+      {
+        deviceId: targets[0].deviceId,
+        ok: false,
+        kind: 'invalid-argument',
+        code: 'messaging/invalid-argument',
+      },
+      {
+        deviceId: targets[1].deviceId,
+        ok: false,
+        kind: 'transient',
+        code: 'messaging/server-unavailable',
+      },
+    ];
+
+    await expect(service.deliver(row(), NOW, ENV_ON)).resolves.toMatchObject({
+      kind: 'retry',
+      code: 'PUSH_PROVIDER_UNAVAILABLE',
+    });
+    expect(prisma.pushDevice.updateMany).not.toHaveBeenCalled();
   });
 
   it('fails the row and revokes nothing when every device answers invalid-argument', async () => {

@@ -1,5 +1,3 @@
-const MINUTES_PER_DAY = 24 * 60;
-
 /** Minutes since midnight of `now` in the given IANA time zone. */
 export function minutesOfDayInZone(now: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -33,8 +31,4 @@ export function isInQuietHours(
     return minute >= startMin && minute < endMin;
   }
   return minute >= startMin || minute < endMin;
-}
-
-export function isMinuteOfDay(value: number): boolean {
-  return Number.isInteger(value) && value >= 0 && value < MINUTES_PER_DAY;
 }

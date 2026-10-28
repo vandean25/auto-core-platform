@@ -11,7 +11,10 @@ import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { buildPushMessage } from './push-message.js';
-import { PushMessagingGateway } from './push-messaging.gateway.js';
+import {
+  PushMessagingGateway,
+  type PushSendOutcome,
+} from './push-messaging.gateway.js';
 import { isInQuietHours } from './push-quiet-hours.js';
 import { isPushEnabled, PUSH_STALE_MS } from './push.constants.js';
 
@@ -69,51 +72,26 @@ export class PushDeliveryService {
     now: Date = new Date(),
     env: NodeJS.ProcessEnv = process.env,
   ): Promise<PushDeliveryOutcome> {
-    if (!isPushEnabled(env)) {
-      return { kind: 'suppressed', reason: 'PUSH_DISABLED' };
-    }
-    if (!row.recipientUserId) {
-      return {
-        kind: 'failed',
-        code: 'RECIPIENT_MISSING',
-        message: 'The outbox row has no recipient user',
-      };
-    }
-    if (now.getTime() - row.createdAt.getTime() > PUSH_STALE_MS) {
-      return { kind: 'suppressed', reason: 'STALE' };
-    }
+    const checked = precheck(row, now, env);
+    if ('kind' in checked) return checked;
+    const userId = checked.recipientUserId;
 
     const isTest = row.eventType === NotificationEventType.PUSH_TEST;
-    const access = await this.resolveAccess(row, row.recipientUserId);
+    const access = await this.resolveAccess(row, userId);
     if (!access) {
       return { kind: 'suppressed', reason: 'RECIPIENT_NOT_ELIGIBLE' };
     }
     const order = access.order;
 
     if (!isTest) {
-      const preference = await this.prisma.pushPreference.findFirst({
-        where: { tenant_id: row.tenantId, user_id: row.recipientUserId },
-      });
-      if (!preference?.enabled_events.includes(row.eventType)) {
-        return { kind: 'suppressed', reason: 'EVENT_NOT_ENABLED' };
-      }
-      const timeZone = order?.siteTimeZone ?? DEFAULT_TIME_ZONE;
-      if (
-        isInQuietHours(
-          now,
-          timeZone,
-          preference.quiet_start_min,
-          preference.quiet_end_min,
-        )
-      ) {
-        return { kind: 'suppressed', reason: 'QUIET_HOURS' };
-      }
+      const blocked = await this.blockedByPreference(row, userId, order, now);
+      if (blocked) return { kind: 'suppressed', reason: blocked };
     }
 
     const devices = await this.prisma.pushDevice.findMany({
       where: {
         tenant_id: row.tenantId,
-        user_id: row.recipientUserId,
+        user_id: userId,
         revoked_at: null,
       },
       select: { id: true, fcm_token: true },
@@ -124,7 +102,7 @@ export class PushDeliveryService {
 
     const message = buildPushMessage({
       eventType: row.eventType,
-      locale: await this.recipientLocale(row.tenantId, row.recipientUserId),
+      locale: await this.recipientLocale(row.tenantId, userId),
       orderId: row.workshopOrderId,
       orderNumber: order?.orderNumber ?? null,
       decision: readDecision(row.payload),
@@ -146,6 +124,39 @@ export class PushDeliveryService {
       message,
     );
 
+    return this.settle(row.tenantId, outcomes);
+  }
+
+  /** The user's event choice and quiet hours (not applied to the test push). */
+  private async blockedByPreference(
+    row: PushOutboxRow,
+    userId: string,
+    order: PushOrder | null,
+    now: Date,
+  ): Promise<PushSuppressedReason | null> {
+    const preference = await this.prisma.pushPreference.findFirst({
+      where: { tenant_id: row.tenantId, user_id: userId },
+    });
+    if (!preference?.enabled_events.includes(row.eventType)) {
+      return 'EVENT_NOT_ENABLED';
+    }
+    const inQuietHours = isInQuietHours(
+      now,
+      order?.siteTimeZone ?? DEFAULT_TIME_ZONE,
+      preference.quiet_start_min,
+      preference.quiet_end_min,
+    );
+    return inQuietHours ? 'QUIET_HOURS' : null;
+  }
+
+  /**
+   * Combines the per-device results of one send. Accepted wins; otherwise a transient failure retries; otherwise a
+   * rejected message fails the row; otherwise every device was dead (ADR-0033 §2).
+   */
+  private async settle(
+    tenantId: string,
+    outcomes: PushSendOutcome[],
+  ): Promise<PushDeliveryOutcome> {
     const accepted = outcomes.filter((outcome) => outcome.ok).length;
     // INVALID_ARGUMENT can mean a bad message as well as a bad token. It condemns a device only when the same message
     // reached another device, which proves the message is valid (ADR-0033 §2).
@@ -157,7 +168,7 @@ export class PushDeliveryService {
         : [],
     );
     if (dead.length > 0) {
-      await this.revokeDevices(row.tenantId, dead);
+      await this.revokeDevices(tenantId, dead);
     }
 
     if (accepted > 0) {
@@ -269,6 +280,28 @@ export class PushDeliveryService {
     });
     this.logger.log(`Revoked ${result.count} unregistered push devices`);
   }
+}
+
+/** What can be decided from the row alone: the kill switch, a missing recipient and a stale push. */
+function precheck(
+  row: PushOutboxRow,
+  now: Date,
+  env: NodeJS.ProcessEnv,
+): PushDeliveryOutcome | { recipientUserId: string } {
+  if (!isPushEnabled(env)) {
+    return { kind: 'suppressed', reason: 'PUSH_DISABLED' };
+  }
+  if (!row.recipientUserId) {
+    return {
+      kind: 'failed',
+      code: 'RECIPIENT_MISSING',
+      message: 'The outbox row has no recipient user',
+    };
+  }
+  if (now.getTime() - row.createdAt.getTime() > PUSH_STALE_MS) {
+    return { kind: 'suppressed', reason: 'STALE' };
+  }
+  return { recipientUserId: row.recipientUserId };
 }
 
 function readDecision(

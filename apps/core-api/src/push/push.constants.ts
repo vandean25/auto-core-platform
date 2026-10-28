@@ -22,8 +22,6 @@ export const PUSH_USER_EVENT_TYPES = [
   NotificationEventType.WORKSHOP_ORDER_READY,
 ] as const;
 
-export type PushUserEventType = (typeof PUSH_USER_EVENT_TYPES)[number];
-
 /** The kill switch. Anything but the exact string `true` means off, so a typo fails closed. */
 export function isPushEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.PUSH_ENABLED?.trim() === 'true';

@@ -4,6 +4,7 @@ import { PushDeviceRevokedReason } from '@prisma/client';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { runForEachTenant } from '../scheduler/run-for-each-tenant.js';
 import {
   PUSH_DEVICE_IDLE_MS,
   PUSH_REVOKED_RETENTION_MS,
@@ -32,26 +33,16 @@ export class PushDeviceCleanupService {
   async run(): Promise<boolean> {
     return this.systemPrisma.withCronJobLock(
       'push-device-cleanup',
-      async () => {
-        const tenants = await this.systemPrisma.tenant.findMany({
-          select: { id: true },
-        });
-        const now = new Date();
-        for (const { id: tenantId } of tenants) {
-          try {
-            await this.requestContext.runAsWorker(
-              tenantId,
-              () => this.cleanUpTenant(tenantId, now),
-              { workerId: 'push-device-cleanup' },
-            );
-          } catch (cause) {
-            // One tenant's failure must not skip the tenants after it; the next night retries it.
-            this.logger.error(
-              `Push device cleanup failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
-            );
-          }
-        }
-      },
+      () =>
+        runForEachTenant(
+          {
+            systemPrisma: this.systemPrisma,
+            requestContext: this.requestContext,
+            logger: this.logger,
+          },
+          'push-device-cleanup',
+          (tenantId, now) => this.cleanUpTenant(tenantId, now),
+        ),
       this.logger,
     );
   }
