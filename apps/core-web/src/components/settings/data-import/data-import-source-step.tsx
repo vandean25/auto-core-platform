@@ -47,7 +47,7 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
             onValueChange={(value) => props.onEntityTypeChange(toImportEntityTypeUi(value))}
           >
             <SelectTrigger id="import-entity">
-              <SelectValue />
+              <SelectValue>{formatImportEntityTypeLabel(props.entityType)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {props.entityTypes.map((value) => (

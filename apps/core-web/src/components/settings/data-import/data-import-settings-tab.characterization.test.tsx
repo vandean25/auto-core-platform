@@ -188,6 +188,18 @@ describe('DataImportSettingsTab characterization', () => {
       )
     })
 
+    it('shows the selected entity type while the registry is still loading', () => {
+      ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: undefined,
+      })
+
+      renderImportSettingsTab({ initialEntries: ['/?tab=data-import&entity=LABOR_OPERATION'] })
+
+      expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
+        entityLabels.LABOR_OPERATION,
+      )
+    })
+
     it('switches the source system to the supplier default for supplier price lists', async () => {
       renderImportSettingsTab()
 
