@@ -13,8 +13,8 @@
     "close": "Schließen"
   },
   "peek": {
-    "openInFull": "Vollständig öffnen",
-    "actionsHeading": "Aktionen"
+    "openInFull": "Öffnen",
+    "moreActions": "Weitere Aktionen"
   },
   "documentSave": {
     "saving": "Speichern…",

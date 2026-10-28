@@ -1,7 +1,7 @@
 import type { PeekListControl } from './peek-list-control'
 import { CustomerPeekContent } from './CustomerPeekContent'
-import { EntityPeekActionButtons } from './EntityPeekActionButtons'
 import { EntityPeekSheet } from './EntityPeekSheet'
+import { buildPeekMenuActions } from './peek-menu-actions'
 import { useCustomerPeekSheetData } from './use-customer-peek-sheet-data'
 
 type CustomerPeekSheetProps = Pick<PeekListControl, 'peekId' | 'isPeekOpen' | 'closePeek'>
@@ -22,16 +22,7 @@ export function CustomerPeekSheet({ peekId, isPeekOpen, closePeek }: CustomerPee
       isLoading={Boolean(peekId) && isLoading}
       isNotFound={Boolean(peekId) && !isLoading && !customer}
       notFoundTitle={t('peek.notFound')}
-      actions={
-        customer ? (
-          <EntityPeekActionButtons
-            definitions={definitions}
-            role={role}
-            record={customer}
-            runContext={runContext}
-          />
-        ) : null
-      }
+      moreActions={customer ? buildPeekMenuActions(definitions, role, customer, runContext) : []}
     >
       {customer ? <CustomerPeekContent customer={customer} t={t} /> : null}
     </EntityPeekSheet>

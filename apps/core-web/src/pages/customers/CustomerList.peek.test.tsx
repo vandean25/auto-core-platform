@@ -137,6 +137,27 @@ describe('CustomerList peek sheet and registry primitives', () => {
     windowConfirm.mockRestore()
   })
 
+  it('keeps delete out of the footer and routes it from the ⋯ menu through the shared confirm host', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync })
+    renderList(`/customers?${PEEK_SEARCH_PARAM}=cust-1`)
+    const sheet = await screen.findByTestId('entity-peek-sheet')
+
+    expect(within(sheet).queryByRole('button', { name: deCustomers.list.delete })).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: deCustomers.list.actions.open })).not.toBeInTheDocument()
+    expect(within(sheet).getAllByRole('link', { name: deCommon.peek.openInFull })).toHaveLength(1)
+
+    fireEvent.keyDown(within(sheet).getByRole('button', { name: deCommon.peek.moreActions }), { key: 'Enter' })
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getAllByRole('menuitem')).toHaveLength(1)
+    fireEvent.click(within(menu).getByRole('menuitem', { name: deCustomers.list.delete }))
+
+    const alert = await screen.findByRole('alertdialog')
+    expect(mutateAsync).not.toHaveBeenCalled()
+    fireEvent.click(within(alert).getByRole('button', { name: deCustomers.list.delete }))
+    expect(mutateAsync).toHaveBeenCalledWith('cust-1')
+  })
+
   it('closes with the sheet close control', async () => {
     renderList(`/customers?page=2&${PEEK_SEARCH_PARAM}=cust-1`)
     const sheet = await screen.findByTestId('entity-peek-sheet')
