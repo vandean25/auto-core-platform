@@ -417,5 +417,8 @@
   "WORKSHOP_ORDER_NOT_OPEN": "Wartende Aufgaben können nur fortgesetzt werden, solange der Auftrag offen ist.",
   "WORKSHOP_ROLE_FORBIDDEN": "Werkstattrolle nicht berechtigt.",
   "WORKSHOP_TASK_CHANGED": "Die Aufgaben wurden beim Fortsetzen geändert. Laden Sie den Auftrag neu und versuchen Sie es erneut.",
-  "ZERO_UNIT_PRICE": "Stückpreis null."
+  "ZERO_UNIT_PRICE": "Stückpreis null.",
+  "EVENT_NOT_PUSHABLE": "Für dieses Ereignis gibt es keine Push-Nachricht.",
+  "PUSH_MESSAGE_REJECTED": "Der Push-Dienst hat die Nachricht als ungültig abgelehnt.",
+  "PUSH_PROVIDER_UNAVAILABLE": "Der Push-Dienst hat die Nachricht nicht angenommen. Sie wird erneut versucht."
 }

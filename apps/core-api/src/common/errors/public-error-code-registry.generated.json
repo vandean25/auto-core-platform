@@ -425,6 +425,10 @@
       "public": true,
       "params": []
     },
+    "EVENT_NOT_PUSHABLE": {
+      "public": false,
+      "params": []
+    },
     "EXCHANGE_NOT_CONFIGURED": {
       "public": false,
       "params": []
@@ -1224,6 +1228,14 @@
       "params": []
     },
     "PROVIDER_READ_FAILED": {
+      "public": false,
+      "params": []
+    },
+    "PUSH_MESSAGE_REJECTED": {
+      "public": false,
+      "params": []
+    },
+    "PUSH_PROVIDER_UNAVAILABLE": {
       "public": false,
       "params": []
     },
