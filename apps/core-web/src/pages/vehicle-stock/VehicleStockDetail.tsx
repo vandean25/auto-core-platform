@@ -23,10 +23,35 @@ import {
   type VehicleRegulatoryValues,
 } from '@/components/vehicles/VehicleRegulatorySection'
 import {
-  bilingualLabel,
+  useLocalizedCopy,
   REGISTRATION_CERTIFICATE_HELP,
   VEHICLE_REGULATORY_FIELDS,
 } from '@/components/vehicles/vehicle-regulatory-copy'
+
+function RegistrationCertificateField({
+  value,
+  onSave,
+}: {
+  value: string | null | undefined
+  onSave: (next: string) => void | Promise<void>
+}) {
+  const { t } = useTranslation('vehicleStock')
+  const localized = useLocalizedCopy()
+
+  return (
+    <div>
+      <div className="text-xs text-slate-500">
+        {localized(VEHICLE_REGULATORY_FIELDS.registrationCertificate)}
+      </div>
+      <p className="text-xs text-slate-400 mb-1">{localized(REGISTRATION_CERTIFICATE_HELP)}</p>
+      <InlineEdit
+        value={value}
+        placeholder={t('stockDetail.certificatePlaceholder')}
+        onSave={onSave}
+      />
+    </div>
+  )
+}
 
 export default function VehicleStockDetail() {
   const { vehicleId = '' } = useParams()
@@ -153,19 +178,10 @@ export default function VehicleStockDetail() {
               onSave={(next) => saveField({ key_number: next })}
             />
           </div>
-          <div>
-            <div className="text-xs text-slate-500">
-              {bilingualLabel(VEHICLE_REGULATORY_FIELDS.registrationCertificate)}
-            </div>
-            <p className="text-xs text-slate-400 mb-1">
-              {bilingualLabel(REGISTRATION_CERTIFICATE_HELP)}
-            </p>
-            <InlineEdit
-              value={vehicle.registration_certificate_no}
-              placeholder={t('stockDetail.certificatePlaceholder')}
-              onSave={(next) => saveField({ registration_certificate_no: next })}
-            />
-          </div>
+          <RegistrationCertificateField
+            value={vehicle.registration_certificate_no}
+            onSave={(next) => saveField({ registration_certificate_no: next })}
+          />
           <VehicleRegulatorySection
             mode="inline"
             values={{

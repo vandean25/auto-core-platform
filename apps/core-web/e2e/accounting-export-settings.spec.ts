@@ -183,8 +183,8 @@ async function openAccountingExportTab(page: Page) {
   const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
   await corePage.navigate('/settings?tab=finance');
   await page.getByRole('tab', { name: DE_SETTINGS.finance.subTabs.accountingExport }).click();
-  await page.locator('#export-date-from').fill('2026-01-01');
-  await page.locator('#export-date-to').fill('2026-01-31');
+  await page.locator('#export-date-from').fill('01.01.2026');
+  await page.locator('#export-date-to').fill('31.01.2026');
 }
 
 test.describe('Accounting export settings', () => {

@@ -160,7 +160,7 @@ describe('MarginRulesTab', () => {
     createMutation.mutateAsync.mockResolvedValue({})
     renderTab()
 
-    const addBtn = screen.getByRole('button', { name: /\+ Margenregel/i })
+    const addBtn = screen.getByRole('button', { name: /Margenregel/i })
     fireEvent.click(addBtn)
 
     expect(screen.getByText('Neue Margenregel anlegen')).toBeInTheDocument()
@@ -258,7 +258,7 @@ describe('MarginRulesTab', () => {
   it('shows error when cost_min > cost_max on submit', async () => {
     renderTab()
 
-    const addBtn = screen.getByRole('button', { name: /\+ Margenregel/i })
+    const addBtn = screen.getByRole('button', { name: /Margenregel/i })
     fireEvent.click(addBtn)
 
     fireEvent.change(screen.getByLabelText(/^Bezeichnung/i), {
@@ -283,7 +283,7 @@ describe('MarginRulesTab', () => {
   it('shows error when markup_percent < 0 on submit', async () => {
     renderTab()
 
-    const addBtn = screen.getByRole('button', { name: /\+ Margenregel/i })
+    const addBtn = screen.getByRole('button', { name: /Margenregel/i })
     fireEvent.click(addBtn)
 
     fireEvent.change(screen.getByLabelText(/^Bezeichnung/i), {

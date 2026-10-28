@@ -142,7 +142,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     // Verify Vehicle Info Card
     await expect(page.getByText(DE_VEHICLES.detail.vehicleInfo)).toBeVisible();
     await expect(
-      page.getByText('Registration & emissions / Zulassung & Emissionen'),
+      page.getByText('Zulassung & Emissionen'),
     ).toBeVisible();
     await expect(page.getByText('142').first()).toBeVisible();
 
@@ -235,11 +235,11 @@ test.describe('Blueprint: Vehicles Module', () => {
     await dialog.getByLabel(DE_VEHICLES.dialog.model).fill('Model 3');
     await dialog.getByLabel(DE_VEHICLES.dialog.year).fill('2023');
     await expect(
-      dialog.getByText('Registration & emissions / Zulassung & Emissionen'),
+      dialog.getByText('Zulassung & Emissionen'),
     ).toBeVisible();
 
-    await dialog.getByLabel('First registration date / Erstzulassung').fill('2023-06-01');
-    await dialog.getByLabel('CO₂ WLTP (g/km) / CO₂ WLTP (g/km)').fill('142');
+    await dialog.getByLabel('Erstzulassung').fill('2023-06-01');
+    await dialog.getByLabel('CO₂ WLTP (g/km)').fill('142');
 
     await dialog.getByRole('button', { name: DE_VEHICLES.dialog.create }).click();
     await expect(dialog).not.toBeVisible();
@@ -278,11 +278,11 @@ test.describe('Blueprint: Vehicles Module', () => {
     const dialog = page.getByRole('dialog', { name: DE_VEHICLES.dialog.editTitle });
     await expect(dialog).toBeVisible();
 
-    await expect(dialog.getByLabel('First registration date / Erstzulassung')).toHaveValue(
+    await expect(dialog.getByLabel('Erstzulassung')).toHaveValue(
       '2021-04-12',
     );
-    await expect(dialog.getByLabel('CO₂ WLTP (g/km) / CO₂ WLTP (g/km)')).toHaveValue('118');
-    await expect(dialog.getByLabel('Type approval no. (Typenschein) / Typenschein-Nr.')).toHaveValue(
+    await expect(dialog.getByLabel('CO₂ WLTP (g/km)')).toHaveValue('118');
+    await expect(dialog.getByLabel('Typenschein-Nr.')).toHaveValue(
       'TS-PW-1',
     );
   });
