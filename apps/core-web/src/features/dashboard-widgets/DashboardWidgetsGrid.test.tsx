@@ -156,6 +156,37 @@ describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => 
     expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 50 von 75')
   })
 
+  it('shows 100+ for 100 of 125 fetched orders that all match the status filter of the widget', async () => {
+    const orders = Array.from({ length: 100 }, (_, index) => ({ id: `o${index}`, order_number: `WO-${index}`, status: 'IN_PROGRESS' }))
+    mocks.widgets = [widget('open', '/workshop/orders?filter_status=IN_PROGRESS', { sourceKey: 'workshop-orders' })]
+    respondWithPage(orders, 125)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('100+')).toBeInTheDocument())
+    expect(screen.getByTestId('widget-partial-hint')).toHaveTextContent('ersten 100 von 125')
+  })
+
+  it('does not claim "no data" when the first page has no match but more entries exist', async () => {
+    mocks.widgets = [widget('none', '/vehicles?search=zzz')]
+    respondWithPage(manyVehicles(50), 75)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByTestId('widget-partial-empty')).toHaveTextContent('Keine Treffer in den ersten 50 von 75'))
+    expect(screen.queryByText('Keine Daten für dieses Widget.')).not.toBeInTheDocument()
+  })
+
+  it('says "no data" when the whole result was fetched and nothing matches', async () => {
+    mocks.widgets = [widget('none', '/vehicles?search=zzz')]
+    respondWithPage(manyVehicles(30), 30)
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('Keine Daten für dieses Widget.')).toBeInTheDocument())
+    expect(screen.queryByTestId('widget-partial-empty')).not.toBeInTheDocument()
+  })
+
   it('says that a grouped widget is calculated from the first 50 of 75 entries', async () => {
     mocks.widgets = [widget('donut', '/vehicles', { displayType: 'donut', groupByField: 'make' })]
     respondWithPage(manyVehicles(50), 75)

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import type { DashboardWidget, DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
 import { getValueByPath, stringifyValue, toNumber } from '@/features/dashboard-widgets/utils'
-import { widgetCount, type WidgetData } from '@/features/dashboard-widgets/widget-totals'
+import { isTruncated, widgetCount, type WidgetData } from '@/features/dashboard-widgets/widget-totals'
 import { formatCurrency, formatNumber } from '@/lib/format'
 
 const DONUT_COLORS = ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#6366f1']
@@ -113,6 +113,19 @@ function WidgetDonutBody({ widget, data }: WidgetBodyProps) {
         </PieChart>
       </ResponsiveContainer>
     </div>
+  )
+}
+
+/** What a widget shows without rows: no data, or, after a truncated fetch, that only the fetched part had no match. */
+export function WidgetEmptyMessage({ data }: { data: WidgetData | undefined }) {
+  const { t } = useTranslation('common')
+  const isPartial = data ? isTruncated(data) : false
+  return (
+    <p className="text-sm text-slate-500" data-testid={isPartial ? 'widget-partial-empty' : undefined}>
+      {data && isPartial
+        ? t('dashboard.noWidgetDataPartial', { count: data.fetchedCount, total: data.total })
+        : t('dashboard.noWidgetData')}
+    </p>
   )
 }
 

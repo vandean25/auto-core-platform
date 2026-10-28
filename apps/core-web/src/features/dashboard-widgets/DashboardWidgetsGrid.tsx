@@ -14,7 +14,7 @@ import {
 } from '@/features/dashboard-widgets/data-source-registry'
 import { useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import type { DashboardWidget, DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
-import { WidgetBody } from '@/features/dashboard-widgets/DashboardWidgetBodies'
+import { WidgetBody, WidgetEmptyMessage } from '@/features/dashboard-widgets/DashboardWidgetBodies'
 import { isPartialResult, type WidgetData } from '@/features/dashboard-widgets/widget-totals'
 import { hasUtcDayChanged } from '@/lib/date-utils'
 
@@ -88,7 +88,7 @@ function DashboardWidgetCard({
       <CardContent>
         {isLoading ? <p className="text-sm text-slate-500">{t('dashboard.loadingWidget')}</p> : null}
         {error ? <p className="text-sm text-destructive">{t('dashboard.loadWidgetFailed')}</p> : null}
-        {!isLoading && !error && rows.length === 0 ? <p className="text-sm text-slate-500">{t('dashboard.noWidgetData')}</p> : null}
+        {!isLoading && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
 
         {hasRows && data ? <WidgetBody widget={widget} source={source} data={data} /> : null}
         {hasRows && data && isPartialResult(widget, data) ? (

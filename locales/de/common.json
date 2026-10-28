@@ -101,6 +101,7 @@
     "loadingWidget": "Widget wird geladen…",
     "loadWidgetFailed": "Widget-Daten konnten nicht geladen werden.",
     "noWidgetData": "Keine Daten für dieses Widget.",
+    "noWidgetDataPartial": "Keine Treffer in den ersten {{count}} von {{total}} Einträgen.",
     "noPreviewData": "Keine Vorschaudaten",
     "summedValue": "Summenwert",
     "totalItems": "Positionen gesamt",
