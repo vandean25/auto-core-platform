@@ -9,7 +9,7 @@ import { useRevenueGroups } from "@/api/useFinance"
 import { useBrands } from "@/api/brands"
 import { useLocationTree, useCreateLocation, useDeleteLocation, type StorageLocation, type LocationType } from "@/api/locations"
 import { SettingsSectionHeading } from "@/components/settings/SettingsSectionHeading"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -40,6 +40,7 @@ import type { Brand, RevenueGroup } from "@/api/types"
 import { Folder, ChevronRight, ChevronDown, Box, Trash2 } from "lucide-react"
 import { FinanceSettingsTab, LockDateAlertDialog, useFinanceSettingsForm } from "./settings-finance-tab"
 import { getVisibleTabs, type SettingsTab } from "./settings-page-tabs"
+import { SettingsTabNav } from "./settings-tab-nav"
 
 // ─── Location Tree Item (reused from former LocationManagement) ────────────
 const LocationTreeItem = ({
@@ -279,8 +280,8 @@ function RevenueGroupsTab({ groups, isLoading }: { groups: RevenueGroup[] | unde
     const { t } = useTranslation(['settings', 'common'])
 
     return (
-        <div className="p-6 bg-white border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between mb-6">
+        <div className="p-4 sm:p-6 bg-white border rounded-lg shadow-sm">
+            <div className="flex items-center justify-between mb-6 max-sm:flex-wrap max-sm:gap-3">
                 <SettingsSectionHeading
                     title={t('revenueGroups.title')}
                     description={t('revenueGroups.description')}
@@ -304,8 +305,8 @@ function BrandsTab({ brands, isLoading }: { brands: Brand[] | undefined; isLoadi
     const [editingBrand, setEditingBrand] = React.useState<Brand | null>(null)
 
     return (
-        <div className="p-6 bg-white border rounded-lg shadow-sm">
-            <div className="flex items-center justify-between mb-6">
+        <div className="p-4 sm:p-6 bg-white border rounded-lg shadow-sm">
+            <div className="flex items-center justify-between mb-6 max-sm:flex-wrap max-sm:gap-3">
                 <div>
                     <SettingsSectionHeading
                         title={t('brands.title')}
@@ -383,7 +384,7 @@ export default function SettingsPage() {
         "team": <TeamSettingsTab />,
         "api-keys": <ApiKeysSettingsTab />,
         "audit-logs": (
-            <div className="p-6 bg-white border rounded-lg shadow-sm">
+            <div className="p-4 sm:p-6 bg-white border rounded-lg shadow-sm">
                 <AuditLogsTab />
             </div>
         )
@@ -399,11 +400,12 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={(value) => setSearchParams({ tab: value })} className="space-y-6">
-                <TabsList className="flex h-auto w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
-                    {visibleTabs.map(tab => (
-                        <TabsTrigger key={tab} className="shrink-0" value={tab}>{tabLabels[tab]}</TabsTrigger>
-                    ))}
-                </TabsList>
+                <SettingsTabNav
+                    tabs={visibleTabs}
+                    labels={tabLabels}
+                    active={activeTab}
+                    onChange={(tab) => setSearchParams({ tab })}
+                />
 
                 {visibleTabs.map(tab => (
                     <TabsContent key={tab} value={tab} className="space-y-6">

@@ -1,5 +1,6 @@
 {
   "page": {
+    "sectionLabel": "Bereich",
     "title": "Einstellungen",
     "description": "Plattformkonfiguration, Stammdaten und Lagerorte verwalten."
   },
