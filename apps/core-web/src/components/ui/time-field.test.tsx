@@ -66,6 +66,31 @@ describe('TimeField', () => {
     expect(screen.getByTestId('value')).toHaveTextContent('')
   })
 
+  it('lets the browser block a form submit while the text is not a time', () => {
+    render(
+      <form>
+        <TimeField aria-label="Von" value="07:30" onChange={() => undefined} required />
+      </form>,
+    )
+    const input = screen.getByLabelText('Von') as HTMLInputElement
+
+    expect(input.checkValidity()).toBe(true)
+    fireEvent.change(input, { target: { value: '25:7' } })
+    expect(input.checkValidity()).toBe(false)
+  })
+
+  it('keeps backspace working after a formatted colon', () => {
+    render(<Harness initial="" />)
+    const input = screen.getByLabelText('Von')
+
+    fireEvent.change(input, { target: { value: '0830' } })
+    fireEvent.change(input, { target: { value: '08:3' } })
+    fireEvent.change(input, { target: { value: '08:' } })
+    fireEvent.change(input, { target: { value: '08' } })
+
+    expect(input).toHaveValue('08')
+  })
+
   it('follows a value changed from outside', () => {
     const { rerender } = render(<TimeField aria-label="Von" value="07:30" onChange={() => undefined} />)
 
@@ -88,5 +113,7 @@ describe('time helpers', () => {
     expect(autoColonTime('08')).toBe('08')
     expect(autoColonTime('08:')).toBe('08:')
     expect(autoColonTime('08:30x9')).toBe('08:30')
+    expect(autoColonTime('8:30')).toBe('08:30')
+    expect(autoColonTime('7:')).toBe('07:')
   })
 })

@@ -418,6 +418,8 @@
     "saveChanges": "Änderungen speichern"
   },
   "workshopHours": {
+    "openTimeAria": "Öffnungszeit {{day}}",
+    "closeTimeAria": "Schließzeit {{day}}",
     "loadFailed": "Werkstattzeiten konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
     "title": "Werkstattzeiten",
     "description": "Öffnungszeiten und Feiertage steuern das Raster des Werkstattplaners. Die Slot-Größe legt die Spaltenbreite der Tagesansicht fest.",

@@ -380,6 +380,7 @@ export function WorkshopHoursSettingsPanel() {
                     <Label htmlFor={`weekday-closed-${hour.weekday}`}>{t('workshopHours.closed')}</Label>
                   </div>
                   <TimeField
+                    aria-label={t('workshopHours.openTimeAria', { day: t(`workshopHours.weekdays.${hour.weekday as WeekdayNumber}`) })}
                     value={hour.openTime}
                     disabled={!canManage || hour.isClosed}
                     onChange={(time) => {
@@ -387,6 +388,7 @@ export function WorkshopHoursSettingsPanel() {
                     }}
                   />
                   <TimeField
+                    aria-label={t('workshopHours.closeTimeAria', { day: t(`workshopHours.weekdays.${hour.weekday as WeekdayNumber}`) })}
                     value={hour.closeTime}
                     disabled={!canManage || hour.isClosed}
                     onChange={(time) => {

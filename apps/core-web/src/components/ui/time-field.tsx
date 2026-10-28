@@ -13,13 +13,10 @@ export function isValidTime(text: string): boolean {
 
 /** Inserts the colon while digits are typed, so a numeric keypad without a ":" key still works. */
 export function autoColonTime(text: string): string {
+  const withColon = /^(\d{1,2}):(\d{0,2})/.exec(text)
+  if (withColon) return `${withColon[1].padStart(2, '0')}:${withColon[2]}`
   const digits = text.replace(/\D/g, '').slice(0, 4)
   return digits.length > 2 || (digits.length === 2 && text.includes(':')) ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits
-}
-
-/** True when the user only removed characters from the end (backspace), so the text must not be re-formatted. */
-function isDeletion(next: string, previous: string): boolean {
-  return next.length < previous.length && previous.startsWith(next)
 }
 
 interface TimeFieldProps {
@@ -47,11 +44,11 @@ export function TimeField({
   const [draft, setDraft] = React.useState(value)
 
   React.useEffect(() => {
-    setDraft((current) => (isValidTime(current) && current === value ? current : value))
+    setDraft(value)
   }, [value])
 
   const handleChange = (rawText: string) => {
-    const text = isDeletion(rawText, draft) ? rawText : autoColonTime(rawText)
+    const text = autoColonTime(rawText)
     setDraft(text)
     if (text === '') onChange('')
     else if (isValidTime(text)) onChange(text)
@@ -65,6 +62,7 @@ export function TimeField({
       autoComplete="off"
       placeholder={t('timeField.placeholder')}
       maxLength={5}
+      pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
       value={draft}
       disabled={disabled}
       required={required}
