@@ -48,22 +48,22 @@ describe('RouteTitle and useDocumentTitle', () => {
   it('sets the route default title on a list page', () => {
     render(<App initialPath={APP_ROUTE_PATHS.customers} />)
 
-    expect(document.title).toBe('Customers - Auto Core')
+    expect(document.title).toBe('Kunden - Auto Core')
   })
 
   it('keeps the entity title on the same commit as the route default', () => {
     render(<App initialPath="/workshop/orders/wo-2" orderNumber="WO-2026-0002" />)
 
-    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
   })
 
   it('applies the entity once it loads', () => {
     const { rerender } = render(<App initialPath="/workshop/orders/wo-2" />)
-    expect(document.title).toBe('Workshop Orders - Auto Core')
+    expect(document.title).toBe('Werkstattaufträge - Auto Core')
 
     rerender(<App initialPath="/workshop/orders/wo-2" orderNumber="WO-2026-0002" />)
 
-    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
   })
 
   it('drops the previous entity when navigating to a list page', () => {
@@ -71,7 +71,7 @@ describe('RouteTitle and useDocumentTitle', () => {
 
     fireEvent.click(screen.getByRole('button', { name: `Go to ${APP_ROUTE_PATHS.customers}` }))
 
-    expect(document.title).toBe('Customers - Auto Core')
+    expect(document.title).toBe('Kunden - Auto Core')
   })
 
   it('announces the page after a route change without moving focus', () => {
@@ -81,7 +81,7 @@ describe('RouteTitle and useDocumentTitle', () => {
 
     fireEvent.click(button)
 
-    expect(screen.getByText('Navigated to Customers')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('Navigiert zu Kunden')).toHaveAttribute('aria-live', 'polite')
     expect(document.activeElement).toBe(button)
   })
 
@@ -103,10 +103,10 @@ describe('RouteTitle and useDocumentTitle', () => {
         </Routes>
       </MemoryRouter>,
     )
-    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+    expect(document.title).toBe('WO-2026-0002 - Werkstattaufträge - Auto Core')
 
     fireEvent.click(screen.getByRole('button', { name: `Go to ${APP_ROUTE_PATHS.customers}` }))
 
-    expect(document.title).toBe('Customers - Auto Core')
+    expect(document.title).toBe('Kunden - Auto Core')
   })
 })

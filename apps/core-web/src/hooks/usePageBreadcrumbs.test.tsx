@@ -31,7 +31,7 @@ describe('usePageBreadcrumbs', () => {
     render(renderTree(<SalesOrderPage label="SO-2026-0001" />))
 
     const landmark = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(landmark).getByRole('link', { name: 'Sales Orders' })).toHaveAttribute(
+    expect(within(landmark).getByRole('link', { name: 'Kundenaufträge' })).toHaveAttribute(
       'href',
       '/sales-orders',
     )

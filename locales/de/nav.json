@@ -18,7 +18,8 @@
     "removeAria": "Gespeicherte Ansicht {{name}} entfernen"
   },
   "aria": {
-    "mainNavigation": "Hauptnavigation"
+    "mainNavigation": "Hauptnavigation",
+    "navigatedTo": "Navigiert zu {{title}}"
   },
   "phoneNav": {
     "aria": "Schnellzugriff",
@@ -151,5 +152,30 @@
         "description": "Lieferantenrechnung mit Wareneingängen abgleichen."
       }
     }
+  },
+  "routeTitles": {
+    "inventoryLedger": "Lagerbewegungen",
+    "vehicleStockListing": "Fahrzeuginserat",
+    "vehicleStockPurchaseNew": "Neuer Fahrzeugankauf",
+    "vehicleStockPurchaseDetail": "Fahrzeugankauf",
+    "vehicleStockSaleNew": "Neuer Fahrzeugverkauf",
+    "vehicleStockSaleDetail": "Fahrzeugverkauf",
+    "salesOrderNew": "Neuer Kundenauftrag",
+    "purchaseOrderNew": "Neue Bestellung",
+    "purchaseBillNew": "Neue Eingangsrechnung",
+    "salesInvoiceNew": "Neue Rechnung",
+    "salesInvoiceEdit": "Rechnung bearbeiten",
+    "purchaseInvoiceNew": "Neue Eingangsrechnung",
+    "hrEmployees": "Mitarbeiter",
+    "hrClock": "Zeiterfassung",
+    "hrLeave": "Urlaub",
+    "workshopIntake": "Fahrzeugannahme",
+    "workshopPick": "Teilekommissionierung",
+    "workshopLoanerBookingPrint": "Ersatzwagen Protokoll",
+    "workshopOrderWarrantyClaims": "Garantie/Kulanz",
+    "mechanicQueue": "Meine Aufgaben",
+    "mechanicTask": "Aufgabe",
+    "login": "Anmelden",
+    "notFound": "Seite nicht gefunden"
   }
 }

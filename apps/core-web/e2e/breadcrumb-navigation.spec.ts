@@ -102,7 +102,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoHeadingOrderViolations(page);
 
     // Breadcrumb list labels still come from route section titles (English).
-    await breadcrumbTrail(page).getByRole('link', { name: 'Sales Orders' }).click();
+    await breadcrumbTrail(page).getByRole('link', { name: 'Kundenaufträge' }).click();
 
     await expect(page).toHaveURL('/sales-orders');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
@@ -124,7 +124,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
-    await breadcrumbTrail(page).getByRole('link', { name: 'Invoices' }).click();
+    await breadcrumbTrail(page).getByRole('link', { name: 'Rechnungen' }).click();
 
     await expect(page).toHaveURL('/sales/invoices');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
@@ -159,7 +159,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
-    await breadcrumbTrail(page).getByRole('link', { name: 'Customers' }).click();
+    await breadcrumbTrail(page).getByRole('link', { name: 'Kunden' }).click();
 
     await expect(page).toHaveURL('/customers');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
@@ -186,7 +186,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
-    await breadcrumbTrail(page).getByRole('link', { name: 'Workshop Orders' }).click();
+    await breadcrumbTrail(page).getByRole('link', { name: 'Werkstattaufträge' }).click();
 
     await expect(page).toHaveURL('/workshop/orders');
     await expect(breadcrumbTrail(page)).toHaveCount(0);

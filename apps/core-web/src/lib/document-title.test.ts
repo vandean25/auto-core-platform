@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { i18n } from '@/lib/i18n'
+import { changeUiLanguage, i18n } from '@/lib/i18n'
 import { APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
   APP_DOCUMENT_TITLE,
-  NOT_FOUND_SECTION_TITLE,
   ROUTE_SECTION_TITLES,
   formatDocumentTitle,
   getRouteDocumentTitle,
@@ -51,11 +50,11 @@ describe('route title table', () => {
     Object.entries(ROUTE_SECTION_TITLES).filter(
       ([pattern]) => pattern !== APP_ROUTE_PATHS.workshopOrderCheckIn,
     ),
-  )('resolves %s to itself and titles it "%s"', (pattern, title) => {
+  )('resolves %s to itself and titles it from nav key "%s"', (pattern, titleKey) => {
     const pathname = samplePathFor(pattern)
 
     expect(matchRoutePattern(pathname)).toBe(pattern)
-    expect(getRouteSectionTitle(pathname)).toBe(title)
+    expect(getRouteSectionTitle(pathname)).toBe(i18n.t(titleKey, { ns: 'nav' }))
   })
 
   it('resolves check-in route section title from workshop i18n', () => {
@@ -65,24 +64,31 @@ describe('route title table', () => {
     )
   })
 
+  it('titles the invoice detail breadcrumb section in German and English', async () => {
+    expect(getRouteSectionTitle('/sales/invoices/inv-1')).toBe('Rechnungen')
+    await changeUiLanguage('en')
+    expect(getRouteSectionTitle('/sales/invoices/inv-1')).toBe('Invoices')
+    await changeUiLanguage('de')
+  })
+
   it('prefers a static route over a dynamic route with the same shape', () => {
     expect(getRouteSectionTitle('/vehicles/pickerl-due')).toBe('Pickerl fällig')
-    expect(getRouteSectionTitle('/vehicles/42')).toBe('Vehicles')
+    expect(getRouteSectionTitle('/vehicles/42')).toBe('Fahrzeuge')
   })
 
   it('returns the not-found title for unknown paths', () => {
     expect(matchRoutePattern('/no-such-page')).toBeNull()
-    expect(getRouteSectionTitle('/no-such-page')).toBe(NOT_FOUND_SECTION_TITLE)
+    expect(getRouteSectionTitle('/no-such-page')).toBe('Seite nicht gefunden')
   })
 
   it('builds the full document title for a route', () => {
-    expect(getRouteDocumentTitle('/customers')).toBe('Customers - Auto Core')
-    expect(getRouteDocumentTitle('/workshop/orders')).toBe('Workshop Orders - Auto Core')
+    expect(getRouteDocumentTitle('/customers')).toBe('Kunden - Auto Core')
+    expect(getRouteDocumentTitle('/workshop/orders')).toBe('Werkstattaufträge - Auto Core')
     expect(getRouteDocumentTitle('/dashboard')).toBe('Dashboard - Auto Core')
-    expect(getRouteDocumentTitle('/no-such-page')).toBe('Page not found - Auto Core')
+    expect(getRouteDocumentTitle('/no-such-page')).toBe('Seite nicht gefunden - Auto Core')
   })
 
   it('titles the parts pick queue page with its UI label', () => {
-    expect(getRouteDocumentTitle('/workshop/pick-list')).toBe('Parts pick queue - Auto Core')
+    expect(getRouteDocumentTitle('/workshop/pick-list')).toBe('Teilekommissionierung - Auto Core')
   })
 })

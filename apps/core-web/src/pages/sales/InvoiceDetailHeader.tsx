@@ -5,6 +5,9 @@ import type { InvoiceCreditContextResponseDto } from '@/api/useCreditNotes'
 import { InvoiceSettlementActions } from '@/components/finance/InvoiceSettlementActions'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
+import { cn } from '@/lib/utils'
 
 type CoverageStatus = InvoiceCreditContextResponseDto['coverageStatus']
 
@@ -36,8 +39,8 @@ function InvoiceDetailTitle({ invoice, coverageStatus }: { invoice: Invoice; cov
   const coverageLabelKey = coverageStatus ? COVERAGE_LABEL_KEYS[coverageStatus] : undefined
 
   return (
-    <div className="flex items-center gap-3">
-      <h1 className="text-2xl font-semibold tracking-tight">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <h1 className="whitespace-nowrap text-2xl font-semibold tracking-tight">
         {invoice.invoice_number ??
           t('shared.invoiceFallback', { id: invoice.id.slice(0, 8) })}
       </h1>
@@ -80,13 +83,13 @@ function InvoiceDetailActions({
   const showCreditNoteGuidance = isCreditEligible && !canManageCreditNote
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-col items-end gap-2 max-sm:items-stretch">
       {showCreditNoteGuidance ? (
-        <p className="max-w-sm text-right text-xs text-slate-500">
+        <p className="max-w-sm text-right text-xs text-slate-500 max-sm:max-w-none max-sm:text-left">
           {t('invoices.detail.creditNoteGuidance')}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-start justify-end gap-2">
+      <div className="flex flex-wrap items-start justify-end gap-2 max-sm:flex-col max-sm:items-stretch">
         {showSettlement ? (
           <InvoiceSettlementActions
             invoiceId={invoice.id}
@@ -110,7 +113,7 @@ export function InvoiceDetailHeader({ creditContext, ...props }: InvoiceDetailHe
   const coverageStatus = creditContext?.coverageStatus
 
   return (
-    <div className="flex items-center justify-between mb-8">
+    <div className={cn(PAGE_HEADER_ROW, PHONE_TOUCH_CONTROLS, 'max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch')}>
       <InvoiceDetailTitle invoice={props.invoice} coverageStatus={coverageStatus} />
       <InvoiceDetailActions {...props} coverageStatus={coverageStatus} />
     </div>
