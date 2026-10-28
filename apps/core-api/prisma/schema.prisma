@@ -5151,6 +5151,7 @@ model ImportJob {
   totals_json                 Json
   created_by                  String?
   createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt @default(now()) @map("updated_at")
   appliedAt                   DateTime?
   failed_at                   DateTime?
   cancelled_at                DateTime?

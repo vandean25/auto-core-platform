@@ -47,11 +47,49 @@ export const importKeys = {
     [...importKeys.all, 'profiles', entityType, sourceSystem] as const,
 }
 
-async function readErrorMessage(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
+async function readErrorPayload(response: Response): Promise<{
+  message?: string
+  code?: string
+  leaseExpiresAt?: string | null
+} | undefined> {
+  return (await response.json().catch(() => undefined)) as
+    | { message?: string; code?: string; leaseExpiresAt?: string | null }
     | undefined
+}
+
+async function readErrorMessage(response: Response, fallback: string) {
+  const payload = await readErrorPayload(response)
   return payload?.message ?? fallback
+}
+
+/** Apply lost the race to a live lease. The caller refreshes the job. */
+export class ImportApplyInProgressError extends Error {
+  constructor() {
+    super('IMPORT_APPLY_IN_PROGRESS')
+    this.name = 'ImportApplyInProgressError'
+  }
+}
+
+function applyJobId(payload: ApplyImportJobPayload): string {
+  return typeof payload === 'string' ? payload : payload.jobId
+}
+
+function applyRequestInit(payload: ApplyImportJobPayload): RequestInit {
+  const options = typeof payload === 'string' ? undefined : payload.options
+  return {
+    method: 'POST',
+    headers: options ? { 'Content-Type': 'application/json' } : undefined,
+    body: options ? JSON.stringify(options) : undefined,
+  }
+}
+
+async function assertApplyAccepted(response: Response): Promise<void> {
+  if (response.ok) return
+  const payload = await readErrorPayload(response)
+  if (response.status === 409 && payload?.code === 'IMPORT_APPLY_IN_PROGRESS') {
+    throw new ImportApplyInProgressError()
+  }
+  throw new Error(payload?.message ?? 'Failed to apply import')
 }
 
 export function useImportTemplate(entityType: ImportEntityType | null) {
@@ -213,17 +251,11 @@ export function useCancelImportJob() {
 export function useApplyImportJob() {
   return useMutation({
     mutationFn: async (payload: ApplyImportJobPayload) => {
-      const jobId = typeof payload === 'string' ? payload : payload.jobId
-      const options = typeof payload === 'string' ? undefined : payload.options
-
-      const response = await fetchWithAuth(`/api/imports/${jobId}/apply`, {
-        method: 'POST',
-        headers: options ? { 'Content-Type': 'application/json' } : undefined,
-        body: options ? JSON.stringify(options) : undefined,
-      })
-      if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to apply import'))
-      }
+      const response = await fetchWithAuth(
+        `/api/imports/${applyJobId(payload)}/apply`,
+        applyRequestInit(payload),
+      )
+      await assertApplyAccepted(response)
       return response.json() as Promise<ImportJob>
     },
   })

@@ -96,7 +96,7 @@ export class SupplierChunkedApplyRunner {
     const ctx = this.buildContext(input, vendor);
     let jobApplied = false;
     try {
-      await this.applyPlannedChunks(
+      const stoppedEarly = await this.applyPlannedChunks(
         input,
         ctx,
         plan.batchRows,
@@ -107,7 +107,7 @@ export class SupplierChunkedApplyRunner {
         input,
         totals,
         guardedWrite,
-        plan.batchIncomplete,
+        plan.batchIncomplete || stoppedEarly,
         batchOptions,
       );
       jobApplied = finishedJob.applied;
@@ -167,8 +167,14 @@ export class SupplierChunkedApplyRunner {
     batchRows: ImportApplyRow[],
     totals: ImportJobTotals,
     batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
+  ): Promise<boolean> {
     for (let offset = 0; offset < batchRows.length; offset += CHUNK_SIZE) {
+      if (
+        batchOptions?.chunkDeadlineMs !== undefined &&
+        Date.now() > batchOptions.chunkDeadlineMs
+      ) {
+        return true;
+      }
       await this.applyChunk(
         input,
         ctx,
@@ -178,6 +184,7 @@ export class SupplierChunkedApplyRunner {
         batchOptions,
       );
     }
+    return false;
   }
 
   private async finishApplyRun(

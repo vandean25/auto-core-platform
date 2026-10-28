@@ -16,16 +16,13 @@ export function delayMs(ms: number): Promise<void> {
   });
 }
 
-/** Legacy synchronous apply (no worker lease / batch continuation). */
+/** Synchronous apply, including one that holds a lease. Background batches opt out. */
 export function isImportSyncLegacyApplyPath(options?: {
   leaseToken?: string;
   stopAfterBatch?: boolean;
   useApplySequence?: boolean;
 }): boolean {
-  if (options?.useApplySequence) {
-    return false;
-  }
-  if (options?.leaseToken || options?.stopAfterBatch) {
+  if (options?.useApplySequence || options?.stopAfterBatch) {
     return false;
   }
   return true;

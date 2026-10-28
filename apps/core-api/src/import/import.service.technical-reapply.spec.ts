@@ -86,19 +86,7 @@ describe('ImportService re-apply of technical error rows', () => {
       importJobRecord({
         status,
         entity_type: ImportEntityType.CUSTOMER,
-        options_json:
-          status === ImportJobStatus.DRY_RUN_DONE
-            ? {}
-            : {
-                worker: {
-                  phase: 'apply',
-                  lease_token: 'old',
-                  lease_until: new Date(0).toISOString(),
-                  processed_rows: 4,
-                  last_committed_apply_seq: 4,
-                  started_at: new Date(0).toISOString(),
-                },
-              },
+        options_json: {},
         totals_json: {
           rows: rows.length,
           create: 1,

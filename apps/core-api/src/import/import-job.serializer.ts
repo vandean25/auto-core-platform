@@ -6,6 +6,7 @@ import type {
 } from '@prisma/client';
 import { serializeCsv } from './csv-parse.util.js';
 import type { ImportJobTotals } from './import.types.js';
+import { isStaleApplyingImportJob } from './import-apply-lease.js';
 import {
   computeImportProgress,
   type ImportJobOptionsWithWorker,
@@ -23,6 +24,7 @@ export type ImportJobView = {
   totals_json: Prisma.JsonValue;
   created_by: string | null;
   createdAt: Date;
+  updatedAt?: Date | null;
   appliedAt: Date | null;
 };
 
@@ -36,6 +38,7 @@ export function serializeImportJob(
     totals,
     options: rawOptions,
   });
+  const stalled = isStaleApplyingImportJob(job, Date.now());
   const publicOptions = { ...rawOptions };
   delete publicOptions.worker;
   delete publicOptions.upload;
@@ -50,6 +53,10 @@ export function serializeImportJob(
     options: publicOptions,
     totals,
     progress,
+    stalled,
+    recovery_hint: stalled
+      ? 'Job is stalled. Re-apply it (POST apply) to resume.'
+      : null,
     created_by: job.created_by,
     created_at: job.createdAt.toISOString(),
     applied_at: job.appliedAt?.toISOString() ?? null,

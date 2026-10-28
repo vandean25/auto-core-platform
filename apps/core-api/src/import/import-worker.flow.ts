@@ -1,4 +1,7 @@
+import { Logger } from '@nestjs/common';
 import { ImportJobStatus } from '@prisma/client';
+import { applyLeaseHolderPrefix } from './import-apply-lease.js';
+import { logImportJobFailed } from './import-job-failed-log.util.js';
 import type { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import type { ImportJobStore } from './import-job.store.js';
 import {
@@ -19,6 +22,7 @@ export type ImportWorkerFlowDeps = {
   targetBaseUrl: string | undefined;
   nodeEnv?: string;
   runInline: (phase: ImportWorkerPhase) => Promise<void>;
+  logger?: Logger;
 };
 
 export function readImportWorkerChunkSeq(
@@ -108,6 +112,14 @@ export async function requeueImportWorkerAfterLeaseSkip(
     return;
   }
   const worker = readWorkerState(options)!;
+  logImportJobFailed(deps.logger ?? new Logger('ImportService'), {
+    jobId: params.jobId,
+    phase: params.phase,
+    attempt: job!.attempts_without_progress ?? 0,
+    reason: 'lease_lost',
+    holder: applyLeaseHolderPrefix(worker.lease_token),
+    leaseExpiresAt: worker.lease_until || 'none',
+  });
   const leaseUntil = Date.parse(worker.lease_until);
   const delaySeconds =
     Number.isFinite(leaseUntil) && leaseUntil > Date.now()

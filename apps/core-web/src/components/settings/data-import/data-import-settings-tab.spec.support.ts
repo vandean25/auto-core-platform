@@ -53,6 +53,8 @@ export const customerDryRunJob: ImportJob = {
   file_name: 'customers.csv',
   file_sha256: 'file-hash',
   status: 'DRY_RUN_DONE',
+  stalled: false,
+  recovery_hint: null,
   mapping: { external_id: 'Kunden-Nr', type: 'Typ' },
   options: { ...DEFAULT_OPTIONS },
   totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
@@ -68,6 +70,8 @@ export const laborDryRunJob: ImportJob = {
   file_name: 'labor.csv',
   file_sha256: 'file-hash',
   status: 'DRY_RUN_DONE',
+  stalled: false,
+  recovery_hint: null,
   mapping: {
     external_id: 'Arbeitswert-Nr',
     code: 'AW-Code',
@@ -89,6 +93,8 @@ export const supplierDryRunJob: ImportJob = {
   file_name: 'prices.csv',
   file_sha256: 'file-hash',
   status: 'DRY_RUN_DONE',
+  stalled: false,
+  recovery_hint: null,
   mapping: {
     supplier_article_no: 'Lieferanten-Artikelnummer',
     description: 'Artikelbezeichnung',
