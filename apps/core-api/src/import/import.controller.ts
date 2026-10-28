@@ -16,6 +16,7 @@ import {
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiAcceptedResponse,
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
@@ -199,11 +200,21 @@ export class ImportController {
   }
 
   @Post(':id/apply')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Apply a completed dry-run import job' })
+  @ApiOperation({
+    summary:
+      'Enqueue apply for a dry-run import job and return the current job',
+  })
+  @ApiBody({ type: ApplyImportJobDto, required: false })
+  @ApiAcceptedResponse({ type: ImportJobResponseDto })
   @ApiOkResponse({ type: ImportJobResponseDto })
-  apply(@Param('id') id: string, @Body() body?: ApplyImportJobDto) {
-    return this.importService.applyJob(id, body);
+  async apply(
+    @Param('id') id: string,
+    @Body() body: ApplyImportJobDto | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const outcome = await this.importService.applyJobHttp(id, body);
+    res.status(outcome.httpStatus);
+    return outcome.job;
   }
 
   @Post(':id/cancel')

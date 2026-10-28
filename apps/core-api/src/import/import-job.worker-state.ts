@@ -17,6 +17,8 @@ export type ImportJobWorkerState = {
   claimed_processed_rows?: number;
   /** Background apply cursor over import_job_rows.apply_seq. */
   last_committed_apply_seq?: number;
+  /** Row numbers reset from technical errors for this re-apply, still waiting to commit. */
+  technical_retry_row_nos?: number[];
   started_at: string;
   /** Absolute file offset of the next unread CSV record. */
   csv_next_byte?: number;

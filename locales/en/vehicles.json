@@ -145,7 +145,7 @@
     "windowDays": "{{count}} days",
     "loadError": "Could not load warranty due list.",
     "empty": "No due vehicles in the selected window.",
-    "searchPlaceholder": "Search vehicle, customer, or deadline …",
+    "searchPlaceholder": "Vehicle, customer or deadline",
     "columns": {
       "vehicle": "Vehicle",
       "customer": "Customer",
@@ -206,6 +206,15 @@
     "saveFailed": "Failed to save vehicle"
   },
   "pickerlSection": {
+    "warnings": {
+      "MANUAL_EXPIRY_AMBIGUITY": "Several manual inspections on the same day with different sticker validity.",
+      "EXTERNAL_RESULT_REQUIRES_REVIEW": "An external inspection result needs review — the due date is not reliable.",
+      "VEHICLE_CLASS_ASSUMED_M1": "The vehicle class is not stored; the §57a calculation assumes the usual M1 (passenger car) intervals.",
+      "WKO_GUIDANCE_NOT_RIS_VERIFIED": "Interval and tolerance tables follow the WKO guidance pages and are not individually cross-checked against RIS §57a here.",
+      "NO_INSPECTION_RECORDS": "No inspection recorded — please record the latest sticker.",
+      "TRANSITION_2027_TOLERANCE": "2027 transition: previous tolerance of −1/+4 months, latest end November 2027 (WKO, §132 para 37 no 3; WKO source, not checked against RIS).",
+      "AUSTAUSCHPLAKETTE_NOT_TRACKED": "Replacement sticker hint: punching {{month}} (WKO §4; WKO source, not checked against RIS; issuance is not tracked in ACP)."
+    },
     "title": "Pickerl (§57a)",
     "subtitle": "Due date from first registration and recorded inspections",
     "recordPickerl": "Record Pickerl",

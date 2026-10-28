@@ -131,3 +131,34 @@ test.describe('Agent supervision on a phone (AUT-748)', () => {
     })
   }
 })
+
+/** AUT-790: the Aktivitäten table is wider than a phone; an edge fade shows which side still hides columns. */
+test.describe('Activity table scroll cue on a phone (AUT-790)', () => {
+  for (const width of PHONE_WIDTHS) {
+    test(`shows which side hides columns at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 812 })
+      await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) => route.fulfill(json([])))
+      await page.route(AutoCorePage.apiRouteMatcher('/api/agent-proposals'), (route) => route.fulfill(json({ data: [] })))
+      await page.route(AutoCorePage.apiRouteMatcher('/api/agent-supervision/triage'), (route) => route.fulfill(json({ data: [], next_cursor: null })))
+      await page.route(AutoCorePage.apiRouteMatcher('/api/agent-actions'), (route) => route.fulfill(json({ data: logs })))
+
+      await new AutoCorePage(page, DE_AGENT.header.title).navigate('/agent/supervision')
+      await page.getByTestId('tab-activity').click()
+      const table = page.getByTestId('activity-table')
+      await expect(table).toBeVisible()
+      const region = page.getByTestId('activity-tab').getByRole('region')
+      const fadeLeft = page.getByTestId('table-scroll-fade-left')
+      const fadeRight = page.getByTestId('table-scroll-fade-right')
+
+      // Start: the later columns (Stufe, Status, Entschieden von, Trace-ID) are hidden on the right.
+      await expect(fadeRight).toBeVisible()
+      await expect(fadeLeft).toHaveCount(0)
+
+      await region.evaluate((node) => node.scrollTo({ left: node.scrollWidth }))
+      await expect(fadeLeft).toBeVisible()
+      await expect(fadeRight).toHaveCount(0)
+      await expectNoPageScroll(page)
+    })
+  }
+})
+

@@ -26,6 +26,12 @@ import {
   retryableTransactionDelayMs,
 } from './import-transaction-retry.util.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
+import {
+  applyLockForReapply,
+  planTechnicalRetry,
+  resetTechnicalImportErrorRows,
+  withoutTechnicalRetryRow,
+} from './import-technical-retry.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   isStaleApplyingImportJob,
@@ -720,6 +726,7 @@ export class ImportJobStore {
       data: {
         options_json: { ...options, worker },
         worker_handoff_at: new Date(),
+        updatedAt: new Date(),
       },
     });
     return updated.count > 0;
@@ -820,7 +827,7 @@ export class ImportJobStore {
     tenantId: string,
     jobId: string,
     afterRowNo: number,
-    take: number,
+    take?: number,
   ) {
     return this.prisma.importJobRow.findMany({
       where: {
@@ -829,8 +836,38 @@ export class ImportJobStore {
         row_no: { gt: afterRowNo },
       },
       orderBy: { row_no: 'asc' },
-      take,
+      ...(take === undefined ? {} : { take }),
     });
+  }
+
+  findPriceJumpRows(tenantId: string, jobId: string) {
+    return this.prisma.importJobRow.findMany({
+      where: {
+        tenant_id: tenantId,
+        import_job_id: jobId,
+        normalized_json: {
+          path: ['price_jump_flagged'],
+          equals: true,
+        },
+      },
+      orderBy: { row_no: 'asc' },
+    });
+  }
+
+  findApplyRowsByRowNos(tenantId: string, jobId: string, rowNos: number[]) {
+    if (rowNos.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.prisma.importJobRow
+      .findMany({
+        where: {
+          tenant_id: tenantId,
+          import_job_id: jobId,
+          row_no: { in: rowNos },
+        },
+        orderBy: { row_no: 'asc' },
+      })
+      .then((rows) => rows.map(toImportApplyRow));
   }
 
   findApplyRowsAfterApplySeq(
@@ -863,6 +900,14 @@ export class ImportJobStore {
       select: { apply_seq: true },
     });
     return row?.apply_seq ?? 0;
+  }
+
+  async countTechnicalErrorRows(
+    tenantId: string,
+    jobId: string,
+  ): Promise<number> {
+    const rows = (await this.findErrorRows(tenantId, jobId)) ?? [];
+    return planTechnicalRetry(rows).count;
   }
 
   countApplyRows(tenantId: string, jobId: string) {
@@ -925,32 +970,41 @@ export class ImportJobStore {
   }
 
   /** Moves a dry-run job to APPLYING and holds the apply lease. */
-  async lockForApply(tenantId: string, jobId: string) {
-    const existing = await this.findJob(tenantId, jobId);
-    const options = (existing?.options_json ??
-      {}) as ImportJobOptionsWithWorker;
-    const previous = readWorkerState(options);
-    const now = Date.now();
-    const worker: ImportJobWorkerState = {
-      phase: 'apply',
-      lease_token: randomUUID(),
-      lease_until: nextApplyLeaseUntil(now),
-      processed_rows: previous?.processed_rows ?? 0,
-      last_committed_apply_seq: previous?.last_committed_apply_seq ?? 0,
-      started_at: previous?.started_at ?? new Date(now).toISOString(),
-    };
-    return this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: {
-          in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
+  async lockForApply(
+    tenantId: string,
+    jobId: string,
+    extraStatuses: ImportJobStatus[] = [],
+    optionsOverride?: ImportJobOptionsWithWorker,
+  ) {
+    const existing = optionsOverride
+      ? null
+      : await this.findJob(tenantId, jobId);
+    const options =
+      optionsOverride ??
+      ((existing?.options_json ?? {}) as ImportJobOptionsWithWorker);
+    const locked = applyLockForReapply(options, extraStatuses, Date.now());
+    return this.prisma.$transaction(async (tx) => {
+      const lock = await tx.importJob.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: jobId,
+          status: { in: locked.statuses },
         },
-      },
-      data: {
-        status: ImportJobStatus.APPLYING,
-        options_json: { ...options, worker },
-      },
+        data: {
+          status: ImportJobStatus.APPLYING,
+          options_json: locked.options,
+        },
+      });
+      if (lock.count === 0) {
+        return lock;
+      }
+      await resetTechnicalImportErrorRows(
+        tx,
+        tenantId,
+        jobId,
+        locked.options.worker?.technical_retry_row_nos ?? [],
+      );
+      return lock;
     });
   }
 
@@ -961,42 +1015,61 @@ export class ImportJobStore {
     dryRunTotals: ImportJobTotals,
     applySequenceOrderKey: ImportApplySequenceOrderKey,
   ) {
-    const applyTotals: ImportJobTotals = {
-      rows: dryRunTotals.rows,
-      create: 0,
-      update: 0,
-      skip: 0,
-      error: 0,
-    };
+    const previousCursor = options.worker?.last_committed_apply_seq ?? 0;
+    const retryRowNos = options.technical_retry_row_nos ?? [];
+    const reapply = previousCursor > 0 || retryRowNos.length > 0;
+    const applyTotals: ImportJobTotals = reapply
+      ? dryRunTotals
+      : {
+          rows: dryRunTotals.rows,
+          create: 0,
+          update: 0,
+          skip: 0,
+          error: 0,
+        };
     const leaseToken = randomUUID();
+    const optionsWithoutRetry = { ...options };
+    delete optionsWithoutRetry.technical_retry_row_nos;
     const worker: ImportJobWorkerState = {
       phase: 'apply',
       lease_token: leaseToken,
       lease_until: new Date(0).toISOString(),
-      processed_rows: 0,
-      last_committed_apply_seq: 0,
+      processed_rows: previousCursor,
+      last_committed_apply_seq: previousCursor,
       started_at: new Date().toISOString(),
+      ...(retryRowNos.length > 0
+        ? { technical_retry_row_nos: retryRowNos }
+        : {}),
     };
+    const lockStatuses = [
+      ImportJobStatus.DRY_RUN_DONE,
+      ImportJobStatus.FAILED,
+      ...(retryRowNos.length > 0 ? [ImportJobStatus.APPLIED] : []),
+    ];
     return this.prisma.$transaction(
       async (tx) => {
         const lock = await tx.importJob.updateMany({
           where: {
             tenant_id: tenantId,
             id: jobId,
-            status: {
-              in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.FAILED],
-            },
+            status: { in: lockStatuses },
           },
           data: {
             status: ImportJobStatus.APPLYING,
             totals_json: applyTotals,
-            options_json: { ...options, worker },
+            options_json: { ...optionsWithoutRetry, worker },
             attempts_without_progress: 0,
           },
         });
         if (lock.count === 0) {
           return lock;
         }
+        await resetTechnicalImportErrorRows(
+          tx,
+          tenantId,
+          jobId,
+          worker.technical_retry_row_nos ?? [],
+        );
         await fillImportJobApplySequences(
           tx,
           tenantId,
@@ -1039,6 +1112,7 @@ export async function commitApplyWorkerRowInTransaction(
   jobId: string,
   leaseToken: string,
   applySeq: number,
+  rowNo?: number,
 ): Promise<void> {
   await assertApplyWorkerLease(tx, tenantId, jobId, leaseToken);
   const job = await tx.importJob.findFirst({
@@ -1056,11 +1130,14 @@ export async function commitApplyWorkerRowInTransaction(
     workerState.last_committed_apply_seq ?? 0,
     applySeq,
   );
-  const worker: ImportJobWorkerState = {
-    ...workerState,
-    last_committed_apply_seq: applyWatermark,
-    processed_rows: applyWatermark,
-  };
+  const worker = withoutTechnicalRetryRow(
+    {
+      ...workerState,
+      last_committed_apply_seq: applyWatermark,
+      processed_rows: applyWatermark,
+    },
+    rowNo,
+  );
   await tx.importJob.update({
     where: { id: jobId },
     data: { options_json: { ...options, worker } },

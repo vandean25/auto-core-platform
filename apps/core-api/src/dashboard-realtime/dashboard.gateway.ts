@@ -181,6 +181,59 @@ export async function resolveSocketActiveSiteId(
 
 const allowedOrigins = resolveCorsOrigins();
 
+/** Sessions older than this are closed so the client reconnects with a fresh token; 0 turns it off. */
+export const DEFAULT_MAX_CONNECTION_AGE_MS = 30 * 60 * 1000;
+
+export function resolveMaxConnectionAgeMs(
+  value = process.env.REALTIME_MAX_CONNECTION_AGE_MS,
+): number {
+  if (value === undefined || value.trim() === '') {
+    return DEFAULT_MAX_CONNECTION_AGE_MS;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0
+    ? Math.floor(parsed)
+    : DEFAULT_MAX_CONNECTION_AGE_MS;
+}
+
+/** The age at which one session is closed: up to 10% shorter, so reconnects do not arrive in waves. */
+export function jitterConnectionAgeMs(
+  maxAgeMs: number,
+  random: () => number = Math.random,
+): number {
+  return Math.round(maxAgeMs * (0.9 + 0.1 * random()));
+}
+
+export type EngineRequest = {
+  url?: string;
+  headers?: Record<string, string | string[] | undefined>;
+};
+
+/**
+ * Browsers send no CORS preflight for a WebSocket handshake, so the `cors` option does not stop a page on another
+ * origin from opening one. A WebSocket handshake that carries an `Origin` must carry an allowed one. A request without
+ * an `Origin` header is not a browser page; it still needs the token. Polling requests stay with the `cors` option.
+ */
+export function createWebSocketOriginCheck(origins: string[]) {
+  const allowed = new Set(origins);
+  return (
+    req: EngineRequest,
+    callback: (err: string | null | undefined, success: boolean) => void,
+  ): void => {
+    const transport = new URL(
+      req.url ?? '/',
+      'http://localhost',
+    ).searchParams.get('transport');
+    const origin = req.headers?.origin;
+    if (transport !== 'websocket' || origin === undefined) {
+      callback(null, true);
+      return;
+    }
+    const value = Array.isArray(origin) ? origin[0] : origin;
+    callback(null, allowed.has(value));
+  };
+}
+
 @Public()
 @WebSocketGateway({
   namespace: '/dashboard-realtime',
@@ -189,6 +242,7 @@ const allowedOrigins = resolveCorsOrigins();
     origin: allowedOrigins,
     credentials: true,
   },
+  allowRequest: createWebSocketOriginCheck(allowedOrigins),
 })
 export class DashboardGateway
   implements
@@ -203,6 +257,7 @@ export class DashboardGateway
   private readonly siteContext?: SiteContextService;
   private redisClients?: RedisAdapterClients;
   private redisAdapterReady: Promise<void> = Promise.resolve();
+  private readonly ageTimers = new Map<string, NodeJS.Timeout>();
 
   @WebSocketServer()
   server!: Server;
@@ -269,6 +324,8 @@ export class DashboardGateway
       data.activeSiteId = activeSiteId;
     }
 
+    this.scheduleSessionExpiry(client);
+
     this.logger.debug(
       JSON.stringify({
         type: 'ws_connect',
@@ -280,7 +337,36 @@ export class DashboardGateway
     );
   }
 
+  /**
+   * The token is only checked in the handshake, so a revoked or expired session would keep receiving events. Closing
+   * the session after a maximum age makes the client reconnect, which runs the handshake (and the token check) again.
+   */
+  private scheduleSessionExpiry(client: Socket): void {
+    const maxAgeMs = resolveMaxConnectionAgeMs();
+    if (maxAgeMs <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.ageTimers.delete(client.id);
+      this.logger.debug(
+        JSON.stringify({ type: 'ws_max_age_reached', socketId: client.id }),
+      );
+      client.disconnect(true);
+    }, jitterConnectionAgeMs(maxAgeMs));
+    timer.unref();
+    this.ageTimers.set(client.id, timer);
+  }
+
+  private clearSessionExpiry(socketId: string): void {
+    const timer = this.ageTimers.get(socketId);
+    if (timer) {
+      clearTimeout(timer);
+      this.ageTimers.delete(socketId);
+    }
+  }
+
   handleDisconnect(client: Socket) {
+    this.clearSessionExpiry(client.id);
     if (!this.authService || !this.isGatewayReady()) {
       return;
     }
@@ -469,6 +555,8 @@ export class DashboardGateway
     if (this.authService && this.isGatewayReady()) {
       this.logger.debug('Destroying realtime gateway');
     }
+    this.ageTimers.forEach((timer) => clearTimeout(timer));
+    this.ageTimers.clear();
     await this.redisAdapterReady.catch(() => {});
     await closeRedisClients(this.redisClients);
   }

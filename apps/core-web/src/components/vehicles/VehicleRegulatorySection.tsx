@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import type { components } from '@/api/generated/openapi'
+import { DateField } from '@/components/ui/date-field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -176,19 +177,16 @@ export function VehicleRegulatorySection({
     <div className="space-y-4 rounded-lg border p-4">
       <h3 className="text-sm font-semibold text-slate-700">{sectionTitle}</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label className="space-y-1 text-sm">
+        <div className="space-y-1 text-sm">
           <span className="text-slate-600">
             {localized(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
           </span>
-          <Input
-            type="date"
+          <DateField
             aria-label={localized(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
             value={toInputString(values.first_registration_date)}
-            onChange={(event) =>
-              onChange({ first_registration_date: event.target.value || null })
-            }
+            onChange={(next) => onChange({ first_registration_date: next || null })}
           />
-        </label>
+        </div>
         <label className="space-y-1 text-sm">
           <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.co2Wltp)}</span>
           <Input

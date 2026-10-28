@@ -59,6 +59,36 @@ describe('VehiclePickerlSection', () => {
     expect(screen.getAllByText('Unbekannt').length).toBeGreaterThanOrEqual(1)
   })
 
+  it('shows the server warnings in German, and an unknown warning as the server sent it', () => {
+    render(
+      <MemoryRouter>
+        <VehiclePickerlSection
+          vehicleId='vehicle-1'
+          pickerlDue={{
+            due_month: '2027-03',
+            status: 'OK',
+            rule_id: 'm1-legacy-pre-2027',
+            warnings: [
+              { code: 'VEHICLE_CLASS_ASSUMED_M1', message: 'Vehicle class is not stored; §57a computation assumes ordinary M1 (Pkw) intervals.' },
+              { code: 'WKO_GUIDANCE_NOT_RIS_VERIFIED', message: 'Interval and tolerance tables follow WKO guidance pages; they are not individually cross-checked against RIS §57a in this engine.' },
+              { code: 'TRANSITION_2027_TOLERANCE', message: '2027 transition: legacy −1/+4 tolerance with late end capped at November 2027.' },
+              { code: 'AUSTAUSCHPLAKETTE_NOT_TRACKED', message: 'Austauschplakette punching hint: 2027-03 (WKO §4; WKO-sourced, not RIS-verified; issuance not tracked in ACP).' },
+              { code: 'SOMETHING_NEW', message: 'Neue Meldung vom Server.' },
+            ],
+            last_inspected_on: null,
+          }}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText(/Die Fahrzeugklasse ist nicht gespeichert/)).toBeInTheDocument()
+    expect(screen.getByText(/Intervall- und Toleranztabellen folgen den WKO-Hinweisseiten/)).toBeInTheDocument()
+    expect(screen.getByText(/Übergang 2027/)).toBeInTheDocument()
+    expect(screen.getByText(/Lochung 03\/2027/)).toBeInTheDocument()
+    expect(screen.getByText('Neue Meldung vom Server.')).toBeInTheDocument()
+    expect(screen.queryByText(/Vehicle class is not stored|Interval and tolerance|2027 transition|punching hint/)).not.toBeInTheDocument()
+  })
+
   it('links the existing open order instead of offering another intake', async () => {
     const vehiclesApi = await import('@/api/vehicles')
     vi.mocked(vehiclesApi.useOpenPickerlWorkshopOrder).mockReturnValue({

@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS } from '../src/import/import-worker-handoff.constants.js';
 import { AppModule } from '../src/app.module.js';
+import { clearScheduledInlineImportWorkers } from '../src/import/import-dispatch.js';
 import { ImportService } from '../src/import/import.service.js';
 import { ImportJobStore } from '../src/import/import-job.store.js';
 import type { ImportJobTotals } from '../src/import/import.types.js';
@@ -84,6 +85,7 @@ describe('import apply final totals (e2e)', () => {
   });
 
   afterAll(async () => {
+    clearScheduledInlineImportWorkers();
     if (tenant) {
       await cleanupTestTenantGraph(prisma, tenant.tenantId);
     }
@@ -242,38 +244,21 @@ describe('import apply final totals (e2e)', () => {
       email: tenant.email,
       role: 'ADMIN',
     };
-    await expect(
-      runWithTenantContext(
-        tenant.tenantId,
-        async () => importService.applyJob(job.id),
-        identity,
-      ),
-    ).rejects.toThrow();
-    db.$transaction = original;
-    expect(errorLog.mock.calls.map((call) => String(call[0]))).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining(
-          `import.job.failed jobId=${job.id} phase=apply`,
-        ),
-        expect.stringContaining('reason=retry_exhausted'),
-        expect.stringContaining('cause='),
-      ]),
-    );
-    const failed = await tenantPrisma.importJob.findFirst({
-      where: { id: job.id },
-    });
-    expect(failed?.status).toBe(ImportJobStatus.FAILED);
-    expect(
-      (failed?.options_json as { apply_failure_reason?: string })
-        .apply_failure_reason,
-    ).toBe('retry_exhausted');
-    errorLog.mockRestore();
-
     await runWithTenantContext(
       tenant.tenantId,
       async () => importService.applyJob(job.id),
       identity,
     );
+    db.$transaction = original;
+    errorLog.mockRestore();
+
+    await runWithTenantContext(tenant.tenantId, async () => {
+      await importService.runImportWorkerAttempt({
+        tenantId: tenant.tenantId,
+        jobId: job.id,
+        phase: 'apply',
+      });
+    }, identity);
     const applied = await tenantPrisma.importJob.findFirst({
       where: { id: job.id },
     });
@@ -292,8 +277,6 @@ describe('import apply final totals (e2e)', () => {
   }, 120_000);
 
   it('resumes a background apply across batches and stores grouped totals', async () => {
-    const previous = process.env.IMPORT_SYNC_MAX_ROW_COUNT;
-    process.env.IMPORT_SYNC_MAX_ROW_COUNT = '1';
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const store = new ImportJobStore(prisma);
     const importService = app.get(ImportService);
@@ -310,7 +293,7 @@ describe('import apply final totals (e2e)', () => {
       email: tenant.email,
       role: 'ADMIN',
     };
-    try {
+    {
       const job = await runWithTenantContext(
         tenant.tenantId,
         async () =>
@@ -367,9 +350,6 @@ describe('import apply final totals (e2e)', () => {
       expect(
         totals.create + totals.error + totals.skip + totals.update,
       ).toBe(rowCount);
-    } finally {
-      if (previous === undefined) delete process.env.IMPORT_SYNC_MAX_ROW_COUNT;
-      else process.env.IMPORT_SYNC_MAX_ROW_COUNT = previous;
     }
   }, 120_000);
 
@@ -404,9 +384,14 @@ describe('import apply final totals (e2e)', () => {
     );
     const db = prisma.client;
     const original = db.$transaction.bind(db);
-    db.$transaction = (() => {
+    let transactions = 0;
+    db.$transaction = ((...args: unknown[]) => {
+      transactions += 1;
+      if (transactions === 1) {
+        return original(...(args as Parameters<typeof original>));
+      }
       throw new Error('apply blew up');
-    });
+    }) as typeof db.$transaction;
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});

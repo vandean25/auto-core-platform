@@ -11,7 +11,7 @@ export function isTransientImportStorageReadError(error: unknown): boolean {
   );
 }
 
-const TRANSIENT_STORAGE_CODE = new Set([
+export const TRANSIENT_STORAGE_CODE = new Set([
   'ECONNRESET',
   'ETIMEDOUT',
   'ENOTFOUND',

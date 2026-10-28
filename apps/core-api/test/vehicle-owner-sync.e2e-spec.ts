@@ -100,7 +100,7 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
     await request(suite.app.getHttpServer())
       .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${suite.authToken}`)
-      .expect(200);
+      .expect(202);
   }
 
   const mappedId = async (

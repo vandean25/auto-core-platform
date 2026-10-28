@@ -46,8 +46,12 @@ const { createAdapter } = await import('@socket.io/redis-adapter');
 const { Redis } = await import('ioredis');
 const {
   DashboardGateway,
+  DEFAULT_MAX_CONNECTION_AGE_MS,
   attachEngineConnectionErrorLogging,
   buildStockTransferPayload,
+  createWebSocketOriginCheck,
+  jitterConnectionAgeMs,
+  resolveMaxConnectionAgeMs,
   describeEngineConnectionError,
   extractBearerToken,
   formatAuthHeader,
@@ -220,6 +224,157 @@ describe('resolveCorsOrigins', () => {
         'development',
       ),
     ).toEqual(['http://localhost:5173', 'https://app.example.com']);
+  });
+});
+
+describe('DashboardGateway socket CORS (AUT-747)', () => {
+  const gatewayOptions = Reflect.getMetadata(
+    'websockets:gateway_options',
+    DashboardGateway,
+  ) as {
+    namespace: string;
+    path: string;
+    cors: { origin: string[]; credentials: boolean };
+  };
+
+  it('allows exactly the configured web origins with credentials, so the browser can reach core-api directly', () => {
+    expect(gatewayOptions.cors.credentials).toBe(true);
+    expect(gatewayOptions.cors.origin).toEqual(resolveCorsOrigins());
+    expect(Array.isArray(gatewayOptions.cors.origin)).toBe(true);
+  });
+
+  it('never allows a wildcard origin', () => {
+    expect(gatewayOptions.cors.origin).not.toContain('*');
+    expect(
+      gatewayOptions.cors.origin.every((origin) =>
+        /^https?:\/\/[^*]+$/.test(origin),
+      ),
+    ).toBe(true);
+  });
+
+  it('checks the Origin of WebSocket handshakes, which CORS does not cover', () => {
+    const options = gatewayOptions as unknown as { allowRequest?: unknown };
+    expect(typeof options.allowRequest).toBe('function');
+  });
+
+  it('serves the dashboard namespace on the path the client uses', () => {
+    expect(gatewayOptions.namespace).toBe('/dashboard-realtime');
+    expect(gatewayOptions.path).toBe('/api/socket.io');
+  });
+});
+
+describe('WebSocket origin check (AUT-747)', () => {
+  const check = createWebSocketOriginCheck(['https://app.example.com']);
+  const decide = (url: string, origin?: string) => {
+    let result: boolean | undefined;
+    check({ url, headers: origin === undefined ? {} : { origin } }, (_err, ok) => {
+      result = ok;
+    });
+    return result;
+  };
+  const ws = '/api/socket.io/?EIO=4&transport=websocket';
+
+  it('lets a WebSocket handshake from an allowed origin through', () => {
+    expect(decide(ws, 'https://app.example.com')).toBe(true);
+  });
+
+  it('rejects a WebSocket handshake from another origin, including a lookalike and a different scheme', () => {
+    expect(decide(ws, 'https://evil.example.com')).toBe(false);
+    expect(decide(ws, 'https://app.example.com.evil.com')).toBe(false);
+    expect(decide(ws, 'http://app.example.com')).toBe(false);
+    expect(decide(ws, 'null')).toBe(false);
+  });
+
+  it('does not touch a handshake without an Origin header (not a browser page; the token still decides) or polling (CORS decides)', () => {
+    expect(decide(ws)).toBe(true);
+    expect(decide('/api/socket.io/?EIO=4&transport=polling', 'https://evil.example.com')).toBe(true);
+  });
+});
+
+describe('session maximum age (AUT-747)', () => {
+  it('defaults to 30 minutes, reads the environment value, and 0 turns it off', () => {
+    expect(resolveMaxConnectionAgeMs(undefined)).toBe(DEFAULT_MAX_CONNECTION_AGE_MS);
+    expect(resolveMaxConnectionAgeMs('')).toBe(DEFAULT_MAX_CONNECTION_AGE_MS);
+    expect(resolveMaxConnectionAgeMs('not a number')).toBe(DEFAULT_MAX_CONNECTION_AGE_MS);
+    expect(resolveMaxConnectionAgeMs('-5')).toBe(DEFAULT_MAX_CONNECTION_AGE_MS);
+    expect(resolveMaxConnectionAgeMs('120000')).toBe(120_000);
+    expect(resolveMaxConnectionAgeMs('0')).toBe(0);
+  });
+
+  it('shortens each session by up to 10% so reconnects do not arrive together', () => {
+    expect(jitterConnectionAgeMs(1000, () => 0)).toBe(900);
+    expect(jitterConnectionAgeMs(1000, () => 1)).toBe(1000);
+  });
+
+  describe('on a live gateway', () => {
+    const originalAge = process.env.REALTIME_MAX_CONNECTION_AGE_MS;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      process.env.REALTIME_MAX_CONNECTION_AGE_MS = '60000';
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      if (originalAge === undefined) {
+        delete process.env.REALTIME_MAX_CONNECTION_AGE_MS;
+      } else {
+        process.env.REALTIME_MAX_CONNECTION_AGE_MS = originalAge;
+      }
+    });
+
+    function liveGateway() {
+      const gateway = new DashboardGateway(
+        asFake<AuthService>({
+          authenticateBearerToken: jest.fn<
+            (authorizationHeader?: string) => Promise<TenantAuthenticatedUser>
+          >(),
+        }),
+      );
+      const server = asFake<Server>({
+        use: jest.fn<(fn: unknown) => Server>(),
+        engine: new EventEmitter() as unknown as Server['engine'],
+      });
+      gateway.afterInit(server, '');
+      return gateway;
+    }
+
+    it('closes a session once it reaches the maximum age, so the client reconnects with a new handshake', async () => {
+      const gateway = liveGateway();
+      const client = createClient();
+      client.data = { tenantId: 'tenant-a', userId: 'user-1' };
+
+      await gateway.handleConnection(client);
+      jest.advanceTimersByTime(53_999);
+      expect(client.disconnect).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(6_001);
+      expect(client.disconnect).toHaveBeenCalledWith(true);
+    });
+
+    it('does not close a session that already disconnected', async () => {
+      const gateway = liveGateway();
+      const client = createClient();
+      client.data = { tenantId: 'tenant-a', userId: 'user-1' };
+
+      await gateway.handleConnection(client);
+      gateway.handleDisconnect(client);
+      jest.advanceTimersByTime(120_000);
+
+      expect(client.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('keeps sessions open when the maximum age is 0', async () => {
+      process.env.REALTIME_MAX_CONNECTION_AGE_MS = '0';
+      const gateway = liveGateway();
+      const client = createClient();
+      client.data = { tenantId: 'tenant-a', userId: 'user-1' };
+
+      await gateway.handleConnection(client);
+      jest.advanceTimersByTime(24 * 60 * 60 * 1000);
+
+      expect(client.disconnect).not.toHaveBeenCalled();
+    });
   });
 });
 

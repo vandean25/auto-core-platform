@@ -145,7 +145,7 @@
     "windowDays": "{{count}} Tage",
     "loadError": "Gewährleistungsfälligkeiten konnten nicht geladen werden.",
     "empty": "Keine fälligen Fahrzeuge im gewählten Zeitraum.",
-    "searchPlaceholder": "Fahrzeug, Kunde oder Frist suchen …",
+    "searchPlaceholder": "Fahrzeug, Kunde oder Frist",
     "columns": {
       "vehicle": "Fahrzeug",
       "customer": "Kunde",
@@ -206,6 +206,15 @@
     "saveFailed": "Fahrzeug konnte nicht gespeichert werden"
   },
   "pickerlSection": {
+    "warnings": {
+      "MANUAL_EXPIRY_AMBIGUITY": "Mehrere manuelle Begutachtungen am selben Tag mit unterschiedlicher Plaketten-Gültigkeit.",
+      "EXTERNAL_RESULT_REQUIRES_REVIEW": "Externes Begutachtungsergebnis erfordert Prüfung — Fälligkeit nicht verlässlich.",
+      "VEHICLE_CLASS_ASSUMED_M1": "Die Fahrzeugklasse ist nicht gespeichert; die §57a-Berechnung geht von den üblichen M1-Intervallen (Pkw) aus.",
+      "WKO_GUIDANCE_NOT_RIS_VERIFIED": "Intervall- und Toleranztabellen folgen den WKO-Hinweisseiten und sind hier nicht einzeln gegen das RIS (§57a) geprüft.",
+      "NO_INSPECTION_RECORDS": "Keine Begutachtung erfasst — bitte letzte Plakette erfassen.",
+      "TRANSITION_2027_TOLERANCE": "Übergang 2027: bisherige Toleranz von −1/+4 Monaten, spätestes Ende November 2027 (WKO, §132 Abs 37 Z 3; WKO-Quelle, nicht gegen das RIS geprüft).",
+      "AUSTAUSCHPLAKETTE_NOT_TRACKED": "Hinweis zur Austauschplakette: Lochung {{month}} (WKO §4; WKO-Quelle, nicht gegen das RIS geprüft; die Ausgabe wird in ACP nicht erfasst)."
+    },
     "title": "Pickerl (§57a)",
     "subtitle": "Fälligkeit aus Erstzulassung und erfassten Begutachtungen",
     "recordPickerl": "Pickerl erfasst",

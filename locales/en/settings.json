@@ -1,5 +1,6 @@
 {
   "page": {
+    "sectionLabel": "Section",
     "title": "Settings",
     "description": "Manage your platform configuration, master data, and storage locations."
   },
@@ -353,7 +354,7 @@
       "entityId": "Filter by entity ID",
       "entityIdPlaceholder": "Entity ID"
     },
-    "searchPlaceholder": "Search by entity, ID, actor, request ID...",
+    "searchPlaceholder": "Entity, ID, actor, request ID",
     "columns": {
       "timestamp": "Timestamp",
       "action": "Action",
@@ -761,7 +762,6 @@
       "description": "Update a role or deactivate access. Security-sensitive changes force a claims refresh.",
       "role": "Role",
       "roleAria": "Tenant member role",
-      "allowedRoles": "Allowed values: OWNER, ADMIN, TECH, SALES.",
       "status": "Status",
       "deactivate": "Deactivate Member",
       "reactivate": "Reactivate Member"
@@ -972,7 +972,7 @@
     "history": {
       "title": "Export run history",
       "description": "Immutable completed runs. Downloads are audit-logged with run ID and checksum; they do not confirm DATEV import.",
-      "searchPlaceholder": "Search runs by ID, entity, or checksum...",
+      "searchPlaceholder": "ID, entity, checksum",
       "empty": "No authorized export runs yet.",
       "columns": {
         "legalEntity": "Legal entity",
@@ -1128,6 +1128,8 @@
     },
     "result": {
       "title": "Import complete",
+      "running": "Import in progress",
+      "failed": "Import failed",
       "summary": "Status: {{status}}. Created {{created}}, updated {{updated}}, skipped {{skipped}}, errors {{errors}}.",
       "auditLink": "View audit log for this import job"
     },
@@ -1154,7 +1156,7 @@
       "dryRunFailed": "Dry-run failed",
       "applied": "Import applied successfully",
       "applyFailed": "Apply failed",
-      "applyLeaseLive": "Apply is still running. The lease is still live.",
+      "pollFailed": "Could not load the import status",
       "cancelFailed": "Could not cancel import",
       "templateFailed": "Template download failed",
       "errorCsvFailed": "Error CSV download failed"

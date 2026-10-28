@@ -11,7 +11,7 @@ import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport, type WorkshopKpiReport } from '@/api/workshop-kpi-reports'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { formatNumber } from '@/lib/format'
+import { formatCurrency, formatDate, formatNumber } from '@/lib/format'
 import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +21,16 @@ function number(value: string | null | undefined, suffix = '', missing = '—'):
   return value == null
     ? missing
     : `${formatNumber(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}`
+}
+
+/** The report period arrives as "2026-10-01 – 2026-10-27"; the screen shows it as dd.MM.yyyy (the CSV keeps the raw text). */
+export function formatKpiPeriod(period: string): string {
+  return period.replace(/\d{4}-\d{2}-\d{2}/g, (isoDate) => formatDate(isoDate, { timeZone: 'UTC' }))
+}
+
+/** Euro amount with the German grouping ("€ 23.500,00"), or the placeholder for a missing value. */
+function money(value: string | null | undefined, missing = '—'): string {
+  return value == null ? missing : formatCurrency(value)
 }
 
 export function serializeWorkshopKpiCsv(report: WorkshopKpiReport, t: ReportsTranslate): string {
@@ -224,7 +234,7 @@ export default function WorkshopKpiReportsPage() {
         <CardHeader>
           <CardTitle>{t('workshopKpi.laborPerformance.title')}</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="overflow-x-auto [contain:inline-size]">
           <table className="w-full text-sm max-sm:min-w-max max-sm:whitespace-nowrap">
             <thead>
               <tr className="border-b text-left">
@@ -242,16 +252,16 @@ export default function WorkshopKpiReportsPage() {
                 [...visibleRows, ...(report.data ? [report.data.totals] : [])].map((row) => (
                   <tr key={row.key} className="border-b">
                     <td className="p-2">{row.mechanic_name ?? t('workshopKpi.total')}</td>
-                    <td className="p-2">{row.period}</td>
+                    <td className="p-2">{formatKpiPeriod(row.period)}</td>
                     <td className="p-2">{number(row.available_hours, '', missingValue)}</td>
                     <td className="p-2">{number(row.clocked_hours, '', missingValue)}</td>
                     <td className="p-2">{number(row.sold_hours, '', missingValue)}</td>
-                    <td className="p-2">{number(row.labor_net_revenue, ' €', missingValue)}</td>
-                    <td className="p-2">{number(row.parts_net_revenue, ' €', missingValue)}</td>
+                    <td className="p-2">{money(row.labor_net_revenue, missingValue)}</td>
+                    <td className="p-2">{money(row.parts_net_revenue, missingValue)}</td>
                     <td className="p-2">{number(row.utilisation_percent, ' %', missingValue)}</td>
                     <td className="p-2">{number(row.productivity_percent, ' %', missingValue)}</td>
                     <td className="p-2">{row.closed_orders}</td>
-                    <td className="p-2">{number(row.average_net_revenue_per_order, ' €', missingValue)}</td>
+                    <td className="p-2">{money(row.average_net_revenue_per_order, missingValue)}</td>
                     <td className="p-2">{row.open_labor_entry_count}</td>
                   </tr>
                 ))
@@ -279,8 +289,8 @@ export default function WorkshopKpiReportsPage() {
         <CardContent>
           <p>
             {t('workshopKpi.partsTurnover.summary', {
-              issuedCost: number(report.data?.parts_turnover.issued_cost, ' €', missingValue),
-              averageStock: number(report.data?.parts_turnover.average_stock_value, ' €', missingValue),
+              issuedCost: money(report.data?.parts_turnover.issued_cost, missingValue),
+              averageStock: money(report.data?.parts_turnover.average_stock_value, missingValue),
               turnover: number(report.data?.parts_turnover.turnover, '×', missingValue),
             })}
           </p>
@@ -290,7 +300,7 @@ export default function WorkshopKpiReportsPage() {
             })}
           </p>
           <h3 className="mb-2 mt-5 text-sm font-semibold">{t('workshopKpi.partsTurnover.slowMoversTitle')}</h3>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto [contain:inline-size]">
             <table className="w-full text-sm max-sm:min-w-max max-sm:whitespace-nowrap">
               <thead>
                 <tr className="border-b text-left">
@@ -308,7 +318,7 @@ export default function WorkshopKpiReportsPage() {
                       <td className="p-2">
                         {formatNumber(Number(part.quantity_on_hand), { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                       </td>
-                      <td className="p-2">{number(part.stock_value, ' €', missingValue)}</td>
+                      <td className="p-2">{money(part.stock_value, missingValue)}</td>
                       <td className="p-2">{part.days_since_last_issue ?? t('workshopKpi.never')}</td>
                     </tr>
                   ))

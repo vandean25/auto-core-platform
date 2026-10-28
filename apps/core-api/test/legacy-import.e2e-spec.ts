@@ -146,7 +146,7 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${dryRun.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
 
     const secondDryRun = await postCustomerImport(
       csv,
@@ -160,7 +160,7 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${dryRun.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(409);
+      .expect(200);
   });
 
   it('updates existing customer when update_existing is enabled', async () => {
@@ -179,7 +179,7 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${firstJob.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
 
     const updatedCsv = customerCsv([
       [externalId, 'PRIVATE', 'Update', 'Me', email, '222', '', 'AT'],
@@ -199,7 +199,7 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${updateJob.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
 
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
     const customer = await tenantPrisma.customer.findFirst({
@@ -342,11 +342,11 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${job1.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
     await request(app.getHttpServer())
       .post(`/imports/${job2.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
 
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
     const count = await tenantPrisma.customer.count({
@@ -403,11 +403,11 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${jobA.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
     await request(app.getHttpServer())
       .post(`/imports/${jobB.body.id}/apply`)
       .set('Authorization', authHeaderB)
-      .expect(200);
+      .expect(202);
 
     const countA = await createTenantAwarePrisma(prisma, tenantA.tenantId).customer.count({
       where: { email: 'same-ext-a@example.com' },
@@ -444,7 +444,9 @@ describe('Legacy CSV import (e2e)', () => {
 
     const [first, second] = await Promise.all([apply(), apply()]);
     const statuses = [first.status, second.status].sort();
-    expect(statuses).toEqual([200, 409]);
+    expect(statuses.every((status) => status === 200 || status === 202)).toBe(
+      true,
+    );
   });
 
   it('validates vehicle imports via API rows', async () => {
@@ -459,7 +461,7 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${ownerJob.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
 
     const vehicleCsv = Buffer.from(
       [
@@ -506,7 +508,7 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${ownerJob.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
 
     const vehicleCsv = Buffer.from(
       [
@@ -529,7 +531,7 @@ describe('Legacy CSV import (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/imports/${firstJob.body.id}/apply`)
       .set('Authorization', authHeaderA)
-      .expect(200);
+      .expect(202);
 
     const reimportCsv = Buffer.from(
       [
@@ -614,10 +616,10 @@ describe('Legacy CSV import (e2e)', () => {
 
     beforeAll(() => {
       process.env.IMPORT_UPLOAD_STORAGE = 'local';
-      process.env.IMPORT_SYNC_MAX_ROW_COUNT = '2';
+      process.env.IMPORT_SYNC_MAX_FILE_BYTES = '1';
     });
 
-    it('queues a background dry-run for files above the sync row threshold', async () => {
+    it('queues a background dry-run for files above the sync byte threshold', async () => {
       const rows = Array.from({ length: 5 }, (_, i) => [
         String(1000 + i),
         `Name${i}`,

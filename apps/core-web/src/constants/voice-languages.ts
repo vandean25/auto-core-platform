@@ -1,41 +1,31 @@
-export type VoiceLanguageOption = {
-  value: string
-  label: string
+import { translateEnumOptions } from '@/lib/i18n'
+
+export const SOURCE_LANGUAGE_CODES = [
+  'de-DE',
+  'en-US',
+  'pl-PL',
+  'hr-HR',
+  'sr-RS',
+  'bs-BA',
+  'tr-TR',
+  'it-IT',
+  'fr-FR',
+  'es-ES',
+  'cs-CZ',
+  'sk-SK',
+  'hu-HU',
+  'ro-RO',
+  'uk-UA',
+] as const
+
+export const TARGET_LANGUAGE_CODES = ['de', 'en', 'pl', 'hr', 'sr', 'bs', 'tr', 'it', 'fr', 'es', 'cs', 'sk', 'hu', 'ro', 'uk'] as const
+
+/** Name of a spoken-language code in the UI language (`enums:voiceSourceLanguage.*`); an unknown code shows as it is. */
+export function formatSourceLanguage(code: string): string {
+  return translateEnumOptions(['voiceSourceLanguage', code], { defaultValue: code })
 }
 
-export const SOURCE_LANGUAGE_OPTIONS: VoiceLanguageOption[] = [
-  { value: 'de-DE', label: 'German (Germany)' },
-  { value: 'en-US', label: 'English (United States)' },
-  { value: 'pl-PL', label: 'Polish (Poland)' },
-  { value: 'hr-HR', label: 'Croatian (Croatia)' },
-  { value: 'sr-RS', label: 'Serbian (Serbia)' },
-  { value: 'bs-BA', label: 'Bosnian (Bosnia and Herzegovina)' },
-  { value: 'tr-TR', label: 'Turkish (Turkey)' },
-  { value: 'it-IT', label: 'Italian (Italy)' },
-  { value: 'fr-FR', label: 'French (France)' },
-  { value: 'es-ES', label: 'Spanish (Spain)' },
-  { value: 'cs-CZ', label: 'Czech (Czech Republic)' },
-  { value: 'sk-SK', label: 'Slovak (Slovakia)' },
-  { value: 'hu-HU', label: 'Hungarian (Hungary)' },
-  { value: 'ro-RO', label: 'Romanian (Romania)' },
-  { value: 'uk-UA', label: 'Ukrainian (Ukraine)' },
-]
-
-export const TARGET_LANGUAGE_OPTIONS: VoiceLanguageOption[] = [
-  { value: 'de', label: 'German' },
-  { value: 'en', label: 'English' },
-  { value: 'pl', label: 'Polish' },
-  { value: 'hr', label: 'Croatian' },
-  { value: 'sr', label: 'Serbian' },
-  { value: 'bs', label: 'Bosnian' },
-  { value: 'tr', label: 'Turkish' },
-  { value: 'it', label: 'Italian' },
-  { value: 'fr', label: 'French' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'cs', label: 'Czech' },
-  { value: 'sk', label: 'Slovak' },
-  { value: 'hu', label: 'Hungarian' },
-  { value: 'ro', label: 'Romanian' },
-  { value: 'uk', label: 'Ukrainian' },
-]
-
+/** Name of a translation target language in the UI language (`enums:voiceTargetLanguage.*`). */
+export function formatTargetLanguage(code: string): string {
+  return translateEnumOptions(['voiceTargetLanguage', code], { defaultValue: code })
+}

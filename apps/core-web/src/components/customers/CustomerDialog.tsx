@@ -27,6 +27,7 @@ import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { buildCustomerPayload, markRefusedFields } from './customer-submit'
 import { toastSuccessWithOpen } from '@/lib/toast-actions'
 
 interface CustomerDialogProps {
@@ -66,22 +67,22 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
         defaultValues: customer || DEFAULT_CUSTOMER,
     })
 
-    const onSubmit = async (data: Partial<Customer>) => {
+    const onSubmit = async (formData: Partial<Customer>) => {
+        const payload = buildCustomerPayload(formData, customer)
         try {
             if (isEdit && customer) {
-                // A changed address withdraws the advisor's confirmation (ADR-0025 §8), so the flag is not sent as true.
-                const emailChanged = (data.email ?? '') !== (customer.email ?? '')
-                const payload = emailChanged ? { ...data, contact_email_ok: false } : data
                 await updateMutation.mutateAsync({ id: customer.id, data: payload })
                 toast.success(t('dialog.updated'))
             } else {
-                const created = await createMutation.mutateAsync(data)
+                const created = await createMutation.mutateAsync(payload)
                 toastSuccessWithOpen(t('dialog.created'), () => navigate(`/customers/${created.id}`))
             }
             handleOpenChange(false)
             form.reset()
         } catch (error) {
-            toast.error(t('dialog.saveFailed'))
+            // A refused field is marked on the field itself; the toast then only points at it.
+            const marked = markRefusedFields(error, Object.keys(DEFAULT_CUSTOMER), form.setError, t)
+            toast.error(t(marked > 0 ? 'dialog.checkFields' : 'dialog.saveFailed'))
         }
     }
 

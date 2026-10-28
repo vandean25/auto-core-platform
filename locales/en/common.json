@@ -335,6 +335,10 @@
   "timeField": {
     "placeholder": "HH:MM"
   },
+  "inlineEdit": {
+    "emptyText": "Click to edit",
+    "invalidValue": "Invalid value"
+  },
   "dateField": {
     "placeholder": "DD.MM.YYYY",
     "openCalendar": "Open calendar",

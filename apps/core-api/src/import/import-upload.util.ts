@@ -84,7 +84,6 @@ export async function assessImportUpload(
     assertRowLimits(headerStats.dataRowCount);
     const useBackground = isBackgroundImportCandidate({
       fileBytes: file.size,
-      rowCount: headerStats.dataRowCount,
     });
     if (useBackground) {
       return {
@@ -110,7 +109,6 @@ export async function assessImportUpload(
 
   const useBackground = isBackgroundImportCandidate({
     fileBytes: file.size,
-    rowCount: headerStats.dataRowCount,
   });
   if (useBackground) {
     return {

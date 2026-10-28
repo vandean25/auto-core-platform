@@ -1,21 +1,19 @@
 import {
   isBackgroundImportCandidate,
-  readImportSyncMaxRowCount,
+  readImportSyncMaxFileBytes,
 } from './import-limits.js';
 
 describe('import limits', () => {
-  it('treats files above sync row threshold as background candidates', () => {
-    const syncRows = readImportSyncMaxRowCount();
+  it('treats files above the sync byte threshold as background candidates', () => {
+    const syncBytes = readImportSyncMaxFileBytes();
     expect(
       isBackgroundImportCandidate({
-        fileBytes: 1000,
-        rowCount: syncRows + 1,
+        fileBytes: syncBytes + 1,
       }),
     ).toBe(true);
     expect(
       isBackgroundImportCandidate({
-        fileBytes: 1000,
-        rowCount: syncRows,
+        fileBytes: syncBytes,
       }),
     ).toBe(false);
   });

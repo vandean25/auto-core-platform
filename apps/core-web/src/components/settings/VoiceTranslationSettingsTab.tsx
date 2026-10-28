@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TARGET_LANGUAGE_OPTIONS } from '@/constants/voice-languages'
+import { TARGET_LANGUAGE_CODES, formatTargetLanguage } from '@/constants/voice-languages'
 import { getErrorMessage } from '@/lib/error-utils'
 
 type FormState = {
@@ -104,9 +104,9 @@ export function VoiceTranslationSettingsTab() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TARGET_LANGUAGE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                {TARGET_LANGUAGE_CODES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {formatTargetLanguage(code)}
                   </SelectItem>
                 ))}
               </SelectContent>

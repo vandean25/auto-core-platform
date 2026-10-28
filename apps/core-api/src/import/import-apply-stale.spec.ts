@@ -5,6 +5,7 @@ import {
   isStaleApplyingImportJob,
   IMPORT_STALE_APPLY_WITHOUT_LEASE_MS,
 } from './import-apply-lease.js';
+import { IMPORT_WORKER_LEASE_MS } from './import-job.worker-state.js';
 import { ImportJobStore } from './import-job.store.js';
 import { requeueImportWorkerAfterLeaseSkip } from './import-worker.flow.js';
 
@@ -50,6 +51,36 @@ describe('isStaleApplyingImportJob', () => {
         now,
       ),
     ).toBe(false);
+  });
+
+  it('treats a released lease as fresh until updatedAt is older than the lease length', () => {
+    const released = {
+      status: ImportJobStatus.APPLYING,
+      options_json: {
+        worker: {
+          phase: 'apply' as const,
+          lease_token: 'token-a',
+          lease_until: new Date(0).toISOString(),
+          processed_rows: 1,
+          started_at: new Date(now).toISOString(),
+        },
+      },
+    };
+    expect(
+      isStaleApplyingImportJob(
+        { ...released, updatedAt: new Date(now - 1000) },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isStaleApplyingImportJob(
+        {
+          ...released,
+          updatedAt: new Date(now - IMPORT_WORKER_LEASE_MS),
+        },
+        now,
+      ),
+    ).toBe(true);
   });
 
   it('treats a lease-less job as stale only after updatedAt ages past five minutes', () => {

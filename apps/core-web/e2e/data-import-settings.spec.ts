@@ -9,7 +9,7 @@ type ImportJobMock = {
   source_system: string
   file_name: string
   file_sha256: string
-  status: 'DRY_RUN_DONE' | 'APPLIED'
+  status: 'DRY_RUN_DONE' | 'APPLYING' | 'APPLIED'
   mapping: Record<string, string>
   options: Record<string, unknown>
   totals: { rows: number; create: number; update: number; skip: number; error: number }
@@ -158,14 +158,42 @@ async function installImportMocks(
     })
   })
 
-  await page.route(AutoCorePage.apiRouteMatcher(`/api/imports/${job.id}/apply`), async (route) => {
-    applyCount += 1
-    options.onApply?.()
-    await new Promise((resolve) => setTimeout(resolve, 300))
+  let jobGets = 0
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/imports/${job.id}`), async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue()
+      return
+    }
+    jobGets += 1
+    const status = jobGets >= 2 ? 'APPLIED' : 'APPLYING'
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ ...job, status: 'APPLIED', applied_at: '2026-10-02T12:05:00.000Z' }),
+      body: JSON.stringify({
+        ...job,
+        status,
+        stalled: false,
+        progress:
+          status === 'APPLYING'
+            ? { phase: 'apply', processed_rows: 1, total_rows: 2, eta_seconds: null }
+            : null,
+        applied_at: status === 'APPLIED' ? '2026-10-02T12:05:00.000Z' : null,
+      }),
+    })
+  })
+
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/imports/${job.id}/apply`), async (route) => {
+    applyCount += 1
+    options.onApply?.()
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ...job,
+        status: 'APPLYING',
+        stalled: false,
+        progress: { phase: 'apply', processed_rows: 0, total_rows: 2, eta_seconds: null },
+      }),
     })
   })
 
@@ -205,7 +233,10 @@ test.describe('Data import settings wizard', () => {
       .getByRole('button', { name: DE_SETTINGS.dataImport.confirm.confirm })
       .dblclick()
 
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.result.title })).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.result.title })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(page.getByText(/Status: APPLIED/)).toBeVisible()
     expect(getApplyCount()).toBe(1)
   })
 

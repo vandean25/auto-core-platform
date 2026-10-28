@@ -109,11 +109,25 @@ describe('web app manifest and icons', () => {
     expect(existsSync(join(webRoot, 'public/vite.svg'))).toBe(false)
   })
 
-  it('has an offline page that needs nothing but itself and the cached icon', () => {
+  it('has an offline page that needs nothing but itself: the logo is embedded, no file is requested', () => {
     const html = readFileSync(join(webRoot, 'public/offline.html'), 'utf8')
     expect(html).toContain('<style>')
     expect(html).not.toMatch(/<script\s+src=|<link\s+rel="stylesheet"|@import/)
-    expect([...html.matchAll(/(?:src|href)="([^"#]+)"/g)].map((match) => match[1])).toEqual(['/icons/icon-192.png'])
+    const references = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)].map((match) => match[1])
+    expect(references).toHaveLength(1)
+    expect(references[0]).toMatch(/^data:image\/png;base64,/)
+    // The embedded logo is the app icon.
+    const embedded = Buffer.from(references[0].replace(/^data:image\/png;base64,/, ''), 'base64')
+    expect(embedded.equals(readFileSync(join(webRoot, 'public/icons/icon-192.png')))).toBe(true)
+  })
+
+  it('has an offline page in one language: German by default, English only as a replacement', () => {
+    const html = readFileSync(join(webRoot, 'public/offline.html'), 'utf8')
+    const markup = html.slice(0, html.indexOf('<script>'))
+    expect(markup).toContain('<html lang="de">')
+    expect(markup).toContain('Keine Verbindung')
+    expect(markup).not.toMatch(/No connection|Try again|lang="en"| \/ /)
+    expect(html).toContain("localStorage.getItem('acp:ui-language') === 'en'")
   })
 })
 

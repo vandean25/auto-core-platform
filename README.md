@@ -292,9 +292,9 @@ Socket.IO path is `/api/socket.io`. In local development, Vite proxies REST
 requests through `/api` and Socket.IO through `/socket.io` to the local API.
 
 `VITE_SOCKET_BASE_URL` can point the realtime client at a direct API origin
-(Cloud Run) instead of Hosting. The browser client uses long-polling only, so a
-direct origin also needs a transport change. See
-`docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`, section 4.
+(Cloud Run) instead of Hosting; the client then uses WebSocket first with polling as
+the fallback. See `docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`,
+section 4.
 
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
@@ -307,14 +307,28 @@ VITE_FIREBASE_APP_ID=
 
 After editing env values, restart the Vite dev server.
 
-The browser realtime client uses long-polling only. The `/api/**` Hosting rewrite
-is assumed not to forward WebSocket upgrades (unverified; see the Socket.IO
-runbook). Before relying on realtime connections in production, confirm on the
-live Hosting site that the session-affinity cookie reaches Cloud Run (runbook
-section 4). If Hosting cannot keep polling sessions on one replica, the runbook
-lists the fallbacks: one replica, or a direct Cloud Run origin with WebSocket
-transport. Do not move NestJS to Cloud Functions. Keep `VITE_API_BASE_URL` empty
-in the normal production build so REST remains same-origin.
+Realtime transport. Without `VITE_SOCKET_BASE_URL` the browser client uses
+long-polling through the same origin (local dev, e2e, and any build that leaves the
+variable empty). Firebase Hosting does not proxy WebSocket upgrades and strips the
+Cloud Run session-affinity cookie, so with more than one core-api instance polling
+sessions can jump between instances. With `VITE_SOCKET_BASE_URL` set to the core-api
+(Cloud Run) origin the client connects straight to it, WebSocket first with polling
+as the fallback; the Firebase ID token travels in the handshake, so no Hosting cookie
+is needed. `FRONTEND_URL` on core-api must list the exact web origin(s) (no wildcard;
+the gateway's CORS uses the same list, with credentials). The repository sets no
+Content-Security-Policy today; if one is added, `connect-src` needs exactly that
+core-api origin as `https://` and `wss://`. After a reconnect and when a hidden tab
+shows again, the client invalidates the realtime-backed queries by their targeted
+keys to catch up on missed events. Because the token is only checked in the
+handshake, core-api closes every realtime session after a maximum age
+(`REALTIME_MAX_CONNECTION_AGE_MS`, default 30 minutes, 0 turns it off); the client
+reconnects with a fresh token on its retry backoff, so a revoked or expired session
+stops receiving events. A WebSocket handshake that carries an `Origin` header must
+carry one from `FRONTEND_URL` (browsers do not apply CORS to WebSocket handshakes);
+a handshake without `Origin` still needs the token. Setting the variable in the QA or production build
+is an infra step (see the Socket.IO runbook, section 4). Do not move NestJS to Cloud
+Functions. Keep `VITE_API_BASE_URL` empty in the normal production build so REST
+remains same-origin.
 
 ### Create Login User (Email/Password)
 

@@ -443,7 +443,7 @@ describe('Supplier Price List Import (e2e)', () => {
       .post(`/api/imports/${benchmarkJobId}/apply`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ accept_all_price_jumps: true })
-      .expect(200);
+      .expect(202);
 
     expect(applyRes.body.status).toBe('APPLIED');
     expect(applyRes.body.totals.update).toBe(2900);
@@ -522,7 +522,7 @@ describe('Supplier Price List Import (e2e)', () => {
       .post(`/api/imports/${rerunDryRun.body.id}/apply`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ accept_all_price_jumps: true })
-      .expect(200);
+      .expect(202);
 
     expect(rerunApply.body.status).toBe('APPLIED');
     expect(rerunApply.body.totals.update).toBe(0);

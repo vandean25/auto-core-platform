@@ -1,5 +1,6 @@
 {
   "page": {
+    "sectionLabel": "Bereich",
     "title": "Einstellungen",
     "description": "Plattformkonfiguration, Stammdaten und Lagerorte verwalten."
   },
@@ -353,7 +354,7 @@
       "entityId": "Nach Objekt-ID filtern",
       "entityIdPlaceholder": "Objekt-ID"
     },
-    "searchPlaceholder": "Nach Objekt, ID, Akteur, Request-ID suchen…",
+    "searchPlaceholder": "Objekt, ID, Akteur, Request-ID",
     "columns": {
       "timestamp": "Zeitstempel",
       "action": "Aktion",
@@ -761,7 +762,6 @@
       "description": "Rolle ändern oder Zugriff deaktivieren. Sicherheitsrelevante Änderungen erzwingen eine Aktualisierung der Benutzerrechte.",
       "role": "Rolle",
       "roleAria": "Mandantenrolle des Mitglieds",
-      "allowedRoles": "Zulässige Werte: OWNER, ADMIN, TECH, SALES.",
       "status": "Status",
       "deactivate": "Mitglied deaktivieren",
       "reactivate": "Mitglied reaktivieren"
@@ -972,7 +972,7 @@
     "history": {
       "title": "Exportlauf-Verlauf",
       "description": "Unveränderliche abgeschlossene Läufe. Downloads werden mit Lauf-ID und Prüfsumme im Audit-Protokoll erfasst; sie bestätigen keinen DATEV-Import.",
-      "searchPlaceholder": "Läufe nach ID, Rechtsträger oder Prüfsumme suchen...",
+      "searchPlaceholder": "ID, Rechtsträger, Prüfsumme",
       "empty": "Noch keine autorisierten Exportläufe.",
       "columns": {
         "legalEntity": "Rechtsträger",
@@ -1128,6 +1128,8 @@
     },
     "result": {
       "title": "Import abgeschlossen",
+      "running": "Import läuft",
+      "failed": "Import fehlgeschlagen",
       "summary": "Status: {{status}}. Neu {{created}}, aktualisiert {{updated}}, übersprungen {{skipped}}, Fehler {{errors}}.",
       "auditLink": "Audit-Log für diesen Import anzeigen"
     },
@@ -1154,7 +1156,7 @@
       "dryRunFailed": "Probelauf fehlgeschlagen",
       "applied": "Import erfolgreich angewendet",
       "applyFailed": "Import fehlgeschlagen",
-      "applyLeaseLive": "Die Anwendung läuft noch. Die Lease ist aktiv.",
+      "pollFailed": "Importstatus konnte nicht geladen werden",
       "cancelFailed": "Import konnte nicht abgebrochen werden",
       "templateFailed": "Vorlage konnte nicht heruntergeladen werden",
       "errorCsvFailed": "Fehler-CSV konnte nicht heruntergeladen werden"

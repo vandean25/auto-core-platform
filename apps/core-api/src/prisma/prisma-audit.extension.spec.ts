@@ -10,6 +10,7 @@ import {
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { DryRunChangeCollector } from '../dry-run/dry-run-change-collector.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import { PrismaTransactionContext } from './prisma-transaction-context.js';
 import { REDACTED_VALUE } from '../audit/audit-redaction.util.js';
 import { lockVehicleForPartyWrite } from '../vehicle/vehicle-party.writer.js';
 
@@ -747,7 +748,11 @@ describe('Prisma Audit Extension', () => {
         line_items_version: 1,
         updatedAt: new Date('2020-01-01T00:00:00.000Z'),
       };
-      const afterRow = { ...beforeRow };
+      const afterRow = {
+        ...beforeRow,
+        line_items_version: 2,
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
       mockModelFindMany
         .mockResolvedValueOnce([beforeRow])
         .mockResolvedValueOnce([afterRow]);
@@ -906,6 +911,138 @@ describe('Prisma Audit Extension', () => {
 
       expect(collector.getChanges()).toEqual([]);
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+
+    it('writes no Vehicle UPDATE audit row when a business-field write leaves the row unchanged', async () => {
+      const beforeRow = {
+        id: 'veh-1',
+        make: 'VW',
+        customer_id: 'cust-1',
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      const afterRow = {
+        ...beforeRow,
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      mockModelFindMany
+        .mockResolvedValueOnce([beforeRow])
+        .mockResolvedValueOnce([afterRow]);
+
+      await runWithContext(undefined, undefined, () =>
+        applyAuditUpdateMany.call(
+          mockContext,
+          mockContext,
+          'Vehicle',
+          {
+            where: { id: 'veh-1', tenant_id: TENANT_ID },
+            data: { customer_id: 'cust-1' },
+          },
+          async () => ({ count: 1 }),
+        ),
+      );
+
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+
+    it('reads snapshots from the active transaction so an in-transaction Vehicle change is audited', async () => {
+      const beforeRow = {
+        id: 'veh-1',
+        make: 'VW',
+        customer_id: 'cust-old',
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      const afterRow = {
+        ...beforeRow,
+        customer_id: 'cust-new',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      // The client captured at extension definition only sees committed rows.
+      mockModelFindMany.mockResolvedValue([beforeRow]);
+      const txFindMany = jest
+        .fn()
+        .mockResolvedValueOnce([beforeRow])
+        .mockResolvedValueOnce([afterRow]);
+      const txClient = {
+        vehicle: { findFirst: jest.fn(), findMany: txFindMany },
+      };
+
+      await runWithContext(undefined, undefined, () =>
+        PrismaTransactionContext.run(txClient as never, () =>
+          applyAuditUpdateMany.call(
+            mockContext,
+            mockContext,
+            'Vehicle',
+            {
+              where: { id: 'veh-1', tenant_id: TENANT_ID },
+              data: { customer_id: 'cust-new' },
+            },
+            async () => ({ count: 1 }),
+          ),
+        ),
+      );
+
+      expect(txFindMany).toHaveBeenNthCalledWith(1, {
+        where: { id: 'veh-1', tenant_id: TENANT_ID },
+      });
+      expect(txFindMany).toHaveBeenNthCalledWith(2, {
+        where: { id: { in: ['veh-1'] } },
+      });
+      expect(mockModelFindMany).not.toHaveBeenCalled();
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'Vehicle',
+          entity_id: 'veh-1',
+          action: 'UPDATE',
+          changed_fields: ['customer_id', 'updatedAt'],
+        }),
+      });
+    });
+
+    it('reads dry-run snapshots from the dry-run transaction and still records a real change', async () => {
+      const beforeRow = {
+        id: 'veh-1',
+        make: 'VW',
+        customer_id: 'cust-old',
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      const afterRow = {
+        ...beforeRow,
+        customer_id: 'cust-new',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      mockModelFindMany.mockResolvedValue([beforeRow]);
+      const txFindMany = jest
+        .fn()
+        .mockResolvedValueOnce([beforeRow])
+        .mockResolvedValueOnce([afterRow]);
+      const collector = new DryRunChangeCollector();
+
+      await runWithContext(undefined, undefined, () =>
+        DryRunStorage.run(
+          {
+            isDryRun: true,
+            tx: { vehicle: { findMany: txFindMany } } as never,
+            collector,
+          },
+          () =>
+            applyAuditUpdateMany.call(
+              mockContext,
+              mockContext,
+              'Vehicle',
+              {
+                where: { id: 'veh-1', tenant_id: TENANT_ID },
+                data: { customer_id: 'cust-new' },
+              },
+              async () => ({ count: 1 }),
+            ),
+        ),
+      );
+
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(collector.getChanges()).toEqual([
+        { entity: 'Vehicle', id: 'veh-1', op: 'update', provisional: false },
+      ]);
     });
 
     it('writes 0 audit logs and returns count 0 when no rows match or atomic status guard fails', async () => {

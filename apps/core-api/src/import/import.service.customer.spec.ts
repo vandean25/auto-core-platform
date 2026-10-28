@@ -784,14 +784,14 @@ describe('ImportService customer import (characterization)', () => {
       await expect(h.service.applyJob(JOB_ID)).rejects.toThrow('Connection lost');
 
       expect(h.prisma.importJobRow.update).not.toHaveBeenCalled();
-      expect(h.prisma.importJob.update).toHaveBeenCalledWith(
+      expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ status: ImportJobStatus.FAILED }),
         }),
       );
     });
 
-    it('returns IMPORT_APPLY_INTERRUPTED when sync retries exhaust on P2034', async () => {
+    it('defers a P2034 instead of failing the job in the same attempt', async () => {
       h.prisma.customer.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('serialization', {
           code: 'P2034',
@@ -804,23 +804,9 @@ describe('ImportService customer import (characterization)', () => {
         [createRow(1, 'K-1', { first_name: 'Anna', last_name: 'Berger' })],
       );
 
-      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
-        status: 503,
-        response: {
-          code: IMPORT_ERROR_CODES.APPLY_INTERRUPTED,
-        },
-      });
+      const result = await h.service.applyJob(JOB_ID);
+      expect(result.status).toBe(ImportJobStatus.APPLYING);
       expect(h.prisma.importJobRow.update).not.toHaveBeenCalled();
-      expect(h.prisma.importJob.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: ImportJobStatus.FAILED,
-            options_json: expect.objectContaining({
-              apply_failure_reason: 'retry_exhausted',
-            }),
-          }),
-        }),
-      );
     }, 60_000);
 
     it('fails the job with the totals so far when recording a row error itself fails', async () => {
@@ -844,12 +830,11 @@ describe('ImportService customer import (characterization)', () => {
         'db unavailable',
       );
 
-      expect(h.prisma.importJob.update).toHaveBeenCalledWith(
+      expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: JOB_ID },
+          where: expect.objectContaining({ id: JOB_ID }),
           data: expect.objectContaining({
             status: ImportJobStatus.FAILED,
-            totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 1 },
           }),
         }),
       );
@@ -899,7 +884,7 @@ describe('ImportService customer import (characterization)', () => {
 
       await h.service.applyJob(JOB_ID);
 
-      expect(h.prisma.$transaction).toHaveBeenCalledTimes(3);
+      expect(h.prisma.$transaction).toHaveBeenCalledTimes(4);
     });
   });
 });

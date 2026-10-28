@@ -189,6 +189,11 @@
     "updated": "Kunde aktualisiert",
     "created": "Kunde angelegt",
     "saveFailed": "Kunde konnte nicht gespeichert werden",
+    "checkFields": "Bitte die markierten Felder prüfen.",
+    "errors": {
+      "email": "Bitte eine gültige E-Mail-Adresse eingeben oder das Feld leer lassen.",
+      "invalid": "Bitte diese Angabe prüfen."
+    },
     "type": "Typ",
     "selectType": "Typ wählen",
     "private": "Privat",

@@ -1,9 +1,10 @@
 import * as React from 'react'
-import { useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
-import { authSessionKeys, type AuthSession } from '@/api/auth-session'
+import { authSessionKeys } from '@/api/auth-session'
+import { consumeLocalSiteSwitch } from '@/api/local-site-switch'
 import { siteKeys } from '@/api/sites'
 import { stockTransferKeys } from '@/api/stock-transfers'
 import { inventoryKeys } from '@/api/inventory'
@@ -11,8 +12,9 @@ import { vehicleStockKeys } from '@/api/vehicle-stock'
 import { workshopKeys } from '@/api/workshop'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
-import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
+import { getQueryKeysToInvalidateForEntityType, getRealtimeInvalidationWindowMs, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
+import { createRealtimeResync } from '@/features/realtime/realtime-resync'
 import { buildRealtimeSocketOptions, createHandshakeRetry } from '@/features/realtime/realtime-socket-options'
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
@@ -40,17 +42,11 @@ const SITE_SCOPED_QUERY_KEYS: QueryKey[] = [
   stockTransferKeys.all,
 ]
 
-/** Active site of the cached session, or undefined while no session is cached. */
-function cachedActiveSiteId(queryClient: QueryClient): string | null | undefined {
-  for (const [, session] of queryClient.getQueriesData<AuthSession>({ queryKey: authSessionKeys.all })) {
-    if (session) return session.activeSiteId ?? null
-  }
-  return undefined
-}
-
 type RealtimeConnection = {
   url: string
   path: string
+  /** Set when `VITE_SOCKET_BASE_URL` points the socket straight at core-api. */
+  direct?: true
 }
 
 type ResolveRealtimeConnectionOptions = {
@@ -72,6 +68,7 @@ export function resolveRealtimeConnection({
     return {
       url: `${targetBaseUrl}/dashboard-realtime`,
       path: '/api/socket.io',
+      ...(socketBaseUrl ? { direct: true as const } : {}),
     }
   }
 
@@ -100,7 +97,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
   // One filter per queryClient, not per socket: a token refresh must not flush echoes held for a pending drag.
   const echoSafeInvalidatorRef = React.useRef<ReturnType<typeof createEchoSafeInvalidator> | null>(null)
   React.useEffect(() => {
-    const echoSafeInvalidator = createEchoSafeInvalidator(queryClient)
+    const echoSafeInvalidator = createEchoSafeInvalidator(queryClient, { windowMs: getRealtimeInvalidationWindowMs })
     echoSafeInvalidatorRef.current = echoSafeInvalidator
     return () => {
       echoSafeInvalidatorRef.current = null
@@ -148,12 +145,23 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       connection.url,
       buildRealtimeSocketOptions({
         path: connection.path,
+        direct: connection.direct,
         getIdToken: async () => (await firebaseAuth?.currentUser?.getIdToken()) ?? null,
       }),
     )
     const handshakeRetry = createHandshakeRetry(socket)
     socket.on('connect', handshakeRetry.onConnect)
     socket.on('connect_error', handshakeRetry.onConnectError)
+    socket.on('disconnect', handshakeRetry.onDisconnect)
+
+    // Events emitted while the socket was away are gone: catch up on every reconnect and when the tab shows again.
+    const resync = createRealtimeResync({
+      invalidate: (queryKey) => echoSafeInvalidatorRef.current?.invalidate(queryKey),
+      isConnected: () => socket.connected,
+      reconnectSocket: handshakeRetry.reconnect,
+    })
+    socket.on('connect', resync.onConnect)
+    resync.start()
 
     // Echoes of the user's own optimistic mutations must not refetch over the optimistic state.
     const onEntityUpdated = (payload: unknown) => {
@@ -206,8 +214,9 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
 
     const onSiteContextUpdated = (payload: unknown) => {
       if (!isSiteContextUpdatedPayload(payload)) return
-      // The tab that switched the site (or a reconnect that repeats the current one) already holds this site's data.
-      if (cachedActiveSiteId(queryClient) === payload.siteId) return
+      // Only the tab that switched the site holds its data already; any other tab refetches, even when its session
+      // already shows the new site (a null site included).
+      if (consumeLocalSiteSwitch(payload.siteId)) return
 
       void (async () => {
         // The initiating tab is not special: refetch the session so the
@@ -257,6 +266,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       socket.off(SITE_ACCESS_SCOPE_UPDATED_EVENT, onSiteAccessScopeUpdated)
       socket.off('connect', handshakeRetry.onConnect)
       socket.off('connect_error', handshakeRetry.onConnectError)
+      socket.off('connect', resync.onConnect)
+      resync.dispose()
       handshakeRetry.dispose()
       socket.disconnect()
     }

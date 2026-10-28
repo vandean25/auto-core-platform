@@ -41,7 +41,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { SOURCE_LANGUAGE_OPTIONS } from '@/constants/voice-languages'
+import { SOURCE_LANGUAGE_CODES, formatSourceLanguage } from '@/constants/voice-languages'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { LeaveMinutesSummary } from '@/components/hr/LeaveMinutesSummary'
 import {
@@ -83,8 +83,7 @@ function normalizeSearch(value: string) {
 
 function getLanguageLabel(code: string | null | undefined, t: TFunction<'hr'>) {
   if (!code) return t('employees.languageDefault')
-  const option = SOURCE_LANGUAGE_OPTIONS.find((item) => item.value === code)
-  return option ? option.label : code
+  return formatSourceLanguage(code)
 }
 
 function canEditHrFields(activeRole?: TenantMemberRole | null) {
@@ -446,9 +445,9 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value='__DEFAULT__'>{t('employees.languageDefault')}</SelectItem>
-                {SOURCE_LANGUAGE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                {SOURCE_LANGUAGE_CODES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {formatSourceLanguage(code)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -661,9 +660,9 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='__DEFAULT__'>{t('employees.languageDefault')}</SelectItem>
-                  {SOURCE_LANGUAGE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {SOURCE_LANGUAGE_CODES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {formatSourceLanguage(code)}
                     </SelectItem>
                   ))}
                 </SelectContent>

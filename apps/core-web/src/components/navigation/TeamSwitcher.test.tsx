@@ -80,7 +80,17 @@ describe('TeamSwitcher', () => {
 
     openMenu()
 
-    expect(screen.getByText('ADMIN')).toBeInTheDocument()
+    expect(screen.getByText('Administrator')).toBeInTheDocument()
+    expect(screen.queryByText('ADMIN')).not.toBeInTheDocument()
+  })
+
+  it('shows the role of every other workshop in German, not as the stored code', () => {
+    renderSwitcher()
+
+    openMenu()
+
+    expect(screen.getByText('Verkauf')).toBeInTheDocument()
+    expect(screen.queryByText('SALES')).not.toBeInTheDocument()
   })
 
   it('offers activation of a single site that is not active yet', () => {

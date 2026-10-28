@@ -1,10 +1,10 @@
 import { Prisma } from '@prisma/client';
 
-const RETRYABLE_PRISMA_CODES = new Set(['P2034', 'P2028', 'P2024']);
+export const RETRYABLE_PRISMA_CODES = new Set(['P2034', 'P2028', 'P2024']);
 
-const RETRYABLE_PG_SQLSTATES = new Set(['40001', '40P01']);
+export const RETRYABLE_PG_SQLSTATES = new Set(['40001', '40P01']);
 
-const CONNECTION_NODE_CODES = new Set([
+export const CONNECTION_NODE_CODES = new Set([
   'ECONNRESET',
   'ECONNREFUSED',
   'ETIMEDOUT',
