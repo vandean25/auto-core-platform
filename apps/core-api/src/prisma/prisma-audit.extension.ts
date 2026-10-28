@@ -448,13 +448,16 @@ function buildAuditLogData(
   };
 }
 
-const BOOKKEEPING_AUDIT_FIELDS = new Set(['updatedAt', 'version']);
+const BOOKKEEPING_WRITE_FIELDS = new Set(['updatedAt']);
 
-/** Lock bumps and optimistic-lock ticks are not business changes. */
-function isBookkeepingOnlyUpdate(payload: AuditRecordPayload): boolean {
+/** Skip only when the write itself touches nothing but updatedAt. */
+function isUpdatedAtOnlyWrite(data: unknown): boolean {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return false;
+  }
+  const keys = Object.keys(data);
   return (
-    payload.action === 'UPDATE' &&
-    payload.changedFields.every((field) => BOOKKEEPING_AUDIT_FIELDS.has(field))
+    keys.length > 0 && keys.every((key) => BOOKKEEPING_WRITE_FIELDS.has(key))
   );
 }
 
@@ -473,10 +476,6 @@ async function writeAuditLog(
         op,
       });
     }
-    return;
-  }
-
-  if (isBookkeepingOnlyUpdate(payload)) {
     return;
   }
 
@@ -692,6 +691,9 @@ export async function applyAuditUpdate(
   }
 
   const afterRaw = await ctx.query(ctx.args);
+  if (isUpdatedAtOnlyWrite(ctx.args.data)) {
+    return afterRaw;
+  }
   const entityId = resolveEntityId(afterRaw, prepared.beforeRaw, ctx.args);
   const payload = createUpdateRecord(
     ctx.model,
@@ -736,6 +738,10 @@ export async function applyAuditUpdateMany(
   const prepared = await prepareBatchOperation(ctx);
   if ('earlyResult' in prepared) {
     return prepared.earlyResult;
+  }
+
+  if (isUpdatedAtOnlyWrite(ctx.args.data)) {
+    return prepared.result;
   }
 
   const affectedIds = extractAffectedIds(prepared.beforeRows);
