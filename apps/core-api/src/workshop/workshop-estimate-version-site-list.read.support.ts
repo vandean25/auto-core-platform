@@ -120,6 +120,8 @@ export function buildSiteEstimateVersionsPageWhere(
   const andParts: Prisma.WorkshopEstimateVersionWhereInput[] = [base];
   if (request.status) {
     andParts.push(effectiveStatusWhere(request.status, now));
+  } else if (request.excludeSuperseded) {
+    andParts.push({ status: { not: WorkshopEstimateStatus.SUPERSEDED } });
   }
   if (decodedCursor) {
     andParts.push(keysetAfterCursor(decodedCursor));

@@ -1860,6 +1860,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_listPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/estimates/{versionId}": {
         parameters: {
             query?: never;
@@ -7943,6 +7959,37 @@ export interface components {
             workshop_order_id: string;
             snapshot?: components["schemas"]["WorkshopEstimateSnapshotDto"] | null;
             draft_preview?: components["schemas"]["WorkshopEstimateDraftPreviewDto"] | null;
+        };
+        /** @enum {string} */
+        WorkshopEstimateStatus: "DRAFT" | "SENT" | "APPROVED" | "DECLINED" | "EXPIRED" | "SUPERSEDED";
+        WorkshopEstimateListRowDto: {
+            /** Format: uuid */
+            version_id: string;
+            estimate_number: string;
+            version: number;
+            status: components["schemas"]["WorkshopEstimateStatus"];
+            /** Format: uuid */
+            order_id: string;
+            order_number: string;
+            /** Format: uuid */
+            customer_id: string | null;
+            customer_name: string | null;
+            vehicle_plate: string | null;
+            /** Format: date-time */
+            sent_at: string | null;
+            /** Format: date-time */
+            valid_until: string | null;
+            /** Format: date-time */
+            decided_at: string | null;
+            total_gross: string | null;
+        };
+        WorkshopEstimateListPageMetaDto: {
+            page_size: number;
+            next_cursor: string | null;
+        };
+        WorkshopEstimateListPageResponseDto: {
+            data: components["schemas"]["WorkshopEstimateListRowDto"][];
+            meta: components["schemas"]["WorkshopEstimateListPageMetaDto"];
         };
         SendWorkshopEstimateVersionDto: {
             /** @default false */
@@ -15536,6 +15583,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopEstimateVersionDetailDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_listPage: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                customerId?: string;
+                orderId?: string;
+                pageSize?: number;
+                sentFrom?: string;
+                sentTo?: string;
+                status?: components["schemas"]["WorkshopEstimateStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopEstimateListPageResponseDto"];
                 };
             };
         };

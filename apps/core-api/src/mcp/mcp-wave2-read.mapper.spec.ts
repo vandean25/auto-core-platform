@@ -39,6 +39,8 @@ describe('mcp-wave2-read.mapper', () => {
         workshop_order: {
           customer_id: null,
           order_number: 'WO-2',
+          customer: null,
+          vehicle: { plate: null },
         },
       },
     });

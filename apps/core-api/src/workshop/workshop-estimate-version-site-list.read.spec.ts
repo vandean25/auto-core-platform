@@ -70,6 +70,47 @@ describe('buildSiteEstimateVersionsPageWhere', () => {
   });
 });
 
+describe('buildSiteEstimateVersionsPageWhere and superseded versions (AUT-795)', () => {
+  const build = (
+    request: Partial<Parameters<typeof buildSiteEstimateVersionsPageWhere>[1]>,
+  ) =>
+    buildSiteEstimateVersionsPageWhere(
+      SCOPE,
+      { timeZone: 'Europe/Vienna', pageSize: 25, ...request },
+      undefined,
+      NOW,
+    );
+  const supersededNot = {
+    status: { not: WorkshopEstimateStatus.SUPERSEDED },
+  };
+
+  it('leaves versions of every status in by default, as the MCP tool does', () => {
+    expect(JSON.stringify(build({}))).not.toContain('SUPERSEDED');
+  });
+
+  it('leaves out superseded versions when asked and no status is given', () => {
+    const where = build({ excludeSuperseded: true });
+    expect(where.AND).toContainEqual(supersededNot);
+  });
+
+  it('honours an explicit status, SUPERSEDED included, over the superseded exclusion', () => {
+    const superseded = build({
+      excludeSuperseded: true,
+      status: WorkshopEstimateStatus.SUPERSEDED,
+    });
+    expect(superseded.AND).not.toContainEqual(supersededNot);
+    expect(superseded.AND).toContainEqual({
+      status: WorkshopEstimateStatus.SUPERSEDED,
+    });
+
+    const approved = build({
+      excludeSuperseded: true,
+      status: WorkshopEstimateStatus.APPROVED,
+    });
+    expect(approved.AND).not.toContainEqual(supersededNot);
+  });
+});
+
 describe('listSiteEstimateVersionsPage', () => {
   it('keeps SENT status filter on page 2 (excludes effectively EXPIRED rows)', async () => {
     const rows = [
@@ -137,12 +178,13 @@ describe('listSiteEstimateVersionsPage', () => {
 
     const secondIds = second.rows.map((row) => row.id);
     expect(secondIds).toEqual(['00000000-0000-4000-8000-000000000012']);
-    expect(secondIds.some((id) => first.rows.some((row) => row.id === id))).toBe(
-      false,
-    );
+    expect(
+      secondIds.some((id) => first.rows.some((row) => row.id === id)),
+    ).toBe(false);
     expect(
       second.rows.every(
-        (row) => effectiveEstimateStatus(row, NOW) === WorkshopEstimateStatus.SENT,
+        (row) =>
+          effectiveEstimateStatus(row, NOW) === WorkshopEstimateStatus.SENT,
       ),
     ).toBe(true);
   });
@@ -211,9 +253,9 @@ describe('listSiteEstimateVersionsPage', () => {
 
     const secondIds = second.rows.map((row) => row.id);
     expect(secondIds).toEqual(['00000000-0000-4000-8000-000000000021']);
-    expect(secondIds.some((id) => first.rows.some((row) => row.id === id))).toBe(
-      false,
-    );
+    expect(
+      secondIds.some((id) => first.rows.some((row) => row.id === id)),
+    ).toBe(false);
     expect(
       [...first.rows, ...second.rows].every(
         (row) =>

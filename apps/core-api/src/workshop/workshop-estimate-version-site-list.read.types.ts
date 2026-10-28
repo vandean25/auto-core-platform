@@ -17,6 +17,12 @@ export type SiteEstimateVersionListRow = {
     workshop_order: {
       customer_id: string | null;
       order_number: string;
+      customer: {
+        company_name: string | null;
+        first_name: string;
+        last_name: string;
+      } | null;
+      vehicle: { plate: string | null };
     };
   };
 };
@@ -27,6 +33,11 @@ export type ListSiteEstimateVersionsFilters = {
   status?: WorkshopEstimateStatus;
   sentFrom?: string;
   sentTo?: string;
+  /**
+   * Leaves out versions that a newer version has replaced, so each estimate shows only its current version. It
+   * only applies when no `status` is given; an explicit status (including SUPERSEDED) is always honoured.
+   */
+  excludeSuperseded?: boolean;
   timeZone: string;
 };
 
