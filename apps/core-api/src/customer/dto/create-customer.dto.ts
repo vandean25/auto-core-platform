@@ -7,6 +7,7 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { CustomerType, DisplayLanguage } from '@prisma/client';
 
 export class CreateCustomerDto {
@@ -28,10 +29,15 @@ export class CreateCustomerDto {
   @IsString()
   last_name!: string;
 
-  @ApiPropertyOptional()
+  // A form sends an empty field as "". The address is optional, so blank text means no address (null clears it on a
+  // PATCH, and is stored as no address on create); only real text is checked as an address.
+  @ApiPropertyOptional({ type: String, nullable: true })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
   @IsEmail()
   @IsOptional()
-  email?: string;
+  email?: string | null;
 
   // The advisor confirms at intake that this address is for order communication (ADR-0025 §8). Null is refused
   // rather than skipped, because IsOptional would let it through to the NOT NULL column.

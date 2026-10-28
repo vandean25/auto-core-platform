@@ -6545,7 +6545,7 @@ export interface components {
             company_name?: string;
             first_name: string;
             last_name: string;
-            email?: string;
+            email?: string | null;
             contact_email_ok?: boolean;
             phone?: string;
             vat_id?: string;
@@ -6662,7 +6662,7 @@ export interface components {
             company_name?: string;
             first_name?: string;
             last_name?: string;
-            email?: string;
+            email?: string | null;
             phone?: string;
             vat_id?: string;
             address_street?: string;

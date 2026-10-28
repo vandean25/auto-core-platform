@@ -212,3 +212,22 @@ export async function fetchJsonWithAuth<T>(
   }
   return response.json() as Promise<T>;
 }
+
+/**
+ * The fields a 400 names. The API validator reports each failed rule as "<field> <rule text>" in `message[]`;
+ * the text is English and never shown, only the field name is used, so the form can mark the right field.
+ */
+export function getBadRequestFields(error: unknown): string[] {
+  const body = getApiErrorBody(error)
+  if (!body || !Array.isArray(body.message)) return []
+  const fields = body.message
+    .map((entry) => (typeof entry === 'string' ? /^([A-Za-z_][\w.]*) /.exec(entry)?.[1] : undefined))
+    .filter((field): field is string => Boolean(field))
+  return [...new Set(fields)]
+}
+
+/** Throws an error that carries the status and body of a failed response, so callers can read what the API refused. */
+export async function throwApiResponseError(response: Response, message: string): Promise<never> {
+  const data = (await response.json().catch(() => undefined)) as ApiErrorBody | undefined
+  throw Object.assign(new Error(message), { status: response.status, data })
+}
