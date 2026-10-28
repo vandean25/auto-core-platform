@@ -227,11 +227,20 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
       // An unchanged URL must not be written: a push of the same URL adds a duplicate history entry, and then the first
       // back gesture (for example out of a `?peek=` sheet that was opened right after the list rendered) goes nowhere.
       if (sameSearchParams(next, current)) return
-      setSearchParams(next)
+      // A URL that already describes the table (only spelt differently, e.g. `page=1`) is tidied in place; a push would
+      // leave a duplicate history entry behind.
+      const shown = convertParsedToTableState(parseUrlTableState(current, defaultPageSize), stableInitialSorting)
+      const tidiesUrlOnly =
+        areColumnFiltersEqual(shown.columnFilters, columnFilters) &&
+        areSortingEqual(shown.sorting, sorting) &&
+        shown.pagination.pageIndex === pagination.pageIndex &&
+        shown.pagination.pageSize === pagination.pageSize &&
+        shown.search === globalFilter
+      setSearchParams(next, { replace: tidiesUrlOnly })
     }, debounceMs)
 
     return () => clearTimeout(timeout)
-  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, debounceMs])
+  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, debounceMs, stableInitialSorting])
 
   return {
     columnFilters,

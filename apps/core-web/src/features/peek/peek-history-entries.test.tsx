@@ -100,6 +100,16 @@ describe('peek history entries (AUT-784)', () => {
     },
   )
 
+  it('one back closes a peek opened before the list tidies a URL spelt with a default param', async () => {
+    renderList('/customers?page=1&search=foo')
+
+    fireEvent.click(screen.getByRole('button', { name: 'open' }))
+    await advance(DEBOUNCE_MS * 2)
+    fireEvent.click(screen.getByRole('button', { name: 'back' }))
+
+    expect(screen.getByTestId('peek-id')).toHaveTextContent('')
+  })
+
   it('keeps the peek param in a deep link and still writes real table changes', async () => {
     renderList(`/customers?${PEEK_SEARCH_PARAM}=cust-9`)
 
