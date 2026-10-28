@@ -1047,6 +1047,8 @@
       "title": "2. Upload CSV",
       "fileLabel": "CSV file",
       "fileSummary": "{{name}} ({{columns}} columns)",
+      "directUploadHint": "Files over 30 MiB are uploaded directly to storage when the dry-run starts; progress is shown there.",
+      "tooLarge": "The file is too large. The maximum is {{max}} MiB.",
       "back": "Back",
       "continue": "Continue"
     },
@@ -1069,6 +1071,7 @@
         "createCatalogItems": "Create new catalog items"
       },
       "previewTitle": "Preview (first 20 rows)",
+      "uploadProgress": "Uploading CSV… {{percent}}%",
       "back": "Back",
       "runDryRun": "Run dry-run"
     },

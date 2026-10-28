@@ -27,7 +27,7 @@ export type StoredImportFileRef = {
 const DEFAULT_IMPORT_FILE_NAME = 'import.csv';
 const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9._-]+$/;
 export const IMPORT_MULTER_STAGING_DIR = join(tmpdir(), 'acp-import-multer');
-const IMPORT_LOCAL_UPLOAD_ROOT = join(tmpdir(), 'acp-import-uploads');
+export const IMPORT_LOCAL_UPLOAD_ROOT = join(tmpdir(), 'acp-import-uploads');
 
 /** Ensures multer staging paths stay under the OS temp directory. */
 export function assertTrustedImportStagingPath(localPath: string): string {
@@ -65,7 +65,7 @@ export function sanitizeImportFileName(fileName: string): string {
   return cleaned;
 }
 
-function assertSafePathSegment(segment: string, label: string): void {
+export function assertSafePathSegment(segment: string, label: string): void {
   if (!segment || segment === '.' || segment === '..') {
     throw new BadRequestException(`Invalid import ${label}.`);
   }
@@ -167,7 +167,7 @@ export interface ImportFileStorage {
   deleteUpload(ref: StoredImportFileRef): Promise<void>;
 }
 
-function resolveImportUploadBucket(): string {
+export function resolveImportUploadBucket(): string {
   const dedicated = process.env.IMPORT_UPLOAD_BUCKET?.trim();
   if (dedicated) {
     return dedicated;
@@ -411,7 +411,7 @@ export class GcsImportFileStorage implements ImportFileStorage {
 /** In-memory / temp-dir storage for tests and local runs without GCS credentials. */
 @Injectable()
 export class LocalImportFileStorage implements ImportFileStorage {
-  private readonly root = join(tmpdir(), 'acp-import-uploads');
+  private readonly root = IMPORT_LOCAL_UPLOAD_ROOT;
 
   async storeUpload(params: {
     tenantId: string;

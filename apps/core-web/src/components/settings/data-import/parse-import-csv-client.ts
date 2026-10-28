@@ -1,8 +1,12 @@
+import { IMPORT_UPLOAD_MAX_BYTES } from './import-upload-limit'
+
 export type ParsedImportCsvPreview = {
   headers: string[]
   rows: string[][]
   delimiter: ';' | ','
 }
+
+export const IMPORT_PREVIEW_MAX_BYTES = 1024 * 1024
 
 function detectDelimiter(headerLine: string): ';' | ',' {
   const semicolons = (headerLine.match(/;/g) ?? []).length
@@ -68,13 +72,19 @@ function parseCsvRecords(text: string, delimiter: string): string[][] {
 }
 
 export async function parseImportCsvFile(file: File): Promise<ParsedImportCsvPreview> {
-  const buffer = await file.arrayBuffer()
+  const truncated = file.size > IMPORT_UPLOAD_MAX_BYTES
+  const buffer = truncated
+    ? await file.slice(0, IMPORT_PREVIEW_MAX_BYTES).arrayBuffer()
+    : await file.arrayBuffer()
   const text = new TextDecoder('utf-8', { fatal: false }).decode(buffer).replace(/^\uFEFF/, '')
   const firstLine = text.split(/\r?\n/)[0] ?? ''
   const delimiter = detectDelimiter(firstLine)
   const records = parseCsvRecords(text, delimiter)
   const headers = records[0]?.map((cell) => cell.trim()) ?? []
   const rows = records.slice(1)
+  if (truncated && rows.length > 0) {
+    rows.pop()
+  }
   return { headers, rows, delimiter }
 }
 

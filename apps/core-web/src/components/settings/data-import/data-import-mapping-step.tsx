@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -65,6 +66,7 @@ export type DataImportMappingStepProps = {
   onOptionsChange: (patch: Partial<ImportWizardOptions>) => void
   onRunDryRun: () => void
   isDryRunPending: boolean
+  uploadProgressPercent: number | null
   canRunDryRun: boolean
   onBack: () => void
 }
@@ -202,6 +204,20 @@ export function DataImportMappingStep(props: DataImportMappingStepProps) {
               </TableBody>
             </Table>
           </div>
+        </div>
+      ) : null}
+
+      {props.isDryRunPending && props.uploadProgressPercent !== null ? (
+        <div className="space-y-2 max-w-md">
+          <p className="text-sm text-muted-foreground" role="status">
+            {t('dataImport.mapping.uploadProgress', { percent: props.uploadProgressPercent })}
+          </p>
+          <Progress
+            value={props.uploadProgressPercent}
+            aria-label={t('dataImport.mapping.uploadProgress', {
+              percent: props.uploadProgressPercent,
+            })}
+          />
         </div>
       ) : null}
 

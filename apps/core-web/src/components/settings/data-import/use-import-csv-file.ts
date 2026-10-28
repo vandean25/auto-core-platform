@@ -5,7 +5,11 @@ import { getErrorMessage } from '@/lib/error-utils'
 
 import type { ImportEntityTypeUi, ImportFieldDefinition } from './import-field-labels'
 import { suggestColumnMapping } from './import-mapping-suggest'
-import { assertImportUploadFileSize } from './import-upload-limit'
+import {
+  assertImportUploadFileSize,
+  IMPORT_DIRECT_UPLOAD_MAX_BYTES,
+  usesDirectImportUpload,
+} from './import-upload-limit'
 import { parseImportCsvFile, sha256HexFromFile } from './parse-import-csv-client'
 import type { ImportCsvSelection } from './use-import-wizard-state'
 
@@ -20,9 +24,12 @@ export function useImportCsvFile(params: {
 
   const parseCsvFile = async (file: File): Promise<ImportCsvSelection | null> => {
     try {
-      assertImportUploadFileSize(file)
+      assertImportUploadFileSize(
+        file,
+        t('dataImport.upload.tooLarge', { max: IMPORT_DIRECT_UPLOAD_MAX_BYTES / (1024 * 1024) }),
+      )
       const parsed = await parseImportCsvFile(file)
-      const fingerprint = await sha256HexFromFile(file)
+      const fingerprint = usesDirectImportUpload(file) ? null : await sha256HexFromFile(file)
       return {
         file,
         headers: parsed.headers,

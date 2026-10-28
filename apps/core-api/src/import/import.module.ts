@@ -4,6 +4,8 @@ import { ImportMappingProfileService } from './import-mapping-profile.service.js
 import { ImportRetentionService } from './import-retention.service.js';
 import { ImportUploadRetentionService } from './import-upload-retention.service.js';
 import { ImportService } from './import.service.js';
+import { ImportDirectUploadService } from './import-direct-upload.service.js';
+import { ImportDirectUploadStorageService } from './import-direct-upload.storage.js';
 import { ImportFileStorageService } from './import-file.storage.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { ImportWorkerService } from './import-worker.service.js';
@@ -15,6 +17,8 @@ import { ImportTaskGuard } from './import-task.guard.js';
   controllers: [ImportController, ImportWorkerController],
   providers: [
     ImportService,
+    ImportDirectUploadService,
+    ImportDirectUploadStorageService,
     ImportMappingProfileService,
     ImportRetentionService,
     ImportUploadRetentionService,

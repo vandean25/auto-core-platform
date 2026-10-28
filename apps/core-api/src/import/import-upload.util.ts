@@ -30,6 +30,14 @@ function assertRowLimits(dataRowCount: number): void {
   }
 }
 
+export function assertImportCsvContentUsable(
+  headers: string[],
+  dataRowCount: number,
+): void {
+  assertNonEmpty(headers, dataRowCount);
+  assertRowLimits(dataRowCount);
+}
+
 function assertNonEmpty(headers: string[], dataRowCount: number): void {
   if (headers.length === 0 || dataRowCount === 0) {
     throw new BadRequestException({
@@ -69,8 +77,10 @@ export async function assessImportUpload(
       const headerStats = await assessImportCsvFromReadable(
         openStagingReadStream(request),
       );
-      assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
-      assertRowLimits(headerStats.dataRowCount);
+      assertImportCsvContentUsable(
+        headerStats.headers,
+        headerStats.dataRowCount,
+      );
       return {
         rowCount: headerStats.dataRowCount,
         sha256: headerStats.sha256,
@@ -80,8 +90,7 @@ export async function assessImportUpload(
     const stagingPath = buildImportMulterStagingPath(request);
     const buffer = await readFile(stagingPath);
     const headerStats = parseCsvBufferHeadersOnly(buffer);
-    assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
-    assertRowLimits(headerStats.dataRowCount);
+    assertImportCsvContentUsable(headerStats.headers, headerStats.dataRowCount);
     const useBackground = isBackgroundImportCandidate({
       fileBytes: file.size,
     });
@@ -104,8 +113,7 @@ export async function assessImportUpload(
 
   const buffer = file.buffer;
   const headerStats = parseCsvBufferHeadersOnly(buffer);
-  assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
-  assertRowLimits(headerStats.dataRowCount);
+  assertImportCsvContentUsable(headerStats.headers, headerStats.dataRowCount);
 
   const useBackground = isBackgroundImportCandidate({
     fileBytes: file.size,
