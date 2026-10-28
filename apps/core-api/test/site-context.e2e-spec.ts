@@ -1,4 +1,5 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -234,8 +235,9 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
 
   describe('mechanic mode (TECH) site recovery (AUT-780)', () => {
     async function createTechSession() {
-      const firebaseUid = `aut780-tech-${Date.now()}`;
-      const email = `aut780-tech-${Date.now()}@workshop.local`;
+      const suffix = randomUUID();
+      const firebaseUid = `aut780-tech-${suffix}`;
+      const email = `aut780-tech-${suffix}@workshop.local`;
       const main = await resolveTestMainSiteId(prisma, tenantA.tenantId);
       const userId = await runWithTenantContext(tenantA.tenantId, async () => {
         const user = await prisma.user.create({
@@ -277,14 +279,6 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
         }),
       );
     }
-
-    afterEach(async () => {
-      await runWithTenantContext(tenantA.tenantId, () =>
-        prisma.user.deleteMany({
-          where: { email: { startsWith: 'aut780-tech-' } },
-        }),
-      ).catch(() => undefined);
-    });
 
     it('lets a TECH session list only its own sites', async () => {
       const { techToken, mainSiteId } = await createTechSession();
