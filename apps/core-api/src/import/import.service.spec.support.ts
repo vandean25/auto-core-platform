@@ -97,6 +97,7 @@ function applyDefaults(harness: ImportHarness): void {
       await fn();
     },
   );
+  harness.prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
   harness.prisma.$transaction.mockImplementation(
     (callback: (tx: MockPrisma) => unknown) =>
       callback(

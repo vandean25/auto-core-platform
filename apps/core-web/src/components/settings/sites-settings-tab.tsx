@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { formatTenantMemberRole } from '@/lib/i18n'
 import {
   Table,
   TableBody,
@@ -124,7 +125,7 @@ export function SitesSettingsTab() {
                 <SelectContent>
                   {availableMembers.map((member) => (
                     <SelectItem key={member.userId} value={member.userId}>
-                      {memberLabel(member)} — {member.role}
+                      {memberLabel(member)} — {formatTenantMemberRole(member.role)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -157,7 +158,7 @@ export function SitesSettingsTab() {
                 {(memberships ?? []).map((membership) => (
                   <TableRow key={membership.id}>
                     <TableCell>{memberLabel(membership.user)}</TableCell>
-                    <TableCell>{membership.tenantMember.role}</TableCell>
+                    <TableCell>{formatTenantMemberRole(membership.tenantMember.role)}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"

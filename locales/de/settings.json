@@ -354,7 +354,7 @@
       "entityId": "Nach Objekt-ID filtern",
       "entityIdPlaceholder": "Objekt-ID"
     },
-    "searchPlaceholder": "Nach Objekt, ID, Akteur, Request-ID suchen…",
+    "searchPlaceholder": "Objekt, ID, Akteur, Request-ID",
     "columns": {
       "timestamp": "Zeitstempel",
       "action": "Aktion",
@@ -760,7 +760,6 @@
       "description": "Rolle ändern oder Zugriff deaktivieren. Sicherheitsrelevante Änderungen erzwingen eine Aktualisierung der Benutzerrechte.",
       "role": "Rolle",
       "roleAria": "Mandantenrolle des Mitglieds",
-      "allowedRoles": "Zulässige Werte: OWNER, ADMIN, TECH, SALES.",
       "status": "Status",
       "deactivate": "Mitglied deaktivieren",
       "reactivate": "Mitglied reaktivieren"
@@ -971,7 +970,7 @@
     "history": {
       "title": "Exportlauf-Verlauf",
       "description": "Unveränderliche abgeschlossene Läufe. Downloads werden mit Lauf-ID und Prüfsumme im Audit-Protokoll erfasst; sie bestätigen keinen DATEV-Import.",
-      "searchPlaceholder": "Läufe nach ID, Rechtsträger oder Prüfsumme suchen...",
+      "searchPlaceholder": "ID, Rechtsträger, Prüfsumme",
       "empty": "Noch keine autorisierten Exportläufe.",
       "columns": {
         "legalEntity": "Rechtsträger",

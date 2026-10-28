@@ -27,7 +27,7 @@ describe('AgedStockDashboardWidget', () => {
     )
 
     expect(screen.getByText('3')).toBeInTheDocument()
-    expect(screen.getByText(/45\.000,00/)).toBeInTheDocument()
+    expect(screen.getByText(/Kostenbasis €\s45\.000,00/)).toBeInTheDocument()
     const card = screen.getByText(deVehicles.dashboardWidgets.agedStockTitle).closest('[role="link"]')
     expect(card).toBeTruthy()
     fireEvent.click(card!)

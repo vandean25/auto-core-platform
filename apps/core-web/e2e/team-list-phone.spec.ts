@@ -31,11 +31,11 @@ test.describe('Team list on a phone (AUT-768)', () => {
       await expect(rows).toHaveCount(2)
       await expect(rows.first()).toContainText('Anna Muster')
       await expect(rows.first()).toContainText('anna.muster@werkstatt.example')
-      await expect(rows.first()).toContainText('ADMIN')
+      await expect(rows.first()).toContainText('Administrator')
       await expect(rows.first()).toContainText('Aktiv')
       // Title above, role below it (not swapped), and the status badge does not touch the list border.
       const first = (await rows.first().boundingBox())!
-      const role = (await rows.first().getByText('ADMIN').boundingBox())!
+      const role = (await rows.first().getByText('Administrator', { exact: true }).boundingBox())!
       const nameBox = (await rows.first().getByText('Anna Muster').boundingBox())!
       expect(role.y).toBeGreaterThan(nameBox.y)
       const badge = (await rows.first().getByText('Aktiv').boundingBox())!

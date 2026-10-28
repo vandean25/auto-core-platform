@@ -612,6 +612,7 @@ export class RowByRowApplyRunner {
         applySeq,
         totals: nextTotals,
         maxApplySeq,
+        rowNo: row.row_no,
       });
       return { nextTotals };
     }, IMPORT_SERIALIZABLE_TX);
@@ -655,6 +656,7 @@ export class RowByRowApplyRunner {
         applySeq,
         totals: nextTotals,
         maxApplySeq,
+        rowNo: row.row_no,
       });
     }, IMPORT_SERIALIZABLE_TX);
     return nextTotals;
@@ -741,12 +743,12 @@ export class RowByRowApplyRunner {
   ): Promise<boolean> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
-      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      await this.advanceWorkerCursor(input, row, options);
       return true;
     }
     if (row.action === ImportRowAction.SKIP) {
       totals.skip += 1;
-      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      await this.advanceWorkerCursor(input, row, options);
       return true;
     }
     const committedCreate = await withImportSyncApplyIoRetry(
@@ -755,7 +757,7 @@ export class RowByRowApplyRunner {
     );
     if (committedCreate === 'noop') {
       tallyWrittenRow(totals, row.action);
-      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      await this.advanceWorkerCursor(input, row, options);
       return true;
     }
     if (committedCreate === 'duplicate_error') {
@@ -767,7 +769,7 @@ export class RowByRowApplyRunner {
         row.row_no,
         toRowApplyError(new ImportDuplicateCreateInJobError()),
       );
-      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+      await this.advanceWorkerCursor(input, row, options);
       return true;
     }
     return false;
@@ -839,6 +841,7 @@ export class RowByRowApplyRunner {
           input.job.id,
           options.leaseToken,
           applySeqForRow(row),
+          row.row_no,
         );
       }
     }, IMPORT_SERIALIZABLE_TX);
@@ -872,7 +875,7 @@ export class RowByRowApplyRunner {
       row.row_no,
       toRowApplyError(error),
     );
-    await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+    await this.advanceWorkerCursor(input, row, options);
     return true;
   }
 
@@ -909,7 +912,7 @@ export class RowByRowApplyRunner {
 
   private async advanceWorkerCursor(
     input: ImportApplyInput,
-    applySeq: number,
+    row: ImportApplyRow,
     options?: ImportApplyBatchOptions,
   ): Promise<void> {
     const leaseToken = options?.leaseToken;
@@ -922,7 +925,8 @@ export class RowByRowApplyRunner {
         input.tenantId,
         input.job.id,
         leaseToken,
-        applySeq,
+        applySeqForRow(row),
+        row.row_no,
       );
     }, IMPORT_SERIALIZABLE_TX);
   }

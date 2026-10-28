@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authSessionKeys } from "@/api/auth-session";
+import { clearLocalSiteSwitch, markLocalSiteSwitch } from "@/api/local-site-switch";
 import { customerKeys } from "@/api/customers";
 import { inventoryKeys } from "@/api/inventory";
 import { hrKeys } from "@/api/hr";
@@ -162,7 +163,58 @@ describe("RealtimeDashboardSyncProvider", () => {
     ).toEqual({
       url: "https://core-api-895976476759.europe-west3.run.app/dashboard-realtime",
       path: "/api/socket.io",
+      direct: true,
     });
+  });
+
+  it("connects WebSocket first with polling fallback when VITE_SOCKET_BASE_URL points at core-api", async () => {
+    vi.stubEnv("VITE_SOCKET_BASE_URL", "https://core-api-123.europe-west3.run.app/");
+    const queryClient = createQueryClient();
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.io).toHaveBeenCalledWith(
+        "https://core-api-123.europe-west3.run.app/dashboard-realtime",
+        expect.objectContaining({
+          path: "/api/socket.io",
+          transports: ["websocket", "polling"],
+        }),
+      );
+    });
+  });
+
+  it("catches up with targeted invalidations on a reconnect, not on the first connect", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith("connect", expect.any(Function));
+    });
+    const connectHandlers = mocks.socket.on.mock.calls
+      .filter(([eventName]) => eventName === "connect")
+      .map(([, handler]) => handler as () => void);
+
+    await act(async () => {
+      connectHandlers.forEach((handler) => handler());
+    });
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      connectHandlers.forEach((handler) => handler());
+    });
+
+    expect(invalidateQueries.mock.calls.length).toBeGreaterThan(0);
+    for (const [filters] of invalidateQueries.mock.calls) {
+      expect(filters).toEqual({ queryKey: expect.any(Array), refetchType: "active" });
+      expect((filters as { queryKey: unknown[] }).queryKey.length).toBeGreaterThan(0);
+    }
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workshopKeys.all, refetchType: "active" });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["dashboard-widget-data"], refetchType: "active" });
   });
 
   it("connects long-polling only and presents the current Firebase ID token on each connect", async () => {
@@ -345,6 +397,49 @@ describe("RealtimeDashboardSyncProvider", () => {
         refetchType: "active",
       });
     });
+  });
+
+  it("refetches the dashboard widgets and the customer list at most once per window while an import emits one event per row", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(
+        ENTITY_UPDATED_EVENT,
+        expect.any(Function),
+      );
+    });
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as (payload: unknown) => void;
+
+    const widgetCalls = () =>
+      invalidateQueries.mock.calls.filter(
+        ([filters]) => filters?.queryKey?.[0] === "dashboard-widget-data",
+      ).length;
+    const customerCalls = () =>
+      invalidateQueries.mock.calls.filter(
+        ([filters]) => filters?.queryKey?.[0] === customerKeys.all[0],
+      ).length;
+
+    await act(async () => {
+      for (let row = 0; row < 300; row += 1) {
+        entityUpdatedHandler({
+          type: "CUSTOMER",
+          action: "CREATED",
+          entityId: `customer-${row}`,
+          timestamp: "2026-10-28T10:00:00.000Z",
+        });
+      }
+    });
+
+    expect(widgetCalls()).toBe(1);
+    expect(customerCalls()).toBe(1);
+    expect(widgetCalls() + customerCalls()).toBeLessThan(300);
   });
 
   it("invalidates HR queries when an ATTENDANCE_EVENT is received", async () => {
@@ -729,38 +824,86 @@ describe("RealtimeDashboardSyncProvider", () => {
     });
   });
 
-  it("ignores a site context update that repeats the active site of the cached session", async () => {
-    const queryClient = createQueryClient();
-    queryClient.setQueryData(authSessionKeys.user("user-1"), { activeSiteId: "site-1" });
-    const invalidateQueries = vi
-      .spyOn(queryClient, "invalidateQueries")
-      .mockResolvedValue(undefined);
+  describe("site context update and the tab that caused it", () => {
+    async function mountAndGetHandler(queryClient: QueryClient) {
+      render(<div />, { wrapper: createWrapper(queryClient) });
+      await waitFor(() => {
+        expect(mocks.socket.on).toHaveBeenCalledWith(
+          SITE_CONTEXT_UPDATED_EVENT,
+          expect.any(Function),
+        );
+      });
+      return mocks.socket.on.mock.calls.find(
+        ([eventName]) => eventName === SITE_CONTEXT_UPDATED_EVENT,
+      )?.[1] as (payload: unknown) => void;
+    }
 
-    render(<div />, { wrapper: createWrapper(queryClient) });
-
-    await waitFor(() => {
-      expect(mocks.socket.on).toHaveBeenCalledWith(
-        SITE_CONTEXT_UPDATED_EVENT,
-        expect.any(Function),
-      );
+    afterEach(() => {
+      clearLocalSiteSwitch();
     });
 
-    const siteContextHandler = mocks.socket.on.mock.calls.find(
-      ([eventName]) => eventName === SITE_CONTEXT_UPDATED_EVENT,
-    )?.[1] as ((payload: unknown) => void) | undefined;
+    it("refetches site-owned data in another tab even when its cached session already shows the new site", async () => {
+      const queryClient = createQueryClient();
+      queryClient.setQueryData(authSessionKeys.user("user-1"), { activeSiteId: "site-2" });
+      const invalidateQueries = vi
+        .spyOn(queryClient, "invalidateQueries")
+        .mockResolvedValue(undefined);
+      const siteContextHandler = await mountAndGetHandler(queryClient);
 
-    await act(async () => {
-      siteContextHandler?.({ siteId: "site-1", timestamp: "2026-10-28T10:00:00.000Z" });
-    });
-    expect(invalidateQueries).not.toHaveBeenCalled();
+      await act(async () => {
+        siteContextHandler({ siteId: "site-2", timestamp: "2026-10-28T10:00:00.000Z" });
+      });
 
-    await act(async () => {
-      siteContextHandler?.({ siteId: "site-2", timestamp: "2026-10-28T10:00:01.000Z" });
+      await waitFor(() => {
+        expect(invalidateQueries).toHaveBeenCalledWith({
+          queryKey: workshopKeys.all,
+          refetchType: "active",
+        });
+      });
     });
-    await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: workshopKeys.all,
-        refetchType: "active",
+
+    it("refetches site-owned data in another tab when the site is cleared and the session already shows no site", async () => {
+      const queryClient = createQueryClient();
+      queryClient.setQueryData(authSessionKeys.user("user-1"), { activeSiteId: null });
+      const invalidateQueries = vi
+        .spyOn(queryClient, "invalidateQueries")
+        .mockResolvedValue(undefined);
+      const siteContextHandler = await mountAndGetHandler(queryClient);
+
+      await act(async () => {
+        siteContextHandler({ siteId: null, timestamp: "2026-10-28T10:00:00.000Z" });
+      });
+
+      await waitFor(() => {
+        expect(invalidateQueries).toHaveBeenCalledWith({
+          queryKey: inventoryKeys.all,
+          refetchType: "active",
+        });
+      });
+    });
+
+    it("skips only the event that answers this tab's own switch", async () => {
+      const queryClient = createQueryClient();
+      const invalidateQueries = vi
+        .spyOn(queryClient, "invalidateQueries")
+        .mockResolvedValue(undefined);
+      const siteContextHandler = await mountAndGetHandler(queryClient);
+
+      markLocalSiteSwitch("site-1");
+      await act(async () => {
+        siteContextHandler({ siteId: "site-1", timestamp: "2026-10-28T10:00:00.000Z" });
+      });
+      expect(invalidateQueries).not.toHaveBeenCalled();
+
+      // The same event again (another window switched to the same site) is not this tab's own switch.
+      await act(async () => {
+        siteContextHandler({ siteId: "site-1", timestamp: "2026-10-28T10:00:01.000Z" });
+      });
+      await waitFor(() => {
+        expect(invalidateQueries).toHaveBeenCalledWith({
+          queryKey: workshopKeys.all,
+          refetchType: "active",
+        });
       });
     });
   });

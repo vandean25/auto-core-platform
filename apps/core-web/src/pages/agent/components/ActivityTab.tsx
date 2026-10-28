@@ -215,7 +215,7 @@ export function ActivityTab({
       {/* Activity Table */}
       {!isLoading && !isError && logs.length > 0 && (
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <Table data-testid="activity-table">
+          <Table scrollCue data-testid="activity-table">
             <TableHeader>
               <TableRow>
                 <TableHead>{t('activity.columns.time')}</TableHead>

@@ -6,6 +6,7 @@ import {
   formatDataTableColumnId,
   formatImportFieldLabel,
   formatStatusLabel,
+  formatTenantMemberRole,
   translateEnum,
 } from './enum-labels'
 
@@ -22,6 +23,16 @@ describe('enum label helpers', () => {
 
   it('resolves data table column ids from enums', () => {
     expect(formatDataTableColumnId('customerName')).toBe(i18n.t('enums:dataTableColumn.customerName'))
+  })
+
+  it('names every workshop member role in German and leaves an unknown role as sent', () => {
+    expect(['OWNER', 'ADMIN', 'TECH', 'SALES'].map(formatTenantMemberRole)).toEqual([
+      'Inhaber',
+      'Administrator',
+      'Mechaniker',
+      'Verkauf',
+    ])
+    expect(formatTenantMemberRole('AUDITOR')).toBe('AUDITOR')
   })
 
   it('resolves letterhead copy keys', () => {

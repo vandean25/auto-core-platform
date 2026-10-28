@@ -78,8 +78,9 @@ export function EntityPeekSheet({
         data-testid="entity-peek-sheet"
         {...sheetContentA11y}
       >
-        <SheetHeader className="space-y-1 border-b px-4 py-4 text-left sm:px-6">
-          <SheetTitle>{title}</SheetTitle>
+        {/* pr-16: the close button sits at the top right (44 px wide, 16 px from the edge); a long title wraps before it. */}
+        <SheetHeader className="space-y-1 border-b py-4 pl-4 pr-16 text-left sm:pl-6">
+          <SheetTitle className="break-words">{title}</SheetTitle>
           {description ? <SheetDescription>{description}</SheetDescription> : null}
         </SheetHeader>
 
