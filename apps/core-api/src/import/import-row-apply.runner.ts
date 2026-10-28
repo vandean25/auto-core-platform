@@ -608,6 +608,7 @@ export class RowByRowApplyRunner {
         applySeq,
         totals: nextTotals,
         maxApplySeq,
+        rowNo: row.row_no,
       });
       return { nextTotals };
     }, IMPORT_SERIALIZABLE_TX);
@@ -651,6 +652,7 @@ export class RowByRowApplyRunner {
         applySeq,
         totals: nextTotals,
         maxApplySeq,
+        rowNo: row.row_no,
       });
     }, IMPORT_SERIALIZABLE_TX);
     return nextTotals;

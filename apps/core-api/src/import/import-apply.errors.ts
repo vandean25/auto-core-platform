@@ -2,11 +2,31 @@ import { HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
+  CONNECTION_NODE_CODES,
   isRetryableTransactionError,
   readErrorCause,
+  RETRYABLE_PG_SQLSTATES,
+  RETRYABLE_PRISMA_CODES,
 } from '../common/prisma/is-retryable-transaction-error.js';
-import { isTransientImportStorageReadError } from './import-worker-retry.js';
+import {
+  isTransientImportStorageReadError,
+  TRANSIENT_STORAGE_CODE,
+} from './import-worker-retry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+
+/** Row error codes a re-apply retries. Business rejections are not in this set. */
+export const TECHNICAL_IMPORT_ROW_ERROR_CODES: ReadonlySet<string> = new Set([
+  IMPORT_ERROR_CODES.APPLY_FAILED,
+  'lease_lost',
+  ...RETRYABLE_PRISMA_CODES,
+  ...RETRYABLE_PG_SQLSTATES,
+  ...CONNECTION_NODE_CODES,
+  ...TRANSIENT_STORAGE_CODE,
+]);
+
+export function isTechnicalImportRowErrorCode(code: string): boolean {
+  return TECHNICAL_IMPORT_ROW_ERROR_CODES.has(code);
+}
 
 export type ImportApplyErrorKind = 'lease_lost' | 'retryable' | 'row' | 'fatal';
 

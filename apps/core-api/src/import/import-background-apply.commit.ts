@@ -3,6 +3,7 @@ import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
+import { withoutTechnicalRetryRow } from './import-technical-retry.js';
 import {
   readImportJobExpectedRowCount,
   tallyImportApplyTotalsFromRows,
@@ -81,6 +82,7 @@ export async function commitBackgroundApplyRowInTransaction(
     applySeq: number;
     totals: ImportJobTotals;
     maxApplySeq: number;
+    rowNo?: number;
   },
 ): Promise<boolean> {
   await assertApplyWorkerLease(
@@ -104,23 +106,30 @@ export async function commitBackgroundApplyRowInTransaction(
     worker.last_committed_apply_seq ?? 0,
     params.applySeq,
   );
-  const workerNext = {
-    ...worker,
-    last_committed_apply_seq: applyWatermark,
-    processed_rows: applyWatermark,
-  };
+  const workerNext = withoutTechnicalRetryRow(
+    {
+      ...worker,
+      last_committed_apply_seq: applyWatermark,
+      processed_rows: applyWatermark,
+    },
+    params.rowNo,
+  );
   const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
   const mergedTotals = mergeMonotonicApplyTotals(storedTotals, params.totals);
-  const { totals, finished } = await resolveBackgroundApplyFinishState(
-    tx,
-    {
-      tenantId: params.tenantId,
-      jobId: params.jobId,
-      applyWatermark,
-      maxApplySeq: params.maxApplySeq,
-    },
-    mergedTotals,
-  );
+  const retryStillPending =
+    (workerNext.technical_retry_row_nos?.length ?? 0) > 0;
+  const { totals, finished: sequenceFinished } =
+    await resolveBackgroundApplyFinishState(
+      tx,
+      {
+        tenantId: params.tenantId,
+        jobId: params.jobId,
+        applyWatermark,
+        maxApplySeq: params.maxApplySeq,
+      },
+      mergedTotals,
+    );
+  const finished = sequenceFinished && !retryStillPending;
   const totalsForPersist = finished
     ? await (async () => {
         const { expectedRows, flaggedJumps } =
@@ -138,7 +147,11 @@ export async function commitBackgroundApplyRowInTransaction(
         );
       })()
     : totals;
-  const progressed = applyWatermark > (worker.last_committed_apply_seq ?? 0);
+  const retryProgressed =
+    (worker.technical_retry_row_nos?.length ?? 0) >
+    (workerNext.technical_retry_row_nos?.length ?? 0);
+  const progressed =
+    applyWatermark > (worker.last_committed_apply_seq ?? 0) || retryProgressed;
   await tx.importJob.update({
     where: { id: params.jobId },
     data: {

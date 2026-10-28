@@ -27,6 +27,11 @@ import {
 } from './import-job.errors.js';
 import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
 import {
+  mergeTechnicalRetryBatch,
+  planTechnicalRetry,
+  resetTechnicalImportErrorRows,
+} from './import-technical-retry.js';
+import {
   buildImportErrorReportCsv,
   serializeImportJob,
   serializeImportRow,
@@ -354,6 +359,54 @@ export class ImportService {
     return buildImportErrorReportCsv(rows);
   }
 
+  private async resetTechnicalRowsForReapply(
+    tenantId: string,
+    jobId: string,
+    status: ImportJobStatus,
+    options: ImportJobOptionsWithWorker,
+  ): Promise<ImportJobOptionsWithWorker> {
+    if (
+      status !== ImportJobStatus.FAILED &&
+      status !== ImportJobStatus.APPLIED
+    ) {
+      assertJobCanBeApplied(status);
+      return options;
+    }
+    const errorRows =
+      (await this.jobStore.findErrorRows(tenantId, jobId)) ?? [];
+    const plan = planTechnicalRetry(errorRows);
+    if (plan.count === 0) {
+      assertJobCanBeApplied(status);
+      if (status === ImportJobStatus.FAILED) {
+        this.logTechnicalRetry(jobId, plan);
+      }
+      return options;
+    }
+    await resetTechnicalImportErrorRows(
+      this.prisma,
+      tenantId,
+      jobId,
+      plan,
+      errorRows,
+    );
+    this.logTechnicalRetry(jobId, plan);
+    return { ...options, technical_retry_row_nos: plan.rowNos };
+  }
+
+  private logTechnicalRetry(
+    jobId: string,
+    plan: { count: number; codes: string[] },
+  ): void {
+    this.logger.log(
+      JSON.stringify({
+        event: 'import.reapply.technical_rows_reset',
+        jobId,
+        technicalRowsReset: plan.count,
+        codes: plan.codes,
+      }),
+    );
+  }
+
   async applyJob(jobId: string, applyOptions?: ImportJobOptions) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
@@ -367,7 +420,12 @@ export class ImportService {
     if (!job) {
       throw importJobNotFound();
     }
-    assertJobCanBeApplied(job.status);
+    const reapplyOptions = await this.resetTechnicalRowsForReapply(
+      tenantId,
+      jobId,
+      job.status,
+      job.options_json as ImportJobOptionsWithWorker,
+    );
     if (job.status === ImportJobStatus.FAILED) {
       await assertFailedImportJobCanReApply({
         uploadPresent: Boolean(
@@ -378,7 +436,7 @@ export class ImportService {
     }
 
     const effectiveOptions = mergeApplyOptions(
-      (job.options_json as ImportJobOptions) ?? {},
+      reapplyOptions ?? {},
       applyOptions,
     );
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
@@ -386,11 +444,12 @@ export class ImportService {
     const handler = this.handlers[job.entity_type];
     const dryRunTotals = job.totals_json as ImportJobTotals;
 
+    const jobForApply = { ...job, options_json: reapplyOptions };
     if (rowCount > readImportSyncMaxRowCount()) {
       return this.queueBackgroundImportApply(
         tenantId,
         jobId,
-        job,
+        jobForApply,
         handler,
         dryRunTotals,
         applyOptions,
@@ -401,7 +460,7 @@ export class ImportService {
     return this.applyImportJobSynchronously(
       tenantId,
       jobId,
-      job,
+      jobForApply,
       handler,
       currentUser.id,
       applyOptions,
@@ -467,7 +526,14 @@ export class ImportService {
       effectiveOptions,
     });
 
-    const lock = await this.jobStore.lockForApply(tenantId, jobId);
+    const retryRowNos =
+      (job.options_json as ImportJobOptionsWithWorker)
+        .technical_retry_row_nos ?? [];
+    const lock = await this.jobStore.lockForApply(
+      tenantId,
+      jobId,
+      retryRowNos.length > 0 ? [ImportJobStatus.APPLIED] : [],
+    );
     if (lock.count === 0) {
       throw applyInProgress();
     }
@@ -1105,14 +1171,29 @@ export class ImportService {
       return null;
     }
     const resumeAfter = worker.last_committed_apply_seq ?? 0;
+    const retryRowNos = worker.technical_retry_row_nos ?? [];
+    const retryRows =
+      retryRowNos.length === 0
+        ? []
+        : await this.jobStore.findApplyRowsByRowNos(
+            tenantId,
+            jobId,
+            retryRowNos,
+          );
     const page = await this.jobStore.findApplyRowsAfterApplySeq(
       tenantId,
       jobId,
       resumeAfter,
       IMPORT_APPLY_BATCH_SIZE + 1,
     );
-    const hasMoreRowsAfterBatch = page.length > IMPORT_APPLY_BATCH_SIZE;
-    const rows = page.slice(0, IMPORT_APPLY_BATCH_SIZE);
+    const merged = mergeTechnicalRetryBatch(
+      retryRows,
+      page,
+      IMPORT_APPLY_BATCH_SIZE,
+    );
+    const hasMoreRowsAfterBatch =
+      merged.hasMore || page.length > IMPORT_APPLY_BATCH_SIZE;
+    const rows = merged.rows;
     const maxApplySeq = await this.jobStore.maxApplySeq(tenantId, jobId);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     if (
@@ -1173,7 +1254,10 @@ export class ImportService {
     );
     const lastCommitted =
       refreshedWorker?.last_committed_apply_seq ?? params.resumeAfter;
+    const retryLeft =
+      (refreshedWorker?.technical_retry_row_nos?.length ?? 0) > 0;
     const hasMore =
+      retryLeft ||
       (
         await this.jobStore.findApplyRowsAfterApplySeq(
           params.tenantId,

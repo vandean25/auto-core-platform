@@ -245,6 +245,7 @@ export class SupplierChunkedApplyRunner {
       input.job.id,
       batchOptions.leaseToken,
       applySeqForRow(row),
+      row.row_no,
     );
   }
 

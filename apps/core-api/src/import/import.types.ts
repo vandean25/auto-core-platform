@@ -14,6 +14,8 @@ export type ImportJobOptions = {
   cutover_date?: string;
   apply_failure_reason?:
     'retry_exhausted' | 'poison_cap' | 'apply_error' | 'apply_seq_missing';
+  /** Present only while a re-apply is being locked; copied onto the worker and then removed. */
+  technical_retry_row_nos?: number[];
 };
 
 export type ImportJobTotals = {
