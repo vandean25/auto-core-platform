@@ -25,7 +25,6 @@
       img { width: 4rem; height: 4rem; border-radius: 0.75rem; }
       h1 { margin: 1.25rem 0 0.5rem; font-size: 1.5rem; letter-spacing: -0.01em; }
       p { margin: 0 0 0.75rem; color: #475569; }
-      .en { font-size: 0.875rem; color: #64748b; }
       button {
         margin-top: 1rem;
         min-height: 2.75rem;
@@ -42,11 +41,24 @@
   </head>
   <body>
     <main>
-      <img src="/icons/icon-192.png" alt="" width="64" height="64" />
+      <img src="data:image/png;base64,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" alt="" width="64" height="64" />
       <h1>Keine Verbindung</h1>
       <p>Auto Core ist gerade nicht erreichbar. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.</p>
-      <p class="en" lang="en">No connection. Please check your internet connection and try again.</p>
-      <button type="button" onclick="location.reload()">Erneut versuchen / Try again</button>
+      <button type="button" onclick="location.reload()">Erneut versuchen</button>
     </main>
+    <script>
+      // The page is German. A browser whose app language is English (saved by the app as acp:ui-language) gets English instead, never both.
+      try {
+        if (localStorage.getItem('acp:ui-language') === 'en') {
+          document.documentElement.lang = 'en'
+          document.title = 'Auto Core · Offline'
+          document.querySelector('h1').textContent = 'No connection'
+          document.querySelector('p').textContent = 'Auto Core is not reachable right now. Please check your internet connection and try again.'
+          document.querySelector('button').textContent = 'Try again'
+        }
+      } catch (error) {
+        // Storage blocked: stay with German.
+      }
+    </script>
   </body>
 </html>

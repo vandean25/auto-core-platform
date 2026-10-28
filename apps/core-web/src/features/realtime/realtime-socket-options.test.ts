@@ -15,6 +15,29 @@ describe('buildRealtimeSocketOptions', () => {
 
     expect(options.transports).toEqual(['polling'])
     expect(options.upgrade).toBe(false)
+    expect(options).not.toHaveProperty('tryAllTransports')
+  })
+
+  it('connects WebSocket first with polling as the fallback when the socket goes straight to core-api', () => {
+    const options = buildRealtimeSocketOptions({ path: '/api/socket.io', getIdToken: vi.fn(), direct: true })
+
+    expect(options.transports).toEqual(['websocket', 'polling'])
+    // Without it engine.io-client never moves on to polling after a failed WebSocket.
+    expect(options.tryAllTransports).toBe(true)
+    expect(options).not.toHaveProperty('upgrade')
+    expect(options.withCredentials).toBe(true)
+  })
+
+  it('keeps the same auth payload and backoff for a direct connection', async () => {
+    const options = buildRealtimeSocketOptions({
+      path: '/api/socket.io',
+      getIdToken: vi.fn().mockResolvedValue('token-1'),
+      direct: true,
+    })
+
+    expect(await readAuthPayload(options.auth)).toEqual({ token: 'token-1' })
+    expect(options.reconnectionDelay).toBe(1_000)
+    expect(options.reconnectionDelayMax).toBe(30_000)
   })
 
   it('keeps the socket path and sends credentials', () => {
@@ -163,6 +186,38 @@ describe('createHandshakeRetry', () => {
     // A rejected handshake makes socket.io-client destroy the socket, which clears its subscriptions.
     socket.active = false
     expectReconnectAfter(socket, retry, 1_000)
+  })
+
+  it('reconnects with the backoff after the server ended the session, but not after a client-side or transport close', () => {
+    const socket = { connect: vi.fn(), active: false }
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    retry.onDisconnect('io client disconnect')
+    retry.onDisconnect('transport close')
+    vi.advanceTimersByTime(60_000)
+    expect(socket.connect).not.toHaveBeenCalled()
+
+    retry.onDisconnect('io server disconnect')
+    vi.advanceTimersByTime(999)
+    expect(socket.connect).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(socket.connect).toHaveBeenCalledTimes(1)
+  })
+
+  it('a reconnect on request waits for the backoff, joins a pending one and leaves an active socket to the Manager', () => {
+    const socket = { connect: vi.fn(), active: false }
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    retry.reconnect()
+    retry.reconnect()
+    expect(socket.connect).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1_000)
+    expect(socket.connect).toHaveBeenCalledTimes(1)
+
+    const managed = { connect: vi.fn(), active: true }
+    createHandshakeRetry(managed, () => 0.5).reconnect()
+    vi.advanceTimersByTime(60_000)
+    expect(managed.connect).not.toHaveBeenCalled()
   })
 
   it('cancels a pending reconnect when disposed', () => {

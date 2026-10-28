@@ -11,8 +11,10 @@ export function usePeekSearchParam() {
   const peekId = searchParams.get(PEEK_SEARCH_PARAM)
   const peekOpenedViaPushRef = useRef(false)
   const pendingBackStripRef = useRef(false)
+  const latestPeekIdRef = useRef(peekId)
 
   useEffect(() => {
+    latestPeekIdRef.current = peekId
     if (!peekId) {
       peekOpenedViaPushRef.current = false
     }
@@ -30,6 +32,9 @@ export function usePeekSearchParam() {
 
   const openPeek = useCallback(
     (id: string) => {
+      // A second activation of the same row (touch taps can fire click handlers twice) must not push the same URL again.
+      if (latestPeekIdRef.current === id) return
+      latestPeekIdRef.current = id
       peekOpenedViaPushRef.current = true
       setSearchParams(
         (prev) => {

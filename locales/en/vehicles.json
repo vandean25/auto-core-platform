@@ -145,7 +145,7 @@
     "windowDays": "{{count}} days",
     "loadError": "Could not load warranty due list.",
     "empty": "No due vehicles in the selected window.",
-    "searchPlaceholder": "Search vehicle, customer, or deadline …",
+    "searchPlaceholder": "Vehicle, customer or deadline",
     "columns": {
       "vehicle": "Vehicle",
       "customer": "Customer",

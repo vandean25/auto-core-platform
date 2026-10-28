@@ -37,6 +37,12 @@ import {
 } from './import-apply-lease.js';
 import { runSyncApplyUnits } from './import-sync-apply-lease.js';
 import {
+  mergeTechnicalRetryBatch,
+  mergeTechnicalRetryRowNos,
+  planTechnicalRetry,
+  technicalRetryRowNos,
+} from './import-technical-retry.js';
+import {
   buildImportErrorReportCsv,
   serializeImportJob,
   serializeImportRow,
@@ -128,6 +134,12 @@ import { LaborOperationImportHandler } from './labor-operation-import.handler.js
 import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.js';
 import { VehicleImportHandler } from './vehicle-import.handler.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
+
+function statusRetriesTechnicalRows(status: ImportJobStatus): boolean {
+  return (
+    status === ImportJobStatus.FAILED || status === ImportJobStatus.APPLIED
+  );
+}
 
 function buildRowsWhere(
   tenantId: string,
@@ -335,7 +347,10 @@ export class ImportService {
     if (!job) {
       throw importJobNotFound();
     }
-    return this.serializeJob(job, job.totals_json as ImportJobTotals);
+    return this.annotateTechnicalErrors(
+      tenantId,
+      this.serializeJob(job, job.totals_json as ImportJobTotals),
+    );
   }
 
   async listJobRows(
@@ -374,6 +389,58 @@ export class ImportService {
     return buildImportErrorReportCsv(rows);
   }
 
+  private async resetTechnicalRowsForReapply(
+    tenantId: string,
+    jobId: string,
+    status: ImportJobStatus,
+    options: ImportJobOptionsWithWorker,
+  ): Promise<ImportJobOptionsWithWorker> {
+    if (
+      status !== ImportJobStatus.FAILED &&
+      status !== ImportJobStatus.APPLIED
+    ) {
+      assertJobCanBeApplied(status);
+      return options;
+    }
+    const errorRows =
+      (await this.jobStore.findErrorRows(tenantId, jobId)) ?? [];
+    const plan = planTechnicalRetry(errorRows);
+    const rowNos = mergeTechnicalRetryRowNos(
+      technicalRetryRowNos(options, options.worker ?? null),
+      plan.rowNos,
+    );
+    if (rowNos.length === 0) {
+      assertJobCanBeApplied(status);
+      if (status === ImportJobStatus.FAILED) {
+        this.logTechnicalRetry(jobId, plan);
+      }
+      return options;
+    }
+    this.logTechnicalRetry(jobId, plan);
+    const worker = options.worker
+      ? { ...options.worker, technical_retry_row_nos: rowNos }
+      : undefined;
+    return {
+      ...options,
+      ...(worker ? { worker } : {}),
+      technical_retry_row_nos: rowNos,
+    };
+  }
+
+  private logTechnicalRetry(
+    jobId: string,
+    plan: { count: number; codes: string[] },
+  ): void {
+    this.logger.log(
+      JSON.stringify({
+        event: 'import.reapply.technical_rows_reset',
+        jobId,
+        technicalRowsReset: plan.count,
+        codes: plan.codes,
+      }),
+    );
+  }
+
   async applyJob(jobId: string, applyOptions?: ImportJobOptions) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
@@ -387,6 +454,80 @@ export class ImportService {
     if (!job) {
       throw importJobNotFound();
     }
+    const applyingJob = await this.prepareApplyJob(tenantId, jobId, job);
+    if (applyingJob.status === ImportJobStatus.FAILED) {
+      await assertFailedImportJobCanReApply({
+        uploadPresent: Boolean(
+          readUploadRef(applyingJob.options_json as ImportJobOptionsWithWorker),
+        ),
+        countApplyRows: () => this.jobStore.countApplyRows(tenantId, jobId),
+      });
+    }
+
+    const applied = await this.dispatchImportApply({
+      tenantId,
+      jobId,
+      job: applyingJob,
+      actorUserId: currentUser.id,
+      applyOptions,
+      alreadyLocked: applyingJob.status === ImportJobStatus.APPLYING,
+    });
+    return this.annotateTechnicalErrors(tenantId, applied);
+  }
+
+  private async annotateTechnicalErrors(
+    tenantId: string,
+    job: SerializedImportJob,
+  ): Promise<SerializedImportJob> {
+    if (job.status !== ImportJobStatus.APPLIED) {
+      return job;
+    }
+    const technical_error_rows = await this.jobStore.countTechnicalErrorRows(
+      tenantId,
+      job.id,
+    );
+    return {
+      ...job,
+      options: { ...job.options, technical_error_rows },
+    };
+  }
+
+  private async prepareApplyJob(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+  ) {
+    const jobWithOptions = await this.persistTechnicalRetryOptions(
+      tenantId,
+      jobId,
+      job,
+    );
+    return this.finishApplyTakeover(tenantId, jobId, jobWithOptions);
+  }
+
+  private async persistTechnicalRetryOptions(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+  ) {
+    const options = job.options_json as ImportJobOptionsWithWorker;
+    if (!statusRetriesTechnicalRows(job.status)) {
+      return job;
+    }
+    const reapplyOptions = await this.resetTechnicalRowsForReapply(
+      tenantId,
+      jobId,
+      job.status,
+      options,
+    );
+    return { ...job, options_json: reapplyOptions };
+  }
+
+  private async finishApplyTakeover(
+    tenantId: string,
+    jobId: string,
+    job: NonNullable<Awaited<ReturnType<ImportJobStore['findJob']>>>,
+  ) {
     const staleTakeover = await this.takeOverStaleApplyIfNeeded(tenantId, job);
     if (staleTakeover === 'busy') {
       throw applyInProgress(
@@ -400,26 +541,13 @@ export class ImportService {
     if (!applyingJob) {
       throw importJobNotFound();
     }
-    if (staleTakeover !== 'taken') {
+    if (
+      staleTakeover !== 'taken' &&
+      applyingJob.status !== ImportJobStatus.APPLIED
+    ) {
       assertJobCanBeApplied(applyingJob.status);
     }
-    if (applyingJob.status === ImportJobStatus.FAILED) {
-      await assertFailedImportJobCanReApply({
-        uploadPresent: Boolean(
-          readUploadRef(applyingJob.options_json as ImportJobOptionsWithWorker),
-        ),
-        countApplyRows: () => this.jobStore.countApplyRows(tenantId, jobId),
-      });
-    }
-
-    return this.dispatchImportApply({
-      tenantId,
-      jobId,
-      job: applyingJob,
-      actorUserId: currentUser.id,
-      applyOptions,
-      alreadyLocked: staleTakeover === 'taken',
-    });
+    return applyingJob;
   }
 
   private async dispatchImportApply(params: {
@@ -563,17 +691,24 @@ export class ImportService {
     effectiveOptions: ImportJobOptions,
     alreadyLocked = false,
   ): Promise<SerializedImportJob> {
-    const rows = await this.jobStore.findApplyRows(tenantId, jobId);
+    const previewRows = await this.jobStore.findApplyRows(tenantId, jobId);
     const preparation = await handler.prepareApply({
       tenantId,
       job,
-      rows,
+      rows: previewRows,
       applyOptions,
       effectiveOptions,
     });
-
     if (!alreadyLocked) {
-      const lock = await this.jobStore.lockForApply(tenantId, jobId);
+      const retryRowNos =
+        (job.options_json as ImportJobOptionsWithWorker)
+          .technical_retry_row_nos ?? [];
+      const lock = await this.jobStore.lockForApply(
+        tenantId,
+        jobId,
+        retryRowNos.length > 0 ? [ImportJobStatus.APPLIED] : [],
+        job.options_json as ImportJobOptionsWithWorker,
+      );
       if (lock.count === 0) {
         const current = await this.jobStore.findJob(tenantId, jobId);
         throw applyInProgress(
@@ -581,6 +716,7 @@ export class ImportService {
         );
       }
     }
+    const rows = await this.jobStore.findApplyRows(tenantId, jobId);
 
     let applied: SerializedImportJob;
     try {
@@ -1275,6 +1411,59 @@ export class ImportService {
     return true;
   }
 
+  private async readBackgroundApplyBatch(
+    tenantId: string,
+    jobId: string,
+    worker: NonNullable<ReturnType<typeof readWorkerState>>,
+  ) {
+    const resumeAfter = worker.last_committed_apply_seq ?? 0;
+    const retryRowNos = worker.technical_retry_row_nos ?? [];
+    const retryRows =
+      retryRowNos.length === 0
+        ? []
+        : await this.jobStore.findApplyRowsByRowNos(
+            tenantId,
+            jobId,
+            retryRowNos,
+          );
+    const page = await this.jobStore.findApplyRowsAfterApplySeq(
+      tenantId,
+      jobId,
+      resumeAfter,
+      IMPORT_APPLY_BATCH_SIZE + 1,
+    );
+    const merged = mergeTechnicalRetryBatch(
+      retryRows,
+      page,
+      IMPORT_APPLY_BATCH_SIZE,
+    );
+    return {
+      resumeAfter,
+      rows: merged.rows,
+      page,
+      hasMoreRowsAfterBatch:
+        merged.hasMore || page.length > IMPORT_APPLY_BATCH_SIZE,
+    };
+  }
+
+  private async backgroundApplyHasMore(
+    tenantId: string,
+    jobId: string,
+    lastCommitted: number,
+    technicalRetryRowNos: number[] | undefined,
+  ): Promise<boolean> {
+    if ((technicalRetryRowNos?.length ?? 0) > 0) {
+      return true;
+    }
+    const next = await this.jobStore.findApplyRowsAfterApplySeq(
+      tenantId,
+      jobId,
+      lastCommitted,
+      1,
+    );
+    return next.length > 0;
+  }
+
   private async loadBackgroundApplyContext(tenantId: string, jobId: string) {
     const job = await this.jobStore.findJob(tenantId, jobId);
     if (!job) {
@@ -1285,15 +1474,8 @@ export class ImportService {
     if (!worker || worker.phase !== 'apply') {
       return null;
     }
-    const resumeAfter = worker.last_committed_apply_seq ?? 0;
-    const page = await this.jobStore.findApplyRowsAfterApplySeq(
-      tenantId,
-      jobId,
-      resumeAfter,
-      IMPORT_APPLY_BATCH_SIZE + 1,
-    );
-    const hasMoreRowsAfterBatch = page.length > IMPORT_APPLY_BATCH_SIZE;
-    const rows = page.slice(0, IMPORT_APPLY_BATCH_SIZE);
+    const batch = await this.readBackgroundApplyBatch(tenantId, jobId, worker);
+    const { resumeAfter, rows, page, hasMoreRowsAfterBatch } = batch;
     const maxApplySeq = await this.jobStore.maxApplySeq(tenantId, jobId);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     if (
@@ -1354,15 +1536,12 @@ export class ImportService {
     );
     const lastCommitted =
       refreshedWorker?.last_committed_apply_seq ?? params.resumeAfter;
-    const hasMore =
-      (
-        await this.jobStore.findApplyRowsAfterApplySeq(
-          params.tenantId,
-          params.jobId,
-          lastCommitted,
-          1,
-        )
-      ).length > 0;
+    const hasMore = await this.backgroundApplyHasMore(
+      params.tenantId,
+      params.jobId,
+      lastCommitted,
+      refreshedWorker?.technical_retry_row_nos,
+    );
     const done = !hasMore;
     if (done || params.resultStatus !== ImportJobStatus.APPLYING) {
       return;

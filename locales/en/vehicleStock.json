@@ -14,7 +14,7 @@
     "reports": "Reports",
     "addVehicle": "Vehicle",
     "saveViewTitle": "Vehicle Stock",
-    "searchPlaceholder": "Search VIN, plate, make, model, color...",
+    "searchPlaceholder": "VIN, plate, vehicle, color",
     "deleteDraftConfirm": "Delete this draft purchase?",
     "draftDeleted": "Draft purchase deleted",
     "deleteDraftFailed": "Failed to delete draft purchase",
