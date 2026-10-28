@@ -45,6 +45,25 @@ test.describe('Team list on a phone (AUT-768)', () => {
     })
   }
 
+  test('a long name and a long e-mail are both shown in full', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const long = { ...member('m4', 'Maximiliane Alexandra', 'Musterfrau-Hochgebirgsstraße', 'ADMIN'), email: 'maximiliane.alexandra.musterfrau.hochgebirgsstrasse@werkstatt-gruppe.example' }
+    await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), (route) =>
+      route.fulfill(json({ data: [long], meta: { total: 1, page: 1, limit: 100, pageCount: 1 } })),
+    )
+    await new AutoCorePage(page, '').navigate('/settings?tab=team')
+
+    const row = page.locator('[data-table-row="true"]').first()
+    await expect(row).toBeVisible()
+    const email = row.getByText(long.email)
+    await expect(email).toBeVisible()
+    // Neither the name nor the e-mail is clipped or runs past the row.
+    expect(await email.evaluate((node) => node.scrollWidth - node.clientWidth), 'e-mail clipped').toBeLessThanOrEqual(0)
+    const title = row.getByText('Maximiliane Alexandra Musterfrau-Hochgebirgsstraße').locator('xpath=ancestor::div[1]/..')
+    expect(await title.evaluate((node) => node.scrollHeight - node.clientHeight), 'title clipped').toBeLessThanOrEqual(0)
+    await expectNoPageScroll(page)
+  })
+
   test('a member without a name shows the e-mail once', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), (route) =>

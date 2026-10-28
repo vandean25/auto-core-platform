@@ -85,7 +85,7 @@ function ListRowContent({ title, subtitle, status, trailing }: Record<'title' | 
   return (
     <>
       <div className="min-w-0 flex-1">
-        <div className="line-clamp-2 break-words font-medium">{title}</div>
+        <div className="break-words font-medium">{title}</div>
         {subtitle ? <div className="truncate text-sm text-muted-foreground">{subtitle}</div> : null}
       </div>
       {status || trailing ? (
