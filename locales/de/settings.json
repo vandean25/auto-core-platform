@@ -200,7 +200,7 @@
       "actions": "Aktionen"
     },
     "loading": "Lade Margenregeln…",
-    "empty": "Keine Margenregeln definiert. Erstellen Sie eine neue Regel mit \"+ Margenregel\".",
+    "empty": "Keine Margenregeln definiert. Erstellen Sie eine neue Regel mit \"Margenregel\".",
     "costRange": {
       "all": "Alle",
       "from": "ab {{amount}}",

@@ -36,6 +36,7 @@ export function AgentDateRangeFields({
       </label>
       <DateField
         id={field.id}
+        aria-label={field.label}
         value={field.value}
         onChange={field.onChange}
         className="h-9 w-full text-xs sm:w-36"

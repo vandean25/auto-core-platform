@@ -536,6 +536,7 @@ export function AccountingExportSettingsPanel({
           <Label htmlFor="export-date-from">{t('accountingExport.filters.dateFrom')}</Label>
           <DateField
             id="export-date-from"
+            aria-label={t('accountingExport.filters.dateFrom')}
             value={dateFrom}
             onChange={setDateFrom}
           />
@@ -544,6 +545,7 @@ export function AccountingExportSettingsPanel({
           <Label htmlFor="export-date-to">{t('accountingExport.filters.dateTo')}</Label>
           <DateField
             id="export-date-to"
+            aria-label={t('accountingExport.filters.dateTo')}
             value={dateTo}
             onChange={setDateTo}
           />

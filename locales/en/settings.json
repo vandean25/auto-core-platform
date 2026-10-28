@@ -200,7 +200,7 @@
       "actions": "Actions"
     },
     "loading": "Loading margin rules…",
-    "empty": "No margin rules defined. Create one with \"+ Margin rule\".",
+    "empty": "No margin rules defined. Create one with \"Margin rule\".",
     "costRange": {
       "all": "All",
       "from": "from {{amount}}",

@@ -104,6 +104,7 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
                         <Label htmlFor="lock_date">{t('finance.fiscal.lockDate')}</Label>
                         <DateField
                             id="lock_date"
+                            aria-label={t('finance.fiscal.lockDate')}
                             value={formState.lock_date}
                             onChange={(lockDate) => setFormState(prev => ({ ...prev, lock_date: lockDate }))}
                         />

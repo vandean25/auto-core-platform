@@ -36,7 +36,7 @@
       "step2After": ".",
       "step3": "Review the draft, adjust lines if needed, then finalize from the draft editor.",
       "openOrders": "Open sales orders",
-      "newOrder": "Sales Order"
+      "newOrder": "+ Sales Order"
     },
     "detail": {
       "loading": "Loading invoice...",

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { registerGermanUiForTests } from '@/test/german-ui'
-import { DateField, parseDisplayDate } from './date-field'
+import { autoDotDate, DateField, parseDisplayDate } from './date-field'
 
 registerGermanUiForTests()
 afterEach(cleanup)
@@ -51,11 +51,49 @@ describe('DateField', () => {
     expect(screen.getByTestId('iso')).toHaveTextContent('')
   })
 
+  it('inserts the dots while digits are typed', () => {
+    render(<Harness initial="" />)
+    const input = screen.getByLabelText('Von')
+
+    fireEvent.change(input, { target: { value: '12032026' } })
+
+    expect(input).toHaveValue('12.03.2026')
+    expect(screen.getByTestId('iso')).toHaveTextContent('2026-03-12')
+  })
+
+  it('marks half-typed text as invalid', () => {
+    render(<Harness initial="" />)
+    const input = screen.getByLabelText('Von')
+
+    fireEvent.change(input, { target: { value: '12.03' } })
+
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('follows a value changed from outside', () => {
+    const { rerender } = render(<DateField aria-label="Von" value="2026-10-04" onChange={() => undefined} />)
+
+    rerender(<DateField aria-label="Von" value="2026-11-05" onChange={() => undefined} />)
+
+    expect(screen.getByLabelText('Von')).toHaveValue('05.11.2026')
+  })
+
+  it('keeps the date when the selected day is picked again and closes the calendar', async () => {
+    render(<Harness />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Kalender öffnen: Von' }))
+    fireEvent.click((await screen.findAllByRole('button', { name: /4\. Oktober 2026/ }))[0])
+
+    expect(screen.getByTestId('iso')).toHaveTextContent('2026-10-04')
+    expect(screen.getByLabelText('Von')).toHaveValue('04.10.2026')
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
+  })
+
   it('exposes a German placeholder and a calendar button', () => {
     render(<Harness initial="" />)
 
     expect(screen.getByLabelText('Von')).toHaveAttribute('placeholder', 'TT.MM.JJJJ')
-    expect(screen.getByRole('button', { name: 'Kalender öffnen' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kalender öffnen: Von' })).toBeInTheDocument()
   })
 })
 
@@ -64,5 +102,12 @@ describe('parseDisplayDate', () => {
     expect(parseDisplayDate('29.02.2028')).toBe('2028-02-29')
     expect(parseDisplayDate('29.02.2027')).toBeNull()
     expect(parseDisplayDate('1.2.2026')).toBeNull()
+    expect(parseDisplayDate('12.03.0020')).toBeNull()
+  })
+
+  it('autoDotDate formats digit runs', () => {
+    expect(autoDotDate('1203')).toBe('12.03.')
+    expect(autoDotDate('120320')).toBe('12.03.20')
+    expect(autoDotDate('12.03.2026x')).toBe('12.03.2026')
   })
 })

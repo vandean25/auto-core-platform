@@ -253,6 +253,7 @@ export default function TyreStorageListPage() {
           <div className="space-y-1">
             <Label>{t('tyreStorage.list.filters.dueFrom')}</Label>
             <DateField
+              aria-label={t('tyreStorage.list.filters.dueFrom')}
               className="min-h-11"
               value={dueFrom}
               onChange={setDueFrom}
@@ -262,6 +263,7 @@ export default function TyreStorageListPage() {
           <div className="space-y-1">
             <Label>{t('tyreStorage.list.filters.dueTo')}</Label>
             <DateField
+              aria-label={t('tyreStorage.list.filters.dueTo')}
               className="min-h-11"
               value={dueTo}
               onChange={setDueTo}

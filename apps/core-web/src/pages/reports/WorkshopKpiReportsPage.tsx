@@ -199,11 +199,11 @@ export default function WorkshopKpiReportsPage() {
         </div>
         <div className="grid gap-1 text-sm">
           <label htmlFor="workshop-report-from">{t('workshopKpi.from')}</label>
-          <DateField id="workshop-report-from" value={from} onChange={setFrom} className="h-10" />
+          <DateField id="workshop-report-from" aria-label={t('workshopKpi.from')} value={from} onChange={setFrom} className="h-10" />
         </div>
         <div className="grid gap-1 text-sm">
           <label htmlFor="workshop-report-to">{t('workshopKpi.to')}</label>
-          <DateField id="workshop-report-to" value={to} onChange={setTo} className="h-10" />
+          <DateField id="workshop-report-to" aria-label={t('workshopKpi.to')} value={to} onChange={setTo} className="h-10" />
         </div>
         <div className="grid gap-1 text-sm">
           <label htmlFor="workshop-report-group">{t('workshopKpi.groupBy')}</label>

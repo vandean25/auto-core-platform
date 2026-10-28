@@ -7,10 +7,13 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 const DISPLAY_FORMAT = 'dd.MM.yyyy'
 const ISO_FORMAT = 'yyyy-MM-dd'
+const MIN_YEAR = 1900
+const MAX_YEAR = 2100
 
 function toDisplay(iso: string): string {
   const date = iso ? parseISO(iso) : null
@@ -20,7 +23,17 @@ function toDisplay(iso: string): string {
 /** Parses a typed `TT.MM.JJJJ` date to ISO; `null` while the text is not a real calendar date. */
 export function parseDisplayDate(text: string): string | null {
   const date = parse(text, DISPLAY_FORMAT, new Date())
-  return isValid(date) && format(date, DISPLAY_FORMAT) === text ? format(date, ISO_FORMAT) : null
+  const year = date.getFullYear()
+  const isPlausible = isValid(date) && year >= MIN_YEAR && year <= MAX_YEAR
+  return isPlausible && format(date, DISPLAY_FORMAT) === text ? format(date, ISO_FORMAT) : null
+}
+
+/** Inserts the dots while digits are typed, so a numeric keypad without a "." key still works. */
+export function autoDotDate(text: string): string {
+  const digits = text.replace(/\D/g, '').slice(0, 8)
+  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean)
+  const dotted = parts.join('.')
+  return digits.length === 2 || digits.length === 4 ? `${dotted}.` : dotted
 }
 
 interface DateFieldProps {
@@ -45,13 +58,15 @@ export function DateField({
   'data-testid': testId,
 }: DateFieldProps) {
   const { t } = useTranslation('common')
+  const [calendarOpen, setCalendarOpen] = React.useState(false)
   const [draft, setDraft] = React.useState(() => toDisplay(value))
 
   React.useEffect(() => {
     setDraft((current) => (parseDisplayDate(current) === value ? current : toDisplay(value)))
   }, [value])
 
-  const handleChange = (text: string) => {
+  const handleChange = (rawText: string) => {
+    const text = rawText.length < draft.length ? rawText : autoDotDate(rawText)
     setDraft(text)
     if (text === '') onChange('')
     else {
@@ -71,22 +86,23 @@ export function DateField({
         autoComplete="off"
         placeholder={t('dateField.placeholder')}
         maxLength={10}
+        aria-invalid={draft !== '' && parseDisplayDate(draft) === null ? true : undefined}
         value={draft}
         disabled={disabled}
         aria-label={ariaLabel}
         data-testid={testId}
-        className={className}
+        className={cn('max-sm:min-h-11', className)}
         onChange={(event) => handleChange(event.target.value)}
         onBlur={() => setDraft(toDisplay(value))}
       />
-      <Popover>
+      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="outline"
             size="icon"
             disabled={disabled}
-            aria-label={t('dateField.openCalendar')}
+            aria-label={ariaLabel ? `${t('dateField.openCalendar')}: ${ariaLabel}` : t('dateField.openCalendar')}
             className="shrink-0 max-sm:min-h-11 max-sm:min-w-11"
           >
             <CalendarIcon className="h-4 w-4" />
@@ -95,13 +111,15 @@ export function DateField({
         <PopoverContent className="w-auto p-0" align="end">
           <Calendar
             mode="single"
+            required
             locale={deAT}
             selected={selected && isValid(selected) ? selected : undefined}
             defaultMonth={selected && isValid(selected) ? selected : undefined}
             onSelect={(date) => {
-              const iso = date ? format(date, ISO_FORMAT) : ''
+              const iso = format(date, ISO_FORMAT)
               setDraft(toDisplay(iso))
               onChange(iso)
+              setCalendarOpen(false)
             }}
           />
         </PopoverContent>
