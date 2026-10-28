@@ -1129,6 +1129,10 @@
       "editMapping": "Edit mapping",
       "applyImport": "Apply import"
     },
+    "errorReport": {
+      "unknownError": "This row could not be imported. Check the values and try again.",
+      "normalizedFallback": "The original file is no longer available. This row contains only the saved, normalized values."
+    },
     "result": {
       "title": "Import complete",
       "running": "Import in progress",

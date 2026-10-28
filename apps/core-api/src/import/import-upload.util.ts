@@ -15,6 +15,7 @@ import {
 
 export type ImportUploadStats = {
   parsed?: ParsedCsv;
+  content?: Buffer;
   rowCount: number;
   sha256: string;
   useBackground: boolean;
@@ -105,6 +106,7 @@ export async function assessImportUpload(
     const parsed = parseCsvFile(buffer);
     return {
       parsed,
+      content: buffer,
       rowCount: parsed.rows.length,
       sha256: parsed.sha256,
       useBackground: false,
@@ -129,6 +131,7 @@ export async function assessImportUpload(
   const parsed = parseCsvFile(buffer);
   return {
     parsed,
+    content: buffer,
     rowCount: parsed.rows.length,
     sha256: parsed.sha256,
     useBackground: false,

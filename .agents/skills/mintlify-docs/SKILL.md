@@ -35,9 +35,9 @@ Same counter-floor tone as before: short sentences, name real controls, â€œyouâ€
 
 When an automation updates docs from product changes:
 
-1. Update the **German** page at the root path.
-2. Update the matching **`en/`** page in the same PR.
-3. Keep `docs.json` navigation in sync (group labels are localized per language entry).
+1. Update the **German** page under `docs-site/` (same path as in `docs.json`, without the `docs-site/` prefix).
+2. Update the matching **`docs-site/en/`** page in the same PR.
+3. Keep `docs-site/docs.json` navigation in sync (group labels are localized per language entry).
 4. Run `mint validate` and `mintlify broken-links` from `docs-site/` before pushing.
 
 ## Unique design (do not drift)

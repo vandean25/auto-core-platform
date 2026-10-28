@@ -327,9 +327,10 @@ export async function downloadImportTemplateCsv(entityType: ImportEntityType): P
   return response.blob()
 }
 
-export async function downloadImportErrorRowsCsv(jobId: string): Promise<Blob> {
+export async function downloadImportErrorRowsCsv(jobId: string, language?: string): Promise<Blob> {
+  const csvLanguage = language?.trim().toLowerCase().split('-')[0] === 'en' ? 'en' : 'de'
   const response = await fetchWithAuth(`/api/imports/${jobId}/errors.csv`, {
-    headers: { Accept: 'text/csv' },
+    headers: { Accept: 'text/csv', 'Accept-Language': csvLanguage },
   })
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, 'Failed to download error rows'))

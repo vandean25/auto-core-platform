@@ -1,4 +1,4 @@
-/** Shared Mintlify page tree for de-AT (root) and en (/en/) locales. */
+/** Shared Mintlify page tree for de-AT (docs-site/) and en (docs-site/en/) locales. */
 export const guidesGroups = [
   {
     groupKey: 'gettingStarted',

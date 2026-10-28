@@ -18,6 +18,7 @@
     "settings:marginRules.rounding.",
     "settings:marginRules.roundingShort.",
     "settings:storageLocations.types.",
+    "settings:dataImport.errorReport.",
     "vehicles:pickerlSection.warnings.",
     "settings:workshopHours.weekdays.",
     "settings:documentBranding.letterheadImport.states.",
