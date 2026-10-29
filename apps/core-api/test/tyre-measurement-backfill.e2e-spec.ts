@@ -527,4 +527,105 @@ describe('Tyre measurement backfill (e2e)', () => {
       await cleanupTestTenantGraph(app.get(PrismaService), tenantD.tenantId);
     }
   });
+
+  it('keeps a live capture ahead of a legacy payload on the same event', async () => {
+    const tenantE = await createTestTenant(prisma, 'tyre-backfill-e');
+    const dbE = createTenantAwarePrisma(prisma, tenantE.tenantId);
+    const token = createTestAuthToken(app.get(AuthService), tenantE);
+    try {
+      const site = await dbE.site.findFirstOrThrow({ where: { code: 'MAIN' } });
+      const customer = await dbE.customer.create({
+        data: {
+          tenant_id: tenantE.tenantId,
+          type: 'PRIVATE',
+          first_name: 'Dual',
+          last_name: 'Payload',
+        },
+      });
+      const vehicle = await dbE.vehicle.create({
+        data: {
+          tenant_id: tenantE.tenantId,
+          customer_id: customer.id,
+          make: 'Test',
+          model: 'Payload',
+          year: 2024,
+          inventory_role: 'CUSTOMER',
+        },
+      });
+      const location = await dbE.storageLocation.create({
+        data: {
+          tenant_id: tenantE.tenantId,
+          site_id: site.id,
+          code: 'DUAL-RACK',
+          name: 'Dual rack',
+          type: 'customer_storage',
+        },
+      });
+      const set = await dbE.tyreSet.create({
+        data: {
+          tenant_id: tenantE.tenantId,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          site_id: site.id,
+          location_id: location.id,
+          label: 'Dual payload',
+          season: 'WINTER',
+        },
+      });
+
+      const inspection = await request(app.getHttpServer())
+        .post(`/api/tyre-sets/${set.id}/inspect`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          treadDepthMm: { FL: 6 },
+          wheels: [
+            {
+              position: 'FL',
+              treadInnerMm: 3,
+              treadMiddleMm: 6,
+              treadOuterMm: 6,
+              season: 'WINTER',
+            },
+          ],
+        })
+        .expect(200);
+      expect(inspection.body.latestMeasurement).toMatchObject({
+        source: 'CAPTURE',
+        worstStatus: 'URGENT',
+      });
+
+      const result = await backfillTyreMeasurements(prisma, {
+        execute: true,
+        tenantId: tenantE.tenantId,
+      });
+      expect(result.eventsConverted).toBe(0);
+      expect(result.eventsSkippedLiveMeasurements).toBe(1);
+      expect(result.warnings).toBeGreaterThanOrEqual(1);
+
+      expect(
+        await dbE.tyreMeasurement.count({
+          where: {
+            tenant_id: tenantE.tenantId,
+            source: 'LEGACY_TREAD_JSON',
+          },
+        }),
+      ).toBe(0);
+      const event = await dbE.tyreSetEvent.findFirstOrThrow({
+        where: { tenant_id: tenantE.tenantId, tyre_set_id: set.id },
+      });
+      expect(event.tread_depth_mm_json).toEqual({ FL: 6 });
+
+      const detail = await request(app.getHttpServer())
+        .get(`/api/tyre-sets/${set.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(detail.body.latestMeasurement).toMatchObject({
+        source: 'CAPTURE',
+        worstStatus: 'URGENT',
+      });
+      expect(detail.body.latestMeasurement.wheels[0].treadMiddleMm).toBe(6);
+    } finally {
+      await cleanupTestTenantGraph(app.get(PrismaService), tenantE.tenantId);
+    }
+  });
 });

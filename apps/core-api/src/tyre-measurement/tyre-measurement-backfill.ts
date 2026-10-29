@@ -85,6 +85,7 @@ export type TyreBackfillSummary = {
   setsSkippedNoReadings: number;
   eventsSkippedNoReadings: number;
   setsSkippedLiveMeasurements: number;
+  eventsSkippedLiveMeasurements: number;
   alreadyConverted: number;
   warnings: number;
   warningSamples: string[];
@@ -157,6 +158,7 @@ export async function backfillTyreMeasurements(
     setsSkippedNoReadings: 0,
     eventsSkippedNoReadings: 0,
     setsSkippedLiveMeasurements: 0,
+    eventsSkippedLiveMeasurements: 0,
     alreadyConverted: 0,
     warnings: 0,
     warningSamples: [],
@@ -278,8 +280,9 @@ async function backfillSets(context: TenantContext): Promise<void> {
       'set',
       sets.map((set) => set.id),
     );
-    const live = await setsWithLiveMeasurements(
+    const live = await liveMeasurementLinks(
       context,
+      'tyre_set_id',
       sets.filter((set) => fresh.has(set.id)).map((set) => set.id),
     );
     const operations = pendingSetOperations(context, sets, fresh, live);
@@ -356,20 +359,26 @@ async function backfillEvents(context: TenantContext): Promise<void> {
       'event',
       events.map((event) => event.id),
     );
+    const candidates = events.filter((event) => fresh.has(event.id));
+    const live = await liveMeasurementLinks(
+      context,
+      'tyre_set_event_id',
+      candidates.map((event) => event.id),
+    );
     const orders = await loadOrderVehicles(
       context,
-      events.filter((event) => fresh.has(event.id)),
+      candidates.filter((event) => !live.has(event.id)),
     );
-    const operations = events
-      .filter((event) => fresh.has(event.id))
-      .map((event) => buildEventMeasurement(context, event, orders));
-    context.summary.eventsConverted += operations.filter(Boolean).length;
+    const operations = pendingEventOperations(
+      context,
+      candidates,
+      live,
+      orders,
+    );
+    context.summary.eventsConverted += operations.length;
     if (context.execute) {
       await chunkedPromiseAll(
-        operations.filter(
-          (operation): operation is NonNullable<typeof operation> =>
-            operation !== null,
-        ),
+        operations,
         (operation) => operation(),
         WRITE_CHUNK_SIZE,
       );
@@ -379,8 +388,31 @@ async function backfillEvents(context: TenantContext): Promise<void> {
   }
 }
 
-async function setsWithLiveMeasurements(
+function pendingEventOperations(
   context: TenantContext,
+  events: BackfillEventRow[],
+  live: Set<string>,
+  orders: Map<string, { site_id: string | null; vehicle_id: string }>,
+): MeasurementOperation[] {
+  const operations: MeasurementOperation[] = [];
+  for (const event of events) {
+    if (live.has(event.id)) {
+      context.summary.eventsSkippedLiveMeasurements += 1;
+      addWarning(
+        context,
+        `event ${event.id}: live measurements exist, legacy snapshot left unlinked`,
+      );
+      continue;
+    }
+    const operation = buildEventMeasurement(context, event, orders);
+    if (operation) operations.push(operation);
+  }
+  return operations;
+}
+
+async function liveMeasurementLinks(
+  context: TenantContext,
+  field: 'tyre_set_id' | 'tyre_set_event_id',
   ids: string[],
 ): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
@@ -388,15 +420,13 @@ async function setsWithLiveMeasurements(
     where: {
       tenant_id: context.tenantId,
       site_id: { in: [...context.countryBySite.keys()] },
-      tyre_set_id: { in: ids },
       source: 'CAPTURE',
+      [field]: { in: ids },
     },
-    select: { tyre_set_id: true },
-    distinct: ['tyre_set_id'],
+    select: { tyre_set_id: true, tyre_set_event_id: true },
+    distinct: [field],
   });
-  return new Set(
-    rows.flatMap((row) => (row.tyre_set_id ? [row.tyre_set_id] : [])),
-  );
+  return new Set(rows.flatMap((row) => (row[field] ? [row[field]] : [])));
 }
 
 async function unconverted(
