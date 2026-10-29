@@ -31,6 +31,7 @@ vi.mock('@/api/imports', async (importOriginal) => {
     ...actual,
     useImportTemplate: vi.fn(),
     useImportEntityTypes: vi.fn(),
+    useImportSources: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -69,6 +70,17 @@ const dryRunJob: ImportJob = {
   applied_at: null,
 }
 
+const importSources = [
+  {
+    id: 'source-legacy',
+    key: 'legacy_dms',
+    label: 'Legacy DMS',
+    is_default: true,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+]
+
 function renderTab(initialEntries: string[] = ['/']) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -97,6 +109,10 @@ describe('DataImportSettingsTab row filter', () => {
     })
     ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
       data: readImportEntityTypeRegistry(),
+    })
+    ;(importsApi.useImportSources as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { data: importSources },
+      isLoading: false,
     })
     ;(importsApi.useImportMappingProfiles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
@@ -237,6 +253,10 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
     })
     ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
       data: readImportEntityTypeRegistry(),
+    })
+    ;(importsApi.useImportSources as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { data: importSources },
+      isLoading: false,
     })
     ;(importsApi.useImportMappingProfiles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],

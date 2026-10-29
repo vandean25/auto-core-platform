@@ -60,6 +60,7 @@ vi.mock('@/api/imports', async (importOriginal) => {
     ...actual,
     useImportTemplate: vi.fn(),
     useImportEntityTypes: vi.fn(),
+    useImportSources: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
