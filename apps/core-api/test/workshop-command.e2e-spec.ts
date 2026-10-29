@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { WorkshopCommandSessionRetentionService } from '../src/workshop-command/workshop-command-session-retention.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
@@ -460,10 +461,33 @@ describe('Workshop command (e2e)', () => {
     ).toBe(0);
   });
 
+  it('refuses to propose a plan that a live labor rate made more expensive', async () => {
+    await enableBookingPolicy();
+    const intent = await interpretReady();
+
+    await prisma.laborOperation.updateMany({
+      where: { tenant_id: tenant.tenantId, code: 'SVC-MAJOR' },
+      data: { hourly_rate: '180.00' },
+    });
+    const response = await propose(intent.command_id).expect(409);
+
+    expect(response.body.code).toBe('PLAN_STALE');
+    expect(
+      await prisma.agentProposal.count({
+        where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
+      }),
+    ).toBe(0);
+  });
+
   it('applies the approved proposal into a linked order, tasks, lines, and loaner', async () => {
     await enableBookingPolicy();
     const intent = await interpretReady();
     const created = await propose(intent.command_id).expect(201);
+
+    const replay = await prisma.workshopCommandSession.findFirstOrThrow({
+      where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
+    });
+    expect(replay.site_id).toBe(siteId);
 
     const applied = await request(app.getHttpServer())
       .post(`/api/agent-proposals/${created.body.pending_action_id}/apply`)
@@ -495,10 +519,11 @@ describe('Workshop command (e2e)', () => {
     expect(booking.loaner_vehicle_id).toBe(loanerVehicleId);
     expect(booking.planned_from.toISOString()).toBe(intent.schedule!.start_at);
 
-    const replay = await prisma.workshopCommandSession.findFirstOrThrow({
-      where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
-    });
-    expect(replay.site_id).toBe(siteId);
+    expect(
+      await prisma.workshopCommandSession.findFirst({
+        where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
+      }),
+    ).toBeNull();
 
     const afterDecision = await interpret({
       command_id: intent.command_id,
@@ -623,7 +648,62 @@ describe('Workshop command (e2e)', () => {
       .send({ reason: 'Test rejection' })
       .expect(200);
 
+    expect(
+      await prisma.workshopCommandSession.findFirst({
+        where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
+      }),
+    ).toBeNull();
+
     const retried = await propose(intent.command_id).expect(409);
     expect(retried.body.code).toBe('COMMAND_ID_REUSED');
+  });
+
+  it('deletes the replay row when a lapsed proposal expires on apply', async () => {
+    await enableBookingPolicy();
+    const intent = await interpretReady();
+    const created = await propose(intent.command_id).expect(201);
+
+    await prisma.agentProposal.updateMany({
+      where: {
+        tenant_id: tenant.tenantId,
+        id: created.body.pending_action_id,
+      },
+      data: { expires_at: new Date(Date.now() - 60_000) },
+    });
+    await request(app.getHttpServer())
+      .post(`/api/agent-proposals/${created.body.pending_action_id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(422);
+
+    const stored = await prisma.agentProposal.findFirstOrThrow({
+      where: {
+        tenant_id: tenant.tenantId,
+        id: created.body.pending_action_id,
+      },
+    });
+    expect(stored.status).toBe('EXPIRED');
+    expect(
+      await prisma.workshopCommandSession.findFirst({
+        where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
+      }),
+    ).toBeNull();
+  });
+
+  it('purges a lapsed replay row for a tenant that stops using the command box', async () => {
+    const intent = await interpretReady();
+
+    await prisma.workshopCommandSession.updateMany({
+      where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
+      data: { expires_at: new Date(Date.now() - 60_000) },
+    });
+    await expect(
+      app.get(WorkshopCommandSessionRetentionService).run(),
+    ).resolves.toBe(true);
+
+    expect(
+      await prisma.workshopCommandSession.findFirst({
+        where: { tenant_id: tenant.tenantId, command_id: intent.command_id },
+      }),
+    ).toBeNull();
   });
 });

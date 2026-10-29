@@ -146,6 +146,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  restoreRandomUuid()
 })
 
 describe('WorkshopCommandPanel', () => {
@@ -276,7 +277,39 @@ describe('WorkshopCommandPanel', () => {
       selections: [],
     })
   })
+
+  it('sends a uuid command id when the browser has no crypto.randomUUID', async () => {
+    // A plain-http LAN origin is no secure context: only getRandomValues survives.
+    withoutRandomUuid()
+    interpretMock.mockResolvedValueOnce(INTENT)
+    renderPanel()
+
+    typeSentence()
+    fireEvent.click(screen.getByRole('button', { name: 'Prüfen' }))
+
+    expect(await screen.findByText('Vorschau')).toBeInTheDocument()
+    expect(interpretMock.mock.calls[0][0].commandId).toMatch(UUID_PATTERN)
+  })
 })
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const originalRandomUuid = crypto.randomUUID
+
+function withoutRandomUuid() {
+  Object.defineProperty(crypto, 'randomUUID', {
+    value: undefined,
+    writable: true,
+    configurable: true,
+  })
+}
+
+function restoreRandomUuid() {
+  Object.defineProperty(crypto, 'randomUUID', {
+    value: originalRandomUuid,
+    writable: true,
+    configurable: true,
+  })
+}
 
 function fakeStream() {
   return { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream

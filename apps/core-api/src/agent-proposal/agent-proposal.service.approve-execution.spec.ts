@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import { AgentPolicyTier, AgentProposalStatus, Prisma } from '@prisma/client';
 import { AgentProposalService } from './agent-proposal.service.js';
-import { createAgentProposalSpecHarness, createMockProposal, proposalId, tenantId, userId } from './agent-proposal.spec.support.js';
+import { createAgentProposalSpecHarness, createMockProposal, commandId, proposalId, tenantId, userId } from './agent-proposal.spec.support.js';
 
 describe('AgentProposalService approve execution', () => {
   let service: AgentProposalService;
@@ -92,6 +92,25 @@ describe('AgentProposalService approve execution', () => {
       await expect(service.approveProposal(proposalId)).rejects.toThrow(
         UnprocessableEntityException,
       );
+    });
+
+    it('deletes the command replay row once the proposal reaches EXECUTED', async () => {
+      const proposal = createMockProposal({ command_id: commandId });
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce({
+          ...proposal,
+          status: AgentProposalStatus.EXECUTED,
+          decided_by: userId,
+          decided_at: new Date(),
+        });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.approveProposal(proposalId);
+
+      expect(mockPrisma.workshopCommandSession.deleteMany).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, command_id: { in: [commandId] } },
+      });
     });
 
     it('normalizes amount_cents and amountCents to amount_eur by dividing by 100 in extractPolicyContext', async () => {

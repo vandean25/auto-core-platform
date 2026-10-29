@@ -5,6 +5,7 @@ import type {
   ParsedCommand,
   ParsedDay,
   ParsedIdentity,
+  WorkshopIntent,
 } from './workshop-command.types.js';
 
 /**
@@ -27,9 +28,10 @@ export type WorkshopCommandTokens = {
  * Replay row stored in `workshop_command_sessions.normalized_json`.
  *
  * The first block matches the contract. `clocks`, `unsupported_clauses`,
- * `human_only`, `unsupported_grammar`, and `last_status` are additive so the
- * server can reproduce the exact clarification from tokens alone; the raw
- * sentence and transcript are never stored.
+ * `human_only`, `unsupported_grammar`, `last_status`, and
+ * `reviewed_fingerprint` are additive so the server can reproduce the exact
+ * clarification from tokens alone and detect a plan that changed after the
+ * preview; the raw sentence and transcript are never stored.
  */
 export type WorkshopCommandReplay = WorkshopCommandTokens & {
   unsupported_clauses: string[];
@@ -38,6 +40,7 @@ export type WorkshopCommandReplay = WorkshopCommandTokens & {
   selections: CommandSelection[];
   offered_choices: Array<{ slot: string; value: string }>;
   last_status: 'ready' | 'clarification';
+  reviewed_fingerprint: string | null;
 };
 
 export type WorkshopCommandResultStatus = 'ready' | 'clarification';
@@ -61,6 +64,7 @@ export function replayFromParsed(
     selections: CommandSelection[];
     offeredChoices: Array<{ slot: string; value: string }>;
     status: WorkshopCommandResultStatus;
+    reviewedIntent: WorkshopIntent | null;
   },
 ): WorkshopCommandReplay {
   return {
@@ -77,6 +81,10 @@ export function replayFromParsed(
       value: entry.value,
     })),
     last_status: input.status,
+    reviewed_fingerprint:
+      input.reviewedIntent === null
+        ? null
+        : intentFingerprint(input.reviewedIntent),
   };
 }
 
@@ -164,6 +172,17 @@ export function commandFingerprint(
   const canonical = JSON.stringify(
     canonicalize({ tokens, selections: sortedSelections }),
   );
+  return createHash('sha256').update(canonical).digest('hex');
+}
+
+/**
+ * Snapshot of the plan the advisor reviewed, with the command id held constant
+ * so the same plan hashes equally before and after a proposal row exists. A
+ * live re-resolution that changes a price, the resolved day, or a resource id
+ * is a different plan, not the one that was reviewed.
+ */
+export function intentFingerprint(intent: WorkshopIntent): string {
+  const canonical = JSON.stringify(canonicalize({ ...intent, command_id: '' }));
   return createHash('sha256').update(canonical).digest('hex');
 }
 

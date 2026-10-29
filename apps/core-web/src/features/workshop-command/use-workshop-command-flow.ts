@@ -10,14 +10,8 @@ import {
   type WorkshopCommandSelection,
   type WorkshopCommandSource,
 } from '@/api/workshop-command'
+import { generateId } from '@/lib/id'
 import { toCommandError, type CommandError } from './command-error'
-
-function newCommandId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `command-${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
 
 function withSelection(
   selections: WorkshopCommandSelection[],
@@ -30,7 +24,7 @@ function withSelection(
 export function useWorkshopCommandFlow() {
   const [text, setTextValue] = React.useState('')
   const [source, setSource] = React.useState<WorkshopCommandSource>('keyboard')
-  const [commandId, setCommandId] = React.useState(newCommandId)
+  const [commandId, setCommandId] = React.useState(generateId)
   const [selections, setSelections] = React.useState<WorkshopCommandSelection[]>([])
   const [result, setResult] = React.useState<WorkshopCommandResponse | null>(null)
   const [proposal, setProposal] = React.useState<WorkshopCommandProposal | null>(null)
@@ -39,7 +33,7 @@ export function useWorkshopCommandFlow() {
   const [busy, setBusy] = React.useState(false)
 
   const resetReview = () => {
-    setCommandId(newCommandId())
+    setCommandId(generateId())
     setSelections([])
     setResult(null)
     setProposal(null)

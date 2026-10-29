@@ -17,6 +17,7 @@ import { buildProposalResult } from './workshop-command.proposal.js';
 import {
   commandFingerprint,
   isSelectionOffered,
+  intentFingerprint,
   sameTokens,
   offeredChoicesOf,
   parsedFromReplay,
@@ -153,6 +154,7 @@ export class WorkshopCommandService {
           result.status === 'clarification' ? result.choices : [],
         ),
         status: result.status,
+        reviewedIntent: result.status === 'ready' ? result : null,
       }),
     });
     return result;
@@ -275,6 +277,7 @@ export class WorkshopCommandService {
         : 'INTENT_INCOMPLETE';
       throw conflict(code, result.prompt);
     }
+    this.assertReviewedPlan(session.replay, result);
 
     const fingerprint = commandFingerprint(
       selectTokens(session.replay),
@@ -378,6 +381,7 @@ export class WorkshopCommandService {
         'The stored command no longer resolves.',
       );
     }
+    this.assertReviewedPlan(session.replay, intent);
     return {
       statusCode: 200,
       body: buildProposalResult(intent, proposal.id, proposal.trace_id),
@@ -418,6 +422,30 @@ export class WorkshopCommandService {
     selections: CommandSelection[],
   ): boolean {
     return selections.length > 0 && AMBIGUITY_CODES.has(result.code);
+  }
+
+  /**
+   * A command whose last interpret ended in a clarification has no reviewed
+   * plan, so there is nothing to compare against.
+   */
+  private reviewedPlanChanged(
+    replay: WorkshopCommandReplay,
+    intent: WorkshopIntent,
+  ): boolean {
+    const reviewed = replay.reviewed_fingerprint;
+    return reviewed != null && reviewed !== intentFingerprint(intent);
+  }
+
+  private assertReviewedPlan(
+    replay: WorkshopCommandReplay,
+    intent: WorkshopIntent,
+  ): void {
+    if (this.reviewedPlanChanged(replay, intent)) {
+      throw conflict(
+        PLAN_STALE,
+        'The plan changed after the preview. Please review it again.',
+      );
+    }
   }
 
   private assertSelectionsWereOffered(
@@ -484,6 +512,7 @@ export class WorkshopCommandService {
       selections,
     );
     if (!intent) return null;
+    if (this.reviewedPlanChanged(session.replay, intent)) return null;
     return {
       statusCode: 200,
       body: buildProposalResult(intent, existing.id, existing.trace_id),

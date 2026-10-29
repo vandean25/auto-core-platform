@@ -538,7 +538,7 @@ export class WorkshopCommandResolver {
       vehicle_id: vehicle.id,
       schedule: {
         local_date: this.localDate(parsed, input.now, input.site.timezone),
-        local_start: parsed.startClock!,
+        local_start: this.clockOf(time.startAt, input.site.timezone),
         local_end: this.clockOf(time.endAt, input.site.timezone),
         start_at: time.startAt.toISOString(),
         end_at: time.endAt.toISOString(),

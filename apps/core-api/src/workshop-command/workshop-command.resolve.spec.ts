@@ -1,8 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { LoanerVehiclesAuthorization } from '../loaner-vehicles/loaner-vehicles.authorization.js';
 import { WorkshopCommandResolver } from './workshop-command.resolve.js';
-import type { InterpretResult, WorkshopIntent } from './workshop-command.types.js';
+import { intentFingerprint } from './workshop-command.tokens.js';
+import type {
+  Clarification,
+  CommandSelection,
+  InterpretResult,
+  WorkshopIntent,
+} from './workshop-command.types.js';
 
 type Json = Record<string, any>;
 
@@ -10,6 +17,9 @@ const FIXTURE_DIR = new URL(
   '../../../../docs/internal/02-Feature-Specs/Platform/command-first-workshop/fixtures/',
   import.meta.url,
 );
+
+const DEFAULT_NOW = '2026-10-15T14:30:00+02:00';
+const DEFAULT_COMMAND_ID = '51500000-0000-4000-8000-0000000000aa';
 
 function fixture(name: string): Json {
   return JSON.parse(readFileSync(new URL(name, FIXTURE_DIR), 'utf8')) as Json;
@@ -186,35 +196,72 @@ function buildResolver(world: World): WorkshopCommandResolver {
   return new WorkshopCommandResolver(prisma as unknown as PrismaService, authorization);
 }
 
+const TENANT_TAGGED_COLLECTIONS = [
+  'sites',
+  'customers',
+  'vehicles',
+  'labor_operations',
+  'presets',
+  'bays',
+  'loaners',
+] as const;
+
+function withTenant(world: World): World {
+  const tagged: World = { ...world };
+  for (const key of TENANT_TAGGED_COLLECTIONS) {
+    tagged[key] = (world[key] as Json[]).map((row) => ({
+      ...row,
+      tenant_id: 'tenant-1',
+    }));
+  }
+  return tagged;
+}
+
 function siteOf(world: World) {
   const site = world.sites.find((entry: Json) => entry.id === world.operative_site_id)!;
   return { ...site, tenant_id: 'tenant-1' };
 }
 
+type ResolveOptions = {
+  text: string;
+  commandId?: string;
+  source?: 'keyboard' | 'voice_transcript';
+  now?: string;
+  selections?: CommandSelection[];
+};
+
+function resolveIn(world: World, options: ResolveOptions): Promise<InterpretResult> {
+  const tagged = withTenant(world);
+  return buildResolver(tagged).resolve({
+    tenantId: 'tenant-1',
+    site: siteOf(tagged),
+    text: options.text,
+    commandId: options.commandId ?? DEFAULT_COMMAND_ID,
+    source: options.source ?? 'keyboard',
+    now: new Date(options.now ?? DEFAULT_NOW),
+    selections: options.selections ?? [],
+  });
+}
+
+/** Resolves one sentence against the shared pilot world. */
+function resolveSentence(
+  text: string,
+  options: Omit<ResolveOptions, 'text'> = {},
+): Promise<InterpretResult> {
+  return resolveIn(fixture('world.json'), { text, ...options });
+}
+
 async function runFixture(name: string): Promise<InterpretResult> {
   const document = fixture(name);
-  const world = { ...fixture(document.world), ...(document.world_patch ?? {}) } as World;
-  world.sites = world.sites.map((site: Json) => ({ ...site, tenant_id: 'tenant-1' }));
-  world.customers = world.customers.map((customer: Json) => ({ ...customer, tenant_id: 'tenant-1' }));
-  world.vehicles = world.vehicles.map((vehicle: Json) => ({ ...vehicle, tenant_id: 'tenant-1' }));
-  world.labor_operations = world.labor_operations.map((operation: Json) => ({
-    ...operation,
-    tenant_id: 'tenant-1',
-  }));
-  world.presets = world.presets.map((preset: Json) => ({ ...preset, tenant_id: 'tenant-1' }));
-  world.bays = world.bays.map((bay: Json) => ({ ...bay, tenant_id: 'tenant-1' }));
-  world.loaners = world.loaners.map((loaner: Json) => ({ ...loaner, tenant_id: 'tenant-1' }));
-
-  const resolver = buildResolver(world);
-  return resolver.resolve({
-    tenantId: 'tenant-1',
-    site: siteOf(world),
-    text: document.input.text,
-    commandId: document.input.command_id,
-    source: document.input.source,
-    now: new Date(document.now),
-    selections: [],
-  });
+  return resolveIn(
+    { ...fixture(document.world), ...(document.world_patch ?? {}) } as World,
+    {
+      text: document.input.text,
+      commandId: document.input.command_id,
+      source: document.input.source,
+      now: document.now,
+    },
+  );
 }
 
 describe('WorkshopCommandResolver fixtures', () => {
@@ -275,38 +322,123 @@ describe('WorkshopCommandResolver fixtures', () => {
   it('resolves a plate and a VIN locally without a provider call', async () => {
     const document = fixture('no-provider-pii.json');
     for (const testCase of document.cases) {
-      const world = { ...fixture('world.json') };
-      world.sites = world.sites.map((site: Json) => ({ ...site, tenant_id: 'tenant-1' }));
-      world.customers = world.customers.map((customer: Json) => ({
-        ...customer,
-        tenant_id: 'tenant-1',
-      }));
-      world.vehicles = world.vehicles.map((vehicle: Json) => ({
-        ...vehicle,
-        tenant_id: 'tenant-1',
-      }));
-      world.labor_operations = world.labor_operations.map((operation: Json) => ({
-        ...operation,
-        tenant_id: 'tenant-1',
-      }));
-      world.presets = world.presets.map((preset: Json) => ({ ...preset, tenant_id: 'tenant-1' }));
-      world.bays = world.bays.map((bay: Json) => ({ ...bay, tenant_id: 'tenant-1' }));
-      world.loaners = world.loaners.map((loaner: Json) => ({ ...loaner, tenant_id: 'tenant-1' }));
-
-      const resolver = buildResolver(world);
-      const result = await resolver.resolve({
-        tenantId: 'tenant-1',
-        site: siteOf(world),
+      const result = await resolveIn(fixture('world.json'), {
         text: testCase.input.text,
         commandId: testCase.input.command_id,
         source: testCase.input.source,
-        now: new Date(testCase.now),
-        selections: [],
+        now: testCase.now,
       });
 
       for (const [key, value] of Object.entries(testCase.expect.body)) {
         expect((result as WorkshopIntent)[key as keyof WorkshopIntent]).toEqual(value);
       }
     }
+  });
+
+  it('reaches a ready intent through an explicit end clock', async () => {
+    const result = await resolveSentence(
+      'Huber Golf morgen 8 Uhr bis 10 Uhr großes Service',
+    );
+
+    expect(result.status).toBe('ready');
+    expect((result as WorkshopIntent).schedule).toEqual(
+      expect.objectContaining({
+        local_date: '2026-10-16',
+        local_start: '08:00',
+        local_end: '10:00',
+        duration_minutes: 120,
+        duration_source: 'end_clock',
+      }),
+    );
+  });
+
+  it('resolves both spellings of übermorgen', async () => {
+    for (const text of [
+      'Huber Golf übermorgen 8 Uhr großes Service',
+      'Huber Golf uebermorgen 8 Uhr großes Service',
+    ]) {
+      const result = await resolveSentence(text);
+
+      expect(result.status).toBe('ready');
+      expect((result as WorkshopIntent).schedule.local_date).toBe('2026-10-17');
+    }
+  });
+
+  it('shows the clock the advisor chose for a contradictory start time', async () => {
+    const text = 'Huber Golf morgen 8 Uhr und um 10 Uhr großes Service';
+    const clarification = (await resolveSentence(text)) as Clarification;
+    expect(clarification.code).toBe('TIME_CONTRADICTORY');
+    const chosen = clarification.choices[1];
+    expect(chosen).toEqual(
+      expect.objectContaining({ slot: 'local_start', value: '10:00' }),
+    );
+
+    const ready = (await resolveSentence(text, {
+      selections: [{ slot: chosen.slot, value: chosen.value }],
+    })) as WorkshopIntent;
+
+    expect(ready.status).toBe('ready');
+    expect(ready.schedule).toEqual(
+      expect.objectContaining({
+        local_start: '10:00',
+        local_end: '11:30',
+        start_at: '2026-10-16T08:00:00.000Z',
+        duration_source: 'preset_sum',
+      }),
+    );
+  });
+
+  it('keeps one plan fingerprint for the same intent under another command id', async () => {
+    const reviewed = (await runFixture('canonical-huber-golf.json')) as WorkshopIntent;
+
+    expect(intentFingerprint(reviewed)).toBe(
+      intentFingerprint({ ...reviewed, command_id: randomUUID() }),
+    );
+  });
+
+  it('changes the plan fingerprint when a labor rate moves after the preview', async () => {
+    const document = fixture('canonical-huber-golf.json');
+    const reviewed = (await runFixture('canonical-huber-golf.json')) as WorkshopIntent;
+    const world = {
+      ...fixture(document.world),
+      labor_operations: (fixture(document.world).labor_operations as Json[]).map(
+        (operation) => ({
+          ...operation,
+          hourly_rate_cents: operation.hourly_rate_cents * 2,
+        }),
+      ),
+    };
+
+    const live = (await resolveIn(world, {
+      text: document.input.text,
+      commandId: document.input.command_id,
+      now: document.now,
+    })) as WorkshopIntent;
+
+    expect(live.position_plan.lines[0].net_cents).toBe(
+      2 * reviewed.position_plan.lines[0].net_cents,
+    );
+    expect(intentFingerprint(reviewed)).not.toBe(intentFingerprint(live));
+  });
+
+  it('changes the plan fingerprint when the resolved day crosses midnight', async () => {
+    const document = fixture('morgen-midnight.json');
+    const reviewed: WorkshopIntent[] = [];
+    for (const testCase of document.cases) {
+      const intent = (await resolveIn(fixture(document.world), {
+        text: testCase.input.text,
+        commandId: testCase.input.command_id,
+        now: testCase.now,
+      })) as WorkshopIntent;
+
+      expect(intent).toEqual(testCase.expect.body);
+      reviewed.push(intent);
+    }
+
+    expect(reviewed.map((intent) => intent.schedule.local_date)).toEqual([
+      '2026-10-17',
+      '2026-10-16',
+    ]);
+    expect(intentFingerprint(reviewed[0])).not.toBe(intentFingerprint(reviewed[1]));
   });
 });

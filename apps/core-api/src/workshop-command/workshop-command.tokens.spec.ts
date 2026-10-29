@@ -31,6 +31,7 @@ describe('workshop command replay tokens', () => {
       selections: [],
       offeredChoices: [],
       status: 'ready',
+      reviewedIntent: null,
     });
     const restored = parsedFromReplay(replay);
 
@@ -38,6 +39,7 @@ describe('workshop command replay tokens', () => {
     expect(restored.unsupportedClauses).toEqual(source.unsupportedClauses);
     expect(restored.humanOnly).toBe(source.humanOnly);
     expect(restored.unsupportedGrammar).toBe(source.unsupportedGrammar);
+    expect(replay.reviewed_fingerprint).toBeNull();
   });
 
   it('hashes equal tokens and selections equally, independent of order', () => {

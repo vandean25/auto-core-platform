@@ -30,11 +30,15 @@ function asReplay(value: Prisma.JsonValue): WorkshopCommandReplay {
 export class WorkshopCommandSessionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Deletes sessions whose retention window has passed. */
-  async purgeExpired(tenantId: string, now: Date = new Date()): Promise<void> {
-    await this.prisma.workshopCommandSession.deleteMany({
+  /** Deletes sessions whose retention window has passed. Returns the row count. */
+  async purgeExpired(
+    tenantId: string,
+    now: Date = new Date(),
+  ): Promise<number> {
+    const deleted = await this.prisma.workshopCommandSession.deleteMany({
       where: { tenant_id: tenantId, expires_at: { lt: now } },
     });
+    return deleted.count;
   }
 
   async find(
@@ -112,13 +116,6 @@ export class WorkshopCommandSessionService {
         normalized_json: replay,
         expires_at: expiresAt,
       },
-    });
-  }
-
-  /** Hard-deletes the replay row for one command. Called when a proposal leaves PENDING. */
-  async deleteForCommand(tenantId: string, commandId: string): Promise<void> {
-    await this.prisma.workshopCommandSession.deleteMany({
-      where: { tenant_id: tenantId, command_id: commandId },
     });
   }
 }

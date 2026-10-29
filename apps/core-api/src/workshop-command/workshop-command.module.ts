@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { WorkshopCommandController } from './workshop-command.controller.js';
 import { WorkshopCommandResolver } from './workshop-command.resolve.js';
 import { WorkshopCommandService } from './workshop-command.service.js';
+import { WorkshopCommandSessionRetentionService } from './workshop-command-session-retention.service.js';
 import { WorkshopCommandSessionService } from './workshop-command-session.service.js';
 
 @Module({
@@ -13,6 +14,7 @@ import { WorkshopCommandSessionService } from './workshop-command-session.servic
   providers: [
     WorkshopCommandResolver,
     WorkshopCommandSessionService,
+    WorkshopCommandSessionRetentionService,
     WorkshopCommandService,
   ],
   exports: [WorkshopCommandSessionService],

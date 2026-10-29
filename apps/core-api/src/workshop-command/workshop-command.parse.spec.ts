@@ -89,6 +89,32 @@ describe('workshop command parser', () => {
 
     expect(parsed.startClock).toBe('08:00');
     expect(parsed.endClock).toBe('10:00');
+    expect(parsed.unsupportedClauses).toEqual([]);
+  });
+
+  it('drops a dangling "bis" without an end clock', () => {
+    const parsed = parseCommandText(
+      'Huber Golf morgen 8 Uhr bis großes Service',
+      { sites: SITES },
+      NOW,
+      'Europe/Vienna',
+    );
+
+    expect(parsed.endClock).toBeNull();
+    expect(parsed.unsupportedClauses).toEqual(['bis']);
+  });
+
+  it('recognizes the umlaut and the ascii spelling of übermorgen', () => {
+    for (const text of [
+      'Huber Golf übermorgen 8 Uhr großes Service',
+      'Huber Golf uebermorgen 8 Uhr großes Service',
+    ]) {
+      const parsed = parseCommandText(text, { sites: SITES }, NOW, 'Europe/Vienna');
+
+      expect(parsed.day).toEqual({ kind: 'relative', word: 'übermorgen' });
+      expect(parsed.unsupportedClauses).toEqual([]);
+      expect(resolveCommandDay(parsed.day!, NOW, 'Europe/Vienna')).toBe('2026-10-17');
+    }
   });
 
   it('recognizes the named site NORD', () => {

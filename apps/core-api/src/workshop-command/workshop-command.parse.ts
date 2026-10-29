@@ -54,6 +54,7 @@ const HUMAN_ONLY_PATTERN =
   /\b(kva\s+senden|kostenvoranschlag\s+senden|rechnung|bezahlen|mailen|anrufen)\b/iu;
 const UNSUPPORTED_GRAMMAR_PATTERN =
   /\b(neuer\s+kunde|fahrzeug\s+anlegen|löschen|loeschen|stornieren|preis|euro|mechaniker|stunden?|minuten?)\b/iu;
+const END_CLOCK_CONNECTOR = 'bis';
 
 function normalizeText(text: string): string {
   return text.normalize('NFC').trim().replace(/\s+/gu, ' ');
@@ -129,7 +130,7 @@ function findDay(
   lower: string,
   mask: Mask,
 ): { day: ParsedDay; start: number; end: number } | null {
-  const wordRegex = new RegExp(`\\b(${DAY_WORDS.join('|')})\\b`, 'giu');
+  const wordRegex = wordBoundaryRegex(DAY_WORDS);
   for (const match of lower.matchAll(wordRegex)) {
     const start = match.index ?? 0;
     const end = start + match[0].length;
@@ -163,8 +164,21 @@ function findDay(
 }
 
 function phraseRegex(phrase: string): RegExp {
-  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu');
+  return wordBoundaryRegex([phrase]);
+}
+
+/**
+ * `\b` is ASCII-only, so it never sees `ü` as a word character. Matching the
+ * supported day words and preset phrases needs letter/number lookarounds.
+ */
+function wordBoundaryRegex(words: readonly string[]): RegExp {
+  const alternatives = words.map((word) =>
+    word.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'),
+  );
+  return new RegExp(
+    `(?<![\\p{L}\\p{N}])${alternatives.join('|')}(?![\\p{L}\\p{N}])`,
+    'giu',
+  );
 }
 
 function findPresets(
@@ -415,16 +429,22 @@ function pickClock(
   return match ? match.clock : null;
 }
 
+function findEndClockConnector(lower: string): WordMatch | null {
+  const match = wordBoundaryRegex([END_CLOCK_CONNECTOR]).exec(lower);
+  if (!match) return null;
+  const start = match.index ?? 0;
+  return { start, end: start + match[0].length, value: match[0] };
+}
+
 function splitClocks(
   clocks: ClockRef[],
-  lower: string,
+  connector: WordMatch | null,
 ): { startClock: string | null; endClock: string | null } {
-  const bisIndex = lower.search(/\bbis\b/iu);
-  if (bisIndex < 0)
+  if (!connector)
     return { startClock: pickClock(clocks, () => true), endClock: null };
   return {
-    startClock: pickClock(clocks, (clock) => clock.start < bisIndex),
-    endClock: pickClock(clocks, (clock) => clock.start > bisIndex),
+    startClock: pickClock(clocks, (clock) => clock.start < connector.start),
+    endClock: pickClock(clocks, (clock) => clock.start > connector.start),
   };
 }
 
@@ -469,12 +489,17 @@ export function parseCommandText(
   const siteMatch = findSite(normalized, lower, mask, options.sites);
   maskSeparators(lower, mask);
 
+  const connector = findEndClockConnector(lower);
+  const { startClock, endClock } = splitClocks(clocks, connector);
+  if (connector && endClock !== null) {
+    consume(mask, connector.start, connector.end);
+  }
+
   const clauses = clauseRanges(normalized, mask)
     .map((range) => ({ range, ...unmaskedText(normalized, mask, range) }))
     .filter((clause) => clause.tokens.length > 0);
 
   const identityMatch = parseIdentity(vin, plate, clauses);
-  const { startClock, endClock } = splitClocks(clocks, lower);
 
   return {
     identity: identityMatch.identity,
