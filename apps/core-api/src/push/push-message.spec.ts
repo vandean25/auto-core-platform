@@ -2,6 +2,8 @@ import { NotificationEventType } from '@prisma/client';
 import {
   buildPushMessage,
   PUSH_DATA_KEYS,
+  PUSH_LINK_SITE_PARAM,
+  PUSH_LINK_TENANT_PARAM,
   type PushMessageInput,
 } from './push-message.js';
 
@@ -10,6 +12,8 @@ const base: PushMessageInput = {
   locale: 'de',
   orderId: 'order-1',
   orderNumber: 'WO-2026-0007',
+  tenantId: 'tenant-1',
+  siteId: 'site-1',
   decision: 'APPROVED',
 };
 
@@ -34,9 +38,22 @@ describe('push message', () => {
     const message = buildPushMessage(base);
     expect(message).toMatchObject({
       orderId: 'order-1',
-      url: '/workshop/orders/order-1',
+      url: '/workshop/orders/order-1?pushTenant=tenant-1&pushSite=site-1',
       tag: 'CUSTOMER_ESTIMATE_DECIDED:order-1',
     });
+  });
+
+  it('carries the tenant and site of the order in the link, so the app can open the order from another context', () => {
+    const link = buildPushMessage(base)?.url as string;
+    const params = new URL(link, 'https://app.example').searchParams;
+    expect(params.get(PUSH_LINK_TENANT_PARAM)).toBe('tenant-1');
+    expect(params.get(PUSH_LINK_SITE_PARAM)).toBe('site-1');
+    expect(buildPushMessage({ ...base, siteId: null })?.url).toBe(
+      '/workshop/orders/order-1?pushTenant=tenant-1',
+    );
+    expect(
+      buildPushMessage({ ...base, tenantId: 'a&b', siteId: 's/1' })?.url,
+    ).toBe('/workshop/orders/order-1?pushTenant=a%26b&pushSite=s%2F1');
   });
 
   it('covers the other v1 events and the test push', () => {
