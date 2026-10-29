@@ -5,6 +5,12 @@ import {
   type EscapeHtml,
 } from '../common/pdf/pdf-layout.js';
 import {
+  createDocumentNumberFormatter,
+  type DocumentNumberFormatter,
+} from '../common/format/document-number-format.js';
+import { readDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import { formatLocaleForDisplayLanguage } from '../common/i18n/display-language.js';
+import {
   FOOTER_DECORATIVE_WIDTH_MM,
   HEADER_DECORATIVE_MAX_LINES,
   HEADER_DECORATIVE_WIDTH_MM,
@@ -28,6 +34,26 @@ export const isDachRechnungSnapshot = (snapshot: InvoiceSnapshot): boolean =>
 
 export const isCreditNoteSnapshot = (snapshot: InvoiceSnapshot): boolean =>
   snapshot.document_kind === 'CREDIT_NOTE';
+
+/**
+ * Numbers are formatted in the language the document text is rendered in: German documents
+ * use Austrian separators, English documents keep the decimal point. Snapshots frozen before
+ * the document language was stored fall back to the language of the hardcoded labels.
+ */
+export const createInvoicePdfNumberFormatter = (
+  snapshot: InvoiceSnapshot,
+): DocumentNumberFormatter => {
+  const frozen = readDocumentSnapshotLocaleFields(snapshot);
+  const language = frozen
+    ? frozen.document_locale
+    : isDachRechnungSnapshot(snapshot)
+      ? 'de'
+      : 'en';
+  return createDocumentNumberFormatter(
+    formatLocaleForDisplayLanguage(language),
+    snapshot.currency,
+  );
+};
 
 const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
   snapshot.customer.type === 'COMPANY'
@@ -137,20 +163,17 @@ const buildSupplyDateLabel = (
 
 const buildLineDiscountLabel = (
   item: InvoiceSnapshot['items'][number],
+  numbers: DocumentNumberFormatter,
 ): string | null => {
   if (!item.line_discount_type || !item.line_discount_value) {
     return null;
   }
 
   if (item.line_discount_type === 'PERCENTAGE') {
-    const percentage = Number.parseFloat(item.line_discount_value);
-    const formatted = Number.isFinite(percentage)
-      ? String(percentage)
-      : item.line_discount_value;
-    return `Rabatt ${formatted}%`;
+    return `Rabatt ${numbers.formatRate(item.line_discount_value)}%`;
   }
 
-  return `Rabatt ${item.line_discount_value}`;
+  return `Rabatt ${numbers.formatAmount(item.line_discount_value)}`;
 };
 
 export const buildInvoiceTaxBreakdownSection = (
@@ -165,12 +188,15 @@ export const buildInvoiceTaxBreakdownSection = (
     return '';
   }
 
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
   const rows = snapshot.tax_breakdown
     .map(
       (bucket) => `
       <div class="total-row tax-rate-row">
-        <span>${escapeHtml(bucket.rate)} % USt (Netto ${escapeHtml(bucket.net)}):</span>
-        <span>${escapeHtml(bucket.tax)}</span>
+        <span>${escapeHtml(
+          `${numbers.formatRate(bucket.rate)} % USt (Netto ${numbers.formatAmount(bucket.net)})`,
+        )}:</span>
+        <span>${escapeHtml(numbers.formatAmount(bucket.tax))}</span>
       </div>
     `,
     )
@@ -397,6 +423,7 @@ export const buildInvoiceItemsTable = (
   escapeHtml: EscapeHtml,
 ): string => {
   const isDach = isDachRechnungSnapshot(snapshot);
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
   const descriptionLabel = isDach ? 'Beschreibung' : 'Description';
   const quantityLabel = isDach ? 'Menge' : 'Qty';
   const unitPriceLabel = isDach ? 'Einzelpreis' : 'Unit Price';
@@ -404,7 +431,9 @@ export const buildInvoiceItemsTable = (
 
   const itemsHtml = snapshot.items
     .map((item) => {
-      const discountLabel = isDach ? buildLineDiscountLabel(item) : null;
+      const discountLabel = isDach
+        ? buildLineDiscountLabel(item, numbers)
+        : null;
       const description = discountLabel
         ? `${item.description} (${discountLabel})`
         : item.description;
@@ -412,9 +441,9 @@ export const buildInvoiceItemsTable = (
       return `
       <tr>
         <td>${escapeHtml(description)}</td>
-        <td style="text-align: right">${escapeHtml(item.quantity)}</td>
-        <td style="text-align: right">${escapeHtml(item.unit_price)}</td>
-        <td style="text-align: right">${escapeHtml(item.line_total ?? '')}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatQuantity(item.quantity))}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatAmount(item.unit_price))}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatAmount(item.line_total))}</td>
       </tr>
     `;
     })
@@ -441,6 +470,8 @@ export const buildInvoiceTotalsSection = (
   snapshot: InvoiceSnapshot,
   escapeHtml: EscapeHtml,
 ): string => {
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
+
   if (snapshot.tax_mode === 'MARGIN_SCHEME') {
     const grossLabel = isDachRechnungSnapshot(snapshot) ? 'Brutto:' : 'Gross:';
     const legalNote = resolveMarginSchemeLegalNote(
@@ -451,7 +482,7 @@ export const buildInvoiceTotalsSection = (
       <div class="totals">
         <div class="total-row grand">
           <span>${grossLabel}</span>
-          <span>${escapeHtml(snapshot.total_gross)}</span>
+          <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>
         </div>
       </div>
       <div class="legal-line">${escapeHtml(legalNote)}</div>
@@ -466,15 +497,15 @@ export const buildInvoiceTotalsSection = (
     <div class="totals">
       <div class="total-row">
         <span>Netto:</span>
-        <span>${escapeHtml(snapshot.total_net)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_net))}</span>
       </div>
       <div class="total-row">
         <span>Umsatzsteuer:</span>
-        <span>${escapeHtml(snapshot.total_tax)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_tax))}</span>
       </div>
       <div class="total-row grand">
         <span>Brutto:</span>
-        <span>${escapeHtml(snapshot.total_gross)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>
       </div>
     </div>
   `;
@@ -484,15 +515,15 @@ export const buildInvoiceTotalsSection = (
     <div class="totals">
       <div class="total-row">
         <span>Net:</span>
-        <span>${escapeHtml(snapshot.total_net)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_net))}</span>
       </div>
       <div class="total-row">
         <span>Tax:</span>
-        <span>${escapeHtml(snapshot.total_tax)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_tax))}</span>
       </div>
       <div class="total-row grand">
         <span>Gross:</span>
-        <span>${escapeHtml(snapshot.total_gross)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>
       </div>
     </div>
   `;

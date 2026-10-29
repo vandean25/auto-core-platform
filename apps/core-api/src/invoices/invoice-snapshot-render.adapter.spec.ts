@@ -99,7 +99,7 @@ describe('toRenderableInvoiceSnapshot', () => {
     expect(renderable?.payment_terms?.text).toBe(
       'Zahlbar innerhalb von 14 Tagen.',
     );
-    expect(renderable?.items[0].line_total).toBe('120.00');
+    expect(renderable?.items[0].line_total).toBe('100.00');
     expect(renderable?.tax_breakdown?.[0].gross).toBe('120.00');
   });
 

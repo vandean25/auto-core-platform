@@ -29,7 +29,7 @@ export function toRenderableInvoiceSnapshot(
       tax_rate: item.tax_rate,
       line_discount_type: item.line_discount_type,
       line_discount_value: item.line_discount_value,
-      line_total: item.gross,
+      line_total: item.net,
       revenue_group_name: item.revenue_group_name,
     })),
     snapshot_created_at: snapshot.snapshot_created_at,
