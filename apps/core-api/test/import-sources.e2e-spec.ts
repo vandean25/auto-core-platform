@@ -73,10 +73,10 @@ describe('Import sources (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/imports/sources')
         .set('Authorization', adminHeader)
-        .send({ key: 'legacy-dms', label: 'Legacy DMS', is_default: true })
+        .send({ key: 'dms-main', label: 'Legacy DMS', is_default: true })
         .expect(201);
 
-      expect(res.body.key).toBe('legacy-dms');
+      expect(res.body.key).toBe('dms-main');
       expect(res.body.label).toBe('Legacy DMS');
       expect(res.body.is_default).toBe(true);
     });
@@ -95,7 +95,7 @@ describe('Import sources (e2e)', () => {
       await request(app.getHttpServer())
         .post('/imports/sources')
         .set('Authorization', adminHeader)
-        .send({ key: 'legacy-dms', label: 'Duplicate' })
+        .send({ key: 'dms-main', label: 'Duplicate' })
         .expect(409)
         .expect((res) => {
           expect(res.body.code).toBe('IMPORT_SOURCE_ALREADY_EXISTS');
@@ -120,7 +120,7 @@ describe('Import sources (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      expect(res.body.data.some((s: any) => s.key === 'legacy-dms')).toBe(true);
+      expect(res.body.data.some((s: any) => s.key === 'dms-main')).toBe(true);
     });
 
     it('updates an import source', async () => {
@@ -129,7 +129,7 @@ describe('Import sources (e2e)', () => {
         .set('Authorization', adminHeader)
         .expect(200);
 
-      const source = list.body.data.find((s: any) => s.key === 'legacy-dms');
+      const source = list.body.data.find((s: any) => s.key === 'dms-main');
       const res = await request(app.getHttpServer())
         .patch(`/imports/sources/${source.id}`)
         .set('Authorization', adminHeader)
@@ -359,9 +359,8 @@ describe('Import sources (e2e)', () => {
         where: { tenant_id: migrationTenant.tenantId },
       });
 
-      expect(sources.length).toBe(2);
-      expect(sources.some((s) => s.key === 'old-system-1')).toBe(true);
-      expect(sources.some((s) => s.key === 'old-system-2')).toBe(true);
+      const keys = sources.map((s) => s.key).sort();
+      expect(keys).toEqual(['legacy-dms', 'old-system-1', 'old-system-2']);
 
       await cleanupTestTenantGraph(prisma, migrationTenant.tenantId);
     });

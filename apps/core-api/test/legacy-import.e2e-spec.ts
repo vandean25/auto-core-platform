@@ -67,9 +67,9 @@ describe('Legacy CSV import (e2e)', () => {
     authHeaderA = `Bearer ${createTestAuthToken(authService, tenantA)}`;
     authHeaderB = `Bearer ${createTestAuthToken(authService, tenantB)}`;
 
-    // Create import sources for tenant A (used by tests)
+    // createTestTenant seeds the default legacy-dms source; add the extras
+    // these tests import with.
     const sourceKeys = [
-      'legacy-dms',
       'legacy-dms-veh',
       'legacy-dms-veh2',
       'legacy-dms-slow',
@@ -77,32 +77,23 @@ describe('Legacy CSV import (e2e)', () => {
       'synthetic_dms:bg',
       'dup-test',
     ];
+    const tenantPrismaA = createTenantAwarePrisma(prisma, tenantA.tenantId);
     for (const key of sourceKeys) {
-      await prisma.importSource.create({
+      await tenantPrismaA.importSource.create({
         data: {
           tenant_id: tenantA.tenantId,
           key,
           label: key,
-          is_default: key === 'legacy-dms',
         },
       });
     }
 
-    // Create import sources for tenant B
-    await prisma.importSource.create({
-      data: {
-        tenant_id: tenantB.tenantId,
-        key: 'legacy-dms',
-        label: 'Legacy DMS',
-        is_default: true,
-      },
-    });
-    await prisma.importSource.create({
+    const tenantPrismaB = createTenantAwarePrisma(prisma, tenantB.tenantId);
+    await tenantPrismaB.importSource.create({
       data: {
         tenant_id: tenantB.tenantId,
         key: 'incadea',
         label: 'incadea',
-        is_default: false,
       },
     });
   });

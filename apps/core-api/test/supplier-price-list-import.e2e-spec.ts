@@ -107,6 +107,10 @@ describe('Supplier Price List Import (e2e)', () => {
 
     // 2. Setup Tenant A data inside tenant context
     await runWithTenantContext(tenantA.tenantId, async () => {
+      await tenantPrismaA.importSource.create({
+        data: { tenant_id: tenantA.tenantId, key: 'supplier', label: 'Supplier' },
+      });
+
       // Create Vendor A (fictitious supplier name strictly used)
       vendorA = await tenantPrismaA.vendor.create({
         data: {
@@ -304,7 +308,7 @@ describe('Supplier Price List Import (e2e)', () => {
       .post('/api/imports')
       .set('Authorization', `Bearer ${techTokenA}`)
       .field('entityType', 'SUPPLIER_PRICE_LIST')
-      .field('sourceSystem', vendorA.id)
+      .field('sourceSystem', 'supplier')
       .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
       .attach(
         'file',
@@ -380,7 +384,7 @@ describe('Supplier Price List Import (e2e)', () => {
       .post('/api/imports')
       .set('Authorization', `Bearer ${adminTokenA}`)
       .field('entityType', 'SUPPLIER_PRICE_LIST')
-      .field('sourceSystem', vendorA.id)
+      .field('sourceSystem', 'supplier')
       .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
       .field('options', JSON.stringify({ vendor_id: vendorA.id }))
       .attach('file', csvBuffer5000, 'supplier-prices-5000.csv')
@@ -504,7 +508,7 @@ describe('Supplier Price List Import (e2e)', () => {
       .post('/api/imports')
       .set('Authorization', `Bearer ${adminTokenA}`)
       .field('entityType', 'SUPPLIER_PRICE_LIST')
-      .field('sourceSystem', vendorA.id)
+      .field('sourceSystem', 'supplier')
       .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
       .field('options', JSON.stringify({ vendor_id: vendorA.id }))
       .attach('file', csvBuffer5000, 'supplier-prices-5000.csv')

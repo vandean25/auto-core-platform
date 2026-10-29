@@ -95,11 +95,6 @@ describe('Decision live-apply (e2e)', () => {
     live = app.get(DecisionLiveApplyService);
     tenantA = await createTestTenant(prisma, 'decision-live-a');
     tenantB = await createTestTenant(prisma, 'decision-live-b');
-    for (const tenant of [tenantA, tenantB]) {
-      await createTenantAwarePrisma(prisma, tenant.tenantId).importSource.create({
-        data: { tenant_id: tenant.tenantId, key: 'legacy-dms', label: 'Legacy DMS' },
-      });
-    }
     authA = `Bearer ${createTestAuthToken(authService, tenantA)}`;
     authB = `Bearer ${createTestAuthToken(authService, tenantB)}`;
   });

@@ -9,6 +9,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils.js';
@@ -51,7 +52,7 @@ describe('Canonical migration CSV import (e2e)', () => {
     authHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
 
     // Create the import source used by canonical migration fixtures
-    await prisma.importSource.create({
+    await createTenantAwarePrisma(prisma, tenant.tenantId).importSource.create({
       data: {
         tenant_id: tenant.tenantId,
         key: CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,

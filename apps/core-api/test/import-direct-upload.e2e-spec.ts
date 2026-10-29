@@ -118,11 +118,6 @@ describe('Direct GCS import upload (e2e)', () => {
     const auth = app.get(AuthService);
     tenantA = await createTestTenant(basePrisma, 'import-direct-a');
     tenantB = await createTestTenant(basePrisma, 'import-direct-b');
-    for (const t of [tenantA, tenantB]) {
-      await createTenantAwarePrisma(basePrisma, t.tenantId).importSource.create({
-        data: { tenant_id: t.tenantId, key: 'legacy-dms', label: 'Legacy DMS' },
-      });
-    }
     authHeaderA = `Bearer ${createTestAuthToken(auth, tenantA)}`;
     authHeaderB = `Bearer ${createTestAuthToken(auth, tenantB)}`;
     const salesEmail = `e2e-sales-${tenantA.tenantId}@example.com`;

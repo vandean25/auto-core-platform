@@ -68,9 +68,6 @@ describe('Import background worker (e2e)', () => {
     basePrisma = app.get(PrismaService);
     const auth = app.get(AuthService);
     tenant = await createTestTenant(basePrisma, 'import-bg-worker');
-    await createTenantAwarePrisma(basePrisma, tenant.tenantId).importSource.create({
-      data: { tenant_id: tenant.tenantId, key: 'legacy-dms', label: 'Legacy DMS' },
-    });
     token = createTestAuthToken(auth, tenant);
 
     for (const key of [
