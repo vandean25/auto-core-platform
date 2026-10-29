@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator.js';
 import { TyreSetListQueryDto } from './dto/tyre-set-list-query.dto.js';
 import { TyreSetListEnvelopeDto } from './dto/tyre-set-list-response.dto.js';
 import {
@@ -132,5 +133,16 @@ export class TyreStorageController {
   @ApiOkResponse({ type: TyreSetResponseDto })
   dispose(@Param('id') id: string, @Body() dto: TyreSetLocationActionDto) {
     return this.tyreStorageService.dispose(id, dto);
+  }
+
+  @Post(':id/inspect')
+  @HttpCode(200)
+  @MechanicAccessible()
+  @ApiOperation({
+    summary: 'Record a tyre condition inspection (technicians allowed)',
+  })
+  @ApiOkResponse({ type: TyreSetResponseDto })
+  inspect(@Param('id') id: string, @Body() dto: TyreSetLocationActionDto) {
+    return this.tyreStorageService.inspect(id, dto);
   }
 }

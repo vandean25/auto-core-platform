@@ -1483,6 +1483,10 @@
       "public": false,
       "params": []
     },
+    "TYRE_MEASUREMENT_EVENT_INVALID": {
+      "public": false,
+      "params": []
+    },
     "TYRE_MEASUREMENT_MEDIA_INVALID": {
       "public": false,
       "params": []
@@ -1491,7 +1495,15 @@
       "public": false,
       "params": []
     },
+    "TYRE_MEASUREMENT_ORDER_MISMATCH": {
+      "public": false,
+      "params": []
+    },
     "TYRE_MEASUREMENT_PARENT_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_VEHICLE_REQUIRED": {
       "public": false,
       "params": []
     },

@@ -1,6 +1,11 @@
 import type { TyreMeasurement, TyreWheelReading } from '@prisma/client';
 import type { TyreEvaluation } from './tyre-evaluation.js';
+import { worstTyreStatus } from './tyre-evaluation.js';
 import type { TyreMeasurementResponseDto } from './tyre-measurement.dto.js';
+
+function toMm(value: TyreWheelReading['tread_inner_mm']): number | null {
+  return value === null ? null : Number(value);
+}
 
 export function toTyreMeasurementResponse(
   row: TyreMeasurement & { wheels: TyreWheelReading[] },
@@ -19,13 +24,20 @@ export function toTyreMeasurementResponse(
     country: row.country,
     weightClass: row.weight_class,
     weightClassSource: row.weight_class_source,
+    source: row.source,
+    sourceRef: row.source_ref,
+    worstStatus: worstTyreStatus(
+      row.wheels.map(
+        (wheel) => (wheel.evaluation as unknown as TyreEvaluation).status,
+      ),
+    ),
     createdAt: row.createdAt.toISOString(),
     wheels: row.wheels.map((wheel) => ({
       id: wheel.id,
       position: wheel.position,
-      treadInnerMm: Number(wheel.tread_inner_mm),
+      treadInnerMm: toMm(wheel.tread_inner_mm),
       treadMiddleMm: Number(wheel.tread_middle_mm),
-      treadOuterMm: Number(wheel.tread_outer_mm),
+      treadOuterMm: toMm(wheel.tread_outer_mm),
       brand: wheel.brand,
       model: wheel.model,
       size: wheel.size,

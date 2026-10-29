@@ -20,6 +20,7 @@ import {
 } from 'class-validator';
 import {
   TyreConstruction,
+  TyreMeasurementSource,
   TyreSeason,
   TyreVehicleWeightClass,
   TyreWeightClassSource,
@@ -229,9 +230,33 @@ export class TyreEvaluationResponseDto implements TyreEvaluation {
   dot!: TyreDotResponseDto | null;
 }
 
-export class TyreWheelResponseDto extends CreateTyreWheelDto {
+export class TyreWheelResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
+  @ApiProperty({ enum: TyreWheelPosition })
+  position!: TyreWheelPosition;
+  @ApiProperty({ type: Number, nullable: true, minimum: 0, maximum: 20 })
+  treadInnerMm!: number | null;
+  @ApiProperty({ minimum: 0, maximum: 20, multipleOf: 0.01 })
+  treadMiddleMm!: number;
+  @ApiProperty({ type: Number, nullable: true, minimum: 0, maximum: 20 })
+  treadOuterMm!: number | null;
+  @ApiProperty({ enum: TyreSeason })
+  season!: TyreSeason;
+  @ApiProperty({ enum: TyreConstruction })
+  construction!: TyreConstruction;
+  @ApiProperty({ enum: TyreWinterMarking })
+  winterMarking!: TyreWinterMarking;
+  @ApiProperty({ type: String, nullable: true })
+  brand!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  model!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  size!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  dot!: string | null;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  mediaId!: string | null;
   @ApiProperty({ type: TyreEvaluationResponseDto })
   evaluation!: TyreEvaluationResponseDto;
 }
@@ -263,6 +288,12 @@ export class TyreMeasurementResponseDto {
   weightClass!: TyreVehicleWeightClass;
   @ApiProperty({ enum: TyreWeightClassSource })
   weightClassSource!: TyreWeightClassSource;
+  @ApiProperty({ enum: TyreMeasurementSource })
+  source!: TyreMeasurementSource;
+  @ApiProperty({ type: String, nullable: true })
+  sourceRef!: string | null;
+  @ApiProperty({ enum: ['GOOD', 'RECOMMENDED', 'URGENT'], nullable: true })
+  worstStatus!: TyreStatus | null;
   @ApiProperty({ type: [TyreWheelResponseDto] })
   wheels!: TyreWheelResponseDto[];
   @ApiProperty({ format: 'date-time' })

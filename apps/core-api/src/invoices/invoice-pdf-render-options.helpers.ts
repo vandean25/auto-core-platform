@@ -55,7 +55,7 @@ function resolveLocalizedInvoiceFooterTitlePrefix(
   }
   const { t } = ctx;
   if (isCreditNoteSnapshot(snapshot)) {
-    return snapshot.credit_title ?? t('invoice.creditTitle');
+    return t('invoice.creditTitle');
   }
   if (isDachRechnungSnapshot(snapshot)) {
     return t('invoice.title');

@@ -544,6 +544,10 @@ export async function cleanupTestTenantGraph(
     `DELETE FROM notification_outbox WHERE tenant_id = $1`,
     tenantId,
   );
+  // Tyre events point at workshop orders through a composite foreign key whose
+  // ON DELETE SET NULL cannot null tenant_id, so they must go first.
+  await tenantPrisma.tyreSetEvent.deleteMany({});
+  await tenantPrisma.tyreSet.deleteMany({});
   await tenantPrisma.workshopOrder.deleteMany({});
   await tenantPrisma.bay.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});
@@ -557,8 +561,6 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.laborFitment.deleteMany({});
   await tenantPrisma.laborOperation.deleteMany({});
   await tenantPrisma.laborCategory.deleteMany({});
-  await tenantPrisma.tyreSetEvent.deleteMany({});
-  await tenantPrisma.tyreSet.deleteMany({});
   await tenantPrisma.tyreStorageSettings.deleteMany({});
 
   await runWithTenantContext(tenantId, async () => {
