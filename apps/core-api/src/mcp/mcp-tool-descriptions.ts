@@ -10,7 +10,8 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Per-portal marketplace listing status for a vehicle at the active site (desired, export, and remote state)',
   list_workshop_orders:
     'List workshop orders for the active site by order status, current estimate status, scheduled date, or estimate sent date (site-local YYYY-MM-DD), with optional search and customer_id (paged, pageSize max 25)',
-  get_workshop_order: 'Get a workshop order by id (active site)',
+  get_workshop_order:
+    'Get a workshop order by id (active site) with its labor margin and efficiency',
   search_parts:
     'Search parts by query; optional workshop_order_id uses workshop catalog context',
   get_stock_level: 'Stock levels for a catalog item id or SKU (active site)',

@@ -7,6 +7,7 @@ import { WorkshopReadyEmailNoticeDto } from './workshop-ready-email-notice.dto.j
 import {
   WorkshopCustomerSummaryDto,
   WorkshopInvoiceSummaryDto,
+  WorkshopLaborSummaryDto,
   WorkshopOrderLoanerBookingSummaryDto,
   WorkshopTaskResponseDto,
   WorkshopVehicleSummaryDto,
@@ -77,6 +78,14 @@ export class WorkshopOrderResponseDto extends DryRunMetaDto {
     type: () => WorkshopOrderLoanerBookingSummaryDto,
   })
   loanerBooking?: WorkshopOrderLoanerBookingSummaryDto | null;
+
+  @ApiProperty({
+    type: () => WorkshopLaborSummaryDto,
+    required: false,
+    description:
+      'Labor margin and efficiency of the order detail (AUT-40). Null-safe: no cost rate or no hours yields null, not 0.',
+  })
+  labor_summary?: WorkshopLaborSummaryDto;
 
   @ApiProperty()
   createdAt!: Date;

@@ -25216,6 +25216,94 @@
           "vehiclePlate"
         ]
       },
+      "WorkshopLaborSummaryLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "revenue": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true
+          },
+          "margin": {
+            "type": "number",
+            "nullable": true
+          },
+          "efficiency": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "task_id",
+          "revenue"
+        ]
+      },
+      "WorkshopLaborSummaryTotalsDto": {
+        "type": "object",
+        "properties": {
+          "revenue": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true
+          },
+          "margin": {
+            "type": "number",
+            "nullable": true
+          },
+          "margin_percent": {
+            "type": "number",
+            "nullable": true
+          },
+          "standard_hours": {
+            "type": "number"
+          },
+          "actual_hours": {
+            "type": "number"
+          },
+          "efficiency": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "revenue",
+          "standard_hours",
+          "actual_hours"
+        ]
+      },
+      "WorkshopLaborSummaryDto": {
+        "type": "object",
+        "properties": {
+          "line_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopLaborSummaryLineDto"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkshopLaborSummaryTotalsDto"
+          },
+          "has_cost_data": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "line_items",
+          "totals",
+          "has_cost_data"
+        ]
+      },
       "WorkshopReadyEmailNoticeDto": {
         "type": "object",
         "properties": {
@@ -25348,6 +25436,14 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/WorkshopOrderLoanerBookingSummaryDto"
+              }
+            ]
+          },
+          "labor_summary": {
+            "description": "Labor margin and efficiency of the order detail (AUT-40). Null-safe: no cost rate or no hours yields null, not 0.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopLaborSummaryDto"
               }
             ]
           },

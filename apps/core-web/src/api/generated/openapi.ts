@@ -7641,6 +7641,28 @@ export interface components {
             vehicleModel: string | null;
             vehiclePlate: string | null;
         };
+        WorkshopLaborSummaryLineDto: {
+            id: string;
+            task_id: string;
+            revenue: number;
+            cost?: number | null;
+            margin?: number | null;
+            efficiency?: number | null;
+        };
+        WorkshopLaborSummaryTotalsDto: {
+            revenue: number;
+            cost?: number | null;
+            margin?: number | null;
+            margin_percent?: number | null;
+            standard_hours: number;
+            actual_hours: number;
+            efficiency?: number | null;
+        };
+        WorkshopLaborSummaryDto: {
+            line_items: components["schemas"]["WorkshopLaborSummaryLineDto"][];
+            totals: components["schemas"]["WorkshopLaborSummaryTotalsDto"];
+            has_cost_data: boolean;
+        };
         WorkshopReadyEmailNoticeDto: {
             /** @enum {string} */
             code: "NOT_APPLICABLE" | "BLOCKED_NO_CUSTOMER" | "BLOCKED_EMAIL_NOT_CONFIRMED" | "BLOCKED_EMAIL_MISSING" | "BLOCKED_EMAIL_INVALID" | "BLOCKED_VEHICLE_INCOMPLETE" | "BLOCKED_SELLER_INCOMPLETE" | "NOT_QUEUED" | "QUEUED" | "SENT" | "FAILED" | "SUPPRESSED";
@@ -7676,6 +7698,8 @@ export interface components {
             tasks: components["schemas"]["WorkshopTaskResponseDto"][];
             invoice?: components["schemas"]["WorkshopInvoiceSummaryDto"];
             loanerBooking?: components["schemas"]["WorkshopOrderLoanerBookingSummaryDto"] | null;
+            /** @description Labor margin and efficiency of the order detail (AUT-40). Null-safe: no cost rate or no hours yields null, not 0. */
+            labor_summary?: components["schemas"]["WorkshopLaborSummaryDto"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
