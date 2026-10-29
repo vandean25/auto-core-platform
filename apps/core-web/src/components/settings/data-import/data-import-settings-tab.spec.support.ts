@@ -243,6 +243,21 @@ export function installImportApiMocks(options: InstallApiMocksOptions = {}): Imp
     data: { data: activeSources },
     isLoading: false,
   })
+  ;(importsApi.useCreateImportSource as Mock).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  })
+  ;(importsApi.useUpdateImportSource as Mock).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  })
+  ;(importsApi.useDeleteImportSource as Mock).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  })
   ;(importsApi.useImportMappingProfiles as Mock).mockReturnValue({
     data: options.profiles ?? [],
   })

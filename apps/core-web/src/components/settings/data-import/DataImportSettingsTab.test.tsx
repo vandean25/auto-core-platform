@@ -32,6 +32,9 @@ vi.mock('@/api/imports', async (importOriginal) => {
     useImportTemplate: vi.fn(),
     useImportEntityTypes: vi.fn(),
     useImportSources: vi.fn(),
+    useCreateImportSource: vi.fn(),
+    useUpdateImportSource: vi.fn(),
+    useDeleteImportSource: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -113,6 +116,18 @@ describe('DataImportSettingsTab row filter', () => {
     ;(importsApi.useImportSources as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { data: importSources },
       isLoading: false,
+    })
+    ;(importsApi.useCreateImportSource as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    })
+    ;(importsApi.useUpdateImportSource as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    })
+    ;(importsApi.useDeleteImportSource as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
     })
     ;(importsApi.useImportMappingProfiles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
@@ -257,6 +272,18 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
     ;(importsApi.useImportSources as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { data: importSources },
       isLoading: false,
+    })
+    ;(importsApi.useCreateImportSource as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    })
+    ;(importsApi.useUpdateImportSource as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    })
+    ;(importsApi.useDeleteImportSource as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
     })
     ;(importsApi.useImportMappingProfiles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],

@@ -9,6 +9,7 @@ import { DataImportResultStep } from './data-import-result-step'
 import { DataImportSourceStep } from './data-import-source-step'
 import { DataImportUploadStep } from './data-import-upload-step'
 import { DataImportWizardNav } from './data-import-wizard-nav'
+import { ImportSourcesPanel } from './import-sources-panel'
 import { usesDirectImportUpload } from './import-upload-limit'
 import { useDataImportSettingsTab } from './use-data-import-settings-tab'
 
@@ -27,6 +28,8 @@ export function DataImportSettingsTab() {
       </div>
 
       <DataImportWizardNav step={model.wizard.step} />
+
+      <ImportSourcesPanel />
 
       <Alert>
         <AlertTriangle className="h-4 w-4" />

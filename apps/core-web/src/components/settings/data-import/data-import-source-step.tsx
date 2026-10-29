@@ -97,6 +97,11 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
               ))}
             </SelectContent>
           </Select>
+          {props.sources.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {t('dataImport.source.noSources')}
+            </p>
+          ) : null}
         </div>
         {props.entityType === 'SUPPLIER_PRICE_LIST' ? (
           <div className="space-y-2 md:col-span-2">
