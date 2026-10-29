@@ -308,18 +308,6 @@ npm run dev                # Start dev server
 npm run build              # Production build
 ```
 
-## Parallel Task Workspaces (git worktrees)
-Several agent tasks run concurrently on this machine, each in its own worktree sharing one `.git` store.
-- **One worktree per task.** Qoder provisions them under `~/.qoder/worktrees/app/<id>/auto-core-platform`. Do not hand-create worktrees inside the repo (`.worktrees/`, `worktrees/`) and do not reuse another task's worktree.
-- **`main` belongs to the primary checkout** (`C:/GIT/auto-core-platform`). Task worktrees stay detached or on their own branch — that is what keeps branch cleanup possible, since git refuses to delete a branch a live worktree holds.
-- **Start each task from current `origin/main`**: `git fetch origin` then `git checkout -b <task-branch> origin/main` (or `git reset --hard origin/main` in a disposable detached worktree).
-- **Dependencies are per worktree.** `node_modules` is not shared — run `npm install` in a fresh worktree before building or testing.
-- **Ports are exclusive per process — one task, one port pair.** Only one task can bind 3000/5173 at a time. Give each task its own pair: API `PORT=300n` (read in `apps/core-api/src/main.ts`, falls back to 3000) and web `npm run dev -- --port 517n` with `VITE_API_PROXY_TARGET=http://127.0.0.1:300n` in its own `apps/core-web/.env.local`, so the proxy hits its own backend.
-- **The dev database is shared and remote (Neon), not local.** `apps/core-api/.env` `DATABASE_URL` points at one hosted Neon `neondb`; there is no local PostgreSQL on this machine. Concurrent reads are fine, but two tasks running `prisma migrate dev` or `db seed` against it collide (migration lock, seed `deleteMany`). For schema or migration work, give each task its own Neon branch (`mcp-server-neon`) and point `DATABASE_URL` at it.
-- **Env files are per worktree and gitignored.** A fresh worktree has no `apps/core-api/.env` or `apps/core-web/.env.local`; copy them from the primary checkout or pull from GSM before starting either app.
-- **Close out a task in order**: `git worktree remove <path>` (only when `git -C <path> status --porcelain` is empty), `git worktree prune`, then delete its branch.
-- **Local branches are disposable, pushed branches are not.** A branch with no `origin` counterpart is the only copy of its commits; anything worth keeping gets pushed. Prune stale remote refs with `git fetch --prune origin`.
-
 ## Known Troubleshooting & Gotchas
 1. **Blank page in browser?** Check Vite terminal for CSS errors / Tailwind Utility Errors (Check `@theme` block format in `index.css`).
 2. **Import errors?** Ensure type-only imports use `import type`.
