@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
@@ -102,11 +103,11 @@ describe('Import sources (e2e)', () => {
         });
     });
 
-    it('rejects invalid keys', async () => {
+    it('rejects keys that normalize to an empty value', async () => {
       await request(app.getHttpServer())
         .post('/imports/sources')
         .set('Authorization', adminHeader)
-        .send({ key: 'invalid key!', label: 'Invalid' })
+        .send({ key: '!!!', label: 'Invalid' })
         .expect(400)
         .expect((res) => {
           expect(res.body.code).toBe('IMPORT_INVALID_SOURCE_KEY');
@@ -196,35 +197,45 @@ describe('Import sources (e2e)', () => {
         .expect(201);
     });
 
+    async function dryRunAndApply(csv: Buffer, fileName: string) {
+      const dryRun = await request(app.getHttpServer())
+        .post('/imports')
+        .set('Authorization', adminHeader)
+        .field('entityType', 'CUSTOMER')
+        .field('sourceSystem', 'legacy-dms')
+        .field('mapping', JSON.stringify(customerMapping))
+        .attach('file', csv, fileName)
+        .expect(201);
+      const jobId = dryRun.body.id as string;
+      await request(app.getHttpServer())
+        .post(`/imports/${jobId}/apply`)
+        .set('Authorization', adminHeader)
+        .expect(202);
+
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+      const deadline = Date.now() + 10_000;
+      let job = await tenantPrisma.importJob.findFirstOrThrow({
+        where: { id: jobId },
+      });
+      while (Date.now() < deadline && job.status !== 'APPLIED') {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        job = await tenantPrisma.importJob.findFirstOrThrow({
+          where: { id: jobId },
+        });
+      }
+      expect(job.status).toBe('APPLIED');
+    }
+
     it('re-import with same source does not create duplicates', async () => {
       const csv = customerCsv([
         ['100', 'PRIVATE', 'First', 'Last', 'test@example.com', '', '', 'AT'],
       ]);
 
-      await request(app.getHttpServer())
-        .post('/imports')
-        .set('Authorization', adminHeader)
-        .field('entityType', 'CUSTOMER')
-        .field('sourceSystem', 'legacy-dms')
-        .field('mapping', JSON.stringify(customerMapping))
-        .attach('file', csv, 'first.csv')
-        .expect(201);
+      await dryRunAndApply(csv, 'first.csv');
+      await dryRunAndApply(csv, 'second.csv');
 
-      const job1 = await prisma.importJob.findFirst({
-        where: { tenant_id: tenant.tenantId, source_system: 'legacy-dms' },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      await request(app.getHttpServer())
-        .post('/imports')
-        .set('Authorization', adminHeader)
-        .field('entityType', 'CUSTOMER')
-        .field('sourceSystem', 'legacy-dms')
-        .field('mapping', JSON.stringify(customerMapping))
-        .attach('file', csv, 'second.csv')
-        .expect(201);
-
-      const mappings = await prisma.externalIdMapping.findMany({
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+      const mappings = await tenantPrisma.externalIdMapping.findMany({
         where: {
           tenant_id: tenant.tenantId,
           entity_type: 'CUSTOMER',
@@ -232,8 +243,12 @@ describe('Import sources (e2e)', () => {
           external_id: '100',
         },
       });
-
       expect(mappings.length).toBe(1);
+
+      const customers = await tenantPrisma.customer.findMany({
+        where: { tenant_id: tenant.tenantId, email: 'test@example.com' },
+      });
+      expect(customers.length).toBe(1);
     });
   });
 

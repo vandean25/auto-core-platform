@@ -63,6 +63,11 @@ describe('Labor operation import (e2e)', () => {
   let otherCategoryId: string;
 
   beforeEach(async () => {
+    for (const t of [suite.tenant, suite.otherTenant]) {
+      await createTenantAwarePrisma(suite.basePrisma, t.tenantId).importSource.create({
+        data: { tenant_id: t.tenantId, key: SOURCE, label: 'Synthetic Import' },
+      });
+    }
     const category = await suite.prisma.laborCategory.create({
       data: { tenant_id: suite.tenant.tenantId, name: 'Synthetic Mechanics' },
     });
