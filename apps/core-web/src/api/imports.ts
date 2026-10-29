@@ -10,6 +10,7 @@ export type ImportJob = components['schemas']['ImportJobResponseDto']
 export type ImportJobRow = components['schemas']['ImportJobRowDto']
 export type ImportTemplate = components['schemas']['ImportTemplateResponseDto']
 export type ImportMappingProfile = components['schemas']['ImportMappingProfileResponseDto']
+export type ImportEntityTypeEntry = components['schemas']['ImportEntityTypeResponseDto']
 
 export type ImportJobRowsMeta = {
   total: number
@@ -38,6 +39,7 @@ export const IMPORT_ROWS_PAGE_LIMIT = 200
 
 export const importKeys = {
   all: ['imports'] as const,
+  entityTypes: () => [...importKeys.all, 'entity-types'] as const,
   template: (entityType: ImportEntityType) =>
     [...importKeys.all, 'template', entityType] as const,
   job: (id: string) => [...importKeys.all, 'job', id] as const,
@@ -141,6 +143,21 @@ async function assertApplyAccepted(response: Response): Promise<void> {
   if (response.ok) return
   const payload = await readErrorPayload(response)
   throw new Error(payload?.message ?? 'Failed to apply import')
+}
+
+export function useImportEntityTypes() {
+  return useQuery({
+    queryKey: importKeys.entityTypes(),
+    staleTime: Infinity,
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/imports/entity-types')
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to load import entity types'))
+      }
+      const body = (await response.json()) as { data: ImportEntityTypeEntry[] }
+      return body.data
+    },
+  })
 }
 
 export function useImportTemplate(entityType: ImportEntityType | null) {
@@ -327,9 +344,10 @@ export async function downloadImportTemplateCsv(entityType: ImportEntityType): P
   return response.blob()
 }
 
-export async function downloadImportErrorRowsCsv(jobId: string): Promise<Blob> {
+export async function downloadImportErrorRowsCsv(jobId: string, language?: string): Promise<Blob> {
+  const csvLanguage = language?.trim().toLowerCase().split('-')[0] === 'en' ? 'en' : 'de'
   const response = await fetchWithAuth(`/api/imports/${jobId}/errors.csv`, {
-    headers: { Accept: 'text/csv' },
+    headers: { Accept: 'text/csv', 'Accept-Language': csvLanguage },
   })
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, 'Failed to download error rows'))

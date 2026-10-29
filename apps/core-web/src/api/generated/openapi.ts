@@ -4725,6 +4725,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports/entity-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the importable entity types with wizard availability and required template fields */
+        get: operations["ImportController_listEntityTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/{id}/rows": {
         parameters: {
             query?: never;
@@ -4749,7 +4766,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download CSV of rows that failed validation */
+        /** Stream localized error rows with original source columns */
         get: operations["ImportController_downloadErrors"];
         put?: never;
         post?: never;
@@ -6270,6 +6287,10 @@ export interface components {
              */
             provisional: boolean;
         };
+        LegacyIdDto: {
+            source_system: string;
+            external_id: string;
+        };
         CustomerResponseDto: {
             /**
              * @description Indicates whether the request was executed in dry-run mode
@@ -6278,6 +6299,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -6372,6 +6394,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -6747,6 +6770,7 @@ export interface components {
             hasMore: boolean;
         };
         CustomerDetailResponseDto: {
+            readonly legacy_ids: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -7323,6 +7347,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -7365,6 +7390,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
@@ -7407,6 +7433,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            readonly legacy_ids?: components["schemas"]["LegacyIdDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -11195,6 +11222,78 @@ export interface components {
             fields: components["schemas"]["ImportTemplateFieldDto"][];
             /** @description CSV template with German headers */
             csv: string;
+        };
+        /** @enum {string} */
+        ImplementedImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE";
+        ImportEntityTypeResponseDto: {
+            entity_type: components["schemas"]["ImplementedImportEntityType"];
+            /** @description Offered in the settings import wizard; otherwise API-only */
+            wizard: boolean;
+            /** @description Template field keys that every CSV row must map */
+            required_fields: string[];
+        };
+        ImportEntityTypeListResponseDto: {
+            /**
+             * @example [
+             *       {
+             *         "entity_type": "CUSTOMER",
+             *         "wizard": true,
+             *         "required_fields": [
+             *           "external_id"
+             *         ]
+             *       },
+             *       {
+             *         "entity_type": "VEHICLE",
+             *         "wizard": true,
+             *         "required_fields": [
+             *           "external_id",
+             *           "make",
+             *           "model",
+             *           "year"
+             *         ]
+             *       },
+             *       {
+             *         "entity_type": "SUPPLIER_PRICE_LIST",
+             *         "wizard": true,
+             *         "required_fields": [
+             *           "supplier_article_no",
+             *           "description",
+             *           "cost_price"
+             *         ]
+             *       },
+             *       {
+             *         "entity_type": "LABOR_OPERATION",
+             *         "wizard": true,
+             *         "required_fields": [
+             *           "external_id",
+             *           "code",
+             *           "description",
+             *           "standard_aw",
+             *           "hourly_rate"
+             *         ]
+             *       },
+             *       {
+             *         "entity_type": "VEHICLE_PARTY",
+             *         "wizard": false,
+             *         "required_fields": [
+             *           "external_id",
+             *           "vehicle_external_id",
+             *           "customer_external_id",
+             *           "role"
+             *         ]
+             *       },
+             *       {
+             *         "entity_type": "VEHICLE_DUE_DATE",
+             *         "wizard": false,
+             *         "required_fields": [
+             *           "external_id",
+             *           "vehicle_external_id",
+             *           "kind"
+             *         ]
+             *       }
+             *     ]
+             */
+            data: components["schemas"]["ImportEntityTypeResponseDto"][];
         };
         /** @enum {string} */
         ImportRowAction: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
@@ -21254,7 +21353,7 @@ export interface operations {
     ImportController_listMappingProfiles: {
         parameters: {
             query: {
-                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "PART" | "VENDOR" | "STOCK_OPENING_BALANCE" | "OPEN_WORKSHOP_ORDER" | "LEGACY_SERVICE_ORDER" | "LEGACY_INVOICE" | "LEGACY_OPEN_ITEM" | "TYRE_SET" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE" | "VEHICLE_NOTICE" | "LABOR_STANDARD_TIME" | "LABOR_PRICE_GROUP";
+                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE";
                 sourceSystem: string;
             };
             header?: never;
@@ -21336,6 +21435,25 @@ export interface operations {
             };
         };
     };
+    ImportController_listEntityTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportEntityTypeListResponseDto"];
+                };
+            };
+        };
+    };
     ImportController_listRows: {
         parameters: {
             query?: {
@@ -21365,7 +21483,10 @@ export interface operations {
     ImportController_downloadErrors: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Report language (de or en); defaults to the user preference */
+                "Accept-Language"?: string;
+            };
             path: {
                 id: string;
             };
@@ -21377,7 +21498,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/csv": string;
+                };
             };
         };
     };

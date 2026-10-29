@@ -1,5 +1,7 @@
 /** ImportService getTemplate characterization (split for repowise; AUT-602). */
+import { ForbiddenException } from '@nestjs/common';
 import { ImportEntityType } from '@prisma/client';
+import { listImportEntityTypes } from './import-entity-type.registry.js';
 import {
   ACTOR_AUTH_UID,
   setupImportHarness,
@@ -60,6 +62,21 @@ describe('ImportService getTemplate (characterization)', () => {
       expect(() => h.service.getTemplate(ImportEntityType.CUSTOMER)).toThrow(
         'Tenant admin access is required.',
       );
+    });
+  });
+
+  describe('listEntityTypes', () => {
+    it('returns the registry entries to tenant admins', () => {
+      expect(h.service.listEntityTypes()).toEqual(listImportEntityTypes());
+    });
+
+    it('rejects sales users', () => {
+      h.tenantContext.getAuthenticatedUser.mockReturnValue({
+        userId: ACTOR_AUTH_UID,
+        role: 'SALES',
+      });
+
+      expect(() => h.service.listEntityTypes()).toThrow(ForbiddenException);
     });
   });
 });

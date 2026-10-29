@@ -675,6 +675,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_EVIDENCE_IMMUTABLE": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_EXISTING_NOT_UPDATED": {
       "public": true,
       "params": []
@@ -688,6 +692,10 @@
       "params": []
     },
     "IMPORT_GROUP_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_IDENTITY_CHANGED": {
       "public": true,
       "params": []
     },
@@ -763,6 +771,14 @@
       "public": true,
       "params": []
     },
+    "IMPORT_NATURAL_KEY_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_OWNER_CONTACT_CONFLICT": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_POSSIBLE_DUPLICATE": {
       "public": true,
       "params": []
@@ -791,7 +807,27 @@
       "public": true,
       "params": []
     },
+    "IMPORT_UNKNOWN_CUSTOMER": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_UNKNOWN_OWNER": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_UNKNOWN_VEHICLE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_UPDATE_NOT_ENABLED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_VALUE_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_VALUE_REQUIRED": {
       "public": true,
       "params": []
     },

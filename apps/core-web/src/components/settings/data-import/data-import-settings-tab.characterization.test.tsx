@@ -6,6 +6,7 @@ import type { ImportJob } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 import { toast } from 'sonner'
 
+import deCommon from '../../../../../../locales/de/common.json'
 import {
   LABOR_CSV,
   SUPPLIER_CSV,
@@ -56,6 +57,7 @@ vi.mock('@/api/imports', async (importOriginal) => {
   return {
     ...actual,
     useImportTemplate: vi.fn(),
+    useImportEntityTypes: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -161,12 +163,61 @@ describe('DataImportSettingsTab characterization', () => {
       )
     })
 
+    it('offers only the wizard entity types of the registry', async () => {
+      renderImportSettingsTab()
+
+      fireEvent.click(screen.getByRole('combobox', { name: di.source.entityLabel }))
+      const options = await screen.findAllByRole('option')
+
+      expect(options.map((option) => option.textContent)).toEqual([
+        entityLabels.CUSTOMER,
+        entityLabels.VEHICLE,
+        entityLabels.SUPPLIER_PRICE_LIST,
+        entityLabels.LABOR_OPERATION,
+      ])
+      expect(entityLabels.VEHICLE_PARTY).toBeTruthy()
+      expect(entityLabels.VEHICLE_DUE_DATE).toBeTruthy()
+      expect(screen.queryByRole('option', { name: entityLabels.VEHICLE_PARTY })).toBeNull()
+      expect(screen.queryByRole('option', { name: entityLabels.VEHICLE_DUE_DATE })).toBeNull()
+    })
+
     it('pre-selects the entity type from the URL search params', () => {
       renderImportSettingsTab({ initialEntries: ['/?tab=data-import&entity=LABOR_OPERATION'] })
 
       expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
         entityLabels.LABOR_OPERATION,
       )
+    })
+
+    it('shows the selected entity type while the registry is still loading', () => {
+      ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: undefined,
+      })
+
+      renderImportSettingsTab({ initialEntries: ['/?tab=data-import&entity=LABOR_OPERATION'] })
+
+      expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
+        entityLabels.LABOR_OPERATION,
+      )
+      expect(screen.queryByText(di.source.entityTypesLoadFailed)).not.toBeInTheDocument()
+    })
+
+    it('says the entity types could not be loaded and loads them again on retry', () => {
+      const refetch = vi.fn()
+      ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: undefined,
+        isError: true,
+        refetch,
+      })
+
+      renderImportSettingsTab()
+
+      expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveAccessibleDescription(
+        di.source.entityTypesLoadFailed,
+      )
+      fireEvent.click(screen.getByRole('button', { name: deCommon.actions.retry }))
+
+      expect(refetch).toHaveBeenCalledTimes(1)
     })
 
     it('switches the source system to the supplier default for supplier price lists', async () => {

@@ -48,6 +48,7 @@
     "model": "Model",
     "vin": "VIN",
     "plate": "Plate",
+    "legacyNumberSource": "Legacy vehicle no. (previous system) — {{source}}",
     "placeholders": {
       "year": "Year",
       "engineCode": "Engine code",

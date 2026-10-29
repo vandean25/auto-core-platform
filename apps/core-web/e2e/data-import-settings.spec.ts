@@ -75,6 +75,23 @@ async function installImportMocks(
 ) {
   const job = options.job ?? createMockImportJob()
 
+  await page.route(AutoCorePage.apiRouteMatcher('/api/imports/entity-types'), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          { entity_type: 'CUSTOMER', wizard: true, required_fields: ['external_id'] },
+          {
+            entity_type: 'VEHICLE_PARTY',
+            wizard: false,
+            required_fields: ['external_id', 'vehicle_external_id', 'customer_external_id', 'role'],
+          },
+        ],
+      }),
+    })
+  })
+
   await page.route(AutoCorePage.apiRouteMatcher('/api/imports/templates/CUSTOMER'), async (route) => {
     await route.fulfill({
       status: 200,

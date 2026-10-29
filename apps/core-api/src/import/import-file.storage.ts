@@ -11,7 +11,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Readable, Transform, Writable } from 'node:stream';
 import { Readable as ReadableStream } from 'node:stream';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
 import { withTransientGcsAttempts } from './import-gcs-retry.js';
@@ -39,7 +39,7 @@ export function assertTrustedImportStagingPath(localPath: string): string {
   ];
   if (
     allowedRoots.some(
-      (root) => resolved === root || resolved.startsWith(`${root}/`),
+      (root) => resolved === root || resolved.startsWith(`${root}${sep}`),
     )
   ) {
     return resolved;
@@ -113,7 +113,7 @@ function resolveLocalImportPath(root: string, objectKey: string): string {
   const segments = objectKey.split('/').filter((segment) => segment.length > 0);
   const resolvedRoot = resolve(root);
   const target = resolve(resolvedRoot, ...segments);
-  if (target !== resolvedRoot && !target.startsWith(`${resolvedRoot}/`)) {
+  if (target !== resolvedRoot && !target.startsWith(`${resolvedRoot}${sep}`)) {
     throw new BadRequestException('Invalid import object key.');
   }
   return target;
