@@ -17,6 +17,7 @@ import type { SiteContextService } from '../common/services/site-context.service
 import type { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import type { WorkshopOrderReadyEmailService } from '../workshop/workshop-order-ready-email.service.js';
 import type { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import type { PushNotifierService } from '../push/push-notifier.service.js';
 import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
 import {
@@ -33,10 +34,15 @@ import {
 
 describe('MechanicExecutionService', () => {
   let service: MechanicExecutionService;
+  let pushNotifier: { enqueueInTx: jest.Mock; wakeUp: jest.Mock };
 
   beforeEach(() => {
     jest.resetAllMocks();
     process.env.WORKSHOP_MEDIA_BUCKET = 'workshop-media-bucket';
+    pushNotifier = {
+      enqueueInTx: jest.fn().mockResolvedValue(['push-row-1']),
+      wakeUp: jest.fn().mockResolvedValue(undefined),
+    };
     service = new MechanicExecutionService(
       mockPrisma,
       mockTenantContext,
@@ -50,6 +56,7 @@ describe('MechanicExecutionService', () => {
       asFake<NotificationCloudTasksService>({
         enqueueWakeUp: jest.fn().mockResolvedValue(undefined),
       }),
+      asFake<PushNotifierService>(pushNotifier),
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',
@@ -582,7 +589,10 @@ describe('MechanicExecutionService', () => {
     const openEntryMock = {
       id: 'open-entry-1',
       workshop_task_id: PREV_TASK_ID,
-      workshop_task: { workshop_order_id: 'prev-order-1' },
+      workshop_task: {
+        workshop_order_id: 'prev-order-1',
+        workshop_order: { site_id: 'site-1' },
+      },
     };
 
     it('throws NotFoundException when target task does not exist', async () => {
@@ -773,6 +783,18 @@ describe('MechanicExecutionService', () => {
           sourceEntityId: PREV_TASK_ID,
         }),
       );
+      expect(pushNotifier.enqueueInTx).toHaveBeenCalledWith(txClient, {
+        tenantId: TENANT_ID,
+        siteId: 'site-1',
+        workshopOrderId: 'prev-order-1',
+        eventType: NotificationEventType.WORKSHOP_TASK_WAITING_CUSTOMER,
+        occurrenceId: 'open-entry-1',
+        sourceEntityType: 'WorkshopTask',
+        sourceEntityId: PREV_TASK_ID,
+      });
+      expect(pushNotifier.wakeUp).toHaveBeenCalledWith(TENANT_ID, [
+        'push-row-1',
+      ]);
     });
 
     it('writes no outbox row on switch when the previous pause reason is not WAITING_CUSTOMER', async () => {
@@ -825,6 +847,7 @@ describe('MechanicExecutionService', () => {
         order_number: 'WO-2026-0001',
         status: WorkshopOrderStatus.IN_PROGRESS,
         mechanic_id: null,
+        site_id: 'site-1',
         bay_id: null,
         reported_issue: null,
         odometer: 50000,
@@ -929,6 +952,49 @@ describe('MechanicExecutionService', () => {
           payload: expect.objectContaining({ mechanicEmployeeId: MECHANIC_ID }),
         }),
       );
+      expect(pushNotifier.enqueueInTx).toHaveBeenCalledWith(txClient, {
+        tenantId: TENANT_ID,
+        siteId: 'site-1',
+        workshopOrderId: ORDER_ID,
+        eventType: NotificationEventType.WORKSHOP_TASK_WAITING_CUSTOMER,
+        occurrenceId: 'open-entry-1',
+        sourceEntityType: 'WorkshopTask',
+        sourceEntityId: TASK_ID,
+      });
+      expect(pushNotifier.wakeUp).toHaveBeenCalledWith(TENANT_ID, [
+        'push-row-1',
+      ]);
+    });
+
+    it('writes no push row when the order has no site, but still writes the advisor notice', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock)
+        .mockResolvedValueOnce(
+          makePausableTask({
+            workshop_order: {
+              ...makePausableTask().workshop_order,
+              site_id: null,
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          makePausableTask({ status: WorkshopTaskStatus.WAITING_CUSTOMER }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+      await service.pauseTask(MECHANIC_ID, TASK_ID, {
+        pauseReason: LaborPauseReason.WAITING_CUSTOMER,
+      });
+
+      expect(mockNotificationOutbox.enqueueInTx).toHaveBeenCalledTimes(1);
+      expect(pushNotifier.enqueueInTx).not.toHaveBeenCalled();
     });
 
     it('writes no outbox row for the OTHER pause reason', async () => {
@@ -950,6 +1016,7 @@ describe('MechanicExecutionService', () => {
       });
 
       expect(mockNotificationOutbox.enqueueInTx).not.toHaveBeenCalled();
+      expect(pushNotifier.enqueueInTx).not.toHaveBeenCalled();
     });
   });
 

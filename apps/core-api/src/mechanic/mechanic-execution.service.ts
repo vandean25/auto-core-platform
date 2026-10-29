@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   LaborPauseReason,
+  NotificationEventType,
   Prisma,
   WorkshopLineItemType,
   WorkshopPartLineExecutionStatus,
@@ -15,6 +16,7 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PushNotifierService } from '../push/push-notifier.service.js';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
@@ -68,6 +70,7 @@ export class MechanicExecutionService {
     private readonly siteContext: SiteContextService,
     private readonly readyEmail: WorkshopOrderReadyEmailService,
     private readonly wakeUps: NotificationCloudTasksService,
+    private readonly pushNotifier: PushNotifierService,
   ) {}
 
   /**
@@ -204,7 +207,7 @@ export class MechanicExecutionService {
       where: { id: taskId, tenant_id: tenantId },
       include: {
         workshop_order: {
-          select: { mechanic_id: true, bay_id: true },
+          select: { mechanic_id: true, bay_id: true, site_id: true },
         },
         bay: { select: { id: true, name: true } },
       },
@@ -261,6 +264,33 @@ export class MechanicExecutionService {
   }
 
   /**
+   * The advisor notice of a task that goes to WAITING_CUSTOMER, plus the PUSH rows for the advisors who switched the
+   * event on (ADR-0033). Both are written in the transaction of the pause. Returns the new PUSH rows to wake after the
+   * commit.
+   */
+  private async writeWaitingCustomerNotices(
+    tx: Prisma.TransactionClient,
+    params: Parameters<typeof buildWaitingCustomerNotification>[0] & {
+      siteId: string | null;
+    },
+  ): Promise<string[]> {
+    await this.notificationOutbox.enqueueInTx(
+      tx,
+      buildWaitingCustomerNotification(params),
+    );
+    if (!params.siteId) return [];
+    return this.pushNotifier.enqueueInTx(tx, {
+      tenantId: params.tenantId,
+      siteId: params.siteId,
+      workshopOrderId: params.workshopOrderId,
+      eventType: NotificationEventType.WORKSHOP_TASK_WAITING_CUSTOMER,
+      occurrenceId: params.laborEntryId,
+      sourceEntityType: 'WorkshopTask',
+      sourceEntityId: params.taskId,
+    });
+  }
+
+  /**
    * Switch task: atomically closes the mechanic's current open labor entry,
    * transitions the previous task status, opens a new labor entry for the
    * target task, and transitions the target task to `IN_PROGRESS`.
@@ -279,7 +309,7 @@ export class MechanicExecutionService {
       where: { id: taskId, tenant_id: tenantId },
       include: {
         workshop_order: {
-          select: { mechanic_id: true, bay_id: true },
+          select: { mechanic_id: true, bay_id: true, site_id: true },
         },
         bay: { select: { id: true, name: true } },
       },
@@ -314,7 +344,12 @@ export class MechanicExecutionService {
       select: {
         id: true,
         workshop_task_id: true,
-        workshop_task: { select: { workshop_order_id: true } },
+        workshop_task: {
+          select: {
+            workshop_order_id: true,
+            workshop_order: { select: { site_id: true } },
+          },
+        },
       },
     });
 
@@ -333,7 +368,7 @@ export class MechanicExecutionService {
     const targetWasAlreadyInProgress =
       targetTask.status === WorkshopTaskStatus.IN_PROGRESS;
 
-    await this.prisma.$transaction(async (tx) => {
+    const pushRowIds = await this.prisma.$transaction(async (tx) => {
       // Close previous labor entry and transition previous task.
       await closeLaborEntryAndTransitionTask(tx, {
         tenantId,
@@ -345,18 +380,17 @@ export class MechanicExecutionService {
       });
 
       // Advisor notice for the shelved task, in the same transaction as its transition.
-      if (dto.previousPauseReason === LaborPauseReason.WAITING_CUSTOMER) {
-        await this.notificationOutbox.enqueueInTx(
-          tx,
-          buildWaitingCustomerNotification({
-            tenantId,
-            taskId: previousTaskId,
-            workshopOrderId: previousOrderId,
-            mechanicEmployeeId: mechanicId,
-            laborEntryId: openEntry.id,
-          }),
-        );
-      }
+      const waitingRows =
+        dto.previousPauseReason === LaborPauseReason.WAITING_CUSTOMER
+          ? await this.writeWaitingCustomerNotices(tx, {
+              tenantId,
+              taskId: previousTaskId,
+              workshopOrderId: previousOrderId,
+              siteId: openEntry.workshop_task.workshop_order.site_id,
+              mechanicEmployeeId: mechanicId,
+              laborEntryId: openEntry.id,
+            })
+          : [];
 
       // Open new labor entry and transition target task.
       await startLaborAndTransitionTask(tx, {
@@ -369,7 +403,9 @@ export class MechanicExecutionService {
 
       // Ensure the parent order is IN_PROGRESS.
       await ensureOrderInProgress(tx, tenantId, targetTask.workshop_order_id);
+      return waitingRows;
     });
+    await this.pushNotifier.wakeUp(tenantId, pushRowIds);
 
     // Emit realtime for both the previous task and the target task.
     this.emitTaskUpdated(tenantId, previousTaskId);
@@ -397,7 +433,7 @@ export class MechanicExecutionService {
       where: { id: taskId, tenant_id: tenantId },
       include: {
         workshop_order: {
-          select: { mechanic_id: true, bay_id: true },
+          select: { mechanic_id: true, bay_id: true, site_id: true },
         },
         bay: { select: { id: true, name: true } },
       },
@@ -423,7 +459,7 @@ export class MechanicExecutionService {
 
     const nextTaskStatus = pauseReasonToTaskStatus(dto.pauseReason);
 
-    await this.prisma.$transaction(async (tx) => {
+    const pushRowIds = await this.prisma.$transaction(async (tx) => {
       await closeLaborEntryAndTransitionTask(tx, {
         tenantId,
         openEntryId: openEntry.id,
@@ -432,19 +468,18 @@ export class MechanicExecutionService {
         nextTaskStatus,
       });
 
-      if (dto.pauseReason === LaborPauseReason.WAITING_CUSTOMER) {
-        await this.notificationOutbox.enqueueInTx(
-          tx,
-          buildWaitingCustomerNotification({
+      return dto.pauseReason === LaborPauseReason.WAITING_CUSTOMER
+        ? this.writeWaitingCustomerNotices(tx, {
             tenantId,
             taskId,
             workshopOrderId: task.workshop_order_id,
+            siteId: task.workshop_order.site_id,
             mechanicEmployeeId: mechanicId,
             laborEntryId: openEntry.id,
-          }),
-        );
-      }
+          })
+        : [];
     });
+    await this.pushNotifier.wakeUp(tenantId, pushRowIds);
 
     this.emitTaskUpdated(tenantId, taskId);
 
