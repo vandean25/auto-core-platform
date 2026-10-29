@@ -114,6 +114,18 @@ describe('import source key validation', () => {
       expect(result.valid).toBe(true);
     });
 
+    it('returns valid for a single alphanumeric character', () => {
+      expect(validateImportSourceKey('a').valid).toBe(true);
+    });
+
+    it('returns invalid for a key made only of hyphens', () => {
+      expect(validateImportSourceKey('-'.repeat(64)).valid).toBe(false);
+    });
+
+    it('returns invalid for a key made only of underscores', () => {
+      expect(validateImportSourceKey('_'.repeat(64)).valid).toBe(false);
+    });
+
     it('returns invalid for key starting with hyphen', () => {
       const result = validateImportSourceKey('-legacy-dms');
       expect(result.valid).toBe(false);

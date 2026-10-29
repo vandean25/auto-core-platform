@@ -2,7 +2,17 @@ const IMPORT_SOURCE_KEY_SEGMENT_MAX_LENGTH = 64;
 const IMPORT_SOURCE_KEY_MAX_SEGMENTS = 2;
 // Mirrors the manifest namespaceCode grammar so canonical keys keep their identity.
 const CANONICAL_KEY_SEGMENT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
-const SLUG_KEY_SEGMENT_PATTERN = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/;
+const SLUG_KEY_CHAR_PATTERN = /^[a-z0-9_-]+$/;
+const LOWER_ALPHANUMERIC_PATTERN = /^[a-z0-9]$/;
+
+// Character-class plus end checks keep slug validation linear on long hyphen runs.
+function isSlugSegment(segment: string): boolean {
+  return (
+    SLUG_KEY_CHAR_PATTERN.test(segment) &&
+    LOWER_ALPHANUMERIC_PATTERN.test(segment.charAt(0)) &&
+    LOWER_ALPHANUMERIC_PATTERN.test(segment.charAt(segment.length - 1))
+  );
+}
 
 export function normalizeImportSourceKey(raw: string): string {
   const canonical = raw.trim().toLowerCase();
@@ -77,10 +87,10 @@ export function validateImportSourceKey(
     };
   }
   const isCanonical = segments.length === IMPORT_SOURCE_KEY_MAX_SEGMENTS;
-  const segmentPattern = isCanonical
-    ? CANONICAL_KEY_SEGMENT_PATTERN
-    : SLUG_KEY_SEGMENT_PATTERN;
-  if (segments.some((segment) => !segmentPattern.test(segment))) {
+  const allSegmentsAccepted = isCanonical
+    ? segments.every((segment) => CANONICAL_KEY_SEGMENT_PATTERN.test(segment))
+    : segments.every(isSlugSegment);
+  if (!allSegmentsAccepted) {
     return {
       valid: false,
       error: isCanonical
