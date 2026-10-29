@@ -108,6 +108,20 @@ export const supplierDryRunJob: ImportJob = {
   applied_at: null,
 }
 
+/** A job whose apply run failed before it wrote any row. */
+export function failedApplyJob(applyFailureCode?: string): ImportJob {
+  return {
+    ...customerDryRunJob,
+    status: 'FAILED',
+    options: {
+      ...DEFAULT_OPTIONS,
+      apply_failure_reason: 'apply_error',
+      ...(applyFailureCode ? { apply_failure_code: applyFailureCode } : {}),
+    },
+    totals: { rows: 0, create: 0, update: 0, skip: 0, error: 0 },
+  }
+}
+
 export type ImportRowFixture = {
   row_no: number
   external_id: string | null

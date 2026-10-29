@@ -4,6 +4,7 @@ import {
   classifyImportApplyError,
   describeImportApplyCause,
   ImportApplyRetryExhaustedError,
+  readImportFailureDetail,
 } from './import-apply.errors.js';
 import type { ImportJobStore } from './import-job.store.js';
 import { logImportJobFailed } from './import-job-failed-log.util.js';
@@ -61,10 +62,13 @@ export async function handleImportWorkerAttemptFailure(
     await requeueImportWorkerAfterLeaseSkip(deps.workerFlow, params);
     return;
   }
+  const failureDetail = readImportFailureDetail(error);
   const failed = await deps.jobStore.markFailedIfApplying(
     params.tenantId,
     params.jobId,
     'apply_error',
+    undefined,
+    failureDetail,
   );
   if (failed.count > 0) {
     const job = await deps.jobStore.findJob(params.tenantId, params.jobId);
@@ -74,6 +78,7 @@ export async function handleImportWorkerAttemptFailure(
       attempt: job?.attempts_without_progress ?? 0,
       reason: 'apply_error',
       cause: describeImportApplyCause(error),
+      code: failureDetail?.code,
     });
   }
   throw error;

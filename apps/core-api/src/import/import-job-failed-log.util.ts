@@ -9,6 +9,7 @@ export function logImportJobFailed(
     attempt: number;
     reason: string;
     cause?: string;
+    code?: string;
     holder?: string;
     leaseExpiresAt?: string;
   },
@@ -17,11 +18,15 @@ export function logImportJobFailed(
     params.cause !== undefined && params.cause !== ''
       ? ` cause=${params.cause}`
       : '';
+  const codeSuffix =
+    params.code !== undefined && params.code !== ''
+      ? ` code=${params.code}`
+      : '';
   const leaseSuffix =
     params.reason === 'lease_lost'
       ? ` holder=${params.holder || 'none'} leaseExpiresAt=${params.leaseExpiresAt || 'none'}`
       : '';
   logger.error(
-    `import.job.failed jobId=${params.jobId} phase=${params.phase} attempt=${params.attempt} reason=${params.reason}${leaseSuffix}${causeSuffix}`,
+    `import.job.failed jobId=${params.jobId} phase=${params.phase} attempt=${params.attempt} reason=${params.reason}${leaseSuffix}${causeSuffix}${codeSuffix}`,
   );
 }

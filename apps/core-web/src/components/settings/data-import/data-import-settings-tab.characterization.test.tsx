@@ -7,6 +7,8 @@ import * as importsApi from '@/api/imports'
 import { toast } from 'sonner'
 
 import deCommon from '../../../../../../locales/de/common.json'
+import deErrors from '../../../../../../locales/de/errors.json'
+
 import {
   LABOR_CSV,
   SUPPLIER_CSV,
@@ -14,6 +16,7 @@ import {
   customerRow,
   di,
   entityLabels,
+  failedApplyJob,
   goToMappingStep,
   installImportApiMocks,
   laborDryRunJob,
@@ -69,6 +72,15 @@ vi.mock('@/api/imports', async (importOriginal) => {
 })
 
 let mocks: ImportApiMocks
+
+function failedResultSummary(): string {
+  return di.result.summary
+    .replace('{{status}}', 'FAILED')
+    .replace('{{created}}', '0')
+    .replace('{{updated}}', '0')
+    .replace('{{skipped}}', '0')
+    .replace('{{errors}}', '0')
+}
 
 describe('DataImportSettingsTab characterization', () => {
   beforeEach(() => {
@@ -608,6 +620,34 @@ describe('DataImportSettingsTab characterization', () => {
       })
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['labor', 'operations'] })
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['labor', 'categories'] })
+    })
+
+    it('shows the localized reason of a failed job from the error catalog', async () => {
+      mocks.apply.mutateAsync.mockResolvedValue(failedApplyJob('IMPORT_INVALID_ENCODING'))
+      renderImportSettingsTab()
+
+      await goToMappingStep()
+      await runDryRun()
+      fireEvent.click(await openApplyDialog())
+
+      expect(
+        await screen.findByText(deErrors.codes.IMPORT_INVALID_ENCODING),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('IMPORT_INVALID_ENCODING')).not.toBeInTheDocument()
+      expect(screen.queryByText(failedResultSummary())).not.toBeInTheDocument()
+    })
+
+    it('falls back to a generic sentence for an unknown failure code', async () => {
+      mocks.apply.mutateAsync.mockResolvedValue(failedApplyJob('FUTURE_IMPORT_FAILURE'))
+      renderImportSettingsTab()
+
+      await goToMappingStep()
+      await runDryRun()
+      fireEvent.click(await openApplyDialog())
+
+      expect(await screen.findByText(di.result.failedReasonFallback)).toBeInTheDocument()
+      expect(screen.queryByText('FUTURE_IMPORT_FAILURE')).not.toBeInTheDocument()
+      expect(screen.queryByText(failedResultSummary())).not.toBeInTheDocument()
     })
 
     it('disables the confirm button while the apply request is pending', async () => {

@@ -1067,6 +1067,7 @@ export class ImportService {
             phase: params.phase,
             attempt: jobAfterClaim.attempts_without_progress,
             reason: failureReason,
+            code: optionsAfterClaim.apply_failure_code,
           });
         }
       } else {
