@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { ImportEntityType, ImportJobStatus } from '@prisma/client';
+import { ImportEntityType, ImportJobStatus, Prisma } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -44,20 +44,25 @@ describe('GET /api/imports (job list, e2e)', () => {
   async function seedJob(tenantId: string, seed: SeedJob = {}): Promise<string> {
     const totals = seed.totals ?? { create: 1, update: 0, skip: 0, error: 0 };
     const status = seed.status ?? ImportJobStatus.DRY_RUN_DONE;
-    const optionsJson: Record<string, unknown> = {};
-    if (seed.applyFailureCode) {
-      optionsJson.apply_failure_reason = 'apply_error';
-      optionsJson.apply_failure_code = seed.applyFailureCode;
-    }
-    if (seed.workerPhase) {
-      optionsJson.worker = {
-        phase: seed.workerPhase,
-        lease_token: 'lease-token',
-        lease_until: new Date(Date.now() + 120_000).toISOString(),
-        started_at: new Date().toISOString(),
-        processed_rows: 0,
-      };
-    }
+    const optionsJson: Prisma.InputJsonObject = {
+      ...(seed.applyFailureCode
+        ? {
+            apply_failure_reason: 'apply_error',
+            apply_failure_code: seed.applyFailureCode,
+          }
+        : {}),
+      ...(seed.workerPhase
+        ? {
+            worker: {
+              phase: seed.workerPhase,
+              lease_token: 'lease-token',
+              lease_until: new Date(Date.now() + 120_000).toISOString(),
+              started_at: new Date().toISOString(),
+              processed_rows: 0,
+            },
+          }
+        : {}),
+    };
     const job = await createTenantAwarePrisma(prisma, tenantId).importJob.create({
       data: {
         tenant_id: tenantId,

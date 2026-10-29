@@ -200,7 +200,11 @@ export function useImportWizardState(params: {
   /**
    * Restores the saved wizard context of a job opened from history or `?job=` so a finished dry run
    * is applicable again: mapping, options, file fingerprint and vendor come from the stored job,
-   * then the status decides the step. Later polling updates go through `syncBackgroundJobProgress`.
+   * then the status decides the step. This runs once per selected job, so it also clears the
+   * previous job's local upload (file, headers, preview) and price-jump approvals — neither is
+   * persisted per job, and carrying them across jobs would let one file's CSV or price approvals
+   * leak into another. Re-running a saved job therefore requires selecting its file again. Later
+   * polling of the same job goes through `syncBackgroundJobProgress`, which keeps these intact.
    */
   const hydrateFromJob = React.useCallback(
     (job: ImportJob) => {
@@ -217,6 +221,11 @@ export function useImportWizardState(params: {
           : {}),
         ...(jobOptions.vendor_id ? { vendor_id: jobOptions.vendor_id } : {}),
       }
+      setFile(null)
+      setCsvHeaders([])
+      setPreviewRows([])
+      setAcceptAllPriceJumps(false)
+      setAcceptedRowNumbers([])
       setMapping((job.mapping ?? {}) as Record<string, string>)
       setOptions(restoredOptions)
       setSelectedVendorId(restoredOptions.vendor_id ?? '')
