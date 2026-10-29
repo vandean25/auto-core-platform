@@ -2,6 +2,8 @@
 
 Cloud agents and CI do not use this flow. It is for developers who run **several coding agents in parallel** on one machine, each in its own [git worktree](https://git-scm.com/docs/git-worktree), with isolated ports, env files, and Postgres databases.
 
+**Local agents** (e.g. Codex, Qoder) that create a linked worktree themselves: if you are in that worktree (not the primary checkout) and `apps/core-api/.env` is missing, run `npm run worktree:setup` before building, testing, or starting the app. **Cloud agents** (`NODE_ENV=test`, no local Docker) skip this — do not run worktree setup.
+
 ## Why
 
 The default dev stack uses port `3000` (API), `5173` (Vite), and a single `DATABASE_URL`. Two agents in one checkout overwrite each other's `.env` files, fight for ports, and collide on `prisma migrate` / seed against one database.
