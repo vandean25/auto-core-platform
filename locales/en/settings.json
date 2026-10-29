@@ -1038,6 +1038,7 @@
       "entityVehicle": "Vehicles",
       "entitySupplierPriceList": "Supplier price list",
       "sourceSystemLabel": "Source system",
+      "sourceSystemPlaceholder": "Select source system…",
       "vendorLabel": "Vendor *",
       "vendorPlaceholder": "Select vendor…",
       "vendorAria": "Select vendor",

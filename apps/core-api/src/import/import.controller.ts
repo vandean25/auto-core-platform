@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -53,6 +55,13 @@ import {
   StartDirectImportUploadDto,
 } from './dto/direct-import-upload.dto.js';
 import { StartDirectImportUploadResponseDto } from './dto/start-direct-import-upload-response.dto.js';
+import { ImportSourceService } from './import-source.service.js';
+import {
+  ImportSourceListResponseDto,
+  ImportSourceResponseDto,
+} from './dto/import-source-response.dto.js';
+import { CreateImportSourceDto } from './dto/create-import-source.dto.js';
+import { UpdateImportSourceDto } from './dto/update-import-source.dto.js';
 
 @ApiTags('imports')
 @Controller('imports')
@@ -61,6 +70,7 @@ export class ImportController {
     private readonly importService: ImportService,
     private readonly directUploadService: ImportDirectUploadService,
     private readonly mappingProfileService: ImportMappingProfileService,
+    private readonly importSourceService: ImportSourceService,
   ) {}
 
   @Post()
@@ -105,11 +115,19 @@ export class ImportController {
     const parsedOptions = options
       ? this.parseJsonObject(options, 'options')
       : {};
+    const trimmedSource = sourceSystem?.trim();
+    if (!trimmedSource) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
+        message: 'sourceSystem is required',
+      });
+    }
+    await this.importSourceService.assertSourceExists(trimmedSource);
     return this.importService.createDryRunFromUpload({
       uploadRequest,
       file: file as Express.Multer.File,
       entityType: parseImportEntityType(entityType),
-      sourceSystem: sourceSystem?.trim() ?? 'legacy',
+      sourceSystem: trimmedSource,
       mappingJson: parsedMapping,
       optionsJson: parsedOptions,
     });
@@ -131,16 +149,24 @@ export class ImportController {
       'Verify and promote a staged direct upload, then start the background dry-run',
   })
   @ApiCreatedResponse({ type: ImportJobResponseDto })
-  finalizeDirectUpload(
+  async finalizeDirectUpload(
     @Param('uploadId') uploadId: string,
     @Body() body: FinalizeDirectImportUploadDto,
   ) {
+    const trimmedSource = body.sourceSystem.trim();
+    if (!trimmedSource) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
+        message: 'sourceSystem is required',
+      });
+    }
+    await this.importSourceService.assertSourceExists(trimmedSource);
     return this.directUploadService.finalize({
       uploadId,
       fileName: body.fileName,
       size: body.size,
       entityType: body.entityType,
-      sourceSystem: body.sourceSystem.trim(),
+      sourceSystem: trimmedSource,
       mapping: body.mapping,
       options: body.options,
     });
@@ -173,6 +199,38 @@ export class ImportController {
   @ApiCreatedResponse({ type: ImportMappingProfileResponseDto })
   createMappingProfile(@Body() body: CreateImportMappingProfileDto) {
     return this.mappingProfileService.createProfile(body);
+  }
+
+  @Get('sources')
+  @ApiOperation({ summary: 'List configured import sources for the tenant' })
+  @ApiOkResponse({ type: ImportSourceListResponseDto })
+  async listSources() {
+    const data = await this.importSourceService.listSources();
+    return { data };
+  }
+
+  @Post('sources')
+  @ApiOperation({ summary: 'Create a new import source' })
+  @ApiCreatedResponse({ type: ImportSourceResponseDto })
+  createSource(@Body() body: CreateImportSourceDto) {
+    return this.importSourceService.createSource(body);
+  }
+
+  @Patch('sources/:id')
+  @ApiOperation({ summary: 'Update an import source label or default flag' })
+  @ApiOkResponse({ type: ImportSourceResponseDto })
+  updateSource(
+    @Param('id') id: string,
+    @Body() body: UpdateImportSourceDto,
+  ) {
+    return this.importSourceService.updateSource(id, body);
+  }
+
+  @Delete('sources/:id')
+  @ApiOperation({ summary: 'Delete an import source' })
+  @ApiOkResponse({ description: 'Import source deleted' })
+  deleteSource(@Param('id') id: string) {
+    return this.importSourceService.deleteSource(id);
   }
 
   @Get('templates/:entityType')

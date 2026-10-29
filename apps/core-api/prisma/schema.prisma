@@ -179,6 +179,7 @@ model Tenant {
   legacyDocumentLines              LegacyDocumentLine[]
   externalIdMappings               ExternalIdMapping[]
   importMappingProfiles            ImportMappingProfile[]
+  importSources                    ImportSource[]
   agentPolicyRules                 AgentPolicyRule[]
   agentProposals                   AgentProposal[]
   workshopCommandPresets           WorkshopCommandPreset[]
@@ -5218,6 +5219,21 @@ model ExternalIdMapping {
   @@unique([tenant_id, entity_type, source_system, external_id])
   @@index([tenant_id, entity_type, entity_id])
   @@map("external_id_mappings")
+}
+
+model ImportSource {
+  id         String   @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  key        String   @db.VarChar(64)
+  label      String
+  is_default Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tenant_id, key])
+  @@index([tenant_id])
+  @@map("import_sources")
 }
 
 model ImportMappingProfile {

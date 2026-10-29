@@ -11,6 +11,9 @@ Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
   <Step title="Datenimport öffnen">
     Zahnrad → **Datenimport**.
   </Step>
+  <Step title="Importquelle prüfen">
+    Stellen Sie sicher, dass Ihre Importquelle (z. B. „Legacy-DMS") unter **Importquellen** angelegt ist. Eine Quelle kann als Standard markiert werden — sie ist dann im Assistenten vorausgewählt.
+  </Step>
   <Step title="Entitätstyp wählen">
     **Kunden**, **Fahrzeuge**, **Lieferantenpreisliste** oder **Arbeitswerte** wählen und bei Bedarf die Vorlage für Spaltennamen herunterladen. Bei Fahrzeugen enthält die Vorlage die Spalte **Erstzulassung** (Datum wie `TT.MM.JJJJ` oder ISO-Tag).
   </Step>
@@ -29,6 +32,9 @@ Importe legen neue Zeilen an. Sie führen keine Duplikate per Kennzeichen oder E
 <AccordionGroup>
   <Accordion title="Wer das nutzen darf">
     Nur OWNER und ADMIN. Berater können den Tab auch mit direkter URL nicht öffnen.
+  </Accordion>
+  <Accordion title="Importquellen verwalten">
+    Jede Importquelle ist ein normalisierter Schlüssel (Kleinbuchstaben, Ziffern, Bindestriche, Unterstriche; max. 64 Zeichen) mit einem Anzeigenamen. Der Assistent zeigt nur konfigurierte Quellen an — Tippfehler beim Import erzeugen keine Duplikate mehr. Eine Quelle kann als Standard gesetzt werden; sie ist dann im Assistenten vorausgewählt.
   </Accordion>
   <Accordion title="Arbeitswerte importieren">
     Der Typ **Arbeitswerte** legt AW-Codes, Beschreibungen, AW-Zeiten, Stundensätze und optionale Verwendbarkeiten (Marke/Modell/Baujahr) an. Kategorienamen werden beim Import zugeordnet. Einzelne Vorgänge pflegen Sie danach nicht auf dem Tab [Arbeit](/settings/labor) — dort bleiben nur Kategorien und Sätze.

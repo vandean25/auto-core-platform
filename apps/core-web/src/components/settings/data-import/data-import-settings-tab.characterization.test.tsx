@@ -27,7 +27,6 @@ import {
   runDryRun,
   selectEntityType,
   selectVendor,
-  sourceSystemInput,
   supplierDryRunJob,
   supplierRow,
   uploadCsvFile,
@@ -248,6 +247,7 @@ describe('DataImportSettingsTab characterization', () => {
 
       expect(sourceSystemInput().value).toBe('supplier')
     })
+
 
     it('clears the mapping when the entity type changes', async () => {
       renderImportSettingsTab()

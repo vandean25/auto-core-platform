@@ -257,12 +257,14 @@ export function renderImportSettingsTab(
   return { ...result, queryClient }
 }
 
-export function sourceSystemInput(): HTMLInputElement {
-  return screen.getByLabelText(di.source.sourceSystemLabel) as HTMLInputElement
+export function sourceSystemTrigger(): HTMLElement {
+  return screen.getByRole('combobox', { name: di.source.sourceSystemLabel })
 }
 
-export function setSourceSystem(value: string) {
-  fireEvent.change(sourceSystemInput(), { target: { value } })
+export async function setSourceSystem(label: string) {
+  fireEvent.click(sourceSystemTrigger())
+  const option = await screen.findByRole('option', { name: label })
+  fireEvent.click(option)
 }
 
 export async function selectEntityType(label: string) {

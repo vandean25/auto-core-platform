@@ -11,6 +11,7 @@ import {
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { runCanonicalMigrationFixtureDryRunTotalsCheck } from './helpers/canonical-migration-fixture-dry-run-check.js';
+import { CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM } from '../src/prisma/fixtures/canonical-migration-import-presets.fixture.js';
 
 describe('legacy-import.e2e-spec.ts canonical migration totals', () => {
   let app: INestApplication;
@@ -32,6 +33,16 @@ describe('legacy-import.e2e-spec.ts canonical migration totals', () => {
     authService = app.get(AuthService);
     tenant = await createTestTenant(prisma, 'legacy-import-canonical-totals');
     authHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
+
+    // Create the import source used by canonical migration fixtures
+    await prisma.importSource.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        key: CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,
+        label: 'Synthetic DMS Fixture',
+        is_default: true,
+      },
+    });
   });
 
   afterAll(async () => {

@@ -12,6 +12,7 @@ import { ImportWorkerService } from './import-worker.service.js';
 import { ImportWorkerController } from './import-worker.controller.js';
 import { ImportRecoveryService } from './import-recovery.service.js';
 import { ImportTaskGuard } from './import-task.guard.js';
+import { ImportSourceService } from './import-source.service.js';
 
 @Module({
   controllers: [ImportController, ImportWorkerController],
@@ -27,6 +28,7 @@ import { ImportTaskGuard } from './import-task.guard.js';
     ImportWorkerService,
     ImportRecoveryService,
     ImportTaskGuard,
+    ImportSourceService,
   ],
 })
 export class ImportModule {}

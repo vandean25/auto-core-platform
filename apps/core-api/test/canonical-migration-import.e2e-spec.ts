@@ -49,6 +49,16 @@ describe('Canonical migration CSV import (e2e)', () => {
     authService = app.get(AuthService);
     tenant = await createTestTenant(prisma, 'canonical-migration-import');
     authHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
+
+    // Create the import source used by canonical migration fixtures
+    await prisma.importSource.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        key: CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,
+        label: 'Synthetic DMS Fixture',
+        is_default: true,
+      },
+    });
   });
 
   afterAll(async () => {

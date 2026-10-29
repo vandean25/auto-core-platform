@@ -1038,6 +1038,7 @@
       "entityVehicle": "Fahrzeuge",
       "entitySupplierPriceList": "Lieferanten-Preisliste",
       "sourceSystemLabel": "Quellsystem",
+      "sourceSystemPlaceholder": "Quellsystem auswählen…",
       "vendorLabel": "Lieferant *",
       "vendorPlaceholder": "Lieferant auswählen…",
       "vendorAria": "Lieferant auswählen",

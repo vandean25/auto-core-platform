@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
-import { useImportEntityTypes, useImportTemplate } from '@/api/imports'
+import { useImportEntityTypes, useImportSources, useImportTemplate } from '@/api/imports'
 import { usePriceJumpThreshold } from '@/api/margin-rules'
 import { useVendors } from '@/api/vendors'
 import { isImportEntityTypeUi, wizardImportEntityTypes } from '@/lib/i18n/enum-registry'
@@ -19,9 +19,18 @@ export function useDataImportSettingsTabCore() {
   const [searchParams] = useSearchParams()
   const initialEntityType = initialEntityFromParam(searchParams.get('entity'))
 
-  const [sourceSystem, setSourceSystem] = React.useState(
-    initialEntityType === 'SUPPLIER_PRICE_LIST' ? 'supplier' : 'incadea',
-  )
+  const { data: sourcesData } = useImportSources()
+  const sources = sourcesData?.data ?? []
+  const defaultSource = sources.find((s) => s.is_default) ?? sources[0]
+
+  const [sourceSystem, setSourceSystem] = React.useState(defaultSource?.key ?? '')
+
+  // Update sourceSystem when sources load and we have no selection or the default changes
+  React.useEffect(() => {
+    if (defaultSource && (!sourceSystem || !sources.some((s) => s.key === sourceSystem))) {
+      setSourceSystem(defaultSource.key)
+    }
+  }, [defaultSource, sourceSystem, sources])
 
   const wizard = useImportWizardState({
     initialEntityType,
@@ -46,6 +55,7 @@ export function useDataImportSettingsTabCore() {
     t,
     sourceSystem,
     setSourceSystem,
+    sources,
     wizard,
     entityTypes,
     entityTypesFailed: entityTypesQuery.isError,

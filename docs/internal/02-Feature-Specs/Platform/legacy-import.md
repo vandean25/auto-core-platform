@@ -26,6 +26,15 @@ The shipped five-step wizard is available to users who can manage team settings:
 
 The wizard can download entity templates and error-row CSVs. Marketing-consent columns are ignored by the import engine and reported as warnings.
 
+### Import sources (AUT-809)
+
+Each tenant configures a list of **import sources** (normalized lower-case slug keys with display labels) in Settings → Data import. One source can be marked as the default. The wizard source step shows a select of the tenant's configured sources instead of a free-text field. This prevents re-import typos from creating duplicate `ExternalIdMapping` rows.
+
+- **API endpoints:** `GET/POST/PATCH/DELETE /imports/sources` (tenant admin only).
+- **Validation:** `POST /imports` and `POST /imports/mapping-profiles` reject unknown source keys with `IMPORT_UNKNOWN_SOURCE` (400). The silent fallback to `'legacy'` has been removed.
+- **Migration:** A data migration creates one import source per distinct `source_system` already used in `import_jobs`, `external_id_mappings`, and `import_mapping_profiles` for each tenant. Keys are kept byte-identical (no renaming).
+- **Key format:** Lower-case alphanumeric, hyphens, and underscores only; max 64 characters; must not start or end with a hyphen.
+
 ### Canonical migration CSV v1 preset and manifest validator
 
 [AUT-645](https://linear.app/auto-core-platform/issue/AUT-645) adds a **Canonical migration CSV v1** mapping preset (English `snake_case` headers mapped 1:1) for **customers**, **vehicles**, and **labor operations**, seeded for the default tenant under source system `synthetic_dms:synth_fixture` together with synthetic fixtures in `apps/core-api/test/fixtures/migration-csv-v1/`. Select the preset in step 3 of the wizard after choosing the manifest `source_system`.
@@ -52,6 +61,10 @@ Before a dry-run, optional `options.migration_manifest` validates the uploaded C
 | GET | `/imports/templates/:entityType` | German headers + field list |
 | GET | `/imports/templates/:entityType/csv` | Downloadable template |
 | POST | `/imports/canonical-migration/validate` | Validate manifest + CSV bundle before cutover rehearsal |
+| GET | `/imports/sources` | List tenant import sources |
+| POST | `/imports/sources` | Create import source |
+| PATCH | `/imports/sources/:id` | Update import source label or default flag |
+| DELETE | `/imports/sources/:id` | Delete import source |
 
 ## Options
 

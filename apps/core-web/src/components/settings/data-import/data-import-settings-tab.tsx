@@ -45,6 +45,7 @@ export function DataImportSettingsTab() {
           onRetryEntityTypes={model.retryEntityTypes}
           sourceSystem={model.sourceSystem}
           onSourceSystemChange={model.handleSourceSystemChange}
+          sources={model.sources}
           selectedVendorId={model.wizard.selectedVendorId}
           onVendorChange={model.handleVendorChange}
           vendors={model.vendors}

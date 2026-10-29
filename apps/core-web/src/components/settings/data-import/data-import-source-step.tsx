@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
 
+import type { ImportSource } from '@/api/imports'
 import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
 import { toImportEntityTypeUi } from '@/lib/i18n/enum-registry'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -24,6 +24,7 @@ export type DataImportSourceStepProps = {
   onRetryEntityTypes: () => void
   sourceSystem: string
   onSourceSystemChange: (sourceSystem: string) => void
+  sources: ImportSource[]
   selectedVendorId: string
   onVendorChange: (vendorId: string) => void
   vendors: { id: string; name: string }[]
@@ -80,11 +81,22 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="import-source">{t('dataImport.source.sourceSystemLabel')}</Label>
-          <Input
-            id="import-source"
+          <Select
             value={props.sourceSystem}
-            onChange={(event) => props.onSourceSystemChange(event.target.value)}
-          />
+            onValueChange={(value) => props.onSourceSystemChange(value)}
+            disabled={props.sources.length === 0}
+          >
+            <SelectTrigger id="import-source">
+              <SelectValue placeholder={t('dataImport.source.sourceSystemPlaceholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {props.sources.map((source) => (
+                <SelectItem key={source.id} value={source.key}>
+                  {source.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {props.entityType === 'SUPPLIER_PRICE_LIST' ? (
           <div className="space-y-2 md:col-span-2">
@@ -115,7 +127,10 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
         </Button>
         <Button
           type="button"
-          disabled={props.entityType === 'SUPPLIER_PRICE_LIST' && !props.selectedVendorId}
+          disabled={
+            (props.entityType === 'SUPPLIER_PRICE_LIST' && !props.selectedVendorId) ||
+            !props.sourceSystem
+          }
           onClick={props.onContinue}
         >
           {t('dataImport.source.continue')}

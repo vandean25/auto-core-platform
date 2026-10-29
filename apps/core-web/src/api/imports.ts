@@ -47,6 +47,31 @@ export const importKeys = {
     [...importKeys.all, 'rows', id, params] as const,
   profiles: (entityType: ImportEntityType, sourceSystem: string) =>
     [...importKeys.all, 'profiles', entityType, sourceSystem] as const,
+  sources: () => [...importKeys.all, 'sources'] as const,
+}
+
+export type ImportSource = {
+  id: string
+  key: string
+  label: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type ImportSourceListResponse = {
+  data: ImportSource[]
+}
+
+export type CreateImportSourcePayload = {
+  key: string
+  label: string
+  is_default?: boolean
+}
+
+export type UpdateImportSourcePayload = {
+  label?: string
+  is_default?: boolean
 }
 
 async function readErrorPayload(response: Response): Promise<{
@@ -353,4 +378,77 @@ export async function downloadImportErrorRowsCsv(jobId: string, language?: strin
     throw new Error(await readErrorMessage(response, 'Failed to download error rows'))
   }
   return response.blob()
+}
+
+export function useImportSources() {
+  return useQuery({
+    queryKey: importKeys.sources(),
+    queryFn: async (): Promise<ImportSourceListResponse> => {
+      const response = await fetchWithAuth('/api/imports/sources')
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to load import sources'))
+      }
+      return response.json() as Promise<ImportSourceListResponse>
+    },
+  })
+}
+
+export function useCreateImportSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: CreateImportSourcePayload): Promise<ImportSource> => {
+      const response = await fetchWithAuth('/api/imports/sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to create import source'))
+      }
+      return response.json() as Promise<ImportSource>
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
+    },
+  })
+}
+
+export function useUpdateImportSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: {
+      id: string
+      payload: UpdateImportSourcePayload
+    }): Promise<ImportSource> => {
+      const response = await fetchWithAuth(`/api/imports/sources/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params.payload),
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to update import source'))
+      }
+      return response.json() as Promise<ImportSource>
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
+    },
+  })
+}
+
+export function useDeleteImportSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const response = await fetchWithAuth(`/api/imports/sources/${id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to delete import source'))
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
+    },
+  })
 }
