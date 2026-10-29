@@ -5,6 +5,8 @@ import { Loader2 } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import { getBadRequestFields, normalizeApiError, translateApiError } from '@/api/api-error'
 import { Button } from '@/components/ui/button'
+import { DialogFooter } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { mobileNativeSelectClass } from '@/lib/mobile-field-text'
@@ -23,13 +25,17 @@ function newWheel(position: Wheel['position'], initial?: Measurement): TyreMeasu
   const previous = initial?.wheels.find((wheel) => wheel.position === position)
   return {
     position,
+    treadInnerMm: undefined, treadMiddleMm: undefined, treadOuterMm: undefined,
     season: previous?.season ?? 'SUMMER', construction: previous?.construction ?? 'RADIAL',
     winterMarking: previous?.winterMarking ?? 'NONE', brand: previous?.brand ?? '',
     model: previous?.model ?? '', size: previous?.size ?? '', dot: previous?.dot ?? '',
   }
 }
 
+export type TyreMeasurementFormState = { isDirty: boolean; isSubmitting: boolean }
+
 type Props = {
+  onStateChange?: (state: TyreMeasurementFormState) => void
   onSave: (body: Payload) => Promise<unknown>
   initial?: Measurement
   disabled?: boolean
@@ -81,22 +87,37 @@ function MeasurementSaveControls({ form, pending, disabled, submitLabel }: {
   disabled: boolean
   submitLabel?: string
 }) {
-  const { t } = useTranslation('workshop')
+  const { t } = useTranslation(['workshop', 'common'])
   const saving = form.formState.isSubmitting
   const error = form.formState.errors.root
   return (
     <>
       {pending && <p role="status" className="text-sm text-muted-foreground">{t('tyreReport.pendingPhoto')}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error.message}</p>}
-      <Button type="submit" disabled={disabled || saving} className="min-h-11">
-        {saving && <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
-        {submitLabel ?? (saving ? t('tyreReport.saving') : t('tyreReport.save'))}
-      </Button>
+      <DialogFooter>
+        {form.formState.isDirty && <AlertDialog>
+          <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={disabled || saving} className="min-h-11">{t('tyreReport.discard')}</Button></AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('tyreReport.discard')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('tyreReport.discardDescription')}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => form.reset()}>{t('tyreReport.confirmDiscard')}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>}
+        <Button type="submit" disabled={disabled || saving || pending} className="min-h-11">
+          {saving && <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
+          {submitLabel ?? (saving ? t('tyreReport.saving') : t('tyreReport.save'))}
+        </Button>
+      </DialogFooter>
     </>
   )
 }
 
-export function TyreMeasurementForm({ onSave, initial, disabled = false, submitLabel, onPhoto, pendingMediaIds = [], mediaUrls = {} }: Props) {
+export function TyreMeasurementForm({ onSave, onStateChange, initial, disabled = false, submitLabel, onPhoto, pendingMediaIds = [], mediaUrls = {} }: Props) {
   const { t } = useTranslation('workshop')
   const [uploading, setUploading] = useState(false)
   const form = useForm<TyreMeasurementValues>({ defaultValues: {
@@ -107,6 +128,13 @@ export function TyreMeasurementForm({ onSave, initial, disabled = false, submitL
   const wheels = form.watch('wheels')
   const pending = wheels.some((wheel) => wheel.mediaId && pendingMediaIds.includes(wheel.mediaId))
   const saving = form.formState.isSubmitting
+  const dirty = form.formState.isDirty
+  useEffect(() => {
+    onStateChange?.({ isDirty: dirty, isSubmitting: saving || uploading })
+  }, [dirty, saving, uploading, onStateChange])
+  useEffect(() => () => {
+    onStateChange?.({ isDirty: false, isSubmitting: false })
+  }, [onStateChange])
   const pendingFocus = useRef<FieldPath<Payload> | null>(null)
   useEffect(() => {
     if (!saving && pendingFocus.current) {
@@ -125,6 +153,7 @@ export function TyreMeasurementForm({ onSave, initial, disabled = false, submitL
     pendingFocus.current = null
     try {
       await onSave(payload)
+      form.reset(body)
     } catch (error) {
       const fieldErrors = getServerFieldErrors(error, payload, t('tyreReport.invalidField'))
       pendingFocus.current = fieldErrors[0]?.path ?? null
@@ -159,7 +188,7 @@ export function TyreMeasurementForm({ onSave, initial, disabled = false, submitL
             onPhoto={onPhoto ? capturePhoto : undefined} mediaUrls={mediaUrls} />)}
         </div>
       </fieldset>
-      <MeasurementSaveControls form={form} pending={pending} disabled={disabled || uploading || pending} submitLabel={submitLabel} />
+      <MeasurementSaveControls form={form} pending={pending} disabled={disabled || uploading} submitLabel={submitLabel} />
     </form>
   )
 }

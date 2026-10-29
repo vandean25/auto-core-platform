@@ -64,7 +64,7 @@ function TyreWheelDetailField({ form, index, positionLabel, field }: {
           {choices.map((choice) => <option key={choice.value} value={choice.value}>{t(choice.label)}</option>)}
         </select>
       ) : (
-        <Input {...controlProps} className="min-h-11" maxLength={field === 'dot' ? 4 : 100} />
+        <Input {...controlProps} className="min-h-11" maxLength={field === 'dot' ? 80 : 100} />
       )}
       {error && <p id={`${path}-error`} className="text-sm text-destructive">{error.message}</p>}
     </div>
@@ -96,7 +96,7 @@ export function TyreWheelFields({ form, index, position, onPhoto, mediaUrls }: P
             <Label htmlFor={path}>{t(`tyreReport.fields.${point}`)}</Label>
             <Input id={path} aria-label={`${positionLabel} ${t(`tyreReport.fields.${point}`)}`} type="number" inputMode="decimal" min={0} max={20} step={0.01} required className="min-h-11"
               aria-invalid={Boolean(error)} aria-describedby={error ? `${path}-error` : undefined}
-              {...form.register(path, { valueAsNumber: true, required: t('tyreReport.invalidField'), min: { value: 0, message: t('tyreReport.invalidField') }, max: { value: 20, message: t('tyreReport.invalidField') } })} />
+              {...form.register(path, { setValueAs: (value: string) => value === '' ? undefined : Number(value), required: t('tyreReport.invalidField'), min: { value: 0, message: t('tyreReport.invalidField') }, max: { value: 20, message: t('tyreReport.invalidField') } })} />
             {error && <p id={`${path}-error`} className="text-sm text-destructive">{error.message}</p>}
           </div>
         })}

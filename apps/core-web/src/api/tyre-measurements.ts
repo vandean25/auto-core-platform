@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
 import { fetchWithAuth } from './client'
-import { throwApiResponseError } from './api-error'
+import { normalizeApiError, throwApiResponseError } from './api-error'
 import { tyreStorageKeys } from './tyre-storage'
 import { workshopKeys } from './workshop'
 import { tyreMeasurementKeys } from './tyre-measurement-keys'
+import { useAuthSession } from './auth-session'
 
 export type TyreMeasurement = components['schemas']['TyreMeasurementResponseDto']
 export type TyreWheel = components['schemas']['TyreWheelResponseDto']
@@ -46,11 +47,15 @@ export async function createTyreMeasurement(
 }
 
 export function useTyreMeasurements(parent: TyreMeasurementParent, enabled = true) {
-  return useQuery({
-    queryKey: tyreMeasurementKeys.list(parent),
+  const siteId = useAuthSession().data?.activeSiteId ?? null
+  const query = useQuery({
+    queryKey: tyreMeasurementKeys.list(parent, siteId),
     queryFn: () => fetchTyreMeasurements(parent),
     enabled,
   })
+  const status = normalizeApiError(query.error)?.status
+  const accessRejected = status === 401 || status === 403 || status === 404
+  return { ...query, data: accessRejected ? undefined : query.data }
 }
 
 export function useCreateTyreMeasurement(parent: TyreMeasurementParent) {

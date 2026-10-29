@@ -65,6 +65,8 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   const [acknowledged, setAcknowledged] = useState(false)
   const [signatureMediaId, setSignatureMediaId] = useState<string | null>(null)
   const [step, setStep] = useState<CheckInStep>('vehicle')
+  const [tyreFormState, setTyreFormState] = useState({ isDirty: false, isSubmitting: false })
+  const tyreMeasurementPending = tyreFormState.isDirty || tyreFormState.isSubmitting
   const [localPreviewUrls, setLocalPreviewUrls] = useState<Record<string, string>>({})
   const tyrePreviewUrlsRef = useRef(new Set<string>())
   useEffect(() => () => {
@@ -385,6 +387,10 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   }
 
   const handleComplete = async () => {
+    if (tyreMeasurementPending) {
+      toast.error(t('tyreReport.unsavedCheckIn'))
+      return
+    }
     const trimmedName = signedByName.trim()
     if (!acknowledged || !trimmedName) {
       toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
@@ -560,6 +566,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           parent={{ kind: 'check-in', id: checkInQuery.data.id }}
           orderId={orderId}
           readOnly={readOnly}
+          onFormStateChange={setTyreFormState}
           mediaUrls={{
             ...Object.fromEntries((mediaQuery.data ?? []).filter((item) => item.preview_url).map((item) => [item.id, item.preview_url as string])),
             ...localPreviewUrls,
@@ -602,6 +609,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         />
       )}
 
+      {step === 'review' && !readOnly && tyreMeasurementPending && <p role="alert" className="text-sm text-destructive">{t('tyreReport.unsavedCheckIn')}</p>}
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <Button
           type="button"
@@ -637,7 +645,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
               type="button"
               className="min-h-11"
               data-testid="check-in-complete"
-              disabled={completeCheckIn.isPending}
+              disabled={completeCheckIn.isPending || tyreMeasurementPending}
               onClick={() => void handleComplete()}
             >
               {completeCheckIn.isPending

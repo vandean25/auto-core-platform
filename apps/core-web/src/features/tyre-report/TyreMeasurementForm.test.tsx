@@ -16,6 +16,62 @@ afterEach(() => {
 })
 
 describe('TyreMeasurementForm', () => {
+  it('reports edits and pending submission, clearing dirty state only after a successful save', async () => {
+    let resolveSave!: () => void
+    const onSave = () => new Promise<void>((resolve) => { resolveSave = resolve })
+    const onStateChange = vi.fn()
+    render(<TyreMeasurementForm onSave={onSave} onStateChange={onStateChange} />)
+    expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: false, isSubmitting: false })
+    fillTreads()
+    await waitFor(() => expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: true, isSubmitting: false }))
+    fireEvent.click(screen.getByRole('button', { name: 'Messung speichern' }))
+    await waitFor(() => expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: true, isSubmitting: true }))
+    resolveSave()
+    await waitFor(() => expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: false, isSubmitting: false }))
+  })
+
+  it('retains dirty state after a failed save', async () => {
+    const onStateChange = vi.fn()
+    render(<TyreMeasurementForm onSave={vi.fn().mockRejectedValue(new Error('offline'))} onStateChange={onStateChange} />)
+    fillTreads()
+    fireEvent.click(screen.getByRole('button', { name: 'Messung speichern' }))
+    await screen.findByRole('alert')
+    expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: true, isSubmitting: false })
+  })
+
+  it('discards edits only after confirmation without posting a measurement', async () => {
+    const onSave = vi.fn()
+    const onStateChange = vi.fn()
+    render(<TyreMeasurementForm onSave={onSave} onStateChange={onStateChange} />)
+    fillTreads()
+    fireEvent.click(screen.getByRole('button', { name: 'Messung verwerfen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(screen.getByLabelText('Vorne links Innen')).toHaveValue(5.25)
+    fireEvent.click(screen.getByRole('button', { name: 'Messung verwerfen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Verwerfen' }))
+    await waitFor(() => expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: false, isSubmitting: false }))
+    expect(screen.getByLabelText('Vorne links Innen')).toHaveValue(null)
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('allows confirmed discard while a queued photo prevents saving', async () => {
+    const onStateChange = vi.fn()
+    render(<TyreMeasurementForm onSave={vi.fn()} onStateChange={onStateChange}
+      onPhoto={vi.fn().mockResolvedValue('pending-photo')} pendingMediaIds={['pending-photo']} />)
+    fireEvent.change(screen.getByLabelText('Vorne links Reifenfoto aufnehmen'), { target: { files: [new File(['photo'], 'tyre.png', { type: 'image/png' })] } })
+    await screen.findByRole('status')
+    expect(screen.getByRole('button', { name: 'Messung speichern' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Messung verwerfen' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Messung verwerfen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Verwerfen' }))
+    await waitFor(() => expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: false, isSubmitting: false }))
+  })
+
+  it('accepts full DOT identifiers up to the DTO limit', () => {
+    render(<TyreMeasurementForm onSave={vi.fn()} />)
+    expect(screen.getByLabelText('Vorne links DOT')).toHaveAttribute('maxlength', '80')
+  })
+
   it('never writes NaN to native tread inputs on mount or when adding a spare', () => {
     const valueSetter = vi.spyOn(HTMLInputElement.prototype, 'value', 'set')
     const consoleWarn = vi.spyOn(console, 'warn')

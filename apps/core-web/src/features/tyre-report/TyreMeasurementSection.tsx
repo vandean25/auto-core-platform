@@ -15,12 +15,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { generateId } from '@/lib/id'
 import { useDelayedFlag } from '@/hooks/useDelayedFlag'
 import { TyreReport } from './TyreReport'
-import { TyreMeasurementForm } from './TyreMeasurementForm'
+import { TyreMeasurementForm, type TyreMeasurementFormState } from './TyreMeasurementForm'
 
 type Props = {
   parent: TyreMeasurementParent
   orderId: string
   readOnly?: boolean
+  onFormStateChange?: (state: TyreMeasurementFormState) => void
   onPhoto?: (file: File) => Promise<string>
   pendingMediaIds?: string[]
   mediaUrls?: Record<string, string>
@@ -54,9 +55,10 @@ function TyreMeasurementHistory({ measurements, mediaUrls }: {
   return latest ? <TyreReport measurement={latest} mediaUrls={mediaUrls} /> : <p className="text-sm text-muted-foreground">{t('tyreReport.empty')}</p>
 }
 
-export function TyreMeasurementSection({ parent, orderId, readOnly = false, onPhoto, pendingMediaIds, mediaUrls = {} }: Props) {
+export function TyreMeasurementSection({ parent, orderId, readOnly = false, onFormStateChange, onPhoto, pendingMediaIds, mediaUrls = {} }: Props) {
   const { t } = useTranslation('workshop')
-  const role = useAuthSession().data?.activeRole
+  const session = useAuthSession().data
+  const role = session?.activeRole
   const permitted = canRecordTyreMeasurement(role)
   const measurements = useTyreMeasurements(parent, permitted)
   const create = useCreateTyreMeasurement(parent)
@@ -68,7 +70,7 @@ export function TyreMeasurementSection({ parent, orderId, readOnly = false, onPh
   const editable = permitted && !readOnly
   const isOpen = search.get('action') === 'recordTyreMeasurement' && editable
   const close = () => setSearch((previous) => { const next = new URLSearchParams(previous); next.delete('action'); return next }, { replace: true })
-  const form = editable && measurements.data && <TyreMeasurementForm initial={measurements.data.data[0]} pendingMediaIds={pendingMediaIds} mediaUrls={urls} onPhoto={onPhoto ?? media.uploadPhoto}
+  const form = editable && measurements.data && <TyreMeasurementForm key={session?.activeSiteId ?? 'no-site'} onStateChange={onFormStateChange} initial={measurements.data.data[0]} pendingMediaIds={pendingMediaIds} mediaUrls={urls} onPhoto={onPhoto ?? media.uploadPhoto}
     onSave={async (body) => { await create.mutateAsync(body); if (parent.kind === 'order') close() }} />
 
   if (!permitted) return null
