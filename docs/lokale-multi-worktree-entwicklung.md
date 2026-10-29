@@ -2,6 +2,8 @@
 
 Cloud Agents und CI nutzen diesen Ablauf nicht. Er richtet sich an Entwickler, die **mehrere Coding-Agenten parallel** auf einem Rechner betreiben — jeweils in einem eigenen [Git-Worktree](https://git-scm.com/docs/git-worktree), mit getrennten Ports, Env-Dateien und Postgres-Datenbanken.
 
+**Lokale Agenten** (z. B. Codex, Qoder), die den Worktree selbst anlegen: Befindet ihr euch in diesem **verknüpften** Worktree (nicht im Haupt-Checkout) und fehlt `apps/core-api/.env`, vor Build, Tests oder App-Start `npm run worktree:setup` ausführen. **Cloud Agents** (`NODE_ENV=test`, kein lokales Docker) überspringen das — kein Worktree-Setup ausführen.
+
 ## Warum
 
 Der Standard-Dev-Stack nutzt Port `3000` (API), `5173` (Vite) und eine gemeinsame `DATABASE_URL`. Zwei Agenten im selben Checkout überschreiben sich gegenseitig die `.env`-Dateien, blockieren Ports und kollidieren bei `prisma migrate` / Seed auf einer Datenbank.
