@@ -20,6 +20,9 @@ export interface PushMessageInput {
   locale: DisplayLanguage;
   orderId: string | null;
   orderNumber: string | null;
+  /** Tenant and site of the order. They go into the link as routing hints; the app still switches through its authorized flow. */
+  tenantId: string;
+  siteId: string | null;
   /** From the outbox payload of CUSTOMER_ESTIMATE_DECIDED: the title says approved or declined. */
   decision: 'APPROVED' | 'DECLINED' | null;
 }
@@ -86,6 +89,25 @@ function textKey(input: PushMessageInput): string | null {
   }
 }
 
+/** Query parameters of the order link. The app reads them, switches tenant and site through the authorized flow, then drops them. */
+export const PUSH_LINK_TENANT_PARAM = 'pushTenant';
+export const PUSH_LINK_SITE_PARAM = 'pushSite';
+
+/**
+ * `/workshop/orders/{id}` with the tenant and site the order lives in. The detail API only finds an order in the
+ * active tenant and site, so a recipient who works in another context needs it. The ids are routing hints, never
+ * authorization: the switch is validated by the server against the user's memberships.
+ */
+function buildOrderLink(
+  orderId: string,
+  tenantId: string,
+  siteId: string | null,
+): string {
+  const params = new URLSearchParams({ [PUSH_LINK_TENANT_PARAM]: tenantId });
+  if (siteId) params.set(PUSH_LINK_SITE_PARAM, siteId);
+  return `/workshop/orders/${orderId}?${params.toString()}`;
+}
+
 /** The data message for one push, or null for an event that has no push text. */
 export function buildPushMessage(input: PushMessageInput): PushData | null {
   const key = textKey(input);
@@ -104,7 +126,7 @@ export function buildPushMessage(input: PushMessageInput): PushData | null {
   };
   if (input.orderId) {
     data.orderId = input.orderId;
-    data.url = `/workshop/orders/${input.orderId}`;
+    data.url = buildOrderLink(input.orderId, input.tenantId, input.siteId);
   }
   return data;
 }

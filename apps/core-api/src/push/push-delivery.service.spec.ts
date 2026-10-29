@@ -287,6 +287,26 @@ describe('PushDeliveryService', () => {
     );
   });
 
+  it('stays accepted when revoking the unregistered device fails, so the accepted message is not sent again', async () => {
+    const { service, prisma, gateway } = setup();
+    gateway.outcome = (targets) => [
+      { deviceId: targets[0].deviceId, ok: true },
+      {
+        deviceId: targets[1].deviceId,
+        ok: false,
+        kind: 'unregistered',
+        code: 'messaging/registration-token-not-registered',
+      },
+    ];
+    prisma.pushDevice.updateMany.mockRejectedValue(new Error('db down'));
+
+    await expect(service.deliver(row(), NOW, ENV_ON)).resolves.toEqual({
+      kind: 'accepted',
+      acceptedDevices: 1,
+    });
+    expect(prisma.pushDevice.updateMany).toHaveBeenCalledTimes(1);
+  });
+
   it('retries and revokes nothing when one device answers invalid-argument and another is unavailable', async () => {
     const { service, prisma, gateway } = setup();
     gateway.outcome = (targets) => [
@@ -363,7 +383,7 @@ describe('PushDeliveryService', () => {
       body: 'Order WO-2026-0007',
       eventType: 'CUSTOMER_ESTIMATE_DECIDED',
       orderId: 'order-1',
-      url: '/workshop/orders/order-1',
+      url: '/workshop/orders/order-1?pushTenant=tenant-1&pushSite=site-1',
       tag: 'CUSTOMER_ESTIMATE_DECIDED:order-1',
     });
     for (const key of Object.keys(message)) {

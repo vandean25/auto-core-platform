@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
+import { NotificationOutboxService } from '../src/notifications/notification-outbox.service.js';
 import { signNotificationTaskPayload } from '../src/notifications/notification-task.payload.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { PushDeviceCleanupService } from '../src/push/push-device-cleanup.service.js';
@@ -316,6 +317,63 @@ describe('Web push for staff (e2e)', () => {
     } finally {
       await cleanupTestTenantGraph(basePrisma, fresh.tenantId);
     }
+  });
+
+  it('holds the hourly test budget under concurrent requests: with four of five used, only one of eight passes', async () => {
+    const uid = `e2e-user3-${tenantA.tenantId}`;
+    const third = await basePrisma.user.create({
+      data: { firebaseUid: uid, email: `${uid}@example.com` },
+      select: { id: true },
+    });
+    await seedTestTenantMember(basePrisma, {
+      tenantId: tenantA.tenantId,
+      userId: third.id,
+      role: 'ADMIN',
+    });
+    const header = `Bearer ${createTestAuthToken(authService, {
+      tenantId: tenantA.tenantId,
+      firebaseUid: uid,
+      email: `${uid}@example.com`,
+      role: 'ADMIN',
+    })}`;
+    await register(header, `budget-${randomUUID()}`).expect(201);
+    for (let i = 0; i < 4; i += 1) {
+      await api()
+        .post('/api/v1/me/push/test')
+        .set('Authorization', header)
+        .expect(202);
+    }
+
+    // Widen the window between the budget check and the write, so an unprotected check would let all eight through.
+    const outbox = app.get(NotificationOutboxService);
+    const realEnqueue = outbox.enqueueInTx.bind(outbox);
+    const spy = jest
+      .spyOn(outbox, 'enqueueInTx')
+      .mockImplementation(async (tx, input, now) => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return realEnqueue(tx, input, now);
+      });
+    let results;
+    try {
+      results = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          api().post('/api/v1/me/push/test').set('Authorization', header),
+        ),
+      );
+    } finally {
+      spy.mockRestore();
+    }
+
+    const statuses = results.map((result) => result.status).sort();
+    expect(statuses).toEqual([202, 429, 429, 429, 429, 429, 429, 429]);
+    const rows = await tenantPrisma(tenantA.tenantId).notificationOutbox.count({
+      where: {
+        tenant_id: tenantA.tenantId,
+        recipient_user_id: third.id,
+        event_type: 'PUSH_TEST',
+      },
+    });
+    expect(rows).toBe(5);
   });
 
   it('the cleanup job revokes idle devices and those of departed members', async () => {
