@@ -1,8 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CustomerType, DisplayLanguage } from '@prisma/client';
 import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
+import { LegacyIdDto } from '../../common/dto/legacy-id.dto.js';
 
 export class CustomerResponseDto extends DryRunMetaDto {
+  @ApiProperty({ type: () => [LegacyIdDto], required: false, readOnly: true })
+  legacy_ids?: LegacyIdDto[];
+
   @ApiProperty()
   id!: string;
 

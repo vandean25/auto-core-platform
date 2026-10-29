@@ -190,9 +190,7 @@ describe('ImportDirectUploadService.start', () => {
     expect(started.upload_id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
-    expect(started.upload_url).toBe(
-      'https://storage.googleapis.com/signed',
-    );
+    expect(started.upload_url).toBe('https://storage.googleapis.com/signed');
     expect(started.method).toBe('POST');
     expect(started.content_type).toBe('text/csv');
     expect(started.max_bytes).toBe(100);
@@ -270,12 +268,14 @@ describe('ImportDirectUploadService.finalize', () => {
   });
 
   it('rejects an upload whose staging object is missing', async () => {
-    const storage = storageStub({ statStagingObject: jest.fn(async () => null) });
+    const storage = storageStub({
+      statStagingObject: jest.fn(async () => null),
+    });
     const service = serviceWith({ storage });
 
-    await expect(service.finalize(finalizeParams(randomUUID()))).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.finalize(finalizeParams(randomUUID())),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('rejects and deletes a staged object above the declared or server cap', async () => {
@@ -336,15 +336,13 @@ describe('ImportDirectUploadService.finalize', () => {
     expect(storage.copyStagingToJobObject).toHaveBeenCalledWith({
       sourceKey: stagingKey,
       destinationKey: expect.stringMatching(
-        new RegExp(
-          `^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`,
-        ),
+        new RegExp(`^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`),
       ),
       sourceGeneration: 'gen-1',
     });
     expect(storage.deleteStagingObject).toHaveBeenCalledWith(stagingKey);
-    const destinationKey = storage.copyStagingToJobObject.mock
-      .calls[0][0].destinationKey as string;
+    const destinationKey = storage.copyStagingToJobObject.mock.calls[0][0]
+      .destinationKey as string;
     const jobId = destinationKey.split('/')[3];
     expect(createDryRunFromStoredUpload).toHaveBeenCalledWith({
       jobId,
@@ -395,9 +393,7 @@ describe('ImportDirectUploadService.finalize', () => {
     expect(storage.copyStagingToJobObject).toHaveBeenCalledWith({
       sourceKey: stagingKey,
       destinationKey: expect.stringMatching(
-        new RegExp(
-          `^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`,
-        ),
+        new RegExp(`^tenants/${TENANT_ID}/imports/[0-9a-f-]{36}/report\\.csv$`),
       ),
       sourceGeneration: 'gen-1',
     });
@@ -452,6 +448,17 @@ describe('LocalDirectImportUploadStorage generation pinning', () => {
     );
   });
 
+  it.each(['../outside.csv', '../../outside.csv', ''])(
+    'rejects an out-of-root staging key %s',
+    async (objectKey) => {
+      const storage = new LocalDirectImportUploadStorage();
+
+      await expect(storage.statStagingObject(objectKey)).rejects.toThrow(
+        'Invalid direct import upload path',
+      );
+    },
+  );
+
   it('refuses to copy a staging object that changed after it was validated', async () => {
     const uploadId = randomUUID();
     cleanupPaths.push(
@@ -500,8 +507,6 @@ describe('direct upload key validation', () => {
         uploadId,
         fileName: '../../secrets.csv',
       }),
-    ).toBe(
-      `import-uploads/tenants/${TENANT_ID}/${uploadId}/secrets.csv`,
-    );
+    ).toBe(`import-uploads/tenants/${TENANT_ID}/${uploadId}/secrets.csv`);
   });
 });

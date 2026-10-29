@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
 
 import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
-import { IMPORT_ENTITY_TYPE_VALUES } from '@/lib/i18n/enum-registry'
+import { toImportEntityTypeUi } from '@/lib/i18n/enum-registry'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,7 +18,10 @@ import type { ImportEntityTypeUi } from './import-field-labels'
 
 export type DataImportSourceStepProps = {
   entityType: ImportEntityTypeUi
+  entityTypes: ImportEntityTypeUi[]
   onEntityTypeChange: (entityType: ImportEntityTypeUi) => void
+  entityTypesFailed: boolean
+  onRetryEntityTypes: () => void
   sourceSystem: string
   onSourceSystemChange: (sourceSystem: string) => void
   selectedVendorId: string
@@ -43,19 +46,37 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
           <Label htmlFor="import-entity">{t('dataImport.source.entityLabel')}</Label>
           <Select
             value={props.entityType}
-            onValueChange={(value) => props.onEntityTypeChange(value as ImportEntityTypeUi)}
+            onValueChange={(value) => props.onEntityTypeChange(toImportEntityTypeUi(value))}
           >
-            <SelectTrigger id="import-entity">
-              <SelectValue />
+            <SelectTrigger
+              id="import-entity"
+              aria-describedby={props.entityTypesFailed ? 'import-entity-error' : undefined}
+            >
+              <SelectValue>{formatImportEntityTypeLabel(props.entityType)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {IMPORT_ENTITY_TYPE_VALUES.map((value) => (
+              {props.entityTypes.map((value) => (
                 <SelectItem key={value} value={value}>
                   {formatImportEntityTypeLabel(value)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {props.entityTypesFailed ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p id="import-entity-error" className="text-sm text-destructive">
+                {t('dataImport.source.entityTypesLoadFailed')}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={props.onRetryEntityTypes}
+              >
+                {t('common:actions.retry')}
+              </Button>
+            </div>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="import-source">{t('dataImport.source.sourceSystemLabel')}</Label>

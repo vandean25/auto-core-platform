@@ -18,6 +18,12 @@ import {
 } from './tenant-test-utils.js';
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import {
+  addIsoDays,
+  formatLocalDate,
+  parseLocalDate,
+  zonedWallClockToUtc,
+} from '../src/workshop/workshop-planner.time.js';
 
 jest.setTimeout(120000);
 
@@ -39,6 +45,13 @@ describe('Workshop estimates list (e2e)', () => {
   const api = () => request(app.getHttpServer());
   const adminAuth = () => ({ Authorization: `Bearer ${adminToken}` });
   const now = Date.now();
+  const SITE_TIME_ZONE = 'Europe/Vienna';
+  const siteLocalDay = (daysAgo: number) =>
+    addIsoDays(formatLocalDate(new Date(now), SITE_TIME_ZONE), -daysAgo);
+  const siteLocalNoon = (isoDay: string) => {
+    const { year, month, day } = parseLocalDate(isoDay);
+    return zonedWallClockToUtc(SITE_TIME_ZONE, year, month, day, 12, 0);
+  };
 
   async function createEstimateVersion(label: string, auth = adminAuth()) {
     const vehicle = await prisma.vehicle.create({
@@ -90,7 +103,7 @@ describe('Workshop estimates list (e2e)', () => {
         sent_at:
           data.sentDaysAgo === null
             ? null
-            : new Date(now - data.sentDaysAgo * DAY),
+            : siteLocalNoon(siteLocalDay(data.sentDaysAgo)),
         valid_until:
           data.validDays === undefined
             ? null
@@ -270,10 +283,7 @@ describe('Workshop estimates list (e2e)', () => {
     ]);
 
     // The range is read in the site's time zone, so the days are taken there, not in UTC.
-    const day = (daysAgo: number) =>
-      new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna' }).format(
-        new Date(now - daysAgo * DAY),
-      );
+    const day = (daysAgo: number) => siteLocalDay(daysAgo);
     const range = await list({ sentFrom: day(3), sentTo: day(2) }).expect(200);
     expect(ids(range.body)).toEqual(
       expect.arrayContaining([versionIds.B, versionIds.C]),

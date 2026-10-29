@@ -14975,19 +14975,8 @@
                 "VEHICLE",
                 "SUPPLIER_PRICE_LIST",
                 "LABOR_OPERATION",
-                "PART",
-                "VENDOR",
-                "STOCK_OPENING_BALANCE",
-                "OPEN_WORKSHOP_ORDER",
-                "LEGACY_SERVICE_ORDER",
-                "LEGACY_INVOICE",
-                "LEGACY_OPEN_ITEM",
-                "TYRE_SET",
                 "VEHICLE_PARTY",
-                "VEHICLE_DUE_DATE",
-                "VEHICLE_NOTICE",
-                "LABOR_STANDARD_TIME",
-                "LABOR_PRICE_GROUP"
+                "VEHICLE_DUE_DATE"
               ],
               "type": "string"
             }
@@ -15104,6 +15093,28 @@
         ]
       }
     },
+    "/api/imports/entity-types": {
+      "get": {
+        "operationId": "ImportController_listEntityTypes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportEntityTypeListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the importable entity types with wizard availability and required template fields",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/imports/{id}/rows": {
       "get": {
         "operationId": "ImportController_listRows",
@@ -15178,6 +15189,15 @@
         "operationId": "ImportController_downloadErrors",
         "parameters": [
           {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Report language (de or en); defaults to the user preference",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "id",
             "required": true,
             "in": "path",
@@ -15188,10 +15208,18 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
           }
         },
-        "summary": "Download CSV of rows that failed validation",
+        "summary": "Stream localized error rows with original source columns",
         "tags": [
           "imports"
         ]
@@ -20069,6 +20097,21 @@
           "provisional"
         ]
       },
+      "LegacyIdDto": {
+        "type": "object",
+        "properties": {
+          "source_system": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_system",
+          "external_id"
+        ]
+      },
       "CustomerResponseDto": {
         "type": "object",
         "properties": {
@@ -20082,6 +20125,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "id": {
@@ -20421,6 +20471,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "open_pickerl_order": {
@@ -21921,6 +21978,13 @@
       "CustomerDetailResponseDto": {
         "type": "object",
         "properties": {
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -22071,6 +22135,7 @@
           }
         },
         "required": [
+          "legacy_ids",
           "id",
           "type",
           "first_name",
@@ -24023,6 +24088,13 @@
               "$ref": "#/components/schemas/WouldChangeItemDto"
             }
           },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
+            }
+          },
           "open_pickerl_order": {
             "nullable": true,
             "type": "object",
@@ -24166,6 +24238,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "open_pickerl_order": {
@@ -24312,6 +24391,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "legacy_ids": {
+            "readOnly": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyIdDto"
             }
           },
           "id": {
@@ -37336,6 +37422,117 @@
           "entity_type",
           "fields",
           "csv"
+        ]
+      },
+      "ImplementedImportEntityType": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER",
+          "VEHICLE",
+          "SUPPLIER_PRICE_LIST",
+          "LABOR_OPERATION",
+          "VEHICLE_PARTY",
+          "VEHICLE_DUE_DATE"
+        ]
+      },
+      "ImportEntityTypeResponseDto": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImplementedImportEntityType"
+              }
+            ]
+          },
+          "wizard": {
+            "type": "boolean",
+            "description": "Offered in the settings import wizard; otherwise API-only"
+          },
+          "required_fields": {
+            "description": "Template field keys that every CSV row must map",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "entity_type",
+          "wizard",
+          "required_fields"
+        ]
+      },
+      "ImportEntityTypeListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "example": [
+              {
+                "entity_type": "CUSTOMER",
+                "wizard": true,
+                "required_fields": [
+                  "external_id"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE",
+                "wizard": true,
+                "required_fields": [
+                  "external_id",
+                  "make",
+                  "model",
+                  "year"
+                ]
+              },
+              {
+                "entity_type": "SUPPLIER_PRICE_LIST",
+                "wizard": true,
+                "required_fields": [
+                  "supplier_article_no",
+                  "description",
+                  "cost_price"
+                ]
+              },
+              {
+                "entity_type": "LABOR_OPERATION",
+                "wizard": true,
+                "required_fields": [
+                  "external_id",
+                  "code",
+                  "description",
+                  "standard_aw",
+                  "hourly_rate"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE_PARTY",
+                "wizard": false,
+                "required_fields": [
+                  "external_id",
+                  "vehicle_external_id",
+                  "customer_external_id",
+                  "role"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE_DUE_DATE",
+                "wizard": false,
+                "required_fields": [
+                  "external_id",
+                  "vehicle_external_id",
+                  "kind"
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportEntityTypeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
         ]
       },
       "ImportRowAction": {

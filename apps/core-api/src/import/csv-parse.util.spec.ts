@@ -1,6 +1,42 @@
-import { parseCsvFile, serializeCsv } from './csv-parse.util.js';
+import { parseCsvFile, rowToRecord, serializeCsv } from './csv-parse.util.js';
+import { buildImportErrorReportCsv } from './import-job.serializer.js';
+import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
 
 describe('csv-parse.util', () => {
+  it.each([
+    ['full upload', parseCsvFile],
+    ['header assessment', parseCsvBufferHeadersOnly],
+  ] as const)(
+    '%s detects comma separators from the complete multiline header',
+    (_name, parse) => {
+      const parsed = parse(
+        Buffer.from('"Description,\ncontinued",ID\nSample,A-1\n'),
+      );
+      expect(parsed.delimiter).toBe(',');
+      expect(parsed.headers).toEqual(['Description,\ncontinued', 'ID']);
+    },
+  );
+
+  it('reimports semicolon reports whose original headers contain many commas', () => {
+    const headers = ['Source ID', 'Description,a,b,c,d,e,f,g', 'Unused'];
+    const csv = buildImportErrorReportCsv(
+      [
+        {
+          row_no: 1,
+          errors_json: [{ code: 'IMPORT_APPLY_FAILED' }],
+          source_cells: ['A-1', 'Original name', 'extra'],
+        },
+      ],
+      { headers, mapping: { external_id: 'Source ID' }, locale: 'en' },
+    );
+    const parsed = parseCsvFile(Buffer.from(csv));
+    expect(parsed.delimiter).toBe(';');
+    expect(rowToRecord(parsed.headers, parsed.rows[0])).toEqual({
+      'Source ID': 'A-1',
+      'Description,a,b,c,d,e,f,g': 'Original name',
+      Unused: 'extra',
+    });
+  });
   it('auto-detects semicolon delimiter and strips BOM', () => {
     const buffer = Buffer.from(
       '\uFEFFKunden-Nr;E-Mail\n1001;test@example.com\n',
@@ -48,5 +84,50 @@ describe('csv-parse.util', () => {
   it('neutralises formula injection in serialized CSV', () => {
     const csv = serializeCsv(['id'], [['=1+1']], ';');
     expect(csv).toContain("'=1+1");
+  });
+
+  it('reimports source columns that collide with report diagnostics', () => {
+    const parsed = parseCsvFile(
+      Buffer.from(
+        'row_no;Source ID;row_no;error_message;error_field;error_message;error_code\r\n7;fixed-id;original-row;Original name;;Reason;CODE\r\n',
+      ),
+    );
+    expect(rowToRecord(parsed.headers, parsed.rows[0])).toEqual({
+      'Source ID': 'fixed-id',
+      row_no: 'original-row',
+      error_message: 'Original name',
+    });
+  });
+
+  it('restores spreadsheet-safe source values only when reimporting a report', () => {
+    const headers = [
+      'row_no',
+      'Source ID',
+      'Phone',
+      'Quoted value',
+      'error_field',
+      'error_message',
+      'error_code',
+      'note',
+    ];
+    expect(
+      rowToRecord(headers, [
+        '2',
+        "'+ID",
+        "'+123",
+        "''original",
+        '',
+        'Reason',
+        'CODE',
+        'Saved values',
+      ]),
+    ).toEqual({
+      'Source ID': '+ID',
+      Phone: '+123',
+      'Quoted value': "'original",
+    });
+    expect(rowToRecord(['Source ID'], ["'+ID"])).toEqual({
+      'Source ID': "'+ID",
+    });
   });
 });

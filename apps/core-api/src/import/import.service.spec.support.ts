@@ -67,6 +67,12 @@ export interface ImportHarness {
     isEnabled: jest.Mock;
     enqueueImportWorker: jest.Mock;
   };
+  fileStorage: {
+    storeUpload: jest.Mock;
+    readBytes: jest.Mock;
+    openReadStream: jest.Mock;
+    deleteUpload: jest.Mock;
+  };
   prisma: MockPrisma;
   tenantContext: {
     getTenantId: jest.Mock;
@@ -122,6 +128,9 @@ function applyDefaults(harness: ImportHarness): void {
     undefined,
   );
   harness.prisma.user.findUnique.mockResolvedValue({ id: ACTOR_DB_ID });
+  harness.fileStorage.storeUpload.mockResolvedValue({
+    object_key: 'tenant-1/job-1/source.csv',
+  });
   harness.prisma.tenantMember.findFirst.mockResolvedValue({
     id: 'member-db-id',
   });
@@ -184,6 +193,12 @@ export function setupImportHarness(): ImportHarness {
   const harness: ImportHarness = {
     service: undefined as unknown as ImportService,
     cloudTasks,
+    fileStorage: {
+      storeUpload: jest.fn(),
+      readBytes: jest.fn(),
+      openReadStream: jest.fn(),
+      deleteUpload: jest.fn(),
+    },
     prisma: createMockPrisma(),
     tenantContext: { getTenantId: jest.fn(), getAuthenticatedUser: jest.fn() },
     decisionLive: { applyCustomerImportDecisions: jest.fn() },
@@ -228,12 +243,7 @@ export function setupImportHarness(): ImportHarness {
         { provide: SystemPrismaService, useValue: harness.systemPrisma },
         {
           provide: ImportFileStorageService,
-          useValue: {
-            storeUpload: jest.fn(),
-            readBytes: jest.fn(),
-            openReadStream: jest.fn(),
-            deleteUpload: jest.fn(),
-          },
+          useValue: harness.fileStorage,
         },
         { provide: ImportCloudTasksService, useValue: cloudTasks },
       ],
@@ -433,8 +443,9 @@ export function arrangeApply(
   prisma.importJobRow.findFirst = jest.fn(async () => {
     const withSeq = state.rows.filter((row) => row.apply_seq != null);
     return (
-      [...withSeq].sort((left, right) => applySeqOf(right) - applySeqOf(left))[0] ??
-      null
+      [...withSeq].sort(
+        (left, right) => applySeqOf(right) - applySeqOf(left),
+      )[0] ?? null
     );
   });
   prisma.importJobRow.count.mockImplementation(

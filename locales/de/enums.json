@@ -129,7 +129,9 @@
     "CUSTOMER": "Kunde",
     "VEHICLE": "Fahrzeug",
     "SUPPLIER_PRICE_LIST": "Lieferantenpreisliste",
-    "LABOR_OPERATION": "Arbeitswerte"
+    "LABOR_OPERATION": "Arbeitswerte",
+    "VEHICLE_PARTY": "Fahrzeugbeteiligte",
+    "VEHICLE_DUE_DATE": "Fahrzeugfälligkeiten"
   },
   "importField": {
     "customer": {

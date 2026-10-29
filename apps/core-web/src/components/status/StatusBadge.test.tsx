@@ -1,7 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { changeUiLanguage } from '@/lib/i18n'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { registerGermanUiForTests } from '@/test/german-ui'
 
@@ -48,4 +49,19 @@ describe('StatusBadge tones (AUT-655)', () => {
       expect(className).not.toMatch(/\b(?:slate|gray|zinc|red|rose|amber|emerald|green|sky|blue|cyan|indigo|violet|purple)-\d/)
     },
   )
+
+  it('re-renders its label when the UI language changes', async () => {
+    render(<StatusBadge status="IN_STOCK" />)
+    expect(screen.getByText('Auf Lager')).toBeInTheDocument()
+
+    await act(async () => {
+      await changeUiLanguage('en')
+    })
+    expect(screen.getByText('In Stock')).toBeInTheDocument()
+
+    await act(async () => {
+      await changeUiLanguage('de')
+    })
+    expect(screen.getByText('Auf Lager')).toBeInTheDocument()
+  })
 })

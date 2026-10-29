@@ -1032,6 +1032,7 @@
     "source": {
       "title": "1. Entität & Quelle",
       "entityLabel": "Entität",
+      "entityTypesLoadFailed": "Die Entitäten konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
       "entityCustomer": "Kunden",
       "entityVehicle": "Fahrzeuge",
       "entitySupplierPriceList": "Lieferanten-Preisliste",
@@ -1128,6 +1129,10 @@
       "nextPage": "Nächste Seite",
       "editMapping": "Zuordnung bearbeiten",
       "applyImport": "Import anwenden"
+    },
+    "errorReport": {
+      "unknownError": "Die Zeile konnte nicht importiert werden. Bitte prüfen Sie die Werte und versuchen Sie es erneut.",
+      "normalizedFallback": "Die Originaldatei ist nicht mehr verfügbar. Diese Zeile enthält nur die gespeicherten, aufbereiteten Werte."
     },
     "result": {
       "title": "Import abgeschlossen",

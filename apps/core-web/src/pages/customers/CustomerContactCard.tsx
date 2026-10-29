@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useUpdateCustomer } from '@/api/customers'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LegacyNumbers } from '@/components/LegacyNumbers'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import type { CustomerDetailResponse } from './customer-detail-model'
 
@@ -53,6 +54,10 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
         <CardTitle className='text-base font-semibold'>{t('detail.contactInformation')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-4'>
+        <LegacyNumbers
+          legacyIds={customer.legacy_ids}
+          sourceLabel={(source) => t('detail.fields.legacyNumberSource', { source })}
+        />
         {customer.type === 'COMPANY' ? (
           <div className='space-y-2'>
             <div>
