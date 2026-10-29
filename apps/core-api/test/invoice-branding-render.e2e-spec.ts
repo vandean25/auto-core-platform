@@ -35,6 +35,23 @@ const FONT_MANIFEST_PATH = new URL(
 );
 const FIXTURES = createDocumentBrandingVisualFixtures();
 
+/**
+ * An amount as the rendered text layer prints it: euro sign, Austrian separators, and the
+ * non-breaking space after the sign collapsed to the plain space pdf.js reports.
+ */
+function austriaAmount(value: string): string {
+  const parts = new Intl.NumberFormat('de-AT', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).formatToParts(Number(value));
+  return parts
+    .map((part) => (part.type === 'group' ? '.' : part.value))
+    .join('')
+    .replace('\u00A0', ' ');
+}
+
 type VisualArtifactEntry = {
   fixture_id: string;
   country: VisualFixture['country'];
@@ -407,13 +424,13 @@ describe('branded invoice render fixtures (e2e)', () => {
           : [MARGIN_SCHEME_DE_NOTE, MARGIN_SCHEME_AT_NOTE];
       expectText(expectedNote);
       expectNoText(otherNote);
-      expectText(`Brutto: ${snapshot.total_gross}`);
+      expectText(`Brutto: ${austriaAmount(snapshot.total_gross)}`);
       expectNoText('Umsatzsteuer:');
       expectNoText('Netto:');
     } else {
-      expectText(`Netto: ${snapshot.total_net}`);
-      expectText(`Umsatzsteuer: ${snapshot.total_tax}`);
-      expectText(`Brutto: ${snapshot.total_gross}`);
+      expectText(`Netto: ${austriaAmount(snapshot.total_net)}`);
+      expectText(`Umsatzsteuer: ${austriaAmount(snapshot.total_tax)}`);
+      expectText(`Brutto: ${austriaAmount(snapshot.total_gross)}`);
     }
 
     if (fixture.itemCount === LONG_INVOICE_ITEM_COUNT) {
