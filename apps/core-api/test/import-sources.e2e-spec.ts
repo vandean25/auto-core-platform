@@ -253,28 +253,29 @@ describe('Import sources (e2e)', () => {
   });
 
   describe('role matrix', () => {
-    it('rejects SALES role on mutating endpoints', async () => {
-      const salesTenant = await createTestTenant(prisma, 'import-sales');
-      await runWithTenantContext(salesTenant.tenantId, async () => {
+    async function createRoleHeader(
+      slug: string,
+      role: 'SALES' | 'TECH' | 'DEMO',
+    ) {
+      const roleTenant = await createTestTenant(prisma, slug);
+      await runWithTenantContext(roleTenant.tenantId, async () => {
         await prisma.tenantMember.updateMany({
-          where: { tenant_id: salesTenant.tenantId },
-          data: { role: 'SALES' },
+          where: { tenant_id: roleTenant.tenantId },
+          data: { role },
         });
       });
-      const salesHeader = `Bearer ${createTestAuthToken(authService, {
-        ...salesTenant,
-        role: 'SALES',
+      const header = `Bearer ${createTestAuthToken(authService, {
+        ...roleTenant,
+        role,
       })}`;
+      return { header, roleTenant };
+    }
 
-      await request(app.getHttpServer())
-        .post('/imports/sources')
-        .set('Authorization', salesHeader)
-        .send({ key: 'test', label: 'Test' })
-        .expect(403);
-
-      await request(app.getHttpServer())
+    async function expectMutatingEndpointsForbidden(header: string) {
+      const server = app.getHttpServer();
+      await request(server)
         .post('/imports')
-        .set('Authorization', salesHeader)
+        .set('Authorization', header)
         .field('entityType', 'CUSTOMER')
         .field('sourceSystem', 'legacy-dms')
         .field('mapping', JSON.stringify(customerMapping))
@@ -284,52 +285,129 @@ describe('Import sources (e2e)', () => {
           'c.csv',
         )
         .expect(403);
+      await request(server)
+        .post('/imports/sources')
+        .set('Authorization', header)
+        .send({ key: 'matrix', label: 'Matrix' })
+        .expect(403);
+      await request(server)
+        .patch('/imports/sources/00000000-0000-4000-8000-000000000000')
+        .set('Authorization', header)
+        .send({ label: 'Matrix' })
+        .expect(403);
+      await request(server)
+        .delete('/imports/sources/00000000-0000-4000-8000-000000000000')
+        .set('Authorization', header)
+        .expect(403);
+      await request(server)
+        .post('/imports/mapping-profiles')
+        .set('Authorization', header)
+        .send({
+          entity_type: 'CUSTOMER',
+          source_system: 'legacy-dms',
+          name: 'Matrix profile',
+          mapping: { external_id: 'Kunden-Nr' },
+        })
+        .expect(403);
+      await request(server)
+        .post('/imports/00000000-0000-4000-8000-000000000000/apply')
+        .set('Authorization', header)
+        .expect(403);
+      await request(server)
+        .post('/imports/00000000-0000-4000-8000-000000000000/cancel')
+        .set('Authorization', header)
+        .expect(403);
+      await request(server)
+        .post('/imports/direct-uploads')
+        .set('Authorization', header)
+        .send({ fileName: 'matrix.csv', size: 10 })
+        .expect(403);
+      await request(server)
+        .post(
+          '/imports/direct-uploads/00000000-0000-4000-8000-000000000000/finalize',
+        )
+        .set('Authorization', header)
+        .send({
+          fileName: 'matrix.csv',
+          size: 10,
+          entityType: 'CUSTOMER',
+          sourceSystem: 'legacy-dms',
+          mapping: customerMapping,
+          options: {},
+        })
+        .expect(403);
+    }
 
-      await cleanupTestTenantGraph(prisma, salesTenant.tenantId);
+    it('rejects SALES role on mutating endpoints', async () => {
+      const { header, roleTenant } = await createRoleHeader(
+        'import-sales',
+        'SALES',
+      );
+
+      await expectMutatingEndpointsForbidden(header);
+
+      await cleanupTestTenantGraph(prisma, roleTenant.tenantId);
     });
 
     it('rejects TECH role on mutating endpoints', async () => {
-      const techTenant = await createTestTenant(prisma, 'import-tech-src');
-      await runWithTenantContext(techTenant.tenantId, async () => {
-        await prisma.tenantMember.updateMany({
-          where: { tenant_id: techTenant.tenantId },
-          data: { role: 'TECH' },
-        });
-      });
-      const techHeader = `Bearer ${createTestAuthToken(authService, {
-        ...techTenant,
-        role: 'TECH',
-      })}`;
+      const { header, roleTenant } = await createRoleHeader(
+        'import-tech-src',
+        'TECH',
+      );
 
-      await request(app.getHttpServer())
-        .post('/imports/sources')
-        .set('Authorization', techHeader)
-        .send({ key: 'test', label: 'Test' })
-        .expect(403);
+      await expectMutatingEndpointsForbidden(header);
 
-      await cleanupTestTenantGraph(prisma, techTenant.tenantId);
+      await cleanupTestTenantGraph(prisma, roleTenant.tenantId);
     });
 
     it('rejects DEMO role on mutating endpoints', async () => {
-      const demoTenant = await createTestTenant(prisma, 'import-demo-src');
-      await runWithTenantContext(demoTenant.tenantId, async () => {
-        await prisma.tenantMember.updateMany({
-          where: { tenant_id: demoTenant.tenantId },
-          data: { role: 'DEMO' },
-        });
+      const { header, roleTenant } = await createRoleHeader(
+        'import-demo-src',
+        'DEMO',
+      );
+      const demoUser = await prisma.user.findFirstOrThrow({
+        where: { firebaseUid: roleTenant.firebaseUid },
+        select: { id: true },
       });
-      const demoHeader = `Bearer ${createTestAuthToken(authService, {
-        ...demoTenant,
-        role: 'DEMO',
-      })}`;
+      const accessRequest = await prisma.landingDemoAccessRequest.create({
+        data: {
+          email: roleTenant.email,
+          name: 'Demo E2E',
+          betrieb: 'E2E',
+          consent_recorded_at: new Date(),
+        },
+        select: { id: true },
+      });
+      await prisma.landingDemoSignInGrant.create({
+        data: {
+          access_request_id: accessRequest.id,
+          user_id: demoUser.id,
+          expires_at: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
 
-      await request(app.getHttpServer())
-        .post('/imports/sources')
-        .set('Authorization', demoHeader)
-        .send({ key: 'test', label: 'Test' })
-        .expect(403);
+      try {
+        await expectMutatingEndpointsForbidden(header);
+      } finally {
+        await prisma.landingDemoSignInGrant.deleteMany({
+          where: { user_id: demoUser.id },
+        });
+        await prisma.landingDemoAccessRequest.delete({
+          where: { id: accessRequest.id },
+        });
+      }
 
-      await cleanupTestTenantGraph(prisma, demoTenant.tenantId);
+      await cleanupTestTenantGraph(prisma, roleTenant.tenantId);
+    });
+
+    it('rejects tenant API keys on mutating endpoints', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/tenant-api-keys')
+        .set('Authorization', adminHeader)
+        .send({ name: 'Role matrix key', scopes: ['customers:read'] })
+        .expect(201);
+
+      await expectMutatingEndpointsForbidden(`Bearer ${created.body.token}`);
     });
   });
 });
