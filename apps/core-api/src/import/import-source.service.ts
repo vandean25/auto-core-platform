@@ -17,7 +17,7 @@ import type { ImportSourceResponseDto } from './dto/import-source-response.dto.j
 import type { CreateImportSourceDto } from './dto/create-import-source.dto.js';
 import type { UpdateImportSourceDto } from './dto/update-import-source.dto.js';
 
-const DEFAULT_SOURCE_MAX_ATTEMPTS = 5;
+const DEFAULT_SOURCE_MAX_ATTEMPTS = 10;
 
 function isKeyUniquenessConflict(
   error: Prisma.PrismaClientKnownRequestError,
@@ -126,7 +126,8 @@ export class ImportSourceService {
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        error.code === 'P2002' &&
+        isKeyUniquenessConflict(error)
       ) {
         throw new ConflictException({
           code: IMPORT_ERROR_CODES.SOURCE_ALREADY_EXISTS,
