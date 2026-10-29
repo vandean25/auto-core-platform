@@ -20,6 +20,8 @@ function setup() {
     pushPreference: {
       findFirst: jest.fn().mockResolvedValue(null),
       upsert: jest.fn().mockResolvedValue({}),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     notificationOutbox: { count: jest.fn().mockResolvedValue(0) },
     $transaction: jest.fn((run: (tx: unknown) => unknown) => run(prisma)),
@@ -182,9 +184,19 @@ describe('PushService', () => {
   });
 
   it('queues a test push for the caller in one outbox write and wakes the worker after commit', async () => {
-    const { service, outbox, wakeUps } = setup();
+    const { service, prisma, outbox, wakeUps } = setup();
 
     await expect(service.sendTest()).resolves.toEqual({ id: 'outbox-1' });
+
+    // The budget is taken under a row lock of this user, before it is counted.
+    expect(prisma.pushPreference.createMany).toHaveBeenCalledWith({
+      data: [{ tenant_id: 'tenant-1', user_id: 'user-1', enabled_events: [] }],
+      skipDuplicates: true,
+    });
+    expect(prisma.pushPreference.updateMany).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', user_id: 'user-1' },
+      data: { updatedAt: expect.any(Date) },
+    });
 
     expect(outbox.enqueueInTx).toHaveBeenCalledWith(
       expect.anything(),

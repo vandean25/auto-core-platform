@@ -13,6 +13,7 @@ import {
   NotificationEventType,
   NotificationRecipientKind,
   PushDeviceRevokedReason,
+  type Prisma,
   type PushDevice,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -162,11 +163,19 @@ export class PushService {
     const { tenantId, userId } = await this.requireCaller();
     const now = new Date();
 
-    const [devices, recent] = await Promise.all([
-      this.prisma.pushDevice.count({
-        where: { tenant_id: tenantId, user_id: userId, revoked_at: null },
-      }),
-      this.prisma.notificationOutbox.count({
+    const devices = await this.prisma.pushDevice.count({
+      where: { tenant_id: tenantId, user_id: userId, revoked_at: null },
+    });
+    if (devices === 0) {
+      throw new ConflictException('No push device is registered');
+    }
+
+    const occurrenceId = randomUUID();
+    const written = await this.prisma.$transaction(async (tx) => {
+      // The budget is checked under a lock on this user's preference row, so concurrent requests (also on other
+      // instances) are counted one after the other and the hourly cap holds.
+      await this.lockUserBudget(tx, tenantId, userId, now);
+      const recent = await tx.notificationOutbox.count({
         where: {
           tenant_id: tenantId,
           recipient_user_id: userId,
@@ -174,21 +183,14 @@ export class PushService {
           event_type: NotificationEventType.PUSH_TEST,
           createdAt: { gte: new Date(now.getTime() - PUSH_TEST_WINDOW_MS) },
         },
-      }),
-    ]);
-    if (devices === 0) {
-      throw new ConflictException('No push device is registered');
-    }
-    if (recent >= PUSH_TEST_LIMIT_PER_HOUR) {
-      throw new HttpException(
-        `At most ${PUSH_TEST_LIMIT_PER_HOUR} test pushes per hour`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    const occurrenceId = randomUUID();
-    const written = await this.prisma.$transaction((tx) =>
-      this.outbox.enqueueInTx(
+      });
+      if (recent >= PUSH_TEST_LIMIT_PER_HOUR) {
+        throw new HttpException(
+          `At most ${PUSH_TEST_LIMIT_PER_HOUR} test pushes per hour`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      return this.outbox.enqueueInTx(
         tx,
         {
           tenantId,
@@ -200,13 +202,33 @@ export class PushService {
           recipientUserId: userId,
         },
         now,
-      ),
-    );
+      );
+    });
     if (written.blocked) {
       throw new ConflictException('The test push was not queued');
     }
     await wakeUpAfterCommit(this.wakeUps, written.id, tenantId);
     return { id: written.id };
+  }
+
+  /**
+   * Takes a row lock that lasts until the transaction ends: the user's preference row is created if it is missing and
+   * then updated, so a second transaction for the same user waits here until the first has committed its outbox row.
+   */
+  private async lockUserBudget(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    userId: string,
+    now: Date,
+  ): Promise<void> {
+    await tx.pushPreference.createMany({
+      data: [{ tenant_id: tenantId, user_id: userId, enabled_events: [] }],
+      skipDuplicates: true,
+    });
+    await tx.pushPreference.updateMany({
+      where: { tenant_id: tenantId, user_id: userId },
+      data: { updatedAt: now },
+    });
   }
 
   private async requireCaller(): Promise<{ tenantId: string; userId: string }> {
