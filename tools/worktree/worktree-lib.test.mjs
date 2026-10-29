@@ -16,6 +16,21 @@ import {
   WORKTREES_POSTGRES_CONTAINER,
 } from './worktree-lib.mjs'
 import { detectDatabaseClientStrategy, ensureDatabase } from './worktree-db.mjs'
+import { parseNewArgv, parseRemoveArgv, parseSetupArgv } from './worktree-cli-parse.mjs'
+import {
+  branchHasUnpushedCommits,
+  parseWorktreeListPorcelain,
+  resolveWorktreeTargetPath,
+} from './worktree-git-lib.mjs'
+import { createDockerExecCommandRunner } from './worktree-test-helpers.mjs'
+import {
+  planNewWorktree,
+  resolveDatabaseUrl,
+  resolvePortPair,
+  resolveSeedName,
+} from './worktree-setup-plan.mjs'
+import { postgresConfigFromEnv } from './worktree-metadata.mjs'
+import { runWorktreeNew } from './worktree-commands.mjs'
 
 describe('worktree-lib port allocation', () => {
   it('derives stable base ports from seed', () => {
@@ -161,24 +176,8 @@ describe('chooseDatabaseClientStrategy', () => {
 
 describe('ensureDatabase client selection (integration)', () => {
   it('creates a database via docker exec when psql is absent', () => {
-    /** @type {string[]} */
     const calls = []
-    const run = (command, args) => {
-      calls.push([command, ...args].join(' '))
-      if (command === 'where' || command === 'which') {
-        return { status: args[0] === 'docker' ? 0 : 1, stdout: '' }
-      }
-      if (command === 'docker' && args[0] === 'ps') {
-        return { status: 0, stdout: 'abc123\n' }
-      }
-      if (command === 'docker' && args[0] === 'exec' && args.includes('-tAc')) {
-        return { status: 0, stdout: '' }
-      }
-      if (command === 'docker' && args[0] === 'exec' && args.includes('-c')) {
-        return { status: 0, stdout: '' }
-      }
-      return { status: 1, stdout: '' }
-    }
+    const run = createDockerExecCommandRunner(calls)
     const strategy = detectDatabaseClientStrategy(run)
     assert.equal(strategy.client, 'docker-exec')
     const result = ensureDatabase(
@@ -189,5 +188,120 @@ describe('ensureDatabase client selection (integration)', () => {
     assert.equal(result.client, 'docker-exec')
     assert.equal(result.created, true)
     assert.ok(calls.some((line) => line.includes('docker exec acp-worktrees-postgres')))
+  })
+})
+
+describe('worktree CLI parsing', () => {
+  it('parseSetupArgv applies defaults and flags', () => {
+    const args = parseSetupArgv(['--skip-install', '--seed-name', 'agent-a', '--pg-port', '5434'])
+    assert.equal(args.skipInstall, true)
+    assert.equal(args.seed, 'agent-a')
+    assert.equal(args.pgPort, 5434)
+    assert.equal(args.help, false)
+  })
+
+  it('parseNewArgv reads positional name and branch override', () => {
+    assert.deepEqual(parseNewArgv(['my-agent', '--branch', 'feature/custom']), {
+      help: false,
+      name: 'my-agent',
+      branch: 'feature/custom',
+      base: 'origin/main',
+    })
+  })
+
+  it('parseRemoveArgv reads drop-db and target', () => {
+    assert.deepEqual(parseRemoveArgv(['.worktrees/x', '--drop-db']), {
+      help: false,
+      target: '.worktrees/x',
+      dropDb: true,
+      force: false,
+    })
+  })
+})
+
+describe('worktree git helpers', () => {
+  it('parseWorktreeListPorcelain extracts paths and branches', () => {
+    const raw = `worktree /repo/main
+HEAD abcd
+branch refs/heads/main
+
+worktree /repo/.worktrees/a
+HEAD ef01
+branch refs/heads/feature/a
+`
+    assert.deepEqual(parseWorktreeListPorcelain(raw), [
+      { path: '/repo/main', branch: 'refs/heads/main' },
+      { path: '/repo/.worktrees/a', branch: 'refs/heads/feature/a' },
+    ])
+  })
+
+  it('branchHasUnpushedCommits compares against origin branch', () => {
+    const git = (args) => {
+      const key = args.join(' ')
+      if (key === 'fetch origin') return ''
+      if (key.startsWith('rev-parse --verify origin/feature/x')) return 'ok'
+      if (key === 'rev-list --count origin/feature/x..feature/x') return '2'
+      throw new Error(`unexpected git ${key}`)
+    }
+    assert.equal(branchHasUnpushedCommits('/repo', 'feature/x', git), true)
+  })
+
+  it('resolveWorktreeTargetPath resolves relative targets from git root', () => {
+    const git = () => '/repo/main'
+    assert.equal(
+      resolveWorktreeTargetPath('/repo', '.worktrees/a', '/repo/main', git),
+      '/repo/.worktrees/a',
+    )
+  })
+})
+
+describe('worktree setup plan', () => {
+  it('resolveSeedName falls back to directory name', () => {
+    assert.equal(resolveSeedName({}, '/tmp/.worktrees/agent-a'), 'agent-a')
+  })
+
+  it('resolvePortPair reuses metadata ports', async () => {
+    const ports = await resolvePortPair({ apiPort: 3011, webPort: 5177, slot: 3 }, '/any')
+    assert.deepEqual(ports, { apiPort: 3011, webPort: 5177, slot: 3 })
+  })
+
+  it('resolveDatabaseUrl builds local postgres url', () => {
+    const { dbName, databaseUrl } = resolveDatabaseUrl(
+      { pgHost: 'localhost', pgPort: 5433, pgUser: 'postgres', pgPassword: 'postgres' },
+      'agent-a',
+      null,
+    )
+    assert.equal(dbName, 'acp_agent_a')
+    assert.match(databaseUrl, /5433\/acp_agent_a/)
+  })
+
+  it('planNewWorktree rejects duplicate paths', () => {
+    assert.throws(
+      () => planNewWorktree('agent-a', undefined, '/repo', () => true),
+      /already exists/,
+    )
+  })
+
+  it('postgresConfigFromEnv reads defaults', () => {
+    assert.equal(postgresConfigFromEnv({}).pgPort, 5433)
+  })
+})
+
+describe('worktree command runners', () => {
+  it('runWorktreeNew wires git worktree add and setup spawn', () => {
+    const calls = []
+    const git = (args) => {
+      calls.push(args.join(' '))
+      if (args[0] === 'rev-parse') return '/repo'
+      return ''
+    }
+    runWorktreeNew(['agent-a'], {
+      cwd: '/repo',
+      git,
+      pathExists: () => false,
+      mkdirSync: () => {},
+      spawn: () => ({ status: 0 }),
+    })
+    assert.ok(calls.some((line) => line.includes('worktree add')))
   })
 })
