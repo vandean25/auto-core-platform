@@ -19,33 +19,30 @@ import type { UpdateImportSourceDto } from './dto/update-import-source.dto.js';
 
 const DEFAULT_SOURCE_MAX_ATTEMPTS = 10;
 
-function isKeyUniquenessConflict(
-  error: Prisma.PrismaClientKnownRequestError,
-): boolean {
-  const target = error.meta?.target;
-  if (Array.isArray(target)) {
-    return target.includes('key');
-  }
+function isUniqueConflict(error: unknown): boolean {
   return (
-    typeof target === 'string' &&
-    target.includes('import_sources_tenant_id_key_key')
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
   );
 }
 
 // The partial unique index rejects a second default; re-running the clear-and-set
 // transaction after that conflict converges on the last request's choice.
+// A P2002 carries no constraint name under the driver adapter, so the caller
+// resolves a duplicate key with a lookup instead of inspecting the error.
 async function withDefaultSourceRetry<T>(
   operation: () => Promise<T>,
+  duplicateKeyExists: () => Promise<boolean> = () => Promise.resolve(false),
 ): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await operation();
     } catch (error) {
-      const isDefaultConflict =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002' &&
-        !isKeyUniquenessConflict(error);
-      if (!isDefaultConflict || attempt >= DEFAULT_SOURCE_MAX_ATTEMPTS) {
+      if (
+        !isUniqueConflict(error) ||
+        attempt >= DEFAULT_SOURCE_MAX_ATTEMPTS ||
+        (await duplicateKeyExists())
+      ) {
         throw error;
       }
     }
@@ -95,40 +92,42 @@ export class ImportSourceService {
     }
 
     const isDefault = dto.is_default ?? false;
+    const duplicateKeyExists = async () =>
+      (await this.prisma.importSource.count({
+        where: { tenant_id: tenantId, key: normalizedKey },
+      })) > 0;
 
     try {
-      const created = await withDefaultSourceRetry(() =>
-        this.prisma.$transaction(async (tx) => {
-          if (isDefault) {
-            await tx.importSource.updateMany({
-              where: { tenant_id: tenantId, is_default: true },
-              data: { is_default: false },
+      const created = await withDefaultSourceRetry(
+        () =>
+          this.prisma.$transaction(async (tx) => {
+            if (isDefault) {
+              await tx.importSource.updateMany({
+                where: { tenant_id: tenantId, is_default: true },
+                data: { is_default: false },
+              });
+            }
+
+            const hasAnySource =
+              (await tx.importSource.count({
+                where: { tenant_id: tenantId },
+              })) > 0;
+
+            return tx.importSource.create({
+              data: {
+                tenant_id: tenantId,
+                key: normalizedKey,
+                label,
+                is_default: isDefault || !hasAnySource,
+              },
             });
-          }
-
-          const hasAnySource =
-            (await tx.importSource.count({
-              where: { tenant_id: tenantId },
-            })) > 0;
-
-          return tx.importSource.create({
-            data: {
-              tenant_id: tenantId,
-              key: normalizedKey,
-              label,
-              is_default: isDefault || !hasAnySource,
-            },
-          });
-        }),
+          }),
+        duplicateKeyExists,
       );
 
       return this.toDto(created);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002' &&
-        isKeyUniquenessConflict(error)
-      ) {
+      if (isUniqueConflict(error) && (await duplicateKeyExists())) {
         throw new ConflictException({
           code: IMPORT_ERROR_CODES.SOURCE_ALREADY_EXISTS,
           message: `Import source with key '${normalizedKey}' already exists`,
