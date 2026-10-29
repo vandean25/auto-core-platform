@@ -2,7 +2,7 @@ import { ImportEntityType } from '@prisma/client';
 import type { ImportTemplateDefinition } from './import.types.js';
 import { serializeCsv } from './csv-parse.util.js';
 
-const CUSTOMER_TEMPLATE: ImportTemplateDefinition = {
+export const CUSTOMER_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.CUSTOMER,
   fields: [
     { key: 'external_id', label_de: 'Kunden-Nr', required: true },
@@ -22,7 +22,7 @@ const CUSTOMER_TEMPLATE: ImportTemplateDefinition = {
     'Kunden-Nr;Typ;Firmenname;Vorname;Nachname;E-Mail;Telefon;UID;Straße;PLZ;Ort;Land',
 };
 
-const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
+export const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.VEHICLE,
   fields: [
     { key: 'external_id', label_de: 'Fahrzeug-Nr', required: true },
@@ -49,7 +49,7 @@ const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
     'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Erstzulassung;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer',
 };
 
-const LABOR_OPERATION_TEMPLATE: ImportTemplateDefinition = {
+export const LABOR_OPERATION_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.LABOR_OPERATION,
   fields: [
     { key: 'external_id', label_de: 'Arbeitswert-Nr', required: true },
@@ -69,7 +69,7 @@ const LABOR_OPERATION_TEMPLATE: ImportTemplateDefinition = {
     'Arbeitswert-Nr;AW-Code;Beschreibung;AW;Stundensatz;Interner Kostensatz;Kategorie;Marke;Modell;Baujahr von;Baujahr bis;Motorcode',
 };
 
-const VEHICLE_PARTY_TEMPLATE: ImportTemplateDefinition = {
+export const VEHICLE_PARTY_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.VEHICLE_PARTY,
   fields: [
     { key: 'external_id', label_de: 'Beteiligten-Nr', required: true },
@@ -84,7 +84,7 @@ const VEHICLE_PARTY_TEMPLATE: ImportTemplateDefinition = {
     'external_id;vehicle_external_id;customer_external_id;role;valid_from;valid_to;notes',
 };
 
-const VEHICLE_DUE_DATE_TEMPLATE: ImportTemplateDefinition = {
+export const VEHICLE_DUE_DATE_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.VEHICLE_DUE_DATE,
   fields: [
     { key: 'external_id', label_de: 'Fälligkeits-Nr', required: true },
@@ -111,7 +111,7 @@ const VEHICLE_DUE_DATE_TEMPLATE: ImportTemplateDefinition = {
     'external_id;vehicle_external_id;kind;inspected_on;plaketten_valid_until_year;plaketten_valid_until_month;due_date;due_mileage;external_ref;station_name;notes',
 };
 
-const SUPPLIER_PRICE_LIST_TEMPLATE: ImportTemplateDefinition = {
+export const SUPPLIER_PRICE_LIST_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
   fields: [
     {
@@ -130,32 +130,7 @@ const SUPPLIER_PRICE_LIST_TEMPLATE: ImportTemplateDefinition = {
     'Lieferanten-Artikelnummer;EAN;Beschreibung;Marke;Einkaufspreis;UVP;Einheit',
 };
 
-export function getImportTemplate(
-  entityType: ImportEntityType,
-): ImportTemplateDefinition {
-  if (entityType === ImportEntityType.CUSTOMER) {
-    return CUSTOMER_TEMPLATE;
-  }
-  if (entityType === ImportEntityType.VEHICLE) {
-    return VEHICLE_TEMPLATE;
-  }
-  if (entityType === ImportEntityType.SUPPLIER_PRICE_LIST) {
-    return SUPPLIER_PRICE_LIST_TEMPLATE;
-  }
-  if (entityType === ImportEntityType.LABOR_OPERATION) {
-    return LABOR_OPERATION_TEMPLATE;
-  }
-  if (entityType === ImportEntityType.VEHICLE_PARTY) {
-    return VEHICLE_PARTY_TEMPLATE;
-  }
-  if (entityType === ImportEntityType.VEHICLE_DUE_DATE) {
-    return VEHICLE_DUE_DATE_TEMPLATE;
-  }
-  throw new Error('Unsupported import entity type');
-}
-
-export function buildTemplateCsv(entityType: ImportEntityType): string {
-  const template = getImportTemplate(entityType);
+export function buildTemplateCsv(template: ImportTemplateDefinition): string {
   const headers = template.csv_header.split(';');
   return serializeCsv(headers, [], ';');
 }

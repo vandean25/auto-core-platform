@@ -1032,6 +1032,7 @@
     "source": {
       "title": "1. Entity & source",
       "entityLabel": "Entity",
+      "entityTypesLoadFailed": "The entities could not be loaded. Please try again.",
       "entityCustomer": "Customers",
       "entityVehicle": "Vehicles",
       "entitySupplierPriceList": "Supplier price list",

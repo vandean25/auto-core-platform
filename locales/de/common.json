@@ -10,7 +10,8 @@
     "cancel": "Abbrechen",
     "save": "Speichern",
     "confirm": "Bestätigen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "retry": "Erneut versuchen"
   },
   "peek": {
     "openInFull": "Öffnen",

@@ -20,6 +20,7 @@ describe('ImportController', () => {
     applyJob: jest.fn(),
     applyJobHttp: jest.fn(),
     getTemplate: jest.fn(),
+    listEntityTypes: jest.fn(),
   };
 
   const mockMappingProfileService = {
@@ -159,6 +160,22 @@ describe('ImportController', () => {
         ImportEntityType.SUPPLIER_PRICE_LIST,
       );
       expect(result.entity_type).toBe(ImportEntityType.SUPPLIER_PRICE_LIST);
+    });
+  });
+
+  describe('listEntityTypes', () => {
+    it('wraps the registry entries from the service in a data envelope', () => {
+      const entries = [
+        {
+          entity_type: ImportEntityType.CUSTOMER,
+          wizard: true,
+          required_fields: ['external_id'],
+        },
+      ];
+      mockImportService.listEntityTypes.mockReturnValue(entries);
+
+      expect(controller.listEntityTypes()).toEqual({ data: entries });
+      expect(mockImportService.listEntityTypes).toHaveBeenCalledTimes(1);
     });
   });
 

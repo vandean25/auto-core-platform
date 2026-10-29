@@ -8,6 +8,7 @@ import type { ImportJob, ImportMappingProfile } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 import * as marginRulesApi from '@/api/margin-rules'
 import * as vendorsApi from '@/api/vendors'
+import { readImportEntityTypeRegistry } from '@/test/import-entity-type-registry'
 import * as parseImportCsvClient from './parse-import-csv-client'
 
 import deEnums from '../../../../../../locales/de/enums.json'
@@ -204,6 +205,9 @@ export function installImportApiMocks(options: InstallApiMocksOptions = {}): Imp
   })
   ;(importsApi.useImportTemplate as Mock).mockReturnValue({
     data: { fields: options.templateFields ?? [{ key: 'external_id', required: true }] },
+  })
+  ;(importsApi.useImportEntityTypes as Mock).mockReturnValue({
+    data: readImportEntityTypeRegistry(),
   })
   ;(importsApi.useImportMappingProfiles as Mock).mockReturnValue({
     data: options.profiles ?? [],
