@@ -1,19 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import { ImportEntityType } from '@prisma/client';
+import {
+  IMPLEMENTED_IMPORT_ENTITY_TYPES,
+  type ImplementedImportEntityType,
+} from './import-entity-type.registry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
-
-/** Import entity types with CSV handlers wired in ImportService. */
-export const IMPLEMENTED_IMPORT_ENTITY_TYPES = [
-  ImportEntityType.CUSTOMER,
-  ImportEntityType.VEHICLE,
-  ImportEntityType.SUPPLIER_PRICE_LIST,
-  ImportEntityType.LABOR_OPERATION,
-  ImportEntityType.VEHICLE_PARTY,
-  ImportEntityType.VEHICLE_DUE_DATE,
-] as const;
-
-export type ImplementedImportEntityType =
-  (typeof IMPLEMENTED_IMPORT_ENTITY_TYPES)[number];
 
 const implementedImportEntityTypeSet = new Set<string>(
   IMPLEMENTED_IMPORT_ENTITY_TYPES,
@@ -40,8 +31,10 @@ export function assertImplementedImportEntityType(
   }
 }
 
-/** Parses a request entity type and rejects unimplemented enum values. */
-export function parseImportEntityType(value: string): ImportEntityType {
+/** Parses a request entity type and rejects types missing from the registry. */
+export function parseImportEntityType(
+  value: string,
+): ImplementedImportEntityType {
   const normalized = value?.trim().toUpperCase();
   if (!normalized || !isImportEntityType(normalized)) {
     throw importInvalidEntityTypeError(value);

@@ -36,10 +36,6 @@ export class CustomerImportHandler implements ImportTypeHandler {
     private readonly requestContext: RequestContextService,
   ) {}
 
-  applySequenceOrderKey() {
-    return 'row_no' as const;
-  }
-
   prepareCreate(): Promise<void> {
     return Promise.resolve();
   }

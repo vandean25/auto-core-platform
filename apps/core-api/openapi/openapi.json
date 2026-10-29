@@ -14820,19 +14820,8 @@
                 "VEHICLE",
                 "SUPPLIER_PRICE_LIST",
                 "LABOR_OPERATION",
-                "PART",
-                "VENDOR",
-                "STOCK_OPENING_BALANCE",
-                "OPEN_WORKSHOP_ORDER",
-                "LEGACY_SERVICE_ORDER",
-                "LEGACY_INVOICE",
-                "LEGACY_OPEN_ITEM",
-                "TYRE_SET",
                 "VEHICLE_PARTY",
-                "VEHICLE_DUE_DATE",
-                "VEHICLE_NOTICE",
-                "LABOR_STANDARD_TIME",
-                "LABOR_PRICE_GROUP"
+                "VEHICLE_DUE_DATE"
               ],
               "type": "string"
             }
@@ -14944,6 +14933,28 @@
           }
         },
         "summary": "Download CSV import template (German headers)",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/entity-types": {
+      "get": {
+        "operationId": "ImportController_listEntityTypes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportEntityTypeListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the importable entity types with wizard availability and required template fields",
         "tags": [
           "imports"
         ]
@@ -37129,6 +37140,117 @@
           "entity_type",
           "fields",
           "csv"
+        ]
+      },
+      "ImplementedImportEntityType": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER",
+          "VEHICLE",
+          "SUPPLIER_PRICE_LIST",
+          "LABOR_OPERATION",
+          "VEHICLE_PARTY",
+          "VEHICLE_DUE_DATE"
+        ]
+      },
+      "ImportEntityTypeResponseDto": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImplementedImportEntityType"
+              }
+            ]
+          },
+          "wizard": {
+            "type": "boolean",
+            "description": "Offered in the settings import wizard; otherwise API-only"
+          },
+          "required_fields": {
+            "description": "Template field keys that every CSV row must map",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "entity_type",
+          "wizard",
+          "required_fields"
+        ]
+      },
+      "ImportEntityTypeListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "example": [
+              {
+                "entity_type": "CUSTOMER",
+                "wizard": true,
+                "required_fields": [
+                  "external_id"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE",
+                "wizard": true,
+                "required_fields": [
+                  "external_id",
+                  "make",
+                  "model",
+                  "year"
+                ]
+              },
+              {
+                "entity_type": "SUPPLIER_PRICE_LIST",
+                "wizard": true,
+                "required_fields": [
+                  "supplier_article_no",
+                  "description",
+                  "cost_price"
+                ]
+              },
+              {
+                "entity_type": "LABOR_OPERATION",
+                "wizard": true,
+                "required_fields": [
+                  "external_id",
+                  "code",
+                  "description",
+                  "standard_aw",
+                  "hourly_rate"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE_PARTY",
+                "wizard": false,
+                "required_fields": [
+                  "external_id",
+                  "vehicle_external_id",
+                  "customer_external_id",
+                  "role"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE_DUE_DATE",
+                "wizard": false,
+                "required_fields": [
+                  "external_id",
+                  "vehicle_external_id",
+                  "kind"
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportEntityTypeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
         ]
       },
       "ImportRowAction": {

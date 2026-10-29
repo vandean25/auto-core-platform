@@ -7,6 +7,7 @@ import type { ImportJob } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 import * as marginRulesApi from '@/api/margin-rules'
 import * as vendorsApi from '@/api/vendors'
+import { readImportEntityTypeRegistry } from '@/test/import-entity-type-registry'
 
 import deEnums from '../../../../../../locales/de/enums.json'
 import deSettings from '../../../../../../locales/de/settings.json'
@@ -29,6 +30,7 @@ vi.mock('@/api/imports', async (importOriginal) => {
   return {
     ...actual,
     useImportTemplate: vi.fn(),
+    useImportEntityTypes: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -92,6 +94,9 @@ describe('DataImportSettingsTab row filter', () => {
     })
     ;(importsApi.useImportTemplate as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { fields: [{ key: 'external_id', required: true }] },
+    })
+    ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: readImportEntityTypeRegistry(),
     })
     ;(importsApi.useImportMappingProfiles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
@@ -229,6 +234,9 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
           { key: 'cost_price', required: true },
         ],
       },
+    })
+    ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: readImportEntityTypeRegistry(),
     })
     ;(importsApi.useImportMappingProfiles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
