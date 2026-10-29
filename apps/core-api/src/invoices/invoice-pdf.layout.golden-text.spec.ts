@@ -134,6 +134,20 @@ describe('invoice-pdf.layout golden text', () => {
     },
   );
 
+  it.each(['de', 'en'] as const)(
+    'keeps the company-name fallback in localized %s documents',
+    (locale) => {
+      const snapshot = createV2Snapshot();
+      snapshot.customer.type = 'COMPANY';
+      snapshot.customer.company_name = null;
+      snapshot.customer.first_name = 'Synthetic';
+      snapshot.customer.last_name = 'Person';
+      expect(
+        extractVisibleTextFromHtml(renderInvoice(snapshot, locale)),
+      ).toContain('Synthetic Person');
+    },
+  );
+
   it('keeps legacy German labels when document_locale is absent', () => {
     const snapshot = createV2Snapshot();
     const text = extractVisibleTextFromHtml(renderInvoice(snapshot));

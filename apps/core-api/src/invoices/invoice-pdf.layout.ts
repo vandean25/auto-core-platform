@@ -80,7 +80,7 @@ export const createInvoicePdfNumberFormatter = (
   );
 };
 
-const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
+export const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
   snapshot.customer.type === 'COMPANY'
     ? (snapshot.customer.company_name ??
       `${snapshot.customer.first_name} ${snapshot.customer.last_name}`)

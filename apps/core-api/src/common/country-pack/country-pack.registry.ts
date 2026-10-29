@@ -22,6 +22,10 @@ export type CountryPack = Readonly<{
   vatIdLabel: 'UID' | 'USt-IdNr.';
 }>;
 
+function createVatIdValidator(pattern: RegExp): (value: string) => boolean {
+  return (value) => pattern.test(value.replace(/\s+/g, '').toUpperCase());
+}
+
 const countryPacks = {
   AT: Object.freeze({
     countryIso: 'AT',
@@ -33,8 +37,7 @@ const countryPacks = {
     }),
     defaultVatRate: 20,
     marginSchemeNoteKey: 'AT',
-    validateVatId: (value: string) =>
-      /^ATU[0-9]{8}$/.test(value.replace(/\s+/g, '').toUpperCase()),
+    validateVatId: createVatIdValidator(/^ATU[0-9]{8}$/),
     validateTaxNumber: (value: string) =>
       /^[0-9]{2}\/?[0-9]{3}\/?[0-9]{4}$/.test(value.replace(/\s+/g, '')),
     defaultAccountingProfile: 'ACP-RZL-AT-EUR-1',
@@ -54,8 +57,7 @@ const countryPacks = {
     }),
     defaultVatRate: 19,
     marginSchemeNoteKey: 'DE',
-    validateVatId: (value: string) =>
-      /^DE[0-9]{9}$/.test(value.replace(/\s+/g, '').toUpperCase()),
+    validateVatId: createVatIdValidator(/^DE[0-9]{9}$/),
     validateTaxNumber: (value: string) =>
       /^[0-9]{9,13}$/.test(value.replace(/[\s/]+/g, '')),
     defaultAccountingProfile: 'ACP-DATEV-DE-EUR-1',
