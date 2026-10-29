@@ -28,6 +28,27 @@ describe('parseTyreDot', () => {
       expect(() => parseTyreDot(dot, asOf)).toThrow('TYRE_DOT_INVALID_FORMAT');
     },
   );
+  it.each([
+    '14320',
+    '004320',
+    'DOT ABC 14320',
+    'DOT ABC4120',
+    'DOT ABC4 14320',
+  ])('rejects ambiguous numeric runs or missing date boundaries: %s', (dot) => {
+    expect(() => parseTyreDot(dot, asOf)).toThrow('TYRE_DOT_INVALID_FORMAT');
+  });
+  it.each(['239', 'DOT ABC4 239', 'DOT ABC4 120'])(
+    'preserves a clearly separated legacy date: %s',
+    (dot) => {
+      expect(parseTyreDot(dot, asOf)).toMatchObject({
+        format: 'LEGACY_PRE_2000',
+        productionYear: null,
+        productionDate: null,
+        ageMonths: null,
+        minimumAgeMonths: 321,
+      });
+    },
+  );
   it.each(['0127', '4599', '4526'])('rejects future production %s', (dot) => {
     expect(() => parseTyreDot(dot, asOf)).toThrow('TYRE_DOT_FUTURE_DATE');
   });
