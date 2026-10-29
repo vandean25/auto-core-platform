@@ -341,6 +341,7 @@ describe('Tyre measurement backfill (e2e)', () => {
           label: 'Event then patch',
           season: 'WINTER',
           tread_depth_mm_json: legacyJson({ FL: 6 }),
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
         },
       });
       await dbC.tyreSetEvent.create({
@@ -421,6 +422,109 @@ describe('Tyre measurement backfill (e2e)', () => {
       expect(detail.body.latestMeasurement.wheels[0].treadMiddleMm).toBe(3);
     } finally {
       await cleanupTestTenantGraph(app.get(PrismaService), tenantC.tenantId);
+    }
+  });
+
+  it('keeps a live capture ahead of an approximate set snapshot', async () => {
+    const tenantD = await createTestTenant(prisma, 'tyre-backfill-d');
+    const dbD = createTenantAwarePrisma(prisma, tenantD.tenantId);
+    const token = createTestAuthToken(app.get(AuthService), tenantD);
+    try {
+      const site = await dbD.site.findFirstOrThrow({ where: { code: 'MAIN' } });
+      const customer = await dbD.customer.create({
+        data: {
+          tenant_id: tenantD.tenantId,
+          type: 'PRIVATE',
+          first_name: 'Live',
+          last_name: 'Evidence',
+        },
+      });
+      const vehicle = await dbD.vehicle.create({
+        data: {
+          tenant_id: tenantD.tenantId,
+          customer_id: customer.id,
+          make: 'Test',
+          model: 'Evidence',
+          year: 2024,
+          inventory_role: 'CUSTOMER',
+        },
+      });
+      const location = await dbD.storageLocation.create({
+        data: {
+          tenant_id: tenantD.tenantId,
+          site_id: site.id,
+          code: 'LIVE-RACK',
+          name: 'Live rack',
+          type: 'customer_storage',
+        },
+      });
+      const set = await dbD.tyreSet.create({
+        data: {
+          tenant_id: tenantD.tenantId,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          site_id: site.id,
+          location_id: location.id,
+          label: 'Captured before backfill',
+          season: 'WINTER',
+          tread_depth_mm_json: legacyJson({ FL: 6 }),
+          createdAt: new Date('2026-02-01T00:00:00.000Z'),
+        },
+      });
+
+      const inspection = await request(app.getHttpServer())
+        .post(`/api/tyre-sets/${set.id}/inspect`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          wheels: [
+            {
+              position: 'FL',
+              treadInnerMm: 3,
+              treadMiddleMm: 3,
+              treadOuterMm: 3,
+              season: 'WINTER',
+            },
+          ],
+        })
+        .expect(200);
+      expect(inspection.body.latestMeasurement).toMatchObject({
+        source: 'CAPTURE',
+        worstStatus: 'URGENT',
+      });
+
+      const result = await backfillTyreMeasurements(prisma, {
+        execute: true,
+        tenantId: tenantD.tenantId,
+      });
+      expect(result.setsConverted).toBe(0);
+      expect(result.setsSkippedLiveMeasurements).toBe(1);
+      expect(result.warnings).toBeGreaterThanOrEqual(1);
+
+      expect(
+        await dbD.tyreMeasurement.count({
+          where: {
+            tenant_id: tenantD.tenantId,
+            source: 'LEGACY_TREAD_JSON',
+          },
+        }),
+      ).toBe(0);
+      expect(
+        await dbD.tyreSet.findFirstOrThrow({
+          where: { tenant_id: tenantD.tenantId, id: set.id },
+        }),
+      ).toMatchObject({ tread_depth_mm_json: { FL: 6 } });
+
+      const detail = await request(app.getHttpServer())
+        .get(`/api/tyre-sets/${set.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(detail.body.latestMeasurement).toMatchObject({
+        source: 'CAPTURE',
+        worstStatus: 'URGENT',
+      });
+      expect(detail.body.latestMeasurement.wheels[0].treadMiddleMm).toBe(3);
+    } finally {
+      await cleanupTestTenantGraph(app.get(PrismaService), tenantD.tenantId);
     }
   });
 });

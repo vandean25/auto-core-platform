@@ -84,6 +84,7 @@ export type TyreBackfillSummary = {
   eventsSkippedNoVehicle: number;
   setsSkippedNoReadings: number;
   eventsSkippedNoReadings: number;
+  setsSkippedLiveMeasurements: number;
   alreadyConverted: number;
   warnings: number;
   warningSamples: string[];
@@ -155,6 +156,7 @@ export async function backfillTyreMeasurements(
     eventsSkippedNoVehicle: 0,
     setsSkippedNoReadings: 0,
     eventsSkippedNoReadings: 0,
+    setsSkippedLiveMeasurements: 0,
     alreadyConverted: 0,
     warnings: 0,
     warningSamples: [],
@@ -276,16 +278,15 @@ async function backfillSets(context: TenantContext): Promise<void> {
       'set',
       sets.map((set) => set.id),
     );
-    const operations = sets
-      .filter((set) => fresh.has(set.id))
-      .map((set) => buildSetMeasurement(context, set));
-    context.summary.setsConverted += operations.filter(Boolean).length;
+    const live = await setsWithLiveMeasurements(
+      context,
+      sets.filter((set) => fresh.has(set.id)).map((set) => set.id),
+    );
+    const operations = pendingSetOperations(context, sets, fresh, live);
+    context.summary.setsConverted += operations.length;
     if (context.execute) {
       await chunkedPromiseAll(
-        operations.filter(
-          (operation): operation is NonNullable<typeof operation> =>
-            operation !== null,
-        ),
+        operations,
         (operation) => operation(),
         WRITE_CHUNK_SIZE,
       );
@@ -293,6 +294,29 @@ async function backfillSets(context: TenantContext): Promise<void> {
     cursor = sets[sets.length - 1].id;
     if (sets.length < context.batchSize) break;
   }
+}
+
+function pendingSetOperations(
+  context: TenantContext,
+  sets: BackfillSetRow[],
+  fresh: Set<string>,
+  live: Set<string>,
+): MeasurementOperation[] {
+  const operations: MeasurementOperation[] = [];
+  for (const set of sets) {
+    if (!fresh.has(set.id)) continue;
+    if (live.has(set.id)) {
+      context.summary.setsSkippedLiveMeasurements += 1;
+      addWarning(
+        context,
+        `set ${set.id}: live measurements exist, legacy snapshot left unlinked`,
+      );
+      continue;
+    }
+    const operation = buildSetMeasurement(context, set);
+    if (operation) operations.push(operation);
+  }
+  return operations;
 }
 
 async function backfillEvents(context: TenantContext): Promise<void> {
@@ -353,6 +377,26 @@ async function backfillEvents(context: TenantContext): Promise<void> {
     cursor = events[events.length - 1].id;
     if (events.length < context.batchSize) break;
   }
+}
+
+async function setsWithLiveMeasurements(
+  context: TenantContext,
+  ids: string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await context.prisma.tyreMeasurement.findMany({
+    where: {
+      tenant_id: context.tenantId,
+      site_id: { in: [...context.countryBySite.keys()] },
+      tyre_set_id: { in: ids },
+      source: 'CAPTURE',
+    },
+    select: { tyre_set_id: true },
+    distinct: ['tyre_set_id'],
+  });
+  return new Set(
+    rows.flatMap((row) => (row.tyre_set_id ? [row.tyre_set_id] : [])),
+  );
 }
 
 async function unconverted(
