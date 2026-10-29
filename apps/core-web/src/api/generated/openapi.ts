@@ -3342,6 +3342,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/push/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my active push devices */
+        get: operations["PushController_listDevices"];
+        put?: never;
+        /**
+         * Register this browser for push
+         * @description Call only after the user pressed a button and granted the browser permission. An existing token is taken over by the caller.
+         */
+        post: operations["PushController_registerDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/push/devices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove one of my push devices */
+        delete: operations["PushController_revokeDevice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/push/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My push events and quiet hours */
+        get: operations["PushController_getPreferences"];
+        /** Replace my push events and quiet hours */
+        put: operations["PushController_updatePreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/push/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test push to my own devices
+         * @description Limited to 5 per hour. 409 when no device is registered.
+         */
+        post: operations["PushController_sendTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/credit-notes": {
         parameters: {
             query?: never;
@@ -9424,6 +9500,43 @@ export interface components {
             /** @description Rows that went back to PENDING. A wake-up that could not be queued is logged, and the recovery sweep wakes the row later. */
             replayed: string[];
             refused: components["schemas"]["NotificationOutboxReplayRefusalDto"][];
+        };
+        /** @enum {string} */
+        PushPlatform: "IOS" | "ANDROID" | "DESKTOP";
+        PushDeviceDto: {
+            id: string;
+            platform: components["schemas"]["PushPlatform"];
+            browser: string | null;
+            installed: boolean;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RegisterPushDeviceDto: {
+            /** @description FCM registration token of this browser. Stored, never returned and never logged. */
+            token: string;
+            platform: components["schemas"]["PushPlatform"];
+            /** @description Browser family only, for example "chrome". */
+            browser?: string;
+            /** @description True when the app runs as an installed PWA. */
+            installed?: boolean;
+        };
+        /**
+         * @description Events this user wants as push. Empty by default.
+         * @enum {string}
+         */
+        PushUserEventType: "CUSTOMER_ESTIMATE_DECIDED" | "WORKSHOP_TASK_WAITING_CUSTOMER" | "WORKSHOP_ORDER_READY";
+        PushPreferencesDto: {
+            /** @description Events this user wants as push. Empty by default. */
+            enabledEvents: components["schemas"]["PushUserEventType"][];
+            /** @description Quiet hours start, minutes after midnight in the site timezone. Null together with the end means none. */
+            quietStartMin: number | null;
+            quietEndMin: number | null;
+        };
+        PushTestResponseDto: {
+            /** @description Outbox row that carries the test push. */
+            id: string;
         };
         /** @enum {string} */
         CreditNoteStatus: "DRAFT" | "FINALIZED" | "VOID";
@@ -18384,6 +18497,128 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationOutboxReplayResponseDto"];
+                };
+            };
+        };
+    };
+    PushController_listDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushDeviceDto"][];
+                };
+            };
+        };
+    };
+    PushController_registerDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterPushDeviceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushDeviceDto"];
+                };
+            };
+        };
+    };
+    PushController_revokeDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PushController_getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushPreferencesDto"];
+                };
+            };
+        };
+    };
+    PushController_updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushPreferencesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushPreferencesDto"];
+                };
+            };
+        };
+    };
+    PushController_sendTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushTestResponseDto"];
                 };
             };
         };

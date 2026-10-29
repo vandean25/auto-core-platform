@@ -29,6 +29,8 @@ export interface EnqueueNotificationInput {
   recipientKind: NotificationRecipientKind;
   recipientKey: string;
   workshopOrderId?: string | null;
+  /** Required for PUSH rows (the staff user whose devices get the push, ADR-0033) and unused otherwise. */
+  recipientUserId?: string | null;
   sourceEntityType?: string | null;
   sourceEntityId?: string | null;
   payload?: Prisma.InputJsonObject;
@@ -68,7 +70,7 @@ export type NotificationOutboxRow =
 
 /**
  * Row shape for `notification_outbox`. IN_APP rows are accepted at write time, because the durable
- * row is the notification itself. EMAIL rows start PENDING and are delivered by the sender worker.
+ * row is the notification itself. EMAIL and PUSH rows start PENDING and are delivered by the sender worker.
  */
 export function buildNotificationOutboxRow(
   input: EnqueueNotificationInput,
@@ -78,7 +80,7 @@ export function buildNotificationOutboxRow(
   return {
     ...buildRowIdentity(input),
     ...buildEmailColumns(input.email),
-    ...buildRowLifecycle(input.channel !== NotificationChannel.EMAIL, now),
+    ...buildRowLifecycle(input.channel === NotificationChannel.IN_APP, now),
   };
 }
 
@@ -89,6 +91,10 @@ function assertMessageMatchesChannel(input: EnqueueNotificationInput): void {
   }
   if (!isEmail && input.email) {
     throw new Error('Only EMAIL outbox rows carry a rendered message');
+  }
+  // A push is rendered by the sender from the event, in the recipient's language, so the row carries no text.
+  if (input.channel === NotificationChannel.PUSH && !input.recipientUserId) {
+    throw new Error('PUSH outbox rows need the recipient user');
   }
 }
 
@@ -102,6 +108,7 @@ function buildRowIdentity(input: EnqueueNotificationInput) {
     recipient_kind: input.recipientKind,
     message_class: NotificationMessageClass.TRANSACTIONAL,
     workshop_order_id: input.workshopOrderId ?? null,
+    recipient_user_id: input.recipientUserId ?? null,
     source_entity_type: input.sourceEntityType ?? null,
     source_entity_id: input.sourceEntityId ?? null,
     ...(input.payload ? { payload: input.payload } : {}),

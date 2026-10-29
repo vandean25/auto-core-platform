@@ -284,7 +284,10 @@ function formatTenantCreationError(slug: string, error: unknown): Error {
   }
   if (error && typeof error === 'object') {
     const errorObj = error as Record<string, unknown>;
-    if (typeof errorObj.code === 'string' || typeof errorObj.code === 'number') {
+    if (
+      typeof errorObj.code === 'string' ||
+      typeof errorObj.code === 'number'
+    ) {
       code = String(errorObj.code);
     }
     if (errorObj.meta !== undefined) {
@@ -617,6 +620,12 @@ export async function cleanupTestTenantGraph(
     `DELETE FROM workshop_estimate_sequences WHERE tenant_id = $1`,
     tenantId,
   );
+  for (const table of ['push_devices', 'push_preferences']) {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM ${table} WHERE tenant_id = $1`,
+      tenantId,
+    );
+  }
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 
