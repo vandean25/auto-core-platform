@@ -49,6 +49,11 @@ export async function createVehicleStockSuite(options?: {
   const other = await createE2eTenant(app, basePrisma, 'vehicle-stock-b');
   const otherTenantId = other.tenantId;
   const otherAuthToken = other.authToken;
+  for (const t of [tenantId, otherTenantId]) {
+    await basePrisma.importSource.create({
+      data: { tenant_id: t, key: 'legacy-dms', label: 'Legacy DMS' },
+    });
+  }
 
   const vendor = await prisma.vendor.create({
     data: {
