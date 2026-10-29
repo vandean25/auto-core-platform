@@ -47,6 +47,7 @@ export type PushDeliveryOutcome =
 const DEFAULT_TIME_ZONE = 'Europe/Vienna';
 
 interface PushOrder {
+  siteId: string | null;
   orderNumber: string | null;
   siteTimeZone: string | null;
 }
@@ -76,17 +77,9 @@ export class PushDeliveryService {
     if ('kind' in checked) return checked;
     const userId = checked.recipientUserId;
 
-    const isTest = row.eventType === NotificationEventType.PUSH_TEST;
-    const access = await this.resolveAccess(row, userId);
-    if (!access) {
-      return { kind: 'suppressed', reason: 'RECIPIENT_NOT_ELIGIBLE' };
-    }
-    const order = access.order;
-
-    if (!isTest) {
-      const blocked = await this.blockedByPreference(row, userId, order, now);
-      if (blocked) return { kind: 'suppressed', reason: blocked };
-    }
+    const gate = await this.checkRecipient(row, userId, now);
+    if ('kind' in gate) return gate;
+    const order = gate.order;
 
     const devices = await this.prisma.pushDevice.findMany({
       where: {
@@ -105,6 +98,8 @@ export class PushDeliveryService {
       locale: await this.recipientLocale(row.tenantId, userId),
       orderId: row.workshopOrderId,
       orderNumber: order?.orderNumber ?? null,
+      tenantId: row.tenantId,
+      siteId: order?.siteId ?? null,
       decision: readDecision(row.payload),
     });
     if (!message) {
@@ -125,6 +120,26 @@ export class PushDeliveryService {
     );
 
     return this.settle(row.tenantId, outcomes);
+  }
+
+  /** Whether the recipient may get this push now: still a member (of the order's site), event on, outside quiet hours. */
+  private async checkRecipient(
+    row: PushOutboxRow,
+    userId: string,
+    now: Date,
+  ): Promise<PushDeliveryOutcome | { order: PushOrder | null }> {
+    const access = await this.resolveAccess(row, userId);
+    if (!access) {
+      return { kind: 'suppressed', reason: 'RECIPIENT_NOT_ELIGIBLE' };
+    }
+    if (row.eventType === NotificationEventType.PUSH_TEST) return access;
+    const blocked = await this.blockedByPreference(
+      row,
+      userId,
+      access.order,
+      now,
+    );
+    return blocked ? { kind: 'suppressed', reason: blocked } : access;
   }
 
   /** The user's event choice and quiet hours (not applied to the test push). */
@@ -241,6 +256,7 @@ export class PushDeliveryService {
     )?.site;
     return {
       order: {
+        siteId: order.site_id ?? null,
         orderNumber: order.order_number ?? null,
         siteTimeZone: site?.timezone ?? null,
       },
@@ -267,18 +283,28 @@ export class PushDeliveryService {
     );
   }
 
+  /**
+   * Maintenance after a send. A failed write is logged and left to the next send or the cleanup job: the outcome of
+   * the send itself, in particular an accepted message, must never depend on it.
+   */
   private async revokeDevices(
     tenantId: string,
     deviceIds: string[],
   ): Promise<void> {
-    const result = await this.prisma.pushDevice.updateMany({
-      where: { tenant_id: tenantId, id: { in: deviceIds }, revoked_at: null },
-      data: {
-        revoked_at: new Date(),
-        revoked_reason: PushDeviceRevokedReason.UNREGISTERED,
-      },
-    });
-    this.logger.log(`Revoked ${result.count} unregistered push devices`);
+    try {
+      const result = await this.prisma.pushDevice.updateMany({
+        where: { tenant_id: tenantId, id: { in: deviceIds }, revoked_at: null },
+        data: {
+          revoked_at: new Date(),
+          revoked_reason: PushDeviceRevokedReason.UNREGISTERED,
+        },
+      });
+      this.logger.log(`Revoked ${result.count} unregistered push devices`);
+    } catch (cause) {
+      this.logger.warn(
+        `Could not revoke ${deviceIds.length} unregistered push devices: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+      );
+    }
   }
 }
 
