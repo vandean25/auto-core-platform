@@ -63,6 +63,7 @@ docs/superpowers/
 
 # Worktrees
 .worktrees/
+.acp/
 
 # Terraform
 infra/.terraform/
