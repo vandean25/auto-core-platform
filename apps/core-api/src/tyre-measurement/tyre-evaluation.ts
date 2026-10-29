@@ -45,6 +45,10 @@ export type TyreEvaluation = {
   reasonCodes: TyreReasonCode[];
   minimumTreadMm: number;
   thresholds: TyreThresholds | null;
+  ageRecommendations?: {
+    conditionCheckFromMonths: number;
+    replacementFromMonths: number;
+  };
   dot: TyreDot | null;
 };
 
@@ -184,5 +188,12 @@ export function evaluateTyreWheel(
     status,
     reasonCodes: reasons,
     thresholds,
+    ageRecommendations: {
+      conditionCheckFromMonths: AGE_INFO_MONTHS,
+      replacementFromMonths:
+        wheel.season === 'SUMMER'
+          ? SUMMER_REPLACEMENT_MONTHS
+          : WINTER_REPLACEMENT_MONTHS,
+    },
   };
 }

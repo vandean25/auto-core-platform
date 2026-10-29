@@ -1,32 +1,76 @@
 ---
 title: "Reifenlager"
-description: "Kundenreifensätze einlagern, Ein- und Auslagerung protokollieren und Fälligkeiten sehen."
+description: "Kundenreifensätze einlagern, Reifenmessungen erfassen und den Zustand beim Saisonwechsel prüfen."
 ---
 
-**Reifenlager** verfolgt saisonale Reifensätze pro Kundenfahrzeug: Lagerort in Ihrem Lager, Status-Ereignisse und Fälligkeitslisten für den Saisonwechsel.
+**Reifenlager** verfolgt Reifensätze pro Kundenfahrzeug: Lagerort, Ein- und Auslagerung und Fälligkeiten für den Saisonwechsel. Das **Reifengutachten** zeigt die zuletzt erfasste Reifenmessung mit Bewertung je Rad.
 
-Berater und Teilepersonal nutzen es täglich. Mechaniker können Sätze zu Fahrzeugen sehen, an denen sie arbeiten.
+Inhaber, Administratoren und Berater können ein- und auslagern. Mechaniker können Reifensätze ansehen, deren Zustand prüfen und Reifenmessungen erfassen, aber nicht ein- oder auslagern.
+
+| Aufgabe | Wo Sie arbeiten |
+| --- | --- |
+| Reifensatz einlagern, auslagern oder prüfen | Reifenlager, im geöffneten Reifensatz |
+| Reifen am Fahrzeug messen | Werkstattauftrag oder Fahrzeugannahme im Schritt **2 · Zustand** |
+
+## Reifensatz und Messung erfassen
 
 <Steps>
   <Step title="Reifenlager öffnen">
-    Seitenleiste → **Reifenlager**.
+    Seitenleiste → **Reifenlager**. Öffnen Sie eine bestehende Zeile oder legen Sie einen Satz vom Kundenfahrzeug aus an.
   </Step>
-  <Step title="Satz anlegen oder öffnen">
-    Neuen Satz vom Kundenfahrzeug starten oder bestehende Zeile öffnen.
+  <Step title="Lagerbewegung oder Zustandsprüfung wählen">
+    Nutzen Sie **Einlagern** mit Lagerort oder **Auslagern**, wenn der Kunde die Reifen mitnimmt. Für eine reine Zustandsprüfung wählen Sie **Reifenmessung erfassen**; der Lagerort und Satzstatus bleiben dabei unverändert.
   </Step>
-  <Step title="Reifen einlagern">
-    **Einlagern** mit Lagerort und Saisonbezeichnung erfassen. Der Satzstatus folgt aus den Ereignissen.
+  <Step title="Messung einschalten">
+    Aktivieren Sie im Dialog **Reifenmessung erfassen**. Bei Einlagerung, Auslagerung und Zustandsprüfung sind Messwerte optional; ohne diese Auswahl bleibt der bisherige Ablauf erhalten. Der Satz muss mit einem Fahrzeug verknüpft sein.
   </Step>
-  <Step title="Auslagern oder umlagern">
-    **Auslagern**, wenn der Kunde die Reifen mitnimmt. **Umlagern**, wenn sich Fächer im Lager ändern.
+  <Step title="Räder messen und speichern">
+    Erfassen Sie je Rad **Innen**, **Mitte** und **Außen** als Zahlen von 0 bis 20 mm. Ergänzen Sie **Marke**, **Modell**, **Größe**, **Saison**, **DOT**, **Bauart** und **Winterkennzeichnung** sowie die **Gewichtsklasse** des Fahrzeugs. Mit **Messung speichern** speichern Sie Messung und gewählten Vorgang gemeinsam.
   </Step>
 </Steps>
 
+Die Radpositionen sind **Vorne links**, **Vorne rechts**, **Hinten links** und **Hinten rechts**. **Reserverad erfassen** ergänzt bei Bedarf das fünfte Rad. **Marke, Modell und Größe auf alle Räder kopieren** übernimmt nur diese Angaben, nicht die Profiltiefen.
+
 <Warning>
-Dieselben Reifen können Sie nicht zweimal einlagern ohne dazwischenliegende Auslagerung. Die API lehnt doppeltes Einlagern ab.
+Dieselben Reifen können Sie nicht zweimal einlagern, ohne sie dazwischen auszulagern. Bei **Umlagern** werden keine Reifenmessungen erfasst.
 </Warning>
 
+## Reifen am Werkstattauftrag messen
+
+<Steps>
+  <Step title="Werkstattauftrag öffnen">
+    Öffnen Sie den [Werkstattauftrag](/workflows/workshop-orders) und den Abschnitt **Reifengutachten**.
+  </Step>
+  <Step title="Reifenmessung erfassen wählen">
+    Wählen Sie **Reifenmessung erfassen**. Die Aktion ist auch über **Cmd+K** erreichbar. In der Fahrzeugannahme finden Sie den Reifenabschnitt in **2 · Zustand**; die Annahme behält ihre drei Schritte.
+  </Step>
+  <Step title="Messwerte speichern">
+    Füllen Sie die Radangaben wie oben aus und wählen Sie **Messung speichern**. Eine Korrektur wird als neue Messung erfasst; bereits gespeicherte Messungen werden nicht überschrieben.
+  </Step>
+</Steps>
+
+## Reifengutachten lesen
+
+Das Reifengutachten zeigt Status und Gründe je Rad, das aus dem DOT ermittelte Alter und hebt den geringsten Profilwert hervor. Der niedrigste der drei Messpunkte eines Rads entscheidet über dessen Bewertung. Fehlende Angaben erscheinen als Gedankenstrich — sie sind weder 0 mm noch ein geschätztes Herstellungsdatum.
+
+Unter **Bewertung und Grenzwerte** sehen Sie die zur Messung gespeicherten gesetzlichen Mindestwerte, gegebenenfalls Winterprofilgrenzen und Austauschempfehlungen. Spätere Einstellungsänderungen ändern eine gespeicherte Bewertung nicht.
+
+<Warning>
+Eine gelbe Bewertung ist immer eine **Empfehlung**, keine gesetzliche Grenze. Auch Hinweise zum Reifenalter sind Empfehlungen und bedeuten für sich allein kein gesetzliches Verbot. Beachten Sie die Gründe und Grenzwerte der jeweiligen Messung.
+</Warning>
+
+## Verbindung und Reifenfotos
+
+<Tip>
+**Reifenmessungen benötigen derzeit eine Verbindung.** Messungsentwürfe werden nicht offline gespeichert oder später automatisch übertragen. Davon getrennt können Fotos der Fahrzeugannahme offline in der bestehenden Foto-Warteschlange verbleiben. Warten Sie, bis die zugehörigen Reifenfotos hochgeladen sind, bevor Sie die Messung speichern.
+</Tip>
+
+Reifenfotos können nur der passenden Fahrzeugannahme des Werkstattauftrags zugeordnet werden. Ohne Fahrzeugannahme gibt es am Auftrag keine Reifenfotos. Im Mechanikerzugang sind Reifenfotos am Auftrag derzeit nicht verfügbar. Bei Einlagerung, Auslagerung oder Zustandsprüfung im Reifenlager sind Reifenfotos derzeit nicht verfügbar — auch nicht mit verknüpftem Werkstattauftrag.
+
 <AccordionGroup>
+  <Accordion title="Alte Messungen und DOT-Angaben">
+    Ältere Messungen können nur einen mittleren Profilwert enthalten; fehlende Innen- und Außenwerte erscheinen als Gedankenstrich. Bei dreistelligen alten DOT-Codes ist nur ein Mindestalter bekannt, kein genaues Herstellungsjahr. Ohne DOT erscheint beim Alter ein Gedankenstrich. Ist für das Land keine Bewertung verfügbar, bleiben die Messwerte sichtbar, ohne eine Bewertung für ein anderes Land zu übernehmen.
+  </Accordion>
   <Accordion title="Fälligkeitslisten">
     Dashboard-Widgets und Listenfilter heben Sätze für den Saisonwechsel hervor. Kombinieren Sie das mit [Werkstattaufträgen](/workflows/workshop-orders), wenn Sie den Termin buchen.
   </Accordion>

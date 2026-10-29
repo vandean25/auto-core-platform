@@ -172,6 +172,15 @@ export function useCheckInOffline({
     }
   }, [activeSiteId])
 
+  const refreshQueuedPhotos = useCallback(async () => {
+    if (!scope) {
+      setQueuedPhotos([])
+      return
+    }
+    const rows = await listQueuedPhotosForScope(scope)
+    setQueuedPhotos(rows)
+  }, [scope])
+
   const buildQueueContext = useCallback(() => {
     if (!scope) {
       return null
@@ -192,6 +201,7 @@ export function useCheckInOffline({
       },
       onUploaded: (media: WorkshopCheckInMedia) => {
         onPhotoUploadedRef.current(media)
+        void refreshQueuedPhotos()
       },
       isPaused: () => queuePausedRef.current,
       onAuthError: () => {
@@ -202,16 +212,7 @@ export function useCheckInOffline({
         onUploadConflictRef.current?.()
       },
     }
-  }, [scope])
-
-  const refreshQueuedPhotos = useCallback(async () => {
-    if (!scope) {
-      setQueuedPhotos([])
-      return
-    }
-    const rows = await listQueuedPhotosForScope(scope)
-    setQueuedPhotos(rows)
-  }, [scope])
+  }, [refreshQueuedPhotos, scope])
 
   useEffect(() => {
     if (!scope) {

@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import type { TyreSet } from '@/api/tyre-storage'
 import type { Customer } from '@/api/types'
 import type { Vehicle } from '@/api/types'
 import type { WorkshopEstimateVersionDetail } from '@/api/workshop-estimates'
@@ -10,13 +11,15 @@ import { createCustomerRowActions } from '@/features/actions/customer-row-action
 import type { VehicleRowActionContext } from '@/features/actions/vehicle-row-actions'
 import { createVehicleRowActions } from '@/features/actions/vehicle-row-actions'
 import type { WorkshopOrderRowActionContext } from '@/features/actions/work-order-row-actions'
-import { createWorkshopOrderRowActions } from '@/features/actions/work-order-row-actions'
+import { createWorkshopOrderRowActions, createWorkshopOrderTyreMeasurementAction } from '@/features/actions/work-order-row-actions'
+import { createTyreSetTyreMeasurementAction, type TyreSetRowActionContext } from '@/features/actions/tyre-set-row-actions'
 import {
   buildCustomerPaletteContextActions,
   buildEstimatePaletteContextActions,
   buildVehiclePaletteContextActions,
   buildWorkshopOrderPaletteContextActions,
   filterPaletteContextActions,
+  mapRegistryActionsToPalette,
   type PaletteContextActionSection,
 } from './global-search-context-actions'
 import type { GlobalSearchRecordRef } from './global-search-record-route'
@@ -33,6 +36,7 @@ type PaletteContextRunContexts = {
   customer: CustomerRowActionContext
   vehicle: VehicleRowActionContext
   estimate: EstimateRowActionContext
+  tyreSet: TyreSetRowActionContext
 }
 
 export function buildPaletteContextSection(
@@ -44,6 +48,7 @@ export function buildPaletteContextSection(
     customer?: Customer
     vehicle?: Vehicle
     estimate?: WorkshopEstimateVersionDetail
+    tyreSet?: TyreSet
   },
   translations: PaletteContextTranslations,
   runContexts: PaletteContextRunContexts,
@@ -51,7 +56,15 @@ export function buildPaletteContextSection(
   const { nav, workshop, customers, vehicles } = translations
   let items: PaletteContextActionSection['items'] = []
 
-  if (ref.entity === 'workshop_order' && records.order) {
+  if (ref.entity === 'workshop_order' && role === 'TECH') {
+    items = mapRegistryActionsToPalette(
+      [createWorkshopOrderTyreMeasurementAction(workshop)],
+      role,
+      { id: ref.id },
+      runContexts.workshop,
+      () => '',
+    )
+  } else if (ref.entity === 'workshop_order' && records.order) {
     const definitions = createWorkshopOrderRowActions(workshop)
     items = buildWorkshopOrderPaletteContextActions(
       definitions,
@@ -85,6 +98,15 @@ export function buildPaletteContextSection(
       records.estimate,
       runContexts.estimate,
       nav,
+    )
+  } else if (ref.entity === 'tyre_set' && records.tyreSet) {
+    const tyreSet = records.tyreSet
+    items = mapRegistryActionsToPalette(
+      [createTyreSetTyreMeasurementAction(workshop)],
+      role,
+      tyreSet,
+      runContexts.tyreSet,
+      () => tyreSet.label,
     )
   }
 

@@ -2,7 +2,7 @@
 
 ## Summary
 
-AUT-802 T1 defined append-only tyre evidence on workshop orders and reception check-ins. AUT-803 T2 connects the tyre hotel: check-in, check-out and inspection events can record wheel readings into the same evidence model, tyre sets expose their latest measurement, and legacy tread JSON is backfilled. Title and tread JSON stay in place. UI and uploads remain later work.
+AUT-802 T1 defined append-only tyre evidence on workshop orders and reception check-ins. AUT-803 T2 connects the tyre hotel: check-in, check-out and inspection events can record wheel readings into the same evidence model, tyre sets expose their latest measurement, and legacy tread JSON is backfilled. AUT-804 T3 adds the shared report and capture UI to orders, reception and the tyre hotel, reusing the existing check-in photo queue. Title, tread JSON and backend evidence policies stay in place.
 
 ## User Stories
 
@@ -115,7 +115,24 @@ npm run db:backfill:tyre-measurements --workspace=core-api -- --execute --tenant
 
 ## UX Compliance / Component Design
 
-No components, page actions, forms, uploads or new realtime dashboard wiring in T2. UI and uploads remain separate follow-up work. Documentation and copy are DE/EN only. Existing tyre-storage event behavior and retarget helpers are unchanged apart from the optional `wheels` payload and the new `inspect` route.
+### T3 shared report and capture (AUT-804)
+
+- `TyreReport` is shared by workshop orders, reception check-ins and tyre hotel detail/latest-measurement views. Render the stored server evaluation snapshot: status, localized reasons, DOT age or conservative minimum age, worst tread highlight and threshold legend. Do not recalculate from current settings or hardcode client thresholds. Amber always means a recommendation, never a legal limit; legal/profile minima remain distinct. Unsupported evaluation and absent DOT/tread facts stay blank rather than becoming zero or an invented age/status.
+- Wheel layout uses `FL`, `FR`, `RL`, `RR` and optional `SPARE`, with localized position labels. Capture uses three numeric tread points per recorded wheel (inner/middle/outer), each 0–20 mm inclusive, plus brand, model, size, season, DOT, construction and winter marking. Weight class belongs to the measurement. The copy action copies only brand/model/size to all wheels; it does not copy tread or legal context. The lowest point per wheel drives the stored evaluation.
+- Workshop order detail has a report section and the registry action **Reifenmessung erfassen** / **Record tyre measurement**, also reachable via Cmd+K with identical role gating. Reception embeds capture/report in the condition step; keep the existing three-step flow and check-in offline queue, not a fourth step.
+- Tyre hotel exposes `latestMeasurement` and opt-in wheel capture on `CHECK_IN`, `CHECK_OUT` and `INSPECTED`; no readings on move/dispose. A vehicle link is required. Leaving capture off preserves existing event behaviour. Inspection changes neither status nor location.
+- `OWNER`/`ADMIN`/`SALES`/`TECH` may read reports and record order/check-in evidence within authorized tenant/site scope. Hotel `TECH` may inspect and record readings but cannot check in/out; those actions remain `OWNER`/`ADMIN`/`SALES`. UI gating mirrors the backend, not a new permission policy.
+- Measurement capture currently requires a connection. There are no persisted or queued offline measurement drafts. Only existing check-in photos use the offline photo queue; wait for successful upload before saving a measurement that references them. Photos must be attached to the order's matching check-in. An order without a check-in has no photo support. Hotel event photos remain unavailable and rejected by the backend, even when an event links an order.
+- Corrections append a new measurement; no edit/delete of stored evidence. T3 does not change backend evaluation, upload/media eligibility, retarget helpers, deletion rules, state transitions, stock or fiscal policies, and adds no new realtime dashboard wiring. Copy and documentation are matching DE/EN, with German authoritative.
+
+### T3 verification scope
+
+These are UI acceptance checks, not a claim that the backend fixtures below exercise the UI:
+
+- Shared report tests cover server snapshot status/reasons/thresholds, amber recommendation wording, lowest/worst tread highlighting, DOT age versus legacy minimum age, unsupported evaluation and blank missing fields.
+- Form tests cover all wheel positions and optional spare, numeric range/invalid values, three tread points, metadata and weight class, copy-only brand/model/size, pending/error save handling and no offline measurement persistence.
+- Order/check-in integration checks cover the registry action and Cmd+K role parity, condition-step placement with three steps unchanged, existing offline photo queuing, and blocking measurement save until referenced photos upload.
+- Hotel integration checks cover latest report rendering, opt-in capture on all three supported events, unchanged actions without readings, required vehicle, TECH inspect-only gating, and no photo controls/media payload for hotel events.
 
 ## Verification
 
@@ -129,7 +146,7 @@ No components, page actions, forms, uploads or new realtime dashboard wiring in 
 
 ## Open Questions / Tracking
 
-Tracking: AUT-802 (T1), AUT-803 (T2). Hotel UI and uploads are excluded; this specification does not authorize them. The optional MCP `get_tyre_report` tool was not added in T2 to keep the change focused; MCP `list_tyre_sets` is unchanged.
+Tracking: AUT-802 (T1), AUT-803 (T2), AUT-804 (T3 shared report and capture UI). T3 reuses check-in photo uploads; hotel event photos and offline measurement drafts remain excluded. The optional MCP `get_tyre_report` tool was not added in T2 and is not part of T3; MCP `list_tyre_sets` is unchanged.
 
 ## References
 

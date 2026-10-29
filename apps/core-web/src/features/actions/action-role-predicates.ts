@@ -48,6 +48,10 @@ export function canUpdateWorkshopOrderTaskState(role: string | null | undefined)
   return role !== ''
 }
 
+export function canRecordTyreMeasurement(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES' || role === 'TECH'
+}
+
 export function isWorkshopCheckInOpenStatus(status: string | null | undefined): boolean {
   return status === 'INTAKE' || status === 'IN_PROGRESS'
 }

@@ -51,6 +51,9 @@ vi.mock('@/api/workshop-estimates', async () => {
   const actual = await vi.importActual<typeof import('@/api/workshop-estimates')>('@/api/workshop-estimates')
   return { ...actual, useWorkshopEstimateVersion: vi.fn() }
 })
+vi.mock('@/api/tyre-storage', () => ({
+  useTyreSet: () => ({ data: undefined, isLoading: false }),
+}))
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => mockCustomerDelete,
 }))
@@ -66,12 +69,12 @@ const workshopOrder = {
   vehicle: { id: 'veh-1', year: 2020, make: 'VW', model: 'Golf' },
 }
 
-function mockSession() {
+function mockSession(role = 'ADMIN') {
   vi.mocked(authSession.useAuthSession).mockReturnValue({
     data: {
       userId: 'user-1',
       activeTenant: { id: 'tenant-1' },
-      activeRole: 'ADMIN',
+      activeRole: role,
       activeSiteId: 'site-1',
       platformRole: undefined,
     },
@@ -344,6 +347,7 @@ describe('GlobalSearch context actions', () => {
 
     it('offers no estimate action to a role that cannot manage estimates', () => {
       authState.role = 'TECH'
+      mockSession('TECH')
       renderEstimateList()
 
       expect(screen.queryByText('Open estimate')).toBeNull()

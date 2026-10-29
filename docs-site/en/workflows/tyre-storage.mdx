@@ -1,36 +1,80 @@
 ---
 title: "Tyre storage"
-description: "Store customer tyre sets, log check-in and check-out, and see what is due."
+description: "Store customer tyre sets, record tyre measurements, and check their condition at seasonal changeover."
 ---
 
-**Tyre storage** (*Reifenlager*) tracks seasonal tyre sets per customer vehicle: location in your warehouse, status events, and due lists for seasonal changeover.
+**Tyre storage** tracks tyre sets per customer vehicle: storage location, check-in and check-out, and due dates for seasonal changeover. The **Tyre report** shows the latest recorded tyre measurement with an evaluation for each wheel.
 
-Advisors and parts staff use it daily. Mechanics may view sets linked to vehicles they work on.
+Owners, administrators, and advisors can check sets in and out. Mechanics can view tyre sets, inspect their condition, and record measurements, but cannot check sets in or out.
+
+| Task | Where you work |
+| --- | --- |
+| Check a tyre set in, check it out, or inspect it | Tyre storage, in the opened tyre set |
+| Measure tyres on the vehicle | Workshop order or vehicle check-in, in **2 · Condition** |
+
+## Record a tyre set and measurement
 
 <Steps>
   <Step title="Open Tyre storage">
-    Sidebar → **Tyre storage**.
+    Sidebar → **Tyre storage**. Open an existing row or start a new set from the customer vehicle.
   </Step>
-  <Step title="Create or open a set">
-    Start a new set from a customer vehicle or open an existing row.
+  <Step title="Choose a storage action or inspection">
+    Use **Check in** with a storage location or **Check out** when the customer takes the tyres back. For a condition-only inspection, choose **Record tyre measurement**; the location and set status stay unchanged.
   </Step>
-  <Step title="Check in tyres">
-    Record **check-in** with storage location and season label. The set status updates from events.
+  <Step title="Enable measurement capture">
+    Select **Record tyre measurement** in the dialog. Readings are optional for check-in, check-out, and inspection; leaving this option off keeps the existing workflow. The set must be linked to a vehicle.
   </Step>
-  <Step title="Check out or move">
-    **Check-out** when the customer takes tyres back. Use move events when bins change inside the warehouse.
+  <Step title="Measure the wheels and save">
+    Enter **Inner**, **Middle**, and **Outer** readings for each wheel as numbers from 0 to 20 mm. Add **Brand**, **Model**, **Size**, **Season**, **DOT**, **Construction**, and **Winter marking**, plus the vehicle's **Weight class**. **Save measurement** saves the measurement together with the chosen action.
   </Step>
 </Steps>
 
+Wheel positions are **Front left**, **Front right**, **Rear left**, and **Rear right**. **Record spare wheel** adds the fifth wheel if needed. **Copy brand, model and size to all wheels** copies only those details, not tread readings.
+
 <Warning>
-You cannot check in the same set twice without an intervening check-out. The API rejects double check-in.
+You cannot check in the same tyres twice without checking them out in between. Move actions do not record tyre measurements.
 </Warning>
 
+## Measure tyres on a workshop order
+
+<Steps>
+  <Step title="Open the workshop order">
+    Open the [Workshop order](/en/workflows/workshop-orders) and its **Tyre report** section.
+  </Step>
+  <Step title="Choose Record tyre measurement">
+    Choose **Record tyre measurement**. The action is also available through **Cmd+K**. In vehicle check-in, the tyre section is in **2 · Condition**; check-in keeps its three steps.
+  </Step>
+  <Step title="Save the readings">
+    Complete the wheel details as above and choose **Save measurement**. Record a correction as a new measurement; existing measurements are not overwritten.
+  </Step>
+</Steps>
+
+## Read the tyre report
+
+The tyre report shows status and reasons for each wheel, the age derived from its DOT code, and highlights the lowest tread reading. The lowest of a wheel's three measurement points determines its evaluation. Missing details appear as a dash — they are neither 0 mm nor an estimated manufacturing date.
+
+Under **Evaluation and thresholds**, you see the legal minima, any winter tread limits, and replacement recommendations stored with the measurement. Later settings changes do not change a stored evaluation.
+
+<Warning>
+An amber evaluation is always a **recommendation**, not a legal limit. Tyre-age notices are also recommendations and do not by themselves mean a legal ban. Read the reasons and thresholds for the individual measurement.
+</Warning>
+
+## Connection and tyre photos
+
+<Tip>
+**Tyre measurement capture currently requires a connection.** Measurement drafts are not saved offline or automatically sent later. Separately, vehicle check-in photos can remain in the existing offline photo queue. Wait until the associated tyre photos have uploaded before saving the measurement.
+</Tip>
+
+Tyre photos can only be attached to the workshop order's matching vehicle check-in. An order without a vehicle check-in has no tyre photo support. Tyre photos on an order are currently unavailable in mechanic access. Tyre photos are currently unavailable for tyre storage check-in, check-out, or inspection — even with a linked workshop order.
+
 <AccordionGroup>
+  <Accordion title="Older measurements and DOT codes">
+    Older measurements may contain only a middle tread reading; missing inner and outer readings appear as a dash. Old three-digit DOT codes provide only a minimum age, not an exact manufacturing year. Without a DOT code, age appears as a dash. If no evaluation is available for the country, readings remain visible without applying another country's evaluation.
+  </Accordion>
   <Accordion title="Due lists">
-    Dashboard widgets and list filters highlight sets that are due for seasonal swap. Pair with [Workshop orders](/en/workflows/workshop-orders) when you book the appointment.
+    Dashboard widgets and list filters highlight sets due for seasonal changeover. Pair this with [Workshop orders](/en/workflows/workshop-orders) when you book the appointment.
   </Accordion>
   <Accordion title="Storage locations">
-    Bin codes come from [Storage locations](/en/settings/storage-locations). Create the tree before you assign precise bin positions.
+    Bin codes come from [Storage locations](/en/settings/storage-locations). Create the structure before assigning precise bin positions.
   </Accordion>
 </AccordionGroup>

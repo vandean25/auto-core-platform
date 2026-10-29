@@ -19,6 +19,7 @@ import { describeWorkshopCheckInError } from './check-in-errors'
 import { CheckInSaveIndicator } from './CheckInSaveIndicator'
 import { CheckInVehicleStep } from './CheckInVehicleStep'
 import { CheckInConditionStep } from './CheckInConditionStep'
+import { TyreMeasurementSection } from '@/features/tyre-report/TyreMeasurementSection'
 import { CheckInReviewStep } from './CheckInReviewStep'
 import { useCheckInDraftAutosave } from './useCheckInDraftAutosave'
 import { CheckInConflictDialog } from './CheckInConflictDialog'
@@ -65,6 +66,10 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   const [signatureMediaId, setSignatureMediaId] = useState<string | null>(null)
   const [step, setStep] = useState<CheckInStep>('vehicle')
   const [localPreviewUrls, setLocalPreviewUrls] = useState<Record<string, string>>({})
+  const tyrePreviewUrlsRef = useRef(new Set<string>())
+  useEffect(() => () => {
+    for (const url of tyrePreviewUrlsRef.current) URL.revokeObjectURL(url)
+  }, [])
   const [sessionMedia, setSessionMedia] = useState<
     import('@/api/workshop-check-in').WorkshopCheckInMedia[]
   >([])
@@ -550,6 +555,26 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           onRetryUploads={offline.retryFailedUploads}
         />
       )}
+      <div hidden={step !== 'condition'}>
+        <TyreMeasurementSection
+          parent={{ kind: 'check-in', id: checkInQuery.data.id }}
+          orderId={orderId}
+          readOnly={readOnly}
+          mediaUrls={{
+            ...Object.fromEntries((mediaQuery.data ?? []).filter((item) => item.preview_url).map((item) => [item.id, item.preview_url as string])),
+            ...localPreviewUrls,
+          }}
+          pendingMediaIds={offline.queuedPhotos.map((photo) => photo.clientUploadId)}
+          onPhoto={async (file) => {
+            const id = generateId()
+            await offline.enqueuePhoto(file, id)
+            const preview = URL.createObjectURL(file)
+            tyrePreviewUrlsRef.current.add(preview)
+            setLocalPreviewUrls((previous) => ({ ...previous, [id]: preview }))
+            return id
+          }}
+        />
+      </div>
       {step === 'review' && (
         <CheckInReviewStep
           orderId={orderId}

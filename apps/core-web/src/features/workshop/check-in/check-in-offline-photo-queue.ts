@@ -198,8 +198,8 @@ export async function processCheckInPhotoQueue(
             purpose: 'CHECK_IN',
           },
         )
-        context.onUploaded(media)
         await deleteQueuedPhoto(item.clientUploadId)
+        context.onUploaded(media)
 
         if (httpStatus === 201) {
           revision += 1
