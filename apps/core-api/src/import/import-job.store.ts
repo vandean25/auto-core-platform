@@ -20,7 +20,9 @@ import {
 import {
   ImportApplyRetryExhaustedError,
   type ImportApplyFailureReason,
+  type ImportJobFailureDetail,
 } from './import-apply.errors.js';
+import { importJobOptionsWithFailure } from './import-apply-failure.util.js';
 import {
   delayMs,
   retryableTransactionDelayMs,
@@ -173,10 +175,10 @@ async function markImportJobFailedInTransaction(
     where: { tenant_id: params.tenantId, id: params.jobId },
     select: { options_json: true },
   });
-  const options = {
-    ...((job?.options_json as Record<string, unknown> | null) ?? {}),
-    apply_failure_reason: params.applyFailureReason,
-  };
+  const options = importJobOptionsWithFailure(
+    job?.options_json,
+    params.applyFailureReason,
+  );
   const updated = await tx.importJob.updateMany({
     where: params.where,
     data: {
@@ -950,17 +952,17 @@ export class ImportJobStore {
     jobId: string,
     applyFailureReason: ImportApplyFailureReason = 'apply_error',
     totals?: ImportJobTotals,
-    cause?: string,
+    failure?: ImportJobFailureDetail,
   ) {
     const job = await this.prisma.importJob.findFirst({
       where: { tenant_id: tenantId, id: jobId },
       select: { options_json: true },
     });
-    const options = {
-      ...((job?.options_json as Record<string, unknown> | null) ?? {}),
-      apply_failure_reason: applyFailureReason,
-      ...(cause ? { apply_failure_cause: cause } : {}),
-    };
+    const options = importJobOptionsWithFailure(
+      job?.options_json,
+      applyFailureReason,
+      failure,
+    );
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,

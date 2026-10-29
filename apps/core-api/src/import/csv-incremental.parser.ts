@@ -279,12 +279,16 @@ function finishSlice(
   state: SliceCollect,
   parser: CsvIncrementalParser,
   utf8: { finish: () => void },
-  takeDataRows: number,
+  inputExhausted: boolean,
 ): CsvStreamSliceResult | null {
-  if (state.collected < takeDataRows) {
+  if (state.collected < state.takeDataRows) {
     finishTail(state);
   }
-  utf8.finish();
+  // A batch that stops mid-file may end inside a multi-byte character; only the
+  // end of the input tells a truncated sequence from a split one.
+  if (inputExhausted) {
+    utf8.finish();
+  }
   const headers = parser.getHeaders();
   if (headers.length === 0) {
     return null;
@@ -310,16 +314,18 @@ async function pullUntilDone(
     takeDataRows,
     resume,
   );
+  let inputExhausted = false;
   for (;;) {
     const bytes = await pull();
     if (!bytes || bytes.length === 0) {
+      inputExhausted = true;
       break;
     }
     if (acceptBytes(state, utf8, bytes)) {
       break;
     }
   }
-  return finishSlice(state, parser, utf8, takeDataRows);
+  return finishSlice(state, parser, utf8, inputExhausted);
 }
 
 /** Reads one batch from ranged buffers. Stops pulling once the batch is full. */
