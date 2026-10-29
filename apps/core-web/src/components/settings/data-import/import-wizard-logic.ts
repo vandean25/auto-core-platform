@@ -64,6 +64,11 @@ export function canApplyImport(params: {
       .technical_error_rows
     return (technical ?? 0) > 0
   }
+  // A failed apply is retryable from the wizard; the backend re-checks that the
+  // upload and rows are still retained and rejects an ineligible job on apply.
+  if (params.dryRunJob.status === 'FAILED') {
+    return true
+  }
   if (params.dryRunStale) return false
   if (params.dryRunJob.status !== 'DRY_RUN_DONE') return false
   const errors = params.dryRunJob.totals?.error ?? 0

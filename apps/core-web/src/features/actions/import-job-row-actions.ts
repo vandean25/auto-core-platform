@@ -10,6 +10,7 @@ export type ImportJobActionRecord = {
   id: string
   status: ImportJobStatus
   totals: { error: number }
+  cancellable: boolean
 }
 
 export type ImportJobActionContext = {
@@ -59,7 +60,7 @@ export function createImportJobRowActions<TRecord extends ImportJobActionRecord>
       label: t('dataImport.history.actions.cancel'),
       icon: Ban,
       isAllowedForRole: canManageImportJobs,
-      isEnabled: (row) => row.status === 'APPLYING',
+      isEnabled: (row) => row.cancellable,
       confirm: {
         title: t('dataImport.history.actions.cancelConfirmTitle'),
         description: t('dataImport.history.actions.cancelConfirmDescription'),

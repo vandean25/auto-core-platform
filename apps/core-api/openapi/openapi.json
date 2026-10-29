@@ -38094,6 +38094,9 @@
             "type": "string",
             "nullable": true
           },
+          "cancellable": {
+            "type": "boolean"
+          },
           "apply_failure_code": {
             "type": "string"
           }
@@ -38107,7 +38110,8 @@
           "totals",
           "created_by",
           "created_at",
-          "applied_at"
+          "applied_at",
+          "cancellable"
         ]
       },
       "ImportJobListMetaDto": {

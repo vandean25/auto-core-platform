@@ -12,8 +12,12 @@ import {
 
 const t = ((key: string) => key) as unknown as TFunction<'settings'>
 
-function record(status: ImportJobStatus, error = 0): ImportJobActionRecord {
-  return { id: 'job-1', status, totals: { error } }
+function record(
+  status: ImportJobStatus,
+  error = 0,
+  cancellable = false,
+): ImportJobActionRecord {
+  return { id: 'job-1', status, totals: { error }, cancellable }
 }
 
 function enabledIds(role: string | undefined, rec: ImportJobActionRecord): string[] {
@@ -21,11 +25,18 @@ function enabledIds(role: string | undefined, rec: ImportJobActionRecord): strin
 }
 
 describe('createImportJobRowActions', () => {
-  it('offers resume plus cancel and error download for a running apply (admin)', () => {
-    expect(enabledIds('ADMIN', record('APPLYING', 2))).toEqual([
+  it('offers resume plus cancel and error download for a cancellable background dry run (admin)', () => {
+    expect(enabledIds('ADMIN', record('APPLYING', 2, true))).toEqual([
       ENTITY_ACTION_IDS.importJobResume,
       ENTITY_ACTION_IDS.importJobDownloadErrors,
       ENTITY_ACTION_IDS.importJobCancel,
+    ])
+  })
+
+  it('withholds cancel from a running apply phase the API cannot cancel (admin)', () => {
+    expect(enabledIds('ADMIN', record('APPLYING', 2))).toEqual([
+      ENTITY_ACTION_IDS.importJobResume,
+      ENTITY_ACTION_IDS.importJobDownloadErrors,
     ])
   })
 

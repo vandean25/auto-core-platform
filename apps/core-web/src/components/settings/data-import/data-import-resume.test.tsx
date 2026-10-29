@@ -1,4 +1,4 @@
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 import type { ImportJob } from '@/api/imports'
@@ -11,6 +11,7 @@ import {
   di,
   failedApplyJob,
   installImportApiMocks,
+  openApplyDialog,
   renderImportSettingsTab,
 } from './data-import-settings-tab.spec.support'
 
@@ -116,5 +117,60 @@ describe('DataImportSettingsTab resume from ?job', () => {
     expect(
       screen.getByText(deErrors.codes.IMPORT_APPLY_FAILED),
     ).toBeInTheDocument()
+  })
+
+  it('applies a resumed dry run without re-uploading the file', async () => {
+    const job: ImportJob = { ...customerDryRunJob, id: 'job-resume-1' }
+    const { apply } = installImportApiMocks({ dryRunJob: job })
+    mockResumedJob(job)
+
+    renderImportSettingsTab({ initialEntries: [RESUME_URL] })
+
+    await screen.findByText(di.dryRun.title)
+    const confirm = await openApplyDialog()
+    fireEvent.click(confirm)
+
+    await waitFor(() => expect(apply.mutateAsync).toHaveBeenCalledWith('job-resume-1'))
+  })
+
+  it('retries a failed apply from the resumed result step', async () => {
+    const job: ImportJob = { ...failedApplyJob('IMPORT_APPLY_FAILED'), id: 'job-resume-1' }
+    const { apply } = installImportApiMocks({ dryRunJob: job })
+    mockResumedJob(job)
+
+    renderImportSettingsTab({ initialEntries: [RESUME_URL] })
+
+    await screen.findByText(di.result.failed)
+    const confirm = await openApplyDialog()
+    fireEvent.click(confirm)
+
+    await waitFor(() => expect(apply.mutateAsync).toHaveBeenCalledWith('job-resume-1'))
+  })
+
+  it('shows the running dry-run report for an APPLYING job in the dry-run phase', async () => {
+    const job: ImportJob = {
+      ...customerDryRunJob,
+      id: 'job-resume-1',
+      status: 'APPLYING',
+      progress: { phase: 'dry_run', processed_rows: 0, total_rows: 1, eta_seconds: 0 },
+    }
+    installImportApiMocks({ dryRunJob: job })
+    mockResumedJob(job)
+
+    renderImportSettingsTab({ initialEntries: [RESUME_URL] })
+
+    expect(await screen.findByText(di.dryRun.title)).toBeInTheDocument()
+    expect(screen.getByText(di.background.title)).toBeInTheDocument()
+  })
+
+  it('shows a read-only report for a CANCELLED job', async () => {
+    const job: ImportJob = { ...customerDryRunJob, id: 'job-resume-1', status: 'CANCELLED' }
+    installImportApiMocks({ dryRunJob: job })
+    mockResumedJob(job)
+
+    renderImportSettingsTab({ initialEntries: [RESUME_URL] })
+
+    expect(await screen.findByText(di.dryRun.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: di.dryRun.applyImport })).toBeDisabled()
   })
 })

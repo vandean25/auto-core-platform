@@ -22,6 +22,7 @@ type SeedJob = {
   createdAt?: Date;
   totals?: { create: number; update: number; skip: number; error: number };
   applyFailureCode?: string;
+  workerPhase?: 'dry_run' | 'apply';
 };
 
 describe('GET /api/imports (job list, e2e)', () => {
@@ -43,6 +44,20 @@ describe('GET /api/imports (job list, e2e)', () => {
   async function seedJob(tenantId: string, seed: SeedJob = {}): Promise<string> {
     const totals = seed.totals ?? { create: 1, update: 0, skip: 0, error: 0 };
     const status = seed.status ?? ImportJobStatus.DRY_RUN_DONE;
+    const optionsJson: Record<string, unknown> = {};
+    if (seed.applyFailureCode) {
+      optionsJson.apply_failure_reason = 'apply_error';
+      optionsJson.apply_failure_code = seed.applyFailureCode;
+    }
+    if (seed.workerPhase) {
+      optionsJson.worker = {
+        phase: seed.workerPhase,
+        lease_token: 'lease-token',
+        lease_until: new Date(Date.now() + 120_000).toISOString(),
+        started_at: new Date().toISOString(),
+        processed_rows: 0,
+      };
+    }
     const job = await createTenantAwarePrisma(prisma, tenantId).importJob.create({
       data: {
         tenant_id: tenantId,
@@ -52,12 +67,7 @@ describe('GET /api/imports (job list, e2e)', () => {
         file_sha256: 'sha-synthetic',
         status,
         mapping_json: { external_id: 'Synthetic-Id' },
-        options_json: seed.applyFailureCode
-          ? {
-              apply_failure_reason: 'apply_error',
-              apply_failure_code: seed.applyFailureCode,
-            }
-          : {},
+        options_json: optionsJson,
         totals_json: { rows: 1, ...totals },
         created_by: null,
         ...(seed.createdAt ? { createdAt: seed.createdAt } : {}),
@@ -77,6 +87,8 @@ describe('GET /api/imports (job list, e2e)', () => {
   let jobAApplied: string;
   let jobAFailed: string;
   let jobB1: string;
+  let jobBDryRunApplying: string;
+  let jobBApplyPhase: string;
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -119,6 +131,16 @@ describe('GET /api/imports (job list, e2e)', () => {
     });
     jobB1 = await seedJob(tenantB.tenantId, {
       createdAt: new Date('2026-01-07T00:00:00.000Z'),
+    });
+    jobBDryRunApplying = await seedJob(tenantB.tenantId, {
+      status: ImportJobStatus.APPLYING,
+      workerPhase: 'dry_run',
+      createdAt: new Date('2026-01-08T00:00:00.000Z'),
+    });
+    jobBApplyPhase = await seedJob(tenantB.tenantId, {
+      status: ImportJobStatus.APPLYING,
+      workerPhase: 'apply',
+      createdAt: new Date('2026-01-09T00:00:00.000Z'),
     });
   });
 
@@ -230,6 +252,33 @@ describe('GET /api/imports (job list, e2e)', () => {
 
   it('filters by source as a plain string', async () => {
     expect(await listJobIds('?source=synthetic_erp')).toEqual([jobASourceB]);
+  });
+
+  it.each(['?page=abc', '?page=Infinity', '?page=1.5', '?page=0', '?limit=1.5', '?limit=abc'])(
+    'rejects malformed pagination %s with 400 instead of querying',
+    async (query) => {
+      await request(app.getHttpServer())
+        .get(`/api/imports${query}`)
+        .set('Authorization', adminA)
+        .expect(400);
+    },
+  );
+
+  it('marks only a background dry run as cancellable, never the apply phase', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/imports')
+      .set('Authorization', adminB)
+      .expect(200);
+
+    const byId = new Map<string, { cancellable: boolean }>(
+      response.body.data.map((job: { id: string; cancellable: boolean }) => [
+        job.id,
+        job,
+      ]),
+    );
+    expect(byId.get(jobBDryRunApplying)?.cancellable).toBe(true);
+    expect(byId.get(jobBApplyPhase)?.cancellable).toBe(false);
+    expect(byId.get(jobB1)?.cancellable).toBe(false);
   });
 
   it('rejects a tenant admin of another tenant from seeing these jobs', async () => {

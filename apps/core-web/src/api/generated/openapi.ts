@@ -11417,6 +11417,7 @@ export interface components {
             created_by: string | null;
             created_at: string;
             applied_at: string | null;
+            cancellable: boolean;
             apply_failure_code?: string;
         };
         ImportJobListMetaDto: {

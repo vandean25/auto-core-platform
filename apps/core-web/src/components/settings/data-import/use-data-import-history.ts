@@ -60,7 +60,12 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
   const runContext = React.useMemo<ImportJobActionContext>(
     () => ({
       openJob,
-      cancelJob: cancelImportJob,
+      cancelJob: (jobId) =>
+        cancelImportJob(jobId, {
+          onError: (error) => {
+            toast.error(getErrorMessage(error, t('dataImport.toast.cancelFailed')))
+          },
+        }),
       downloadErrors: (jobId) => {
         downloadImportErrorRowsCsv(jobId, i18n.language)
           .then((blob) => triggerBlobDownload(blob, `import-${jobId}-errors.csv`))

@@ -43,6 +43,9 @@ export class ImportJobListItemDto {
   @ApiProperty({ type: String, nullable: true })
   applied_at!: string | null;
 
+  @ApiProperty()
+  cancellable!: boolean;
+
   @ApiPropertyOptional()
   apply_failure_code?: string;
 }

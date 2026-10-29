@@ -232,8 +232,8 @@ export class ImportController {
     @Query('source') source?: string,
   ) {
     return this.importService.listJobs({
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
+      page: this.parsePaginationInt(page, 'page', 1_000_000),
+      limit: this.parsePaginationInt(limit, 'limit', 100),
       status: this.parseStatusFilter(status),
       entityType: entityType ? parseImportEntityType(entityType) : undefined,
       source: source?.trim() || undefined,
@@ -339,6 +339,27 @@ export class ImportController {
       throw new BadRequestException('Invalid status filter');
     }
     return trimmed as ImportJobStatus;
+  }
+
+  /**
+   * Parses a pagination query param into a finite integer within `[1, max]`, so malformed input
+   * (`abc`, `Infinity`, `1.5`, `0`) becomes a 400 instead of a Prisma error. The page cap keeps
+   * the computed offset a safe integer.
+   */
+  private parsePaginationInt(
+    raw: string | undefined,
+    field: string,
+    max: number,
+  ): number | undefined {
+    const trimmed = raw?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    const value = Number(trimmed);
+    if (!Number.isInteger(value) || value < 1 || value > max) {
+      throw new BadRequestException(`Invalid ${field} parameter`);
+    }
+    return value;
   }
 
   private parseJsonObject(

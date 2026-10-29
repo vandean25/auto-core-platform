@@ -7,6 +7,7 @@ import type { ImportJobTotals } from './import.types.js';
 import { isStaleApplyingImportJob } from './import-apply-lease.js';
 import {
   computeImportProgress,
+  readWorkerState,
   type ImportJobOptionsWithWorker,
 } from './import-job.worker-state.js';
 
@@ -82,11 +83,17 @@ export type ImportJobListItemView = {
  */
 export function serializeImportJobListItem(job: ImportJobListItemView) {
   const totals = (job.totals_json ?? {}) as Partial<ImportJobTotals>;
-  const options = (job.options_json ?? {}) as { apply_failure_code?: string };
+  const options = (job.options_json ?? {}) as ImportJobOptionsWithWorker & {
+    apply_failure_code?: string;
+  };
   const failureCode =
     job.status === ImportJobStatus.FAILED
       ? options.apply_failure_code
       : undefined;
+  // Only a background dry run can be cancelled; the apply phase rejects cancel.
+  const cancellable =
+    job.status === ImportJobStatus.APPLYING &&
+    readWorkerState(options)?.phase === 'dry_run';
   return {
     id: job.id,
     status: job.status,
@@ -102,6 +109,7 @@ export function serializeImportJobListItem(job: ImportJobListItemView) {
     created_by: job.created_by,
     created_at: job.createdAt.toISOString(),
     applied_at: job.appliedAt?.toISOString() ?? null,
+    cancellable,
     ...(failureCode ? { apply_failure_code: failureCode } : {}),
   };
 }
