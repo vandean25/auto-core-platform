@@ -633,6 +633,7 @@ export class TyreStorageService {
       measuredAt: draft.occurredAt,
       actorId,
       wheels,
+      weightClass: draft.dto.weightClass,
     });
   }
 

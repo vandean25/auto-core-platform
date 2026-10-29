@@ -47,6 +47,13 @@ describe('parseLegacyTreadJson', () => {
     ]);
   });
 
+  it('rejects values with more than hundredth precision', () => {
+    expect(parseLegacyTreadJson({ FL: 3.999, FR: 4 })).toEqual({
+      readings: [{ position: 'FR', mm: 4 }],
+      warnings: [{ reason: 'INVALID_VALUE', key: 'FL' }],
+    });
+  });
+
   it('rejects values that are not a plain object', () => {
     expect(parseLegacyTreadJson(null)).toEqual({
       readings: [],

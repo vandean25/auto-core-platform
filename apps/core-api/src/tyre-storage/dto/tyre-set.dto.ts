@@ -22,6 +22,7 @@ import {
   TyreSeason,
   TyreSetEventType,
   TyreSetStatus,
+  TyreVehicleWeightClass,
 } from '@prisma/client';
 import {
   CreateTyreWheelDto,
@@ -238,6 +239,15 @@ export class TyreSetLocationActionDto {
   @ValidateNested({ each: true })
   @Type(() => CreateTyreWheelDto)
   wheels?: CreateTyreWheelDto[];
+
+  @ApiPropertyOptional({
+    enum: TyreVehicleWeightClass,
+    description:
+      'Weight class for the recorded readings; defaults to UP_TO_3500_KG.',
+  })
+  @IsOptional()
+  @IsEnum(TyreVehicleWeightClass)
+  weightClass?: TyreVehicleWeightClass;
 
   @ApiPropertyOptional()
   @IsOptional()

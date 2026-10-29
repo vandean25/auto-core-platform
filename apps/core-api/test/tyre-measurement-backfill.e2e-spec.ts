@@ -307,4 +307,120 @@ describe('Tyre measurement backfill (e2e)', () => {
       }),
     ).toMatchObject({ tread_depth_mm_json: { FL: 4 } });
   });
+
+  it('dates the set snapshot by recency and skips unsupported precision', async () => {
+    const tenantC = await createTestTenant(prisma, 'tyre-backfill-c');
+    const dbC = createTenantAwarePrisma(prisma, tenantC.tenantId);
+    const token = createTestAuthToken(app.get(AuthService), tenantC);
+    try {
+      const site = await dbC.site.findFirstOrThrow({ where: { code: 'MAIN' } });
+      const customer = await dbC.customer.create({
+        data: {
+          tenant_id: tenantC.tenantId,
+          type: 'PRIVATE',
+          first_name: 'Recency',
+          last_name: 'Customer',
+        },
+      });
+      const vehicle = await dbC.vehicle.create({
+        data: {
+          tenant_id: tenantC.tenantId,
+          customer_id: customer.id,
+          make: 'Test',
+          model: 'Recency',
+          year: 2023,
+          inventory_role: 'CUSTOMER',
+        },
+      });
+      const patched = await dbC.tyreSet.create({
+        data: {
+          tenant_id: tenantC.tenantId,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          site_id: site.id,
+          label: 'Event then patch',
+          season: 'WINTER',
+          tread_depth_mm_json: legacyJson({ FL: 6 }),
+        },
+      });
+      await dbC.tyreSetEvent.create({
+        data: {
+          tenant_id: tenantC.tenantId,
+          tyre_set_id: patched.id,
+          event_type: 'CHECK_IN',
+          occurred_at: new Date('2026-04-10T10:00:00.000Z'),
+          tread_depth_mm_json: legacyJson({ FL: 6 }),
+        },
+      });
+      await request(app.getHttpServer())
+        .patch(`/api/tyre-sets/${patched.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ treadDepthMm: { FL: 3 } })
+        .expect(200);
+      const precise = await dbC.tyreSet.create({
+        data: {
+          tenant_id: tenantC.tenantId,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          site_id: site.id,
+          label: 'Unsupported precision',
+          season: 'SUMMER',
+          tread_depth_mm_json: legacyJson({ FL: 3.999 }),
+        },
+      });
+
+      const result = await backfillTyreMeasurements(prisma, {
+        execute: true,
+        tenantId: tenantC.tenantId,
+      });
+      expect(result.setsConverted).toBe(1);
+      expect(result.eventsConverted).toBe(1);
+      expect(result.setsSkippedNoReadings).toBe(1);
+      expect(result.warnings).toBeGreaterThanOrEqual(1);
+
+      const setMeasurement = await dbC.tyreMeasurement.findFirstOrThrow({
+        where: { tenant_id: tenantC.tenantId, source_ref: `set:${patched.id}` },
+        include: { wheels: true },
+      });
+      const eventMeasurement = await dbC.tyreMeasurement.findFirstOrThrow({
+        where: {
+          tenant_id: tenantC.tenantId,
+          source_ref: { startsWith: 'event:' },
+        },
+      });
+      expect(setMeasurement.measured_at.getTime()).toBeGreaterThan(
+        eventMeasurement.measured_at.getTime(),
+      );
+      expect(Number(setMeasurement.wheels[0].tread_middle_mm)).toBe(3);
+      expect(setMeasurement.wheels[0].evaluation).toMatchObject({
+        minimumTreadMm: 3,
+      });
+
+      expect(
+        await dbC.tyreMeasurement.count({
+          where: {
+            tenant_id: tenantC.tenantId,
+            source_ref: `set:${precise.id}`,
+          },
+        }),
+      ).toBe(0);
+      expect(
+        await dbC.tyreSet.findFirstOrThrow({
+          where: { tenant_id: tenantC.tenantId, id: precise.id },
+        }),
+      ).toMatchObject({ tread_depth_mm_json: { FL: 3.999 } });
+
+      const detail = await request(app.getHttpServer())
+        .get(`/api/tyre-sets/${patched.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(detail.body.latestMeasurement).toMatchObject({
+        sourceRef: `set:${patched.id}`,
+        worstStatus: 'URGENT',
+      });
+      expect(detail.body.latestMeasurement.wheels[0].treadMiddleMm).toBe(3);
+    } finally {
+      await cleanupTestTenantGraph(app.get(PrismaService), tenantC.tenantId);
+    }
+  });
 });

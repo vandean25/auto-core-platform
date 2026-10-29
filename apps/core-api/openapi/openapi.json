@@ -38998,6 +38998,14 @@
               "$ref": "#/components/schemas/CreateTyreWheelDto"
             }
           },
+          "weightClass": {
+            "type": "string",
+            "enum": [
+              "UP_TO_3500_KG",
+              "OVER_3500_KG"
+            ],
+            "description": "Weight class for the recorded readings; defaults to UP_TO_3500_KG."
+          },
           "note": {
             "type": "string"
           },

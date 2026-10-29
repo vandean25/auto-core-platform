@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { assertSetMatchesEventLedger } from '../src/tyre-storage/tyre-set-event.helpers.js';
+import { evaluateTyreWheel } from '../src/tyre-measurement/tyre-evaluation.js';
 import { TyreStorageClock } from '../src/tyre-storage/tyre-storage.clock.js';
 import {
   cleanupTestTenantGraph,
@@ -556,6 +557,87 @@ describe('Tyre storage (e2e)', () => {
         where: { tenant_id: tenantId, tyre_set_id: plain.id },
       }),
     ).toBe(0);
+  });
+
+  it('prefers the newest capture when measurement times tie', async () => {
+    const created = await createMeasuredSet('Tie break', vehicleId);
+    const measuredAt = new Date('2026-07-01T08:00:00.000Z');
+    const evaluationContext = {
+      country: 'AT',
+      weightClass: 'UP_TO_3500_KG' as const,
+      asOf: measuredAt,
+      overrides: {},
+    };
+    const wheel = (mm: number) => ({
+      position: 'FL' as const,
+      tread_inner_mm: mm,
+      tread_middle_mm: mm,
+      tread_outer_mm: mm,
+      season: 'WINTER' as const,
+      construction: 'RADIAL' as const,
+      winter_marking: 'NONE' as const,
+      evaluation: evaluateTyreWheel(
+        {
+          treadInnerMm: mm,
+          treadMiddleMm: mm,
+          treadOuterMm: mm,
+          season: 'WINTER',
+          dot: null,
+        },
+        evaluationContext,
+      ),
+    });
+    const measurement = (id: string, mm: number, createdAt: Date) => ({
+      id,
+      tenant_id: tenantId,
+      site_id: siteId,
+      vehicle_id: vehicleId,
+      tyre_set_id: created.id,
+      measured_at: measuredAt,
+      measured_by_name: 'Tie test',
+      country: 'AT',
+      weight_class: 'UP_TO_3500_KG' as const,
+      weight_class_source: 'DEFAULT' as const,
+      source: 'CAPTURE' as const,
+      createdAt,
+      wheels: { create: [wheel(mm)] },
+    });
+    await tenantPrisma.tyreMeasurement.create({
+      data: measurement(
+        'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        6,
+        new Date('2026-07-01T08:00:01.000Z'),
+      ),
+    });
+    await tenantPrisma.tyreMeasurement.create({
+      data: measurement(
+        '00000000-0000-4000-8000-000000000000',
+        2,
+        new Date('2026-07-01T08:00:02.000Z'),
+      ),
+    });
+
+    const detail = await request(app.getHttpServer())
+      .get(`/api/tyre-sets/${created.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(detail.body.latestMeasurement).toMatchObject({
+      id: '00000000-0000-4000-8000-000000000000',
+      worstStatus: 'URGENT',
+    });
+  });
+
+  it('records an explicit heavy weight class on hotel captures', async () => {
+    const created = await createMeasuredSet('Heavy capture', vehicleId);
+    const inspected = await setAction(created.id, 'inspect', {
+      wheels: [wheelAt('FL', 4.5)],
+      weightClass: 'OVER_3500_KG',
+    }).expect(200);
+    expect(inspected.body.latestMeasurement).toMatchObject({
+      weightClass: 'OVER_3500_KG',
+      weightClassSource: 'CAPTURE',
+      worstStatus: 'URGENT',
+    });
   });
 
   it('links an event measurement to the workshop order and rejects mismatched parents', async () => {

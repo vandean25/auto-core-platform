@@ -9,7 +9,8 @@ type TyreMeasurementReader = Pick<PrismaService, 'tyreMeasurement'>;
 
 /**
  * Latest measurement per tyre set in one batched read (two scoped queries),
- * ordered by capture time so backdated events cannot win.
+ * ordered by capture time so backdated events cannot win and by creation
+ * time for captures that share an occurrence timestamp.
  */
 export async function loadLatestTyreMeasurements(
   prisma: TyreMeasurementReader,
@@ -47,7 +48,7 @@ export async function loadLatestTyreMeasurements(
         orderBy: { position: 'asc' },
       },
     },
-    orderBy: [{ measured_at: 'desc' }, { id: 'desc' }],
+    orderBy: [{ measured_at: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
   });
 
   const bySet = new Map<string, TyreMeasurementWithWheels>();

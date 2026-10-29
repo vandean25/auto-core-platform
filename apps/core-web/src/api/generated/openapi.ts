@@ -11670,6 +11670,11 @@ export interface components {
             treadDepthMm?: components["schemas"]["TreadDepthDto"];
             /** @description Measurements recorded with this event; supported on check-in, check-out and inspection. */
             wheels?: components["schemas"]["CreateTyreWheelDto"][];
+            /**
+             * @description Weight class for the recorded readings; defaults to UP_TO_3500_KG.
+             * @enum {string}
+             */
+            weightClass?: "UP_TO_3500_KG" | "OVER_3500_KG";
             note?: string;
             workshopOrderId?: string;
             employeeId?: string;

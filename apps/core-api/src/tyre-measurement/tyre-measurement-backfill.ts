@@ -63,7 +63,8 @@ export function parseLegacyTreadJson(value: unknown): LegacyTreadParse {
       typeof rawValue !== 'number' ||
       !Number.isFinite(rawValue) ||
       rawValue < 0 ||
-      rawValue > 20
+      rawValue > 20 ||
+      rawValue !== Math.round(rawValue * 100) / 100
     ) {
       warnings.push({ reason: 'INVALID_VALUE', key: rawKey });
       continue;
@@ -106,7 +107,7 @@ type BackfillSetRow = {
   model: string | null;
   dimension: string | null;
   tread_depth_mm_json: Prisma.JsonValue | null;
-  createdAt: Date;
+  updatedAt: Date;
 };
 
 type BackfillEventRow = {
@@ -265,7 +266,7 @@ async function backfillSets(context: TenantContext): Promise<void> {
         model: true,
         dimension: true,
         tread_depth_mm_json: true,
-        createdAt: true,
+        updatedAt: true,
       },
     });
     if (sets.length === 0) break;
@@ -419,7 +420,7 @@ function buildSetMeasurement(
     tyreSetId: set.id,
     treadJson: set.tread_depth_mm_json,
     vehicleId: set.vehicle_id,
-    measuredAt: set.createdAt,
+    measuredAt: set.updatedAt,
     workshopOrderId: null,
   });
   return data ? () => context.prisma.tyreMeasurement.create({ data }) : null;
