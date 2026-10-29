@@ -10,6 +10,14 @@ export function canCreateWorkshopEntry(role: string | null | undefined): boolean
   return role !== 'TECH'
 }
 
+/**
+ * Command mode in Cmd+K mirrors the roles the command API accepts for interpret
+ * (OWNER/ADMIN/SALES). Techs and demo members keep the plain palette.
+ */
+export function canUseWorkshopCommand(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+}
+
 export function canOpenCustomer(role: string | null | undefined): boolean {
   return role !== ''
 }

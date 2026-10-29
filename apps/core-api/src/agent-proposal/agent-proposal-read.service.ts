@@ -10,6 +10,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { assertSupervisorAccess } from './agent-proposal.authorization.js';
+import { expirePendingProposal } from './agent-proposal-decision-lifecycle.js';
 import {
   readExecutionSiteId,
   resolveWorkshopOrderId,
@@ -100,14 +101,7 @@ export class AgentProposalReadService {
       proposal.status === AgentProposalStatus.PENDING &&
       proposal.expires_at < new Date()
     ) {
-      await this.prisma.agentProposal.updateMany({
-        where: {
-          id: proposal.id,
-          tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
-        },
-        data: { status: AgentProposalStatus.EXPIRED },
-      });
+      await expirePendingProposal(this.prisma, proposal, tenantId);
       proposal.status = AgentProposalStatus.EXPIRED;
     }
 
