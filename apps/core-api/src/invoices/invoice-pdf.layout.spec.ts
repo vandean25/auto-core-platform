@@ -213,9 +213,14 @@ describe('invoice-pdf.layout', () => {
     });
 
     it('keeps branded financial table headers in ACP colors', () => {
-      const styles = buildInvoiceDocumentStyles(true, '', createBrandedSnapshot());
-      const tableHeaderBackgroundRules = (styles.match(/th\s*\{[^}]*\}/g) ?? [])
-        .filter((rule) => rule.includes('background:'));
+      const styles = buildInvoiceDocumentStyles(
+        true,
+        '',
+        createBrandedSnapshot(),
+      );
+      const tableHeaderBackgroundRules = (
+        styles.match(/th\s*\{[^}]*\}/g) ?? []
+      ).filter((rule) => rule.includes('background:'));
 
       expect(tableHeaderBackgroundRules).toHaveLength(1);
       expect(tableHeaderBackgroundRules[0]).toContain('background: #f9fafb;');
@@ -264,7 +269,9 @@ describe('invoice-pdf.layout', () => {
         escapeHtml,
         createBrandedSnapshot(),
       );
-      const decorativeText = footer.match(/<span style="[^"]*">Footer<\/span>/)?.[0];
+      const decorativeText = footer.match(
+        /<span style="[^"]*">Footer<\/span>/,
+      )?.[0];
 
       expect(decorativeText).toContain('font-size:9pt');
       expect(decorativeText).toContain('white-space:nowrap');
@@ -289,8 +296,15 @@ describe('invoice-pdf.layout', () => {
       const snapshot = createBrandedSnapshot();
       const headerText = 'Workshop & North '.repeat(8).slice(0, 120);
       snapshot.branding!.tokens.header_text = headerText;
-      const header = buildBrandedInvoiceHeaderTemplate(snapshot, null, escapeHtml);
-      const decorativeLines = header.match(/<span class="decorative-header-line"[^>]*>[\s\S]*?<\/span>/g) ?? [];
+      const header = buildBrandedInvoiceHeaderTemplate(
+        snapshot,
+        null,
+        escapeHtml,
+      );
+      const decorativeLines =
+        header.match(
+          /<span class="decorative-header-line"[^>]*>[\s\S]*?<\/span>/g,
+        ) ?? [];
 
       expect(header).toContain('font-size:9pt');
       expect(decorativeLines).toHaveLength(2);
@@ -337,6 +351,20 @@ describe('invoice-pdf.layout', () => {
   });
 
   describe('buildInvoiceSellerSection', () => {
+    it.each([
+      ['AT', 'UID'],
+      ['CH', 'USt-IdNr.'],
+      ['', 'USt-IdNr.'],
+      [undefined, 'USt-IdNr.'],
+      [null, 'USt-IdNr.'],
+    ])('keeps seller VAT labels for country %p', (country, label) => {
+      const snapshot = createV2Snapshot();
+      snapshot.seller!.country_iso = country as never;
+      expect(buildInvoiceSellerSection(snapshot, escapeHtml)).toContain(
+        `${label}: DE123456789`,
+      );
+    });
+
     it('renders seller identity from snapshot for v2 invoices', () => {
       const html = buildInvoiceSellerSection(createV2Snapshot(), escapeHtml);
       expect(html).toContain('E2E GmbH');
@@ -353,6 +381,25 @@ describe('invoice-pdf.layout', () => {
   });
 
   describe('buildInvoiceCustomerSection', () => {
+    it.each(['CH', '', undefined, null])(
+      'keeps unknown seller country %p VAT fallback',
+      (country) => {
+        const snapshot = createV2Snapshot();
+        snapshot.seller!.country_iso = country as never;
+        expect(buildInvoiceCustomerSection(snapshot, escapeHtml)).toContain(
+          'USt-IdNr.: DE987654321',
+        );
+      },
+    );
+
+    it('keeps the legacy v1 VAT label', () => {
+      const snapshot = createSnapshot();
+      snapshot.customer.vat_id = 'ATU12345678';
+      expect(buildInvoiceCustomerSection(snapshot, escapeHtml)).toContain(
+        'VAT ID: ATU12345678',
+      );
+    });
+
     it('renders private customer details', () => {
       const html = buildInvoiceCustomerSection(createSnapshot(), escapeHtml);
       expect(html).toContain('Ada Lovelace');
@@ -459,6 +506,8 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('Einzelpreis');
       expect(html).toContain('Gesamt');
       expect(html).toContain('Inspektion inkl. Ölwechsel');
+      expect(html).toContain('1,25');
+      expect(html).toContain('€\u00A0270,00');
       expect(html).toContain('Rabatt 10%');
       expect(html).not.toContain('revenue_group_name');
       expect(html).not.toContain('8400');
@@ -487,12 +536,11 @@ describe('invoice-pdf.layout', () => {
     it('renders German totals with per-rate VAT buckets for v2 standard invoices', () => {
       const html = buildInvoiceTotalsSection(createV2Snapshot(), escapeHtml);
       expect(html).toContain('Umsatzsteuer-Aufschlüsselung');
-      expect(html).toContain('20.00 % USt');
-      expect(html).toContain('Netto 250.00');
+      expect(html).toContain('20 % USt (Netto €\u00A0250,00):');
       expect(html).toContain('Netto:');
       expect(html).toContain('Umsatzsteuer:');
       expect(html).toContain('Brutto:');
-      expect(html).toContain('300.00');
+      expect(html).toContain('€\u00A0300,00');
       expect(html).not.toContain('cost_basis');
       expect(html).not.toContain('margin_tax');
     });
@@ -508,11 +556,9 @@ describe('invoice-pdf.layout', () => {
       snapshot.total_gross = '359.00';
 
       const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
-      expect(html).toContain('20.00 % USt');
-      expect(html).toContain('19.00 % USt');
-      expect(html).toContain('Netto 200.00');
-      expect(html).toContain('Netto 100.00');
-      expect(html).toContain('359.00');
+      expect(html).toContain('20 % USt (Netto €\u00A0200,00):');
+      expect(html).toContain('19 % USt (Netto €\u00A0100,00):');
+      expect(html).toContain('€\u00A0359,00');
     });
 
     it('renders margin scheme legal notice when tax_mode is MARGIN_SCHEME', () => {
@@ -625,7 +671,7 @@ describe('invoice-pdf.layout', () => {
       expect(snapshot).not.toBeNull();
       const html = buildInvoiceTotalsSection(snapshot!, escapeHtml);
       expect(html).toContain('Brutto:');
-      expect(html).toContain('15000.00');
+      expect(html).toContain('€\u00A015.000,00');
       expect(html).toContain('§ 25a UStG');
       expect(html).toContain('Gebrauchtgegenstände/Sonderregelung');
       expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
@@ -670,11 +716,13 @@ describe('invoice-pdf.layout', () => {
     });
 
     it('renders per-rate buckets for v2 standard invoices', () => {
-      const html = buildInvoiceTaxBreakdownSection(createV2Snapshot(), escapeHtml);
+      const html = buildInvoiceTaxBreakdownSection(
+        createV2Snapshot(),
+        escapeHtml,
+      );
       expect(html).toContain('Umsatzsteuer-Aufschlüsselung');
-      expect(html).toContain('20.00 % USt');
-      expect(html).toContain('Netto 250.00');
-      expect(html).toContain('50.00');
+      expect(html).toContain('20 % USt (Netto €\u00A0250,00):');
+      expect(html).toContain('€\u00A050,00');
     });
   });
 

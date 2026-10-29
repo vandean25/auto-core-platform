@@ -21,7 +21,8 @@
     "dataImport": "Data import",
     "team": "Team",
     "apiKeys": "API keys",
-    "auditLogs": "Audit Logs"
+    "auditLogs": "Audit Logs",
+    "notifications": "Notifications"
   },
   "employees": {
     "title": "Employees",
@@ -1032,6 +1033,7 @@
     "source": {
       "title": "1. Entity & source",
       "entityLabel": "Entity",
+      "entityTypesLoadFailed": "The entities could not be loaded. Please try again.",
       "entityCustomer": "Customers",
       "entityVehicle": "Vehicles",
       "entitySupplierPriceList": "Supplier price list",
@@ -1137,6 +1139,7 @@
       "title": "Import complete",
       "running": "Import in progress",
       "failed": "Import failed",
+      "failedReasonFallback": "The import failed. Please try again.",
       "summary": "Status: {{status}}. Created {{created}}, updated {{updated}}, skipped {{skipped}}, errors {{errors}}.",
       "auditLink": "View audit log for this import job"
     },
@@ -1297,6 +1300,71 @@
         "tryLater": "Try again later.",
         "discardFailed": "Extraction could not be discarded",
         "tryAgain": "Try again."
+      }
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Push messages on this device and the events that trigger them.",
+    "device": {
+      "title": "This device",
+      "active": "Push is active on this device.",
+      "inactive": "Push is not active on this device.",
+      "enable": "Enable push",
+      "disable": "Disable push",
+      "enabled": "Push enabled.",
+      "disabled": "Push disabled.",
+      "enableFailed": "Push could not be enabled.",
+      "disableFailed": "Push could not be disabled.",
+      "off": "Push notifications are not set up in this environment.",
+      "unsupported": "This browser does not support push notifications.",
+      "installRequired": "On iPhone and iPad, push only works in the installed app. In Safari choose Share, then Add to Home Screen, open the app from there and enable push here.",
+      "denied": "Notifications are blocked in the browser. Allow them in the site settings of the browser and reload the page."
+    },
+    "events": {
+      "title": "Events",
+      "description": "Only the selected events are sent. None is active by default.",
+      "saveFailed": "Events could not be saved.",
+      "CUSTOMER_ESTIMATE_DECIDED": {
+        "label": "Estimate decided",
+        "hint": "The customer approved or declined an estimate."
+      },
+      "WORKSHOP_TASK_WAITING_CUSTOMER": {
+        "label": "Waiting for the customer",
+        "hint": "A task is paused because the customer needs to be asked."
+      }
+    },
+    "quietHours": {
+      "title": "Quiet hours",
+      "description": "No push messages are sent during this time (local time of the site).",
+      "enabled": "Use quiet hours",
+      "from": "From",
+      "to": "To",
+      "saved": "Quiet hours saved.",
+      "saveFailed": "Quiet hours could not be saved."
+    },
+    "test": {
+      "title": "Test message",
+      "description": "Sends a test message to your own devices. At most 5 per hour.",
+      "send": "Send test message",
+      "sent": "Test message sent.",
+      "noDevice": "Enable push on a device first.",
+      "limited": "Too many test messages. Please try again later.",
+      "failed": "The test message could not be sent."
+    },
+    "devices": {
+      "title": "Registered devices",
+      "empty": "No device registered.",
+      "current": "This device",
+      "installed": "App installed",
+      "lastSeen": "Last active {{date}}",
+      "remove": "Remove",
+      "removed": "Device removed.",
+      "removeFailed": "Device could not be removed.",
+      "platform": {
+        "IOS": "iPhone or iPad",
+        "ANDROID": "Android",
+        "DESKTOP": "Computer"
       }
     }
   }

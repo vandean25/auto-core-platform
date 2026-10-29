@@ -24,6 +24,10 @@ import {
 } from '../common/i18n/display-language.js';
 import { resolveUserLanguage } from '../common/i18n/locale-resolution.js';
 import { isMembershipCurrentlyValid } from './membership-validity.js';
+import {
+  resolveCountryPack,
+  type CountryCapabilities,
+} from '../common/country-pack/country-pack.registry.js';
 
 type AuthSessionClaims = {
   sub: string;
@@ -86,6 +90,7 @@ export type AuthSession = {
   effectiveLocale: DisplayLanguage;
   defaultLocale: DisplayLanguage;
   formatLocale: string;
+  effectiveCapabilities: CountryCapabilities | null;
 };
 
 const USER_ACCESS_SELECT = {
@@ -201,7 +206,48 @@ export class AuthSessionService {
     claims: AuthSessionClaims,
   ): Promise<AuthSession | null> {
     const resolvedSession = await this.resolveSessionForClaims(claims);
-    return resolvedSession?.session ?? null;
+    if (!resolvedSession) {
+      return null;
+    }
+    return this.withEffectiveCapabilities(
+      resolvedSession.session,
+      resolvedSession.user.id,
+    );
+  }
+
+  private async withEffectiveCapabilities(
+    session: AuthSession,
+    userId: string,
+  ): Promise<AuthSession> {
+    if (!session.activeSiteId) {
+      return session;
+    }
+    const tenantId = session.activeTenant.id;
+    const membership = await this.systemPrisma.siteMembership.findFirst({
+      where: {
+        tenant_id: tenantId,
+        user_id: userId,
+        site_id: session.activeSiteId,
+        is_active: true,
+        tenantMember: { tenant_id: tenantId, is_active: true },
+        site: {
+          tenant_id: tenantId,
+          id: session.activeSiteId,
+          is_active: true,
+          legal_entity: { tenant_id: tenantId, is_active: true },
+        },
+      },
+      select: {
+        site: { select: { legal_entity: { select: { country_iso: true } } } },
+      },
+    });
+    return {
+      ...session,
+      effectiveCapabilities: membership
+        ? resolveCountryPack(membership.site.legal_entity.country_iso)
+            .capabilities
+        : null,
+    };
   }
 
   private async resolveSessionForClaims(
@@ -298,7 +344,10 @@ export class AuthSessionService {
     await this.syncUserClaimsFromRecord(userRecord, requestedMembership);
     this.dashboardRealtime?.emitClaimsUpdated(userRecord.firebaseUid);
 
-    return this.buildSession(userRecord, requestedMembership);
+    return this.withEffectiveCapabilities(
+      this.buildSession(userRecord, requestedMembership),
+      userRecord.id,
+    );
   }
 
   private async findUserAccessRecordByIdentity(
@@ -404,6 +453,7 @@ export class AuthSessionService {
       locale: user.locale,
       defaultLocale,
       formatLocale,
+      effectiveCapabilities: null,
       effectiveLocale: resolveUserLanguage(user.locale, defaultLocale),
     };
 

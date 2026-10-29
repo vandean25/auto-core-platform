@@ -12,6 +12,7 @@ const siteOwnedModelFields: Readonly<Record<string, readonly string[]>> = {
   WorkshopOpeningHour: ['site_id'],
   WorkshopHoliday: ['site_id'],
   WorkshopOrder: ['site_id'],
+  TyreMeasurement: ['site_id'],
   LoanerVehicle: ['site_id'],
 };
 
@@ -34,6 +35,7 @@ const siteOwnedDelegates: ReadonlySet<string> = new Set([
   'workshopOpeningHour',
   'workshopHoliday',
   'workshopOrder',
+  'tyreMeasurement',
   'loanerVehicle',
 ]);
 
@@ -168,6 +170,7 @@ const siteOwnedRelations = [
   'workshop_opening_hours',
   'workshop_holidays',
   'workshop_orders',
+  'tyre_measurements',
 ] as const;
 
 export function lintPrismaSiteScopeQueries(

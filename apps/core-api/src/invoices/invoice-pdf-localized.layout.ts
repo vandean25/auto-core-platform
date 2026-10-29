@@ -1,10 +1,13 @@
 import type { TFunction } from 'i18next';
+import { findCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { EscapeHtml, FormatDate } from './invoice-pdf.layout.js';
 import {
+  buildCustomerName,
   buildInvoiceDocumentStyles,
   buildInvoiceHtmlDocument,
   buildInvoiceSellerSection,
   buildInvoiceTotalsSection,
+  createInvoicePdfNumberFormatter,
   isCreditNoteSnapshot,
   isDachRechnungSnapshot,
 } from './invoice-pdf.layout.js';
@@ -85,21 +88,17 @@ function localizedCustomerSection(
   escapeHtml: EscapeHtml,
   t: TFunction,
 ): string {
-  const customerName =
-    snapshot.customer.type === 'COMPANY'
-      ? (snapshot.customer.company_name ??
-        `${snapshot.customer.first_name} ${snapshot.customer.last_name}`)
-      : `${snapshot.customer.first_name} ${snapshot.customer.last_name}`;
+  const customerName = buildCustomerName(snapshot);
   const cityLine = [
     snapshot.customer.address_zip,
     snapshot.customer.address_city,
   ]
     .filter(Boolean)
     .join(' ');
-  const vatLabel =
-    snapshot.seller?.country_iso === 'AT'
-      ? t('invoice.uidLabel')
-      : t('invoice.vatIdLabel');
+  const vatLabel = t(
+    findCountryPack(snapshot.seller?.country_iso)?.vatIdLabelKey ??
+      'invoice.vatIdLabel',
+  );
 
   return `
     <div class="section">
@@ -118,14 +117,15 @@ function localizedItemsTable(
   escapeHtml: EscapeHtml,
   t: TFunction,
 ): string {
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
   const itemsHtml = snapshot.items
     .map((item) => {
       let discountSuffix = '';
       if (item.line_discount_type && item.line_discount_value) {
         if (item.line_discount_type === 'PERCENTAGE') {
-          discountSuffix = ` (${t('invoice.lineDiscountPercent', { value: item.line_discount_value })})`;
+          discountSuffix = ` (${t('invoice.lineDiscountPercent', { value: numbers.formatRate(item.line_discount_value) })})`;
         } else {
-          discountSuffix = ` (${t('invoice.lineDiscountAmount', { value: item.line_discount_value })})`;
+          discountSuffix = ` (${t('invoice.lineDiscountAmount', { value: numbers.formatAmount(item.line_discount_value) })})`;
         }
       }
       const description = `${item.description}${discountSuffix}`;
@@ -133,9 +133,9 @@ function localizedItemsTable(
       return `
       <tr>
         <td>${escapeHtml(description)}</td>
-        <td style="text-align: right">${escapeHtml(item.quantity)}</td>
-        <td style="text-align: right">${escapeHtml(item.unit_price)}</td>
-        <td style="text-align: right">${escapeHtml(item.line_total ?? '')}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatQuantity(item.quantity))}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatAmount(item.unit_price))}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatAmount(item.line_total))}</td>
       </tr>
     `;
     })
@@ -171,17 +171,18 @@ function localizedTaxBreakdownSection(
     return '';
   }
 
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
   const rows = snapshot.tax_breakdown
     .map(
       (bucket) => `
       <div class="total-row tax-rate-row">
         <span>${escapeHtml(
           t('invoice.taxRateRow', {
-            rate: bucket.rate,
-            net: bucket.net,
+            rate: numbers.formatRate(bucket.rate),
+            net: numbers.formatAmount(bucket.net),
           }),
         )}:</span>
-        <span>${escapeHtml(bucket.tax)}</span>
+        <span>${escapeHtml(numbers.formatAmount(bucket.tax))}</span>
       </div>
     `,
     )
@@ -205,21 +206,22 @@ function localizedTotalsSection(
   }
 
   const taxBreakdown = localizedTaxBreakdownSection(snapshot, escapeHtml, t);
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
 
   return `
     ${taxBreakdown}
     <div class="totals">
       <div class="total-row">
         <span>${escapeHtml(t('invoice.netLabel'))}:</span>
-        <span>${escapeHtml(snapshot.total_net)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_net))}</span>
       </div>
       <div class="total-row">
         <span>${escapeHtml(t('invoice.taxLabel'))}:</span>
-        <span>${escapeHtml(snapshot.total_tax)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_tax))}</span>
       </div>
       <div class="total-row grand">
         <span>${escapeHtml(t('invoice.grossLabel'))}:</span>
-        <span>${escapeHtml(snapshot.total_gross)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>
       </div>
     </div>
   `;

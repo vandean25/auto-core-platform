@@ -27,7 +27,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_vehicle_history` | Get a tenant vehicle: Pickerl status, recent inspections, and compact orders (paged) and the first page of documents for the active site | Read | AUTO |
 | `get_vehicle_context` | Compact vehicle work context by section (identity, parties, due dates, open workshop orders, inspections, documents, warranty claims, Gewährleistung periods) with per-section totals and cursors | Read | AUTO |
 | `list_workshop_orders` | List workshop orders for the active site by order status, current estimate status, scheduled date, or estimate sent date | Read   | AUTO                                                  |
-| `get_workshop_order`   | Get a workshop order for the active site                     | Read   | AUTO                                                  |
+| `get_workshop_order`   | Get a workshop order for the active site, including its `labor_summary` (labor revenue, internal cost, margin, and efficiency) | Read   | AUTO                                                  |
 | `search_parts`         | Search inventory, or workshop catalog when given an order ID | Read   | AUTO                                                  |
 | `get_stock_level`      | Read availability by catalog item ID or SKU                  | Read   | AUTO                                                  |
 | `get_vehicle_stock_age_report` | Read paged dealer stock age and cost basis for the active site or a given site, with an optional stock-in window | Read | AUTO |

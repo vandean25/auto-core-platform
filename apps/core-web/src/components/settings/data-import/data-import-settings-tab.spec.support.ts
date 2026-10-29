@@ -8,6 +8,7 @@ import type { ImportJob, ImportMappingProfile } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 import * as marginRulesApi from '@/api/margin-rules'
 import * as vendorsApi from '@/api/vendors'
+import { readImportEntityTypeRegistry } from '@/test/import-entity-type-registry'
 import * as parseImportCsvClient from './parse-import-csv-client'
 
 import deEnums from '../../../../../../locales/de/enums.json'
@@ -107,6 +108,20 @@ export const supplierDryRunJob: ImportJob = {
   applied_at: null,
 }
 
+/** A job whose apply run failed before it wrote any row. */
+export function failedApplyJob(applyFailureCode?: string): ImportJob {
+  return {
+    ...customerDryRunJob,
+    status: 'FAILED',
+    options: {
+      ...DEFAULT_OPTIONS,
+      apply_failure_reason: 'apply_error',
+      ...(applyFailureCode ? { apply_failure_code: applyFailureCode } : {}),
+    },
+    totals: { rows: 0, create: 0, update: 0, skip: 0, error: 0 },
+  }
+}
+
 export type ImportRowFixture = {
   row_no: number
   external_id: string | null
@@ -190,6 +205,9 @@ export function installImportApiMocks(options: InstallApiMocksOptions = {}): Imp
   })
   ;(importsApi.useImportTemplate as Mock).mockReturnValue({
     data: { fields: options.templateFields ?? [{ key: 'external_id', required: true }] },
+  })
+  ;(importsApi.useImportEntityTypes as Mock).mockReturnValue({
+    data: readImportEntityTypeRegistry(),
   })
   ;(importsApi.useImportMappingProfiles as Mock).mockReturnValue({
     data: options.profiles ?? [],

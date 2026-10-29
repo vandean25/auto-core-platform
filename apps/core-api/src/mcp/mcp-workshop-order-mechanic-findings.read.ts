@@ -1,12 +1,14 @@
 import type { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
 import type { WorkshopMechanicFindingService } from '../workshop/workshop-mechanic-finding.service.js';
+import type { WorkshopLaborSummary } from '../workshop/workshop-labor-summary.helpers.js';
+import { toMcpWorkshopLaborSummary } from './mcp-workshop-order-read.mapper.js';
 
-export function readWorkshopOrderWithMechanicFindings<T extends object>(
-  order: T,
-  mechanicFindings: unknown[],
-) {
+export function readWorkshopOrderWithMechanicFindings<
+  T extends { labor_summary: WorkshopLaborSummary },
+>(order: T, mechanicFindings: unknown[]) {
   return {
     ...order,
+    labor_summary: toMcpWorkshopLaborSummary(order.labor_summary),
     mechanic_findings: mechanicFindings,
   };
 }

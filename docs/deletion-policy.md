@@ -105,6 +105,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopEstimateApprovalToken | No delete endpoint | Stores only the SHA-256 of an approval token (ADR-0025 §7). Tokens expire at the version's `valid_until` and stay as evidence after that, with `ON DELETE RESTRICT` on their version. A supersession sets `invalidated_at`, and an approval sets `consumed_at`. Removed only with the retention of its version. |
 | WorkshopEstimateSequence | No | Numbering counter per tenant and year. Consumed numbers are never reused or reset. |
 | NotificationOutbox | Retention-bound | No delete endpoint. Rows stay with their order (`ON DELETE RESTRICT`). Message bodies are purged 90 days after creation; metadata (event, recipient address, reply-to address, sender name, status, provider id, timestamps) is kept up to 3 years (ADR-0025 §10). Erasure follows AUT-371 / AUT-374. |
+| PushDevice | Ephemeral (ADR-0033) | `DELETE /api/v1/me/push/devices/:id` revokes the caller's own device (`revoked_at`, reason `USER`); another user's or tenant's device is a 404. FCM `UNREGISTERED` revokes it at send time. The daily `push-device-cleanup` job revokes devices not seen for 60 days and those of users without an active membership in the tenant, and hard-deletes rows revoked more than 30 days ago. Employee device data only; never contains customer data. |
+| PushPreference | Ephemeral (ADR-0033) | Replaced by the user through `PUT /api/v1/me/push/preferences`; no delete endpoint. Removed with tenant purge. |
 | LandingDemoAccessRequest | Retention-bound (AUT-547) | No delete API. Stores minimal landing-form fields with consent timestamp. Purged with tenant purge; operational retention follows notification/audit policy (typically ≤3 years metadata, bodies per outbox rules). |
 | LandingDemoSignInGrant | Retention-bound (AUT-547) | Evidence of issued magic-link grants. No delete API; removed with tenant purge or when superseded (`invalidated_at`). |
 | PublicRateLimitCounter | Ephemeral | Fixed-window abuse counters for public endpoints. Rows expire by `expires_at`; daily cleanup deletes expired windows. |
@@ -140,6 +142,21 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VendorArticle | Conditional / Hard delete allowed | Hard delete allowed; mapping between vendor article and catalog item. Unlinking vendor article does not affect catalog item or historical documents. |
 | MarginRule | Soft-disable preferred | Soft-disable via `is_active = false` preferred. Hard delete allowed if unused. |
 | CatalogPriceHistory | No | Immutable price audit trail; never deleted through ordinary APIs. |
+
+## AUT-802 — Tyre measurement evidence
+
+Approved T1 rules for [Tyre measurement](internal/02-Feature-Specs/Workshop/tyre-measurement.md). These supplement the matrix when the evidence models are introduced.
+
+| Entity | Delete Allowed | Rule |
+|---|---|---|
+| TyreMeasurement | No | Append-only evidence; no update/delete API. Corrections append a new measurement. Raw readings, capture context, author display and evaluation snapshots remain frozen; reads never recompute them. |
+| TyreWheelReading | No | Retained relational per-wheel evidence with its measurement; no independent update/delete API and no parent-delete cascade. Referenced photos are pinned with restrictive FKs. |
+
+- Restrictive FKs protect referenced tenant/site, vehicle, workshop order, check-in and tyre-set event parents. A referenced parent cannot be deleted even if its ordinary lifecycle would otherwise allow it; this includes a scheduled order or expiring draft check-in.
+- Referenced `WorkshopMedia` rows and image objects must not be deleted while wheel evidence exists. T1 references only existing image `CHECK_IN` media attached to the matching check-in/order; no order-without-check-in or hotel photo attachment. Any media cleanup must respect the pin before deleting stored bytes.
+- `measured_by` is a nullable `User` FK with `ON DELETE SET NULL`; the immutable author display snapshot survives. There is no `TenantMember` FK. This does not introduce a user-delete API or change membership lifecycle rules.
+- Existing retarget helpers stay unchanged. Composite FK restrictions alone prevent parent changes that would invalidate evidence bindings; measurements are never automatically reattached or rewritten.
+- T1 introduces no expiry, historical backfill or purge workflow. Any separately authorized purge must remove wheel readings and measurements before their protected media/parents; ordinary APIs cannot use purge as a deletion exception.
 
 ## ADR-0026 — Tenant API keys (AUT-411)
 

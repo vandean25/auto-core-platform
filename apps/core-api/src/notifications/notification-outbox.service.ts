@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { NotificationRecipientKind, type Prisma } from '@prisma/client';
 import { CustomerConsentOutboundUnsubscribeService } from '../customer-consent/customer-consent-outbound-unsubscribe.service.js';
 import type { ContactPermissionReason } from '../customer-consent/customer-consent.permissions.js';
 import {
@@ -76,6 +76,58 @@ export class NotificationOutboxService {
       );
     }
     return { blocked: false, id: existing.id, created: false };
+  }
+
+  /**
+   * Writes several internal-team rows in the caller's transaction with one insert (a PUSH row per recipient, ADR-0033).
+   * Customer rows are refused: they need the contact check of `enqueueInTx`. A repeated key is a no-op, and the result
+   * says which rows are new, so the caller wakes the worker only for those after the commit.
+   */
+  async enqueueInternalManyInTx(
+    tx: NotificationOutboxTxClient,
+    inputs: EnqueueNotificationInput[],
+    now: Date = new Date(),
+  ): Promise<Array<{ id: string; created: boolean }>> {
+    if (inputs.length === 0) return [];
+    const tenantId = inputs[0].tenantId;
+    if (
+      inputs.some(
+        (input) =>
+          input.tenantId !== tenantId ||
+          input.recipientKind !== NotificationRecipientKind.INTERNAL_TEAM,
+      )
+    ) {
+      throw new Error(
+        'enqueueInternalManyInTx takes internal rows of one tenant only',
+      );
+    }
+    const rows = inputs.map((input) => buildNotificationOutboxRow(input, now));
+    const result = await tx.notificationOutbox.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
+    if (result.count === rows.length) {
+      return rows.map((row) => ({ id: row.id, created: true }));
+    }
+    const existing = await tx.notificationOutbox.findMany({
+      where: {
+        tenant_id: tenantId,
+        idempotency_key: { in: rows.map((row) => row.idempotency_key) },
+      },
+      select: { id: true, idempotency_key: true },
+    });
+    const idByKey = new Map(
+      existing.map((row) => [row.idempotency_key, row.id]),
+    );
+    return rows.map((row) => {
+      const id = idByKey.get(row.idempotency_key);
+      if (!id) {
+        throw new Error(
+          `Notification outbox row ${row.idempotency_key} was neither created nor found`,
+        );
+      }
+      return { id, created: id === row.id };
+    });
   }
 
   private async appendMarketingUnsubscribeLink(

@@ -21,6 +21,11 @@ export interface TableCleaner {
  */
 export const TABLE_CLEANERS: TableCleaner[] = [
   {
+    table: 'tyre_wheel_readings',
+    clean: (p) => p.tyreWheelReading.deleteMany(),
+  },
+  { table: 'tyre_measurements', clean: (p) => p.tyreMeasurement.deleteMany() },
+  {
     table: 'inventory_transactions',
     clean: (p) => p.inventoryTransaction.deleteMany(),
   },
@@ -292,6 +297,11 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
       await p.laborCategory.deleteMany();
     },
+  },
+  { table: 'push_devices', clean: (p) => p.pushDevice.deleteMany() },
+  {
+    table: 'push_preferences',
+    clean: (p) => p.pushPreference.deleteMany(),
   },
   {
     table: 'notification_outbox',

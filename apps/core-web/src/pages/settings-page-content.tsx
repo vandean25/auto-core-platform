@@ -28,6 +28,7 @@ import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { ApiKeysSettingsTab } from "@/components/settings/ApiKeysSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
+import { NotificationsSettingsTab } from "@/components/settings/notifications/NotificationsSettingsTab"
 import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
 import { SitesSettingsTab } from "@/components/settings/sites-settings-tab"
 import { VehicleDataSettingsPanel } from "@/components/settings/vehicle-data-settings-panel"
@@ -363,7 +364,8 @@ export default function SettingsPage() {
         "data-import": t('tabs.dataImport'),
         "team": t('tabs.team'),
         "api-keys": t('tabs.apiKeys'),
-        "audit-logs": t('tabs.auditLogs')
+        "audit-logs": t('tabs.auditLogs'),
+        "notifications": t('tabs.notifications')
     }
 
     const tabPanels: Record<SettingsTab, React.ReactNode> = {
@@ -387,7 +389,8 @@ export default function SettingsPage() {
             <div className="p-4 sm:p-6 bg-white border rounded-lg shadow-sm">
                 <AuditLogsTab />
             </div>
-        )
+        ),
+        "notifications": <NotificationsSettingsTab />
     }
 
     return (

@@ -29,11 +29,26 @@ export type EstimateDecidedDomainContext = {
     };
   } | null;
   waitingCustomerTaskCount: number;
+  /** The order's mechanic and the mechanics of its tasks (employee ids). */
+  mechanicEmployeeIds: string[];
+};
+
+/** What the PUSH rows of a decision need (ADR-0033 §3): advisors of the site, and on approval the mechanics. */
+export type EstimateDecidedPush = {
+  workshopOrderId: string;
+  siteId: string;
+  decision: EstimateApprovalDecision;
+  extraEmployeeIds: string[];
 };
 
 export type EstimateDecidedConsumerOutcome =
   | { kind: 'skip'; reason: string }
-  | { kind: 'notify'; input: EnqueueNotificationInput; reason: string };
+  | {
+      kind: 'notify';
+      input: EnqueueNotificationInput;
+      push: EstimateDecidedPush;
+      reason: string;
+    };
 
 export function parseEstimateDecidedPayload(
   payload: Prisma.JsonValue | null,
@@ -107,6 +122,15 @@ export function decideEstimateDecidedConsumerOutcome(
   return {
     kind: 'notify',
     reason,
+    push: {
+      workshopOrderId,
+      siteId,
+      decision: parsed.decision,
+      extraEmployeeIds:
+        parsed.decision === EstimateApprovalDecision.APPROVED
+          ? context.mechanicEmployeeIds
+          : [],
+    },
     input: {
       tenantId: context.tenantId,
       eventType: NotificationEventType.CUSTOMER_ESTIMATE_DECIDED,

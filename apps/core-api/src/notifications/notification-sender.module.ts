@@ -13,6 +13,7 @@ import { NotificationOutboxWorkerService } from './notification-outbox-worker.se
 import { NotificationOutboxWorkerController } from './notification-outbox.worker.controller.js';
 import { NotificationTaskGuard } from './notification-task.guard.js';
 import { NotificationsModule } from './notifications.module.js';
+import { PushModule } from '../push/push.module.js';
 
 /**
  * Delivery side of the outbox (AUT-356 phase 2): the Cloud Tasks worker route, the sender, the
@@ -21,7 +22,7 @@ import { NotificationsModule } from './notifications.module.js';
  * The Cloud Tasks service comes from NotificationsModule, so the sender and the request side share one instance.
  */
 @Module({
-  imports: [PrismaModule, CommonModule, NotificationsModule],
+  imports: [PrismaModule, CommonModule, NotificationsModule, PushModule],
   controllers: [
     NotificationOutboxWorkerController,
     NotificationOutboxReplayController,

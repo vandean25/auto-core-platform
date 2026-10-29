@@ -10,7 +10,8 @@ import {
   SUPPORTED_LEGAL_ENTITY_COUNTRIES,
   UpdateSiteDto,
 } from './dto/site.dto.js';
-import { SYSTEM_LOCATION_TYPE, TIMEZONE_BY_COUNTRY } from './site.constants.js';
+import { findCountryPack } from '../common/country-pack/country-pack.registry.js';
+import { SYSTEM_LOCATION_TYPE } from './site.constants.js';
 
 export type ResolvedSiteCreateDefaults = {
   timezone: string;
@@ -48,7 +49,7 @@ export function validateSiteCreateInput(
 ): ResolvedSiteCreateDefaults {
   const country = legalEntityCountry;
   const timezone =
-    dto.timezone ?? TIMEZONE_BY_COUNTRY[country] ?? 'Europe/Vienna';
+    dto.timezone ?? findCountryPack(country)?.timeZone ?? 'Europe/Vienna';
   const holidayCountry = dto.holidayCountryIso ?? country;
   const slotMinutes = dto.slotMinutes ?? 30;
   const openingHours: readonly {

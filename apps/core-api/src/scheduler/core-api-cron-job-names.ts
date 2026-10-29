@@ -13,6 +13,7 @@ export const CORE_API_CRON_JOB_NAMES = [
   'mechanic-shift-close',
   'notification-outbox-recovery',
   'notification-outbox-body-purge',
+  'push-device-cleanup',
   'registration-intake-byte-purge',
   'registration-intake-expiry',
   'workshop-check-in-orphan-upload-cleanup',

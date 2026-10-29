@@ -64,6 +64,7 @@ import { LoanerVehiclesModule } from './loaner-vehicles/loaner-vehicles.module.j
 import { WarrantyClaimModule } from './warranty-claim/warranty-claim.module.js';
 import { ImportModule } from './import/import.module.js';
 import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
+import { TyreMeasurementModule } from './tyre-measurement/tyre-measurement.module.js';
 import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
 import { AgentProposalModule } from './agent-proposal/agent-proposal.module.js';
 import { WorkshopCommandModule } from './workshop-command/workshop-command.module.js';
@@ -131,6 +132,7 @@ import { SchedulerModule } from './scheduler/scheduler.module.js';
     DocumentBrandingModule,
     ImportModule,
     TyreStorageModule,
+    TyreMeasurementModule,
     MarginRuleModule,
     SettlementModule,
     SearchModule,

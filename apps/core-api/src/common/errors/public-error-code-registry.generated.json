@@ -445,6 +445,10 @@
       "public": true,
       "params": []
     },
+    "EVENT_NOT_PUSHABLE": {
+      "public": false,
+      "params": []
+    },
     "EXCHANGE_NOT_CONFIGURED": {
       "public": false,
       "params": []
@@ -1295,6 +1299,14 @@
       "public": false,
       "params": []
     },
+    "PUSH_MESSAGE_REJECTED": {
+      "public": false,
+      "params": []
+    },
+    "PUSH_PROVIDER_UNAVAILABLE": {
+      "public": false,
+      "params": []
+    },
     "READY_EMAIL_BLOCKED": {
       "public": false,
       "params": []
@@ -1516,6 +1528,54 @@
       "params": []
     },
     "TRANSITION_2027_TOLERANCE": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_DOT_FUTURE_DATE": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_DOT_INVALID_FORMAT": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_DOT_INVALID_WEEK": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_EVALUATION_DATE_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_EVENT_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_MEDIA_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_ORDER_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_PARENT_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_VEHICLE_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_THRESHOLDS_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_TREAD_INVALID": {
       "public": false,
       "params": []
     },

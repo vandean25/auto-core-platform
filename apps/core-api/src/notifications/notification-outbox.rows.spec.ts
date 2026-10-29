@@ -42,6 +42,17 @@ const emailInput: EnqueueNotificationInput = {
   },
 };
 
+const pushInput: EnqueueNotificationInput = {
+  tenantId: 'tenant-1',
+  eventType: NotificationEventType.CUSTOMER_ESTIMATE_DECIDED,
+  occurrenceId: 'version-1',
+  channel: NotificationChannel.PUSH,
+  recipientKind: NotificationRecipientKind.INTERNAL_TEAM,
+  recipientKey: 'user:user-1',
+  recipientUserId: 'user-1',
+  workshopOrderId: 'order-1',
+};
+
 describe('notification outbox rows', () => {
   describe('buildNotificationIdempotencyKey()', () => {
     it('joins event, occurrence, recipient key and channel', () => {
@@ -142,6 +153,37 @@ describe('notification outbox rows', () => {
           NOW,
         ),
       ).toThrow('EMAIL subject and sender name must be single-line');
+    });
+
+    it('writes a push row as pending and due now, for one user, without any rendered text', () => {
+      const row = buildNotificationOutboxRow(pushInput, NOW);
+
+      expect(row).toMatchObject({
+        channel: NotificationChannel.PUSH,
+        status: NotificationOutboxStatus.PENDING,
+        next_attempt_at: NOW,
+        accepted_at: null,
+        provider: null,
+        recipient_user_id: 'user-1',
+        recipient_email: null,
+        subject: null,
+        body: null,
+        idempotency_key:
+          'CUSTOMER_ESTIMATE_DECIDED:version-1:user:user-1:PUSH',
+        attempts: 0,
+      });
+    });
+
+    it('refuses a push row without a recipient user, and a rendered message on a push row', () => {
+      expect(() =>
+        buildNotificationOutboxRow({ ...pushInput, recipientUserId: null }, NOW),
+      ).toThrow('PUSH outbox rows need the recipient user');
+      expect(() =>
+        buildNotificationOutboxRow(
+          { ...pushInput, email: emailInput.email },
+          NOW,
+        ),
+      ).toThrow('Only EMAIL outbox rows carry a rendered message');
     });
 
     it('refuses a rendered message on an in-app row', () => {

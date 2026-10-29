@@ -1,11 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsDateString,
   IsEnum,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -18,7 +22,12 @@ import {
   TyreSeason,
   TyreSetEventType,
   TyreSetStatus,
+  TyreVehicleWeightClass,
 } from '@prisma/client';
+import {
+  CreateTyreWheelDto,
+  TyreMeasurementResponseDto,
+} from '../../tyre-measurement/tyre-measurement.dto.js';
 
 export class TreadDepthDto {
   @ApiPropertyOptional()
@@ -217,6 +226,29 @@ export class TyreSetLocationActionDto {
   @Type(() => TreadDepthDto)
   treadDepthMm?: TreadDepthDto;
 
+  @ApiPropertyOptional({
+    type: [CreateTyreWheelDto],
+    description:
+      'Measurements recorded with this event; supported on check-in, check-out and inspection.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5)
+  @ArrayUnique((wheel: CreateTyreWheelDto) => wheel.position)
+  @ValidateNested({ each: true })
+  @Type(() => CreateTyreWheelDto)
+  wheels?: CreateTyreWheelDto[];
+
+  @ApiPropertyOptional({
+    enum: TyreVehicleWeightClass,
+    description:
+      'Weight class for the recorded readings; defaults to UP_TO_3500_KG.',
+  })
+  @IsOptional()
+  @IsEnum(TyreVehicleWeightClass)
+  weightClass?: TyreVehicleWeightClass;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -328,6 +360,13 @@ export class TyreSetResponseDto {
   @ApiPropertyOptional({ type: [TyreSetEventResponseDto] })
   events?: TyreSetEventResponseDto[];
 
+  @ApiPropertyOptional({
+    type: TyreMeasurementResponseDto,
+    nullable: true,
+    description: 'Most recent tyre measurement linked to this set.',
+  })
+  latestMeasurement?: TyreMeasurementResponseDto | null;
+
   @ApiPropertyOptional({ type: String })
   customerName?: string;
 
@@ -342,6 +381,26 @@ export class TyreSetResponseDto {
 }
 
 export class UpdateTyreStorageSettingsDto {
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: {
+      type: 'object',
+      required: ['recommendedBelowMm'],
+      properties: {
+        recommendedBelowMm: { type: 'number', maximum: 20 },
+        legalMinimumMm: { type: 'number' },
+      },
+    },
+    description:
+      'Profile-keyed amber overrides; may only raise defaults. Omission preserves saved values; {} resets them. Legal minima cannot change.',
+  })
+  @IsOptional()
+  @IsObject()
+  recommendationOverrides?: Record<
+    string,
+    { recommendedBelowMm: number; legalMinimumMm?: number }
+  >;
+
   @ApiProperty({ minimum: 1, maximum: 12 })
   @IsInt()
   @Min(1)
@@ -374,6 +433,17 @@ export class UpdateTyreStorageSettingsDto {
 }
 
 export class TyreStorageSettingsResponseDto {
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: {
+      type: 'object',
+      required: ['recommendedBelowMm'],
+      properties: { recommendedBelowMm: { type: 'number' } },
+    },
+  })
+  @IsObject()
+  recommendationOverrides!: Record<string, { recommendedBelowMm: number }>;
+
   @ApiProperty()
   summerSwapMonth!: number;
 

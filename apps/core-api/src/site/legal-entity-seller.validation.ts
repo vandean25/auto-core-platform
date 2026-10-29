@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { LegalEntityCountry } from '@prisma/client';
+import { resolveCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { UpdateLegalEntityDto } from './dto/site.dto.js';
 
 export type LegalEntitySellerRecord = {
@@ -78,24 +79,6 @@ export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-export function isValidDeVatId(value: string): boolean {
-  return /^DE[0-9]{9}$/.test(value.replace(/\s+/g, '').toUpperCase());
-}
-
-export function isValidAtUid(value: string): boolean {
-  return /^ATU[0-9]{8}$/.test(value.replace(/\s+/g, '').toUpperCase());
-}
-
-export function isValidDeTaxNumber(value: string): boolean {
-  const normalized = value.replace(/[\s/]+/g, '');
-  return /^[0-9]{9,13}$/.test(normalized);
-}
-
-export function isValidAtTaxNumber(value: string): boolean {
-  const normalized = value.replace(/\s+/g, '');
-  return /^[0-9]{2}\/?[0-9]{3}\/?[0-9]{4}$/.test(normalized);
-}
-
 function assertMaxLength(
   field: string,
   value: string | null,
@@ -113,12 +96,9 @@ function validateTaxIdentifiers(
   taxNumber: string | null,
   vatId: string | null,
 ): void {
+  const pack = resolveCountryPack(countryIso);
   if (taxNumber !== null) {
-    const isValid =
-      countryIso === 'DE'
-        ? isValidDeTaxNumber(taxNumber)
-        : isValidAtTaxNumber(taxNumber);
-    if (!isValid) {
+    if (!pack.validateTaxNumber(taxNumber)) {
       throw new BadRequestException(
         `taxNumber is not a valid ${countryIso} tax number format`,
       );
@@ -126,9 +106,7 @@ function validateTaxIdentifiers(
   }
 
   if (vatId !== null) {
-    const isValid =
-      countryIso === 'DE' ? isValidDeVatId(vatId) : isValidAtUid(vatId);
-    if (!isValid) {
+    if (!pack.validateVatId(vatId)) {
       throw new BadRequestException(
         `vatId is not a valid ${countryIso} VAT identifier format`,
       );

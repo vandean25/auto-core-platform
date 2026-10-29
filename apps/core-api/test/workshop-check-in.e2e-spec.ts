@@ -353,9 +353,11 @@ describe('Workshop check-in (e2e)', () => {
     expect(afterRetry.body.revision).toBe(after.body.revision);
   });
 
-  it('keeps one media row and does not delete storage on overlapping uploads', async () => {
+  it('keeps the winning photo and cleans only losing objects on overlapping uploads', async () => {
     const deleteSpy = mockMediaStorage.deleteObjectIfExists as jest.Mock;
+    const uploadSpy = mockMediaStorage.uploadCheckInPhoto as jest.Mock;
     deleteSpy.mockClear();
+    uploadSpy.mockClear();
 
     const clientUploadId = '51500000-0000-4000-8000-000000000559';
     const before = await request(app.getHttpServer())
@@ -386,7 +388,29 @@ describe('Workshop check-in (e2e)', () => {
       where: { tenant_id: tenantId, id: clientUploadId },
     });
     expect(mediaRows).toHaveLength(1);
-    expect(deleteSpy).not.toHaveBeenCalled();
+    const winner = mediaRows[0];
+    const uploaded: { storageBucket: string; storageKey: string }[] =
+      await Promise.all(uploadSpy.mock.results.map((result) => result.value));
+    expect(uploaded.map((object) => object.storageKey)).toContain(
+      winner.storage_key,
+    );
+    expect(new Set(uploaded.map((object) => object.storageKey)).size).toBe(
+      uploaded.length,
+    );
+    const losers = uploaded.filter(
+      (object) => object.storageKey !== winner.storage_key,
+    );
+    expect(deleteSpy).toHaveBeenCalledTimes(losers.length);
+    for (const object of losers) {
+      expect(deleteSpy).toHaveBeenCalledWith(
+        object.storageBucket,
+        object.storageKey,
+      );
+    }
+    expect(deleteSpy).not.toHaveBeenCalledWith(
+      winner.storage_bucket,
+      winner.storage_key,
+    );
   });
 
   it('rejects completion without signature evidence', async () => {

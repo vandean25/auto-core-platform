@@ -347,7 +347,7 @@ describe('InvoicePdfRenderer', () => {
 
     const html = page.setContent.mock.calls[0][0] as string;
     expect(html).toContain('Umsatzsteuer-Aufschlüsselung');
-    expect(html).toContain('20.00 % USt');
+    expect(html).toContain('20 % USt (Netto €\u00A0100,00):');
     expect(html).not.toContain('cost_basis');
   });
 

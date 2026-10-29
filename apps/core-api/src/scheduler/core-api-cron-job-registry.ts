@@ -12,6 +12,7 @@ import { LandingDemoAccessCleanupService } from '../landing-demo-access/landing-
 import { MechanicSchedulerService } from '../mechanic/mechanic-scheduler.service.js';
 import { NotificationOutboxRecoveryService } from '../notifications/notification-outbox-recovery.service.js';
 import { NotificationOutboxRetentionService } from '../notifications/notification-outbox-retention.service.js';
+import { PushDeviceCleanupService } from '../push/push-device-cleanup.service.js';
 import { RegistrationIntakeBytePurgeService } from '../registration-intake/registration-intake-byte-purge.service.js';
 import { RegistrationIntakeExpiryService } from '../registration-intake/registration-intake-expiry.service.js';
 import { WorkshopCheckInOrphanUploadCleanupService } from '../workshop/workshop-check-in-orphan-upload-cleanup.service.js';
@@ -35,6 +36,7 @@ export const CORE_API_CRON_JOB_RUNNER_TYPES = {
   'mechanic-shift-close': MechanicSchedulerService,
   'notification-outbox-recovery': NotificationOutboxRecoveryService,
   'notification-outbox-body-purge': NotificationOutboxRetentionService,
+  'push-device-cleanup': PushDeviceCleanupService,
   'registration-intake-byte-purge': RegistrationIntakeBytePurgeService,
   'registration-intake-expiry': RegistrationIntakeExpiryService,
   'workshop-check-in-orphan-upload-cleanup':

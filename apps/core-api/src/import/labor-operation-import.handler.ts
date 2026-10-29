@@ -24,10 +24,6 @@ export class LaborOperationImportHandler implements ImportTypeHandler {
     private readonly rowRunner: RowByRowApplyRunner,
   ) {}
 
-  applySequenceOrderKey() {
-    return 'row_no' as const;
-  }
-
   prepareCreate(): Promise<void> {
     return Promise.resolve();
   }

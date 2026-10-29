@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
   UnprocessableEntityException,
@@ -12,8 +13,10 @@ import {
   coerceWriteRowToDomainError,
   ImportDuplicateCreateInJobError,
   ImportRowDomainError,
+  readImportFailureDetail,
   toRowApplyError,
 } from './import-apply.errors.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { VEHICLE_PARTY_RULE_CODES } from '../vehicle/vehicle-party.rules.js';
 
 function driverAdapterWriteConflict(): Error {
@@ -44,6 +47,33 @@ describe('assertJobCanBeApplied', () => {
       message: 'Import job is already being applied',
       leaseExpiresAt,
     });
+  });
+
+  it('still applies a FAILED job, so its staged rows must survive the failure', () => {
+    expect(() => assertJobCanBeApplied(ImportJobStatus.FAILED)).not.toThrow();
+  });
+});
+
+describe('readImportFailureDetail', () => {
+  it('reads the code and message of a rejected import request', () => {
+    expect(
+      readImportFailureDetail(
+        new BadRequestException({
+          code: IMPORT_ERROR_CODES.INVALID_ENCODING,
+          message: 'CSV must be UTF-8 encoded',
+        }),
+      ),
+    ).toEqual({
+      code: IMPORT_ERROR_CODES.INVALID_ENCODING,
+      message: 'CSV must be UTF-8 encoded',
+    });
+  });
+
+  it('returns nothing for errors without an import error code', () => {
+    expect(readImportFailureDetail(new Error('boom'))).toBeUndefined();
+    expect(
+      readImportFailureDetail(new BadRequestException('plain text')),
+    ).toBeUndefined();
   });
 });
 

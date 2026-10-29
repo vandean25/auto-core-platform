@@ -5,12 +5,23 @@ import {
   type EscapeHtml,
 } from '../common/pdf/pdf-layout.js';
 import {
+  createDocumentNumberFormatter,
+  type DocumentNumberFormatter,
+} from '../common/format/document-number-format.js';
+import { readDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  formatLocaleForDisplayLanguage,
+} from '../common/i18n/display-language.js';
+import { createPdfTranslator } from '../common/i18n/pdf-i18n.js';
+import {
   FOOTER_DECORATIVE_WIDTH_MM,
   HEADER_DECORATIVE_MAX_LINES,
   HEADER_DECORATIVE_WIDTH_MM,
   FOOTER_DECORATIVE_MAX_LINES,
   wrapAndEllipsizeDecorativeText,
 } from '../document-branding/decorative-text-layout.js';
+import { findCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import type { InvoiceSnapshotV2Seller } from './invoice-snapshot-v2.js';
 import { resolveMarginSchemeLegalNote } from './margin-scheme-legal-notes.js';
@@ -29,7 +40,47 @@ export const isDachRechnungSnapshot = (snapshot: InvoiceSnapshot): boolean =>
 export const isCreditNoteSnapshot = (snapshot: InvoiceSnapshot): boolean =>
   snapshot.document_kind === 'CREDIT_NOTE';
 
-const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
+/**
+ * Title of a document rendered on the legacy (pre-localisation) layout. Frozen snapshots without a
+ * current translation bundle keep their historical German wording, so the literals come from the
+ * German default bundle and a frozen credit_title still wins, exactly as before localisation.
+ */
+export const resolveLegacyDocumentTitle = (
+  snapshot: InvoiceSnapshot,
+): string => {
+  const t = createPdfTranslator(DEFAULT_DISPLAY_LANGUAGE);
+  if (isCreditNoteSnapshot(snapshot)) {
+    return snapshot.credit_title ?? t('invoice.creditTitle');
+  }
+  if (isDachRechnungSnapshot(snapshot)) {
+    return t('invoice.title');
+  }
+  return t('invoice.legacyTitle');
+};
+
+/**
+ * Numbers are formatted with the frozen regional settings of the snapshot: Austrian separators
+ * in either language, matching the contract in docs/internal/02-Feature-Specs/Platform/i18n-de-en.md.
+ * Snapshots frozen before the locale fields were stored fall back to the language of the labels.
+ */
+export const createInvoicePdfNumberFormatter = (
+  snapshot: InvoiceSnapshot,
+): DocumentNumberFormatter => {
+  const frozen = readDocumentSnapshotLocaleFields(snapshot);
+  if (frozen) {
+    return createDocumentNumberFormatter(
+      frozen.format_locale,
+      snapshot.currency,
+    );
+  }
+  const language = isDachRechnungSnapshot(snapshot) ? 'de' : 'en';
+  return createDocumentNumberFormatter(
+    formatLocaleForDisplayLanguage(language),
+    snapshot.currency,
+  );
+};
+
+export const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
   snapshot.customer.type === 'COMPANY'
     ? (snapshot.customer.company_name ??
       `${snapshot.customer.first_name} ${snapshot.customer.last_name}`)
@@ -56,20 +107,13 @@ const buildSellerTaxLines = (
 ): string => {
   const lines: string[] = [];
 
-  if (seller.country_iso === 'AT') {
-    if (seller.vat_id) {
-      lines.push(`UID: ${escapeHtml(seller.vat_id)}`);
-    }
-    if (seller.tax_number) {
-      lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
-    }
-  } else {
-    if (seller.vat_id) {
-      lines.push(`USt-IdNr.: ${escapeHtml(seller.vat_id)}`);
-    }
-    if (seller.tax_number) {
-      lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
-    }
+  const vatLabel =
+    findCountryPack(seller.country_iso)?.vatIdLabel ?? 'USt-IdNr.';
+  if (seller.vat_id) {
+    lines.push(`${vatLabel}: ${escapeHtml(seller.vat_id)}`);
+  }
+  if (seller.tax_number) {
+    lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
   }
 
   return lines.map((line) => `<div>${line}</div>`).join('');
@@ -137,20 +181,17 @@ const buildSupplyDateLabel = (
 
 const buildLineDiscountLabel = (
   item: InvoiceSnapshot['items'][number],
+  numbers: DocumentNumberFormatter,
 ): string | null => {
   if (!item.line_discount_type || !item.line_discount_value) {
     return null;
   }
 
   if (item.line_discount_type === 'PERCENTAGE') {
-    const percentage = Number.parseFloat(item.line_discount_value);
-    const formatted = Number.isFinite(percentage)
-      ? String(percentage)
-      : item.line_discount_value;
-    return `Rabatt ${formatted}%`;
+    return `Rabatt ${numbers.formatRate(item.line_discount_value)}%`;
   }
 
-  return `Rabatt ${item.line_discount_value}`;
+  return `Rabatt ${numbers.formatAmount(item.line_discount_value)}`;
 };
 
 export const buildInvoiceTaxBreakdownSection = (
@@ -165,12 +206,15 @@ export const buildInvoiceTaxBreakdownSection = (
     return '';
   }
 
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
   const rows = snapshot.tax_breakdown
     .map(
       (bucket) => `
       <div class="total-row tax-rate-row">
-        <span>${escapeHtml(bucket.rate)} % USt (Netto ${escapeHtml(bucket.net)}):</span>
-        <span>${escapeHtml(bucket.tax)}</span>
+        <span>${escapeHtml(
+          `${numbers.formatRate(bucket.rate)} % USt (Netto ${numbers.formatAmount(bucket.net)})`,
+        )}:</span>
+        <span>${escapeHtml(numbers.formatAmount(bucket.tax))}</span>
       </div>
     `,
     )
@@ -231,11 +275,7 @@ export const buildInvoiceHeader = (
   escapeHtml: EscapeHtml,
   snapshot: InvoiceSnapshot,
 ): string => {
-  const title = isCreditNoteSnapshot(snapshot)
-    ? (snapshot.credit_title ?? 'Rechnungskorrektur')
-    : isDachRechnungSnapshot(snapshot)
-      ? 'Rechnung'
-      : 'Invoice';
+  const title = resolveLegacyDocumentTitle(snapshot);
 
   return `
   <div class="header">
@@ -309,9 +349,7 @@ export const buildInvoiceCustomerSection = (
     ? 'Rechnungsempfänger'
     : 'Bill to:';
   const vatLabel = isDachRechnungSnapshot(snapshot)
-    ? snapshot.seller?.country_iso === 'AT'
-      ? 'UID'
-      : 'USt-IdNr.'
+    ? (findCountryPack(snapshot.seller?.country_iso)?.vatIdLabel ?? 'USt-IdNr.')
     : 'VAT ID';
 
   return `
@@ -397,6 +435,7 @@ export const buildInvoiceItemsTable = (
   escapeHtml: EscapeHtml,
 ): string => {
   const isDach = isDachRechnungSnapshot(snapshot);
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
   const descriptionLabel = isDach ? 'Beschreibung' : 'Description';
   const quantityLabel = isDach ? 'Menge' : 'Qty';
   const unitPriceLabel = isDach ? 'Einzelpreis' : 'Unit Price';
@@ -404,7 +443,9 @@ export const buildInvoiceItemsTable = (
 
   const itemsHtml = snapshot.items
     .map((item) => {
-      const discountLabel = isDach ? buildLineDiscountLabel(item) : null;
+      const discountLabel = isDach
+        ? buildLineDiscountLabel(item, numbers)
+        : null;
       const description = discountLabel
         ? `${item.description} (${discountLabel})`
         : item.description;
@@ -412,9 +453,9 @@ export const buildInvoiceItemsTable = (
       return `
       <tr>
         <td>${escapeHtml(description)}</td>
-        <td style="text-align: right">${escapeHtml(item.quantity)}</td>
-        <td style="text-align: right">${escapeHtml(item.unit_price)}</td>
-        <td style="text-align: right">${escapeHtml(item.line_total ?? '')}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatQuantity(item.quantity))}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatAmount(item.unit_price))}</td>
+        <td style="text-align: right">${escapeHtml(numbers.formatAmount(item.line_total))}</td>
       </tr>
     `;
     })
@@ -441,6 +482,8 @@ export const buildInvoiceTotalsSection = (
   snapshot: InvoiceSnapshot,
   escapeHtml: EscapeHtml,
 ): string => {
+  const numbers = createInvoicePdfNumberFormatter(snapshot);
+
   if (snapshot.tax_mode === 'MARGIN_SCHEME') {
     const grossLabel = isDachRechnungSnapshot(snapshot) ? 'Brutto:' : 'Gross:';
     const legalNote = resolveMarginSchemeLegalNote(
@@ -451,7 +494,7 @@ export const buildInvoiceTotalsSection = (
       <div class="totals">
         <div class="total-row grand">
           <span>${grossLabel}</span>
-          <span>${escapeHtml(snapshot.total_gross)}</span>
+          <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>
         </div>
       </div>
       <div class="legal-line">${escapeHtml(legalNote)}</div>
@@ -466,15 +509,15 @@ export const buildInvoiceTotalsSection = (
     <div class="totals">
       <div class="total-row">
         <span>Netto:</span>
-        <span>${escapeHtml(snapshot.total_net)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_net))}</span>
       </div>
       <div class="total-row">
         <span>Umsatzsteuer:</span>
-        <span>${escapeHtml(snapshot.total_tax)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_tax))}</span>
       </div>
       <div class="total-row grand">
         <span>Brutto:</span>
-        <span>${escapeHtml(snapshot.total_gross)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>
       </div>
     </div>
   `;
@@ -484,15 +527,15 @@ export const buildInvoiceTotalsSection = (
     <div class="totals">
       <div class="total-row">
         <span>Net:</span>
-        <span>${escapeHtml(snapshot.total_net)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_net))}</span>
       </div>
       <div class="total-row">
         <span>Tax:</span>
-        <span>${escapeHtml(snapshot.total_tax)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_tax))}</span>
       </div>
       <div class="total-row grand">
         <span>Gross:</span>
-        <span>${escapeHtml(snapshot.total_gross)}</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>
       </div>
     </div>
   `;
@@ -597,13 +640,7 @@ export const buildInvoiceFooterTemplate = (
   fontFaceCss = '',
   localizedTitlePrefix?: string | null,
 ): string => {
-  const prefix =
-    localizedTitlePrefix ??
-    (isCreditNoteSnapshot(snapshot)
-      ? (snapshot.credit_title ?? 'Rechnungskorrektur')
-      : isDachRechnungSnapshot(snapshot)
-        ? 'Rechnung'
-        : 'Invoice');
+  const prefix = localizedTitlePrefix ?? resolveLegacyDocumentTitle(snapshot);
   const footerDocumentLocale = resolvePdfFooterDocumentLocale(snapshot);
   if (snapshot.template_version === 'invoice-brand-v1' && snapshot.branding) {
     const { tokens } = snapshot.branding;

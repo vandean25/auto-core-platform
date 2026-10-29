@@ -9,6 +9,7 @@ import {
   signInWithRedirect,
   signOut,
 } from 'firebase/auth'
+import { releasePushRegistration } from '@/features/push/push-device'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
 import type { AuthClaims } from '@/auth/auth-claims'
 import { applyFirebaseIdTokenChange } from '@/auth/firebase-id-token-change'
@@ -201,6 +202,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    // Remove this browser's push registration while the session is still valid.
+    await releasePushRegistration()
     await signOut(firebaseAuth)
   }, [])
 

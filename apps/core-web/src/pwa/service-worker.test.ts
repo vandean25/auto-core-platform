@@ -5,7 +5,9 @@ import { runKillSwitch, runServiceWorker, type ServiceWorkerScope } from './serv
 
 type Listener = (event: unknown) => void
 
-function createScope(options: { cacheNames?: string[]; fetchImpl?: ServiceWorkerScope['fetch'] } = {}) {
+type FakeWindow = { url: string; focus: ReturnType<typeof vi.fn>; navigate?: ReturnType<typeof vi.fn> }
+
+function createScope(options: { cacheNames?: string[]; fetchImpl?: ServiceWorkerScope['fetch']; windows?: FakeWindow[] } = {}) {
   const listeners: Record<string, Listener> = {}
   const cacheNames = new Set(options.cacheNames ?? [])
   const added: Record<string, string[]> = {}
@@ -24,8 +26,12 @@ function createScope(options: { cacheNames?: string[]; fetchImpl?: ServiceWorker
       delete: vi.fn(async (name: string) => cacheNames.delete(name)),
       match: vi.fn(async (url: string) => (url === '/offline.html' ? offlineResponse : undefined)),
     },
-    clients: { claim: vi.fn(async () => undefined) },
-    registration: { unregister: vi.fn(async () => true) },
+    clients: {
+      claim: vi.fn(async () => undefined),
+      matchAll: vi.fn(async () => options.windows ?? []),
+      openWindow: vi.fn(async () => undefined),
+    },
+    registration: { unregister: vi.fn(async () => true), showNotification: vi.fn(async () => undefined) },
     skipWaiting: vi.fn(async () => undefined),
     addEventListener: vi.fn((type: string, listener: Listener) => {
       listeners[type] = listener
@@ -44,7 +50,31 @@ function createScope(options: { cacheNames?: string[]; fetchImpl?: ServiceWorker
     return respondWith
   }
 
-  return { scope, listeners, added, cacheNames, offlineResponse, lifecycle, navigate }
+  async function push(payload: unknown) {
+    const waits: Promise<unknown>[] = []
+    const data =
+      payload === undefined
+        ? null
+        : { json: () => {
+          if (payload instanceof Error) throw payload
+          return payload
+        } }
+    listeners.push?.({ data, waitUntil: (promise: Promise<unknown>) => waits.push(promise) })
+    await Promise.all(waits)
+  }
+
+  async function click(url: unknown) {
+    const waits: Promise<unknown>[] = []
+    const close = vi.fn()
+    listeners.notificationclick?.({
+      notification: { close, data: url === undefined ? null : { url } },
+      waitUntil: (promise: Promise<unknown>) => waits.push(promise),
+    })
+    await Promise.all(waits)
+    return close
+  }
+
+  return { scope, listeners, added, cacheNames, offlineResponse, lifecycle, navigate, push, click }
 }
 
 // The worker is shipped as the serialized function, so every behaviour is checked on both forms.
@@ -131,8 +161,95 @@ describe.each(variants)('service worker (%s)', (_name, start) => {
     const { scope, listeners } = createScope()
     start(scope)
 
-    expect(Object.keys(listeners).sort()).toEqual(['activate', 'fetch', 'install'])
+    expect(Object.keys(listeners).sort()).toEqual(['activate', 'fetch', 'install', 'notificationclick', 'push'])
     expect(buildServiceWorkerSource('v1', false)).not.toMatch(/indexedDB|sync|postMessage/i)
+  })
+
+  it('shows a notification for a data-only push, with the deep link and the collapse tag', async () => {
+    const { scope, push } = createScope()
+    start(scope)
+
+    await push({ data: { title: 'Estimate approved', body: 'Order WO-1', url: '/workshop/orders/o1', tag: 'T:o1' } })
+
+    expect(scope.registration.showNotification).toHaveBeenCalledWith('Estimate approved', {
+      body: 'Order WO-1',
+      tag: 'T:o1',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { url: '/workshop/orders/o1' },
+    })
+  })
+
+  it.each([
+    ['no payload', undefined],
+    ['an unreadable payload', new Error('not json')],
+    ['an empty payload', {}],
+  ])('still shows a notification for %s, because a silent push gets the subscription revoked', async (_label, payload) => {
+    const { scope, push } = createScope()
+    start(scope)
+
+    await push(payload)
+
+    expect(scope.registration.showNotification).toHaveBeenCalledTimes(1)
+    expect(scope.registration.showNotification).toHaveBeenCalledWith(
+      'Auto Core Platform',
+      expect.objectContaining({ data: { url: '/' } }),
+    )
+  })
+
+  it.each(['https://evil.example/phish', '//evil.example/phish', 'javascript:alert(1)', 42])(
+    'drops a deep link that is not a path of this origin (%s)',
+    async (url) => {
+      const { scope, push } = createScope()
+      start(scope)
+
+      await push({ data: { title: 'T', url } })
+
+      expect(scope.registration.showNotification).toHaveBeenCalledWith('T', expect.objectContaining({ data: { url: '/' } }))
+    },
+  )
+
+  it('focuses an open tab of the app and moves it to the deep link on click', async () => {
+    const other = { url: 'https://other.example/x', focus: vi.fn(async () => undefined), navigate: vi.fn(async () => undefined) }
+    const app = { url: 'https://app.example.test/customers', focus: vi.fn(async () => undefined), navigate: vi.fn(async () => undefined) }
+    const { scope, click } = createScope({ windows: [other, app] })
+    start(scope)
+
+    const close = await click('/workshop/orders/o1')
+
+    expect(close).toHaveBeenCalled()
+    expect(app.focus).toHaveBeenCalled()
+    expect(app.navigate).toHaveBeenCalledWith('https://app.example.test/workshop/orders/o1')
+    expect(other.focus).not.toHaveBeenCalled()
+    expect(scope.clients.openWindow).not.toHaveBeenCalled()
+  })
+
+  it('keeps the tenant and site of an order link, so a click from another site opens the order in its own context', async () => {
+    const link = '/workshop/orders/o1?pushTenant=t1&pushSite=s-a'
+    const app = { url: 'https://app.example.test/customers', focus: vi.fn(async () => undefined), navigate: vi.fn(async () => undefined) }
+    const open = createScope({ windows: [app] })
+    start(open.scope)
+    await open.push({ data: { title: 'T', url: link } })
+    expect(open.scope.registration.showNotification).toHaveBeenCalledWith('T', expect.objectContaining({ data: { url: link } }))
+
+    await open.click(link)
+    expect(app.navigate).toHaveBeenCalledWith(`https://app.example.test${link}`)
+
+    const closed = createScope()
+    start(closed.scope)
+    await closed.click(link)
+    expect(closed.scope.clients.openWindow).toHaveBeenCalledWith(`https://app.example.test${link}`)
+  })
+
+  it('opens the deep link in a new window when no tab of the app is open, and never leaves the origin', async () => {
+    const { scope, click } = createScope()
+    start(scope)
+
+    await click('/workshop/orders/o1')
+    await click('https://evil.example/phish')
+
+    expect(scope.clients.openWindow).toHaveBeenNthCalledWith(1, 'https://app.example.test/workshop/orders/o1')
+    expect(scope.clients.openWindow).toHaveBeenNthCalledWith(2, 'https://app.example.test/')
   })
 })
 

@@ -721,6 +721,18 @@ describe('WorkshopIntakeService', () => {
     expect(partLineItem.partExecutionStatus).toBe(
       WorkshopPartLineExecutionStatus.PENDING_PICK,
     );
+
+    expect(result.labor_summary.line_items).toHaveLength(1);
+    expect(result.labor_summary.totals).toEqual({
+      revenue: 100,
+      cost: 0,
+      margin: 100,
+      margin_percent: 100,
+      standard_hours: 0,
+      actual_hours: 1.25,
+      efficiency: 0,
+    });
+    expect(result.labor_summary.has_cost_data).toBe(true);
   });
 
   it('scopes workshop order lists to the active site', async () => {

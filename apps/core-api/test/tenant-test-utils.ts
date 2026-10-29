@@ -284,7 +284,10 @@ function formatTenantCreationError(slug: string, error: unknown): Error {
   }
   if (error && typeof error === 'object') {
     const errorObj = error as Record<string, unknown>;
-    if (typeof errorObj.code === 'string' || typeof errorObj.code === 'number') {
+    if (
+      typeof errorObj.code === 'string' ||
+      typeof errorObj.code === 'number'
+    ) {
       code = String(errorObj.code);
     }
     if (errorObj.meta !== undefined) {
@@ -439,6 +442,8 @@ export async function cleanupTestTenantGraph(
 ): Promise<void> {
   const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
 
+  await tenantPrisma.tyreWheelReading.deleteMany({});
+  await tenantPrisma.tyreMeasurement.deleteMany({});
   await tenantPrisma.vehicleParty.deleteMany({});
   await tenantPrisma.vehicleNotice.deleteMany({});
   await tenantPrisma.vehicleInspectionRecord.deleteMany({});
@@ -506,6 +511,10 @@ export async function cleanupTestTenantGraph(
     `DELETE FROM notification_outbox WHERE tenant_id = $1`,
     tenantId,
   );
+  // Tyre events point at workshop orders through a composite foreign key whose
+  // ON DELETE SET NULL cannot null tenant_id, so they must go first.
+  await tenantPrisma.tyreSetEvent.deleteMany({});
+  await tenantPrisma.tyreSet.deleteMany({});
   await tenantPrisma.workshopOrder.deleteMany({});
   await tenantPrisma.bay.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});
@@ -519,8 +528,6 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.laborFitment.deleteMany({});
   await tenantPrisma.laborOperation.deleteMany({});
   await tenantPrisma.laborCategory.deleteMany({});
-  await tenantPrisma.tyreSetEvent.deleteMany({});
-  await tenantPrisma.tyreSet.deleteMany({});
   await tenantPrisma.tyreStorageSettings.deleteMany({});
 
   await runWithTenantContext(tenantId, async () => {
@@ -617,6 +624,12 @@ export async function cleanupTestTenantGraph(
     `DELETE FROM workshop_estimate_sequences WHERE tenant_id = $1`,
     tenantId,
   );
+  for (const table of ['push_devices', 'push_preferences']) {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM ${table} WHERE tenant_id = $1`,
+      tenantId,
+    );
+  }
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 

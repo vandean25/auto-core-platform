@@ -5,6 +5,7 @@ export type SideEffectType =
   | 'QUEUE_ENQUEUE'
   | 'EMAIL'
   | 'SMS'
+  | 'PUSH'
   | 'NOTIFICATION'
   | 'FILE_WRITE'
   | 'GCS_WRITE'

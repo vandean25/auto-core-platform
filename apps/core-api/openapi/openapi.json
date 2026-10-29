@@ -7760,6 +7760,161 @@
         ]
       }
     },
+    "/api/v1/me/push/devices": {
+      "get": {
+        "operationId": "PushController_listDevices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PushDeviceDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List my active push devices",
+        "tags": [
+          "me"
+        ]
+      },
+      "post": {
+        "description": "Call only after the user pressed a button and granted the browser permission. An existing token is taken over by the caller.",
+        "operationId": "PushController_registerDevice",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPushDeviceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushDeviceDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register this browser for push",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/push/devices/{id}": {
+      "delete": {
+        "operationId": "PushController_revokeDevice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Remove one of my push devices",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/push/preferences": {
+      "get": {
+        "operationId": "PushController_getPreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushPreferencesDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "My push events and quiet hours",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "PushController_updatePreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushPreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushPreferencesDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace my push events and quiet hours",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/push/test": {
+      "post": {
+        "description": "Limited to 5 per hour. 409 when no device is registered.",
+        "operationId": "PushController_sendTest",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushTestResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send a test push to my own devices",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/agent/domain-events": {
       "get": {
         "description": "Read-only, resumable feed ordered by monotonic sequence. Only sites the caller is authorized for are returned.",
@@ -14870,19 +15025,8 @@
                 "VEHICLE",
                 "SUPPLIER_PRICE_LIST",
                 "LABOR_OPERATION",
-                "PART",
-                "VENDOR",
-                "STOCK_OPENING_BALANCE",
-                "OPEN_WORKSHOP_ORDER",
-                "LEGACY_SERVICE_ORDER",
-                "LEGACY_INVOICE",
-                "LEGACY_OPEN_ITEM",
-                "TYRE_SET",
                 "VEHICLE_PARTY",
-                "VEHICLE_DUE_DATE",
-                "VEHICLE_NOTICE",
-                "LABOR_STANDARD_TIME",
-                "LABOR_PRICE_GROUP"
+                "VEHICLE_DUE_DATE"
               ],
               "type": "string"
             }
@@ -14994,6 +15138,28 @@
           }
         },
         "summary": "Download CSV import template (German headers)",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/entity-types": {
+      "get": {
+        "operationId": "ImportController_listEntityTypes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportEntityTypeListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the importable entity types with wizard availability and required template fields",
         "tags": [
           "imports"
         ]
@@ -15770,6 +15936,330 @@
         },
         "tags": [
           "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/{id}/inspect": {
+      "post": {
+        "operationId": "TyreStorageController_inspect",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TyreSetLocationActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record a tyre condition inspection (technicians allowed)",
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/workshop-orders/{id}/tyre-measurements": {
+      "post": {
+        "operationId": "TyreMeasurementController_createForOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTyreMeasurementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreMeasurementResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-measurements"
+        ]
+      },
+      "get": {
+        "operationId": "TyreMeasurementController_listForOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreMeasurementListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-measurements"
+        ]
+      }
+    },
+    "/api/workshop-check-ins/{id}/tyre-measurements": {
+      "post": {
+        "operationId": "TyreMeasurementController_createForCheckIn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTyreMeasurementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreMeasurementResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-measurements"
+        ]
+      },
+      "get": {
+        "operationId": "TyreMeasurementController_listForCheckIn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreMeasurementListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-measurements"
+        ]
+      }
+    },
+    "/api/tyre-set-events/{id}/tyre-measurements": {
+      "get": {
+        "operationId": "TyreMeasurementController_listForEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreMeasurementListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-measurements"
+        ]
+      }
+    },
+    "/api/tyre-measurements/{id}": {
+      "get": {
+        "operationId": "TyreMeasurementController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreMeasurementResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-measurements"
         ]
       }
     },
@@ -17321,6 +17811,29 @@
           "en"
         ]
       },
+      "EffectiveCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "nova": {
+            "type": "boolean"
+          },
+          "pickerl57a": {
+            "type": "boolean"
+          },
+          "kaufvertragAt": {
+            "type": "boolean"
+          },
+          "willhabenExport": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nova",
+          "pickerl57a",
+          "kaufvertragAt",
+          "willhabenExport"
+        ]
+      },
       "AuthSessionResponseDto": {
         "type": "object",
         "properties": {
@@ -17383,6 +17896,15 @@
           "formatLocale": {
             "type": "string",
             "example": "de-AT"
+          },
+          "effectiveCapabilities": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EffectiveCapabilitiesDto"
+              }
+            ]
           }
         },
         "required": [
@@ -17395,7 +17917,8 @@
           "locale",
           "effectiveLocale",
           "defaultLocale",
-          "formatLocale"
+          "formatLocale",
+          "effectiveCapabilities"
         ]
       },
       "SwitchTenantDto": {
@@ -25198,6 +25721,94 @@
           "vehiclePlate"
         ]
       },
+      "WorkshopLaborSummaryLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "revenue": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true
+          },
+          "margin": {
+            "type": "number",
+            "nullable": true
+          },
+          "efficiency": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "task_id",
+          "revenue"
+        ]
+      },
+      "WorkshopLaborSummaryTotalsDto": {
+        "type": "object",
+        "properties": {
+          "revenue": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true
+          },
+          "margin": {
+            "type": "number",
+            "nullable": true
+          },
+          "margin_percent": {
+            "type": "number",
+            "nullable": true
+          },
+          "standard_hours": {
+            "type": "number"
+          },
+          "actual_hours": {
+            "type": "number"
+          },
+          "efficiency": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "revenue",
+          "standard_hours",
+          "actual_hours"
+        ]
+      },
+      "WorkshopLaborSummaryDto": {
+        "type": "object",
+        "properties": {
+          "line_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopLaborSummaryLineDto"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkshopLaborSummaryTotalsDto"
+          },
+          "has_cost_data": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "line_items",
+          "totals",
+          "has_cost_data"
+        ]
+      },
       "WorkshopReadyEmailNoticeDto": {
         "type": "object",
         "properties": {
@@ -25330,6 +25941,14 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/WorkshopOrderLoanerBookingSummaryDto"
+              }
+            ]
+          },
+          "labor_summary": {
+            "description": "Labor margin and efficiency of the order detail (AUT-40). Null-safe: no cost rate or no hours yields null, not 0.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopLaborSummaryDto"
               }
             ]
           },
@@ -28663,6 +29282,133 @@
         "required": [
           "odometerIn",
           "fuelIn"
+        ]
+      },
+      "PushPlatform": {
+        "type": "string",
+        "enum": [
+          "IOS",
+          "ANDROID",
+          "DESKTOP"
+        ]
+      },
+      "PushDeviceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "platform": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PushPlatform"
+              }
+            ]
+          },
+          "browser": {
+            "type": "string",
+            "nullable": true
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "browser",
+          "installed",
+          "lastSeenAt",
+          "createdAt"
+        ]
+      },
+      "RegisterPushDeviceDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "FCM registration token of this browser. Stored, never returned and never logged."
+          },
+          "platform": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PushPlatform"
+              }
+            ]
+          },
+          "browser": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "Browser family only, for example \"chrome\"."
+          },
+          "installed": {
+            "type": "boolean",
+            "description": "True when the app runs as an installed PWA."
+          }
+        },
+        "required": [
+          "token",
+          "platform"
+        ]
+      },
+      "PushUserEventType": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER_ESTIMATE_DECIDED",
+          "WORKSHOP_TASK_WAITING_CUSTOMER",
+          "WORKSHOP_ORDER_READY"
+        ],
+        "description": "Events this user wants as push. Empty by default."
+      },
+      "PushPreferencesDto": {
+        "type": "object",
+        "properties": {
+          "enabledEvents": {
+            "type": "array",
+            "description": "Events this user wants as push. Empty by default.",
+            "items": {
+              "$ref": "#/components/schemas/PushUserEventType"
+            }
+          },
+          "quietStartMin": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1439,
+            "description": "Quiet hours start, minutes after midnight in the site timezone. Null together with the end means none."
+          },
+          "quietEndMin": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1439
+          }
+        },
+        "required": [
+          "enabledEvents",
+          "quietStartMin",
+          "quietEndMin"
+        ]
+      },
+      "PushTestResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Outbox row that carries the test push."
+          }
+        },
+        "required": [
+          "id"
         ]
       },
       "DomainEventEnvelopeResponseDto": {
@@ -37310,6 +38056,117 @@
           "csv"
         ]
       },
+      "ImplementedImportEntityType": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER",
+          "VEHICLE",
+          "SUPPLIER_PRICE_LIST",
+          "LABOR_OPERATION",
+          "VEHICLE_PARTY",
+          "VEHICLE_DUE_DATE"
+        ]
+      },
+      "ImportEntityTypeResponseDto": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImplementedImportEntityType"
+              }
+            ]
+          },
+          "wizard": {
+            "type": "boolean",
+            "description": "Offered in the settings import wizard; otherwise API-only"
+          },
+          "required_fields": {
+            "description": "Template field keys that every CSV row must map",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "entity_type",
+          "wizard",
+          "required_fields"
+        ]
+      },
+      "ImportEntityTypeListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "example": [
+              {
+                "entity_type": "CUSTOMER",
+                "wizard": true,
+                "required_fields": [
+                  "external_id"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE",
+                "wizard": true,
+                "required_fields": [
+                  "external_id",
+                  "make",
+                  "model",
+                  "year"
+                ]
+              },
+              {
+                "entity_type": "SUPPLIER_PRICE_LIST",
+                "wizard": true,
+                "required_fields": [
+                  "supplier_article_no",
+                  "description",
+                  "cost_price"
+                ]
+              },
+              {
+                "entity_type": "LABOR_OPERATION",
+                "wizard": true,
+                "required_fields": [
+                  "external_id",
+                  "code",
+                  "description",
+                  "standard_aw",
+                  "hourly_rate"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE_PARTY",
+                "wizard": false,
+                "required_fields": [
+                  "external_id",
+                  "vehicle_external_id",
+                  "customer_external_id",
+                  "role"
+                ]
+              },
+              {
+                "entity_type": "VEHICLE_DUE_DATE",
+                "wizard": false,
+                "required_fields": [
+                  "external_id",
+                  "vehicle_external_id",
+                  "kind"
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportEntityTypeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
       "ImportRowAction": {
         "type": "string",
         "enum": [
@@ -37410,6 +38267,20 @@
       "TyreStorageSettingsResponseDto": {
         "type": "object",
         "properties": {
+          "recommendationOverrides": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "recommendedBelowMm"
+              ],
+              "properties": {
+                "recommendedBelowMm": {
+                  "type": "number"
+                }
+              }
+            }
+          },
           "summerSwapMonth": {
             "type": "number"
           },
@@ -37427,6 +38298,7 @@
           }
         },
         "required": [
+          "recommendationOverrides",
           "summerSwapMonth",
           "summerSwapDay",
           "winterSwapMonth",
@@ -37437,6 +38309,25 @@
       "UpdateTyreStorageSettingsDto": {
         "type": "object",
         "properties": {
+          "recommendationOverrides": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "recommendedBelowMm"
+              ],
+              "properties": {
+                "recommendedBelowMm": {
+                  "type": "number",
+                  "maximum": 20
+                },
+                "legalMinimumMm": {
+                  "type": "number"
+                }
+              }
+            },
+            "description": "Profile-keyed amber overrides; may only raise defaults. Omission preserves saved values; {} resets them. Legal minima cannot change."
+          },
           "summerSwapMonth": {
             "type": "number",
             "minimum": 1,
@@ -37549,6 +38440,378 @@
           "occurredAt"
         ]
       },
+      "TyreThresholdsResponseDto": {
+        "type": "object",
+        "properties": {
+          "legalMinimumMm": {
+            "type": "number"
+          },
+          "recommendedBelowMm": {
+            "type": "number"
+          },
+          "ordinaryMinimumMm": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "legalMinimumMm",
+          "recommendedBelowMm",
+          "ordinaryMinimumMm"
+        ]
+      },
+      "TyreDotResponseDto": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "MODERN",
+              "LEGACY_PRE_2000"
+            ]
+          },
+          "productionWeek": {
+            "type": "number"
+          },
+          "productionYear": {
+            "type": "number",
+            "nullable": true
+          },
+          "productionDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "ageMonths": {
+            "type": "number",
+            "nullable": true
+          },
+          "minimumAgeMonths": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "format",
+          "productionWeek",
+          "productionYear",
+          "productionDate",
+          "ageMonths",
+          "minimumAgeMonths"
+        ]
+      },
+      "TyreEvaluationResponseDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "rulesVersion": {
+            "type": "string",
+            "enum": [
+              "AT_DE_2026_10"
+            ]
+          },
+          "country": {
+            "type": "string"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "weightClass": {
+            "type": "string",
+            "enum": [
+              "UP_TO_3500_KG",
+              "OVER_3500_KG"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "EVALUATED",
+              "UNSUPPORTED_COUNTRY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GOOD",
+              "RECOMMENDED",
+              "URGENT"
+            ],
+            "nullable": true
+          },
+          "reasonCodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "TREAD_BELOW_LEGAL_MINIMUM",
+                "AT_WINTER_TREAD_INSUFFICIENT",
+                "TREAD_REPLACEMENT_RECOMMENDED",
+                "DE_ALPINE_MISSING",
+                "AT_WINTER_RULE_NOTICE",
+                "DOT_CONDITION_CHECK_RECOMMENDED",
+                "DOT_REPLACEMENT_RECOMMENDED",
+                "DOT_LEGACY_OVER_20_YEARS",
+                "UNSUPPORTED_COUNTRY"
+              ]
+            }
+          },
+          "minimumTreadMm": {
+            "type": "number"
+          },
+          "thresholds": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreThresholdsResponseDto"
+              }
+            ]
+          },
+          "dot": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreDotResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "rulesVersion",
+          "country",
+          "evaluatedAt",
+          "weightClass",
+          "state",
+          "status",
+          "reasonCodes",
+          "minimumTreadMm",
+          "thresholds",
+          "dot"
+        ]
+      },
+      "TyreWheelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "FL",
+              "FR",
+              "RL",
+              "RR",
+              "SPARE"
+            ]
+          },
+          "treadInnerMm": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 20
+          },
+          "treadMiddleMm": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20,
+            "multipleOf": 0.01
+          },
+          "treadOuterMm": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 20
+          },
+          "season": {
+            "type": "string",
+            "enum": [
+              "SUMMER",
+              "WINTER",
+              "ALL_SEASON"
+            ]
+          },
+          "construction": {
+            "type": "string",
+            "enum": [
+              "RADIAL",
+              "DIAGONAL"
+            ]
+          },
+          "winterMarking": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "M_S",
+              "ALPINE"
+            ]
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "string",
+            "nullable": true
+          },
+          "dot": {
+            "type": "string",
+            "nullable": true
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "evaluation": {
+            "$ref": "#/components/schemas/TyreEvaluationResponseDto"
+          }
+        },
+        "required": [
+          "id",
+          "position",
+          "treadInnerMm",
+          "treadMiddleMm",
+          "treadOuterMm",
+          "season",
+          "construction",
+          "winterMarking",
+          "brand",
+          "model",
+          "size",
+          "dot",
+          "mediaId",
+          "evaluation"
+        ]
+      },
+      "TyreMeasurementResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "tyreSetId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "tyreSetEventId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "measuredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "measuredBy": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "measuredByName": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "weightClass": {
+            "type": "string",
+            "enum": [
+              "UP_TO_3500_KG",
+              "OVER_3500_KG"
+            ]
+          },
+          "weightClassSource": {
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "CAPTURE"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "CAPTURE",
+              "LEGACY_TREAD_JSON"
+            ]
+          },
+          "sourceRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "worstStatus": {
+            "type": "string",
+            "enum": [
+              "GOOD",
+              "RECOMMENDED",
+              "URGENT"
+            ],
+            "nullable": true
+          },
+          "wheels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TyreWheelResponseDto"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "siteId",
+          "vehicleId",
+          "workshopOrderId",
+          "checkInId",
+          "tyreSetId",
+          "tyreSetEventId",
+          "measuredAt",
+          "measuredBy",
+          "measuredByName",
+          "country",
+          "weightClass",
+          "weightClassSource",
+          "source",
+          "sourceRef",
+          "worstStatus",
+          "wheels",
+          "createdAt"
+        ]
+      },
       "TyreSetResponseDto": {
         "type": "object",
         "properties": {
@@ -37643,6 +38906,16 @@
             "items": {
               "$ref": "#/components/schemas/TyreSetEventResponseDto"
             }
+          },
+          "latestMeasurement": {
+            "nullable": true,
+            "description": "Most recent tyre measurement linked to this set.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreMeasurementResponseDto"
+              }
+            ]
           },
           "customerName": {
             "type": "string"
@@ -37828,6 +39101,96 @@
           }
         }
       },
+      "CreateTyreWheelDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "string",
+            "enum": [
+              "FL",
+              "FR",
+              "RL",
+              "RR",
+              "SPARE"
+            ]
+          },
+          "treadInnerMm": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20,
+            "multipleOf": 0.01
+          },
+          "treadMiddleMm": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20,
+            "multipleOf": 0.01
+          },
+          "treadOuterMm": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20,
+            "multipleOf": 0.01
+          },
+          "season": {
+            "type": "string",
+            "enum": [
+              "SUMMER",
+              "WINTER",
+              "ALL_SEASON"
+            ]
+          },
+          "construction": {
+            "type": "string",
+            "enum": [
+              "RADIAL",
+              "DIAGONAL"
+            ],
+            "default": "RADIAL"
+          },
+          "winterMarking": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "M_S",
+              "ALPINE"
+            ],
+            "default": "NONE"
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "size": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "dot": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "position",
+          "treadInnerMm",
+          "treadMiddleMm",
+          "treadOuterMm",
+          "season"
+        ]
+      },
       "TyreSetLocationActionDto": {
         "type": "object",
         "properties": {
@@ -37839,6 +39202,21 @@
           },
           "treadDepthMm": {
             "$ref": "#/components/schemas/TreadDepthDto"
+          },
+          "wheels": {
+            "description": "Measurements recorded with this event; supported on check-in, check-out and inspection.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateTyreWheelDto"
+            }
+          },
+          "weightClass": {
+            "type": "string",
+            "enum": [
+              "UP_TO_3500_KG",
+              "OVER_3500_KG"
+            ],
+            "description": "Weight class for the recorded readings; defaults to UP_TO_3500_KG."
           },
           "note": {
             "type": "string"
@@ -37854,6 +39232,62 @@
             "format": "date-time"
           }
         }
+      },
+      "CreateTyreMeasurementDto": {
+        "type": "object",
+        "properties": {
+          "wheels": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateTyreWheelDto"
+            }
+          },
+          "measuredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Capture time, defaults to now; cannot be in the future."
+          },
+          "weightClass": {
+            "type": "string",
+            "enum": [
+              "UP_TO_3500_KG",
+              "OVER_3500_KG"
+            ],
+            "default": "UP_TO_3500_KG"
+          },
+          "tyreSetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional set belonging to this vehicle and active site."
+          }
+        },
+        "required": [
+          "wheels"
+        ]
+      },
+      "Object": {
+        "type": "object",
+        "properties": {}
+      },
+      "TyreMeasurementListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TyreMeasurementResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
       },
       "MarginRuleBrandDto": {
         "type": "object",

@@ -12,10 +12,12 @@ import { toast } from 'sonner'
 import { resolveAuthBootstrapScreen } from '@/components/shell/auth-bootstrap-screen'
 import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
 import { resolveAuthenticatedSessionGate } from '@/components/shell/authenticated-app-session-gate'
+import { ShellPurgePrompt, type CheckInOfflinePurgePrompt } from '@/components/shell/ShellPurgePrompt'
+import { PushLinkGate, useShellPush, useSignOutRequest, useTenantSwitch } from '@/components/shell/use-shell-push'
 import { MechanicShell } from '@/components/shell/MechanicShell'
-import { shellSwitchSiteFailedMessage, shellSwitchTenantFailedMessage } from '@/lib/shell-session-toasts'
+import { shellSwitchSiteFailedMessage } from '@/lib/shell-session-toasts'
 import type { components } from '@/api/generated/openapi'
-import { useAuthSession, useSwitchTenant, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
+import { useAuthSession, useSwitchTenant, type AuthSession, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
 import { useMySites, useSetActiveSite, type MeSite } from '@/api/sites'
 import { Toaster } from '@/components/ui/sonner'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
@@ -32,13 +34,6 @@ import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashb
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
 import { generateId } from '@/lib/id'
-import { CheckInOfflinePurgeDialog } from '@/features/workshop/check-in/CheckInOfflinePurgeDialog'
-import { purgeAllCheckInOfflineData } from '@/features/workshop/check-in/check-in-offline-store'
-import {
-  hasUnsyncedCheckInOfflineData,
-  summarizeCheckInOfflineUnsynced,
-  type CheckInOfflineUnsyncedSummary,
-} from '@/features/workshop/check-in/check-in-offline-unsynced'
 import {
   APP_ROUTE_PATHS,
   LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH,
@@ -295,31 +290,82 @@ function LoginRoute() {
   )
 }
 
-type CheckInOfflinePurgePrompt =
-  | { kind: 'signOut'; summary: CheckInOfflineUnsyncedSummary }
-  | {
-      kind: 'switchTenant'
-      tenantId: string
-      summary: CheckInOfflineUnsyncedSummary
-    }
+/** The signed-in shell: tenant, site and sign-out switches, and the order links from web push (ADR-0033). */
+function AuthenticatedShell({
+  user,
+  session,
+  signOutUser,
+}: {
+  user: { uid: string; email: string | null }
+  session: AuthSession
+  signOutUser: () => Promise<void>
+}) {
+  const switchTenantMutation = useSwitchTenant()
+  // Scoped to the active tenant, so after a tenant switch the list of the old tenant is never taken for the new one.
+  const mySitesQuery = useMySites(true, session.activeTenant.id)
+  const switchSiteMutation = useSetActiveSite()
+  const [purgePrompt, setPurgePrompt] =
+    React.useState<CheckInOfflinePurgePrompt | null>(null)
+
+  const { completeTenantSwitch, requestTenantSwitch } = useTenantSwitch(
+    switchTenantMutation.mutateAsync,
+    setPurgePrompt,
+  )
+  const requestSignOut = useSignOutRequest(signOutUser, setPurgePrompt)
+  const pushLink = useShellPush({
+    session,
+    sites: mySitesQuery.data,
+    sitesLoading: mySitesQuery.isFetching,
+    requestTenantSwitch,
+    switchSite: switchSiteMutation.mutateAsync,
+  })
+
+  return (
+    <>
+      <PushLinkGate resolving={pushLink.resolving}>
+        <ShellRouter
+          userId={user.uid}
+          userEmail={user.email}
+          platformRole={session.platformRole ?? null}
+          activeTenant={session.activeTenant}
+          activeRole={session.activeRole}
+          memberships={session.memberships}
+          activeSiteId={session.activeSiteId}
+          sites={mySitesQuery.data ?? []}
+          isLoadingSites={mySitesQuery.isLoading}
+          isSwitchingTenant={switchTenantMutation.isPending}
+          isSwitchingSite={switchSiteMutation.isPending}
+          onSwitchTenant={(tenantId) => {
+            void requestTenantSwitch(tenantId)
+          }}
+          onSwitchSite={(siteId) => {
+            switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
+              toast.error(shellSwitchSiteFailedMessage(error))
+            })
+          }}
+          onSignOut={() => {
+            void requestSignOut()
+          }}
+        />
+      </PushLinkGate>
+      {purgePrompt && (
+        <ShellPurgePrompt
+          prompt={purgePrompt}
+          onClose={() => setPurgePrompt(null)}
+          onCancel={pushLink.abandon}
+          onSwitchFailed={pushLink.abandon}
+          completeTenantSwitch={completeTenantSwitch}
+          signOutUser={signOutUser}
+        />
+      )}
+    </>
+  )
+}
 
 function AuthenticatedApp() {
   const { user, loading, authInitTimedOut, signOutUser } = useAuth()
   const location = useLocation()
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
-  const switchTenantMutation = useSwitchTenant()
-  const mySitesQuery = useMySites(Boolean(sessionQuery.data))
-  const switchSiteMutation = useSetActiveSite()
-  const [purgePrompt, setPurgePrompt] =
-    React.useState<CheckInOfflinePurgePrompt | null>(null)
-
-  const completeTenantSwitch = React.useCallback(
-    async (tenantId: string) => {
-      await switchTenantMutation.mutateAsync(tenantId)
-      await purgeAllCheckInOfflineData().catch(() => undefined)
-    },
-    [switchTenantMutation],
-  )
 
   const isUnknownPath = !isKnownAppPath(location.pathname)
 
@@ -354,76 +400,7 @@ function AuthenticatedApp() {
     return <ShellSessionLoadFailed />
   }
 
-  return (
-    <>
-      <ShellRouter
-        userId={user.uid}
-        userEmail={user.email ?? null}
-        platformRole={session.platformRole ?? null}
-        activeTenant={session.activeTenant}
-        activeRole={session.activeRole}
-        memberships={session.memberships}
-        activeSiteId={session.activeSiteId}
-        sites={mySitesQuery.data ?? []}
-        isLoadingSites={mySitesQuery.isLoading}
-        isSwitchingTenant={switchTenantMutation.isPending}
-        isSwitchingSite={switchSiteMutation.isPending}
-        onSwitchTenant={(tenantId) => {
-          void (async () => {
-            const summary = await summarizeCheckInOfflineUnsynced()
-            if (hasUnsyncedCheckInOfflineData(summary)) {
-              setPurgePrompt({ kind: 'switchTenant', tenantId, summary })
-              return
-            }
-            try {
-              await completeTenantSwitch(tenantId)
-            } catch (error: unknown) {
-              toast.error(shellSwitchTenantFailedMessage(error))
-            }
-          })()
-        }}
-        onSwitchSite={(siteId) => {
-          switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
-            toast.error(shellSwitchSiteFailedMessage(error))
-          })
-        }}
-        onSignOut={() => {
-          void (async () => {
-            const summary = await summarizeCheckInOfflineUnsynced()
-            if (hasUnsyncedCheckInOfflineData(summary)) {
-              setPurgePrompt({ kind: 'signOut', summary })
-              return
-            }
-            await purgeAllCheckInOfflineData().catch(() => undefined)
-            await signOutUser()
-          })()
-        }}
-      />
-      {purgePrompt && (
-        <CheckInOfflinePurgeDialog
-          open
-          summary={purgePrompt.summary}
-          onCancel={() => setPurgePrompt(null)}
-          onConfirm={() => {
-            const prompt = purgePrompt
-            setPurgePrompt(null)
-            void (async () => {
-              if (prompt.kind === 'switchTenant') {
-                try {
-                  await completeTenantSwitch(prompt.tenantId)
-                } catch (error: unknown) {
-                  toast.error(shellSwitchTenantFailedMessage(error))
-                }
-                return
-              }
-              await purgeAllCheckInOfflineData().catch(() => undefined)
-              await signOutUser()
-            })()
-          }}
-        />
-      )}
-    </>
-  )
+  return <AuthenticatedShell user={user} session={session} signOutUser={signOutUser} />
 }
 
 function App() {

@@ -381,6 +381,12 @@ Use Google Secret Manager (GSM) as the source of truth for local dev credentials
 
 Never commit real secret values or generated local `.env` files.
 
+## Parallel local worktrees (optional)
+
+Cloud agents ignore this section. On one machine you can run several coding agents in parallel, each in its own git worktree, with isolated API/Vite ports, env files, and Postgres databases. Use the root scripts `npm run worktree:new`, `worktree:setup`, and `worktree:remove`, plus `docker compose -f docker-compose.worktrees.yml up -d` for shared local Postgres. Full steps: [docs/local-multi-worktree-development.md](docs/local-multi-worktree-development.md) (EN) and [docs/lokale-multi-worktree-entwicklung.md](docs/lokale-multi-worktree-entwicklung.md) (DE).
+
+**Local agents** whose tool creates the worktree itself (e.g. Codex, Qoder): if you are in a **linked** git worktree (not the primary checkout) and `apps/core-api/.env` is missing, run `npm run worktree:setup` before building, testing, or starting the app. **Cloud agents** (Cursor Cloud Agent runs, `NODE_ENV=test`, no local Docker) must **not** run worktree setup — skip this entirely.
+
 ## Database Performance
 🔴 **DON'T:** Never execute an `await` database query (read or write) inside a loop (N+1 anti-pattern).
 🟢 **DO:** For reads, use the "Pre-fetch & Map" pattern with `in:` queries. For writes, map the data to an array of Prisma queries and resolve them concurrently using our global chunking utility `chunkedPromiseAll` inside a transaction.

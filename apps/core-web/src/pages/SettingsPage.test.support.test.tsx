@@ -213,6 +213,10 @@ vi.mock('@/components/settings/TeamSettingsTab', () => ({
   TeamSettingsTab: () => <div>Team tab content</div>,
 }))
 
+vi.mock('@/components/settings/notifications/NotificationsSettingsTab', () => ({
+  NotificationsSettingsTab: () => <div>Notifications tab content</div>,
+}))
+
 vi.mock('@/components/settings/AuditLogsTab', () => ({
   AuditLogsTab: () => <div>Audit logs tab content</div>,
 }))

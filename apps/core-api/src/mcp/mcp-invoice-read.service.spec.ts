@@ -493,7 +493,7 @@ describe('McpInvoiceReadService.getInvoice', () => {
         unit_net: item.unit_price,
         tax_rate: item.tax_rate,
         net: SNAPSHOT_V2.items[index].net,
-        gross: item.line_total,
+        gross: SNAPSHOT_V2.items[index].gross,
       })),
     );
     expect(invoice.seller).toEqual(pdf!.seller);

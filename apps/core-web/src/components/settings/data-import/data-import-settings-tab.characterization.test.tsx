@@ -6,6 +6,9 @@ import type { ImportJob } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 import { toast } from 'sonner'
 
+import deCommon from '../../../../../../locales/de/common.json'
+import deErrors from '../../../../../../locales/de/errors.json'
+
 import {
   LABOR_CSV,
   SUPPLIER_CSV,
@@ -13,6 +16,7 @@ import {
   customerRow,
   di,
   entityLabels,
+  failedApplyJob,
   goToMappingStep,
   installImportApiMocks,
   laborDryRunJob,
@@ -56,6 +60,7 @@ vi.mock('@/api/imports', async (importOriginal) => {
   return {
     ...actual,
     useImportTemplate: vi.fn(),
+    useImportEntityTypes: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -67,6 +72,15 @@ vi.mock('@/api/imports', async (importOriginal) => {
 })
 
 let mocks: ImportApiMocks
+
+function failedResultSummary(): string {
+  return di.result.summary
+    .replace('{{status}}', 'FAILED')
+    .replace('{{created}}', '0')
+    .replace('{{updated}}', '0')
+    .replace('{{skipped}}', '0')
+    .replace('{{errors}}', '0')
+}
 
 describe('DataImportSettingsTab characterization', () => {
   beforeEach(() => {
@@ -161,12 +175,61 @@ describe('DataImportSettingsTab characterization', () => {
       )
     })
 
+    it('offers only the wizard entity types of the registry', async () => {
+      renderImportSettingsTab()
+
+      fireEvent.click(screen.getByRole('combobox', { name: di.source.entityLabel }))
+      const options = await screen.findAllByRole('option')
+
+      expect(options.map((option) => option.textContent)).toEqual([
+        entityLabels.CUSTOMER,
+        entityLabels.VEHICLE,
+        entityLabels.SUPPLIER_PRICE_LIST,
+        entityLabels.LABOR_OPERATION,
+      ])
+      expect(entityLabels.VEHICLE_PARTY).toBeTruthy()
+      expect(entityLabels.VEHICLE_DUE_DATE).toBeTruthy()
+      expect(screen.queryByRole('option', { name: entityLabels.VEHICLE_PARTY })).toBeNull()
+      expect(screen.queryByRole('option', { name: entityLabels.VEHICLE_DUE_DATE })).toBeNull()
+    })
+
     it('pre-selects the entity type from the URL search params', () => {
       renderImportSettingsTab({ initialEntries: ['/?tab=data-import&entity=LABOR_OPERATION'] })
 
       expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
         entityLabels.LABOR_OPERATION,
       )
+    })
+
+    it('shows the selected entity type while the registry is still loading', () => {
+      ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: undefined,
+      })
+
+      renderImportSettingsTab({ initialEntries: ['/?tab=data-import&entity=LABOR_OPERATION'] })
+
+      expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
+        entityLabels.LABOR_OPERATION,
+      )
+      expect(screen.queryByText(di.source.entityTypesLoadFailed)).not.toBeInTheDocument()
+    })
+
+    it('says the entity types could not be loaded and loads them again on retry', () => {
+      const refetch = vi.fn()
+      ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: undefined,
+        isError: true,
+        refetch,
+      })
+
+      renderImportSettingsTab()
+
+      expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveAccessibleDescription(
+        di.source.entityTypesLoadFailed,
+      )
+      fireEvent.click(screen.getByRole('button', { name: deCommon.actions.retry }))
+
+      expect(refetch).toHaveBeenCalledTimes(1)
     })
 
     it('switches the source system to the supplier default for supplier price lists', async () => {
@@ -557,6 +620,34 @@ describe('DataImportSettingsTab characterization', () => {
       })
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['labor', 'operations'] })
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['labor', 'categories'] })
+    })
+
+    it('shows the localized reason of a failed job from the error catalog', async () => {
+      mocks.apply.mutateAsync.mockResolvedValue(failedApplyJob('IMPORT_INVALID_ENCODING'))
+      renderImportSettingsTab()
+
+      await goToMappingStep()
+      await runDryRun()
+      fireEvent.click(await openApplyDialog())
+
+      expect(
+        await screen.findByText(deErrors.codes.IMPORT_INVALID_ENCODING),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('IMPORT_INVALID_ENCODING')).not.toBeInTheDocument()
+      expect(screen.queryByText(failedResultSummary())).not.toBeInTheDocument()
+    })
+
+    it('falls back to a generic sentence for an unknown failure code', async () => {
+      mocks.apply.mutateAsync.mockResolvedValue(failedApplyJob('FUTURE_IMPORT_FAILURE'))
+      renderImportSettingsTab()
+
+      await goToMappingStep()
+      await runDryRun()
+      fireEvent.click(await openApplyDialog())
+
+      expect(await screen.findByText(di.result.failedReasonFallback)).toBeInTheDocument()
+      expect(screen.queryByText('FUTURE_IMPORT_FAILURE')).not.toBeInTheDocument()
+      expect(screen.queryByText(failedResultSummary())).not.toBeInTheDocument()
     })
 
     it('disables the confirm button while the apply request is pending', async () => {

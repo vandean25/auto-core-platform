@@ -102,6 +102,15 @@
     "ABORTED": "Aborted",
     "MOVED": "Moved"
   },
+  "tyreMeasurementStatus": {
+    "GOOD": "Measured values within thresholds",
+    "RECOMMENDED": "Recommendation",
+    "URGENT": "Urgent action needed"
+  },
+  "tyreEvaluationState": {
+    "EVALUATED": "Evaluated",
+    "UNSUPPORTED_COUNTRY": "Country not supported"
+  },
   "inventoryTransactionType": {
     "PURCHASE_RECEIPT": "Purchase receipt",
     "SALE_ISSUE": "Sale issue",
@@ -129,7 +138,9 @@
     "CUSTOMER": "Customer",
     "VEHICLE": "Vehicle",
     "SUPPLIER_PRICE_LIST": "Supplier price list",
-    "LABOR_OPERATION": "Labor operations"
+    "LABOR_OPERATION": "Labor operations",
+    "VEHICLE_PARTY": "Vehicle parties",
+    "VEHICLE_DUE_DATE": "Vehicle due dates"
   },
   "importField": {
     "customer": {

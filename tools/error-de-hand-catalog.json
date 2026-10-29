@@ -380,6 +380,18 @@
   "TIME_IN_PAST": "Der Termin liegt in der Vergangenheit.",
   "TRANSCRIPT_EMPTY": "In der Aufnahme war keine Sprache erkennbar.",
   "TRANSITION_2027_TOLERANCE": "Übergang 2027: Legacy-Toleranz −1/+4 Monate, spätes Ende maximal November 2027 (WKO §132 Abs 37 Z 3; WKO-Quelle, im Motor nicht gegen RIS verifiziert).",
+  "TYRE_DOT_FUTURE_DATE": "Die DOT-Angabe liegt nach dem Erfassungsdatum der Messung. Bitte prüfen Sie DOT-Angabe und Erfassungsdatum.",
+  "TYRE_DOT_INVALID_FORMAT": "Die DOT-Datumsangabe ist ungültig. Bitte geben Sie die drei oder vier Ziffern am Ende der DOT-Kennzeichnung ein.",
+  "TYRE_DOT_INVALID_WEEK": "Die Herstellungswoche in der DOT-Angabe ist ungültig. Bitte prüfen Sie Woche und Jahr auf dem Reifen.",
+  "TYRE_EVALUATION_DATE_INVALID": "Das Erfassungsdatum der Reifenmessung ist ungültig oder liegt in der Zukunft. Bitte prüfen Sie Datum und Uhrzeit.",
+  "TYRE_MEASUREMENT_EVENT_INVALID": "Messwerte können nur bei Einlagerung, Auslagerung oder Prüfung erfasst werden.",
+  "TYRE_MEASUREMENT_MEDIA_INVALID": "Mindestens ein Foto kann dieser Reifenmessung nicht zugeordnet werden. Bitte prüfen Sie die Auswahl und laden Sie das Foto bei Bedarf erneut hoch.",
+  "TYRE_MEASUREMENT_NOT_FOUND": "Die Reifenmessung wurde nicht gefunden. Bitte laden Sie die Seite neu und wählen Sie eine vorhandene Messung.",
+  "TYRE_MEASUREMENT_ORDER_MISMATCH": "Der Werkstattauftrag gehört zu einem anderen Fahrzeug als dieser Reifensatz. Bitte prüfen Sie den Auftrag und versuchen Sie es erneut.",
+  "TYRE_MEASUREMENT_PARENT_NOT_FOUND": "Der zugehörige Eintrag für diese Reifenmessung wurde nicht gefunden. Bitte laden Sie die Seite neu und prüfen Sie die Zuordnung.",
+  "TYRE_MEASUREMENT_VEHICLE_REQUIRED": "Messwerte erfordern einen Reifensatz mit Fahrzeugzuordnung. Bitte verknüpfen Sie zuerst ein Fahrzeug mit dem Satz.",
+  "TYRE_THRESHOLDS_INVALID": "Die Grenzwerte für die Reifenbewertung sind ungültig. Bitte prüfen Sie die empfohlenen Grenzwerte; sie dürfen die Vorgaben nicht unterschreiten und höchstens 20 mm betragen. Gesetzliche Mindestwerte dürfen nicht geändert werden.",
+  "TYRE_TREAD_INVALID": "Die Profiltiefe ist ungültig. Bitte geben Sie an jeder Messstelle einen Wert zwischen 0 und 20 mm mit höchstens zwei Nachkommastellen ein.",
   "UNEXPECTED_ERROR": "Unerwarteter Absenderfehler.",
   "UNKNOWN_CODE": "Der gewählte Katalogcode ist unbekannt.",
   "UNSUPPORTED_CHANNEL": "Für diesen Kanal gibt es keinen Absender.",
@@ -451,5 +463,8 @@
   "WORKSHOP_ORDER_NOT_OPEN": "Wartende Aufgaben können nur fortgesetzt werden, solange der Auftrag offen ist.",
   "WORKSHOP_ROLE_FORBIDDEN": "Werkstattrolle nicht berechtigt.",
   "WORKSHOP_TASK_CHANGED": "Die Aufgaben wurden beim Fortsetzen geändert. Laden Sie den Auftrag neu und versuchen Sie es erneut.",
-  "ZERO_UNIT_PRICE": "Stückpreis null."
+  "ZERO_UNIT_PRICE": "Stückpreis null.",
+  "EVENT_NOT_PUSHABLE": "Für dieses Ereignis gibt es keine Push-Nachricht.",
+  "PUSH_MESSAGE_REJECTED": "Der Push-Dienst hat die Nachricht als ungültig abgelehnt.",
+  "PUSH_PROVIDER_UNAVAILABLE": "Der Push-Dienst hat die Nachricht nicht angenommen. Sie wird erneut versucht."
 }

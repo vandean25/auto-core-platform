@@ -1,12 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   NotificationChannel,
+  type NotificationEventType,
   NotificationOutboxStatus,
   NotificationRecipientKind,
   type Prisma,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
+import {
+  PushDeliveryService,
+  type PushDeliveryOutcome,
+} from '../push/push-delivery.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { isPlainEmailAddress } from './email/email-address.js';
@@ -43,7 +48,10 @@ const ACCEPTED_WRITE_ATTEMPTS = 3;
 
 interface ClaimedRow {
   channel: NotificationChannel;
-  event_type: string;
+  event_type: NotificationEventType;
+  recipient_user_id: string | null;
+  workshop_order_id: string | null;
+  createdAt: Date;
   recipient_kind: NotificationRecipientKind;
   payload: Prisma.JsonValue | null;
   recipient_email: string | null;
@@ -84,6 +92,7 @@ export class NotificationOutboxWorkerService {
     private readonly providers: EmailProviderResolver,
     private readonly wakeUps: NotificationCloudTasksService,
     private readonly systemPrisma: SystemPrismaService,
+    private readonly push: PushDeliveryService,
   ) {}
 
   /** One attempt for one row. Called by the Cloud Tasks worker route, never by a request handler. */
@@ -138,6 +147,9 @@ export class NotificationOutboxWorkerService {
       select: {
         channel: true,
         event_type: true,
+        recipient_user_id: true,
+        workshop_order_id: true,
+        createdAt: true,
         recipient_kind: true,
         payload: true,
         recipient_email: true,
@@ -178,14 +190,21 @@ export class NotificationOutboxWorkerService {
     }
   }
 
-  private async attempt(a: Attempt): Promise<void> {
-    if (a.row.channel !== NotificationChannel.EMAIL) {
-      // IN_APP rows are written ACCEPTED, so only a future writer can reach this guard.
-      return this.fail(a, {
-        code: 'UNSUPPORTED_CHANNEL',
-        message: 'This channel has no sender',
-      });
+  private attempt(a: Attempt): Promise<void> {
+    if (a.row.channel === NotificationChannel.PUSH) {
+      return this.attemptPush(a);
     }
+    if (a.row.channel === NotificationChannel.EMAIL) {
+      return this.attemptEmail(a);
+    }
+    // IN_APP rows are written ACCEPTED, so only a future writer can reach this guard.
+    return this.fail(a, {
+      code: 'UNSUPPORTED_CHANNEL',
+      message: 'This channel has no sender',
+    });
+  }
+
+  private async attemptEmail(a: Attempt): Promise<void> {
     const recipient = a.row.recipient_email;
     if (!recipient) {
       return this.fail(a, {
@@ -222,37 +241,18 @@ export class NotificationOutboxWorkerService {
         message: 'The sender address is not configured',
       });
     }
-    // Blank counts as missing, like the writer's check: a blank subject or body would reach the provider.
-    if (
-      !a.row.sender_name?.trim() ||
-      !a.row.subject?.trim() ||
-      !a.row.body?.trim()
-    ) {
-      return this.fail(a, {
-        code: 'MESSAGE_INCOMPLETE',
-        message: 'The outbox row has no sender name, subject or body',
-      });
+    const content = readEmailContent(a.row);
+    if ('code' in content) {
+      return this.fail(a, content);
     }
-    // The builder checks these too; the worker checks again, since any writer of the row could skip it.
-    if (
-      !isSingleLineText(a.row.sender_name) ||
-      !isSingleLineText(a.row.subject) ||
-      (a.row.reply_to_email && !isPlainEmailAddress(a.row.reply_to_email))
-    ) {
-      return this.fail(a, {
-        code: 'MESSAGE_INVALID',
-        message: 'The outbox row has a value that is unsafe in an email header',
-      });
-    }
-
     const message: OutgoingEmail = {
       to: recipient,
-      from: { email: a.config.fromAddress, name: a.row.sender_name },
+      from: { email: a.config.fromAddress, name: content.senderName },
       replyTo: a.row.reply_to_email
-        ? { email: a.row.reply_to_email, name: a.row.sender_name }
+        ? { email: a.row.reply_to_email, name: content.senderName }
         : null,
-      subject: a.row.subject,
-      text: a.row.body,
+      subject: content.subject,
+      text: content.body,
       tags: [a.row.event_type],
     };
 
@@ -268,21 +268,7 @@ export class NotificationOutboxWorkerService {
         NOTIFICATION_PROVIDER_TIMEOUT_MS,
       );
     } catch (error) {
-      const failure = toProviderFailure(error);
-      if (failure.transient) {
-        return this.retryOrFail(a, failure);
-      }
-      if (failure.recipientRejected) {
-        await this.fail(a, failure);
-        return withdrawConfirmationAfterRefusal(this.prisma, {
-          tenantId: a.tenantId,
-          outboxId: a.outboxId,
-          recipientKind: a.row.recipient_kind,
-          recipientEmail: a.row.recipient_email,
-          payload: a.row.payload,
-        });
-      }
-      return this.fail(a, failure);
+      return this.recordEmailSendError(a, error);
     }
     // The provider has accepted the message, so nothing from here may schedule another send.
     return this.recordAccepted(a, {
@@ -293,6 +279,72 @@ export class NotificationOutboxWorkerService {
       last_error_code: null,
       last_error_message: null,
     });
+  }
+
+  private async recordEmailSendError(
+    a: Attempt,
+    error: unknown,
+  ): Promise<void> {
+    const failure = toProviderFailure(error);
+    if (failure.transient) {
+      return this.retryOrFail(a, failure);
+    }
+    if (failure.recipientRejected) {
+      await this.fail(a, failure);
+      return withdrawConfirmationAfterRefusal(this.prisma, {
+        tenantId: a.tenantId,
+        outboxId: a.outboxId,
+        recipientKind: a.row.recipient_kind,
+        recipientEmail: a.row.recipient_email,
+        payload: a.row.payload,
+      });
+    }
+    return this.fail(a, failure);
+  }
+
+  /** A PUSH row (ADR-0033): the push sender decides, and the outcome is written to the row like an email's. */
+  private async attemptPush(a: Attempt): Promise<void> {
+    const outcome = await this.push.deliver(
+      {
+        outboxId: a.outboxId,
+        tenantId: a.tenantId,
+        eventType: a.row.event_type,
+        recipientUserId: a.row.recipient_user_id,
+        workshopOrderId: a.row.workshop_order_id,
+        payload: a.row.payload,
+        createdAt: a.row.createdAt,
+      },
+      a.now,
+    );
+    return this.recordPushOutcome(a, outcome);
+  }
+
+  private recordPushOutcome(
+    a: Attempt,
+    outcome: PushDeliveryOutcome,
+  ): Promise<void> {
+    switch (outcome.kind) {
+      case 'accepted':
+        // A push is never resent once any device accepted it, so a failed status write is only retried, never rescheduled.
+        return this.recordAccepted(a, {
+          status: NotificationOutboxStatus.ACCEPTED,
+          provider: 'fcm',
+          accepted_at: a.now,
+          last_error_code: null,
+          last_error_message: null,
+        });
+      case 'suppressed':
+        return this.record(a, {
+          status: NotificationOutboxStatus.SUPPRESSED,
+          suppressed_reason: outcome.reason,
+          last_error_code: null,
+          last_error_message: null,
+        });
+      case 'retry':
+        return this.retryOrFail(a, outcome);
+      case 'failed':
+        return this.fail(a, outcome);
+    }
   }
 
   /** Read under SystemPrisma, like the sweeps that walk every tenant. */
@@ -415,6 +467,34 @@ export class NotificationOutboxWorkerService {
  * records its outcome before the lease expires. A late answer is dropped. The idempotency key lets a
  * provider that supports it dedupe the retry that follows.
  */
+/** The sender name, subject and body of an EMAIL row, or why the row cannot be sent. */
+function readEmailContent(
+  row: ClaimedRow,
+): Failure | { senderName: string; subject: string; body: string } {
+  const senderName = row.sender_name;
+  const subject = row.subject;
+  const body = row.body;
+  // Blank counts as missing, like the writer's check: a blank subject or body would reach the provider.
+  if (!senderName?.trim() || !subject?.trim() || !body?.trim()) {
+    return {
+      code: 'MESSAGE_INCOMPLETE',
+      message: 'The outbox row has no sender name, subject or body',
+    };
+  }
+  // The builder checks these too; the worker checks again, since any writer of the row could skip it.
+  if (
+    !isSingleLineText(senderName) ||
+    !isSingleLineText(subject) ||
+    (row.reply_to_email && !isPlainEmailAddress(row.reply_to_email))
+  ) {
+    return {
+      code: 'MESSAGE_INVALID',
+      message: 'The outbox row has a value that is unsafe in an email header',
+    };
+  }
+  return { senderName, subject, body };
+}
+
 function withProviderDeadline<T>(call: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {

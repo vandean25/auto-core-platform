@@ -1,4 +1,8 @@
 import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  findCountryPack,
+  resolveCountryPack,
+} from '../common/country-pack/country-pack.registry.js';
 
 export const MARGIN_SCHEME_SELLER_COUNTRY_UNSUPPORTED_CODE =
   'MARGIN_SCHEME_SELLER_COUNTRY_UNSUPPORTED';
@@ -16,7 +20,7 @@ export const MARGIN_SCHEME_LEGAL_NOTES: Record<
 export function isMarginSchemeSellerCountry(
   countryIso: string | undefined | null,
 ): countryIso is MarginSchemeSellerCountry {
-  return countryIso === 'AT' || countryIso === 'DE';
+  return findCountryPack(countryIso) !== undefined;
 }
 
 export function assertMarginSchemeSellerCountrySupported(
@@ -37,5 +41,7 @@ export function resolveMarginSchemeLegalNote(
   countryIso: string | undefined | null,
 ): string {
   const country = assertMarginSchemeSellerCountrySupported(countryIso);
-  return MARGIN_SCHEME_LEGAL_NOTES[country];
+  return MARGIN_SCHEME_LEGAL_NOTES[
+    resolveCountryPack(country).marginSchemeNoteKey
+  ];
 }

@@ -102,6 +102,15 @@
     "ABORTED": "Abgebrochen",
     "MOVED": "Umgelagert"
   },
+  "tyreMeasurementStatus": {
+    "GOOD": "Messwerte unauffällig",
+    "RECOMMENDED": "Empfehlung",
+    "URGENT": "Dringender Handlungsbedarf"
+  },
+  "tyreEvaluationState": {
+    "EVALUATED": "Bewertet",
+    "UNSUPPORTED_COUNTRY": "Land nicht unterstützt"
+  },
   "inventoryTransactionType": {
     "PURCHASE_RECEIPT": "Wareneingang",
     "SALE_ISSUE": "Verkaufsausgang",
@@ -129,7 +138,9 @@
     "CUSTOMER": "Kunde",
     "VEHICLE": "Fahrzeug",
     "SUPPLIER_PRICE_LIST": "Lieferantenpreisliste",
-    "LABOR_OPERATION": "Arbeitswerte"
+    "LABOR_OPERATION": "Arbeitswerte",
+    "VEHICLE_PARTY": "Fahrzeugbeteiligte",
+    "VEHICLE_DUE_DATE": "Fahrzeugfälligkeiten"
   },
   "importField": {
     "customer": {

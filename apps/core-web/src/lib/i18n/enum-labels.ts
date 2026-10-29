@@ -4,6 +4,7 @@ import type { TOptions } from 'i18next'
 import {
   importFieldSegmentForEntity,
   type DataTableColumnId,
+  type ImplementedImportEntityType,
   type ImportEntityTypeUi,
 } from './enum-registry'
 import { i18n } from './init-i18n'
@@ -54,7 +55,7 @@ export function formatTenantMemberRole(role: string): string {
   return enumsT()(`tenantMemberRole.${role}`, { defaultValue: role })
 }
 
-export function formatImportEntityTypeLabel(entityType: ImportEntityTypeUi): string {
+export function formatImportEntityTypeLabel(entityType: ImplementedImportEntityType): string {
   return translateEnum('importEntityType', entityType)
 }
 

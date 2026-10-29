@@ -170,6 +170,8 @@ model Tenant {
   documentBrandQuotaLocks          DocumentBrandQuotaLock[]
   tyreSets                         TyreSet[]
   tyreSetEvents                    TyreSetEvent[]
+  tyreMeasurements                 TyreMeasurement[]
+  tyreWheelReadings                TyreWheelReading[]
   tyreStorageSettings              TyreStorageSettings?
   documentBrandExtractions         DocumentBrandExtraction[]
   importJobs                       ImportJob[]
@@ -196,6 +198,8 @@ model Tenant {
   marginRules                      MarginRule[]
   catalogPriceHistories            CatalogPriceHistory[]
   tenantApiKeys                    TenantApiKey[]
+  pushDevices                      PushDevice[]
+  pushPreferences                  PushPreference[]
   vehicleParties                   VehicleParty[]
   vehicleNotices                   VehicleNotice[]
 
@@ -319,6 +323,9 @@ model User {
   vehicleMediaCreated               VehicleMedia[]               @relation("VehicleMediaCreatedBy")
   paymentsRecorded                  Payment[]                    @relation("PaymentRecordedBy")
   landingDemoSignInGrants           LandingDemoSignInGrant[]
+  tyreMeasurements                  TyreMeasurement[]
+  pushDevices                       PushDevice[]
+  pushPreferences                   PushPreference[]
   createdAt                         DateTime                     @default(now())
   updatedAt                         DateTime                     @updatedAt
 
@@ -867,6 +874,7 @@ model Site {
   vehicleMedia                   VehicleMedia[]
   vehicleListings                VehicleListing[]
   tyreSets                       TyreSet[]
+  tyre_measurements              TyreMeasurement[]
   invoices                       Invoice[]
   creditNotes                    CreditNote[]
   workshopEstimates              WorkshopEstimate[]
@@ -1867,6 +1875,7 @@ model Vehicle {
   equipmentFreeTextItems          VehicleEquipmentFreeTextItem[]
   listings                        VehicleListing[]
   tyre_sets                       TyreSet[]
+  tyre_measurements               TyreMeasurement[]
   appliedRegistrationIntakes      RegistrationDocumentIntake[]    @relation("RegistrationIntakeAppliedVehicle")
   legacyDocuments                 LegacyDocument[]
   parties                         VehicleParty[]
@@ -3772,6 +3781,7 @@ model WorkshopOrder {
   vehicle_ledger_entries          VehicleLedgerEntry[]
   loaner_bookings                 LoanerBooking[]
   tyre_set_events                 TyreSetEvent[]
+  tyre_measurements               TyreMeasurement[]
   warranty_claims                 WarrantyClaim[]
   appliedRegistrationIntakes      RegistrationDocumentIntake[]    @relation("RegistrationIntakeAppliedOrder")
   inspectionMeasurementIdentities InspectionMeasurementIdentity[]
@@ -3790,6 +3800,7 @@ model WorkshopOrder {
   pdf_render_input     Json?
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, site_id, vehicle_id, id], map: "workshop_orders_tyre_context_key")
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
   @@index([tenant_id, site_id])
@@ -4048,6 +4059,8 @@ enum NotificationEventType {
   CUSTOMER_ESTIMATE_SENT
   CUSTOMER_ESTIMATE_DECIDED
   WORKSHOP_ORDER_READY
+  /// ADR-0033: the test push a user sends to their own devices from the notification settings.
+  PUSH_TEST
   LANDING_DEMO_MAGIC_LINK
   LANDING_DEMO_OPERATOR_ALERT
 }
@@ -4055,6 +4068,8 @@ enum NotificationEventType {
 enum NotificationChannel {
   IN_APP
   EMAIL
+  /// ADR-0033: FCM web push to the devices of one staff user.
+  PUSH
 }
 
 enum NotificationRecipientKind {
@@ -4116,6 +4131,8 @@ model NotificationOutbox {
   suppressed_reason   String?
   sender_name         String?
   reply_to_email      String?
+  /// ADR-0033: the staff user a PUSH row is for. Plain column, no foreign key: the row outlives the user (retention).
+  recipient_user_id   String?
   createdAt           DateTime                  @default(now())
   updatedAt           DateTime                  @updatedAt
 
@@ -4123,6 +4140,7 @@ model NotificationOutbox {
   @@index([tenant_id])
   @@index([tenant_id, workshop_order_id, createdAt])
   @@index([tenant_id, status, next_attempt_at])
+  @@index([tenant_id, recipient_user_id, createdAt])
   @@map("notification_outbox")
 }
 
@@ -4288,54 +4306,158 @@ enum TyreSetEventType {
   DISPOSED
 }
 
+enum TyreWheelPosition {
+  FL
+  FR
+  RL
+  RR
+  SPARE
+}
+
+enum TyreConstruction {
+  RADIAL
+  DIAGONAL
+}
+
+enum TyreWinterMarking {
+  NONE
+  M_S
+  ALPINE
+}
+
+enum TyreVehicleWeightClass {
+  UP_TO_3500_KG
+  OVER_3500_KG
+}
+
+enum TyreWeightClassSource {
+  DEFAULT
+  CAPTURE
+}
+
+enum TyreMeasurementSource {
+  CAPTURE
+  LEGACY_TREAD_JSON
+}
+
+model TyreMeasurement {
+  id                  String                 @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id             String
+  site                Site                   @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  vehicle_id          String
+  vehicle             Vehicle                @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  workshop_order_id   String?
+  workshop_order      WorkshopOrder?         @relation(fields: [tenant_id, site_id, vehicle_id, workshop_order_id], references: [tenant_id, site_id, vehicle_id, id], onDelete: Restrict, onUpdate: Restrict)
+  check_in_id         String?
+  check_in            WorkshopCheckIn?       @relation(fields: [tenant_id, workshop_order_id, check_in_id], references: [tenant_id, workshop_order_id, id], onDelete: Restrict, onUpdate: Restrict)
+  tyre_set_id         String?
+  tyre_set            TyreSet?               @relation(fields: [tenant_id, site_id, vehicle_id, tyre_set_id], references: [tenant_id, site_id, vehicle_id, id], onDelete: Restrict, onUpdate: Restrict)
+  tyre_set_event_id   String?
+  tyre_set_event      TyreSetEvent?          @relation(fields: [tenant_id, tyre_set_id, tyre_set_event_id], references: [tenant_id, tyre_set_id, id], onDelete: Restrict, onUpdate: Restrict)
+  measured_at         DateTime
+  measured_by         String?
+  author              User?                  @relation(fields: [measured_by], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  measured_by_name    String
+  country             String                 @db.VarChar(2)
+  weight_class        TyreVehicleWeightClass @default(UP_TO_3500_KG)
+  weight_class_source TyreWeightClassSource  @default(DEFAULT)
+  source              TyreMeasurementSource  @default(CAPTURE)
+  source_ref          String?
+  wheels              TyreWheelReading[]
+  createdAt           DateTime               @default(now())
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, source_ref])
+  @@index([tenant_id, site_id, measured_at])
+  @@index([tenant_id, vehicle_id, measured_at])
+  @@index([tenant_id, workshop_order_id, measured_at])
+  @@index([tenant_id, check_in_id, measured_at])
+  @@index([tenant_id, tyre_set_event_id, measured_at])
+  @@index([tenant_id, tyre_set_id])
+  @@index([measured_by])
+  @@map("tyre_measurements")
+}
+
+model TyreWheelReading {
+  id              String            @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  measurement_id  String
+  measurement     TyreMeasurement   @relation(fields: [tenant_id, measurement_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  position        TyreWheelPosition
+  tread_inner_mm  Decimal?          @db.Decimal(5, 2)
+  tread_middle_mm Decimal           @db.Decimal(5, 2)
+  tread_outer_mm  Decimal?          @db.Decimal(5, 2)
+  brand           String?
+  model           String?
+  size            String?
+  dot             String?
+  season          TyreSeason
+  construction    TyreConstruction  @default(RADIAL)
+  winter_marking  TyreWinterMarking @default(NONE)
+  media_id        String?
+  media           WorkshopMedia?    @relation(fields: [tenant_id, media_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  evaluation      Json
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, measurement_id, position])
+  @@index([tenant_id, media_id])
+  @@map("tyre_wheel_readings")
+}
+
 model TyreStorageSettings {
-  id                String   @id @default(uuid())
-  tenant_id         String   @unique
-  tenant            Tenant   @relation(fields: [tenant_id], references: [id])
-  summer_swap_month Int      @default(3)
-  summer_swap_day   Int      @default(1)
-  winter_swap_month Int      @default(10)
-  winter_swap_day   Int      @default(1)
-  due_for_swap_days Int      @default(30)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                       String   @id @default(uuid())
+  tenant_id                String   @unique
+  tenant                   Tenant   @relation(fields: [tenant_id], references: [id])
+  summer_swap_month        Int      @default(3)
+  summer_swap_day          Int      @default(1)
+  winter_swap_month        Int      @default(10)
+  winter_swap_day          Int      @default(1)
+  due_for_swap_days        Int      @default(30)
+  recommendation_overrides Json     @default("{}")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   @@index([tenant_id])
   @@map("tyre_storage_settings")
 }
 
 model TyreSet {
-  id                  String           @id @default(uuid())
+  id                  String            @id @default(uuid())
   tenant_id           String
-  tenant              Tenant           @relation(fields: [tenant_id], references: [id])
+  tenant              Tenant            @relation(fields: [tenant_id], references: [id])
   customer_id         String
-  customer            Customer         @relation(fields: [customer_id], references: [id])
+  customer            Customer          @relation(fields: [customer_id], references: [id])
   vehicle_id          String?
-  vehicle             Vehicle?         @relation(fields: [vehicle_id], references: [id])
+  vehicle             Vehicle?          @relation(fields: [vehicle_id], references: [id])
   site_id             String
-  site                Site             @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  site                Site              @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   location_id         String?
-  location            StorageLocation? @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: SetNull)
+  location            StorageLocation?  @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: SetNull)
   label               String
   season              TyreSeason
-  tyre_count          Int              @default(4)
-  rim_type            TyreRimType      @default(NONE)
+  tyre_count          Int               @default(4)
+  rim_type            TyreRimType       @default(NONE)
   brand               String?
   model               String?
   dimension           String?
   dot_codes           String[]
   tread_depth_mm_json Json?
   condition_notes     String?
-  status              TyreSetStatus    @default(IN_STORAGE)
-  stored_since        DateTime?        @db.Date
-  planned_swap_on     DateTime?        @db.Date
+  status              TyreSetStatus     @default(IN_STORAGE)
+  stored_since        DateTime?         @db.Date
+  planned_swap_on     DateTime?         @db.Date
   bin_label           String?
   created_by_user_id  String?
   events              TyreSetEvent[]
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  tyre_measurements   TyreMeasurement[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, site_id, vehicle_id, id])
   @@index([tenant_id, status])
   @@index([tenant_id, customer_id])
   @@index([tenant_id, site_id, status])
@@ -4365,6 +4487,9 @@ model TyreSetEvent {
   created_by_user_id  String?
   createdAt           DateTime         @default(now())
 
+  tyre_measurements TyreMeasurement[]
+
+  @@unique([tenant_id, tyre_set_id, id])
   @@index([tenant_id])
   @@index([tenant_id, tyre_set_id])
   @@index([tenant_id, occurred_at])
@@ -4734,9 +4859,11 @@ model WorkshopCheckIn {
   media                   WorkshopMedia[]
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
+  tyre_measurements       TyreMeasurement[]
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, workshop_order_id])
+  @@unique([tenant_id, workshop_order_id, id])
   @@unique([tenant_id, inspection_id])
   @@index([tenant_id])
   @@index([tenant_id, inspection_id], map: "idx_workshop_check_ins_inspection")
@@ -4765,6 +4892,7 @@ model WorkshopMedia {
   caption                 String?
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
+  tyre_wheel_readings     TyreWheelReading[]
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -5438,4 +5566,66 @@ model WarrantyClaimLine {
   // The foreign key is checked on every delete of a workshop line; this index keeps that check off a full scan.
   @@index([workshop_task_line_item_id])
   @@map("warranty_claim_lines")
+}
+
+// ============================================================================
+// Web push for staff (ADR-0033, AUT-766)
+// ============================================================================
+
+enum PushPlatform {
+  IOS
+  ANDROID
+  DESKTOP
+}
+
+enum PushDeviceRevokedReason {
+  USER
+  UNREGISTERED
+  STALE
+  MEMBERSHIP_ENDED
+  REPLACED
+}
+
+/// One browser installation of one staff user that opted in to push. Employee device data only (ADR-0033 section 6).
+model PushDevice {
+  id             String                   @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant                   @relation(fields: [tenant_id], references: [id])
+  user_id        String
+  user           User                     @relation(fields: [user_id], references: [id])
+  /// FCM registration token. Never returned by the API and never logged.
+  fcm_token      String
+  platform       PushPlatform
+  /// Browser family only (for example "chrome"), never the full user agent.
+  browser        String?                  @db.VarChar(32)
+  /// Standalone display mode when the device registered (installed PWA).
+  installed      Boolean                  @default(false)
+  last_seen_at   DateTime                 @default(now())
+  revoked_at     DateTime?
+  revoked_reason PushDeviceRevokedReason?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@unique([tenant_id, fcm_token])
+  @@index([tenant_id, user_id])
+  @@index([last_seen_at])
+  @@map("push_devices")
+}
+
+/// Per-user push settings in one tenant: which events, and quiet hours (minutes of the day in the site timezone).
+model PushPreference {
+  id              String                  @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant                  @relation(fields: [tenant_id], references: [id])
+  user_id         String
+  user            User                    @relation(fields: [user_id], references: [id])
+  enabled_events  NotificationEventType[]
+  quiet_start_min Int?
+  quiet_end_min   Int?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@unique([tenant_id, user_id])
+  @@index([tenant_id])
+  @@map("push_preferences")
 }
