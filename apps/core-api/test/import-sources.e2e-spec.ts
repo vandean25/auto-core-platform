@@ -57,7 +57,7 @@ describe('Import sources (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    await app.listen(0);
 
     prisma = app.get(PrismaService);
     systemPrisma = app.get(SystemPrismaService);
