@@ -244,3 +244,46 @@ export function defaultFeatureBranchName(name) {
   const slug = sanitizeWorktreeDirectoryName(name).toLowerCase().replace(/\./g, '-')
   return `feature/${slug || 'worktree'}`
 }
+
+/** docker-compose.worktrees.yml Postgres service (see repo root compose file). */
+export const WORKTREES_COMPOSE_POSTGRES_SERVICE = 'postgres'
+export const WORKTREES_POSTGRES_CONTAINER = 'acp-worktrees-postgres'
+
+/**
+ * @param {{ psqlOnPath: boolean, dockerOnPath: boolean, worktreesContainerRunning: boolean }} input
+ * @returns {{ client: 'psql' } | { client: 'docker-exec', containerName: string } | { error: string }}
+ */
+export function chooseDatabaseClientStrategy(input) {
+  if (input.psqlOnPath) {
+    return { client: 'psql' }
+  }
+  if (!input.dockerOnPath) {
+    return {
+      error:
+        'psql was not found on PATH (common on Windows) and docker is not available. ' +
+        'Install PostgreSQL client tools, or install Docker and run: docker compose -f docker-compose.worktrees.yml up -d',
+    }
+  }
+  if (!input.worktreesContainerRunning) {
+    return {
+      error:
+        'psql was not found on PATH and the worktrees Postgres container is not running. ' +
+        'Start it with: docker compose -f docker-compose.worktrees.yml up -d',
+    }
+  }
+  return { client: 'docker-exec', containerName: WORKTREES_POSTGRES_CONTAINER }
+}
+
+/**
+ * @param {string} datname
+ */
+export function sqlDatnameLiteral(datname) {
+  return `'${String(datname).replace(/'/g, "''")}'`
+}
+
+/**
+ * @param {string} identifier
+ */
+export function sqlIdentifier(identifier) {
+  return `"${String(identifier).replace(/"/g, '""')}"`
+}

@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 
+import { dropDatabaseIfExists } from './worktree-db.mjs'
+
 function parseArgs(argv) {
   const out = { target: undefined, dropDb: false, force: false, help: false }
   for (let i = 0; i < argv.length; i += 1) {
@@ -62,16 +64,15 @@ function dropWorktreeDatabase(worktreePath) {
   if (!fs.existsSync(metaPath)) return
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'))
   if (!meta.databaseName) return
-  const pgHost = process.env.ACP_WORKTREE_PG_HOST ?? 'localhost'
-  const pgPort = process.env.ACP_WORKTREE_PG_PORT ?? '5433'
-  const pgUser = process.env.ACP_WORKTREE_PG_USER ?? 'postgres'
-  const pgPassword = process.env.ACP_WORKTREE_PG_PASSWORD ?? 'postgres'
-  const adminUrl = `postgresql://${encodeURIComponent(pgUser)}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/postgres`
-  const dbName = meta.databaseName.replace(/"/g, '""')
-  spawnSync('psql', [adminUrl, '-c', `DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`], {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  })
+  dropDatabaseIfExists(
+    {
+      pgHost: process.env.ACP_WORKTREE_PG_HOST ?? 'localhost',
+      pgPort: Number(process.env.ACP_WORKTREE_PG_PORT ?? '5433'),
+      pgUser: process.env.ACP_WORKTREE_PG_USER ?? 'postgres',
+      pgPassword: process.env.ACP_WORKTREE_PG_PASSWORD ?? 'postgres',
+    },
+    meta.databaseName,
+  )
 }
 
 function main() {

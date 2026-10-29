@@ -10,7 +10,7 @@ Der Standard-Dev-Stack nutzt Port `3000` (API), `5173` (Vite) und eine gemeinsam
 
 - Node.js 22+ und npm (wie im README)
 - Git 2.x mit Worktree-Unterstützung
-- `psql` im PATH (PostgreSQL-Client) zum Anlegen der Worktree-Datenbanken
+- `psql` im PATH (PostgreSQL-Client) zum Anlegen der Worktree-Datenbanken, **oder** Docker mit `docker compose -f docker-compose.worktrees.yml up -d` (Setup nutzt `docker exec` in den `postgres`-Service-Container, wenn `psql` fehlt — üblich unter Windows)
 - Docker (empfohlen) für eine gemeinsame lokale Postgres-Instanz
 
 ## Einmalig: gemeinsames Postgres für Worktrees
@@ -35,6 +35,8 @@ Im **Haupt-Checkout**:
 
 ```bash
 npm run worktree:new -- agent-a
+# optionaler Branch:
+npm run worktree:new -- agent-a --branch feature/my-topic
 ```
 
 Das legt `.worktrees/agent-a` auf Branch `feature/agent-a` von `origin/main` an und führt `worktree:setup` aus (Ports, Env-Dateien, Datenbank `acp_agent_a`, `prisma migrate deploy`, `npm install`).

@@ -15,6 +15,7 @@ import {
   rewriteEnvContent,
   sanitizeWorktreeDirectoryName,
 } from './worktree-lib.mjs'
+import { ensureDatabase } from './worktree-db.mjs'
 
 function parseArgs(argv) {
   const out = {
@@ -130,38 +131,6 @@ function runCommand(command, args, options = {}) {
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(' ')} failed with exit code ${result.status ?? 'unknown'}`)
   }
-}
-
-function psqlAdminUrl(config) {
-  return buildPostgresUrl({
-    host: config.pgHost,
-    port: config.pgPort,
-    user: config.pgUser,
-    password: config.pgPassword,
-    database: 'postgres',
-    schema: false,
-  })
-}
-
-function ensureDatabase(config, dbName) {
-  const adminUrl = psqlAdminUrl(config)
-  const checkSql = `SELECT 1 FROM pg_database WHERE datname='${dbName.replace(/'/g, "''")}'`
-  const check = spawnSync('psql', [adminUrl, '-tAc', checkSql], {
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-  })
-  if (check.status !== 0) {
-    throw new Error(
-      `Could not reach Postgres at ${config.pgHost}:${config.pgPort}. ` +
-        'Start docker compose -f docker-compose.worktrees.yml up -d or set ACP_WORKTREE_PG_* / --database-url.',
-    )
-  }
-  if (check.stdout.trim() === '1') {
-    return { created: false }
-  }
-  const createSql = `CREATE DATABASE "${dbName.replace(/"/g, '""')}"`
-  runCommand('psql', [adminUrl, '-c', createSql])
-  return { created: true }
 }
 
 function loadMetadata(metaPath) {

@@ -10,7 +10,7 @@ The default dev stack uses port `3000` (API), `5173` (Vite), and a single `DATAB
 
 - Node.js 22+ and npm (same as the main README)
 - Git 2.x with worktree support
-- `psql` on your PATH (PostgreSQL client) for creating per-worktree databases
+- `psql` on your PATH (PostgreSQL client) for creating per-worktree databases, **or** Docker with `docker compose -f docker-compose.worktrees.yml up -d` (setup falls back to `docker exec` into the `postgres` service container when `psql` is missing, typical on Windows)
 - Docker (optional but recommended) for a shared local Postgres instance
 
 ## One-time: shared Postgres for worktrees
@@ -33,6 +33,8 @@ From the **primary** checkout (not required to be on `main`):
 
 ```bash
 npm run worktree:new -- agent-a
+# optional custom branch:
+npm run worktree:new -- agent-a --branch feature/my-topic
 ```
 
 This:

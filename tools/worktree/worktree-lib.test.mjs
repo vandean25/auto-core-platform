@@ -5,6 +5,7 @@ import {
   allocatePortPair,
   basePortPairFromSeed,
   buildPostgresUrl,
+  chooseDatabaseClientStrategy,
   databaseNameFromSlug,
   hashSeed,
   isProtectedPrimaryBranch,
@@ -12,7 +13,9 @@ import {
   redactEnvPreview,
   rewriteEnvContent,
   sanitizeWorktreeDirectoryName,
+  WORKTREES_POSTGRES_CONTAINER,
 } from './worktree-lib.mjs'
+import { detectDatabaseClientStrategy, ensureDatabase } from './worktree-db.mjs'
 
 describe('worktree-lib port allocation', () => {
   it('derives stable base ports from seed', () => {
@@ -107,5 +110,84 @@ describe('worktree-lib branch guards', () => {
   it('isProtectedPrimaryBranch flags main/master', () => {
     assert.equal(isProtectedPrimaryBranch('main'), true)
     assert.equal(isProtectedPrimaryBranch('feature/x'), false)
+  })
+})
+
+describe('chooseDatabaseClientStrategy', () => {
+  it('prefers psql when it is on PATH', () => {
+    assert.deepEqual(
+      chooseDatabaseClientStrategy({
+        psqlOnPath: true,
+        dockerOnPath: false,
+        worktreesContainerRunning: false,
+      }),
+      { client: 'psql' },
+    )
+  })
+
+  it('uses docker exec when psql is missing and the worktrees container runs', () => {
+    assert.deepEqual(
+      chooseDatabaseClientStrategy({
+        psqlOnPath: false,
+        dockerOnPath: true,
+        worktreesContainerRunning: true,
+      }),
+      { client: 'docker-exec', containerName: WORKTREES_POSTGRES_CONTAINER },
+    )
+  })
+
+  it('errors when psql and docker are both unavailable', () => {
+    const result = chooseDatabaseClientStrategy({
+      psqlOnPath: false,
+      dockerOnPath: false,
+      worktreesContainerRunning: false,
+    })
+    assert.ok('error' in result)
+    assert.match(result.error, /psql was not found on PATH/i)
+    assert.match(result.error, /docker compose -f docker-compose.worktrees.yml up -d/)
+  })
+
+  it('errors when psql is missing and the container is not running', () => {
+    const result = chooseDatabaseClientStrategy({
+      psqlOnPath: false,
+      dockerOnPath: true,
+      worktreesContainerRunning: false,
+    })
+    assert.ok('error' in result)
+    assert.match(result.error, /container is not running/i)
+    assert.match(result.error, /docker compose -f docker-compose.worktrees.yml up -d/)
+  })
+})
+
+describe('ensureDatabase client selection (integration)', () => {
+  it('creates a database via docker exec when psql is absent', () => {
+    /** @type {string[]} */
+    const calls = []
+    const run = (command, args) => {
+      calls.push([command, ...args].join(' '))
+      if (command === 'where' || command === 'which') {
+        return { status: args[0] === 'docker' ? 0 : 1, stdout: '' }
+      }
+      if (command === 'docker' && args[0] === 'ps') {
+        return { status: 0, stdout: 'abc123\n' }
+      }
+      if (command === 'docker' && args[0] === 'exec' && args.includes('-tAc')) {
+        return { status: 0, stdout: '' }
+      }
+      if (command === 'docker' && args[0] === 'exec' && args.includes('-c')) {
+        return { status: 0, stdout: '' }
+      }
+      return { status: 1, stdout: '' }
+    }
+    const strategy = detectDatabaseClientStrategy(run)
+    assert.equal(strategy.client, 'docker-exec')
+    const result = ensureDatabase(
+      { pgHost: 'localhost', pgPort: 5433, pgUser: 'postgres', pgPassword: 'postgres' },
+      'acp_test',
+      { run, strategy },
+    )
+    assert.equal(result.client, 'docker-exec')
+    assert.equal(result.created, true)
+    assert.ok(calls.some((line) => line.includes('docker exec acp-worktrees-postgres')))
   })
 })

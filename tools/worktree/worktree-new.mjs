@@ -24,7 +24,8 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`Usage: npm run worktree:new -- <name> [--branch <branch>] [--base origin/main]
 
-Creates .worktrees/<name> from the base ref and runs worktree:setup inside it.
+Creates .worktrees/<name> on branch feature/<name> by default (override with --branch),
+from the base ref, then runs worktree:setup inside it.
 `)
 }
 
