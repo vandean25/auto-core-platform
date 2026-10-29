@@ -27,6 +27,7 @@ const sessionFixture: AuthSession = {
   effectiveLocale: 'de',
   defaultLocale: 'de',
   formatLocale: 'de-AT',
+  effectiveCapabilities: null,
 }
 
 describe('resolveAuthenticatedSessionGate', () => {

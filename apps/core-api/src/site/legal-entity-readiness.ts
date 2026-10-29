@@ -1,3 +1,4 @@
+import { resolveCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { LegalEntitySellerRecord } from './legal-entity-seller.validation.js';
 
 export type SellerReadiness = {
@@ -23,12 +24,13 @@ export function computeSellerReadiness(
     missingFields.push('address_city');
   }
 
-  if (entity.country_iso === 'DE') {
-    if (!entity.tax_number?.trim() && !entity.vat_id?.trim()) {
-      missingFields.push('tax_number_or_vat_id');
-    }
-  } else if (!entity.vat_id?.trim()) {
-    missingFields.push('vat_id');
+  const pack = resolveCountryPack(entity.country_iso);
+  const hasTaxIdentifier =
+    entity.vat_id?.trim() ||
+    (pack.sellerTaxIdentifier === 'tax_number_or_vat_id' &&
+      entity.tax_number?.trim());
+  if (!hasTaxIdentifier) {
+    missingFields.push(pack.sellerTaxIdentifier);
   }
 
   if (

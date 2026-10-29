@@ -1,5 +1,9 @@
-export const DEFAULT_DE_PROFILE_CODE = 'ACP-DATEV-DE-EUR-1';
-export const DEFAULT_AT_PROFILE_CODE = 'ACP-RZL-AT-EUR-1';
+import { resolveCountryPack } from '../../common/country-pack/country-pack.registry.js';
+
+export const DEFAULT_DE_PROFILE_CODE =
+  resolveCountryPack('DE').defaultAccountingProfile;
+export const DEFAULT_AT_PROFILE_CODE =
+  resolveCountryPack('AT').defaultAccountingProfile;
 export const DEFAULT_FORMAT_VERSION = 'EXTF-700-Buchungsstapel-13';
 /**
  * ACP identifier of the RZL FIBU K/C/B draft layout in
@@ -47,10 +51,7 @@ export function isExportSerializerReleased(
 export function defaultProfileCodeForCountry(
   countryIso: 'AT' | 'DE',
 ): string | null {
-  if (countryIso === 'DE') {
-    return DEFAULT_DE_PROFILE_CODE;
-  }
-  return DEFAULT_AT_PROFILE_CODE;
+  return resolveCountryPack(countryIso).defaultAccountingProfile;
 }
 
 export function defaultFormatVersionForProfileCode(

@@ -6,6 +6,21 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsUUID } from 'class-validator';
 import { DEFAULT_FORMAT_LOCALE } from '../../common/i18n/display-language.js';
+import type { CountryCapabilities } from '../../common/country-pack/country-pack.registry.js';
+
+export class EffectiveCapabilitiesDto implements CountryCapabilities {
+  @ApiProperty({ type: Boolean })
+  nova!: boolean;
+
+  @ApiProperty({ type: Boolean })
+  pickerl57a!: boolean;
+
+  @ApiProperty({ type: Boolean })
+  kaufvertragAt!: boolean;
+
+  @ApiProperty({ type: Boolean })
+  willhabenExport!: boolean;
+}
 
 export class SwitchTenantDto {
   @ApiProperty({ format: 'uuid' })
@@ -82,4 +97,7 @@ export class AuthSessionResponseDto {
 
   @ApiProperty({ example: DEFAULT_FORMAT_LOCALE })
   formatLocale!: string;
+
+  @ApiProperty({ type: EffectiveCapabilitiesDto, nullable: true })
+  effectiveCapabilities!: EffectiveCapabilitiesDto | null;
 }

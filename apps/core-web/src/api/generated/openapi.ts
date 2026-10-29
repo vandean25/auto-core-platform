@@ -5517,6 +5517,12 @@ export interface components {
         PlatformAdminRole: "SUPER_ADMIN";
         /** @enum {string} */
         DisplayLanguage: "de" | "en";
+        EffectiveCapabilitiesDto: {
+            nova: boolean;
+            pickerl57a: boolean;
+            kaufvertragAt: boolean;
+            willhabenExport: boolean;
+        };
         AuthSessionResponseDto: {
             userId: string;
             email: string;
@@ -5531,6 +5537,7 @@ export interface components {
             defaultLocale: components["schemas"]["DisplayLanguage"];
             /** @example de-AT */
             formatLocale: string;
+            effectiveCapabilities: components["schemas"]["EffectiveCapabilitiesDto"] | null;
         };
         SwitchTenantDto: {
             /** Format: uuid */

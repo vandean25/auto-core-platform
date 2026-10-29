@@ -93,8 +93,8 @@ describe('SiteService behavior', () => {
   describe('listLegalEntities (read authz, ruling 53)', () => {
     it('includes inactive rows by default and requires OWNER/ADMIN', async () => {
       harness.prisma.legalEntity.findMany.mockResolvedValue([
-        { id: 'le-active', is_active: true },
-        { id: 'le-inactive', is_active: false },
+        { id: 'le-active', is_active: true, country_iso: 'AT' },
+        { id: 'le-inactive', is_active: false, country_iso: 'DE' },
       ]);
 
       const result = await service.listLegalEntities();
@@ -109,7 +109,7 @@ describe('SiteService behavior', () => {
 
     it('hides inactive rows when includeInactive=false', async () => {
       harness.prisma.legalEntity.findMany.mockResolvedValue([
-        { id: 'le-active', is_active: true },
+        { id: 'le-active', is_active: true, country_iso: 'AT' },
       ]);
 
       await service.listLegalEntities(false);
