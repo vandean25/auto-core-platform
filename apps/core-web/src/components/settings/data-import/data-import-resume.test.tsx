@@ -13,6 +13,7 @@ import {
   installImportApiMocks,
   openApplyDialog,
   renderImportSettingsTab,
+  uploadCsvFile,
 } from './data-import-settings-tab.spec.support'
 
 vi.mock('@/api/vendors', () => ({ useVendors: vi.fn() }))
@@ -131,6 +132,32 @@ describe('DataImportSettingsTab resume from ?job', () => {
     fireEvent.click(confirm)
 
     await waitFor(() => expect(apply.mutateAsync).toHaveBeenCalledWith('job-resume-1'))
+  })
+
+  it('sends the resumed job source system when its file is reselected and rerun', async () => {
+    const job: ImportJob = {
+      ...customerDryRunJob,
+      id: 'job-resume-1',
+      source_system: 'synthetic_erp',
+    }
+    const { dryRun } = installImportApiMocks({ dryRunJob: job })
+    mockResumedJob(job)
+
+    renderImportSettingsTab({ initialEntries: [RESUME_URL] })
+
+    await screen.findByText(di.dryRun.title)
+    fireEvent.click(screen.getByRole('button', { name: di.dryRun.editMapping }))
+    fireEvent.click(await screen.findByRole('button', { name: di.mapping.back }))
+    await uploadCsvFile()
+    fireEvent.click(screen.getByRole('button', { name: di.upload.continue }))
+    await screen.findByText(di.mapping.title)
+    fireEvent.click(screen.getByRole('button', { name: di.mapping.runDryRun }))
+
+    await waitFor(() =>
+      expect(dryRun.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceSystem: 'synthetic_erp' }),
+      ),
+    )
   })
 
   it('retries a failed apply from the resumed result step', async () => {

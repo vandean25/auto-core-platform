@@ -13,11 +13,15 @@ type WizardSync = Pick<
 
 /**
  * Rehydrates the wizard from `?job=<id>` after a reload or a history-row open. The first time a job
- * is seen, `hydrateFromJob` restores its saved mapping, options, fingerprint and vendor and picks
- * the step from its status; later polling updates only re-sync progress. APPLYING keeps polling. A
+ * is seen, `hydrateFromJob` restores its saved mapping, options, fingerprint and vendor, the core
+ * source system is set from the job's own `source_system`, and the step is picked from its status;
+ * later polling updates only re-sync progress and never reset the source. APPLYING keeps polling. A
  * `${id}:${status}` guard syncs each transition once, so window-focus refetches never clobber edits.
  */
-export function useImportJobResume(wizard: WizardSync) {
+export function useImportJobResume(
+  wizard: WizardSync,
+  setSourceSystem: (sourceSystem: string) => void,
+) {
   const [searchParams] = useSearchParams()
   const jobId = searchParams.get('job')
   const { setEntityType, hydrateFromJob, syncBackgroundJobProgress } = wizard
@@ -32,6 +36,7 @@ export function useImportJobResume(wizard: WizardSync) {
     if (hydratedJobId.current !== job.id) {
       hydratedJobId.current = job.id
       lastSynced.current = `${job.id}:${job.status}`
+      setSourceSystem(job.source_system)
       hydrateFromJob(job)
       return
     }
@@ -39,7 +44,7 @@ export function useImportJobResume(wizard: WizardSync) {
     if (lastSynced.current === key) return
     lastSynced.current = key
     syncBackgroundJobProgress(job)
-  }, [poll.data, setEntityType, hydrateFromJob, syncBackgroundJobProgress])
+  }, [poll.data, setEntityType, setSourceSystem, hydrateFromJob, syncBackgroundJobProgress])
 
   return { jobId, isResuming: Boolean(jobId) && poll.isLoading }
 }

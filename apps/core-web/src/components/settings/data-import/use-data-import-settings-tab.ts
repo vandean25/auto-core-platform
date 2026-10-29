@@ -15,7 +15,7 @@ import { useImportJobResume } from './use-import-job-resume'
 export function useDataImportSettingsTab() {
   const core = useDataImportSettingsTabCore()
   const workflow = useDataImportSettingsTabWorkflow(core)
-  const resume = useImportJobResume(core.wizard)
+  const resume = useImportJobResume(core.wizard, core.setSourceSystem)
 
   const handleEntityTypeChange = (value: ImportEntityTypeUi) =>
     changeImportEntityType(core.wizard, core.sourceSystem, core.setSourceSystem, value)
