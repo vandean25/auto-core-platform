@@ -36,19 +36,21 @@ export const isCreditNoteSnapshot = (snapshot: InvoiceSnapshot): boolean =>
   snapshot.document_kind === 'CREDIT_NOTE';
 
 /**
- * Numbers are formatted in the language the document text is rendered in: German documents
- * use Austrian separators, English documents keep the decimal point. Snapshots frozen before
- * the document language was stored fall back to the language of the hardcoded labels.
+ * Numbers are formatted with the frozen regional settings of the snapshot: Austrian separators
+ * in either language, matching the contract in docs/internal/02-Feature-Specs/Platform/i18n-de-en.md.
+ * Snapshots frozen before the locale fields were stored fall back to the language of the labels.
  */
 export const createInvoicePdfNumberFormatter = (
   snapshot: InvoiceSnapshot,
 ): DocumentNumberFormatter => {
   const frozen = readDocumentSnapshotLocaleFields(snapshot);
-  const language = frozen
-    ? frozen.document_locale
-    : isDachRechnungSnapshot(snapshot)
-      ? 'de'
-      : 'en';
+  if (frozen) {
+    return createDocumentNumberFormatter(
+      frozen.format_locale,
+      snapshot.currency,
+    );
+  }
+  const language = isDachRechnungSnapshot(snapshot) ? 'de' : 'en';
   return createDocumentNumberFormatter(
     formatLocaleForDisplayLanguage(language),
     snapshot.currency,

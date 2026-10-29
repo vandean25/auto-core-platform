@@ -215,24 +215,24 @@ describe('AUT-719 invoice and credit note PDF number format', () => {
   });
 
   describe('English document', () => {
-    it('keeps English decimals on the line table and totals', () => {
+    it('keeps Austrian numbers with English labels on the line table and totals', () => {
       const text = renderPdfText(invoiceSnapshot('en'), 'RE-2026-0007');
 
-      expect(text).toContain('Inspektion 1.5 €120.00 €180.00');
-      expect(text).toContain('Reifensatz 1 €1,234.56 €1,234.56');
-      expect(text).toContain('Net: €1,414.56');
-      expect(text).toContain('VAT: €282.91');
-      expect(text).toContain('Gross: €1,697.47');
-      expect(text).not.toContain('1,5 €');
-      expect(text).not.toContain('€ 120,00');
+      expect(text).toContain('Inspektion 1,5 € 120,00 € 180,00');
+      expect(text).toContain('Reifensatz 1 € 1.234,56 € 1.234,56');
+      expect(text).toContain('Net: € 1.414,56');
+      expect(text).toContain('VAT: € 282,91');
+      expect(text).toContain('Gross: € 1.697,47');
+      expect(text).not.toContain('1.5 €');
+      expect(text).not.toContain('€120.00');
     });
 
-    it('keeps English decimals on the credit note', () => {
+    it('keeps Austrian numbers with English labels on the credit note', () => {
       const text = renderPdfText(creditNoteSnapshot('en'), 'CN-2026-0002');
 
-      expect(text).toContain('Inspektion 1.5 €120.00 €180.00');
-      expect(text).toContain('Gross: €1,697.47');
-      expect(text).not.toContain('€ 120,00');
+      expect(text).toContain('Inspektion 1,5 € 120,00 € 180,00');
+      expect(text).toContain('Gross: € 1.697,47');
+      expect(text).not.toContain('€ 216,00');
     });
   });
 
