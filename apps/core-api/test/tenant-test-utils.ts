@@ -631,6 +631,10 @@ export async function cleanupTestTenantGraph(
       tenantId,
     );
   }
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM import_sources WHERE tenant_id = $1`,
+    tenantId,
+  );
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 
