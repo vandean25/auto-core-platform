@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
 import { deleteCommandReplays } from './workshop-command-session-cleanup.js';
 

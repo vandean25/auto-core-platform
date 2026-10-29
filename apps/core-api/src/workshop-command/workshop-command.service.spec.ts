@@ -12,11 +12,13 @@ import { parseCommandText } from './workshop-command.parse.js';
 import type { WorkshopCommandResolver } from './workshop-command.resolve.js';
 import { WorkshopCommandService } from './workshop-command.service.js';
 import { intentFingerprint } from './workshop-command.tokens.js';
+import type {
+  InterpretWorkshopCommandDto,
+  ProposeWorkshopCommandDto,
+} from './dto/workshop-command.dto.js';
 import {
   WORKSHOP_COMMAND_CONTRACT_VERSION,
   WORKSHOP_COMMAND_LOCALE,
-  type InterpretWorkshopCommandDto,
-  type ProposeWorkshopCommandDto,
   type WorkshopIntent,
 } from './workshop-command.types.js';
 
@@ -206,14 +208,14 @@ function interpretDto(): InterpretWorkshopCommandDto {
     source: 'keyboard',
     locale: WORKSHOP_COMMAND_LOCALE,
     text: SENTENCE,
-  } as InterpretWorkshopCommandDto;
+  };
 }
 
 function proposeDto(): ProposeWorkshopCommandDto {
   return {
     contract_version: WORKSHOP_COMMAND_CONTRACT_VERSION,
     command_id: COMMAND_ID,
-  } as ProposeWorkshopCommandDto;
+  };
 }
 
 async function conflictOf(promise: Promise<unknown>): Promise<ConflictException> {

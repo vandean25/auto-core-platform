@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import type { RequestContextService } from '../common/services/request-context.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import type { WorkshopCommandSessionService } from './workshop-command-session.service.js';
