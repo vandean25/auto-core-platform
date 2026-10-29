@@ -53,6 +53,26 @@ const WINTER_REPLACEMENT_MONTHS = 96;
 const SUMMER_REPLACEMENT_MONTHS = 120;
 const TWENTY_YEARS_MONTHS = 240;
 
+const STATUS_SEVERITY: Record<TyreStatus, number> = {
+  GOOD: 1,
+  RECOMMENDED: 2,
+  URGENT: 3,
+};
+
+/** Worst evaluated status across wheels; unsupported-country wheels do not contribute. */
+export function worstTyreStatus(
+  statuses: Array<TyreStatus | null | undefined>,
+): TyreStatus | null {
+  let worst: TyreStatus | null = null;
+  for (const status of statuses) {
+    if (!status) continue;
+    if (!worst || STATUS_SEVERITY[status] > STATUS_SEVERITY[worst]) {
+      worst = status;
+    }
+  }
+  return worst;
+}
+
 function thresholdProfile(
   wheel: TyreWheelInput,
   context: TyreEvaluationContext,

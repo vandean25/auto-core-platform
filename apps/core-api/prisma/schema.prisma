@@ -4332,6 +4332,11 @@ enum TyreWeightClassSource {
   CAPTURE
 }
 
+enum TyreMeasurementSource {
+  CAPTURE
+  LEGACY_TREAD_JSON
+}
+
 model TyreMeasurement {
   id                  String                 @id @default(uuid())
   tenant_id           String
@@ -4355,10 +4360,13 @@ model TyreMeasurement {
   country             String                 @db.VarChar(2)
   weight_class        TyreVehicleWeightClass @default(UP_TO_3500_KG)
   weight_class_source TyreWeightClassSource  @default(DEFAULT)
+  source              TyreMeasurementSource  @default(CAPTURE)
+  source_ref          String?
   wheels              TyreWheelReading[]
   createdAt           DateTime               @default(now())
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, source_ref])
   @@index([tenant_id, site_id, measured_at])
   @@index([tenant_id, vehicle_id, measured_at])
   @@index([tenant_id, workshop_order_id, measured_at])
@@ -4376,9 +4384,9 @@ model TyreWheelReading {
   measurement_id  String
   measurement     TyreMeasurement   @relation(fields: [tenant_id, measurement_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
   position        TyreWheelPosition
-  tread_inner_mm  Decimal           @db.Decimal(5, 2)
+  tread_inner_mm  Decimal?          @db.Decimal(5, 2)
   tread_middle_mm Decimal           @db.Decimal(5, 2)
-  tread_outer_mm  Decimal           @db.Decimal(5, 2)
+  tread_outer_mm  Decimal?          @db.Decimal(5, 2)
   brand           String?
   model           String?
   size            String?

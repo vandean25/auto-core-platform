@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsDateString,
   IsEnum,
@@ -19,7 +22,12 @@ import {
   TyreSeason,
   TyreSetEventType,
   TyreSetStatus,
+  TyreVehicleWeightClass,
 } from '@prisma/client';
+import {
+  CreateTyreWheelDto,
+  TyreMeasurementResponseDto,
+} from '../../tyre-measurement/tyre-measurement.dto.js';
 
 export class TreadDepthDto {
   @ApiPropertyOptional()
@@ -218,6 +226,29 @@ export class TyreSetLocationActionDto {
   @Type(() => TreadDepthDto)
   treadDepthMm?: TreadDepthDto;
 
+  @ApiPropertyOptional({
+    type: [CreateTyreWheelDto],
+    description:
+      'Measurements recorded with this event; supported on check-in, check-out and inspection.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5)
+  @ArrayUnique((wheel: CreateTyreWheelDto) => wheel.position)
+  @ValidateNested({ each: true })
+  @Type(() => CreateTyreWheelDto)
+  wheels?: CreateTyreWheelDto[];
+
+  @ApiPropertyOptional({
+    enum: TyreVehicleWeightClass,
+    description:
+      'Weight class for the recorded readings; defaults to UP_TO_3500_KG.',
+  })
+  @IsOptional()
+  @IsEnum(TyreVehicleWeightClass)
+  weightClass?: TyreVehicleWeightClass;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -328,6 +359,13 @@ export class TyreSetResponseDto {
 
   @ApiPropertyOptional({ type: [TyreSetEventResponseDto] })
   events?: TyreSetEventResponseDto[];
+
+  @ApiPropertyOptional({
+    type: TyreMeasurementResponseDto,
+    nullable: true,
+    description: 'Most recent tyre measurement linked to this set.',
+  })
+  latestMeasurement?: TyreMeasurementResponseDto | null;
 
   @ApiPropertyOptional({ type: String })
   customerName?: string;

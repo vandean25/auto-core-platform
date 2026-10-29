@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { assertSetMatchesEventLedger } from '../src/tyre-storage/tyre-set-event.helpers.js';
+import { evaluateTyreWheel } from '../src/tyre-measurement/tyre-evaluation.js';
 import { TyreStorageClock } from '../src/tyre-storage/tyre-storage.clock.js';
 import {
   cleanupTestTenantGraph,
@@ -20,6 +21,7 @@ describe('Tyre storage (e2e)', () => {
   let authToken: string;
   let otherAuthToken: string;
   let tenantId: string;
+  let userId: string;
   let siteId: string;
   let customerId: string;
   let vehicleId: string;
@@ -42,6 +44,12 @@ describe('Tyre storage (e2e)', () => {
     otherAuthToken = createTestAuthToken(app.get(AuthService), otherTenant);
 
     prisma = basePrisma;
+    userId = (
+      await basePrisma.user.findUniqueOrThrow({
+        where: { firebaseUid: tenant.firebaseUid },
+        select: { id: true },
+      })
+    ).id;
 
     const site = await tenantPrisma.site.findFirstOrThrow({
       where: { tenant_id: tenantId, code: 'MAIN' },
@@ -318,7 +326,7 @@ describe('Tyre storage (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(404);
 
-    for (const path of ['check-out', 'check-in', 'move', 'dispose']) {
+    for (const path of ['check-out', 'check-in', 'move', 'dispose', 'inspect']) {
       await request(app.getHttpServer())
         .post(`/api/tyre-sets/${branchSet.id}/${path}`)
         .set('Authorization', `Bearer ${authToken}`)
@@ -443,5 +451,301 @@ describe('Tyre storage (e2e)', () => {
       .expect(422);
 
     clock.setOverride(null);
+  });
+
+  const wheelAt = (position: string, mm: number) => ({
+    position,
+    treadInnerMm: mm,
+    treadMiddleMm: mm,
+    treadOuterMm: mm,
+    season: 'WINTER',
+  });
+
+  async function createMeasuredSet(label: string, vehicle: string | null) {
+    const res = await request(app.getHttpServer())
+      .post('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId: vehicle,
+        locationId: storageLocationId,
+        label,
+        season: 'WINTER',
+      })
+      .expect(201);
+    return res.body;
+  }
+
+  const setAction = (setId: string, action: string, body: object) =>
+    request(app.getHttpServer())
+      .post(`/api/tyre-sets/${setId}/${action}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(body);
+
+  it('records measurements on check-in, check-out and inspection and shows the latest', async () => {
+    const created = await createMeasuredSet('Measured set', vehicleId);
+    expect(created.latestMeasurement).toBeNull();
+    const setId = created.id;
+
+    const checkOut = await setAction(setId, 'check-out', {
+      wheels: [
+        wheelAt('FL', 4),
+        wheelAt('FR', 4),
+        wheelAt('RL', 3.2),
+        wheelAt('RR', 3.2),
+      ],
+    }).expect(200);
+    expect(checkOut.body.latestMeasurement).toMatchObject({
+      tyreSetId: setId,
+      vehicleId,
+      workshopOrderId: null,
+      source: 'CAPTURE',
+      worstStatus: 'URGENT',
+    });
+    expect(checkOut.body.latestMeasurement.wheels).toHaveLength(4);
+
+    const checkIn = await setAction(setId, 'check-in', {
+      locationId: storageLocationId,
+      wheels: [wheelAt('FL', 6)],
+    }).expect(200);
+    expect(checkIn.body.latestMeasurement).toMatchObject({
+      worstStatus: 'GOOD',
+    });
+    expect(checkIn.body.latestMeasurement.wheels).toHaveLength(1);
+
+    const inspected = await setAction(setId, 'inspect', {
+      wheels: [wheelAt('FR', 2.5)],
+    }).expect(200);
+    expect(inspected.body.latestMeasurement).toMatchObject({
+      tyreSetId: setId,
+      worstStatus: 'URGENT',
+    });
+    expect(inspected.body.latestMeasurement.wheels[0]).toMatchObject({
+      position: 'FR',
+      treadMiddleMm: 2.5,
+      evaluation: expect.objectContaining({ status: 'URGENT' }),
+    });
+
+    const measurements = await tenantPrisma.tyreMeasurement.findMany({
+      where: { tenant_id: tenantId, tyre_set_id: setId },
+      include: { wheels: true },
+      orderBy: { measured_at: 'asc' },
+    });
+    expect(measurements).toHaveLength(3);
+    expect(measurements[0].tyre_set_event_id).toBeTruthy();
+    expect(measurements[0].workshop_order_id).toBeNull();
+    expect(
+      measurements.every(
+        (row) =>
+          row.vehicle_id === vehicleId &&
+          row.site_id === siteId &&
+          row.source === 'CAPTURE',
+      ),
+    ).toBe(true);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    const row = list.body.data.find((item: { id: string }) => item.id === setId);
+    expect(row.latestMeasurement.id).toBe(inspected.body.latestMeasurement.id);
+
+    const plain = await createMeasuredSet('No readings', vehicleId);
+    await setAction(plain.id, 'check-out', {}).expect(200);
+    expect(
+      await tenantPrisma.tyreMeasurement.count({
+        where: { tenant_id: tenantId, tyre_set_id: plain.id },
+      }),
+    ).toBe(0);
+  });
+
+  it('prefers the newest capture when measurement times tie', async () => {
+    const created = await createMeasuredSet('Tie break', vehicleId);
+    const measuredAt = new Date('2026-07-01T08:00:00.000Z');
+    const evaluationContext = {
+      country: 'AT',
+      weightClass: 'UP_TO_3500_KG' as const,
+      asOf: measuredAt,
+      overrides: {},
+    };
+    const wheel = (mm: number) => ({
+      position: 'FL' as const,
+      tread_inner_mm: mm,
+      tread_middle_mm: mm,
+      tread_outer_mm: mm,
+      season: 'WINTER' as const,
+      construction: 'RADIAL' as const,
+      winter_marking: 'NONE' as const,
+      evaluation: evaluateTyreWheel(
+        {
+          treadInnerMm: mm,
+          treadMiddleMm: mm,
+          treadOuterMm: mm,
+          season: 'WINTER',
+          dot: null,
+        },
+        evaluationContext,
+      ),
+    });
+    const measurement = (id: string, mm: number, createdAt: Date) => ({
+      id,
+      tenant_id: tenantId,
+      site_id: siteId,
+      vehicle_id: vehicleId,
+      tyre_set_id: created.id,
+      measured_at: measuredAt,
+      measured_by_name: 'Tie test',
+      country: 'AT',
+      weight_class: 'UP_TO_3500_KG' as const,
+      weight_class_source: 'DEFAULT' as const,
+      source: 'CAPTURE' as const,
+      createdAt,
+      wheels: { create: [wheel(mm)] },
+    });
+    await tenantPrisma.tyreMeasurement.create({
+      data: measurement(
+        'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        6,
+        new Date('2026-07-01T08:00:01.000Z'),
+      ),
+    });
+    await tenantPrisma.tyreMeasurement.create({
+      data: measurement(
+        '00000000-0000-4000-8000-000000000000',
+        2,
+        new Date('2026-07-01T08:00:02.000Z'),
+      ),
+    });
+
+    const detail = await request(app.getHttpServer())
+      .get(`/api/tyre-sets/${created.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(detail.body.latestMeasurement).toMatchObject({
+      id: '00000000-0000-4000-8000-000000000000',
+      worstStatus: 'URGENT',
+    });
+  });
+
+  it('records an explicit heavy weight class on hotel captures', async () => {
+    const created = await createMeasuredSet('Heavy capture', vehicleId);
+    const inspected = await setAction(created.id, 'inspect', {
+      wheels: [wheelAt('FL', 4.5)],
+      weightClass: 'OVER_3500_KG',
+    }).expect(200);
+    expect(inspected.body.latestMeasurement).toMatchObject({
+      weightClass: 'OVER_3500_KG',
+      weightClassSource: 'CAPTURE',
+      worstStatus: 'URGENT',
+    });
+  });
+
+  it('links an event measurement to the workshop order and rejects mismatched parents', async () => {
+    const created = await createMeasuredSet('Order linked', vehicleId);
+    const order = await tenantPrisma.workshopOrder.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        vehicle_id: vehicleId,
+        order_number: `WO-TYRE-${created.id.slice(0, 8)}`,
+        odometer: 100,
+        fuel_level: 50,
+      },
+    });
+    const res = await setAction(created.id, 'check-out', {
+      workshopOrderId: order.id,
+      wheels: [wheelAt('RL', 5)],
+    }).expect(200);
+    expect(res.body.latestMeasurement.workshopOrderId).toBe(order.id);
+
+    const otherVehicle = await tenantPrisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        make: 'Test',
+        model: 'Other',
+        year: 2020,
+        inventory_role: 'CUSTOMER',
+      },
+    });
+    const otherOrder = await tenantPrisma.workshopOrder.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        vehicle_id: otherVehicle.id,
+        order_number: `WO-OTHER-${created.id.slice(0, 8)}`,
+        odometer: 100,
+        fuel_level: 50,
+      },
+    });
+    const other = await createMeasuredSet('Mismatch', vehicleId);
+    await setAction(other.id, 'check-out', {
+      workshopOrderId: otherOrder.id,
+      wheels: [wheelAt('FL', 5)],
+    }).expect(422);
+    expect(
+      await tenantPrisma.tyreMeasurement.count({
+        where: { tenant_id: tenantId, tyre_set_id: other.id },
+      }),
+    ).toBe(0);
+  });
+
+  it('rejects readings on unsupported events and sets without a vehicle', async () => {
+    const created = await createMeasuredSet('Moved with readings', vehicleId);
+    const moved = await setAction(created.id, 'move', {
+      locationId: storageLocation2Id,
+      wheels: [wheelAt('FL', 5)],
+    }).expect(400);
+    expect(moved.body.code).toBe('TYRE_MEASUREMENT_EVENT_INVALID');
+
+    const noVehicle = await createMeasuredSet('No vehicle', null);
+    const rejected = await setAction(noVehicle.id, 'check-out', {
+      wheels: [wheelAt('FL', 5)],
+    }).expect(422);
+    expect(rejected.body.code).toBe('TYRE_MEASUREMENT_VEHICLE_REQUIRED');
+
+    const media = await setAction(created.id, 'check-out', {
+      wheels: [{ ...wheelAt('FL', 5), mediaId: '00000000-0000-4000-8000-000000000000' }],
+    }).expect(400);
+    expect(media.body.code).toBe('TYRE_MEASUREMENT_MEDIA_INVALID');
+  });
+
+  it('lets TECH inspect with readings but not check sets in or out', async () => {
+    const created = await createMeasuredSet('TECH inspect', vehicleId);
+    await tenantPrisma.tenantMember.updateMany({
+      where: { tenant_id: tenantId, user_id: userId },
+      data: { role: 'TECH' },
+    });
+    try {
+      await setAction(created.id, 'check-out', {
+        wheels: [wheelAt('FL', 5)],
+      }).expect(403);
+      const inspected = await setAction(created.id, 'inspect', {
+        wheels: [wheelAt('FL', 5)],
+      }).expect(200);
+      expect(inspected.body.latestMeasurement.tyreSetId).toBe(created.id);
+    } finally {
+      await tenantPrisma.tenantMember.updateMany({
+        where: { tenant_id: tenantId, user_id: userId },
+        data: { role: 'ADMIN' },
+      });
+    }
+  });
+
+  it('does not let another tenant inspect or read hotel measurements', async () => {
+    const created = await createMeasuredSet('Isolated', vehicleId);
+    await setAction(created.id, 'inspect', {
+      wheels: [wheelAt('FL', 5)],
+    }).expect(200);
+    await request(app.getHttpServer())
+      .post(`/api/tyre-sets/${created.id}/inspect`)
+      .set('Authorization', `Bearer ${otherAuthToken}`)
+      .send({ wheels: [wheelAt('FL', 3)] })
+      .expect(404);
+    expect(
+      await tenantPrisma.tyreMeasurement.count({
+        where: { tenant_id: tenantId, tyre_set_id: created.id },
+      }),
+    ).toBe(1);
   });
 });

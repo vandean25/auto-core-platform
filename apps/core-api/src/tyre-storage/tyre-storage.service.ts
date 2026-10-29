@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import {
+  assertTyreStorageInspect,
   assertTyreStorageRead,
   assertTyreStorageWrite,
 } from './tyre-storage-access.js';
@@ -20,6 +21,16 @@ import {
 import { applyTyreSetEvent } from './tyre-set-event.helpers.js';
 import { TyreStorageClock } from './tyre-storage.clock.js';
 import { validateTyreThresholdOverrides } from '../tyre-measurement/tyre-thresholds.js';
+import { createTyreMeasurementRow } from '../tyre-measurement/tyre-measurement-create.js';
+import { toTyreMeasurementResponse } from '../tyre-measurement/tyre-measurement-response.js';
+import { requireActiveCurrentUser } from '../site/site.authorization.js';
+import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
+import {
+  loadLatestTyreMeasurements,
+  type TyreMeasurementWithWheels,
+} from './tyre-set-latest-measurement.js';
+import { queryTyreSetsForList } from './tyre-set-list.read.js';
+import { toTyreSetListRowDto } from './tyre-set-list.mapper.js';
 import type { TyreSetListQueryDto } from './dto/tyre-set-list-query.dto.js';
 import type {
   CreateTyreSetDto,
@@ -29,6 +40,38 @@ import type {
   UpdateTyreStorageSettingsDto,
   TyreStorageSettingsResponseDto,
 } from './dto/tyre-set.dto.js';
+import type { CreateTyreWheelDto } from '../tyre-measurement/tyre-measurement.dto.js';
+
+type LocationEventType =
+  'CHECK_IN' | 'CHECK_OUT' | 'MOVED' | 'DISPOSED' | 'INSPECTED';
+
+const MEASURED_EVENT_TYPES: readonly LocationEventType[] = [
+  'CHECK_IN',
+  'CHECK_OUT',
+  'INSPECTED',
+];
+
+type LocationEventDraft = {
+  tenantId: string;
+  siteId: string;
+  set: TyreSet;
+  eventType: LocationEventType;
+  occurredAt: Date;
+  toLocationId: string | null;
+  wheels: CreateTyreWheelDto[];
+  dto: TyreSetLocationActionDto;
+  userId: string | null;
+  actorId: string | null;
+};
+
+type EventTargetRequest = {
+  tenantId: string;
+  siteId: string;
+  id: string;
+  eventType: LocationEventType;
+  dto: TyreSetLocationActionDto;
+  wheels: CreateTyreWheelDto[];
+};
 
 type TyreSetWithRelations = TyreSet & {
   customer: {
@@ -38,8 +81,9 @@ type TyreSetWithRelations = TyreSet & {
     email: string | null;
   };
   vehicle: { plate: string | null } | null;
-  location?: { code: string } | null;
+  location: { code: string } | null;
   events?: TyreSetEvent[];
+  latestMeasurement?: TyreMeasurementWithWheels | null;
 };
 
 @Injectable()
@@ -94,67 +138,23 @@ export class TyreStorageService {
     assertTyreStorageRead(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const page = query.page && query.page > 0 ? query.page : 1;
-    const pageSize =
-      query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 25;
-
-    const where: Prisma.TyreSetWhereInput = {
-      tenant_id: tenantId,
-      site_id: siteId,
-    };
-    if (query.customerId) where.customer_id = query.customerId;
-    if (query.locationId) where.location_id = query.locationId;
-    if (query.season) where.season = query.season;
-    if (query.status) where.status = query.status;
-    if (query.dueFrom || query.dueTo) {
-      where.planned_swap_on = {};
-      if (query.dueFrom) {
-        where.planned_swap_on.gte = new Date(query.dueFrom);
-      }
-      if (query.dueTo) {
-        where.planned_swap_on.lte = new Date(query.dueTo);
-      }
-    }
-    if (query.vehicleSearch) {
-      const term = query.vehicleSearch.trim();
-      where.vehicle = {
-        OR: [
-          { plate: { contains: term, mode: 'insensitive' } },
-          { vin: { contains: term, mode: 'insensitive' } },
-        ],
-      };
-    }
-
-    const [total, rows] = await this.prisma.$transaction([
-      this.prisma.tyreSet.count({ where }),
-      this.prisma.tyreSet.findMany({
-        where,
-        include: {
-          customer: {
-            select: {
-              first_name: true,
-              last_name: true,
-              phone: true,
-              email: true,
-            },
-          },
-          vehicle: { select: { plate: true } },
-          location: { select: { code: true } },
-        },
-        orderBy: { updatedAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
-
+    const result = await queryTyreSetsForList(
+      this.prisma,
+      tenantId,
+      siteId,
+      query,
+      toTyreSetListRowDto,
+    );
+    const latest = await loadLatestTyreMeasurements(
+      this.prisma,
+      { tenantId, siteId },
+      result.data.map((row) => row.id),
+    );
     return {
-      data: rows.map((row) => this.toResponse(row)),
-      meta: {
-        total,
-        page,
-        pageSize,
-        pageCount: Math.max(1, Math.ceil(total / pageSize)),
-      },
+      ...result,
+      data: result.data.map((row) =>
+        withLatestMeasurement(row, latest.get(row.id)),
+      ),
     };
   }
 
@@ -192,12 +192,17 @@ export class TyreStorageService {
       orderBy: { planned_swap_on: 'asc' },
     });
 
+    const filtered = rows.filter((row) =>
+      isDueForSwap(row.planned_swap_on, settings.due_for_swap_days, asOf),
+    );
+    const latest = await loadLatestTyreMeasurements(
+      this.prisma,
+      { tenantId, siteId },
+      filtered.map((row) => row.id),
+    );
+
     return {
-      data: rows
-        .filter((row) =>
-          isDueForSwap(row.planned_swap_on, settings.due_for_swap_days, asOf),
-        )
-        .map((row) => this.toResponse(row)),
+      data: filtered.map((row) => this.toResponse(row, latest.get(row.id))),
     };
   }
 
@@ -245,7 +250,14 @@ export class TyreStorageService {
       },
       orderBy: { updatedAt: 'desc' },
     });
-    return { data: rows.map((row) => this.toResponse(row)) };
+    const latest = await loadLatestTyreMeasurements(
+      this.prisma,
+      { tenantId, siteId },
+      rows.map((row) => row.id),
+    );
+    return {
+      data: rows.map((row) => this.toResponse(row, latest.get(row.id))),
+    };
   }
 
   async findOne(id: string, includeEvents = true) {
@@ -271,7 +283,12 @@ export class TyreStorageService {
     if (!row) {
       throw new NotFoundException(`Tyre set ${id} not found`);
     }
-    return this.toResponse(row);
+    const latest = await loadLatestTyreMeasurements(
+      this.prisma,
+      { tenantId, siteId },
+      [id],
+    );
+    return this.toResponse(row, latest.get(id));
   }
 
   async create(dto: CreateTyreSetDto) {
@@ -447,126 +464,203 @@ export class TyreStorageService {
     return this.recordLocationEvent(id, 'DISPOSED', dto);
   }
 
+  /** Condition-only ledger entry; technicians may record it. */
+  async inspect(id: string, dto: TyreSetLocationActionDto) {
+    return this.recordLocationEvent(id, 'INSPECTED', dto);
+  }
+
   private async recordLocationEvent(
     id: string,
-    eventType: 'CHECK_IN' | 'CHECK_OUT' | 'MOVED' | 'DISPOSED',
+    eventType: LocationEventType,
     dto: TyreSetLocationActionDto,
   ) {
-    assertTyreStorageWrite(this.tenantContext);
+    if (eventType === 'INSPECTED') {
+      assertTyreStorageInspect(this.tenantContext);
+    } else {
+      assertTyreStorageWrite(this.tenantContext);
+    }
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const userId = this.tenantContext.getAuthenticatedUser()?.userId ?? null;
     const occurredAt = dto.occurredAt
       ? new Date(dto.occurredAt)
       : this.clock.now();
+    const wheels = dto.wheels ?? [];
+    assertLocationEventPayload(eventType, wheels);
+    const { set, toLocationId } = await this.resolveEventTarget({
+      tenantId,
+      siteId,
+      id,
+      eventType,
+      dto,
+      wheels,
+    });
+    await this.assertEventReferences(tenantId, set, dto, wheels.length > 0);
+    const actor = wheels.length
+      ? await requireActiveCurrentUser(
+          this.prisma,
+          this.tenantContext,
+          tenantId,
+        )
+      : null;
 
+    await this.prisma.$transaction((tx) =>
+      this.writeLocationEvent(tx, {
+        tenantId,
+        siteId,
+        set,
+        eventType,
+        occurredAt,
+        toLocationId,
+        wheels,
+        dto,
+        userId: this.tenantContext.getAuthenticatedUser()?.userId ?? null,
+        actorId: actor?.id ?? null,
+      }),
+    );
+
+    return this.findOne(id);
+  }
+
+  private async resolveEventTarget(
+    request: EventTargetRequest,
+  ): Promise<{ set: TyreSet; toLocationId: string | null }> {
+    const { tenantId, siteId, id, eventType, dto, wheels } = request;
     const set = await this.prisma.tyreSet.findFirst({
       where: { id, tenant_id: tenantId, site_id: siteId },
     });
     if (!set) {
       throw new NotFoundException(`Tyre set ${id} not found`);
     }
-
-    const toLocationId =
-      eventType === 'CHECK_OUT' || eventType === 'DISPOSED'
-        ? null
-        : (dto.locationId ?? set.location_id);
-    if (
-      eventType !== 'CHECK_OUT' &&
-      eventType !== 'DISPOSED' &&
-      !toLocationId
-    ) {
-      throw new UnprocessableEntityException('locationId is required');
+    if (wheels.length > 0 && !set.vehicle_id) {
+      throw new UnprocessableEntityException({
+        code: 'TYRE_MEASUREMENT_VEHICLE_REQUIRED',
+      });
     }
-    if (
-      eventType === 'MOVED' &&
-      toLocationId &&
-      toLocationId === set.location_id
-    ) {
-      throw new UnprocessableEntityException(
-        'Destination must differ from the current location.',
-      );
-    }
+    const toLocationId = resolveEventLocationId(
+      eventType,
+      set.location_id,
+      dto.locationId,
+    );
     if (toLocationId) {
       await this.assertLocationOnSite(tenantId, set.site_id, toLocationId);
     }
+    return { set, toLocationId };
+  }
+
+  private async assertEventReferences(
+    tenantId: string,
+    set: TyreSet,
+    dto: TyreSetLocationActionDto,
+    measuring: boolean,
+  ): Promise<void> {
     if (dto.workshopOrderId) {
-      await this.assertWorkshopOrder(
+      const order = await this.assertWorkshopOrder(
         tenantId,
         set.site_id,
         dto.workshopOrderId,
       );
+      if (measuring && order.vehicle_id !== set.vehicle_id) {
+        throw new UnprocessableEntityException({
+          code: 'TYRE_MEASUREMENT_ORDER_MISMATCH',
+        });
+      }
     }
     if (dto.employeeId) {
       await this.assertEmployee(tenantId, dto.employeeId);
     }
+  }
 
-    const expectedStatus = set.status;
-    const patch = applyTyreSetEvent(set, eventType, toLocationId, occurredAt);
-
-    await this.prisma.$transaction(async (tx) => {
-      const latestEvent = await tx.tyreSetEvent.findFirst({
-        where: { tenant_id: tenantId, tyre_set_id: set.id },
-        orderBy: { occurred_at: 'desc' },
-        select: { occurred_at: true },
-      });
-      const now = this.clock.now();
-      if (occurredAt.getTime() > now.getTime()) {
-        throw new UnprocessableEntityException(
-          'occurredAt cannot be in the future.',
-        );
-      }
-      if (
-        latestEvent &&
-        occurredAt.getTime() < latestEvent.occurred_at.getTime()
-      ) {
-        throw new UnprocessableEntityException(
-          'occurredAt cannot be earlier than the latest event.',
-        );
-      }
-
-      const updated = await tx.tyreSet.updateMany({
-        where: {
-          id: set.id,
-          tenant_id: tenantId,
-          site_id: siteId,
-          status: expectedStatus,
-          location_id: set.location_id,
-        },
-        data: {
-          status: patch.status,
-          location_id: patch.location_id,
-          stored_since: patch.stored_since,
-          tread_depth_mm_json: dto.treadDepthMm
-            ? (dto.treadDepthMm as Prisma.InputJsonValue)
-            : undefined,
-        },
-      });
-      if (updated.count === 0) {
-        throw new ConflictException(
-          'Tyre set status changed concurrently. Please refresh.',
-        );
-      }
-      await tx.tyreSetEvent.create({
-        data: {
-          tenant_id: tenantId,
-          tyre_set_id: set.id,
-          event_type: eventType,
-          occurred_at: occurredAt,
-          workshop_order_id: dto.workshopOrderId ?? null,
-          from_location_id: set.location_id,
-          to_location_id: toLocationId,
-          odometer: dto.odometer ?? null,
-          tread_depth_mm_json: (dto.treadDepthMm ??
-            undefined) as Prisma.InputJsonValue,
-          note: dto.note ?? null,
-          employee_id: dto.employeeId ?? null,
-          created_by_user_id: userId,
-        },
-      });
+  private async writeLocationEvent(
+    tx: Prisma.TransactionClient,
+    draft: LocationEventDraft,
+  ): Promise<void> {
+    const { tenantId, set } = draft;
+    await lockMeasuredSite(tx, draft);
+    await this.assertEventTimeline(tx, tenantId, set.id, draft.occurredAt);
+    await this.applyLocationEvent(tx, draft);
+    const event = await tx.tyreSetEvent.create({
+      data: locationEventData(draft),
     });
+    await this.writeEventMeasurement(tx, draft, event.id);
+  }
 
-    return this.findOne(id);
+  private async applyLocationEvent(
+    tx: Prisma.TransactionClient,
+    draft: LocationEventDraft,
+  ): Promise<void> {
+    const { tenantId, siteId, set, dto } = draft;
+    const patch = applyTyreSetEvent(
+      set,
+      draft.eventType,
+      draft.toLocationId,
+      draft.occurredAt,
+    );
+    const updated = await tx.tyreSet.updateMany({
+      where: {
+        id: set.id,
+        tenant_id: tenantId,
+        site_id: siteId,
+        status: set.status,
+        location_id: set.location_id,
+      },
+      data: {
+        status: patch.status,
+        location_id: patch.location_id,
+        stored_since: patch.stored_since,
+        tread_depth_mm_json: dto.treadDepthMm as Prisma.InputJsonValue,
+      },
+    });
+    if (updated.count === 0) {
+      throw new ConflictException(
+        'Tyre set status changed concurrently. Please refresh.',
+      );
+    }
+  }
+
+  private async writeEventMeasurement(
+    tx: Prisma.TransactionClient,
+    draft: LocationEventDraft,
+    eventId: string,
+  ): Promise<void> {
+    const { tenantId, set, wheels, actorId } = draft;
+    if (wheels.length === 0 || !actorId || !set.vehicle_id) return;
+    await createTyreMeasurementRow(tx, {
+      scope: { tenantId, siteId: set.site_id },
+      vehicleId: set.vehicle_id,
+      workshopOrderId: draft.dto.workshopOrderId ?? null,
+      tyreSetId: set.id,
+      tyreSetEventId: eventId,
+      measuredAt: draft.occurredAt,
+      actorId,
+      wheels,
+      weightClass: draft.dto.weightClass,
+    });
+  }
+
+  private async assertEventTimeline(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    tyreSetId: string,
+    occurredAt: Date,
+  ): Promise<void> {
+    const latestEvent = await tx.tyreSetEvent.findFirst({
+      where: { tenant_id: tenantId, tyre_set_id: tyreSetId },
+      orderBy: { occurred_at: 'desc' },
+      select: { occurred_at: true },
+    });
+    if (occurredAt.getTime() > this.clock.now().getTime()) {
+      throw new UnprocessableEntityException(
+        'occurredAt cannot be in the future.',
+      );
+    }
+    if (
+      latestEvent &&
+      occurredAt.getTime() < latestEvent.occurred_at.getTime()
+    ) {
+      throw new UnprocessableEntityException(
+        'occurredAt cannot be earlier than the latest event.',
+      );
+    }
   }
 
   private assertValidSwapCalendar(dto: UpdateTyreStorageSettingsDto): void {
@@ -662,13 +756,14 @@ export class TyreStorageService {
         tenant_id: tenantId,
         site_id: siteId,
       },
-      select: { id: true },
+      select: { id: true, vehicle_id: true },
     });
     if (!order) {
       throw new NotFoundException(
         `Workshop order ${workshopOrderId} not found`,
       );
     }
+    return order;
   }
 
   private toSettingsResponse(
@@ -686,32 +781,12 @@ export class TyreStorageService {
     };
   }
 
-  private toResponse(row: TyreSetWithRelations): TyreSetResponseDto {
+  private toResponse(
+    row: TyreSetWithRelations,
+    latestMeasurement?: TyreMeasurementWithWheels,
+  ): TyreSetResponseDto {
     return {
-      id: row.id,
-      customerId: row.customer_id,
-      vehicleId: row.vehicle_id,
-      siteId: row.site_id,
-      locationId: row.location_id,
-      locationCode: row.location?.code ?? null,
-      label: row.label,
-      season: row.season,
-      tyreCount: row.tyre_count,
-      rimType: row.rim_type,
-      brand: row.brand,
-      model: row.model,
-      dimension: row.dimension,
-      dotCodes: row.dot_codes,
-      treadDepthMm: row.tread_depth_mm_json as Record<string, number> | null,
-      conditionNotes: row.condition_notes,
-      status: row.status,
-      storedSince: row.stored_since?.toISOString().slice(0, 10) ?? null,
-      plannedSwapOn: row.planned_swap_on?.toISOString().slice(0, 10) ?? null,
-      binLabel: row.bin_label,
-      customerName: `${row.customer.first_name} ${row.customer.last_name}`,
-      customerPhone: row.customer.phone,
-      customerEmail: row.customer.email,
-      vehiclePlate: row.vehicle?.plate ?? null,
+      ...withLatestMeasurement(toTyreSetListRowDto(row), latestMeasurement),
       events: row.events?.map((event) => ({
         id: event.id,
         eventType: event.event_type,
@@ -724,6 +799,81 @@ export class TyreStorageService {
       })),
     };
   }
+}
+
+function withLatestMeasurement(
+  row: TyreSetResponseDto,
+  measurement: TyreMeasurementWithWheels | undefined,
+): TyreSetResponseDto {
+  return {
+    ...row,
+    latestMeasurement: measurement
+      ? toTyreMeasurementResponse(measurement)
+      : null,
+  };
+}
+
+async function lockMeasuredSite(
+  tx: Prisma.TransactionClient,
+  draft: LocationEventDraft,
+): Promise<void> {
+  if (draft.wheels.length === 0) return;
+  await lockSitesAndAssertActive(tx, draft.tenantId, [draft.set.site_id]);
+}
+
+function locationEventData(
+  draft: LocationEventDraft,
+): Prisma.TyreSetEventUncheckedCreateInput {
+  const { tenantId, set, dto } = draft;
+  return {
+    tenant_id: tenantId,
+    tyre_set_id: set.id,
+    event_type: draft.eventType,
+    occurred_at: draft.occurredAt,
+    workshop_order_id: dto.workshopOrderId,
+    from_location_id: set.location_id,
+    to_location_id: draft.toLocationId,
+    odometer: dto.odometer,
+    tread_depth_mm_json: dto.treadDepthMm as Prisma.InputJsonValue,
+    note: dto.note,
+    employee_id: dto.employeeId,
+    created_by_user_id: draft.userId,
+  };
+}
+
+function assertLocationEventPayload(
+  eventType: LocationEventType,
+  wheels: CreateTyreWheelDto[],
+): void {
+  if (wheels.length > 0 && !MEASURED_EVENT_TYPES.includes(eventType)) {
+    throw new BadRequestException({
+      code: 'TYRE_MEASUREMENT_EVENT_INVALID',
+    });
+  }
+  if (wheels.some((wheel) => wheel.mediaId)) {
+    throw new BadRequestException({
+      code: 'TYRE_MEASUREMENT_MEDIA_INVALID',
+    });
+  }
+}
+
+function resolveEventLocationId(
+  eventType: LocationEventType,
+  currentLocationId: string | null,
+  requestedLocationId: string | undefined,
+): string | null {
+  if (eventType === 'CHECK_OUT' || eventType === 'DISPOSED') return null;
+  if (eventType === 'INSPECTED') return currentLocationId;
+  const requiredTarget = requestedLocationId ?? currentLocationId;
+  if (!requiredTarget) {
+    throw new UnprocessableEntityException('locationId is required');
+  }
+  if (eventType === 'MOVED' && requiredTarget === currentLocationId) {
+    throw new UnprocessableEntityException(
+      'Destination must differ from the current location.',
+    );
+  }
+  return requiredTarget;
 }
 
 function csvEscape(value: string): string {
