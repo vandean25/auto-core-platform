@@ -6,6 +6,7 @@
     "enums:importEntityType.",
     "enums:importField.",
     "enums:dataTableColumn.",
+    "workshop:tyreMeasurement.reasons.",
     "common:landingDemo.errors.",
     "finance:accountingExportReadiness.blockers.",
     "finance:accountingExportReadiness.documentKind.",

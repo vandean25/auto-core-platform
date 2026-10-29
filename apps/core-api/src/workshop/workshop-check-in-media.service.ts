@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -263,7 +264,7 @@ export class WorkshopCheckInMediaService {
           checkInId: checkInRow.id,
           bytes: processedBytes,
           filename: input.file.originalname,
-          objectId: clientUploadId,
+          objectId: randomUUID(),
         })
       : await this.mediaStorage.uploadCheckInPhoto({
           tenantId,
@@ -272,7 +273,7 @@ export class WorkshopCheckInMediaService {
           bytes: processedBytes,
           mimeType,
           filename: input.file.originalname,
-          objectId: clientUploadId,
+          objectId: randomUUID(),
         });
 
     let uploadOutcome: {
@@ -432,6 +433,16 @@ export class WorkshopCheckInMediaService {
         stored.storageKey,
       );
       throw error;
+    }
+
+    if (!uploadOutcome.created) {
+      await deleteCheckInStoredPhotoIfUnreferenced(
+        this.prisma,
+        this.mediaStorage,
+        tenantId,
+        stored.storageBucket,
+        stored.storageKey,
+      );
     }
 
     for (const prior of uploadOutcome.replacedSignatureRows ?? []) {

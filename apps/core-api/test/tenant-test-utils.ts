@@ -442,6 +442,8 @@ export async function cleanupTestTenantGraph(
 ): Promise<void> {
   const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
 
+  await tenantPrisma.tyreWheelReading.deleteMany({});
+  await tenantPrisma.tyreMeasurement.deleteMany({});
   await tenantPrisma.vehicleParty.deleteMany({});
   await tenantPrisma.vehicleNotice.deleteMany({});
   await tenantPrisma.vehicleInspectionRecord.deleteMany({});

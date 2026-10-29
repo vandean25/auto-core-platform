@@ -102,6 +102,15 @@
     "ABORTED": "Aborted",
     "MOVED": "Moved"
   },
+  "tyreMeasurementStatus": {
+    "GOOD": "Measured values within thresholds",
+    "RECOMMENDED": "Recommendation",
+    "URGENT": "Urgent action needed"
+  },
+  "tyreEvaluationState": {
+    "EVALUATED": "Evaluated",
+    "UNSUPPORTED_COUNTRY": "Country not supported"
+  },
   "inventoryTransactionType": {
     "PURCHASE_RECEIPT": "Purchase receipt",
     "SALE_ISSUE": "Sale issue",

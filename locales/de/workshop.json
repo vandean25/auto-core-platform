@@ -1212,6 +1212,19 @@
     "uploadFailed": "Hochladen fehlgeschlagen",
     "extractionFailedFallback": "Dokument konnte nicht gelesen werden"
   },
+  "tyreMeasurement": {
+    "reasons": {
+      "TREAD_BELOW_LEGAL_MINIMUM": "Die gemessene Profiltiefe liegt unter der allgemeinen gesetzlichen Mindestprofiltiefe.",
+      "AT_WINTER_TREAD_INSUFFICIENT": "Die gemessene Profiltiefe reicht in Österreich nicht für die Anerkennung als Winterreifen aus.",
+      "TREAD_REPLACEMENT_RECOMMENDED": "Empfehlung: Reifenwechsel einplanen. Die gemessene Profiltiefe liegt unter dem empfohlenen Grenzwert.",
+      "DE_ALPINE_MISSING": "Die reine M+S-Kennzeichnung ohne Alpine-Symbol genügt in Deutschland bei winterlichen Fahrbahnverhältnissen nicht.",
+      "AT_WINTER_RULE_NOTICE": "Hinweis für Fahrten nach Österreich: Unter 4 mm Profiltiefe wird der Reifen dort nicht als Winterreifen anerkannt; je nach Fahrzeuggewicht und Reifenbauart gelten höhere Mindestwerte.",
+      "DOT_CONDITION_CHECK_RECOMMENDED": "Empfehlung: Reifenzustand ab einem Alter von sechs Jahren regelmäßig prüfen lassen.",
+      "DOT_REPLACEMENT_RECOMMENDED": "Empfehlung: Reifen altersbedingt ersetzen – Winter- und Ganzjahresreifen ab acht Jahren, Sommerreifen ab zehn Jahren.",
+      "DOT_LEGACY_OVER_20_YEARS": "Die dreistellige DOT-Datumsangabe stammt aus der Zeit vor 2000. Der Reifen ist mindestens 20 Jahre alt; das genaue Herstellungsjahr ist nicht bestimmbar.",
+      "UNSUPPORTED_COUNTRY": "Für dieses Land ist keine automatische Reifenbewertung verfügbar. Die Messwerte bleiben dokumentiert."
+    }
+  },
   "registrationReview": {
     "actionFailed": "Aktion fehlgeschlagen",
     "selectCustomer": "Kunde wählen",

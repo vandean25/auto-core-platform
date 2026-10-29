@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -342,6 +343,26 @@ export class TyreSetResponseDto {
 }
 
 export class UpdateTyreStorageSettingsDto {
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: {
+      type: 'object',
+      required: ['recommendedBelowMm'],
+      properties: {
+        recommendedBelowMm: { type: 'number', maximum: 20 },
+        legalMinimumMm: { type: 'number' },
+      },
+    },
+    description:
+      'Profile-keyed amber overrides; may only raise defaults. Omission preserves saved values; {} resets them. Legal minima cannot change.',
+  })
+  @IsOptional()
+  @IsObject()
+  recommendationOverrides?: Record<
+    string,
+    { recommendedBelowMm: number; legalMinimumMm?: number }
+  >;
+
   @ApiProperty({ minimum: 1, maximum: 12 })
   @IsInt()
   @Min(1)
@@ -374,6 +395,16 @@ export class UpdateTyreStorageSettingsDto {
 }
 
 export class TyreStorageSettingsResponseDto {
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: {
+      type: 'object',
+      required: ['recommendedBelowMm'],
+      properties: { recommendedBelowMm: { type: 'number' } },
+    },
+  })
+  recommendationOverrides!: Record<string, { recommendedBelowMm: number }>;
+
   @ApiProperty()
   summerSwapMonth!: number;
 
