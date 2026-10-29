@@ -219,10 +219,7 @@ export class ImportController {
   @Patch('sources/:id')
   @ApiOperation({ summary: 'Update an import source label or default flag' })
   @ApiOkResponse({ type: ImportSourceResponseDto })
-  updateSource(
-    @Param('id') id: string,
-    @Body() body: UpdateImportSourceDto,
-  ) {
+  updateSource(@Param('id') id: string, @Body() body: UpdateImportSourceDto) {
     return this.importSourceService.updateSource(id, body);
   }
 

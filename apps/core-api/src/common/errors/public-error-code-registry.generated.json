@@ -723,6 +723,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_INVALID_SOURCE_KEY": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_INVALID_STANDARD_AW": {
       "public": true,
       "params": []
@@ -795,6 +799,14 @@
       "public": true,
       "params": []
     },
+    "IMPORT_SOURCE_ALREADY_EXISTS": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_SOURCE_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_STORAGE_UNAVAILABLE": {
       "public": true,
       "params": []
@@ -812,6 +824,10 @@
       "params": []
     },
     "IMPORT_UNKNOWN_OWNER": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_UNKNOWN_SOURCE": {
       "public": true,
       "params": []
     },

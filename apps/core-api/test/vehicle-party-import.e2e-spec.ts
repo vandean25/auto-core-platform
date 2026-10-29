@@ -80,6 +80,11 @@ describe('Vehicle party and due date import (e2e)', () => {
 
     tenant = await createTestTenant(basePrisma, 'aut641-import-a');
     otherTenant = await createTestTenant(basePrisma, 'aut641-import-b');
+    for (const t of [tenant, otherTenant]) {
+      await createTenantAwarePrisma(basePrisma, t.tenantId).importSource.create({
+        data: { tenant_id: t.tenantId, key: SOURCE, label: 'Legacy DMS' },
+      });
+    }
     prisma = createTenantAwarePrisma(basePrisma, tenant.tenantId);
     token = createTestAuthToken(auth, tenant);
     otherToken = createTestAuthToken(auth, otherTenant);
