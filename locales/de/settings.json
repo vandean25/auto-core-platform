@@ -1138,6 +1138,7 @@
       "title": "Import abgeschlossen",
       "running": "Import läuft",
       "failed": "Import fehlgeschlagen",
+      "failedReasonFallback": "Der Import ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
       "summary": "Status: {{status}}. Neu {{created}}, aktualisiert {{updated}}, übersprungen {{skipped}}, Fehler {{errors}}.",
       "auditLink": "Audit-Log für diesen Import anzeigen"
     },

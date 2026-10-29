@@ -1138,6 +1138,7 @@
       "title": "Import complete",
       "running": "Import in progress",
       "failed": "Import failed",
+      "failedReasonFallback": "The import failed. Please try again.",
       "summary": "Status: {{status}}. Created {{created}}, updated {{updated}}, skipped {{skipped}}, errors {{errors}}.",
       "auditLink": "View audit log for this import job"
     },

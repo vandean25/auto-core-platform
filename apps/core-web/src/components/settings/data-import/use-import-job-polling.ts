@@ -7,6 +7,8 @@ import type { ImportJob } from '@/api/imports'
 import { importKeys } from '@/api/imports'
 import { fetchWithAuth } from '@/api/client'
 
+import { translateImportJobFailure } from './import-job-failure'
+
 const POLL_START_MS = 2000
 const POLL_MAX_MS = 16000
 
@@ -71,6 +73,7 @@ export function useSyncBackgroundDryRunJob(
     toastFinishedImport(job, terminalToasted, {
       applied: t('dataImport.toast.applied'),
       failed: t('dataImport.toast.applyFailed'),
+      failedFallback: t('dataImport.result.failedReasonFallback'),
     })
     if (shouldSyncWizard(job.status)) syncBackgroundJobProgress(job)
   }, [poll.data, syncBackgroundJobProgress, t])
@@ -79,14 +82,17 @@ export function useSyncBackgroundDryRunJob(
 function toastFinishedImport(
   job: ImportJob,
   toasted: React.MutableRefObject<string | null>,
-  messages: { applied: string; failed: string },
+  messages: { applied: string; failed: string; failedFallback: string },
 ): void {
   if (job.status !== 'APPLIED' && job.status !== 'FAILED') return
   const key = `${job.id}:${job.status}`
   if (toasted.current === key) return
   toasted.current = key
   if (job.status === 'APPLIED') toast.success(messages.applied)
-  else toast.error(messages.failed)
+  else
+    toast.error(messages.failed, {
+      description: translateImportJobFailure(job, messages.failedFallback),
+    })
 }
 
 function shouldSyncWizard(status: ImportJob['status']): boolean {
