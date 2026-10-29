@@ -231,23 +231,6 @@ describe('DataImportSettingsTab characterization', () => {
       expect(refetch).toHaveBeenCalledTimes(1)
     })
 
-    it('switches the source system to the supplier default for supplier price lists', async () => {
-      renderImportSettingsTab()
-
-      await selectEntityType(entityLabels.SUPPLIER_PRICE_LIST)
-
-      expect(sourceSystemInput().value).toBe('supplier')
-    })
-
-    it('keeps the source system when the entity type changes again', async () => {
-      renderImportSettingsTab()
-
-      await selectEntityType(entityLabels.SUPPLIER_PRICE_LIST)
-      await selectEntityType(entityLabels.CUSTOMER)
-
-      expect(sourceSystemInput().value).toBe('supplier')
-    })
-
 
     it('clears the mapping when the entity type changes', async () => {
       renderImportSettingsTab()

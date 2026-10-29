@@ -46,8 +46,7 @@ describe('import source key validation', () => {
     it('returns valid for normalized key', () => {
       const result = validateImportSourceKey('legacy-dms');
       expect(result.valid).toBe(true);
-      if (!result.valid) throw new Error('expected valid');
-      expect(result.error).toBeUndefined();
+      expect(result).not.toHaveProperty('error');
     });
 
     it('returns invalid for empty key', () => {
