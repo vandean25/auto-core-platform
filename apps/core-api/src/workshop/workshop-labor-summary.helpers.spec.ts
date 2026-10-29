@@ -178,6 +178,24 @@ describe('workshop labor summary helpers', () => {
       expect(summary.has_cost_data).toBe(false);
     });
 
+    it('keeps totals null when any labor line lacks its cost rate', () => {
+      const summary = computeWorkshopLaborSummary([
+        singleTask,
+        {
+          id: 'task-2',
+          lineItems: [{ ...laborLine, id: 'line-5', internalCostRate: null }],
+        },
+      ]);
+
+      expect(summary.totals.revenue).toBe(80);
+      expect(summary.totals.cost).toBeNull();
+      expect(summary.totals.margin).toBeNull();
+      expect(summary.totals.margin_percent).toBeNull();
+      expect(summary.line_items[0].cost).toBe(22.5);
+      expect(summary.line_items[1].cost).toBeNull();
+      expect(summary.has_cost_data).toBe(true);
+    });
+
     it('returns null order efficiency when no labor line has usable hours', () => {
       const summary = computeWorkshopLaborSummary([
         {

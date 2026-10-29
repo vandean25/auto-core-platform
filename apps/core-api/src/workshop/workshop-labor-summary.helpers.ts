@@ -113,10 +113,12 @@ export function computeWorkshopLaborSummary(
     .filter((efficiency): efficiency is number => efficiency !== null);
 
   const revenue = laborLines.reduce((sum, line) => sum + line.revenue, 0);
+  // Unknown per-line costs must not be silently treated as zero cost:
+  // the order totals are only present when every labor line has a rate.
   const cost =
-    costLines.length === 0
-      ? null
-      : costLines.reduce((sum, line) => sum + line.cost, 0);
+    laborLines.length > 0 && costLines.length === laborLines.length
+      ? costLines.reduce((sum, line) => sum + line.cost, 0)
+      : null;
   const margin = cost === null ? null : revenue - cost;
 
   return {
