@@ -18,6 +18,7 @@ import {
   toDataTableContextActions,
   type EntityActionDefinition,
 } from './entity-action'
+import { createImportJobRowActions } from './import-job-row-actions'
 import { createVehicleRowActions } from './vehicle-row-actions'
 import { createWorkshopOrderRowActions } from './work-order-row-actions'
 
@@ -85,6 +86,7 @@ describe('entity action registry helpers', () => {
       ...createWorkshopOrderRowActions(passthroughT as TFunction<'workshop'>),
       ...createVehicleRowActions(passthroughT as TFunction<'vehicles'>),
       ...createEstimateRowActions(passthroughT as TFunction<'workshop'>),
+      ...createImportJobRowActions(passthroughT as TFunction<'settings'>),
     ]
 
     expect(allRegistered.map((action) => action.id)).toEqual([...REGISTERED_ENTITY_ACTION_IDS])

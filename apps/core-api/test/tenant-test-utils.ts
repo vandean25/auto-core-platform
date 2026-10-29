@@ -137,6 +137,7 @@ export async function createMemberBearer(
       firebaseUid,
       email,
       active_tenant_id: tenant.tenantId,
+      active_site_id: null,
       memberships: {
         create: { tenant_id: tenant.tenantId, role, is_active: true },
       },
