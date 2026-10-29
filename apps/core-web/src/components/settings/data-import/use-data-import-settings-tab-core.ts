@@ -28,7 +28,8 @@ export function useDataImportSettingsTabCore() {
     initialVendorId: searchParams.get('vendorId') ?? undefined,
   })
 
-  const { data: entityTypeEntries } = useImportEntityTypes()
+  const entityTypesQuery = useImportEntityTypes()
+  const entityTypeEntries = entityTypesQuery.data
   const entityTypes = React.useMemo(
     () => wizardImportEntityTypes(entityTypeEntries ?? []),
     [entityTypeEntries],
@@ -47,6 +48,8 @@ export function useDataImportSettingsTabCore() {
     setSourceSystem,
     wizard,
     entityTypes,
+    entityTypesFailed: entityTypesQuery.isError,
+    retryEntityTypes: () => void entityTypesQuery.refetch(),
     vendors: vendorsData?.data ?? [],
     template,
     configuredThreshold,

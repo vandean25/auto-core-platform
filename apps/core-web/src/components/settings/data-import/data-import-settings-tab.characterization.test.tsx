@@ -6,6 +6,7 @@ import type { ImportJob } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 import { toast } from 'sonner'
 
+import deCommon from '../../../../../../locales/de/common.json'
 import {
   LABOR_CSV,
   SUPPLIER_CSV,
@@ -198,6 +199,25 @@ describe('DataImportSettingsTab characterization', () => {
       expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
         entityLabels.LABOR_OPERATION,
       )
+      expect(screen.queryByText(di.source.entityTypesLoadFailed)).not.toBeInTheDocument()
+    })
+
+    it('says the entity types could not be loaded and loads them again on retry', () => {
+      const refetch = vi.fn()
+      ;(importsApi.useImportEntityTypes as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: undefined,
+        isError: true,
+        refetch,
+      })
+
+      renderImportSettingsTab()
+
+      expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveAccessibleDescription(
+        di.source.entityTypesLoadFailed,
+      )
+      fireEvent.click(screen.getByRole('button', { name: deCommon.actions.retry }))
+
+      expect(refetch).toHaveBeenCalledTimes(1)
     })
 
     it('switches the source system to the supplier default for supplier price lists', async () => {

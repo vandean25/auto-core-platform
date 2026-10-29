@@ -41,6 +41,8 @@ export function DataImportSettingsTab() {
           entityType={model.wizard.entityType}
           entityTypes={model.entityTypes}
           onEntityTypeChange={model.handleEntityTypeChange}
+          entityTypesFailed={model.entityTypesFailed}
+          onRetryEntityTypes={model.retryEntityTypes}
           sourceSystem={model.sourceSystem}
           onSourceSystemChange={model.handleSourceSystemChange}
           selectedVendorId={model.wizard.selectedVendorId}

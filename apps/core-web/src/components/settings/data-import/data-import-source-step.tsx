@@ -20,6 +20,8 @@ export type DataImportSourceStepProps = {
   entityType: ImportEntityTypeUi
   entityTypes: ImportEntityTypeUi[]
   onEntityTypeChange: (entityType: ImportEntityTypeUi) => void
+  entityTypesFailed: boolean
+  onRetryEntityTypes: () => void
   sourceSystem: string
   onSourceSystemChange: (sourceSystem: string) => void
   selectedVendorId: string
@@ -46,7 +48,10 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
             value={props.entityType}
             onValueChange={(value) => props.onEntityTypeChange(toImportEntityTypeUi(value))}
           >
-            <SelectTrigger id="import-entity">
+            <SelectTrigger
+              id="import-entity"
+              aria-describedby={props.entityTypesFailed ? 'import-entity-error' : undefined}
+            >
               <SelectValue>{formatImportEntityTypeLabel(props.entityType)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -57,6 +62,21 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
               ))}
             </SelectContent>
           </Select>
+          {props.entityTypesFailed ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p id="import-entity-error" className="text-sm text-destructive">
+                {t('dataImport.source.entityTypesLoadFailed')}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={props.onRetryEntityTypes}
+              >
+                {t('common:actions.retry')}
+              </Button>
+            </div>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="import-source">{t('dataImport.source.sourceSystemLabel')}</Label>
