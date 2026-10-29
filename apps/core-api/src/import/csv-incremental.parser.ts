@@ -2,6 +2,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { csvRecordEnd } from './csv-record-bytes.js';
 import {
   detectDelimiterFromHeaderLine,
+  parseCsvRecords,
   stripBomFromText,
 } from './csv-parse.util.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
@@ -68,6 +69,7 @@ export class CsvIncrementalParser {
   };
   private delimiter: ';' | ',' | null = null;
   private headerLineRaw = '';
+  private headerInQuotes = false;
   private headers: string[] | null = null;
 
   feedChunk(chunk: Buffer): string[][] {
@@ -110,27 +112,13 @@ export class CsvIncrementalParser {
     if (this.delimiter === null) {
       for (let index = 0; index < text.length; index += 1) {
         const char = text[index];
-        if (char === '\n') {
+        if (char === '"') this.headerInQuotes = !this.headerInQuotes;
+        if (char === '\n' && !this.headerInQuotes) {
           this.headerLineRaw += text.slice(0, index);
           this.headerLineRaw = stripBomFromText(this.headerLineRaw);
           this.delimiter = detectDelimiterFromHeaderLine(this.headerLineRaw);
-          const headerCells: string[][] = [];
-          const headerState: CsvRowWalkState = {
-            currentRow: [],
-            currentCell: '',
-            inQuotes: false,
-          };
-          for (let hi = 0; hi < this.headerLineRaw.length; hi += 1) {
-            hi = walkCsvChar(
-              headerState,
-              headerCells,
-              this.headerLineRaw,
-              hi,
-              this.delimiter,
-            );
-          }
-          pushWalkRow(headerState, headerCells);
-          this.headers = headerCells[0] ?? [];
+          this.headers =
+            parseCsvRecords(this.headerLineRaw, this.delimiter)[0] ?? [];
           const rest = text.slice(index + 1);
           if (rest.length > 0) {
             completed.push(...this.consumeWithDelimiter(rest));

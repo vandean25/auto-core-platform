@@ -1,12 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 
-export const REQUIRED_MINTIGNORE_PATTERNS = ['apps/', 'infra/', 'tools/', 'docs/', '.superpowers/'];
+// The Mintlify content root is docs-site/ (moved from the repo root). App and
+// infrastructure code no longer sits inside the content directory, which
+// structurally prevents the CSS/JS leak regression guarded by AUT-205.
+// The .mintignore file remains the content-root marker for Mintlify.
+export const MINTIGNORE_PATH = 'docs-site/.mintignore';
 
-export function assertMintignore(mintignorePath = '.mintignore') {
-  const mintignore = readFileSync(mintignorePath, 'utf8');
-  const missing = REQUIRED_MINTIGNORE_PATTERNS.filter((pattern) => !mintignore.includes(pattern));
-  if (missing.length > 0) {
-    throw new Error(`.mintignore is missing required patterns: ${missing.join(', ')}`);
+export function assertMintignore(mintignorePath = MINTIGNORE_PATH) {
+  if (!existsSync(mintignorePath)) {
+    throw new Error(`${mintignorePath} is missing — keep the marker file at the Mintlify content root`);
   }
 }
 

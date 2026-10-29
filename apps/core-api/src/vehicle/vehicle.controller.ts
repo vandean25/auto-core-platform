@@ -149,7 +149,8 @@ export class VehicleController {
   @ApiQuery({
     name: 'pageSize',
     required: false,
-    schema: { type: 'integer', minimum: 1 },
+    description: 'Larger values are clamped to 50.',
+    schema: { type: 'integer', minimum: 1, maximum: 50 },
   })
   @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
   @ApiQuery({

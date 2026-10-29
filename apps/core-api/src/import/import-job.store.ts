@@ -62,12 +62,13 @@ import type {
 
 export type CreateDryRunJobInput = {
   tenantId: string;
+  jobId?: string;
   entityType: ImportEntityType;
   sourceSystem: string;
   fileName?: string;
   fileSha256: string;
   mapping: Record<string, string>;
-  options: ImportJobOptions;
+  options: ImportJobOptionsWithWorker;
   totals: ImportJobTotals;
   actorUserId: string;
   rows: DryRunRowResult[];
@@ -356,6 +357,7 @@ export class ImportJobStore {
   createDryRunJob(input: CreateDryRunJobInput) {
     return this.prisma.importJob.create({
       data: {
+        ...(input.jobId ? { id: input.jobId } : {}),
         tenant_id: input.tenantId,
         entity_type: input.entityType,
         source_system: input.sourceSystem,
@@ -818,6 +820,30 @@ export class ImportJobStore {
         action: ImportRowAction.ERROR,
       },
       orderBy: { row_no: 'asc' },
+    });
+  }
+
+  findErrorRowsAfter(params: {
+    tenantId: string;
+    jobId: string;
+    afterRowNo: number;
+    take: number;
+  }) {
+    return this.prisma.importJobRow.findMany({
+      where: {
+        tenant_id: params.tenantId,
+        import_job_id: params.jobId,
+        action: ImportRowAction.ERROR,
+        row_no: { gt: params.afterRowNo },
+      },
+      orderBy: { row_no: 'asc' },
+      take: params.take,
+      select: {
+        row_no: true,
+        external_id: true,
+        errors_json: true,
+        normalized_json: true,
+      },
     });
   }
 

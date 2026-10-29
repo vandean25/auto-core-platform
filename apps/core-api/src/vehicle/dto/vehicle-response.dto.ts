@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
+import { LegacyIdDto } from '../../common/dto/legacy-id.dto.js';
 import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
 import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 import { PickerlDueDto } from './pickerl-due.dto.js';
@@ -17,6 +18,9 @@ export class OpenPickerlOrderDto {
 }
 
 export class VehicleResponseDto extends DryRunMetaDto {
+  @ApiProperty({ type: () => [LegacyIdDto], required: false, readOnly: true })
+  legacy_ids?: LegacyIdDto[];
+
   @ApiProperty({
     type: () => OpenPickerlOrderDto,
     required: false,

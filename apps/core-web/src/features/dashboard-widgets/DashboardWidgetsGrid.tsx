@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,48 +10,46 @@ import {
   fetchWidgetRows,
   filterWidgetRows,
   resolveWidgetRequest,
+  type WidgetRowsResult,
 } from '@/features/dashboard-widgets/data-source-registry'
 import { useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import type { DashboardWidget, DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
-import { getValueByPath, stringifyValue, toNumber } from '@/features/dashboard-widgets/utils'
-import { formatCurrency, formatNumber } from '@/lib/format'
+import { WidgetBody, WidgetEmptyMessage } from '@/features/dashboard-widgets/DashboardWidgetBodies'
+import { isPartialResult, type WidgetData } from '@/features/dashboard-widgets/widget-totals'
+import { hasUtcDayChanged } from '@/lib/date-utils'
 
-const DONUT_COLORS = ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#6366f1']
+const PICKERL_DUE_SOURCE_KEY = 'pickerl-due'
 
 type DashboardWidgetsGridProps = {
   sourcesByKey: Record<string, DashboardWidgetTableSource>
 }
 
+const NO_ROWS: WidgetRowsResult = { rows: [], total: 0 }
+
 /** Widgets on the same source and API URL share one request; their own filters are applied to the shared rows. */
 function useWidgetRows(widget: DashboardWidget) {
   const request = useMemo(() => resolveWidgetRequest(widget.href), [widget.href])
-  const select = useCallback((rows: unknown[]) => filterWidgetRows(rows, request), [request])
+  const select = useCallback(
+    (result: WidgetRowsResult): WidgetData => ({
+      rows: filterWidgetRows(result.rows, request),
+      fetchedCount: result.rows.length,
+      total: result.total,
+      hasClientFilters: request?.hasClientOnlyFilters ?? false,
+    }),
+    [request],
+  )
 
   return useQuery({
     queryKey: dashboardWidgetKeys.rows(widget.sourceKey, request?.apiUrl ?? widget.href),
-    queryFn: () => (request ? fetchWidgetRows(request.apiUrl, widget.sourceKey) : []),
+    queryFn: () => (request ? fetchWidgetRows(request.apiUrl, widget.sourceKey) : NO_ROWS),
     select,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    // Realtime events and mutations refresh the rows, so returning to the tab does not refetch every widget list. The
+    // Pickerl due status depends on the current day, though, so data from an earlier day is refreshed when the tab is
+    // shown again.
+    refetchOnWindowFocus: (query) =>
+      widget.sourceKey === PICKERL_DUE_SOURCE_KEY && hasUtcDayChanged(query.state.dataUpdatedAt) ? 'always' : false,
   })
-}
-
-function appendGroupFilterToHref(href: string, field: string, value: string): string {
-  const url = new URL(href, 'http://localhost')
-  url.searchParams.set(`filter_${field}`, value)
-  return `${url.pathname}${url.search}`
-}
-
-function renderListPreviewRow(
-  row: unknown,
-  source: DashboardWidgetTableSource,
-  noPreviewLabel: string,
-): string {
-  const previewFields = source.listPreviewFields.length > 0 ? source.listPreviewFields : source.fields.map((field) => field.key)
-  const text = previewFields
-    .map((fieldKey) => stringifyValue(getValueByPath(row, fieldKey)))
-    .filter(Boolean)
-    .join(' · ')
-  return text || noPreviewLabel
 }
 
 function DashboardWidgetCard({
@@ -66,44 +63,9 @@ function DashboardWidgetCard({
 }) {
   const { t } = useTranslation('common')
   const navigate = useNavigate()
-  const { data: rows = [], isLoading, error } = useWidgetRows(widget)
-
-  const donutData = useMemo(() => {
-    if (widget.displayType !== 'donut' || !widget.groupByField) return []
-    const counts = new Map<string, number>()
-    for (const row of rows) {
-      const key = stringifyValue(getValueByPath(row, widget.groupByField)) || t('dashboard.unknownGroup')
-      counts.set(key, (counts.get(key) ?? 0) + 1)
-    }
-    return Array.from(counts.entries()).map(([name, value]) => ({ name, value }))
-  }, [rows, t, widget.displayType, widget.groupByField])
-
-  const metricValue = useMemo<number | null>(() => {
-    if (widget.displayType !== 'metric') return null
-    if (widget.metricCalculation !== 'sum' || !widget.metricField) {
-      return rows.length
-    }
-    return rows.reduce<number>((sum, row) => sum + toNumber(getValueByPath(row, widget.metricField ?? '')), 0)
-  }, [rows, widget.displayType, widget.metricCalculation, widget.metricField])
-
-  const metricFieldType = source.fields.find((field) => field.key === widget.metricField)?.type
-  const currency =
-    'metricCurrency' in widget &&
-    typeof (widget as { metricCurrency?: unknown }).metricCurrency === 'string'
-      ? (widget as { metricCurrency: string }).metricCurrency
-      : 'EUR'
-
-  const formattedMetricValue = useMemo(() => {
-    if (metricValue == null) return '-'
-
-    if (widget.metricCalculation === 'sum' && metricFieldType === 'currency') {
-      return formatCurrency(metricValue, currency)
-    }
-    if (widget.metricCalculation === 'sum') {
-      return formatNumber(metricValue)
-    }
-    return `${metricValue}`
-  }, [currency, metricFieldType, metricValue, widget.metricCalculation])
+  const { data, isLoading, error } = useWidgetRows(widget)
+  const rows = useMemo(() => data?.rows ?? [], [data])
+  const hasRows = !isLoading && !error && rows.length > 0
 
   return (
     <Card className="h-full">
@@ -126,55 +88,13 @@ function DashboardWidgetCard({
       <CardContent>
         {isLoading ? <p className="text-sm text-slate-500">{t('dashboard.loadingWidget')}</p> : null}
         {error ? <p className="text-sm text-destructive">{t('dashboard.loadWidgetFailed')}</p> : null}
-        {!isLoading && !error && rows.length === 0 ? <p className="text-sm text-slate-500">{t('dashboard.noWidgetData')}</p> : null}
+        {!isLoading && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
 
-        {!isLoading && !error && rows.length > 0 && widget.displayType === 'list' ? (
-          <ul className="space-y-2">
-            {rows.slice(0, 5).map((row, index) => (
-              <li key={`${widget.id}-row-${index}`} className="text-sm text-slate-700 border-b pb-2 last:border-b-0">
-                {renderListPreviewRow(row, source, t('dashboard.noPreviewData'))}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        {!isLoading && !error && rows.length > 0 && widget.displayType === 'metric' ? (
-          <button
-            type="button"
-            className="w-full rounded-lg border border-transparent py-8 text-center transition hover:border-slate-200"
-            onClick={() => navigate(widget.href)}
-            title={t('dashboard.openSourceTitle')}
-          >
-            <div className="text-4xl font-bold tracking-tight">{formattedMetricValue}</div>
-            <div className="mt-2 text-xs uppercase tracking-wide text-slate-500">
-              {widget.metricCalculation === 'sum' ? t('dashboard.summedValue') : t('dashboard.totalItems')}
-            </div>
-          </button>
-        ) : null}
-
-        {!isLoading && !error && rows.length > 0 && widget.displayType === 'donut' ? (
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donutData}
-                  dataKey="value"
-                  nameKey="name"
-                  outerRadius={85}
-                  onClick={(entry) => {
-                    if (!widget.groupByField) return
-                    navigate(appendGroupFilterToHref(widget.href, widget.groupByField, String(entry.name)))
-                  }}
-                >
-                  {donutData.map((entry, index) => (
-                    <Cell key={`${widget.id}-${entry.name}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" align="center" />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        {hasRows && data ? <WidgetBody widget={widget} source={source} data={data} /> : null}
+        {hasRows && data && isPartialResult(widget, data) ? (
+          <p className="mt-2 text-xs text-slate-500" data-testid="widget-partial-hint">
+            {t('dashboard.partialResult', { count: data.fetchedCount, total: data.total })}
+          </p>
         ) : null}
       </CardContent>
     </Card>

@@ -211,7 +211,11 @@ async function updateServiceNotice(
     'VehicleNotice',
     noticeId,
     AuditLogAction.UPDATE,
-    { due_date: dateToDay(before.due_date), due_mileage: before.due_mileage },
+    {
+      due_date: dateToDay(before.due_date),
+      due_mileage: before.due_mileage,
+      body: before.body,
+    },
     changes,
   );
 }

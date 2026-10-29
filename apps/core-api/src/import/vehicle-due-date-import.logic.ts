@@ -10,6 +10,7 @@ import {
   requiredIssue,
   type PreparedBase,
 } from './canonical-csv-cell.util.js';
+import { assignImportUpdateFields } from './import-update-data.util.js';
 import type {
   DryRunRowResult,
   ImportJobOptions,
@@ -339,11 +340,27 @@ function resolveStoredInspection(
   prepared.action = ImportRowAction.SKIP;
 }
 
-function serviceDiffers(row: NormalizedService, stored: StoredServiceNotice) {
-  return (
-    (row.due_date !== null && row.due_date !== stored.due_date) ||
-    (row.due_mileage !== null && row.due_mileage !== stored.due_mileage) ||
-    (row.notes !== null && row.notes !== stored.body)
+function serviceDiffers(
+  row: NormalizedService,
+  stored: StoredServiceNotice,
+  options: ImportJobOptions,
+): boolean {
+  const existing: Record<string, unknown> = {
+    due_date: stored.due_date,
+    due_mileage: stored.due_mileage,
+    body: stored.body,
+  };
+  const changes = assignImportUpdateFields(
+    existing,
+    [
+      ['due_date', row.due_date],
+      ['due_mileage', row.due_mileage],
+      ['body', row.notes],
+    ],
+    options,
+  );
+  return Object.entries(changes).some(
+    ([field, value]) => value !== existing[field],
   );
 }
 
@@ -368,7 +385,7 @@ function resolveStoredService(
     );
     return;
   }
-  if (!serviceDiffers(row, stored)) {
+  if (!serviceDiffers(row, stored, options)) {
     prepared.action = ImportRowAction.SKIP;
   } else if (options.update_existing === true) {
     prepared.action = ImportRowAction.UPDATE;

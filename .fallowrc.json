@@ -24,6 +24,7 @@
     "locales/**",
     "apps/core-web/public/**",
     "docs/**",
+    "docs-site/**",
     "tools/verify-build-chunks-fixtures/**",
     "tools/**/fixtures/**"
   ],

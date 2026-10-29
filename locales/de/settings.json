@@ -1129,6 +1129,10 @@
       "editMapping": "Zuordnung bearbeiten",
       "applyImport": "Import anwenden"
     },
+    "errorReport": {
+      "unknownError": "Die Zeile konnte nicht importiert werden. Bitte prüfen Sie die Werte und versuchen Sie es erneut.",
+      "normalizedFallback": "Die Originaldatei ist nicht mehr verfügbar. Diese Zeile enthält nur die gespeicherten, aufbereiteten Werte."
+    },
     "result": {
       "title": "Import abgeschlossen",
       "running": "Import läuft",
