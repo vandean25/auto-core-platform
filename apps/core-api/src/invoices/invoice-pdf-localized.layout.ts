@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import { findCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { EscapeHtml, FormatDate } from './invoice-pdf.layout.js';
 import {
   buildInvoiceDocumentStyles,
@@ -97,10 +98,10 @@ function localizedCustomerSection(
   ]
     .filter(Boolean)
     .join(' ');
-  const vatLabel =
-    snapshot.seller?.country_iso === 'AT'
-      ? t('invoice.uidLabel')
-      : t('invoice.vatIdLabel');
+  const vatLabel = t(
+    findCountryPack(snapshot.seller?.country_iso)?.vatIdLabelKey ??
+      'invoice.vatIdLabel',
+  );
 
   return `
     <div class="section">

@@ -18,6 +18,31 @@ describe('customer-vat-id.validation', () => {
   });
 
   describe('assertCustomerVatIdFormat', () => {
+    it.each([null, undefined, '', '  ', 'CH'])(
+      'bypasses invalid VAT for country %p',
+      (country) => {
+        expect(() =>
+          assertCustomerVatIdFormat(country, 'invalid'),
+        ).not.toThrow();
+      },
+    );
+
+    it.each([
+      [' at ', ' atu 1234 5678 '],
+      [' de ', ' de 123 456 789 '],
+    ])('normalizes country and VAT for %s', (country, vatId) => {
+      expect(() => assertCustomerVatIdFormat(country, vatId)).not.toThrow();
+    });
+
+    it.each(['AT', 'DE'])(
+      'keeps the %s validation error message',
+      (country) => {
+        expect(() => assertCustomerVatIdFormat(country, 'invalid')).toThrow(
+          `vat_id is not a valid ${country} VAT identifier format`,
+        );
+      },
+    );
+
     it('accepts valid AT and DE fixtures', () => {
       expect(() =>
         assertCustomerVatIdFormat('AT', 'ATU12345678'),

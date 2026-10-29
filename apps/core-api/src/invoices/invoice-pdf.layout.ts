@@ -21,6 +21,7 @@ import {
   FOOTER_DECORATIVE_MAX_LINES,
   wrapAndEllipsizeDecorativeText,
 } from '../document-branding/decorative-text-layout.js';
+import { findCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import type { InvoiceSnapshotV2Seller } from './invoice-snapshot-v2.js';
 import { resolveMarginSchemeLegalNote } from './margin-scheme-legal-notes.js';
@@ -106,20 +107,13 @@ const buildSellerTaxLines = (
 ): string => {
   const lines: string[] = [];
 
-  if (seller.country_iso === 'AT') {
-    if (seller.vat_id) {
-      lines.push(`UID: ${escapeHtml(seller.vat_id)}`);
-    }
-    if (seller.tax_number) {
-      lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
-    }
-  } else {
-    if (seller.vat_id) {
-      lines.push(`USt-IdNr.: ${escapeHtml(seller.vat_id)}`);
-    }
-    if (seller.tax_number) {
-      lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
-    }
+  const vatLabel =
+    findCountryPack(seller.country_iso)?.vatIdLabel ?? 'USt-IdNr.';
+  if (seller.vat_id) {
+    lines.push(`${vatLabel}: ${escapeHtml(seller.vat_id)}`);
+  }
+  if (seller.tax_number) {
+    lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
   }
 
   return lines.map((line) => `<div>${line}</div>`).join('');
@@ -355,9 +349,7 @@ export const buildInvoiceCustomerSection = (
     ? 'Rechnungsempfänger'
     : 'Bill to:';
   const vatLabel = isDachRechnungSnapshot(snapshot)
-    ? snapshot.seller?.country_iso === 'AT'
-      ? 'UID'
-      : 'USt-IdNr.'
+    ? (findCountryPack(snapshot.seller?.country_iso)?.vatIdLabel ?? 'USt-IdNr.')
     : 'VAT ID';
 
   return `

@@ -23,6 +23,7 @@ function sessionFor(activeRole: AuthSession['activeRole'], userId = 'user-1'): A
     effectiveLocale: 'de',
     defaultLocale: 'de',
     formatLocale: 'de-AT',
+    effectiveCapabilities: null,
   }
 }
 

@@ -26,6 +26,28 @@ const baseEntity = (
 });
 
 describe('legal-entity-readiness', () => {
+  it('does not accept an AT tax number in place of VAT', () => {
+    expect(
+      computeSellerReadiness(
+        baseEntity({ vat_id: ' ', tax_number: '12/345/6789' }),
+      ),
+    ).toEqual({
+      isReady: false,
+      missingFields: ['vat_id'],
+    });
+  });
+
+  it('accepts DE readiness with only VAT', () => {
+    expect(
+      computeSellerReadiness(
+        baseEntity({ country_iso: 'DE', vat_id: 'DE123456789' }),
+      ),
+    ).toEqual({
+      isReady: true,
+      missingFields: [],
+    });
+  });
+
   it('marks a complete AT profile as ready', () => {
     expect(computeSellerReadiness(baseEntity())).toEqual({
       isReady: true,

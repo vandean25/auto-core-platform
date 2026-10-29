@@ -17663,6 +17663,29 @@
           "en"
         ]
       },
+      "EffectiveCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "nova": {
+            "type": "boolean"
+          },
+          "pickerl57a": {
+            "type": "boolean"
+          },
+          "kaufvertragAt": {
+            "type": "boolean"
+          },
+          "willhabenExport": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nova",
+          "pickerl57a",
+          "kaufvertragAt",
+          "willhabenExport"
+        ]
+      },
       "AuthSessionResponseDto": {
         "type": "object",
         "properties": {
@@ -17725,6 +17748,15 @@
           "formatLocale": {
             "type": "string",
             "example": "de-AT"
+          },
+          "effectiveCapabilities": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EffectiveCapabilitiesDto"
+              }
+            ]
           }
         },
         "required": [
@@ -17737,7 +17769,8 @@
           "locale",
           "effectiveLocale",
           "defaultLocale",
-          "formatLocale"
+          "formatLocale",
+          "effectiveCapabilities"
         ]
       },
       "SwitchTenantDto": {

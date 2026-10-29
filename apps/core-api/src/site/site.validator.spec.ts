@@ -43,6 +43,36 @@ describe('site.validator', () => {
   });
 
   describe('validateSiteCreateInput', () => {
+    it.each(['CH', '', 'at'])(
+      'keeps the legacy Vienna fallback for %p',
+      (country) => {
+        const result = validateSiteCreateInput(
+          { code: 'S1', name: 'Site 1', legalEntityId: 'le-1' },
+          country,
+        );
+        expect(result.timezone).toBe('Europe/Vienna');
+        expect(result.holidayCountry).toBe(country);
+      },
+    );
+
+    it.each(['AT', 'DE', 'CH'])(
+      'preserves explicit overrides for %s',
+      (country) => {
+        const result = validateSiteCreateInput(
+          {
+            code: 'S1',
+            name: 'Site 1',
+            legalEntityId: 'le-1',
+            timezone: 'Europe/Zurich',
+            holidayCountryIso: 'CH',
+          },
+          country,
+        );
+        expect(result.timezone).toBe('Europe/Zurich');
+        expect(result.holidayCountry).toBe('CH');
+      },
+    );
+
     it('derives AT defaults correctly', () => {
       const result = validateSiteCreateInput(
         { code: 'S1', name: 'Site 1', legalEntityId: 'le-1' },
@@ -71,7 +101,12 @@ describe('site.validator', () => {
             name: 'Site 1',
             legalEntityId: 'le-1',
             openingHours: [
-              { weekday: 1, isClosed: false, openTime: '08:00', closeTime: '17:00' },
+              {
+                weekday: 1,
+                isClosed: false,
+                openTime: '08:00',
+                closeTime: '17:00',
+              },
             ],
           },
           'AT',
@@ -108,7 +143,9 @@ describe('site.validator', () => {
     });
 
     it('passes when legalEntityId is undefined', () => {
-      expect(() => assertSiteUpdatePayloadValid({ name: 'New Name' })).not.toThrow();
+      expect(() =>
+        assertSiteUpdatePayloadValid({ name: 'New Name' }),
+      ).not.toThrow();
     });
   });
 
@@ -217,7 +254,10 @@ describe('site.validator', () => {
 
     it('throws UnprocessableEntityException if member is inactive', () => {
       expect(() =>
-        validateSiteMembershipCreateInput({ id: 'm-1', is_active: false }, null),
+        validateSiteMembershipCreateInput(
+          { id: 'm-1', is_active: false },
+          null,
+        ),
       ).toThrow(UnprocessableEntityException);
     });
 
@@ -232,10 +272,7 @@ describe('site.validator', () => {
 
     it('passes for valid eligible member', () => {
       expect(() =>
-        validateSiteMembershipCreateInput(
-          { id: 'm-1', is_active: true },
-          null,
-        ),
+        validateSiteMembershipCreateInput({ id: 'm-1', is_active: true }, null),
       ).not.toThrow();
     });
   });

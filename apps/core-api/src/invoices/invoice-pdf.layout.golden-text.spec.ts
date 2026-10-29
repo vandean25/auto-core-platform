@@ -4,9 +4,7 @@ import {
   I18N_TRANSLATION_BUNDLE_VERSION,
   type DisplayLanguage,
 } from '../common/i18n/display-language.js';
-import {
-  LEGACY_I18N_TRANSLATION_BUNDLE_VERSION,
-} from '../common/i18n/pdf-resource-bundle.js';
+import { LEGACY_I18N_TRANSLATION_BUNDLE_VERSION } from '../common/i18n/pdf-resource-bundle.js';
 import {
   loadPdfLocaleJson,
   pdfLocaleString,
@@ -87,7 +85,9 @@ describe('invoice-pdf.layout golden text', () => {
         revenue_group_name: null,
       },
     ],
-    tax_breakdown: [{ rate: '20', net: '100.00', tax: '20.00', gross: '120.00' }],
+    tax_breakdown: [
+      { rate: '20', net: '100.00', tax: '20.00', gross: '120.00' },
+    ],
     snapshot_created_at: '2026-04-07T12:00:00.000Z',
   });
 
@@ -114,6 +114,25 @@ describe('invoice-pdf.layout golden text', () => {
       ctx,
     );
   };
+
+  it.each([
+    ['AT', 'UID'],
+    ['DE', 'USt-IdNr.'],
+    ['CH', 'USt-IdNr.'],
+    ['', 'USt-IdNr.'],
+    [undefined, 'USt-IdNr.'],
+    [null, 'USt-IdNr.'],
+  ])(
+    'keeps localized German customer VAT labels for seller %p',
+    (country, label) => {
+      const snapshot = createV2Snapshot();
+      snapshot.seller!.country_iso = country as never;
+      snapshot.customer.vat_id = 'VAT-FIXTURE';
+      expect(
+        extractVisibleTextFromHtml(renderInvoice(snapshot, 'de')),
+      ).toContain(`${label}: VAT-FIXTURE`);
+    },
+  );
 
   it('keeps legacy German labels when document_locale is absent', () => {
     const snapshot = createV2Snapshot();
@@ -154,10 +173,14 @@ describe('invoice-pdf.layout golden text', () => {
   });
 
   it('renders localized DE labels from pdf.json including tax breakdown', () => {
-    const text = extractVisibleTextFromHtml(renderInvoice(createV2Snapshot(), 'de'));
+    const text = extractVisibleTextFromHtml(
+      renderInvoice(createV2Snapshot(), 'de'),
+    );
     expect(text).toContain(pdfLocaleString(dePdf, 'invoice.title'));
     expect(text).toContain(pdfLocaleString(dePdf, 'invoice.recipientLabel'));
-    expect(text).toContain(pdfLocaleString(dePdf, 'invoice.vehicleSectionTitle'));
+    expect(text).toContain(
+      pdfLocaleString(dePdf, 'invoice.vehicleSectionTitle'),
+    );
     expect(text).toContain(pdfLocaleString(dePdf, 'invoice.plateLabel'));
     expect(text).toContain(pdfLocaleString(dePdf, 'invoice.notesTitle'));
     expect(text).toContain(pdfLocaleString(dePdf, 'invoice.taxBreakdownTitle'));
@@ -174,10 +197,14 @@ describe('invoice-pdf.layout golden text', () => {
     const text = extractVisibleTextFromHtml(renderInvoice(snapshot, 'en'));
     expect(text).toContain(pdfLocaleString(enPdf, 'invoice.title'));
     expect(text).toContain(pdfLocaleString(enPdf, 'invoice.recipientLabel'));
-    expect(text).toContain(pdfLocaleString(enPdf, 'invoice.vehicleSectionTitle'));
+    expect(text).toContain(
+      pdfLocaleString(enPdf, 'invoice.vehicleSectionTitle'),
+    );
     expect(text).toContain(pdfLocaleString(enPdf, 'invoice.notesTitle'));
     expect(text).toContain(pdfLocaleString(enPdf, 'invoice.taxBreakdownTitle'));
-    expect(text).toContain(pdfLocaleString(enPdf, 'legal.authoritativeGermanNotice'));
+    expect(text).toContain(
+      pdfLocaleString(enPdf, 'legal.authoritativeGermanNotice'),
+    );
 
     const footer = buildInvoiceFooterTemplate(
       'RE-2026-0042',
