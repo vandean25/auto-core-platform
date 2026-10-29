@@ -1,6 +1,8 @@
 import type { TFunction } from 'i18next';
+import { findCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { EscapeHtml, FormatDate } from './invoice-pdf.layout.js';
 import {
+  buildCustomerName,
   buildInvoiceDocumentStyles,
   buildInvoiceHtmlDocument,
   buildInvoiceSellerSection,
@@ -86,21 +88,17 @@ function localizedCustomerSection(
   escapeHtml: EscapeHtml,
   t: TFunction,
 ): string {
-  const customerName =
-    snapshot.customer.type === 'COMPANY'
-      ? (snapshot.customer.company_name ??
-        `${snapshot.customer.first_name} ${snapshot.customer.last_name}`)
-      : `${snapshot.customer.first_name} ${snapshot.customer.last_name}`;
+  const customerName = buildCustomerName(snapshot);
   const cityLine = [
     snapshot.customer.address_zip,
     snapshot.customer.address_city,
   ]
     .filter(Boolean)
     .join(' ');
-  const vatLabel =
-    snapshot.seller?.country_iso === 'AT'
-      ? t('invoice.uidLabel')
-      : t('invoice.vatIdLabel');
+  const vatLabel = t(
+    findCountryPack(snapshot.seller?.country_iso)?.vatIdLabelKey ??
+      'invoice.vatIdLabel',
+  );
 
   return `
     <div class="section">

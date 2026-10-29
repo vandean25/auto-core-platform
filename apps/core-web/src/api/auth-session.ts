@@ -9,6 +9,13 @@ export type AuthSession = components['schemas']['AuthSessionResponseDto']
 export type AuthSessionTenant = components['schemas']['AuthSessionTenantDto']
 export type AuthSessionMembership = components['schemas']['AuthSessionMembershipDto']
 export type SwitchTenantPayload = components['schemas']['SwitchTenantDto']
+export type EffectiveCapabilities = components['schemas']['EffectiveCapabilitiesDto']
+
+export function selectEffectiveCapabilities(
+  session: AuthSession | null | undefined,
+): EffectiveCapabilities | null {
+  return session?.effectiveCapabilities ?? null
+}
 
 export const authSessionKeys = {
   all: ['auth-session'] as const,
@@ -30,6 +37,7 @@ const e2eAuthSession: AuthSession = {
   effectiveLocale: 'de',
   defaultLocale: 'de',
   formatLocale: 'de-AT',
+  effectiveCapabilities: null,
 }
 
 function getE2EAuthSession(pathname = window.location.pathname): AuthSession {

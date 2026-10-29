@@ -17,6 +17,140 @@ function createLandingDemoGrantMock(): LandingDemoSignInGrantService {
 const ACTIVE_TENANT_ID = 'tenant-1';
 const ACTIVE_SITE_ID = 'site-1';
 
+describe('AuthSessionService effective capabilities', () => {
+  function createSessionService(
+    countryIso: string | null,
+    activeSiteId: string | null = ACTIVE_SITE_ID,
+  ) {
+    const user = {
+      id: 'user-1',
+      firebaseUid: 'firebase-user-1',
+      email: 'user@example.com',
+      active_tenant_id: ACTIVE_TENANT_ID,
+      active_site_id: activeSiteId,
+      locale: null,
+      platformAdmin: null,
+      memberships: [
+        {
+          tenant_id: ACTIVE_TENANT_ID,
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: ACTIVE_TENANT_ID,
+            name: 'Tenant One',
+            slug: 'tenant-one',
+            is_active: true,
+            default_locale: 'de',
+            format_locale: 'de-AT',
+          },
+        },
+      ],
+    };
+    const findMembership = asyncMock().mockResolvedValue(
+      countryIso === null
+        ? null
+        : {
+            site: { legal_entity: { country_iso: countryIso } },
+          },
+    );
+    const service = new AuthSessionService(
+      {
+        user: { findFirst: asyncMock().mockResolvedValue(user) },
+        siteMembership: { findFirst: findMembership },
+      } as unknown as SystemPrismaService,
+      createLandingDemoGrantMock(),
+    );
+    return { service, findMembership };
+  }
+
+  it.each([
+    ['AT', true],
+    ['DE', false],
+  ])(
+    'returns country capabilities for %s without changing format locale',
+    async (countryIso, enabled) => {
+      const { service } = createSessionService(countryIso);
+      const session = await service.getSessionForClaims({
+        sub: 'firebase-user-1',
+        email: 'user@example.com',
+      });
+      expect(session).toMatchObject({
+        formatLocale: 'de-AT',
+        effectiveCapabilities: {
+          nova: enabled,
+          pickerl57a: enabled,
+          kaufvertragAt: enabled,
+          willhabenExport: enabled,
+        },
+      });
+    },
+  );
+
+  it('scopes the country lookup to the active tenant, site and active memberships', async () => {
+    const { service, findMembership } = createSessionService('AT');
+    await service.getSessionForClaims({
+      sub: 'firebase-user-1',
+      email: 'user@example.com',
+    });
+    expect(findMembership).toHaveBeenCalledWith({
+      where: {
+        tenant_id: ACTIVE_TENANT_ID,
+        user_id: 'user-1',
+        site_id: ACTIVE_SITE_ID,
+        is_active: true,
+        tenantMember: { tenant_id: ACTIVE_TENANT_ID, is_active: true },
+        site: {
+          tenant_id: ACTIVE_TENANT_ID,
+          id: ACTIVE_SITE_ID,
+          is_active: true,
+          legal_entity: { tenant_id: ACTIVE_TENANT_ID, is_active: true },
+        },
+      },
+      select: {
+        site: { select: { legal_entity: { select: { country_iso: true } } } },
+      },
+    });
+  });
+
+  it('returns null capabilities when no active site is selected', async () => {
+    const { service, findMembership } = createSessionService('AT', null);
+    const session = await service.getSessionForClaims({
+      sub: 'firebase-user-1',
+      email: 'user@example.com',
+    });
+    expect(session).toHaveProperty('effectiveCapabilities', null);
+    expect(findMembership).not.toHaveBeenCalled();
+  });
+
+  it('returns null capabilities when the active site is not authorized', async () => {
+    const { service } = createSessionService(null);
+    const session = await service.getSessionForClaims({
+      sub: 'firebase-user-1',
+      email: 'user@example.com',
+    });
+    expect(session).toHaveProperty('effectiveCapabilities', null);
+  });
+
+  it('does not treat an unknown seller country as Austria', async () => {
+    const { service } = createSessionService('FR');
+    await expect(
+      service.getSessionForClaims({
+        sub: 'firebase-user-1',
+        email: 'user@example.com',
+      }),
+    ).rejects.toThrow('Unsupported country: FR');
+  });
+
+  it('does not query capabilities when only resolving authentication', async () => {
+    const { service, findMembership } = createSessionService('AT');
+    await service.resolveTenantUser({
+      sub: 'firebase-user-1',
+      email: 'user@example.com',
+    });
+    expect(findMembership).not.toHaveBeenCalled();
+  });
+});
+
 describe('AuthSessionService active-site session projection', () => {
   it('projects User.active_site_id into the authenticated tenant user', async () => {
     const findFirst = asyncMock().mockResolvedValue({
@@ -42,6 +176,7 @@ describe('AuthSessionService active-site session projection', () => {
     });
     const systemPrisma = {
       user: { findFirst },
+      siteMembership: { findFirst: asyncMock().mockResolvedValue(null) },
     } as unknown as SystemPrismaService;
 
     const service = new AuthSessionService(

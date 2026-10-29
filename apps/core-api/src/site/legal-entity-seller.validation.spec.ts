@@ -1,10 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
+import { resolveCountryPack } from '../common/country-pack/country-pack.registry.js';
 import {
   buildLegalEntitySellerUpdateData,
-  isValidAtUid,
   isValidBic,
-  isValidDeTaxNumber,
-  isValidDeVatId,
   isValidIban,
   normalizeOptionalString,
   type LegalEntitySellerRecord,
@@ -62,19 +60,57 @@ describe('legal-entity-seller.validation', () => {
     });
 
     it('accepts a valid DE VAT ID', () => {
-      expect(isValidDeVatId('DE123456789')).toBe(true);
+      expect(resolveCountryPack('DE').validateVatId('DE123456789')).toBe(true);
     });
 
     it('accepts a valid AT UID', () => {
-      expect(isValidAtUid('ATU12345678')).toBe(true);
+      expect(resolveCountryPack('AT').validateVatId('ATU12345678')).toBe(true);
     });
 
     it('accepts a valid DE tax number', () => {
-      expect(isValidDeTaxNumber('12/345/67890')).toBe(true);
+      expect(resolveCountryPack('DE').validateTaxNumber('12/345/67890')).toBe(
+        true,
+      );
     });
   });
 
   describe('buildLegalEntitySellerUpdateData', () => {
+    it.each([
+      ['AT', '12/345/6789', ' atu 12345678 '],
+      ['DE', '12/345/67890', ' de 123456789 '],
+    ] as const)(
+      'preserves valid %s tax identifiers',
+      (country, taxNumber, vatId) => {
+        expect(
+          buildLegalEntitySellerUpdateData(
+            { ...baseEntity(), country_iso: country },
+            { taxNumber, vatId },
+          ),
+        ).toEqual({
+          tax_number: taxNumber,
+          vat_id: vatId.trim().toUpperCase(),
+        });
+      },
+    );
+
+    it.each(['AT', 'DE'] as const)(
+      'keeps %s malformed tax errors',
+      (country) => {
+        expect(() =>
+          buildLegalEntitySellerUpdateData(
+            { ...baseEntity(), country_iso: country },
+            { taxNumber: 'invalid' },
+          ),
+        ).toThrow(`taxNumber is not a valid ${country} tax number format`);
+        expect(() =>
+          buildLegalEntitySellerUpdateData(
+            { ...baseEntity(), country_iso: country },
+            { vatId: 'invalid' },
+          ),
+        ).toThrow(`vatId is not a valid ${country} VAT identifier format`);
+      },
+    );
+
     it('allows incomplete seller settings', () => {
       const data = buildLegalEntitySellerUpdateData(baseEntity(), {
         addressStreet: 'Hauptstraße 1',
