@@ -8,12 +8,18 @@ export const CANONICAL_EN_MESSAGES = {
     'The production week in the DOT marking is invalid. Check the week and year on the tire.',
   TYRE_EVALUATION_DATE_INVALID:
     'The tire measurement capture date is invalid or in the future. Check the date and time.',
+  TYRE_MEASUREMENT_EVENT_INVALID:
+    'Tread readings can only be recorded on check-in, check-out or inspection events.',
   TYRE_MEASUREMENT_MEDIA_INVALID:
     'At least one photo cannot be linked to this tire measurement. Check the selection and upload the photo again if needed.',
   TYRE_MEASUREMENT_NOT_FOUND:
     'The tire measurement was not found. Reload the page and select an existing measurement.',
+  TYRE_MEASUREMENT_ORDER_MISMATCH:
+    'The workshop order belongs to a different vehicle than this tire set. Check the order and try again.',
   TYRE_MEASUREMENT_PARENT_NOT_FOUND:
     'The associated record for this tire measurement was not found. Reload the page and check the association.',
+  TYRE_MEASUREMENT_VEHICLE_REQUIRED:
+    'Tread readings require a tire set linked to a vehicle. Link a vehicle to the set first.',
   TYRE_THRESHOLDS_INVALID:
     'The tire evaluation thresholds are invalid. Check the recommended thresholds; they must not be below the defaults or above 20 mm. Legal minimums cannot be changed.',
   TYRE_TREAD_INVALID:

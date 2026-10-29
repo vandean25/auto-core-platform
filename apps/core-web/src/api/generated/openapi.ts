@@ -5007,6 +5007,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tyre-sets/{id}/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record a tyre condition inspection (technicians allowed) */
+        post: operations["TyreStorageController_inspect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop-orders/{id}/tyre-measurements": {
         parameters: {
             query?: never;
@@ -11458,6 +11475,96 @@ export interface components {
             odometer?: number | null;
             note?: string | null;
         };
+        TyreThresholdsResponseDto: {
+            legalMinimumMm: number;
+            recommendedBelowMm: number;
+            ordinaryMinimumMm: number;
+        };
+        TyreDotResponseDto: {
+            /** @enum {string} */
+            format: "MODERN" | "LEGACY_PRE_2000";
+            productionWeek: number;
+            productionYear: number | null;
+            /** Format: date */
+            productionDate: string | null;
+            ageMonths: number | null;
+            minimumAgeMonths: number;
+        };
+        TyreEvaluationResponseDto: {
+            /** @enum {number} */
+            version: 1;
+            /** @enum {string} */
+            rulesVersion: "AT_DE_2026_10";
+            country: string;
+            /** Format: date-time */
+            evaluatedAt: string;
+            /** @enum {string} */
+            weightClass: "UP_TO_3500_KG" | "OVER_3500_KG";
+            /** @enum {string} */
+            state: "EVALUATED" | "UNSUPPORTED_COUNTRY";
+            /** @enum {string|null} */
+            status: "GOOD" | "RECOMMENDED" | "URGENT" | null;
+            reasonCodes: ("TREAD_BELOW_LEGAL_MINIMUM" | "AT_WINTER_TREAD_INSUFFICIENT" | "TREAD_REPLACEMENT_RECOMMENDED" | "DE_ALPINE_MISSING" | "AT_WINTER_RULE_NOTICE" | "DOT_CONDITION_CHECK_RECOMMENDED" | "DOT_REPLACEMENT_RECOMMENDED" | "DOT_LEGACY_OVER_20_YEARS" | "UNSUPPORTED_COUNTRY")[];
+            minimumTreadMm: number;
+            thresholds: components["schemas"]["TyreThresholdsResponseDto"] | null;
+            dot: components["schemas"]["TyreDotResponseDto"] | null;
+        };
+        TyreWheelResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            position: "FL" | "FR" | "RL" | "RR" | "SPARE";
+            treadInnerMm: number | null;
+            treadMiddleMm: number;
+            treadOuterMm: number | null;
+            /** @enum {string} */
+            season: "SUMMER" | "WINTER" | "ALL_SEASON";
+            /** @enum {string} */
+            construction: "RADIAL" | "DIAGONAL";
+            /** @enum {string} */
+            winterMarking: "NONE" | "M_S" | "ALPINE";
+            brand: string | null;
+            model: string | null;
+            size: string | null;
+            dot: string | null;
+            /** Format: uuid */
+            mediaId: string | null;
+            evaluation: components["schemas"]["TyreEvaluationResponseDto"];
+        };
+        TyreMeasurementResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            siteId: string;
+            /** Format: uuid */
+            vehicleId: string;
+            /** Format: uuid */
+            workshopOrderId: string | null;
+            /** Format: uuid */
+            checkInId: string | null;
+            /** Format: uuid */
+            tyreSetId: string | null;
+            /** Format: uuid */
+            tyreSetEventId: string | null;
+            /** Format: date-time */
+            measuredAt: string;
+            /** Format: uuid */
+            measuredBy: string | null;
+            measuredByName: string;
+            country: string;
+            /** @enum {string} */
+            weightClass: "UP_TO_3500_KG" | "OVER_3500_KG";
+            /** @enum {string} */
+            weightClassSource: "DEFAULT" | "CAPTURE";
+            /** @enum {string} */
+            source: "CAPTURE" | "LEGACY_TREAD_JSON";
+            sourceRef: string | null;
+            /** @enum {string|null} */
+            worstStatus: "GOOD" | "RECOMMENDED" | "URGENT" | null;
+            wheels: components["schemas"]["TyreWheelResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
         TyreSetResponseDto: {
             id: string;
             customerId: string;
@@ -11480,6 +11587,8 @@ export interface components {
             plannedSwapOn?: string | null;
             binLabel?: string | null;
             events?: components["schemas"]["TyreSetEventResponseDto"][];
+            /** @description Most recent tyre measurement linked to this set. */
+            latestMeasurement?: components["schemas"]["TyreMeasurementResponseDto"] | null;
             customerName?: string;
             vehiclePlate?: string | null;
             customerPhone?: string | null;
@@ -11530,16 +11639,6 @@ export interface components {
             /** Format: date */
             plannedSwapOn?: string;
         };
-        TyreSetLocationActionDto: {
-            locationId?: string;
-            odometer?: number;
-            treadDepthMm?: components["schemas"]["TreadDepthDto"];
-            note?: string;
-            workshopOrderId?: string;
-            employeeId?: string;
-            /** Format: date-time */
-            occurredAt?: string;
-        };
         CreateTyreWheelDto: {
             /** @enum {string} */
             position: "FL" | "FR" | "RL" | "RR" | "SPARE";
@@ -11565,6 +11664,18 @@ export interface components {
             /** Format: uuid */
             mediaId?: string | null;
         };
+        TyreSetLocationActionDto: {
+            locationId?: string;
+            odometer?: number;
+            treadDepthMm?: components["schemas"]["TreadDepthDto"];
+            /** @description Measurements recorded with this event; supported on check-in, check-out and inspection. */
+            wheels?: components["schemas"]["CreateTyreWheelDto"][];
+            note?: string;
+            workshopOrderId?: string;
+            employeeId?: string;
+            /** Format: date-time */
+            occurredAt?: string;
+        };
         CreateTyreMeasurementDto: {
             wheels: components["schemas"]["CreateTyreWheelDto"][];
             /**
@@ -11582,97 +11693,6 @@ export interface components {
              * @description Optional set belonging to this vehicle and active site.
              */
             tyreSetId?: string;
-        };
-        TyreThresholdsResponseDto: {
-            legalMinimumMm: number;
-            recommendedBelowMm: number;
-            ordinaryMinimumMm: number;
-        };
-        TyreDotResponseDto: {
-            /** @enum {string} */
-            format: "MODERN" | "LEGACY_PRE_2000";
-            productionWeek: number;
-            productionYear: number | null;
-            /** Format: date */
-            productionDate: string | null;
-            ageMonths: number | null;
-            minimumAgeMonths: number;
-        };
-        TyreEvaluationResponseDto: {
-            /** @enum {number} */
-            version: 1;
-            /** @enum {string} */
-            rulesVersion: "AT_DE_2026_10";
-            country: string;
-            /** Format: date-time */
-            evaluatedAt: string;
-            /** @enum {string} */
-            weightClass: "UP_TO_3500_KG" | "OVER_3500_KG";
-            /** @enum {string} */
-            state: "EVALUATED" | "UNSUPPORTED_COUNTRY";
-            /** @enum {string|null} */
-            status: "GOOD" | "RECOMMENDED" | "URGENT" | null;
-            reasonCodes: ("TREAD_BELOW_LEGAL_MINIMUM" | "AT_WINTER_TREAD_INSUFFICIENT" | "TREAD_REPLACEMENT_RECOMMENDED" | "DE_ALPINE_MISSING" | "AT_WINTER_RULE_NOTICE" | "DOT_CONDITION_CHECK_RECOMMENDED" | "DOT_REPLACEMENT_RECOMMENDED" | "DOT_LEGACY_OVER_20_YEARS" | "UNSUPPORTED_COUNTRY")[];
-            minimumTreadMm: number;
-            thresholds: components["schemas"]["TyreThresholdsResponseDto"] | null;
-            dot: components["schemas"]["TyreDotResponseDto"] | null;
-        };
-        TyreWheelResponseDto: {
-            /** @enum {string} */
-            position: "FL" | "FR" | "RL" | "RR" | "SPARE";
-            treadInnerMm: number;
-            treadMiddleMm: number;
-            treadOuterMm: number;
-            /** @enum {string} */
-            season: "SUMMER" | "WINTER" | "ALL_SEASON";
-            /**
-             * @default RADIAL
-             * @enum {string}
-             */
-            construction: "RADIAL" | "DIAGONAL";
-            /**
-             * @default NONE
-             * @enum {string}
-             */
-            winterMarking: "NONE" | "M_S" | "ALPINE";
-            brand?: string | null;
-            model?: string | null;
-            size?: string | null;
-            dot?: string | null;
-            /** Format: uuid */
-            mediaId?: string | null;
-            /** Format: uuid */
-            id: string;
-            evaluation: components["schemas"]["TyreEvaluationResponseDto"];
-        };
-        TyreMeasurementResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            siteId: string;
-            /** Format: uuid */
-            vehicleId: string;
-            /** Format: uuid */
-            workshopOrderId: string | null;
-            /** Format: uuid */
-            checkInId: string | null;
-            /** Format: uuid */
-            tyreSetId: string | null;
-            /** Format: uuid */
-            tyreSetEventId: string | null;
-            /** Format: date-time */
-            measuredAt: string;
-            /** Format: uuid */
-            measuredBy: string | null;
-            measuredByName: string;
-            country: string;
-            /** @enum {string} */
-            weightClass: "UP_TO_3500_KG" | "OVER_3500_KG";
-            /** @enum {string} */
-            weightClassSource: "DEFAULT" | "CAPTURE";
-            wheels: components["schemas"]["TyreWheelResponseDto"][];
-            /** Format: date-time */
-            createdAt: string;
         };
         Object: Record<string, never>;
         TyreMeasurementListResponseDto: {
@@ -22135,6 +22155,31 @@ export interface operations {
         };
     };
     TyreStorageController_dispose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TyreSetLocationActionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_inspect: {
         parameters: {
             query?: never;
             header?: never;

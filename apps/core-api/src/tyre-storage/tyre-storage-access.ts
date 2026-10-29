@@ -37,3 +37,10 @@ export function assertTyreStorageWrite(
     );
   }
 }
+
+/** Inspection records condition only; technicians may capture it. */
+export function assertTyreStorageInspect(
+  tenantContext: TenantContextService,
+): void {
+  assertTyreStorageRead(tenantContext);
+}

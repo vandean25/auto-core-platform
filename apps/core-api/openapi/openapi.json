@@ -15889,6 +15889,47 @@
         ]
       }
     },
+    "/api/tyre-sets/{id}/inspect": {
+      "post": {
+        "operationId": "TyreStorageController_inspect",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TyreSetLocationActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record a tyre condition inspection (technicians allowed)",
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
     "/api/workshop-orders/{id}/tyre-measurements": {
       "post": {
         "operationId": "TyreMeasurementController_createForOrder",
@@ -38187,6 +38228,378 @@
           "occurredAt"
         ]
       },
+      "TyreThresholdsResponseDto": {
+        "type": "object",
+        "properties": {
+          "legalMinimumMm": {
+            "type": "number"
+          },
+          "recommendedBelowMm": {
+            "type": "number"
+          },
+          "ordinaryMinimumMm": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "legalMinimumMm",
+          "recommendedBelowMm",
+          "ordinaryMinimumMm"
+        ]
+      },
+      "TyreDotResponseDto": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "MODERN",
+              "LEGACY_PRE_2000"
+            ]
+          },
+          "productionWeek": {
+            "type": "number"
+          },
+          "productionYear": {
+            "type": "number",
+            "nullable": true
+          },
+          "productionDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "ageMonths": {
+            "type": "number",
+            "nullable": true
+          },
+          "minimumAgeMonths": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "format",
+          "productionWeek",
+          "productionYear",
+          "productionDate",
+          "ageMonths",
+          "minimumAgeMonths"
+        ]
+      },
+      "TyreEvaluationResponseDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "rulesVersion": {
+            "type": "string",
+            "enum": [
+              "AT_DE_2026_10"
+            ]
+          },
+          "country": {
+            "type": "string"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "weightClass": {
+            "type": "string",
+            "enum": [
+              "UP_TO_3500_KG",
+              "OVER_3500_KG"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "EVALUATED",
+              "UNSUPPORTED_COUNTRY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GOOD",
+              "RECOMMENDED",
+              "URGENT"
+            ],
+            "nullable": true
+          },
+          "reasonCodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "TREAD_BELOW_LEGAL_MINIMUM",
+                "AT_WINTER_TREAD_INSUFFICIENT",
+                "TREAD_REPLACEMENT_RECOMMENDED",
+                "DE_ALPINE_MISSING",
+                "AT_WINTER_RULE_NOTICE",
+                "DOT_CONDITION_CHECK_RECOMMENDED",
+                "DOT_REPLACEMENT_RECOMMENDED",
+                "DOT_LEGACY_OVER_20_YEARS",
+                "UNSUPPORTED_COUNTRY"
+              ]
+            }
+          },
+          "minimumTreadMm": {
+            "type": "number"
+          },
+          "thresholds": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreThresholdsResponseDto"
+              }
+            ]
+          },
+          "dot": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreDotResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "rulesVersion",
+          "country",
+          "evaluatedAt",
+          "weightClass",
+          "state",
+          "status",
+          "reasonCodes",
+          "minimumTreadMm",
+          "thresholds",
+          "dot"
+        ]
+      },
+      "TyreWheelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "FL",
+              "FR",
+              "RL",
+              "RR",
+              "SPARE"
+            ]
+          },
+          "treadInnerMm": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 20
+          },
+          "treadMiddleMm": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20,
+            "multipleOf": 0.01
+          },
+          "treadOuterMm": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 20
+          },
+          "season": {
+            "type": "string",
+            "enum": [
+              "SUMMER",
+              "WINTER",
+              "ALL_SEASON"
+            ]
+          },
+          "construction": {
+            "type": "string",
+            "enum": [
+              "RADIAL",
+              "DIAGONAL"
+            ]
+          },
+          "winterMarking": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "M_S",
+              "ALPINE"
+            ]
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "string",
+            "nullable": true
+          },
+          "dot": {
+            "type": "string",
+            "nullable": true
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "evaluation": {
+            "$ref": "#/components/schemas/TyreEvaluationResponseDto"
+          }
+        },
+        "required": [
+          "id",
+          "position",
+          "treadInnerMm",
+          "treadMiddleMm",
+          "treadOuterMm",
+          "season",
+          "construction",
+          "winterMarking",
+          "brand",
+          "model",
+          "size",
+          "dot",
+          "mediaId",
+          "evaluation"
+        ]
+      },
+      "TyreMeasurementResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "tyreSetId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "tyreSetEventId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "measuredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "measuredBy": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "measuredByName": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "weightClass": {
+            "type": "string",
+            "enum": [
+              "UP_TO_3500_KG",
+              "OVER_3500_KG"
+            ]
+          },
+          "weightClassSource": {
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "CAPTURE"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "CAPTURE",
+              "LEGACY_TREAD_JSON"
+            ]
+          },
+          "sourceRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "worstStatus": {
+            "type": "string",
+            "enum": [
+              "GOOD",
+              "RECOMMENDED",
+              "URGENT"
+            ],
+            "nullable": true
+          },
+          "wheels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TyreWheelResponseDto"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "siteId",
+          "vehicleId",
+          "workshopOrderId",
+          "checkInId",
+          "tyreSetId",
+          "tyreSetEventId",
+          "measuredAt",
+          "measuredBy",
+          "measuredByName",
+          "country",
+          "weightClass",
+          "weightClassSource",
+          "source",
+          "sourceRef",
+          "worstStatus",
+          "wheels",
+          "createdAt"
+        ]
+      },
       "TyreSetResponseDto": {
         "type": "object",
         "properties": {
@@ -38281,6 +38694,16 @@
             "items": {
               "$ref": "#/components/schemas/TyreSetEventResponseDto"
             }
+          },
+          "latestMeasurement": {
+            "nullable": true,
+            "description": "Most recent tyre measurement linked to this set.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreMeasurementResponseDto"
+              }
+            ]
           },
           "customerName": {
             "type": "string"
@@ -38466,33 +38889,6 @@
           }
         }
       },
-      "TyreSetLocationActionDto": {
-        "type": "object",
-        "properties": {
-          "locationId": {
-            "type": "string"
-          },
-          "odometer": {
-            "type": "number"
-          },
-          "treadDepthMm": {
-            "$ref": "#/components/schemas/TreadDepthDto"
-          },
-          "note": {
-            "type": "string"
-          },
-          "workshopOrderId": {
-            "type": "string"
-          },
-          "employeeId": {
-            "type": "string"
-          },
-          "occurredAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "CreateTyreWheelDto": {
         "type": "object",
         "properties": {
@@ -38583,6 +38979,40 @@
           "season"
         ]
       },
+      "TyreSetLocationActionDto": {
+        "type": "object",
+        "properties": {
+          "locationId": {
+            "type": "string"
+          },
+          "odometer": {
+            "type": "number"
+          },
+          "treadDepthMm": {
+            "$ref": "#/components/schemas/TreadDepthDto"
+          },
+          "wheels": {
+            "description": "Measurements recorded with this event; supported on check-in, check-out and inspection.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateTyreWheelDto"
+            }
+          },
+          "note": {
+            "type": "string"
+          },
+          "workshopOrderId": {
+            "type": "string"
+          },
+          "employeeId": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CreateTyreMeasurementDto": {
         "type": "object",
         "properties": {
@@ -38615,354 +39045,6 @@
         },
         "required": [
           "wheels"
-        ]
-      },
-      "TyreThresholdsResponseDto": {
-        "type": "object",
-        "properties": {
-          "legalMinimumMm": {
-            "type": "number"
-          },
-          "recommendedBelowMm": {
-            "type": "number"
-          },
-          "ordinaryMinimumMm": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "legalMinimumMm",
-          "recommendedBelowMm",
-          "ordinaryMinimumMm"
-        ]
-      },
-      "TyreDotResponseDto": {
-        "type": "object",
-        "properties": {
-          "format": {
-            "type": "string",
-            "enum": [
-              "MODERN",
-              "LEGACY_PRE_2000"
-            ]
-          },
-          "productionWeek": {
-            "type": "number"
-          },
-          "productionYear": {
-            "type": "number",
-            "nullable": true
-          },
-          "productionDate": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "ageMonths": {
-            "type": "number",
-            "nullable": true
-          },
-          "minimumAgeMonths": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "format",
-          "productionWeek",
-          "productionYear",
-          "productionDate",
-          "ageMonths",
-          "minimumAgeMonths"
-        ]
-      },
-      "TyreEvaluationResponseDto": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "type": "number",
-            "enum": [
-              1
-            ]
-          },
-          "rulesVersion": {
-            "type": "string",
-            "enum": [
-              "AT_DE_2026_10"
-            ]
-          },
-          "country": {
-            "type": "string"
-          },
-          "evaluatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "weightClass": {
-            "type": "string",
-            "enum": [
-              "UP_TO_3500_KG",
-              "OVER_3500_KG"
-            ]
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "EVALUATED",
-              "UNSUPPORTED_COUNTRY"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "GOOD",
-              "RECOMMENDED",
-              "URGENT"
-            ],
-            "nullable": true
-          },
-          "reasonCodes": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "TREAD_BELOW_LEGAL_MINIMUM",
-                "AT_WINTER_TREAD_INSUFFICIENT",
-                "TREAD_REPLACEMENT_RECOMMENDED",
-                "DE_ALPINE_MISSING",
-                "AT_WINTER_RULE_NOTICE",
-                "DOT_CONDITION_CHECK_RECOMMENDED",
-                "DOT_REPLACEMENT_RECOMMENDED",
-                "DOT_LEGACY_OVER_20_YEARS",
-                "UNSUPPORTED_COUNTRY"
-              ]
-            }
-          },
-          "minimumTreadMm": {
-            "type": "number"
-          },
-          "thresholds": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TyreThresholdsResponseDto"
-              }
-            ]
-          },
-          "dot": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TyreDotResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "version",
-          "rulesVersion",
-          "country",
-          "evaluatedAt",
-          "weightClass",
-          "state",
-          "status",
-          "reasonCodes",
-          "minimumTreadMm",
-          "thresholds",
-          "dot"
-        ]
-      },
-      "TyreWheelResponseDto": {
-        "type": "object",
-        "properties": {
-          "position": {
-            "type": "string",
-            "enum": [
-              "FL",
-              "FR",
-              "RL",
-              "RR",
-              "SPARE"
-            ]
-          },
-          "treadInnerMm": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 20,
-            "multipleOf": 0.01
-          },
-          "treadMiddleMm": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 20,
-            "multipleOf": 0.01
-          },
-          "treadOuterMm": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 20,
-            "multipleOf": 0.01
-          },
-          "season": {
-            "type": "string",
-            "enum": [
-              "SUMMER",
-              "WINTER",
-              "ALL_SEASON"
-            ]
-          },
-          "construction": {
-            "type": "string",
-            "enum": [
-              "RADIAL",
-              "DIAGONAL"
-            ],
-            "default": "RADIAL"
-          },
-          "winterMarking": {
-            "type": "string",
-            "enum": [
-              "NONE",
-              "M_S",
-              "ALPINE"
-            ],
-            "default": "NONE"
-          },
-          "brand": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 120
-          },
-          "model": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 120
-          },
-          "size": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 80
-          },
-          "dot": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 80
-          },
-          "mediaId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "evaluation": {
-            "$ref": "#/components/schemas/TyreEvaluationResponseDto"
-          }
-        },
-        "required": [
-          "position",
-          "treadInnerMm",
-          "treadMiddleMm",
-          "treadOuterMm",
-          "season",
-          "id",
-          "evaluation"
-        ]
-      },
-      "TyreMeasurementResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "siteId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vehicleId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderId": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid"
-          },
-          "checkInId": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid"
-          },
-          "tyreSetId": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid"
-          },
-          "tyreSetEventId": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid"
-          },
-          "measuredAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "measuredBy": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid"
-          },
-          "measuredByName": {
-            "type": "string"
-          },
-          "country": {
-            "type": "string"
-          },
-          "weightClass": {
-            "type": "string",
-            "enum": [
-              "UP_TO_3500_KG",
-              "OVER_3500_KG"
-            ]
-          },
-          "weightClassSource": {
-            "type": "string",
-            "enum": [
-              "DEFAULT",
-              "CAPTURE"
-            ]
-          },
-          "wheels": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TyreWheelResponseDto"
-            }
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "siteId",
-          "vehicleId",
-          "workshopOrderId",
-          "checkInId",
-          "tyreSetId",
-          "tyreSetEventId",
-          "measuredAt",
-          "measuredBy",
-          "measuredByName",
-          "country",
-          "weightClass",
-          "weightClassSource",
-          "wheels",
-          "createdAt"
         ]
       },
       "Object": {
