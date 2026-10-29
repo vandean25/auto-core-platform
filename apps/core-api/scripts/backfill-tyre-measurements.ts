@@ -24,27 +24,38 @@ import {
   type TyreBackfillSummary,
 } from '../src/tyre-measurement/tyre-measurement-backfill.js';
 
+const USAGE =
+  'Usage: npm run db:backfill:tyre-measurements --workspace=core-api -- [--dry-run|--execute] [--tenant=<id>]';
+
 export function parseBackfillArgv(argv: string[]): TyreBackfillOptions {
   const flags = argv.slice(2);
-  const execute = flags.includes('--execute');
-  if (execute && flags.includes('--dry-run')) {
+  const unknown = flags.find((flag) => !isKnownFlag(flag));
+  if (unknown) {
+    throw new Error(`Unknown argument ${unknown}. ${USAGE}`);
+  }
+  if (flags.includes('--execute') && flags.includes('--dry-run')) {
     throw new Error('Pass either --dry-run or --execute, not both.');
   }
   const tenantFlag = flags.find((flag) => flag.startsWith('--tenant='));
-  const tenantId = tenantFlag?.slice('--tenant='.length).trim() || undefined;
-  if (tenantFlag && !tenantId) {
+  return {
+    execute: flags.includes('--execute'),
+    tenantId: parseTenantFlag(tenantFlag),
+  };
+}
+
+function isKnownFlag(flag: string): boolean {
+  return (
+    flag === '--execute' || flag === '--dry-run' || flag.startsWith('--tenant=')
+  );
+}
+
+function parseTenantFlag(flag: string | undefined): string | undefined {
+  if (!flag) return undefined;
+  const tenantId = flag.slice('--tenant='.length).trim();
+  if (!tenantId) {
     throw new Error('--tenant requires a tenant id.');
   }
-  const unknown = flags.filter(
-    (flag) =>
-      flag !== '--execute' && flag !== '--dry-run' && flag !== tenantFlag,
-  );
-  if (unknown.length > 0) {
-    throw new Error(
-      `Unknown argument ${unknown[0]}. Usage: npm run db:backfill:tyre-measurements --workspace=core-api -- [--dry-run|--execute] [--tenant=<id>]`,
-    );
-  }
-  return { execute, tenantId };
+  return tenantId;
 }
 
 export async function runBackfillTyreMeasurementsCli(
