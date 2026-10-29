@@ -73,6 +73,8 @@ Tread comparisons are strictly **below**, not below-or-equal. `URGENT` takes pre
 
 ### DOT semantics
 
+Accept a standalone three- or four-digit date code, or a full identifier with whitespace separating the final date token. For example, `DOT ABC4 120` is legacy; `DOT ABC4120` and `14320` are rejected rather than guessed to be modern. Extra digits and unseparated identifier/date boundaries are invalid.
+
 A modern trailing `WWYY` denotes year `2000 + YY`. Use the **UTC ISO-week Monday as a representative**, not a precise manufacturing date; `ageMonths` is completed UTC calendar months from that representative at capture. Reject invalid format, invalid week (including a nonexistent week 53), future representative dates and invalid evaluation dates.
 
 Legacy three-digit `WWY` accepts weeks 1–53 but cannot resolve the decade: `productionYear`, `productionDate` and `ageMonths` stay null. `minimumAgeMonths` is the conservative pre-2000 lower bound, calculated as completed months since `2000-01-01T00:00:00Z`, clamped to zero. No exact year or date is invented. Missing DOT produces no age reasons.

@@ -327,6 +327,8 @@ describe('Tyre measurements (e2e)', () => {
     { wheels: [{ ...wheel, treadOuterMm: 21 }] },
     { wheels: [{ ...wheel, dot: '0020' }] },
     { wheels: [{ ...wheel, dot: '0127' }] },
+    { wheels: [{ ...wheel, dot: '14320' }] },
+    { wheels: [{ ...wheel, dot: 'DOT ABC4120' }] },
     { wheels: [wheel], measuredAt: '2099-01-01T00:00:00Z' },
   ])('rejects invalid capture without partial writes: %j', async (body) => {
     const before = await get(
@@ -347,6 +349,26 @@ describe('Tyre measurements (e2e)', () => {
       { wheels: [{ ...wheel, dot: '0020' }] },
     ).expect(400);
     expect(result.body).toMatchObject({ code: 'TYRE_DOT_INVALID_WEEK' });
+  });
+
+  it('retains legacy age evidence when the identifier ends with a digit', async () => {
+    const result = await post(
+      `workshop-orders/${a.order.id}/tyre-measurements`,
+      {
+        wheels: [{ ...wheel, dot: 'DOT ABC4 120' }],
+      },
+    ).expect(201);
+    expect(result.body.wheels[0].evaluation).toMatchObject({
+      status: 'RECOMMENDED',
+      reasonCodes: expect.arrayContaining(['DOT_LEGACY_OVER_20_YEARS']),
+      dot: {
+        format: 'LEGACY_PRE_2000',
+        productionWeek: 12,
+        productionYear: null,
+        productionDate: null,
+        ageMonths: null,
+      },
+    });
   });
 
   it('rejects mismatched, orphan and non-check-in media', async () => {
