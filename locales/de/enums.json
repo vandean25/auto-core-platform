@@ -102,6 +102,15 @@
     "ABORTED": "Abgebrochen",
     "MOVED": "Umgelagert"
   },
+  "tyreMeasurementStatus": {
+    "GOOD": "Messwerte unauffällig",
+    "RECOMMENDED": "Empfehlung",
+    "URGENT": "Dringender Handlungsbedarf"
+  },
+  "tyreEvaluationState": {
+    "EVALUATED": "Bewertet",
+    "UNSUPPORTED_COUNTRY": "Land nicht unterstützt"
+  },
   "inventoryTransactionType": {
     "PURCHASE_RECEIPT": "Wareneingang",
     "SALE_ISSUE": "Verkaufsausgang",

@@ -1467,6 +1467,42 @@
       "public": false,
       "params": []
     },
+    "TYRE_DOT_FUTURE_DATE": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_DOT_INVALID_FORMAT": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_DOT_INVALID_WEEK": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_EVALUATION_DATE_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_MEDIA_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_MEASUREMENT_PARENT_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_THRESHOLDS_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "TYRE_TREAD_INVALID": {
+      "public": false,
+      "params": []
+    },
     "UNEXPECTED_ERROR": {
       "public": false,
       "params": []

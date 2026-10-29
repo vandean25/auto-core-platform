@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -18,6 +19,7 @@ import {
 } from './tyre-storage-season.helpers.js';
 import { applyTyreSetEvent } from './tyre-set-event.helpers.js';
 import { TyreStorageClock } from './tyre-storage.clock.js';
+import { validateTyreThresholdOverrides } from '../tyre-measurement/tyre-thresholds.js';
 import type { TyreSetListQueryDto } from './dto/tyre-set-list-query.dto.js';
 import type {
   CreateTyreSetDto,
@@ -62,24 +64,28 @@ export class TyreStorageService {
     assertTyreStorageWrite(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     this.assertValidSwapCalendar(dto);
-
+    let overrides;
+    if (dto.recommendationOverrides !== undefined) {
+      try {
+        overrides = validateTyreThresholdOverrides(dto.recommendationOverrides);
+      } catch {
+        throw new BadRequestException({ code: 'TYRE_THRESHOLDS_INVALID' });
+      }
+    }
+    const values = {
+      summer_swap_month: dto.summerSwapMonth,
+      summer_swap_day: dto.summerSwapDay,
+      winter_swap_month: dto.winterSwapMonth,
+      winter_swap_day: dto.winterSwapDay,
+      due_for_swap_days: dto.dueForSwapDays,
+      ...(overrides === undefined
+        ? {}
+        : { recommendation_overrides: overrides }),
+    };
     const updated = await this.prisma.tyreStorageSettings.upsert({
       where: { tenant_id: tenantId },
-      create: {
-        tenant_id: tenantId,
-        summer_swap_month: dto.summerSwapMonth,
-        summer_swap_day: dto.summerSwapDay,
-        winter_swap_month: dto.winterSwapMonth,
-        winter_swap_day: dto.winterSwapDay,
-        due_for_swap_days: dto.dueForSwapDays,
-      },
-      update: {
-        summer_swap_month: dto.summerSwapMonth,
-        summer_swap_day: dto.summerSwapDay,
-        winter_swap_month: dto.winterSwapMonth,
-        winter_swap_day: dto.winterSwapDay,
-        due_for_swap_days: dto.dueForSwapDays,
-      },
+      create: { tenant_id: tenantId, ...values },
+      update: values,
     });
     return this.toSettingsResponse(updated);
   }
@@ -674,6 +680,9 @@ export class TyreStorageService {
       winterSwapMonth: settings.winter_swap_month,
       winterSwapDay: settings.winter_swap_day,
       dueForSwapDays: settings.due_for_swap_days,
+      recommendationOverrides: validateTyreThresholdOverrides(
+        settings.recommendation_overrides ?? {},
+      ),
     };
   }
 

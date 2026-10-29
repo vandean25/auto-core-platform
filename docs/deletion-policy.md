@@ -142,6 +142,21 @@ This document defines when deletion is allowed in Auto Core Platform.
 | MarginRule | Soft-disable preferred | Soft-disable via `is_active = false` preferred. Hard delete allowed if unused. |
 | CatalogPriceHistory | No | Immutable price audit trail; never deleted through ordinary APIs. |
 
+## AUT-802 — Tyre measurement evidence
+
+Approved T1 rules for [Tyre measurement](internal/02-Feature-Specs/Workshop/tyre-measurement.md). These supplement the matrix when the evidence models are introduced.
+
+| Entity | Delete Allowed | Rule |
+|---|---|---|
+| TyreMeasurement | No | Append-only evidence; no update/delete API. Corrections append a new measurement. Raw readings, capture context, author display and evaluation snapshots remain frozen; reads never recompute them. |
+| TyreWheelReading | No | Retained relational per-wheel evidence with its measurement; no independent update/delete API and no parent-delete cascade. Referenced photos are pinned with restrictive FKs. |
+
+- Restrictive FKs protect referenced tenant/site, vehicle, workshop order, check-in and tyre-set event parents. A referenced parent cannot be deleted even if its ordinary lifecycle would otherwise allow it; this includes a scheduled order or expiring draft check-in.
+- Referenced `WorkshopMedia` rows and image objects must not be deleted while wheel evidence exists. T1 references only existing image `CHECK_IN` media attached to the matching check-in/order; no order-without-check-in or hotel photo attachment. Any media cleanup must respect the pin before deleting stored bytes.
+- `measured_by` is a nullable `User` FK with `ON DELETE SET NULL`; the immutable author display snapshot survives. There is no `TenantMember` FK. This does not introduce a user-delete API or change membership lifecycle rules.
+- Existing retarget helpers stay unchanged. Composite FK restrictions alone prevent parent changes that would invalidate evidence bindings; measurements are never automatically reattached or rewritten.
+- T1 introduces no expiry, historical backfill or purge workflow. Any separately authorized purge must remove wheel readings and measurements before their protected media/parents; ordinary APIs cannot use purge as a deletion exception.
+
 ## ADR-0026 — Tenant API keys (AUT-411)
 
 - `TenantApiKey` is never hard-deleted through an API. Revocation sets `revoked_at` and takes effect on the next request. Expiry is a time-based state (`expires_at`), not a deletion.

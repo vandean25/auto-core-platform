@@ -170,6 +170,8 @@ model Tenant {
   documentBrandQuotaLocks          DocumentBrandQuotaLock[]
   tyreSets                         TyreSet[]
   tyreSetEvents                    TyreSetEvent[]
+  tyreMeasurements                 TyreMeasurement[]
+  tyreWheelReadings                TyreWheelReading[]
   tyreStorageSettings              TyreStorageSettings?
   documentBrandExtractions         DocumentBrandExtraction[]
   importJobs                       ImportJob[]
@@ -318,6 +320,7 @@ model User {
   vehicleMediaCreated               VehicleMedia[]               @relation("VehicleMediaCreatedBy")
   paymentsRecorded                  Payment[]                    @relation("PaymentRecordedBy")
   landingDemoSignInGrants           LandingDemoSignInGrant[]
+  tyreMeasurements                  TyreMeasurement[]
   pushDevices                       PushDevice[]
   pushPreferences                   PushPreference[]
   createdAt                         DateTime                     @default(now())
@@ -868,6 +871,7 @@ model Site {
   vehicleMedia                   VehicleMedia[]
   vehicleListings                VehicleListing[]
   tyreSets                       TyreSet[]
+  tyre_measurements              TyreMeasurement[]
   invoices                       Invoice[]
   creditNotes                    CreditNote[]
   workshopEstimates              WorkshopEstimate[]
@@ -1868,6 +1872,7 @@ model Vehicle {
   equipmentFreeTextItems          VehicleEquipmentFreeTextItem[]
   listings                        VehicleListing[]
   tyre_sets                       TyreSet[]
+  tyre_measurements               TyreMeasurement[]
   appliedRegistrationIntakes      RegistrationDocumentIntake[]    @relation("RegistrationIntakeAppliedVehicle")
   legacyDocuments                 LegacyDocument[]
   parties                         VehicleParty[]
@@ -3773,6 +3778,7 @@ model WorkshopOrder {
   vehicle_ledger_entries          VehicleLedgerEntry[]
   loaner_bookings                 LoanerBooking[]
   tyre_set_events                 TyreSetEvent[]
+  tyre_measurements               TyreMeasurement[]
   warranty_claims                 WarrantyClaim[]
   appliedRegistrationIntakes      RegistrationDocumentIntake[]    @relation("RegistrationIntakeAppliedOrder")
   inspectionMeasurementIdentities InspectionMeasurementIdentity[]
@@ -3791,6 +3797,7 @@ model WorkshopOrder {
   pdf_render_input     Json?
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, site_id, vehicle_id, id], map: "workshop_orders_tyre_context_key")
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
   @@index([tenant_id, site_id])
@@ -4296,54 +4303,150 @@ enum TyreSetEventType {
   DISPOSED
 }
 
+enum TyreWheelPosition {
+  FL
+  FR
+  RL
+  RR
+  SPARE
+}
+
+enum TyreConstruction {
+  RADIAL
+  DIAGONAL
+}
+
+enum TyreWinterMarking {
+  NONE
+  M_S
+  ALPINE
+}
+
+enum TyreVehicleWeightClass {
+  UP_TO_3500_KG
+  OVER_3500_KG
+}
+
+enum TyreWeightClassSource {
+  DEFAULT
+  CAPTURE
+}
+
+model TyreMeasurement {
+  id                  String                 @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id             String
+  site                Site                   @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  vehicle_id          String
+  vehicle             Vehicle                @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  workshop_order_id   String?
+  workshop_order      WorkshopOrder?         @relation(fields: [tenant_id, site_id, vehicle_id, workshop_order_id], references: [tenant_id, site_id, vehicle_id, id], onDelete: Restrict, onUpdate: Restrict)
+  check_in_id         String?
+  check_in            WorkshopCheckIn?       @relation(fields: [tenant_id, workshop_order_id, check_in_id], references: [tenant_id, workshop_order_id, id], onDelete: Restrict, onUpdate: Restrict)
+  tyre_set_id         String?
+  tyre_set            TyreSet?               @relation(fields: [tenant_id, site_id, vehicle_id, tyre_set_id], references: [tenant_id, site_id, vehicle_id, id], onDelete: Restrict, onUpdate: Restrict)
+  tyre_set_event_id   String?
+  tyre_set_event      TyreSetEvent?          @relation(fields: [tenant_id, tyre_set_id, tyre_set_event_id], references: [tenant_id, tyre_set_id, id], onDelete: Restrict, onUpdate: Restrict)
+  measured_at         DateTime
+  measured_by         String?
+  author              User?                  @relation(fields: [measured_by], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  measured_by_name    String
+  country             String                 @db.VarChar(2)
+  weight_class        TyreVehicleWeightClass @default(UP_TO_3500_KG)
+  weight_class_source TyreWeightClassSource  @default(DEFAULT)
+  wheels              TyreWheelReading[]
+  createdAt           DateTime               @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, site_id, measured_at])
+  @@index([tenant_id, vehicle_id, measured_at])
+  @@index([tenant_id, workshop_order_id, measured_at])
+  @@index([tenant_id, check_in_id, measured_at])
+  @@index([tenant_id, tyre_set_event_id, measured_at])
+  @@index([tenant_id, tyre_set_id])
+  @@index([measured_by])
+  @@map("tyre_measurements")
+}
+
+model TyreWheelReading {
+  id              String            @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  measurement_id  String
+  measurement     TyreMeasurement   @relation(fields: [tenant_id, measurement_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  position        TyreWheelPosition
+  tread_inner_mm  Decimal           @db.Decimal(5, 2)
+  tread_middle_mm Decimal           @db.Decimal(5, 2)
+  tread_outer_mm  Decimal           @db.Decimal(5, 2)
+  brand           String?
+  model           String?
+  size            String?
+  dot             String?
+  season          TyreSeason
+  construction    TyreConstruction  @default(RADIAL)
+  winter_marking  TyreWinterMarking @default(NONE)
+  media_id        String?
+  media           WorkshopMedia?    @relation(fields: [tenant_id, media_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Restrict)
+  evaluation      Json
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, measurement_id, position])
+  @@index([tenant_id, media_id])
+  @@map("tyre_wheel_readings")
+}
+
 model TyreStorageSettings {
-  id                String   @id @default(uuid())
-  tenant_id         String   @unique
-  tenant            Tenant   @relation(fields: [tenant_id], references: [id])
-  summer_swap_month Int      @default(3)
-  summer_swap_day   Int      @default(1)
-  winter_swap_month Int      @default(10)
-  winter_swap_day   Int      @default(1)
-  due_for_swap_days Int      @default(30)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                       String   @id @default(uuid())
+  tenant_id                String   @unique
+  tenant                   Tenant   @relation(fields: [tenant_id], references: [id])
+  summer_swap_month        Int      @default(3)
+  summer_swap_day          Int      @default(1)
+  winter_swap_month        Int      @default(10)
+  winter_swap_day          Int      @default(1)
+  due_for_swap_days        Int      @default(30)
+  recommendation_overrides Json     @default("{}")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   @@index([tenant_id])
   @@map("tyre_storage_settings")
 }
 
 model TyreSet {
-  id                  String           @id @default(uuid())
+  id                  String            @id @default(uuid())
   tenant_id           String
-  tenant              Tenant           @relation(fields: [tenant_id], references: [id])
+  tenant              Tenant            @relation(fields: [tenant_id], references: [id])
   customer_id         String
-  customer            Customer         @relation(fields: [customer_id], references: [id])
+  customer            Customer          @relation(fields: [customer_id], references: [id])
   vehicle_id          String?
-  vehicle             Vehicle?         @relation(fields: [vehicle_id], references: [id])
+  vehicle             Vehicle?          @relation(fields: [vehicle_id], references: [id])
   site_id             String
-  site                Site             @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  site                Site              @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   location_id         String?
-  location            StorageLocation? @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: SetNull)
+  location            StorageLocation?  @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: SetNull)
   label               String
   season              TyreSeason
-  tyre_count          Int              @default(4)
-  rim_type            TyreRimType      @default(NONE)
+  tyre_count          Int               @default(4)
+  rim_type            TyreRimType       @default(NONE)
   brand               String?
   model               String?
   dimension           String?
   dot_codes           String[]
   tread_depth_mm_json Json?
   condition_notes     String?
-  status              TyreSetStatus    @default(IN_STORAGE)
-  stored_since        DateTime?        @db.Date
-  planned_swap_on     DateTime?        @db.Date
+  status              TyreSetStatus     @default(IN_STORAGE)
+  stored_since        DateTime?         @db.Date
+  planned_swap_on     DateTime?         @db.Date
   bin_label           String?
   created_by_user_id  String?
   events              TyreSetEvent[]
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  tyre_measurements   TyreMeasurement[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, site_id, vehicle_id, id])
   @@index([tenant_id, status])
   @@index([tenant_id, customer_id])
   @@index([tenant_id, site_id, status])
@@ -4373,6 +4476,9 @@ model TyreSetEvent {
   created_by_user_id  String?
   createdAt           DateTime         @default(now())
 
+  tyre_measurements TyreMeasurement[]
+
+  @@unique([tenant_id, tyre_set_id, id])
   @@index([tenant_id])
   @@index([tenant_id, tyre_set_id])
   @@index([tenant_id, occurred_at])
@@ -4742,9 +4848,11 @@ model WorkshopCheckIn {
   media                   WorkshopMedia[]
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
+  tyre_measurements       TyreMeasurement[]
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, workshop_order_id])
+  @@unique([tenant_id, workshop_order_id, id])
   @@unique([tenant_id, inspection_id])
   @@index([tenant_id])
   @@index([tenant_id, inspection_id], map: "idx_workshop_check_ins_inspection")
@@ -4773,6 +4881,7 @@ model WorkshopMedia {
   caption                 String?
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
+  tyre_wheel_readings     TyreWheelReading[]
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
