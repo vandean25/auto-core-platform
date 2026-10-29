@@ -215,6 +215,7 @@
     "sessionLoadFailed": "Unable to load your tenant session.",
     "switchTenantFailed": "Failed to switch tenant.",
     "switchSiteFailed": "Failed to switch site.",
+    "pushLinkSiteRefused": "The link belongs to a site you do not have access to.",
     "mechanicBadge": "Mechanic",
     "loading": "Loading…",
     "skipToMainContent": "Skip to main content",

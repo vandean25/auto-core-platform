@@ -215,6 +215,7 @@
     "sessionLoadFailed": "Mandantensitzung konnte nicht geladen werden.",
     "switchTenantFailed": "Mandantenwechsel fehlgeschlagen.",
     "switchSiteFailed": "Standortwechsel fehlgeschlagen.",
+    "pushLinkSiteRefused": "Der Link gehört zu einem Standort, auf den Sie keinen Zugriff haben.",
     "mechanicBadge": "Mechaniker",
     "loading": "Laden…",
     "skipToMainContent": "Zum Hauptinhalt springen",

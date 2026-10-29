@@ -7,3 +7,7 @@ export function shellSwitchTenantFailedMessage(_error: unknown): string {
 export function shellSwitchSiteFailedMessage(_error: unknown): string {
   return i18n.t('common:shell.switchSiteFailed')
 }
+
+export function shellPushLinkSiteRefusedMessage(): string {
+  return i18n.t('common:shell.pushLinkSiteRefused')
+}
