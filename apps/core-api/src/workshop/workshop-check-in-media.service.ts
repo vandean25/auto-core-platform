@@ -435,17 +435,11 @@ export class WorkshopCheckInMediaService {
       throw error;
     }
 
-    if (!uploadOutcome.created) {
-      await deleteCheckInStoredPhotoIfUnreferenced(
-        this.prisma,
-        this.mediaStorage,
-        tenantId,
-        stored.storageBucket,
-        stored.storageKey,
-      );
-    }
-
-    for (const prior of uploadOutcome.replacedSignatureRows ?? []) {
+    const cleanupObjects = [
+      { storage_bucket: stored.storageBucket, storage_key: stored.storageKey },
+      ...uploadOutcome.replacedSignatureRows,
+    ];
+    for (const prior of cleanupObjects) {
       await deleteCheckInStoredPhotoIfUnreferenced(
         this.prisma,
         this.mediaStorage,

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, TyreVehicleWeightClass } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -11,6 +11,7 @@ import { requireActiveCurrentUser } from '../site/site.authorization.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { assertTyreStorageRead } from '../tyre-storage/tyre-storage-access.js';
 import { validateTyreThresholdOverrides } from './tyre-thresholds.js';
+import type { TyreEvaluationContext } from './tyre-evaluation.js';
 import { captureTyreWheel } from './tyre-measurement-capture.js';
 import type {
   CreateTyreMeasurementDto,
@@ -80,30 +81,12 @@ export class TyreMeasurementService {
         orderId: order.id,
         checkInId: checkIn?.id,
       });
-      const [legalEntity, settings, user] = await Promise.all([
-        tx.legalEntity.findFirstOrThrow({
-          where: {
-            tenant_id: scope.tenantId,
-            sites: { some: { tenant_id: scope.tenantId, id: scope.siteId } },
-          },
-          select: { country_iso: true },
-        }),
-        tx.tyreStorageSettings.findFirst({
-          where: { tenant_id: scope.tenantId },
-        }),
-        tx.user.findUniqueOrThrow({
-          where: { id: actor.id },
-          select: { firstName: true, lastName: true, email: true },
-        }),
-      ]);
-      const context = {
-        country: legalEntity.country_iso,
-        weightClass: dto.weightClass ?? 'UP_TO_3500_KG',
-        asOf: measuredAt,
-        overrides: validateTyreThresholdOverrides(
-          settings?.recommendation_overrides ?? {},
-        ),
-      };
+      const { evaluationContext, authorName } =
+        await this.resolveCaptureContext(tx, scope, {
+          actorId: actor.id,
+          measuredAt,
+          weightClass: dto.weightClass,
+        });
       const result = await tx.tyreMeasurement.create({
         data: {
           tenant_id: scope.tenantId,
@@ -114,14 +97,14 @@ export class TyreMeasurementService {
           tyre_set_id: dto.tyreSetId ?? null,
           measured_at: measuredAt,
           measured_by: actor.id,
-          measured_by_name:
-            [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
-            user.email,
-          country: context.country,
-          weight_class: context.weightClass,
+          measured_by_name: authorName,
+          country: evaluationContext.country,
+          weight_class: evaluationContext.weightClass,
           weight_class_source: dto.weightClass ? 'CAPTURE' : 'DEFAULT',
           wheels: {
-            create: dto.wheels.map((wheel) => captureTyreWheel(wheel, context)),
+            create: dto.wheels.map((wheel) =>
+              captureTyreWheel(wheel, evaluationContext),
+            ),
           },
         },
         include: {
@@ -210,6 +193,46 @@ export class TyreMeasurementService {
         pageSize: query.limit,
         total,
         pageCount: Math.ceil(total / query.limit),
+      },
+    };
+  }
+
+  private async resolveCaptureContext(
+    tx: Prisma.TransactionClient,
+    scope: Scope,
+    input: {
+      actorId: string;
+      measuredAt: Date;
+      weightClass?: TyreVehicleWeightClass;
+    },
+  ): Promise<{ authorName: string; evaluationContext: TyreEvaluationContext }> {
+    const [legalEntity, settings, user] = await Promise.all([
+      tx.legalEntity.findFirstOrThrow({
+        where: {
+          tenant_id: scope.tenantId,
+          sites: { some: { tenant_id: scope.tenantId, id: scope.siteId } },
+        },
+        select: { country_iso: true },
+      }),
+      tx.tyreStorageSettings.findFirst({
+        where: { tenant_id: scope.tenantId },
+      }),
+      tx.user.findUniqueOrThrow({
+        where: { id: input.actorId },
+        select: { firstName: true, lastName: true, email: true },
+      }),
+    ]);
+    return {
+      authorName:
+        [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+        user.email,
+      evaluationContext: {
+        country: legalEntity.country_iso,
+        weightClass: input.weightClass ?? 'UP_TO_3500_KG',
+        asOf: input.measuredAt,
+        overrides: validateTyreThresholdOverrides(
+          settings?.recommendation_overrides ?? {},
+        ),
       },
     };
   }

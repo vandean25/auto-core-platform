@@ -403,6 +403,7 @@ export class TyreStorageSettingsResponseDto {
       properties: { recommendedBelowMm: { type: 'number' } },
     },
   })
+  @IsObject()
   recommendationOverrides!: Record<string, { recommendedBelowMm: number }>;
 
   @ApiProperty()
