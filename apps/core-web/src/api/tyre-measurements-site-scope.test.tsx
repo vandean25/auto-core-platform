@@ -26,11 +26,12 @@ vi.mock('@/lib/firebase', () => ({ firebaseAuth: { currentUser: mocks.user }, fi
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ user: mocks.user, signOutUser: mocks.signOutUser }) }))
 vi.mock('socket.io-client', () => ({ io: () => mocks.socket }))
 
-const session: AuthSession = {
+const session = {
   userId: 'scope-test-user', email: 'scope@example.invalid',
   activeTenant: { id: 'tenant-1', name: 'Test workshop', slug: 'test-workshop' },
-  activeRole: 'TECH', activeSiteId: 'site-1', memberships: [],
-  locale: null, effectiveLocale: 'de', defaultLocale: 'de', formatLocale: 'de-AT',
+  activeRole: 'TECH' as const, activeSiteId: 'site-1', memberships: [],
+  locale: null, effectiveLocale: 'de' as const, defaultLocale: 'de' as const, formatLocale: 'de-AT',
+  effectiveCapabilities: null,
 }
 
 function jsonResponse(data: unknown, status = 200) {
