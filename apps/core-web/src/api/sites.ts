@@ -23,7 +23,8 @@ export type SiteDirectoryEntry = {
 
 export const siteKeys = {
   all: ['sites'] as const,
-  me: () => [...siteKeys.all, 'me'] as const,
+  /** `tenantId` scopes the list to one tenant's cache entry; without it the key is the prefix that covers all of them. */
+  me: (tenantId?: string) => (tenantId ? ([...siteKeys.all, 'me', tenantId] as const) : ([...siteKeys.all, 'me'] as const)),
   directory: () => [...siteKeys.all, 'directory'] as const,
 }
 
@@ -38,9 +39,9 @@ const SITE_SCOPED_QUERY_KEYS = [
  * GET /api/me/sites — only activatable sites for the current tenant
  * (ruling 47: Site.is_active AND active SiteMembership AND active TenantMember).
  */
-export function useMySites(enabled = true) {
+export function useMySites(enabled = true, tenantId?: string) {
   return useQuery<MeSite[]>({
-    queryKey: siteKeys.me(),
+    queryKey: siteKeys.me(tenantId),
     enabled,
     queryFn: async () => {
       return fetchJsonWithAuth<MeSite[]>(

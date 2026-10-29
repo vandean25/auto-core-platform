@@ -79,6 +79,7 @@ export function useSignOutRequest(
 export function useShellPush(params: {
   session: AuthSession | undefined
   sites: MeSite[] | undefined
+  /** True while the list of sites is being fetched; a push link waits instead of judging an outdated list. */
   sitesLoading: boolean
   requestTenantSwitch: (tenantId: string) => Promise<PushTenantSwitchResult>
   switchSite: (siteId: string) => Promise<unknown>

@@ -14,18 +14,21 @@ type Props = {
   onClose: () => void
   /** Called when the user declines; a push link waiting for a tenant switch gives up then. */
   onCancel: () => void
+  /** Called when a confirmed tenant switch fails; a push link waiting for it gives up then. */
+  onSwitchFailed: () => void
   completeTenantSwitch: (tenantId: string) => Promise<void>
   signOutUser: () => Promise<void>
 }
 
 /** Asks whether unsynced check-in data may be discarded before a tenant switch or a sign-out, then does it. */
-export function ShellPurgePrompt({ prompt, onClose, onCancel, completeTenantSwitch, signOutUser }: Props) {
+export function ShellPurgePrompt({ prompt, onClose, onCancel, onSwitchFailed, completeTenantSwitch, signOutUser }: Props) {
   const confirm = async () => {
     if (prompt.kind === 'switchTenant') {
       try {
         await completeTenantSwitch(prompt.tenantId)
       } catch (error: unknown) {
         toast.error(shellSwitchTenantFailedMessage(error))
+        onSwitchFailed()
       }
       return
     }

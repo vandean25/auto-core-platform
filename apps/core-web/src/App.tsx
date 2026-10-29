@@ -301,7 +301,8 @@ function AuthenticatedShell({
   signOutUser: () => Promise<void>
 }) {
   const switchTenantMutation = useSwitchTenant()
-  const mySitesQuery = useMySites(true)
+  // Scoped to the active tenant, so after a tenant switch the list of the old tenant is never taken for the new one.
+  const mySitesQuery = useMySites(true, session.activeTenant.id)
   const switchSiteMutation = useSetActiveSite()
   const [purgePrompt, setPurgePrompt] =
     React.useState<CheckInOfflinePurgePrompt | null>(null)
@@ -314,7 +315,7 @@ function AuthenticatedShell({
   const pushLink = useShellPush({
     session,
     sites: mySitesQuery.data,
-    sitesLoading: mySitesQuery.isLoading,
+    sitesLoading: mySitesQuery.isFetching,
     requestTenantSwitch,
     switchSite: switchSiteMutation.mutateAsync,
   })
@@ -352,6 +353,7 @@ function AuthenticatedShell({
           prompt={purgePrompt}
           onClose={() => setPurgePrompt(null)}
           onCancel={pushLink.abandon}
+          onSwitchFailed={pushLink.abandon}
           completeTenantSwitch={completeTenantSwitch}
           signOutUser={signOutUser}
         />

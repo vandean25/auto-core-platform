@@ -23,6 +23,7 @@ function setup(prompt: Parameters<typeof ShellPurgePrompt>[0]['prompt'], overrid
     prompt,
     onClose: vi.fn(),
     onCancel: vi.fn(),
+    onSwitchFailed: vi.fn(),
     completeTenantSwitch: vi.fn(async () => undefined),
     signOutUser: vi.fn(async () => undefined),
     ...overrides,
@@ -45,10 +46,11 @@ describe('ShellPurgePrompt', () => {
     expect(props.signOutUser).not.toHaveBeenCalled()
   })
 
-  it('reports a failed tenant switch', async () => {
-    setup({ kind: 'switchTenant', tenantId: 't2', summary }, { completeTenantSwitch: vi.fn(async () => Promise.reject(new Error('x'))) })
+  it('reports a failed tenant switch and tells the caller, so a waiting push link can give up', async () => {
+    const props = setup({ kind: 'switchTenant', tenantId: 't2', summary }, { completeTenantSwitch: vi.fn(async () => Promise.reject(new Error('x'))) })
     fireEvent.click(screen.getByTestId('confirm'))
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledTimes(1))
+    expect(props.onSwitchFailed).toHaveBeenCalledTimes(1)
   })
 
   it('confirms a sign-out: discards the offline data, then signs out', async () => {
