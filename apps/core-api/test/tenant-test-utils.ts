@@ -428,6 +428,11 @@ export async function createTestTenant(
   const tenantPrisma = createTenantAwarePrisma(prisma, tenant.id);
   await seedTenantMainSite(tenantPrisma, tenant.id, createdUser.id, unique);
 
+  // Import source: create a default legacy-dms source so tests can import without setup
+  await tenantPrisma.importSource.create({
+    data: { tenant_id: tenant.id, key: 'legacy-dms', label: 'Legacy DMS' },
+  });
+
   return {
     tenantId: tenant.id,
     firebaseUid,
