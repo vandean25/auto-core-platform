@@ -31,7 +31,7 @@ export function parseTyreDot(dot: string, asOf: Date): TyreDot {
   if (!Number.isFinite(asOf.getTime())) {
     throw new Error('TYRE_EVALUATION_DATE_INVALID');
   }
-  const suffix = /(\d{4}|\d{3})$/.exec(dot.trim())?.[1];
+  const suffix = /(?:^|\s)(\d{4}|\d{3})$/.exec(dot.trim())?.[1];
   if (!suffix) throw new Error('TYRE_DOT_INVALID_FORMAT');
   const week = Number(suffix.slice(0, 2));
   if (week < 1 || week > 53) throw new Error('TYRE_DOT_INVALID_WEEK');
