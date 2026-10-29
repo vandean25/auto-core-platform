@@ -16,6 +16,7 @@ import {
   customerRow,
   di,
   entityLabels,
+  failMockImportSources,
   failedApplyJob,
   goToMappingStep,
   installImportApiMocks,
@@ -27,6 +28,8 @@ import {
   runDryRun,
   selectEntityType,
   selectVendor,
+  setMockImportSources,
+  sourceFixtures,
   supplierDryRunJob,
   supplierRow,
   uploadCsvFile,
@@ -235,6 +238,56 @@ describe('DataImportSettingsTab characterization', () => {
       expect(refetch).toHaveBeenCalledTimes(1)
     })
 
+
+    it('reports a failed source load with a retry instead of no-sources guidance', () => {
+      const refetch = failMockImportSources()
+
+      renderImportSettingsTab()
+
+      const sourcesPanel = screen.getByRole('region', { name: di.sources.title })
+      expect(within(sourcesPanel).getByText(di.sources.loadFailed)).toBeInTheDocument()
+      expect(within(sourcesPanel).queryByText(di.sources.empty)).not.toBeInTheDocument()
+
+      const sourceStep = screen.getByRole('region', { name: di.source.title })
+      expect(within(sourceStep).getByText(di.sources.loadFailed)).toBeInTheDocument()
+      expect(within(sourceStep).queryByText(di.source.noSources)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeDisabled()
+
+      fireEvent.click(within(sourceStep).getByRole('button', { name: deCommon.actions.retry }))
+
+      expect(refetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns to the source step when the selected source is deleted and another remains', async () => {
+      const view = renderImportSettingsTab()
+
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+      expect(screen.getByText(di.mapping.title)).toBeInTheDocument()
+
+      setMockImportSources(sourceFixtures.filter((source) => source.key !== 'legacy_dms'))
+      view.rerender()
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.mapping.title)).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: di.source.sourceSystemLabel })).toHaveTextContent(
+        'Incadea',
+      )
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
+    })
+
+    it('clears the selection when the last source is deleted', async () => {
+      const view = renderImportSettingsTab()
+
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+
+      setMockImportSources([])
+      view.rerender()
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.mapping.title)).not.toBeInTheDocument()
+      expect(screen.getByText(di.source.noSources)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeDisabled()
+    })
 
     it('clears the mapping when the entity type changes', async () => {
       renderImportSettingsTab()

@@ -1058,6 +1058,7 @@
       "defaultLabel": "Als Standard verwenden",
       "add": "Importquelle hinzufügen",
       "empty": "Noch keine Importquelle angelegt.",
+      "loadFailed": "Importquellen konnten nicht geladen werden.",
       "columnLabel": "Anzeigename",
       "columnKey": "Schlüssel",
       "columnDefault": "Standard",

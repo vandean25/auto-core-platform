@@ -56,6 +56,14 @@ describe('import source key validation', () => {
     it('keeps extra colons for validation to reject', () => {
       expect(normalizeImportSourceKey('a:b:c')).toBe('a:b:c');
     });
+
+    it('preserves a canonical segment ending with an underscore', () => {
+      expect(normalizeImportSourceKey('dms:shop_')).toBe('dms:shop_');
+    });
+
+    it('preserves consecutive hyphens in a canonical segment', () => {
+      expect(normalizeImportSourceKey('dms--prod:shop')).toBe('dms--prod:shop');
+    });
   });
 
   describe('validateImportSourceKey', () => {
@@ -123,6 +131,14 @@ describe('import source key validation', () => {
     it('returns valid for a canonical source_name:source_company_code key', () => {
       const result = validateImportSourceKey('synthetic_dms:synth_fixture');
       expect(result.valid).toBe(true);
+    });
+
+    it('returns valid for a canonical segment ending with an underscore', () => {
+      expect(validateImportSourceKey('dms:shop_').valid).toBe(true);
+    });
+
+    it('returns valid for a canonical segment with consecutive hyphens', () => {
+      expect(validateImportSourceKey('dms--prod:shop').valid).toBe(true);
     });
 
     it('returns invalid for more than one colon', () => {

@@ -44,8 +44,8 @@ const EMPTY_FORM: SourceForm = { key: '', label: '', isDefault: false }
 /** Admin section: manage the tenant's import source keys. */
 export function ImportSourcesPanel() {
   const { t } = useTranslation(['settings', 'common'])
-  const { data } = useImportSources()
-  const sources = data?.data ?? []
+  const sourcesQuery = useImportSources()
+  const sources = sourcesQuery.data?.data ?? []
   const createSource = useCreateImportSource()
   const updateSource = useUpdateImportSource()
   const deleteSource = useDeleteImportSource()
@@ -144,64 +144,75 @@ export function ImportSourcesPanel() {
         </p>
       </form>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('dataImport.sources.columnLabel')}</TableHead>
-              <TableHead>{t('dataImport.sources.columnKey')}</TableHead>
-              <TableHead>{t('dataImport.sources.columnDefault')}</TableHead>
-              <TableHead className="text-right" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sources.length === 0 ? (
+      {sourcesQuery.isError ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border p-4">
+          <p className="text-sm text-destructive">{t('dataImport.sources.loadFailed')}</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void sourcesQuery.refetch()}>
+            {t('common:actions.retry')}
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                  {t('dataImport.sources.empty')}
-                </TableCell>
+                <TableHead>{t('dataImport.sources.columnLabel')}</TableHead>
+                <TableHead>{t('dataImport.sources.columnKey')}</TableHead>
+                <TableHead>{t('dataImport.sources.columnDefault')}</TableHead>
+                <TableHead className="text-right" />
               </TableRow>
-            ) : (
-              sources.map((source) => (
-                <TableRow key={source.id}>
-                  <TableCell>{source.label}</TableCell>
-                  <TableCell className="font-mono text-sm">{source.key}</TableCell>
-                  <TableCell>
-                    {source.is_default ? (
-                      <Badge variant="secondary">{t('dataImport.sources.defaultBadge')}</Badge>
-                    ) : null}
+            </TableHeader>
+            <TableBody>
+              {sources.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-sm text-muted-foreground">
+                    {t('dataImport.sources.empty')}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {source.is_default ? null : (
+                </TableRow>
+              ) : (
+                sources.map((source) => (
+                  <TableRow key={source.id}>
+                    <TableCell>{source.label}</TableCell>
+                    <TableCell className="font-mono text-sm">{source.key}</TableCell>
+                    <TableCell>
+                      {source.is_default ? (
+                        <Badge variant="secondary">{t('dataImport.sources.defaultBadge')}</Badge>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {source.is_default ? null : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t('dataImport.sources.setDefaultAria', {
+                              label: source.label,
+                            })}
+                            disabled={updateSource.isPending}
+                            onClick={() => handleSetDefault(source.id)}
+                          >
+                            <Star className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label={t('dataImport.sources.setDefaultAria', { label: source.label })}
-                          disabled={updateSource.isPending}
-                          onClick={() => handleSetDefault(source.id)}
+                          aria-label={t('dataImport.sources.deleteAria', { label: source.label })}
+                          onClick={() => setPendingDeleteId(source.id)}
                         >
-                          <Star className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t('dataImport.sources.deleteAria', { label: source.label })}
-                        onClick={() => setPendingDeleteId(source.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <AlertDialog
         open={pendingDelete !== null}

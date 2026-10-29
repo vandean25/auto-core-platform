@@ -239,10 +239,7 @@ export function installImportApiMocks(options: InstallApiMocksOptions = {}): Imp
   ;(importsApi.useImportEntityTypes as Mock).mockReturnValue({
     data: readImportEntityTypeRegistry(),
   })
-  ;(importsApi.useImportSources as Mock).mockReturnValue({
-    data: { data: activeSources },
-    isLoading: false,
-  })
+  setMockImportSources(activeSources)
   ;(importsApi.useCreateImportSource as Mock).mockReturnValue({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -292,7 +289,7 @@ export function renderImportSettingsTab(
 ) {
   const queryClient =
     options.queryClient ?? new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const result = render(
+  const buildTree = () =>
     React.createElement(
       MemoryRouter,
       { initialEntries: options.initialEntries ?? ['/'] },
@@ -301,9 +298,32 @@ export function renderImportSettingsTab(
         { client: queryClient },
         React.createElement(DataImportSettingsTab, null),
       ),
-    ),
-  )
-  return { ...result, queryClient }
+    )
+  const result = render(buildTree())
+  return { ...result, rerender: () => result.rerender(buildTree()), queryClient }
+}
+
+/** Replaces the sources returned by the mocked `useImportSources` query. */
+export function setMockImportSources(sources: ImportSource[]) {
+  activeSources = sources
+  ;(importsApi.useImportSources as Mock).mockReturnValue({
+    data: { data: sources },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  })
+}
+
+/** Makes the mocked `useImportSources` query fail; returns its refetch mock. */
+export function failMockImportSources() {
+  const refetch = vi.fn()
+  ;(importsApi.useImportSources as Mock).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: true,
+    refetch,
+  })
+  return refetch
 }
 
 export function sourceSystemTrigger(): HTMLElement {

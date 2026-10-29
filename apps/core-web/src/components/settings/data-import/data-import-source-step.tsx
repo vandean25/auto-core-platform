@@ -25,6 +25,8 @@ export type DataImportSourceStepProps = {
   sourceSystem: string
   onSourceSystemChange: (sourceSystem: string) => void
   sources: ImportSource[]
+  sourcesFailed: boolean
+  onRetrySources: () => void
   selectedVendorId: string
   onVendorChange: (vendorId: string) => void
   vendors: { id: string; name: string }[]
@@ -36,6 +38,7 @@ export type DataImportSourceStepProps = {
 /** Wizard step 1: entity, source system and vendor of the import. */
 export function DataImportSourceStep(props: DataImportSourceStepProps) {
   const { t } = useTranslation(['settings', 'common'])
+  const hasSelectedSource = props.sources.some((source) => source.key === props.sourceSystem)
 
   return (
     <section className="space-y-4" aria-labelledby="import-step-source">
@@ -86,7 +89,10 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
             onValueChange={(value) => props.onSourceSystemChange(value)}
             disabled={props.sources.length === 0}
           >
-            <SelectTrigger id="import-source">
+            <SelectTrigger
+              id="import-source"
+              aria-describedby={props.sourcesFailed ? 'import-source-error' : undefined}
+            >
               <SelectValue placeholder={t('dataImport.source.sourceSystemPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
@@ -97,7 +103,16 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
               ))}
             </SelectContent>
           </Select>
-          {props.sources.length === 0 ? (
+          {props.sourcesFailed ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p id="import-source-error" className="text-sm text-destructive">
+                {t('dataImport.sources.loadFailed')}
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={props.onRetrySources}>
+                {t('common:actions.retry')}
+              </Button>
+            </div>
+          ) : props.sources.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               {t('dataImport.source.noSources')}
             </p>
@@ -134,7 +149,7 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
           type="button"
           disabled={
             (props.entityType === 'SUPPLIER_PRICE_LIST' && !props.selectedVendorId) ||
-            !props.sourceSystem
+            !hasSelectedSource
           }
           onClick={props.onContinue}
         >

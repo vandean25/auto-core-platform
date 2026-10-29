@@ -38,6 +38,8 @@ import { parseImportEntityType } from './import-entity-type.guard.js';
 import { IMPLEMENTED_IMPORT_ENTITY_TYPES } from './import-entity-type.registry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { importUploadMulterOptions } from './import-multer.storage.js';
+import { getImportStagingKey } from './import-staging-path.js';
+import { unlinkImportMulterStagingFile } from './import-upload.util.js';
 import { ImportUploadInterceptor } from './import-upload.interceptor.js';
 import { ImportJobResponseDto } from './dto/import-job-response.dto.js';
 import { ImportJobRowsResponseDto } from './dto/import-job-rows-response.dto.js';
@@ -111,26 +113,33 @@ export class ImportController {
     @Body('mapping') mapping: string,
     @Body('options') options?: string,
   ) {
-    const parsedMapping = this.parseJsonObject(mapping, 'mapping');
-    const parsedOptions = options
-      ? this.parseJsonObject(options, 'options')
-      : {};
-    const trimmedSource = sourceSystem?.trim();
-    if (!trimmedSource) {
-      throw new BadRequestException({
-        code: IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
-        message: 'sourceSystem is required',
+    try {
+      const parsedMapping = this.parseJsonObject(mapping, 'mapping');
+      const parsedOptions = options
+        ? this.parseJsonObject(options, 'options')
+        : {};
+      const trimmedSource = sourceSystem?.trim();
+      if (!trimmedSource) {
+        throw new BadRequestException({
+          code: IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
+          message: 'sourceSystem is required',
+        });
+      }
+      await this.importSourceService.assertSourceExists(trimmedSource);
+      return await this.importService.createDryRunFromUpload({
+        uploadRequest,
+        file: file as Express.Multer.File,
+        entityType: parseImportEntityType(entityType),
+        sourceSystem: trimmedSource,
+        mappingJson: parsedMapping,
+        optionsJson: parsedOptions,
       });
+    } catch (error) {
+      if (getImportStagingKey(uploadRequest)) {
+        await unlinkImportMulterStagingFile(uploadRequest);
+      }
+      throw error;
     }
-    await this.importSourceService.assertSourceExists(trimmedSource);
-    return this.importService.createDryRunFromUpload({
-      uploadRequest,
-      file: file as Express.Multer.File,
-      entityType: parseImportEntityType(entityType),
-      sourceSystem: trimmedSource,
-      mappingJson: parsedMapping,
-      optionsJson: parsedOptions,
-    });
   }
 
   @Post('direct-uploads')

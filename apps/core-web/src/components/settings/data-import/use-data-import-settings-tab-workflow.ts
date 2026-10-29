@@ -11,7 +11,7 @@ import type { useDataImportSettingsTabCore } from './use-data-import-settings-ta
 type Core = ReturnType<typeof useDataImportSettingsTabCore>
 
 export function useDataImportSettingsTabWorkflow(core: Core) {
-  const { wizard, sourceSystem, configuredThreshold } = core
+  const { wizard, sourceSystem, sources, configuredThreshold } = core
 
   const rows = useImportRows({
     jobId: wizard.step >= 4 ? wizard.dryRunJob?.id ?? null : null,
@@ -63,7 +63,10 @@ export function useDataImportSettingsTabWorkflow(core: Core) {
     : '/settings?tab=audit-logs'
 
   const canRunDryRun =
-    Boolean(wizard.file) && wizard.missingRequired.length === 0 && !dryRun.isPending
+    Boolean(wizard.file) &&
+    wizard.missingRequired.length === 0 &&
+    sources.some((source) => source.key === sourceSystem) &&
+    !dryRun.isPending
 
   return {
     rows,

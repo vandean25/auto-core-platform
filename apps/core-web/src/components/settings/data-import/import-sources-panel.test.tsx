@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { ImportSource } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 
+import deCommon from '../../../../../../locales/de/common.json'
 import deSettings from '../../../../../../locales/de/settings.json'
 
 import { ImportSourcesPanel } from './import-sources-panel'
@@ -44,10 +45,15 @@ const createMutate = vi.fn()
 const updateMutate = vi.fn()
 const deleteMutate = vi.fn()
 
-function renderPanel(sources: ImportSource[]) {
+function renderPanel(
+  sources: ImportSource[],
+  options: { isError?: boolean; refetch?: Mock } = {},
+) {
   ;(importsApi.useImportSources as Mock).mockReturnValue({
-    data: { data: sources },
+    data: options.isError ? undefined : { data: sources },
     isLoading: false,
+    isError: options.isError ?? false,
+    refetch: options.refetch ?? vi.fn(),
   })
   ;(importsApi.useCreateImportSource as Mock).mockReturnValue({
     mutate: createMutate,
@@ -92,6 +98,18 @@ describe('ImportSourcesPanel', () => {
     renderPanel([])
 
     expect(screen.getByText(di.empty)).toBeInTheDocument()
+  })
+
+  it('shows a load error with retry instead of the empty state', () => {
+    const refetch = vi.fn()
+    renderPanel([], { isError: true, refetch })
+
+    expect(screen.getByText(di.loadFailed)).toBeInTheDocument()
+    expect(screen.queryByText(di.empty)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: deCommon.actions.retry }))
+
+    expect(refetch).toHaveBeenCalledTimes(1)
   })
 
   it('creates a source with the entered key and label', async () => {

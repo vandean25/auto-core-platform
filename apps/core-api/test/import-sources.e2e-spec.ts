@@ -1,7 +1,9 @@
+import { readdirSync } from 'node:fs';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module.js';
+import { IMPORT_MULTER_STAGING_DIR } from '../src/import/import-file.storage.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
@@ -164,6 +166,33 @@ describe('Import sources (e2e)', () => {
         false,
       );
     });
+
+    it('rejects null and blank update payloads', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/imports/sources')
+        .set('Authorization', adminHeader)
+        .send({ key: 'update-validation', label: 'Update validation' })
+        .expect(201);
+
+      for (const payload of [
+        { label: null },
+        { is_default: null },
+        { label: '   ' },
+      ]) {
+        await request(app.getHttpServer())
+          .patch(`/imports/sources/${created.body.id}`)
+          .set('Authorization', adminHeader)
+          .send(payload)
+          .expect(400);
+      }
+
+      const updated = await request(app.getHttpServer())
+        .patch(`/imports/sources/${created.body.id}`)
+        .set('Authorization', adminHeader)
+        .send({ label: 'Renamed' })
+        .expect(200);
+      expect(updated.body.label).toBe('Renamed');
+    });
   });
 
   describe('import validation', () => {
@@ -198,6 +227,58 @@ describe('Import sources (e2e)', () => {
           'c.csv',
         )
         .expect(201);
+    });
+
+    it('accepts manifest-valid canonical source keys verbatim', async () => {
+      for (const key of ['dms:shop_', 'dms--prod:shop']) {
+        const created = await request(app.getHttpServer())
+          .post('/imports/sources')
+          .set('Authorization', adminHeader)
+          .send({ key, label: key })
+          .expect(201);
+        expect(created.body.key).toBe(key);
+
+        await request(app.getHttpServer())
+          .post('/imports')
+          .set('Authorization', adminHeader)
+          .field('entityType', 'CUSTOMER')
+          .field('sourceSystem', key)
+          .field('mapping', JSON.stringify(customerMapping))
+          .attach(
+            'file',
+            customerCsv([['1', 'PRIVATE', 'A', 'B', 'a@b.com', '', '', 'AT']]),
+            'c.csv',
+          )
+          .expect(201);
+      }
+    });
+
+    it('removes the staged upload when the source is rejected', async () => {
+      const before = new Set(readdirSync(IMPORT_MULTER_STAGING_DIR));
+      const postRejected = (sourceSystem?: string) => {
+        const pending = request(app.getHttpServer())
+          .post('/imports')
+          .set('Authorization', adminHeader)
+          .field('entityType', 'CUSTOMER')
+          .field('mapping', JSON.stringify(customerMapping));
+        if (sourceSystem !== undefined) {
+          pending.field('sourceSystem', sourceSystem);
+        }
+        return pending.attach(
+          'file',
+          customerCsv([['1', 'PRIVATE', 'A', 'B', 'a@b.com', '', '', 'AT']]),
+          'c.csv',
+        );
+      };
+
+      await postRejected('unknown-source').expect(400);
+      await postRejected('').expect(400);
+      await postRejected().expect(400);
+
+      const added = readdirSync(IMPORT_MULTER_STAGING_DIR).filter(
+        (name) => !before.has(name),
+      );
+      expect(added).toEqual([]);
     });
 
     async function dryRunAndApply(csv: Buffer, fileName: string) {

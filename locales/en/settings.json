@@ -1058,6 +1058,7 @@
       "defaultLabel": "Use as default",
       "add": "Add import source",
       "empty": "No import source configured yet.",
+      "loadFailed": "Could not load import sources.",
       "columnLabel": "Display name",
       "columnKey": "Key",
       "columnDefault": "Default",

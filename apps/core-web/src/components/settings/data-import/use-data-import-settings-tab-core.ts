@@ -19,23 +19,29 @@ export function useDataImportSettingsTabCore() {
   const [searchParams] = useSearchParams()
   const initialEntityType = initialEntityFromParam(searchParams.get('entity'))
 
-  const { data: sourcesData } = useImportSources()
-  const sources = sourcesData?.data ?? []
+  const sourcesQuery = useImportSources()
+  const sources = sourcesQuery.data?.data ?? []
   const defaultSource = sources.find((s) => s.is_default) ?? sources[0]
 
   const [sourceSystem, setSourceSystem] = React.useState(defaultSource?.key ?? '')
-
-  // Update sourceSystem when sources load and we have no selection or the default changes
-  React.useEffect(() => {
-    if (defaultSource && (!sourceSystem || !sources.some((s) => s.key === sourceSystem))) {
-      setSourceSystem(defaultSource.key)
-    }
-  }, [defaultSource, sourceSystem, sources])
 
   const wizard = useImportWizardState({
     initialEntityType,
     initialVendorId: searchParams.get('vendorId') ?? undefined,
   })
+  const { resetDryRun, setStep } = wizard
+
+  // A deleted source must not stay selected: fall back to the default (or no
+  // selection) and return to step 1 so the next upload uses a current source.
+  React.useEffect(() => {
+    if (!sourcesQuery.data) return
+    if (sourceSystem && sources.some((s) => s.key === sourceSystem)) return
+    const fallbackKey = defaultSource?.key ?? ''
+    if (sourceSystem === fallbackKey) return
+    setSourceSystem(fallbackKey)
+    resetDryRun()
+    setStep(1)
+  }, [defaultSource, resetDryRun, setStep, sourceSystem, sources, sourcesQuery.data])
 
   const entityTypesQuery = useImportEntityTypes()
   const entityTypeEntries = entityTypesQuery.data
@@ -56,6 +62,8 @@ export function useDataImportSettingsTabCore() {
     sourceSystem,
     setSourceSystem,
     sources,
+    sourcesFailed: sourcesQuery.isError,
+    retrySources: () => void sourcesQuery.refetch(),
     wizard,
     entityTypes,
     entityTypesFailed: entityTypesQuery.isError,

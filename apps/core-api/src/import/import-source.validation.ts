@@ -1,8 +1,19 @@
 const IMPORT_SOURCE_KEY_SEGMENT_MAX_LENGTH = 64;
 const IMPORT_SOURCE_KEY_MAX_SEGMENTS = 2;
-const IMPORT_SOURCE_KEY_SEGMENT_PATTERN = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/;
+// Mirrors the manifest namespaceCode grammar so canonical keys keep their identity.
+const CANONICAL_KEY_SEGMENT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const SLUG_KEY_SEGMENT_PATTERN = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/;
 
 export function normalizeImportSourceKey(raw: string): string {
+  const canonical = raw.trim().toLowerCase();
+  if (
+    canonical.includes(':') &&
+    canonical
+      .split(':')
+      .every((segment) => CANONICAL_KEY_SEGMENT_PATTERN.test(segment))
+  ) {
+    return canonical;
+  }
   return raw.split(':').map(normalizeImportSourceKeySegment).join(':');
 }
 
@@ -65,13 +76,16 @@ export function validateImportSourceKey(
       error: `Import source key must be at most ${IMPORT_SOURCE_KEY_SEGMENT_MAX_LENGTH} characters per segment`,
     };
   }
-  if (
-    segments.some((segment) => !IMPORT_SOURCE_KEY_SEGMENT_PATTERN.test(segment))
-  ) {
+  const isCanonical = segments.length === IMPORT_SOURCE_KEY_MAX_SEGMENTS;
+  const segmentPattern = isCanonical
+    ? CANONICAL_KEY_SEGMENT_PATTERN
+    : SLUG_KEY_SEGMENT_PATTERN;
+  if (segments.some((segment) => !segmentPattern.test(segment))) {
     return {
       valid: false,
-      error:
-        'Import source key must contain only alphanumeric characters, hyphens, and underscores, and must not start or end with a hyphen',
+      error: isCanonical
+        ? 'Import source key segments must start with a letter or digit and contain only lower-case letters, digits, hyphens, and underscores'
+        : 'Import source key must contain only alphanumeric characters, hyphens, and underscores, and must not start or end with a hyphen',
     };
   }
   return { valid: true };
