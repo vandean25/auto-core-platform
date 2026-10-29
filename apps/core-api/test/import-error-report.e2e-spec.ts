@@ -18,6 +18,7 @@ import { ImportJobStore } from '../src/import/import-job.store.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
@@ -64,6 +65,9 @@ describe('localized streamed import error report (e2e)', () => {
     tenant = await createTestTenant(prisma, 'report-admin');
     otherTenant = await createTestTenant(prisma, 'report-other');
     salesTenant = await createTestTenant(prisma, 'report-sales');
+    await createTenantAwarePrisma(prisma, tenant.tenantId).importSource.create({
+      data: { tenant_id: tenant.tenantId, key: sourceSystem, label: 'Synthetic' },
+    });
     await runWithTenantContext(salesTenant.tenantId, () =>
       prisma.tenantMember.updateMany({
         where: { tenant_id: salesTenant.tenantId },
