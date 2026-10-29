@@ -42,6 +42,7 @@ import {
 } from './import-technical-retry.js';
 import {
   serializeImportJob,
+  serializeImportJobListItem,
   serializeImportRow,
   type ImportJobView,
   type SerializedImportJob,
@@ -336,6 +337,31 @@ export class ImportService {
       tenantId,
       this.serializeJob(job, job.totals_json as ImportJobTotals),
     );
+  }
+
+  async listJobs(query: {
+    page?: number;
+    limit?: number;
+    status?: ImportJobStatus;
+    entityType?: ImportEntityType;
+    source?: string;
+  }) {
+    assertTenantAdmin(this.tenantContext);
+    const tenantId = await this.tenantContext.getTenantId();
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+    const skip = (page - 1) * limit;
+    const where: Prisma.ImportJobWhereInput = {
+      tenant_id: tenantId,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.entityType ? { entity_type: query.entityType } : {}),
+      ...(query.source ? { source_system: query.source } : {}),
+    };
+    const [jobs, total] = await this.jobStore.findJobsPage(where, skip, limit);
+    return {
+      data: jobs.map((job) => serializeImportJobListItem(job)),
+      meta: { total, page, limit },
+    };
   }
 
   async listJobRows(

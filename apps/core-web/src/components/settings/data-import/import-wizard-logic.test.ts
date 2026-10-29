@@ -129,6 +129,26 @@ describe('import wizard logic', () => {
     ).toBe(true)
   })
 
+  it('allows retrying a failed apply even when the dry run looks stale', () => {
+    expect(
+      canApplyImport({
+        dryRunJob: mockJob({ status: 'FAILED' }),
+        dryRunStale: true,
+        errorThreshold: 0,
+        isApplying: false,
+      }),
+    ).toBe(true)
+
+    expect(
+      canApplyImport({
+        dryRunJob: mockJob({ status: 'FAILED' }),
+        dryRunStale: false,
+        errorThreshold: 0,
+        isApplying: true,
+      }),
+    ).toBe(false)
+  })
+
   it('maps row filter to server query params', () => {
     expect(importRowQueryFromFilter('ALL')).toEqual({ hasErrors: false })
     expect(importRowQueryFromFilter('ERROR')).toEqual({ hasErrors: true })

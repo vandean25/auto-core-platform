@@ -33,6 +33,9 @@ Importe legen neue Zeilen an. Sie führen keine Duplikate per Kennzeichen oder E
   <Accordion title="Arbeitswerte importieren">
     Der Typ **Arbeitswerte** legt AW-Codes, Beschreibungen, AW-Zeiten, Stundensätze und optionale Verwendbarkeiten (Marke/Modell/Baujahr) an. Kategorienamen werden beim Import zugeordnet. Einzelne Vorgänge pflegen Sie danach nicht auf dem Tab [Arbeit](/settings/labor) — dort bleiben nur Kategorien und Sätze.
   </Accordion>
+  <Accordion title="Verlauf und Fortsetzen">
+    Der Tab hat zwei Ansichten: **Import** (der Assistent) und **Verlauf**. Die Verlaufansicht listet alle Importjobs des Mandanten, neueste zuerst, mit Status, Entität, Quelle, Datei, Ergebnis, Benutzer und Datum. Ein Klick auf eine Zeile öffnet den Job im Assistenten und setzt ihn fort: ein fertiger Probelauf landet beim Probelauf-Bericht, ein laufender oder abgeschlossener Import beim Ergebnis. Ein laufender Import aktualisiert sich von selbst weiter; ein fehlgeschlagener Import zeigt den Grund und kann erneut angewendet werden. Ein Rechtsklick auf eine Zeile bietet **Öffnen** beziehungsweise **Fortsetzen**, **Abbrechen** (nur solange ein Hintergrund-Probelauf noch abbrechbar ist, nie während des eigentlichen Imports) und **Fehler-CSV herunterladen**.
+  </Accordion>
   <Accordion title="Aufbewahrung alter Importzeilen">
     Detaillierte Zeilenpayloads aus abgeschlossenen Importjobs werden nach **180 Tagen** pro Mandant bereinigt. Job-Header, Status und External-IDs bleiben für die Nachverfolgung erhalten. Der nächtliche Lauf `import-job-row-purge` ist in [Geplante Core-API-Jobs](/operations/core-api-scheduled-jobs) beschrieben.
   </Accordion>

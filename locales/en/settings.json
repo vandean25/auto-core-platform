@@ -1170,6 +1170,36 @@
       "cancelFailed": "Could not cancel import",
       "templateFailed": "Template download failed",
       "errorCsvFailed": "Error CSV download failed"
+    },
+    "view": {
+      "wizard": "Import",
+      "history": "History"
+    },
+    "history": {
+      "title": "Import history",
+      "description": "All imports for this tenant, newest first.",
+      "empty": "No imports yet.",
+      "loadFailed": "Could not load import history.",
+      "anonymousUser": "Unknown",
+      "rowAria": "Import {{file}}",
+      "totals": "New {{create}} · Updated {{update}} · Skipped {{skip}} · Errors {{error}}",
+      "columns": {
+        "status": "Status",
+        "entityType": "Entity",
+        "source": "Source",
+        "fileName": "File",
+        "totals": "Result",
+        "createdBy": "User",
+        "createdAt": "Date"
+      },
+      "actions": {
+        "open": "Open",
+        "resume": "Resume",
+        "cancel": "Cancel",
+        "downloadErrors": "Download errors CSV",
+        "cancelConfirmTitle": "Cancel import?",
+        "cancelConfirmDescription": "The running import will be stopped."
+      }
     }
   },
   "documentBranding": {
