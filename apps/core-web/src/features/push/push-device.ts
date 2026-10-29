@@ -1,4 +1,4 @@
-import { registerPushDevice, revokePushDevice, type PushDevice } from '@/api/push'
+import { listPushDevices, registerPushDevice, revokePushDevice, type PushDevice } from '@/api/push'
 import { firebaseApp, pushVapidKey } from '@/lib/firebase'
 import { isServiceWorkerEnabled } from '@/pwa/register-service-worker'
 
@@ -92,6 +92,9 @@ async function obtainToken(): Promise<string> {
   return sdk.getToken(messaging, { vapidKey: pushVapidKey, serviceWorkerRegistration })
 }
 
+/** Counts the registrations made in this page, so a cleanup that finishes late can tell that a newer token exists. */
+let registrationEpoch = 0
+
 async function registerThisBrowser(): Promise<PushDevice> {
   const device = await registerPushDevice({
     token: await obtainToken(),
@@ -101,6 +104,7 @@ async function registerThisBrowser(): Promise<PushDevice> {
   })
   writeStorage(STORAGE_KEY, device.id)
   writeStorage(KEEP_ALIVE_KEY, String(Date.now()))
+  registrationEpoch += 1
   return device
 }
 
@@ -130,18 +134,36 @@ export async function disablePushOnThisDevice(): Promise<void> {
 
 const RELEASE_TIMEOUT_MS = 3000
 
+/** Resolves when the work is done or after `ms`, whichever comes first. The work keeps running when time is up. */
+function settleWithin(work: Promise<unknown>, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    void work.finally(() => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
+}
+
 /**
- * Before sign-out and before a tenant switch: removes this browser's registration for the tenant being left.
- * Best effort and bounded in time, so it never blocks the sign-out. Returns whether this browser had a registration.
+ * Before sign-out and before a tenant switch: removes this browser's registration for the tenant being left. The whole
+ * cleanup (server call and token deletion) is bounded in time, so a stalled network or push SDK never blocks the
+ * sign-out. Returns whether this browser had a registration.
  */
 export async function releasePushRegistration(): Promise<boolean> {
   const deviceId = getStoredDeviceId()
   if (!deviceId) return false
-  const timeout = new Promise<void>((resolve) => setTimeout(resolve, RELEASE_TIMEOUT_MS))
-  // Offline or already signed out: the server-side cleanup revokes the device once it is unused.
-  await Promise.race([revokePushDevice(deviceId).catch(() => undefined), timeout])
   writeStorage(STORAGE_KEY, null)
-  await deleteLocalToken()
+  const epoch = registrationEpoch
+  // Offline or already signed out: the server-side cleanup revokes the device once it is unused.
+  const cleanup = revokePushDevice(deviceId)
+    .catch(() => undefined)
+    .then(deleteLocalToken)
+  // A token deletion that only finishes after this browser registered again would delete the new token as well.
+  void cleanup.then(() => {
+    if (registrationEpoch !== epoch && getStoredDeviceId()) void restorePushRegistration()
+  })
+  await settleWithin(cleanup, RELEASE_TIMEOUT_MS)
   return true
 }
 
@@ -170,16 +192,25 @@ export async function switchTenantWithPush<T>(switchTenant: () => Promise<T>): P
 }
 
 /**
- * Keeps a registered browser fresh: re-registers at most once a day (the token may have rotated and the server uses
- * `last_seen_at` to drop devices that are not used). It never prompts.
+ * Keeps a registered browser fresh: renews it at most once a day (the token may have rotated and the server uses
+ * `last_seen_at` to drop devices that are not used). It only renews a registration the server still lists as active.
+ * A device that was removed, here or from another browser, is forgotten and never created again: switching push back
+ * on needs the enable button. It never prompts.
  */
 export async function keepPushRegistrationAlive(): Promise<void> {
-  if (!getStoredDeviceId() || getPushSupport() !== 'ready' || getNotificationPermission() !== 'granted') return
+  const deviceId = getStoredDeviceId()
+  if (!deviceId || getPushSupport() !== 'ready' || getNotificationPermission() !== 'granted') return
   const last = Number(readStorage(KEEP_ALIVE_KEY) ?? 0)
   if (Date.now() - last < KEEP_ALIVE_INTERVAL_MS) return
   try {
-    await registerThisBrowser()
+    const devices = await listPushDevices()
+    if (devices.some((device) => device.id === deviceId)) {
+      await registerThisBrowser()
+      return
+    }
+    writeStorage(STORAGE_KEY, null)
+    await settleWithin(deleteLocalToken(), RELEASE_TIMEOUT_MS)
   } catch {
-    // Retried on the next start.
+    // Offline or refused: retried on the next start, and the registration is left as it is.
   }
 }

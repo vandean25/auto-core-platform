@@ -39,12 +39,13 @@ export async function revokePushDevice(deviceId: string): Promise<void> {
   }
 }
 
+/** The caller's active devices. Also used outside React (keep-alive), so it is a plain function. */
+export function listPushDevices(): Promise<PushDevice[]> {
+  return fetchJsonWithAuth<PushDevice[]>(`${PUSH_BASE}/devices`, 'Failed to load push devices')
+}
+
 export function usePushDevices(enabled = true) {
-  return useQuery<PushDevice[]>({
-    queryKey: pushKeys.devices(),
-    enabled,
-    queryFn: () => fetchJsonWithAuth<PushDevice[]>(`${PUSH_BASE}/devices`, 'Failed to load push devices'),
-  })
+  return useQuery<PushDevice[]>({ queryKey: pushKeys.devices(), enabled, queryFn: listPushDevices })
 }
 
 export function usePushPreferences() {

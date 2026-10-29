@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   registerPushDevice: vi.fn(),
   revokePushDevice: vi.fn(),
+  listPushDevices: vi.fn(),
   getToken: vi.fn(),
   deleteToken: vi.fn(),
   getMessaging: vi.fn(() => ({ messaging: true })),
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/api/push', () => ({
   registerPushDevice: mocks.registerPushDevice,
   revokePushDevice: mocks.revokePushDevice,
+  listPushDevices: mocks.listPushDevices,
 }))
 vi.mock('firebase/messaging', () => ({
   getMessaging: mocks.getMessaging,
@@ -62,6 +64,7 @@ describe('push on this device', () => {
     mocks.serviceWorkerEnabled = true
     mocks.registerPushDevice.mockReset().mockResolvedValue({ id: 'device-1' })
     mocks.revokePushDevice.mockReset().mockResolvedValue(undefined)
+    mocks.listPushDevices.mockReset().mockResolvedValue([{ id: 'device-1' }])
     mocks.getToken.mockReset().mockResolvedValue('fcm-token')
     mocks.deleteToken.mockReset().mockResolvedValue(true)
   })
@@ -153,7 +156,7 @@ describe('push on this device', () => {
   })
 
   describe('keepPushRegistrationAlive', () => {
-    it('registers again at most once a day, and only a browser that was registered', async () => {
+    it('renews at most once a day, and only a browser that was registered', async () => {
       setup({ permission: 'granted' })
       vi.useFakeTimers()
       try {
@@ -176,6 +179,33 @@ describe('push on this device', () => {
         vi.useRealTimers()
       }
     })
+
+    it('does not bring back a device that was removed, here or from another browser: it forgets it', async () => {
+      setup({ permission: 'granted' })
+      window.localStorage.setItem('acp.push.registration', 'device-removed')
+      mocks.listPushDevices.mockResolvedValue([{ id: 'some-other-device' }])
+
+      await keepPushRegistrationAlive()
+
+      expect(mocks.registerPushDevice).not.toHaveBeenCalled()
+      expect(getStoredDeviceId()).toBeNull()
+      expect(mocks.deleteToken).toHaveBeenCalled()
+
+      // The daily check does not recreate it on the next start either.
+      await keepPushRegistrationAlive()
+      expect(mocks.registerPushDevice).not.toHaveBeenCalled()
+    })
+
+    it('leaves the registration alone when the server cannot be asked', async () => {
+      setup({ permission: 'granted' })
+      window.localStorage.setItem('acp.push.registration', 'device-1')
+      mocks.listPushDevices.mockRejectedValue(new Error('offline'))
+
+      await keepPushRegistrationAlive()
+
+      expect(mocks.registerPushDevice).not.toHaveBeenCalled()
+      expect(getStoredDeviceId()).toBe('device-1')
+    })
   })
 
   describe('removing the registration', () => {
@@ -194,6 +224,50 @@ describe('push on this device', () => {
       setup({ permission: 'granted' })
       await expect(releasePushRegistration()).resolves.toBe(false)
       expect(mocks.revokePushDevice).not.toHaveBeenCalled()
+    })
+
+    it('releasePushRegistration is bounded as a whole: a token deletion that never settles does not block it', async () => {
+      setup({ permission: 'granted' })
+      window.localStorage.setItem('acp.push.registration', 'device-1')
+      mocks.deleteToken.mockReturnValue(new Promise(() => undefined))
+      vi.useFakeTimers()
+      try {
+        let done = false
+        const release = releasePushRegistration().then((had) => {
+          done = true
+          return had
+        })
+        await vi.advanceTimersByTimeAsync(3100)
+        expect(done).toBe(true)
+        await expect(release).resolves.toBe(true)
+        expect(getStoredDeviceId()).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('registers again when a late token deletion finishes after the browser was registered anew', async () => {
+      setup({ permission: 'granted' })
+      window.localStorage.setItem('acp.push.registration', 'device-old')
+      let finishDeletion: (value: boolean) => void = () => undefined
+      mocks.deleteToken.mockReturnValueOnce(new Promise<boolean>((resolve) => (finishDeletion = resolve)))
+      mocks.registerPushDevice.mockResolvedValue({ id: 'device-new' })
+      vi.useFakeTimers()
+      try {
+        const switched = switchTenantWithPush(async () => 'ok')
+        await vi.advanceTimersByTimeAsync(3100)
+        await switched
+        expect(mocks.registerPushDevice).toHaveBeenCalledTimes(1)
+        expect(getStoredDeviceId()).toBe('device-new')
+
+        finishDeletion(true)
+        await vi.advanceTimersByTimeAsync(10)
+
+        // The late deletion may have removed the new token too, so the browser registers once more.
+        expect(mocks.registerPushDevice).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('releasePushRegistration never blocks on a failing server', async () => {

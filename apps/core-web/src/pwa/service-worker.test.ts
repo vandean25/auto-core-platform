@@ -224,6 +224,23 @@ describe.each(variants)('service worker (%s)', (_name, start) => {
     expect(scope.clients.openWindow).not.toHaveBeenCalled()
   })
 
+  it('keeps the tenant and site of an order link, so a click from another site opens the order in its own context', async () => {
+    const link = '/workshop/orders/o1?pushTenant=t1&pushSite=s-a'
+    const app = { url: 'https://app.example.test/customers', focus: vi.fn(async () => undefined), navigate: vi.fn(async () => undefined) }
+    const open = createScope({ windows: [app] })
+    start(open.scope)
+    await open.push({ data: { title: 'T', url: link } })
+    expect(open.scope.registration.showNotification).toHaveBeenCalledWith('T', expect.objectContaining({ data: { url: link } }))
+
+    await open.click(link)
+    expect(app.navigate).toHaveBeenCalledWith(`https://app.example.test${link}`)
+
+    const closed = createScope()
+    start(closed.scope)
+    await closed.click(link)
+    expect(closed.scope.clients.openWindow).toHaveBeenCalledWith(`https://app.example.test${link}`)
+  })
+
   it('opens the deep link in a new window when no tab of the app is open, and never leaves the origin', async () => {
     const { scope, click } = createScope()
     start(scope)
