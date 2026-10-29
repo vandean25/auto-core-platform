@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   cleanupTestTenantGraph,
@@ -18,6 +19,7 @@ import { serializeCsv } from '../src/import/csv-parse.util.js';
 describe('Import sources (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let systemPrisma: SystemPrismaService;
   let authService: AuthService;
   let tenant: Awaited<ReturnType<typeof createTestTenant>>;
   let adminHeader: string;
@@ -58,6 +60,7 @@ describe('Import sources (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    systemPrisma = app.get(SystemPrismaService);
     authService = app.get(AuthService);
 
     tenant = await createTestTenant(prisma, 'import-sources');
@@ -369,7 +372,7 @@ describe('Import sources (e2e)', () => {
         where: { firebaseUid: roleTenant.firebaseUid },
         select: { id: true },
       });
-      const accessRequest = await prisma.landingDemoAccessRequest.create({
+      const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
         data: {
           email: roleTenant.email,
           name: 'Demo E2E',
@@ -378,7 +381,7 @@ describe('Import sources (e2e)', () => {
         },
         select: { id: true },
       });
-      await prisma.landingDemoSignInGrant.create({
+      await systemPrisma.landingDemoSignInGrant.create({
         data: {
           access_request_id: accessRequest.id,
           user_id: demoUser.id,
@@ -389,10 +392,10 @@ describe('Import sources (e2e)', () => {
       try {
         await expectMutatingEndpointsForbidden(header);
       } finally {
-        await prisma.landingDemoSignInGrant.deleteMany({
+        await systemPrisma.landingDemoSignInGrant.deleteMany({
           where: { user_id: demoUser.id },
         });
-        await prisma.landingDemoAccessRequest.delete({
+        await systemPrisma.landingDemoAccessRequest.delete({
           where: { id: accessRequest.id },
         });
       }
