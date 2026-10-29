@@ -29,7 +29,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { ImportRowAction } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import { ImportService } from './import.service.js';
 import { ImportDirectUploadService } from './import-direct-upload.service.js';
 import { parseImportEntityType } from './import-entity-type.guard.js';
@@ -38,6 +38,7 @@ import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { importUploadMulterOptions } from './import-multer.storage.js';
 import { ImportUploadInterceptor } from './import-upload.interceptor.js';
 import { ImportJobResponseDto } from './dto/import-job-response.dto.js';
+import { ImportJobListResponseDto } from './dto/import-job-list-response.dto.js';
 import { ImportJobRowsResponseDto } from './dto/import-job-rows-response.dto.js';
 import { ImportTemplateResponseDto } from './dto/import-template-response.dto.js';
 import { ImportEntityTypeListResponseDto } from './dto/import-entity-type-response.dto.js';
@@ -209,6 +210,36 @@ export class ImportController {
     return { data: this.importService.listEntityTypes() };
   }
 
+  @Get()
+  @ApiOperation({
+    summary: 'List import jobs for the tenant, newest first',
+  })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'status', required: false, enum: ImportJobStatus })
+  @ApiQuery({
+    name: 'entityType',
+    required: false,
+    enum: [...IMPLEMENTED_IMPORT_ENTITY_TYPES],
+  })
+  @ApiQuery({ name: 'source', required: false })
+  @ApiOkResponse({ type: ImportJobListResponseDto })
+  listJobs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('entityType') entityType?: string,
+    @Query('source') source?: string,
+  ) {
+    return this.importService.listJobs({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      status: this.parseStatusFilter(status),
+      entityType: entityType ? parseImportEntityType(entityType) : undefined,
+      source: source?.trim() || undefined,
+    });
+  }
+
   @Get(':id/rows')
   @ApiOperation({ summary: 'List dry-run rows for an import job' })
   @ApiQuery({ name: 'page', required: false })
@@ -296,6 +327,18 @@ export class ImportController {
   @ApiOkResponse({ type: ImportJobResponseDto })
   cancel(@Param('id') id: string) {
     return this.importService.cancelJob(id);
+  }
+
+  private parseStatusFilter(status?: string): ImportJobStatus | undefined {
+    const trimmed = status?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    const values = Object.values(ImportJobStatus) as string[];
+    if (!values.includes(trimmed)) {
+      throw new BadRequestException('Invalid status filter');
+    }
+    return trimmed as ImportJobStatus;
   }
 
   private parseJsonObject(

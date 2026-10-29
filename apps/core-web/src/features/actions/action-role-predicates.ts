@@ -59,3 +59,8 @@ export function isWorkshopTechAssignableStatus(status: string | null | undefined
 export function isWorkshopOrderLockedStatus(status: string | null | undefined): boolean {
   return status === 'INVOICED'
 }
+
+/** Import history and job actions mirror the tenant-admin gate on GET /api/imports (OWNER/ADMIN only). */
+export function canManageImportJobs(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN'
+}

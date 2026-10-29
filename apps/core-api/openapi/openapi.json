@@ -14886,6 +14886,82 @@
         "tags": [
           "imports"
         ]
+      },
+      "get": {
+        "operationId": "ImportController_listJobs",
+        "parameters": [
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "CUSTOMER",
+                "VEHICLE",
+                "SUPPLIER_PRICE_LIST",
+                "LABOR_OPERATION",
+                "VEHICLE_PARTY",
+                "VEHICLE_DUE_DATE"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "DRY_RUN_DONE",
+                "APPLYING",
+                "APPLIED",
+                "FAILED",
+                "CANCELLED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List import jobs for the tenant, newest first",
+        "tags": [
+          "imports"
+        ]
       }
     },
     "/api/imports/direct-uploads": {
@@ -37912,6 +37988,122 @@
         },
         "required": [
           "data"
+        ]
+      },
+      "ImportJobListTotalsDto": {
+        "type": "object",
+        "properties": {
+          "create": {
+            "type": "number"
+          },
+          "update": {
+            "type": "number"
+          },
+          "skip": {
+            "type": "number"
+          },
+          "error": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "create",
+          "update",
+          "skip",
+          "error"
+        ]
+      },
+      "ImportJobListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportJobStatus"
+              }
+            ]
+          },
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportEntityType"
+              }
+            ]
+          },
+          "source_system": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ImportJobListTotalsDto"
+          },
+          "created_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "applied_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "apply_failure_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "entity_type",
+          "source_system",
+          "file_name",
+          "totals",
+          "created_by",
+          "created_at",
+          "applied_at"
+        ]
+      },
+      "ImportJobListMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit"
+        ]
+      },
+      "ImportJobListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportJobListItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ImportJobListMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "ImportRowAction": {
