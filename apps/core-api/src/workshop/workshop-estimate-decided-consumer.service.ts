@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { WorkshopTaskStatus, type Prisma } from '@prisma/client';
+import {
+  NotificationEventType,
+  WorkshopTaskStatus,
+  type Prisma,
+} from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { DOMAIN_EVENT_TYPES } from '../domain-event-store/domain-event.constants.js';
 import {
@@ -11,6 +15,7 @@ import {
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PushNotifierService } from '../push/push-notifier.service.js';
 import {
   decideEstimateDecidedConsumerOutcome,
   type EstimateDecidedDomainContext,
@@ -25,6 +30,7 @@ export class WorkshopEstimateDecidedConsumerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: NotificationOutboxService,
+    private readonly pushNotifier: PushNotifierService,
     private readonly requestContext: RequestContextService,
   ) {}
 
@@ -154,7 +160,7 @@ export class WorkshopEstimateDecidedConsumerService {
     now: Date,
     claimToken: string,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    const pushRowIds = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.domainEventConsumerDelivery.findFirst({
         where: {
           tenant_id: tenantId,
@@ -172,7 +178,7 @@ export class WorkshopEstimateDecidedConsumerService {
         },
       });
       if (!event) {
-        return;
+        return [];
       }
       if (existing) {
         await this.advanceCursor(
@@ -182,15 +188,31 @@ export class WorkshopEstimateDecidedConsumerService {
           event.sequence,
           event.id,
         );
-        return;
+        return [];
       }
 
       const context = await this.loadDomainContext(tx, tenantId, event);
       const outcome = decideEstimateDecidedConsumerOutcome(context);
       let notificationOutboxId: string | null = null;
+      let pushRows: string[] = [];
       if (outcome.kind === 'notify') {
         const enqueued = await this.outbox.enqueueInTx(tx, outcome.input, now);
         notificationOutboxId = enqueued.blocked ? null : enqueued.id;
+        pushRows = await this.pushNotifier.enqueueInTx(
+          tx,
+          {
+            tenantId,
+            siteId: outcome.push.siteId,
+            workshopOrderId: outcome.push.workshopOrderId,
+            eventType: NotificationEventType.CUSTOMER_ESTIMATE_DECIDED,
+            occurrenceId: event.id,
+            extraEmployeeIds: outcome.push.extraEmployeeIds,
+            payload: { decision: outcome.push.decision },
+            sourceEntityType: 'WorkshopEstimateVersion',
+            sourceEntityId: outcome.input.sourceEntityId ?? undefined,
+          },
+          now,
+        );
       }
       await tx.domainEventConsumerDelivery.create({
         data: {
@@ -211,7 +233,9 @@ export class WorkshopEstimateDecidedConsumerService {
         event.sequence,
         event.id,
       );
+      return pushRows;
     });
+    await this.pushNotifier.wakeUp(tenantId, pushRowIds);
   }
 
   private async advanceCursor(
@@ -264,22 +288,43 @@ export class WorkshopEstimateDecidedConsumerService {
               estimate: {
                 select: {
                   workshop_order_id: true,
-                  workshop_order: { select: { site_id: true } },
+                  workshop_order: {
+                    select: { site_id: true, mechanic_id: true },
+                  },
                 },
               },
             },
           });
     const orderId = version?.estimate.workshop_order_id ?? null;
-    const waitingCustomerTaskCount =
+    const [waitingCustomerTaskCount, taskMechanics] =
       orderId === null
-        ? 0
-        : await tx.workshopTask.count({
-            where: {
-              tenant_id: tenantId,
-              workshop_order_id: orderId,
-              status: WorkshopTaskStatus.WAITING_CUSTOMER,
-            },
-          });
+        ? [0, []]
+        : await Promise.all([
+            tx.workshopTask.count({
+              where: {
+                tenant_id: tenantId,
+                workshop_order_id: orderId,
+                status: WorkshopTaskStatus.WAITING_CUSTOMER,
+              },
+            }),
+            tx.workshopTask.findMany({
+              where: {
+                tenant_id: tenantId,
+                workshop_order_id: orderId,
+                mechanic_id: { not: null },
+              },
+              select: { mechanic_id: true },
+              distinct: ['mechanic_id'],
+            }),
+          ]);
+    const mechanicEmployeeIds = [
+      ...new Set(
+        [
+          version?.estimate.workshop_order.mechanic_id ?? null,
+          ...taskMechanics.map((task) => task.mechanic_id),
+        ].filter((id): id is string => id !== null),
+      ),
+    ];
     return {
       eventId: event.id,
       tenantId,
@@ -287,6 +332,7 @@ export class WorkshopEstimateDecidedConsumerService {
       payload: event.payload,
       version,
       waitingCustomerTaskCount,
+      mechanicEmployeeIds,
     };
   }
 }

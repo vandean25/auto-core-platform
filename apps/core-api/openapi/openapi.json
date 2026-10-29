@@ -7760,6 +7760,161 @@
         ]
       }
     },
+    "/api/v1/me/push/devices": {
+      "get": {
+        "operationId": "PushController_listDevices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PushDeviceDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List my active push devices",
+        "tags": [
+          "me"
+        ]
+      },
+      "post": {
+        "description": "Call only after the user pressed a button and granted the browser permission. An existing token is taken over by the caller.",
+        "operationId": "PushController_registerDevice",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPushDeviceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushDeviceDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register this browser for push",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/push/devices/{id}": {
+      "delete": {
+        "operationId": "PushController_revokeDevice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Remove one of my push devices",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/push/preferences": {
+      "get": {
+        "operationId": "PushController_getPreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushPreferencesDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "My push events and quiet hours",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "PushController_updatePreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushPreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushPreferencesDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace my push events and quiet hours",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/push/test": {
+      "post": {
+        "description": "Limited to 5 per hour. 409 when no device is registered.",
+        "operationId": "PushController_sendTest",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushTestResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send a test push to my own devices",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/agent/domain-events": {
       "get": {
         "description": "Read-only, resumable feed ordered by monotonic sequence. Only sites the caller is authorized for are returned.",
@@ -10399,161 +10554,6 @@
         },
         "tags": [
           "notifications"
-        ]
-      }
-    },
-    "/api/v1/me/push/devices": {
-      "get": {
-        "operationId": "PushController_listDevices",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PushDeviceDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "List my active push devices",
-        "tags": [
-          "me"
-        ]
-      },
-      "post": {
-        "description": "Call only after the user pressed a button and granted the browser permission. An existing token is taken over by the caller.",
-        "operationId": "PushController_registerDevice",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterPushDeviceDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PushDeviceDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Register this browser for push",
-        "tags": [
-          "me"
-        ]
-      }
-    },
-    "/api/v1/me/push/devices/{id}": {
-      "delete": {
-        "operationId": "PushController_revokeDevice",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "summary": "Remove one of my push devices",
-        "tags": [
-          "me"
-        ]
-      }
-    },
-    "/api/v1/me/push/preferences": {
-      "get": {
-        "operationId": "PushController_getPreferences",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PushPreferencesDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "My push events and quiet hours",
-        "tags": [
-          "me"
-        ]
-      },
-      "put": {
-        "operationId": "PushController_updatePreferences",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PushPreferencesDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PushPreferencesDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Replace my push events and quiet hours",
-        "tags": [
-          "me"
-        ]
-      }
-    },
-    "/api/v1/me/push/test": {
-      "post": {
-        "description": "Limited to 5 per hour. 409 when no device is registered.",
-        "operationId": "PushController_sendTest",
-        "parameters": [],
-        "responses": {
-          "202": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PushTestResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Send a test push to my own devices",
-        "tags": [
-          "me"
         ]
       }
     },
@@ -28683,6 +28683,133 @@
           "fuelIn"
         ]
       },
+      "PushPlatform": {
+        "type": "string",
+        "enum": [
+          "IOS",
+          "ANDROID",
+          "DESKTOP"
+        ]
+      },
+      "PushDeviceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "platform": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PushPlatform"
+              }
+            ]
+          },
+          "browser": {
+            "type": "string",
+            "nullable": true
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "browser",
+          "installed",
+          "lastSeenAt",
+          "createdAt"
+        ]
+      },
+      "RegisterPushDeviceDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "FCM registration token of this browser. Stored, never returned and never logged."
+          },
+          "platform": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PushPlatform"
+              }
+            ]
+          },
+          "browser": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "Browser family only, for example \"chrome\"."
+          },
+          "installed": {
+            "type": "boolean",
+            "description": "True when the app runs as an installed PWA."
+          }
+        },
+        "required": [
+          "token",
+          "platform"
+        ]
+      },
+      "PushUserEventType": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER_ESTIMATE_DECIDED",
+          "WORKSHOP_TASK_WAITING_CUSTOMER",
+          "WORKSHOP_ORDER_READY"
+        ],
+        "description": "Events this user wants as push. Empty by default."
+      },
+      "PushPreferencesDto": {
+        "type": "object",
+        "properties": {
+          "enabledEvents": {
+            "type": "array",
+            "description": "Events this user wants as push. Empty by default.",
+            "items": {
+              "$ref": "#/components/schemas/PushUserEventType"
+            }
+          },
+          "quietStartMin": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1439,
+            "description": "Quiet hours start, minutes after midnight in the site timezone. Null together with the end means none."
+          },
+          "quietEndMin": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1439
+          }
+        },
+        "required": [
+          "enabledEvents",
+          "quietStartMin",
+          "quietEndMin"
+        ]
+      },
+      "PushTestResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Outbox row that carries the test push."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
       "DomainEventEnvelopeResponseDto": {
         "type": "object",
         "properties": {
@@ -31768,133 +31895,6 @@
         "required": [
           "replayed",
           "refused"
-        ]
-      },
-      "PushPlatform": {
-        "type": "string",
-        "enum": [
-          "IOS",
-          "ANDROID",
-          "DESKTOP"
-        ]
-      },
-      "PushDeviceDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "platform": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PushPlatform"
-              }
-            ]
-          },
-          "browser": {
-            "type": "string",
-            "nullable": true
-          },
-          "installed": {
-            "type": "boolean"
-          },
-          "lastSeenAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "platform",
-          "browser",
-          "installed",
-          "lastSeenAt",
-          "createdAt"
-        ]
-      },
-      "RegisterPushDeviceDto": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "maxLength": 4096,
-            "description": "FCM registration token of this browser. Stored, never returned and never logged."
-          },
-          "platform": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PushPlatform"
-              }
-            ]
-          },
-          "browser": {
-            "type": "string",
-            "maxLength": 32,
-            "description": "Browser family only, for example \"chrome\"."
-          },
-          "installed": {
-            "type": "boolean",
-            "description": "True when the app runs as an installed PWA."
-          }
-        },
-        "required": [
-          "token",
-          "platform"
-        ]
-      },
-      "PushUserEventType": {
-        "type": "string",
-        "enum": [
-          "CUSTOMER_ESTIMATE_DECIDED",
-          "WORKSHOP_TASK_WAITING_CUSTOMER",
-          "WORKSHOP_ORDER_READY"
-        ],
-        "description": "Events this user wants as push. Empty by default."
-      },
-      "PushPreferencesDto": {
-        "type": "object",
-        "properties": {
-          "enabledEvents": {
-            "type": "array",
-            "description": "Events this user wants as push. Empty by default.",
-            "items": {
-              "$ref": "#/components/schemas/PushUserEventType"
-            }
-          },
-          "quietStartMin": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 0,
-            "maximum": 1439,
-            "description": "Quiet hours start, minutes after midnight in the site timezone. Null together with the end means none."
-          },
-          "quietEndMin": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 0,
-            "maximum": 1439
-          }
-        },
-        "required": [
-          "enabledEvents",
-          "quietStartMin",
-          "quietEndMin"
-        ]
-      },
-      "PushTestResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Outbox row that carries the test push."
-          }
-        },
-        "required": [
-          "id"
         ]
       },
       "CreditNoteStatus": {

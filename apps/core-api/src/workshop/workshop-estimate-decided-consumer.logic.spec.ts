@@ -26,6 +26,7 @@ describe('workshop estimate decided consumer logic', () => {
       },
     },
     waitingCustomerTaskCount: 0,
+    mechanicEmployeeIds: ['mechanic-1'],
   };
 
   it('parses a valid decided payload', () => {
@@ -37,6 +38,34 @@ describe('workshop estimate decided consumer logic', () => {
     ).toEqual({
       estimate_version_id: 'version-1',
       decision: EstimateApprovalDecision.DECLINED,
+    });
+  });
+
+  it('asks for push rows for the advisors of the site, and for the mechanics on approval only', () => {
+    expect(decideEstimateDecidedConsumerOutcome(baseContext)).toMatchObject({
+      kind: 'notify',
+      push: {
+        workshopOrderId: 'order-1',
+        siteId: 'site-1',
+        decision: 'APPROVED',
+        extraEmployeeIds: ['mechanic-1'],
+      },
+    });
+
+    const declined = decideEstimateDecidedConsumerOutcome({
+      ...baseContext,
+      payload: {
+        estimate_version_id: 'version-1',
+        decision: EstimateApprovalDecision.DECLINED,
+      },
+      version: {
+        ...baseContext.version,
+        status: WorkshopEstimateStatus.DECLINED,
+      },
+    });
+    expect(declined).toMatchObject({
+      kind: 'notify',
+      push: { decision: 'DECLINED', extraEmployeeIds: [] },
     });
   });
 
