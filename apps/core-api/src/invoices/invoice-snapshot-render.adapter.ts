@@ -1,3 +1,4 @@
+import { readDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
 
@@ -9,6 +10,8 @@ export function toRenderableInvoiceSnapshot(
   if (!isInvoiceSnapshotV2(snapshot)) {
     return null;
   }
+
+  const localeFields = readDocumentSnapshotLocaleFields(snapshot);
 
   return {
     id: invoiceId,
@@ -44,5 +47,6 @@ export function toRenderableInvoiceSnapshot(
     ...(snapshot.tax_mode === 'MARGIN_SCHEME'
       ? {}
       : { tax_breakdown: snapshot.tax_breakdown }),
+    ...(localeFields ?? {}),
   };
 }
