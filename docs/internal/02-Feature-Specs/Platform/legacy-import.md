@@ -32,8 +32,9 @@ Each tenant configures a list of **import sources** (normalized lower-case slug 
 
 - **API endpoints:** `GET/POST/PATCH/DELETE /imports/sources` (tenant admin only).
 - **Validation:** `POST /imports` and `POST /imports/mapping-profiles` reject unknown source keys with `IMPORT_UNKNOWN_SOURCE` (400). The silent fallback to `'legacy'` has been removed.
-- **Migration:** A data migration creates one import source per distinct `source_system` already used in `import_jobs`, `external_id_mappings`, and `import_mapping_profiles` for each tenant. Keys are kept byte-identical (no renaming).
-- **Key format:** Lower-case alphanumeric, hyphens, and underscores only; max 64 characters; must not start or end with a hyphen.
+- **Migration:** A data migration creates one import source per distinct `source_system` already used in `import_jobs`, `external_id_mappings`, and `import_mapping_profiles` for each tenant. Keys are kept byte-identical (no renaming) and are never truncated — the column is unbounded, so historical names longer than 64 characters migrate unchanged.
+- **Key format:** Lower-case alphanumeric, hyphens, and underscores only; max 64 characters per segment; must not start or end with a hyphen. Canonical migration keys keep their manifest form `source_name:source_company_code` (one colon, each segment max 64 characters), so the seeded preset, the manifest validator, and the tenant source share one namespace.
+- **Default:** At most one source per tenant can be the default; default changes are serialized per tenant and a partial unique index enforces it.
 
 ### Canonical migration CSV v1 preset and manifest validator
 

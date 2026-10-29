@@ -1,8 +1,13 @@
-const IMPORT_SOURCE_KEY_MAX_LENGTH = 64;
-const IMPORT_SOURCE_KEY_PATTERN = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/;
+const IMPORT_SOURCE_KEY_SEGMENT_MAX_LENGTH = 64;
+const IMPORT_SOURCE_KEY_MAX_SEGMENTS = 2;
+const IMPORT_SOURCE_KEY_SEGMENT_PATTERN = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/;
 
 export function normalizeImportSourceKey(raw: string): string {
-  const collapsed = raw
+  return raw.split(':').map(normalizeImportSourceKeySegment).join(':');
+}
+
+function normalizeImportSourceKeySegment(segment: string): string {
+  const collapsed = segment
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
@@ -24,12 +29,6 @@ export function validateImportSourceKey(
   if (!key) {
     return { valid: false, error: 'Import source key is required' };
   }
-  if (key.length > IMPORT_SOURCE_KEY_MAX_LENGTH) {
-    return {
-      valid: false,
-      error: `Import source key must be at most ${IMPORT_SOURCE_KEY_MAX_LENGTH} characters`,
-    };
-  }
   if (key !== key.toLowerCase()) {
     return {
       valid: false,
@@ -42,7 +41,33 @@ export function validateImportSourceKey(
       error: 'Import source key must not contain spaces; use hyphens',
     };
   }
-  if (!IMPORT_SOURCE_KEY_PATTERN.test(key)) {
+
+  const segments = key.split(':');
+  if (segments.length > IMPORT_SOURCE_KEY_MAX_SEGMENTS) {
+    return {
+      valid: false,
+      error: 'Import source key must contain at most one colon',
+    };
+  }
+  if (segments.some((segment) => segment.length === 0)) {
+    return {
+      valid: false,
+      error: 'Import source key must not contain empty segments',
+    };
+  }
+  if (
+    segments.some(
+      (segment) => segment.length > IMPORT_SOURCE_KEY_SEGMENT_MAX_LENGTH,
+    )
+  ) {
+    return {
+      valid: false,
+      error: `Import source key must be at most ${IMPORT_SOURCE_KEY_SEGMENT_MAX_LENGTH} characters per segment`,
+    };
+  }
+  if (
+    segments.some((segment) => !IMPORT_SOURCE_KEY_SEGMENT_PATTERN.test(segment))
+  ) {
     return {
       valid: false,
       error:

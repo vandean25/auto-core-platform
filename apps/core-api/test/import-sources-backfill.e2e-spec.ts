@@ -23,6 +23,8 @@ const CUSTOMER_MAPPING = {
   last_name: 'Nachname',
 };
 
+const LONG_SOURCE_SYSTEM = `legacy-${'x'.repeat(93)}`;
+
 describe('Import source backfill (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
@@ -90,6 +92,16 @@ describe('Import source backfill (e2e)', () => {
         createdAt: new Date('2021-01-01T00:00:00.000Z'),
       },
     });
+    await tenantPrisma.importMappingProfile.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        entity_type: 'CUSTOMER',
+        source_system: LONG_SOURCE_SYSTEM,
+        name: 'Long legacy mapping',
+        mapping_json: {},
+        createdAt: new Date('2022-01-01T00:00:00.000Z'),
+      },
+    });
   });
 
   afterAll(async () => {
@@ -106,10 +118,12 @@ describe('Import source backfill (e2e)', () => {
     });
 
     expect(sources.map((source) => source.key)).toEqual([
+      LONG_SOURCE_SYSTEM,
       'old-dms-a',
       'old-dms-b',
     ]);
     expect(sources.map((source) => source.label)).toEqual([
+      LONG_SOURCE_SYSTEM,
       'old-dms-a',
       'old-dms-b',
     ]);
@@ -124,7 +138,7 @@ describe('Import source backfill (e2e)', () => {
       tenantPrisma.importSource.count({
         where: { tenant_id: tenant.tenantId },
       }),
-    ).resolves.toBe(2);
+    ).resolves.toBe(3);
   });
 
   it('accepts a re-import with a backfilled source key', async () => {

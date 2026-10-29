@@ -11,11 +11,10 @@ export class CreateImportSourceDto {
   @ApiProperty({
     example: 'legacy-dms',
     description:
-      'Normalized lower-case slug key (alphanumeric, hyphens, underscores; max 64 chars)',
+      'Normalized lower-case slug key (alphanumeric, hyphens, underscores; max 64 chars per segment; one colon allowed for canonical source_name:source_company_code keys)',
   })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(64)
   key!: string;
 
   @ApiProperty({ example: 'Legacy DMS' })

@@ -40,6 +40,22 @@ describe('import source key validation', () => {
     it('handles mixed case and special characters', () => {
       expect(normalizeImportSourceKey('  Incasea-DMS!  ')).toBe('incasea-dms');
     });
+
+    it('preserves a canonical source_name:source_company_code key', () => {
+      expect(normalizeImportSourceKey('synthetic_dms:synth_fixture')).toBe(
+        'synthetic_dms:synth_fixture',
+      );
+    });
+
+    it('normalizes each segment of a canonical key', () => {
+      expect(normalizeImportSourceKey('  Synthetic DMS : Synth Fixture  ')).toBe(
+        'synthetic-dms:synth-fixture',
+      );
+    });
+
+    it('keeps extra colons for validation to reject', () => {
+      expect(normalizeImportSourceKey('a:b:c')).toBe('a:b:c');
+    });
   });
 
   describe('validateImportSourceKey', () => {
@@ -102,6 +118,32 @@ describe('import source key validation', () => {
       expect(result.valid).toBe(false);
       if (result.valid) throw new Error('expected invalid');
       expect(result.error).toContain('hyphen');
+    });
+
+    it('returns valid for a canonical source_name:source_company_code key', () => {
+      const result = validateImportSourceKey('synthetic_dms:synth_fixture');
+      expect(result.valid).toBe(true);
+    });
+
+    it('returns invalid for more than one colon', () => {
+      const result = validateImportSourceKey('a:b:c');
+      expect(result.valid).toBe(false);
+      if (result.valid) throw new Error('expected invalid');
+      expect(result.error).toContain('colon');
+    });
+
+    it('returns invalid for an empty segment', () => {
+      const result = validateImportSourceKey('synthetic_dms:');
+      expect(result.valid).toBe(false);
+      if (result.valid) throw new Error('expected invalid');
+      expect(result.error).toContain('empty');
+    });
+
+    it('returns invalid when a segment exceeds max length', () => {
+      const result = validateImportSourceKey(`${'a'.repeat(65)}:b`);
+      expect(result.valid).toBe(false);
+      if (result.valid) throw new Error('expected invalid');
+      expect(result.error).toContain('64');
     });
   });
 });

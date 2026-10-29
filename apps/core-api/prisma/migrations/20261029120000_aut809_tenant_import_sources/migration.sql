@@ -1,10 +1,12 @@
 -- AUT-809: tenant-level import sources (normalized slug key, display label, default flag)
 -- Schema: new table import_sources, unique per (tenant_id, key).
+-- "key" is unbounded because the backfill copies every historical source_system verbatim,
+-- including names longer than the 64-character limit that applies to newly created keys.
 
 CREATE TABLE "import_sources" (
     "id"        TEXT         NOT NULL,
     "tenant_id" TEXT         NOT NULL,
-    "key"       VARCHAR(64)  NOT NULL,
+    "key"       TEXT         NOT NULL,
     "label"     TEXT         NOT NULL,
     "is_default" BOOLEAN     NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -18,6 +20,11 @@ CREATE UNIQUE INDEX "import_sources_tenant_id_key_key"
 
 CREATE INDEX "import_sources_tenant_id_idx"
     ON "import_sources"("tenant_id");
+
+-- At most one default source per tenant.
+CREATE UNIQUE INDEX "import_sources_one_default_per_tenant"
+    ON "import_sources"("tenant_id")
+    WHERE "is_default";
 
 ALTER TABLE "import_sources"
     ADD CONSTRAINT "import_sources_tenant_id_fkey"

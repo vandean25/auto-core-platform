@@ -255,6 +255,65 @@ describe('Import sources (e2e)', () => {
     });
   });
 
+  describe('default selection', () => {
+    async function createSource(key: string) {
+      return request(app.getHttpServer())
+        .post('/imports/sources')
+        .set('Authorization', adminHeader)
+        .send({ key, label: key })
+        .expect(201);
+    }
+
+    async function expectSingleDefault() {
+      const list = await request(app.getHttpServer())
+        .get('/imports/sources')
+        .set('Authorization', adminHeader)
+        .expect(200);
+
+      expect(
+        list.body.data.filter(
+          (source: { is_default: boolean }) => source.is_default,
+        ),
+      ).toHaveLength(1);
+    }
+
+    it('keeps exactly one default when defaults are created concurrently', async () => {
+      const responses = await Promise.all(
+        Array.from({ length: 5 }, (_, index) =>
+          request(app.getHttpServer())
+            .post('/imports/sources')
+            .set('Authorization', adminHeader)
+            .send({
+              key: `concurrent-${index}`,
+              label: `Concurrent ${index}`,
+              is_default: true,
+            }),
+        ),
+      );
+
+      responses.forEach((response) => expect(response.status).toBe(201));
+      await expectSingleDefault();
+    });
+
+    it('keeps exactly one default when the default is switched concurrently', async () => {
+      const first = await createSource('switch-a');
+      const second = await createSource('switch-b');
+
+      await Promise.all([
+        request(app.getHttpServer())
+          .patch(`/imports/sources/${first.body.id}`)
+          .set('Authorization', adminHeader)
+          .send({ is_default: true }),
+        request(app.getHttpServer())
+          .patch(`/imports/sources/${second.body.id}`)
+          .set('Authorization', adminHeader)
+          .send({ is_default: true }),
+      ]);
+
+      await expectSingleDefault();
+    });
+  });
+
   describe('role matrix', () => {
     async function createRoleHeader(
       slug: string,

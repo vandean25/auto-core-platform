@@ -5221,11 +5221,12 @@ model ExternalIdMapping {
   @@map("external_id_mappings")
 }
 
+/// At most one is_default row per tenant is enforced by a partial unique index defined in migration SQL only — do not drop via Prisma drift.
 model ImportSource {
   id         String   @id @default(uuid())
   tenant_id  String
   tenant     Tenant   @relation(fields: [tenant_id], references: [id])
-  key        String   @db.VarChar(64)
+  key        String
   label      String
   is_default Boolean  @default(false)
   createdAt  DateTime @default(now())

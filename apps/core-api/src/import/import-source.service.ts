@@ -17,6 +17,41 @@ import type { ImportSourceResponseDto } from './dto/import-source-response.dto.j
 import type { CreateImportSourceDto } from './dto/create-import-source.dto.js';
 import type { UpdateImportSourceDto } from './dto/update-import-source.dto.js';
 
+const DEFAULT_SOURCE_MAX_ATTEMPTS = 5;
+
+function isKeyUniquenessConflict(
+  error: Prisma.PrismaClientKnownRequestError,
+): boolean {
+  const target = error.meta?.target;
+  if (Array.isArray(target)) {
+    return target.includes('key');
+  }
+  return (
+    typeof target === 'string' &&
+    target.includes('import_sources_tenant_id_key_key')
+  );
+}
+
+// The partial unique index rejects a second default; re-running the clear-and-set
+// transaction after that conflict converges on the last request's choice.
+async function withDefaultSourceRetry<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      const isDefaultConflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        !isKeyUniquenessConflict(error);
+      if (!isDefaultConflict || attempt >= DEFAULT_SOURCE_MAX_ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
+}
+
 @Injectable()
 export class ImportSourceService {
   constructor(
@@ -62,28 +97,30 @@ export class ImportSourceService {
     const isDefault = dto.is_default ?? false;
 
     try {
-      const created = await this.prisma.$transaction(async (tx) => {
-        if (isDefault) {
-          await tx.importSource.updateMany({
-            where: { tenant_id: tenantId, is_default: true },
-            data: { is_default: false },
+      const created = await withDefaultSourceRetry(() =>
+        this.prisma.$transaction(async (tx) => {
+          if (isDefault) {
+            await tx.importSource.updateMany({
+              where: { tenant_id: tenantId, is_default: true },
+              data: { is_default: false },
+            });
+          }
+
+          const hasAnySource =
+            (await tx.importSource.count({
+              where: { tenant_id: tenantId },
+            })) > 0;
+
+          return tx.importSource.create({
+            data: {
+              tenant_id: tenantId,
+              key: normalizedKey,
+              label,
+              is_default: isDefault || !hasAnySource,
+            },
           });
-        }
-
-        const hasAnySource =
-          (await tx.importSource.count({
-            where: { tenant_id: tenantId },
-          })) > 0;
-
-        return tx.importSource.create({
-          data: {
-            tenant_id: tenantId,
-            key: normalizedKey,
-            label,
-            is_default: isDefault || !hasAnySource,
-          },
-        });
-      });
+        }),
+      );
 
       return this.toDto(created);
     } catch (error) {
@@ -117,24 +154,26 @@ export class ImportSourceService {
       });
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      if (dto.is_default === true) {
-        await tx.importSource.updateMany({
-          where: { tenant_id: tenantId, is_default: true },
-          data: { is_default: false },
-        });
-      }
+    const updated = await withDefaultSourceRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        if (dto.is_default === true) {
+          await tx.importSource.updateMany({
+            where: { tenant_id: tenantId, is_default: true },
+            data: { is_default: false },
+          });
+        }
 
-      return tx.importSource.update({
-        where: { id: sourceId, tenant_id: tenantId },
-        data: {
-          ...(dto.label !== undefined ? { label: dto.label.trim() } : {}),
-          ...(dto.is_default !== undefined
-            ? { is_default: dto.is_default }
-            : {}),
-        },
-      });
-    });
+        return tx.importSource.update({
+          where: { id: sourceId, tenant_id: tenantId },
+          data: {
+            ...(dto.label !== undefined ? { label: dto.label.trim() } : {}),
+            ...(dto.is_default !== undefined
+              ? { is_default: dto.is_default }
+              : {}),
+          },
+        });
+      }),
+    );
 
     return this.toDto(updated);
   }

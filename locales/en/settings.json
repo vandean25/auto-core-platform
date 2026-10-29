@@ -1052,7 +1052,7 @@
       "description": "Source systems that can be picked for an import. The key stays stable so re-imports do not create duplicates.",
       "keyLabel": "Key",
       "keyPlaceholder": "e.g. legacy-dms",
-      "keyHint": "Lower-case letters, digits, hyphens, and underscores only.",
+      "keyHint": "Lower-case letters, digits, hyphens, and underscores only. Canonical source_name:source_company_code keys may contain one colon.",
       "labelLabel": "Display name",
       "labelPlaceholder": "e.g. Legacy DMS",
       "defaultLabel": "Use as default",

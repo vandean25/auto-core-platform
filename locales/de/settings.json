@@ -1052,7 +1052,7 @@
       "description": "Quellsysteme, die beim Import gewählt werden können. Der Schlüssel bleibt stabil, damit erneute Importe keine Dubletten erzeugen.",
       "keyLabel": "Schlüssel",
       "keyPlaceholder": "z. B. legacy-dms",
-      "keyHint": "Nur Kleinbuchstaben, Ziffern, Bindestriche und Unterstriche.",
+      "keyHint": "Nur Kleinbuchstaben, Ziffern, Bindestriche und Unterstriche. Für kanonische Schlüssel im Format source_name:source_company_code ist ein Doppelpunkt erlaubt.",
       "labelLabel": "Anzeigename",
       "labelPlaceholder": "z. B. Legacy DMS",
       "defaultLabel": "Als Standard verwenden",

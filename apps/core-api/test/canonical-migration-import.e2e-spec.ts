@@ -17,7 +17,10 @@ import { teardownTestApp } from './test-lifecycle.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 import { buildCanonicalMigrationIdentityMapping } from '../src/import/canonical-migration-preset.js';
 import { CANONICAL_MIGRATION_PRESET_NAME } from '../src/import/canonical-migration.constants.js';
-import { CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM } from '../src/prisma/fixtures/canonical-migration-import-presets.fixture.js';
+import {
+  CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,
+  seedCanonicalMigrationImportPresets,
+} from '../src/prisma/fixtures/canonical-migration-import-presets.fixture.js';
 import { parseMigrationManifestJson } from '../src/import/migration-manifest.validator.js';
 import { countDryRunWarningRows } from './helpers/canonical-migration-fixture-dry-run-check.js';
 import {
@@ -256,5 +259,51 @@ describe('Canonical migration CSV import (e2e)', () => {
           profile.name === CANONICAL_MIGRATION_PRESET_NAME,
       ),
     ).toBe(true);
+  });
+
+  it('lets a fresh tenant select the documented canonical source', async () => {
+    const freshTenant = await createTestTenant(
+      prisma,
+      'canonical-migration-fresh',
+    );
+    try {
+      await seedCanonicalMigrationImportPresets(
+        createTenantAwarePrisma(prisma, freshTenant.tenantId),
+        freshTenant.tenantId,
+      );
+      const freshHeader = `Bearer ${createTestAuthToken(authService, freshTenant)}`;
+
+      const sources = await request(app.getHttpServer())
+        .get('/imports/sources')
+        .set('Authorization', freshHeader)
+        .expect(200);
+      expect(
+        sources.body.data.map((source: { key: string }) => source.key),
+      ).toContain(CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM);
+
+      const manifest = parseMigrationManifestJson(
+        readFileSync(join(migrationFixtureDir, 'manifest.json')),
+      );
+      expect(manifest.source_system).toBe(
+        CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,
+      );
+
+      await dryRunCanonicalMigrationCustomers(app, freshHeader).expect(201);
+
+      const profiles = await request(app.getHttpServer())
+        .get(
+          `/imports/mapping-profiles?entityType=CUSTOMER&sourceSystem=${encodeURIComponent(CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM)}`,
+        )
+        .set('Authorization', freshHeader)
+        .expect(200);
+      expect(
+        profiles.body.data.some(
+          (profile: { name: string }) =>
+            profile.name === CANONICAL_MIGRATION_PRESET_NAME,
+        ),
+      ).toBe(true);
+    } finally {
+      await cleanupTestTenantGraph(prisma, freshTenant.tenantId);
+    }
   });
 });

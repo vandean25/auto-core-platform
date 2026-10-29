@@ -34,7 +34,7 @@ Imports create new rows. They do not merge duplicates by plate or email unless t
     OWNER and ADMIN only. Advisors cannot open the tab even with a direct URL.
   </Accordion>
   <Accordion title="Managing import sources">
-    Each import source is a normalized key (lower-case alphanumeric, hyphens, underscores; max 64 characters) with a display label. The wizard only shows configured sources — typos no longer create duplicate mappings. One source can be marked as the default; it will be preselected in the wizard.
+    Each import source is a normalized key (lower-case alphanumeric, hyphens, underscores; max 64 characters per segment) with a display label. Canonical migration keys keep their manifest form `source_name:source_company_code` (one colon, each segment max 64 characters). The wizard only shows configured sources — typos no longer create duplicate mappings. One source can be marked as the default; it will be preselected in the wizard.
   </Accordion>
   <Accordion title="Labor operations import">
     The **Labor operations** type creates AW codes, descriptions, AW times, hourly rates, and optional fitments (make/model/year). Category names are matched on import. Individual operations are not maintained on the [Labor](/en/settings/labor) tab afterward — that screen stays categories and rates only.

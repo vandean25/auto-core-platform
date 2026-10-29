@@ -11287,7 +11287,7 @@ export interface components {
         };
         CreateImportSourceDto: {
             /**
-             * @description Normalized lower-case slug key (alphanumeric, hyphens, underscores; max 64 chars)
+             * @description Normalized lower-case slug key (alphanumeric, hyphens, underscores; max 64 chars per segment; one colon allowed for canonical source_name:source_company_code keys)
              * @example legacy-dms
              */
             key: string;
