@@ -43,7 +43,7 @@ describe('Import sources (e2e)', () => {
       'UID',
       'Land',
     ];
-    return Buffer.from(serializeCsv([headers, ...rows]));
+    return Buffer.from(serializeCsv(headers, rows));
   }
 
   beforeAll(async () => {
