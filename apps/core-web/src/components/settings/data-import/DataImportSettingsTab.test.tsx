@@ -84,6 +84,18 @@ const importSources = [
   },
 ]
 
+const supplierImportSources = [
+  { ...importSources[0], is_default: false },
+  {
+    id: 'source-supplier',
+    key: 'supplier',
+    label: 'Supplier',
+    is_default: true,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+]
+
 function renderTab(initialEntries: string[] = ['/']) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -270,7 +282,7 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
       data: readImportEntityTypeRegistry(),
     })
     ;(importsApi.useImportSources as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: { data: importSources },
+      data: { data: supplierImportSources },
       isLoading: false,
     })
     ;(importsApi.useCreateImportSource as ReturnType<typeof vi.fn>).mockReturnValue({

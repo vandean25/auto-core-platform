@@ -60,6 +60,7 @@ describe('useImportApply stalled resume', () => {
           dryRunJob: stalledJob,
           dryRunStale: false,
           errorThreshold: 0,
+          sourceIsCurrent: true,
           acceptAllPriceJumps: false,
           acceptedRowNumbers: [],
           onApplied,
@@ -82,5 +83,32 @@ describe('useImportApply stalled resume', () => {
       status: 'APPLYING',
       stalled: false,
     })
+  })
+
+  it('keeps apply disabled when the job source is no longer configured', async () => {
+    const onApplied = vi.fn()
+    const client = new QueryClient()
+    const { result } = renderHook(
+      () =>
+        useImportApply({
+          entityType: 'CUSTOMER',
+          dryRunJob: stalledJob,
+          dryRunStale: false,
+          errorThreshold: 0,
+          sourceIsCurrent: false,
+          acceptAllPriceJumps: false,
+          acceptedRowNumbers: [],
+          onApplied,
+        }),
+      { wrapper: wrapper(client) },
+    )
+
+    expect(result.current.applyEnabled).toBe(false)
+    await act(async () => {
+      await result.current.handleApply()
+    })
+
+    expect(fetchWithAuth).not.toHaveBeenCalled()
+    expect(onApplied).not.toHaveBeenCalled()
   })
 })

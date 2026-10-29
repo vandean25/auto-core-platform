@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ImportJob } from '@/api/imports'
@@ -287,6 +287,37 @@ describe('DataImportSettingsTab characterization', () => {
       expect(screen.queryByText(di.mapping.title)).not.toBeInTheDocument()
       expect(screen.getByText(di.source.noSources)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: di.source.continue })).toBeDisabled()
+    })
+
+    it('ignores a dry-run that resolves after its source was deleted', async () => {
+      const view = renderImportSettingsTab()
+
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+
+      let resolveDryRun: (job: ImportJob) => void = () => {}
+      mocks.dryRun.mutateAsync.mockImplementationOnce(
+        () =>
+          new Promise<ImportJob>((resolve) => {
+            resolveDryRun = resolve
+          }),
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: di.mapping.runDryRun }))
+      await waitFor(() => {
+        expect(mocks.dryRun.mutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ sourceSystem: 'legacy_dms' }),
+        )
+      })
+
+      setMockImportSources(sourceFixtures.filter((source) => source.key !== 'legacy_dms'))
+      view.rerender()
+
+      await act(async () => {
+        resolveDryRun(customerDryRunJob)
+      })
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.dryRun.title)).not.toBeInTheDocument()
     })
 
     it('clears the mapping when the entity type changes', async () => {
@@ -626,7 +657,7 @@ describe('DataImportSettingsTab characterization', () => {
       renderImportSettingsTab({ initialEntries: ['/?tab=data-import&entity=SUPPLIER_PRICE_LIST'] })
 
       await selectVendor('Stahlgruber GmbH')
-      await goToMappingStep()
+      await goToMappingStep({ sourceSystem: 'supplier' })
       await runDryRun()
       fireEvent.click(screen.getAllByLabelText(di.dryRun.priceJumps.acceptRow)[0])
       const confirmButton = await openApplyDialog()
