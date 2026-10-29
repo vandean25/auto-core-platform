@@ -2,13 +2,20 @@ const IMPORT_SOURCE_KEY_MAX_LENGTH = 64;
 const IMPORT_SOURCE_KEY_PATTERN = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/;
 
 export function normalizeImportSourceKey(raw: string): string {
-  return raw
+  const collapsed = raw
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9_-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/-+/g, '-');
+  return trimHyphens(collapsed);
+}
+
+// A /-+$/ regex backtracks quadratically on long dash runs.
+function trimHyphens(value: string): string {
+  const start = value.startsWith('-') ? 1 : 0;
+  const end = value.endsWith('-') ? value.length - 1 : value.length;
+  return value.slice(start, end);
 }
 
 export function validateImportSourceKey(
