@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { randomUUID as cryptoRandomUuid } from 'node:crypto';
+import { Readable } from 'node:stream';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  type DisplayLanguage,
+} from '../common/i18n/display-language.js';
+import { createImportErrorReportStream } from './import-error-report.stream.js';
+import { openImportSourceRows } from './import-error-report.source.js';
 import {
   ImportEntityType,
   ImportJobStatus,
@@ -16,7 +23,6 @@ import {
   assertTenantAdmin,
   requireActiveCurrentUser,
 } from '../site/site.authorization.js';
-import { CustomerImportHandler } from './customer-import.handler.js';
 import {
   assertFailedImportJobCanReApply,
   assertJobCanBeApplied,
@@ -35,13 +41,15 @@ import {
   technicalRetryRowNos,
 } from './import-technical-retry.js';
 import {
-  buildImportErrorReportCsv,
   serializeImportJob,
   serializeImportRow,
   type ImportJobView,
   type SerializedImportJob,
 } from './import-job.serializer.js';
-import { ImportJobStore } from './import-job.store.js';
+import {
+  ImportJobStore,
+  type CreateDryRunJobInput,
+} from './import-job.store.js';
 import { logImportJobFailed } from './import-job-failed-log.util.js';
 import { handleImportWorkerAttemptFailure } from './import-worker-attempt-failure.handler.js';
 import { ImportAuditWriter } from './import-audit.writer.js';
@@ -51,15 +59,18 @@ import {
 } from './import-options.util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { traceImportParse, traceImportValidate } from './import-trace.js';
+import { assertImplementedImportEntityType } from './import-entity-type.guard.js';
 import {
-  assertImplementedImportEntityType,
+  IMPORT_ENTITY_TYPE_REGISTRY,
+  createImportHandlers,
+  getImportTemplate,
+  listImportEntityTypes,
   type ImplementedImportEntityType,
-} from './import-entity-type.guard.js';
+} from './import-entity-type.registry.js';
 import type {
   ImportApplyRow,
   ImportTypeHandler,
 } from './import-type-handler.js';
-import { ImportVendorResolver } from './import-vendor.resolver.js';
 import {
   assessImportUpload,
   openImportMulterStagingReadStream,
@@ -109,17 +120,12 @@ import {
 } from './import.constants.js';
 import { readImportWorkerBatchSize } from './import-limits.js';
 import { computeDryRunTotals } from './import-totals.util.js';
-import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
+import { buildTemplateCsv } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
 import { filterExpiredImportWorkerCandidates } from './import-recovery.helpers.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
-import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
-import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
-import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.js';
-import { VehicleImportHandler } from './vehicle-import.handler.js';
-import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 
 function statusRetriesTechnicalRows(status: ImportJobStatus): boolean {
   return (
@@ -175,42 +181,15 @@ export class ImportService {
       this.audit,
       serialize,
     );
-    this.handlers = {
-      [ImportEntityType.CUSTOMER]: new CustomerImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-        decisionHooks,
-        decisionLive,
-        requestContext,
-      ),
-      [ImportEntityType.VEHICLE]: new VehicleImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-      [ImportEntityType.SUPPLIER_PRICE_LIST]:
-        new SupplierPriceListImportHandler(
-          prisma,
-          new ImportVendorResolver(prisma),
-          supplierRunner,
-        ),
-      [ImportEntityType.LABOR_OPERATION]: new LaborOperationImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-      [ImportEntityType.VEHICLE_PARTY]: new VehiclePartyImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-      [ImportEntityType.VEHICLE_DUE_DATE]: new VehicleDueDateImportHandler(
-        prisma,
-        this.audit,
-        rowRunner,
-      ),
-    };
+    this.handlers = createImportHandlers({
+      prisma,
+      audit: this.audit,
+      rowRunner,
+      supplierRunner,
+      decisionHooks,
+      decisionLive,
+      requestContext,
+    });
   }
 
   async createDryRunFromUpload(params: {
@@ -285,18 +264,22 @@ export class ImportService {
     );
     const totals = computeDryRunTotals(dryRunRows);
 
-    const job = await this.jobStore.createDryRunJob({
-      tenantId,
-      entityType: params.entityType,
-      sourceSystem: params.sourceSystem,
-      fileName: params.file.originalname,
-      fileSha256: parsed.sha256,
-      mapping: params.mappingJson,
-      options,
-      totals,
-      actorUserId: currentUser.id,
-      rows: dryRunRows,
-    });
+    const job = await this.createSyncDryRunJob(
+      {
+        tenantId,
+        jobId: cryptoRandomUuid(),
+        entityType: params.entityType,
+        sourceSystem: params.sourceSystem,
+        fileName: params.file.originalname,
+        fileSha256: parsed.sha256,
+        mapping: params.mappingJson,
+        options,
+        totals,
+        actorUserId: currentUser.id,
+        rows: dryRunRows,
+      },
+      assessed.content ?? readMulterUploadContent(params.file),
+    );
     await this.audit.writeImportJobAudit(
       this.prisma,
       tenantId,
@@ -314,6 +297,32 @@ export class ImportService {
         })
       : totals;
     return this.serializeJob(job, jobTotals);
+  }
+
+  private async createSyncDryRunJob(
+    input: CreateDryRunJobInput & { jobId: string },
+    content: Buffer,
+  ) {
+    const source = await openImportSourceRows(Readable.from([content]));
+    await source.close();
+    const upload = await this.fileStorage.storeUpload({
+      tenantId: input.tenantId,
+      jobId: input.jobId,
+      fileName: input.fileName ?? 'import.csv',
+      content,
+    });
+    try {
+      return await this.jobStore.createDryRunJob({
+        ...input,
+        options: {
+          ...input.options,
+          upload: { ...upload, headers: source.headers },
+        },
+      });
+    } catch (error) {
+      await this.fileStorage.deleteUpload(upload).catch(() => undefined);
+      throw error;
+    }
   }
 
   async getJob(jobId: string) {
@@ -354,15 +363,31 @@ export class ImportService {
     };
   }
 
-  async downloadErrorRowsCsv(jobId: string): Promise<string> {
+  async downloadErrorRowsCsv(
+    jobId: string,
+    locale?: DisplayLanguage,
+  ): Promise<Readable> {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const job = await this.jobStore.findJob(tenantId, jobId);
     if (!job) {
       throw importJobNotFound();
     }
-    const rows = await this.jobStore.findErrorRows(tenantId, jobId);
-    return buildImportErrorReportCsv(rows);
+    const user = locale
+      ? null
+      : await this.prisma.user.findUnique({
+          where: {
+            firebaseUid: this.tenantContext.getAuthenticatedUser()!.userId,
+          },
+          select: { locale: true },
+        });
+    return createImportErrorReportStream({
+      jobStore: this.jobStore,
+      storage: this.fileStorage,
+      tenantId,
+      job,
+      locale: locale ?? user?.locale ?? DEFAULT_DISPLAY_LANGUAGE,
+    });
   }
 
   private async resetTechnicalRowsForReapply(
@@ -700,12 +725,13 @@ export class ImportService {
       applyOptions,
       effectiveOptions,
     });
+    assertImplementedImportEntityType(job.entity_type);
     const lock = await this.jobStore.lockForBackgroundApply(
       tenantId,
       jobId,
       effectiveOptions,
       dryRunTotals,
-      handler.applySequenceOrderKey(),
+      IMPORT_ENTITY_TYPE_REGISTRY[job.entity_type].applyOrder,
     );
     if (lock.count === 0) {
       const current = await this.jobStore.findJob(tenantId, jobId);
@@ -750,8 +776,13 @@ export class ImportService {
     return {
       entity_type: template.entity_type,
       fields: template.fields,
-      csv: buildTemplateCsv(entityType),
+      csv: buildTemplateCsv(template),
     };
+  }
+
+  listEntityTypes() {
+    assertTenantAdmin(this.tenantContext);
+    return listImportEntityTypes();
   }
 
   async cancelJob(jobId: string) {
@@ -854,6 +885,10 @@ export class ImportService {
     expectedRows: number;
     jobId?: string;
   }) {
+    const source = await openImportSourceRows(
+      this.fileStorage.openReadStream(params.uploadRef) as Readable,
+    );
+    await source.close();
     const job = await this.jobStore.createPendingBackgroundJob({
       tenantId: params.tenantId,
       entityType: params.entityType,
@@ -863,7 +898,7 @@ export class ImportService {
       mapping: params.mappingJson,
       options: params.options,
       actorUserId: params.actorUserId,
-      upload: params.uploadRef,
+      upload: { ...params.uploadRef, headers: source.headers },
       expectedRows: params.expectedRows,
       jobId: params.jobId,
     });
@@ -1032,6 +1067,7 @@ export class ImportService {
             phase: params.phase,
             attempt: jobAfterClaim.attempts_without_progress,
             reason: failureReason,
+            code: optionsAfterClaim.apply_failure_code,
           });
         }
       } else {

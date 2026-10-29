@@ -3,16 +3,20 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import { getImportFieldsForEntity } from '@/components/settings/data-import/import-field-labels'
+import { readImportEntityTypeRegistry } from '@/test/import-entity-type-registry'
 
 import deEnums from '../../../../../locales/de/enums.json'
 import enEnums from '../../../../../locales/en/enums.json'
 import {
   DATA_TABLE_COLUMN_IDS,
-  IMPORT_ENTITY_TYPE_VALUES,
   STATUS_ENUM_VALUES,
   importFieldSegmentForEntity,
-  type ImportEntityTypeUi,
+  wizardImportEntityTypes,
+  type ImplementedImportEntityType,
 } from './enum-registry'
+
+const importRegistry = readImportEntityTypeRegistry()
+const wizardImportTypes = wizardImportEntityTypes(importRegistry)
 
 function leafKeys(value: unknown, prefix = ''): string[] {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -54,9 +58,12 @@ describe('enum locale resources', () => {
   })
 
   it('covers import entity types and field keys', () => {
-    const entityRecord = deEnums.importEntityType satisfies Record<ImportEntityTypeUi, string>
-    for (const entityType of IMPORT_ENTITY_TYPE_VALUES) {
+    const entityRecord = deEnums.importEntityType satisfies Record<ImplementedImportEntityType, string>
+    for (const { entity_type: entityType } of importRegistry) {
       expect(entityRecord[entityType].length).toBeGreaterThan(0)
+      expect(enEnums.importEntityType[entityType].length).toBeGreaterThan(0)
+    }
+    for (const entityType of wizardImportTypes) {
       const segment = importFieldSegmentForEntity(entityType)
       const segmentFields = deEnums.importField[segment] as Record<string, string>
       for (const field of getImportFieldsForEntity(entityType)) {
@@ -74,7 +81,7 @@ describe('enum locale resources', () => {
   })
 
   it('keeps EN import field copy distinct from DE for header matching', () => {
-    for (const entityType of IMPORT_ENTITY_TYPE_VALUES) {
+    for (const entityType of wizardImportTypes) {
       const segment = importFieldSegmentForEntity(entityType)
       const deFields = deEnums.importField[segment] as Record<string, string>
       const enFields = enEnums.importField[segment] as Record<string, string>

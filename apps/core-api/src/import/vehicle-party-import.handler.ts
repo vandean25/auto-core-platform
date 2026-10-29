@@ -22,10 +22,6 @@ export class VehiclePartyImportHandler extends RowByRowImportHandler {
     return planVehiclePartyDryRun(this.prisma, input, parsed);
   }
 
-  override applySequenceOrderKey(): 'updates_first' {
-    return 'updates_first';
-  }
-
   protected override orderRows(
     rows: ImportApplyRow[],
     input: ImportApplyInput,

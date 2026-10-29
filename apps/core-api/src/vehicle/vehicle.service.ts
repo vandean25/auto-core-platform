@@ -110,6 +110,8 @@ export class VehicleService {
       params.sortDirection ?? VehicleQueryBuilder.DEFAULT_SORT_DIRECTION;
 
     const { rows, total } = await this.persistence.listVehicles({
+      tenantId,
+      search: params.search,
       where: VehicleQueryBuilder.buildWhere(tenantId, params.search),
       orderBy: VehicleQueryBuilder.computeOrderBy(
         params.sortField,

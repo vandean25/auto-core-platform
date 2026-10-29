@@ -14,8 +14,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { pipeline } from 'node:stream/promises';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiHeader,
+  ApiProduces,
   ApiAcceptedResponse,
   ApiBody,
   ApiConsumes,
@@ -26,15 +29,18 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { ImportEntityType, ImportRowAction } from '@prisma/client';
+import { ImportRowAction } from '@prisma/client';
 import { ImportService } from './import.service.js';
 import { ImportDirectUploadService } from './import-direct-upload.service.js';
+import { parseImportEntityType } from './import-entity-type.guard.js';
+import { IMPLEMENTED_IMPORT_ENTITY_TYPES } from './import-entity-type.registry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { importUploadMulterOptions } from './import-multer.storage.js';
 import { ImportUploadInterceptor } from './import-upload.interceptor.js';
 import { ImportJobResponseDto } from './dto/import-job-response.dto.js';
 import { ImportJobRowsResponseDto } from './dto/import-job-rows-response.dto.js';
 import { ImportTemplateResponseDto } from './dto/import-template-response.dto.js';
+import { ImportEntityTypeListResponseDto } from './dto/import-entity-type-response.dto.js';
 import { ImportMappingProfileService } from './import-mapping-profile.service.js';
 import {
   ImportMappingProfileListResponseDto,
@@ -72,14 +78,7 @@ export class ImportController {
         file: { type: 'string', format: 'binary' },
         entityType: {
           type: 'string',
-          enum: [
-            'CUSTOMER',
-            'VEHICLE',
-            'SUPPLIER_PRICE_LIST',
-            'LABOR_OPERATION',
-            'VEHICLE_PARTY',
-            'VEHICLE_DUE_DATE',
-          ],
+          enum: [...IMPLEMENTED_IMPORT_ENTITY_TYPES],
         },
         sourceSystem: { type: 'string', example: 'legacy-dms' },
         mapping: {
@@ -109,7 +108,7 @@ export class ImportController {
     return this.importService.createDryRunFromUpload({
       uploadRequest,
       file: file as Express.Multer.File,
-      entityType: this.parseEntityType(entityType),
+      entityType: parseImportEntityType(entityType),
       sourceSystem: sourceSystem?.trim() ?? 'legacy',
       mappingJson: parsedMapping,
       optionsJson: parsedOptions,
@@ -151,7 +150,11 @@ export class ImportController {
   @ApiOperation({
     summary: 'List saved column mapping profiles for a source system',
   })
-  @ApiQuery({ name: 'entityType', required: true, enum: ImportEntityType })
+  @ApiQuery({
+    name: 'entityType',
+    required: true,
+    enum: [...IMPLEMENTED_IMPORT_ENTITY_TYPES],
+  })
   @ApiQuery({ name: 'sourceSystem', required: true })
   @ApiOkResponse({ type: ImportMappingProfileListResponseDto })
   async listMappingProfiles(
@@ -159,7 +162,7 @@ export class ImportController {
     @Query('sourceSystem') sourceSystem: string,
   ) {
     const data = await this.mappingProfileService.listProfiles({
-      entityType: this.parseEntityType(entityType),
+      entityType: parseImportEntityType(entityType),
       sourceSystem,
     });
     return { data };
@@ -176,7 +179,7 @@ export class ImportController {
   @ApiOperation({ summary: 'CSV template metadata and inline CSV content' })
   @ApiOkResponse({ type: ImportTemplateResponseDto })
   getTemplate(@Param('entityType') entityType: string) {
-    return this.importService.getTemplate(this.parseEntityType(entityType));
+    return this.importService.getTemplate(parseImportEntityType(entityType));
   }
 
   @Get('templates/:entityType/csv')
@@ -187,13 +190,23 @@ export class ImportController {
     @Res() res: Response,
   ) {
     const template = this.importService.getTemplate(
-      this.parseEntityType(entityType),
+      parseImportEntityType(entityType),
     );
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${entityType.toLowerCase()}-import-template.csv"`,
     );
     res.send(template.csv);
+  }
+
+  @Get('entity-types')
+  @ApiOperation({
+    summary:
+      'List the importable entity types with wizard availability and required template fields',
+  })
+  @ApiOkResponse({ type: ImportEntityTypeListResponseDto })
+  listEntityTypes() {
+    return { data: this.importService.listEntityTypes() };
   }
 
   @Get(':id/rows')
@@ -219,15 +232,37 @@ export class ImportController {
   }
 
   @Get(':id/errors.csv')
-  @ApiOperation({ summary: 'Download CSV of rows that failed validation' })
+  @ApiOperation({
+    summary: 'Stream localized error rows with original source columns',
+  })
+  @ApiHeader({
+    name: 'Accept-Language',
+    required: false,
+    description: 'Report language (de or en); defaults to the user preference',
+  })
+  @ApiProduces('text/csv')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  async downloadErrors(@Param('id') id: string, @Res() res: Response) {
-    const csv = await this.importService.downloadErrorRowsCsv(id);
+  async downloadErrors(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const language = req.get('Accept-Language');
+    const locale =
+      language && language.trim() !== '*'
+        ? req.acceptsLanguages('de', 'en')
+        : false;
+    const csv = await this.importService.downloadErrorRowsCsv(
+      id,
+      locale === 'de' || locale === 'en' ? locale : undefined,
+    );
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="import-${id}-errors.csv"`,
     );
-    res.send(csv);
+    res.setHeader('Cache-Control', 'private, no-store');
+    await pipeline(csv, res);
   }
 
   @Get(':id')
@@ -261,32 +296,6 @@ export class ImportController {
   @ApiOkResponse({ type: ImportJobResponseDto })
   cancel(@Param('id') id: string) {
     return this.importService.cancelJob(id);
-  }
-
-  private parseEntityType(value: string): ImportEntityType {
-    const normalized = value?.trim().toUpperCase();
-    if (normalized === ImportEntityType.CUSTOMER) {
-      return ImportEntityType.CUSTOMER;
-    }
-    if (normalized === ImportEntityType.VEHICLE) {
-      return ImportEntityType.VEHICLE;
-    }
-    if (normalized === ImportEntityType.SUPPLIER_PRICE_LIST) {
-      return ImportEntityType.SUPPLIER_PRICE_LIST;
-    }
-    if (normalized === ImportEntityType.LABOR_OPERATION) {
-      return ImportEntityType.LABOR_OPERATION;
-    }
-    if (normalized === ImportEntityType.VEHICLE_PARTY) {
-      return ImportEntityType.VEHICLE_PARTY;
-    }
-    if (normalized === ImportEntityType.VEHICLE_DUE_DATE) {
-      return ImportEntityType.VEHICLE_DUE_DATE;
-    }
-    throw new BadRequestException({
-      code: IMPORT_ERROR_CODES.INVALID_ENTITY_TYPE,
-      message: `Invalid entity type: ${value}`,
-    });
   }
 
   private parseJsonObject(

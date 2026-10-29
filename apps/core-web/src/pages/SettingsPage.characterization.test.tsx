@@ -64,6 +64,7 @@ const openTabs = [
   [tabNames.hours, 'hours', 'Hours tab content'],
   [tabNames.labor, 'labor', 'Labor tab content'],
   [tabNames.auditLogs, 'audit-logs', 'Audit logs tab content'],
+  [tabNames.notifications, 'notifications', 'Notifications tab content'],
 ] as const
 
 function setRole(activeRole: string) {
@@ -136,6 +137,7 @@ describe('SettingsPage characterization: tab visibility by role', () => {
       tabNames.team,
       tabNames.apiKeys,
       tabNames.auditLogs,
+      tabNames.notifications,
     ])
   })
 
@@ -156,6 +158,7 @@ describe('SettingsPage characterization: tab visibility by role', () => {
       tabNames.hours,
       tabNames.labor,
       tabNames.auditLogs,
+      tabNames.notifications,
     ])
   })
 

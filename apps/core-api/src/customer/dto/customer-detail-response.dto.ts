@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 import { CustomerVehiclePartyDto } from '../../vehicle/dto/vehicle-party.dto.js';
+import { LegacyIdDto } from '../../common/dto/legacy-id.dto.js';
 
 export class CustomerHistoryMetaDto {
   @ApiProperty()
@@ -27,6 +28,9 @@ export class CustomerHistoryMetaDto {
 }
 
 export class CustomerDetailResponseDto {
+  @ApiProperty({ type: () => [LegacyIdDto], readOnly: true })
+  legacy_ids!: LegacyIdDto[];
+
   @ApiProperty()
   id!: string;
 

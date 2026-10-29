@@ -1,4 +1,4 @@
-import { formatStatusLabel } from '@/lib/i18n/enum-labels'
+import { formatStatusLabel, useStatusLabel } from '@/lib/i18n/enum-labels'
 import { cn } from '@/lib/utils'
 import { NEUTRAL, statusClassMap } from './status-class-map'
 
@@ -11,6 +11,8 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, label, className }: StatusBadgeProps) {
+  const statusLabel = useStatusLabel(status)
+
   return (
     <span
       className={cn(
@@ -19,7 +21,7 @@ export function StatusBadge({ status, label, className }: StatusBadgeProps) {
         className,
       )}
     >
-      {label ?? formatStatusLabel(status)}
+      {label ?? statusLabel}
     </span>
   )
 }

@@ -343,17 +343,15 @@ export const SUPPLIER_PRICE_LIST_IMPORT_FIELDS: ImportFieldDefinition[] = [
   },
 ]
 
+const IMPORT_FIELDS_BY_ENTITY: Record<ImportEntityTypeUi, ImportFieldDefinition[]> = {
+  CUSTOMER: CUSTOMER_IMPORT_FIELDS,
+  VEHICLE: VEHICLE_IMPORT_FIELDS,
+  SUPPLIER_PRICE_LIST: SUPPLIER_PRICE_LIST_IMPORT_FIELDS,
+  LABOR_OPERATION: LABOR_OPERATION_IMPORT_FIELDS,
+}
+
 export function getImportFieldsForEntity(entityType: ImportEntityTypeUi): ImportFieldDefinition[] {
-  if (entityType === 'VEHICLE') {
-    return VEHICLE_IMPORT_FIELDS
-  }
-  if (entityType === 'SUPPLIER_PRICE_LIST') {
-    return SUPPLIER_PRICE_LIST_IMPORT_FIELDS
-  }
-  if (entityType === 'LABOR_OPERATION') {
-    return LABOR_OPERATION_IMPORT_FIELDS
-  }
-  return CUSTOMER_IMPORT_FIELDS
+  return IMPORT_FIELDS_BY_ENTITY[entityType]
 }
 
 export function formatFieldLabel(entityType: ImportEntityTypeUi, field: ImportFieldDefinition): string {

@@ -191,6 +191,32 @@ describe('CustomerDetail', () => {
     expect(screen.getByText(deCustomers.detail.notFound)).toBeInTheDocument()
   })
 
+  it.each(['legacy_system:company_a', 'legacy_system:company_b'])('shows a single legacy customer number with its source %s as read-only text', (source_system) => {
+    renderDetail(baseCustomer({ legacy_ids: [{ source_system, external_id: '00123' }] }))
+
+    expect(screen.getByText(`Alte Kundennr. (Vorsystem) — ${source_system}`)).toBeInTheDocument()
+    const number = screen.getByText('00123')
+    fireEvent.click(number)
+    expect(screen.queryByRole('textbox', { name: /Alte Kundennr/ })).not.toBeInTheDocument()
+    expect(asMock(customersApi.useUpdateCustomer).mock.results[0].value.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('shows separate legacy customer numbers for each source company', () => {
+    renderDetail(baseCustomer({ legacy_ids: [
+      { source_system: 'legacy_system:company_a', external_id: '00123' },
+      { source_system: 'legacy_system:company_b', external_id: '00123' },
+    ] }))
+
+    expect(screen.getByText('Alte Kundennr. (Vorsystem) — legacy_system:company_a')).toBeInTheDocument()
+    expect(screen.getByText('Alte Kundennr. (Vorsystem) — legacy_system:company_b')).toBeInTheDocument()
+    expect(screen.getAllByText('00123')).toHaveLength(2)
+  })
+
+  it.each([undefined, []])('hides legacy customer metadata when no numbers exist (%s)', (legacy_ids) => {
+    renderDetail(baseCustomer({ legacy_ids }))
+    expect(screen.queryByText(/Alte Kundennr/)).not.toBeInTheDocument()
+  })
+
   it('renders customer details, active orders, and vehicles tab', () => {
     asMock(customersApi.useCustomer).mockReturnValue({
       data: mockCustomer,
@@ -229,6 +255,7 @@ type TestCustomer = Omit<typeof mockCustomer, 'type' | 'company_name' | 'email' 
   email: string | null
   phone: string | null
   vat_id?: string | null
+  legacy_ids?: Array<{ source_system: string; external_id: string }>
   sales_orders: unknown[]
   workshop_orders: unknown[]
   invoices: unknown[]

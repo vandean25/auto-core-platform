@@ -13,7 +13,7 @@ export function useImportDownloads(params: {
   entityType: ImportEntityTypeUi
   dryRunJob: ImportJob | null
 }): { downloadTemplate: () => Promise<void>; downloadErrorRows: () => Promise<void> } {
-  const { t } = useTranslation(['settings', 'common'])
+  const { t, i18n } = useTranslation(['settings', 'common'])
 
   const downloadTemplate = async () => {
     try {
@@ -27,7 +27,7 @@ export function useImportDownloads(params: {
   const downloadErrorRows = async () => {
     if (!params.dryRunJob) return
     try {
-      const blob = await downloadImportErrorRowsCsv(params.dryRunJob.id)
+      const blob = await downloadImportErrorRowsCsv(params.dryRunJob.id, i18n.language)
       triggerBlobDownload(blob, `import-${params.dryRunJob.id}-errors.csv`)
     } catch (error) {
       toast.error(getErrorMessage(error, t('dataImport.toast.errorCsvFailed')))

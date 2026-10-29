@@ -20,7 +20,9 @@ import {
 import {
   ImportApplyRetryExhaustedError,
   type ImportApplyFailureReason,
+  type ImportJobFailureDetail,
 } from './import-apply.errors.js';
+import { importJobOptionsWithFailure } from './import-apply-failure.util.js';
 import {
   delayMs,
   retryableTransactionDelayMs,
@@ -60,12 +62,13 @@ import type {
 
 export type CreateDryRunJobInput = {
   tenantId: string;
+  jobId?: string;
   entityType: ImportEntityType;
   sourceSystem: string;
   fileName?: string;
   fileSha256: string;
   mapping: Record<string, string>;
-  options: ImportJobOptions;
+  options: ImportJobOptionsWithWorker;
   totals: ImportJobTotals;
   actorUserId: string;
   rows: DryRunRowResult[];
@@ -172,10 +175,10 @@ async function markImportJobFailedInTransaction(
     where: { tenant_id: params.tenantId, id: params.jobId },
     select: { options_json: true },
   });
-  const options = {
-    ...((job?.options_json as Record<string, unknown> | null) ?? {}),
-    apply_failure_reason: params.applyFailureReason,
-  };
+  const options = importJobOptionsWithFailure(
+    job?.options_json,
+    params.applyFailureReason,
+  );
   const updated = await tx.importJob.updateMany({
     where: params.where,
     data: {
@@ -354,6 +357,7 @@ export class ImportJobStore {
   createDryRunJob(input: CreateDryRunJobInput) {
     return this.prisma.importJob.create({
       data: {
+        ...(input.jobId ? { id: input.jobId } : {}),
         tenant_id: input.tenantId,
         entity_type: input.entityType,
         source_system: input.sourceSystem,
@@ -819,6 +823,30 @@ export class ImportJobStore {
     });
   }
 
+  findErrorRowsAfter(params: {
+    tenantId: string;
+    jobId: string;
+    afterRowNo: number;
+    take: number;
+  }) {
+    return this.prisma.importJobRow.findMany({
+      where: {
+        tenant_id: params.tenantId,
+        import_job_id: params.jobId,
+        action: ImportRowAction.ERROR,
+        row_no: { gt: params.afterRowNo },
+      },
+      orderBy: { row_no: 'asc' },
+      take: params.take,
+      select: {
+        row_no: true,
+        external_id: true,
+        errors_json: true,
+        normalized_json: true,
+      },
+    });
+  }
+
   findApplyRows(tenantId: string, jobId: string) {
     return this.prisma.importJobRow.findMany({
       where: { tenant_id: tenantId, import_job_id: jobId },
@@ -924,17 +952,17 @@ export class ImportJobStore {
     jobId: string,
     applyFailureReason: ImportApplyFailureReason = 'apply_error',
     totals?: ImportJobTotals,
-    cause?: string,
+    failure?: ImportJobFailureDetail,
   ) {
     const job = await this.prisma.importJob.findFirst({
       where: { tenant_id: tenantId, id: jobId },
       select: { options_json: true },
     });
-    const options = {
-      ...((job?.options_json as Record<string, unknown> | null) ?? {}),
-      apply_failure_reason: applyFailureReason,
-      ...(cause ? { apply_failure_cause: cause } : {}),
-    };
+    const options = importJobOptionsWithFailure(
+      job?.options_json,
+      applyFailureReason,
+      failure,
+    );
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,

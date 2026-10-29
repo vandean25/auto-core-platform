@@ -1,0 +1,8 @@
+# Mintlify content root. The public docs site moved here from the repo root:
+# docs.json plus *.mdx (changelog, hr, introduction, quickstart, settings,
+# workflows) and the workflows/, settings/, operations/, en/ and images/ trees.
+#
+# App and infrastructure code (apps/, infra/, tools/, docs/, .agents/, ...)
+# now lives outside the content directory, so it cannot leak into the site
+# anymore. Add exclusions here only for content that lands inside docs-site/
+# itself and must stay unpublished.

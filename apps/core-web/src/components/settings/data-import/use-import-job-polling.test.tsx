@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ImportJob } from '@/api/imports';
 import { importKeys, useApplyImportJob } from '@/api/imports';
+import deErrors from '../../../../../../locales/de/errors.json';
 import { useImportJobPolling, useSyncBackgroundDryRunJob } from './use-import-job-polling';
 
 const applyingJob = (phase: 'dry_run' | 'apply'): ImportJob =>
@@ -71,6 +72,33 @@ describe('useSyncBackgroundDryRunJob', () => {
       expect(toast.error).toHaveBeenCalledWith(
         'Importstatus konnte nicht geladen werden',
       ),
+    );
+  });
+
+  it('toasts the localized failure reason when the job fails', async () => {
+    const { toast } = await import('sonner');
+    const { fetchWithAuth } = await import('@/api/client');
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...applyingJob('apply'),
+        status: 'FAILED',
+        options: { apply_failure_code: 'IMPORT_INVALID_ENCODING' },
+      }),
+    } as Response);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    renderHook(() => useSyncBackgroundDryRunJob(applyingJob('apply'), vi.fn()), {
+      wrapper,
+    });
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Import fehlgeschlagen', {
+        description: deErrors.codes.IMPORT_INVALID_ENCODING,
+      }),
     );
   });
 

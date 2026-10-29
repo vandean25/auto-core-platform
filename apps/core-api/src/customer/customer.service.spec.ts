@@ -19,6 +19,8 @@ describe('CustomerService', () => {
   const customer = {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -33,6 +35,7 @@ describe('CustomerService', () => {
   const mockPrisma = {
     registrationDocumentIntake,
     customer,
+    externalIdMapping: { findMany: jest.fn().mockResolvedValue([]) },
     customerConsentUnsubscribeToken,
     customerCommunicationState,
     $transaction: jest.fn(
@@ -85,6 +88,61 @@ describe('CustomerService', () => {
     mockPrisma.customerContactPoint.count.mockResolvedValue(0);
     mockPrisma.vehicleParty.count.mockResolvedValue(0);
     mockPrisma.customerConsent.count.mockResolvedValue(0);
+    customer.findMany.mockResolvedValue([]);
+    mockPrisma.externalIdMapping.findMany.mockResolvedValue([]);
+  });
+
+  it('searches exact legacy customer numbers across source companies within the tenant', async () => {
+    mockPrisma.externalIdMapping.findMany.mockResolvedValue([
+      { entity_id: 'customer-1' },
+      { entity_id: 'customer-2' },
+    ]);
+
+    await service.findAll('00123');
+
+    expect(mockPrisma.externalIdMapping.findMany).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', entity_type: 'CUSTOMER', external_id: '00123' },
+      select: { entity_id: true },
+    });
+    expect(customer.findMany.mock.calls[0][0].where).toMatchObject({
+      tenant_id: 'tenant-1',
+      OR: expect.arrayContaining([{ id: { in: ['customer-1', 'customer-2'] } }]),
+    });
+  });
+
+  it('loads legacy customer numbers for the whole page in one lookup', async () => {
+    customer.findMany.mockResolvedValue([{ id: 'customer-1' }, { id: 'customer-2' }]);
+    customer.count.mockResolvedValue(2);
+    mockPrisma.externalIdMapping.findMany.mockResolvedValue([
+      { entity_id: 'customer-1', source_system: 'legacy_system:company_a', external_id: '00123' },
+      { entity_id: 'customer-2', source_system: 'legacy_system:company_b', external_id: '00123' },
+    ]);
+
+    const result = await service.findAll({ skip: 0, take: 25 });
+
+    expect(result.data).toEqual([
+      { id: 'customer-1', legacy_ids: [{ source_system: 'legacy_system:company_a', external_id: '00123' }] },
+      { id: 'customer-2', legacy_ids: [{ source_system: 'legacy_system:company_b', external_id: '00123' }] },
+    ]);
+    expect(mockPrisma.externalIdMapping.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.externalIdMapping.findMany.mock.calls[0][0].where).toEqual({
+      tenant_id: 'tenant-1', entity_type: 'CUSTOMER', entity_id: { in: ['customer-1', 'customer-2'] },
+    });
+  });
+
+  it('returns every source number on customer detail without exposing mapping internals', async () => {
+    customer.findFirst.mockResolvedValue({ id: 'customer-1', vehicles: [], workshop_orders: [], invoices: [] });
+    mockPrisma.externalIdMapping.findMany.mockResolvedValue([
+      { entity_id: 'customer-1', source_system: 'legacy_system:company_a', external_id: '00123' },
+      { entity_id: 'customer-1', source_system: 'legacy_system:company_b', external_id: '00456' },
+    ]);
+
+    const result = await service.findOne('customer-1');
+
+    expect(result).toHaveProperty('legacy_ids', [
+      { source_system: 'legacy_system:company_a', external_id: '00123' },
+      { source_system: 'legacy_system:company_b', external_id: '00456' },
+    ]);
   });
 
   it('does not expose identity resolution state from customer detail vehicles', async () => {

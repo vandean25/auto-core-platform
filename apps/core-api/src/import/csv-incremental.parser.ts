@@ -2,6 +2,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { csvRecordEnd } from './csv-record-bytes.js';
 import {
   detectDelimiterFromHeaderLine,
+  parseCsvRecords,
   stripBomFromText,
 } from './csv-parse.util.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
@@ -68,6 +69,7 @@ export class CsvIncrementalParser {
   };
   private delimiter: ';' | ',' | null = null;
   private headerLineRaw = '';
+  private headerInQuotes = false;
   private headers: string[] | null = null;
 
   feedChunk(chunk: Buffer): string[][] {
@@ -110,27 +112,13 @@ export class CsvIncrementalParser {
     if (this.delimiter === null) {
       for (let index = 0; index < text.length; index += 1) {
         const char = text[index];
-        if (char === '\n') {
+        if (char === '"') this.headerInQuotes = !this.headerInQuotes;
+        if (char === '\n' && !this.headerInQuotes) {
           this.headerLineRaw += text.slice(0, index);
           this.headerLineRaw = stripBomFromText(this.headerLineRaw);
           this.delimiter = detectDelimiterFromHeaderLine(this.headerLineRaw);
-          const headerCells: string[][] = [];
-          const headerState: CsvRowWalkState = {
-            currentRow: [],
-            currentCell: '',
-            inQuotes: false,
-          };
-          for (let hi = 0; hi < this.headerLineRaw.length; hi += 1) {
-            hi = walkCsvChar(
-              headerState,
-              headerCells,
-              this.headerLineRaw,
-              hi,
-              this.delimiter,
-            );
-          }
-          pushWalkRow(headerState, headerCells);
-          this.headers = headerCells[0] ?? [];
+          this.headers =
+            parseCsvRecords(this.headerLineRaw, this.delimiter)[0] ?? [];
           const rest = text.slice(index + 1);
           if (rest.length > 0) {
             completed.push(...this.consumeWithDelimiter(rest));
@@ -291,12 +279,16 @@ function finishSlice(
   state: SliceCollect,
   parser: CsvIncrementalParser,
   utf8: { finish: () => void },
-  takeDataRows: number,
+  inputExhausted: boolean,
 ): CsvStreamSliceResult | null {
-  if (state.collected < takeDataRows) {
+  if (state.collected < state.takeDataRows) {
     finishTail(state);
   }
-  utf8.finish();
+  // A batch that stops mid-file may end inside a multi-byte character; only the
+  // end of the input tells a truncated sequence from a split one.
+  if (inputExhausted) {
+    utf8.finish();
+  }
   const headers = parser.getHeaders();
   if (headers.length === 0) {
     return null;
@@ -322,16 +314,18 @@ async function pullUntilDone(
     takeDataRows,
     resume,
   );
+  let inputExhausted = false;
   for (;;) {
     const bytes = await pull();
     if (!bytes || bytes.length === 0) {
+      inputExhausted = true;
       break;
     }
     if (acceptBytes(state, utf8, bytes)) {
       break;
     }
   }
-  return finishSlice(state, parser, utf8, takeDataRows);
+  return finishSlice(state, parser, utf8, inputExhausted);
 }
 
 /** Reads one batch from ranged buffers. Stops pulling once the batch is full. */
