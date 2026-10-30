@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { authSessionKeys } from '@/api/auth-session'
+import { resetClientSession } from '@/auth/client-session-reset'
 import { extractAuthClaims, type AuthClaims } from '@/auth/auth-claims'
 
 export type FirebaseIdTokenUser = {
@@ -9,7 +9,7 @@ export type FirebaseIdTokenUser = {
 
 type MutableUidRef = { current: string | null | undefined }
 
-export function shouldInvalidateAuthSessionOnUidChange(
+export function shouldResetClientSessionOnUidChange(
   previousUid: string | null | undefined,
   nextUid: string | null,
 ): boolean {
@@ -31,8 +31,12 @@ export async function applyFirebaseIdTokenChange(params: {
   }
 
   const nextUid = params.nextUser?.uid ?? null
-  if (shouldInvalidateAuthSessionOnUidChange(params.previousUidRef.current, nextUid)) {
-    params.queryClient.removeQueries({ queryKey: authSessionKeys.all })
+  if (shouldResetClientSessionOnUidChange(params.previousUidRef.current, nextUid)) {
+    // Drop every trace of the previous user before the next session is rendered.
+    await resetClientSession(params.queryClient)
+    if (!params.isActive()) {
+      return
+    }
   }
   params.previousUidRef.current = nextUid
 

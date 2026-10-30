@@ -12,6 +12,7 @@ import {
 import { releasePushRegistration } from '@/features/push/push-device'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
 import type { AuthClaims } from '@/auth/auth-claims'
+import { resetClientSession, runWithClientSessionPending } from '@/auth/client-session-reset'
 import { applyFirebaseIdTokenChange } from '@/auth/firebase-id-token-change'
 import {
   getE2ETestToken,
@@ -198,14 +199,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOutUser = React.useCallback(async () => {
-    if (!firebaseAuth) {
+    const auth = firebaseAuth
+    if (!auth) {
       return
     }
 
     // Remove this browser's push registration while the session is still valid.
     await releasePushRegistration()
-    await signOut(firebaseAuth)
-  }, [])
+    // Keep the shell on its loading state from the start of the sign-out until the client session is reset.
+    await runWithClientSessionPending(async () => {
+      await signOut(auth)
+      // The next user of this device must not see anything from this session.
+      await resetClientSession(queryClient)
+    })
+  }, [queryClient])
 
   const value = React.useMemo<AuthContextValue>(() => ({
     user,

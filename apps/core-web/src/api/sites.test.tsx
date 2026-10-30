@@ -2,10 +2,6 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { inventoryKeys } from '@/api/inventory'
-import { stockTransferKeys } from '@/api/stock-transfers'
-import { vehicleStockKeys } from '@/api/vehicle-stock'
-import { workshopKeys } from '@/api/workshop'
 import { fetchWithAuth } from './client'
 import { consumeLocalSiteSwitch } from './local-site-switch'
 import { useSetActiveSite } from './sites'
@@ -33,9 +29,12 @@ function SwitchSiteProbe() {
   const mutation = useSetActiveSite()
 
   return (
-    <button type="button" onClick={() => void mutation.mutateAsync('site-new')}>
-      Switch site
-    </button>
+    <>
+      <div>{mutation.isPending ? 'Switching site' : 'Idle'}</div>
+      <button type="button" onClick={() => void mutation.mutateAsync('site-new')}>
+        Switch site
+      </button>
+    </>
   )
 }
 
@@ -71,37 +70,52 @@ describe('useSetActiveSite', () => {
     expect(consumeLocalSiteSwitch('site-new')).toBe(false)
   })
 
-  it('invalidates operational caches after a successful HTTP switch', async () => {
+  it('drops every cached query, including families outside the old hard-coded set, after a successful switch', async () => {
     vi.mocked(fetchWithAuth).mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({ activeSiteId: 'site-new' }),
     } as unknown as Response)
 
     const queryClient = createQueryClient()
-    const invalidateQueries = vi
-      .spyOn(queryClient, 'invalidateQueries')
-      .mockResolvedValue(undefined)
+    queryClient.setQueryData(['workshop', 'orders'], [{ id: 'order-1' }])
+    queryClient.setQueryData(['customers', 'list'], [{ id: 'customer-1' }])
+    queryClient.setQueryData(['auth-session', 'user-1'], { userId: 'user-1', activeSiteId: 'site-old' })
+    const cancelQueries = vi.spyOn(queryClient, 'cancelQueries')
+    const clear = vi.spyOn(queryClient, 'clear')
 
     render(<SwitchSiteProbe />, { wrapper: createWrapper(queryClient) })
     fireEvent.click(screen.getByRole('button', { name: 'Switch site' }))
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: workshopKeys.all,
-        refetchType: 'active',
-      })
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: inventoryKeys.all,
-        refetchType: 'active',
-      })
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: stockTransferKeys.all,
-        refetchType: 'active',
-      })
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: vehicleStockKeys.all,
-        refetchType: 'active',
-      })
+      expect(clear).toHaveBeenCalledTimes(1)
+    })
+
+    expect(cancelQueries).toHaveBeenCalled()
+    expect(cancelQueries.mock.invocationCallOrder[0]).toBeLessThan(clear.mock.invocationCallOrder[0])
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+  })
+
+  it('stays pending while the site switch is in flight', async () => {
+    let resolveFetch!: (value: Response) => void
+    vi.mocked(fetchWithAuth).mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve
+      }),
+    )
+
+    render(<SwitchSiteProbe />, { wrapper: createWrapper(createQueryClient()) })
+    fireEvent.click(screen.getByRole('button', { name: 'Switch site' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Switching site')).toBeInTheDocument()
+    })
+
+    await act(async () => {
+      resolveFetch({ ok: true, json: vi.fn().mockResolvedValue({ activeSiteId: 'site-new' }) } as unknown as Response)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Idle')).toBeInTheDocument()
     })
   })
 })

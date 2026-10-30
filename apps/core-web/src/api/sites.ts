@@ -1,12 +1,8 @@
 import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { authSessionKeys } from './auth-session'
 import { clearLocalSiteSwitch, markLocalSiteSwitch } from './local-site-switch'
-import { inventoryKeys } from './inventory'
-import { vehicleStockKeys } from './vehicle-stock'
-import { workshopKeys } from './workshop'
-import { stockTransferKeys } from './stock-transfers'
+import { resetClientSession } from '@/auth/client-session-reset'
 
 export type MeSite = components['schemas']['MeSiteDto']
 export type SetActiveSitePayload = components['schemas']['SetActiveSiteDto']
@@ -27,13 +23,6 @@ export const siteKeys = {
   me: (tenantId?: string) => (tenantId ? ([...siteKeys.all, 'me', tenantId] as const) : ([...siteKeys.all, 'me'] as const)),
   directory: () => [...siteKeys.all, 'directory'] as const,
 }
-
-const SITE_SCOPED_QUERY_KEYS = [
-  workshopKeys.all,
-  inventoryKeys.all,
-  vehicleStockKeys.all,
-  stockTransferKeys.all,
-] as const
 
 /**
  * GET /api/me/sites — only activatable sites for the current tenant
@@ -91,20 +80,8 @@ export function useSetActiveSite() {
     },
     onError: clearLocalSiteSwitch,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: authSessionKeys.all,
-        refetchType: 'active',
-      })
-      await queryClient.invalidateQueries({
-        queryKey: siteKeys.me(),
-        refetchType: 'active',
-      })
-      for (const queryKey of SITE_SCOPED_QUERY_KEYS) {
-        await queryClient.invalidateQueries({
-          queryKey,
-          refetchType: 'active',
-        })
-      }
+      // Every cached query may belong to the site being left, not only the operational families.
+      await resetClientSession(queryClient)
     },
   });
 }
