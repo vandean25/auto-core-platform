@@ -315,10 +315,14 @@ export function setMockImportSources(sources: ImportSource[]) {
 }
 
 /** Makes the mocked `useImportSources` query fail; returns its refetch mock. */
-export function failMockImportSources() {
+export function failMockImportSources(options: { retainedSources?: ImportSource[] } = {}) {
   const refetch = vi.fn()
+  const retainedSources = options.retainedSources
+  if (retainedSources) {
+    activeSources = retainedSources
+  }
   ;(importsApi.useImportSources as Mock).mockReturnValue({
-    data: undefined,
+    data: retainedSources ? { data: retainedSources } : undefined,
     isLoading: false,
     isError: true,
     refetch,

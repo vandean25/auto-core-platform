@@ -447,7 +447,17 @@ export function useDeleteImportSource() {
         throw new Error(await readErrorMessage(response, 'Failed to delete import source'))
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<ImportSourceListResponse | undefined>(
+        importKeys.sources(),
+        (current) => {
+          if (!current) return current
+          return {
+            ...current,
+            data: current.data.filter((source) => source.id !== id),
+          }
+        },
+      )
       void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
     },
   })

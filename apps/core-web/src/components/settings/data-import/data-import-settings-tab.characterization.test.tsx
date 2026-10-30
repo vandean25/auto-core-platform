@@ -275,6 +275,25 @@ describe('DataImportSettingsTab characterization', () => {
       expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
     })
 
+    it('returns to the source step when the selected source is deleted and the refetch fails while retaining remaining sources', async () => {
+      const view = renderImportSettingsTab()
+
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+      expect(screen.getByText(di.mapping.title)).toBeInTheDocument()
+
+      failMockImportSources({
+        retainedSources: sourceFixtures.filter((source) => source.key !== 'legacy_dms'),
+      })
+      view.rerender()
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.mapping.title)).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: di.source.sourceSystemLabel })).toHaveTextContent(
+        'Incadea',
+      )
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
+    })
+
     it('clears the selection when the last source is deleted', async () => {
       const view = renderImportSettingsTab()
 
