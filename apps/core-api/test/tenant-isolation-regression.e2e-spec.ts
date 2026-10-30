@@ -98,6 +98,13 @@ describe('Tenant Isolation Regression (e2e)', () => {
     await tenantBPrisma.importJob.deleteMany({
       where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
     });
+
+    await tenantAPrisma.customer.deleteMany({
+      where: { last_name: { startsWith: prefix } },
+    });
+    await tenantBPrisma.customer.deleteMany({
+      where: { last_name: { startsWith: prefix } },
+    });
   });
 
   afterAll(async () => {
@@ -135,6 +142,13 @@ describe('Tenant Isolation Regression (e2e)', () => {
       });
       await tenantBPrisma.importJob.deleteMany({
         where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
+      });
+
+      await tenantAPrisma.customer.deleteMany({
+        where: { last_name: { startsWith: prefix } },
+      });
+      await tenantBPrisma.customer.deleteMany({
+        where: { last_name: { startsWith: prefix } },
       });
     }
 
@@ -588,6 +602,115 @@ describe('Tenant Isolation Regression (e2e)', () => {
 
       expect(updated).toHaveLength(transactionCount);
       expect(new Set(updated.map((job) => job.id)).size).toBe(transactionCount);
+    });
+
+    it('completes more parallel interactive transactions than the pool size on an audited model', async () => {
+      // Brand is audited, so each transaction also writes its audit row. The
+      // audit insert must reuse the transaction connection; otherwise every
+      // parallel write needs a second pooled connection and exhausts the pool.
+      const transactionCount = 12;
+      const brands = await Promise.all(
+        Array.from({ length: transactionCount }, (_, index) =>
+          tenantAPrisma.brand.create({
+            data: {
+              tenant_id: tenantAId,
+              ...brandData(`${prefix}-CONCURRENT-${index}-${Date.now()}`),
+            },
+          }),
+        ),
+      );
+
+      const updated = await Promise.all(
+        brands.map((brand) =>
+          runWithTenantContext(tenantAId, () =>
+            prisma.$transaction(
+              (tx) =>
+                tx.brand.update({
+                  where: { id: brand.id },
+                  data: { logoUrl: `${prefix}-logo-${brand.id}.png` },
+                }),
+              { timeout: 15_000, maxWait: 15_000 },
+            ),
+          ),
+        ),
+      );
+
+      expect(updated).toHaveLength(transactionCount);
+      expect(new Set(updated.map((brand) => brand.id)).size).toBe(
+        transactionCount,
+      );
+
+      const auditRows = await tenantAPrisma.auditLog.findMany({
+        where: {
+          entity_type: 'Brand',
+          entity_id: { in: updated.map((brand) => String(brand.id)) },
+        },
+      });
+      expect(auditRows).toHaveLength(transactionCount);
+    });
+
+    it('does not persist an audit row when the transaction rolls back', async () => {
+      const brand = await tenantAPrisma.brand.create({
+        data: { tenant_id: tenantAId, ...brandData(`${prefix}-ROLLBACK`) },
+      });
+
+      await expect(
+        runWithTenantContext(tenantAId, () =>
+          prisma.$transaction(async (tx) => {
+            await tx.brand.update({
+              where: { id: brand.id },
+              data: { name: `${prefix}-ROLLBACK-UPDATED` },
+            });
+            throw new Error('force rollback');
+          }),
+        ),
+      ).rejects.toThrow('force rollback');
+
+      const auditRows = await tenantAPrisma.auditLog.findMany({
+        where: {
+          entity_type: 'Brand',
+          entity_id: String(brand.id),
+        },
+      });
+      expect(auditRows).toEqual([]);
+
+      const unchanged = await tenantAPrisma.brand.findFirstOrThrow({
+        where: { id: brand.id },
+      });
+      expect(unchanged.name).toBe(`${prefix}-ROLLBACK`);
+    });
+
+    it('does not persist an audit row during a dry-run transaction', async () => {
+      const customer = await tenantAPrisma.customer.create({
+        data: {
+          tenant_id: tenantAId,
+          first_name: 'Pilot',
+          last_name: `${prefix}-DRYRUN`,
+        },
+      });
+      const dryRunService = app.get(DryRunService);
+
+      await runWithTenantContext(tenantAId, () =>
+        dryRunService.executeInRollbackTransaction(() =>
+          prisma.customer.update({
+            where: { id: customer.id },
+            data: { last_name: `${prefix}-DRYRUN-UPDATED` },
+          }),
+        ),
+      );
+
+      const auditRows = await tenantAPrisma.auditLog.findMany({
+        where: {
+          entity_type: 'Customer',
+          entity_id: String(customer.id),
+        },
+      });
+      expect(auditRows).toEqual([]);
+
+      const unchanged = await tenantAPrisma.customer.findFirstOrThrow({
+        where: { id: customer.id },
+      });
+      expect(unchanged.last_name).toBe(`${prefix}-DRYRUN`);
     });
   });
 
