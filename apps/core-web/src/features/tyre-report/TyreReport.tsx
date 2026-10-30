@@ -1,5 +1,6 @@
 import { CircleCheck, TriangleAlert, OctagonAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { components } from '@/api/generated/openapi'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { NEUTRAL, statusClassMap } from '@/components/status/status-class-map'
@@ -17,33 +18,61 @@ const WHEEL_PLACEMENT = {
   SPARE: 'lg:col-start-2 lg:row-start-3',
 }
 
+function formatDotAge(
+  dot: Wheel['evaluation']['dot'],
+  hasDot: boolean,
+  t: TFunction<'workshop', undefined>,
+): string {
+  if (!dot || !hasDot) return '—'
+  if (dot.ageMonths == null) {
+    return t('tyreReport.minimumAge', { count: dot.minimumAgeMonths })
+  }
+  return t('tyreReport.age', { count: dot.ageMonths })
+}
+
+function getWheelStatusLabel(
+  evaluation: Wheel['evaluation'],
+  tEnums: TFunction<'enums', undefined>,
+): string {
+  if (evaluation.status) {
+    return tEnums(`tyreMeasurementStatus.${evaluation.status}`)
+  }
+  return tEnums(`tyreEvaluationState.${evaluation.state}`)
+}
+
 function TyreWheelCard({ wheel, photoUrl }: { wheel: Wheel; photoUrl?: string }) {
   const { t } = useTranslation('workshop')
   const { t: tEnums } = useTranslation('enums')
   const { evaluation } = wheel
   const Icon = evaluation.status ? STATUS_ICONS[evaluation.status] : TriangleAlert
   const position = t(`tyreReport.positions.${wheel.position}`)
+  const statusKey = evaluation.status ?? 'NOT_EVALUATED'
+  const cardBorderClass = statusClassMap[statusKey] ?? NEUTRAL
+  const statusLabel = getWheelStatusLabel(evaluation, tEnums)
+  const ageDisplay = formatDotAge(evaluation.dot, Boolean(wheel.dot), t)
+
   return (
-    <article aria-label={position} className={cn('min-w-0 space-y-3 rounded-md border-2 p-4', statusClassMap[evaluation.status ?? 'NOT_EVALUATED'] ?? NEUTRAL)}>
+    <article aria-label={position} className={cn('min-w-0 space-y-3 rounded-md border-2 p-4', cardBorderClass)}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">{position}</h3>
         <span className="inline-flex items-center gap-1">
           <Icon className="h-4 w-4" aria-hidden="true" />
-          <StatusBadge status={evaluation.status ?? 'NOT_EVALUATED'} label={evaluation.status
-            ? tEnums(`tyreMeasurementStatus.${evaluation.status}`)
-            : tEnums(`tyreEvaluationState.${evaluation.state}`)} />
+          <StatusBadge status={statusKey} label={statusLabel} />
         </span>
       </header>
       <dl className="grid grid-cols-3 gap-2 text-center">
-        {POINTS.map((point) => (
-          <div key={point}>
-            <dt className="text-xs text-muted-foreground">{t(`tyreReport.fields.${point}`)}</dt>
-            <dd data-worst-point={wheel[point] === evaluation.minimumTreadMm ? 'true' : undefined}
-              className={cn('tabular-nums', wheel[point] === evaluation.minimumTreadMm && 'font-bold underline underline-offset-4')}>
-              {wheel[point] == null ? '—' : `${formatNumber(wheel[point])} mm`}
-            </dd>
-          </div>
-        ))}
+        {POINTS.map((point) => {
+          const isWorst = wheel[point] === evaluation.minimumTreadMm
+          return (
+            <div key={point}>
+              <dt className="text-xs text-muted-foreground">{t(`tyreReport.fields.${point}`)}</dt>
+              <dd data-worst-point={isWorst ? 'true' : undefined}
+                className={cn('tabular-nums', isWorst && 'font-bold underline underline-offset-4')}>
+                {wheel[point] == null ? '—' : `${formatNumber(wheel[point])} mm`}
+              </dd>
+            </div>
+          )
+        })}
       </dl>
       <dl className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1 break-words text-sm text-foreground [&>div]:min-w-0">
         {(['brand', 'model', 'size', 'dot'] as const).map((field) => (
@@ -55,11 +84,7 @@ function TyreWheelCard({ wheel, photoUrl }: { wheel: Wheel; photoUrl?: string })
         <div><dt className="text-muted-foreground">{t('tyreReport.fields.season')}</dt><dd>{t(`tyreReport.seasons.${wheel.season}`)}</dd></div>
         <div><dt className="text-muted-foreground">{t('tyreReport.fields.construction')}</dt><dd>{t(`tyreReport.constructions.${wheel.construction}`)}</dd></div>
         <div><dt className="text-muted-foreground">{t('tyreReport.fields.winterMarking')}</dt><dd>{t(`tyreReport.markings.${wheel.winterMarking}`)}</dd></div>
-        <div><dt className="text-muted-foreground">{t('tyreReport.ageLabel')}</dt><dd>{evaluation.dot && wheel.dot
-          ? evaluation.dot.ageMonths == null
-            ? t('tyreReport.minimumAge', { count: evaluation.dot.minimumAgeMonths })
-            : t('tyreReport.age', { count: evaluation.dot.ageMonths })
-          : '—'}</dd></div>
+        <div><dt className="text-muted-foreground">{t('tyreReport.ageLabel')}</dt><dd>{ageDisplay}</dd></div>
       </dl>
       {photoUrl && <img src={photoUrl} alt={t('tyreReport.photo', { position })} className="h-24 w-24 rounded-md object-cover" />}
       <ul className="space-y-1 text-sm">{evaluation.reasonCodes.map((reason) => <li key={reason}>{t(`tyreReport.reasons.${reason}`)}</li>)}</ul>

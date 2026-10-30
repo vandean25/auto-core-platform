@@ -177,6 +177,53 @@ function TyreSetStorageDetails({ tyreSet }: { tyreSet: TyreSet }) {
   )
 }
 
+type TyreSetActionDialogHostProps = {
+  action: ActionKind | null
+  canInspect: boolean
+  canWrite: boolean
+  onClose: () => void
+  tyreSet: TyreSet
+}
+
+function TyreSetActionDialogHost({
+  action,
+  canInspect,
+  canWrite,
+  onClose,
+  tyreSet,
+}: TyreSetActionDialogHostProps) {
+  if (!action) return null
+  const isAllowed = action === 'inspect' ? canInspect : canWrite
+  if (!isAllowed) return null
+
+  return (
+    <TyreSetActionDialog
+      key={action}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      tyreSetId={tyreSet.id}
+      action={action}
+      currentLocationId={tyreSet.locationId}
+      vehicleId={tyreSet.vehicleId}
+      initialMeasurement={tyreSet.latestMeasurement ?? undefined}
+    />
+  )
+}
+
+function canWriteTyreSet(role: string | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+}
+
+function canInspectTyreSet(
+  action: ReturnType<typeof createTyreSetTyreMeasurementAction>,
+  role: string | undefined,
+  tyreSet: TyreSet | undefined,
+): boolean {
+  return action.isAllowedForRole(role) && Boolean(tyreSet && action.isEnabled(tyreSet))
+}
+
 export default function TyreSetDetailPage() {
   const { t } = useTranslation(['inventory', 'workshop', 'errors', 'common'])
   const [inventoryLocaleReady, setInventoryLocaleReady] = useState(() =>
@@ -196,14 +243,14 @@ export default function TyreSetDetailPage() {
   const navigate = useNavigate()
   const { t: tWorkshop } = useTranslation('workshop')
   const role = useAuthSession().data?.activeRole
-  const canWrite = role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+  const canWrite = canWriteTyreSet(role)
   const inspectionAction = createTyreSetTyreMeasurementAction(tWorkshop)
-  const canInspect = inspectionAction.isAllowedForRole(role) && Boolean(tyreSet && inspectionAction.isEnabled(tyreSet))
-  const activeAction = searchParams.get('action') === 'recordTyreMeasurement' && canInspect
-    ? 'inspect' : action
+  const canInspect = canInspectTyreSet(inspectionAction, role, tyreSet)
+  const isInspectionUrl = searchParams.get('action') === 'recordTyreMeasurement'
+  const activeAction = isInspectionUrl && canInspect ? 'inspect' : action
   const closeAction = () => {
     setAction(null)
-    if (searchParams.get('action') === 'recordTyreMeasurement') {
+    if (isInspectionUrl) {
       setSearchParams((previous) => {
         const next = new URLSearchParams(previous)
         next.delete('action')
@@ -267,20 +314,13 @@ export default function TyreSetDetailPage() {
         <p>{tyreSet.binLabel ?? ''}</p>
       </div>
 
-      {activeAction && (activeAction === 'inspect' ? canInspect : canWrite) ? (
-        <TyreSetActionDialog
-          key={activeAction}
-          open
-          onOpenChange={(open) => {
-            if (!open) closeAction()
-          }}
-          tyreSetId={tyreSet.id}
-          action={activeAction}
-          currentLocationId={tyreSet.locationId}
-          vehicleId={tyreSet.vehicleId}
-          initialMeasurement={tyreSet.latestMeasurement ?? undefined}
-        />
-      ) : null}
+      <TyreSetActionDialogHost
+        action={activeAction}
+        canInspect={canInspect}
+        canWrite={canWrite}
+        onClose={closeAction}
+        tyreSet={tyreSet}
+      />
 
       {canWrite && <TyreSetFormDialog
         open={editOpen}

@@ -22,13 +22,30 @@ export type TyreMeasurementValues = Omit<Payload, 'wheels'> & {
 const POSITIONS = ['FL', 'FR', 'RL', 'RR'] as const
 
 function newWheel(position: Wheel['position'], initial?: Measurement): TyreMeasurementValues['wheels'][number] {
-  const previous = initial?.wheels.find((wheel) => wheel.position === position)
-  return {
+  const base: TyreMeasurementValues['wheels'][number] = {
     position,
-    treadInnerMm: undefined, treadMiddleMm: undefined, treadOuterMm: undefined,
-    season: previous?.season ?? 'SUMMER', construction: previous?.construction ?? 'RADIAL',
-    winterMarking: previous?.winterMarking ?? 'NONE', brand: previous?.brand ?? '',
-    model: previous?.model ?? '', size: previous?.size ?? '', dot: previous?.dot ?? '',
+    treadInnerMm: undefined,
+    treadMiddleMm: undefined,
+    treadOuterMm: undefined,
+    season: 'SUMMER',
+    construction: 'RADIAL',
+    winterMarking: 'NONE',
+    brand: '',
+    model: '',
+    size: '',
+    dot: '',
+  }
+  const previous = initial?.wheels.find((wheel) => wheel.position === position)
+  if (!previous) return base
+  return {
+    ...base,
+    season: previous.season,
+    construction: previous.construction,
+    winterMarking: previous.winterMarking,
+    brand: previous.brand,
+    model: previous.model,
+    size: previous.size,
+    dot: previous.dot,
   }
 }
 
@@ -81,6 +98,31 @@ function WeightClassField({ form }: { form: UseFormReturn<TyreMeasurementValues>
   )
 }
 
+function DiscardDialogContent({ onConfirm }: { onConfirm: () => void }) {
+  const { t } = useTranslation(['workshop', 'common'])
+  return (
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>{t('tyreReport.discard')}</AlertDialogTitle>
+        <AlertDialogDescription>{t('tyreReport.discardDescription')}</AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+        <AlertDialogAction onClick={onConfirm}>{t('tyreReport.confirmDiscard')}</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  )
+}
+
+function FormStatusMessages({ pending, error, pendingText }: { pending: boolean; error?: string; pendingText: string }) {
+  return (
+    <>
+      {pending && <p role="status" className="text-sm text-muted-foreground">{pendingText}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    </>
+  )
+}
+
 function MeasurementSaveControls({ form, pending, disabled, submitLabel }: {
   form: UseFormReturn<TyreMeasurementValues>
   pending: boolean
@@ -90,51 +132,94 @@ function MeasurementSaveControls({ form, pending, disabled, submitLabel }: {
   const { t } = useTranslation(['workshop', 'common'])
   const saving = form.formState.isSubmitting
   const error = form.formState.errors.root
+  const isLocked = disabled || saving
+  const canSave = !isLocked && !pending
+  const defaultLabel = saving ? t('tyreReport.saving') : t('tyreReport.save')
+  const buttonLabel = submitLabel ?? defaultLabel
+
   return (
     <>
-      {pending && <p role="status" className="text-sm text-muted-foreground">{t('tyreReport.pendingPhoto')}</p>}
-      {error && <p role="alert" className="text-sm text-destructive">{error.message}</p>}
+      <FormStatusMessages pending={pending} error={error?.message} pendingText={t('tyreReport.pendingPhoto')} />
       <DialogFooter>
-        {form.formState.isDirty && <AlertDialog>
-          <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={disabled || saving} className="min-h-11">{t('tyreReport.discard')}</Button></AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t('tyreReport.discard')}</AlertDialogTitle>
-              <AlertDialogDescription>{t('tyreReport.discardDescription')}</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
-              <AlertDialogAction onClick={() => form.reset()}>{t('tyreReport.confirmDiscard')}</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>}
-        <Button type="submit" disabled={disabled || saving || pending} className="min-h-11">
+        {form.formState.isDirty && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button type="button" variant="outline" disabled={isLocked} className="min-h-11">
+                {t('tyreReport.discard')}
+              </Button>
+            </AlertDialogTrigger>
+            <DiscardDialogContent onConfirm={() => form.reset()} />
+          </AlertDialog>
+        )}
+        <Button type="submit" disabled={!canSave} className="min-h-11">
           {saving && <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
-          {submitLabel ?? (saving ? t('tyreReport.saving') : t('tyreReport.save'))}
+          {buttonLabel}
         </Button>
       </DialogFooter>
     </>
   )
 }
 
-export function TyreMeasurementForm({ onSave, onStateChange, initial, disabled = false, submitLabel, onPhoto, pendingMediaIds = [], mediaUrls = {} }: Props) {
-  const { t } = useTranslation('workshop')
-  const [uploading, setUploading] = useState(false)
-  const form = useForm<TyreMeasurementValues>({ defaultValues: {
-    weightClass: initial?.weightClass ?? 'UP_TO_3500_KG',
-    wheels: POSITIONS.map((position) => newWheel(position, initial)),
-  } })
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'wheels' })
-  const wheels = form.watch('wheels')
-  const pending = wheels.some((wheel) => wheel.mediaId && pendingMediaIds.includes(wheel.mediaId))
-  const saving = form.formState.isSubmitting
-  const dirty = form.formState.isDirty
+function isTreadValue(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function hasCompleteTreads(wheels: TyreMeasurementValues['wheels']): wheels is Wheel[] {
+  return wheels.every((wheel) =>
+    isTreadValue(wheel.treadInnerMm) &&
+    isTreadValue(wheel.treadMiddleMm) &&
+    isTreadValue(wheel.treadOuterMm),
+  )
+}
+
+function applyServerErrors(
+  error: unknown,
+  payload: Payload,
+  form: UseFormReturn<TyreMeasurementValues>,
+  invalidMessage: string,
+): FieldPath<Payload> | null {
+  const fieldErrors = getServerFieldErrors(error, payload, invalidMessage)
+  for (const { path, message } of fieldErrors) form.setError(path, { message })
+  const first = fieldErrors[0]
+  if (first) return first.path
+  form.setError('root', { message: translateApiError(error) })
+  return null
+}
+
+async function uploadWheelPhoto({
+  file,
+  onPhoto,
+  onError,
+}: {
+  file: File
+  onPhoto: (file: File) => Promise<string>
+  onError: (err: unknown) => void
+}): Promise<string | null> {
+  try {
+    return await onPhoto(file)
+  } catch (error) {
+    onError(error)
+    return null
+  }
+}
+
+function useFormStateSync(
+  onStateChange: ((state: TyreMeasurementFormState) => void) | undefined,
+  dirty: boolean,
+  busy: boolean,
+) {
   useEffect(() => {
-    onStateChange?.({ isDirty: dirty, isSubmitting: saving || uploading })
-  }, [dirty, saving, uploading, onStateChange])
+    onStateChange?.({ isDirty: dirty, isSubmitting: busy })
+  }, [dirty, busy, onStateChange])
   useEffect(() => () => {
     onStateChange?.({ isDirty: false, isSubmitting: false })
   }, [onStateChange])
+}
+
+function usePendingFieldFocus(
+  saving: boolean,
+  form: UseFormReturn<TyreMeasurementValues>,
+) {
   const pendingFocus = useRef<FieldPath<Payload> | null>(null)
   useEffect(() => {
     if (!saving && pendingFocus.current) {
@@ -142,12 +227,51 @@ export function TyreMeasurementForm({ onSave, onStateChange, initial, disabled =
       pendingFocus.current = null
     }
   }, [saving, form])
+  return pendingFocus
+}
 
+function SpareWheelToggle({
+  hasSpare,
+  onToggle,
+}: {
+  hasSpare: boolean
+  onToggle: (checked: boolean) => void
+}) {
+  const { t } = useTranslation('workshop')
+  return (
+    <Label className="flex min-h-11 items-center gap-2">
+      <Checkbox
+        checked={hasSpare}
+        onCheckedChange={(checked) => onToggle(Boolean(checked))}
+      />
+      {t('tyreReport.includeSpare')}
+    </Label>
+  )
+}
+
+function getInitialFormValues(initial?: Measurement): TyreMeasurementValues {
+  return {
+    weightClass: initial?.weightClass ?? 'UP_TO_3500_KG',
+    wheels: POSITIONS.map((position) => newWheel(position, initial)),
+  }
+}
+
+export function TyreMeasurementForm({ onSave, onStateChange, initial, disabled = false, submitLabel, onPhoto, pendingMediaIds = [], mediaUrls = {} }: Props) {
+  const { t } = useTranslation('workshop')
+  const [uploading, setUploading] = useState(false)
+  const form = useForm<TyreMeasurementValues>({ defaultValues: getInitialFormValues(initial) })
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'wheels' })
+  const wheels = form.watch('wheels')
+  const pending = wheels.some((wheel) => wheel.mediaId && pendingMediaIds.includes(wheel.mediaId))
+  const saving = form.formState.isSubmitting
+  const dirty = form.formState.isDirty
+
+  useFormStateSync(onStateChange, dirty, saving || uploading)
+  const pendingFocus = usePendingFieldFocus(saving, form)
+
+  const isBusy = disabled || uploading || pending
   const save = form.handleSubmit(async (body) => {
-    if (disabled || uploading || pending) return
-    if (!body.wheels.every((wheel): wheel is Wheel =>
-      [wheel.treadInnerMm, wheel.treadMiddleMm, wheel.treadOuterMm]
-        .every((value) => typeof value === 'number' && Number.isFinite(value)))) return
+    if (isBusy || !hasCompleteTreads(body.wheels)) return
     const payload: Payload = { ...body, wheels: body.wheels }
     form.clearErrors()
     pendingFocus.current = null
@@ -155,34 +279,32 @@ export function TyreMeasurementForm({ onSave, onStateChange, initial, disabled =
       await onSave(payload)
       form.reset(body)
     } catch (error) {
-      const fieldErrors = getServerFieldErrors(error, payload, t('tyreReport.invalidField'))
-      pendingFocus.current = fieldErrors[0]?.path ?? null
-      for (const { path, message } of fieldErrors) form.setError(path, { message })
-      if (!pendingFocus.current) form.setError('root', { message: translateApiError(error) })
+      pendingFocus.current = applyServerErrors(error, payload, form, t('tyreReport.invalidField'))
     }
   })
 
   const capturePhoto = async (file: File, index: number) => {
     if (!onPhoto) return
     setUploading(true)
-    try {
-      const mediaId = await onPhoto(file)
-      form.setValue(`wheels.${index}.mediaId`, mediaId, { shouldDirty: true })
-    } catch (error) {
-      form.setError('root', { message: translateApiError(error) })
-    } finally {
-      setUploading(false)
-    }
+    const mediaId = await uploadWheelPhoto({
+      file,
+      onPhoto,
+      onError: (err) => form.setError('root', { message: translateApiError(err) }),
+    })
+    if (mediaId) form.setValue(`wheels.${index}.mediaId`, mediaId, { shouldDirty: true })
+    setUploading(false)
+  }
+
+  const toggleSpare = (checked: boolean) => {
+    if (checked) append(newWheel('SPARE', initial))
+    else remove(4)
   }
 
   return (
     <form onSubmit={save} className="min-w-0 space-y-4">
       <fieldset disabled={disabled || saving || uploading} className="min-w-0 space-y-4">
         <WeightClassField form={form} />
-        <Label className="flex min-h-11 items-center gap-2">
-          <Checkbox checked={fields.length === 5} onCheckedChange={(checked) => checked ? append(newWheel('SPARE', initial)) : remove(4)} />
-          {t('tyreReport.includeSpare')}
-        </Label>
+        <SpareWheelToggle hasSpare={fields.length === 5} onToggle={toggleSpare} />
         <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
           {fields.map((wheel, index) => <TyreWheelFields key={wheel.id} form={form} index={index} position={wheel.position}
             onPhoto={onPhoto ? capturePhoto : undefined} mediaUrls={mediaUrls} />)}

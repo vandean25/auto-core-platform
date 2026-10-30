@@ -20,6 +20,7 @@ import { CheckInSaveIndicator } from './CheckInSaveIndicator'
 import { CheckInVehicleStep } from './CheckInVehicleStep'
 import { CheckInConditionStep } from './CheckInConditionStep'
 import { TyreMeasurementSection } from '@/features/tyre-report/TyreMeasurementSection'
+import type { TyreMeasurementFormState } from '@/features/tyre-report/TyreMeasurementForm'
 import { CheckInReviewStep } from './CheckInReviewStep'
 import { useCheckInDraftAutosave } from './useCheckInDraftAutosave'
 import { CheckInConflictDialog } from './CheckInConflictDialog'
@@ -46,6 +47,220 @@ function canStartCheckIn(status: string | undefined) {
   return status === 'INTAKE' || status === 'IN_PROGRESS'
 }
 
+type CheckInTyreStepProps = {
+  checkInId: string
+  orderId: string
+  readOnly: boolean
+  hidden: boolean
+  onFormStateChange: (state: TyreMeasurementFormState) => void
+  mediaList: WorkshopCheckInMedia[] | undefined
+  localPreviewUrls: Record<string, string>
+  queuedUploadIds: string[]
+  onEnqueuePhoto: (file: File) => Promise<string>
+}
+
+function CheckInTyreStep({
+  checkInId,
+  orderId,
+  readOnly,
+  hidden,
+  onFormStateChange,
+  mediaList,
+  localPreviewUrls,
+  queuedUploadIds,
+  onEnqueuePhoto,
+}: CheckInTyreStepProps) {
+  const serverPreviews = Object.fromEntries(
+    (mediaList ?? [])
+      .filter((item) => item.preview_url)
+      .map((item) => [item.id, item.preview_url as string]),
+  )
+  const mediaUrls = { ...serverPreviews, ...localPreviewUrls }
+
+  return (
+    <div hidden={hidden}>
+      <TyreMeasurementSection
+        parent={{ kind: 'check-in', id: checkInId }}
+        orderId={orderId}
+        readOnly={readOnly}
+        onFormStateChange={onFormStateChange}
+        mediaUrls={mediaUrls}
+        pendingMediaIds={queuedUploadIds}
+        onPhoto={onEnqueuePhoto}
+      />
+    </div>
+  )
+}
+
+async function uploadPadSignature({
+  signaturePad,
+  orderId,
+  revision,
+  uploadMedia,
+}: {
+  signaturePad: CheckInSignaturePadHandle | null
+  orderId: string
+  revision: number
+  uploadMedia: (args: {
+    orderId: string
+    file: File
+    clientUploadId: string
+    expectedRevision: number
+    purpose: 'CHECK_IN_SIGNATURE'
+  }) => Promise<{ id: string }>
+}): Promise<string | null> {
+  const blob = await signaturePad?.toPngBlob()
+  if (!blob) return null
+  const file = new File([blob], 'signature.png', { type: 'image/png' })
+  const uploaded = await uploadMedia({
+    orderId,
+    file,
+    clientUploadId: generateId(),
+    expectedRevision: revision,
+    purpose: 'CHECK_IN_SIGNATURE',
+  })
+  return uploaded.id
+}
+
+function getAcknowledgementLocale(language: string): 'en' | 'de' {
+  return language.toLowerCase().startsWith('en') ? 'en' : 'de'
+}
+
+function hasSignatureInkOrMedia(hasInk: boolean, signatureMediaId: string | null): boolean {
+  return hasInk || Boolean(signatureMediaId)
+}
+
+function useCheckInTyrePhotos(enqueueOfflinePhoto: (file: File, id: string) => Promise<unknown>) {
+  const [localPreviewUrls, setLocalPreviewUrls] = useState<Record<string, string>>({})
+  const previewUrlsRef = useRef(new Set<string>())
+
+  useEffect(() => () => {
+    for (const url of previewUrlsRef.current) URL.revokeObjectURL(url)
+  }, [])
+
+  const registerPreview = (mediaId: string, objectUrl: string) => {
+    setLocalPreviewUrls((previous) => ({ ...previous, [mediaId]: objectUrl }))
+  }
+
+  const onEnqueuePhoto = async (file: File) => {
+    const id = generateId()
+    await enqueueOfflinePhoto(file, id)
+    const preview = URL.createObjectURL(file)
+    previewUrlsRef.current.add(preview)
+    setLocalPreviewUrls((previous) => ({ ...previous, [id]: preview }))
+    return id
+  }
+
+  return { localPreviewUrls, registerPreview, onEnqueuePhoto }
+}
+
+function CheckInUnsavedTyreNotice({ show, message }: { show: boolean; message: string }) {
+  if (!show) return null
+  return <p role="alert" className="text-sm text-destructive">{message}</p>
+}
+
+function CheckInFlowMediaAlert({ show, error }: { show: boolean; error: unknown }) {
+  const { t } = useTranslation('workshop')
+  if (!show) return null
+  return (
+    <p className="text-sm text-destructive" role="alert">
+      {describeWorkshopCheckInError(error) || t('checkIn.media.loadError')}
+    </p>
+  )
+}
+
+function formatVehicleLabel(vehicle?: { year: number; make: string; model: string } | null): string {
+  if (!vehicle) return ''
+  return `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+}
+
+function getSignaturePreviewUrl(media: WorkshopCheckInMedia[] | undefined, id: string | null): string | null {
+  if (!id) return null
+  return media?.find((item) => item.id === id)?.preview_url ?? null
+}
+
+function getCheckInMediaList(
+  isError: boolean,
+  serverMedia: WorkshopCheckInMedia[] | undefined,
+  sessionMedia: WorkshopCheckInMedia[],
+): WorkshopCheckInMedia[] {
+  if (isError) return []
+  const existing = serverMedia ?? []
+  const checkInExisting = existing.filter((item) => item.purpose === 'CHECK_IN')
+  const newSession = sessionMedia.filter(
+    (item) => item.purpose === 'CHECK_IN' && !existing.some((s) => s.id === item.id),
+  )
+  return [...checkInExisting, ...newSession]
+}
+
+function CheckInConflictDialogHost({
+  open,
+  completedRemotely,
+  orderId,
+  localDraftRef,
+  checkInQuery,
+  replaceDraft,
+  offline,
+  onClose,
+}: {
+  open: boolean
+  completedRemotely: boolean
+  orderId: string
+  localDraftRef: React.MutableRefObject<CheckInDraftSnapshot | null>
+  checkInQuery: ReturnType<typeof useWorkshopCheckIn>
+  replaceDraft: (draft: CheckInDraftSnapshot, revision: number) => void
+  offline: ReturnType<typeof useCheckInOffline>
+  onClose: () => void
+}) {
+  const onKeepServer = async () => {
+    onClose()
+    localDraftRef.current = null
+    const fresh = await checkInQuery.refetch()
+    if (fresh.data) {
+      replaceDraft(draftFromCheckIn(fresh.data), fresh.data.revision)
+    }
+    await offline.discardLocalDraft()
+  }
+
+  const onReapplyLocal = async () => {
+    onClose()
+    const snapshot = localDraftRef.current
+    const fresh = await checkInQuery.refetch()
+    if (!snapshot || !fresh.data) return
+    try {
+      const updated = await updateWorkshopCheckInDraft(orderId, {
+        ...buildUpdatePayload(fresh.data.revision, snapshot),
+      })
+      replaceDraft(draftFromCheckIn(updated), updated.revision)
+      localDraftRef.current = null
+      await offline.markDraftSynced(snapshot)
+      await checkInQuery.refetch()
+    } catch (error: unknown) {
+      toast.error(describeWorkshopCheckInError(error))
+    }
+  }
+
+  const onDiscardLocal = async () => {
+    onClose()
+    localDraftRef.current = null
+    await offline.discardLocalDraft()
+    const fresh = await checkInQuery.refetch()
+    if (fresh.data) {
+      replaceDraft(draftFromCheckIn(fresh.data), fresh.data.revision)
+    }
+  }
+
+  return (
+    <CheckInConflictDialog
+      open={open}
+      completedRemotely={completedRemotely}
+      onKeepServer={onKeepServer}
+      onReapplyLocal={onReapplyLocal}
+      onDiscardLocal={onDiscardLocal}
+    />
+  )
+}
+
 export function WorkshopCheckInFlow({ orderId }: Props) {
   const { t, i18n } = useTranslation('workshop')
   const navigate = useNavigate()
@@ -67,11 +282,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   const [step, setStep] = useState<CheckInStep>('vehicle')
   const [tyreFormState, setTyreFormState] = useState({ isDirty: false, isSubmitting: false })
   const tyreMeasurementPending = tyreFormState.isDirty || tyreFormState.isSubmitting
-  const [localPreviewUrls, setLocalPreviewUrls] = useState<Record<string, string>>({})
-  const tyrePreviewUrlsRef = useRef(new Set<string>())
-  useEffect(() => () => {
-    for (const url of tyrePreviewUrlsRef.current) URL.revokeObjectURL(url)
-  }, [])
   const [sessionMedia, setSessionMedia] = useState<
     import('@/api/workshop-check-in').WorkshopCheckInMedia[]
   >([])
@@ -213,6 +423,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     onPhotoUploaded,
     onUploadConflict,
   })
+  const { localPreviewUrls, registerPreview, onEnqueuePhoto: handleEnqueueTyrePhoto } = useCheckInTyrePhotos(offline.enqueuePhoto)
   useEffect(() => {
     refetchCheckInRef.current = checkInQuery.refetch
   }, [checkInQuery.refetch])
@@ -295,21 +506,12 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   ])
 
   const stepIndex = STEPS.indexOf(step)
-  const vehicleLabel = useMemo(() => {
-    const vehicle = orderQuery.data?.vehicle
-    if (!vehicle) {
-      return ''
-    }
-    return `${vehicle.year} ${vehicle.make} ${vehicle.model}`
-  }, [orderQuery.data?.vehicle])
-
-  const signaturePreviewUrl = useMemo(() => {
-    if (!signatureMediaId) {
-      return null
-    }
-    const fromQuery = (mediaQuery.data ?? []).find((item) => item.id === signatureMediaId)
-    return fromQuery?.preview_url ?? null
-  }, [mediaQuery.data, signatureMediaId])
+  const vehicleLabel = formatVehicleLabel(orderQuery.data?.vehicle)
+  const signaturePreviewUrl = getSignaturePreviewUrl(mediaQuery.data, signatureMediaId)
+  const checkInMedia = useMemo(
+    () => getCheckInMediaList(mediaQuery.isError, mediaQuery.data, sessionMedia),
+    [mediaQuery.isError, mediaQuery.data, sessionMedia],
+  )
 
   if (checkInQuery.isError) {
     return (
@@ -392,11 +594,8 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
       return
     }
     const trimmedName = signedByName.trim()
-    if (!acknowledged || !trimmedName) {
-      toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
-      return
-    }
-    if (!signaturePadRef.current?.hasInk() && !signatureMediaId) {
+    const hasSignature = hasSignatureInkOrMedia(signaturePadRef.current?.hasInk() ?? false, signatureMediaId)
+    if (!acknowledged || !trimmedName || !hasSignature) {
       toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
       return
     }
@@ -410,21 +609,16 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
       const hasInk = signaturePadRef.current?.hasInk() ?? false
       let mediaId = signatureMediaId
       if (hasInk) {
-        const blob = await signaturePadRef.current?.toPngBlob()
-        if (!blob) {
+        mediaId = await uploadPadSignature({
+          signaturePad: signaturePadRef.current,
+          orderId,
+          revision,
+          uploadMedia: uploadCheckInMedia.mutateAsync,
+        })
+        if (!mediaId) {
           toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
           return
         }
-        const uploadId = generateId()
-        const file = new File([blob], 'signature.png', { type: 'image/png' })
-        const uploaded = await uploadCheckInMedia.mutateAsync({
-          orderId,
-          file,
-          clientUploadId: uploadId,
-          expectedRevision: revision,
-          purpose: 'CHECK_IN_SIGNATURE',
-        })
-        mediaId = uploaded.id
         setSignatureMediaId(mediaId)
       } else if (!mediaId) {
         toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
@@ -434,11 +628,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
       const latestRevision =
         (await checkInQuery.refetch()).data?.revision ?? revision
 
-      const acknowledgementLocale = i18n.language
-        .toLowerCase()
-        .startsWith('en')
-        ? 'en'
-        : 'de'
+      const acknowledgementLocale = getAcknowledgementLocale(i18n.language)
 
       await completeCheckIn.mutateAsync({
         orderId,
@@ -517,30 +707,19 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           onPatchCondition={patchCondition}
         />
       )}
-      {step === 'condition' && mediaQuery.isError && (
-        <p className="text-sm text-destructive" role="alert">
-          {describeWorkshopCheckInError(mediaQuery.error) ||
-            t('checkIn.media.loadError')}
-        </p>
-      )}
+      <CheckInFlowMediaAlert
+        show={step === 'condition' && mediaQuery.isError}
+        error={mediaQuery.error}
+      />
       {step === 'condition' && (
         <CheckInConditionStep
           orderId={orderId}
           draft={draft}
           readOnly={readOnly}
           expectedRevision={checkInQuery.data.revision}
-          media={mediaQuery.isError ? [] : [
-            ...(mediaQuery.data ?? []).filter((item) => item.purpose === 'CHECK_IN'),
-            ...sessionMedia.filter(
-              (item) =>
-                item.purpose === 'CHECK_IN' &&
-                !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),
-            ),
-          ]}
+          media={checkInMedia}
           localPreviewUrls={localPreviewUrls}
-          onRegisterPreview={(mediaId, objectUrl) =>
-            setLocalPreviewUrls((previous) => ({ ...previous, [mediaId]: objectUrl }))
-          }
+          onRegisterPreview={registerPreview}
           onMediaUploaded={(item) =>
             setSessionMedia((previous) =>
               previous.some((entry) => entry.id === item.id)
@@ -561,27 +740,17 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           onRetryUploads={offline.retryFailedUploads}
         />
       )}
-      <div hidden={step !== 'condition'}>
-        <TyreMeasurementSection
-          parent={{ kind: 'check-in', id: checkInQuery.data.id }}
-          orderId={orderId}
-          readOnly={readOnly}
-          onFormStateChange={setTyreFormState}
-          mediaUrls={{
-            ...Object.fromEntries((mediaQuery.data ?? []).filter((item) => item.preview_url).map((item) => [item.id, item.preview_url as string])),
-            ...localPreviewUrls,
-          }}
-          pendingMediaIds={offline.queuedPhotos.map((photo) => photo.clientUploadId)}
-          onPhoto={async (file) => {
-            const id = generateId()
-            await offline.enqueuePhoto(file, id)
-            const preview = URL.createObjectURL(file)
-            tyrePreviewUrlsRef.current.add(preview)
-            setLocalPreviewUrls((previous) => ({ ...previous, [id]: preview }))
-            return id
-          }}
-        />
-      </div>
+      <CheckInTyreStep
+        hidden={step !== 'condition'}
+        checkInId={checkInQuery.data.id}
+        orderId={orderId}
+        readOnly={readOnly}
+        onFormStateChange={setTyreFormState}
+        mediaList={mediaQuery.data}
+        localPreviewUrls={localPreviewUrls}
+        queuedUploadIds={offline.queuedPhotos.map((photo) => photo.clientUploadId)}
+        onEnqueuePhoto={handleEnqueueTyrePhoto}
+      />
       {step === 'review' && (
         <CheckInReviewStep
           orderId={orderId}
@@ -597,19 +766,15 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           signaturePadRef={signaturePadRef}
           signaturePreviewUrl={signaturePreviewUrl}
           onSignatureCanvasClear={() => setSignatureMediaId(null)}
-          media={mediaQuery.isError ? [] : [
-            ...(mediaQuery.data ?? []).filter((item) => item.purpose === 'CHECK_IN'),
-            ...sessionMedia.filter(
-              (item) =>
-                item.purpose === 'CHECK_IN' &&
-                !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),
-            ),
-          ]}
+          media={checkInMedia}
           localPreviewUrls={localPreviewUrls}
         />
       )}
 
-      {step === 'review' && !readOnly && tyreMeasurementPending && <p role="alert" className="text-sm text-destructive">{t('tyreReport.unsavedCheckIn')}</p>}
+      <CheckInUnsavedTyreNotice
+        show={step === 'review' && !readOnly && tyreMeasurementPending}
+        message={t('tyreReport.unsavedCheckIn')}
+      />
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <Button
           type="button"
@@ -656,46 +821,15 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         </div>
       </footer>
 
-      <CheckInConflictDialog
+      <CheckInConflictDialogHost
         open={conflictOpen}
         completedRemotely={conflictCompletedRemotely}
-        onKeepServer={async () => {
-          setConflictOpen(false)
-          localDraftRef.current = null
-          const fresh = await checkInQuery.refetch()
-          if (fresh.data) {
-            replaceDraft(draftFromCheckIn(fresh.data), fresh.data.revision)
-          }
-          await offline.discardLocalDraft()
-        }}
-        onReapplyLocal={async () => {
-          setConflictOpen(false)
-          const snapshot = localDraftRef.current
-          const fresh = await checkInQuery.refetch()
-          if (!snapshot || !fresh.data) {
-            return
-          }
-          try {
-            const updated = await updateWorkshopCheckInDraft(orderId, {
-              ...buildUpdatePayload(fresh.data.revision, snapshot),
-            })
-            replaceDraft(draftFromCheckIn(updated), updated.revision)
-            localDraftRef.current = null
-            await offline.markDraftSynced(snapshot)
-            await checkInQuery.refetch()
-          } catch (error: unknown) {
-            toast.error(describeWorkshopCheckInError(error))
-          }
-        }}
-        onDiscardLocal={async () => {
-          setConflictOpen(false)
-          localDraftRef.current = null
-          await offline.discardLocalDraft()
-          const fresh = await checkInQuery.refetch()
-          if (fresh.data) {
-            replaceDraft(draftFromCheckIn(fresh.data), fresh.data.revision)
-          }
-        }}
+        orderId={orderId}
+        localDraftRef={localDraftRef}
+        checkInQuery={checkInQuery}
+        replaceDraft={replaceDraft}
+        offline={offline}
+        onClose={() => setConflictOpen(false)}
       />
     </div>
   )

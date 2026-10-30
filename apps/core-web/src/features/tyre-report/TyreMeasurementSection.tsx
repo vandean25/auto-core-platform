@@ -55,42 +55,188 @@ function TyreMeasurementHistory({ measurements, mediaUrls }: {
   return latest ? <TyreReport measurement={latest} mediaUrls={mediaUrls} /> : <p className="text-sm text-muted-foreground">{t('tyreReport.empty')}</p>
 }
 
-export function TyreMeasurementSection({ parent, orderId, readOnly = false, onFormStateChange, onPhoto, pendingMediaIds, mediaUrls = {} }: Props) {
+function OrderMeasurementDialog({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function useOrderModalAction(active: boolean) {
+  const [search, setSearch] = useSearchParams()
+  const isModalOpen = active && search.get('action') === 'recordTyreMeasurement'
+  const closeModal = () => setSearch((previous) => {
+    const next = new URLSearchParams(previous)
+    next.delete('action')
+    return next
+  }, { replace: true })
+  return { isModalOpen, closeModal }
+}
+
+function OrderTyreSection({
+  orderId,
+  parent,
+  readOnly,
+  role,
+  siteId,
+  mediaUrls,
+  onFormStateChange,
+}: {
+  orderId: string
+  parent: TyreMeasurementParent
+  readOnly: boolean
+  role?: string
+  siteId?: string | null
+  mediaUrls: Record<string, string>
+  onFormStateChange?: (state: TyreMeasurementFormState) => void
+}) {
   const { t } = useTranslation('workshop')
-  const session = useAuthSession().data
-  const role = session?.activeRole
-  const permitted = canRecordTyreMeasurement(role)
-  const measurements = useTyreMeasurements(parent, permitted)
-  const create = useCreateTyreMeasurement(parent)
   const navigate = useNavigate()
   const generatePdf = useGenerateWorkshopPdf()
-  const [search, setSearch] = useSearchParams()
-  const media = useOrderTyreMedia(orderId, parent.kind === 'order' && permitted && role !== 'TECH')
-  const urls = { ...media.urls, ...mediaUrls }
-  const editable = permitted && !readOnly
-  const isOpen = search.get('action') === 'recordTyreMeasurement' && editable
-  const close = () => setSearch((previous) => { const next = new URLSearchParams(previous); next.delete('action'); return next }, { replace: true })
-  const form = editable && measurements.data && <TyreMeasurementForm key={session?.activeSiteId ?? 'no-site'} onStateChange={onFormStateChange} initial={measurements.data.data[0]} pendingMediaIds={pendingMediaIds} mediaUrls={urls} onPhoto={onPhoto ?? media.uploadPhoto}
-    onSave={async (body) => { await create.mutateAsync(body); if (parent.kind === 'order') close() }} />
+  const measurements = useTyreMeasurements(parent, true)
+  const create = useCreateTyreMeasurement(parent)
 
-  if (!permitted) return null
+  const editable = !readOnly
+  const { isModalOpen, closeModal } = useOrderModalAction(editable)
+  const isTech = role === 'TECH'
+  const media = useOrderTyreMedia(orderId, editable && !isTech)
+  const urls = { ...media.urls, ...mediaUrls }
+
+  const handleSave = async (body: Parameters<typeof create.mutateAsync>[0]) => {
+    await create.mutateAsync(body)
+    closeModal()
+  }
+
   return (
     <Card className="min-w-0">
       <CardHeader className="flex flex-wrap items-center justify-between gap-3 sm:flex-row">
         <CardTitle>{t('tyreReport.title')}</CardTitle>
-        {parent.kind === 'order' && editable && <RegistryActionButton action={createWorkshopOrderTyreMeasurementAction(t)}
-          record={{ id: orderId }} runContext={{ navigate, generatePdf, t }} role={role} className="min-h-11" />}
+        {editable && (
+          <RegistryActionButton
+            action={createWorkshopOrderTyreMeasurementAction(t)}
+            record={{ id: orderId }}
+            runContext={{ navigate, generatePdf, t }}
+            role={role}
+            className="min-h-11"
+          />
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <TyreMeasurementHistory measurements={measurements} mediaUrls={urls} />
-        {parent.kind === 'check-in' && form}
       </CardContent>
-      {parent.kind === 'order' && <Dialog open={isOpen} onOpenChange={(open) => { if (!open) close() }}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader><DialogTitle>{t('tyreReport.record')}</DialogTitle></DialogHeader>
-          {form}
-        </DialogContent>
-      </Dialog>}
+      <OrderMeasurementDialog open={isModalOpen} onClose={closeModal} title={t('tyreReport.record')}>
+        {editable && measurements.data && (
+          <TyreMeasurementForm
+            key={siteId ?? 'no-site'}
+            onStateChange={onFormStateChange}
+            initial={measurements.data.data[0]}
+            mediaUrls={urls}
+            onPhoto={media.uploadPhoto}
+            onSave={handleSave}
+          />
+        )}
+      </OrderMeasurementDialog>
     </Card>
+  )
+}
+
+function CheckInTyreSection({
+  parent,
+  readOnly,
+  siteId,
+  pendingMediaIds,
+  mediaUrls,
+  onFormStateChange,
+  onPhoto,
+}: {
+  parent: TyreMeasurementParent
+  readOnly: boolean
+  siteId?: string | null
+  pendingMediaIds?: string[]
+  mediaUrls: Record<string, string>
+  onFormStateChange?: (state: TyreMeasurementFormState) => void
+  onPhoto?: (file: File) => Promise<string>
+}) {
+  const { t } = useTranslation('workshop')
+  const measurements = useTyreMeasurements(parent, true)
+  const create = useCreateTyreMeasurement(parent)
+  const editable = !readOnly
+
+  return (
+    <Card className="min-w-0">
+      <CardHeader className="flex flex-wrap items-center justify-between gap-3 sm:flex-row">
+        <CardTitle>{t('tyreReport.title')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <TyreMeasurementHistory measurements={measurements} mediaUrls={mediaUrls} />
+        {editable && measurements.data && (
+          <TyreMeasurementForm
+            key={siteId ?? 'no-site'}
+            onStateChange={onFormStateChange}
+            initial={measurements.data.data[0]}
+            pendingMediaIds={pendingMediaIds}
+            mediaUrls={mediaUrls}
+            onPhoto={onPhoto}
+            onSave={async (body) => {
+              await create.mutateAsync(body)
+            }}
+          />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+export function TyreMeasurementSection({
+  parent,
+  orderId,
+  readOnly = false,
+  onFormStateChange,
+  onPhoto,
+  pendingMediaIds,
+  mediaUrls = {},
+}: Props) {
+  const session = useAuthSession().data
+  const role = session?.activeRole
+  if (!canRecordTyreMeasurement(role)) return null
+
+  if (parent.kind === 'order') {
+    return (
+      <OrderTyreSection
+        orderId={orderId}
+        parent={parent}
+        readOnly={readOnly}
+        role={role}
+        siteId={session?.activeSiteId}
+        mediaUrls={mediaUrls}
+        onFormStateChange={onFormStateChange}
+      />
+    )
+  }
+
+  return (
+    <CheckInTyreSection
+      parent={parent}
+      readOnly={readOnly}
+      siteId={session?.activeSiteId}
+      pendingMediaIds={pendingMediaIds}
+      mediaUrls={mediaUrls}
+      onFormStateChange={onFormStateChange}
+      onPhoto={onPhoto}
+    />
   )
 }
