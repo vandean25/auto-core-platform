@@ -1,9 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { InternalServerErrorException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { applyTenantIsolation } from './tenant-isolation.extension.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+import { PrismaTransactionContext } from './prisma-transaction-context.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 
 const TENANT_ID = 'tenant-test-123';
 
@@ -24,8 +29,36 @@ function call(
   operation: string,
   args: Record<string, unknown> | undefined,
   queryFn: jest.Mock,
+  baseClient: Record<string, unknown> = {},
 ) {
-  return applyTenantIsolation.call({}, {}, model, operation, args, queryFn);
+  return applyTenantIsolation.call(
+    {},
+    baseClient,
+    model,
+    operation,
+    args,
+    queryFn,
+  );
+}
+
+function createBaseClient(model: string) {
+  return {
+    [model.charAt(0).toLowerCase() + model.slice(1)]: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+    },
+  };
+}
+
+function createTransactionClient() {
+  return {} as unknown as Prisma.TransactionClient;
+}
+
+function recordNotFoundError() {
+  return Object.assign(new Error('Record to update not found.'), {
+    code: 'P2025',
+  });
 }
 
 describe('applyTenantIsolation', () => {
@@ -147,8 +180,34 @@ describe('applyTenantIsolation', () => {
     });
   });
 
-  describe('update() — must verify tenant ownership', () => {
-    it('executes tenant-scoped unique updates without resolving a delegate', async () => {
+  describe('update() — tenant ownership is part of the write', () => {
+    it('runs only the tenant-scoped write and never pre-checks ownership', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const baseClient = createBaseClient('WorkshopTask');
+
+      await runWithTenant(() =>
+        call(
+          'WorkshopTask',
+          'update',
+          {
+            where: { id: 'task-1' },
+            data: { status: 'DONE' },
+          },
+          query,
+          baseClient,
+        ),
+      );
+
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query).toHaveBeenCalledWith({
+        where: { id: 'task-1', tenant_id: TENANT_ID },
+        data: { status: 'DONE' },
+      });
+      expect(baseClient.workshopTask.findFirst).not.toHaveBeenCalled();
+      expect(baseClient.workshopTask.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('keeps tenant-scoped unique updates on the fast path without a delegate', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
       await runWithTenant(() =>
         applyTenantIsolation.call(
@@ -164,72 +223,135 @@ describe('applyTenantIsolation', () => {
         ),
       );
 
+      expect(query).toHaveBeenCalledTimes(1);
       expect(query).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID },
         data: { workshop_order_prefix: 'WO-2026-' },
       });
     });
 
-    it('tenant-scopes the ownership pre-check when lower-camel delegates are unavailable', async () => {
-      const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
-      const findFirst = jest.fn().mockResolvedValue({ id: 'settings-1' });
-      await runWithTenant(() =>
-        applyTenantIsolation.call(
-          {},
-          {
-            FinanceSettings: { findFirst },
-          },
-          'FinanceSettings',
-          'update',
-          {
-            where: { id: 'settings-1' },
-            data: { workshop_order_prefix: 'WO-2026-' },
-          },
-          query,
-        ),
-      );
+    it('maps P2025 to NotFoundException for an unscoped where', async () => {
+      const query = jest.fn().mockRejectedValue(recordNotFoundError());
 
-      expect(findFirst).toHaveBeenCalledWith({
-        where: {
-          AND: [{ id: 'settings-1' }, { tenant_id: TENANT_ID }],
-        },
-        select: { id: true },
-      });
-      expect(query).toHaveBeenCalledWith({
-        where: { id: 'settings-1' },
-        data: { workshop_order_prefix: 'WO-2026-' },
-      });
+      await expect(
+        runWithTenant(() =>
+          call(
+            'WorkshopTask',
+            'update',
+            { where: { id: 'task-1' }, data: { status: 'DONE' } },
+            query,
+          ),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('resolves a delegate when Prisma exposes the current model as the extension context', async () => {
+    it('issues no query on the base client while an interactive transaction is active', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'task-1' });
-      const findFirst = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const baseClient = createBaseClient('WorkshopTask');
+      const tx = createTransactionClient();
+
       await runWithTenant(() =>
-        applyTenantIsolation.call(
-          { findFirst },
-          {},
-          'WorkshopTask',
-          'update',
-          {
-            where: { id: 'task-1' },
-            data: { status: 'DONE' },
-          },
-          query,
+        PrismaTransactionContext.run(tx, () =>
+          call(
+            'WorkshopTask',
+            'update',
+            { where: { id: 'task-1' }, data: { status: 'DONE' } },
+            query,
+            baseClient,
+          ),
         ),
       );
 
-      expect(findFirst).toHaveBeenCalledWith({
-        where: {
-          AND: [{ id: 'task-1' }, { tenant_id: TENANT_ID }],
-        },
-        select: { id: true },
-      });
+      expect(query).toHaveBeenCalledTimes(1);
       expect(query).toHaveBeenCalledWith({
-        where: { id: 'task-1' },
+        where: { id: 'task-1', tenant_id: TENANT_ID },
         data: { status: 'DONE' },
       });
+      expect(baseClient.workshopTask.findFirst).not.toHaveBeenCalled();
     });
 
+    it('issues no query on the base client while a dry-run transaction is active', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const baseClient = createBaseClient('WorkshopTask');
+      const tx = createTransactionClient();
+
+      await runWithTenant(() =>
+        DryRunStorage.run({ isDryRun: true, tx }, () =>
+          call(
+            'WorkshopTask',
+            'update',
+            { where: { id: 'task-1' }, data: { status: 'DONE' } },
+            query,
+            baseClient,
+          ),
+        ),
+      );
+
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query).toHaveBeenCalledWith({
+        where: { id: 'task-1', tenant_id: TENANT_ID },
+        data: { status: 'DONE' },
+      });
+      expect(baseClient.workshopTask.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete() — tenant ownership is part of the write', () => {
+    it('runs only the tenant-scoped delete and never pre-checks ownership', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const baseClient = createBaseClient('WorkshopTask');
+
+      await runWithTenant(() =>
+        call(
+          'WorkshopTask',
+          'delete',
+          { where: { id: 'task-1' } },
+          query,
+          baseClient,
+        ),
+      );
+
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query).toHaveBeenCalledWith({
+        where: { id: 'task-1', tenant_id: TENANT_ID },
+      });
+      expect(baseClient.workshopTask.findFirst).not.toHaveBeenCalled();
+      expect(baseClient.workshopTask.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('maps P2025 to NotFoundException for an unscoped where', async () => {
+      const query = jest.fn().mockRejectedValue(recordNotFoundError());
+
+      await expect(
+        runWithTenant(() =>
+          call('WorkshopTask', 'delete', { where: { id: 'task-1' } }, query),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('issues no query on the base client while an interactive transaction is active', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const baseClient = createBaseClient('WorkshopTask');
+      const tx = createTransactionClient();
+
+      await runWithTenant(() =>
+        PrismaTransactionContext.run(tx, () =>
+          call(
+            'WorkshopTask',
+            'delete',
+            { where: { id: 'task-1' } },
+            query,
+            baseClient,
+          ),
+        ),
+      );
+
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query).toHaveBeenCalledWith({
+        where: { id: 'task-1', tenant_id: TENANT_ID },
+      });
+      expect(baseClient.workshopTask.findFirst).not.toHaveBeenCalled();
+    });
   });
 
   describe('create() — must stamp tenant_id', () => {
@@ -303,7 +425,7 @@ describe('applyTenantIsolation', () => {
       });
     });
 
-    it('throws when upsert where selector does not include tenant_id', async () => {
+    it('rejects upsert where the selector does not include tenant_id', async () => {
       const query = jest.fn();
       const args = {
         where: { id: 'loc-1' },
@@ -321,6 +443,35 @@ describe('applyTenantIsolation', () => {
         /must use a tenant-scoped unique selector containing tenant_id/,
       );
       expect(query).not.toHaveBeenCalled();
+    });
+
+    it('rejects upsert({ id }) before issuing any query inside a transaction', async () => {
+      const query = jest.fn();
+      const baseClient = createBaseClient('StorageLocation');
+      const tx = createTransactionClient();
+
+      await expect(
+        runWithTenant(() =>
+          PrismaTransactionContext.run(tx, () =>
+            call(
+              'StorageLocation',
+              'upsert',
+              {
+                where: { id: 'loc-1' },
+                create: { code: 'LOC-001', name: 'Main Warehouse' },
+                update: { name: 'Main Warehouse' },
+              },
+              query,
+              baseClient,
+            ),
+          ),
+        ),
+      ).rejects.toThrow(
+        /must use a tenant-scoped unique selector containing tenant_id/,
+      );
+      expect(query).not.toHaveBeenCalled();
+      expect(baseClient.storageLocation.findUnique).not.toHaveBeenCalled();
+      expect(baseClient.storageLocation.findFirst).not.toHaveBeenCalled();
     });
   });
 
@@ -347,6 +498,52 @@ describe('applyTenantIsolation', () => {
       ).rejects.toThrow(/Do not use findUniqueOrThrow\(\)/);
 
       expect(query).not.toHaveBeenCalled();
+    });
+
+    it('never issues a base-client query for findUnique inside a transaction', async () => {
+      const query = jest.fn();
+      const baseClient = createBaseClient('SalesOrder');
+      const tx = createTransactionClient();
+
+      await expect(
+        runWithTenant(() =>
+          PrismaTransactionContext.run(tx, () =>
+            call(
+              'SalesOrder',
+              'findUnique',
+              { where: { id: '1' } },
+              query,
+              baseClient,
+            ),
+          ),
+        ),
+      ).rejects.toThrow(/Do not use findUnique\(\)/);
+
+      expect(query).not.toHaveBeenCalled();
+      expect(baseClient.salesOrder.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('never issues a base-client query for findUniqueOrThrow inside a dry run', async () => {
+      const query = jest.fn();
+      const baseClient = createBaseClient('Invoice');
+      const tx = createTransactionClient();
+
+      await expect(
+        runWithTenant(() =>
+          DryRunStorage.run({ isDryRun: true, tx }, () =>
+            call(
+              'Invoice',
+              'findUniqueOrThrow',
+              { where: { id: '1' } },
+              query,
+              baseClient,
+            ),
+          ),
+        ),
+      ).rejects.toThrow(/Do not use findUniqueOrThrow\(\)/);
+
+      expect(query).not.toHaveBeenCalled();
+      expect(baseClient.invoice.findUniqueOrThrow).not.toHaveBeenCalled();
     });
   });
 
