@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
-import { useImportEntityTypes, useImportTemplate } from '@/api/imports'
+import { useImportEntityTypes, useImportSources, useImportTemplate } from '@/api/imports'
 import { usePriceJumpThreshold } from '@/api/margin-rules'
 import { useVendors } from '@/api/vendors'
 import { isImportEntityTypeUi, wizardImportEntityTypes } from '@/lib/i18n/enum-registry'
@@ -19,14 +19,29 @@ export function useDataImportSettingsTabCore() {
   const [searchParams] = useSearchParams()
   const initialEntityType = initialEntityFromParam(searchParams.get('entity'))
 
-  const [sourceSystem, setSourceSystem] = React.useState(
-    initialEntityType === 'SUPPLIER_PRICE_LIST' ? 'supplier' : 'incadea',
-  )
+  const sourcesQuery = useImportSources()
+  const sources = sourcesQuery.data?.data ?? []
+  const defaultSource = sources.find((s) => s.is_default) ?? sources[0]
+
+  const [sourceSystem, setSourceSystem] = React.useState(defaultSource?.key ?? '')
 
   const wizard = useImportWizardState({
     initialEntityType,
     initialVendorId: searchParams.get('vendorId') ?? undefined,
   })
+  const { resetDryRun, setStep } = wizard
+
+  // A deleted source must not stay selected: fall back to the default (or no
+  // selection) and return to step 1 so the next upload uses a current source.
+  React.useEffect(() => {
+    if (!sourcesQuery.data) return
+    if (sourceSystem && sources.some((s) => s.key === sourceSystem)) return
+    const fallbackKey = defaultSource?.key ?? ''
+    if (sourceSystem === fallbackKey) return
+    setSourceSystem(fallbackKey)
+    resetDryRun()
+    setStep(1)
+  }, [defaultSource, resetDryRun, setStep, sourceSystem, sources, sourcesQuery.data])
 
   const entityTypesQuery = useImportEntityTypes()
   const entityTypeEntries = entityTypesQuery.data
@@ -46,6 +61,9 @@ export function useDataImportSettingsTabCore() {
     t,
     sourceSystem,
     setSourceSystem,
+    sources,
+    sourcesFailed: sourcesQuery.isError,
+    retrySources: () => void sourcesQuery.refetch(),
     wizard,
     entityTypes,
     entityTypesFailed: entityTypesQuery.isError,

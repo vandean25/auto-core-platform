@@ -20,6 +20,11 @@ describe('customer.fixture', () => {
       importMappingProfile: {
         upsert: jest.fn().mockResolvedValue({}),
       },
+      importSource: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({}),
+      },
     };
 
     const result = await seedCustomersAndVehicles(mockPrisma, 'tenant-1');

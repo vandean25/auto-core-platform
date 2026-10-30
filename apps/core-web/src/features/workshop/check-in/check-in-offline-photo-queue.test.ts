@@ -91,6 +91,44 @@ describe('processCheckInPhotoQueue', () => {
     expect(revision).toBe(6)
   })
 
+  it('notifies upload consumers only after queued photo deletion completes', async () => {
+    listQueuedPhotosForScope.mockResolvedValueOnce([{
+      clientUploadId: 'photo-a',
+      scopeKey: 'scope',
+      orderId: 'order-1',
+      fileName: 'a.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 10,
+      blob: new Blob(['a']),
+      status: 'queued',
+      attempts: 0,
+      nextRetryAt: null,
+      createdAt: 1,
+      lastErrorCode: null,
+    }]).mockResolvedValueOnce([])
+    uploadWorkshopCheckInMedia.mockResolvedValueOnce({
+      media: { id: 'media-a' },
+      httpStatus: 201,
+    })
+    let finishDeletion!: () => void
+    let deletionStarted!: () => void
+    const started = new Promise<void>((resolve) => { deletionStarted = resolve })
+    deleteQueuedPhoto.mockImplementationOnce(() => {
+      deletionStarted()
+      return new Promise<void>((resolve) => { finishDeletion = resolve })
+    })
+    const onUploaded = vi.fn()
+
+    const processing = processCheckInPhotoQueue({ ...baseContext, onUploaded })
+    await started
+    const notifiedBeforeDeletion = onUploaded.mock.calls.length > 0
+    finishDeletion()
+    await processing
+
+    expect(notifiedBeforeDeletion).toBe(false)
+    expect(onUploaded).toHaveBeenCalledWith({ id: 'media-a' })
+  })
+
   it('refetches revision on idempotent HTTP 200 without incrementing locally', async () => {
     const photo = {
       clientUploadId: 'photo-a',

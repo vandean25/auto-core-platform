@@ -7,6 +7,7 @@ import { ImportController } from './import.controller.js';
 import { ImportService } from './import.service.js';
 import { ImportDirectUploadService } from './import-direct-upload.service.js';
 import { ImportMappingProfileService } from './import-mapping-profile.service.js';
+import { ImportSourceService } from './import-source.service.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 describe('ImportController', () => {
@@ -33,6 +34,14 @@ describe('ImportController', () => {
     finalize: jest.fn(),
   };
 
+  const mockImportSourceService = {
+    listSources: jest.fn(),
+    createSource: jest.fn(),
+    updateSource: jest.fn(),
+    deleteSource: jest.fn(),
+    assertSourceExists: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ImportController],
@@ -45,6 +54,10 @@ describe('ImportController', () => {
         {
           provide: ImportDirectUploadService,
           useValue: mockDirectUploadService,
+        },
+        {
+          provide: ImportSourceService,
+          useValue: mockImportSourceService,
         },
       ],
     }).compile();

@@ -1,7 +1,15 @@
+import * as React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from './client'
-import { downloadImportErrorRowsCsv } from './imports'
+import {
+  downloadImportErrorRowsCsv,
+  importKeys,
+  useDeleteImportSource,
+  type ImportSourceListResponse,
+} from './imports'
 
 vi.mock('./client', () => ({ fetchWithAuth: vi.fn() }))
 
@@ -64,5 +72,51 @@ describe('downloadImportErrorRowsCsv', () => {
     fetchMock.mockRejectedValueOnce(error)
 
     await expect(downloadImportErrorRowsCsv('job-1')).rejects.toBe(error)
+  })
+})
+
+describe('useDeleteImportSource', () => {
+  it('removes the deleted source from the cache immediately upon successful deletion', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const queryClient = new QueryClient()
+    const initialSources: ImportSourceListResponse = {
+      data: [
+        {
+          id: 'src-1',
+          key: 'legacy_dms',
+          label: 'Legacy DMS',
+          is_default: true,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          id: 'src-2',
+          key: 'incadea',
+          label: 'Incadea',
+          is_default: false,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    }
+    queryClient.setQueryData(importKeys.sources(), initialSources)
+
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children)
+
+    const { result } = renderHook(() => useDeleteImportSource(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync('src-1')
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/imports/sources/src-1', {
+      method: 'DELETE',
+    })
+
+    const cached = queryClient.getQueryData<ImportSourceListResponse>(importKeys.sources())
+    expect(cached?.data).toEqual([initialSources.data[1]])
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: importKeys.sources() })
   })
 })

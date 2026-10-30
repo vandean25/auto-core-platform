@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
 
+import type { ImportSource } from '@/api/imports'
 import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
 import { toImportEntityTypeUi } from '@/lib/i18n/enum-registry'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -24,6 +24,9 @@ export type DataImportSourceStepProps = {
   onRetryEntityTypes: () => void
   sourceSystem: string
   onSourceSystemChange: (sourceSystem: string) => void
+  sources: ImportSource[]
+  sourcesFailed: boolean
+  onRetrySources: () => void
   selectedVendorId: string
   onVendorChange: (vendorId: string) => void
   vendors: { id: string; name: string }[]
@@ -35,6 +38,7 @@ export type DataImportSourceStepProps = {
 /** Wizard step 1: entity, source system and vendor of the import. */
 export function DataImportSourceStep(props: DataImportSourceStepProps) {
   const { t } = useTranslation(['settings', 'common'])
+  const hasSelectedSource = props.sources.some((source) => source.key === props.sourceSystem)
 
   return (
     <section className="space-y-4" aria-labelledby="import-step-source">
@@ -80,11 +84,39 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="import-source">{t('dataImport.source.sourceSystemLabel')}</Label>
-          <Input
-            id="import-source"
+          <Select
             value={props.sourceSystem}
-            onChange={(event) => props.onSourceSystemChange(event.target.value)}
-          />
+            onValueChange={(value) => props.onSourceSystemChange(value)}
+            disabled={props.sources.length === 0}
+          >
+            <SelectTrigger
+              id="import-source"
+              aria-describedby={props.sourcesFailed ? 'import-source-error' : undefined}
+            >
+              <SelectValue placeholder={t('dataImport.source.sourceSystemPlaceholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {props.sources.map((source) => (
+                <SelectItem key={source.id} value={source.key}>
+                  {source.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {props.sourcesFailed ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p id="import-source-error" className="text-sm text-destructive">
+                {t('dataImport.sources.loadFailed')}
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={props.onRetrySources}>
+                {t('common:actions.retry')}
+              </Button>
+            </div>
+          ) : props.sources.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {t('dataImport.source.noSources')}
+            </p>
+          ) : null}
         </div>
         {props.entityType === 'SUPPLIER_PRICE_LIST' ? (
           <div className="space-y-2 md:col-span-2">
@@ -115,7 +147,10 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
         </Button>
         <Button
           type="button"
-          disabled={props.entityType === 'SUPPLIER_PRICE_LIST' && !props.selectedVendorId}
+          disabled={
+            (props.entityType === 'SUPPLIER_PRICE_LIST' && !props.selectedVendorId) ||
+            !hasSelectedSource
+          }
           onClick={props.onContinue}
         >
           {t('dataImport.source.continue')}

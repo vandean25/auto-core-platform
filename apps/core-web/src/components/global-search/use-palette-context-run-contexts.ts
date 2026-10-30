@@ -19,6 +19,7 @@ export function usePaletteContextRunContexts() {
   const vehicle = useMemo(() => ({ navigate, t: tVehicles }), [navigate, tVehicles])
 
   const estimate = useMemo(() => ({ navigate }), [navigate])
+  const tyreSet = useMemo(() => ({ navigate }), [navigate])
 
-  return { workshop, customer, vehicle, estimate }
+  return { workshop, customer, vehicle, estimate, tyreSet }
 }

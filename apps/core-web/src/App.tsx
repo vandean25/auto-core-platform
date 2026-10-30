@@ -1,5 +1,6 @@
 import {
   BrowserRouter as Router,
+  matchPath,
   Navigate,
   Route,
   Routes,
@@ -31,6 +32,7 @@ import { IosInstallHint } from '@/components/pwa/IosInstallHint'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { useSidebarOpen } from '@/components/navigation/sidebar-state'
 import { GlobalSearch } from '@/components/GlobalSearch'
+import { useGlobalSearchShortcut } from '@/hooks/useGlobalSearchShortcut'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
@@ -118,20 +120,8 @@ function AppShell({
   })
 
   const effectiveUserKey = userId ?? userEmail ?? `anon-${deviceId}`
-  const [searchOpen, setSearchOpen] = React.useState(false)
+  const [searchOpen, setSearchOpen] = useGlobalSearchShortcut()
   const [sidebarOpen, setSidebarOpen] = useSidebarOpen()
-
-  React.useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault()
-        setSearchOpen((open) => !open)
-      }
-    }
-
-    document.addEventListener('keydown', down)
-    return () => document.removeEventListener('keydown', down)
-  }, [])
 
   return (
     <SavedViewsProvider userKey={effectiveUserKey}>
@@ -220,7 +210,13 @@ export function ShellRouter(props: ShellRouterProps) {
     return <Navigate to={redirectTo} replace />
   }
 
-  if (props.activeRole === TECH_ROLE && !isMechanicPath(location.pathname)) {
+  const mechanicDetailPath = props.activeRole === TECH_ROLE && (
+    matchPath({ path: APP_ROUTE_PATHS.workshopOrderDetail, end: true }, location.pathname) !== null ||
+    matchPath({ path: APP_ROUTE_PATHS.tyreStorageDetail, end: true }, location.pathname) !== null
+  )
+  const mechanicRoute = isMechanicPath(location.pathname) || mechanicDetailPath
+
+  if (props.activeRole === TECH_ROLE && !mechanicRoute) {
     return (
       <MechanicShell
         activeTenant={props.activeTenant}
@@ -234,7 +230,7 @@ export function ShellRouter(props: ShellRouterProps) {
     )
   }
 
-  if (isMechanicPath(location.pathname)) {
+  if (mechanicRoute) {
     return (
       <MechanicShell
         activeTenant={props.activeTenant}

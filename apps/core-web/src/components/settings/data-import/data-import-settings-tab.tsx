@@ -14,6 +14,7 @@ import { DataImportResultStep } from './data-import-result-step'
 import { DataImportSourceStep } from './data-import-source-step'
 import { DataImportUploadStep } from './data-import-upload-step'
 import { DataImportWizardNav } from './data-import-wizard-nav'
+import { ImportSourcesPanel } from './import-sources-panel'
 import { usesDirectImportUpload } from './import-upload-limit'
 import { useDataImportSettingsTab } from './use-data-import-settings-tab'
 
@@ -57,12 +58,14 @@ export function DataImportSettingsTab() {
           <TabsTrigger value="history">{t('dataImport.view.history')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="history" className="mt-4">
+<TabsContent value="history" className="mt-4">
           <DataImportHistoryView onOpenJob={openJob} />
         </TabsContent>
 
         <TabsContent value="wizard" className="mt-4 space-y-6">
           <DataImportWizardNav step={model.wizard.step} />
+
+          <ImportSourcesPanel />
 
           <Alert>
             <AlertTriangle className="h-4 w-4" />
@@ -81,6 +84,9 @@ export function DataImportSettingsTab() {
               onRetryEntityTypes={model.retryEntityTypes}
               sourceSystem={model.sourceSystem}
               onSourceSystemChange={model.handleSourceSystemChange}
+              sources={model.sources}
+              sourcesFailed={model.sourcesFailed}
+              onRetrySources={model.retrySources}
               selectedVendorId={model.wizard.selectedVendorId}
               onVendorChange={model.handleVendorChange}
               vendors={model.vendors}

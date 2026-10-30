@@ -13,6 +13,7 @@ import {
   installImportApiMocks,
   openApplyDialog,
   renderImportSettingsTab,
+  sourceFixtures,
   uploadCsvFile,
 } from './data-import-settings-tab.spec.support'
 
@@ -30,6 +31,10 @@ vi.mock('@/api/imports', async (importOriginal) => {
     ...actual,
     useImportTemplate: vi.fn(),
     useImportEntityTypes: vi.fn(),
+    useImportSources: vi.fn(),
+    useCreateImportSource: vi.fn(),
+    useUpdateImportSource: vi.fn(),
+    useDeleteImportSource: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -140,7 +145,18 @@ describe('DataImportSettingsTab resume from ?job', () => {
       id: 'job-resume-1',
       source_system: 'synthetic_erp',
     }
-    const { dryRun } = installImportApiMocks({ dryRunJob: job })
+    const syntheticSource = {
+      id: 'source-synthetic',
+      key: 'synthetic_erp',
+      label: 'Synthetic ERP',
+      is_default: false,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    }
+    const { dryRun } = installImportApiMocks({
+      dryRunJob: job,
+      sources: [...sourceFixtures, syntheticSource],
+    })
     mockResumedJob(job)
 
     renderImportSettingsTab({ initialEntries: [RESUME_URL] })

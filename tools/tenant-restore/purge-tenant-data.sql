@@ -34,6 +34,7 @@ VALUES
   ('employees'),
   ('finance_settings'),
   ('import_mapping_profiles'),
+  ('import_sources'),
   ('inspection_catalogue_versions'),
   ('inspection_templates'),
   ('invoice_sequences'),
@@ -309,6 +310,7 @@ VALUES
   ('import_jobs', 'migration_runs', 'tenant_id,migration_run_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('import_jobs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('import_mapping_profiles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('import_sources', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_catalogue_entries', 'inspection_catalogue_versions', 'tenant_id,catalogue_version_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inspection_catalogue_entries', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_catalogue_imports', 'inspection_catalogue_versions', 'tenant_id,staged_version_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -1137,6 +1139,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_templates"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_catalogue_versions"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."import_sources"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."import_mapping_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

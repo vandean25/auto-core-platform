@@ -40,7 +40,7 @@ describe('captureTyreWheel', () => {
   it('maps malformed DOT to a client error rather than an internal error', () => {
     expect(() => captureTyreWheel({ ...wheel, dot: '0020' }, context)).toThrow(
       expect.objectContaining({
-        response: { code: 'TYRE_DOT_INVALID_WEEK' },
+        response: { code: 'TYRE_DOT_INVALID_WEEK', position: 'FL' },
         status: 400,
       }),
     );

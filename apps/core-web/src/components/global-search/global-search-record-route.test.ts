@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest'
 import { parseGlobalSearchRecordRef } from './global-search-record-route'
 
 describe('parseGlobalSearchRecordRef', () => {
+  it('reads tyre set detail routes but not the list or nested paths', () => {
+    expect(parseGlobalSearchRecordRef('/workshop/tyre-storage/set-1')).toEqual({
+      entity: 'tyre_set',
+      id: 'set-1',
+    })
+    expect(parseGlobalSearchRecordRef('/workshop/tyre-storage')).toBeNull()
+    expect(parseGlobalSearchRecordRef('/workshop/tyre-storage/set-1/events')).toBeNull()
+  })
+
   it('reads workshop order, customer and vehicle detail routes', () => {
     expect(parseGlobalSearchRecordRef('/workshop/orders/order-1')).toEqual({
       entity: 'workshop_order',

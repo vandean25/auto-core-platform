@@ -9,6 +9,7 @@ import {
   canOpenEstimate,
   canOpenVehicle,
   canOpenWorkshopOrder,
+  canRecordTyreMeasurement,
   canUpdateWorkshopOrderTaskState,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
@@ -43,6 +44,14 @@ describe('action-role-predicates', () => {
     for (const role of ['TECH', 'MECHANIC', '', undefined]) {
       expect(canOpenEstimate(role)).toBe(false)
     }
+  })
+
+  it.each([
+    ['OWNER', true], ['ADMIN', true], ['SALES', true], ['TECH', true],
+    ['ACCOUNTANT', false], ['SERVICE_ADVISOR', false], ['MECHANIC', false],
+    ['SUPER_ADMIN', false], ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('allows tyre measurement only for authorized roles (%s)', (role, expected) => {
+    expect(canRecordTyreMeasurement(role)).toBe(expected)
   })
 
   it('evaluates workshop order status predicates consistently', () => {

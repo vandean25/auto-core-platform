@@ -15114,6 +15114,121 @@
         ]
       }
     },
+    "/api/imports/sources": {
+      "get": {
+        "operationId": "ImportController_listSources",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSourceListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List configured import sources for the tenant",
+        "tags": [
+          "imports"
+        ]
+      },
+      "post": {
+        "operationId": "ImportController_createSource",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImportSourceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSourceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new import source",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/sources/{id}": {
+      "patch": {
+        "operationId": "ImportController_updateSource",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateImportSourceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSourceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update an import source label or default flag",
+        "tags": [
+          "imports"
+        ]
+      },
+      "delete": {
+        "operationId": "ImportController_deleteSource",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Import source deleted"
+          }
+        },
+        "summary": "Delete an import source",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/imports/templates/{entityType}": {
       "get": {
         "operationId": "ImportController_getTemplate",
@@ -37907,6 +38022,88 @@
           "mapping"
         ]
       },
+      "ImportSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string",
+            "example": "legacy-dms"
+          },
+          "label": {
+            "type": "string",
+            "example": "Legacy DMS"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "label",
+          "is_default",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "ImportSourceListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportSourceResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateImportSourceDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "legacy-dms",
+            "description": "Normalized lower-case slug key (alphanumeric, hyphens, underscores; max 64 chars per segment; one colon allowed for canonical source_name:source_company_code keys)"
+          },
+          "label": {
+            "type": "string",
+            "example": "Legacy DMS"
+          },
+          "is_default": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ]
+      },
+      "UpdateImportSourceDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Legacy DMS"
+          },
+          "is_default": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "ImportTemplateFieldDto": {
         "type": "object",
         "properties": {
@@ -38476,6 +38673,21 @@
           "ordinaryMinimumMm"
         ]
       },
+      "TyreAgeRecommendationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "conditionCheckFromMonths": {
+            "type": "number"
+          },
+          "replacementFromMonths": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "conditionCheckFromMonths",
+          "replacementFromMonths"
+        ]
+      },
       "TyreDotResponseDto": {
         "type": "object",
         "properties": {
@@ -38588,6 +38800,9 @@
                 "$ref": "#/components/schemas/TyreThresholdsResponseDto"
               }
             ]
+          },
+          "ageRecommendations": {
+            "$ref": "#/components/schemas/TyreAgeRecommendationsResponseDto"
           },
           "dot": {
             "nullable": true,

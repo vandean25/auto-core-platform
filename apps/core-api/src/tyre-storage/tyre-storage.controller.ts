@@ -85,6 +85,7 @@ export class TyreStorageController {
   }
 
   @Get(':id')
+  @MechanicAccessible()
   @ApiOkResponse({ type: TyreSetResponseDto })
   findOne(@Param('id') id: string) {
     return this.tyreStorageService.findOne(id);

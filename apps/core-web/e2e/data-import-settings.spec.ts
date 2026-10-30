@@ -92,6 +92,25 @@ async function installImportMocks(
     })
   })
 
+  await page.route(AutoCorePage.apiRouteMatcher('/api/imports/sources'), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'source-incadea',
+            key: 'incadea',
+            label: 'incadea',
+            is_default: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    })
+  })
+
   await page.route(AutoCorePage.apiRouteMatcher('/api/imports/templates/CUSTOMER'), async (route) => {
     await route.fulfill({
       status: 200,

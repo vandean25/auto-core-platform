@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 import type { NavigateFunction } from 'react-router-dom'
-import { CheckSquare, ExternalLink, FileDown, LogIn, User } from 'lucide-react'
+import { CheckSquare, ExternalLink, FileDown, LogIn, Ruler, User } from 'lucide-react'
 
 import {
   downloadWorkshopPdf,
@@ -16,6 +16,7 @@ import {
   canCheckInWorkshopOrder,
   canGenerateWorkshopJobCardPdf,
   canOpenWorkshopOrder,
+  canRecordTyreMeasurement,
   canUpdateWorkshopOrderTaskState,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
@@ -236,6 +237,22 @@ export function createWorkshopOrderJobCardPdfAction(
   }
 }
 
+export function createWorkshopOrderTyreMeasurementAction(
+  t: TFunction<'workshop'>,
+): EntityActionDefinition<Pick<WorkshopOrderListRow, 'id'>, WorkshopOrderRowActionContext> {
+  return {
+    id: ENTITY_ACTION_IDS.workOrderRecordTyreMeasurement,
+    kind: 'navigate',
+    label: t('tyreReport.record'),
+    icon: Ruler,
+    isAllowedForRole: canRecordTyreMeasurement,
+    isEnabled: () => true,
+    run: (row, { navigate }) => {
+      navigate(`${workshopOrderDetailPath(row.id)}?action=recordTyreMeasurement`)
+    },
+  }
+}
+
 export function createWorkshopOrderRowActions(
   t: TFunction<'workshop'>,
 ): EntityActionDefinition<WorkshopOrderListRow, WorkshopOrderRowActionContext>[] {
@@ -264,6 +281,7 @@ export function createWorkshopOrderRowActions(
       },
     },
     createWorkshopOrderJobCardPdfAction(t),
+    createWorkshopOrderTyreMeasurementAction(t),
     {
       id: ENTITY_ACTION_IDS.workOrderAssignMechanic,
       kind: 'run',

@@ -56,6 +56,7 @@ describe('work order row actions', () => {
       ENTITY_ACTION_IDS.workOrderOpen,
       ENTITY_ACTION_IDS.workOrderCheckIn,
       ENTITY_ACTION_IDS.workOrderJobCardPdf,
+      'workOrder.recordTyreMeasurement',
       ENTITY_ACTION_IDS.workOrderAssignMechanic,
       ENTITY_ACTION_IDS.workOrderTaskState,
     ])
@@ -67,6 +68,7 @@ describe('work order row actions', () => {
     expect(actions.map((action) => action.id)).toEqual([
       ENTITY_ACTION_IDS.workOrderOpen,
       ENTITY_ACTION_IDS.workOrderJobCardPdf,
+      'workOrder.recordTyreMeasurement',
     ])
     expect(isWorkshopCheckInOpenStatus(invoiced.status)).toBe(false)
     expect(isWorkshopTechAssignableStatus(invoiced.status)).toBe(false)
@@ -78,9 +80,32 @@ describe('work order row actions', () => {
     expect(actions.map((action) => action.id)).toEqual([
       ENTITY_ACTION_IDS.workOrderOpen,
       ENTITY_ACTION_IDS.workOrderJobCardPdf,
+      'workOrder.recordTyreMeasurement',
       ENTITY_ACTION_IDS.workOrderTaskState,
     ])
   })
+
+  it.each(['SCHEDULED', 'INTAKE', 'IN_PROGRESS', 'COMPLETED', 'INVOICED'] as const)(
+    'offers tyre measurement on %s orders and navigates to its dialog',
+    (status) => {
+      const record = { ...row, status }
+      const action = filterEntityActions(definitions, 'TECH', record).find(
+        (definition) => definition.id === 'workOrder.recordTyreMeasurement',
+      )
+      expect(action).toBeDefined()
+      const navigate = vi.fn()
+      action?.run(record, { navigate, generatePdf: { mutateAsync: vi.fn() } as never, t })
+      expect(navigate).toHaveBeenCalledWith('/workshop/orders/order-1?action=recordTyreMeasurement')
+    },
+  )
+
+  it.each(['ACCOUNTANT', 'SERVICE_ADVISOR', 'MECHANIC', 'SUPER_ADMIN', 'owner', '', undefined])(
+    'does not offer tyre measurement to %s',
+    (role) => {
+      expect(filterEntityActions(definitions, role, row).map((action) => action.id))
+        .not.toContain('workOrder.recordTyreMeasurement')
+    },
+  )
 
   it('navigates to the order detail when open runs', () => {
     const navigate = vi.fn()
