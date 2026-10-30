@@ -29,7 +29,7 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
       // AUT-65: Ban raw Prisma queries in application code.
       // Raw queries bypass the tenant isolation extension entirely (ADR-0013).
       // Use typed Prisma operations instead. See: docs/internal/05-Runbooks/prisma-raw-query-prohibition.md
@@ -66,6 +66,12 @@ export default tseslint.config(
             "MemberExpression[object.property.name='systemPrisma'][property.name=/^(customer|vehicle|employee|workshopOrder|invoice|salesOrder|catalogItem|inventoryStock)$/]",
           message:
             '[AUT-135] SystemPrismaService cannot access tenant models. Use PrismaService so tenant isolation applies. See docs/internal/05-Runbooks/system-prisma-allowlist.md',
+        },
+        {
+          selector:
+            "MemberExpression[object.property.name='client'][property.name='$transaction']",
+          message:
+            '[AUT-817] Direct calls to .client.$transaction are banned in application code. Use prisma.$transaction so the transaction runner propagates PrismaTransactionContext.',
         },
       ],
     },

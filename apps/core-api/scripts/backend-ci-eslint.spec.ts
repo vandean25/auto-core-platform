@@ -86,6 +86,12 @@ describe('backend PR CI ESLint (AUT-131)', () => {
     expect(eslintConfig).toContain("property.name='$executeRawUnsafe'");
   });
 
+  it('bans direct calls to .client.$transaction via no-restricted-syntax (AUT-817)', () => {
+    expect(eslintConfig).toContain(
+      "MemberExpression[object.property.name='client'][property.name='$transaction']",
+    );
+  });
+
   it('does not disable no-restricted-syntax for src application code', () => {
     const exemptionMatch = eslintConfig.match(
       /files:\s*\[([\s\S]*?)\]\s*,\s*rules:\s*\{[\s\S]*?no-restricted-syntax['"]:\s*'off'/,
