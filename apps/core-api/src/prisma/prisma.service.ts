@@ -51,8 +51,11 @@ function createTransactionRunner(client: PrismaClient): PrismaTransactionCall {
     }
     const callback = first as PrismaTransactionCallback;
     return runTransaction(
-      (txClient: Prisma.TransactionClient) =>
-        PrismaTransactionContext.run(txClient, () => callback(txClient)),
+      async (txClient: Prisma.TransactionClient) =>
+        await PrismaTransactionContext.run(
+          txClient,
+          async () => await callback(txClient),
+        ),
       ...rest,
     );
   };

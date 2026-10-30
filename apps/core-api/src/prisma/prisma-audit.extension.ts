@@ -196,10 +196,10 @@ function getRequiredTenantContext(): AuditActorContext {
 
 function resolveAuditLogDelegate(
   transactionContext: Record<string, unknown> | undefined,
-  ctx?: Record<string, unknown>,
   thisContext?: Record<string, unknown>,
+  ctx?: Record<string, unknown>,
 ): AuditLogDelegate | undefined {
-  for (const context of [transactionContext, ctx, thisContext]) {
+  for (const context of [transactionContext, thisContext, ctx]) {
     if (!context) {
       continue;
     }
@@ -293,12 +293,12 @@ function resolveDelegates(
     (transactionCtx
       ? resolvePrismaModelDelegate(transactionCtx, model)
       : undefined) ??
-    resolvePrismaModelDelegate(queryCtx, model) ??
-    resolvePrismaModelDelegate(extensionContext, model);
+    resolvePrismaModelDelegate(extensionContext, model) ??
+    resolvePrismaModelDelegate(queryCtx, model);
   const auditLogDelegate = resolveAuditLogDelegate(
     transactionCtx,
-    queryCtx,
     extensionContext,
+    queryCtx,
   );
 
   return { modelDelegate, auditLogDelegate };
