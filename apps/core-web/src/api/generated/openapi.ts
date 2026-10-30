@@ -4629,7 +4629,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List import jobs for the tenant, newest first */
+        get: operations["ImportController_listJobs"];
         put?: never;
         /** Upload CSV and run a synchronous import dry-run */
         post: operations["ImportController_createDryRun"];
@@ -5037,6 +5038,87 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["TyreStorageController_dispose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/{id}/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record a tyre condition inspection (technicians allowed) */
+        post: operations["TyreStorageController_inspect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop-orders/{id}/tyre-measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreMeasurementController_listForOrder"];
+        put?: never;
+        post: operations["TyreMeasurementController_createForOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop-check-ins/{id}/tyre-measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreMeasurementController_listForCheckIn"];
+        put?: never;
+        post: operations["TyreMeasurementController_createForCheckIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-set-events/{id}/tyre-measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreMeasurementController_listForEvent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-measurements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreMeasurementController_findOne"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5472,6 +5554,12 @@ export interface components {
         PlatformAdminRole: "SUPER_ADMIN";
         /** @enum {string} */
         DisplayLanguage: "de" | "en";
+        EffectiveCapabilitiesDto: {
+            nova: boolean;
+            pickerl57a: boolean;
+            kaufvertragAt: boolean;
+            willhabenExport: boolean;
+        };
         AuthSessionResponseDto: {
             userId: string;
             email: string;
@@ -5486,6 +5574,7 @@ export interface components {
             defaultLocale: components["schemas"]["DisplayLanguage"];
             /** @example de-AT */
             formatLocale: string;
+            effectiveCapabilities: components["schemas"]["EffectiveCapabilitiesDto"] | null;
         };
         SwitchTenantDto: {
             /** Format: uuid */
@@ -11385,6 +11474,34 @@ export interface components {
              */
             data: components["schemas"]["ImportEntityTypeResponseDto"][];
         };
+        ImportJobListTotalsDto: {
+            create: number;
+            update: number;
+            skip: number;
+            error: number;
+        };
+        ImportJobListItemDto: {
+            id: string;
+            status: components["schemas"]["ImportJobStatus"];
+            entity_type: components["schemas"]["ImportEntityType"];
+            source_system: string;
+            file_name: string;
+            totals: components["schemas"]["ImportJobListTotalsDto"];
+            created_by: string | null;
+            created_at: string;
+            applied_at: string | null;
+            cancellable: boolean;
+            apply_failure_code?: string;
+        };
+        ImportJobListMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+        };
+        ImportJobListResponseDto: {
+            data: components["schemas"]["ImportJobListItemDto"][];
+            meta: components["schemas"]["ImportJobListMetaDto"];
+        };
         /** @enum {string} */
         ImportRowAction: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
         ImportJobRowDto: {
@@ -11417,6 +11534,11 @@ export interface components {
             accepted_row_numbers?: number[];
         };
         TyreStorageSettingsResponseDto: {
+            recommendationOverrides: {
+                [key: string]: {
+                    recommendedBelowMm: number;
+                };
+            };
             summerSwapMonth: number;
             summerSwapDay: number;
             winterSwapMonth: number;
@@ -11424,6 +11546,13 @@ export interface components {
             dueForSwapDays: number;
         };
         UpdateTyreStorageSettingsDto: {
+            /** @description Profile-keyed amber overrides; may only raise defaults. Omission preserves saved values; {} resets them. Legal minima cannot change. */
+            recommendationOverrides?: {
+                [key: string]: {
+                    recommendedBelowMm: number;
+                    legalMinimumMm?: number;
+                };
+            };
             summerSwapMonth: number;
             summerSwapDay: number;
             winterSwapMonth: number;
@@ -11448,6 +11577,96 @@ export interface components {
             odometer?: number | null;
             note?: string | null;
         };
+        TyreThresholdsResponseDto: {
+            legalMinimumMm: number;
+            recommendedBelowMm: number;
+            ordinaryMinimumMm: number;
+        };
+        TyreDotResponseDto: {
+            /** @enum {string} */
+            format: "MODERN" | "LEGACY_PRE_2000";
+            productionWeek: number;
+            productionYear: number | null;
+            /** Format: date */
+            productionDate: string | null;
+            ageMonths: number | null;
+            minimumAgeMonths: number;
+        };
+        TyreEvaluationResponseDto: {
+            /** @enum {number} */
+            version: 1;
+            /** @enum {string} */
+            rulesVersion: "AT_DE_2026_10";
+            country: string;
+            /** Format: date-time */
+            evaluatedAt: string;
+            /** @enum {string} */
+            weightClass: "UP_TO_3500_KG" | "OVER_3500_KG";
+            /** @enum {string} */
+            state: "EVALUATED" | "UNSUPPORTED_COUNTRY";
+            /** @enum {string|null} */
+            status: "GOOD" | "RECOMMENDED" | "URGENT" | null;
+            reasonCodes: ("TREAD_BELOW_LEGAL_MINIMUM" | "AT_WINTER_TREAD_INSUFFICIENT" | "TREAD_REPLACEMENT_RECOMMENDED" | "DE_ALPINE_MISSING" | "AT_WINTER_RULE_NOTICE" | "DOT_CONDITION_CHECK_RECOMMENDED" | "DOT_REPLACEMENT_RECOMMENDED" | "DOT_LEGACY_OVER_20_YEARS" | "UNSUPPORTED_COUNTRY")[];
+            minimumTreadMm: number;
+            thresholds: components["schemas"]["TyreThresholdsResponseDto"] | null;
+            dot: components["schemas"]["TyreDotResponseDto"] | null;
+        };
+        TyreWheelResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            position: "FL" | "FR" | "RL" | "RR" | "SPARE";
+            treadInnerMm: number | null;
+            treadMiddleMm: number;
+            treadOuterMm: number | null;
+            /** @enum {string} */
+            season: "SUMMER" | "WINTER" | "ALL_SEASON";
+            /** @enum {string} */
+            construction: "RADIAL" | "DIAGONAL";
+            /** @enum {string} */
+            winterMarking: "NONE" | "M_S" | "ALPINE";
+            brand: string | null;
+            model: string | null;
+            size: string | null;
+            dot: string | null;
+            /** Format: uuid */
+            mediaId: string | null;
+            evaluation: components["schemas"]["TyreEvaluationResponseDto"];
+        };
+        TyreMeasurementResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            siteId: string;
+            /** Format: uuid */
+            vehicleId: string;
+            /** Format: uuid */
+            workshopOrderId: string | null;
+            /** Format: uuid */
+            checkInId: string | null;
+            /** Format: uuid */
+            tyreSetId: string | null;
+            /** Format: uuid */
+            tyreSetEventId: string | null;
+            /** Format: date-time */
+            measuredAt: string;
+            /** Format: uuid */
+            measuredBy: string | null;
+            measuredByName: string;
+            country: string;
+            /** @enum {string} */
+            weightClass: "UP_TO_3500_KG" | "OVER_3500_KG";
+            /** @enum {string} */
+            weightClassSource: "DEFAULT" | "CAPTURE";
+            /** @enum {string} */
+            source: "CAPTURE" | "LEGACY_TREAD_JSON";
+            sourceRef: string | null;
+            /** @enum {string|null} */
+            worstStatus: "GOOD" | "RECOMMENDED" | "URGENT" | null;
+            wheels: components["schemas"]["TyreWheelResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
         TyreSetResponseDto: {
             id: string;
             customerId: string;
@@ -11470,6 +11689,8 @@ export interface components {
             plannedSwapOn?: string | null;
             binLabel?: string | null;
             events?: components["schemas"]["TyreSetEventResponseDto"][];
+            /** @description Most recent tyre measurement linked to this set. */
+            latestMeasurement?: components["schemas"]["TyreMeasurementResponseDto"] | null;
             customerName?: string;
             vehiclePlate?: string | null;
             customerPhone?: string | null;
@@ -11520,15 +11741,70 @@ export interface components {
             /** Format: date */
             plannedSwapOn?: string;
         };
+        CreateTyreWheelDto: {
+            /** @enum {string} */
+            position: "FL" | "FR" | "RL" | "RR" | "SPARE";
+            treadInnerMm: number;
+            treadMiddleMm: number;
+            treadOuterMm: number;
+            /** @enum {string} */
+            season: "SUMMER" | "WINTER" | "ALL_SEASON";
+            /**
+             * @default RADIAL
+             * @enum {string}
+             */
+            construction: "RADIAL" | "DIAGONAL";
+            /**
+             * @default NONE
+             * @enum {string}
+             */
+            winterMarking: "NONE" | "M_S" | "ALPINE";
+            brand?: string | null;
+            model?: string | null;
+            size?: string | null;
+            dot?: string | null;
+            /** Format: uuid */
+            mediaId?: string | null;
+        };
         TyreSetLocationActionDto: {
             locationId?: string;
             odometer?: number;
             treadDepthMm?: components["schemas"]["TreadDepthDto"];
+            /** @description Measurements recorded with this event; supported on check-in, check-out and inspection. */
+            wheels?: components["schemas"]["CreateTyreWheelDto"][];
+            /**
+             * @description Weight class for the recorded readings; defaults to UP_TO_3500_KG.
+             * @enum {string}
+             */
+            weightClass?: "UP_TO_3500_KG" | "OVER_3500_KG";
             note?: string;
             workshopOrderId?: string;
             employeeId?: string;
             /** Format: date-time */
             occurredAt?: string;
+        };
+        CreateTyreMeasurementDto: {
+            wheels: components["schemas"]["CreateTyreWheelDto"][];
+            /**
+             * Format: date-time
+             * @description Capture time, defaults to now; cannot be in the future.
+             */
+            measuredAt?: string;
+            /**
+             * @default UP_TO_3500_KG
+             * @enum {string}
+             */
+            weightClass: "UP_TO_3500_KG" | "OVER_3500_KG";
+            /**
+             * Format: uuid
+             * @description Optional set belonging to this vehicle and active site.
+             */
+            tyreSetId?: string;
+        };
+        Object: Record<string, never>;
+        TyreMeasurementListResponseDto: {
+            data: components["schemas"]["TyreMeasurementResponseDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
         };
         MarginRuleBrandDto: {
             /** @example 1 */
@@ -21358,6 +21634,31 @@ export interface operations {
             };
         };
     };
+    ImportController_listJobs: {
+        parameters: {
+            query?: {
+                entityType?: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE";
+                limit?: string;
+                page?: string;
+                source?: string;
+                status?: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobListResponseDto"];
+                };
+            };
+        };
+    };
     ImportController_createDryRun: {
         parameters: {
             query?: never;
@@ -22093,6 +22394,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_inspect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TyreSetLocationActionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreMeasurementController_listForOrder: {
+        parameters: {
+            query?: {
+                limit?: components["schemas"]["Object"];
+                page?: components["schemas"]["Object"];
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreMeasurementListResponseDto"];
+                };
+            };
+        };
+    };
+    TyreMeasurementController_createForOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTyreMeasurementDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreMeasurementResponseDto"];
+                };
+            };
+        };
+    };
+    TyreMeasurementController_listForCheckIn: {
+        parameters: {
+            query?: {
+                limit?: components["schemas"]["Object"];
+                page?: components["schemas"]["Object"];
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreMeasurementListResponseDto"];
+                };
+            };
+        };
+    };
+    TyreMeasurementController_createForCheckIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTyreMeasurementDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreMeasurementResponseDto"];
+                };
+            };
+        };
+    };
+    TyreMeasurementController_listForEvent: {
+        parameters: {
+            query?: {
+                limit?: components["schemas"]["Object"];
+                page?: components["schemas"]["Object"];
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreMeasurementListResponseDto"];
+                };
+            };
+        };
+    };
+    TyreMeasurementController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreMeasurementResponseDto"];
                 };
             };
         };

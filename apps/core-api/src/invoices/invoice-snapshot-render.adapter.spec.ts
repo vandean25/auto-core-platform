@@ -1,3 +1,7 @@
+import {
+  I18N_TRANSLATION_BUNDLE_VERSION,
+} from '../common/i18n/display-language.js';
+import { resolveInvoicePdfLayoutContext } from './invoice-pdf-layout-context.js';
 import { toRenderableInvoiceSnapshot } from './invoice-snapshot-render.adapter.js';
 
 describe('toRenderableInvoiceSnapshot', () => {
@@ -171,5 +175,39 @@ describe('toRenderableInvoiceSnapshot', () => {
 
     expect(renderable?.tax_breakdown).toBeUndefined();
     expect(renderable?.items[0].line_total).toBe('15000.00');
+  });
+
+  it('passes the frozen locale fields through to the renderable snapshot', () => {
+    const renderable = toRenderableInvoiceSnapshot(
+      {
+        ...v2Snapshot,
+        document_locale: 'en',
+        format_locale: 'de-AT',
+        translation_bundle_version: I18N_TRANSLATION_BUNDLE_VERSION,
+        legal_text_version: null,
+      },
+      'RE-2026-0003',
+      'inv-3',
+    );
+
+    expect(renderable?.document_locale).toBe('en');
+    expect(renderable?.format_locale).toBe('de-AT');
+    expect(renderable?.translation_bundle_version).toBe(
+      I18N_TRANSLATION_BUNDLE_VERSION,
+    );
+    expect(renderable).toHaveProperty('legal_text_version', null);
+    expect(resolveInvoicePdfLayoutContext(renderable!)).not.toBeNull();
+  });
+
+  it('leaves locale fields absent for snapshots frozen before localisation', () => {
+    const renderable = toRenderableInvoiceSnapshot(
+      v2Snapshot,
+      'RE-2026-0004',
+      'inv-4',
+    );
+
+    expect(renderable?.document_locale).toBeUndefined();
+    expect(renderable).not.toHaveProperty('translation_bundle_version');
+    expect(resolveInvoicePdfLayoutContext(renderable!)).toBeNull();
   });
 });

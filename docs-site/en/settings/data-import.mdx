@@ -39,6 +39,9 @@ Imports create new rows. They do not merge duplicates by plate or email unless t
   <Accordion title="Labor operations import">
     The **Labor operations** type creates AW codes, descriptions, AW times, hourly rates, and optional fitments (make/model/year). Category names are matched on import. Individual operations are not maintained on the [Labor](/en/settings/labor) tab afterward — that screen stays categories and rates only.
   </Accordion>
+  <Accordion title="History and resume">
+    The tab has two views: **Import** (the wizard) and **History**. History lists every import job for the tenant, newest first, with status, entity, source, file, result, user, and date. Clicking a row opens the job in the wizard and resumes it: a finished dry run lands on the dry-run report, a running or completed import lands on the result. A running import keeps refreshing itself; a failed import shows the reason and can be applied again. Right-click a row for **Open** or **Resume**, **Cancel** (only while a background dry run is still cancellable, never during the apply itself), and **Download errors CSV**.
+  </Accordion>
   <Accordion title="Import row retention">
     Detailed row payloads from finished import jobs are purged after **180 days** per tenant. Job headers, status, and external IDs remain for traceability. The nightly `import-job-row-purge` job is listed under [Core API scheduled jobs](/en/operations/core-api-scheduled-jobs).
   </Accordion>

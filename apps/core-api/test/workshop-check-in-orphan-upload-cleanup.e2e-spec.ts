@@ -2,10 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import {
-  WorkshopMediaPurpose,
-  WorkshopMediaUrlStrategy,
-} from '@prisma/client';
+import { WorkshopMediaPurpose, WorkshopMediaUrlStrategy } from '@prisma/client';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -235,6 +232,36 @@ describe('Workshop check-in orphan upload cleanup (e2e)', () => {
     });
     expect(attached?.check_in_id).toBe(checkInId);
     expect(deleteObjectSpy).not.toHaveBeenCalled();
+  });
+
+  it('isolates stored photo objects between failed attempts and successful retries', async () => {
+    const clientUploadId = '51500000-0000-4000-8000-000000000565';
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    const bytes = await readFile(gpsFixture);
+    const upload = (revision: number) =>
+      request(app.getHttpServer())
+        .post(`/api/workshop/orders/${orderId}/check-in/media`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('client_upload_id', clientUploadId)
+        .field('purpose', 'CHECK_IN')
+        .field('expected_revision', String(revision))
+        .attach('file', bytes, 'retry-photo.jpg');
+
+    deleteObjectSpy.mockClear();
+    await upload(before.body.revision + 1).expect(409);
+    const failedKey = deleteObjectSpy.mock.calls[0][1];
+    await upload(before.body.revision).expect(201);
+    const saved = await prisma.workshopMedia.findFirstOrThrow({
+      where: { tenant_id: tenantId, id: clientUploadId },
+    });
+    expect(saved.storage_key).not.toBe(failedKey);
+    expect(deleteObjectSpy).not.toHaveBeenCalledWith(
+      saved.storage_bucket,
+      saved.storage_key,
+    );
   });
 
   it('does not delete media after check-in completion', async () => {

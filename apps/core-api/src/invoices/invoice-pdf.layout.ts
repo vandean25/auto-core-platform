@@ -9,7 +9,11 @@ import {
   type DocumentNumberFormatter,
 } from '../common/format/document-number-format.js';
 import { readDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
-import { formatLocaleForDisplayLanguage } from '../common/i18n/display-language.js';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  formatLocaleForDisplayLanguage,
+} from '../common/i18n/display-language.js';
+import { createPdfTranslator } from '../common/i18n/pdf-i18n.js';
 import {
   FOOTER_DECORATIVE_WIDTH_MM,
   HEADER_DECORATIVE_MAX_LINES,
@@ -17,6 +21,7 @@ import {
   FOOTER_DECORATIVE_MAX_LINES,
   wrapAndEllipsizeDecorativeText,
 } from '../document-branding/decorative-text-layout.js';
+import { findCountryPack } from '../common/country-pack/country-pack.registry.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import type { InvoiceSnapshotV2Seller } from './invoice-snapshot-v2.js';
 import { resolveMarginSchemeLegalNote } from './margin-scheme-legal-notes.js';
@@ -34,6 +39,24 @@ export const isDachRechnungSnapshot = (snapshot: InvoiceSnapshot): boolean =>
 
 export const isCreditNoteSnapshot = (snapshot: InvoiceSnapshot): boolean =>
   snapshot.document_kind === 'CREDIT_NOTE';
+
+/**
+ * Title of a document rendered on the legacy (pre-localisation) layout. Frozen snapshots without a
+ * current translation bundle keep their historical German wording, so the literals come from the
+ * German default bundle and a frozen credit_title still wins, exactly as before localisation.
+ */
+export const resolveLegacyDocumentTitle = (
+  snapshot: InvoiceSnapshot,
+): string => {
+  const t = createPdfTranslator(DEFAULT_DISPLAY_LANGUAGE);
+  if (isCreditNoteSnapshot(snapshot)) {
+    return snapshot.credit_title ?? t('invoice.creditTitle');
+  }
+  if (isDachRechnungSnapshot(snapshot)) {
+    return t('invoice.title');
+  }
+  return t('invoice.legacyTitle');
+};
 
 /**
  * Numbers are formatted with the frozen regional settings of the snapshot: Austrian separators
@@ -57,7 +80,7 @@ export const createInvoicePdfNumberFormatter = (
   );
 };
 
-const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
+export const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
   snapshot.customer.type === 'COMPANY'
     ? (snapshot.customer.company_name ??
       `${snapshot.customer.first_name} ${snapshot.customer.last_name}`)
@@ -84,20 +107,13 @@ const buildSellerTaxLines = (
 ): string => {
   const lines: string[] = [];
 
-  if (seller.country_iso === 'AT') {
-    if (seller.vat_id) {
-      lines.push(`UID: ${escapeHtml(seller.vat_id)}`);
-    }
-    if (seller.tax_number) {
-      lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
-    }
-  } else {
-    if (seller.vat_id) {
-      lines.push(`USt-IdNr.: ${escapeHtml(seller.vat_id)}`);
-    }
-    if (seller.tax_number) {
-      lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
-    }
+  const vatLabel =
+    findCountryPack(seller.country_iso)?.vatIdLabel ?? 'USt-IdNr.';
+  if (seller.vat_id) {
+    lines.push(`${vatLabel}: ${escapeHtml(seller.vat_id)}`);
+  }
+  if (seller.tax_number) {
+    lines.push(`Steuernummer: ${escapeHtml(seller.tax_number)}`);
   }
 
   return lines.map((line) => `<div>${line}</div>`).join('');
@@ -259,11 +275,7 @@ export const buildInvoiceHeader = (
   escapeHtml: EscapeHtml,
   snapshot: InvoiceSnapshot,
 ): string => {
-  const title = isCreditNoteSnapshot(snapshot)
-    ? (snapshot.credit_title ?? 'Rechnungskorrektur')
-    : isDachRechnungSnapshot(snapshot)
-      ? 'Rechnung'
-      : 'Invoice';
+  const title = resolveLegacyDocumentTitle(snapshot);
 
   return `
   <div class="header">
@@ -337,9 +349,7 @@ export const buildInvoiceCustomerSection = (
     ? 'Rechnungsempfänger'
     : 'Bill to:';
   const vatLabel = isDachRechnungSnapshot(snapshot)
-    ? snapshot.seller?.country_iso === 'AT'
-      ? 'UID'
-      : 'USt-IdNr.'
+    ? (findCountryPack(snapshot.seller?.country_iso)?.vatIdLabel ?? 'USt-IdNr.')
     : 'VAT ID';
 
   return `
@@ -630,13 +640,7 @@ export const buildInvoiceFooterTemplate = (
   fontFaceCss = '',
   localizedTitlePrefix?: string | null,
 ): string => {
-  const prefix =
-    localizedTitlePrefix ??
-    (isCreditNoteSnapshot(snapshot)
-      ? (snapshot.credit_title ?? 'Rechnungskorrektur')
-      : isDachRechnungSnapshot(snapshot)
-        ? 'Rechnung'
-        : 'Invoice');
+  const prefix = localizedTitlePrefix ?? resolveLegacyDocumentTitle(snapshot);
   const footerDocumentLocale = resolvePdfFooterDocumentLocale(snapshot);
   if (snapshot.template_version === 'invoice-brand-v1' && snapshot.branding) {
     const { tokens } = snapshot.branding;

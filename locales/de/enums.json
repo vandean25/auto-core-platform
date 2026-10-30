@@ -99,8 +99,19 @@
     "GEWAEHRLEISTUNG_EXPIRED": "Gewährleistung abgelaufen",
     "AWAITING_REVIEW": "Wartet auf Prüfung",
     "APPLIED": "Angewendet",
+    "DRY_RUN_DONE": "Testlauf abgeschlossen",
+    "APPLYING": "Wird angewendet",
     "ABORTED": "Abgebrochen",
     "MOVED": "Umgelagert"
+  },
+  "tyreMeasurementStatus": {
+    "GOOD": "Messwerte unauffällig",
+    "RECOMMENDED": "Empfehlung",
+    "URGENT": "Dringender Handlungsbedarf"
+  },
+  "tyreEvaluationState": {
+    "EVALUATED": "Bewertet",
+    "UNSUPPORTED_COUNTRY": "Land nicht unterstützt"
   },
   "inventoryTransactionType": {
     "PURCHASE_RECEIPT": "Wareneingang",

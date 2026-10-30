@@ -74,6 +74,7 @@ export type ImportWizardState = {
   applyCsvSelection: (selection: ImportCsvSelection) => void
   applyDryRunResult: (job: ImportJob) => void
   syncBackgroundJobProgress: (job: ImportJob) => void
+  hydrateFromJob: (job: ImportJob) => void
   applyAppliedResult: (job: ImportJob) => void
 }
 
@@ -176,15 +177,63 @@ export function useImportWizardState(params: {
       setStep(5)
       return
     }
-    if (job.status === 'APPLYING' && job.progress?.phase === 'apply') {
-      setAppliedJob(job)
-      setStep(5)
+    if (job.status === 'CANCELLED') {
+      setAppliedJob(null)
+      setStep(4)
+      return
+    }
+    if (job.status === 'APPLYING') {
+      if (job.progress?.phase === 'apply') {
+        setAppliedJob(job)
+        setStep(5)
+        return
+      }
+      setAppliedJob(null)
+      setStep(4)
       return
     }
     if (job.status === 'DRY_RUN_DONE') {
       applyDryRunResult(job)
     }
   }, [applyDryRunResult])
+
+  /**
+   * Restores the saved wizard context of a job opened from history or `?job=` so a finished dry run
+   * is applicable again: mapping, options, file fingerprint and vendor come from the stored job,
+   * then the status decides the step. This runs once per selected job, so it also clears the
+   * previous job's local upload (file, headers, preview) and price-jump approvals — neither is
+   * persisted per job, and carrying them across jobs would let one file's CSV or price approvals
+   * leak into another. Re-running a saved job therefore requires selecting its file again. Later
+   * polling of the same job goes through `syncBackgroundJobProgress`, which keeps these intact.
+   */
+  const hydrateFromJob = React.useCallback(
+    (job: ImportJob) => {
+      const jobOptions = (job.options ?? {}) as ImportWizardOptions
+      const restoredOptions: ImportWizardOptions = {
+        ...DEFAULT_IMPORT_OPTIONS,
+        update_existing: Boolean(jobOptions.update_existing),
+        fill_empty_only: Boolean(jobOptions.fill_empty_only),
+        allow_missing_vin: Boolean(jobOptions.allow_missing_vin),
+        invalid_vat_as_error: Boolean(jobOptions.invalid_vat_as_error),
+        create_new_catalog_items: Boolean(jobOptions.create_new_catalog_items),
+        ...(jobOptions.price_jump_threshold_percent != null
+          ? { price_jump_threshold_percent: jobOptions.price_jump_threshold_percent }
+          : {}),
+        ...(jobOptions.vendor_id ? { vendor_id: jobOptions.vendor_id } : {}),
+      }
+      setFile(null)
+      setCsvHeaders([])
+      setPreviewRows([])
+      setAcceptAllPriceJumps(false)
+      setAcceptedRowNumbers([])
+      setMapping((job.mapping ?? {}) as Record<string, string>)
+      setOptions(restoredOptions)
+      setSelectedVendorId(restoredOptions.vendor_id ?? '')
+      setFileFingerprint(job.file_sha256 ?? null)
+      syncBackgroundJobProgress(job)
+    },
+    [syncBackgroundJobProgress],
+  )
 
   const applyAppliedResult = React.useCallback((job: ImportJob) => {
     setAppliedJob(job)
@@ -235,6 +284,7 @@ export function useImportWizardState(params: {
     applyCsvSelection,
     applyDryRunResult,
     syncBackgroundJobProgress,
+    hydrateFromJob,
     applyAppliedResult,
   }
 }

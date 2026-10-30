@@ -193,6 +193,8 @@ The frontend runs at **http://localhost:5173**
 
 > **Note:** The frontend proxies `/api` requests to `http://localhost:3000` automatically.
 
+For **parallel coding agents** on one machine (separate git worktrees, ports, and databases), see [docs/local-multi-worktree-development.md](docs/local-multi-worktree-development.md).
+
 ---
 
 ## Frontend List UI Standard
@@ -410,6 +412,10 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npm run build` | Build both apps |
 | `npm run ci` | Lint, test, then build both apps |
 | `npm run test:e2e:fullstack` | Full-stack Playwright (from repo root; see Frontend table) |
+| `npm run worktree:new` | Add `.worktrees/<name>` (default branch `feature/<name>`; optional `--branch`) and run setup |
+| `npm run worktree:setup` | Ports, env files, Postgres DB, migrations for the current worktree |
+| `npm run worktree:remove` | Remove a linked worktree (optional `--drop-db`) |
+| `npm run worktree:test` | Unit tests for worktree helpers |
 
 Workspace-specific scripts still work from the root with `--workspace=<name>` (for example `npm run start:dev --workspace=core-api`).
 

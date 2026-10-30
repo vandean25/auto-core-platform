@@ -170,8 +170,10 @@ VALUES
   ('credit_note_items'),
   ('fiscal_receipts'),
   ('inventory_transactions'),
+  ('tyre_measurements'),
   ('workshop_estimate_approvals'),
-  ('workshop_media');
+  ('workshop_media'),
+  ('tyre_wheel_readings');
 
 CREATE TEMP TABLE tenant_restore_allowed_global_tables (
   table_name text PRIMARY KEY
@@ -509,6 +511,14 @@ VALUES
   ('tenant_inspection_catalogue_activations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tenant_members', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tenant_members', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_measurements', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'RESTRICT'),
+  ('tyre_measurements', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_measurements', 'tyre_set_events', 'tenant_id,tyre_set_id,tyre_set_event_id', 'tenant_id,tyre_set_id,id', 'RESTRICT', 'RESTRICT'),
+  ('tyre_measurements', 'tyre_sets', 'tenant_id,site_id,vehicle_id,tyre_set_id', 'tenant_id,site_id,vehicle_id,id', 'RESTRICT', 'RESTRICT'),
+  ('tyre_measurements', 'users', 'measured_by', 'id', 'SET NULL', 'RESTRICT'),
+  ('tyre_measurements', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'RESTRICT', 'RESTRICT'),
+  ('tyre_measurements', 'workshop_check_ins', 'tenant_id,workshop_order_id,check_in_id', 'tenant_id,workshop_order_id,id', 'RESTRICT', 'RESTRICT'),
+  ('tyre_measurements', 'workshop_orders', 'tenant_id,site_id,vehicle_id,workshop_order_id', 'tenant_id,site_id,vehicle_id,id', 'RESTRICT', 'RESTRICT'),
   ('tyre_set_events', 'employees', 'employee_id', 'id', 'SET NULL', 'CASCADE'),
   ('tyre_set_events', 'storage_locations', 'from_location_id', 'id', 'SET NULL', 'CASCADE'),
   ('tyre_set_events', 'storage_locations', 'to_location_id', 'id', 'SET NULL', 'CASCADE'),
@@ -521,6 +531,9 @@ VALUES
   ('tyre_sets', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tyre_sets', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
   ('tyre_storage_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_wheel_readings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_wheel_readings', 'tyre_measurements', 'tenant_id,measurement_id', 'tenant_id,id', 'RESTRICT', 'RESTRICT'),
+  ('tyre_wheel_readings', 'workshop_media', 'tenant_id,media_id', 'tenant_id,id', 'RESTRICT', 'RESTRICT'),
   ('users', 'tenants', 'active_tenant_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_equipment_free_text_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_equipment_free_text_items', 'vehicle_purchases', 'tenant_id,stock_purchase_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
@@ -848,9 +861,13 @@ UPDATE public."labor_categories"
 SET "parent_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 
+DELETE FROM public."tyre_wheel_readings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_media"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_approvals"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."tyre_measurements"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_transactions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

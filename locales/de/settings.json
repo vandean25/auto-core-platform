@@ -1201,6 +1201,36 @@
       "cancelFailed": "Import konnte nicht abgebrochen werden",
       "templateFailed": "Vorlage konnte nicht heruntergeladen werden",
       "errorCsvFailed": "Fehler-CSV konnte nicht heruntergeladen werden"
+    },
+    "view": {
+      "wizard": "Import",
+      "history": "Verlauf"
+    },
+    "history": {
+      "title": "Importverlauf",
+      "description": "Alle Importe dieses Mandanten, neueste zuerst.",
+      "empty": "Noch keine Importe vorhanden.",
+      "loadFailed": "Importverlauf konnte nicht geladen werden.",
+      "anonymousUser": "Unbekannt",
+      "rowAria": "Import {{file}}",
+      "totals": "Neu {{create}} · Aktualisiert {{update}} · Übersprungen {{skip}} · Fehler {{error}}",
+      "columns": {
+        "status": "Status",
+        "entityType": "Entität",
+        "source": "Quelle",
+        "fileName": "Datei",
+        "totals": "Ergebnis",
+        "createdBy": "Benutzer",
+        "createdAt": "Datum"
+      },
+      "actions": {
+        "open": "Öffnen",
+        "resume": "Fortsetzen",
+        "cancel": "Abbrechen",
+        "downloadErrors": "Fehler-CSV herunterladen",
+        "cancelConfirmTitle": "Import abbrechen?",
+        "cancelConfirmDescription": "Der laufende Import wird beendet."
+      }
     }
   },
   "documentBranding": {

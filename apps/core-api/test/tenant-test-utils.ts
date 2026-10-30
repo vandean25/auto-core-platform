@@ -118,6 +118,40 @@ export function createTestAuthToken(
   });
 }
 
+/**
+ * Creates a fresh user with a single active membership for the tenant and
+ * returns a test bearer token for it. Used by e2e specs that need non-admin
+ * callers (OWNER/SALES/TECH) without hand-rolling the user + membership rows.
+ */
+export async function createMemberBearer(
+  prisma: PrismaService,
+  authService: TestTokenFactory,
+  tenant: TestTenantResult,
+  role: TenantMemberRole,
+): Promise<string> {
+  const slug = role.toLowerCase();
+  const firebaseUid = `e2e-${slug}-${tenant.tenantId}`;
+  const email = `${slug}-${tenant.tenantId}@example.com`;
+  await prisma.user.create({
+    data: {
+      firebaseUid,
+      email,
+      active_tenant_id: tenant.tenantId,
+      active_site_id: null,
+      memberships: {
+        create: { tenant_id: tenant.tenantId, role, is_active: true },
+      },
+    },
+    select: { id: true },
+  });
+  return `Bearer ${createTestAuthToken(authService, {
+    ...tenant,
+    firebaseUid,
+    email,
+    role,
+  })}`;
+}
+
 export async function seedTestEmployee(
   prisma: PrismaService,
   params: {
@@ -447,6 +481,8 @@ export async function cleanupTestTenantGraph(
 ): Promise<void> {
   const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
 
+  await tenantPrisma.tyreWheelReading.deleteMany({});
+  await tenantPrisma.tyreMeasurement.deleteMany({});
   await tenantPrisma.vehicleParty.deleteMany({});
   await tenantPrisma.vehicleNotice.deleteMany({});
   await tenantPrisma.vehicleInspectionRecord.deleteMany({});
@@ -514,6 +550,10 @@ export async function cleanupTestTenantGraph(
     `DELETE FROM notification_outbox WHERE tenant_id = $1`,
     tenantId,
   );
+  // Tyre events point at workshop orders through a composite foreign key whose
+  // ON DELETE SET NULL cannot null tenant_id, so they must go first.
+  await tenantPrisma.tyreSetEvent.deleteMany({});
+  await tenantPrisma.tyreSet.deleteMany({});
   await tenantPrisma.workshopOrder.deleteMany({});
   await tenantPrisma.bay.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});
@@ -527,8 +567,6 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.laborFitment.deleteMany({});
   await tenantPrisma.laborOperation.deleteMany({});
   await tenantPrisma.laborCategory.deleteMany({});
-  await tenantPrisma.tyreSetEvent.deleteMany({});
-  await tenantPrisma.tyreSet.deleteMany({});
   await tenantPrisma.tyreStorageSettings.deleteMany({});
 
   await runWithTenantContext(tenantId, async () => {

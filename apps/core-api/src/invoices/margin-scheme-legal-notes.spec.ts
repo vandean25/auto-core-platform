@@ -25,6 +25,25 @@ describe('margin-scheme-legal-notes', () => {
     expect(MARGIN_SCHEME_LEGAL_NOTES.AT).not.toContain('§ 25a');
   });
 
+  it.each([undefined, null, '', 'CH', 'US', 'at', ' DE '])(
+    'preserves the error payload for %p',
+    (country) => {
+      expect(() => resolveMarginSchemeLegalNote(country)).toThrow(
+        UnprocessableEntityException,
+      );
+      try {
+        resolveMarginSchemeLegalNote(country);
+      } catch (error) {
+        expect((error as UnprocessableEntityException).getResponse()).toEqual({
+          code: 'MARGIN_SCHEME_SELLER_COUNTRY_UNSUPPORTED',
+          message:
+            'Margin-scheme invoices require a supported seller country (DE or AT).',
+          countryIso: country ?? null,
+        });
+      }
+    },
+  );
+
   it('fails closed for missing or unsupported seller countries', () => {
     for (const country of [undefined, null, '', 'CH', 'US']) {
       expect(() => assertMarginSchemeSellerCountrySupported(country)).toThrow(

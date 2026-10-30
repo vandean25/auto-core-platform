@@ -1,7 +1,7 @@
 import {
-  isValidAtUid,
-  isValidDeVatId,
-} from '../site/legal-entity-seller.validation.js';
+  findCountryPack,
+  resolveCountryPack,
+} from '../common/country-pack/country-pack.registry.js';
 import { normalizeCustomerVatId } from '../customer/customer-vat-id.validation.js';
 import { normalizeMatchEmail } from '../customer/customer-match.util.js';
 import type {
@@ -94,19 +94,14 @@ function validateVatId(
     return { vatId: null, issues, warnings: [] };
   }
   const countryIso = country?.trim().toUpperCase() ?? '';
-  const validAt = isValidAtUid(vatId);
-  const validDe = isValidDeVatId(vatId);
-  const valid =
-    countryIso === 'AT'
-      ? validAt
-      : countryIso === 'DE'
-        ? validDe
-        : validAt || validDe;
+  const pack = findCountryPack(countryIso);
+  const valid = pack
+    ? pack.validateVatId(vatId)
+    : countryIso !== '' ||
+      resolveCountryPack('AT').validateVatId(vatId) ||
+      resolveCountryPack('DE').validateVatId(vatId);
 
-  if (
-    !valid &&
-    (countryIso === 'AT' || countryIso === 'DE' || countryIso === '')
-  ) {
+  if (!valid) {
     const issue: ImportRowIssue = {
       code: 'CUSTOMER_VAT_ID_INVALID',
       message: 'vat_id is not a valid AT/DE VAT identifier format',

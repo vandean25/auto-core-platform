@@ -21,6 +21,11 @@ export interface TableCleaner {
  */
 export const TABLE_CLEANERS: TableCleaner[] = [
   {
+    table: 'tyre_wheel_readings',
+    clean: (p) => p.tyreWheelReading.deleteMany(),
+  },
+  { table: 'tyre_measurements', clean: (p) => p.tyreMeasurement.deleteMany() },
+  {
     table: 'inventory_transactions',
     clean: (p) => p.inventoryTransaction.deleteMany(),
   },
