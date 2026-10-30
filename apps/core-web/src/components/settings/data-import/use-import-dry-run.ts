@@ -26,6 +26,7 @@ function effectiveOptions(params: {
 export function useImportDryRunAction(params: {
   entityType: ImportEntityTypeUi
   sourceSystem: string
+  configuredSources: string[]
   mapping: Record<string, string>
   options: ImportWizardOptions
   file: File | null
@@ -41,6 +42,17 @@ export function useImportDryRunAction(params: {
   const mutation = useImportDryRun()
   const [isDirectPending, setIsDirectPending] = React.useState(false)
   const [uploadProgressPercent, setUploadProgressPercent] = React.useState<number | null>(null)
+  const requestCounter = React.useRef(0)
+  const selection = React.useRef({
+    sourceSystem: params.sourceSystem,
+    configuredSources: params.configuredSources,
+  })
+  React.useLayoutEffect(() => {
+    selection.current = {
+      sourceSystem: params.sourceSystem,
+      configuredSources: params.configuredSources,
+    }
+  })
 
   const runDryRun = async () => {
     if (!params.file) {
@@ -59,6 +71,8 @@ export function useImportDryRunAction(params: {
       configuredThreshold: params.configuredThreshold,
     })
     const direct = usesDirectImportUpload(file)
+    const requestedSource = params.sourceSystem.trim()
+    const requestId = ++requestCounter.current
 
     try {
       if (direct) {
@@ -69,7 +83,7 @@ export function useImportDryRunAction(params: {
         ? await uploadImportFileDirectly({
             file,
             entityType: params.entityType as ImportEntityType,
-            sourceSystem: params.sourceSystem.trim(),
+            sourceSystem: requestedSource,
             mapping: params.mapping,
             options,
             onProgress: (uploadedBytes, totalBytes) =>
@@ -80,10 +94,19 @@ export function useImportDryRunAction(params: {
         : await mutation.mutateAsync({
             file,
             entityType: params.entityType as ImportEntityType,
-            sourceSystem: params.sourceSystem.trim(),
+            sourceSystem: requestedSource,
             mapping: params.mapping,
             options,
           })
+      // The source can change or be deleted while the upload is in flight; a
+      // late result must not restore a job the operator can no longer apply.
+      if (
+        requestId !== requestCounter.current ||
+        selection.current.sourceSystem.trim() !== requestedSource ||
+        !selection.current.configuredSources.includes(requestedSource)
+      ) {
+        return
+      }
       params.onDryRunJob(job)
     } catch (error) {
       toast.error(getErrorMessage(error, t('dataImport.toast.dryRunFailed')))

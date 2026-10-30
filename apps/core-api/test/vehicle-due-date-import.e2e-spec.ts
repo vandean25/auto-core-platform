@@ -95,6 +95,11 @@ describe('Vehicle due date import (e2e)', () => {
   let vehicleId: string;
 
   beforeEach(async () => {
+    for (const t of [suite.tenant, suite.otherTenant]) {
+      await createTenantAwarePrisma(suite.basePrisma, t.tenantId).importSource.create({
+        data: { tenant_id: t.tenantId, key: SOURCE, label: 'Synthetic Import' },
+      });
+    }
     vehicleId = await importVehicle(suite.tenant, suite.token);
   });
 

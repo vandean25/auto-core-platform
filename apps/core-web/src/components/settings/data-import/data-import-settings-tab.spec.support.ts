@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { expect, vi, type Mock } from 'vitest'
 
-import type { ImportJob, ImportMappingProfile } from '@/api/imports'
+import type { ImportJob, ImportMappingProfile, ImportSource } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 import * as marginRulesApi from '@/api/margin-rules'
 import * as vendorsApi from '@/api/vendors'
@@ -154,8 +154,36 @@ export const supplierRow: ImportRowFixture = {
 
 export const vendorFixture = { id: 'vendor-1', name: 'Stahlgruber GmbH' }
 
+export const sourceFixtures: ImportSource[] = [
+  {
+    id: 'source-legacy',
+    key: 'legacy_dms',
+    label: 'Legacy DMS',
+    is_default: true,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'source-incadea',
+    key: 'incadea',
+    label: 'Incadea',
+    is_default: false,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'source-supplier',
+    key: 'supplier',
+    label: 'Supplier',
+    is_default: false,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+]
+
 /** CSV that the mocked parser returns; kept in sync with the installed API mocks. */
 let activeCsv: CsvFixture = CUSTOMER_CSV
+let activeSources: ImportSource[] = sourceFixtures
 
 export type InstallApiMocksOptions = {
   dryRunJob?: ImportJob
@@ -166,6 +194,7 @@ export type InstallApiMocksOptions = {
   profiles?: ImportMappingProfile[]
   templateFields?: { key: string; required: boolean }[]
   vendors?: { id: string; name: string }[]
+  sources?: ImportSource[]
   thresholdPercent?: number
   csv?: CsvFixture
 }
@@ -182,6 +211,7 @@ export function installImportApiMocks(options: InstallApiMocksOptions = {}): Imp
   const apply = { mutateAsync: vi.fn(), isPending: false }
   const saveProfile = { mutateAsync: vi.fn(), isPending: false }
   activeCsv = options.csv ?? CUSTOMER_CSV
+  activeSources = options.sources ?? sourceFixtures
   const csv = activeCsv
 
   dryRun.mutateAsync.mockResolvedValue(dryRunJob)
@@ -208,6 +238,22 @@ export function installImportApiMocks(options: InstallApiMocksOptions = {}): Imp
   })
   ;(importsApi.useImportEntityTypes as Mock).mockReturnValue({
     data: readImportEntityTypeRegistry(),
+  })
+  setMockImportSources(activeSources)
+  ;(importsApi.useCreateImportSource as Mock).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  })
+  ;(importsApi.useUpdateImportSource as Mock).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  })
+  ;(importsApi.useDeleteImportSource as Mock).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
   })
   ;(importsApi.useImportMappingProfiles as Mock).mockReturnValue({
     data: options.profiles ?? [],
@@ -243,7 +289,7 @@ export function renderImportSettingsTab(
 ) {
   const queryClient =
     options.queryClient ?? new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const result = render(
+  const buildTree = () =>
     React.createElement(
       MemoryRouter,
       { initialEntries: options.initialEntries ?? ['/'] },
@@ -252,17 +298,47 @@ export function renderImportSettingsTab(
         { client: queryClient },
         React.createElement(DataImportSettingsTab, null),
       ),
-    ),
-  )
-  return { ...result, queryClient }
+    )
+  const result = render(buildTree())
+  return { ...result, rerender: () => result.rerender(buildTree()), queryClient }
 }
 
-export function sourceSystemInput(): HTMLInputElement {
-  return screen.getByLabelText(di.source.sourceSystemLabel) as HTMLInputElement
+/** Replaces the sources returned by the mocked `useImportSources` query. */
+export function setMockImportSources(sources: ImportSource[]) {
+  activeSources = sources
+  ;(importsApi.useImportSources as Mock).mockReturnValue({
+    data: { data: sources },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  })
 }
 
-export function setSourceSystem(value: string) {
-  fireEvent.change(sourceSystemInput(), { target: { value } })
+/** Makes the mocked `useImportSources` query fail; returns its refetch mock. */
+export function failMockImportSources(options: { retainedSources?: ImportSource[] } = {}) {
+  const refetch = vi.fn()
+  const retainedSources = options.retainedSources
+  if (retainedSources) {
+    activeSources = retainedSources
+  }
+  ;(importsApi.useImportSources as Mock).mockReturnValue({
+    data: retainedSources ? { data: retainedSources } : undefined,
+    isLoading: false,
+    isError: true,
+    refetch,
+  })
+  return refetch
+}
+
+export function sourceSystemTrigger(): HTMLElement {
+  return screen.getByRole('combobox', { name: di.source.sourceSystemLabel })
+}
+
+export async function setSourceSystem(key: string) {
+  const source = activeSources.find((candidate) => candidate.key === key)
+  fireEvent.click(sourceSystemTrigger())
+  const option = await screen.findByRole('option', { name: source?.label ?? key })
+  fireEvent.click(option)
 }
 
 export async function selectEntityType(label: string) {
@@ -288,7 +364,7 @@ export async function uploadCsvFile(csv: CsvFixture = activeCsv) {
 
 export async function goToMappingStep(options: { sourceSystem?: string } = {}) {
   if (options.sourceSystem !== undefined) {
-    setSourceSystem(options.sourceSystem)
+    await setSourceSystem(options.sourceSystem)
   }
   fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
   await uploadCsvFile()

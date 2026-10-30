@@ -10,12 +10,14 @@ import { assertTenantAdmin } from '../site/site.authorization.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { ImportMappingProfileResponseDto } from './dto/import-mapping-profile-response.dto.js';
 import type { CreateImportMappingProfileDto } from './dto/create-import-mapping-profile.dto.js';
+import { ImportSourceService } from './import-source.service.js';
 
 @Injectable()
 export class ImportMappingProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly importSourceService: ImportSourceService,
   ) {}
 
   async listProfiles(params: {
@@ -31,6 +33,7 @@ export class ImportMappingProfileService {
         message: 'source_system is required',
       });
     }
+    await this.importSourceService.assertSourceExists(sourceSystem);
 
     const rows = await this.prisma.importMappingProfile.findMany({
       where: {
@@ -63,6 +66,7 @@ export class ImportMappingProfileService {
         message: 'source_system is required',
       });
     }
+    await this.importSourceService.assertSourceExists(sourceSystem);
     const mapping = this.parseStringMapping(body.mapping);
 
     try {

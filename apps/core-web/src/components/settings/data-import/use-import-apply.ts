@@ -50,13 +50,17 @@ function applyIsEnabled(params: {
   errorThreshold: number
   isPending: boolean
   applyInFlight: boolean
+  sourceIsCurrent: boolean
 }): boolean {
-  return canApplyImport({
-    dryRunJob: params.dryRunJob,
-    dryRunStale: params.dryRunStale,
-    errorThreshold: params.errorThreshold,
-    isApplying: params.isPending || params.applyInFlight,
-  })
+  return (
+    params.sourceIsCurrent &&
+    canApplyImport({
+      dryRunJob: params.dryRunJob,
+      dryRunStale: params.dryRunStale,
+      errorThreshold: params.errorThreshold,
+      isApplying: params.isPending || params.applyInFlight,
+    })
+  )
 }
 
 function invalidateLaborCaches(
@@ -74,6 +78,7 @@ export function useImportApply(params: {
   dryRunJob: ImportJob | null
   dryRunStale: boolean
   errorThreshold: number
+  sourceIsCurrent: boolean
   acceptAllPriceJumps: boolean
   acceptedRowNumbers: number[]
   onApplied: (job: ImportJob) => void
@@ -98,6 +103,7 @@ export function useImportApply(params: {
     errorThreshold: params.errorThreshold,
     isPending: mutation.isPending,
     applyInFlight,
+    sourceIsCurrent: params.sourceIsCurrent,
   })
 
   const handleApply = async () => {

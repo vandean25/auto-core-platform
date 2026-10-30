@@ -7,15 +7,13 @@ type CsvFileApi = ReturnType<typeof useImportCsvFile>
 
 export function changeImportEntityType(
   wizard: ImportWizardState,
-  sourceSystem: string,
-  setSourceSystem: (value: string) => void,
+  _sourceSystem: string,
+  _setSourceSystem: (value: string) => void,
   value: ImportEntityTypeUi,
 ) {
   wizard.setEntityType(value)
   if (value !== 'SUPPLIER_PRICE_LIST') {
     wizard.clearVendorSelection()
-  } else if (sourceSystem === 'incadea') {
-    setSourceSystem('supplier')
   }
   wizard.resetMapping()
   wizard.resetDryRun()

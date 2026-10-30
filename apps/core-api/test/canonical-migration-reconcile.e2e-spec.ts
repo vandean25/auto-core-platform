@@ -9,6 +9,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils.js';
@@ -48,6 +49,16 @@ describe('Canonical migration reconciliation (e2e)', () => {
     authService = app.get(AuthService);
     tenant = await createTestTenant(prisma, 'canonical-migration-reconcile');
     authHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
+
+    // Create the import source used by canonical migration fixtures
+    await createTenantAwarePrisma(prisma, tenant.tenantId).importSource.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        key: CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,
+        label: 'Synthetic DMS Fixture',
+        is_default: true,
+      },
+    });
   });
 
   afterAll(async () => {

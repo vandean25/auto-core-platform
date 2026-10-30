@@ -6,10 +6,14 @@ import { buildCanonicalMigrationIdentityMapping } from '../../import/canonical-m
 export const CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM =
   'synthetic_dms:synth_fixture';
 
+const CANONICAL_MIGRATION_FIXTURE_SOURCE_LABEL = 'Synthetic DMS (fixture)';
+
 export async function seedCanonicalMigrationImportPresets(
   prisma: PrismaClient,
   tenantId: string,
 ): Promise<void> {
+  await seedCanonicalMigrationImportSource(prisma, tenantId);
+
   const entityTypes: ImportEntityType[] = [
     ImportEntityType.CUSTOMER,
     ImportEntityType.VEHICLE,
@@ -39,4 +43,32 @@ export async function seedCanonicalMigrationImportPresets(
       },
     });
   }
+}
+
+async function seedCanonicalMigrationImportSource(
+  prisma: PrismaClient,
+  tenantId: string,
+): Promise<void> {
+  const existing = await prisma.importSource.findFirst({
+    where: {
+      tenant_id: tenantId,
+      key: CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,
+    },
+    select: { id: true },
+  });
+  if (existing) {
+    return;
+  }
+
+  const sourceCount = await prisma.importSource.count({
+    where: { tenant_id: tenantId },
+  });
+  await prisma.importSource.create({
+    data: {
+      tenant_id: tenantId,
+      key: CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM,
+      label: CANONICAL_MIGRATION_FIXTURE_SOURCE_LABEL,
+      is_default: sourceCount === 0,
+    },
+  });
 }
