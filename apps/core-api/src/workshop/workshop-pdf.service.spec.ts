@@ -98,17 +98,20 @@ describe('WorkshopPdfService', () => {
   let storage: jest.Mocked<
     Pick<
       PdfStorage,
-      'uploadPdf' | 'getPdfStream' | 'publishImmutableObject' | 'readImmutableObjectByKey'
+      | 'uploadPdf'
+      | 'getPdfStream'
+      | 'publishImmutableObject'
+      | 'readImmutableObjectByKey'
     >
   >;
   let mediaStorage: jest.Mocked<Pick<MechanicMediaStorage, 'readObjectBytes'>>;
   let prisma: {
+    $transaction: jest.Mock;
     client: {
       workshopOrder: {
         findFirst: jest.Mock;
         updateMany: jest.Mock;
       };
-      $transaction: jest.Mock;
       workshopCheckIn: {
         updateMany: jest.Mock;
       };
@@ -153,6 +156,7 @@ describe('WorkshopPdfService', () => {
     };
 
     prisma = {
+      $transaction: jest.fn(async (fn) => fn(prisma.client)),
       client: {
         workshopOrder: {
           findFirst: jest.fn().mockImplementation(async (args) => {
@@ -171,7 +175,6 @@ describe('WorkshopPdfService', () => {
             .fn()
             .mockResolvedValue({ default_locale: 'de' as const }),
         },
-        $transaction: jest.fn(async (fn) => fn(prisma.client)),
       },
     };
 
@@ -441,6 +444,7 @@ describe('WorkshopPdfService', () => {
           body: pdfBytes,
         }),
       );
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.client.workshopCheckIn.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -484,9 +488,10 @@ describe('WorkshopPdfService', () => {
         'GCS unavailable',
       );
 
-      const persistPdfCalls = prisma.client.workshopOrder.updateMany.mock.calls.filter(
-        (call) => call[0]?.data?.pdf_storage_key,
-      );
+      const persistPdfCalls =
+        prisma.client.workshopOrder.updateMany.mock.calls.filter(
+          (call) => call[0]?.data?.pdf_storage_key,
+        );
       expect(persistPdfCalls).toHaveLength(0);
       expect(prisma.client.workshopCheckIn.updateMany).not.toHaveBeenCalled();
     });

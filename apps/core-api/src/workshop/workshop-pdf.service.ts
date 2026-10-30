@@ -377,7 +377,7 @@ export class WorkshopPdfService {
           pdfBytes: finalPdfBytes,
           bucket: upload.bucket,
         });
-        await this.prisma.client.$transaction(async (tx) => {
+        await this.prisma.$transaction(async (tx) => {
           await persistWorkshopCheckInEvidencePdfArchiveRecord(tx, {
             tenantId,
             checkInId: order.check_in!.id,

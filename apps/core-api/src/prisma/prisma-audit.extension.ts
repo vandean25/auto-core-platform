@@ -195,19 +195,18 @@ function getRequiredTenantContext(): AuditActorContext {
 }
 
 function resolveAuditLogDelegate(
-  ctx?: Record<string, unknown>,
+  transactionContext: Record<string, unknown> | undefined,
   thisContext?: Record<string, unknown>,
+  ctx?: Record<string, unknown>,
 ): AuditLogDelegate | undefined {
-  const candidates = [
-    ctx?.auditLog,
-    ctx?.AuditLog,
-    thisContext?.auditLog,
-    thisContext?.AuditLog,
-    asRecord(ctx?.$parent)?.auditLog,
-    asRecord(thisContext?.$parent)?.auditLog,
-  ];
-
-  for (const candidate of candidates) {
+  for (const context of [transactionContext, thisContext, ctx]) {
+    if (!context) {
+      continue;
+    }
+    const candidate =
+      context.auditLog ??
+      context.AuditLog ??
+      asRecord(context.$parent)?.auditLog;
     if (isAuditLogDelegate(candidate)) {
       return candidate;
     }
@@ -281,20 +280,26 @@ function resolveDelegates(
 } {
   const extensionContext = getExtensionRecord(extensionThis);
   const queryCtx = asRecord(queryContext) ?? {};
-  // Snapshot reads belong to the transaction that performs the write. The
-  // client captured at extension definition runs outside it and would return
-  // the committed row both before and after the write, emptying every diff
-  // (and so every changed_fields list) for in-transaction updates.
-  const snapshotCtx =
+  // Snapshot reads and audit-log writes belong to the transaction that performs
+  // the write. The client captured at extension definition runs outside it:
+  // snapshots would return the stale committed row (emptying every diff), and
+  // the audit insert would take a second pooled connection while the
+  // transaction holds its own — exhausting the pool under parallel writes and
+  // committing audit rows even when the transaction rolls back.
+  const transactionCtx =
     asRecord(PrismaTransactionContext.getClient()) ??
     asRecord(DryRunStorage.getTransactionClient());
   const modelDelegate =
-    (snapshotCtx
-      ? resolvePrismaModelDelegate(snapshotCtx, model)
+    (transactionCtx
+      ? resolvePrismaModelDelegate(transactionCtx, model)
       : undefined) ??
-    resolvePrismaModelDelegate(queryCtx, model) ??
-    resolvePrismaModelDelegate(extensionContext, model);
-  const auditLogDelegate = resolveAuditLogDelegate(queryCtx, extensionContext);
+    resolvePrismaModelDelegate(extensionContext, model) ??
+    resolvePrismaModelDelegate(queryCtx, model);
+  const auditLogDelegate = resolveAuditLogDelegate(
+    transactionCtx,
+    extensionContext,
+    queryCtx,
+  );
 
   return { modelDelegate, auditLogDelegate };
 }

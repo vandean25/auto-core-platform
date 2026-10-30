@@ -962,8 +962,12 @@ describe('Prisma Audit Extension', () => {
         .fn()
         .mockResolvedValueOnce([beforeRow])
         .mockResolvedValueOnce([afterRow]);
+      const txAuditLogCreate = jest
+        .fn()
+        .mockResolvedValue({ id: 'tx-audit-1' });
       const txClient = {
         vehicle: { findFirst: jest.fn(), findMany: txFindMany },
+        auditLog: { create: txAuditLogCreate },
       };
 
       await runWithContext(undefined, undefined, () =>
@@ -988,8 +992,9 @@ describe('Prisma Audit Extension', () => {
         where: { id: { in: ['veh-1'] } },
       });
       expect(mockModelFindMany).not.toHaveBeenCalled();
-      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
-      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(txAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(txAuditLogCreate).toHaveBeenCalledWith({
         data: expect.objectContaining({
           entity_type: 'Vehicle',
           entity_id: 'veh-1',
@@ -997,6 +1002,47 @@ describe('Prisma Audit Extension', () => {
           changed_fields: ['customer_id', 'updatedAt'],
         }),
       });
+    });
+
+    it('writes the audit row through the active transaction client', async () => {
+      const beforeRow = { id: 'cust-1', name: 'Old Customer' };
+      const afterRow = { id: 'cust-1', name: 'New Customer' };
+      const txAuditLogCreate = jest
+        .fn()
+        .mockResolvedValue({ id: 'tx-audit-2' });
+      const txClient = {
+        customer: {
+          findFirst: jest.fn().mockResolvedValue(beforeRow),
+          findMany: jest.fn(),
+        },
+        auditLog: { create: txAuditLogCreate },
+      };
+
+      const result = await runWithContext(undefined, undefined, () =>
+        PrismaTransactionContext.run(txClient as never, () =>
+          applyAuditUpdate.call(
+            mockContext,
+            mockContext,
+            'Customer',
+            {
+              where: { id: 'cust-1', tenant_id: TENANT_ID },
+              data: { name: 'New Customer' },
+            },
+            async () => afterRow,
+          ),
+        ),
+      );
+
+      expect(result).toEqual(afterRow);
+      expect(txAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(txAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'Customer',
+          entity_id: 'cust-1',
+          action: 'UPDATE',
+        }),
+      });
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
     });
 
     it('reads dry-run snapshots from the dry-run transaction and still records a real change', async () => {

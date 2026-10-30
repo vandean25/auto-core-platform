@@ -1,4 +1,4 @@
-import { HttpException } from '@nestjs/common';
+import { HttpException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
@@ -148,7 +148,10 @@ function isRowConstraintError(error: unknown): boolean {
   if (
     error instanceof ApplyRowStaleError ||
     error instanceof ImportDuplicateCreateInJobError ||
-    error instanceof ImportRowDomainError
+    error instanceof ImportRowDomainError ||
+    // A row that vanished mid-apply is a row-level failure, whether Prisma
+    // reported it as P2025 or the tenant extension mapped it to 404.
+    error instanceof NotFoundException
   ) {
     return true;
   }

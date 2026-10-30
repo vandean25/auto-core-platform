@@ -4,7 +4,6 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
-import { resolvePrismaModelDelegate } from './prisma-delegate.js';
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.
@@ -120,22 +119,26 @@ function scopeUpsertWhere(
   return scopedWhere;
 }
 
-function buildTenantOwnershipWhere(
-  where: Record<string, unknown>,
-  tenantId: string,
-): Record<string, unknown> {
-  return {
-    AND: [where, { tenant_id: tenantId }],
-  };
+function isRecordNotFoundError(error: unknown): boolean {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    (error as { code?: unknown }).code === 'P2025',
+  );
 }
 
 /**
  * The core $allOperations handler logic — extracted for unit testability.
  * Applies tenant isolation rules to a single Prisma operation.
+ *
+ * `baseClient` is the client captured at extension definition. It is kept in
+ * the signature to make the isolation boundary explicit, but the extension
+ * must never query through it: it lives outside every active transaction and
+ * dry-run context.
  */
 export function applyTenantIsolation(
   this: unknown,
-  ctx: unknown,
+  baseClient: unknown,
   model: string,
   operation: string,
   args: unknown,
@@ -171,53 +174,39 @@ export function applyTenantIsolation(
       return query(nextArgs);
     }
 
-    // Targeted single-row mutations: pre-check against the current tenant and
-    // then execute the write with the caller's unique selector.
+    // Targeted single-row mutations: the tenant is part of the write selector,
+    // so the ownership check and the write are one atomic statement.
     if (operation === 'update' || operation === 'delete') {
       const { scopedWhere, injected } = injectTenantIntoWhere(
         nextArgs.where as Record<string, unknown> | undefined,
         tenantId,
       );
-      const where = scopedWhere;
 
-      if (Object.keys(where).length === 0) {
+      if (Object.keys(scopedWhere).length === 0) {
         throw new Error(
           `[TenantIsolation] ${operation}() on model '${model}' requires a where clause.`,
         );
       }
 
       if (injected) {
-        nextArgs.where = where;
+        nextArgs.where = scopedWhere;
 
         return query(nextArgs);
       }
 
-      const extensionContext = Prisma.getExtensionContext(this) as Record<
-        string,
-        unknown
-      >;
-      const modelDelegate =
-        resolvePrismaModelDelegate(ctx as Record<string, unknown>, model) ??
-        resolvePrismaModelDelegate(extensionContext, model);
+      nextArgs.where = { ...scopedWhere, tenant_id: tenantId };
 
-      if (typeof modelDelegate?.findFirst !== 'function') {
-        throw new Error(
-          `[TenantIsolation] Unable to resolve delegate for model '${model}'.`,
-        );
-      }
+      try {
+        return await query(nextArgs);
+      } catch (error) {
+        if (!isRecordNotFoundError(error)) {
+          throw error;
+        }
 
-      const existing = await modelDelegate.findFirst({
-        where: buildTenantOwnershipWhere(where, tenantId),
-        select: { id: true },
-      });
-
-      if (!existing) {
         throw new NotFoundException(
           `[TenantIsolation] ${model} record not found for current tenant.`,
         );
       }
-
-      return query(nextArgs);
     }
 
     // create: stamp tenant_id onto the new record

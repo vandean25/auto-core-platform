@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma.module.js';
 import { SystemPrismaService } from './system-prisma.service.js';
 import { resetSharedRuntimePool } from './shared-pg-pool.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import { PrismaTransactionContext } from './prisma-transaction-context.js';
 
 describe('PrismaService', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL;
@@ -64,7 +65,9 @@ describe('PrismaService', () => {
 
   it('routes model delegate calls to DryRunStorage transaction client when active', async () => {
     service = await createPrismaService();
-    const mockTxCustomer = { create: jest.fn().mockResolvedValue({ id: 'mock-1' }) };
+    const mockTxCustomer = {
+      create: jest.fn().mockResolvedValue({ id: 'mock-1' }),
+    };
     const mockTx = { customer: mockTxCustomer };
 
     await DryRunStorage.run({ isDryRun: true, tx: mockTx as any }, async () => {
@@ -75,7 +78,9 @@ describe('PrismaService', () => {
 
   it('routes calls to transaction client when transaction client is a Proxy without has trap', async () => {
     service = await createPrismaService();
-    const mockTxCustomer = { create: jest.fn().mockResolvedValue({ id: 'proxy-1' }) };
+    const mockTxCustomer = {
+      create: jest.fn().mockResolvedValue({ id: 'proxy-1' }),
+    };
     const rawTarget = {};
     const mockTxProxy = new Proxy(rawTarget, {
       get(t, prop) {
@@ -84,10 +89,31 @@ describe('PrismaService', () => {
       },
     });
 
-    await DryRunStorage.run({ isDryRun: true, tx: mockTxProxy as any }, async () => {
-      const customerDelegate = (service as any).customer;
-      expect(customerDelegate).toBe(mockTxCustomer);
-    });
+    await DryRunStorage.run(
+      { isDryRun: true, tx: mockTxProxy as any },
+      async () => {
+        const customerDelegate = (service as any).customer;
+        expect(customerDelegate).toBe(mockTxCustomer);
+      },
+    );
+  });
+
+  it('preserves PrismaTransactionContext while resolving a thenable returned by an interactive transaction callback', async () => {
+    service = await createPrismaService();
+    const mockTx = { isTx: true };
+    jest
+      .spyOn(service.client as any, '$transaction')
+      .mockImplementation(async (callback: any) => callback(mockTx));
+
+    let contextInsideThenable: unknown;
+    await service.$transaction((() => ({
+      then(resolve: (value: unknown) => void) {
+        contextInsideThenable = PrismaTransactionContext.getClient();
+        resolve({ ok: true });
+      },
+    })) as any);
+
+    expect(contextInsideThenable).toBe(mockTx);
   });
 });
 
