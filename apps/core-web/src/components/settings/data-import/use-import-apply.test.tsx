@@ -165,4 +165,3 @@ describe('useImportApply stalled resume', () => {
     expect(onApplied).not.toHaveBeenCalled()
   })
 })
-)
