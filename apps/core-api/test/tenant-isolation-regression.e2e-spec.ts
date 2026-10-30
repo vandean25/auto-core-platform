@@ -91,6 +91,13 @@ describe('Tenant Isolation Regression (e2e)', () => {
     await tenantBPrisma.storageLocation.deleteMany({
       where: { code: { startsWith: `${prefix}-LOC` } },
     });
+
+    await tenantAPrisma.importJob.deleteMany({
+      where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
+    });
+    await tenantBPrisma.importJob.deleteMany({
+      where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
+    });
   });
 
   afterAll(async () => {
@@ -121,6 +128,13 @@ describe('Tenant Isolation Regression (e2e)', () => {
       });
       await tenantBPrisma.storageLocation.deleteMany({
         where: { code: { startsWith: `${prefix}-LOC` } },
+      });
+
+      await tenantAPrisma.importJob.deleteMany({
+        where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
+      });
+      await tenantBPrisma.importJob.deleteMany({
+        where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
       });
     }
 
@@ -537,26 +551,34 @@ describe('Tenant Isolation Regression (e2e)', () => {
     });
 
     it('completes more parallel interactive transactions than the pool size', async () => {
+      // ImportJob is not audited, so each in-transaction write uses only the
+      // transaction connection and the test measures the tenant extension alone.
       const transactionCount = 12;
-      const brands = await Promise.all(
+      const jobs = await Promise.all(
         Array.from({ length: transactionCount }, (_, index) =>
-          tenantAPrisma.brand.create({
+          tenantAPrisma.importJob.create({
             data: {
               tenant_id: tenantAId,
-              ...brandData(`${prefix}-CONCURRENT-${index}-${Date.now()}`),
+              entity_type: 'CUSTOMER',
+              source_system: 'E2E',
+              file_name: `${prefix}-CONCURRENT-${index}.csv`,
+              file_sha256: `sha-${prefix}-${index}`,
+              mapping_json: {},
+              options_json: {},
+              totals_json: {},
             },
           }),
         ),
       );
 
       const updated = await Promise.all(
-        brands.map((brand) =>
+        jobs.map((job) =>
           runWithTenantContext(tenantAId, () =>
             prisma.$transaction(
               (tx) =>
-                tx.brand.update({
-                  where: { id: brand.id },
-                  data: { logoUrl: null },
+                tx.importJob.update({
+                  where: { id: job.id },
+                  data: { file_name: `${job.file_name}-updated` },
                 }),
               { timeout: 15_000, maxWait: 15_000 },
             ),
@@ -565,7 +587,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       );
 
       expect(updated).toHaveLength(transactionCount);
-      expect(updated.every((brand) => brand.id > 0)).toBe(true);
+      expect(new Set(updated.map((job) => job.id)).size).toBe(transactionCount);
     });
   });
 
