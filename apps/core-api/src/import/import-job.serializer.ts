@@ -1,9 +1,5 @@
-import type {
-  ImportEntityType,
-  ImportJobStatus,
-  ImportRowAction,
-  Prisma,
-} from '@prisma/client';
+import { ImportJobStatus } from '@prisma/client';
+import type { ImportEntityType, ImportRowAction, Prisma } from '@prisma/client';
 import { sanitizeCsvInjectionValue } from './csv-parse.util.js';
 import { getImportReportCopy } from './import-error-report.i18n.js';
 import type { DisplayLanguage } from '../common/i18n/display-language.js';
@@ -11,6 +7,7 @@ import type { ImportJobTotals } from './import.types.js';
 import { isStaleApplyingImportJob } from './import-apply-lease.js';
 import {
   computeImportProgress,
+  readWorkerState,
   type ImportJobOptionsWithWorker,
 } from './import-job.worker-state.js';
 
@@ -66,6 +63,56 @@ export function serializeImportJob(
 }
 
 export type SerializedImportJob = ReturnType<typeof serializeImportJob>;
+
+export type ImportJobListItemView = {
+  id: string;
+  entity_type: ImportEntityType;
+  source_system: string;
+  file_name: string;
+  status: ImportJobStatus;
+  options_json: Prisma.JsonValue;
+  totals_json: Prisma.JsonValue;
+  created_by: string | null;
+  createdAt: Date;
+  appliedAt: Date | null;
+};
+
+/**
+ * List-row shape for the import history. Deliberately omits mapping, options
+ * and per-row payloads so the list never carries raw CSV data or PII.
+ */
+export function serializeImportJobListItem(job: ImportJobListItemView) {
+  const totals = (job.totals_json ?? {}) as Partial<ImportJobTotals>;
+  const options = (job.options_json ?? {}) as ImportJobOptionsWithWorker & {
+    apply_failure_code?: string;
+  };
+  const failureCode =
+    job.status === ImportJobStatus.FAILED
+      ? options.apply_failure_code
+      : undefined;
+  // Only a background dry run can be cancelled; the apply phase rejects cancel.
+  const cancellable =
+    job.status === ImportJobStatus.APPLYING &&
+    readWorkerState(options)?.phase === 'dry_run';
+  return {
+    id: job.id,
+    status: job.status,
+    entity_type: job.entity_type,
+    source_system: job.source_system,
+    file_name: job.file_name,
+    totals: {
+      create: totals.create ?? 0,
+      update: totals.update ?? 0,
+      skip: totals.skip ?? 0,
+      error: totals.error ?? 0,
+    },
+    created_by: job.created_by,
+    created_at: job.createdAt.toISOString(),
+    applied_at: job.appliedAt?.toISOString() ?? null,
+    cancellable,
+    ...(failureCode ? { apply_failure_code: failureCode } : {}),
+  };
+}
 
 /** Response shaping for an applied job. The facade supplies it so runners report through it. */
 export type SerializeImportJobFn = (

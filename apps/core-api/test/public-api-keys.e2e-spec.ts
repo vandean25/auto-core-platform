@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { TenantMemberRole } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -14,6 +13,7 @@ import {
 import { resolveApiKeyPepper } from '../src/public-api/api-keys/api-key-pepper.js';
 import {
   cleanupTestTenantGraph,
+  createMemberBearer,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -66,9 +66,9 @@ describe('Public API keys (e2e, AUT-411)', () => {
     tenantBPrisma = createTenantAwarePrisma(prisma, tenantB.tenantId);
 
     adminA = `Bearer ${createTestAuthToken(authService, tenantA, { role: 'ADMIN' })}`;
-    ownerA = await createMemberBearer(tenantA, 'OWNER');
-    techA = await createMemberBearer(tenantA, 'TECH');
-    salesA = await createMemberBearer(tenantA, 'SALES');
+    ownerA = await createMemberBearer(prisma, authService, tenantA, 'OWNER');
+    techA = await createMemberBearer(prisma, authService, tenantA, 'TECH');
+    salesA = await createMemberBearer(prisma, authService, tenantA, 'SALES');
 
     customerA = await createCustomer(tenantA.tenantId, 'Demo Kunde A');
     customerB = await createCustomer(tenantB.tenantId, 'Demo Kunde B');
@@ -86,33 +86,6 @@ describe('Public API keys (e2e, AUT-411)', () => {
       data: { api_rate_limit_per_minute: 60 },
     });
   });
-
-  async function createMemberBearer(
-    tenant: TestTenantResult,
-    role: TenantMemberRole,
-  ): Promise<string> {
-    const slug = role.toLowerCase();
-    const firebaseUid = `e2e-${slug}-${tenant.tenantId}`;
-    const email = `${slug}-${tenant.tenantId}@example.com`;
-
-    await prisma.user.create({
-      data: {
-        firebaseUid,
-        email,
-        active_tenant_id: tenant.tenantId,
-        memberships: {
-          create: { tenant_id: tenant.tenantId, role, is_active: true },
-        },
-      },
-    });
-
-    return `Bearer ${createTestAuthToken(authService, {
-      ...tenant,
-      firebaseUid,
-      email,
-      role,
-    })}`;
-  }
 
   async function createCustomer(tenantId: string, firstName: string): Promise<string> {
     const customer = await createTenantAwarePrisma(prisma, tenantId).customer.create({

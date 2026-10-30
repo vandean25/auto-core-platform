@@ -354,6 +354,19 @@ export class ImportJobStore {
     });
   }
 
+  /** Lists a tenant's import jobs newest-first (uses the tenant/createdAt index). */
+  findJobsPage(where: Prisma.ImportJobWhereInput, skip: number, take: number) {
+    return Promise.all([
+      this.prisma.importJob.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.importJob.count({ where }),
+    ]);
+  }
+
   createDryRunJob(input: CreateDryRunJobInput) {
     return this.prisma.importJob.create({
       data: {

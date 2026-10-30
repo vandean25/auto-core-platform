@@ -3,6 +3,8 @@ import {
   DEFAULT_AT_PROFILE_CODE,
   DEFAULT_DE_PROFILE_CODE,
   RZL_SERIALIZER_RELEASE_ENV,
+  defaultProfileCodeForCountry,
+  defaultFormatVersionForCountry,
 } from './accounting-profile.codes.js';
 import { validateAccountingProfilePatch } from './accounting-profile.validation.js';
 
@@ -19,6 +21,17 @@ const atContext = {
 };
 
 describe('accounting-profile.validation', () => {
+  it.each([
+    ['AT', 'ACP-RZL-AT-EUR-1', 'RZL-FIBU-IMPORT-ACP-DRAFT-1'],
+    ['DE', 'ACP-DATEV-DE-EUR-1', 'EXTF-700-Buchungsstapel-13'],
+  ] as const)(
+    'keeps %s default profile and format',
+    (country, profile, format) => {
+      expect(defaultProfileCodeForCountry(country)).toBe(profile);
+      expect(defaultFormatVersionForCountry(country)).toBe(format);
+    },
+  );
+
   it('rejects enabling the RZL profile before serializer approval', () => {
     expect(() =>
       validateAccountingProfilePatch({ isEnabled: true }, atContext),
@@ -190,7 +203,11 @@ describe('accounting-profile.validation', () => {
       setRzlRelease(undefined);
       expect(() =>
         validateAccountingProfilePatch(
-          { profileCode: DEFAULT_AT_PROFILE_CODE, chart: 'UGB', isEnabled: true },
+          {
+            profileCode: DEFAULT_AT_PROFILE_CODE,
+            chart: 'UGB',
+            isEnabled: true,
+          },
           {
             countryIso: 'AT',
             currentProfileCode: DEFAULT_DE_PROFILE_CODE,

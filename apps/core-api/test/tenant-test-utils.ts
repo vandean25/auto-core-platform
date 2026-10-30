@@ -118,6 +118,40 @@ export function createTestAuthToken(
   });
 }
 
+/**
+ * Creates a fresh user with a single active membership for the tenant and
+ * returns a test bearer token for it. Used by e2e specs that need non-admin
+ * callers (OWNER/SALES/TECH) without hand-rolling the user + membership rows.
+ */
+export async function createMemberBearer(
+  prisma: PrismaService,
+  authService: TestTokenFactory,
+  tenant: TestTenantResult,
+  role: TenantMemberRole,
+): Promise<string> {
+  const slug = role.toLowerCase();
+  const firebaseUid = `e2e-${slug}-${tenant.tenantId}`;
+  const email = `${slug}-${tenant.tenantId}@example.com`;
+  await prisma.user.create({
+    data: {
+      firebaseUid,
+      email,
+      active_tenant_id: tenant.tenantId,
+      active_site_id: null,
+      memberships: {
+        create: { tenant_id: tenant.tenantId, role, is_active: true },
+      },
+    },
+    select: { id: true },
+  });
+  return `Bearer ${createTestAuthToken(authService, {
+    ...tenant,
+    firebaseUid,
+    email,
+    role,
+  })}`;
+}
+
 export async function seedTestEmployee(
   prisma: PrismaService,
   params: {

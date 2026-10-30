@@ -4629,7 +4629,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List import jobs for the tenant, newest first */
+        get: operations["ImportController_listJobs"];
         put?: never;
         /** Upload CSV and run a synchronous import dry-run */
         post: operations["ImportController_createDryRun"];
@@ -5517,6 +5518,12 @@ export interface components {
         PlatformAdminRole: "SUPER_ADMIN";
         /** @enum {string} */
         DisplayLanguage: "de" | "en";
+        EffectiveCapabilitiesDto: {
+            nova: boolean;
+            pickerl57a: boolean;
+            kaufvertragAt: boolean;
+            willhabenExport: boolean;
+        };
         AuthSessionResponseDto: {
             userId: string;
             email: string;
@@ -5531,6 +5538,7 @@ export interface components {
             defaultLocale: components["schemas"]["DisplayLanguage"];
             /** @example de-AT */
             formatLocale: string;
+            effectiveCapabilities: components["schemas"]["EffectiveCapabilitiesDto"] | null;
         };
         SwitchTenantDto: {
             /** Format: uuid */
@@ -11399,6 +11407,34 @@ export interface components {
              *     ]
              */
             data: components["schemas"]["ImportEntityTypeResponseDto"][];
+        };
+        ImportJobListTotalsDto: {
+            create: number;
+            update: number;
+            skip: number;
+            error: number;
+        };
+        ImportJobListItemDto: {
+            id: string;
+            status: components["schemas"]["ImportJobStatus"];
+            entity_type: components["schemas"]["ImportEntityType"];
+            source_system: string;
+            file_name: string;
+            totals: components["schemas"]["ImportJobListTotalsDto"];
+            created_by: string | null;
+            created_at: string;
+            applied_at: string | null;
+            cancellable: boolean;
+            apply_failure_code?: string;
+        };
+        ImportJobListMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+        };
+        ImportJobListResponseDto: {
+            data: components["schemas"]["ImportJobListItemDto"][];
+            meta: components["schemas"]["ImportJobListMetaDto"];
         };
         /** @enum {string} */
         ImportRowAction: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
@@ -21533,6 +21569,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogProviderSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_listJobs: {
+        parameters: {
+            query?: {
+                entityType?: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE";
+                limit?: string;
+                page?: string;
+                source?: string;
+                status?: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobListResponseDto"];
                 };
             };
         };
