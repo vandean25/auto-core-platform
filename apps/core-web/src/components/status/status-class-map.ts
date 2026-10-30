@@ -105,6 +105,9 @@ export const statusClassMap: Record<string, string> = {
   PROPOSE: WARNING,
   HUMAN_ONLY: INFO,
   NOT_EVALUATED: NEUTRAL,
+  GOOD: SUCCESS,
+  RECOMMENDED: WARNING,
+  URGENT: DESTRUCTIVE,
   // Gewährleistung (vehicle sale warranty); labels come from gewaehrleistungStatusBadge
   GEWAEHRLEISTUNG_ACTIVE: SUCCESS,
   GEWAEHRLEISTUNG_EXPIRING_SOON: WARNING,

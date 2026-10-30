@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 
-import { useAuthRole } from '@/features/actions/use-auth-role'
+import { useAuthSession } from '@/api/auth-session'
 import { getFocusedDataTableRowId } from '@/features/shortcuts/shortcut-guard'
 import { buildPaletteContextSection } from './build-palette-context-section'
 import { intakePrefillForRecord } from './global-search-context-actions'
@@ -16,7 +16,7 @@ export function useGlobalSearchPaletteContext(open: boolean, query: string) {
   const { t: tWorkshop } = useTranslation('workshop')
   const { t: tCustomers } = useTranslation('customers')
   const { t: tVehicles } = useTranslation('vehicles')
-  const role = useAuthRole()
+  const role = useAuthSession().data?.activeRole
   const location = useLocation()
   const runContexts = usePaletteContextRunContexts()
 
@@ -28,7 +28,10 @@ export function useGlobalSearchPaletteContext(open: boolean, query: string) {
   )
   const entityPrefixFilter = Boolean(parseSearchInput(query).types)
   const enabled = open && Boolean(recordRef) && !entityPrefixFilter
-  const recordData = useGlobalSearchRecordData(recordRef, enabled)
+  const recordData = useGlobalSearchRecordData(
+    role === 'TECH' && recordRef?.entity === 'workshop_order' ? null : recordRef,
+    enabled,
+  )
 
   const contextSection = useMemo(() => {
     if (!enabled || !recordRef) return null

@@ -10,6 +10,7 @@ import { stockTransferKeys } from '@/api/stock-transfers'
 import { inventoryKeys } from '@/api/inventory'
 import { vehicleStockKeys } from '@/api/vehicle-stock'
 import { workshopKeys } from '@/api/workshop'
+import { tyreMeasurementKeys } from '@/api/tyre-measurement-keys'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { getQueryKeysToInvalidateForEntityType, getRealtimeInvalidationWindowMs, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
@@ -40,6 +41,7 @@ const SITE_SCOPED_QUERY_KEYS: QueryKey[] = [
   vehicleStockKeys.all,
   inventoryKeys.all,
   stockTransferKeys.all,
+  tyreMeasurementKeys.all,
 ]
 
 type RealtimeConnection = {

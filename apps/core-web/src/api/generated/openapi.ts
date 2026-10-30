@@ -11516,6 +11516,10 @@ export interface components {
             recommendedBelowMm: number;
             ordinaryMinimumMm: number;
         };
+        TyreAgeRecommendationsResponseDto: {
+            conditionCheckFromMonths: number;
+            replacementFromMonths: number;
+        };
         TyreDotResponseDto: {
             /** @enum {string} */
             format: "MODERN" | "LEGACY_PRE_2000";
@@ -11543,6 +11547,7 @@ export interface components {
             reasonCodes: ("TREAD_BELOW_LEGAL_MINIMUM" | "AT_WINTER_TREAD_INSUFFICIENT" | "TREAD_REPLACEMENT_RECOMMENDED" | "DE_ALPINE_MISSING" | "AT_WINTER_RULE_NOTICE" | "DOT_CONDITION_CHECK_RECOMMENDED" | "DOT_REPLACEMENT_RECOMMENDED" | "DOT_LEGACY_OVER_20_YEARS" | "UNSUPPORTED_COUNTRY")[];
             minimumTreadMm: number;
             thresholds: components["schemas"]["TyreThresholdsResponseDto"] | null;
+            ageRecommendations?: components["schemas"]["TyreAgeRecommendationsResponseDto"];
             dot: components["schemas"]["TyreDotResponseDto"] | null;
         };
         TyreWheelResponseDto: {

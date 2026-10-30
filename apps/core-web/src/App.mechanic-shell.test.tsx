@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -32,6 +32,25 @@ vi.mock('./pages/DashboardPage', () => ({
 vi.mock('./pages/platform/PlatformTenantsPage', () => ({
   default: () => <div>Platform tenants page</div>,
 }))
+vi.mock('./pages/mechanic/MechanicTyreReportPage', () => ({
+  default: () => <h1>Mechanic tyre report</h1>,
+}))
+vi.mock('./pages/tyre-storage/TyreSetDetailPage', () => ({
+  default: () => <h1>Tyre hotel detail</h1>,
+}))
+vi.mock('./pages/workshop/WorkshopOrderDetails', () => ({
+  default: () => <h1>Office work order</h1>,
+}))
+vi.mock('@/components/GlobalSearch', async () => {
+  const { CommandDialog } = await import('@/components/ui/command')
+  return {
+    GlobalSearch: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => (
+      <CommandDialog open={open} onOpenChange={onOpenChange} title="Search" description="Find a record or action">
+        <input aria-label="Search" />
+      </CommandDialog>
+    ),
+  }
+})
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -134,6 +153,30 @@ describe('MechanicShell (ADR-0014 §8.2)', () => {
       renderShell('/mechanic/queue', { userEmail: 'ali@workshop.com' })
 
       expect(screen.getByText('ali@workshop.com')).toBeInTheDocument()
+    })
+  })
+
+  describe('command palette keyboard shortcut', () => {
+    it.each([
+      ['Ctrl', { ctrlKey: true }],
+      ['Cmd', { metaKey: true }],
+    ] as const)('toggles the palette with %s+K and prevents the browser shortcut', async (_, modifier) => {
+      renderShell()
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(fireEvent.keyDown(document, { key: 'k', ...modifier })).toBe(false)
+      expect(await screen.findByRole('dialog', { name: 'Search' })).toBeVisible()
+
+      expect(fireEvent.keyDown(document, { key: 'k', ...modifier })).toBe(false)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('does not open the palette for unmodified K or another modified key', () => {
+      renderShell()
+
+      expect(fireEvent.keyDown(document, { key: 'k' })).toBe(true)
+      expect(fireEvent.keyDown(document, { key: 'j', ctrlKey: true })).toBe(true)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
   })
 
@@ -248,7 +291,33 @@ describe('role-aware shell route guards', () => {
     },
   )
 
-  it.each(['/workshop/orders', '/settings'])(
+  it.each([
+    ['/workshop/orders/order-1', 'Mechanic tyre report'],
+    ['/workshop/orders/order-1?action=recordTyreMeasurement', 'Mechanic tyre report'],
+    ['/workshop/tyre-storage/set-1', 'Tyre hotel detail'],
+    ['/workshop/tyre-storage/set-1?action=recordTyreMeasurement', 'Tyre hotel detail'],
+  ])('permits the canonical TECH detail route %s in the mechanic shell', async (path, heading) => {
+    renderShellRouter(path, { activeRole: 'TECH' })
+
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+    expect(screen.getByText('Mechaniker')).toBeInTheDocument()
+    expect(screen.queryByText('Admin dashboard')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Office work order' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: deWorkshop.mechanic.accessDenied.title })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    '/workshop/orders',
+    '/workshop/tyre-storage',
+    '/settings',
+    '/hr/employees',
+    '/hr/clock',
+    '/hr/leave',
+    '/dashboard',
+    '/workshop/orders/order-1/check-in',
+    '/workshop/orders/order-1/garantie-kulanz',
+    '/workshop/tyre-storage/set-1/edit',
+  ])(
     'shows an access-denied page for a TECH user visiting %s',
     async (path) => {
       renderShellRouter(path, { activeRole: 'TECH' })

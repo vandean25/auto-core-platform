@@ -192,6 +192,13 @@ class TyreThresholdsResponseDto {
   ordinaryMinimumMm!: number;
 }
 
+class TyreAgeRecommendationsResponseDto {
+  @ApiProperty()
+  conditionCheckFromMonths!: number;
+  @ApiProperty()
+  replacementFromMonths!: number;
+}
+
 export class TyreEvaluationResponseDto implements TyreEvaluation {
   @ApiProperty({ enum: [1] })
   version!: 1;
@@ -226,6 +233,8 @@ export class TyreEvaluationResponseDto implements TyreEvaluation {
   minimumTreadMm!: number;
   @ApiProperty({ type: TyreThresholdsResponseDto, nullable: true })
   thresholds!: TyreThresholdsResponseDto | null;
+  @ApiPropertyOptional({ type: TyreAgeRecommendationsResponseDto })
+  ageRecommendations?: TyreAgeRecommendationsResponseDto;
   @ApiProperty({ type: TyreDotResponseDto, nullable: true })
   dot!: TyreDotResponseDto | null;
 }

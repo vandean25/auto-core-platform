@@ -38476,6 +38476,21 @@
           "ordinaryMinimumMm"
         ]
       },
+      "TyreAgeRecommendationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "conditionCheckFromMonths": {
+            "type": "number"
+          },
+          "replacementFromMonths": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "conditionCheckFromMonths",
+          "replacementFromMonths"
+        ]
+      },
       "TyreDotResponseDto": {
         "type": "object",
         "properties": {
@@ -38588,6 +38603,9 @@
                 "$ref": "#/components/schemas/TyreThresholdsResponseDto"
               }
             ]
+          },
+          "ageRecommendations": {
+            "$ref": "#/components/schemas/TyreAgeRecommendationsResponseDto"
           },
           "dot": {
             "nullable": true,

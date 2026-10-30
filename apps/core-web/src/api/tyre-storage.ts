@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
 import { fetchWithAuth } from './client'
 import { throwHttpError } from '@/lib/error-utils'
+import { tyreMeasurementKeys } from './tyre-measurement-keys'
+import { workshopKeys } from './workshop'
 
 export type TyreSet = components['schemas']['TyreSetResponseDto']
 export type TyreSetListResponse = {
@@ -150,11 +152,16 @@ export function useTyreSetsByCustomer(customerId: string | undefined) {
 export function useTyreSetAction() {
   const queryClient = useQueryClient()
   return useMutation({
+    networkMode: 'always',
+    retry: false,
     mutationFn: async (input: {
       id: string
-      action: 'check-in' | 'check-out' | 'move' | 'dispose'
+      action: 'check-in' | 'check-out' | 'move' | 'dispose' | 'inspect'
       body: components['schemas']['TyreSetLocationActionDto']
     }) => {
+      if (input.body.wheels?.length && !navigator.onLine) {
+        throw new TypeError('Failed to fetch')
+      }
       const response = await fetchWithAuth(
         `/api/tyre-sets/${input.id}/${input.action}`,
         {
@@ -171,6 +178,10 @@ export function useTyreSetAction() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: tyreStorageKeys.all })
       queryClient.invalidateQueries({ queryKey: tyreStorageKeys.detail(variables.id) })
+      if (variables.body.wheels?.length) {
+        queryClient.invalidateQueries({ queryKey: tyreMeasurementKeys.all })
+        queryClient.invalidateQueries({ queryKey: workshopKeys.all })
+      }
     },
   })
 }

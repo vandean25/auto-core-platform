@@ -76,6 +76,32 @@ describe('client-safe HTTP error codes', () => {
     }
   });
 
+  it('lists the tyre measurement codes and forwards only the failing wheel position', () => {
+    for (const code of [
+      'TYRE_DOT_FUTURE_DATE',
+      'TYRE_DOT_INVALID_FORMAT',
+      'TYRE_DOT_INVALID_WEEK',
+      'TYRE_EVALUATION_DATE_INVALID',
+      'TYRE_MEASUREMENT_EVENT_INVALID',
+      'TYRE_MEASUREMENT_MEDIA_INVALID',
+      'TYRE_MEASUREMENT_NOT_FOUND',
+      'TYRE_MEASUREMENT_ORDER_MISMATCH',
+      'TYRE_MEASUREMENT_PARENT_NOT_FOUND',
+      'TYRE_MEASUREMENT_VEHICLE_REQUIRED',
+      'TYRE_THRESHOLDS_INVALID',
+      'TYRE_TREAD_INVALID',
+    ]) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+    expect(
+      pickClientSafeHttpErrorParams({
+        code: 'TYRE_DOT_INVALID_WEEK',
+        position: 'FL',
+        dot: '0020',
+      }),
+    ).toEqual({ position: 'FL' });
+  });
+
   it('forwards no detail fields for codes outside the allowlist', () => {
     expect(
       pickClientSafeHttpErrorDetails({ code: 'SOMETHING_ELSE', orderId: 'wo-live' }),

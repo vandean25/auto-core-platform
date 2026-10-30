@@ -7,6 +7,7 @@ import { inventoryKeys } from './inventory'
 import { vehicleStockKeys } from './vehicle-stock'
 import { workshopKeys } from './workshop'
 import { stockTransferKeys } from './stock-transfers'
+import { tyreMeasurementKeys } from './tyre-measurement-keys'
 
 export type MeSite = components['schemas']['MeSiteDto']
 export type SetActiveSitePayload = components['schemas']['SetActiveSiteDto']
@@ -33,6 +34,7 @@ const SITE_SCOPED_QUERY_KEYS = [
   inventoryKeys.all,
   vehicleStockKeys.all,
   stockTransferKeys.all,
+  tyreMeasurementKeys.all,
 ] as const
 
 /**

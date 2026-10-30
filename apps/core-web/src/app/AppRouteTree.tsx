@@ -141,6 +141,8 @@ export function MechanicRoutes() {
                 <Route path={MECHANIC_ROUTE_PATHS.queue} element={<Lazy.MechanicQueuePage />} />
                 <Route path={MECHANIC_ROUTE_PATHS.taskDetail} element={<Lazy.MechanicTaskDetailPage />} />
                 <Route path={MECHANIC_ROUTE_PATHS.root} element={<Navigate to={MECHANIC_ROUTE_PATHS.queue} replace />} />
+                <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<Lazy.MechanicTyreReportPage />} />
+                <Route path={APP_ROUTE_PATHS.tyreStorageDetail} element={<Lazy.TyreSetDetailPage />} />
               </Route>
               <Route path="*" element={<Lazy.NotFoundPage />} />
             </Routes>
