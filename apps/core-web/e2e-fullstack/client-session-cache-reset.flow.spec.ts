@@ -292,8 +292,10 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
     await page.getByRole('button', { name: USER_A_EMAIL }).click()
     await page.getByRole('menuitem', { name: 'Abmelden' }).click()
 
-    // Signed out: the login form is shown and nothing of the previous user is left on screen.
-    await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toBeVisible()
+    // Signed out: the login screen is shown and nothing of the previous user is left on screen. The harness has no
+    // Firebase, so the card shows the unconfigured note instead of the sign-in form.
+    await expect(page.getByRole('heading', { name: 'Anmelden', level: 2 })).toBeVisible()
+    await expect(page.getByText('Anmeldung ist für diese Umgebung nicht konfiguriert.')).toBeVisible()
     await expect(page.getByText(fixture.customerLabel)).toHaveCount(0)
     await expect(page.getByRole('link', { name: SAVED_VIEW_A })).toHaveCount(0)
 
