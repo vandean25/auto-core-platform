@@ -1,7 +1,13 @@
-import type { Employee, EmployeeRole, TenantMemberRole } from '@prisma/client';
+import type {
+  Employee,
+  EmployeeRole,
+  Prisma,
+  TenantMemberRole,
+} from '@prisma/client';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 import { enableLegacyMigrationPurgeFlag } from '../src/prisma/fixtures/legacy-migration-purge-flag.js';
 import { TenantContextStorage } from '../src/common/services/tenant-context.storage.js';
+import { PrismaTransactionContext } from '../src/prisma/prisma-transaction-context.js';
 import { randomUUID } from 'node:crypto';
 
 export const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875;
@@ -713,6 +719,37 @@ function extractBasePrismaClient<T extends object>(prisma: T): T {
   return prisma;
 }
 
+function wrapTransactionCallback(
+  callback: (tx: unknown) => unknown,
+  tenantId: string,
+) {
+  return async (tx: unknown) =>
+    runWithTenantContext(tenantId, async () =>
+      PrismaTransactionContext.run(
+        tx as Prisma.TransactionClient,
+        async () =>
+          await callback(createTenantAwarePrisma(tx as object, tenantId)),
+      ),
+    );
+}
+
+function createTransactionProxy(
+  value: (...args: unknown[]) => unknown,
+  target: object,
+  tenantId: string,
+) {
+  return (first: unknown, ...rest: unknown[]) => {
+    if (typeof first === 'function') {
+      const callback = first as (tx: unknown) => unknown;
+      return Reflect.apply(value, target, [
+        wrapTransactionCallback(callback, tenantId),
+        ...rest,
+      ]);
+    }
+    return Reflect.apply(value, target, [first, ...rest]);
+  };
+}
+
 export function createTenantAwarePrisma<T extends object>(
   prisma: T,
   tenantId: string,
@@ -724,6 +761,14 @@ export function createTenantAwarePrisma<T extends object>(
       const value = Reflect.get(target, prop, receiver);
 
       if (typeof value === 'function') {
+        if (prop === '$transaction') {
+          return createTransactionProxy(
+            value as (...args: unknown[]) => unknown,
+            target,
+            tenantId,
+          );
+        }
+
         return (...args: unknown[]) =>
           runWithTenantContext(tenantId, async () => {
             const result = Reflect.apply(
