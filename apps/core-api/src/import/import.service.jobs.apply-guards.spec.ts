@@ -225,6 +225,24 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       });
     });
 
+    it('refuses to apply an expired CANCELLED job with cancel_reason: expired', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.CANCELLED,
+          options_json: { cancel_reason: 'expired' },
+        }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_STALE,
+          message: 'Import job cannot be applied in its current status',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
     it('refuses to apply a CANCELLED job with JOB_STALE', async () => {
       h.prisma.importJob.findFirst.mockResolvedValue(
         importJobRecord({ status: ImportJobStatus.CANCELLED }),
