@@ -345,15 +345,7 @@ async function adoptStaleApplyLease(
 }
 
 type LockTxClient = {
-  importJob: {
-    findFirst: (
-      args: any,
-    ) => Promise<{
-      status: ImportJobStatus;
-      options_json: Prisma.JsonValue | null;
-      updatedAt: Date;
-    } | null>;
-  };
+  importJob: Pick<Prisma.TransactionClient['importJob'], 'findFirst'>;
 };
 
 /** Reads and writes import jobs and their rows. Every query is scoped to the tenant. */
