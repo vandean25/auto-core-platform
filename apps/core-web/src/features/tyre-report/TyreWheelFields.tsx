@@ -96,8 +96,13 @@ export function TyreWheelFields({ form, index, position, onPhoto, mediaUrls }: P
             <Label htmlFor={path}>{t(`tyreReport.fields.${point}`)}</Label>
             <Input id={path} aria-label={`${positionLabel} ${t(`tyreReport.fields.${point}`)}`} type="number" inputMode="decimal" min={0} max={20} step={0.01} required className="min-h-11"
               aria-invalid={Boolean(error)} aria-describedby={error ? `${path}-error` : undefined}
-              {...form.register(path, { setValueAs: (value: string) => value === '' ? undefined : Number(value), required: t('tyreReport.invalidField'), min: { value: 0, message: t('tyreReport.invalidField') }, max: { value: 20, message: t('tyreReport.invalidField') } })} />
-            {error && <p id={`${path}-error`} className="text-sm text-destructive">{error.message}</p>}
+              {...form.register(path, {
+                setValueAs: (value: string) => value === '' ? undefined : Number(value),
+                required: t('tyreReport.invalidField'),
+                min: { value: 0, message: t('tyreReport.treadMin') },
+                max: { value: 20, message: t('tyreReport.treadMax') },
+              })} />
+            {error && <p id={`${path}-error`} className="text-xs sm:text-sm text-destructive">{error.message}</p>}
           </div>
         })}
       </div>

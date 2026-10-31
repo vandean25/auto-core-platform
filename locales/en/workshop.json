@@ -27,6 +27,8 @@
     "copy": "Copy brand, model and size to all wheels",
     "includeSpare": "Record spare wheel",
     "invalidField": "Please check this value.",
+    "treadMin": "Tread depth min. 0 mm",
+    "treadMax": "Tread depth max. 20 mm",
     "weightClass": "Weight class",
     "weights": { "UP_TO_3500_KG": "Up to 3.5 t", "OVER_3500_KG": "Over 3.5 t" },
     "positions": { "FL": "Front left", "FR": "Front right", "RL": "Rear left", "RR": "Rear right", "SPARE": "Spare wheel" },

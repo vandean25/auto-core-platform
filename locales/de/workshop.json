@@ -27,6 +27,8 @@
     "copy": "Marke, Modell und Größe auf alle Räder kopieren",
     "includeSpare": "Reserverad erfassen",
     "invalidField": "Bitte prüfen Sie diesen Wert.",
+    "treadMin": "Profiltiefe min. 0 mm",
+    "treadMax": "Profiltiefe max. 20 mm",
     "weightClass": "Gewichtsklasse",
     "weights": { "UP_TO_3500_KG": "Bis 3,5 t", "OVER_3500_KG": "Über 3,5 t" },
     "positions": { "FL": "Vorne links", "FR": "Vorne rechts", "RL": "Hinten links", "RR": "Hinten rechts", "SPARE": "Reserverad" },
