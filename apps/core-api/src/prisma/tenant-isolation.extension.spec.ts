@@ -185,6 +185,111 @@ describe('applyTenantIsolation', () => {
     });
   });
 
+  describe('findFirst() and findFirstOrThrow() — must be scoped', () => {
+    it('injects tenant_id into where for findFirst', async () => {
+      const query = jest.fn().mockResolvedValue({ id: '1' });
+      const args = { where: { code: 'MAIN' } };
+
+      await runWithTenant(() => call('Site', 'findFirst', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        where: { code: 'MAIN', tenant_id: TENANT_ID },
+      });
+    });
+
+    it('injects tenant_id into where for findFirstOrThrow', async () => {
+      const query = jest.fn().mockResolvedValue({ id: '1' });
+      const args = { where: { code: 'MAIN' } };
+
+      await runWithTenant(() => call('Site', 'findFirstOrThrow', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        where: { code: 'MAIN', tenant_id: TENANT_ID },
+      });
+    });
+  });
+
+  describe('bulk operations — must be scoped', () => {
+    it('injects tenant_id into where for updateMany', async () => {
+      const query = jest.fn().mockResolvedValue({ count: 2 });
+      const args = {
+        where: { status: 'DRAFT' },
+        data: { status: 'CONFIRMED' },
+      };
+
+      await runWithTenant(() => call('SalesOrder', 'updateMany', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        where: { status: 'DRAFT', tenant_id: TENANT_ID },
+        data: { status: 'CONFIRMED' },
+      });
+    });
+
+    it('injects tenant_id into where for updateManyAndReturn', async () => {
+      const query = jest.fn().mockResolvedValue([{ id: '1' }, { id: '2' }]);
+      const args = {
+        where: { status: 'DRAFT' },
+        data: { status: 'CONFIRMED' },
+      };
+
+      await runWithTenant(() =>
+        call('SalesOrder', 'updateManyAndReturn', args, query),
+      );
+
+      expect(query).toHaveBeenCalledWith({
+        where: { status: 'DRAFT', tenant_id: TENANT_ID },
+        data: { status: 'CONFIRMED' },
+      });
+    });
+
+    it('injects tenant_id into where for deleteMany', async () => {
+      const query = jest.fn().mockResolvedValue({ count: 1 });
+      const args = { where: { status: 'CANCELLED' } };
+
+      await runWithTenant(() => call('SalesOrder', 'deleteMany', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        where: { status: 'CANCELLED', tenant_id: TENANT_ID },
+      });
+    });
+  });
+
+  describe('aggregate and groupBy — must be scoped with options preserved', () => {
+    it('preserves having and by while injecting tenant_id into where for groupBy', async () => {
+      const query = jest.fn().mockResolvedValue([]);
+      const args = {
+        by: ['status'],
+        where: { is_active: true },
+        having: { status: { _count: { gt: 5 } } },
+      };
+
+      await runWithTenant(() => call('SalesOrder', 'groupBy', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        by: ['status'],
+        where: { is_active: true, tenant_id: TENANT_ID },
+        having: { status: { _count: { gt: 5 } } },
+      });
+    });
+
+    it('preserves _count and _sum while injecting tenant_id into where for aggregate', async () => {
+      const query = jest.fn().mockResolvedValue({ _count: { id: 3 } });
+      const args = {
+        where: { status: 'CONFIRMED' },
+        _count: { id: true },
+        _sum: { total_amount: true },
+      };
+
+      await runWithTenant(() => call('SalesOrder', 'aggregate', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        where: { status: 'CONFIRMED', tenant_id: TENANT_ID },
+        _count: { id: true },
+        _sum: { total_amount: true },
+      });
+    });
+  });
+
   describe('update() — tenant ownership is part of the write', () => {
     it('runs only the tenant-scoped write and never pre-checks ownership', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'task-1' });
@@ -389,6 +494,47 @@ describe('applyTenantIsolation', () => {
           { order_number: 'SO-1', status: 'DRAFT', tenant_id: TENANT_ID },
           { order_number: 'SO-2', status: 'CONFIRMED', tenant_id: TENANT_ID },
         ],
+      });
+    });
+
+    it('injects tenant_id into each createManyAndReturn payload row', async () => {
+      const query = jest.fn().mockResolvedValue([
+        { id: '1', order_number: 'SO-1', tenant_id: TENANT_ID },
+        { id: '2', order_number: 'SO-2', tenant_id: TENANT_ID },
+      ]);
+      const args = {
+        data: [
+          { order_number: 'SO-1', status: 'DRAFT' },
+          { order_number: 'SO-2', status: 'CONFIRMED' },
+        ],
+      };
+
+      await runWithTenant(() =>
+        call('SalesOrder', 'createManyAndReturn', args, query),
+      );
+
+      expect(query).toHaveBeenCalledWith({
+        data: [
+          { order_number: 'SO-1', status: 'DRAFT', tenant_id: TENANT_ID },
+          { order_number: 'SO-2', status: 'CONFIRMED', tenant_id: TENANT_ID },
+        ],
+      });
+    });
+
+    it('injects tenant_id into createManyAndReturn when data is a single object', async () => {
+      const query = jest.fn().mockResolvedValue([
+        { id: '1', order_number: 'SO-1', tenant_id: TENANT_ID },
+      ]);
+      const args = {
+        data: { order_number: 'SO-1', status: 'DRAFT' },
+      };
+
+      await runWithTenant(() =>
+        call('SalesOrder', 'createManyAndReturn', args, query),
+      );
+
+      expect(query).toHaveBeenCalledWith({
+        data: { order_number: 'SO-1', status: 'DRAFT', tenant_id: TENANT_ID },
       });
     });
   });
