@@ -116,39 +116,61 @@ if (Prisma.dmmf?.datamodel?.models) {
 }
 
 /**
- * Explicit allowlist for nested relation writes on tenant-scoped models where
- * Prisma provides no alternative (e.g. implicit m-n relations without a join model),
- * or aggregate root child line items created/managed inline by the parent document.
- * Every entry must be justified:
- * - 'Vendor.supportedBrands': implicit many-to-many (_VendorBrands) has no Prisma
- *   delegate model; VendorService validates tenant ownership of brandIds prior to write.
- * - Aggregate root child line items (e.g. Invoice.items, SalesOrder.items, PurchaseOrder.items,
- *   WorkshopOrder.tasks, EmployeeWorkSchedule.days, VehicleListing.channels, WorkshopEstimate.versions,
- *   StockTransfer.lines, ImportJob.rows, TyreMeasurement.wheels): owned directly by the parent entity
- *   and created together; composite foreign key [tenant_id, parent_id] references [tenant_id, id]
- *   enforces tenant isolation at the database level.
+ * Nested relations allowlist categorized by isolation mechanism:
+ *
+ * 1. COMPOSITE_KEY_NESTED_RELATIONS (13 entries):
+ *    Child table carries a composite foreign key [tenant_id, <parent_id>] references
+ *    [tenant_id, id] of the parent. Tenant isolation is enforced at the database level.
+ *
+ * 2. SINGLE_KEY_CHILD_TENANT_RELATIONS (6 entries: PurchaseOrder.items, SalesOrder.items,
+ *    Invoice.items, CreditNote.items, PurchaseInvoice.lines, PartsRequisition.lines):
+ *    Child table carries a tenant_id column, but foreign key to parent is single-column
+ *    (<parent_id> references parent.id). Because Prisma nested writes bypass the model
+ *    delegate, tenant isolation is enforced by this extension:
+ *    - nested create / createMany: automatically stamp current context tenant_id, rejecting
+ *      conflicting tenant_id in child payload.
+ *    - connect, set, update, updateMany, upsert, delete, deleteMany, disconnect, connectOrCreate:
+ *      strictly rejected to prevent attaching or mutating rows across tenants.
+ *
+ * 3. IMPLICIT_JOIN_NESTED_RELATIONS (Vendor.supportedBrands):
+ *    Implicit many-to-many join (_VendorBrands) has no Prisma delegate model and no tenant
+ *    column on the join table. Only connect, set, and disconnect are permitted, and all
+ *    referenced brand IDs must be verified to belong to the current tenant before execution.
+ *    Nested create and update mutations are rejected.
  */
-export const ALLOWED_NESTED_RELATION_WRITES = new Set<string>([
-  'Vendor.supportedBrands',
+export const COMPOSITE_KEY_NESTED_RELATIONS = new Set<string>([
   'EmployeeWorkSchedule.days',
   'VehicleListing.channels',
   'VehicleListing.photos',
   'WorkshopEstimate.versions',
   'StockTransfer.lines',
   'ImportJob.rows',
-  'PurchaseOrder.items',
-  'SalesOrder.items',
-  'Invoice.items',
-  'CreditNote.items',
-  'PurchaseInvoice.lines',
   'WorkshopOrder.tasks',
   'WorkshopTask.line_items',
   'TyreMeasurement.wheels',
   'WorkshopInspection.items',
   'InspectionTemplate.items',
-  'PartsRequisition.lines',
   'LegacyDocument.lines',
   'WarrantyClaim.lines',
+]);
+
+export const SINGLE_KEY_CHILD_TENANT_RELATIONS = new Set<string>([
+  'PurchaseOrder.items',
+  'SalesOrder.items',
+  'Invoice.items',
+  'CreditNote.items',
+  'PurchaseInvoice.lines',
+  'PartsRequisition.lines',
+]);
+
+export const IMPLICIT_JOIN_NESTED_RELATIONS = new Set<string>([
+  'Vendor.supportedBrands',
+]);
+
+export const ALLOWED_NESTED_RELATION_WRITES = new Set<string>([
+  ...COMPOSITE_KEY_NESTED_RELATIONS,
+  ...SINGLE_KEY_CHILD_TENANT_RELATIONS,
+  ...IMPLICIT_JOIN_NESTED_RELATIONS,
 ]);
 
 const RELATION_MUTATION_KEYS = new Set([
@@ -242,21 +264,30 @@ function resolveTargetModel(
   return null;
 }
 
-function checkGlobalRelationMutations(
+async function checkGlobalRelationMutations(
   targetModel: string,
   value: Record<string, unknown>,
-): void {
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
   for (const mutKey of RELATION_MUTATION_KEYS) {
     if (Object.hasOwn(value, mutKey)) {
-      assertNoTenantScopedNestedWrites(targetModel, value[mutKey]);
+      await assertNoTenantScopedNestedWrites(
+        targetModel,
+        value[mutKey],
+        tenantId,
+        contextClient,
+      );
     }
   }
 }
 
-function checkAllowlistedRelationMutation(
+async function checkAllowlistedRelationMutation(
   targetModel: string,
   value: unknown,
-): void {
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
   if (!value || typeof value !== 'object') {
     return;
   }
@@ -270,12 +301,19 @@ function checkAllowlistedRelationMutation(
       continue;
     }
     if (mutKey === 'createMany' && Object.hasOwn(payload, 'data')) {
-      assertNoTenantScopedNestedWrites(
+      await assertNoTenantScopedNestedWrites(
         targetModel,
         (payload as Record<string, unknown>).data,
+        tenantId,
+        contextClient,
       );
     } else {
-      assertNoTenantScopedNestedWrites(targetModel, payload);
+      await assertNoTenantScopedNestedWrites(
+        targetModel,
+        payload,
+        tenantId,
+        contextClient,
+      );
     }
   }
 }
@@ -293,26 +331,194 @@ function throwNestedRelationWriteError(
   );
 }
 
-function handleAllowlistedWrite(
-  modelName: string,
-  key: string,
-  value: unknown,
-): boolean {
-  if (!ALLOWED_NESTED_RELATION_WRITES.has(`${modelName}.${key}`)) {
-    return false;
+function extractBrandIds(payload: unknown): number[] {
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => {
+        if (item && typeof item === 'object' && 'id' in item) {
+          const id = Number((item as Record<string, unknown>).id);
+          return isNaN(id) ? null : id;
+        }
+        return null;
+      })
+      .filter((id): id is number => id !== null);
   }
-  const targetModel = resolveTargetModel(modelName, key);
-  if (targetModel) {
-    checkAllowlistedRelationMutation(targetModel, value);
+  if (payload && typeof payload === 'object' && 'id' in payload) {
+    const id = Number((payload as Record<string, unknown>).id);
+    return isNaN(id) ? [] : [id];
   }
-  return true;
+  return [];
 }
 
-function checkNestedWriteEntry(
+async function handleImplicitJoinNestedWrite(
+  modelName: string,
+  key: string,
+  record: Record<string, unknown>,
+  targetModel: string,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  const mutKeys = Object.keys(record).filter((k) =>
+    RELATION_MUTATION_KEYS.has(k),
+  );
+  if (mutKeys.length === 0) {
+    return;
+  }
+
+  for (const mutKey of mutKeys) {
+    if (mutKey === 'connect' || mutKey === 'set' || mutKey === 'disconnect') {
+      const payload = record[mutKey];
+      const brandIds = extractBrandIds(payload);
+      if (brandIds.length > 0) {
+        const client =
+          contextClient &&
+          typeof (contextClient as Record<string, unknown>).brand === 'object'
+            ? (contextClient as {
+                brand: {
+                  findMany: (args: unknown) => Promise<Array<{ id: number }>>;
+                };
+              })
+            : null;
+
+        if (!client || typeof client.brand?.findMany !== 'function') {
+          throw new Error(
+            `[TenantIsolation] Cannot verify tenant ownership for nested relation write on '${modelName}.${key}'. No brand query client available.`,
+          );
+        }
+
+        const matchingBrands = await client.brand.findMany({
+          where: {
+            id: { in: brandIds },
+            tenant_id: tenantId,
+          },
+          select: { id: true },
+        });
+
+        const matchingSet = new Set(matchingBrands.map((b) => b.id));
+        const hasUnauthorized = brandIds.some((id) => !matchingSet.has(id));
+        if (hasUnauthorized) {
+          throw new Error(
+            `[TenantIsolation] Nested relation write on '${modelName}.${key}' references brands not belonging to current tenant.`,
+          );
+        }
+      }
+      continue;
+    }
+
+    throwNestedRelationWriteError(modelName, key, targetModel);
+  }
+}
+
+async function handleSingleKeyChildTenantWrite(
+  modelName: string,
+  key: string,
+  record: Record<string, unknown>,
+  targetModel: string,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  const mutKeys = Object.keys(record).filter((k) =>
+    RELATION_MUTATION_KEYS.has(k),
+  );
+  if (mutKeys.length === 0) {
+    return;
+  }
+
+  for (const mutKey of mutKeys) {
+    if (mutKey === 'create') {
+      const payload = record.create;
+      if (Array.isArray(payload)) {
+        record.create = await Promise.all(
+          payload.map(async (item) => {
+            const stamped = validateAndStampCreateData(
+              targetModel,
+              'create',
+              item,
+              tenantId,
+            );
+            await assertNoTenantScopedNestedWrites(
+              targetModel,
+              stamped,
+              tenantId,
+              contextClient,
+            );
+            return stamped;
+          }),
+        );
+      } else if (payload && typeof payload === 'object') {
+        const stamped = validateAndStampCreateData(
+          targetModel,
+          'create',
+          payload,
+          tenantId,
+        );
+        await assertNoTenantScopedNestedWrites(
+          targetModel,
+          stamped,
+          tenantId,
+          contextClient,
+        );
+        record.create = stamped;
+      }
+      continue;
+    }
+
+    if (mutKey === 'createMany') {
+      const payload = record.createMany;
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        Object.hasOwn(payload, 'data')
+      ) {
+        const dataPayload = (payload as Record<string, unknown>).data;
+        if (Array.isArray(dataPayload)) {
+          (payload as Record<string, unknown>).data = await Promise.all(
+            dataPayload.map(async (item) => {
+              const stamped = validateAndStampCreateData(
+                targetModel,
+                'createMany',
+                item,
+                tenantId,
+              );
+              await assertNoTenantScopedNestedWrites(
+                targetModel,
+                stamped,
+                tenantId,
+                contextClient,
+              );
+              return stamped;
+            }),
+          );
+        } else if (dataPayload && typeof dataPayload === 'object') {
+          const stamped = validateAndStampCreateData(
+            targetModel,
+            'createMany',
+            dataPayload,
+            tenantId,
+          );
+          await assertNoTenantScopedNestedWrites(
+            targetModel,
+            stamped,
+            tenantId,
+            contextClient,
+          );
+          (payload as Record<string, unknown>).data = stamped;
+        }
+      }
+      continue;
+    }
+
+    throwNestedRelationWriteError(modelName, key, targetModel);
+  }
+}
+
+async function checkNestedWriteEntry(
   modelName: string,
   key: string,
   value: unknown,
-): void {
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
   if (!value || typeof value !== 'object') {
     return;
   }
@@ -321,42 +527,94 @@ function checkNestedWriteEntry(
     return;
   }
 
-  if (handleAllowlistedWrite(modelName, key, value)) {
+  const relationPath = `${modelName}.${key}`;
+  const targetModel = resolveTargetModel(modelName, key);
+
+  if (SINGLE_KEY_CHILD_TENANT_RELATIONS.has(relationPath)) {
+    await handleSingleKeyChildTenantWrite(
+      modelName,
+      key,
+      value as Record<string, unknown>,
+      targetModel ?? key,
+      tenantId,
+      contextClient,
+    );
+    return;
+  }
+
+  if (IMPLICIT_JOIN_NESTED_RELATIONS.has(relationPath)) {
+    await handleImplicitJoinNestedWrite(
+      modelName,
+      key,
+      value as Record<string, unknown>,
+      targetModel ?? 'Brand',
+      tenantId,
+      contextClient,
+    );
+    return;
+  }
+
+  if (COMPOSITE_KEY_NESTED_RELATIONS.has(relationPath)) {
+    if (targetModel) {
+      await checkAllowlistedRelationMutation(
+        targetModel,
+        value,
+        tenantId,
+        contextClient,
+      );
+    }
     return;
   }
 
   if (!isRelationMutation(value)) {
-    assertNoTenantScopedNestedWrites(modelName, value);
+    await assertNoTenantScopedNestedWrites(
+      modelName,
+      value,
+      tenantId,
+      contextClient,
+    );
     return;
   }
 
-  const targetModel = resolveTargetModel(modelName, key);
-  if (targetModel && GLOBAL_MODELS.has(targetModel)) {
-    checkGlobalRelationMutations(targetModel, value as Record<string, unknown>);
+  const resolvedTarget = targetModel;
+  if (resolvedTarget && GLOBAL_MODELS.has(resolvedTarget)) {
+    await checkGlobalRelationMutations(
+      resolvedTarget,
+      value as Record<string, unknown>,
+      tenantId,
+      contextClient,
+    );
     return;
   }
 
-  throwNestedRelationWriteError(modelName, key, targetModel);
+  throwNestedRelationWriteError(modelName, key, resolvedTarget);
 }
 
-function assertNoTenantScopedNestedWrites(
+async function assertNoTenantScopedNestedWrites(
   modelName: string,
   data: unknown,
-): void {
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
   if (!data || typeof data !== 'object') {
     return;
   }
 
   if (Array.isArray(data)) {
     for (const item of data) {
-      assertNoTenantScopedNestedWrites(modelName, item);
+      await assertNoTenantScopedNestedWrites(
+        modelName,
+        item,
+        tenantId,
+        contextClient,
+      );
     }
     return;
   }
 
   const record = data as Record<string, unknown>;
   for (const [key, value] of Object.entries(record)) {
-    checkNestedWriteEntry(modelName, key, value);
+    await checkNestedWriteEntry(modelName, key, value, tenantId, contextClient);
   }
 }
 
@@ -520,10 +778,16 @@ async function executeFilterableOperation(
   args: Record<string, unknown>,
   tenantId: string,
   query: (args: Record<string, unknown>) => Promise<unknown>,
+  contextClient?: unknown,
 ): Promise<unknown> {
   if (operation === 'updateMany' || operation === 'updateManyAndReturn') {
     assertNoTenantIdInUpdateData(model, operation, args.data);
-    assertNoTenantScopedNestedWrites(model, args.data);
+    await assertNoTenantScopedNestedWrites(
+      model,
+      args.data,
+      tenantId,
+      contextClient,
+    );
   }
 
   args.where = {
@@ -540,10 +804,16 @@ async function executeUpdateOrDelete(
   args: Record<string, unknown>,
   tenantId: string,
   query: (args: Record<string, unknown>) => Promise<unknown>,
+  contextClient?: unknown,
 ): Promise<unknown> {
   if (operation === 'update') {
     assertNoTenantIdInUpdateData(model, 'update', args.data);
-    assertNoTenantScopedNestedWrites(model, args.data);
+    await assertNoTenantScopedNestedWrites(
+      model,
+      args.data,
+      tenantId,
+      contextClient,
+    );
   }
 
   const { scopedWhere, injected } = injectTenantIntoWhere(
@@ -582,8 +852,14 @@ async function executeCreate(
   args: Record<string, unknown>,
   tenantId: string,
   query: (args: Record<string, unknown>) => Promise<unknown>,
+  contextClient?: unknown,
 ): Promise<unknown> {
-  assertNoTenantScopedNestedWrites(model, args.data);
+  await assertNoTenantScopedNestedWrites(
+    model,
+    args.data,
+    tenantId,
+    contextClient,
+  );
   args.data = validateAndStampCreateData(model, 'create', args.data, tenantId);
   return query(args);
 }
@@ -594,8 +870,14 @@ async function executeCreateMany(
   args: Record<string, unknown>,
   tenantId: string,
   query: (args: Record<string, unknown>) => Promise<unknown>,
+  contextClient?: unknown,
 ): Promise<unknown> {
-  assertNoTenantScopedNestedWrites(model, args.data);
+  await assertNoTenantScopedNestedWrites(
+    model,
+    args.data,
+    tenantId,
+    contextClient,
+  );
   args.data = stampTenantIntoCreateManyData(
     model,
     operation,
@@ -610,10 +892,21 @@ async function executeUpsert(
   args: Record<string, unknown>,
   tenantId: string,
   query: (args: Record<string, unknown>) => Promise<unknown>,
+  contextClient?: unknown,
 ): Promise<unknown> {
   assertNoTenantIdInUpdateData(model, 'upsert update', args.update);
-  assertNoTenantScopedNestedWrites(model, args.create);
-  assertNoTenantScopedNestedWrites(model, args.update);
+  await assertNoTenantScopedNestedWrites(
+    model,
+    args.create,
+    tenantId,
+    contextClient,
+  );
+  await assertNoTenantScopedNestedWrites(
+    model,
+    args.update,
+    tenantId,
+    contextClient,
+  );
 
   args.where = scopeUpsertWhere(
     model,
@@ -657,6 +950,10 @@ export async function applyTenantIsolation(
   assertOperationAllowed(model, operation);
 
   const tenantId = getCurrentTenantId();
+  const contextClient =
+    this && typeof (this as Record<string, unknown>).brand === 'object'
+      ? this
+      : baseClient;
 
   // Read + bulk-mutation operations: inject into where clause
   if (FILTERABLE_OPERATIONS.has(operation)) {
@@ -666,27 +963,42 @@ export async function applyTenantIsolation(
       nextArgs,
       tenantId,
       query,
+      contextClient,
     );
   }
 
   // Targeted single-row mutations: the tenant is part of the write selector,
   // so the ownership check and the write are one atomic statement.
   if (operation === 'update' || operation === 'delete') {
-    return executeUpdateOrDelete(model, operation, nextArgs, tenantId, query);
+    return executeUpdateOrDelete(
+      model,
+      operation,
+      nextArgs,
+      tenantId,
+      query,
+      contextClient,
+    );
   }
 
   // create: stamp tenant_id onto the new record
   if (operation === 'create') {
-    return executeCreate(model, nextArgs, tenantId, query);
+    return executeCreate(model, nextArgs, tenantId, query, contextClient);
   }
 
   if (operation === 'createMany' || operation === 'createManyAndReturn') {
-    return executeCreateMany(model, operation, nextArgs, tenantId, query);
+    return executeCreateMany(
+      model,
+      operation,
+      nextArgs,
+      tenantId,
+      query,
+      contextClient,
+    );
   }
 
   // upsert: tenant_id required in both where (lookup) and create (new row)
   if (operation === 'upsert') {
-    return executeUpsert(model, nextArgs, tenantId, query);
+    return executeUpsert(model, nextArgs, tenantId, query, contextClient);
   }
 
   logger.error(

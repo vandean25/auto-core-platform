@@ -858,6 +858,11 @@ describe('applyTenantIsolation', () => {
 
       it('permits allowlisted nested relation write on Vendor.supportedBrands in create and update', async () => {
         const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const brandMockClient = {
+          brand: {
+            findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
+          },
+        };
         const argsCreate = {
           data: {
             name: 'Vendor A',
@@ -867,7 +872,9 @@ describe('applyTenantIsolation', () => {
           },
         };
 
-        await runWithTenant(() => call('Vendor', 'create', argsCreate, query));
+        await runWithTenant(() =>
+          call('Vendor', 'create', argsCreate, query, brandMockClient),
+        );
         expect(query).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
@@ -885,7 +892,9 @@ describe('applyTenantIsolation', () => {
           },
         };
 
-        await runWithTenant(() => call('Vendor', 'update', argsUpdate, query));
+        await runWithTenant(() =>
+          call('Vendor', 'update', argsUpdate, query, brandMockClient),
+        );
         expect(query).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
@@ -972,6 +981,226 @@ describe('applyTenantIsolation', () => {
           /\[TenantIsolation\] Nested relation write on 'WorkshopTask\.mechanic' targeting tenant-scoped model 'Employee' is not permitted\./,
         );
         expect(query).not.toHaveBeenCalled();
+      });
+
+      describe('single-FK tenant-scoped child relations', () => {
+        it.each([
+          ['PurchaseOrder', 'items', 'PurchaseOrderItem'],
+          ['SalesOrder', 'items', 'SalesOrderItem'],
+          ['Invoice', 'items', 'InvoiceItem'],
+          ['CreditNote', 'items', 'CreditNoteItem'],
+          ['PurchaseInvoice', 'lines', 'PurchaseInvoiceLine'],
+          ['PartsRequisition', 'lines', 'PartsRequisitionLine'],
+        ])(
+          'stamps context tenant_id on nested create for %s.%s',
+          async (parentModel, relField) => {
+            const query = jest
+              .fn()
+              .mockImplementation((a) => Promise.resolve(a));
+            const args = {
+              data: {
+                parent_code: 'TEST-1',
+                [relField]: {
+                  create: [
+                    { description: 'Child line 1' },
+                    { description: 'Child line 2' },
+                  ],
+                },
+              },
+            };
+
+            await runWithTenant(() =>
+              call(parentModel, 'create', args, query),
+            );
+
+            expect(query).toHaveBeenCalledWith(
+              expect.objectContaining({
+                data: expect.objectContaining({
+                  tenant_id: TENANT_ID,
+                  [relField]: {
+                    create: [
+                      expect.objectContaining({
+                        description: 'Child line 1',
+                        tenant_id: TENANT_ID,
+                      }),
+                      expect.objectContaining({
+                        description: 'Child line 2',
+                        tenant_id: TENANT_ID,
+                      }),
+                    ],
+                  },
+                }),
+              }),
+            );
+          },
+        );
+
+        it.each([
+          ['PurchaseOrder', 'items', 'PurchaseOrderItem'],
+          ['SalesOrder', 'items', 'SalesOrderItem'],
+          ['Invoice', 'items', 'InvoiceItem'],
+          ['CreditNote', 'items', 'CreditNoteItem'],
+          ['PurchaseInvoice', 'lines', 'PurchaseInvoiceLine'],
+          ['PartsRequisition', 'lines', 'PartsRequisitionLine'],
+        ])(
+          'rejects mismatching tenant_id in nested create for %s.%s',
+          async (parentModel, relField, childModel) => {
+            const query = jest.fn();
+            const args = {
+              data: {
+                parent_code: 'TEST-1',
+                [relField]: {
+                  create: [
+                    {
+                      description: 'Adversarial line',
+                      tenant_id: 'attacker-tenant',
+                    },
+                  ],
+                },
+              },
+            };
+
+            await expect(
+              runWithTenant(() => call(parentModel, 'create', args, query)),
+            ).rejects.toThrow(
+              new RegExp(
+                `\\[TenantIsolation\\] Mismatching tenant_id in create on model '${childModel}'\\.`,
+              ),
+            );
+            expect(query).not.toHaveBeenCalled();
+          },
+        );
+
+        it.each([
+          ['PurchaseOrder', 'items', 'PurchaseOrderItem'],
+          ['SalesOrder', 'items', 'SalesOrderItem'],
+          ['Invoice', 'items', 'InvoiceItem'],
+          ['CreditNote', 'items', 'CreditNoteItem'],
+          ['PurchaseInvoice', 'lines', 'PurchaseInvoiceLine'],
+          ['PartsRequisition', 'lines', 'PartsRequisitionLine'],
+        ])(
+          'rejects nested connect for %s.%s',
+          async (parentModel, relField, childModel) => {
+            const query = jest.fn();
+            const args = {
+              data: {
+                parent_code: 'TEST-1',
+                [relField]: {
+                  connect: [{ id: 'child-1' }],
+                },
+              },
+            };
+
+            await expect(
+              runWithTenant(() => call(parentModel, 'create', args, query)),
+            ).rejects.toThrow(
+              new RegExp(
+                `\\[TenantIsolation\\] Nested relation write on '${parentModel}\\.${relField}' targeting tenant-scoped model '${childModel}' is not permitted\\.`,
+              ),
+            );
+            expect(query).not.toHaveBeenCalled();
+          },
+        );
+
+        it.each([
+          'set',
+          'update',
+          'updateMany',
+          'delete',
+          'deleteMany',
+          'disconnect',
+        ])(
+          'rejects unsafe nested mutation %s on PurchaseOrder.items',
+          async (mutationKey) => {
+            const query = jest.fn();
+            const payload =
+              mutationKey === 'delete' || mutationKey === 'disconnect'
+                ? true
+                : mutationKey === 'deleteMany' || mutationKey === 'updateMany'
+                  ? {}
+                  : [{ id: 'item-1' }];
+            const args = {
+              where: { id: 'po-1' },
+              data: {
+                items: {
+                  [mutationKey]: payload,
+                },
+              },
+            };
+
+            await expect(
+              runWithTenant(() => call('PurchaseOrder', 'update', args, query)),
+            ).rejects.toThrow(
+              /\[TenantIsolation\] Nested relation write on 'PurchaseOrder\.items' targeting tenant-scoped model 'PurchaseOrderItem' is not permitted\./,
+            );
+            expect(query).not.toHaveBeenCalled();
+          },
+        );
+
+        it('stamps tenant_id in nested createMany for Invoice.items', async () => {
+          const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+          const args = {
+            data: {
+              currency: 'EUR',
+              items: {
+                createMany: {
+                  data: [
+                    { description: 'Item 1' },
+                    { description: 'Item 2', tenant_id: TENANT_ID },
+                  ],
+                },
+              },
+            },
+          };
+
+          await runWithTenant(() => call('Invoice', 'create', args, query));
+
+          expect(query).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                tenant_id: TENANT_ID,
+                items: {
+                  createMany: {
+                    data: [
+                      expect.objectContaining({
+                        description: 'Item 1',
+                        tenant_id: TENANT_ID,
+                      }),
+                      expect.objectContaining({
+                        description: 'Item 2',
+                        tenant_id: TENANT_ID,
+                      }),
+                    ],
+                  },
+                },
+              }),
+            }),
+          );
+        });
+
+        it('rejects nested relation write inside a single-FK child line item', async () => {
+          const query = jest.fn();
+          const args = {
+            data: {
+              order_number: 'PO-1',
+              items: {
+                create: [
+                  {
+                    description: 'Illegal nested write inside item',
+                    catalog_item: { connect: { id: 'cat-item-1' } },
+                  },
+                ],
+              },
+            },
+          };
+
+          await expect(
+            runWithTenant(() => call('PurchaseOrder', 'create', args, query)),
+          ).rejects.toThrow(
+            /\[TenantIsolation\] Nested relation write on 'PurchaseOrderItem\.catalog_item' targeting tenant-scoped model 'CatalogItem' is not permitted\./,
+          );
+          expect(query).not.toHaveBeenCalled();
+        });
       });
 
       it('permits scalar JSON columns containing mutation-like keys without mistaking them for relations', async () => {
