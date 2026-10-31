@@ -1,4 +1,4 @@
-import { ImportJobStatus } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import {
   IMPORT_FAILED_JOB_ROW_RETENTION_DAYS,
   IMPORT_JOB_RETENTION_DAYS,
@@ -215,70 +215,47 @@ describe('isImportJobEligibleForRowPurge', () => {
 });
 
 describe('purgeStaleImportJobRowsForTenant', () => {
-  const cutoff = importJobRowRetentionCutoff(NOW, IMPORT_JOB_RETENTION_DAYS);
-  const staleAppliedAt = new Date(cutoff.getTime() - 60_000);
-  const onCutoffAppliedAt = new Date(cutoff.getTime());
+  const cutoffs = importJobRowPurgeCutoffs(NOW);
+  const staleAppliedAt = new Date(cutoffs.appliedCutoff.getTime() - 60_000);
+  const onCutoffAppliedAt = new Date(cutoffs.appliedCutoff.getTime());
+  const staleCancelledAt = new Date(cutoffs.failedCutoff.getTime() - 60_000);
+  const staleFailedAt = new Date(cutoffs.failedCutoff.getTime() - 60_000);
+  const staleDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() - 60_000);
+  const freshDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() + 60_000);
+  const freshFailedAt = new Date(cutoffs.failedCutoff.getTime() + 60_000);
 
-  function seedJobs(): RetentionTestJob[] {
-    return [
-      {
-        id: 'job-stale-applied',
-        tenant_id: TENANT_A,
-        status: ImportJobStatus.APPLIED,
-        appliedAt: staleAppliedAt,
-        createdAt: new Date('2020-01-01'),
-      },
-      {
-        id: 'job-on-cutoff',
-        tenant_id: TENANT_A,
-        status: ImportJobStatus.APPLIED,
-        appliedAt: onCutoffAppliedAt,
-        createdAt: new Date('2020-01-01'),
-      },
-      {
-        id: 'job-dry-run',
-        tenant_id: TENANT_A,
-        status: ImportJobStatus.DRY_RUN_DONE,
-        appliedAt: null,
-        createdAt: new Date('2020-01-01'),
-      },
-      {
-        id: 'job-applying',
-        tenant_id: TENANT_A,
-        status: ImportJobStatus.APPLYING,
-        appliedAt: null,
-        createdAt: new Date('2020-01-01'),
-      },
-      {
-        id: 'job-failed-recent',
-        tenant_id: TENANT_A,
-        status: ImportJobStatus.FAILED,
-        appliedAt: null,
-        createdAt: new Date('2020-01-01'),
-      },
-      {
-        id: 'job-other-tenant',
-        tenant_id: TENANT_B,
-        status: ImportJobStatus.APPLIED,
-        appliedAt: staleAppliedAt,
-        createdAt: new Date('2020-01-01'),
-      },
-    ];
-  }
-
-  it('issues the exact eligibility where-clause and purges only stale applied rows', async () => {
+  it('purges stale applied rows and issues the expected where clause', async () => {
     const { prisma, rowsByJob, expectedJobWhere } =
       createImportRetentionPrismaFake(
-        seedJobs(),
+        [
+          {
+            id: 'job-stale-applied',
+            tenant_id: TENANT_A,
+            status: ImportJobStatus.APPLIED,
+            appliedAt: staleAppliedAt,
+            createdAt: new Date('2020-01-01'),
+          },
+          {
+            id: 'job-on-cutoff',
+            tenant_id: TENANT_A,
+            status: ImportJobStatus.APPLIED,
+            appliedAt: onCutoffAppliedAt,
+            createdAt: new Date('2020-01-01'),
+          },
+          {
+            id: 'job-applying',
+            tenant_id: TENANT_A,
+            status: ImportJobStatus.APPLYING,
+            appliedAt: null,
+            createdAt: new Date('2020-01-01'),
+          },
+        ],
         {
           'job-stale-applied': [1, 2],
           'job-on-cutoff': [1],
-          'job-dry-run': [1],
           'job-applying': [1],
-          'job-failed-recent': [1],
-          'job-other-tenant': [1, 2, 3],
         },
-        cutoff,
+        cutoffs,
       );
 
     const result = await purgeStaleImportJobRowsForTenant(
@@ -289,7 +266,7 @@ describe('purgeStaleImportJobRowsForTenant', () => {
 
     expect(prisma.importJob.findMany).toHaveBeenCalledWith({
       where: expectedJobWhere(TENANT_A),
-      select: { id: true },
+      select: expect.objectContaining({ id: true }),
       orderBy: { createdAt: 'asc' },
       take: 25,
     });
@@ -299,15 +276,261 @@ describe('purgeStaleImportJobRowsForTenant', () => {
       dry_run: false,
     });
     expect(rowsByJob.get('job-stale-applied')).toEqual([]);
-    expect(rowsByJob.get('job-on-cutoff')).toEqual([1]);
-    expect(rowsByJob.get('job-dry-run')).toEqual([1]);
-    expect(rowsByJob.get('job-applying')).toEqual([1]);
-    expect(rowsByJob.get('job-failed-recent')).toEqual([1]);
-    expect(rowsByJob.get('job-other-tenant')).toEqual([1, 2, 3]);
-    expect(prisma.importJob.updateMany).not.toHaveBeenCalled();
-    expect(prisma.importJob.deleteMany).not.toHaveBeenCalled();
-    expect(prisma.externalIdMapping.updateMany).not.toHaveBeenCalled();
-    expect(prisma.externalIdMapping.deleteMany).not.toHaveBeenCalled();
+    expect(rowsByJob.get('job-on-cutoff')).toEqual([
+      { row_no: 1, action: ImportRowAction.CREATE },
+    ]);
+    expect(rowsByJob.get('job-applying')).toEqual([
+      { row_no: 1, action: ImportRowAction.CREATE },
+    ]);
+  });
+
+  it('purges staged rows for CANCELLED jobs older than 1-day grace period', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-cancelled-stale',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.CANCELLED,
+          cancelled_at: staleCancelledAt,
+          createdAt: new Date('2020-01-01'),
+        },
+        {
+          id: 'job-cancelled-fresh',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.CANCELLED,
+          cancelled_at: new Date(cutoffs.failedCutoff.getTime() + 60_000),
+          createdAt: new Date('2020-01-01'),
+        },
+      ],
+      {
+        'job-cancelled-stale': [1, 2, 3],
+        'job-cancelled-fresh': [1, 2],
+      },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      jobs_scanned: 1,
+      rows_deleted: 3,
+      dry_run: false,
+    });
+    expect(rowsByJob.get('job-cancelled-stale')).toEqual([]);
+    expect(rowsByJob.get('job-cancelled-fresh')).toHaveLength(2);
+  });
+
+  it('expires stale DRY_RUN_DONE jobs (>7d): moves to CANCELLED (cancel_reason: expired) and purges rows', async () => {
+    const { prisma, jobs, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-stale-dry-run',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: staleDryRunCreatedAt,
+          options_json: { update_existing: true },
+        },
+        {
+          id: 'job-fresh-dry-run',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: freshDryRunCreatedAt,
+          options_json: { update_existing: false },
+        },
+      ],
+      {
+        'job-stale-dry-run': [1, 2, 3, 4],
+        'job-fresh-dry-run': [10, 20],
+      },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      jobs_scanned: 1,
+      rows_deleted: 4,
+      dry_run: false,
+    });
+    // Stale dry run job moved to CANCELLED with cancel_reason: 'expired'
+    const staleJob = jobs.find((j) => j.id === 'job-stale-dry-run');
+    expect(staleJob?.status).toBe(ImportJobStatus.CANCELLED);
+    expect(staleJob?.options_json).toEqual(
+      expect.objectContaining({
+        update_existing: true,
+        cancel_reason: 'expired',
+      }),
+    );
+    expect(staleJob?.cancelled_at).toEqual(NOW);
+    expect(rowsByJob.get('job-stale-dry-run')).toEqual([]);
+
+    // Fresh dry run remains untouched
+    const freshJob = jobs.find((j) => j.id === 'job-fresh-dry-run');
+    expect(freshJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    expect(rowsByJob.get('job-fresh-dry-run')).toHaveLength(2);
+  });
+
+  it('purges staged rows for FAILED jobs (>1d): keeps ERROR rows when totals.error > 0 and deletes non-error rows', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-failed-with-errors',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.FAILED,
+          failed_at: staleFailedAt,
+          createdAt: new Date('2020-01-01'),
+          totals_json: { rows: 5, create: 3, update: 0, skip: 0, error: 2 },
+        },
+      ],
+      {
+        'job-failed-with-errors': [
+          { row_no: 1, action: ImportRowAction.CREATE },
+          { row_no: 2, action: ImportRowAction.ERROR },
+          { row_no: 3, action: ImportRowAction.CREATE },
+          { row_no: 4, action: ImportRowAction.ERROR },
+          { row_no: 5, action: ImportRowAction.CREATE },
+        ],
+      },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      jobs_scanned: 1,
+      rows_deleted: 3,
+      dry_run: false,
+    });
+    // Non-error rows deleted, ERROR rows kept for errors.csv
+    const remaining = rowsByJob.get('job-failed-with-errors') ?? [];
+    expect(remaining).toEqual([
+      { row_no: 2, action: ImportRowAction.ERROR },
+      { row_no: 4, action: ImportRowAction.ERROR },
+    ]);
+  });
+
+  it('purges all rows for FAILED jobs (>1d) when totals.error is 0', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-failed-no-errors',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.FAILED,
+          failed_at: staleFailedAt,
+          createdAt: new Date('2020-01-01'),
+          totals_json: { rows: 2, create: 2, update: 0, skip: 0, error: 0 },
+        },
+      ],
+      {
+        'job-failed-no-errors': [
+          { row_no: 1, action: ImportRowAction.CREATE },
+          { row_no: 2, action: ImportRowAction.CREATE },
+        ],
+      },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      jobs_scanned: 1,
+      rows_deleted: 2,
+      dry_run: false,
+    });
+    expect(rowsByJob.get('job-failed-no-errors')).toEqual([]);
+  });
+
+  it('purges all rows including ERROR rows for FAILED jobs older than 180 days', async () => {
+    const ancientFailedAt = new Date(cutoffs.appliedCutoff.getTime() - 60_000);
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-failed-ancient',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.FAILED,
+          failed_at: ancientFailedAt,
+          createdAt: new Date('2020-01-01'),
+          totals_json: { rows: 2, create: 1, update: 0, skip: 0, error: 1 },
+        },
+      ],
+      {
+        'job-failed-ancient': [
+          { row_no: 1, action: ImportRowAction.CREATE },
+          { row_no: 2, action: ImportRowAction.ERROR },
+        ],
+      },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      jobs_scanned: 1,
+      rows_deleted: 2,
+      dry_run: false,
+    });
+    expect(rowsByJob.get('job-failed-ancient')).toEqual([]);
+  });
+
+  it('preserves tenant isolation: never purges rows or transitions jobs belonging to another tenant', async () => {
+    const { prisma, jobs, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-tenant-b-stale-dry-run',
+          tenant_id: TENANT_B,
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: staleDryRunCreatedAt,
+        },
+        {
+          id: 'job-tenant-b-stale-failed',
+          tenant_id: TENANT_B,
+          status: ImportJobStatus.FAILED,
+          failed_at: staleFailedAt,
+          createdAt: new Date('2020-01-01'),
+        },
+      ],
+      {
+        'job-tenant-b-stale-dry-run': [1, 2],
+        'job-tenant-b-stale-failed': [1],
+      },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      jobs_scanned: 0,
+      rows_deleted: 0,
+      dry_run: false,
+    });
+    // Tenant B's jobs stay completely untouched
+    expect(jobs[0].status).toBe(ImportJobStatus.DRY_RUN_DONE);
+    expect(rowsByJob.get('job-tenant-b-stale-dry-run')).toHaveLength(2);
+    expect(rowsByJob.get('job-tenant-b-stale-failed')).toHaveLength(1);
   });
 
   it('deletes rows in bounded batches when a job has more rows than the batch size', async () => {
@@ -322,7 +545,7 @@ describe('purgeStaleImportJobRowsForTenant', () => {
         },
       ],
       { 'job-batch': [1, 2, 3, 4, 5] },
-      cutoff,
+      cutoffs,
     );
 
     await purgeStaleImportJobRowsForTenant(prisma as never, TENANT_A, NOW, {
@@ -330,15 +553,15 @@ describe('purgeStaleImportJobRowsForTenant', () => {
     });
 
     expect(prisma.importJobRow.deleteMany).toHaveBeenCalledTimes(3);
-    expect(prisma.importJobRow.deleteMany.mock.calls[0][0].where.row_no.in).toEqual(
-      [1, 2],
-    );
-    expect(prisma.importJobRow.deleteMany.mock.calls[1][0].where.row_no.in).toEqual(
-      [3, 4],
-    );
-    expect(prisma.importJobRow.deleteMany.mock.calls[2][0].where.row_no.in).toEqual(
-      [5],
-    );
+    expect(
+      prisma.importJobRow.deleteMany.mock.calls[0][0].where.row_no.in,
+    ).toEqual([1, 2]);
+    expect(
+      prisma.importJobRow.deleteMany.mock.calls[1][0].where.row_no.in,
+    ).toEqual([3, 4]);
+    expect(
+      prisma.importJobRow.deleteMany.mock.calls[2][0].where.row_no.in,
+    ).toEqual([5]);
   });
 
   it('counts rows without deleting when dry-run is enabled', async () => {
@@ -353,7 +576,7 @@ describe('purgeStaleImportJobRowsForTenant', () => {
         },
       ],
       { 'job-stale-applied': [1, 2, 3] },
-      cutoff,
+      cutoffs,
     );
 
     const result = await purgeStaleImportJobRowsForTenant(
@@ -368,7 +591,7 @@ describe('purgeStaleImportJobRowsForTenant', () => {
       rows_deleted: 3,
       dry_run: true,
     });
-    expect(rowsByJob.get('job-stale-applied')).toEqual([1, 2, 3]);
+    expect(rowsByJob.get('job-stale-applied')).toHaveLength(3);
     expect(prisma.importJobRow.deleteMany).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 import {
   ImportJobStatus,
+  ImportRowAction,
   type Prisma,
   type PrismaClient,
 } from '@prisma/client';
@@ -8,6 +9,7 @@ import {
   IMPORT_JOB_RETENTION_DAYS,
   IMPORT_UPLOAD_RETENTION_DAYS,
 } from './import.constants.js';
+import type { ImportJobTotals } from './import.types.js';
 
 export const IMPORT_JOB_ROW_PURGE_JOBS_PER_TENANT = 25;
 export const IMPORT_JOB_ROW_PURGE_ROW_BATCH_SIZE = 500;
@@ -185,8 +187,11 @@ export function readImportJobRowRetentionPurgeConfig(
 }
 
 /**
- * Deletes row payloads for stale import jobs while keeping job headers and external id mappings.
- * Job totals on `import_jobs` are unchanged.
+ * Deletes staged row payloads for stale import jobs while keeping job headers and external id mappings.
+ * - APPLIED jobs older than 180 days: all staged rows purged.
+ * - CANCELLED jobs older than 1 day: all staged rows purged.
+ * - DRY_RUN_DONE jobs older than 7 days: transitioned to CANCELLED (cancel_reason: 'expired'), all staged rows purged.
+ * - FAILED jobs older than 1 day: keeps ERROR rows when errors exist for errors.csv; purges all rows if no errors or > 180 days.
  */
 export async function purgeStaleImportJobRowsForTenant(
   prisma: PrismaLike,
@@ -194,30 +199,97 @@ export async function purgeStaleImportJobRowsForTenant(
   now: Date,
   options: ImportJobRowPurgeOptions = {},
 ): Promise<ImportJobRowPurgeCounts> {
-  const retentionDays = options.retentionDays ?? IMPORT_JOB_RETENTION_DAYS;
   const dryRun = options.dryRun ?? false;
   const jobsPerTenant =
     options.jobsPerTenant ?? IMPORT_JOB_ROW_PURGE_JOBS_PER_TENANT;
   const rowBatchSize =
     options.rowBatchSize ?? IMPORT_JOB_ROW_PURGE_ROW_BATCH_SIZE;
-  const cutoff = importJobRowRetentionCutoff(now, retentionDays);
+  const cutoffs = importJobRowPurgeCutoffs(now, options);
 
   const jobs = await prisma.importJob.findMany({
-    where: eligibleImportJobsForRowPurgeWhere(tenantId, cutoff),
-    select: { id: true },
+    where: eligibleImportJobsForRowPurgeWhere(tenantId, cutoffs),
+    select: {
+      id: true,
+      status: true,
+      options_json: true,
+      totals_json: true,
+      createdAt: true,
+      failed_at: true,
+      cancelled_at: true,
+      appliedAt: true,
+    },
     orderBy: { createdAt: 'asc' },
     take: jobsPerTenant,
   });
 
   let rowsDeleted = 0;
   for (const job of jobs) {
-    rowsDeleted += await purgeRowsForJob(
-      prisma,
-      tenantId,
-      job.id,
-      rowBatchSize,
-      dryRun,
-    );
+    if (job.status === ImportJobStatus.DRY_RUN_DONE) {
+      if (!dryRun) {
+        const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
+        await prisma.importJob.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: job.id,
+            status: ImportJobStatus.DRY_RUN_DONE,
+          },
+          data: {
+            status: ImportJobStatus.CANCELLED,
+            cancelled_at: now,
+            options_json: {
+              ...jobOptions,
+              cancel_reason: 'expired',
+            },
+          },
+        });
+      }
+      rowsDeleted += await purgeRowsForJob(
+        prisma,
+        tenantId,
+        job.id,
+        rowBatchSize,
+        dryRun,
+      );
+    } else if (job.status === ImportJobStatus.CANCELLED) {
+      rowsDeleted += await purgeRowsForJob(
+        prisma,
+        tenantId,
+        job.id,
+        rowBatchSize,
+        dryRun,
+      );
+    } else if (job.status === ImportJobStatus.APPLIED) {
+      rowsDeleted += await purgeRowsForJob(
+        prisma,
+        tenantId,
+        job.id,
+        rowBatchSize,
+        dryRun,
+      );
+    } else if (job.status === ImportJobStatus.FAILED) {
+      const terminalAt = job.failed_at ?? job.createdAt;
+      const isAncient = terminalAt < cutoffs.appliedCutoff;
+      const totals = job.totals_json as ImportJobTotals | null;
+      const errorCount = totals?.error ?? 0;
+      if (!isAncient && errorCount > 0) {
+        rowsDeleted += await purgeRowsForJob(
+          prisma,
+          tenantId,
+          job.id,
+          rowBatchSize,
+          dryRun,
+          { not: ImportRowAction.ERROR },
+        );
+      } else {
+        rowsDeleted += await purgeRowsForJob(
+          prisma,
+          tenantId,
+          job.id,
+          rowBatchSize,
+          dryRun,
+        );
+      }
+    }
   }
 
   return {
@@ -233,8 +305,13 @@ async function purgeRowsForJob(
   jobId: string,
   rowBatchSize: number,
   dryRun: boolean,
+  actionFilter?: Prisma.ImportJobRowWhereInput['action'],
 ): Promise<number> {
-  const rowWhere = { tenant_id: tenantId, import_job_id: jobId };
+  const rowWhere: Prisma.ImportJobRowWhereInput = {
+    tenant_id: tenantId,
+    import_job_id: jobId,
+    ...(actionFilter !== undefined ? { action: actionFilter } : {}),
+  };
   if (dryRun) {
     return prisma.importJobRow.count({ where: rowWhere });
   }
