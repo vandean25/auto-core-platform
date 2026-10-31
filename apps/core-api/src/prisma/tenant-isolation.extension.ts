@@ -134,6 +134,23 @@ const RELATION_MUTATION_KEYS = new Set([
   'disconnect',
 ]);
 
+function isScalarSetClause(
+  record: Record<string, unknown>,
+  keys: string[],
+): boolean {
+  if (keys.length !== 1 || !Object.hasOwn(record, 'set')) {
+    return false;
+  }
+  const setValue = record.set;
+  if (typeof setValue !== 'object' || setValue === null) {
+    return true;
+  }
+  if (Array.isArray(setValue)) {
+    return setValue.every((item) => typeof item !== 'object' || item === null);
+  }
+  return false;
+}
+
 function isRelationMutation(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -143,20 +160,7 @@ function isRelationMutation(value: unknown): boolean {
   if (!keys.some((key) => RELATION_MUTATION_KEYS.has(key))) {
     return false;
   }
-  // In Prisma, scalar updates can use { set: 'val' }.
-  // If the only mutation key is 'set' and its value is a scalar or array of scalars, it is not a relation mutation.
-  if (keys.length === 1 && Object.hasOwn(record, 'set')) {
-    const setValue = record.set;
-    if (
-      typeof setValue !== 'object' ||
-      setValue === null ||
-      (Array.isArray(setValue) &&
-        setValue.every((item) => typeof item !== 'object' || item === null))
-    ) {
-      return false;
-    }
-  }
-  return true;
+  return !isScalarSetClause(record, keys);
 }
 
 function capitalizeFirstLetter(str: string): string {
@@ -185,6 +189,49 @@ function resolveTargetModel(
   return null;
 }
 
+function checkGlobalRelationMutations(
+  targetModel: string,
+  value: Record<string, unknown>,
+): void {
+  for (const mutKey of RELATION_MUTATION_KEYS) {
+    if (Object.hasOwn(value, mutKey)) {
+      assertNoTenantScopedNestedWrites(targetModel, value[mutKey]);
+    }
+  }
+}
+
+function checkNestedWriteEntry(
+  modelName: string,
+  key: string,
+  value: unknown,
+): void {
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+
+  if (ALLOWED_NESTED_RELATION_WRITES.has(`${modelName}.${key}`)) {
+    return;
+  }
+
+  if (!isRelationMutation(value)) {
+    assertNoTenantScopedNestedWrites(modelName, value);
+    return;
+  }
+
+  const targetModel = resolveTargetModel(modelName, key);
+  if (targetModel && GLOBAL_MODELS.has(targetModel)) {
+    checkGlobalRelationMutations(targetModel, value as Record<string, unknown>);
+    return;
+  }
+
+  const targetDesc = targetModel
+    ? `tenant-scoped model '${targetModel}'`
+    : 'tenant-scoped model';
+  throw new Error(
+    `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting ${targetDesc} is not permitted.`,
+  );
+}
+
 function assertNoTenantScopedNestedWrites(
   modelName: string,
   data: unknown,
@@ -201,43 +248,8 @@ function assertNoTenantScopedNestedWrites(
   }
 
   const record = data as Record<string, unknown>;
-
   for (const [key, value] of Object.entries(record)) {
-    if (!value || typeof value !== 'object') {
-      continue;
-    }
-
-    if (ALLOWED_NESTED_RELATION_WRITES.has(`${modelName}.${key}`)) {
-      continue;
-    }
-
-    const targetModel = resolveTargetModel(modelName, key);
-
-    if (targetModel && GLOBAL_MODELS.has(targetModel)) {
-      if (isRelationMutation(value)) {
-        const mutationRecord = value as Record<string, unknown>;
-        for (const mutKey of RELATION_MUTATION_KEYS) {
-          if (Object.hasOwn(mutationRecord, mutKey)) {
-            assertNoTenantScopedNestedWrites(
-              targetModel,
-              mutationRecord[mutKey],
-            );
-          }
-        }
-        continue;
-      }
-    } else {
-      if (isRelationMutation(value)) {
-        const targetDesc = targetModel
-          ? `tenant-scoped model '${targetModel}'`
-          : 'tenant-scoped model';
-        throw new Error(
-          `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting ${targetDesc} is not permitted.`,
-        );
-      }
-    }
-
-    assertNoTenantScopedNestedWrites(modelName, value);
+    checkNestedWriteEntry(modelName, key, value);
   }
 }
 
@@ -374,6 +386,148 @@ function isRecordNotFoundError(error: unknown): boolean {
   );
 }
 
+function assertOperationAllowed(model: string, operation: string): void {
+  if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
+    throw new Error(
+      `[TenantIsolation] Do not use ${operation}() on model '${model}'. ` +
+        'Use findFirst() with an explicit where clause instead. ' +
+        'findUnique() bypasses tenant_id injection due to Prisma unique-index type constraints.',
+    );
+  }
+
+  if (operation === 'findRaw' || operation === 'aggregateRaw') {
+    throw new Error(
+      `[TenantIsolation] Do not use ${operation}() on model '${model}'. ` +
+        'Raw queries bypass tenant isolation.',
+    );
+  }
+
+  if (!OPERATION_CLASSIFICATIONS[operation as PrismaOperation]) {
+    logger.error(
+      `[TenantIsolation] Denied unhandled operation '${operation}' on model '${model}'.`,
+    );
+    throw new Error(
+      `[TenantIsolation] Operation '${operation}' on model '${model}' is not permitted by tenant isolation policy.`,
+    );
+  }
+}
+
+async function executeFilterableOperation(
+  model: string,
+  operation: string,
+  args: Record<string, unknown>,
+  tenantId: string,
+  query: (args: Record<string, unknown>) => Promise<unknown>,
+): Promise<unknown> {
+  if (operation === 'updateMany' || operation === 'updateManyAndReturn') {
+    assertNoTenantIdInUpdateData(model, operation, args.data);
+    assertNoTenantScopedNestedWrites(model, args.data);
+  }
+
+  args.where = {
+    ...normalizeRecord(args.where),
+    tenant_id: tenantId,
+  };
+
+  return query(args);
+}
+
+async function executeUpdateOrDelete(
+  model: string,
+  operation: string,
+  args: Record<string, unknown>,
+  tenantId: string,
+  query: (args: Record<string, unknown>) => Promise<unknown>,
+): Promise<unknown> {
+  if (operation === 'update') {
+    assertNoTenantIdInUpdateData(model, 'update', args.data);
+    assertNoTenantScopedNestedWrites(model, args.data);
+  }
+
+  const { scopedWhere, injected } = injectTenantIntoWhere(
+    args.where as Record<string, unknown> | undefined,
+    tenantId,
+  );
+
+  if (Object.keys(scopedWhere).length === 0) {
+    throw new Error(
+      `[TenantIsolation] ${operation}() on model '${model}' requires a where clause.`,
+    );
+  }
+
+  if (injected) {
+    args.where = scopedWhere;
+    return query(args);
+  }
+
+  args.where = { ...scopedWhere, tenant_id: tenantId };
+
+  try {
+    return await query(args);
+  } catch (error) {
+    if (!isRecordNotFoundError(error)) {
+      throw error;
+    }
+
+    throw new NotFoundException(
+      `[TenantIsolation] ${model} record not found for current tenant.`,
+    );
+  }
+}
+
+async function executeCreate(
+  model: string,
+  args: Record<string, unknown>,
+  tenantId: string,
+  query: (args: Record<string, unknown>) => Promise<unknown>,
+): Promise<unknown> {
+  assertNoTenantScopedNestedWrites(model, args.data);
+  args.data = validateAndStampCreateData(model, 'create', args.data, tenantId);
+  return query(args);
+}
+
+async function executeCreateMany(
+  model: string,
+  operation: string,
+  args: Record<string, unknown>,
+  tenantId: string,
+  query: (args: Record<string, unknown>) => Promise<unknown>,
+): Promise<unknown> {
+  assertNoTenantScopedNestedWrites(model, args.data);
+  args.data = stampTenantIntoCreateManyData(
+    model,
+    operation,
+    args.data,
+    tenantId,
+  );
+  return query(args);
+}
+
+async function executeUpsert(
+  model: string,
+  args: Record<string, unknown>,
+  tenantId: string,
+  query: (args: Record<string, unknown>) => Promise<unknown>,
+): Promise<unknown> {
+  assertNoTenantIdInUpdateData(model, 'upsert update', args.update);
+  assertNoTenantScopedNestedWrites(model, args.create);
+  assertNoTenantScopedNestedWrites(model, args.update);
+
+  args.where = scopeUpsertWhere(
+    model,
+    args.where as Record<string, unknown> | undefined,
+    tenantId,
+  );
+  args.create = validateAndStampCreateData(
+    model,
+    'create',
+    args.create,
+    tenantId,
+  );
+
+  return query(args);
+}
+
 /**
  * The core $allOperations handler logic — extracted for unit testability.
  * Applies tenant isolation rules to a single Prisma operation.
@@ -383,7 +537,7 @@ function isRecordNotFoundError(error: unknown): boolean {
  * must never query through it: it lives outside every active transaction and
  * dry-run context.
  */
-export function applyTenantIsolation(
+export async function applyTenantIsolation(
   this: unknown,
   baseClient: unknown,
   model: string,
@@ -391,143 +545,54 @@ export function applyTenantIsolation(
   args: unknown,
   query: (args: Record<string, unknown>) => Promise<unknown>,
 ): Promise<unknown> {
-  return (async () => {
-    const nextArgs = normalizeRecord(args);
+  const nextArgs = normalizeRecord(args);
 
-    // Pass through for models without a tenant_id column
-    if (GLOBAL_MODELS.has(model)) {
-      return query(nextArgs);
-    }
+  // Pass through for models without a tenant_id column
+  if (GLOBAL_MODELS.has(model)) {
+    return query(nextArgs);
+  }
 
-    // Developer guard: findUnique bypasses tenant isolation due to Prisma's
-    // unique-index type constraints, so it must not be used in tenant-scoped code.
-    if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
-      throw new Error(
-        `[TenantIsolation] Do not use ${operation}() on model '${model}'. ` +
-          `Use findFirst() with an explicit where clause instead. ` +
-          `findUnique() bypasses tenant_id injection due to Prisma unique-index type constraints.`,
-      );
-    }
+  assertOperationAllowed(model, operation);
 
-    if (operation === 'findRaw' || operation === 'aggregateRaw') {
-      throw new Error(
-        `[TenantIsolation] Do not use ${operation}() on model '${model}'. ` +
-          `Raw queries bypass tenant isolation.`,
-      );
-    }
+  const tenantId = getCurrentTenantId();
 
-    const tenantId = getCurrentTenantId();
-
-    // Read + bulk-mutation operations: inject into where clause
-    if (FILTERABLE_OPERATIONS.has(operation)) {
-      if (operation === 'updateMany' || operation === 'updateManyAndReturn') {
-        assertNoTenantIdInUpdateData(model, operation, nextArgs.data);
-        assertNoTenantScopedNestedWrites(model, nextArgs.data);
-      }
-
-      nextArgs.where = {
-        ...normalizeRecord(nextArgs.where),
-        tenant_id: tenantId,
-      };
-
-      return query(nextArgs);
-    }
-
-    // Targeted single-row mutations: the tenant is part of the write selector,
-    // so the ownership check and the write are one atomic statement.
-    if (operation === 'update' || operation === 'delete') {
-      if (operation === 'update') {
-        assertNoTenantIdInUpdateData(model, 'update', nextArgs.data);
-        assertNoTenantScopedNestedWrites(model, nextArgs.data);
-      }
-
-      const { scopedWhere, injected } = injectTenantIntoWhere(
-        nextArgs.where as Record<string, unknown> | undefined,
-        tenantId,
-      );
-
-      if (Object.keys(scopedWhere).length === 0) {
-        throw new Error(
-          `[TenantIsolation] ${operation}() on model '${model}' requires a where clause.`,
-        );
-      }
-
-      if (injected) {
-        nextArgs.where = scopedWhere;
-
-        return query(nextArgs);
-      }
-
-      nextArgs.where = { ...scopedWhere, tenant_id: tenantId };
-
-      try {
-        return await query(nextArgs);
-      } catch (error) {
-        if (!isRecordNotFoundError(error)) {
-          throw error;
-        }
-
-        throw new NotFoundException(
-          `[TenantIsolation] ${model} record not found for current tenant.`,
-        );
-      }
-    }
-
-    // create: stamp tenant_id onto the new record
-    if (operation === 'create') {
-      assertNoTenantScopedNestedWrites(model, nextArgs.data);
-
-      nextArgs.data = validateAndStampCreateData(
-        model,
-        'create',
-        nextArgs.data,
-        tenantId,
-      );
-
-      return query(nextArgs);
-    }
-
-    if (operation === 'createMany' || operation === 'createManyAndReturn') {
-      assertNoTenantScopedNestedWrites(model, nextArgs.data);
-
-      nextArgs.data = stampTenantIntoCreateManyData(
-        model,
-        operation,
-        nextArgs.data,
-        tenantId,
-      );
-
-      return query(nextArgs);
-    }
-
-    // upsert: tenant_id required in both where (lookup) and create (new row)
-    if (operation === 'upsert') {
-      assertNoTenantIdInUpdateData(model, 'upsert update', nextArgs.update);
-      assertNoTenantScopedNestedWrites(model, nextArgs.create);
-      assertNoTenantScopedNestedWrites(model, nextArgs.update);
-
-      nextArgs.where = scopeUpsertWhere(
-        model,
-        nextArgs.where as Record<string, unknown> | undefined,
-        tenantId,
-      );
-      nextArgs.create = validateAndStampCreateData(
-        model,
-        'create',
-        nextArgs.create,
-        tenantId,
-      );
-
-      return query(nextArgs);
-    }
-
-    logger.error(
-      `[TenantIsolation] Denied unhandled operation '${operation}' on model '${model}'.`,
+  // Read + bulk-mutation operations: inject into where clause
+  if (FILTERABLE_OPERATIONS.has(operation)) {
+    return executeFilterableOperation(
+      model,
+      operation,
+      nextArgs,
+      tenantId,
+      query,
     );
-    throw new Error(
-      `[TenantIsolation] Operation '${operation}' on model '${model}' is not permitted by tenant isolation policy.`,
-    );
-  })();
+  }
+
+  // Targeted single-row mutations: the tenant is part of the write selector,
+  // so the ownership check and the write are one atomic statement.
+  if (operation === 'update' || operation === 'delete') {
+    return executeUpdateOrDelete(model, operation, nextArgs, tenantId, query);
+  }
+
+  // create: stamp tenant_id onto the new record
+  if (operation === 'create') {
+    return executeCreate(model, nextArgs, tenantId, query);
+  }
+
+  if (operation === 'createMany' || operation === 'createManyAndReturn') {
+    return executeCreateMany(model, operation, nextArgs, tenantId, query);
+  }
+
+  // upsert: tenant_id required in both where (lookup) and create (new row)
+  if (operation === 'upsert') {
+    return executeUpsert(model, nextArgs, tenantId, query);
+  }
+
+  logger.error(
+    `[TenantIsolation] Denied unhandled operation '${operation}' on model '${model}'.`,
+  );
+  throw new Error(
+    `[TenantIsolation] Operation '${operation}' on model '${model}' is not permitted by tenant isolation policy.`,
+  );
 }
 
 /**
