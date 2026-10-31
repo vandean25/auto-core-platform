@@ -410,13 +410,8 @@ function validateAndStampCreateData(
     normalized.tenant_id !== undefined &&
     normalized.tenant_id !== tenantId
   ) {
-    const rawTenantId = normalized.tenant_id;
-    const tenantIdStr =
-      typeof rawTenantId === 'string'
-        ? rawTenantId
-        : JSON.stringify(rawTenantId);
     throw new Error(
-      `[TenantIsolation] Mismatching tenant_id '${tenantIdStr}' in ${operation} on model '${model}'. Expected '${tenantId}'.`,
+      `[TenantIsolation] Mismatching tenant_id in ${operation} on model '${model}'.`,
     );
   }
 

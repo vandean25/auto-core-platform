@@ -615,11 +615,17 @@ describe('applyTenantIsolation', () => {
         },
       };
 
-      await expect(
-        runWithTenant(() => call('SalesOrder', 'create', args, query)),
-      ).rejects.toThrow(
-        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in create on model 'SalesOrder'\. Expected 'tenant-test-123'\./,
+      let thrownError: Error | null = null;
+      try {
+        await runWithTenant(() => call('SalesOrder', 'create', args, query));
+      } catch (err) {
+        thrownError = err as Error;
+      }
+      expect(thrownError?.message).toBe(
+        "[TenantIsolation] Mismatching tenant_id in create on model 'SalesOrder'.",
       );
+      expect(thrownError?.message).not.toContain('attacker-tenant');
+      expect(thrownError?.message).not.toContain(TENANT_ID);
       expect(query).not.toHaveBeenCalled();
     });
 
@@ -652,7 +658,7 @@ describe('applyTenantIsolation', () => {
       await expect(
         runWithTenant(() => call('SalesOrder', 'createMany', args, query)),
       ).rejects.toThrow(
-        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in createMany on model 'SalesOrder'\. Expected 'tenant-test-123'\./,
+        /\[TenantIsolation\] Mismatching tenant_id in createMany on model 'SalesOrder'\./,
       );
       expect(query).not.toHaveBeenCalled();
     });
@@ -668,7 +674,7 @@ describe('applyTenantIsolation', () => {
           call('SalesOrder', 'createManyAndReturn', args, query),
         ),
       ).rejects.toThrow(
-        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in createManyAndReturn on model 'SalesOrder'\. Expected 'tenant-test-123'\./,
+        /\[TenantIsolation\] Mismatching tenant_id in createManyAndReturn on model 'SalesOrder'\./,
       );
       expect(query).not.toHaveBeenCalled();
     });
@@ -803,7 +809,7 @@ describe('applyTenantIsolation', () => {
       await expect(
         runWithTenant(() => call('StorageLocation', 'upsert', args, query)),
       ).rejects.toThrow(
-        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in create on model 'StorageLocation'\. Expected 'tenant-test-123'\./,
+        /\[TenantIsolation\] Mismatching tenant_id in create on model 'StorageLocation'\./,
       );
       expect(query).not.toHaveBeenCalled();
     });
