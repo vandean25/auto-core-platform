@@ -374,6 +374,7 @@ export class ImportController {
   }
 
   @Post(':id/undo/preview')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'Preview undoing an applied import job',
   })
@@ -388,6 +389,7 @@ export class ImportController {
   }
 
   @Post(':id/undo')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'Undo an applied import job',
   })
