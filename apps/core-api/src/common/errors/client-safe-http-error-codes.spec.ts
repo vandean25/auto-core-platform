@@ -13,17 +13,24 @@ import {
 const API_SRC_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
 
-/** Codes the import source service can throw at a client, read off the service so a new one is caught. */
-function importSourceClientCodes(): string[] {
-  const source = readFileSync(
-    resolve(API_SRC_ROOT, 'import/import-source.service.ts'),
-    'utf8',
-  );
-  const keys = new Set(
-    [...source.matchAll(/IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g)].map(
-      (match) => match[1] as keyof typeof IMPORT_ERROR_CODES,
-    ),
-  );
+/** Files that throw import errors straight at an API client. */
+const CLIENT_FACING_IMPORT_FILES = [
+  'import/import-source.service.ts',
+  'import/import.controller.ts',
+  'import/import-worker.controller.ts',
+  'import/import-direct-upload.ts',
+  'import/import-job.errors.ts',
+] as const;
+
+/** Codes those files can throw at a client, read off the sources so a new one is caught. */
+function clientFacingImportCodes(): string[] {
+  const keys = new Set<keyof typeof IMPORT_ERROR_CODES>();
+  for (const file of CLIENT_FACING_IMPORT_FILES) {
+    const source = readFileSync(resolve(API_SRC_ROOT, file), 'utf8');
+    for (const match of source.matchAll(/IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g)) {
+      keys.add(match[1] as keyof typeof IMPORT_ERROR_CODES);
+    }
+  }
   return [...keys].map((key) => IMPORT_ERROR_CODES[key]).sort();
 }
 
@@ -197,11 +204,23 @@ describe('client-safe HTTP error codes', () => {
 });
 
 describe('client-safe allowlist parity', () => {
-  it('lists every code the import source service throws at a client', () => {
-    const codes = importSourceClientCodes();
+  it('lists every import code the controllers and error helpers throw at a client', () => {
+    const codes = clientFacingImportCodes();
 
     expect(codes).toEqual([
+      'IMPORT_APPLY_INTERRUPTED',
+      'IMPORT_APPLY_IN_PROGRESS',
+      'IMPORT_DIRECT_UPLOAD_CONTENT_TYPE',
+      'IMPORT_DIRECT_UPLOAD_INVALID',
+      'IMPORT_DIRECT_UPLOAD_NOT_FOUND',
+      'IMPORT_DIRECT_UPLOAD_TOO_LARGE',
+      'IMPORT_INVALID_MAPPING',
       'IMPORT_INVALID_SOURCE_KEY',
+      'IMPORT_JOB_ALREADY_APPLIED',
+      'IMPORT_JOB_EXPIRED',
+      'IMPORT_JOB_NOT_FOUND',
+      'IMPORT_JOB_PURGED',
+      'IMPORT_JOB_STALE',
       'IMPORT_SOURCE_ALREADY_EXISTS',
       'IMPORT_SOURCE_NOT_FOUND',
       'IMPORT_UNKNOWN_SOURCE',

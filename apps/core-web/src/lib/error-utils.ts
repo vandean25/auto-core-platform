@@ -4,6 +4,7 @@ import {
   translateApiError,
 } from '@/api/api-error'
 import { wireCodeForHttpStatus } from '@/api/http-status-fallback-codes'
+import { i18n } from '@/lib/i18n'
 
 export const VEHICLE_HAS_ACTIVE_ORDER_CODE = 'VEHICLE_HAS_ACTIVE_ORDER'
 
@@ -83,6 +84,11 @@ function syntheticErrorForTranslation(error: unknown, wireCode: string) {
   }
 }
 
+/** A wire code the web app has no copy for says less than the caller's own failure text. */
+function hasWireCodeCopy(code: string): boolean {
+  return i18n.exists(`errors:codes.${code}`)
+}
+
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
   if (!isObjectLike(error)) {
     return fallbackMessage
@@ -90,19 +96,15 @@ export function getErrorMessage(error: unknown, fallbackMessage: string): string
 
   const wireCode = resolveWireErrorCode(error)
   const normalized = normalizeApiError(error)
+  const message =
+    wireCode && hasWireCodeCopy(wireCode)
+      ? translateApiError(
+          syntheticErrorForTranslation(error, wireCode),
+          'errors:generic.unexpected',
+        )
+      : fallbackMessage
 
-  if (wireCode) {
-    return appendServerReference(
-      translateApiError(
-        syntheticErrorForTranslation(error, wireCode),
-        'errors:generic.unexpected',
-      ),
-      normalized,
-      (error as ApiErrorLike).eventId,
-    )
-  }
-
-  return fallbackMessage
+  return appendServerReference(message, normalized, (error as ApiErrorLike).eventId)
 }
 
 export function getErrorStatus(error: unknown): number | null {

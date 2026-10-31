@@ -296,6 +296,14 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   IMPORT_ERROR_CODES.INVALID_SOURCE_KEY,
   IMPORT_ERROR_CODES.SOURCE_ALREADY_EXISTS,
   IMPORT_ERROR_CODES.SOURCE_NOT_FOUND,
+  // Resumable direct upload and the expired/purged job gates. The upload dialog and the job detail map these
+  // to localized copy; without the entries the filter swaps the code for the status fallback.
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_INVALID,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_NOT_FOUND,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_TOO_LARGE,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_CONTENT_TYPE,
+  IMPORT_ERROR_CODES.JOB_EXPIRED,
+  IMPORT_ERROR_CODES.JOB_PURGED,
 ]);
 
 export type ClientSafeHttpFieldIssue = {

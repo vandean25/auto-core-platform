@@ -102,8 +102,12 @@ export const CANONICAL_EN_MESSAGES = {
     'The labor value is invalid. Enter a number of zero or more.',
   IMPORT_JOB_ALREADY_APPLIED:
     'This import has already been applied. Upload a new file to start another import.',
+  IMPORT_JOB_EXPIRED:
+    'The dry-run has expired. Upload the file again and run the dry-run again.',
   IMPORT_JOB_NOT_FOUND:
     'The import was not found. Open an existing import or upload the file again.',
+  IMPORT_JOB_PURGED:
+    'The prepared import data was deleted. Upload the file again and run the dry-run again.',
   IMPORT_JOB_STALE:
     'The dry-run is no longer current. Run it again.',
   IMPORT_LABOR_CODE_CONFLICT:
