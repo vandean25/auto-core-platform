@@ -70,6 +70,7 @@ function buildCustomerUpdateData(
 async function createCustomer(
   tx: Prisma.TransactionClient,
   ctx: CustomerApplyContext,
+  rowNo: number,
   externalId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
@@ -98,6 +99,16 @@ async function createCustomer(
     created.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { entity_id: created.id },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -114,6 +125,7 @@ async function createCustomer(
 async function updateCustomer(
   tx: Prisma.TransactionClient,
   ctx: CustomerApplyContext,
+  rowNo: number,
   entityId: string,
   externalId: string,
   payload: Record<string, unknown>,
@@ -124,6 +136,10 @@ async function updateCustomer(
   if (!before) {
     throw new Error('Customer not found');
   }
+  const beforeSnapshot = {
+    ...pickCustomerAuditSnapshot(before),
+    contact_email_ok: before.contact_email_ok,
+  };
   const updateData = buildCustomerUpdateData(
     before,
     payload,
@@ -142,6 +158,16 @@ async function updateCustomer(
     after.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { before_snapshot_json: beforeSnapshot },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -166,10 +192,10 @@ export async function applyCustomerImportRow(
   delete payload.external_id;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createCustomer(tx, ctx, externalId, payload);
+    await createCustomer(tx, ctx, row.row_no, externalId, payload);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateCustomer(tx, ctx, row.entity_id, externalId, payload);
+    await updateCustomer(tx, ctx, row.row_no, row.entity_id, externalId, payload);
   }
 }

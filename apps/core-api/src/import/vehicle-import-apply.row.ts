@@ -73,6 +73,7 @@ function buildVehicleUpdateData(
 async function createVehicle(
   tx: Prisma.TransactionClient,
   ctx: VehicleApplyContext,
+  rowNo: number,
   externalId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
@@ -114,6 +115,16 @@ async function createVehicle(
     created.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { entity_id: created.id },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -130,6 +141,7 @@ async function createVehicle(
 async function updateVehicle(
   tx: Prisma.TransactionClient,
   ctx: VehicleApplyContext,
+  rowNo: number,
   entityId: string,
   externalId: string,
   payload: Record<string, unknown>,
@@ -140,6 +152,12 @@ async function updateVehicle(
   if (!before) {
     throw new ApplyRowStaleError();
   }
+  const beforeSnapshot = {
+    ...pickVehicleImportAuditSnapshot(before),
+    first_registration_date: before.first_registration_date
+      ? before.first_registration_date.toISOString().slice(0, 10)
+      : null,
+  };
   const updateData = buildVehicleUpdateData(
     before,
     payload,
@@ -158,6 +176,16 @@ async function updateVehicle(
     after.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { before_snapshot_json: beforeSnapshot },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -183,10 +211,10 @@ export async function applyVehicleImportRow(
   delete payload.owner_external_id_provided;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createVehicle(tx, ctx, externalId, payload);
+    await createVehicle(tx, ctx, row.row_no, externalId, payload);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateVehicle(tx, ctx, row.entity_id, externalId, payload);
+    await updateVehicle(tx, ctx, row.row_no, row.entity_id, externalId, payload);
   }
 }

@@ -162,6 +162,7 @@ function buildLaborUpdateData(
 async function createLaborOperation(
   tx: Prisma.TransactionClient,
   ctx: LaborApplyContext,
+  rowNo: number,
   externalId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
@@ -200,6 +201,16 @@ async function createLaborOperation(
     created.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { entity_id: created.id },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -216,6 +227,7 @@ async function createLaborOperation(
 async function updateLaborOperation(
   tx: Prisma.TransactionClient,
   ctx: LaborApplyContext,
+  rowNo: number,
   entityId: string,
   externalId: string,
   payload: Record<string, unknown>,
@@ -253,6 +265,16 @@ async function updateLaborOperation(
     after.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { before_snapshot_json: pickLaborAuditSnapshot(before) as any },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -279,13 +301,14 @@ export async function applyLaborOperationImportRow(
   delete payload.category_name;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createLaborOperation(tx, ctx, externalId, payload);
+    await createLaborOperation(tx, ctx, row.row_no, externalId, payload);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
     await updateLaborOperation(
       tx,
       ctx,
+      row.row_no,
       row.entity_id,
       externalId,
       payload,

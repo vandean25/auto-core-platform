@@ -63,6 +63,7 @@ async function assertVehicleInTenant(
 async function recordCreate(
   tx: Prisma.TransactionClient,
   ctx: DueDateApplyContext,
+  rowNo: number,
   externalId: string,
   entityType: string,
   created: { id: string },
@@ -77,6 +78,16 @@ async function recordCreate(
     created.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { entity_id: created.id },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -93,6 +104,7 @@ async function recordCreate(
 async function createInspection(
   tx: Prisma.TransactionClient,
   ctx: DueDateApplyContext,
+  rowNo: number,
   externalId: string,
   payload: DuePayload,
 ): Promise<void> {
@@ -112,7 +124,7 @@ async function createInspection(
       source: VehicleInspectionRecordSource.LEGACY_IMPORT,
     },
   });
-  await recordCreate(tx, ctx, externalId, 'VehicleInspectionRecord', created, {
+  await recordCreate(tx, ctx, rowNo, externalId, 'VehicleInspectionRecord', created, {
     vehicle_id: created.vehicle_id,
     inspected_on: dateToDay(created.inspected_on),
     plaketten_valid_until_year: created.plaketten_valid_until_year,
@@ -124,6 +136,7 @@ async function createInspection(
 async function createServiceNotice(
   tx: Prisma.TransactionClient,
   ctx: DueDateApplyContext,
+  rowNo: number,
   externalId: string,
   payload: DuePayload,
 ): Promise<void> {
@@ -142,7 +155,7 @@ async function createServiceNotice(
       source: VehicleRecordSource.LEGACY_IMPORT,
     },
   });
-  await recordCreate(tx, ctx, externalId, 'VehicleNotice', created, {
+  await recordCreate(tx, ctx, rowNo, externalId, 'VehicleNotice', created, {
     vehicle_id: created.vehicle_id,
     type: created.type,
     status: created.status,
@@ -156,6 +169,7 @@ async function createServiceNotice(
 async function updateServiceNotice(
   tx: Prisma.TransactionClient,
   ctx: DueDateApplyContext,
+  rowNo: number,
   noticeId: string,
   payload: DuePayload,
   options: ImportJobOptions,
@@ -203,6 +217,22 @@ async function updateServiceNotice(
   if (count === 0) {
     throw new ApplyRowStaleError();
   }
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: {
+      before_snapshot_json: {
+        due_date: dateToDay(before.due_date),
+        due_mileage: before.due_mileage,
+        body: before.body,
+      },
+    },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -232,8 +262,8 @@ export async function applyVehicleDueDateImportRow(
 
   if (row.action === ImportRowAction.CREATE) {
     await (due.kind === DUE_DATE_KIND.SERVICE
-      ? createServiceNotice(tx, ctx, externalId, due)
-      : createInspection(tx, ctx, externalId, due));
+      ? createServiceNotice(tx, ctx, row.row_no, externalId, due)
+      : createInspection(tx, ctx, row.row_no, externalId, due));
     return;
   }
   if (
@@ -242,6 +272,6 @@ export async function applyVehicleDueDateImportRow(
     due.kind === DUE_DATE_KIND.SERVICE
   ) {
     const options = (ctx.job.options_json as ImportJobOptions | null) ?? {};
-    await updateServiceNotice(tx, ctx, row.entity_id, due, options);
+    await updateServiceNotice(tx, ctx, row.row_no, row.entity_id, due, options);
   }
 }

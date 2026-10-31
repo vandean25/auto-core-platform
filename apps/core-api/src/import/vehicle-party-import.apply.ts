@@ -68,6 +68,7 @@ function writeContext(ctx: PartyApplyContext): PartyWriteContext {
 async function createParty(
   tx: Prisma.TransactionClient,
   ctx: PartyApplyContext,
+  rowNo: number,
   externalId: string,
   payload: PartyPayload,
 ): Promise<void> {
@@ -93,6 +94,16 @@ async function createParty(
     created.id,
     ctx.job.id,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { entity_id: created.id },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -109,6 +120,7 @@ async function createParty(
 async function updateParty(
   tx: Prisma.TransactionClient,
   ctx: PartyApplyContext,
+  rowNo: number,
   partyId: string,
   payload: PartyPayload,
 ): Promise<void> {
@@ -125,6 +137,16 @@ async function updateParty(
     partyId,
     payload,
   );
+  await tx.importJobRow?.update({
+    where: {
+      tenant_id_import_job_id_row_no: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.job.id,
+        row_no: rowNo,
+      },
+    },
+    data: { before_snapshot_json: auditSnapshot(before) as any },
+  });
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -149,11 +171,11 @@ export async function applyVehiclePartyImportRow(
   const party = payload as unknown as PartyPayload;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createParty(tx, ctx, externalId, party);
+    await createParty(tx, ctx, row.row_no, externalId, party);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateParty(tx, ctx, row.entity_id, party);
+    await updateParty(tx, ctx, row.row_no, row.entity_id, party);
     if (party.adopts_existing === true) {
       await createExternalMapping(
         tx,
