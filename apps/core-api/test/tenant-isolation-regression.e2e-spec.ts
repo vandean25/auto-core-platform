@@ -1,4 +1,5 @@
 import { INestApplication, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
@@ -63,122 +64,44 @@ describe('Tenant Isolation Regression (e2e)', () => {
     techHeaderA = await createMemberBearer(prisma, authService, tenantA, 'TECH');
   });
 
+  async function cleanupTestEntities() {
+    if (!tenantAPrisma || !tenantBPrisma) {
+      return;
+    }
+
+    const deleteOperations = (client: PrismaService) => [
+      client.brand.deleteMany({ where: { name: { startsWith: prefix } } }),
+      client.employee.deleteMany({ where: { name: { startsWith: prefix } } }),
+      client.bay.deleteMany({ where: { name: { startsWith: prefix } } }),
+      client.storageLocation.deleteMany({
+        where: { code: { startsWith: `${prefix}-LOC` } },
+      }),
+      client.importJob.deleteMany({
+        where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
+      }),
+      client.customer.deleteMany({
+        where: { last_name: { startsWith: prefix } },
+      }),
+      client.salesOrder.deleteMany({
+        where: { order_number: { startsWith: prefix } },
+      }),
+      client.vendor.deleteMany({
+        where: { account_number: { startsWith: prefix } },
+      }),
+    ];
+
+    await Promise.all([
+      ...deleteOperations(tenantAPrisma),
+      ...deleteOperations(tenantBPrisma),
+    ]);
+  }
+
   beforeEach(async () => {
-    await tenantAPrisma.brand.deleteMany({
-      where: { name: { startsWith: prefix } },
-    });
-    await tenantBPrisma.brand.deleteMany({
-      where: { name: { startsWith: prefix } },
-    });
-
-    await tenantAPrisma.employee.deleteMany({
-      where: { name: { startsWith: prefix } },
-    });
-    await tenantBPrisma.employee.deleteMany({
-      where: { name: { startsWith: prefix } },
-    });
-
-    await tenantAPrisma.bay.deleteMany({
-      where: { name: { startsWith: prefix } },
-    });
-    await tenantBPrisma.bay.deleteMany({
-      where: { name: { startsWith: prefix } },
-    });
-
-    await tenantAPrisma.storageLocation.deleteMany({
-      where: { code: { startsWith: `${prefix}-LOC` } },
-    });
-    await tenantBPrisma.storageLocation.deleteMany({
-      where: { code: { startsWith: `${prefix}-LOC` } },
-    });
-
-    await tenantAPrisma.importJob.deleteMany({
-      where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
-    });
-    await tenantBPrisma.importJob.deleteMany({
-      where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
-    });
-
-    await tenantAPrisma.customer.deleteMany({
-      where: { last_name: { startsWith: prefix } },
-    });
-    await tenantBPrisma.customer.deleteMany({
-      where: { last_name: { startsWith: prefix } },
-    });
-
-    await tenantAPrisma.salesOrder.deleteMany({
-      where: { order_number: { startsWith: prefix } },
-    });
-    await tenantBPrisma.salesOrder.deleteMany({
-      where: { order_number: { startsWith: prefix } },
-    });
-
-    await tenantAPrisma.vendor.deleteMany({
-      where: { account_number: { startsWith: prefix } },
-    });
-    await tenantBPrisma.vendor.deleteMany({
-      where: { account_number: { startsWith: prefix } },
-    });
+    await cleanupTestEntities();
   });
 
   afterAll(async () => {
-    if (tenantAPrisma && tenantBPrisma) {
-      await tenantAPrisma.brand.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-      await tenantBPrisma.brand.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-
-      await tenantAPrisma.employee.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-      await tenantBPrisma.employee.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-
-      await tenantAPrisma.bay.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-      await tenantBPrisma.bay.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-
-      await tenantAPrisma.storageLocation.deleteMany({
-        where: { code: { startsWith: `${prefix}-LOC` } },
-      });
-      await tenantBPrisma.storageLocation.deleteMany({
-        where: { code: { startsWith: `${prefix}-LOC` } },
-      });
-
-      await tenantAPrisma.importJob.deleteMany({
-        where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
-      });
-      await tenantBPrisma.importJob.deleteMany({
-        where: { file_name: { startsWith: `${prefix}-CONCURRENT` } },
-      });
-
-      await tenantAPrisma.customer.deleteMany({
-        where: { last_name: { startsWith: prefix } },
-      });
-      await tenantBPrisma.customer.deleteMany({
-        where: { last_name: { startsWith: prefix } },
-      });
-
-      await tenantAPrisma.salesOrder.deleteMany({
-        where: { order_number: { startsWith: prefix } },
-      });
-      await tenantBPrisma.salesOrder.deleteMany({
-        where: { order_number: { startsWith: prefix } },
-      });
-
-      await tenantAPrisma.vendor.deleteMany({
-        where: { account_number: { startsWith: prefix } },
-      });
-      await tenantBPrisma.vendor.deleteMany({
-        where: { account_number: { startsWith: prefix } },
-      });
-    }
+    await cleanupTestEntities();
 
     if (app) {
       await teardownTestApp(app, prisma);
@@ -942,7 +865,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
                 quantity: 1,
                 unit_price: 50,
                 total: 50,
-              },
+              } as unknown as Prisma.SalesOrderItemUncheckedCreateWithoutSales_orderInput,
             ],
           },
         },

@@ -167,12 +167,6 @@ export const IMPLICIT_JOIN_NESTED_RELATIONS = new Set<string>([
   'Vendor.supportedBrands',
 ]);
 
-export const ALLOWED_NESTED_RELATION_WRITES = new Set<string>([
-  ...COMPOSITE_KEY_NESTED_RELATIONS,
-  ...SINGLE_KEY_CHILD_TENANT_RELATIONS,
-  ...IMPLICIT_JOIN_NESTED_RELATIONS,
-]);
-
 const RELATION_MUTATION_KEYS = new Set([
   'connect',
   'connectOrCreate',
@@ -350,6 +344,72 @@ function extractBrandIds(payload: unknown): number[] {
   return [];
 }
 
+function getPresentRelationMutationKeys(
+  record: Record<string, unknown>,
+): string[] {
+  return Object.keys(record).filter((k) => RELATION_MUTATION_KEYS.has(k));
+}
+
+async function verifyImplicitJoinBrandOwnership(
+  modelName: string,
+  key: string,
+  brandIds: number[],
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  if (brandIds.length === 0) {
+    return;
+  }
+
+  const client =
+    contextClient &&
+    typeof (contextClient as Record<string, unknown>).brand === 'object'
+      ? (contextClient as {
+          brand: {
+            findMany: (args: unknown) => Promise<Array<{ id: number }>>;
+          };
+        })
+      : null;
+
+  if (!client || typeof client.brand?.findMany !== 'function') {
+    throw new Error(
+      `[TenantIsolation] Cannot verify tenant ownership for nested relation write on '${modelName}.${key}'. No brand query client available.`,
+    );
+  }
+
+  const matchingBrands = await client.brand.findMany({
+    where: {
+      id: { in: brandIds },
+      tenant_id: tenantId,
+    },
+    select: { id: true },
+  });
+
+  const matchingSet = new Set(matchingBrands.map((b) => b.id));
+  const hasUnauthorized = brandIds.some((id) => !matchingSet.has(id));
+  if (hasUnauthorized) {
+    throw new Error(
+      `[TenantIsolation] Nested relation write on '${modelName}.${key}' references brands not belonging to current tenant.`,
+    );
+  }
+}
+
+async function processRelationMutations(
+  record: Record<string, unknown>,
+  modelName: string,
+  key: string,
+  targetModel: string,
+  handler: (mutKey: string) => Promise<boolean>,
+): Promise<void> {
+  const mutKeys = getPresentRelationMutationKeys(record);
+  for (const mutKey of mutKeys) {
+    const handled = await handler(mutKey);
+    if (!handled) {
+      throwNestedRelationWriteError(modelName, key, targetModel);
+    }
+  }
+}
+
 async function handleImplicitJoinNestedWrite(
   modelName: string,
   key: string,
@@ -358,55 +418,80 @@ async function handleImplicitJoinNestedWrite(
   tenantId: string,
   contextClient?: unknown,
 ): Promise<void> {
-  const mutKeys = Object.keys(record).filter((k) =>
-    RELATION_MUTATION_KEYS.has(k),
-  );
-  if (mutKeys.length === 0) {
-    return;
-  }
-
-  for (const mutKey of mutKeys) {
-    if (mutKey === 'connect' || mutKey === 'set' || mutKey === 'disconnect') {
-      const payload = record[mutKey];
-      const brandIds = extractBrandIds(payload);
-      if (brandIds.length > 0) {
-        const client =
-          contextClient &&
-          typeof (contextClient as Record<string, unknown>).brand === 'object'
-            ? (contextClient as {
-                brand: {
-                  findMany: (args: unknown) => Promise<Array<{ id: number }>>;
-                };
-              })
-            : null;
-
-        if (!client || typeof client.brand?.findMany !== 'function') {
-          throw new Error(
-            `[TenantIsolation] Cannot verify tenant ownership for nested relation write on '${modelName}.${key}'. No brand query client available.`,
-          );
-        }
-
-        const matchingBrands = await client.brand.findMany({
-          where: {
-            id: { in: brandIds },
-            tenant_id: tenantId,
-          },
-          select: { id: true },
-        });
-
-        const matchingSet = new Set(matchingBrands.map((b) => b.id));
-        const hasUnauthorized = brandIds.some((id) => !matchingSet.has(id));
-        if (hasUnauthorized) {
-          throw new Error(
-            `[TenantIsolation] Nested relation write on '${modelName}.${key}' references brands not belonging to current tenant.`,
-          );
-        }
+  await processRelationMutations(
+    record,
+    modelName,
+    key,
+    targetModel,
+    async (mutKey) => {
+      if (mutKey === 'connect' || mutKey === 'set' || mutKey === 'disconnect') {
+        const brandIds = extractBrandIds(record[mutKey]);
+        await verifyImplicitJoinBrandOwnership(
+          modelName,
+          key,
+          brandIds,
+          tenantId,
+          contextClient,
+        );
+        return true;
       }
-      continue;
-    }
+      return false;
+    },
+  );
+}
 
-    throwNestedRelationWriteError(modelName, key, targetModel);
+async function stampAndValidateChildRecord(
+  targetModel: string,
+  operation: string,
+  item: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<Record<string, unknown>> {
+  const stamped = validateAndStampCreateData(
+    targetModel,
+    operation,
+    item,
+    tenantId,
+  );
+  await assertNoTenantScopedNestedWrites(
+    targetModel,
+    stamped,
+    tenantId,
+    contextClient,
+  );
+  return stamped;
+}
+
+async function stampAndValidateChildPayload(
+  targetModel: string,
+  operation: string,
+  payload: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<unknown> {
+  if (Array.isArray(payload)) {
+    return Promise.all(
+      payload.map((item) =>
+        stampAndValidateChildRecord(
+          targetModel,
+          operation,
+          item,
+          tenantId,
+          contextClient,
+        ),
+      ),
+    );
   }
+  if (payload && typeof payload === 'object') {
+    return stampAndValidateChildRecord(
+      targetModel,
+      operation,
+      payload,
+      tenantId,
+      contextClient,
+    );
+  }
+  return payload;
 }
 
 async function handleSingleKeyChildTenantWrite(
@@ -417,99 +502,93 @@ async function handleSingleKeyChildTenantWrite(
   tenantId: string,
   contextClient?: unknown,
 ): Promise<void> {
-  const mutKeys = Object.keys(record).filter((k) =>
-    RELATION_MUTATION_KEYS.has(k),
-  );
-  if (mutKeys.length === 0) {
-    return;
-  }
-
-  for (const mutKey of mutKeys) {
-    if (mutKey === 'create') {
-      const payload = record.create;
-      if (Array.isArray(payload)) {
-        record.create = await Promise.all(
-          payload.map(async (item) => {
-            const stamped = validateAndStampCreateData(
-              targetModel,
-              'create',
-              item,
-              tenantId,
-            );
-            await assertNoTenantScopedNestedWrites(
-              targetModel,
-              stamped,
-              tenantId,
-              contextClient,
-            );
-            return stamped;
-          }),
-        );
-      } else if (payload && typeof payload === 'object') {
-        const stamped = validateAndStampCreateData(
+  await processRelationMutations(
+    record,
+    modelName,
+    key,
+    targetModel,
+    async (mutKey) => {
+      if (mutKey === 'create') {
+        record.create = await stampAndValidateChildPayload(
           targetModel,
           'create',
-          payload,
-          tenantId,
-        );
-        await assertNoTenantScopedNestedWrites(
-          targetModel,
-          stamped,
+          record.create,
           tenantId,
           contextClient,
         );
-        record.create = stamped;
+        return true;
       }
-      continue;
-    }
 
-    if (mutKey === 'createMany') {
-      const payload = record.createMany;
-      if (
-        payload &&
-        typeof payload === 'object' &&
-        Object.hasOwn(payload, 'data')
-      ) {
-        const dataPayload = (payload as Record<string, unknown>).data;
-        if (Array.isArray(dataPayload)) {
-          (payload as Record<string, unknown>).data = await Promise.all(
-            dataPayload.map(async (item) => {
-              const stamped = validateAndStampCreateData(
-                targetModel,
-                'createMany',
-                item,
-                tenantId,
-              );
-              await assertNoTenantScopedNestedWrites(
-                targetModel,
-                stamped,
-                tenantId,
-                contextClient,
-              );
-              return stamped;
-            }),
-          );
-        } else if (dataPayload && typeof dataPayload === 'object') {
-          const stamped = validateAndStampCreateData(
-            targetModel,
-            'createMany',
-            dataPayload,
-            tenantId,
-          );
-          await assertNoTenantScopedNestedWrites(
-            targetModel,
-            stamped,
-            tenantId,
-            contextClient,
-          );
-          (payload as Record<string, unknown>).data = stamped;
+      if (mutKey === 'createMany') {
+        const payload = record.createMany;
+        if (
+          payload &&
+          typeof payload === 'object' &&
+          Object.hasOwn(payload, 'data')
+        ) {
+          (payload as Record<string, unknown>).data =
+            await stampAndValidateChildPayload(
+              targetModel,
+              'createMany',
+              (payload as Record<string, unknown>).data,
+              tenantId,
+              contextClient,
+            );
         }
+        return true;
       }
-      continue;
-    }
 
-    throwNestedRelationWriteError(modelName, key, targetModel);
+      return false;
+    },
+  );
+}
+
+async function handleAllowlistedNestedWrite(
+  relationPath: string,
+  modelName: string,
+  key: string,
+  value: Record<string, unknown>,
+  targetModel: string | null | undefined,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<boolean> {
+  if (SINGLE_KEY_CHILD_TENANT_RELATIONS.has(relationPath)) {
+    await handleSingleKeyChildTenantWrite(
+      modelName,
+      key,
+      value,
+      targetModel ?? key,
+      tenantId,
+      contextClient,
+    );
+    return true;
   }
+
+  if (IMPLICIT_JOIN_NESTED_RELATIONS.has(relationPath)) {
+    await handleImplicitJoinNestedWrite(
+      modelName,
+      key,
+      value,
+      targetModel ?? 'Brand',
+      tenantId,
+      contextClient,
+    );
+    return true;
+  }
+
+  if (COMPOSITE_KEY_NESTED_RELATIONS.has(relationPath)) {
+    if (targetModel) {
+      await checkAllowlistedRelationMutation(
+        targetModel,
+        value,
+        tenantId,
+        contextClient,
+      );
+    }
+    return true;
+  }
+
+  return false;
 }
 
 async function checkNestedWriteEntry(
@@ -530,39 +609,16 @@ async function checkNestedWriteEntry(
   const relationPath = `${modelName}.${key}`;
   const targetModel = resolveTargetModel(modelName, key);
 
-  if (SINGLE_KEY_CHILD_TENANT_RELATIONS.has(relationPath)) {
-    await handleSingleKeyChildTenantWrite(
-      modelName,
-      key,
-      value as Record<string, unknown>,
-      targetModel ?? key,
-      tenantId,
-      contextClient,
-    );
-    return;
-  }
-
-  if (IMPLICIT_JOIN_NESTED_RELATIONS.has(relationPath)) {
-    await handleImplicitJoinNestedWrite(
-      modelName,
-      key,
-      value as Record<string, unknown>,
-      targetModel ?? 'Brand',
-      tenantId,
-      contextClient,
-    );
-    return;
-  }
-
-  if (COMPOSITE_KEY_NESTED_RELATIONS.has(relationPath)) {
-    if (targetModel) {
-      await checkAllowlistedRelationMutation(
-        targetModel,
-        value,
-        tenantId,
-        contextClient,
-      );
-    }
+  const handled = await handleAllowlistedNestedWrite(
+    relationPath,
+    modelName,
+    key,
+    value as Record<string, unknown>,
+    targetModel,
+    tenantId,
+    contextClient,
+  );
+  if (handled) {
     return;
   }
 
@@ -923,6 +979,63 @@ async function executeUpsert(
   return query(args);
 }
 
+async function dispatchTenantOperation(
+  model: string,
+  operation: string,
+  nextArgs: Record<string, unknown>,
+  tenantId: string,
+  query: (args: Record<string, unknown>) => Promise<unknown>,
+  contextClient: unknown,
+): Promise<unknown> {
+  if (FILTERABLE_OPERATIONS.has(operation)) {
+    return executeFilterableOperation(
+      model,
+      operation,
+      nextArgs,
+      tenantId,
+      query,
+      contextClient,
+    );
+  }
+
+  if (operation === 'update' || operation === 'delete') {
+    return executeUpdateOrDelete(
+      model,
+      operation,
+      nextArgs,
+      tenantId,
+      query,
+      contextClient,
+    );
+  }
+
+  if (operation === 'create') {
+    return executeCreate(model, nextArgs, tenantId, query, contextClient);
+  }
+
+  if (operation === 'createMany' || operation === 'createManyAndReturn') {
+    return executeCreateMany(
+      model,
+      operation,
+      nextArgs,
+      tenantId,
+      query,
+      contextClient,
+    );
+  }
+
+  if (operation === 'upsert') {
+    return executeUpsert(model, nextArgs, tenantId, query, contextClient);
+  }
+
+  logger.error(
+    `[TenantIsolation] Denied unhandled operation '${operation}' on model '${model}'.`,
+  );
+  throw new Error(
+    `[TenantIsolation] Operation '${operation}' on model '${model}' is not permitted by tenant isolation policy.`,
+  );
+}
+
 /**
  * The core $allOperations handler logic — extracted for unit testability.
  * Applies tenant isolation rules to a single Prisma operation.
@@ -955,57 +1068,13 @@ export async function applyTenantIsolation(
       ? this
       : baseClient;
 
-  // Read + bulk-mutation operations: inject into where clause
-  if (FILTERABLE_OPERATIONS.has(operation)) {
-    return executeFilterableOperation(
-      model,
-      operation,
-      nextArgs,
-      tenantId,
-      query,
-      contextClient,
-    );
-  }
-
-  // Targeted single-row mutations: the tenant is part of the write selector,
-  // so the ownership check and the write are one atomic statement.
-  if (operation === 'update' || operation === 'delete') {
-    return executeUpdateOrDelete(
-      model,
-      operation,
-      nextArgs,
-      tenantId,
-      query,
-      contextClient,
-    );
-  }
-
-  // create: stamp tenant_id onto the new record
-  if (operation === 'create') {
-    return executeCreate(model, nextArgs, tenantId, query, contextClient);
-  }
-
-  if (operation === 'createMany' || operation === 'createManyAndReturn') {
-    return executeCreateMany(
-      model,
-      operation,
-      nextArgs,
-      tenantId,
-      query,
-      contextClient,
-    );
-  }
-
-  // upsert: tenant_id required in both where (lookup) and create (new row)
-  if (operation === 'upsert') {
-    return executeUpsert(model, nextArgs, tenantId, query, contextClient);
-  }
-
-  logger.error(
-    `[TenantIsolation] Denied unhandled operation '${operation}' on model '${model}'.`,
-  );
-  throw new Error(
-    `[TenantIsolation] Operation '${operation}' on model '${model}' is not permitted by tenant isolation policy.`,
+  return dispatchTenantOperation(
+    model,
+    operation,
+    nextArgs,
+    tenantId,
+    query,
+    contextClient,
   );
 }
 
