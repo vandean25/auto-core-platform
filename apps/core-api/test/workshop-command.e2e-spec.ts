@@ -217,25 +217,6 @@ describe('Workshop command (e2e)', () => {
 
   afterEach(async () => {
     if (tenant) {
-      const tenantUsers = await basePrisma.tenantMember.findMany({
-        where: { tenant_id: tenant.tenantId },
-        select: { user_id: true },
-      });
-      const userIds = tenantUsers.map((u) => u.user_id);
-      if (userIds.length > 0) {
-        const grants = await systemPrisma.landingDemoSignInGrant.findMany({
-          where: { user_id: { in: userIds } },
-          select: { id: true, access_request_id: true },
-        });
-        if (grants.length > 0) {
-          await systemPrisma.landingDemoSignInGrant.deleteMany({
-            where: { id: { in: grants.map((g) => g.id) } },
-          });
-          await systemPrisma.landingDemoAccessRequest.deleteMany({
-            where: { id: { in: grants.map((g) => g.access_request_id) } },
-          });
-        }
-      }
       await cleanupTestTenantGraph(basePrisma, tenant.tenantId);
     }
   });
@@ -290,7 +271,11 @@ describe('Workshop command (e2e)', () => {
     return response.body as InterpretBody;
   }
 
-  async function createCallerWithRole(role: TenantMemberRole): Promise<string> {
+  async function createCallerWithRole(role: TenantMemberRole): Promise<{
+    token: string;
+    demoGrantId?: string;
+    demoAccessRequestId?: string;
+  }> {
     const uid = `workshop-${role.toLowerCase()}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const user = await basePrisma.user.create({
       data: {
@@ -314,6 +299,8 @@ describe('Workshop command (e2e)', () => {
         is_active: true,
       },
     });
+    let demoGrantId: string | undefined;
+    let demoAccessRequestId: string | undefined;
     if (role === 'DEMO') {
       const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
         data: {
@@ -324,19 +311,23 @@ describe('Workshop command (e2e)', () => {
         },
         select: { id: true },
       });
-      await systemPrisma.landingDemoSignInGrant.create({
+      demoAccessRequestId = accessRequest.id;
+      const grant = await systemPrisma.landingDemoSignInGrant.create({
         data: {
           access_request_id: accessRequest.id,
           user_id: user.id,
           expires_at: new Date(Date.now() + 60 * 60 * 1000),
         },
+        select: { id: true },
       });
+      demoGrantId = grant.id;
     }
-    return `Bearer ${createTestAuthToken(authService, tenant, {
+    const token = `Bearer ${createTestAuthToken(authService, tenant, {
       sub: uid,
       email: `${uid}@test.local`,
       role,
     })}`;
+    return { token, demoGrantId, demoAccessRequestId };
   }
 
   async function createApiKeyCaller(): Promise<string> {
@@ -755,38 +746,50 @@ describe('Workshop command (e2e)', () => {
     it.each(unauthorizedRoles)(
       'forbids %s from interpret, propose, and transcribe',
       async (role) => {
-        const callerToken = await createCallerWithRole(role);
+        const caller = await createCallerWithRole(role);
+        try {
+          await request(app.getHttpServer())
+            .post(INTERPRET_PATH)
+            .set('Authorization', caller.token)
+            .send({
+              contract_version: CONTRACT_VERSION,
+              command_id: newCommandId(),
+              source: 'keyboard',
+              locale: 'de-AT',
+              text: FULL_SENTENCE,
+            })
+            .expect(403);
 
-        await request(app.getHttpServer())
-          .post(INTERPRET_PATH)
-          .set('Authorization', callerToken)
-          .send({
-            contract_version: CONTRACT_VERSION,
-            command_id: newCommandId(),
-            source: 'keyboard',
-            locale: 'de-AT',
-            text: FULL_SENTENCE,
-          })
-          .expect(403);
+          await request(app.getHttpServer())
+            .post(PROPOSE_PATH)
+            .set('Authorization', caller.token)
+            .send({
+              contract_version: CONTRACT_VERSION,
+              command_id: newCommandId(),
+            })
+            .expect(403);
 
-        await request(app.getHttpServer())
-          .post(PROPOSE_PATH)
-          .set('Authorization', callerToken)
-          .send({
-            contract_version: CONTRACT_VERSION,
-            command_id: newCommandId(),
-          })
-          .expect(403);
-
-        await request(app.getHttpServer())
-          .post(TRANSCRIBE_PATH)
-          .set('Authorization', callerToken)
-          .attach(
-            'audio',
-            Buffer.from('fake-audio-bytes-for-test'),
-            'test.webm',
-          )
-          .expect(403);
+          await request(app.getHttpServer())
+            .post(TRANSCRIBE_PATH)
+            .set('Authorization', caller.token)
+            .attach(
+              'audio',
+              Buffer.from('fake-audio-bytes-for-test'),
+              'test.webm',
+            )
+            .expect(403);
+        } finally {
+          if (caller.demoGrantId) {
+            await systemPrisma.landingDemoSignInGrant.deleteMany({
+              where: { id: caller.demoGrantId },
+            });
+          }
+          if (caller.demoAccessRequestId) {
+            await systemPrisma.landingDemoAccessRequest.deleteMany({
+              where: { id: caller.demoAccessRequestId },
+            });
+          }
+        }
       },
     );
 
