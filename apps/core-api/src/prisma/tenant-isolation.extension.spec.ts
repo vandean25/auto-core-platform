@@ -242,6 +242,38 @@ describe('applyTenantIsolation', () => {
       });
     });
 
+    it('rejects updateMany when data contains tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        where: { status: 'DRAFT' },
+        data: { status: 'CONFIRMED', tenant_id: 'some-tenant' },
+      };
+
+      await expect(
+        runWithTenant(() => call('SalesOrder', 'updateMany', args, query)),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Modifying tenant_id in updateMany data on model 'SalesOrder' is not permitted\./,
+      );
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('rejects updateManyAndReturn when data contains tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        where: { status: 'DRAFT' },
+        data: { status: 'CONFIRMED', tenant_id: 'some-tenant' },
+      };
+
+      await expect(
+        runWithTenant(() =>
+          call('SalesOrder', 'updateManyAndReturn', args, query),
+        ),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Modifying tenant_id in updateManyAndReturn data on model 'SalesOrder' is not permitted\./,
+      );
+      expect(query).not.toHaveBeenCalled();
+    });
+
     it('injects tenant_id into where for deleteMany', async () => {
       const query = jest.fn().mockResolvedValue({ count: 1 });
       const args = { where: { status: 'CANCELLED' } };
@@ -380,6 +412,21 @@ describe('applyTenantIsolation', () => {
       expect(baseClient.workshopTask.findFirst).not.toHaveBeenCalled();
     });
 
+    it('rejects update when data contains tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        where: { id: 'task-1' },
+        data: { status: 'DONE', tenant_id: 'some-tenant' },
+      };
+
+      await expect(
+        runWithTenant(() => call('WorkshopTask', 'update', args, query)),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Modifying tenant_id in update data on model 'WorkshopTask' is not permitted\./,
+      );
+      expect(query).not.toHaveBeenCalled();
+    });
+
     it('issues no query on the base client while a dry-run transaction is active', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'task-1' });
       const baseClient = createBaseClient('WorkshopTask');
@@ -403,6 +450,21 @@ describe('applyTenantIsolation', () => {
         data: { status: 'DONE' },
       });
       expect(baseClient.workshopTask.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects update when data contains tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        where: { id: 'task-1' },
+        data: { status: 'DONE', tenant_id: 'some-tenant' },
+      };
+
+      await expect(
+        runWithTenant(() => call('WorkshopTask', 'update', args, query)),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Modifying tenant_id in update data on model 'WorkshopTask' is not permitted\./,
+      );
+      expect(query).not.toHaveBeenCalled();
     });
   });
 
@@ -537,6 +599,76 @@ describe('applyTenantIsolation', () => {
         data: { order_number: 'SO-1', status: 'DRAFT', tenant_id: TENANT_ID },
       });
     });
+
+    it('rejects create when data specifies a mismatching tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        data: {
+          order_number: 'SO-1',
+          status: 'DRAFT',
+          tenant_id: 'attacker-tenant',
+        },
+      };
+
+      await expect(
+        runWithTenant(() => call('SalesOrder', 'create', args, query)),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in create on model 'SalesOrder'\. Expected 'tenant-test-123'\./,
+      );
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('allows create when data specifies a matching tenant_id', async () => {
+      const query = jest.fn().mockResolvedValue({ id: '1' });
+      const args = {
+        data: {
+          order_number: 'SO-1',
+          status: 'DRAFT',
+          tenant_id: TENANT_ID,
+        },
+      };
+
+      await runWithTenant(() => call('SalesOrder', 'create', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        data: { order_number: 'SO-1', status: 'DRAFT', tenant_id: TENANT_ID },
+      });
+    });
+
+    it('rejects createMany when any payload row specifies a mismatching tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        data: [
+          { order_number: 'SO-1', tenant_id: TENANT_ID },
+          { order_number: 'SO-2', tenant_id: 'attacker-tenant' },
+        ],
+      };
+
+      await expect(
+        runWithTenant(() => call('SalesOrder', 'createMany', args, query)),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in createMany on model 'SalesOrder'\. Expected 'tenant-test-123'\./,
+      );
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('rejects createManyAndReturn when any payload row specifies a mismatching tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        data: [
+          { order_number: 'SO-1', tenant_id: 'attacker-tenant' },
+        ],
+      };
+
+      await expect(
+        runWithTenant(() =>
+          call('SalesOrder', 'createManyAndReturn', args, query),
+        ),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in createManyAndReturn on model 'SalesOrder'\. Expected 'tenant-test-123'\./,
+      );
+      expect(query).not.toHaveBeenCalled();
+    });
   });
 
   describe('upsert() — must stamp tenant_id in create and enforce tenant-scoped where', () => {
@@ -623,6 +755,54 @@ describe('applyTenantIsolation', () => {
       expect(query).not.toHaveBeenCalled();
       expect(baseClient.storageLocation.findUnique).not.toHaveBeenCalled();
       expect(baseClient.storageLocation.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects upsert when update data specifies tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        where: {
+          tenant_id_code: { tenant_id: TENANT_ID, code: 'LOC-001' },
+        },
+        create: {
+          code: 'LOC-001',
+          name: 'Main Warehouse',
+        },
+        update: {
+          name: 'Main Warehouse',
+          tenant_id: 'some-tenant',
+        },
+      };
+
+      await expect(
+        runWithTenant(() => call('StorageLocation', 'upsert', args, query)),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Modifying tenant_id in upsert update data on model 'StorageLocation' is not permitted\./,
+      );
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('rejects upsert when create data specifies mismatching tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        where: {
+          tenant_id_code: { tenant_id: TENANT_ID, code: 'LOC-001' },
+        },
+        create: {
+          code: 'LOC-001',
+          name: 'Main Warehouse',
+          tenant_id: 'attacker-tenant',
+        },
+        update: {
+          name: 'Main Warehouse',
+        },
+      };
+
+      await expect(
+        runWithTenant(() => call('StorageLocation', 'upsert', args, query)),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Mismatching tenant_id 'attacker-tenant' in create on model 'StorageLocation'\. Expected 'tenant-test-123'\./,
+      );
+      expect(query).not.toHaveBeenCalled();
     });
   });
 

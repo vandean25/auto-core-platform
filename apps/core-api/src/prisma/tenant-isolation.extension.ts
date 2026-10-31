@@ -119,18 +119,54 @@ function normalizeRecord(value: unknown): Record<string, unknown> {
   return { ...(value as Record<string, unknown>) };
 }
 
-function stampTenantIntoCreateManyData(data: unknown, tenantId: string) {
-  if (Array.isArray(data)) {
-    return data.map((item) => ({
-      ...normalizeRecord(item),
-      tenant_id: tenantId,
-    }));
+function assertNoTenantIdInUpdateData(
+  model: string,
+  operation: string,
+  data: unknown,
+): void {
+  if (data && typeof data === 'object' && Object.hasOwn(data, 'tenant_id')) {
+    throw new Error(
+      `[TenantIsolation] Modifying tenant_id in ${operation} data on model '${model}' is not permitted.`,
+    );
+  }
+}
+
+function validateAndStampCreateData(
+  model: string,
+  operation: string,
+  data: unknown,
+  tenantId: string,
+): Record<string, unknown> {
+  const normalized = normalizeRecord(data);
+  if (
+    Object.hasOwn(normalized, 'tenant_id') &&
+    normalized.tenant_id !== undefined &&
+    normalized.tenant_id !== tenantId
+  ) {
+    throw new Error(
+      `[TenantIsolation] Mismatching tenant_id '${normalized.tenant_id}' in ${operation} on model '${model}'. Expected '${tenantId}'.`,
+    );
   }
 
   return {
-    ...normalizeRecord(data),
+    ...normalized,
     tenant_id: tenantId,
   };
+}
+
+function stampTenantIntoCreateManyData(
+  model: string,
+  operation: string,
+  data: unknown,
+  tenantId: string,
+) {
+  if (Array.isArray(data)) {
+    return data.map((item) =>
+      validateAndStampCreateData(model, operation, item, tenantId),
+    );
+  }
+
+  return validateAndStampCreateData(model, operation, data, tenantId);
 }
 
 function injectTenantIntoWhere(
@@ -231,6 +267,10 @@ export function applyTenantIsolation(
 
     // Read + bulk-mutation operations: inject into where clause
     if (FILTERABLE_OPERATIONS.has(operation)) {
+      if (operation === 'updateMany' || operation === 'updateManyAndReturn') {
+        assertNoTenantIdInUpdateData(model, operation, nextArgs.data);
+      }
+
       nextArgs.where = {
         ...normalizeRecord(nextArgs.where),
         tenant_id: tenantId,
@@ -242,6 +282,10 @@ export function applyTenantIsolation(
     // Targeted single-row mutations: the tenant is part of the write selector,
     // so the ownership check and the write are one atomic statement.
     if (operation === 'update' || operation === 'delete') {
+      if (operation === 'update') {
+        assertNoTenantIdInUpdateData(model, 'update', nextArgs.data);
+      }
+
       const { scopedWhere, injected } = injectTenantIntoWhere(
         nextArgs.where as Record<string, unknown> | undefined,
         tenantId,
@@ -276,31 +320,42 @@ export function applyTenantIsolation(
 
     // create: stamp tenant_id onto the new record
     if (operation === 'create') {
-      nextArgs.data = {
-        ...normalizeRecord(nextArgs.data),
-        tenant_id: tenantId,
-      };
+      nextArgs.data = validateAndStampCreateData(
+        model,
+        'create',
+        nextArgs.data,
+        tenantId,
+      );
 
       return query(nextArgs);
     }
 
     if (operation === 'createMany' || operation === 'createManyAndReturn') {
-      nextArgs.data = stampTenantIntoCreateManyData(nextArgs.data, tenantId);
+      nextArgs.data = stampTenantIntoCreateManyData(
+        model,
+        operation,
+        nextArgs.data,
+        tenantId,
+      );
 
       return query(nextArgs);
     }
 
     // upsert: tenant_id required in both where (lookup) and create (new row)
     if (operation === 'upsert') {
+      assertNoTenantIdInUpdateData(model, 'upsert update', nextArgs.update);
+
       nextArgs.where = scopeUpsertWhere(
         model,
         nextArgs.where as Record<string, unknown> | undefined,
         tenantId,
       );
-      nextArgs.create = {
-        ...normalizeRecord(nextArgs.create),
-        tenant_id: tenantId,
-      };
+      nextArgs.create = validateAndStampCreateData(
+        model,
+        'create',
+        nextArgs.create,
+        tenantId,
+      );
 
       return query(nextArgs);
     }
