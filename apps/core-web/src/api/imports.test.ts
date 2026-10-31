@@ -10,7 +10,10 @@ import deErrors from '../../../../locales/de/errors.json'
 import { fetchWithAuth } from './client'
 import {
   downloadImportErrorRowsCsv,
+  finalizeDirectImportUpload,
   importKeys,
+  startDirectImportUpload,
+  useApplyImportJob,
   useCreateImportSource,
   useDeleteImportSource,
   useImportDryRun,
@@ -179,6 +182,81 @@ describe('import wire codes', () => {
 
     expect(getErrorMessage(error, 'unused fallback')).toBe(
       deErrors.codes.IMPORT_UNKNOWN_SOURCE,
+    )
+  })
+
+  it('keeps the oversize code so the upload dialog shows the German copy', async () => {
+    rejectOnceWith(413, 'IMPORT_DIRECT_UPLOAD_TOO_LARGE', 'Import file exceeds the size limit')
+
+    const error = await startDirectImportUpload({
+      fileName: 'customers.csv',
+      size: 1024,
+      contentType: 'text/csv',
+    }).catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes.IMPORT_DIRECT_UPLOAD_TOO_LARGE,
+    )
+  })
+
+  it('keeps the content type code so the upload dialog shows the German copy', async () => {
+    rejectOnceWith(400, 'IMPORT_DIRECT_UPLOAD_CONTENT_TYPE', 'Unsupported content type')
+
+    const error = await startDirectImportUpload({
+      fileName: 'customers.csv',
+      size: 1024,
+      contentType: 'application/pdf',
+    }).catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes.IMPORT_DIRECT_UPLOAD_CONTENT_TYPE,
+    )
+  })
+
+  it('keeps the invalid upload code so the upload dialog shows the German copy', async () => {
+    rejectOnceWith(400, 'IMPORT_DIRECT_UPLOAD_INVALID', 'File name must end with .csv')
+
+    const error = await startDirectImportUpload({
+      fileName: 'customers.xlsx',
+      size: 1024,
+      contentType: 'text/csv',
+    }).catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes.IMPORT_DIRECT_UPLOAD_INVALID,
+    )
+  })
+
+  it('keeps the missing upload code so finalize shows the German copy', async () => {
+    rejectOnceWith(404, 'IMPORT_DIRECT_UPLOAD_NOT_FOUND', 'Direct import upload not found')
+
+    const error = await finalizeDirectImportUpload('upload-1', {
+      fileName: 'customers.csv',
+      size: 1024,
+      entityType: 'CUSTOMER',
+      sourceSystem: 'legacy_dms',
+      mapping: { external_id: 'Kunden-Nr' },
+      options: {},
+    }).catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes.IMPORT_DIRECT_UPLOAD_NOT_FOUND,
+    )
+  })
+
+  it.each([
+    ['IMPORT_JOB_EXPIRED', 'Import job has expired'],
+    ['IMPORT_JOB_PURGED', 'Staged rows for this import job were purged'],
+  ])('keeps the %s code so the job detail shows the German copy', async (code, message) => {
+    rejectOnceWith(409, code, message)
+    const { result } = renderWithQueryClient(() => useApplyImportJob())
+
+    const error = await result.current
+      .mutateAsync('job-1')
+      .catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes[code as keyof typeof deErrors.codes],
     )
   })
 })

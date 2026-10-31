@@ -53,7 +53,7 @@ describe('Import job row retention purge (e2e)', () => {
   const cutoffs = importJobRowPurgeCutoffs(now);
 
   beforeAll(async () => {
-    app = await createE2eApp();
+    app = await createE2eApp(undefined, { productionErrorFilter: true });
     basePrisma = app.get(PrismaService);
     const tenantContext = await createE2eTenant(app, basePrisma, 'row-purge');
     tenantId = tenantContext.tenantId;

@@ -184,12 +184,6 @@ function applyRequestInit(payload: ApplyImportJobPayload): RequestInit {
   }
 }
 
-async function assertApplyAccepted(response: Response): Promise<void> {
-  if (response.ok) return
-  const payload = await readErrorPayload(response)
-  throw new Error(payload?.message ?? 'Failed to apply import')
-}
-
 function toImportQueryString(params: Record<string, string | undefined>): string {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
@@ -396,7 +390,9 @@ export function useApplyImportJob() {
         `/api/imports/${applyJobId(payload)}/apply`,
         applyRequestInit(payload),
       )
-      await assertApplyAccepted(response)
+      if (!response.ok) {
+        return throwImportResponseError(response, 'Failed to apply import')
+      }
       return response.json() as Promise<ImportJob>
     },
     onSuccess: (job) => {
