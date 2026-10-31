@@ -1,3 +1,5 @@
+import { IMPORT_ERROR_CODES } from '../../import/import.constants.js';
+
 /**
  * Structured HTTP error codes that are safe to return to API clients in
  * production even when the status is 5xx. These represent intentional,
@@ -288,6 +290,12 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'VEHICLE_LISTING_REVISION_CONFLICT',
   'VEHICLE_LISTING_SERIALIZER_PROFILE_INVALID',
   'VEHICLE_LISTING_STOCK_CYCLE_MISMATCH',
+  // Import source CRUD and the upload source check. Without these the filter swaps the code for the status
+  // fallback and the web app can only show the generic copy.
+  IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
+  IMPORT_ERROR_CODES.INVALID_SOURCE_KEY,
+  IMPORT_ERROR_CODES.SOURCE_ALREADY_EXISTS,
+  IMPORT_ERROR_CODES.SOURCE_NOT_FOUND,
 ]);
 
 export type ClientSafeHttpFieldIssue = {

@@ -320,7 +320,7 @@ export function useImportDryRun() {
         body: form,
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Import dry-run failed'))
+        return throwImportResponseError(response, 'Import dry-run failed')
       }
       return response.json() as Promise<ImportJob>
     },
@@ -450,7 +450,7 @@ export function useCreateImportSource() {
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to create import source'))
+        return throwImportResponseError(response, 'Failed to create import source')
       }
       return response.json() as Promise<ImportSource>
     },
@@ -473,7 +473,7 @@ export function useUpdateImportSource() {
         body: JSON.stringify(params.payload),
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to update import source'))
+        return throwImportResponseError(response, 'Failed to update import source')
       }
       return response.json() as Promise<ImportSource>
     },
@@ -491,7 +491,7 @@ export function useDeleteImportSource() {
         method: 'DELETE',
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to delete import source'))
+        return throwImportResponseError(response, 'Failed to delete import source')
       }
     },
     onSuccess: (_data, id) => {

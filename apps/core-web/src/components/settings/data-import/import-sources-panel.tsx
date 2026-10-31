@@ -9,6 +9,7 @@ import {
   useImportSources,
   useUpdateImportSource,
 } from '@/api/imports'
+import { getErrorMessage } from '@/lib/error-utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -67,7 +68,10 @@ export function ImportSourcesPanel() {
           setForm(EMPTY_FORM)
           toast.success(t('dataImport.sources.toastCreated'))
         },
-        onError: () => toast.error(t('dataImport.sources.toastCreateFailed')),
+        onError: (error) =>
+          toast.error(
+            getErrorMessage(error, t('dataImport.sources.toastCreateFailed')),
+          ),
       },
     )
   }
@@ -77,7 +81,10 @@ export function ImportSourcesPanel() {
       { id, payload: { is_default: true } },
       {
         onSuccess: () => toast.success(t('dataImport.sources.toastDefaultSet')),
-        onError: () => toast.error(t('dataImport.sources.toastDefaultFailed')),
+        onError: (error) =>
+          toast.error(
+            getErrorMessage(error, t('dataImport.sources.toastDefaultFailed')),
+          ),
       },
     )
   }
@@ -89,7 +96,10 @@ export function ImportSourcesPanel() {
         setPendingDeleteId(null)
         toast.success(t('dataImport.sources.toastDeleted'))
       },
-      onError: () => toast.error(t('dataImport.sources.toastDeleteFailed')),
+      onError: (error) =>
+        toast.error(
+          getErrorMessage(error, t('dataImport.sources.toastDeleteFailed')),
+        ),
     })
   }
 

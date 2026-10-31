@@ -1,10 +1,48 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WARRANTY_CLAIM_ERROR_CODES } from '../../warranty-claim/warranty-claim.rules.js';
+import { IMPORT_ERROR_CODES } from '../../import/import.constants.js';
 import {
   CLIENT_SAFE_HTTP_ERROR_CODES,
   pickClientSafeHttpErrorDetails,
   pickClientSafeHttpErrorParams,
   pickClientSafeHttpErrorStructuredDetails,
 } from './client-safe-http-error-codes.js';
+
+const API_SRC_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
+
+/** Codes the import source service can throw at a client, read off the service so a new one is caught. */
+function importSourceClientCodes(): string[] {
+  const source = readFileSync(
+    resolve(API_SRC_ROOT, 'import/import-source.service.ts'),
+    'utf8',
+  );
+  const keys = new Set(
+    [...source.matchAll(/IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g)].map(
+      (match) => match[1] as keyof typeof IMPORT_ERROR_CODES,
+    ),
+  );
+  return [...keys].map((key) => IMPORT_ERROR_CODES[key]).sort();
+}
+
+function readWebPublicErrorCodes(): Set<string> {
+  const source = readFileSync(
+    resolve(REPO_ROOT, 'apps/core-web/src/api/generated/public-error-codes.ts'),
+    'utf8',
+  );
+  return new Set(
+    [...source.matchAll(/"([A-Z][A-Z0-9_]+)"/g)].map((match) => match[1]),
+  );
+}
+
+function readLocaleErrorTexts(language: 'de' | 'en'): Record<string, string> {
+  const bundle = JSON.parse(
+    readFileSync(resolve(REPO_ROOT, `locales/${language}/errors.json`), 'utf8'),
+  ) as { codes: Record<string, string> };
+  return bundle.codes;
+}
 
 describe('client-safe HTTP error codes', () => {
   // The global filter drops any code that is not in this set, so a warranty code missing here would never reach
@@ -155,5 +193,41 @@ describe('client-safe HTTP error codes', () => {
     ).toEqual({
       field_issues: [{ field: 'price_gross_eur', code: 'LISTING_PRICE_REQUIRED' }],
     });
+  });
+});
+
+describe('client-safe allowlist parity', () => {
+  it('lists every code the import source service throws at a client', () => {
+    const codes = importSourceClientCodes();
+
+    expect(codes).toEqual([
+      'IMPORT_INVALID_SOURCE_KEY',
+      'IMPORT_SOURCE_ALREADY_EXISTS',
+      'IMPORT_SOURCE_NOT_FOUND',
+      'IMPORT_UNKNOWN_SOURCE',
+    ]);
+    for (const code of codes) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
+
+  it('publishes every allowlisted code to the web app with German and English copy', () => {
+    const publicCodes = readWebPublicErrorCodes();
+    const de = readLocaleErrorTexts('de');
+    const en = readLocaleErrorTexts('en');
+
+    const unpublished: string[] = [];
+    const untranslated: string[] = [];
+    for (const code of CLIENT_SAFE_HTTP_ERROR_CODES) {
+      if (!publicCodes.has(code)) {
+        unpublished.push(code);
+      }
+      if (!de[code]?.trim() || !en[code]?.trim()) {
+        untranslated.push(code);
+      }
+    }
+
+    expect(unpublished).toEqual([]);
+    expect(untranslated).toEqual([]);
   });
 });

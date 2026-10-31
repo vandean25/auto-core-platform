@@ -3,11 +3,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { getErrorMessage } from '@/lib/error-utils'
+
+import deErrors from '../../../../locales/de/errors.json'
+
 import { fetchWithAuth } from './client'
 import {
   downloadImportErrorRowsCsv,
   importKeys,
+  useCreateImportSource,
   useDeleteImportSource,
+  useImportDryRun,
   type ImportSourceListResponse,
 } from './imports'
 
@@ -118,5 +124,61 @@ describe('useDeleteImportSource', () => {
     const cached = queryClient.getQueryData<ImportSourceListResponse>(importKeys.sources())
     expect(cached?.data).toEqual([initialSources.data[1]])
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: importKeys.sources() })
+  })
+})
+
+describe('import wire codes', () => {
+  function rejectOnceWith(status: number, code: string, message: string) {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ statusCode: status, code, message }), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+  }
+
+  function renderWithQueryClient<T>(hook: () => T) {
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    })
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children)
+    return renderHook(hook, { wrapper })
+  }
+
+  it('keeps the duplicate source code so the settings panel shows the German copy', async () => {
+    rejectOnceWith(
+      409,
+      'IMPORT_SOURCE_ALREADY_EXISTS',
+      "Import source with key 'legacy_dms' already exists",
+    )
+    const { result } = renderWithQueryClient(() => useCreateImportSource())
+
+    const error = await result.current
+      .mutateAsync({ key: 'legacy_dms', label: 'Legacy DMS' })
+      .catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes.IMPORT_SOURCE_ALREADY_EXISTS,
+    )
+  })
+
+  it('keeps the unknown source code so the upload dialog shows the German copy', async () => {
+    rejectOnceWith(400, 'IMPORT_UNKNOWN_SOURCE', "Unknown import source: 'nope'")
+    const { result } = renderWithQueryClient(() => useImportDryRun())
+
+    const error = await result.current
+      .mutateAsync({
+        file: new File(['Kunden-Nr\n1'], 'customers.csv', { type: 'text/csv' }),
+        entityType: 'CUSTOMER',
+        sourceSystem: 'nope',
+        mapping: { external_id: 'Kunden-Nr' },
+        options: {},
+      })
+      .catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes.IMPORT_UNKNOWN_SOURCE,
+    )
   })
 })
