@@ -4,7 +4,10 @@ import request from 'supertest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module.js';
 import { IMPORT_MULTER_STAGING_DIR } from '../src/import/import-file.storage.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
+import {
+  createGlobalValidationPipe,
+  GlobalExceptionFilter,
+} from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -59,6 +62,9 @@ describe('Import sources (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(createGlobalValidationPipe());
+    // Without the production filter the raw exception body reaches the client, so a code the filter would
+    // drop still looks correct here.
+    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.listen(0);
 
     prisma = app.get(PrismaService);
@@ -165,6 +171,27 @@ describe('Import sources (e2e)', () => {
       expect(list.body.data.some((s: any) => s.key === 'to-delete')).toBe(
         false,
       );
+    });
+
+    it('reports its own code when the source to delete does not exist', async () => {
+      await request(app.getHttpServer())
+        .delete('/imports/sources/00000000-0000-4000-8000-000000000000')
+        .set('Authorization', adminHeader)
+        .expect(404)
+        .expect((res) => {
+          expect(res.body.code).toBe('IMPORT_SOURCE_NOT_FOUND');
+        });
+    });
+
+    it('reports its own code when the source to update does not exist', async () => {
+      await request(app.getHttpServer())
+        .patch('/imports/sources/00000000-0000-4000-8000-000000000000')
+        .set('Authorization', adminHeader)
+        .send({ label: 'Missing' })
+        .expect(404)
+        .expect((res) => {
+          expect(res.body.code).toBe('IMPORT_SOURCE_NOT_FOUND');
+        });
     });
 
     it('rejects null and blank update payloads', async () => {
@@ -414,8 +441,12 @@ describe('Import sources (e2e)', () => {
       return { header, roleTenant };
     }
 
-    async function expectMutatingEndpointsForbidden(header: string) {
+    async function expectImportEndpointsForbidden(header: string) {
       const server = app.getHttpServer();
+      await request(server)
+        .get('/imports/sources')
+        .set('Authorization', header)
+        .expect(403);
       await request(server)
         .post('/imports')
         .set('Authorization', header)
@@ -481,29 +512,29 @@ describe('Import sources (e2e)', () => {
         .expect(403);
     }
 
-    it('rejects SALES role on mutating endpoints', async () => {
+    it('rejects SALES role on the import endpoints', async () => {
       const { header, roleTenant } = await createRoleHeader(
         'import-sales',
         'SALES',
       );
 
-      await expectMutatingEndpointsForbidden(header);
+      await expectImportEndpointsForbidden(header);
 
       await cleanupTestTenantGraph(prisma, roleTenant.tenantId);
     });
 
-    it('rejects TECH role on mutating endpoints', async () => {
+    it('rejects TECH role on the import endpoints', async () => {
       const { header, roleTenant } = await createRoleHeader(
         'import-tech-src',
         'TECH',
       );
 
-      await expectMutatingEndpointsForbidden(header);
+      await expectImportEndpointsForbidden(header);
 
       await cleanupTestTenantGraph(prisma, roleTenant.tenantId);
     });
 
-    it('rejects DEMO role on mutating endpoints', async () => {
+    it('rejects DEMO role on the import endpoints', async () => {
       const { header, roleTenant } = await createRoleHeader(
         'import-demo-src',
         'DEMO',
@@ -530,7 +561,7 @@ describe('Import sources (e2e)', () => {
       });
 
       try {
-        await expectMutatingEndpointsForbidden(header);
+        await expectImportEndpointsForbidden(header);
       } finally {
         await systemPrisma.landingDemoSignInGrant.deleteMany({
           where: { user_id: demoUser.id },
@@ -543,14 +574,14 @@ describe('Import sources (e2e)', () => {
       await cleanupTestTenantGraph(prisma, roleTenant.tenantId);
     });
 
-    it('rejects tenant API keys on mutating endpoints', async () => {
+    it('rejects tenant API keys on the import endpoints', async () => {
       const created = await request(app.getHttpServer())
         .post('/tenant-api-keys')
         .set('Authorization', adminHeader)
         .send({ name: 'Role matrix key', scopes: ['customers:read'] })
         .expect(201);
 
-      await expectMutatingEndpointsForbidden(`Bearer ${created.body.token}`);
+      await expectImportEndpointsForbidden(`Bearer ${created.body.token}`);
     });
   });
 });
