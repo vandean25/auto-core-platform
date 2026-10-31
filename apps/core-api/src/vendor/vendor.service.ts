@@ -44,16 +44,25 @@ export class VendorService {
         name: data.name,
         email: data.email,
         account_number: data.accountNumber,
-        supportedBrands: data.brandIds
-          ? {
-              connect: data.brandIds.map((id) => ({ id })),
-            }
-          : undefined,
       },
       include: {
         supportedBrands: true,
       },
     });
+
+    if (data.brandIds?.length) {
+      for (const brandId of data.brandIds) {
+        await this.prisma.$executeRaw`
+          INSERT INTO "_VendorBrands" ("A", "B")
+          VALUES (${brandId}, ${vendor.id})
+          ON CONFLICT DO NOTHING
+        `;
+      }
+      return this.prisma.vendor.findFirstOrThrow({
+        where: { id: vendor.id, tenant_id: tenantId },
+        include: { supportedBrands: true },
+      });
+    }
 
     return vendor;
   }
@@ -161,16 +170,29 @@ export class VendorService {
         name: data.name,
         email: data.email,
         account_number: data.accountNumber,
-        supportedBrands: data.brandIds
-          ? {
-              set: data.brandIds.map((id) => ({ id })),
-            }
-          : undefined,
       },
       include: {
         supportedBrands: true,
       },
     });
+
+    if (data.brandIds !== undefined) {
+      await this.prisma.$executeRaw`
+        DELETE FROM "_VendorBrands"
+        WHERE "B" = ${id}
+      `;
+      for (const brandId of data.brandIds) {
+        await this.prisma.$executeRaw`
+          INSERT INTO "_VendorBrands" ("A", "B")
+          VALUES (${brandId}, ${id})
+          ON CONFLICT DO NOTHING
+        `;
+      }
+      return this.prisma.vendor.findFirstOrThrow({
+        where: { id, tenant_id: tenantId },
+        include: { supportedBrands: true },
+      });
+    }
 
     return vendor;
   }

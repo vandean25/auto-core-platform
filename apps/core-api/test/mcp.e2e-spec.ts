@@ -5204,12 +5204,11 @@ describe('MCP server (e2e)', () => {
         where: { id: fixtures.catalogItemId },
         data: { brand_id: vehicleMakeBrandId, cost_price: 1 },
       });
-      await prismaA.vendor.update({
-        where: { id: fixtures.vendorId },
-        data: {
-          supportedBrands: { connect: [{ id: vehicleMakeBrandId }] },
-        },
-      });
+      await prismaA.$executeRaw`
+        INSERT INTO "_VendorBrands" ("A", "B")
+        VALUES (${vehicleMakeBrandId}, ${fixtures.vendorId})
+        ON CONFLICT DO NOTHING
+      `;
       const vendorArticle = await prismaA.vendorArticle.create({
         data: {
           tenant_id: tenantA,

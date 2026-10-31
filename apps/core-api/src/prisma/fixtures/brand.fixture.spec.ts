@@ -55,6 +55,7 @@ describe('brand.fixture', () => {
           return { id: `vend-${createdVendors.length}`, ...data };
         }),
       },
+      $executeRaw: jest.fn().mockResolvedValue(1),
     };
 
     const brands = [
@@ -67,7 +68,8 @@ describe('brand.fixture', () => {
     expect(result).toHaveLength(2);
     expect(createdVendors[0].name).toBe('Bosch Parts Direct');
     expect(createdVendors[0].account_number).toBe('VEND-BOS');
-    expect(createdVendors[0].supportedBrands.connect.id).toBe(1);
+    expect(createdVendors[0].supportedBrands).toBeUndefined();
+    expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(2);
     expect(createdVendors[1].account_number).toBe('VEND-VOL');
   });
 });

@@ -228,9 +228,13 @@ describe('Location Hierarchy (e2e)', () => {
         name: 'StockVendor',
         email: 'sv@test.com',
         account_number: 'SV1',
-        supportedBrands: { connect: { id: brand.id } },
       },
     });
+    await prisma.$executeRaw`
+      INSERT INTO "_VendorBrands" ("A", "B")
+      VALUES (${brand.id}, ${vendor.id})
+      ON CONFLICT DO NOTHING
+    `;
 
     const po = await prisma.purchaseOrder.create({
       data: {
