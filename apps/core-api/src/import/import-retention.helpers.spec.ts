@@ -1,7 +1,12 @@
 import { ImportJobStatus } from '@prisma/client';
-import { IMPORT_JOB_RETENTION_DAYS } from './import.constants.js';
+import {
+  IMPORT_FAILED_JOB_ROW_RETENTION_DAYS,
+  IMPORT_JOB_RETENTION_DAYS,
+  IMPORT_UPLOAD_RETENTION_DAYS,
+} from './import.constants.js';
 import {
   eligibleImportJobsForRowPurgeWhere,
+  importJobRowPurgeCutoffs,
   importJobRowRetentionCutoff,
   isImportJobEligibleForRowPurge,
   purgeStaleImportJobRowsForTenant,
@@ -15,63 +20,195 @@ const TENANT_A = 'tenant-a';
 const TENANT_B = 'tenant-b';
 const NOW = new Date('2026-06-01T12:00:00.000Z');
 
-describe('eligibleImportJobsForRowPurgeWhere', () => {
-  const cutoff = importJobRowRetentionCutoff(NOW, IMPORT_JOB_RETENTION_DAYS);
+describe('importJobRowPurgeCutoffs', () => {
+  it('computes applied (180d), failed/cancelled (1d), and dry-run (7d) cutoffs', () => {
+    const cutoffs = importJobRowPurgeCutoffs(NOW);
+    expect(cutoffs.appliedCutoff).toEqual(
+      new Date(NOW.getTime() - IMPORT_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+    );
+    expect(cutoffs.failedCutoff).toEqual(
+      new Date(
+        NOW.getTime() -
+          IMPORT_FAILED_JOB_ROW_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+      ),
+    );
+    expect(cutoffs.dryRunCutoff).toEqual(
+      new Date(
+        NOW.getTime() - IMPORT_UPLOAD_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+      ),
+    );
+  });
+});
 
-  it('targets only applied jobs with appliedAt strictly before the cutoff', () => {
-    expect(eligibleImportJobsForRowPurgeWhere(TENANT_A, cutoff)).toEqual({
+describe('eligibleImportJobsForRowPurgeWhere', () => {
+  const cutoffs = importJobRowPurgeCutoffs(NOW);
+
+  it('targets applied (180d), cancelled (1d), failed (1d), and stale dry runs (7d)', () => {
+    expect(eligibleImportJobsForRowPurgeWhere(TENANT_A, cutoffs)).toEqual({
       tenant_id: TENANT_A,
-      status: ImportJobStatus.APPLIED,
-      appliedAt: { lt: cutoff },
-      rows: { some: {} },
+      OR: [
+        {
+          status: ImportJobStatus.APPLIED,
+          appliedAt: { lt: cutoffs.appliedCutoff },
+          rows: { some: {} },
+        },
+        {
+          status: ImportJobStatus.CANCELLED,
+          OR: [
+            { cancelled_at: { lt: cutoffs.failedCutoff } },
+            { cancelled_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+          ],
+          rows: { some: {} },
+        },
+        {
+          status: ImportJobStatus.FAILED,
+          OR: [
+            { failed_at: { lt: cutoffs.failedCutoff } },
+            { failed_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+          ],
+          rows: { some: {} },
+        },
+        {
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: { lt: cutoffs.dryRunCutoff },
+        },
+      ],
     });
   });
 });
 
 describe('isImportJobEligibleForRowPurge', () => {
-  const cutoff = importJobRowRetentionCutoff(NOW, IMPORT_JOB_RETENTION_DAYS);
+  const cutoffs = importJobRowPurgeCutoffs(NOW);
 
-  it('keeps jobs on the cutoff instant and purges only strictly older applied jobs', () => {
-    const onBoundary = new Date(cutoff.getTime());
-    const beforeBoundary = new Date(cutoff.getTime() - 1);
+  it('keeps applied jobs on the cutoff instant and purges only strictly older applied jobs', () => {
+    const onBoundary = new Date(cutoffs.appliedCutoff.getTime());
+    const beforeBoundary = new Date(cutoffs.appliedCutoff.getTime() - 1);
 
     expect(
       isImportJobEligibleForRowPurge(
         { status: ImportJobStatus.APPLIED, appliedAt: onBoundary },
-        cutoff,
+        cutoffs,
       ),
     ).toBe(false);
 
     expect(
       isImportJobEligibleForRowPurge(
         { status: ImportJobStatus.APPLIED, appliedAt: beforeBoundary },
-        cutoff,
+        cutoffs,
       ),
     ).toBe(true);
   });
 
-  it.each([
-    ImportJobStatus.DRY_RUN_DONE,
-    ImportJobStatus.APPLYING,
-    ImportJobStatus.FAILED,
-    ImportJobStatus.CANCELLED,
-  ])('never treats %s as eligible even when createdAt is old', (status) => {
-    expect(
-      isImportJobEligibleForRowPurge(
-        { status, appliedAt: null },
-        new Date('2000-01-01'),
-      ),
-    ).toBe(false);
-  });
+  it('evaluates FAILED jobs against the 1-day failedCutoff using failed_at or fallback createdAt', () => {
+    const staleFailedAt = new Date(cutoffs.failedCutoff.getTime() - 1);
+    const freshFailedAt = new Date(cutoffs.failedCutoff.getTime() + 1000);
 
-  it('does not purge recently failed jobs that still carry an old createdAt', () => {
     expect(
       isImportJobEligibleForRowPurge(
         {
           status: ImportJobStatus.FAILED,
-          appliedAt: new Date('2026-06-01T11:00:00.000Z'),
+          failed_at: staleFailedAt,
+          createdAt: new Date('2020-01-01'),
         },
-        cutoff,
+        cutoffs,
+      ),
+    ).toBe(true);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: freshFailedAt,
+          createdAt: new Date('2020-01-01'),
+        },
+        cutoffs,
+      ),
+    ).toBe(false);
+
+    // Fallback to createdAt when failed_at is null
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: null,
+          createdAt: staleFailedAt,
+        },
+        cutoffs,
+      ),
+    ).toBe(true);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: null,
+          createdAt: freshFailedAt,
+        },
+        cutoffs,
+      ),
+    ).toBe(false);
+  });
+
+  it('evaluates CANCELLED jobs against the 1-day failedCutoff using cancelled_at or fallback createdAt', () => {
+    const staleCancelledAt = new Date(cutoffs.failedCutoff.getTime() - 1);
+    const freshCancelledAt = new Date(cutoffs.failedCutoff.getTime() + 1000);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.CANCELLED,
+          cancelled_at: staleCancelledAt,
+          createdAt: new Date('2020-01-01'),
+        },
+        cutoffs,
+      ),
+    ).toBe(true);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.CANCELLED,
+          cancelled_at: freshCancelledAt,
+          createdAt: new Date('2020-01-01'),
+        },
+        cutoffs,
+      ),
+    ).toBe(false);
+  });
+
+  it('evaluates DRY_RUN_DONE jobs against the 7-day dryRunCutoff using createdAt', () => {
+    const staleDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() - 1);
+    const freshDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() + 1000);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: staleDryRunCreatedAt,
+        },
+        cutoffs,
+      ),
+    ).toBe(true);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: freshDryRunCreatedAt,
+        },
+        cutoffs,
+      ),
+    ).toBe(false);
+  });
+
+  it('never treats APPLYING as eligible even when old', () => {
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.APPLYING,
+          createdAt: new Date('2020-01-01'),
+        },
+        cutoffs,
       ),
     ).toBe(false);
   });

@@ -3,7 +3,11 @@ import {
   type Prisma,
   type PrismaClient,
 } from '@prisma/client';
-import { IMPORT_JOB_RETENTION_DAYS } from './import.constants.js';
+import {
+  IMPORT_FAILED_JOB_ROW_RETENTION_DAYS,
+  IMPORT_JOB_RETENTION_DAYS,
+  IMPORT_UPLOAD_RETENTION_DAYS,
+} from './import.constants.js';
 
 export const IMPORT_JOB_ROW_PURGE_JOBS_PER_TENANT = 25;
 export const IMPORT_JOB_ROW_PURGE_ROW_BATCH_SIZE = 500;
@@ -16,26 +20,109 @@ export type ImportJobRowPurgeCounts = {
   dry_run: boolean;
 };
 
+export type ImportJobRowPurgeCutoffs = {
+  appliedCutoff: Date;
+  failedCutoff: Date;
+  dryRunCutoff: Date;
+};
+
 export type ImportJobRowPurgeOptions = {
   dryRun?: boolean;
   retentionDays?: number;
+  failedRetentionDays?: number;
+  dryRunRetentionDays?: number;
   jobsPerTenant?: number;
   rowBatchSize?: number;
 };
 
-/** Only applied jobs with a recorded apply timestamp are eligible for row purge. */
+export type ImportJobRowPurgeCandidate = {
+  status: ImportJobStatus;
+  createdAt?: Date;
+  appliedAt?: Date | null;
+  failed_at?: Date | null;
+  cancelled_at?: Date | null;
+  totals_json?: Prisma.JsonValue | null;
+};
+
+export function importJobRowPurgeCutoffs(
+  now: Date,
+  options: {
+    retentionDays?: number;
+    failedRetentionDays?: number;
+    dryRunRetentionDays?: number;
+  } = {},
+): ImportJobRowPurgeCutoffs {
+  return {
+    appliedCutoff: new Date(
+      now.getTime() -
+        (options.retentionDays ?? IMPORT_JOB_RETENTION_DAYS) *
+          24 *
+          60 *
+          60 *
+          1000,
+    ),
+    failedCutoff: new Date(
+      now.getTime() -
+        (options.failedRetentionDays ?? IMPORT_FAILED_JOB_ROW_RETENTION_DAYS) *
+          24 *
+          60 *
+          60 *
+          1000,
+    ),
+    dryRunCutoff: new Date(
+      now.getTime() -
+        (options.dryRunRetentionDays ?? IMPORT_UPLOAD_RETENTION_DAYS) *
+          24 *
+          60 *
+          60 *
+          1000,
+    ),
+  };
+}
+
+/** Evaluates whether an import job is eligible for staged row purge. */
 export function isImportJobEligibleForRowPurge(
-  job: {
-    status: ImportJobStatus;
-    appliedAt: Date | null;
-  },
-  cutoff: Date,
+  job: ImportJobRowPurgeCandidate,
+  cutoffsInput: ImportJobRowPurgeCutoffs | Date,
 ): boolean {
-  return (
-    job.status === ImportJobStatus.APPLIED &&
-    job.appliedAt !== null &&
-    job.appliedAt < cutoff
-  );
+  const cutoffs: ImportJobRowPurgeCutoffs =
+    cutoffsInput instanceof Date
+      ? {
+          appliedCutoff: cutoffsInput,
+          failedCutoff: cutoffsInput,
+          dryRunCutoff: cutoffsInput,
+        }
+      : cutoffsInput;
+
+  switch (job.status) {
+    case ImportJobStatus.APPLIED:
+      return (
+        job.appliedAt !== null &&
+        job.appliedAt !== undefined &&
+        job.appliedAt < cutoffs.appliedCutoff
+      );
+    case ImportJobStatus.FAILED: {
+      const terminalAt = job.failed_at ?? job.createdAt;
+      return (
+        terminalAt !== null &&
+        terminalAt !== undefined &&
+        terminalAt < cutoffs.failedCutoff
+      );
+    }
+    case ImportJobStatus.CANCELLED: {
+      const terminalAt = job.cancelled_at ?? job.createdAt;
+      return (
+        terminalAt !== null &&
+        terminalAt !== undefined &&
+        terminalAt < cutoffs.failedCutoff
+      );
+    }
+    case ImportJobStatus.DRY_RUN_DONE:
+      return job.createdAt !== undefined && job.createdAt < cutoffs.dryRunCutoff;
+    case ImportJobStatus.APPLYING:
+    default:
+      return false;
+  }
 }
 
 export function importJobRowRetentionCutoff(
@@ -47,13 +134,46 @@ export function importJobRowRetentionCutoff(
 
 export function eligibleImportJobsForRowPurgeWhere(
   tenantId: string,
-  cutoff: Date,
+  cutoffsInput: ImportJobRowPurgeCutoffs | Date,
 ): Prisma.ImportJobWhereInput {
+  const cutoffs: ImportJobRowPurgeCutoffs =
+    cutoffsInput instanceof Date
+      ? {
+          appliedCutoff: cutoffsInput,
+          failedCutoff: cutoffsInput,
+          dryRunCutoff: cutoffsInput,
+        }
+      : cutoffsInput;
+
   return {
     tenant_id: tenantId,
-    status: ImportJobStatus.APPLIED,
-    appliedAt: { lt: cutoff },
-    rows: { some: {} },
+    OR: [
+      {
+        status: ImportJobStatus.APPLIED,
+        appliedAt: { lt: cutoffs.appliedCutoff },
+        rows: { some: {} },
+      },
+      {
+        status: ImportJobStatus.CANCELLED,
+        OR: [
+          { cancelled_at: { lt: cutoffs.failedCutoff } },
+          { cancelled_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+        ],
+        rows: { some: {} },
+      },
+      {
+        status: ImportJobStatus.FAILED,
+        OR: [
+          { failed_at: { lt: cutoffs.failedCutoff } },
+          { failed_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+        ],
+        rows: { some: {} },
+      },
+      {
+        status: ImportJobStatus.DRY_RUN_DONE,
+        createdAt: { lt: cutoffs.dryRunCutoff },
+      },
+    ],
   };
 }
 

@@ -28,6 +28,8 @@ export const IMPORT_ROW_TX_MAX_ATTEMPTS = 5;
 export const IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS = 8;
 
 export const IMPORT_JOB_RETENTION_DAYS = 180;
+export const IMPORT_FAILED_JOB_ROW_RETENTION_DAYS = 1;
+export const IMPORT_UPLOAD_RETENTION_DAYS = 7;
 
 export const IMPORT_SOURCE = 'import';
 
