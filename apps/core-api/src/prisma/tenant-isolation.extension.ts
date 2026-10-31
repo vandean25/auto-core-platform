@@ -127,10 +127,12 @@ if (Prisma.dmmf?.datamodel?.models) {
  *    - nested create / createMany: validates child payload (rejects conflicting tenant_id;
  *      omits tenant_id so Prisma schema validator does not reject it as unknown argument;
  *      recurses into nested writes).
- *    - nested connect / set: verifies tenant ownership of referenced IDs before execution.
- *      Cross-tenant references are strictly rejected.
- *    - nested connectOrCreate / upsert: verifies tenant ownership on where clause, validates
- *      create and update payloads.
+ *    - nested connect / set: verifies tenant ownership of referenced selectors (plain id,
+ *      other unique keys, and composite keys) before execution. Cross-tenant references
+ *      are strictly rejected. Fails closed if query client is unavailable.
+ *    - nested connectOrCreate / upsert: verifies tenant ownership on where clause across
+ *      all unique-key selector shapes, validates create and update payloads. Fails closed
+ *      if query client is unavailable.
  *    - nested update / updateMany: asserts update payload cannot mutate tenant_id and recurses.
  *    - delete, deleteMany, disconnect: permitted for unlinking/deletion.
  *
@@ -354,16 +356,19 @@ function getPresentRelationMutationKeys(
   return Object.keys(record).filter((k) => RELATION_MUTATION_KEYS.has(k));
 }
 
+type QueryDelegate = {
+  findMany: (
+    args: unknown,
+  ) => Promise<Array<{ id?: unknown; tenant_id?: string }>>;
+  findFirst?: (
+    args: unknown,
+  ) => Promise<{ id?: unknown; tenant_id?: string } | null>;
+};
+
 function findDelegate(
   client: unknown,
   delegateName: string,
-):
-  | {
-      findMany: (
-        args: unknown,
-      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
-    }
-  | undefined {
+): QueryDelegate | undefined {
   if (!client || typeof client !== 'object') {
     return undefined;
   }
@@ -379,11 +384,7 @@ function findDelegate(
     typeof candidate === 'object' &&
     typeof (candidate as Record<string, unknown>).findMany === 'function'
   ) {
-    return candidate as {
-      findMany: (
-        args: unknown,
-      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
-    };
+    return candidate as QueryDelegate;
   }
   return undefined;
 }
@@ -391,13 +392,7 @@ function findDelegate(
 function getModelDelegate(
   targetModel: string,
   contextClient?: unknown,
-):
-  | {
-      findMany: (
-        args: unknown,
-      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
-    }
-  | undefined {
+): QueryDelegate | undefined {
   const delegateName =
     targetModel.charAt(0).toLowerCase() + targetModel.slice(1);
   return (
@@ -526,32 +521,57 @@ function toRecordArray(payload: unknown): Record<string, unknown>[] {
   return records;
 }
 
-function extractSingleId(item: unknown): string | number | undefined {
-  if (typeof item === 'string') {
-    return item.length > 0 ? item : undefined;
+function normalizeSelectorItem(
+  item: unknown,
+): Record<string, unknown> | undefined {
+  if (typeof item === 'string' && item.length > 0) {
+    return { id: item };
   }
-  if (typeof item === 'number') {
-    return Number.isInteger(item) ? item : undefined;
+  if (typeof item === 'number' && Number.isInteger(item)) {
+    return { id: item };
   }
-  if (item && typeof item === 'object') {
-    return extractSingleId((item as Record<string, unknown>).id);
+  if (
+    item &&
+    typeof item === 'object' &&
+    !Array.isArray(item) &&
+    Object.keys(item).length > 0
+  ) {
+    return item as Record<string, unknown>;
   }
   return undefined;
 }
 
-function extractTargetIds(payload: unknown): Array<string | number> {
-  if (!payload) {
-    return [];
+function findTenantIdInSelector(
+  selector: Record<string, unknown>,
+): string | undefined {
+  if (typeof selector.tenant_id === 'string') {
+    return selector.tenant_id;
   }
-  const items = Array.isArray(payload) ? payload : [payload];
-  const ids: Array<string | number> = [];
-  for (const item of items) {
-    const id = extractSingleId(item);
-    if (id !== undefined) {
-      ids.push(id);
+  for (const key of Object.keys(selector)) {
+    const val = selector[key];
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const inner = val as Record<string, unknown>;
+      if (typeof inner.tenant_id === 'string') {
+        return inner.tenant_id;
+      }
     }
   }
-  return ids;
+  return undefined;
+}
+
+function isPlainIdSelector(selector: Record<string, unknown>): boolean {
+  const id = selector.id;
+  const isId =
+    (typeof id === 'string' && id.length > 0) ||
+    (typeof id === 'number' && Number.isInteger(id));
+  if (!isId) {
+    return false;
+  }
+  const keys = Object.keys(selector);
+  return (
+    keys.length === 1 ||
+    (keys.length === 2 && Object.hasOwn(selector, 'tenant_id'))
+  );
 }
 
 function extractCreateManyData(payload: unknown): unknown {
@@ -621,6 +641,132 @@ async function validateCompositeChildPayload(
   );
 }
 
+async function verifyBatchedPlainIds(
+  delegate: QueryDelegate,
+  ids: Array<string | number>,
+  tenantId: string,
+  modelName: string,
+  key: string,
+  mutKey: string,
+): Promise<void> {
+  const rows = await delegate.findMany({
+    where: {
+      id: { in: ids },
+      tenant_id: tenantId,
+    },
+    select: { id: true, tenant_id: true },
+  });
+
+  if (
+    rows.length !== ids.length ||
+    rows.some((row) => row.tenant_id && row.tenant_id !== tenantId)
+  ) {
+    throw new Error(
+      `[TenantIsolation] Nested relation '${mutKey}' on '${modelName}.${key}' references records not belonging to current tenant.`,
+    );
+  }
+}
+
+async function resolveSelectorRow(
+  delegate: QueryDelegate,
+  selector: Record<string, unknown>,
+): Promise<{ id?: unknown; tenant_id?: string } | null> {
+  if (typeof delegate.findFirst === 'function') {
+    return delegate.findFirst({
+      where: selector,
+      select: { tenant_id: true },
+    });
+  }
+  const rows = await delegate.findMany({
+    where: selector,
+    select: { tenant_id: true },
+  });
+  return rows[0] ?? null;
+}
+
+async function verifySingleSelector(
+  delegate: QueryDelegate,
+  selector: Record<string, unknown>,
+  tenantId: string,
+  modelName: string,
+  key: string,
+  mutKey: string,
+): Promise<void> {
+  const embeddedTenantId = findTenantIdInSelector(selector);
+  if (embeddedTenantId !== undefined && embeddedTenantId !== tenantId) {
+    throw new Error(
+      `[TenantIsolation] Nested relation '${mutKey}' on '${modelName}.${key}' references records not belonging to current tenant.`,
+    );
+  }
+
+  const row = await resolveSelectorRow(delegate, selector);
+  if (!row || (row.tenant_id && row.tenant_id !== tenantId)) {
+    throw new Error(
+      `[TenantIsolation] Nested relation '${mutKey}' on '${modelName}.${key}' references records not belonging to current tenant.`,
+    );
+  }
+}
+
+function resolveRequiredDelegate(
+  modelName: string,
+  key: string,
+  targetModel: string,
+  contextClient?: unknown,
+): QueryDelegate {
+  const delegate = getModelDelegate(targetModel, contextClient);
+  if (!delegate) {
+    throw new Error(
+      `[TenantIsolation] Cannot verify tenant ownership for nested relation write on '${modelName}.${key}'. No query client available for model '${targetModel}'.`,
+    );
+  }
+  return delegate;
+}
+
+function collectSelectors(
+  rawItems: unknown[],
+  modelName: string,
+  key: string,
+  mutKey: string,
+): Record<string, unknown>[] {
+  const selectors: Record<string, unknown>[] = [];
+  for (const raw of rawItems) {
+    const sel = normalizeSelectorItem(raw);
+    if (!sel) {
+      throw new Error(
+        `[TenantIsolation] Nested relation '${mutKey}' on '${modelName}.${key}' references records not belonging to current tenant.`,
+      );
+    }
+    selectors.push(sel);
+  }
+  return selectors;
+}
+
+async function verifySelectorsWithDelegate(
+  delegate: QueryDelegate,
+  selectors: Record<string, unknown>[],
+  tenantId: string,
+  modelName: string,
+  key: string,
+  mutKey: string,
+): Promise<void> {
+  if (selectors.every(isPlainIdSelector)) {
+    const ids = selectors.map((s) => s.id as string | number);
+    await verifyBatchedPlainIds(
+      delegate,
+      ids,
+      tenantId,
+      modelName,
+      key,
+      mutKey,
+    );
+    return;
+  }
+
+  for (const sel of selectors) {
+    await verifySingleSelector(delegate, sel, tenantId, modelName, key, mutKey);
+  }
+}
+
 async function verifyCompositeNestedOwnership(
   modelName: string,
   key: string,
@@ -630,31 +776,29 @@ async function verifyCompositeNestedOwnership(
   tenantId: string,
   contextClient?: unknown,
 ): Promise<void> {
-  const ids = extractTargetIds(payload);
-  if (ids.length === 0) {
+  if (payload === null || payload === undefined) {
+    return;
+  }
+  const rawItems = Array.isArray(payload) ? payload : [payload];
+  if (rawItems.length === 0) {
     return;
   }
 
-  const delegate = getModelDelegate(targetModel, contextClient);
-  if (!delegate) {
-    throw new Error(
-      `[TenantIsolation] Cannot verify tenant ownership for nested relation write on '${modelName}.${key}'. No query client available for model '${targetModel}'.`,
-    );
-  }
-
-  const rows = await delegate.findMany({
-    where: {
-      id: { in: ids },
-      tenant_id: tenantId,
-    },
-    select: { id: true },
-  });
-
-  if (rows.length !== ids.length) {
-    throw new Error(
-      `[TenantIsolation] Nested relation '${mutKey}' on '${modelName}.${key}' references records not belonging to current tenant.`,
-    );
-  }
+  const delegate = resolveRequiredDelegate(
+    modelName,
+    key,
+    targetModel,
+    contextClient,
+  );
+  const selectors = collectSelectors(rawItems, modelName, key, mutKey);
+  await verifySelectorsWithDelegate(
+    delegate,
+    selectors,
+    tenantId,
+    modelName,
+    key,
+    mutKey,
+  );
 }
 
 async function handleCompositeConnectOrCreate(
@@ -677,6 +821,10 @@ async function handleCompositeConnectOrCreate(
         tenantId,
         contextClient,
       );
+    } else {
+      throw new Error(
+        `[TenantIsolation] Nested relation 'connectOrCreate' on '${modelName}.${key}' requires a where selector.`,
+      );
     }
     if (record.create) {
       await validateCompositeChildRecord(
@@ -698,25 +846,20 @@ async function validateCompositeUpsertWhere(
   tenantId: string,
   contextClient?: unknown,
 ): Promise<void> {
-  const ids = extractTargetIds(where);
-  if (ids.length === 0) {
-    return;
+  if (where === null || where === undefined) {
+    throw new Error(
+      `[TenantIsolation] Nested relation 'upsert' on '${modelName}.${key}' requires a where selector.`,
+    );
   }
-  const delegate = getModelDelegate(targetModel, contextClient);
-  if (!delegate) {
-    return;
-  }
-  const rows = await delegate.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, tenant_id: true },
-  });
-  for (const row of rows) {
-    if (row.tenant_id && row.tenant_id !== tenantId) {
-      throw new Error(
-        `[TenantIsolation] Nested relation 'upsert' on '${modelName}.${key}' references records not belonging to current tenant.`,
-      );
-    }
-  }
+  await verifyCompositeNestedOwnership(
+    modelName,
+    key,
+    targetModel,
+    'upsert',
+    where,
+    tenantId,
+    contextClient,
+  );
 }
 
 async function validateCompositeUpsertCreate(
@@ -1610,7 +1753,7 @@ async function dispatchTenantOperation(
   );
 }
 
-function resolveContextClient(thisArg: unknown, baseClient: unknown): unknown {
+function resolveContextClient(thisArg: unknown): unknown {
   const activeTx =
     PrismaTransactionContext.getClient() ??
     DryRunStorage.getTransactionClient();
@@ -1623,9 +1766,10 @@ function resolveContextClient(thisArg: unknown, baseClient: unknown): unknown {
     if (parent && typeof parent === 'object') {
       return parent;
     }
+    return thisArg;
   }
 
-  return baseClient ?? thisArg;
+  return undefined;
 }
 
 /**
@@ -1634,7 +1778,7 @@ function resolveContextClient(thisArg: unknown, baseClient: unknown): unknown {
  *
  * `baseClient` is the client captured at extension definition. It is kept in
  * the signature to make the isolation boundary explicit, but the extension
- * must never query through it: it lives outside every active transaction and
+ * never queries through it: it lives outside every active transaction and
  * dry-run context.
  */
 export async function applyTenantIsolation(
@@ -1655,7 +1799,7 @@ export async function applyTenantIsolation(
   assertOperationAllowed(model, operation);
 
   const tenantId = getCurrentTenantId();
-  const contextClient = resolveContextClient(this, baseClient);
+  const contextClient = resolveContextClient(this);
 
   return dispatchTenantOperation(
     model,

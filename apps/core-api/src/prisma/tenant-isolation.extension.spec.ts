@@ -1359,6 +1359,13 @@ describe('applyTenantIsolation', () => {
 
       it('rejects nested upsert on composite relation when create has conflicting tenant_id', async () => {
         const query = jest.fn();
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'task-1', tenant_id: TENANT_ID }]),
+          },
+        };
         const args = {
           where: { id: 'wo-1' },
           data: {
@@ -1373,7 +1380,9 @@ describe('applyTenantIsolation', () => {
         };
 
         await expect(
-          runWithTenant(() => call('WorkshopOrder', 'update', args, query)),
+          runWithTenant(() =>
+            call('WorkshopOrder', 'update', args, query, mockClient),
+          ),
         ).rejects.toThrow(
           /\[TenantIsolation\] Mismatching tenant_id in create on model 'WorkshopTask'\./,
         );
@@ -1382,6 +1391,13 @@ describe('applyTenantIsolation', () => {
 
       it('rejects nested upsert on composite relation when update mutates tenant_id', async () => {
         const query = jest.fn();
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'task-1', tenant_id: TENANT_ID }]),
+          },
+        };
         const args = {
           where: { id: 'wo-1' },
           data: {
@@ -1396,7 +1412,9 @@ describe('applyTenantIsolation', () => {
         };
 
         await expect(
-          runWithTenant(() => call('WorkshopOrder', 'update', args, query)),
+          runWithTenant(() =>
+            call('WorkshopOrder', 'update', args, query, mockClient),
+          ),
         ).rejects.toThrow(
           /\[TenantIsolation\] Modifying tenant_id in upsert update data on model 'WorkshopTask' is not permitted\./,
         );
@@ -1434,8 +1452,38 @@ describe('applyTenantIsolation', () => {
         expect(query).not.toHaveBeenCalled();
       });
 
+      it('rejects nested upsert on composite relation when no query client is available', async () => {
+        const query = jest.fn();
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: {
+                where: { id: 'task-1' },
+                create: { title: 'Upserted task' },
+                update: { title: 'Updated task' },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'update', args, query, {})),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Cannot verify tenant ownership for nested relation write on 'WorkshopOrder\.tasks'\. No query client available for model 'WorkshopTask'\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
       it('permits composite upsert when create has matching tenant_id (removes tenant_id for Prisma)', async () => {
         const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'task-new', tenant_id: TENANT_ID }]),
+          },
+        };
         const args = {
           where: { id: 'wo-1' },
           data: {
@@ -1452,7 +1500,9 @@ describe('applyTenantIsolation', () => {
           },
         };
 
-        await runWithTenant(() => call('WorkshopOrder', 'update', args, query));
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'update', args, query, mockClient),
+        );
         expect(query).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
@@ -1466,6 +1516,386 @@ describe('applyTenantIsolation', () => {
             }),
           }),
         );
+      });
+
+      it('permits nested connect on composite relation using non-id single unique key for same-tenant row', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'task-1', tenant_id: TENANT_ID }]),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              connect: { code: 'TASK-CODE-1' },
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'update', args, query, mockClient),
+        );
+        expect(query).toHaveBeenCalled();
+        expect(mockClient.workshopTask.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { code: 'TASK-CODE-1' },
+          }),
+        );
+      });
+
+      it('rejects nested connect on composite relation using non-id single unique key when target row belongs to other tenant', async () => {
+        const query = jest.fn();
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { id: 'task-1', tenant_id: 'foreign-tenant' },
+              ]),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              connect: { code: 'TASK-CODE-1' },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('WorkshopOrder', 'update', args, query, mockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation 'connect' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits nested connect on composite relation using composite unique key for same-tenant row', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'task-1', tenant_id: TENANT_ID }]),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              connect: {
+                tenant_id_id: { tenant_id: TENANT_ID, id: 'task-1' },
+              },
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'update', args, query, mockClient),
+        );
+        expect(query).toHaveBeenCalled();
+      });
+
+      it('rejects nested connect on composite relation when composite unique key has mismatching tenant_id', async () => {
+        const query = jest.fn();
+        const mockClient = {
+          workshopTask: {
+            findMany: jest.fn(),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              connect: {
+                tenant_id_id: { tenant_id: 'foreign-tenant', id: 'task-1' },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('WorkshopOrder', 'update', args, query, mockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation 'connect' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
+        );
+        expect(mockClient.workshopTask.findMany).not.toHaveBeenCalled();
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits mixed selectors on composite relation when all belong to current tenant', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockImplementation(
+                ({ where }: { where: Record<string, unknown> }) => {
+                  if (where.id === 'task-1') {
+                    return Promise.resolve([
+                      { id: 'task-1', tenant_id: TENANT_ID },
+                    ]);
+                  }
+                  return Promise.resolve([
+                    { id: 'task-2', tenant_id: TENANT_ID },
+                  ]);
+                },
+              ),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              connect: [
+                { id: 'task-1' },
+                { tenant_id_id: { tenant_id: TENANT_ID, id: 'task-2' } },
+              ],
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'update', args, query, mockClient),
+        );
+        expect(query).toHaveBeenCalled();
+      });
+
+      it('rejects mixed selectors on composite relation when any selector references another tenant', async () => {
+        const query = jest.fn();
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'task-1', tenant_id: TENANT_ID }]),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              connect: [
+                { id: 'task-1' },
+                { tenant_id_id: { tenant_id: 'foreign-tenant', id: 'task-2' } },
+              ],
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('WorkshopOrder', 'update', args, query, mockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation 'connect' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits nested connect on ImportJob.rows using composite key for same-tenant row', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const mockClient = {
+          importJobRow: {
+            findMany: jest.fn().mockResolvedValue([
+              {
+                tenant_id: TENANT_ID,
+                import_job_id: 'job-1',
+                row_no: 1,
+              },
+            ]),
+          },
+        };
+        const args = {
+          where: { id: 'job-1' },
+          data: {
+            rows: {
+              connect: {
+                tenant_id_import_job_id_row_no: {
+                  tenant_id: TENANT_ID,
+                  import_job_id: 'job-1',
+                  row_no: 1,
+                },
+              },
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('ImportJob', 'update', args, query, mockClient),
+        );
+        expect(query).toHaveBeenCalled();
+      });
+
+      it('rejects nested connect on ImportJob.rows when composite key references other tenant', async () => {
+        const query = jest.fn();
+        const mockClient = {
+          importJobRow: {
+            findMany: jest.fn(),
+          },
+        };
+        const args = {
+          where: { id: 'job-1' },
+          data: {
+            rows: {
+              connect: {
+                tenant_id_import_job_id_row_no: {
+                  tenant_id: 'other-tenant',
+                  import_job_id: 'job-1',
+                  row_no: 1,
+                },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('ImportJob', 'update', args, query, mockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation 'connect' on 'ImportJob\.rows' references records not belonging to current tenant\./,
+        );
+        expect(mockClient.importJobRow.findMany).not.toHaveBeenCalled();
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits nested connect on LegacyDocument.lines using composite key for same-tenant row', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const mockClient = {
+          legacyDocumentLine: {
+            findMany: jest.fn().mockResolvedValue([
+              {
+                tenant_id: TENANT_ID,
+                legacy_document_id: 'doc-1',
+                line_no: 1,
+              },
+            ]),
+          },
+        };
+        const args = {
+          where: { id: 'doc-1' },
+          data: {
+            lines: {
+              connect: {
+                tenant_id_legacy_document_id_line_no: {
+                  tenant_id: TENANT_ID,
+                  legacy_document_id: 'doc-1',
+                  line_no: 1,
+                },
+              },
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('LegacyDocument', 'update', args, query, mockClient),
+        );
+        expect(query).toHaveBeenCalled();
+      });
+
+      it('rejects nested connect on LegacyDocument.lines when composite key references other tenant', async () => {
+        const query = jest.fn();
+        const mockClient = {
+          legacyDocumentLine: {
+            findMany: jest.fn(),
+          },
+        };
+        const args = {
+          where: { id: 'doc-1' },
+          data: {
+            lines: {
+              connect: {
+                tenant_id_legacy_document_id_line_no: {
+                  tenant_id: 'other-tenant',
+                  legacy_document_id: 'doc-1',
+                  line_no: 1,
+                },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('LegacyDocument', 'update', args, query, mockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation 'connect' on 'LegacyDocument\.lines' references records not belonging to current tenant\./,
+        );
+        expect(mockClient.legacyDocumentLine.findMany).not.toHaveBeenCalled();
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits nested upsert on composite relation with composite key where selector for same tenant', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const mockClient = {
+          workshopTask: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'task-1', tenant_id: TENANT_ID }]),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: {
+                where: {
+                  tenant_id_id: { tenant_id: TENANT_ID, id: 'task-1' },
+                },
+                create: { title: 'Upserted task' },
+                update: { title: 'Updated task' },
+              },
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'update', args, query, mockClient),
+        );
+        expect(query).toHaveBeenCalled();
+      });
+
+      it('rejects nested upsert on composite relation with composite key where selector referencing other tenant', async () => {
+        const query = jest.fn();
+        const mockClient = {
+          workshopTask: {
+            findMany: jest.fn(),
+          },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: {
+                where: {
+                  tenant_id_id: { tenant_id: 'other-tenant', id: 'task-1' },
+                },
+                create: { title: 'Upserted task' },
+                update: { title: 'Updated task' },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('WorkshopOrder', 'update', args, query, mockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation 'upsert' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
+        );
+        expect(mockClient.workshopTask.findMany).not.toHaveBeenCalled();
+        expect(query).not.toHaveBeenCalled();
       });
 
       describe('single-FK tenant-scoped child relations', () => {

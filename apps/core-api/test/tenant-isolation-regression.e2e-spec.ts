@@ -1053,6 +1053,98 @@ describe('Tenant Isolation Regression (e2e)', () => {
       );
     });
 
+    it('rejects nested connect on composite-FK relation WorkshopOrder.tasks using composite key referencing non-owned row', async () => {
+      await expect(
+        tenantAPrisma.workshopOrder.update({
+          where: { id: 'dummy-order-id' },
+          data: {
+            tasks: {
+              connect: [
+                {
+                  tenant_id_id: {
+                    tenant_id: tenantBId,
+                    id: 'task-fake-id',
+                  },
+                },
+              ],
+            },
+          } as never,
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Nested relation 'connect' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
+      );
+    });
+
+    it('rejects nested connect on ImportJob.rows using composite key referencing non-owned row', async () => {
+      await expect(
+        tenantAPrisma.importJob.update({
+          where: { id: 'dummy-job-id' },
+          data: {
+            rows: {
+              connect: [
+                {
+                  tenant_id_import_job_id_row_no: {
+                    tenant_id: tenantBId,
+                    import_job_id: 'dummy-job-id',
+                    row_no: 1,
+                  },
+                },
+              ],
+            },
+          } as never,
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Nested relation 'connect' on 'ImportJob\.rows' references records not belonging to current tenant\./,
+      );
+    });
+
+    it('rejects nested connect on LegacyDocument.lines using composite key referencing non-owned row', async () => {
+      await expect(
+        tenantAPrisma.legacyDocument.update({
+          where: { id: 'a0000000-0000-0000-0000-000000000001' },
+          data: {
+            lines: {
+              connect: [
+                {
+                  tenant_id_legacy_document_id_line_no: {
+                    tenant_id: tenantBId,
+                    legacy_document_id: 'a0000000-0000-0000-0000-000000000001',
+                    line_no: 1,
+                  },
+                },
+              ],
+            },
+          } as never,
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Nested relation 'connect' on 'LegacyDocument\.lines' references records not belonging to current tenant\./,
+      );
+    });
+
+    it('rejects nested upsert on composite-FK relation WorkshopOrder.tasks when where references non-owned row', async () => {
+      await expect(
+        tenantAPrisma.workshopOrder.update({
+          where: { id: 'dummy-order-id' },
+          data: {
+            tasks: {
+              upsert: {
+                where: {
+                  tenant_id_id: {
+                    tenant_id: tenantBId,
+                    id: 'task-fake-id',
+                  },
+                },
+                create: { title: 'Upsert Task' },
+                update: { title: 'Updated Task' },
+              },
+            },
+          } as never,
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Nested relation 'upsert' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
+      );
+    });
+
     it('worker background job for Tenant A cannot read or modify Tenant B records', async () => {
       const requestContext = app.get(RequestContextService);
 
@@ -1093,21 +1185,26 @@ describe('Tenant Isolation Regression (e2e)', () => {
       ).rejects.toThrow(/\[TenantIsolation\] Tenant context not initialised\./);
     });
 
-    it('tenant-scoped raw query cannot see or lock records of another tenant', async () => {
-      const brandB = await tenantBPrisma.brand.create({
-        data: {
-          tenant_id: tenantBId,
-          ...brandData(`${prefix}-RAW-B`),
-          isPartManufacturer: true,
-        },
-      });
+    it('raw model operations findRaw and aggregateRaw fail closed under tenant isolation', async () => {
+      await expect(
+        (
+          tenantAPrisma.brand as unknown as {
+            findRaw: (args: unknown) => Promise<unknown>;
+          }
+        ).findRaw({}),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Do not use findRaw\(\) on model 'Brand'\. Raw queries bypass tenant isolation\./,
+      );
 
-      const rows = await prisma.$queryRaw<Array<{ id: number }>>`
-        SELECT id FROM brands
-        WHERE id = ${brandB.id} AND tenant_id = ${tenantAId}
-        FOR UPDATE
-      `;
-      expect(rows).toHaveLength(0);
+      await expect(
+        (
+          tenantAPrisma.brand as unknown as {
+            aggregateRaw: (args: unknown) => Promise<unknown>;
+          }
+        ).aggregateRaw({}),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Do not use aggregateRaw\(\) on model 'Brand'\. Raw queries bypass tenant isolation\./,
+      );
     });
   });
 });

@@ -50,13 +50,16 @@ describe('Tenant Isolation Raw SQL Audit', () => {
     queryBlock: string,
     tenantTables: Set<string>,
   ): { referencedTables: string[]; isValid: boolean } {
+    const normalizedBlock = queryBlock
+      .replace(/["`]/g, '')
+      .replace(/\bpublic\./gi, '');
     const referencedTables: string[] = [];
     for (const table of tenantTables) {
       const regex = new RegExp(
         `\\b(from|join|update|into)\\s+${table}\\b`,
         'i',
       );
-      if (regex.test(queryBlock)) {
+      if (regex.test(normalizedBlock)) {
         referencedTables.push(table);
       }
     }
@@ -135,5 +138,33 @@ describe('Tenant Isolation Raw SQL Audit', () => {
     const adversarialResult = auditRawQuery(adversarialQuery, tenantTables);
     expect(adversarialResult.isValid).toBe(false);
     expect(adversarialResult.referencedTables).toEqual(['workshop_orders']);
+  });
+
+  it('adversarial check: raw query with quoted identifiers without tenant_id is rejected by audit', () => {
+    const tenantTables = new Set(['sites', 'customers', 'vehicles']);
+
+    const validQuoted = `
+      SELECT id FROM "sites"
+      WHERE id = $1 AND tenant_id = $2
+      FOR UPDATE
+    `;
+    const validResult = auditRawQuery(validQuoted, tenantTables);
+    expect(validResult.isValid).toBe(true);
+    expect(validResult.referencedTables).toEqual(['sites']);
+
+    const adversarialQuoted = `
+      SELECT id FROM "customers"
+      WHERE id = $1
+    `;
+    const adversarialResult = auditRawQuery(adversarialQuoted, tenantTables);
+    expect(adversarialResult.isValid).toBe(false);
+    expect(adversarialResult.referencedTables).toEqual(['customers']);
+
+    const updateQuoted = `
+      UPDATE "vehicles" SET status = 'SOLD' WHERE id = $1
+    `;
+    const updateResult = auditRawQuery(updateQuoted, tenantTables);
+    expect(updateResult.isValid).toBe(false);
+    expect(updateResult.referencedTables).toEqual(['vehicles']);
   });
 });
