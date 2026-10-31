@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 
 import type { ImportJob } from '@/api/imports'
 import {
-  canApplyImport, isDryRunExpired,
+  canApplyImport,
+  isDryRunExpired,
+  isJobRowsPurged,
   importRowQueryFromFilter,
   isDryRunStale,
 } from './import-wizard-logic'
@@ -167,6 +169,27 @@ describe('import wizard logic', () => {
     expect(
       canApplyImport({
         dryRunJob: expiredJob,
+        dryRunStale: false,
+        errorThreshold: 10,
+        isApplying: false,
+      }),
+    ).toBe(false)
+  })
+
+  it('detects purged jobs and distinguishes from expired dry-run jobs', () => {
+    const purgedFailedJob = mockJob({
+      status: 'FAILED',
+      options: { rows_purged: true },
+    })
+
+    expect(isJobRowsPurged(purgedFailedJob)).toBe(true)
+    expect(isDryRunExpired(purgedFailedJob)).toBe(false)
+    expect(isJobRowsPurged(mockJob({ status: 'DRY_RUN_DONE' }))).toBe(false)
+    expect(isJobRowsPurged(null)).toBe(false)
+
+    expect(
+      canApplyImport({
+        dryRunJob: purgedFailedJob,
         dryRunStale: false,
         errorThreshold: 10,
         isApplying: false,

@@ -1165,6 +1165,10 @@
       "expired": {
         "title": "Probelauf abgelaufen",
         "description": "Probelauf abgelaufen, bitte erneut hochladen"
+      },
+      "purged": {
+        "title": "Importdaten bereinigt",
+        "description": "Die Zeilen dieses Imports wurden bereits bereinigt. Bitte laden Sie die Datei erneut hoch."
       }
     },
     "errorReport": {

@@ -52,13 +52,13 @@ export function isDryRunStale(params: {
 export function isDryRunExpired(job: ImportJob | null | undefined): boolean {
   if (!job) return false
   const options = job.options as Record<string, unknown> | null | undefined
-  if (options?.['cancel_reason'] === 'expired' || options?.['rows_purged'] === true) {
-    return true
-  }
-  if (job.status === 'CANCELLED') {
-    return options?.['cancel_reason'] === 'expired'
-  }
-  return false
+  return options?.['cancel_reason'] === 'expired'
+}
+
+export function isJobRowsPurged(job: ImportJob | null | undefined): boolean {
+  if (!job) return false
+  const options = job.options as Record<string, unknown> | null | undefined
+  return options?.['rows_purged'] === true
 }
 
 export function canApplyImport(params: {
@@ -68,7 +68,7 @@ export function canApplyImport(params: {
   isApplying: boolean
 }): boolean {
   if (!params.dryRunJob || params.isApplying) return false
-  if (isDryRunExpired(params.dryRunJob)) return false
+  if (isDryRunExpired(params.dryRunJob) || isJobRowsPurged(params.dryRunJob)) return false
   if (params.dryRunJob.stalled && params.dryRunJob.status === 'APPLYING') {
     return true
   }

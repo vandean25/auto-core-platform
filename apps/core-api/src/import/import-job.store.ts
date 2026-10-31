@@ -345,6 +345,23 @@ async function adoptStaleApplyLease(
 }
 
 /** Reads and writes import jobs and their rows. Every query is scoped to the tenant. */
+function verifyLockEligibility(
+  current: {
+    status: ImportJobStatus;
+    options_json: Prisma.JsonValue | null;
+  } | null,
+  allowedStatuses: ImportJobStatus[],
+): { eligible: false } | { eligible: true; options: Record<string, unknown> } {
+  if (!current || !allowedStatuses.includes(current.status)) {
+    return { eligible: false };
+  }
+  const opts = (current.options_json ?? {}) as Record<string, unknown>;
+  if (opts.rows_purged === true || opts.cancel_reason === 'expired') {
+    return { eligible: false };
+  }
+  return { eligible: true, options: opts };
+}
+
 export class ImportJobStore {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -1028,6 +1045,18 @@ export class ImportJobStore {
       ((existing?.options_json ?? {}) as ImportJobOptionsWithWorker);
     const locked = applyLockForReapply(options, extraStatuses, Date.now());
     return this.prisma.$transaction(async (tx) => {
+      let currentOptions = options as Record<string, unknown>;
+      if (typeof tx.importJob.findFirst === 'function') {
+        const current = await tx.importJob.findFirst({
+          where: { tenant_id: tenantId, id: jobId },
+          select: { status: true, options_json: true },
+        });
+        const check = verifyLockEligibility(current, locked.statuses);
+        if (!check.eligible) {
+          return { count: 0 };
+        }
+        currentOptions = check.options;
+      }
       const lock = await tx.importJob.updateMany({
         where: {
           tenant_id: tenantId,
@@ -1036,7 +1065,10 @@ export class ImportJobStore {
         },
         data: {
           status: ImportJobStatus.APPLYING,
-          options_json: locked.options,
+          options_json: {
+            ...currentOptions,
+            ...locked.options,
+          },
         },
       });
       if (lock.count === 0) {
@@ -1085,13 +1117,25 @@ export class ImportJobStore {
         ? { technical_retry_row_nos: retryRowNos }
         : {}),
     };
-    const lockStatuses = [
+    const lockStatuses: ImportJobStatus[] = [
       ImportJobStatus.DRY_RUN_DONE,
       ImportJobStatus.FAILED,
       ...(retryRowNos.length > 0 ? [ImportJobStatus.APPLIED] : []),
     ];
     return this.prisma.$transaction(
       async (tx) => {
+        let currentOptions = optionsWithoutRetry as Record<string, unknown>;
+        if (typeof tx.importJob.findFirst === 'function') {
+          const current = await tx.importJob.findFirst({
+            where: { tenant_id: tenantId, id: jobId },
+            select: { status: true, options_json: true },
+          });
+          const check = verifyLockEligibility(current, lockStatuses);
+          if (!check.eligible) {
+            return { count: 0 };
+          }
+          currentOptions = check.options;
+        }
         const lock = await tx.importJob.updateMany({
           where: {
             tenant_id: tenantId,
@@ -1101,7 +1145,7 @@ export class ImportJobStore {
           data: {
             status: ImportJobStatus.APPLYING,
             totals_json: applyTotals,
-            options_json: { ...optionsWithoutRetry, worker },
+            options_json: { ...currentOptions, ...optionsWithoutRetry, worker },
             attempts_without_progress: 0,
           },
         });

@@ -26,6 +26,7 @@ export type RetentionTestRow = {
 
 type ImportJobFindManyArgs = {
   where: Prisma.ImportJobWhereInput;
+  skip?: number;
   take?: number;
   orderBy?: { createdAt: 'asc' | 'desc' };
   select?: Record<string, boolean>;
@@ -186,13 +187,30 @@ function buildImportJobMock(
   cutoffs: ImportJobRowPurgeCutoffs,
 ) {
   return {
+    findFirst: jest.fn(
+      async (args: { where: { tenant_id?: string; id?: string } }) => {
+        const job = jobs.find(
+          (j) =>
+            (!args.where.tenant_id || j.tenant_id === args.where.tenant_id) &&
+            (!args.where.id || j.id === args.where.id),
+        );
+        if (!job) return null;
+        return {
+          id: job.id,
+          status: job.status,
+          options_json: job.options_json ?? null,
+        };
+      },
+    ),
     findMany: jest.fn(async (args: ImportJobFindManyArgs) => {
       const eligible = jobs
         .filter((job) =>
           matchesEligibleWhere(job, rowsByJob, args.where, cutoffs),
         )
         .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-      const slice = eligible.slice(0, args.take ?? eligible.length);
+      const start = args.skip ?? 0;
+      const end = args.take !== undefined ? start + args.take : undefined;
+      const slice = eligible.slice(start, end);
       return slice.map((job) => ({
         id: job.id,
         status: job.status,

@@ -27,7 +27,9 @@ import {
   assertFailedImportJobCanReApply,
   assertJobCanBeApplied,
   importJobCannotCancel,
+  importJobExpired,
   importJobNotFound,
+  importJobPurged,
 } from './import-job.errors.js';
 import {
   IMPORT_APPLY_UNIT_BUDGET_MS,
@@ -765,6 +767,16 @@ export class ImportService {
       const current = await this.jobStore.findJob(tenantId, jobId);
       if (!current) {
         throw importJobNotFound();
+      }
+      const currentOpts = (current.options_json ?? {}) as Record<
+        string,
+        unknown
+      >;
+      if (currentOpts.rows_purged === true) {
+        throw importJobPurged();
+      }
+      if (currentOpts.cancel_reason === 'expired') {
+        throw importJobExpired();
       }
       return this.serializeJob(current, current.totals_json as ImportJobTotals);
     }

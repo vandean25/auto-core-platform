@@ -1165,6 +1165,10 @@
       "expired": {
         "title": "Dry run expired",
         "description": "Dry run expired, please upload again"
+      },
+      "purged": {
+        "title": "Import data purged",
+        "description": "The rows for this import have been purged. Please upload the file again."
       }
     },
     "errorReport": {

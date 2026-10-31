@@ -225,6 +225,26 @@ describe('DataImportSettingsTab resume from ?job', () => {
     expect(screen.getByRole('button', { name: di.dryRun.uploadAgain })).toBeInTheDocument()
   })
 
+  it('shows purged message and does not offer apply for a purged FAILED job', async () => {
+    const job: ImportJob = {
+      ...customerDryRunJob,
+      id: 'job-resume-purged',
+      status: 'FAILED',
+      options: { rows_purged: true },
+    }
+    installImportApiMocks({ dryRunJob: job })
+    mockResumedJob(job)
+
+    renderImportSettingsTab({ initialEntries: [RESUME_URL] })
+
+    expect(await screen.findByText(di.dryRun.title)).toBeInTheDocument()
+    expect(screen.getByText(di.dryRun.purged.description)).toBeInTheDocument()
+    expect(screen.queryByText(di.dryRun.expired.description)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: di.dryRun.applyImport })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: di.dryRun.editMapping })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: di.dryRun.uploadAgain })).toBeInTheDocument()
+  })
+
   it('shows a read-only report for a CANCELLED job', async () => {
     const job: ImportJob = { ...customerDryRunJob, id: 'job-resume-1', status: 'CANCELLED' }
     installImportApiMocks({ dryRunJob: job })

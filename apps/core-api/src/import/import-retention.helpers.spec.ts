@@ -74,6 +74,7 @@ describe('eligibleImportJobsForRowPurgeWhere', () => {
                 { cancelled_at: { lt: cutoffs.failedCutoff } },
                 { cancelled_at: null, updatedAt: { lt: cutoffs.failedCutoff } },
                 { cancelled_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+                { createdAt: { lt: cutoffs.dryRunCutoff } },
               ],
               rows: { some: { action: { not: ImportRowAction.ERROR } } },
             },
@@ -395,6 +396,7 @@ describe('purgeStaleImportJobRowsForTenant', () => {
       where: expectedJobWhere(TENANT_A),
       select: expect.objectContaining({ id: true }),
       orderBy: { createdAt: 'asc' },
+      skip: 0,
       take: 25,
     });
     expect(result).toEqual({
@@ -905,6 +907,148 @@ describe('purgeStaleImportJobRowsForTenant', () => {
           NOT: { options_json: { path: ['other_path'], equals: true } },
         }),
       ).toBe(true);
+    });
+  });
+
+  describe('Paging and budget continuation', () => {
+    const cutoffs = importJobRowPurgeCutoffs(NOW);
+
+    it('pages past skipped apply-phase FAILED jobs to find eligible jobs without starvation', async () => {
+      // 26 apply-phase FAILED jobs (ineligible for 1d purge)
+      const skippedJobs: RetentionTestJob[] = Array.from(
+        { length: 26 },
+        (_, i) => ({
+          id: `job-apply-failed-${i}`,
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.FAILED,
+          failed_at: new Date(cutoffs.failedCutoff.getTime() - 1000 * (i + 2)),
+          createdAt: new Date(NOW.getTime() - 1000 * (i + 100)),
+          options_json: { worker: { phase: 'apply' } },
+        }),
+      );
+      // 1 eligible dry-run FAILED job
+      const eligibleJob: RetentionTestJob = {
+        id: 'job-dry-run-failed-eligible',
+        tenant_id: TENANT_A,
+        status: ImportJobStatus.FAILED,
+        failed_at: new Date(cutoffs.failedCutoff.getTime() - 500),
+        createdAt: new Date(NOW.getTime() - 10),
+        options_json: { worker: { phase: 'dry_run' } },
+      };
+
+      const rowsByJob: Record<string, Array<{ row_no: number; action: ImportRowAction }>> = {
+        'job-dry-run-failed-eligible': [
+          { row_no: 1, action: ImportRowAction.CREATE },
+        ],
+      };
+      for (const j of skippedJobs) {
+        rowsByJob[j.id] = [{ row_no: 1, action: ImportRowAction.CREATE }];
+      }
+
+      const { prisma, jobs } = createImportRetentionPrismaFake(
+        [...skippedJobs, eligibleJob],
+        rowsByJob,
+        cutoffs,
+      );
+
+      const result = await purgeStaleImportJobRowsForTenant(
+        prisma as never,
+        TENANT_A,
+        NOW,
+        { jobsPerTenant: 25 },
+      );
+
+      expect(result.jobs_scanned).toBe(1);
+      expect(result.rows_deleted).toBe(1);
+      const purged = jobs.find((j) => j.id === 'job-dry-run-failed-eligible');
+      expect((purged?.options_json as Record<string, unknown>)?.rows_purged).toBe(true);
+      expect((purged?.options_json as Record<string, unknown>)?.rows_purge_completed).toBe(true);
+    });
+
+    it('continues half-purged jobs on subsequent runs when budget truncated', async () => {
+      const job: RetentionTestJob = {
+        id: 'job-large-failed',
+        tenant_id: TENANT_A,
+        status: ImportJobStatus.FAILED,
+        failed_at: new Date(cutoffs.failedCutoff.getTime() - 10000),
+        createdAt: new Date(NOW.getTime() - 20000),
+        options_json: { worker: { phase: 'dry_run' } },
+      };
+      const rows = [
+        { row_no: 1, action: ImportRowAction.CREATE },
+        { row_no: 2, action: ImportRowAction.CREATE },
+        { row_no: 3, action: ImportRowAction.CREATE },
+        { row_no: 4, action: ImportRowAction.CREATE },
+        { row_no: 5, action: ImportRowAction.CREATE },
+      ];
+
+      const { prisma, jobs, rowsByJob } = createImportRetentionPrismaFake(
+        [job],
+        { 'job-large-failed': rows },
+        cutoffs,
+      );
+
+      // Run 1 with rowBudget = 2
+      const run1 = await purgeStaleImportJobRowsForTenant(
+        prisma as never,
+        TENANT_A,
+        NOW,
+        { rowBudget: 2 },
+      );
+
+      expect(run1.rows_deleted).toBe(2);
+      expect(rowsByJob.get('job-large-failed')?.length).toBe(3);
+      const jobAfterRun1 = jobs.find((j) => j.id === 'job-large-failed');
+      const opts1 = jobAfterRun1?.options_json as Record<string, unknown>;
+      expect(opts1.rows_purged).toBe(true);
+      expect(opts1.rows_purge_completed).toBe(false);
+
+      // Run 2 continues and purges remaining rows
+      const run2 = await purgeStaleImportJobRowsForTenant(
+        prisma as never,
+        TENANT_A,
+        NOW,
+        { rowBudget: 10 },
+      );
+
+      expect(run2.rows_deleted).toBe(3);
+      expect(rowsByJob.get('job-large-failed')?.length).toBe(0);
+      const jobAfterRun2 = jobs.find((j) => j.id === 'job-large-failed');
+      const opts2 = jobAfterRun2?.options_json as Record<string, unknown>;
+      expect(opts2.rows_purged).toBe(true);
+      expect(opts2.rows_purge_completed).toBe(true);
+    });
+
+    it('logs a warning and continues if audit log creation fails', async () => {
+      const job: RetentionTestJob = {
+        id: 'job-audit-fail',
+        tenant_id: TENANT_A,
+        status: ImportJobStatus.FAILED,
+        failed_at: new Date(cutoffs.failedCutoff.getTime() - 10000),
+        createdAt: new Date(NOW.getTime() - 20000),
+        options_json: { worker: { phase: 'dry_run' } },
+      };
+
+      const { prisma } = createImportRetentionPrismaFake(
+        [job],
+        { 'job-audit-fail': [{ row_no: 1, action: ImportRowAction.CREATE }] },
+        cutoffs,
+      );
+
+      prisma.auditLog.create.mockRejectedValueOnce(new Error('Audit DB down'));
+      const warnMock = jest.fn();
+
+      const result = await purgeStaleImportJobRowsForTenant(
+        prisma as never,
+        TENANT_A,
+        NOW,
+        { logger: { warn: warnMock } },
+      );
+
+      expect(result.rows_deleted).toBe(1);
+      expect(warnMock).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to record audit log for import_job.purged'),
+      );
     });
   });
 });

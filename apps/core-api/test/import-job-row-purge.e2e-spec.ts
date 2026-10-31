@@ -347,7 +347,7 @@ describe('Import job row retention purge (e2e)', () => {
   describe('Grace period boundaries (±1 ms)', () => {
     it('purges rows for jobs just beyond the grace cutoff (-1 ms) and keeps rows just within (+1 ms)', async () => {
       const boundaryPast = new Date(cutoffs.dryRunCutoff.getTime() - 1);
-      const boundaryFuture = new Date(cutoffs.dryRunCutoff.getTime() + 1000);
+      const boundaryFuture = new Date(cutoffs.dryRunCutoff.getTime() + 1);
 
       const pastJobId = await createJob({
         status: ImportJobStatus.DRY_RUN_DONE,
@@ -369,6 +369,40 @@ describe('Import job row retention purge (e2e)', () => {
       await expectRowCount(pastJobId, 0);
 
       await expectJobStatus(futureJobId, ImportJobStatus.DRY_RUN_DONE);
+      await expectRowCount(futureJobId, 1);
+    });
+
+    it('purges rows for FAILED jobs just beyond the 1-day cutoff (-1 ms) and keeps rows just within (+1 ms)', async () => {
+      const boundaryPast = new Date(cutoffs.failedCutoff.getTime() - 1);
+      const boundaryFuture = new Date(cutoffs.failedCutoff.getTime() + 1);
+
+      const pastJobId = await createJob({
+        status: ImportJobStatus.FAILED,
+        failed_at: boundaryPast,
+        createdAt: boundaryPast,
+        options_json: { worker: { phase: 'dry_run' } },
+        rows: [{ row_no: 1, action: ImportRowAction.CREATE }],
+      });
+
+      const futureJobId = await createJob({
+        status: ImportJobStatus.FAILED,
+        failed_at: boundaryFuture,
+        createdAt: boundaryFuture,
+        options_json: { worker: { phase: 'dry_run' } },
+        rows: [{ row_no: 1, action: ImportRowAction.CREATE }],
+      });
+
+      await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
+
+      await expectJobPurgedFlag(pastJobId, ImportJobStatus.FAILED);
+      await expectRowCount(pastJobId, 0);
+
+      const futureJob = await tenantPrisma.importJob.findFirst({
+        where: { tenant_id: tenantId, id: futureJobId },
+      });
+      expect(futureJob?.status).toBe(ImportJobStatus.FAILED);
+      const futureOpts = (futureJob?.options_json ?? {}) as Record<string, unknown>;
+      expect(futureOpts.rows_purged).toBeUndefined();
       await expectRowCount(futureJobId, 1);
     });
   });
@@ -444,6 +478,110 @@ describe('Import job row retention purge (e2e)', () => {
       // Verify the job was NOT modified or cancelled, and its rows were NOT deleted
       await expectJobStatus(jobId, ImportJobStatus.APPLYING);
       await expectRowCount(jobId, 2);
+    });
+
+    it('rejects apply on purged FAILED job with 409 IMPORT_JOB_PURGED and does not overwrite options', async () => {
+      const jobId = await createJob({
+        status: ImportJobStatus.FAILED,
+        failed_at: daysAgo(2),
+        options_json: { worker: { phase: 'dry_run' } },
+        rows: [
+          { row_no: 1, action: ImportRowAction.CREATE },
+          { row_no: 2, action: ImportRowAction.ERROR },
+        ],
+      });
+
+      // Purge job non-error rows
+      await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
+      await expectJobPurgedFlag(jobId, ImportJobStatus.FAILED);
+      await expectRowCount(jobId, 1);
+
+      // Attempt concurrent apply via HTTP endpoint
+      await expectApplyConflict(jobId, IMPORT_ERROR_CODES.JOB_PURGED);
+
+      // Verify job status remains FAILED and options retain rows_purged: true
+      const job = await tenantPrisma.importJob.findFirst({
+        where: { tenant_id: tenantId, id: jobId },
+      });
+      expect(job?.status).toBe(ImportJobStatus.FAILED);
+      const opts = (job?.options_json ?? {}) as Record<string, unknown>;
+      expect(opts.rows_purged).toBe(true);
+    });
+  });
+
+  describe('Starvation and budget continuation', () => {
+    it('pages past skipped apply-phase FAILED jobs to find eligible jobs without starvation', async () => {
+      // 26 apply-phase FAILED jobs (ineligible for 1d row purge)
+      for (let i = 0; i < 26; i++) {
+        await createJob({
+          status: ImportJobStatus.FAILED,
+          failed_at: daysAgo(2),
+          createdAt: new Date(now.getTime() - (100 + i) * 60 * 1000),
+          options_json: { worker: { phase: 'apply' } },
+          rows: [{ row_no: 1, action: ImportRowAction.CREATE }],
+        });
+      }
+
+      // 1 newer dry-run FAILED job that IS eligible
+      const eligibleJobId = await createJob({
+        status: ImportJobStatus.FAILED,
+        failed_at: daysAgo(2),
+        createdAt: new Date(now.getTime() - 10 * 60 * 1000),
+        options_json: { worker: { phase: 'dry_run' } },
+        rows: [{ row_no: 1, action: ImportRowAction.CREATE }],
+      });
+
+      const result = await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now, {
+        jobsPerTenant: 25,
+      });
+
+      expect(result.rows_deleted).toBeGreaterThanOrEqual(1);
+      await expectJobPurgedFlag(eligibleJobId, ImportJobStatus.FAILED);
+      await expectRowCount(eligibleJobId, 0);
+    });
+
+    it('continues half-purged jobs on subsequent runs when budget truncated', async () => {
+      const jobId = await createJob({
+        status: ImportJobStatus.FAILED,
+        failed_at: daysAgo(2),
+        createdAt: daysAgo(3),
+        options_json: { worker: { phase: 'dry_run' } },
+        rows: [
+          { row_no: 1, action: ImportRowAction.CREATE },
+          { row_no: 2, action: ImportRowAction.CREATE },
+          { row_no: 3, action: ImportRowAction.CREATE },
+          { row_no: 4, action: ImportRowAction.CREATE },
+          { row_no: 5, action: ImportRowAction.CREATE },
+        ],
+      });
+
+      // Run 1 with rowBudget = 2
+      const run1 = await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now, {
+        rowBudget: 2,
+      });
+
+      expect(run1.rows_deleted).toBe(2);
+      await expectRowCount(jobId, 3);
+      const job1 = await tenantPrisma.importJob.findFirst({
+        where: { tenant_id: tenantId, id: jobId },
+      });
+      const opts1 = (job1?.options_json ?? {}) as Record<string, unknown>;
+      expect(opts1.rows_purged).toBe(true);
+      expect(opts1.rows_purge_completed).toBe(false);
+
+      // Run 2 completes the purge
+      const run2 = await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now, {
+        rowBudget: 10,
+      });
+
+      expect(run2.rows_deleted).toBe(3);
+      await expectRowCount(jobId, 0);
+      const job2 = await tenantPrisma.importJob.findFirst({
+        where: { tenant_id: tenantId, id: jobId },
+      });
+      const opts2 = (job2?.options_json ?? {}) as Record<string, unknown>;
+      expect(opts2.rows_purged).toBe(true);
+      expect(opts2.rows_purge_completed).toBe(true);
     });
   });
 });
