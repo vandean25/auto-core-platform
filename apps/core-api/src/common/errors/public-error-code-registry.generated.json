@@ -735,7 +735,15 @@
       "public": true,
       "params": []
     },
+    "IMPORT_JOB_EXPIRED": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_JOB_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_JOB_PURGED": {
       "public": true,
       "params": []
     },
