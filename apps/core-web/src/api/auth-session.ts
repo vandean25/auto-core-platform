@@ -123,8 +123,9 @@ export function useSwitchTenant() {
     onSuccess: async () => {
       // Refresh the token before any refetch so every request carries the new tenant claim.
       await firebaseAuth?.currentUser?.getIdToken(true)
-      // Nothing cached for the tenant being left may stay rendered while the new session loads.
-      await resetClientSession(queryClient)
+      // Nothing cached for the tenant being left may stay rendered while the new session loads. The same user
+      // keeps saved views, the dashboard layout and the push registration across a tenant switch.
+      await resetClientSession(queryClient, 'context')
     },
   });
 }

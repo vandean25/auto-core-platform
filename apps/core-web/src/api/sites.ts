@@ -80,8 +80,9 @@ export function useSetActiveSite() {
     },
     onError: clearLocalSiteSwitch,
     onSuccess: async () => {
-      // Every cached query may belong to the site being left, not only the operational families.
-      await resetClientSession(queryClient)
+      // Every cached query may belong to the site being left, not only the operational families. The same user
+      // keeps saved views, the dashboard layout and the push registration across a site switch.
+      await resetClientSession(queryClient, 'context')
     },
   });
 }

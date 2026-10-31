@@ -10,15 +10,19 @@ import {
   useClientSessionResetting,
 } from '@/auth/client-session-reset'
 
-const USER_LOCAL_STORAGE_KEYS = [
-  'acp:dashboard-widgets:user-1',
-  'acp:saved-views:user-1',
+const SESSION_LOCAL_STORAGE_KEYS = [
   'acp:onboarding-checklist:dismissed:user-1',
   'acp:global-search:recent:user-1:tenant-a',
   'acp.push.registration',
   'acp.push.keep-alive',
   'emailForSignIn',
   'acp:mechanic-id',
+]
+
+/** Kept across a full reset by the AUT-819 product decision: per user, never shown to another user. */
+const KEPT_USER_LOCAL_STORAGE_KEYS = [
+  'acp:dashboard-widgets:user-1',
+  'acp:saved-views:user-1',
 ]
 
 const DEVICE_LOCAL_STORAGE_KEYS = [
@@ -89,22 +93,62 @@ describe('resetClientSession', () => {
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
   })
 
-  it('removes user and tenant scoped storage but keeps device preferences', async () => {
-    for (const key of USER_LOCAL_STORAGE_KEYS) window.localStorage.setItem(key, 'value')
+  it('removes session storage and the previous user keys but keeps per-user views and device preferences', async () => {
+    for (const key of [...SESSION_LOCAL_STORAGE_KEYS, ...KEPT_USER_LOCAL_STORAGE_KEYS]) {
+      window.localStorage.setItem(key, 'value')
+    }
     for (const key of DEVICE_LOCAL_STORAGE_KEYS) window.localStorage.setItem(key, 'value')
     window.sessionStorage.setItem(TENANT_SESSION_STORAGE_KEY, 'extraction-1')
     window.sessionStorage.setItem(DEVICE_SESSION_STORAGE_KEY, '1700000000000')
 
-    await resetClientSession(new QueryClient())
+    await resetClientSession(new QueryClient(), 'session')
 
-    for (const key of USER_LOCAL_STORAGE_KEYS) {
+    for (const key of SESSION_LOCAL_STORAGE_KEYS) {
       expect(window.localStorage.getItem(key), key).toBeNull()
     }
-    for (const key of DEVICE_LOCAL_STORAGE_KEYS) {
+    for (const key of [...KEPT_USER_LOCAL_STORAGE_KEYS, ...DEVICE_LOCAL_STORAGE_KEYS]) {
       expect(window.localStorage.getItem(key), key).toBe('value')
     }
     expect(window.sessionStorage.getItem(TENANT_SESSION_STORAGE_KEY)).toBeNull()
     expect(window.sessionStorage.getItem(DEVICE_SESSION_STORAGE_KEY)).toBe('1700000000000')
+  })
+
+  it('keeps the signed-in user keys on a tenant or site switch', async () => {
+    for (const key of [...SESSION_LOCAL_STORAGE_KEYS, ...KEPT_USER_LOCAL_STORAGE_KEYS]) {
+      window.localStorage.setItem(key, 'value')
+    }
+    window.sessionStorage.setItem(TENANT_SESSION_STORAGE_KEY, 'extraction-1')
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(['customers', 'list'], [{ id: 'customer-1' }])
+
+    await resetClientSession(queryClient, 'context')
+
+    for (const key of [...SESSION_LOCAL_STORAGE_KEYS, ...KEPT_USER_LOCAL_STORAGE_KEYS]) {
+      expect(window.localStorage.getItem(key), key).toBe('value')
+    }
+    expect(window.sessionStorage.getItem(TENANT_SESSION_STORAGE_KEY)).toBeNull()
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+  })
+
+  it('drops a response that resolves after the reset instead of repopulating the cache', async () => {
+    const queryClient = new QueryClient()
+    const response = deferred<{ id: string }>()
+    const queryKey = ['customers', 'list']
+
+    // A query function that ignores the abort signal still resolves after the switch.
+    const request = queryClient.fetchQuery({
+      queryKey,
+      queryFn: () => response.promise,
+      retry: false,
+    })
+
+    await resetClientSession(queryClient, 'context')
+    response.resolve({ id: 'customer-of-the-site-being-left' })
+    await request.catch(() => undefined)
+    await Promise.resolve()
+
+    expect(queryClient.getQueryData(queryKey)).toBeUndefined()
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
   })
 
   it('bumps the session generation so user-scoped providers reload', async () => {

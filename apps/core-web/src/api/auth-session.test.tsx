@@ -202,7 +202,7 @@ describe('useSwitchTenant', () => {
     })
   })
 
-  it('refreshes the token and resets the whole client session after a successful switch', async () => {
+  it('refreshes the token and resets the context but keeps the same user\'s views after a successful switch', async () => {
     const queryClient = createQueryClient()
     queryClient.setQueryData(authSessionKeys.user('user-1'), {
       userId: 'user-1',
@@ -213,6 +213,8 @@ describe('useSwitchTenant', () => {
     })
     queryClient.setQueryData(['customers', 'list'], [{ id: 'customer-1' }])
     window.localStorage.setItem('acp:saved-views:user-1', '[]')
+    window.localStorage.setItem('acp:dashboard-widgets:user-1', '[]')
+    window.localStorage.setItem('acp.push.registration', 'device-1')
     const cancelQueries = vi.spyOn(queryClient, 'cancelQueries')
     const clear = vi.spyOn(queryClient, 'clear')
 
@@ -234,7 +236,9 @@ describe('useSwitchTenant', () => {
     expect(mocks.getIdToken.mock.invocationCallOrder[0]).toBeLessThan(clear.mock.invocationCallOrder[0])
     expect(cancelQueries).toHaveBeenCalled()
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
-    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBeNull()
+    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBe('[]')
+    expect(window.localStorage.getItem('acp:dashboard-widgets:user-1')).toBe('[]')
+    expect(window.localStorage.getItem('acp.push.registration')).toBe('device-1')
   })
 
   it('stays pending while the tenant switch is in flight', async () => {

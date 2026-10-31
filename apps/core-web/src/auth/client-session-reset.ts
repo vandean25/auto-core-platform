@@ -4,21 +4,29 @@ import type { QueryClient } from '@tanstack/react-query'
 import { clearPersistedQueryCache } from '@/auth/persisted-query-cache'
 
 /**
- * AUT-819: one reset for every client-side trace of a user or tenant session. Called on sign-out, on a Firebase uid
- * change and on a tenant switch; the site switch uses the same reset because every cached query may belong to the old
- * site. Server-side authorization is unaffected.
+ * AUT-819: one reset for every client-side trace of a user or tenant session. Server-side authorization is
+ * unaffected.
+ *
+ * Two levels:
+ * - `session`: sign-out and user change. Drops the cache, the tenant session storage and the previous user's
+ *   session keys (push registration, e-mail link, mechanic id).
+ * - `context`: tenant or site switch by the same user. Drops the cache and the tenant session storage only, so
+ *   saved views, the dashboard layout, onboarding state and the push registration survive the switch.
+ *
+ * Saved views (`acp:saved-views:<userId>`) and the dashboard layout (`acp:dashboard-widgets:<userId>`) are keyed by
+ * user id and are never removed here: the product decision for AUT-819 keeps them across sign-out, and the
+ * providers only ever read the key of the signed-in user.
  */
 
-/** User-scoped keys whose suffix is a user id, tenant id or both. */
-const USER_LOCAL_STORAGE_PREFIXES = [
-  'acp:dashboard-widgets:',
-  'acp:saved-views:',
+export type ClientSessionResetScope = 'session' | 'context'
+
+/** Keys that belong to the signed-in user and must not reach the next user of this browser. */
+const SESSION_LOCAL_STORAGE_PREFIXES = [
   'acp:onboarding-checklist:dismissed:',
   'acp:global-search:recent:',
 ] as const
 
-/** Keys that belong to the current user's session on this browser. */
-const USER_LOCAL_STORAGE_KEYS = [
+const SESSION_LOCAL_STORAGE_KEYS = [
   'acp.push.registration',
   'acp.push.keep-alive',
   'emailForSignIn',
@@ -122,31 +130,38 @@ function clearSentryUser(): void {
   }
 }
 
-/** Brings the session generation forward, remounting every provider that holds user or tenant data. */
-function startNewClientSession(): void {
+/** Brings the session generation forward, remounting every provider that holds user, tenant or site data. */
+function bumpClientSessionGeneration(): void {
   generation += 1
-  clearSentryUser()
   emit()
 }
 
 /**
  * Cancels running queries first so a late response cannot repopulate the cache after it was cleared, then drops every
- * query and mutation, the user/tenant scoped storage and the in-memory session state. Device preferences (language,
- * sidebar, view modes, deviceId, e2e overrides) are left untouched.
+ * query and mutation and the tenant scoped session storage. A `session` reset also removes the previous user's
+ * session keys and the Sentry user; a `context` reset keeps them for the same user's next tenant or site.
+ * Device preferences (language, sidebar, view modes, deviceId, e2e overrides) are left untouched by both.
  */
-export async function resetClientSession(queryClient: QueryClient): Promise<void> {
+export async function resetClientSession(
+  queryClient: QueryClient,
+  scope: ClientSessionResetScope = 'session',
+): Promise<void> {
   await runWithClientSessionPending(async () => {
     await queryClient.cancelQueries()
     queryClient.clear()
 
-    removeSessionStorageKeys(
-      window.localStorage,
-      USER_LOCAL_STORAGE_PREFIXES,
-      USER_LOCAL_STORAGE_KEYS,
-    )
     removeSessionStorageKeys(window.sessionStorage, TENANT_SESSION_STORAGE_PREFIXES, [])
 
+    if (scope === 'session') {
+      removeSessionStorageKeys(
+        window.localStorage,
+        SESSION_LOCAL_STORAGE_PREFIXES,
+        SESSION_LOCAL_STORAGE_KEYS,
+      )
+      clearSentryUser()
+    }
+
     clearPersistedQueryCache()
-    startNewClientSession()
+    bumpClientSessionGeneration()
   })
 }

@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { resetClientSession } from '@/auth/client-session-reset'
+import { resetClientSession, runWithClientSessionPending } from '@/auth/client-session-reset'
 import { extractAuthClaims, type AuthClaims } from '@/auth/auth-claims'
+import { releasePushRegistration } from '@/features/push/push-device'
 
 export type FirebaseIdTokenUser = {
   uid: string
@@ -32,8 +33,12 @@ export async function applyFirebaseIdTokenChange(params: {
 
   const nextUid = params.nextUser?.uid ?? null
   if (shouldResetClientSessionOnUidChange(params.previousUidRef.current, nextUid)) {
-    // Drop every trace of the previous user before the next session is rendered.
-    await resetClientSession(params.queryClient)
+    // A uid change without an explicit sign-out still has to move this browser's push registration.
+    await runWithClientSessionPending(async () => {
+      await releasePushRegistration()
+      // Drop every trace of the previous user before the next session is rendered.
+      await resetClientSession(params.queryClient, 'session')
+    })
     if (!params.isActive()) {
       return
     }

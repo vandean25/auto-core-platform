@@ -5,6 +5,14 @@ import {
   shouldResetClientSessionOnUidChange,
 } from '@/auth/firebase-id-token-change'
 
+const pushMocks = vi.hoisted(() => ({
+  releasePushRegistration: vi.fn().mockResolvedValue(false),
+}))
+
+vi.mock('@/features/push/push-device', () => ({
+  releasePushRegistration: pushMocks.releasePushRegistration,
+}))
+
 describe('shouldResetClientSessionOnUidChange', () => {
   it('returns false on the first callback before a previous uid is known', () => {
     expect(shouldResetClientSessionOnUidChange(undefined, 'user-1')).toBe(false)
@@ -27,6 +35,7 @@ describe('applyFirebaseIdTokenChange', () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.sessionStorage.clear()
+    pushMocks.releasePushRegistration.mockClear()
   })
 
   it('keeps the client session when the same user refreshes the id token', async () => {
@@ -57,6 +66,7 @@ describe('applyFirebaseIdTokenChange', () => {
     expect(queryClient.getQueryCache().getAll()).toHaveLength(1)
     expect(setClaims).toHaveBeenCalledWith({ tenantId: 't1', role: 'ADMIN', platformRole: undefined })
     expect(finishAuthInit).toHaveBeenCalled()
+    expect(pushMocks.releasePushRegistration).not.toHaveBeenCalled()
   })
 
   it('clears every cached query and the session storage when another user signs in', async () => {
@@ -64,6 +74,9 @@ describe('applyFirebaseIdTokenChange', () => {
     queryClient.setQueryData(['auth-session', 'user-1'], { userId: 'user-1', tenant: 'tenant-a' })
     queryClient.setQueryData(['customers', 'list'], [{ id: 'customer-1' }])
     window.localStorage.setItem('acp:saved-views:user-1', '[]')
+    window.localStorage.setItem('acp:dashboard-widgets:user-1', '[]')
+    window.localStorage.setItem('acp:onboarding-checklist:dismissed:user-1', 'true')
+    window.localStorage.setItem('acp.push.registration', 'device-1')
     const cancelQueries = vi.spyOn(queryClient, 'cancelQueries')
     const clear = vi.spyOn(queryClient, 'clear')
     const previousUidRef = { current: 'user-1' as string | null | undefined }
@@ -88,7 +101,12 @@ describe('applyFirebaseIdTokenChange', () => {
     expect(cancelQueries).toHaveBeenCalledTimes(1)
     expect(clear).toHaveBeenCalledTimes(1)
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
-    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBeNull()
+    expect(pushMocks.releasePushRegistration).toHaveBeenCalledTimes(1)
+    expect(window.localStorage.getItem('acp:onboarding-checklist:dismissed:user-1')).toBeNull()
+    expect(window.localStorage.getItem('acp.push.registration')).toBeNull()
+    // Per-user views and the dashboard layout survive the user change; the other user never sees them.
+    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBe('[]')
+    expect(window.localStorage.getItem('acp:dashboard-widgets:user-1')).toBe('[]')
     expect(previousUidRef.current).toBe('user-2')
     expect(setUser).toHaveBeenCalledWith(user)
   })
