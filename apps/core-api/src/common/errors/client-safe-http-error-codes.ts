@@ -299,6 +299,12 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   IMPORT_ERROR_CODES.JOB_ALREADY_UNDONE,
   IMPORT_ERROR_CODES.JOB_BUSY,
   IMPORT_ERROR_CODES.JOB_CONFLICT,
+  // Resumable direct upload and the expired/purged job gates. The upload dialog and the job detail map these
+  // to localized copy; without the entries the filter swaps the code for the status fallback.
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_INVALID,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_NOT_FOUND,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_TOO_LARGE,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_CONTENT_TYPE,
   IMPORT_ERROR_CODES.JOB_EXPIRED,
   IMPORT_ERROR_CODES.JOB_PURGED,
 ]);
