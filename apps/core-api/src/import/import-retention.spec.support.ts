@@ -79,11 +79,17 @@ function matchesEligibleWhere(
   );
 }
 
-function matchesInFilter(rowAction: ImportRowAction, inFilter: unknown): boolean {
+function matchesInFilter(
+  rowAction: ImportRowAction,
+  inFilter: unknown,
+): boolean {
   return Array.isArray(inFilter) && inFilter.includes(rowAction);
 }
 
-function matchesNotFilter(rowAction: ImportRowAction, notFilter: unknown): boolean {
+function matchesNotFilter(
+  rowAction: ImportRowAction,
+  notFilter: unknown,
+): boolean {
   return notFilter !== undefined && rowAction !== notFilter;
 }
 
@@ -112,23 +118,31 @@ export function rowMatchesAction(
   return matchesObjectFilter(rowAction, actionFilter);
 }
 
-function matchesJobUpdateWhere(
+function matchesTenantAndId(
   job: RetentionTestJob,
   where: UpdateManyArgs['where'],
 ): boolean {
   if (where.tenant_id && job.tenant_id !== where.tenant_id) return false;
-  if (where.id && job.id !== where.id) return false;
+  return !(where.id && job.id !== where.id);
+}
+
+function matchesNotPurged(
+  job: RetentionTestJob,
+  notOptions?: UpdateManyArgs['where']['NOT'],
+): boolean {
+  if (!notOptions?.options_json) return true;
+  const opts = (job.options_json ?? {}) as Record<string, unknown>;
+  const isPurgedFilter = notOptions.options_json.path?.[0] === 'rows_purged';
+  return !(isPurgedFilter && opts.rows_purged === true);
+}
+
+export function matchesJobUpdateWhere(
+  job: RetentionTestJob,
+  where: UpdateManyArgs['where'],
+): boolean {
+  if (!matchesTenantAndId(job, where)) return false;
   if (where.status && job.status !== where.status) return false;
-  if (where.NOT?.options_json) {
-    const opts = (job.options_json ?? {}) as Record<string, unknown>;
-    if (
-      where.NOT.options_json.path?.[0] === 'rows_purged' &&
-      opts.rows_purged === true
-    ) {
-      return false;
-    }
-  }
-  return true;
+  return matchesNotPurged(job, where.NOT);
 }
 
 function updateJobIfMatching(
@@ -231,11 +245,18 @@ function buildImportJobRowMock(
         };
       }) => {
         const expectedStatus = args.where.import_job?.is?.status;
-        if (!jobMatchesExpectedStatus(args.where.import_job_id, jobs, expectedStatus)) {
+        if (
+          !jobMatchesExpectedStatus(
+            args.where.import_job_id,
+            jobs,
+            expectedStatus,
+          )
+        ) {
           return 0;
         }
         const rows = rowsByJob.get(args.where.import_job_id) ?? [];
-        return rows.filter((r) => rowMatchesAction(r, args.where.action)).length;
+        return rows.filter((r) => rowMatchesAction(r, args.where.action))
+          .length;
       },
     ),
     findMany: jest.fn(
@@ -249,7 +270,13 @@ function buildImportJobRowMock(
         take?: number;
       }) => {
         const expectedStatus = args.where.import_job?.is?.status;
-        if (!jobMatchesExpectedStatus(args.where.import_job_id, jobs, expectedStatus)) {
+        if (
+          !jobMatchesExpectedStatus(
+            args.where.import_job_id,
+            jobs,
+            expectedStatus,
+          )
+        ) {
           return [];
         }
         const rows = rowsByJob.get(args.where.import_job_id) ?? [];
@@ -270,7 +297,13 @@ function buildImportJobRowMock(
         };
       }) => {
         const expectedStatus = args.where.import_job?.is?.status;
-        if (!jobMatchesExpectedStatus(args.where.import_job_id, jobs, expectedStatus)) {
+        if (
+          !jobMatchesExpectedStatus(
+            args.where.import_job_id,
+            jobs,
+            expectedStatus,
+          )
+        ) {
           return { count: 0 };
         }
         const current = rowsByJob.get(args.where.import_job_id) ?? [];

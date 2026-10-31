@@ -99,6 +99,16 @@ describe('Import job row retention purge (e2e)', () => {
     expect(options.rows_purged).toBe(true);
   }
 
+  async function expectJobStatus(
+    jobId: string,
+    expectedStatus: ImportJobStatus,
+  ): Promise<void> {
+    const job = await tenantPrisma.importJob.findUnique({
+      where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
+    });
+    expect(job?.status).toBe(expectedStatus);
+  }
+
   async function expectRowCount(jobId: string, count: number): Promise<void> {
     const rows = await tenantPrisma.importJobRow.count({
       where: { tenant_id: tenantId, import_job_id: jobId },
@@ -192,6 +202,41 @@ describe('Import job row retention purge (e2e)', () => {
     return job.id;
   }
 
+  async function createFailedDryRunJobWithRows(
+    optionsJson: Prisma.InputJsonObject = { worker: { phase: 'dry_run' } },
+    customErrorsJson?: Prisma.InputJsonValue,
+  ): Promise<string> {
+    const staleFailedAt = daysAgo(IMPORT_FAILED_JOB_ROW_RETENTION_DAYS);
+    return createJob({
+      status: ImportJobStatus.FAILED,
+      failed_at: staleFailedAt,
+      createdAt: staleFailedAt,
+      options_json: optionsJson,
+      rows: [
+        { row_no: 1, action: ImportRowAction.CREATE },
+        {
+          row_no: 2,
+          action: ImportRowAction.ERROR,
+          ...(customErrorsJson ? { errors_json: customErrorsJson } : {}),
+        },
+      ],
+    });
+  }
+
+  async function createDryRunJobWithRows(
+    rows: TestRow[],
+    optionsJson: Prisma.InputJsonObject = {},
+  ): Promise<string> {
+    const staleDryRunAt = daysAgo(IMPORT_UPLOAD_RETENTION_DAYS);
+    return createJob({
+      status: ImportJobStatus.DRY_RUN_DONE,
+      createdAt: staleDryRunAt,
+      updatedAt: staleDryRunAt,
+      options_json: optionsJson,
+      rows,
+    });
+  }
+
   describe('Row purge for each terminal and stale status', () => {
     it('purges all rows for APPLIED jobs older than 180 days', async () => {
       const staleAppliedAt = daysAgo(IMPORT_JOB_RETENTION_DAYS);
@@ -213,33 +258,25 @@ describe('Import job row retention purge (e2e)', () => {
 
       expect(counts.jobs_scanned).toBeGreaterThanOrEqual(1);
       await expectRowCount(jobId, 0);
-
-      const job = await tenantPrisma.importJob.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
-      });
-      expect(job?.status).toBe(ImportJobStatus.APPLIED);
+      await expectJobStatus(jobId, ImportJobStatus.APPLIED);
     });
 
     it('expires stale DRY_RUN_DONE jobs (>7d): moves to CANCELLED (cancel_reason: expired), deletes non-error rows, keeps ERROR rows and writes audit log', async () => {
-      const staleDryRunAt = daysAgo(IMPORT_UPLOAD_RETENTION_DAYS);
-      const jobId = await createJob({
-        status: ImportJobStatus.DRY_RUN_DONE,
-        createdAt: staleDryRunAt,
-        updatedAt: staleDryRunAt,
-        options_json: { test_option: true },
-        rows: [
+      const jobId = await createDryRunJobWithRows(
+        [
           { row_no: 1, action: ImportRowAction.CREATE },
           { row_no: 2, action: ImportRowAction.ERROR },
           { row_no: 3, action: ImportRowAction.CREATE },
         ],
-      });
+        { test_option: true },
+      );
 
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
 
+      await expectJobStatus(jobId, ImportJobStatus.CANCELLED);
       const job = await tenantPrisma.importJob.findUnique({
         where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
       });
-      expect(job?.status).toBe(ImportJobStatus.CANCELLED);
       const options = job?.options_json as Record<string, unknown>;
       expect(options.cancel_reason).toBe('expired');
       expect(options.test_option).toBe(true);
@@ -261,36 +298,16 @@ describe('Import job row retention purge (e2e)', () => {
     });
 
     it('purges staged rows for FAILED jobs (>1d, dry run): marks rows_purged, deletes non-error rows, keeps ERROR rows', async () => {
-      const staleFailedAt = daysAgo(IMPORT_FAILED_JOB_ROW_RETENTION_DAYS);
-      const jobId = await createJob({
-        status: ImportJobStatus.FAILED,
-        failed_at: staleFailedAt,
-        createdAt: staleFailedAt,
-        options_json: { worker: { phase: 'dry_run' } },
-        rows: [
-          { row_no: 1, action: ImportRowAction.CREATE },
-          { row_no: 2, action: ImportRowAction.ERROR },
-        ],
-      });
-
+      const jobId = await createFailedDryRunJobWithRows();
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
       await expectJobPurgedFlag(jobId, ImportJobStatus.FAILED);
       await expectSingleErrorRow(jobId, 2);
     });
 
     it('does not purge FAILED jobs from apply phase at 1-day mark', async () => {
-      const staleFailedAt = daysAgo(IMPORT_FAILED_JOB_ROW_RETENTION_DAYS);
-      const jobId = await createJob({
-        status: ImportJobStatus.FAILED,
-        failed_at: staleFailedAt,
-        createdAt: staleFailedAt,
-        options_json: { worker: { phase: 'apply' } },
-        rows: [
-          { row_no: 1, action: ImportRowAction.CREATE },
-          { row_no: 2, action: ImportRowAction.ERROR },
-        ],
+      const jobId = await createFailedDryRunJobWithRows({
+        worker: { phase: 'apply' },
       });
-
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
       await expectRowCount(jobId, 2);
     });
@@ -348,18 +365,10 @@ describe('Import job row retention purge (e2e)', () => {
 
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
 
-      // Past job: cancelled and rows deleted
-      const pastJob = await tenantPrisma.importJob.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: pastJobId } },
-      });
-      expect(pastJob?.status).toBe(ImportJobStatus.CANCELLED);
+      await expectJobStatus(pastJobId, ImportJobStatus.CANCELLED);
       await expectRowCount(pastJobId, 0);
 
-      // Future job: stays DRY_RUN_DONE with rows intact
-      const futureJob = await tenantPrisma.importJob.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: futureJobId } },
-      });
-      expect(futureJob?.status).toBe(ImportJobStatus.DRY_RUN_DONE);
+      await expectJobStatus(futureJobId, ImportJobStatus.DRY_RUN_DONE);
       await expectRowCount(futureJobId, 1);
     });
   });
@@ -386,27 +395,16 @@ describe('Import job row retention purge (e2e)', () => {
 
   describe('Error CSV download after row purge', () => {
     it('allows downloading error CSV after non-error rows have been purged', async () => {
-      const staleFailedAt = daysAgo(IMPORT_FAILED_JOB_ROW_RETENTION_DAYS);
-      const jobId = await createJob({
-        status: ImportJobStatus.FAILED,
-        failed_at: staleFailedAt,
-        createdAt: staleFailedAt,
-        options_json: { worker: { phase: 'dry_run' } },
-        rows: [
-          { row_no: 1, action: ImportRowAction.CREATE },
+      const jobId = await createFailedDryRunJobWithRows(
+        { worker: { phase: 'dry_run' } },
+        [
           {
-            row_no: 2,
-            action: ImportRowAction.ERROR,
-            errors_json: [
-              {
-                field: 'external_id',
-                message: 'Pflichtfeld fehlt',
-                code: 'REQUIRED_FIELD',
-              },
-            ],
+            field: 'external_id',
+            message: 'Pflichtfeld fehlt',
+            code: 'REQUIRED_FIELD',
           },
         ],
-      });
+      );
 
       // Purge non-error rows
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
@@ -425,16 +423,10 @@ describe('Import job row retention purge (e2e)', () => {
 
   describe('Concurrent apply race safety', () => {
     it('aborts row purge and keeps rows intact if job status transitions to APPLYING concurrently', async () => {
-      const staleDryRunAt = daysAgo(IMPORT_UPLOAD_RETENTION_DAYS);
-      const jobId = await createJob({
-        status: ImportJobStatus.DRY_RUN_DONE,
-        createdAt: staleDryRunAt,
-        updatedAt: staleDryRunAt,
-        rows: [
-          { row_no: 1, action: ImportRowAction.CREATE },
-          { row_no: 2, action: ImportRowAction.CREATE },
-        ],
-      });
+      const jobId = await createDryRunJobWithRows([
+        { row_no: 1, action: ImportRowAction.CREATE },
+        { row_no: 2, action: ImportRowAction.CREATE },
+      ]);
 
       // Concurrently change status to APPLYING before purge lock
       await tenantPrisma.importJob.update({
@@ -446,10 +438,7 @@ describe('Import job row retention purge (e2e)', () => {
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
 
       // Verify the job was NOT modified or cancelled, and its rows were NOT deleted
-      const job = await tenantPrisma.importJob.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
-      });
-      expect(job?.status).toBe(ImportJobStatus.APPLYING);
+      await expectJobStatus(jobId, ImportJobStatus.APPLYING);
       await expectRowCount(jobId, 2);
     });
   });

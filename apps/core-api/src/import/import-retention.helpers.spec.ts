@@ -12,6 +12,7 @@ import {
 } from './import-retention.helpers.js';
 import {
   createImportRetentionPrismaFake,
+  matchesJobUpdateWhere,
   type RetentionTestJob,
 } from './import-retention.spec.support.js';
 
@@ -61,7 +62,10 @@ describe('eligibleImportJobsForRowPurgeWhere', () => {
             {
               OR: [
                 { cancelled_at: { lt: cutoffs.appliedCutoff } },
-                { cancelled_at: null, createdAt: { lt: cutoffs.appliedCutoff } },
+                {
+                  cancelled_at: null,
+                  createdAt: { lt: cutoffs.appliedCutoff },
+                },
               ],
               rows: { some: {} },
             },
@@ -93,7 +97,9 @@ describe('eligibleImportJobsForRowPurgeWhere', () => {
                 { failed_at: null, createdAt: { lt: cutoffs.failedCutoff } },
               ],
               NOT: [
-                { options_json: { path: ['worker', 'phase'], equals: 'apply' } },
+                {
+                  options_json: { path: ['worker', 'phase'], equals: 'apply' },
+                },
                 { options_json: { path: ['rows_purged'], equals: true } },
               ],
               rows: { some: { action: { not: ImportRowAction.ERROR } } },
@@ -206,7 +212,9 @@ describe('isImportJobEligibleForRowPurge', () => {
 
   it('evaluates DRY_RUN_DONE jobs against the 7-day dryRunCutoff using createdAt', () => {
     const staleDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() - 1);
-    const freshDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() + 1000);
+    const freshDryRunCreatedAt = new Date(
+      cutoffs.dryRunCutoff.getTime() + 1000,
+    );
 
     expect(
       isImportJobEligibleForRowPurge(
@@ -342,8 +350,12 @@ describe('purgeStaleImportJobRowsForTenant', () => {
   const onCutoffAppliedAt = new Date(cutoffs.appliedCutoff.getTime());
   const staleCancelledAt = new Date(cutoffs.failedCutoff.getTime() - 60_000);
   const staleFailedAt = new Date(cutoffs.failedCutoff.getTime() - 60_000);
-  const staleDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() - 60_000);
-  const freshDryRunCreatedAt = new Date(cutoffs.dryRunCutoff.getTime() + 60_000);
+  const staleDryRunCreatedAt = new Date(
+    cutoffs.dryRunCutoff.getTime() - 60_000,
+  );
+  const freshDryRunCreatedAt = new Date(
+    cutoffs.dryRunCutoff.getTime() + 60_000,
+  );
   const freshFailedAt = new Date(cutoffs.failedCutoff.getTime() + 60_000);
 
   it('purges stale applied rows and issues the expected where clause', async () => {
@@ -793,7 +805,9 @@ describe('purgeStaleImportJobRowsForTenant', () => {
     );
 
     // Simulate concurrent update before purge: updateMany returns 0
-    (prisma.importJob.updateMany as jest.Mock).mockResolvedValueOnce({ count: 0 });
+    (prisma.importJob.updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
 
     const result = await purgeStaleImportJobRowsForTenant(
       prisma as never,
@@ -840,5 +854,64 @@ describe('purgeStaleImportJobRowsForTenant', () => {
     expect(result.rows_deleted).toBe(3);
     expect(rowsByJob.get('job-1')).toEqual([]);
     expect(rowsByJob.get('job-2')).toHaveLength(3);
+  });
+
+  describe('matchesJobUpdateWhere', () => {
+    const baseJob: RetentionTestJob = {
+      id: 'job-1',
+      tenant_id: 'tenant-1',
+      status: ImportJobStatus.FAILED,
+      createdAt: new Date(),
+      options_json: { rows_purged: true },
+    };
+
+    it('matches matching tenant and id', () => {
+      expect(
+        matchesJobUpdateWhere(baseJob, { tenant_id: 'tenant-1', id: 'job-1' }),
+      ).toBe(true);
+      expect(
+        matchesJobUpdateWhere(baseJob, {
+          tenant_id: 'tenant-other',
+          id: 'job-1',
+        }),
+      ).toBe(false);
+      expect(
+        matchesJobUpdateWhere(baseJob, {
+          tenant_id: 'tenant-1',
+          id: 'job-other',
+        }),
+      ).toBe(false);
+    });
+
+    it('matches status filter', () => {
+      expect(
+        matchesJobUpdateWhere(baseJob, { status: ImportJobStatus.FAILED }),
+      ).toBe(true);
+      expect(
+        matchesJobUpdateWhere(baseJob, { status: ImportJobStatus.APPLIED }),
+      ).toBe(false);
+    });
+
+    it('rejects jobs matching NOT rows_purged: true', () => {
+      expect(
+        matchesJobUpdateWhere(baseJob, {
+          NOT: { options_json: { path: ['rows_purged'], equals: true } },
+        }),
+      ).toBe(false);
+
+      const unpurgedJob = { ...baseJob, options_json: { rows_purged: false } };
+      expect(
+        matchesJobUpdateWhere(unpurgedJob, {
+          NOT: { options_json: { path: ['rows_purged'], equals: true } },
+        }),
+      ).toBe(true);
+
+      const otherPathJob = { ...baseJob, options_json: { other: true } };
+      expect(
+        matchesJobUpdateWhere(otherPathJob, {
+          NOT: { options_json: { path: ['other_path'], equals: true } },
+        }),
+      ).toBe(true);
+    });
   });
 });
