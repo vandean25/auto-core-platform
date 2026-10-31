@@ -1547,7 +1547,7 @@
   "estimateList": {
     "title": "Estimates",
     "description": "All estimates of the site. A click opens the work order at that version.",
-    "searchPlaceholder": "Search number, work order, customer or plate",
+    "searchPlaceholder": "Number, order, customer, plate",
     "version": "v{{version}}",
     "columns": {
       "number": "Number",

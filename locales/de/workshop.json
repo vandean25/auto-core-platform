@@ -1547,7 +1547,7 @@
   "estimateList": {
     "title": "Kostenvoranschläge",
     "description": "Alle Kostenvoranschläge des Standorts. Ein Klick öffnet den Auftrag mit der Version.",
-    "searchPlaceholder": "Nummer, Auftrag, Kunde oder Kennzeichen suchen",
+    "searchPlaceholder": "Nr., Auftrag, Kunde, Kennzeichen",
     "version": "v{{version}}",
     "columns": {
       "number": "Nummer",
