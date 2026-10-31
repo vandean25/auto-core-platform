@@ -904,6 +904,116 @@ describe('applyTenantIsolation', () => {
         );
       });
 
+      it('rejects Vendor.supportedBrands connect when brand belongs to another tenant', async () => {
+        const query = jest.fn();
+        const brandMockClient = {
+          brand: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+        };
+        const args = {
+          data: {
+            name: 'Vendor A',
+            email: 'v@a.com',
+            account_number: 'VA1',
+            supportedBrands: { connect: [{ id: 999 }] },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('Vendor', 'create', args, query, brandMockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' references brands not belonging to current tenant\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects Vendor.supportedBrands set when a brand belongs to another tenant', async () => {
+        const query = jest.fn();
+        const brandMockClient = {
+          brand: {
+            findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
+          },
+        };
+        const args = {
+          where: { id: 'vend-1' },
+          data: {
+            supportedBrands: { set: [{ id: 1 }, { id: 2 }] },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('Vendor', 'update', args, query, brandMockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' references brands not belonging to current tenant\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        'create',
+        'createMany',
+        'update',
+        'updateMany',
+        'delete',
+        'deleteMany',
+      ])('rejects nested mutation %s on Vendor.supportedBrands', async (mutationKey) => {
+        const query = jest.fn();
+        const brandMockClient = {
+          brand: {
+            findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
+          },
+        };
+        const payload =
+          mutationKey === 'delete'
+            ? true
+            : mutationKey === 'deleteMany' || mutationKey === 'updateMany'
+              ? {}
+              : [{ name: 'New Brand' }];
+        const args = {
+          data: {
+            name: 'Vendor A',
+            email: 'v@a.com',
+            account_number: 'VA1',
+            supportedBrands: {
+              [mutationKey]: payload,
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('Vendor', 'create', args, query, brandMockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' targeting tenant-scoped model 'Brand' is not permitted\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects Vendor.supportedBrands when no query client is available to verify brands', async () => {
+        const query = jest.fn();
+        const args = {
+          data: {
+            name: 'Vendor A',
+            email: 'v@a.com',
+            account_number: 'VA1',
+            supportedBrands: { connect: [{ id: 1 }] },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('Vendor', 'create', args, query, {})),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Cannot verify tenant ownership for nested relation write on 'Vendor\.supportedBrands'\. No brand query client available\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
       it('permits allowlisted aggregate root child relations in create and update', async () => {
         const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
         const argsCreate = {
