@@ -65,10 +65,11 @@ interface UndoBuckets {
   blocked: ImportUndoRowPreviewDto[];
 }
 
-function buildBlockedPurgedPreview(
+function buildBlockedPreview(
   jobId: string,
   entityType: string,
   total: number,
+  reason: (typeof UNDO_BLOCKED_REASONS)[keyof typeof UNDO_BLOCKED_REASONS],
 ): ImportUndoPreviewResponseDto {
   return {
     jobId,
@@ -91,39 +92,7 @@ function buildBlockedPurgedPreview(
         entityId: null,
         action: 'CREATE',
         status: 'BLOCKED',
-        reason: UNDO_BLOCKED_REASONS.ROWS_PURGED,
-      },
-    ],
-  };
-}
-
-function buildBlockedDocumentPreview(
-  jobId: string,
-  entityType: string,
-  total: number,
-): ImportUndoPreviewResponseDto {
-  return {
-    jobId,
-    status: 'BLOCKED',
-    canUndo: false,
-    counts: {
-      total,
-      toDelete: 0,
-      toRestore: 0,
-      conflicts: 0,
-      blocked: total,
-    },
-    deletions: [],
-    restorations: [],
-    conflicts: [],
-    blocked: [
-      {
-        rowNumber: 0,
-        entityType,
-        entityId: null,
-        action: 'CREATE',
-        status: 'BLOCKED',
-        reason: UNDO_BLOCKED_REASONS.FINANCIAL_IMPORT_CANNOT_BE_UNDONE,
+        reason,
       },
     ],
   };
@@ -159,6 +128,42 @@ function validateJobForPreview(job: ImportJob | null, jobId: string): number {
   return appliedRowsCount;
 }
 
+function checkBlockedJobPreview(
+  job: ImportJob,
+  appliedRowsCount: number,
+): ImportUndoPreviewResponseDto | null {
+  if (isDocOrFinancialImport(job.entity_type)) {
+    return buildBlockedPreview(
+      job.id,
+      job.entity_type,
+      appliedRowsCount,
+      UNDO_BLOCKED_REASONS.FINANCIAL_IMPORT_CANNOT_BE_UNDONE,
+    );
+  }
+  const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
+  if (jobOptions.rows_purged === true) {
+    return buildBlockedPreview(
+      job.id,
+      job.entity_type,
+      appliedRowsCount,
+      UNDO_BLOCKED_REASONS.ROWS_PURGED,
+    );
+  }
+  return null;
+}
+
+function canUndoCounts(counts: ImportUndoCountsDto): boolean {
+  return counts.toDelete > 0 || counts.toRestore > 0 || counts.conflicts > 0;
+}
+
+function isPurgedByCount(total: number, appliedRowsCount: number): boolean {
+  return total === 0 && appliedRowsCount > 0;
+}
+
+function getEffectiveAppliedAt(job: ImportJob): Date {
+  return job.appliedAt ?? job.updatedAt;
+}
+
 function calculateOverallStatus(
   counts: ImportUndoCountsDto,
 ): 'ELIGIBLE' | 'CONFLICT' | 'BLOCKED' {
@@ -192,16 +197,9 @@ export class ImportUndoPreviewService {
     });
 
     const appliedRowsCount = validateJobForPreview(job, jobId);
-    if (!job) {
-      throw new NotFoundException(`Import job ${jobId} not found`);
-    }
-
-    if (isDocOrFinancialImport(job.entity_type)) {
-      return buildBlockedDocumentPreview(
-        jobId,
-        job.entity_type,
-        appliedRowsCount,
-      );
+    const earlyBlocked = checkBlockedJobPreview(job!, appliedRowsCount);
+    if (earlyBlocked) {
+      return earlyBlocked;
     }
 
     const buckets: UndoBuckets = {
@@ -219,17 +217,41 @@ export class ImportUndoPreviewService {
       blocked: 0,
     };
 
-    const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
-    if (jobOptions.rows_purged === true) {
-      return buildBlockedPurgedPreview(
+    await this.scanPreviewRows(
+      tenantId,
+      job!,
+      jobId,
+      getEffectiveAppliedAt(job!),
+      buckets,
+      counts,
+    );
+
+    if (isPurgedByCount(counts.total, appliedRowsCount)) {
+      return buildBlockedPreview(
         jobId,
-        job.entity_type,
+        job!.entity_type,
         appliedRowsCount,
+        UNDO_BLOCKED_REASONS.ROWS_PURGED,
       );
     }
 
-    const effectiveAppliedAt = job.appliedAt ?? job.updatedAt;
+    return {
+      jobId,
+      status: calculateOverallStatus(counts),
+      canUndo: canUndoCounts(counts),
+      counts,
+      ...buckets,
+    };
+  }
 
+  private async scanPreviewRows(
+    tenantId: string,
+    job: ImportJob,
+    jobId: string,
+    effectiveAppliedAt: Date,
+    buckets: UndoBuckets,
+    counts: ImportUndoCountsDto,
+  ): Promise<void> {
     let cursor = 0;
     while (true) {
       const rows = await this.prisma.importJobRow.findMany({
@@ -260,25 +282,6 @@ export class ImportUndoPreviewService {
         );
       }
     }
-
-    if (counts.total === 0 && appliedRowsCount > 0) {
-      return buildBlockedPurgedPreview(
-        jobId,
-        job.entity_type,
-        appliedRowsCount,
-      );
-    }
-
-    const overallStatus = calculateOverallStatus(counts);
-
-    return {
-      jobId,
-      status: overallStatus,
-      canUndo:
-        counts.toDelete > 0 || counts.toRestore > 0 || counts.conflicts > 0,
-      counts,
-      ...buckets,
-    };
   }
 
   private getStaticRowBlockReason(
