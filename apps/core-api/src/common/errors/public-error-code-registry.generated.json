@@ -735,6 +735,14 @@
       "public": true,
       "params": []
     },
+    "IMPORT_JOB_BUSY": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_JOB_CONFLICT": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_JOB_NOT_FOUND": {
       "public": true,
       "params": []

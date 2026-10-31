@@ -186,6 +186,8 @@
     "IMPORT_INVALID_SOURCE_KEY": "Der Importquellenschlüssel ist ungültig. Bitte verwenden Sie nur Kleinbuchstaben, Ziffern und Bindestriche.",
     "IMPORT_INVALID_STANDARD_AW": "Der Arbeitswert ist ungültig. Bitte geben Sie eine Zahl ab null ein.",
     "IMPORT_JOB_ALREADY_APPLIED": "Dieser Import wurde bereits übernommen. Bitte laden Sie für einen neuen Import eine neue Datei hoch.",
+    "IMPORT_JOB_BUSY": "Dieser Import wird derzeit verarbeitet. Bitte warten Sie, bis der Vorgang abgeschlossen ist.",
+    "IMPORT_JOB_CONFLICT": "Dieser Import wurde zwischenzeitlich geändert oder von einem anderen Vorgang beansprucht. Bitte laden Sie die Seite neu.",
     "IMPORT_JOB_NOT_FOUND": "Der Import wurde nicht gefunden. Bitte öffnen Sie einen vorhandenen Import oder laden Sie die Datei erneut hoch.",
     "IMPORT_JOB_STALE": "Der Probelauf ist nicht mehr aktuell. Bitte führen Sie ihn erneut aus.",
     "IMPORT_LABOR_CODE_CONFLICT": "Die externe Nummer und der Arbeitscode gehören zu verschiedenen Arbeitsvorgängen. Bitte prüfen Sie beide Werte.",

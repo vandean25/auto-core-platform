@@ -7,7 +7,11 @@ process.env.IMPORT_MAX_ROW_COUNT = '20000';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AuditActorType, AuditLogAction, ImportJobStatus } from '@prisma/client';
+import {
+  AuditActorType,
+  AuditLogAction,
+  ImportJobStatus,
+} from '@prisma/client';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -85,19 +89,27 @@ describe('Import Undo (e2e)', () => {
     return Buffer.from(serializeCsv(headers, rows, ';'), 'utf8');
   }
 
-  async function importAndApplyCustomerRows(
-    rows: string[][],
-    options = {},
-  ): Promise<{ id: string }> {
-    const file = customerCsv(rows);
+  async function importAndApplyRows(params: {
+    entityType: string;
+    file: Buffer;
+    fileName: string;
+    mapping: object;
+    options?: object;
+  }): Promise<{
+    id: string;
+    totals: { total: number; create: number; update: number };
+  }> {
     const dryRun = await request(app.getHttpServer())
       .post('/imports')
       .set('Authorization', adminHeader)
-      .field('entityType', 'CUSTOMER')
+      .field('entityType', params.entityType)
       .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .field('options', JSON.stringify(options))
-      .attach('file', file, 'customers.csv')
+      .field('mapping', JSON.stringify(params.mapping))
+      .field(
+        'options',
+        JSON.stringify(params.options ?? { update_existing: true }),
+      )
+      .attach('file', params.file, params.fileName)
       .expect(201);
 
     await request(app.getHttpServer())
@@ -105,30 +117,36 @@ describe('Import Undo (e2e)', () => {
       .set('Authorization', adminHeader)
       .expect(202);
 
-    return dryRun.body as { id: string };
+    return dryRun.body as {
+      id: string;
+      totals: { total: number; create: number; update: number };
+    };
   }
 
-  async function importAndApplyVehicleRows(
+  function importCustomerBatch(
     rows: string[][],
-    options = {},
-  ): Promise<{ id: string }> {
-    const file = vehicleCsv(rows);
-    const dryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', adminHeader)
-      .field('entityType', 'VEHICLE')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(vehicleMapping))
-      .field('options', JSON.stringify(options))
-      .attach('file', file, 'vehicles.csv')
-      .expect(201);
+    options = { update_existing: true },
+  ) {
+    return importAndApplyRows({
+      entityType: 'CUSTOMER',
+      file: customerCsv(rows),
+      fileName: 'customers.csv',
+      mapping: customerMapping,
+      options,
+    });
+  }
 
-    await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/apply`)
-      .set('Authorization', adminHeader)
-      .expect(202);
-
-    return dryRun.body as { id: string };
+  function importVehicleBatch(
+    rows: string[][],
+    options = { update_existing: true },
+  ) {
+    return importAndApplyRows({
+      entityType: 'VEHICLE',
+      file: vehicleCsv(rows),
+      fileName: 'vehicles.csv',
+      mapping: vehicleMapping,
+      options,
+    });
   }
 
   beforeAll(async () => {
@@ -147,8 +165,18 @@ describe('Import Undo (e2e)', () => {
     tenant = await createTestTenant(prisma, 'import-undo');
     siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
     adminHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
-    ownerHeader = await createMemberBearer(prisma, authService, tenant, 'OWNER');
-    salesHeader = await createMemberBearer(prisma, authService, tenant, 'SALES');
+    ownerHeader = await createMemberBearer(
+      prisma,
+      authService,
+      tenant,
+      'OWNER',
+    );
+    salesHeader = await createMemberBearer(
+      prisma,
+      authService,
+      tenant,
+      'SALES',
+    );
     techHeader = await createMemberBearer(prisma, authService, tenant, 'TECH');
     demoHeader = await createMemberBearer(prisma, authService, tenant, 'DEMO');
 
@@ -157,14 +185,15 @@ describe('Import Undo (e2e)', () => {
       where: { firebaseUid: `e2e-demo-${tenant.tenantId}` },
       select: { id: true },
     });
-    const demoAccessRequest = await systemPrisma.landingDemoAccessRequest.create({
-      data: {
-        email: `demo-${tenant.tenantId}@example.com`,
-        name: 'Demo E2E',
-        betrieb: 'E2E',
-        consent_recorded_at: new Date(),
-      },
-    });
+    const demoAccessRequest =
+      await systemPrisma.landingDemoAccessRequest.create({
+        data: {
+          email: `demo-${tenant.tenantId}@example.com`,
+          name: 'Demo E2E',
+          betrieb: 'E2E',
+          consent_recorded_at: new Date(),
+        },
+      });
     await systemPrisma.landingDemoSignInGrant.create({
       data: {
         access_request_id: demoAccessRequest.id,
@@ -314,30 +343,29 @@ describe('Import Undo (e2e)', () => {
     //    Row 1: UPDATE of pre-existing customer
     //    Row 2: CREATE of new customer
     const emailNew = `new-${Date.now()}@example.com`;
-    const customerFile = customerCsv([
-      ['EXT-EXISTING-1', 'PRIVATE', 'Original', 'UpdatedName', preExistingCustomer.email!, '+43 664 999999', 'AT'],
-      ['EXT-NEW-1', 'PRIVATE', 'New', 'Customer', emailNew, '+43 1 111111', 'AT'],
+    const dryRun = await importCustomerBatch([
+      [
+        'EXT-EXISTING-1',
+        'PRIVATE',
+        'Original',
+        'UpdatedName',
+        preExistingCustomer.email!,
+        '+43 664 999999',
+        'AT',
+      ],
+      [
+        'EXT-NEW-1',
+        'PRIVATE',
+        'New',
+        'Customer',
+        emailNew,
+        '+43 1 111111',
+        'AT',
+      ],
     ]);
 
-    const dryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', adminHeader)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .field('options', JSON.stringify({ update_existing: true }))
-      .attach('file', customerFile, 'customers.csv')
-      .expect(201);
-
-    expect(dryRun.body.totals.create).toBe(1);
-    expect(dryRun.body.totals.update).toBe(1);
-
-    const applyRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/apply`)
-      .set('Authorization', adminHeader)
-      .expect(202);
-
-    expect(applyRes.body.status).toBe('APPLIED');
+    expect(dryRun.totals.create).toBe(1);
+    expect(dryRun.totals.update).toBe(1);
 
     // Verify DB has updated pre-existing and created new customer
     const updatedPreExisting = await tenantPrisma.customer.findFirstOrThrow({
@@ -353,7 +381,7 @@ describe('Import Undo (e2e)', () => {
 
     // 3. Preview undo
     const previewRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo/preview`)
+      .post(`/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -366,7 +394,7 @@ describe('Import Undo (e2e)', () => {
 
     // 4. Execute undo
     const undoRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo`)
+      .post(`/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -408,30 +436,34 @@ describe('Import Undo (e2e)', () => {
     const undoAudit = await tenantPrisma.auditLog.findFirst({
       where: {
         entity_type: 'ImportJob',
-        entity_id: dryRun.body.id,
+        entity_id: dryRun.id,
         action: AuditLogAction.UPDATE,
       },
     });
     expect(undoAudit).toBeTruthy();
 
     // 6. Re-import creates fresh records without duplicates
-    const reImport = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', adminHeader)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .field('options', JSON.stringify({ update_existing: true }))
-      .attach('file', customerFile, 'customers.csv')
-      .expect(201);
-
-    expect(reImport.body.totals.create).toBe(1);
-    const reApply = await request(app.getHttpServer())
-      .post(`/imports/${reImport.body.id}/apply`)
-      .set('Authorization', adminHeader)
-      .expect(202);
-
-    expect(reApply.body.status).toBe('APPLIED');
+    const reImport = await importCustomerBatch([
+      [
+        'EXT-EXISTING-1',
+        'PRIVATE',
+        'Original',
+        'UpdatedName',
+        preExistingCustomer.email!,
+        '+43 664 999999',
+        'AT',
+      ],
+      [
+        'EXT-NEW-1',
+        'PRIVATE',
+        'New',
+        'Customer',
+        emailNew,
+        '+43 1 111111',
+        'AT',
+      ],
+    ]);
+    expect(reImport.totals.create).toBe(1);
 
     const freshCreated = await tenantPrisma.customer.findFirst({
       where: { email: emailNew },
@@ -482,30 +514,21 @@ describe('Import Undo (e2e)', () => {
 
     // 2. Import vehicles: 1 UPDATE + 1 CREATE (without owner so no initial vehicleParty is created)
     const newVin = '1HGCR2F83HA000002';
-    const vehicleFile = vehicleCsv([
-      ['VEH-EXT-EXISTING', '1HGCR2F83HA000001', 'W-UPDATED-1', 'Honda', 'Accord', '2017', ''],
+    const dryRun = await importVehicleBatch([
+      [
+        'VEH-EXT-EXISTING',
+        '1HGCR2F83HA000001',
+        'W-UPDATED-1',
+        'Honda',
+        'Accord',
+        '2017',
+        '',
+      ],
       ['VEH-EXT-NEW', newVin, 'W-NEW-2', 'Honda', 'Civic', '2021', ''],
     ]);
 
-    const dryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', adminHeader)
-      .field('entityType', 'VEHICLE')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(vehicleMapping))
-      .field('options', JSON.stringify({ update_existing: true }))
-      .attach('file', vehicleFile, 'vehicles.csv')
-      .expect(201);
-
-    expect(dryRun.body.totals.create).toBe(1);
-    expect(dryRun.body.totals.update).toBe(1);
-
-    const applyRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/apply`)
-      .set('Authorization', adminHeader)
-      .expect(202);
-
-    expect(applyRes.body.status).toBe('APPLIED');
+    expect(dryRun.totals.create).toBe(1);
+    expect(dryRun.totals.update).toBe(1);
 
     // Verify DB updated and created
     const updatedVeh = await tenantPrisma.vehicle.findFirstOrThrow({
@@ -520,7 +543,7 @@ describe('Import Undo (e2e)', () => {
 
     // 3. Preview undo
     const previewRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo/preview`)
+      .post(`/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -531,7 +554,7 @@ describe('Import Undo (e2e)', () => {
 
     // 4. Execute undo
     const undoRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo`)
+      .post(`/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -564,17 +587,25 @@ describe('Import Undo (e2e)', () => {
 
     // 1. Import a customer and a vehicle
     const emailDownstream = `downstream-${Date.now()}@example.com`;
-    const custJob = await importAndApplyCustomerRows(
-      [['CUST-DS-1', 'PRIVATE', 'Downstream', 'Customer', emailDownstream, '123', 'AT']],
-    );
+    const custJob = await importCustomerBatch([
+      [
+        'CUST-DS-1',
+        'PRIVATE',
+        'Downstream',
+        'Customer',
+        emailDownstream,
+        '123',
+        'AT',
+      ],
+    ]);
     const customer = await tenantPrisma.customer.findFirstOrThrow({
       where: { email: emailDownstream },
     });
 
     const vinDownstream = '1HGCR2F83HA000003';
-    const vehJob = await importAndApplyVehicleRows(
-      [['VEH-DS-1', vinDownstream, 'W-DS-1', 'Honda', 'Accord', '2019', '']],
-    );
+    const vehJob = await importVehicleBatch([
+      ['VEH-DS-1', vinDownstream, 'W-DS-1', 'Honda', 'Accord', '2019', ''],
+    ]);
     const vehicle = await tenantPrisma.vehicle.findFirstOrThrow({
       where: { vin: vinDownstream },
     });
@@ -600,7 +631,9 @@ describe('Import Undo (e2e)', () => {
 
     expect(custPreviewWO.body.status).toBe('BLOCKED');
     expect(custPreviewWO.body.counts.blocked).toBe(1);
-    expect(custPreviewWO.body.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER);
+    expect(custPreviewWO.body.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER,
+    );
 
     // Case B: Link vehicle to active WorkshopOrder -> DOWNSTREAM_WORK_ORDER
     const vehPreviewWO = await request(app.getHttpServer())
@@ -610,7 +643,9 @@ describe('Import Undo (e2e)', () => {
 
     expect(vehPreviewWO.body.status).toBe('BLOCKED');
     expect(vehPreviewWO.body.counts.blocked).toBe(1);
-    expect(vehPreviewWO.body.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER);
+    expect(vehPreviewWO.body.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER,
+    );
 
     // Clean up work order
     await tenantPrisma.workshopOrder.delete({ where: { id: workOrder.id } });
@@ -638,7 +673,9 @@ describe('Import Undo (e2e)', () => {
 
     expect(vehPreviewMedia.body.status).toBe('BLOCKED');
     expect(vehPreviewMedia.body.counts.blocked).toBe(1);
-    expect(vehPreviewMedia.body.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_MEDIA);
+    expect(vehPreviewMedia.body.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_MEDIA,
+    );
 
     await tenantPrisma.vehicleMedia.delete({ where: { id: media.id } });
 
@@ -659,7 +696,9 @@ describe('Import Undo (e2e)', () => {
 
     expect(vehPreviewParty.body.status).toBe('BLOCKED');
     expect(vehPreviewParty.body.counts.blocked).toBe(1);
-    expect(vehPreviewParty.body.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_PARTY);
+    expect(vehPreviewParty.body.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_PARTY,
+    );
 
     await tenantPrisma.vehicleParty.delete({ where: { id: party.id } });
 
@@ -688,7 +727,9 @@ describe('Import Undo (e2e)', () => {
 
     expect(custPreviewConsent.body.status).toBe('BLOCKED');
     expect(custPreviewConsent.body.counts.blocked).toBe(1);
-    expect(custPreviewConsent.body.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONSENT);
+    expect(custPreviewConsent.body.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONSENT,
+    );
 
     // Attempting undo on custJob must leave customer in DB and return PARTIALLY_UNDONE
     const undoCust = await request(app.getHttpServer())
@@ -710,7 +751,7 @@ describe('Import Undo (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const emailConflict = `conflict-${Date.now()}@example.com`;
 
-    const dryRun = await importAndApplyCustomerRows([
+    const dryRun = await importCustomerBatch([
       ['EXT-CONF-1', 'PRIVATE', 'Conflict', 'User', emailConflict, '333', 'AT'],
     ]);
 
@@ -746,7 +787,9 @@ describe('Import Undo (e2e)', () => {
 
     expect(preview.body.status).toBe('CONFLICT');
     expect(preview.body.counts.conflicts).toBe(1);
-    expect(preview.body.conflicts[0].reason).toBe(UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT);
+    expect(preview.body.conflicts[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT,
+    );
 
     // Undo without confirmedEntityIds: conflict is skipped
     const undoWithoutConfirm = await request(app.getHttpServer())
@@ -781,7 +824,7 @@ describe('Import Undo (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const emailBlocked = `blocked-${Date.now()}@example.com`;
 
-    const dryRun = await importAndApplyCustomerRows([
+    const dryRun = await importCustomerBatch([
       ['EXT-BLOCK-1', 'PRIVATE', 'Invoice', 'Owner', emailBlocked, '444', 'AT'],
     ]);
 
@@ -824,7 +867,9 @@ describe('Import Undo (e2e)', () => {
 
     expect(preview.body.status).toBe('BLOCKED');
     expect(preview.body.counts.blocked).toBe(1);
-    expect(preview.body.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE);
+    expect(preview.body.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
+    );
 
     // Attempting undo must NOT touch the customer or invoice
     const undoRes = await request(app.getHttpServer())
@@ -905,8 +950,16 @@ describe('Import Undo (e2e)', () => {
     const emailEligible = `part-elig-${Date.now()}@example.com`;
     const emailBlocked = `part-block-${Date.now()}@example.com`;
 
-    const job = await importAndApplyCustomerRows([
-      ['EXT-PI-ELIG', 'PRIVATE', 'Eligible', 'Cust', emailEligible, '111', 'AT'],
+    const job = await importCustomerBatch([
+      [
+        'EXT-PI-ELIG',
+        'PRIVATE',
+        'Eligible',
+        'Cust',
+        emailEligible,
+        '111',
+        'AT',
+      ],
       ['EXT-PI-BLOCK', 'PRIVATE', 'Blocked', 'Cust', emailBlocked, '222', 'AT'],
     ]);
 
@@ -946,8 +999,12 @@ describe('Import Undo (e2e)', () => {
     const rowsAfterFirst = await tenantPrisma.importJobRow.findMany({
       where: { import_job_id: job.id },
     });
-    const eligibleRow = rowsAfterFirst.find((r) => r.external_id === 'EXT-PI-ELIG');
-    const blockedRow = rowsAfterFirst.find((r) => r.external_id === 'EXT-PI-BLOCK');
+    const eligibleRow = rowsAfterFirst.find(
+      (r) => r.external_id === 'EXT-PI-ELIG',
+    );
+    const blockedRow = rowsAfterFirst.find(
+      (r) => r.external_id === 'EXT-PI-BLOCK',
+    );
     expect(eligibleRow?.undone_at).toBeTruthy();
     expect(blockedRow?.undone_at).toBeNull();
 
@@ -997,7 +1054,7 @@ describe('Import Undo (e2e)', () => {
       ]);
     }
 
-    const job = await importAndApplyCustomerRows(rows);
+    const job = await importCustomerBatch(rows);
 
     const initialRows = await tenantPrisma.importJobRow.findMany({
       where: { import_job_id: job.id },
@@ -1024,7 +1081,7 @@ describe('Import Undo (e2e)', () => {
   it('idempotency: calling undo twice on an already UNDONE job is a safe no-op', async () => {
     const emailIdem = `idem-${Date.now()}@example.com`;
 
-    const dryRun = await importAndApplyCustomerRows([
+    const dryRun = await importCustomerBatch([
       ['EXT-IDEM-1', 'PRIVATE', 'Idem', 'Test', emailIdem, '555', 'AT'],
     ]);
 

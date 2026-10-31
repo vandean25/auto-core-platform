@@ -531,6 +531,34 @@ export class ImportUndoService {
     counts.restoredCount++;
   }
 
+  private recordBlockedRow(
+    row: ImportJobRow,
+    counts: UndoCounts,
+    reason?: string,
+  ): void {
+    counts.blockedCount++;
+    if (reason) {
+      const key = row.entity_id ?? `row-${row.row_no}`;
+      counts.blockedReasons[key] = reason;
+    }
+  }
+
+  private async dispatchRowUndo(
+    tx: Prisma.TransactionClient,
+    row: ImportJobRow,
+    ctx: UndoExecutionContext,
+    currentEntity: unknown,
+    counts: UndoCounts,
+  ): Promise<void> {
+    if (row.action === ImportRowAction.CREATE) {
+      await this.executeRowDelete(tx, row, ctx, currentEntity, counts);
+      return;
+    }
+    if (row.before_snapshot_json) {
+      await this.executeRowRestore(tx, row, ctx, currentEntity, counts);
+    }
+  }
+
   private async processSingleRow(
     tx: Prisma.TransactionClient,
     row: ImportJobRow,
@@ -540,9 +568,7 @@ export class ImportUndoService {
   ): Promise<void> {
     const staticReason = this.getRowStaticBlockReason(row, ctx.entityType);
     if (staticReason) {
-      counts.blockedCount++;
-      const key = row.entity_id ?? `row-${row.row_no}`;
-      counts.blockedReasons[key] = staticReason;
+      this.recordBlockedRow(row, counts, staticReason);
       return;
     }
 
@@ -555,25 +581,16 @@ export class ImportUndoService {
     );
 
     const isConfirmed = confirmedSet.has(row.entity_id!);
-    if (
+    const isBlocked =
       eligibility.status === 'BLOCKED' ||
-      (eligibility.status === 'CONFLICT' && !isConfirmed)
-    ) {
-      counts.blockedCount++;
-      if (eligibility.reason) {
-        counts.blockedReasons[row.entity_id!] = eligibility.reason;
-      }
+      (eligibility.status === 'CONFLICT' && !isConfirmed);
+
+    if (isBlocked) {
+      this.recordBlockedRow(row, counts, eligibility.reason);
       return;
     }
 
-    if (row.action === ImportRowAction.CREATE) {
-      await this.executeRowDelete(tx, row, ctx, eligibility.entity, counts);
-    } else if (
-      row.action === ImportRowAction.UPDATE &&
-      row.before_snapshot_json
-    ) {
-      await this.executeRowRestore(tx, row, ctx, eligibility.entity, counts);
-    }
+    await this.dispatchRowUndo(tx, row, ctx, eligibility.entity, counts);
   }
 
   private async deleteCreatedEntity(
