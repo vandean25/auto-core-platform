@@ -12,7 +12,13 @@ import {
 import { releasePushRegistration } from '@/features/push/push-device'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
 import type { AuthClaims } from '@/auth/auth-claims'
+import { resetClientSession, runWithClientSessionPending } from '@/auth/client-session-reset'
 import { applyFirebaseIdTokenChange } from '@/auth/firebase-id-token-change'
+import {
+  DEFAULT_E2E_TEST_TOKEN_IDENTITY,
+  E2E_TEST_SIGN_IN_EVENT,
+  type E2ETestTokenIdentity,
+} from '@/auth/e2e-test-token-user'
 import {
   getE2ETestToken,
   isE2EAuthBypassEnabled,
@@ -48,6 +54,19 @@ type AuthenticatedUser = {
 
 const AUTH_INIT_WATCHDOG_MS = 15_000
 
+function createE2ETestTokenUser(
+  token: string,
+  identity: E2ETestTokenIdentity,
+): AuthenticatedUser {
+  return {
+    uid: identity.uid,
+    email: identity.email,
+    displayName: identity.displayName,
+    getIdToken: async () => token,
+    getIdTokenResult: async () => ({ claims: identity.claims ?? {} }),
+  }
+}
+
 type AuthContextValue = {
   user: AuthenticatedUser | null
   claims: AuthClaims | null
@@ -78,16 +97,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      setUser({
-        uid: 'e2e-fullstack-user',
-        email: 'e2e-fullstack@auto.core.test',
-        displayName: 'E2E Fullstack',
-        getIdToken: async () => testToken,
-        getIdTokenResult: async () => ({ claims: {} }),
-      })
-      setClaims(null)
-      setLoading(false)
-      return
+      let active = true
+
+      const applyTestIdentity = (identity: E2ETestTokenIdentity | null) => {
+        void applyFirebaseIdTokenChange({
+          nextUser: identity ? createE2ETestTokenUser(testToken, identity) : null,
+          previousUidRef,
+          queryClient,
+          isActive: () => active,
+          onAuthInitTimedOutReset: () => setAuthInitTimedOut(false),
+          setUser: (next) => setUser(next as AuthenticatedUser | null),
+          setClaims,
+          finishAuthInit: () => setLoading(false),
+        })
+      }
+
+      applyTestIdentity(DEFAULT_E2E_TEST_TOKEN_IDENTITY)
+
+      const onTestSignIn = (event: Event) => {
+        const identity = (event as CustomEvent<Partial<E2ETestTokenIdentity>>).detail
+        if (!identity?.uid) return
+
+        applyTestIdentity({
+          uid: identity.uid,
+          email: identity.email ?? null,
+          displayName: identity.displayName ?? null,
+          claims: identity.claims,
+        })
+      }
+      window.addEventListener(E2E_TEST_SIGN_IN_EVENT, onTestSignIn)
+
+      return () => {
+        active = false
+        window.removeEventListener(E2E_TEST_SIGN_IN_EVENT, onTestSignIn)
+      }
     }
 
     if (isE2EAuthBypassEnabled()) {
@@ -198,14 +241,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOutUser = React.useCallback(async () => {
-    if (!firebaseAuth) {
+    // The full-stack harness has no Firebase; its synthetic sign-in would otherwise survive a sign-out.
+    if (isE2ETestTokenAuthEnabled()) {
+      await runWithClientSessionPending(async () => {
+        await releasePushRegistration()
+        await resetClientSession(queryClient, 'session')
+        previousUidRef.current = null
+        setUser(null)
+        setClaims(null)
+        setLoading(false)
+      })
       return
     }
 
-    // Remove this browser's push registration while the session is still valid.
-    await releasePushRegistration()
-    await signOut(firebaseAuth)
-  }, [])
+    const auth = firebaseAuth
+    if (!auth) {
+      return
+    }
+
+    // Keep the shell on its loading state from the start of the sign-out until the client session is reset.
+    await runWithClientSessionPending(async () => {
+      // Remove this browser's push registration while the session is still valid.
+      await releasePushRegistration()
+      await signOut(auth)
+      // The next user of this device must not see anything from this session.
+      await resetClientSession(queryClient, 'session')
+    })
+  }, [queryClient])
 
   const value = React.useMemo<AuthContextValue>(() => ({
     user,

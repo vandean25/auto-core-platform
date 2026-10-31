@@ -38,6 +38,19 @@ export function importJobCannotCancel(): ConflictException {
   });
 }
 
+export function importJobExpired(): ConflictException {
+  return new ConflictException({
+    code: IMPORT_ERROR_CODES.JOB_EXPIRED,
+    message: 'Import job has expired; please upload and run the dry run again',
+  });
+}
+
+export function importJobPurged(): ConflictException {
+  return new ConflictException({
+    code: IMPORT_ERROR_CODES.JOB_PURGED,
+    message: 'Staged rows for this import job were purged; please upload again',
+  });
+}
 export function importJobApplyStale(): ConflictException {
   return new ConflictException({
     code: IMPORT_ERROR_CODES.JOB_STALE,
@@ -48,7 +61,15 @@ export function importJobApplyStale(): ConflictException {
 export async function assertFailedImportJobCanReApply(params: {
   uploadPresent: boolean;
   countApplyRows: () => Promise<number>;
+  options?: unknown;
 }): Promise<void> {
+  const opts = (params.options ?? {}) as Record<string, unknown>;
+  if (opts.rows_purged === true) {
+    throw importJobPurged();
+  }
+  if (opts.cancel_reason === 'expired') {
+    throw importJobExpired();
+  }
   if (params.uploadPresent) {
     return;
   }
@@ -62,6 +83,7 @@ export async function assertFailedImportJobCanReApply(params: {
 export function assertJobCanBeApplied(
   status: ImportJobStatus,
   leaseExpiresAt: string | null = null,
+  options?: unknown,
 ): void {
   if (status === ImportJobStatus.APPLYING) {
     throw applyInProgress(leaseExpiresAt);
@@ -72,13 +94,20 @@ export function assertJobCanBeApplied(
       message: 'Import job was already applied',
     });
   }
+  const opts = (options ?? {}) as Record<string, unknown>;
+  if (opts.rows_purged === true) {
+    throw importJobPurged();
+  }
+  if (opts.cancel_reason === 'expired') {
+    throw importJobExpired();
+  }
+  if (status === ImportJobStatus.CANCELLED) {
+    throw importJobApplyStale();
+  }
   if (
     status !== ImportJobStatus.DRY_RUN_DONE &&
     status !== ImportJobStatus.FAILED
   ) {
-    throw new ConflictException({
-      code: IMPORT_ERROR_CODES.JOB_STALE,
-      message: 'Import job cannot be applied in its current status',
-    });
+    throw importJobApplyStale();
   }
 }

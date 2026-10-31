@@ -4645,7 +4645,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List import jobs for the tenant, newest first */
+        get: operations["ImportController_listJobs"];
         put?: never;
         /** Upload CSV and run a synchronous import dry-run */
         post: operations["ImportController_createDryRun"];
@@ -4705,6 +4706,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/imports/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List configured import sources for the tenant */
+        get: operations["ImportController_listSources"];
+        put?: never;
+        /** Create a new import source */
+        post: operations["ImportController_createSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an import source */
+        delete: operations["ImportController_deleteSource"];
+        options?: never;
+        head?: never;
+        /** Update an import source label or default flag */
+        patch: operations["ImportController_updateSource"];
         trace?: never;
     };
     "/api/imports/templates/{entityType}": {
@@ -11392,6 +11429,36 @@ export interface components {
                 [key: string]: string;
             };
         };
+        ImportSourceResponseDto: {
+            id: string;
+            /** @example legacy-dms */
+            key: string;
+            /** @example Legacy DMS */
+            label: string;
+            is_default: boolean;
+            created_at: string;
+            updated_at: string;
+        };
+        ImportSourceListResponseDto: {
+            data: components["schemas"]["ImportSourceResponseDto"][];
+        };
+        CreateImportSourceDto: {
+            /**
+             * @description Normalized lower-case slug key (alphanumeric, hyphens, underscores; max 64 chars per segment; one colon allowed for canonical source_name:source_company_code keys)
+             * @example legacy-dms
+             */
+            key: string;
+            /** @example Legacy DMS */
+            label: string;
+            /** @default false */
+            is_default: boolean;
+        };
+        UpdateImportSourceDto: {
+            /** @example Legacy DMS */
+            label?: string;
+            /** @default false */
+            is_default: boolean;
+        };
         ImportTemplateFieldDto: {
             key: string;
             label_de: string;
@@ -11475,6 +11542,34 @@ export interface components {
              */
             data: components["schemas"]["ImportEntityTypeResponseDto"][];
         };
+        ImportJobListTotalsDto: {
+            create: number;
+            update: number;
+            skip: number;
+            error: number;
+        };
+        ImportJobListItemDto: {
+            id: string;
+            status: components["schemas"]["ImportJobStatus"];
+            entity_type: components["schemas"]["ImportEntityType"];
+            source_system: string;
+            file_name: string;
+            totals: components["schemas"]["ImportJobListTotalsDto"];
+            created_by: string | null;
+            created_at: string;
+            applied_at: string | null;
+            cancellable: boolean;
+            apply_failure_code?: string;
+        };
+        ImportJobListMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+        };
+        ImportJobListResponseDto: {
+            data: components["schemas"]["ImportJobListItemDto"][];
+            meta: components["schemas"]["ImportJobListMetaDto"];
+        };
         /** @enum {string} */
         ImportRowAction: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
         ImportJobRowDto: {
@@ -11555,6 +11650,10 @@ export interface components {
             recommendedBelowMm: number;
             ordinaryMinimumMm: number;
         };
+        TyreAgeRecommendationsResponseDto: {
+            conditionCheckFromMonths: number;
+            replacementFromMonths: number;
+        };
         TyreDotResponseDto: {
             /** @enum {string} */
             format: "MODERN" | "LEGACY_PRE_2000";
@@ -11582,6 +11681,7 @@ export interface components {
             reasonCodes: ("TREAD_BELOW_LEGAL_MINIMUM" | "AT_WINTER_TREAD_INSUFFICIENT" | "TREAD_REPLACEMENT_RECOMMENDED" | "DE_ALPINE_MISSING" | "AT_WINTER_RULE_NOTICE" | "DOT_CONDITION_CHECK_RECOMMENDED" | "DOT_REPLACEMENT_RECOMMENDED" | "DOT_LEGACY_OVER_20_YEARS" | "UNSUPPORTED_COUNTRY")[];
             minimumTreadMm: number;
             thresholds: components["schemas"]["TyreThresholdsResponseDto"] | null;
+            ageRecommendations?: components["schemas"]["TyreAgeRecommendationsResponseDto"];
             dot: components["schemas"]["TyreDotResponseDto"] | null;
         };
         TyreWheelResponseDto: {
@@ -21840,6 +21940,31 @@ export interface operations {
             };
         };
     };
+    ImportController_listJobs: {
+        parameters: {
+            query?: {
+                entityType?: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE";
+                limit?: string;
+                page?: string;
+                source?: string;
+                status?: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobListResponseDto"];
+                };
+            };
+        };
+    };
     ImportController_createDryRun: {
         parameters: {
             query?: never;
@@ -21963,6 +22088,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportMappingProfileResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_listSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSourceListResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_createSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateImportSourceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSourceResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_deleteSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Import source deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_updateSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateImportSourceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSourceResponseDto"];
                 };
             };
         };

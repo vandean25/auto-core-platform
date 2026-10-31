@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ImportJob } from '@/api/imports'
@@ -16,6 +16,7 @@ import {
   customerRow,
   di,
   entityLabels,
+  failMockImportSources,
   failedApplyJob,
   goToMappingStep,
   installImportApiMocks,
@@ -27,7 +28,8 @@ import {
   runDryRun,
   selectEntityType,
   selectVendor,
-  sourceSystemInput,
+  setMockImportSources,
+  sourceFixtures,
   supplierDryRunJob,
   supplierRow,
   uploadCsvFile,
@@ -61,6 +63,10 @@ vi.mock('@/api/imports', async (importOriginal) => {
     ...actual,
     useImportTemplate: vi.fn(),
     useImportEntityTypes: vi.fn(),
+    useImportSources: vi.fn(),
+    useCreateImportSource: vi.fn(),
+    useUpdateImportSource: vi.fn(),
+    useDeleteImportSource: vi.fn(),
     useImportMappingProfiles: vi.fn(),
     useImportDryRun: vi.fn(),
     useApplyImportJob: vi.fn(),
@@ -232,21 +238,105 @@ describe('DataImportSettingsTab characterization', () => {
       expect(refetch).toHaveBeenCalledTimes(1)
     })
 
-    it('switches the source system to the supplier default for supplier price lists', async () => {
+
+    it('reports a failed source load with a retry instead of no-sources guidance', () => {
+      const refetch = failMockImportSources()
+
       renderImportSettingsTab()
 
-      await selectEntityType(entityLabels.SUPPLIER_PRICE_LIST)
+      const sourcesPanel = screen.getByRole('region', { name: di.sources.title })
+      expect(within(sourcesPanel).getByText(di.sources.loadFailed)).toBeInTheDocument()
+      expect(within(sourcesPanel).queryByText(di.sources.empty)).not.toBeInTheDocument()
 
-      expect(sourceSystemInput().value).toBe('supplier')
+      const sourceStep = screen.getByRole('region', { name: di.source.title })
+      expect(within(sourceStep).getByText(di.sources.loadFailed)).toBeInTheDocument()
+      expect(within(sourceStep).queryByText(di.source.noSources)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeDisabled()
+
+      fireEvent.click(within(sourceStep).getByRole('button', { name: deCommon.actions.retry }))
+
+      expect(refetch).toHaveBeenCalledTimes(1)
     })
 
-    it('keeps the source system when the entity type changes again', async () => {
-      renderImportSettingsTab()
+    it('returns to the source step when the selected source is deleted and another remains', async () => {
+      const view = renderImportSettingsTab()
 
-      await selectEntityType(entityLabels.SUPPLIER_PRICE_LIST)
-      await selectEntityType(entityLabels.CUSTOMER)
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+      expect(screen.getByText(di.mapping.title)).toBeInTheDocument()
 
-      expect(sourceSystemInput().value).toBe('supplier')
+      setMockImportSources(sourceFixtures.filter((source) => source.key !== 'legacy_dms'))
+      view.rerender()
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.mapping.title)).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: di.source.sourceSystemLabel })).toHaveTextContent(
+        'Incadea',
+      )
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
+    })
+
+    it('returns to the source step when the selected source is deleted and the refetch fails while retaining remaining sources', async () => {
+      const view = renderImportSettingsTab()
+
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+      expect(screen.getByText(di.mapping.title)).toBeInTheDocument()
+
+      failMockImportSources({
+        retainedSources: sourceFixtures.filter((source) => source.key !== 'legacy_dms'),
+      })
+      view.rerender()
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.mapping.title)).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: di.source.sourceSystemLabel })).toHaveTextContent(
+        'Incadea',
+      )
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
+    })
+
+    it('clears the selection when the last source is deleted', async () => {
+      const view = renderImportSettingsTab()
+
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+
+      setMockImportSources([])
+      view.rerender()
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.mapping.title)).not.toBeInTheDocument()
+      expect(screen.getByText(di.source.noSources)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeDisabled()
+    })
+
+    it('ignores a dry-run that resolves after its source was deleted', async () => {
+      const view = renderImportSettingsTab()
+
+      await goToMappingStep({ sourceSystem: 'legacy_dms' })
+
+      let resolveDryRun: (job: ImportJob) => void = () => {}
+      mocks.dryRun.mutateAsync.mockImplementationOnce(
+        () =>
+          new Promise<ImportJob>((resolve) => {
+            resolveDryRun = resolve
+          }),
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: di.mapping.runDryRun }))
+      await waitFor(() => {
+        expect(mocks.dryRun.mutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ sourceSystem: 'legacy_dms' }),
+        )
+      })
+
+      setMockImportSources(sourceFixtures.filter((source) => source.key !== 'legacy_dms'))
+      view.rerender()
+
+      await act(async () => {
+        resolveDryRun(customerDryRunJob)
+      })
+
+      expect(screen.getByText(di.source.title)).toBeInTheDocument()
+      expect(screen.queryByText(di.dryRun.title)).not.toBeInTheDocument()
     })
 
     it('clears the mapping when the entity type changes', async () => {
@@ -586,7 +676,7 @@ describe('DataImportSettingsTab characterization', () => {
       renderImportSettingsTab({ initialEntries: ['/?tab=data-import&entity=SUPPLIER_PRICE_LIST'] })
 
       await selectVendor('Stahlgruber GmbH')
-      await goToMappingStep()
+      await goToMappingStep({ sourceSystem: 'supplier' })
       await runDryRun()
       fireEvent.click(screen.getAllByLabelText(di.dryRun.priceJumps.acceptRow)[0])
       const confirmButton = await openApplyDialog()

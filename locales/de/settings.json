@@ -1038,12 +1038,43 @@
       "entityVehicle": "Fahrzeuge",
       "entitySupplierPriceList": "Lieferanten-Preisliste",
       "sourceSystemLabel": "Quellsystem",
+      "sourceSystemPlaceholder": "Quellsystem auswählen…",
       "vendorLabel": "Lieferant *",
       "vendorPlaceholder": "Lieferant auswählen…",
       "vendorAria": "Lieferant auswählen",
       "downloadTemplate": "CSV-Vorlage herunterladen",
       "continue": "Weiter",
-      "templateFields": "Vorlagenfelder: {{fields}}"
+      "templateFields": "Vorlagenfelder: {{fields}}",
+      "noSources": "Legen Sie zuerst oben unter „Importquellen“ eine Quelle an."
+    },
+    "sources": {
+      "title": "Importquellen",
+      "description": "Quellsysteme, die beim Import gewählt werden können. Der Schlüssel bleibt stabil, damit erneute Importe keine Dubletten erzeugen.",
+      "keyLabel": "Schlüssel",
+      "keyPlaceholder": "z. B. legacy-dms",
+      "keyHint": "Nur Kleinbuchstaben, Ziffern, Bindestriche und Unterstriche. Für kanonische Schlüssel im Format source_name:source_company_code ist ein Doppelpunkt erlaubt.",
+      "labelLabel": "Anzeigename",
+      "labelPlaceholder": "z. B. Legacy DMS",
+      "defaultLabel": "Als Standard verwenden",
+      "add": "Importquelle hinzufügen",
+      "empty": "Noch keine Importquelle angelegt.",
+      "loadFailed": "Importquellen konnten nicht geladen werden.",
+      "columnLabel": "Anzeigename",
+      "columnKey": "Schlüssel",
+      "columnDefault": "Standard",
+      "defaultBadge": "Standard",
+      "setDefaultAria": "{{label}} als Standard verwenden",
+      "deleteAria": "{{label}} löschen",
+      "deleteTitle": "Importquelle löschen?",
+      "deleteDescription": "„{{label}}“ kann danach nicht mehr für Importe gewählt werden. Bereits importierte Daten bleiben erhalten.",
+      "deleteConfirm": "Löschen",
+      "toastFieldsRequired": "Bitte Schlüssel und Anzeigename ausfüllen.",
+      "toastCreated": "Importquelle angelegt.",
+      "toastCreateFailed": "Importquelle konnte nicht angelegt werden.",
+      "toastDefaultSet": "Standard-Importquelle geändert.",
+      "toastDefaultFailed": "Standard-Importquelle konnte nicht geändert werden.",
+      "toastDeleted": "Importquelle gelöscht.",
+      "toastDeleteFailed": "Importquelle konnte nicht gelöscht werden."
     },
     "upload": {
       "title": "2. CSV hochladen",
@@ -1129,7 +1160,16 @@
       "previousPage": "Vorherige Seite",
       "nextPage": "Nächste Seite",
       "editMapping": "Zuordnung bearbeiten",
-      "applyImport": "Import anwenden"
+      "applyImport": "Import anwenden",
+      "uploadAgain": "Erneut hochladen",
+      "expired": {
+        "title": "Probelauf abgelaufen",
+        "description": "Probelauf abgelaufen, bitte erneut hochladen"
+      },
+      "purged": {
+        "title": "Importdaten bereinigt",
+        "description": "Die Zeilen dieses Imports wurden bereits bereinigt. Bitte laden Sie die Datei erneut hoch."
+      }
     },
     "errorReport": {
       "unknownError": "Die Zeile konnte nicht importiert werden. Bitte prüfen Sie die Werte und versuchen Sie es erneut.",
@@ -1170,6 +1210,36 @@
       "cancelFailed": "Import konnte nicht abgebrochen werden",
       "templateFailed": "Vorlage konnte nicht heruntergeladen werden",
       "errorCsvFailed": "Fehler-CSV konnte nicht heruntergeladen werden"
+    },
+    "view": {
+      "wizard": "Import",
+      "history": "Verlauf"
+    },
+    "history": {
+      "title": "Importverlauf",
+      "description": "Alle Importe dieses Mandanten, neueste zuerst.",
+      "empty": "Noch keine Importe vorhanden.",
+      "loadFailed": "Importverlauf konnte nicht geladen werden.",
+      "anonymousUser": "Unbekannt",
+      "rowAria": "Import {{file}}",
+      "totals": "Neu {{create}} · Aktualisiert {{update}} · Übersprungen {{skip}} · Fehler {{error}}",
+      "columns": {
+        "status": "Status",
+        "entityType": "Entität",
+        "source": "Quelle",
+        "fileName": "Datei",
+        "totals": "Ergebnis",
+        "createdBy": "Benutzer",
+        "createdAt": "Datum"
+      },
+      "actions": {
+        "open": "Öffnen",
+        "resume": "Fortsetzen",
+        "cancel": "Abbrechen",
+        "downloadErrors": "Fehler-CSV herunterladen",
+        "cancelConfirmTitle": "Import abbrechen?",
+        "cancelConfirmDescription": "Der laufende Import wird beendet."
+      }
     }
   },
   "documentBranding": {

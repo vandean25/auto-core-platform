@@ -11,6 +11,9 @@ Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
   <Step title="Datenimport öffnen">
     Zahnrad → **Datenimport**.
   </Step>
+  <Step title="Importquelle prüfen">
+    Stellen Sie sicher, dass Ihre Importquelle (z. B. „Legacy-DMS") unter **Importquellen** angelegt ist. Eine Quelle kann als Standard markiert werden — sie ist dann im Assistenten vorausgewählt.
+  </Step>
   <Step title="Entitätstyp wählen">
     **Kunden**, **Fahrzeuge**, **Lieferantenpreisliste** oder **Arbeitswerte** wählen und bei Bedarf die Vorlage für Spaltennamen herunterladen. Bei Fahrzeugen enthält die Vorlage die Spalte **Erstzulassung** (Datum wie `TT.MM.JJJJ` oder ISO-Tag).
   </Step>
@@ -30,8 +33,14 @@ Importe legen neue Zeilen an. Sie führen keine Duplikate per Kennzeichen oder E
   <Accordion title="Wer das nutzen darf">
     Nur OWNER und ADMIN. Berater können den Tab auch mit direkter URL nicht öffnen.
   </Accordion>
+  <Accordion title="Importquellen verwalten">
+    Jede Importquelle ist ein normalisierter Schlüssel (Kleinbuchstaben, Ziffern, Bindestriche, Unterstriche; max. 64 Zeichen pro Segment) mit einem Anzeigenamen. Kanonische Migrationsschlüssel behalten ihre Manifest-Form `source_name:source_company_code` (ein Doppelpunkt, jedes Segment max. 64 Zeichen). Der Assistent zeigt nur konfigurierte Quellen an — Tippfehler beim Import erzeugen keine Duplikate mehr. Eine Quelle kann als Standard gesetzt werden; sie ist dann im Assistenten vorausgewählt.
+  </Accordion>
   <Accordion title="Arbeitswerte importieren">
     Der Typ **Arbeitswerte** legt AW-Codes, Beschreibungen, AW-Zeiten, Stundensätze und optionale Verwendbarkeiten (Marke/Modell/Baujahr) an. Kategorienamen werden beim Import zugeordnet. Einzelne Vorgänge pflegen Sie danach nicht auf dem Tab [Arbeit](/settings/labor) — dort bleiben nur Kategorien und Sätze.
+  </Accordion>
+  <Accordion title="Verlauf und Fortsetzen">
+    Der Tab hat zwei Ansichten: **Import** (der Assistent) und **Verlauf**. Die Verlaufansicht listet alle Importjobs des Mandanten, neueste zuerst, mit Status, Entität, Quelle, Datei, Ergebnis, Benutzer und Datum. Ein Klick auf eine Zeile öffnet den Job im Assistenten und setzt ihn fort: ein fertiger Probelauf landet beim Probelauf-Bericht, ein laufender oder abgeschlossener Import beim Ergebnis. Ein laufender Import aktualisiert sich von selbst weiter; ein fehlgeschlagener Import zeigt den Grund und kann erneut angewendet werden. Ein Rechtsklick auf eine Zeile bietet **Öffnen** beziehungsweise **Fortsetzen**, **Abbrechen** (nur solange ein Hintergrund-Probelauf noch abbrechbar ist, nie während des eigentlichen Imports) und **Fehler-CSV herunterladen**.
   </Accordion>
   <Accordion title="Aufbewahrung alter Importzeilen">
     Detaillierte Zeilenpayloads aus abgeschlossenen Importjobs werden nach **180 Tagen** pro Mandant bereinigt. Job-Header, Status und External-IDs bleiben für die Nachverfolgung erhalten. Der nächtliche Lauf `import-job-row-purge` ist in [Geplante Core-API-Jobs](/operations/core-api-scheduled-jobs) beschrieben.

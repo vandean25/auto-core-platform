@@ -270,12 +270,12 @@ describe("RealtimeDashboardSyncProvider", () => {
     );
   });
 
-  it("refreshes claims and invalidates active queries when auth claims change", async () => {
+  it("refreshes claims and resets every cached query when auth claims change", async () => {
     const queryClient = createQueryClient();
-    const removeQueries = vi.spyOn(queryClient, "removeQueries");
-    const invalidateQueries = vi
-      .spyOn(queryClient, "invalidateQueries")
-      .mockResolvedValue(undefined);
+    queryClient.setQueryData(authSessionKeys.user("user-1"), { activeTenant: "tenant-a" });
+    queryClient.setQueryData(["customers", "list"], [{ id: "customer-1" }]);
+    const cancelQueries = vi.spyOn(queryClient, "cancelQueries");
+    const clear = vi.spyOn(queryClient, "clear");
 
     render(<div />, { wrapper: createWrapper(queryClient) });
 
@@ -305,18 +305,14 @@ describe("RealtimeDashboardSyncProvider", () => {
 
     await waitFor(() => {
       expect(mocks.currentUser.getIdToken).toHaveBeenCalledWith(true);
-      expect(removeQueries).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "inactive",
-          predicate: expect.any(Function),
-        }),
-      );
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: authSessionKeys.all,
-        refetchType: "active",
-      });
-      expect(invalidateQueries).toHaveBeenCalledWith({ refetchType: "active" });
+      expect(clear).toHaveBeenCalledTimes(1);
     });
+
+    expect(cancelQueries).toHaveBeenCalled();
+    expect(cancelQueries.mock.invocationCallOrder[0]).toBeLessThan(
+      clear.mock.invocationCallOrder[0],
+    );
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
   it("invalidates transfer queries when a stock transfer event arrives", async () => {
@@ -776,11 +772,12 @@ describe("RealtimeDashboardSyncProvider", () => {
 
   // ─── site:context_updated / site:access_scope_updated ──────────────────────
 
-  it("refetches the session and drops site-scoped queries on site context update", async () => {
+  it("resets every cached query, not only the old site-scoped families, on site context update", async () => {
     const queryClient = createQueryClient();
-    const invalidateQueries = vi
-      .spyOn(queryClient, "invalidateQueries")
-      .mockResolvedValue(undefined);
+    queryClient.setQueryData(authSessionKeys.user("user-1"), { activeSiteId: "site-1" });
+    queryClient.setQueryData(["customers", "list"], [{ id: "customer-1" }]);
+    const cancelQueries = vi.spyOn(queryClient, "cancelQueries");
+    const clear = vi.spyOn(queryClient, "clear");
 
     render(<div />, { wrapper: createWrapper(queryClient) });
 
@@ -805,23 +802,14 @@ describe("RealtimeDashboardSyncProvider", () => {
     });
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: authSessionKeys.all,
-        refetchType: "active",
-      });
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: siteKeys.me(),
-        refetchType: "active",
-      });
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: workshopKeys.all,
-        refetchType: "active",
-      });
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: vehicleStockKeys.all,
-        refetchType: "active",
-      });
+      expect(clear).toHaveBeenCalledTimes(1);
     });
+
+    expect(cancelQueries).toHaveBeenCalled();
+    expect(cancelQueries.mock.invocationCallOrder[0]).toBeLessThan(
+      clear.mock.invocationCallOrder[0],
+    );
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
   describe("site context update and the tab that caused it", () => {
@@ -842,12 +830,11 @@ describe("RealtimeDashboardSyncProvider", () => {
       clearLocalSiteSwitch();
     });
 
-    it("refetches site-owned data in another tab even when its cached session already shows the new site", async () => {
+    it("resets the cache in another tab even when its cached session already shows the new site", async () => {
       const queryClient = createQueryClient();
       queryClient.setQueryData(authSessionKeys.user("user-1"), { activeSiteId: "site-2" });
-      const invalidateQueries = vi
-        .spyOn(queryClient, "invalidateQueries")
-        .mockResolvedValue(undefined);
+      queryClient.setQueryData(workshopKeys.all, [{ id: "order-1" }]);
+      const clear = vi.spyOn(queryClient, "clear");
       const siteContextHandler = await mountAndGetHandler(queryClient);
 
       await act(async () => {
@@ -855,19 +842,16 @@ describe("RealtimeDashboardSyncProvider", () => {
       });
 
       await waitFor(() => {
-        expect(invalidateQueries).toHaveBeenCalledWith({
-          queryKey: workshopKeys.all,
-          refetchType: "active",
-        });
+        expect(clear).toHaveBeenCalledTimes(1);
       });
+      expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
     });
 
-    it("refetches site-owned data in another tab when the site is cleared and the session already shows no site", async () => {
+    it("resets the cache in another tab when the site is cleared and the session already shows no site", async () => {
       const queryClient = createQueryClient();
       queryClient.setQueryData(authSessionKeys.user("user-1"), { activeSiteId: null });
-      const invalidateQueries = vi
-        .spyOn(queryClient, "invalidateQueries")
-        .mockResolvedValue(undefined);
+      queryClient.setQueryData(inventoryKeys.all, [{ id: "part-1" }]);
+      const clear = vi.spyOn(queryClient, "clear");
       const siteContextHandler = await mountAndGetHandler(queryClient);
 
       await act(async () => {
@@ -875,35 +859,28 @@ describe("RealtimeDashboardSyncProvider", () => {
       });
 
       await waitFor(() => {
-        expect(invalidateQueries).toHaveBeenCalledWith({
-          queryKey: inventoryKeys.all,
-          refetchType: "active",
-        });
+        expect(clear).toHaveBeenCalledTimes(1);
       });
+      expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
     });
 
     it("skips only the event that answers this tab's own switch", async () => {
       const queryClient = createQueryClient();
-      const invalidateQueries = vi
-        .spyOn(queryClient, "invalidateQueries")
-        .mockResolvedValue(undefined);
+      const clear = vi.spyOn(queryClient, "clear");
       const siteContextHandler = await mountAndGetHandler(queryClient);
 
       markLocalSiteSwitch("site-1");
       await act(async () => {
         siteContextHandler({ siteId: "site-1", timestamp: "2026-10-28T10:00:00.000Z" });
       });
-      expect(invalidateQueries).not.toHaveBeenCalled();
+      expect(clear).not.toHaveBeenCalled();
 
       // The same event again (another window switched to the same site) is not this tab's own switch.
       await act(async () => {
         siteContextHandler({ siteId: "site-1", timestamp: "2026-10-28T10:00:01.000Z" });
       });
       await waitFor(() => {
-        expect(invalidateQueries).toHaveBeenCalledWith({
-          queryKey: workshopKeys.all,
-          refetchType: "active",
-        });
+        expect(clear).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -945,9 +922,7 @@ describe("RealtimeDashboardSyncProvider", () => {
 
   it("ignores malformed site context payloads", async () => {
     const queryClient = createQueryClient();
-    const invalidateQueries = vi
-      .spyOn(queryClient, "invalidateQueries")
-      .mockResolvedValue(undefined);
+    const clear = vi.spyOn(queryClient, "clear");
 
     render(<div />, { wrapper: createWrapper(queryClient) });
 
@@ -967,6 +942,6 @@ describe("RealtimeDashboardSyncProvider", () => {
       siteContextHandler?.({});
     });
 
-    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(clear).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,10 @@ import { fetchWithAuth } from './client'
 export type ImportEntityType =
   | components['schemas']['ImportEntityType']
   | 'SUPPLIER_PRICE_LIST'
+export type ImportJobStatus = components['schemas']['ImportJobStatus']
 export type ImportJob = components['schemas']['ImportJobResponseDto']
+export type ImportJobListItem = components['schemas']['ImportJobListItemDto']
+export type ImportJobListMeta = components['schemas']['ImportJobListMetaDto']
 export type ImportJobRow = components['schemas']['ImportJobRowDto']
 export type ImportTemplate = components['schemas']['ImportTemplateResponseDto']
 export type ImportMappingProfile = components['schemas']['ImportMappingProfileResponseDto']
@@ -37,8 +40,25 @@ export type ImportWizardOptions = {
 
 export const IMPORT_ROWS_PAGE_LIMIT = 200
 
+export const IMPORT_JOBS_PAGE_LIMIT = 20
+
+export type ImportJobListFilters = {
+  page?: number
+  limit?: number
+  status?: ImportJobStatus
+  entityType?: ImportEntityType
+  source?: string
+}
+
+export type ImportJobListResult = {
+  data: ImportJobListItem[]
+  meta: ImportJobListMeta
+}
+
 export const importKeys = {
   all: ['imports'] as const,
+  jobs: (params?: Record<string, string | undefined>) =>
+    [...importKeys.all, 'jobs', params] as const,
   entityTypes: () => [...importKeys.all, 'entity-types'] as const,
   template: (entityType: ImportEntityType) =>
     [...importKeys.all, 'template', entityType] as const,
@@ -47,6 +67,31 @@ export const importKeys = {
     [...importKeys.all, 'rows', id, params] as const,
   profiles: (entityType: ImportEntityType, sourceSystem: string) =>
     [...importKeys.all, 'profiles', entityType, sourceSystem] as const,
+  sources: () => [...importKeys.all, 'sources'] as const,
+}
+
+export type ImportSource = {
+  id: string
+  key: string
+  label: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type ImportSourceListResponse = {
+  data: ImportSource[]
+}
+
+export type CreateImportSourcePayload = {
+  key: string
+  label: string
+  is_default?: boolean
+}
+
+export type UpdateImportSourcePayload = {
+  label?: string
+  is_default?: boolean
 }
 
 async function readErrorPayload(response: Response): Promise<{
@@ -143,6 +188,36 @@ async function assertApplyAccepted(response: Response): Promise<void> {
   if (response.ok) return
   const payload = await readErrorPayload(response)
   throw new Error(payload?.message ?? 'Failed to apply import')
+}
+
+function toImportQueryString(params: Record<string, string | undefined>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value) search.set(key, value)
+  }
+  return search.toString()
+}
+
+export function useImportJobs(filters: ImportJobListFilters = {}) {
+  const page = filters.page ?? 1
+  const limit = filters.limit ?? IMPORT_JOBS_PAGE_LIMIT
+  const params: Record<string, string | undefined> = {
+    page: String(page),
+    limit: String(limit),
+    status: filters.status,
+    entityType: filters.entityType,
+    source: filters.source?.trim() || undefined,
+  }
+  return useQuery({
+    queryKey: importKeys.jobs(params),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`/api/imports?${toImportQueryString(params)}`)
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to load import history'))
+      }
+      return response.json() as Promise<ImportJobListResult>
+    },
+  })
 }
 
 export function useImportEntityTypes() {
@@ -274,11 +349,7 @@ export function useImportJobRows(
     queryKey: importKeys.rows(jobId ?? 'none', params),
     enabled: Boolean(jobId),
     queryFn: async () => {
-      const search = new URLSearchParams()
-      for (const [key, value] of Object.entries(params)) {
-        if (value) search.set(key, value)
-      }
-      const response = await fetchWithAuth(`/api/imports/${jobId}/rows?${search}`)
+      const response = await fetchWithAuth(`/api/imports/${jobId}/rows?${toImportQueryString(params)}`)
       if (!response.ok) {
         throw new Error(await readErrorMessage(response, 'Failed to load import rows'))
       }
@@ -312,6 +383,7 @@ export function useCancelImportJob() {
     },
     onSuccess: (job) => {
       void queryClient.invalidateQueries({ queryKey: importKeys.job(job.id) })
+      void queryClient.invalidateQueries({ queryKey: importKeys.all })
     },
   })
 }
@@ -353,4 +425,87 @@ export async function downloadImportErrorRowsCsv(jobId: string, language?: strin
     throw new Error(await readErrorMessage(response, 'Failed to download error rows'))
   }
   return response.blob()
+}
+
+export function useImportSources() {
+  return useQuery({
+    queryKey: importKeys.sources(),
+    queryFn: async (): Promise<ImportSourceListResponse> => {
+      const response = await fetchWithAuth('/api/imports/sources')
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to load import sources'))
+      }
+      return response.json() as Promise<ImportSourceListResponse>
+    },
+  })
+}
+
+export function useCreateImportSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: CreateImportSourcePayload): Promise<ImportSource> => {
+      const response = await fetchWithAuth('/api/imports/sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to create import source'))
+      }
+      return response.json() as Promise<ImportSource>
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
+    },
+  })
+}
+
+export function useUpdateImportSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: {
+      id: string
+      payload: UpdateImportSourcePayload
+    }): Promise<ImportSource> => {
+      const response = await fetchWithAuth(`/api/imports/sources/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params.payload),
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to update import source'))
+      }
+      return response.json() as Promise<ImportSource>
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
+    },
+  })
+}
+
+export function useDeleteImportSource() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const response = await fetchWithAuth(`/api/imports/sources/${id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to delete import source'))
+      }
+    },
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<ImportSourceListResponse | undefined>(
+        importKeys.sources(),
+        (current) => {
+          if (!current) return current
+          return {
+            ...current,
+            data: current.data.filter((source) => source.id !== id),
+          }
+        },
+      )
+      void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
+    },
+  })
 }

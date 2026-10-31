@@ -26,16 +26,22 @@ function fileWithSize(name: string, size: number): File {
   return file
 }
 
-function actionParams(file: File, onDryRunJob: (job: ImportJob) => void) {
+function actionParams(
+  file: File,
+  onDryRunJob: (job: ImportJob) => void,
+  overrides: { sourceSystem?: string; configuredSources?: string[] } = {},
+) {
   return {
     entityType: 'CUSTOMER' as const,
     sourceSystem: 'legacy',
+    configuredSources: ['legacy'],
     mapping: {},
     options: { ...DEFAULT_IMPORT_OPTIONS },
     file,
     configuredThreshold: 0,
     missingRequired: [],
     onDryRunJob,
+    ...overrides,
   }
 }
 
@@ -90,5 +96,70 @@ describe('useImportDryRunAction', () => {
       expect.objectContaining({ file, entityType: 'CUSTOMER', sourceSystem: 'legacy' }),
     )
     expect(onDryRunJob).toHaveBeenCalledWith(dryRunJob)
+  })
+
+  it('ignores a result that resolves after the source was changed', async () => {
+    let resolveJob: (job: ImportJob) => void = () => {}
+    mutateAsync.mockImplementation(
+      () =>
+        new Promise<ImportJob>((resolve) => {
+          resolveJob = resolve
+        }),
+    )
+    const onDryRunJob = vi.fn()
+    const file = fileWithSize('small.csv', 10)
+    const { result, rerender } = renderHook(
+      (props: { sourceSystem: string }) =>
+        useImportDryRunAction(
+          actionParams(file, onDryRunJob, {
+            sourceSystem: props.sourceSystem,
+            configuredSources: ['legacy', 'incadea'],
+          }),
+        ),
+      { initialProps: { sourceSystem: 'legacy' } },
+    )
+
+    let pending!: Promise<void>
+    act(() => {
+      pending = result.current.runDryRun()
+    })
+    rerender({ sourceSystem: 'incadea' })
+    await act(async () => {
+      resolveJob(dryRunJob)
+      await pending
+    })
+
+    expect(onDryRunJob).not.toHaveBeenCalled()
+  })
+
+  it('ignores a result that resolves after the source was removed', async () => {
+    let resolveJob: (job: ImportJob) => void = () => {}
+    mutateAsync.mockImplementation(
+      () =>
+        new Promise<ImportJob>((resolve) => {
+          resolveJob = resolve
+        }),
+    )
+    const onDryRunJob = vi.fn()
+    const file = fileWithSize('small.csv', 10)
+    const { result, rerender } = renderHook(
+      (props: { configuredSources: string[] }) =>
+        useImportDryRunAction(
+          actionParams(file, onDryRunJob, { configuredSources: props.configuredSources }),
+        ),
+      { initialProps: { configuredSources: ['legacy'] } },
+    )
+
+    let pending!: Promise<void>
+    act(() => {
+      pending = result.current.runDryRun()
+    })
+    rerender({ configuredSources: [] })
+    await act(async () => {
+      resolveJob(dryRunJob)
+      await pending
+    })
+
+    expect(onDryRunJob).not.toHaveBeenCalled()
   })
 })

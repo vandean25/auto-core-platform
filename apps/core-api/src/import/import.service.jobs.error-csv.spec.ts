@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import { ImportEntityType, ImportRowAction } from '@prisma/client';
+import { ImportEntityType, ImportJobStatus, ImportRowAction } from '@prisma/client';
 import { parseCsvFile } from './csv-parse.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import {
@@ -60,6 +60,33 @@ describe('ImportService streamed error CSV', () => {
       .mockResolvedValueOnce([errorRow])
       .mockResolvedValue([]);
   }
+
+  it('streams error rows for a FAILED job whose non-error rows were purged', async () => {
+    h.prisma.importJob.findFirst.mockResolvedValue(
+      importJobRecord({
+        status: ImportJobStatus.FAILED,
+        mapping_json: mapping,
+        options_json: {
+          upload: {
+            object_key: 'tenant-1/job-1/source.csv',
+            headers: ['Source ID', 'Given name', 'Family name', 'Unused'],
+          },
+        },
+      }),
+    );
+    h.fileStorage.openReadStream.mockImplementation(() =>
+      Readable.from([Buffer.from(source)]),
+    );
+    h.prisma.importJobRow.findMany
+      .mockResolvedValueOnce([errorRow])
+      .mockResolvedValue([]);
+
+    const report = await h.service.downloadErrorRowsCsv(JOB_ID);
+    const csv = await consumeCsv(report);
+    const parsed = parseCsvFile(Buffer.from(csv));
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0][0]).toBe('2');
+  });
 
   it('streams original values including unmapped columns rather than normalized payloads', async () => {
     arrangeSource();

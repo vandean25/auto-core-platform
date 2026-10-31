@@ -66,6 +66,36 @@ describe('Legacy CSV import (e2e)', () => {
     tenantB = await createTestTenant(prisma, 'import-b');
     authHeaderA = `Bearer ${createTestAuthToken(authService, tenantA)}`;
     authHeaderB = `Bearer ${createTestAuthToken(authService, tenantB)}`;
+
+    // createTestTenant seeds the default legacy-dms source; add the extras
+    // these tests import with.
+    const sourceKeys = [
+      'legacy-dms-veh',
+      'legacy-dms-veh2',
+      'legacy-dms-slow',
+      'incadea',
+      'synthetic_dms:bg',
+      'dup-test',
+    ];
+    const tenantPrismaA = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    for (const key of sourceKeys) {
+      await tenantPrismaA.importSource.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          key,
+          label: key,
+        },
+      });
+    }
+
+    const tenantPrismaB = createTenantAwarePrisma(prisma, tenantB.tenantId);
+    await tenantPrismaB.importSource.create({
+      data: {
+        tenant_id: tenantB.tenantId,
+        key: 'incadea',
+        label: 'incadea',
+      },
+    });
   });
 
   afterAll(async () => {

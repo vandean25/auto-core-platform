@@ -21,10 +21,16 @@ export const ENTITY_ACTION_IDS = {
   workOrderOpen: 'workOrder.open',
   workOrderCheckIn: 'workOrder.checkIn',
   workOrderJobCardPdf: 'workOrder.jobCardPdf',
+  workOrderRecordTyreMeasurement: 'workOrder.recordTyreMeasurement',
   workOrderAssignMechanic: 'workOrder.assignMechanic',
   workOrderTaskState: 'workOrder.taskState',
   vehicleOpen: 'vehicle.open',
   estimateOpen: 'estimate.open',
+  tyreSetRecordTyreMeasurement: 'tyreSet.recordTyreMeasurement',
+  importJobResume: 'importJob.resume',
+  importJobOpen: 'importJob.open',
+  importJobDownloadErrors: 'importJob.downloadErrors',
+  importJobCancel: 'importJob.cancel',
 } as const
 
 export const REGISTERED_ENTITY_ACTION_IDS: readonly string[] = Object.values(ENTITY_ACTION_IDS)

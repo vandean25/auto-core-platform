@@ -5,9 +5,11 @@ import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 import * as searchHook from '@/hooks/useGlobalSearch'
 import * as authSession from '@/api/auth-session'
+import { useWorkshopOrder } from '@/api/workshop'
 import { recentItemsKey, readRecentItems } from './global-search/global-search-recent'
 
 const mockNavigate = vi.fn()
+const authClaims = vi.hoisted(() => ({ role: 'ADMIN' }))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return { ...actual, useNavigate: () => mockNavigate }
@@ -19,13 +21,13 @@ vi.mock('@/api/sites', () => ({
   useMySites: () => ({ data: [{ id: 'site-1', code: 'W', name: 'Wien', legalEntityId: 'le-1' }] }),
 }))
 vi.mock('@/auth/AuthProvider', () => ({
-  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+  useAuth: () => ({ claims: authClaims }),
 }))
 vi.mock('@/api/workshop', async () => {
   const actual = await vi.importActual<typeof import('@/api/workshop')>('@/api/workshop')
   return {
     ...actual,
-    useWorkshopOrder: () => ({ data: undefined, isLoading: false }),
+    useWorkshopOrder: vi.fn(() => ({ data: undefined, isLoading: false })),
     useGenerateWorkshopPdf: () => ({ mutateAsync: vi.fn() }),
     useAssignBoard: () => ({ mutateAsync: vi.fn() }),
     useUpdateWorkshopTask: () => ({ mutateAsync: vi.fn() }),
@@ -42,6 +44,9 @@ vi.mock('@/api/vehicles', async () => {
 })
 vi.mock('@/api/workshop-estimates', () => ({
   useWorkshopEstimateVersion: () => ({ data: undefined, isLoading: false }),
+}))
+vi.mock('@/api/tyre-storage', () => ({
+  useTyreSet: () => ({ data: undefined, isLoading: false }),
 }))
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => vi.fn(),
@@ -93,6 +98,7 @@ describe('GlobalSearch', () => {
     await ensureNamespaceLoaded('settings')
     vi.clearAllMocks()
     window.localStorage.clear()
+    authClaims.role = 'ADMIN'
     mockSession()
     mockSearch()
   })
@@ -105,6 +111,26 @@ describe('GlobalSearch', () => {
     expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeInTheDocument()
     expect(screen.getByText('Jump to a part, customer, vehicle, job, or command.')).toBeInTheDocument()
   })
+
+  it.each(['TECH', 'ADMIN'])(
+    'offers only tyre measurement context to a TECH session with %s claims without loading the office order',
+    (claimsRole) => {
+      mockSession('TECH')
+      authClaims.role = claimsRole
+      render(
+        <MemoryRouter initialEntries={['/workshop/orders/order-1']}>
+          <GlobalSearch open={true} onOpenChange={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      expect(useWorkshopOrder).toHaveBeenCalledWith('')
+      expect(vi.mocked(useWorkshopOrder).mock.calls.every(([id]) => id === '')).toBe(true)
+      expect(screen.getAllByRole('option')).toHaveLength(1)
+      fireEvent.click(screen.getByText('Record tyre measurement'))
+      expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-1?action=recordTyreMeasurement')
+      expect(screen.queryByText('Print job card')).not.toBeInTheDocument()
+    },
+  )
 
   it('explains the prefix filters while the input is empty', () => {
     renderPalette()

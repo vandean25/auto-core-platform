@@ -99,6 +99,8 @@
     "GEWAEHRLEISTUNG_EXPIRED": "Gewährleistung abgelaufen",
     "AWAITING_REVIEW": "Wartet auf Prüfung",
     "APPLIED": "Angewendet",
+    "DRY_RUN_DONE": "Testlauf abgeschlossen",
+    "APPLYING": "Wird angewendet",
     "ABORTED": "Abgebrochen",
     "MOVED": "Umgelagert"
   },

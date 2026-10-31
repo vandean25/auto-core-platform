@@ -1,5 +1,6 @@
 import {
   BrowserRouter as Router,
+  matchPath,
   Navigate,
   Route,
   Routes,
@@ -13,6 +14,8 @@ import { resolveAuthBootstrapScreen } from '@/components/shell/auth-bootstrap-sc
 import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
 import { resolveAuthenticatedSessionGate } from '@/components/shell/authenticated-app-session-gate'
 import { ShellPurgePrompt, type CheckInOfflinePurgePrompt } from '@/components/shell/ShellPurgePrompt'
+import { ClientSessionLoadingScreen } from '@/components/shell/ClientSessionLoadingScreen'
+import { useUserChangeOfflinePurge } from '@/components/shell/use-user-change-purge-prompt'
 import { PushLinkGate, useShellPush, useSignOutRequest, useTenantSwitch } from '@/components/shell/use-shell-push'
 import { MechanicShell } from '@/components/shell/MechanicShell'
 import { shellSwitchSiteFailedMessage } from '@/lib/shell-session-toasts'
@@ -22,16 +25,19 @@ import { useMySites, useSetActiveSite, type MeSite } from '@/api/sites'
 import { Toaster } from '@/components/ui/sonner'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { useAuth } from '@/auth/AuthProvider'
+import { useClientSessionGeneration, useClientSessionResetting } from '@/auth/client-session-reset'
 import { isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
 import { AdminPhoneNav } from '@/components/navigation/AdminPhoneNav'
 import { IosInstallHint } from '@/components/pwa/IosInstallHint'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { useSidebarOpen } from '@/components/navigation/sidebar-state'
 import { GlobalSearch } from '@/components/GlobalSearch'
+import { useGlobalSearchShortcut } from '@/hooks/useGlobalSearchShortcut'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import { CheckInOfflinePurgeDialog } from '@/features/workshop/check-in/CheckInOfflinePurgeDialog'
 import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
 import { generateId } from '@/lib/id'
 import {
@@ -114,20 +120,8 @@ function AppShell({
   })
 
   const effectiveUserKey = userId ?? userEmail ?? `anon-${deviceId}`
-  const [searchOpen, setSearchOpen] = React.useState(false)
+  const [searchOpen, setSearchOpen] = useGlobalSearchShortcut()
   const [sidebarOpen, setSidebarOpen] = useSidebarOpen()
-
-  React.useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault()
-        setSearchOpen((open) => !open)
-      }
-    }
-
-    document.addEventListener('keydown', down)
-    return () => document.removeEventListener('keydown', down)
-  }, [])
 
   return (
     <SavedViewsProvider userKey={effectiveUserKey}>
@@ -216,7 +210,13 @@ export function ShellRouter(props: ShellRouterProps) {
     return <Navigate to={redirectTo} replace />
   }
 
-  if (props.activeRole === TECH_ROLE && !isMechanicPath(location.pathname)) {
+  const mechanicDetailPath = props.activeRole === TECH_ROLE && (
+    matchPath({ path: APP_ROUTE_PATHS.workshopOrderDetail, end: true }, location.pathname) !== null ||
+    matchPath({ path: APP_ROUTE_PATHS.tyreStorageDetail, end: true }, location.pathname) !== null
+  )
+  const mechanicRoute = isMechanicPath(location.pathname) || mechanicDetailPath
+
+  if (props.activeRole === TECH_ROLE && !mechanicRoute) {
     return (
       <MechanicShell
         activeTenant={props.activeTenant}
@@ -230,7 +230,7 @@ export function ShellRouter(props: ShellRouterProps) {
     )
   }
 
-  if (isMechanicPath(location.pathname)) {
+  if (mechanicRoute) {
     return (
       <MechanicShell
         activeTenant={props.activeTenant}
@@ -320,6 +320,11 @@ function AuthenticatedShell({
     switchSite: switchSiteMutation.mutateAsync,
   })
 
+  // While a tenant or site switch is in flight the records of the old context would still be on screen.
+  if (switchTenantMutation.isPending || switchSiteMutation.isPending) {
+    return <ClientSessionLoadingScreen />
+  }
+
   return (
     <>
       <PushLinkGate resolving={pushLink.resolving}>
@@ -404,9 +409,19 @@ function AuthenticatedApp() {
 }
 
 function App() {
+  const { user } = useAuth()
+  const clientSessionResetting = useClientSessionResetting()
+  const clientSessionGeneration = useClientSessionGeneration()
+  const userChangePurge = useUserChangeOfflinePurge(user?.uid ?? null)
+
   React.useEffect(() => {
     void ensureCustomerSearchI18n()
   }, [])
+
+  // No stale data from the previous user, tenant or site while the session is being reset.
+  if (clientSessionResetting) {
+    return <ClientSessionLoadingScreen />
+  }
 
   return (
     <Router>
@@ -414,8 +429,19 @@ function App() {
       <Routes>
         <Route path={LOGIN_PATH} element={<LoginRoute />} />
         <Route path={LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH} element={<LoginRoute />} />
-        <Route path="*" element={<AuthenticatedApp />} />
+        {/* Remounting on a new generation refetches every page for the new session instead of reusing old data. */}
+        <Route path="*" element={<AuthenticatedApp key={clientSessionGeneration} />} />
       </Routes>
+      {userChangePurge.summary && (
+        <CheckInOfflinePurgeDialog
+          open
+          summary={userChangePurge.summary}
+          onCancel={userChangePurge.dismiss}
+          onConfirm={() => {
+            void userChangePurge.discard()
+          }}
+        />
+      )}
     </Router>
   )
 }

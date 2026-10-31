@@ -188,6 +188,7 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'import_mapping_profiles',
     clean: (p) => p.importMappingProfile.deleteMany(),
   },
+  { table: 'import_sources', clean: (p) => p.importSource.deleteMany() },
   {
     table: 'inspection_catalogue_entries',
     clean: (p) => p.inspectionCatalogueEntry.deleteMany(),

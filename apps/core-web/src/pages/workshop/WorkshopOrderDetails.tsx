@@ -6,6 +6,7 @@ import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBann
 import { InvoiceOverrunWarning } from "@/components/workshop/InvoiceOverrunWarning";
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import { WorkshopOrderMeasurementsSection } from "@/components/workshop/WorkshopOrderMeasurementsSection";
+import { TyreMeasurementSection } from "@/features/tyre-report/TyreMeasurementSection";
 import { useWorkshopOrder } from "@/api/workshop";
 import type { WorkshopOrder } from "@/api/types";
 import {
@@ -89,6 +90,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />
         <TyreSetsSummary vehicleId={order.vehicle.id} readOnly as="h2" />
+        <TyreMeasurementSection parent={{ kind: 'order', id: order.id }} orderId={order.id} />
         <div className="min-w-0">
           <WorkshopOrderMeasurementsSection orderId={order.id} />
         </div>

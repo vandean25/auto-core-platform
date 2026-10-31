@@ -127,6 +127,7 @@ describe('classifyImportApplyError', () => {
         code: 'P2025',
         clientVersion: 'test',
       }),
+      new NotFoundException('Record not found'),
       driverAdapterUniqueViolation(),
       Object.assign(new Error('fk'), {
         name: 'DriverAdapterError',

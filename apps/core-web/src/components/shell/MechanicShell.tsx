@@ -4,6 +4,7 @@ import type { AuthSessionTenant } from '@/api/auth-session'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
 import { GlobalSearch } from '@/components/GlobalSearch'
+import { useGlobalSearchShortcut } from '@/hooks/useGlobalSearchShortcut'
 import { MechanicPhoneNav } from '@/components/navigation/MechanicPhoneNav'
 import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 import { IosInstallHint } from '@/components/pwa/IosInstallHint'
@@ -20,7 +21,7 @@ export type MechanicShellProps = {
 
 export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: MechanicShellProps) {
   const { t } = useTranslation('common')
-  const [searchOpen, setSearchOpen] = React.useState(false)
+  const [searchOpen, setSearchOpen] = useGlobalSearchShortcut()
 
   React.useEffect(() => {
     window.localStorage.removeItem(LEGACY_MECHANIC_ID_KEY)

@@ -1,17 +1,14 @@
 import * as React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { QueryKey } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
-import { authSessionKeys } from '@/api/auth-session'
 import { consumeLocalSiteSwitch } from '@/api/local-site-switch'
 import { siteKeys } from '@/api/sites'
 import { stockTransferKeys } from '@/api/stock-transfers'
 import { inventoryKeys } from '@/api/inventory'
-import { vehicleStockKeys } from '@/api/vehicle-stock'
-import { workshopKeys } from '@/api/workshop'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
+import { resetClientSession } from '@/auth/client-session-reset'
 import { getQueryKeysToInvalidateForEntityType, getRealtimeInvalidationWindowMs, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { createRealtimeResync } from '@/features/realtime/realtime-resync'
@@ -29,18 +26,6 @@ import {
 } from '@/features/realtime/types'
 import { firebaseAuth } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
-
-/**
- * Site-owned operational data. Invalidated on `site:context_updated` so all
- * tabs refetch after a switch (ruling 37 / UX Compliance). Tenant-wide queries
- * (catalog/customers/vendors/employees/hr/auth-session) are left alone.
- */
-const SITE_SCOPED_QUERY_KEYS: QueryKey[] = [
-  workshopKeys.all,
-  vehicleStockKeys.all,
-  inventoryKeys.all,
-  stockTransferKeys.all,
-]
 
 type RealtimeConnection = {
   url: string
@@ -185,7 +170,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       })
     }
 
-    // onClaimsUpdated and onSiteContextUpdated skip the echo filter: they switch the user's context, so all cached data is stale at once.
+    // onClaimsUpdated and onSiteContextUpdated skip the echo filter: they switch the user's context, so all cached
+    // data is stale at once. Both reset through the same cancel + clear + loading path as an in-tab switch.
     const onClaimsUpdated = (payload: unknown) => {
       if (!isClaimsUpdatedPayload(payload)) return
 
@@ -194,17 +180,10 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
         if (!currentUser) return
 
         try {
+          // Refresh the token before any refetch so every request carries the new claims.
           const refreshedToken = await currentUser.getIdToken(true)
           setToken(refreshedToken)
-          queryClient.removeQueries({
-            type: 'inactive',
-            predicate: (query) => query.queryKey[0] !== authSessionKeys.all[0],
-          })
-          await queryClient.invalidateQueries({
-            queryKey: authSessionKeys.all,
-            refetchType: 'active',
-          })
-          await queryClient.invalidateQueries({ refetchType: 'active' })
+          await resetClientSession(queryClient, 'context')
         } catch (error) {
           console.error('Failed to refresh claims after realtime auth update event.', error)
           await signOutUser()
@@ -218,26 +197,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       // already shows the new site (a null site included).
       if (consumeLocalSiteSwitch(payload.siteId)) return
 
-      void (async () => {
-        // The initiating tab is not special: refetch the session so the
-        // active site (and the switcher) reflect the new site on every tab.
-        await queryClient.invalidateQueries({
-          queryKey: authSessionKeys.all,
-          refetchType: 'active',
-        })
-        await queryClient.invalidateQueries({
-          queryKey: siteKeys.me(),
-          refetchType: 'active',
-        })
-        // Drop cached site-owned operational data so the new site's planner,
-        // stock, and workshop data is refetched. Tenant-wide queries stay.
-        for (const queryKey of SITE_SCOPED_QUERY_KEYS) {
-          await queryClient.invalidateQueries({
-            queryKey,
-            refetchType: 'active',
-          })
-        }
-      })()
+      // Another tab switched the site: every cached query may belong to the site being left.
+      void resetClientSession(queryClient, 'context')
     }
 
     const onSiteAccessScopeUpdated = (payload: unknown) => {

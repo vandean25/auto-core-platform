@@ -747,6 +747,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_INVALID_SOURCE_KEY": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_INVALID_STANDARD_AW": {
       "public": true,
       "params": []
@@ -755,7 +759,15 @@
       "public": true,
       "params": []
     },
+    "IMPORT_JOB_EXPIRED": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_JOB_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_JOB_PURGED": {
       "public": true,
       "params": []
     },
@@ -819,6 +831,14 @@
       "public": true,
       "params": []
     },
+    "IMPORT_SOURCE_ALREADY_EXISTS": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_SOURCE_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_STORAGE_UNAVAILABLE": {
       "public": true,
       "params": []
@@ -836,6 +856,10 @@
       "params": []
     },
     "IMPORT_UNKNOWN_OWNER": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_UNKNOWN_SOURCE": {
       "public": true,
       "params": []
     },
@@ -1532,52 +1556,64 @@
       "params": []
     },
     "TYRE_DOT_FUTURE_DATE": {
-      "public": false,
-      "params": []
+      "public": true,
+      "params": [
+        "position"
+      ]
     },
     "TYRE_DOT_INVALID_FORMAT": {
-      "public": false,
-      "params": []
+      "public": true,
+      "params": [
+        "position"
+      ]
     },
     "TYRE_DOT_INVALID_WEEK": {
-      "public": false,
-      "params": []
+      "public": true,
+      "params": [
+        "position"
+      ]
     },
     "TYRE_EVALUATION_DATE_INVALID": {
-      "public": false,
-      "params": []
+      "public": true,
+      "params": [
+        "position"
+      ]
     },
     "TYRE_MEASUREMENT_EVENT_INVALID": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "TYRE_MEASUREMENT_MEDIA_INVALID": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "TYRE_MEASUREMENT_NOT_FOUND": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "TYRE_MEASUREMENT_ORDER_MISMATCH": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "TYRE_MEASUREMENT_PARENT_NOT_FOUND": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "TYRE_MEASUREMENT_VEHICLE_REQUIRED": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "TYRE_THRESHOLDS_INVALID": {
-      "public": false,
-      "params": []
+      "public": true,
+      "params": [
+        "position"
+      ]
     },
     "TYRE_TREAD_INVALID": {
-      "public": false,
-      "params": []
+      "public": true,
+      "params": [
+        "position"
+      ]
     },
     "UNEXPECTED_ERROR": {
       "public": false,

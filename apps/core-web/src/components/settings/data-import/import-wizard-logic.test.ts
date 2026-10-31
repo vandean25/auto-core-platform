@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 import type { ImportJob } from '@/api/imports'
 import {
   canApplyImport,
+  isDryRunExpired,
+  isJobRowsPurged,
   importRowQueryFromFilter,
   isDryRunStale,
 } from './import-wizard-logic'
@@ -127,6 +129,72 @@ describe('import wizard logic', () => {
         isApplying: false,
       }),
     ).toBe(true)
+  })
+
+  it('allows retrying a failed apply even when the dry run looks stale', () => {
+    expect(
+      canApplyImport({
+        dryRunJob: mockJob({ status: 'FAILED' }),
+        dryRunStale: true,
+        errorThreshold: 0,
+        isApplying: false,
+      }),
+    ).toBe(true)
+
+    expect(
+      canApplyImport({
+        dryRunJob: mockJob({ status: 'FAILED' }),
+        dryRunStale: false,
+        errorThreshold: 0,
+        isApplying: true,
+      }),
+    ).toBe(false)
+  })
+
+  it('detects expired dry-run jobs and blocks apply', () => {
+    const expiredJob = mockJob({
+      status: 'CANCELLED',
+      options: { cancel_reason: 'expired' },
+    })
+    const userCancelledJob = mockJob({
+      status: 'CANCELLED',
+      options: {},
+    })
+
+    expect(isDryRunExpired(expiredJob)).toBe(true)
+    expect(isDryRunExpired(userCancelledJob)).toBe(false)
+    expect(isDryRunExpired(mockJob({ status: 'DRY_RUN_DONE' }))).toBe(false)
+    expect(isDryRunExpired(null)).toBe(false)
+
+    expect(
+      canApplyImport({
+        dryRunJob: expiredJob,
+        dryRunStale: false,
+        errorThreshold: 10,
+        isApplying: false,
+      }),
+    ).toBe(false)
+  })
+
+  it('detects purged jobs and distinguishes from expired dry-run jobs', () => {
+    const purgedFailedJob = mockJob({
+      status: 'FAILED',
+      options: { rows_purged: true },
+    })
+
+    expect(isJobRowsPurged(purgedFailedJob)).toBe(true)
+    expect(isDryRunExpired(purgedFailedJob)).toBe(false)
+    expect(isJobRowsPurged(mockJob({ status: 'DRY_RUN_DONE' }))).toBe(false)
+    expect(isJobRowsPurged(null)).toBe(false)
+
+    expect(
+      canApplyImport({
+        dryRunJob: purgedFailedJob,
+        dryRunStale: false,
+        errorThreshold: 10,
+        isApplying: false,
+      }),
+    ).toBe(false)
   })
 
   it('maps row filter to server query params', () => {

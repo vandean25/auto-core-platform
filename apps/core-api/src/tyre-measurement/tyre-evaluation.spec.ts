@@ -127,6 +127,37 @@ describe('evaluateTyreWheel', () => {
       { status: 'GOOD', reasonCodes: ['DOT_CONDITION_CHECK_RECOMMENDED'] },
     );
   });
+  it.each([
+    ['AT', 'SUMMER', 120],
+    ['AT', 'WINTER', 96],
+    ['AT', 'ALL_SEASON', 96],
+    ['DE', 'SUMMER', 120],
+    ['DE', 'WINTER', 96],
+    ['DE', 'ALL_SEASON', 96],
+  ] as const)(
+    'includes DOT recommendation thresholds for %s %s even without a DOT',
+    (country, season, replacementFromMonths) => {
+      expect(
+        evaluateTyreWheel({ ...wheel, season }, { ...context, country }),
+      ).toMatchObject({
+        ageRecommendations: {
+          conditionCheckFromMonths: 72,
+          replacementFromMonths,
+        },
+      });
+    },
+  );
+  it.each(['SUMMER', 'WINTER', 'ALL_SEASON'] as const)(
+    'does not infer DOT recommendation thresholds for unsupported %s evaluations',
+    (season) => {
+      expect(
+        evaluateTyreWheel(
+          { ...wheel, season, dot: '239' },
+          { ...context, country: 'ES' },
+        ),
+      ).not.toHaveProperty('ageRecommendations');
+    },
+  );
   it('never turns red from legacy age alone', () => {
     expect(evaluateTyreWheel({ ...wheel, dot: '239' }, context)).toMatchObject({
       status: 'RECOMMENDED',

@@ -40,7 +40,10 @@ export function captureTyreWheel(
       error instanceof Error &&
       Object.hasOwn(CAPTURE_ERRORS, error.message)
     ) {
-      throw new BadRequestException(CAPTURE_ERRORS[error.message]);
+      throw new BadRequestException({
+        ...CAPTURE_ERRORS[error.message],
+        position: wheel.position,
+      });
     }
     throw error;
   }

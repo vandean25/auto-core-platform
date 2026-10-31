@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -29,15 +31,18 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { ImportRowAction } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import { ImportService } from './import.service.js';
 import { ImportDirectUploadService } from './import-direct-upload.service.js';
 import { parseImportEntityType } from './import-entity-type.guard.js';
 import { IMPLEMENTED_IMPORT_ENTITY_TYPES } from './import-entity-type.registry.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { importUploadMulterOptions } from './import-multer.storage.js';
+import { getImportStagingKey } from './import-staging-path.js';
+import { unlinkImportMulterStagingFile } from './import-upload.util.js';
 import { ImportUploadInterceptor } from './import-upload.interceptor.js';
 import { ImportJobResponseDto } from './dto/import-job-response.dto.js';
+import { ImportJobListResponseDto } from './dto/import-job-list-response.dto.js';
 import { ImportJobRowsResponseDto } from './dto/import-job-rows-response.dto.js';
 import { ImportTemplateResponseDto } from './dto/import-template-response.dto.js';
 import { ImportEntityTypeListResponseDto } from './dto/import-entity-type-response.dto.js';
@@ -53,6 +58,13 @@ import {
   StartDirectImportUploadDto,
 } from './dto/direct-import-upload.dto.js';
 import { StartDirectImportUploadResponseDto } from './dto/start-direct-import-upload-response.dto.js';
+import { ImportSourceService } from './import-source.service.js';
+import {
+  ImportSourceListResponseDto,
+  ImportSourceResponseDto,
+} from './dto/import-source-response.dto.js';
+import { CreateImportSourceDto } from './dto/create-import-source.dto.js';
+import { UpdateImportSourceDto } from './dto/update-import-source.dto.js';
 
 @ApiTags('imports')
 @Controller('imports')
@@ -61,6 +73,7 @@ export class ImportController {
     private readonly importService: ImportService,
     private readonly directUploadService: ImportDirectUploadService,
     private readonly mappingProfileService: ImportMappingProfileService,
+    private readonly importSourceService: ImportSourceService,
   ) {}
 
   @Post()
@@ -101,18 +114,33 @@ export class ImportController {
     @Body('mapping') mapping: string,
     @Body('options') options?: string,
   ) {
-    const parsedMapping = this.parseJsonObject(mapping, 'mapping');
-    const parsedOptions = options
-      ? this.parseJsonObject(options, 'options')
-      : {};
-    return this.importService.createDryRunFromUpload({
-      uploadRequest,
-      file: file as Express.Multer.File,
-      entityType: parseImportEntityType(entityType),
-      sourceSystem: sourceSystem?.trim() ?? 'legacy',
-      mappingJson: parsedMapping,
-      optionsJson: parsedOptions,
-    });
+    try {
+      const parsedMapping = this.parseJsonObject(mapping, 'mapping');
+      const parsedOptions = options
+        ? this.parseJsonObject(options, 'options')
+        : {};
+      const trimmedSource = sourceSystem?.trim();
+      if (!trimmedSource) {
+        throw new BadRequestException({
+          code: IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
+          message: 'sourceSystem is required',
+        });
+      }
+      await this.importSourceService.assertSourceExists(trimmedSource);
+      return await this.importService.createDryRunFromUpload({
+        uploadRequest,
+        file: file as Express.Multer.File,
+        entityType: parseImportEntityType(entityType),
+        sourceSystem: trimmedSource,
+        mappingJson: parsedMapping,
+        optionsJson: parsedOptions,
+      });
+    } catch (error) {
+      if (getImportStagingKey(uploadRequest)) {
+        await unlinkImportMulterStagingFile(uploadRequest);
+      }
+      throw error;
+    }
   }
 
   @Post('direct-uploads')
@@ -131,16 +159,24 @@ export class ImportController {
       'Verify and promote a staged direct upload, then start the background dry-run',
   })
   @ApiCreatedResponse({ type: ImportJobResponseDto })
-  finalizeDirectUpload(
+  async finalizeDirectUpload(
     @Param('uploadId') uploadId: string,
     @Body() body: FinalizeDirectImportUploadDto,
   ) {
+    const trimmedSource = body.sourceSystem.trim();
+    if (!trimmedSource) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
+        message: 'sourceSystem is required',
+      });
+    }
+    await this.importSourceService.assertSourceExists(trimmedSource);
     return this.directUploadService.finalize({
       uploadId,
       fileName: body.fileName,
       size: body.size,
       entityType: body.entityType,
-      sourceSystem: body.sourceSystem.trim(),
+      sourceSystem: trimmedSource,
       mapping: body.mapping,
       options: body.options,
     });
@@ -175,6 +211,35 @@ export class ImportController {
     return this.mappingProfileService.createProfile(body);
   }
 
+  @Get('sources')
+  @ApiOperation({ summary: 'List configured import sources for the tenant' })
+  @ApiOkResponse({ type: ImportSourceListResponseDto })
+  async listSources() {
+    const data = await this.importSourceService.listSources();
+    return { data };
+  }
+
+  @Post('sources')
+  @ApiOperation({ summary: 'Create a new import source' })
+  @ApiCreatedResponse({ type: ImportSourceResponseDto })
+  createSource(@Body() body: CreateImportSourceDto) {
+    return this.importSourceService.createSource(body);
+  }
+
+  @Patch('sources/:id')
+  @ApiOperation({ summary: 'Update an import source label or default flag' })
+  @ApiOkResponse({ type: ImportSourceResponseDto })
+  updateSource(@Param('id') id: string, @Body() body: UpdateImportSourceDto) {
+    return this.importSourceService.updateSource(id, body);
+  }
+
+  @Delete('sources/:id')
+  @ApiOperation({ summary: 'Delete an import source' })
+  @ApiOkResponse({ description: 'Import source deleted' })
+  deleteSource(@Param('id') id: string) {
+    return this.importSourceService.deleteSource(id);
+  }
+
   @Get('templates/:entityType')
   @ApiOperation({ summary: 'CSV template metadata and inline CSV content' })
   @ApiOkResponse({ type: ImportTemplateResponseDto })
@@ -207,6 +272,36 @@ export class ImportController {
   @ApiOkResponse({ type: ImportEntityTypeListResponseDto })
   listEntityTypes() {
     return { data: this.importService.listEntityTypes() };
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'List import jobs for the tenant, newest first',
+  })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'status', required: false, enum: ImportJobStatus })
+  @ApiQuery({
+    name: 'entityType',
+    required: false,
+    enum: [...IMPLEMENTED_IMPORT_ENTITY_TYPES],
+  })
+  @ApiQuery({ name: 'source', required: false })
+  @ApiOkResponse({ type: ImportJobListResponseDto })
+  listJobs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('entityType') entityType?: string,
+    @Query('source') source?: string,
+  ) {
+    return this.importService.listJobs({
+      page: this.parsePaginationInt(page, 'page', 1_000_000),
+      limit: this.parsePaginationInt(limit, 'limit', 100),
+      status: this.parseStatusFilter(status),
+      entityType: entityType ? parseImportEntityType(entityType) : undefined,
+      source: source?.trim() || undefined,
+    });
   }
 
   @Get(':id/rows')
@@ -296,6 +391,39 @@ export class ImportController {
   @ApiOkResponse({ type: ImportJobResponseDto })
   cancel(@Param('id') id: string) {
     return this.importService.cancelJob(id);
+  }
+
+  private parseStatusFilter(status?: string): ImportJobStatus | undefined {
+    const trimmed = status?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    const values = Object.values(ImportJobStatus) as string[];
+    if (!values.includes(trimmed)) {
+      throw new BadRequestException('Invalid status filter');
+    }
+    return trimmed as ImportJobStatus;
+  }
+
+  /**
+   * Parses a pagination query param into a finite integer within `[1, max]`, so malformed input
+   * (`abc`, `Infinity`, `1.5`, `0`) becomes a 400 instead of a Prisma error. The page cap keeps
+   * the computed offset a safe integer.
+   */
+  private parsePaginationInt(
+    raw: string | undefined,
+    field: string,
+    max: number,
+  ): number | undefined {
+    const trimmed = raw?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    const value = Number(trimmed);
+    if (!Number.isInteger(value) || value < 1 || value > max) {
+      throw new BadRequestException(`Invalid ${field} parameter`);
+    }
+    return value;
   }
 
   private parseJsonObject(

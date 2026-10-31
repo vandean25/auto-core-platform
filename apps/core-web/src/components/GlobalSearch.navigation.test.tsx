@@ -40,6 +40,9 @@ vi.mock('@/api/vehicles', async () => {
 vi.mock('@/api/workshop-estimates', () => ({
   useWorkshopEstimateVersion: () => ({ data: undefined, isLoading: false }),
 }))
+vi.mock('@/api/tyre-storage', () => ({
+  useTyreSet: () => ({ data: undefined, isLoading: false }),
+}))
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => vi.fn(),
 }))

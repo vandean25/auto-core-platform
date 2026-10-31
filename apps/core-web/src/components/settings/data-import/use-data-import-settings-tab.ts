@@ -10,10 +10,12 @@ import {
 } from './data-import-settings-handlers'
 import { useDataImportSettingsTabCore } from './use-data-import-settings-tab-core'
 import { useDataImportSettingsTabWorkflow } from './use-data-import-settings-tab-workflow'
+import { useImportJobResume } from './use-import-job-resume'
 
 export function useDataImportSettingsTab() {
   const core = useDataImportSettingsTabCore()
   const workflow = useDataImportSettingsTabWorkflow(core)
+  const resume = useImportJobResume(core.wizard, core.setSourceSystem)
 
   const handleEntityTypeChange = (value: ImportEntityTypeUi) =>
     changeImportEntityType(core.wizard, core.sourceSystem, core.setSourceSystem, value)
@@ -35,6 +37,7 @@ export function useDataImportSettingsTab() {
   return {
     ...core,
     ...workflow,
+    resume,
     handleEntityTypeChange,
     handleSourceSystemChange,
     handleVendorChange,

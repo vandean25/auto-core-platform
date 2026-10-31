@@ -225,6 +225,60 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       });
     });
 
+    it('refuses to apply an expired CANCELLED job with cancel_reason: expired', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.CANCELLED,
+          options_json: { cancel_reason: 'expired' },
+        }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_EXPIRED,
+          message: 'Import job has expired; please upload and run the dry run again',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses to apply a FAILED job whose rows were purged with JOB_PURGED', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.FAILED,
+          options_json: { rows_purged: true },
+        }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_PURGED,
+          message: 'Staged rows for this import job were purged; please upload again',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses to apply a CANCELLED job whose rows were purged with JOB_PURGED', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.CANCELLED,
+          options_json: { rows_purged: true },
+        }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_PURGED,
+          message: 'Staged rows for this import job were purged; please upload again',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
     it('refuses to apply a CANCELLED job with JOB_STALE', async () => {
       h.prisma.importJob.findFirst.mockResolvedValue(
         importJobRecord({ status: ImportJobStatus.CANCELLED }),

@@ -26,6 +26,20 @@ The shipped five-step wizard is available to users who can manage team settings:
 
 The wizard can download entity templates and error-row CSVs. Marketing-consent columns are ignored by the import engine and reported as warnings.
 
+### Import sources (AUT-809)
+
+Each tenant configures a list of **import sources** (normalized lower-case slug keys with display labels) in Settings → Data import. One source can be marked as the default. The wizard source step shows a select of the tenant's configured sources instead of a free-text field. This prevents re-import typos from creating duplicate `ExternalIdMapping` rows.
+
+- **API endpoints:** `GET/POST/PATCH/DELETE /imports/sources` (tenant admin only).
+- **Validation:** `POST /imports` and `POST /imports/mapping-profiles` reject unknown source keys with `IMPORT_UNKNOWN_SOURCE` (400). The silent fallback to `'legacy'` has been removed.
+- **Migration:** A data migration creates one import source per distinct `source_system` already used in `import_jobs`, `external_id_mappings`, and `import_mapping_profiles` for each tenant. Keys are kept byte-identical (no renaming) and are never truncated — the column is unbounded, so historical names longer than 64 characters migrate unchanged.
+- **Key format:** Lower-case alphanumeric, hyphens, and underscores only; max 64 characters per segment; must not start or end with a hyphen. Canonical migration keys keep their manifest form `source_name:source_company_code` (one colon, each segment max 64 characters), so the seeded preset, the manifest validator, and the tenant source share one namespace.
+- **Default:** At most one source per tenant can be the default; default changes are serialized per tenant and a partial unique index enforces it.
+
+### History and resume
+
+The tab has two views: **Import** (the wizard) and **History** (`Verlauf`). History lists this tenant's jobs from `GET /imports` (newest first, paged) with a status badge, the localized entity-type label, source, totals, the resolved user, and the date — never raw enum values. It is gated to tenant admins like the endpoint. Opening a row sets `?job=<id>` and returns to the wizard, which rehydrates the saved mapping, options, file fingerprint, and vendor from `GET /imports/:id` before picking the step from the job status with the same mapping as the live background sync (`syncBackgroundJobProgress`): `DRY_RUN_DONE` → dry-run report, `APPLYING` (dry-run phase) / `CANCELLED` → read-only dry-run report, `APPLYING` (apply phase) / `APPLIED` / `FAILED` → result. Because the mapping, options, and fingerprint are restored, a resumed `DRY_RUN_DONE` job is not treated as stale and can be applied without re-uploading the file. A background `APPLYING` dry run keeps polling; a `FAILED` job shows the localized AUT-816 reason and can be re-applied under the existing apply rules (the backend re-checks that the upload and rows are still retained and rejects an ineligible job). Row context actions (open/resume, cancel, download errors) are registry entity actions (`importJob.*`) with the same admin gating; Cancel is offered only while a background dry run is still cancellable, never during the apply phase. Undo and deleting jobs are out of scope; retention is unchanged.
+
 ### Canonical migration CSV v1 preset and manifest validator
 
 [AUT-645](https://linear.app/auto-core-platform/issue/AUT-645) adds a **Canonical migration CSV v1** mapping preset (English `snake_case` headers mapped 1:1) for **customers**, **vehicles**, and **labor operations**, seeded for the default tenant under source system `synthetic_dms:synth_fixture` together with synthetic fixtures in `apps/core-api/test/fixtures/migration-csv-v1/`. Select the preset in step 3 of the wizard after choosing the manifest `source_system`.
@@ -44,6 +58,7 @@ Before a dry-run, optional `options.migration_manifest` validates the uploaded C
 | Method | Path | Notes |
 |--------|------|--------|
 | POST | `/imports` | Multipart CSV + `mapping` + `options`; dry-run (sync for small files, background for large) |
+| GET | `/imports` | Paged job list for the tenant, newest first; filters `status`, `entityType`, `source`; tenant admin only (OWNER/ADMIN, else 403). Per job: id, status, entity type, source, file name, totals, `created_by`, timestamps, and the AUT-816 `apply_failure_code` when `FAILED`. Never row data or PII. |
 | POST | `/imports/:id/cancel` | Cancel a background dry-run before apply |
 | GET | `/imports/:id` | Job summary |
 | GET | `/imports/:id/rows` | Paged rows; filter `action`, `hasErrors` |
@@ -52,6 +67,10 @@ Before a dry-run, optional `options.migration_manifest` validates the uploaded C
 | GET | `/imports/templates/:entityType` | German headers + field list |
 | GET | `/imports/templates/:entityType/csv` | Downloadable template |
 | POST | `/imports/canonical-migration/validate` | Validate manifest + CSV bundle before cutover rehearsal |
+| GET | `/imports/sources` | List tenant import sources |
+| POST | `/imports/sources` | Create import source |
+| PATCH | `/imports/sources/:id` | Update import source label or default flag |
+| DELETE | `/imports/sources/:id` | Delete import source |
 
 ## Options
 

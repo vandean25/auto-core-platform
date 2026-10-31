@@ -6,6 +6,7 @@ export type GlobalSearchRecordRef =
   | { entity: 'workshop_order'; id: string }
   | { entity: 'customer'; id: string }
   | { entity: 'vehicle'; id: string }
+  | { entity: 'tyre_set'; id: string }
   /** An estimate version of the estimates list, known only while its row has focus. */
   | { entity: 'estimate'; id: string }
 
@@ -26,6 +27,11 @@ export function parseGlobalSearchRecordRef(
   const workshopOrder = matchPath({ path: APP_ROUTE_PATHS.workshopOrderDetail, end: true }, pathname)
   if (workshopOrder?.params.id) {
     return { entity: 'workshop_order', id: workshopOrder.params.id }
+  }
+
+  const tyreSet = matchPath({ path: APP_ROUTE_PATHS.tyreStorageDetail, end: true }, pathname)
+  if (tyreSet?.params.id) {
+    return { entity: 'tyre_set', id: tyreSet.params.id }
   }
 
   const customer = matchPath({ path: APP_ROUTE_PATHS.customerDetail, end: true }, pathname)

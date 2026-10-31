@@ -99,6 +99,8 @@
     "GEWAEHRLEISTUNG_EXPIRED": "Statutory warranty expired",
     "AWAITING_REVIEW": "Awaiting Review",
     "APPLIED": "Applied",
+    "DRY_RUN_DONE": "Dry run complete",
+    "APPLYING": "Applying",
     "ABORTED": "Aborted",
     "MOVED": "Moved"
   },

@@ -92,6 +92,25 @@ async function installImportMocks(
     })
   })
 
+  await page.route(AutoCorePage.apiRouteMatcher('/api/imports/sources'), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'source-incadea',
+            key: 'incadea',
+            label: 'incadea',
+            is_default: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    })
+  })
+
   await page.route(AutoCorePage.apiRouteMatcher('/api/imports/templates/CUSTOMER'), async (route) => {
     await route.fulfill({
       status: 200,
@@ -282,5 +301,37 @@ test.describe('Data import settings wizard', () => {
     await page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.errorRowsCsv }).click()
     const download = await downloadPromise
     expect(download.suggestedFilename()).toContain('errors')
+  })
+
+  test('expired/purged import state at 375px viewport captures screenshot and hides apply/edit', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await installSettingsShellMocks(page)
+    const expiredJob = createMockImportJob({
+      status: 'CANCELLED' as never,
+      options: { cancel_reason: 'expired' },
+    })
+    await installImportMocks(page, { job: expiredJob })
+
+    const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
+    await corePage.navigate('/settings?tab=data-import')
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).first().click()
+    await page.setInputFiles('#import-file', {
+      name: 'customers.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('Kunden-Nr;Nachname\n1;A\n', 'utf8'),
+    })
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.upload.continue }).click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.mapping.runDryRun }).click()
+
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.dryRun.title })).toBeVisible()
+    await expect(page.getByText(DE_SETTINGS.dataImport.dryRun.expired.description)).toBeVisible()
+    await expect(page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.applyImport })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.editMapping })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.uploadAgain })).toBeVisible()
+
+    await page.screenshot({
+      path: '../../docs/internal/assets/aut-827-import-expired-375.png',
+      fullPage: true,
+    })
   })
 })

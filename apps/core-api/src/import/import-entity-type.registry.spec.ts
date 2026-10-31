@@ -107,6 +107,7 @@ describe('import entity type registry', () => {
       importService as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     it.each(REGISTRY_TYPES)('accepts %s', (type) => {
