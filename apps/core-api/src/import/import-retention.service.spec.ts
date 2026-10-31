@@ -2,7 +2,6 @@ import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 import {
   importJobRowPurgeCutoffs,
-  importJobRowRetentionCutoff,
 } from './import-retention.helpers.js';
 import { ImportRetentionService } from './import-retention.service.js';
 import { createImportRetentionPrismaFake } from './import-retention.spec.support.js';

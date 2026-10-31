@@ -7,7 +7,6 @@ import {
 import {
   eligibleImportJobsForRowPurgeWhere,
   importJobRowPurgeCutoffs,
-  importJobRowRetentionCutoff,
   isImportJobEligibleForRowPurge,
   purgeStaleImportJobRowsForTenant,
 } from './import-retention.helpers.js';
