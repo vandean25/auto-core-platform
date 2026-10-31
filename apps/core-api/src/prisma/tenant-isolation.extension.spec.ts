@@ -889,6 +889,117 @@ describe('applyTenantIsolation', () => {
         );
       });
 
+      it('permits allowlisted aggregate root child relations in create and update', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const argsCreate = {
+          data: {
+            order_number: 'WO-TASK-1',
+            status: 'OPEN',
+            tasks: {
+              create: [
+                {
+                  title: 'Brake inspection',
+                  status: 'NOT_STARTED',
+                },
+              ],
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'create', argsCreate, query),
+        );
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              tenant_id: TENANT_ID,
+              order_number: 'WO-TASK-1',
+            }),
+          }),
+        );
+
+        query.mockClear();
+        const argsUpdate = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              deleteMany: {},
+              create: [{ title: 'Oil replacement' }],
+            },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'update', argsUpdate, query),
+        );
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              tasks: {
+                deleteMany: {},
+                create: [{ title: 'Oil replacement' }],
+              },
+            }),
+          }),
+        );
+      });
+
+      it('rejects nested relation write inside an allowlisted child relation', async () => {
+        const query = jest.fn();
+        const args = {
+          data: {
+            order_number: 'WO-TASK-ADVERSARIAL',
+            tasks: {
+              create: [
+                {
+                  title: 'Illegal task with connect',
+                  mechanic: { connect: { id: 'other-emp' } },
+                },
+              ],
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'create', args, query)),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation write on 'WorkshopTask\.mechanic' targeting tenant-scoped model 'Employee' is not permitted\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits scalar JSON columns containing mutation-like keys without mistaking them for relations', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const args = {
+          data: {
+            source_system: 'legacy-system',
+            file_name: 'test.csv',
+            status: 'COMPLETED',
+            totals_json: {
+              create: 5,
+              update: 2,
+              skip: 0,
+              error: 0,
+            },
+          },
+        };
+
+        await runWithTenant(() => call('ImportJob', 'create', args, query));
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              tenant_id: TENANT_ID,
+              totals_json: {
+                create: 5,
+                update: 2,
+                skip: 0,
+                error: 0,
+              },
+            }),
+          }),
+        );
+      });
+
       it('permits scalar update using Prisma set clause (e.g. email: { set: val })', async () => {
         const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
         const args = {

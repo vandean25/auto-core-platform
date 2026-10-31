@@ -95,30 +95,60 @@ interface RelationFieldMeta {
 }
 
 const MODEL_RELATIONS_MAP = new Map<string, Map<string, RelationFieldMeta>>();
+const MODEL_SCALARS_MAP = new Map<string, Set<string>>();
 
 if (Prisma.dmmf?.datamodel?.models) {
   for (const model of Prisma.dmmf.datamodel.models) {
     const relations = new Map<string, RelationFieldMeta>();
+    const scalars = new Set<string>();
     for (const field of model.fields) {
       if (field.kind === 'object') {
         relations.set(field.name, {
           targetModel: field.type,
         });
+      } else {
+        scalars.add(field.name);
       }
     }
     MODEL_RELATIONS_MAP.set(model.name, relations);
+    MODEL_SCALARS_MAP.set(model.name, scalars);
   }
 }
 
 /**
  * Explicit allowlist for nested relation writes on tenant-scoped models where
- * Prisma provides no alternative (e.g. implicit m-n relations without a join model).
- * Every entry must be justified.
+ * Prisma provides no alternative (e.g. implicit m-n relations without a join model),
+ * or aggregate root child line items created/managed inline by the parent document.
+ * Every entry must be justified:
  * - 'Vendor.supportedBrands': implicit many-to-many (_VendorBrands) has no Prisma
  *   delegate model; VendorService validates tenant ownership of brandIds prior to write.
+ * - Aggregate root child line items (e.g. Invoice.items, SalesOrder.items, PurchaseOrder.items,
+ *   WorkshopOrder.tasks, EmployeeWorkSchedule.days, VehicleListing.channels, WorkshopEstimate.versions,
+ *   StockTransfer.lines, ImportJob.rows, TyreMeasurement.wheels): owned directly by the parent entity
+ *   and created together; composite foreign key [tenant_id, parent_id] references [tenant_id, id]
+ *   enforces tenant isolation at the database level.
  */
 export const ALLOWED_NESTED_RELATION_WRITES = new Set<string>([
   'Vendor.supportedBrands',
+  'EmployeeWorkSchedule.days',
+  'VehicleListing.channels',
+  'VehicleListing.photos',
+  'WorkshopEstimate.versions',
+  'StockTransfer.lines',
+  'ImportJob.rows',
+  'PurchaseOrder.items',
+  'SalesOrder.items',
+  'Invoice.items',
+  'CreditNote.items',
+  'PurchaseInvoice.lines',
+  'WorkshopOrder.tasks',
+  'WorkshopTask.line_items',
+  'TyreMeasurement.wheels',
+  'WorkshopInspection.items',
+  'InspectionTemplate.items',
+  'PartsRequisition.lines',
+  'LegacyDocument.lines',
+  'WarrantyClaim.lines',
 ]);
 
 const RELATION_MUTATION_KEYS = new Set([
@@ -151,16 +181,39 @@ function isScalarSetClause(
   return false;
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isObjectArray(value: unknown): boolean {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  return value.some((item) => typeof item === 'object' && item !== null);
+}
+
+function isValidMutationPayload(key: string, payload: unknown): boolean {
+  if (key === 'delete' || key === 'disconnect') {
+    return (
+      payload === true || (typeof payload === 'object' && payload !== null)
+    );
+  }
+  if (key === 'set') {
+    return isObjectArray(payload);
+  }
+  return typeof payload === 'object' && payload !== null;
+}
+
 function isRelationMutation(value: unknown): boolean {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!isObjectRecord(value)) {
     return false;
   }
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record);
-  if (!keys.some((key) => RELATION_MUTATION_KEYS.has(key))) {
+  const keys = Object.keys(value);
+  const mutationKey = keys.find((key) => RELATION_MUTATION_KEYS.has(key));
+  if (!mutationKey || isScalarSetClause(value, keys)) {
     return false;
   }
-  return !isScalarSetClause(record, keys);
+  return isValidMutationPayload(mutationKey, value[mutationKey]);
 }
 
 function capitalizeFirstLetter(str: string): string {
@@ -200,6 +253,61 @@ function checkGlobalRelationMutations(
   }
 }
 
+function checkAllowlistedRelationMutation(
+  targetModel: string,
+  value: unknown,
+): void {
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  for (const mutKey of RELATION_MUTATION_KEYS) {
+    if (!Object.hasOwn(record, mutKey)) {
+      continue;
+    }
+    const payload = record[mutKey];
+    if (!payload || typeof payload !== 'object') {
+      continue;
+    }
+    if (mutKey === 'createMany' && Object.hasOwn(payload, 'data')) {
+      assertNoTenantScopedNestedWrites(
+        targetModel,
+        (payload as Record<string, unknown>).data,
+      );
+    } else {
+      assertNoTenantScopedNestedWrites(targetModel, payload);
+    }
+  }
+}
+
+function throwNestedRelationWriteError(
+  modelName: string,
+  key: string,
+  targetModel: string | null,
+): never {
+  const targetDesc = targetModel
+    ? `tenant-scoped model '${targetModel}'`
+    : 'tenant-scoped model';
+  throw new Error(
+    `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting ${targetDesc} is not permitted.`,
+  );
+}
+
+function handleAllowlistedWrite(
+  modelName: string,
+  key: string,
+  value: unknown,
+): boolean {
+  if (!ALLOWED_NESTED_RELATION_WRITES.has(`${modelName}.${key}`)) {
+    return false;
+  }
+  const targetModel = resolveTargetModel(modelName, key);
+  if (targetModel) {
+    checkAllowlistedRelationMutation(targetModel, value);
+  }
+  return true;
+}
+
 function checkNestedWriteEntry(
   modelName: string,
   key: string,
@@ -209,7 +317,11 @@ function checkNestedWriteEntry(
     return;
   }
 
-  if (ALLOWED_NESTED_RELATION_WRITES.has(`${modelName}.${key}`)) {
+  if (MODEL_SCALARS_MAP.get(modelName)?.has(key)) {
+    return;
+  }
+
+  if (handleAllowlistedWrite(modelName, key, value)) {
     return;
   }
 
@@ -224,12 +336,7 @@ function checkNestedWriteEntry(
     return;
   }
 
-  const targetDesc = targetModel
-    ? `tenant-scoped model '${targetModel}'`
-    : 'tenant-scoped model';
-  throw new Error(
-    `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting ${targetDesc} is not permitted.`,
-  );
+  throwNestedRelationWriteError(modelName, key, targetModel);
 }
 
 function assertNoTenantScopedNestedWrites(
