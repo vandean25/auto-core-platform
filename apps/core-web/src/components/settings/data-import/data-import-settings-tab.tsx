@@ -168,6 +168,7 @@ export function DataImportSettingsTab() {
               applyEnabled={model.apply.applyEnabled}
               onApply={() => model.apply.setConfirmApplyOpen(true)}
               onBackgroundCancelled={() => model.wizard.resetDryRun()}
+              onReset={() => model.wizard.resetDryRun()}
             />
           ) : null}
 

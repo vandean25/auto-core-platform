@@ -1160,7 +1160,16 @@
       "previousPage": "Vorherige Seite",
       "nextPage": "Nächste Seite",
       "editMapping": "Zuordnung bearbeiten",
-      "applyImport": "Import anwenden"
+      "applyImport": "Import anwenden",
+      "uploadAgain": "Erneut hochladen",
+      "expired": {
+        "title": "Probelauf abgelaufen",
+        "description": "Probelauf abgelaufen, bitte erneut hochladen"
+      },
+      "purged": {
+        "title": "Importdaten bereinigt",
+        "description": "Die Zeilen dieses Imports wurden bereits bereinigt. Bitte laden Sie die Datei erneut hoch."
+      }
     },
     "errorReport": {
       "unknownError": "Die Zeile konnte nicht importiert werden. Bitte prüfen Sie die Werte und versuchen Sie es erneut.",

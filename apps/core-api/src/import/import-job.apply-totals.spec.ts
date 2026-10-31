@@ -3,12 +3,18 @@ import { ImportJobStore } from './import-job.store.js';
 
 describe('ImportJobStore.lockForBackgroundApply', () => {
   it('resets apply action totals while keeping row count from dry-run', async () => {
+    const testUpdatedAt = new Date();
+    const findFirst = jest.fn(async () => ({
+      status: ImportJobStatus.DRY_RUN_DONE,
+      options_json: {},
+      updatedAt: testUpdatedAt,
+    }));
     const updateMany = jest.fn(async () => ({ count: 1 }));
     const executeRaw = jest.fn(async () => 1);
     const prisma = {
-      importJob: { updateMany },
+      importJob: { updateMany, findFirst },
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn({ importJob: { updateMany }, $executeRaw: executeRaw }),
+        fn({ importJob: { updateMany, findFirst }, $executeRaw: executeRaw }),
     };
     const store = new ImportJobStore(prisma as never);
     await store.lockForBackgroundApply(
@@ -44,6 +50,12 @@ describe('ImportJobStore.lockForBackgroundApply', () => {
     const outerRowUpdate = jest.fn(async () => ({ count: 1 }));
     const txJobUpdate = jest.fn(async (_args: unknown) => ({ count: 1 }));
     const txRowUpdate = jest.fn(async (_args: unknown) => ({ count: 1 }));
+    const testUpdatedAt = new Date();
+    const txFindFirst = jest.fn(async () => ({
+      status: ImportJobStatus.FAILED,
+      options_json: {},
+      updatedAt: testUpdatedAt,
+    }));
     const prisma = {
       importJob: { updateMany: outerJobUpdate, findFirst: async () => null },
       importJobRow: {
@@ -56,6 +68,7 @@ describe('ImportJobStore.lockForBackgroundApply', () => {
         const draft = { ...committed };
         const result = await fn({
           importJob: {
+            findFirst: txFindFirst,
             updateMany: async (args: unknown) => {
               draft.status = 'APPLYING';
               return txJobUpdate(args);
@@ -101,5 +114,30 @@ describe('ImportJobStore.lockForBackgroundApply', () => {
       status: 'FAILED',
       action: ImportRowAction.ERROR,
     });
+  });
+
+  it('rejects lock and matches updatedAt if job was updated concurrently', async () => {
+    const jobUpdatedAt = new Date('2026-10-31T10:00:00.000Z');
+    const findFirst = jest.fn(async () => ({
+      status: ImportJobStatus.FAILED,
+      options_json: { custom: 'preserved' },
+      updatedAt: jobUpdatedAt,
+    }));
+    const updateMany = jest.fn(async () => ({ count: 0 }));
+    const prisma = {
+      importJob: { findFirst, updateMany },
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ importJob: { findFirst, updateMany } }),
+    };
+    const store = new ImportJobStore(prisma as never);
+    const result = await store.lockForApply('tenant-1', 'job-1');
+    expect(result).toEqual({ count: 0 });
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          updatedAt: jobUpdatedAt,
+        }),
+      }),
+    );
   });
 });

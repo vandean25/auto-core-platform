@@ -1160,7 +1160,16 @@
       "previousPage": "Previous page",
       "nextPage": "Next page",
       "editMapping": "Edit mapping",
-      "applyImport": "Apply import"
+      "applyImport": "Apply import",
+      "uploadAgain": "Upload again",
+      "expired": {
+        "title": "Dry run expired",
+        "description": "Dry run expired, please upload again"
+      },
+      "purged": {
+        "title": "Import data purged",
+        "description": "The rows for this import have been purged. Please upload the file again."
+      }
     },
     "errorReport": {
       "unknownError": "This row could not be imported. Check the values and try again.",
