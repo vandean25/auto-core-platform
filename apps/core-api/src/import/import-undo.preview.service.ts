@@ -125,6 +125,23 @@ function buildBlockedDocumentPreview(
   };
 }
 
+function calculateOverallStatus(
+  counts: ImportUndoCountsDto,
+): 'ELIGIBLE' | 'CONFLICT' | 'BLOCKED' {
+  if (
+    counts.blocked > 0 &&
+    counts.toDelete === 0 &&
+    counts.toRestore === 0 &&
+    counts.conflicts === 0
+  ) {
+    return 'BLOCKED';
+  }
+  if (counts.conflicts > 0) {
+    return 'CONFLICT';
+  }
+  return 'ELIGIBLE';
+}
+
 @Injectable()
 export class ImportUndoPreviewService {
   constructor(
@@ -209,17 +226,7 @@ export class ImportUndoPreviewService {
       blocked: buckets.blocked.length,
     };
 
-    let overallStatus: 'ELIGIBLE' | 'CONFLICT' | 'BLOCKED' = 'ELIGIBLE';
-    if (
-      counts.blocked > 0 &&
-      counts.toDelete === 0 &&
-      counts.toRestore === 0 &&
-      counts.conflicts === 0
-    ) {
-      overallStatus = 'BLOCKED';
-    } else if (counts.conflicts > 0) {
-      overallStatus = 'CONFLICT';
-    }
+    const overallStatus = calculateOverallStatus(counts);
 
     const canUndo =
       counts.toDelete > 0 || counts.toRestore > 0 || counts.conflicts > 0;

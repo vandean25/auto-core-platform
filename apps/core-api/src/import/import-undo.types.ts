@@ -9,17 +9,6 @@ export interface ImportUndoEligibility {
   currentUpdatedAt?: Date | null;
 }
 
-export interface ImportUndoRowPreview {
-  rowNumber: number;
-  entityType: string;
-  entityId: string | null;
-  action: 'CREATE' | 'UPDATE';
-  status: ImportUndoEligibilityStatus;
-  reason?: string;
-  references?: string[];
-  displayName?: string;
-}
-
 export type UndoGuardPrismaClient = Pick<
   Prisma.TransactionClient,
   | 'customer'
