@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import * as React from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useClientSessionGeneration } from '@/auth/client-session-reset'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SITE_CONTEXT_UPDATED_EVENT } from '@/features/realtime/types'
 import { TyreMeasurementSection } from '@/features/tyre-report/TyreMeasurementSection'
@@ -50,6 +52,12 @@ function SwitchSite() {
   return <button type="button" onClick={() => switchSite.mutate('site-2')}>Switch site</button>
 }
 
+/** A site switch resets the client session; the app remounts the authenticated shell on a new generation. */
+function RemountOnClientSessionReset({ children }: { children: React.ReactNode }) {
+  const generation = useClientSessionGeneration()
+  return <React.Fragment key={generation}>{children}</React.Fragment>
+}
+
 let client: QueryClient
 let currentSession: AuthSession
 let reportRequest: () => Promise<Response>
@@ -76,12 +84,16 @@ afterEach(() => {
 
 async function mount(parent: TyreMeasurementParent) {
   client.setQueryData(authSessionKeys.user(mocks.user.uid), currentSession)
-  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['?action=recordTyreMeasurement']}>
-    <RealtimeDashboardSyncProvider>
-      <SwitchSite />
-      <TyreMeasurementSection parent={parent} orderId="order-1" />
-    </RealtimeDashboardSyncProvider>
-  </MemoryRouter></QueryClientProvider>)
+  render(<QueryClientProvider client={client}>
+    <RemountOnClientSessionReset>
+      <MemoryRouter initialEntries={['?action=recordTyreMeasurement']}>
+        <RealtimeDashboardSyncProvider>
+          <SwitchSite />
+          <TyreMeasurementSection parent={parent} orderId="order-1" />
+        </RealtimeDashboardSyncProvider>
+      </MemoryRouter>
+    </RemountOnClientSessionReset>
+  </QueryClientProvider>)
   await waitFor(() => expect(screen.getAllByText('Old evidence')).toHaveLength(4))
   expect(screen.getByLabelText('Vorne links Marke')).toHaveValue('Old evidence')
   await waitFor(() => expect(mocks.socket.on).toHaveBeenCalledWith(SITE_CONTEXT_UPDATED_EVENT, expect.any(Function)))

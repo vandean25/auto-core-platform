@@ -83,6 +83,8 @@ const BLOCKED_REASON_KEY_MAP = {
     "dataImport.undo.blockedSection.reasons.MODIFIED_SINCE_IMPORT",
   MISSING_BEFORE_SNAPSHOT:
     "dataImport.undo.blockedSection.reasons.MISSING_BEFORE_SNAPSHOT",
+  ROWS_PURGED:
+    "dataImport.undo.blockedSection.reasons.ROWS_PURGED",
   ENTITY_NOT_FOUND: "dataImport.undo.blockedSection.reasons.ENTITY_NOT_FOUND",
   UNSUPPORTED_ENTITY_TYPE:
     "dataImport.undo.blockedSection.reasons.UNSUPPORTED_ENTITY_TYPE",

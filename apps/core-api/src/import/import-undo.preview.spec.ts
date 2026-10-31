@@ -260,4 +260,46 @@ describe('ImportUndoPreviewService', () => {
     expect(preview.conflicts[0].entityId).toBe('cust-conflict');
     expect(preview.conflicts[0].reason).toBe(UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT);
   });
+
+  it('returns BLOCKED preview when job options has rows_purged: true', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.CUSTOMER,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 5, update: 0 },
+      options_json: { rows_purged: true },
+    });
+
+    const preview = await service.previewUndo(jobId);
+
+    expect(preview.canUndo).toBe(false);
+    expect(preview.status).toBe('BLOCKED');
+    expect(preview.counts.blocked).toBe(5);
+    expect(preview.blocked).toHaveLength(1);
+    expect(preview.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.ROWS_PURGED);
+  });
+
+  it('returns BLOCKED preview when applied job rows have been purged from database', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.CUSTOMER,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 3, update: 0 },
+      options_json: {},
+    });
+
+    mockPrisma.importJobRow.findMany.mockResolvedValueOnce([]);
+
+    const preview = await service.previewUndo(jobId);
+
+    expect(preview.canUndo).toBe(false);
+    expect(preview.status).toBe('BLOCKED');
+    expect(preview.counts.blocked).toBe(3);
+    expect(preview.blocked).toHaveLength(1);
+    expect(preview.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.ROWS_PURGED);
+  });
 });

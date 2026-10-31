@@ -16,6 +16,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { assertTenantAdmin } from '../site/site.authorization.js';
 import { withPhoneDigits } from '../customer/customer-phone.util.js';
+import { importJobPurged } from './import-job.errors.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { ImportAuditWriter } from './import-audit.writer.js';
 import {
   checkEntityUndoEligibility,
@@ -66,6 +68,11 @@ function validateJobForUndo(
     );
   }
 
+  const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
+  if (jobOptions.rows_purged === true) {
+    throw importJobPurged();
+  }
+
   return { appliedRowsCount };
 }
 
@@ -75,6 +82,7 @@ interface UndoExecutionContext {
   jobId: string;
   entityType: string;
   effectiveAppliedAt: Date;
+  appliedRowsCount: number;
 }
 
 interface UndoCounts {
@@ -147,7 +155,7 @@ export class ImportUndoService {
   private async fetchAndValidateJobForUndo(
     tenantId: string,
     jobId: string,
-  ): Promise<ImportJob> {
+  ): Promise<{ job: ImportJob; validation: { appliedRowsCount: number } }> {
     const job = await this.prisma.importJob.findFirst({
       where: { tenant_id: tenantId, id: jobId },
     });
@@ -157,21 +165,22 @@ export class ImportUndoService {
     }
 
     if (job.status === ImportJobStatus.UNDONE) {
-      return job;
+      return { job, validation: { appliedRowsCount: 0 } };
     }
+
+    const validation = validateJobForUndo(job, jobId);
 
     if (
       job.status === ImportJobStatus.UNDOING ||
       job.status === ImportJobStatus.APPLYING
     ) {
       throw new ConflictException({
-        code: 'IMPORT_JOB_BUSY',
+        code: IMPORT_ERROR_CODES.JOB_BUSY,
         message: 'Import job is currently being processed',
       });
     }
 
-    validateJobForUndo(job, jobId);
-    return job;
+    return { job, validation };
   }
 
   private async claimJobForUndo(
@@ -199,7 +208,7 @@ export class ImportUndoService {
 
     if (claim.count === 0) {
       throw new ConflictException({
-        code: 'IMPORT_JOB_CONFLICT',
+        code: IMPORT_ERROR_CODES.JOB_CONFLICT,
         message: 'Import job was modified or claimed concurrently',
       });
     }
@@ -267,7 +276,10 @@ export class ImportUndoService {
     const tenantId = await this.tenantContext.getTenantId();
     const authUser = this.tenantContext.getAuthenticatedUser();
 
-    const job = await this.fetchAndValidateJobForUndo(tenantId, jobId);
+    const { job, validation } = await this.fetchAndValidateJobForUndo(
+      tenantId,
+      jobId,
+    );
     if (job.status === ImportJobStatus.UNDONE) {
       return job;
     }
@@ -283,6 +295,7 @@ export class ImportUndoService {
       jobId,
       entityType: job.entity_type,
       effectiveAppliedAt: job.appliedAt ?? job.updatedAt,
+      appliedRowsCount: validation.appliedRowsCount,
     };
 
     const counts: UndoCounts = {
@@ -331,6 +344,13 @@ export class ImportUndoService {
             history.catalog_item_id,
             ctx.effectiveAppliedAt,
           );
+
+          if (history.old_cost == null) {
+            counts.blockedCount++;
+            counts.blockedReasons[history.catalog_item_id] =
+              UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT;
+            continue;
+          }
 
           const isConfirmed = confirmedSet.has(history.catalog_item_id);
           if (
@@ -406,6 +426,9 @@ export class ImportUndoService {
       });
 
       if (rows.length === 0) {
+        if (cursor === 0 && ctx.appliedRowsCount > 0) {
+          throw importJobPurged();
+        }
         break;
       }
       cursor = rows[rows.length - 1].row_no;

@@ -8,7 +8,9 @@ import {
   ImportJobStatus,
   ImportRowAction,
 } from '@prisma/client';
+import { ConflictException } from '@nestjs/common';
 import { ImportUndoService } from './import-undo.service.js';
+import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
 
 describe('ImportUndoService', () => {
   const tenantId = 'tenant-123';
@@ -32,7 +34,7 @@ describe('ImportUndoService', () => {
     mockPrisma = {
       importJob: {
         findFirst: jest.fn(),
-        findFirstOrThrow: jest.fn(),
+        findFirstOrThrow: jest.fn().mockResolvedValue({ id: jobId, status: ImportJobStatus.UNDONE }),
         update: jest
           .fn()
           .mockResolvedValue({ id: jobId, status: ImportJobStatus.UNDONE }),
@@ -40,6 +42,7 @@ describe('ImportUndoService', () => {
       },
       importJobRow: {
         findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(1),
         update: jest.fn().mockResolvedValue({ id: 'row-1' }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
@@ -203,6 +206,10 @@ describe('ImportUndoService', () => {
       appliedAt,
       totals_json: { create: 1, update: 0 },
       options_json: {},
+    });
+    mockPrisma.importJob.findFirstOrThrow.mockResolvedValue({
+      id: jobId,
+      status: ImportJobStatus.PARTIALLY_UNDONE,
     });
     mockPrisma.importJob.findFirstOrThrow.mockResolvedValue({
       id: jobId,
@@ -576,5 +583,72 @@ describe('ImportUndoService', () => {
     expect(mockPrisma.customer.deleteMany).toHaveBeenCalledWith({
       where: { tenant_id: tenantId, id: 'cust-remaining' },
     });
+  });
+
+  it('rejects undo with ConflictException IMPORT_JOB_PURGED when job options has rows_purged: true', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.CUSTOMER,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 5, update: 0 },
+      options_json: { rows_purged: true },
+    });
+
+    await expect(service.undoJob(jobId)).rejects.toThrow(ConflictException);
+  });
+
+  it('rejects undo with ConflictException IMPORT_JOB_PURGED when staged rows have been purged', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.CUSTOMER,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 5, update: 0 },
+      options_json: {},
+    });
+    mockPrisma.importJobRow.count = jest.fn().mockResolvedValue(0);
+
+    await expect(service.undoJob(jobId)).rejects.toThrow(ConflictException);
+  });
+
+  it('blocks supplier price list row missing old_cost snapshot without failing', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 0, update: 1 },
+      options_json: {},
+    });
+
+    mockPrisma.catalogPriceHistory.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'cph-no-old',
+          catalog_item_id: 'ci-no-old',
+          old_cost: null, // missing before snapshot
+          new_cost: 15.0,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    mockPrisma.importJob.findFirstOrThrow.mockResolvedValueOnce({
+      id: jobId,
+      status: ImportJobStatus.PARTIALLY_UNDONE,
+    });
+    mockPrisma.catalogItem.findFirst.mockResolvedValue({
+      id: 'ci-no-old',
+      tenant_id: tenantId,
+      updatedAt: new Date(appliedAt.getTime() - 1000),
+    });
+
+    const result = await service.undoJob(jobId);
+
+    expect(result.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
+    expect(mockPrisma.catalogItem.updateMany).not.toHaveBeenCalled();
   });
 });

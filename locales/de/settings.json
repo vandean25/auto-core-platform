@@ -1160,7 +1160,16 @@
       "previousPage": "Vorherige Seite",
       "nextPage": "Nächste Seite",
       "editMapping": "Zuordnung bearbeiten",
-      "applyImport": "Import anwenden"
+      "applyImport": "Import anwenden",
+      "uploadAgain": "Erneut hochladen",
+      "expired": {
+        "title": "Probelauf abgelaufen",
+        "description": "Probelauf abgelaufen, bitte erneut hochladen"
+      },
+      "purged": {
+        "title": "Importdaten bereinigt",
+        "description": "Die Zeilen dieses Imports wurden bereits bereinigt. Bitte laden Sie die Datei erneut hoch."
+      }
     },
     "errorReport": {
       "unknownError": "Die Zeile konnte nicht importiert werden. Bitte prüfen Sie die Werte und versuchen Sie es erneut.",
@@ -1276,7 +1285,8 @@
           "ENTITY_NOT_FOUND": "Datensatz nicht mehr vorhanden",
           "UNSUPPORTED_ENTITY_TYPE": "Objekttyp wird nicht unterstützt",
           "FINANCIAL_IMPORT_CANNOT_BE_UNDONE": "Finanzdaten können nicht rückgängig gemacht werden",
-          "UNKNOWN": "Nicht rückgängig machbar"
+          "UNKNOWN": "Nicht rückgängig machbar",
+          "ROWS_PURGED": "Die zwischengespeicherten Daten wurden gelöscht (Aufbewahrungsfrist abgelaufen)"
         }
       },
       "conflictsSection": {

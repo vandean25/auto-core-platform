@@ -1,16 +1,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 import type { ImportSource } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 
 import deCommon from '../../../../../../locales/de/common.json'
+import deErrors from '../../../../../../locales/de/errors.json'
 import deSettings from '../../../../../../locales/de/settings.json'
 
 import { ImportSourcesPanel } from './import-sources-panel'
 
 const di = deSettings.dataImport.sources
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 vi.mock('@/api/imports', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/imports')>()
@@ -44,6 +48,13 @@ const secondarySource: ImportSource = {
 const createMutate = vi.fn()
 const updateMutate = vi.fn()
 const deleteMutate = vi.fn()
+
+/** Shaped like the error `throwImportResponseError` produces, so the code reaches the translator. */
+function apiErrorWithCode(status: number, code: string) {
+  return Object.assign(new Error('internal copy'), {
+    response: { status, data: { statusCode: status, code, message: 'internal copy' } },
+  })
+}
 
 function renderPanel(
   sources: ImportSource[],
@@ -79,6 +90,7 @@ beforeEach(() => {
   createMutate.mockReset()
   updateMutate.mockReset()
   deleteMutate.mockReset()
+  vi.mocked(toast.error).mockClear()
 })
 
 describe('ImportSourcesPanel', () => {
@@ -151,6 +163,37 @@ describe('ImportSourcesPanel', () => {
         'source-incadea',
         expect.objectContaining({ onSuccess: expect.any(Function) }),
       )
+    })
+  })
+
+  it('reports the German copy for a duplicate key instead of the generic create failure', async () => {
+    renderPanel([defaultSource])
+    createMutate.mockImplementation((_payload: unknown, options?: { onError?: (error: unknown) => void }) => {
+      options?.onError?.(apiErrorWithCode(409, 'IMPORT_SOURCE_ALREADY_EXISTS'))
+    })
+
+    fireEvent.change(screen.getByLabelText(di.keyLabel), { target: { value: 'legacy_dms' } })
+    fireEvent.change(screen.getByLabelText(di.labelLabel), { target: { value: 'Incadea' } })
+    fireEvent.click(screen.getByRole('button', { name: di.add }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        deErrors.codes.IMPORT_SOURCE_ALREADY_EXISTS,
+      )
+    })
+  })
+
+  it('reports the German copy when the source to delete is gone', async () => {
+    renderPanel([defaultSource, secondarySource])
+    deleteMutate.mockImplementation((_id: unknown, options?: { onError?: (error: unknown) => void }) => {
+      options?.onError?.(apiErrorWithCode(404, 'IMPORT_SOURCE_NOT_FOUND'))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: di.deleteAria.replace('{{label}}', 'Incadea') }))
+    fireEvent.click(await screen.findByRole('button', { name: di.deleteConfirm }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(deErrors.codes.IMPORT_SOURCE_NOT_FOUND)
     })
   })
 })

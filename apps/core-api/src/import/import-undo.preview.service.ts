@@ -23,6 +23,7 @@ import {
   isUndoSupportedEntityType,
 } from './import-undo.guard.js';
 import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { ImportJobTotals } from './import.types.js';
 
 const PREVIEW_PAGE_SIZE = 100;
@@ -62,6 +63,38 @@ interface UndoBuckets {
   restorations: ImportUndoRowPreviewDto[];
   conflicts: ImportUndoRowPreviewDto[];
   blocked: ImportUndoRowPreviewDto[];
+}
+
+function buildBlockedPurgedPreview(
+  jobId: string,
+  entityType: string,
+  total: number,
+): ImportUndoPreviewResponseDto {
+  return {
+    jobId,
+    status: 'BLOCKED',
+    canUndo: false,
+    counts: {
+      total,
+      toDelete: 0,
+      toRestore: 0,
+      conflicts: 0,
+      blocked: total,
+    },
+    deletions: [],
+    restorations: [],
+    conflicts: [],
+    blocked: [
+      {
+        rowNumber: 0,
+        entityType,
+        entityId: null,
+        action: 'CREATE',
+        status: 'BLOCKED',
+        reason: UNDO_BLOCKED_REASONS.ROWS_PURGED,
+      },
+    ],
+  };
 }
 
 function buildBlockedDocumentPreview(
@@ -106,7 +139,10 @@ function validateJobForPreview(job: ImportJob | null, jobId: string): number {
     throw new NotFoundException(`Import job ${jobId} not found`);
   }
   if (job.status === ImportJobStatus.UNDONE) {
-    throw new BadRequestException('IMPORT_JOB_ALREADY_UNDONE');
+    throw new BadRequestException({
+      code: IMPORT_ERROR_CODES.JOB_ALREADY_UNDONE,
+      message: 'This import has already been undone',
+    });
   }
   const appliedRowsCount = getAppliedRowsCount(
     job.totals_json as ImportJobTotals | null,
@@ -183,6 +219,15 @@ export class ImportUndoPreviewService {
       blocked: 0,
     };
 
+    const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
+    if (jobOptions.rows_purged === true) {
+      return buildBlockedPurgedPreview(
+        jobId,
+        job.entity_type,
+        appliedRowsCount,
+      );
+    }
+
     const effectiveAppliedAt = job.appliedAt ?? job.updatedAt;
 
     let cursor = 0;
@@ -214,6 +259,14 @@ export class ImportUndoPreviewService {
           counts,
         );
       }
+    }
+
+    if (counts.total === 0 && appliedRowsCount > 0) {
+      return buildBlockedPurgedPreview(
+        jobId,
+        job.entity_type,
+        appliedRowsCount,
+      );
     }
 
     const overallStatus = calculateOverallStatus(counts);

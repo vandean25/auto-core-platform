@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { authSessionKeys, useAuthSession, useSwitchTenant } from '@/api/auth-session'
 
@@ -70,29 +70,46 @@ function MutationProbe() {
   )
 }
 
+function PendingProbe() {
+  const switchTenant = useSwitchTenant()
+
+  return (
+    <>
+      <div>{switchTenant.isPending ? 'Switching tenant' : 'Idle'}</div>
+      <button type='button' onClick={() => void switchTenant.mutateAsync('tenant-b')}>
+        Switch tenant
+      </button>
+    </>
+  )
+}
+
+const switchedSessionResponse = {
+  ok: true,
+  json: vi.fn().mockResolvedValue({
+    userId: 'user-1',
+    email: 'testauto@auto.core.at',
+    activeTenant: {
+      id: 'tenant-b',
+      name: 'Auto Core Graz',
+      slug: 'graz',
+    },
+    activeRole: 'SALES',
+    memberships: [],
+  }),
+}
+
 describe('useSwitchTenant', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
+    window.sessionStorage.clear()
     mocks.firebaseAuth.currentUser = {
       uid: 'user-1',
       email: 'testauto@auto.core.at',
       getIdToken: mocks.getIdToken,
     }
 
-    mocks.fetchWithAuth.mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        userId: 'user-1',
-        email: 'testauto@auto.core.at',
-        activeTenant: {
-          id: 'tenant-b',
-          name: 'Auto Core Graz',
-          slug: 'graz',
-        },
-        activeRole: 'SALES',
-        memberships: [],
-      }),
-    })
+    mocks.fetchWithAuth.mockResolvedValue(switchedSessionResponse)
     mocks.getIdToken.mockResolvedValue('refreshed-token')
   })
 
@@ -185,12 +202,21 @@ describe('useSwitchTenant', () => {
     })
   })
 
-  it('refreshes the token and clears tenant-scoped queries after a successful switch', async () => {
+  it('refreshes the token and resets the context but keeps the same user\'s views after a successful switch', async () => {
     const queryClient = createQueryClient()
-    const removeQueries = vi.spyOn(queryClient, 'removeQueries')
-    const invalidateQueries = vi
-      .spyOn(queryClient, 'invalidateQueries')
-      .mockResolvedValue(undefined)
+    queryClient.setQueryData(authSessionKeys.user('user-1'), {
+      userId: 'user-1',
+      email: 'testauto@auto.core.at',
+      activeTenant: { id: 'tenant-a', name: 'Auto Core Vienna', slug: 'vienna' },
+      activeRole: 'ADMIN',
+      memberships: [],
+    })
+    queryClient.setQueryData(['customers', 'list'], [{ id: 'customer-1' }])
+    window.localStorage.setItem('acp:saved-views:user-1', '[]')
+    window.localStorage.setItem('acp:dashboard-widgets:user-1', '[]')
+    window.localStorage.setItem('acp.push.registration', 'device-1')
+    const cancelQueries = vi.spyOn(queryClient, 'cancelQueries')
+    const clear = vi.spyOn(queryClient, 'clear')
 
     render(<MutationProbe />, { wrapper: createWrapper(queryClient) })
 
@@ -203,20 +229,41 @@ describe('useSwitchTenant', () => {
           method: 'POST',
         }),
       )
-      expect(mocks.getIdToken).toHaveBeenCalledWith(true)
-      expect(removeQueries).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'inactive',
-          predicate: expect.any(Function),
-        }),
-      )
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        queryKey: authSessionKeys.all,
-        refetchType: 'active',
-      })
-      expect(invalidateQueries).toHaveBeenCalledWith({
-        refetchType: 'active',
-      })
+      expect(clear).toHaveBeenCalledTimes(1)
+    })
+
+    expect(mocks.getIdToken).toHaveBeenCalledWith(true)
+    expect(mocks.getIdToken.mock.invocationCallOrder[0]).toBeLessThan(clear.mock.invocationCallOrder[0])
+    expect(cancelQueries).toHaveBeenCalled()
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBe('[]')
+    expect(window.localStorage.getItem('acp:dashboard-widgets:user-1')).toBe('[]')
+    expect(window.localStorage.getItem('acp.push.registration')).toBe('device-1')
+  })
+
+  it('stays pending while the tenant switch is in flight', async () => {
+    let resolveFetch!: (value: unknown) => void
+    mocks.fetchWithAuth.mockReturnValue(
+      new Promise((resolve) => {
+        resolveFetch = resolve
+      }),
+    )
+    const queryClient = createQueryClient()
+
+    render(<PendingProbe />, { wrapper: createWrapper(queryClient) })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch tenant' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Switching tenant')).toBeInTheDocument()
+    })
+
+    await act(async () => {
+      resolveFetch(switchedSessionResponse)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Idle')).toBeInTheDocument()
     })
   })
 })
