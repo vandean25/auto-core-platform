@@ -347,12 +347,18 @@ async function adoptStaleApplyLease(
 /** Reads and writes import jobs and their rows. Every query is scoped to the tenant. */
 function verifyLockEligibility(
   current: {
-    status: ImportJobStatus;
+    status?: ImportJobStatus;
     options_json: Prisma.JsonValue | null;
   } | null,
   allowedStatuses: ImportJobStatus[],
 ): { eligible: false } | { eligible: true; options: Record<string, unknown> } {
-  if (!current || !allowedStatuses.includes(current.status)) {
+  if (!current) {
+    return { eligible: false };
+  }
+  if (
+    current.status !== undefined &&
+    !allowedStatuses.includes(current.status)
+  ) {
     return { eligible: false };
   }
   const opts = (current.options_json ?? {}) as Record<string, unknown>;
