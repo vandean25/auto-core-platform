@@ -1,14 +1,15 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
+import { E2E_TEST_SIGN_IN_EVENT } from '../src/auth/e2e-test-token-user.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
 import { createMockCustomer, createMockListResponse } from '../e2e/utils/mock-factories.ts'
 
 /**
- * AUT-819: after a tenant or site switch the previous context's records must never stay on screen, not even while the
- * new context's data is still loading. The fullstack harness runs with a fixed test token, so tenant and site switches
- * are exercised against the real shell and the real switch endpoints, with the switch response and the follow-up list
- * responses controlled here. Sign-out and a Firebase uid change have no such seam and are covered by the core-web
- * unit/component suites instead.
+ * AUT-819: after a tenant switch, a site switch or a sign-out followed by another user signing in in the same tab, the
+ * previous user's, tenant's or site's records must never stay on screen, not even while the new context's data is
+ * still loading. The fullstack harness runs with a fixed test token, so switches, the switch endpoints and the
+ * follow-up list responses are exercised against the real shell and controlled here. The harness has no Firebase;
+ * the sign-in of the second user goes through the test-token seam (`acp:e2e-test-sign-in`).
  */
 
 const TENANT_B = {
@@ -24,6 +25,16 @@ const SITE_B = {
 }
 
 const TENANT_B_CUSTOMER_LABEL = 'Tenant B Kunde'
+
+const USER_B = {
+  uid: 'e2e-fullstack-user-b',
+  email: 'e2e-fullstack-user-b@auto.core.test',
+  displayName: 'User B',
+}
+
+const USER_A_EMAIL = 'e2e-fullstack@auto.core.test'
+const SAVED_VIEW_A = 'A gespeicherte Ansicht'
+const DASHBOARD_WIDGET_A = 'A Dashboard Widget'
 
 type SessionBody = Record<string, unknown>
 type Membership = { tenantId: string }
@@ -236,5 +247,87 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
 
     customersGate.resolve()
     await expect(page.getByText(TENANT_B_CUSTOMER_LABEL)).toBeVisible()
+  })
+
+  test('the next user signing in on the same tab never sees the previous user\'s data', async ({ page }) => {
+    const fixture = loadE2eFullstackFixture()
+    const state: SessionState = { switched: false, lastSession: null }
+    const customersGate = deferred()
+
+    await routeSession(page, state, () => ({
+      activeTenant: TENANT_B,
+      activeRole: 'ADMIN',
+      activeSiteId: null,
+    }))
+    await routeCustomerListAfterSwitch(page, state, customersGate.promise)
+
+    await gotoWithReadySession(page, '/customers')
+    await expect(
+      page.locator('[data-table-row="true"]').filter({ hasText: fixture.customerLabel }),
+    ).toBeVisible()
+
+    // Per-user views and the dashboard layout of the previous user on this shared browser.
+    await page.evaluate(() => {
+      localStorage.setItem('acp:saved-views:e2e-fullstack-user', JSON.stringify([
+        { id: 'saved-view-a', name: 'A gespeicherte Ansicht', href: '/customers', createdAt: '2026-10-30T10:00:00.000Z' },
+      ]))
+      localStorage.setItem('acp:dashboard-widgets:e2e-fullstack-user', JSON.stringify([
+        {
+          id: 'widget-a',
+          name: 'A Dashboard Widget',
+          sourceKey: 'customers',
+          sourceLabel: 'customers',
+          href: '/customers',
+          displayType: 'list',
+          createdAt: '2026-10-30T10:00:00.000Z',
+        },
+      ]))
+    })
+    await page.reload()
+    await expect(page.getByRole('link', { name: SAVED_VIEW_A })).toBeVisible()
+    await expect(
+      page.locator('[data-table-row="true"]').filter({ hasText: fixture.customerLabel }),
+    ).toBeVisible()
+
+    await page.getByRole('button', { name: USER_A_EMAIL }).click()
+    await page.getByRole('menuitem', { name: 'Abmelden' }).click()
+
+    // Signed out: the login form is shown and nothing of the previous user is left on screen.
+    await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toBeVisible()
+    await expect(page.getByText(fixture.customerLabel)).toHaveCount(0)
+    await expect(page.getByRole('link', { name: SAVED_VIEW_A })).toHaveCount(0)
+
+    // User B signs in on the same tab; the harness has no Firebase, so this uses the test-token sign-in seam.
+    state.switched = true
+    await page.evaluate(
+      ({ eventName, user }) => {
+        window.dispatchEvent(new CustomEvent(eventName, { detail: user }))
+      },
+      { eventName: E2E_TEST_SIGN_IN_EVENT, user: USER_B },
+    )
+
+    // B's customer request is still pending: no record from A may be rendered in the meantime.
+    await expect(page.getByRole('button', { name: new RegExp(TENANT_B.name) })).toBeVisible()
+    await expect(page.getByText(fixture.customerLabel)).toHaveCount(0)
+    await expect(page.getByText(TENANT_B_CUSTOMER_LABEL)).toHaveCount(0)
+    await expect(page.getByRole('link', { name: SAVED_VIEW_A })).toHaveCount(0)
+
+    customersGate.resolve()
+    await expect(page.getByText(TENANT_B_CUSTOMER_LABEL)).toBeVisible()
+
+    // The dashboard layout is B's own (empty), never A's.
+    await page.getByRole('link', { name: 'Dashboard' }).first().click()
+    await expect(page.getByText(/Noch keine Widgets/)).toBeVisible()
+    await expect(page.getByText(DASHBOARD_WIDGET_A)).toHaveCount(0)
+
+    // A's per-user data survives for A on this browser, but is not read under B's key.
+    const stored = await page.evaluate(() => ({
+      previousUserViews: localStorage.getItem('acp:saved-views:e2e-fullstack-user'),
+      nextUserViews: localStorage.getItem('acp:saved-views:e2e-fullstack-user-b'),
+      nextUserWidgets: localStorage.getItem('acp:dashboard-widgets:e2e-fullstack-user-b'),
+    }))
+    expect(stored.previousUserViews).toContain(SAVED_VIEW_A)
+    expect(stored.nextUserViews ?? '').not.toContain(SAVED_VIEW_A)
+    expect(stored.nextUserWidgets ?? '').not.toContain(DASHBOARD_WIDGET_A)
   })
 })

@@ -13,6 +13,14 @@ type MockAuthUser = {
   getIdTokenResult: ReturnType<typeof vi.fn>
 }
 
+const pushMocks = vi.hoisted(() => ({
+  releasePushRegistration: vi.fn().mockResolvedValue(false),
+}))
+
+vi.mock('@/features/push/push-device', () => ({
+  releasePushRegistration: pushMocks.releasePushRegistration,
+}))
+
 const mocks = vi.hoisted(() => ({
   authListener: null as ((user: MockAuthUser | null) => void) | null,
   unsubscribe: vi.fn(),
@@ -134,6 +142,7 @@ describe('AuthProvider', () => {
       memberships: [],
     })
     window.localStorage.setItem('acp:saved-views:user-1', '[]')
+    window.localStorage.setItem('acp.push.registration', 'device-1')
 
     await act(async () => {
       mocks.authListener?.(null)
@@ -144,7 +153,9 @@ describe('AuthProvider', () => {
       expect(clear).toHaveBeenCalledTimes(1)
     })
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
-    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBeNull()
+    expect(pushMocks.releasePushRegistration).toHaveBeenCalled()
+    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBe('[]')
+    expect(window.localStorage.getItem('acp.push.registration')).toBeNull()
   })
 
   it('keeps the query cache when the uid is unchanged (token refresh)', async () => {
@@ -206,7 +217,9 @@ describe('AuthProvider', () => {
 
     expect(clear).toHaveBeenCalledTimes(1)
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
-    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBeNull()
+    expect(pushMocks.releasePushRegistration).toHaveBeenCalled()
+    // The product decision for AUT-819 keeps per-user saved views across a sign-out.
+    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBe('[]')
     expect(mocks.signOut).toHaveBeenCalledWith({})
   })
 
