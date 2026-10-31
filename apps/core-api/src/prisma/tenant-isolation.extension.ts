@@ -1753,7 +1753,7 @@ async function dispatchTenantOperation(
   );
 }
 
-function resolveContextClient(thisArg: unknown): unknown {
+function resolveContextClient(thisArg: unknown, baseClient?: unknown): unknown {
   const activeTx =
     PrismaTransactionContext.getClient() ??
     DryRunStorage.getTransactionClient();
@@ -1766,20 +1766,21 @@ function resolveContextClient(thisArg: unknown): unknown {
     if (parent && typeof parent === 'object') {
       return parent;
     }
-    return thisArg;
   }
 
-  return undefined;
+  return baseClient ?? thisArg;
 }
 
 /**
  * The core $allOperations handler logic — extracted for unit testability.
  * Applies tenant isolation rules to a single Prisma operation.
  *
- * `baseClient` is the client captured at extension definition. It is kept in
- * the signature to make the isolation boundary explicit, but the extension
- * never queries through it: it lives outside every active transaction and
- * dry-run context.
+ * `baseClient` is the extended PrismaClient captured at extension definition.
+ * When an interactive transaction or dry-run context is active, the extension
+ * resolves and queries through that active transaction context to prevent
+ * second-connection leaks (AUT-817).
+ * When running without an active transaction, `baseClient` is used as the context client
+ * to verify nested relation ownership.
  */
 export async function applyTenantIsolation(
   this: unknown,
@@ -1799,7 +1800,7 @@ export async function applyTenantIsolation(
   assertOperationAllowed(model, operation);
 
   const tenantId = getCurrentTenantId();
-  const contextClient = resolveContextClient(this);
+  const contextClient = resolveContextClient(this, baseClient);
 
   return dispatchTenantOperation(
     model,
