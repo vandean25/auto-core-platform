@@ -1229,7 +1229,57 @@
         "cancel": "Abbrechen",
         "downloadErrors": "Fehler-CSV herunterladen",
         "cancelConfirmTitle": "Import abbrechen?",
-        "cancelConfirmDescription": "Der laufende Import wird beendet."
+        "cancelConfirmDescription": "Der laufende Import wird beendet.",
+        "undo": "Rückgängig machen"
+      }
+    },
+    "undo": {
+      "button": "Import rückgängig machen",
+      "dialogTitle": "Import rückgängig machen?",
+      "dialogDescription": "Macht die übernommenen Datensätze dieses Imports rückgängig. Bereits finalisierte Dokumente bleiben stets unberührt.",
+      "loadingPreview": "Rückgängig-Vorschau wird berechnet…",
+      "loadPreviewFailed": "Die Vorschau konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "summary": {
+        "toDelete": "Werden gelöscht",
+        "toRestore": "Werden wiederhergestellt",
+        "conflicts": "Konflikte (nach Import geändert)",
+        "blocked": "Blockiert (nicht rückgängig machbar)"
+      },
+      "blockedSection": {
+        "title": "Blockierte Datensätze ({{count}})",
+        "description": "Diese Datensätze sind mit Folgebelegen verknüpft und können nicht rückgängig gemacht werden:",
+        "reasons": {
+          "DOWNSTREAM_WORK_ORDER": "Mit Werkstattauftrag verknüpft",
+          "DOWNSTREAM_ESTIMATE": "Mit Kostenvoranschlag verknüpft",
+          "DOWNSTREAM_INVOICE": "Mit Rechnung verknüpft (unveränderlich)",
+          "DOWNSTREAM_CREDIT_NOTE": "Mit Gutschrift verknüpft",
+          "DOWNSTREAM_STOCK_MOVEMENT": "Mit Lagerbewegung verknüpft",
+          "DOWNSTREAM_PURCHASE_ORDER": "Mit Einkaufsbestellung verknüpft",
+          "MODIFIED_SINCE_IMPORT": "Nach Import geändert",
+          "MISSING_BEFORE_SNAPSHOT": "Kein vorheriger Stand gespeichert",
+          "ENTITY_NOT_FOUND": "Datensatz nicht mehr vorhanden",
+          "UNKNOWN": "Nicht rückgängig machbar"
+        }
+      },
+      "conflictsSection": {
+        "title": "Geänderte Datensätze überschreiben ({{count}})",
+        "description": "Diese Datensätze wurden nach dem Import manuell bearbeitet. Wählen Sie aus, welche trotzdem auf den Stand vor dem Import zurückgesetzt werden sollen:",
+        "overwriteCheckbox": "Trotz nachträglicher Änderung auf Vor-Import-Stand zurücksetzen"
+      },
+      "confirmation": {
+        "label": "Geben Sie zur Bestätigung „{{keyword}}“ ein:",
+        "keyword": "RÜCKGÄNGIG",
+        "placeholder": "RÜCKGÄNGIG"
+      },
+      "actions": {
+        "cancel": "Abbrechen",
+        "submit": "Rückgängig machen",
+        "submitting": "Wird rückgängig gemacht…"
+      },
+      "toast": {
+        "success": "Import erfolgreich rückgängig gemacht.",
+        "partial": "Import teilweise rückgängig gemacht ({{blockedCount}} Datensätze blockiert).",
+        "failed": "Import konnte nicht rückgängig gemacht werden."
       }
     }
   },

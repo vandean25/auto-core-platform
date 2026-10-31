@@ -33,6 +33,7 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
   })
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [undoJobId, setUndoJobId] = React.useState<string | null>(null)
 
   const jobsQuery = useImportJobs({
     page: pagination.pageIndex + 1,
@@ -60,6 +61,7 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
   const runContext = React.useMemo<ImportJobActionContext>(
     () => ({
       openJob,
+      undoJob: (jobId) => setUndoJobId(jobId),
       cancelJob: (jobId) =>
         cancelImportJob(jobId, {
           onError: (error) => {
@@ -115,5 +117,7 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
     setSorting,
     columnFilters,
     setColumnFilters,
+    undoJobId,
+    setUndoJobId,
   }
 }

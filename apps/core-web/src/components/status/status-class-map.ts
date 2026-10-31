@@ -117,4 +117,6 @@ export const statusClassMap: Record<string, string> = {
   DRY_RUN_DONE: INFO,
   APPLYING: WARNING,
   ABORTED: NEUTRAL,
+  UNDONE: NEUTRAL,
+  PARTIALLY_UNDONE: WARNING,
 }

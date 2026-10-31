@@ -1229,7 +1229,57 @@
         "cancel": "Cancel",
         "downloadErrors": "Download errors CSV",
         "cancelConfirmTitle": "Cancel import?",
-        "cancelConfirmDescription": "The running import will be stopped."
+        "cancelConfirmDescription": "The running import will be stopped.",
+        "undo": "Undo"
+      }
+    },
+    "undo": {
+      "button": "Undo import",
+      "dialogTitle": "Undo import?",
+      "dialogDescription": "Reverts the applied records from this import. Finalized documents remain untouched.",
+      "loadingPreview": "Calculating undo preview…",
+      "loadPreviewFailed": "Failed to load undo preview. Please try again.",
+      "summary": {
+        "toDelete": "Will be deleted",
+        "toRestore": "Will be restored",
+        "conflicts": "Conflicts (edited after import)",
+        "blocked": "Blocked (cannot be undone)"
+      },
+      "blockedSection": {
+        "title": "Blocked records ({{count}})",
+        "description": "These records are linked to downstream documents and cannot be undone:",
+        "reasons": {
+          "DOWNSTREAM_WORK_ORDER": "Linked to work order",
+          "DOWNSTREAM_ESTIMATE": "Linked to estimate",
+          "DOWNSTREAM_INVOICE": "Linked to invoice (immutable)",
+          "DOWNSTREAM_CREDIT_NOTE": "Linked to credit note",
+          "DOWNSTREAM_STOCK_MOVEMENT": "Linked to stock movement",
+          "DOWNSTREAM_PURCHASE_ORDER": "Linked to purchase order",
+          "MODIFIED_SINCE_IMPORT": "Modified after import",
+          "MISSING_BEFORE_SNAPSHOT": "No previous state saved",
+          "ENTITY_NOT_FOUND": "Record no longer exists",
+          "UNKNOWN": "Cannot be undone"
+        }
+      },
+      "conflictsSection": {
+        "title": "Overwrite modified records ({{count}})",
+        "description": "These records were edited after the import. Select which ones should still be restored to their pre-import state:",
+        "overwriteCheckbox": "Restore to pre-import state despite subsequent edit"
+      },
+      "confirmation": {
+        "label": "Type “{{keyword}}” to confirm:",
+        "keyword": "UNDO",
+        "placeholder": "UNDO"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "submit": "Undo import",
+        "submitting": "Undoing…"
+      },
+      "toast": {
+        "success": "Import successfully undone.",
+        "partial": "Import partially undone ({{blockedCount}} records blocked).",
+        "failed": "Failed to undo import."
       }
     }
   },
