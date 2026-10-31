@@ -30,6 +30,11 @@ type ImportJobFindManyArgs = {
   select?: Record<string, boolean>;
 };
 
+type UpdateManyArgs = {
+  where: { tenant_id?: string; id?: string; status?: ImportJobStatus };
+  data: Prisma.ImportJobUpdateInput;
+};
+
 function jobHasRows(
   rowsByJob: Map<string, RetentionTestRow[]>,
   jobId: string,
@@ -46,7 +51,6 @@ function matchesEligibleWhere(
   if (where.tenant_id !== job.tenant_id) {
     return false;
   }
-  // If the where clause requires rows: { some: {} }, check that the job has rows
   if (where.rows && !jobHasRows(rowsByJob, job.id)) {
     return false;
   }
@@ -63,7 +67,28 @@ function matchesEligibleWhere(
   );
 }
 
-function rowMatchesAction(
+function matchesInFilter(rowAction: ImportRowAction, inFilter: unknown): boolean {
+  return Array.isArray(inFilter) && inFilter.includes(rowAction);
+}
+
+function matchesNotFilter(rowAction: ImportRowAction, notFilter: unknown): boolean {
+  return notFilter !== undefined && rowAction !== notFilter;
+}
+
+function matchesObjectFilter(
+  rowAction: ImportRowAction,
+  filter: Record<string, unknown>,
+): boolean {
+  if ('not' in filter) {
+    return matchesNotFilter(rowAction, filter.not);
+  }
+  if ('in' in filter) {
+    return matchesInFilter(rowAction, filter.in);
+  }
+  return true;
+}
+
+export function rowMatchesAction(
   row: RetentionTestRow,
   actionFilter?: Prisma.ImportJobRowWhereInput['action'],
 ): boolean {
@@ -72,30 +97,46 @@ function rowMatchesAction(
   if (typeof actionFilter === 'string') {
     return rowAction === actionFilter;
   }
-  if (typeof actionFilter === 'object' && actionFilter !== null) {
-    if ('in' in actionFilter && Array.isArray(actionFilter.in)) {
-      return (actionFilter.in as string[]).includes(rowAction);
-    }
-    if ('not' in actionFilter && actionFilter.not) {
-      return rowAction !== actionFilter.not;
-    }
-  }
+  return matchesObjectFilter(
+    rowAction,
+    actionFilter,
+  );
+}
+
+function matchesJobUpdateWhere(
+  job: RetentionTestJob,
+  where: UpdateManyArgs['where'],
+): boolean {
+  if (where.tenant_id && job.tenant_id !== where.tenant_id) return false;
+  if (where.id && job.id !== where.id) return false;
+  if (where.status && job.status !== where.status) return false;
   return true;
 }
 
-/** In-memory Prisma subset that evaluates the same eligibility rules as production. */
-export function createImportRetentionPrismaFake(
-  jobsInput: RetentionTestJob[],
-  rowsByJobInput: Record<string, Array<number | RetentionTestRow>>,
-  cutoffsInput: ImportJobRowPurgeCutoffs | Date,
-) {
-  const jobs = jobsInput.map((job) => ({ ...job }));
-  const cutoffs: ImportJobRowPurgeCutoffs =
-    cutoffsInput instanceof Date
-      ? importJobRowPurgeCutoffs(cutoffsInput)
-      : cutoffsInput;
+function updateJobIfMatching(
+  job: RetentionTestJob,
+  where: UpdateManyArgs['where'],
+  data: Prisma.ImportJobUpdateInput,
+): boolean {
+  if (!matchesJobUpdateWhere(job, where)) {
+    return false;
+  }
+  Object.assign(job, data);
+  return true;
+}
 
-  const rowsByJob = new Map<string, RetentionTestRow[]>(
+function normalizeCutoffs(
+  cutoffsInput: ImportJobRowPurgeCutoffs | Date,
+): ImportJobRowPurgeCutoffs {
+  return cutoffsInput instanceof Date
+    ? importJobRowPurgeCutoffs(cutoffsInput)
+    : cutoffsInput;
+}
+
+function buildRowsByJobMap(
+  rowsByJobInput: Record<string, Array<number | RetentionTestRow>>,
+): Map<string, RetentionTestRow[]> {
+  return new Map<string, RetentionTestRow[]>(
     Object.entries(rowsByJobInput).map(([jobId, rows]) => [
       jobId,
       rows.map((r) =>
@@ -105,8 +146,14 @@ export function createImportRetentionPrismaFake(
       ),
     ]),
   );
+}
 
-  const importJob = {
+function buildImportJobMock(
+  jobs: RetentionTestJob[],
+  rowsByJob: Map<string, RetentionTestRow[]>,
+  cutoffs: ImportJobRowPurgeCutoffs,
+) {
+  return {
     findMany: jest.fn(async (args: ImportJobFindManyArgs) => {
       const eligible = jobs
         .filter((job) =>
@@ -125,33 +172,23 @@ export function createImportRetentionPrismaFake(
         appliedAt: job.appliedAt ?? null,
       }));
     }),
-    updateMany: jest.fn(
-      async (args: {
-        where: { tenant_id?: string; id?: string; status?: ImportJobStatus };
-        data: Prisma.ImportJobUpdateInput;
-      }) => {
-        let count = 0;
-        for (const job of jobs) {
-          if (args.where.tenant_id && job.tenant_id !== args.where.tenant_id)
-            continue;
-          if (args.where.id && job.id !== args.where.id) continue;
-          if (args.where.status && job.status !== args.where.status) continue;
-          if (args.data.status) job.status = args.data.status as ImportJobStatus;
-          if (args.data.cancelled_at !== undefined)
-            job.cancelled_at = args.data.cancelled_at as Date;
-          if (args.data.options_json !== undefined)
-            job.options_json = args.data.options_json as Prisma.JsonValue;
+    updateMany: jest.fn(async (args: UpdateManyArgs) => {
+      let count = 0;
+      for (const job of jobs) {
+        if (updateJobIfMatching(job, args.where, args.data)) {
           count++;
         }
-        return { count };
-      },
-    ),
+      }
+      return { count };
+    }),
     deleteMany: jest.fn(async () => {
       throw new Error('import_jobs must not be deleted during row purge');
     }),
   };
+}
 
-  const importJobRow = {
+function buildImportJobRowMock(rowsByJob: Map<string, RetentionTestRow[]>) {
+  return {
     count: jest.fn(
       async (args: {
         where: {
@@ -197,8 +234,10 @@ export function createImportRetentionPrismaFake(
       },
     ),
   };
+}
 
-  const externalIdMapping = {
+function buildExternalIdMappingMock() {
+  return {
     updateMany: jest.fn(async () => {
       throw new Error(
         'external_id_mappings must not be updated during row purge',
@@ -210,9 +249,24 @@ export function createImportRetentionPrismaFake(
       );
     }),
   };
+}
+
+/** In-memory Prisma subset that evaluates the same eligibility rules as production. */
+export function createImportRetentionPrismaFake(
+  jobsInput: RetentionTestJob[],
+  rowsByJobInput: Record<string, Array<number | RetentionTestRow>>,
+  cutoffsInput: ImportJobRowPurgeCutoffs | Date,
+) {
+  const jobs = jobsInput.map((job) => ({ ...job }));
+  const cutoffs = normalizeCutoffs(cutoffsInput);
+  const rowsByJob = buildRowsByJobMap(rowsByJobInput);
 
   return {
-    prisma: { importJob, importJobRow, externalIdMapping },
+    prisma: {
+      importJob: buildImportJobMock(jobs, rowsByJob, cutoffs),
+      importJobRow: buildImportJobRowMock(rowsByJob),
+      externalIdMapping: buildExternalIdMappingMock(),
+    },
     jobs,
     rowsByJob,
     expectedJobWhere: (tenantId: string) =>
