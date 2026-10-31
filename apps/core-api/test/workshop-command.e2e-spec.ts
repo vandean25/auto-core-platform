@@ -217,6 +217,25 @@ describe('Workshop command (e2e)', () => {
 
   afterEach(async () => {
     if (tenant) {
+      const tenantUsers = await basePrisma.tenantMember.findMany({
+        where: { tenant_id: tenant.tenantId },
+        select: { user_id: true },
+      });
+      const userIds = tenantUsers.map((u) => u.user_id);
+      if (userIds.length > 0) {
+        const grants = await systemPrisma.landingDemoSignInGrant.findMany({
+          where: { user_id: { in: userIds } },
+          select: { id: true, access_request_id: true },
+        });
+        if (grants.length > 0) {
+          await systemPrisma.landingDemoSignInGrant.deleteMany({
+            where: { id: { in: grants.map((g) => g.id) } },
+          });
+          await systemPrisma.landingDemoAccessRequest.deleteMany({
+            where: { id: { in: grants.map((g) => g.access_request_id) } },
+          });
+        }
+      }
       await cleanupTestTenantGraph(basePrisma, tenant.tenantId);
     }
   });
