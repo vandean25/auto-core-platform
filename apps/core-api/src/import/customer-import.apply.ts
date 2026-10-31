@@ -196,6 +196,13 @@ export async function applyCustomerImportRow(
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateCustomer(tx, ctx, row.row_no, row.entity_id, externalId, payload);
+    await updateCustomer(
+      tx,
+      ctx,
+      row.row_no,
+      row.entity_id,
+      externalId,
+      payload,
+    );
   }
 }

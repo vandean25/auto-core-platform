@@ -273,7 +273,11 @@ async function updateLaborOperation(
         row_no: rowNo,
       },
     },
-    data: { before_snapshot_json: pickLaborAuditSnapshot(before) as any },
+    data: {
+      before_snapshot_json: pickLaborAuditSnapshot(
+        before,
+      ) as unknown as Prisma.InputJsonValue,
+    },
   });
   await ctx.audit.writeEntityAudit(
     tx,

@@ -215,6 +215,13 @@ export async function applyVehicleImportRow(
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateVehicle(tx, ctx, row.row_no, row.entity_id, externalId, payload);
+    await updateVehicle(
+      tx,
+      ctx,
+      row.row_no,
+      row.entity_id,
+      externalId,
+      payload,
+    );
   }
 }

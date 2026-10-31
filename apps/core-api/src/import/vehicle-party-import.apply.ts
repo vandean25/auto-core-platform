@@ -145,7 +145,9 @@ async function updateParty(
         row_no: rowNo,
       },
     },
-    data: { before_snapshot_json: auditSnapshot(before) as any },
+    data: {
+      before_snapshot_json: auditSnapshot(before),
+    },
   });
   await ctx.audit.writeEntityAudit(
     tx,

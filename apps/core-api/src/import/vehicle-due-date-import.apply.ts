@@ -124,13 +124,21 @@ async function createInspection(
       source: VehicleInspectionRecordSource.LEGACY_IMPORT,
     },
   });
-  await recordCreate(tx, ctx, rowNo, externalId, 'VehicleInspectionRecord', created, {
-    vehicle_id: created.vehicle_id,
-    inspected_on: dateToDay(created.inspected_on),
-    plaketten_valid_until_year: created.plaketten_valid_until_year,
-    plaketten_valid_until_month: created.plaketten_valid_until_month,
-    source: created.source,
-  });
+  await recordCreate(
+    tx,
+    ctx,
+    rowNo,
+    externalId,
+    'VehicleInspectionRecord',
+    created,
+    {
+      vehicle_id: created.vehicle_id,
+      inspected_on: dateToDay(created.inspected_on),
+      plaketten_valid_until_year: created.plaketten_valid_until_year,
+      plaketten_valid_until_month: created.plaketten_valid_until_month,
+      source: created.source,
+    },
+  );
 }
 
 async function createServiceNotice(
