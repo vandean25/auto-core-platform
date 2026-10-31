@@ -86,7 +86,7 @@ function createPrisma(world: World) {
         sites.find((site) => site.id === where.id && site.is_active === where.is_active) ?? null,
     },
     vehicle: {
-      findMany: async ({ where }: Json) => {
+      findMany: async ({ where, take }: Json) => {
         let rows = vehicles.filter((vehicle) => vehicle.tenant_id === where.tenant_id);
         if (where.customer_id?.in) {
           rows = rows.filter((vehicle) => where.customer_id.in.includes(vehicle.customer_id));
@@ -103,11 +103,12 @@ function createPrisma(world: World) {
         if (where.vin !== undefined) {
           rows = rows.filter((vehicle) => stringMatch(vehicle.vin, where.vin));
         }
-        return [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        const sorted = [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        return typeof take === 'number' ? sorted.slice(0, take) : sorted;
       },
     },
     customer: {
-      findMany: async ({ where }: Json) => {
+      findMany: async ({ where, take }: Json) => {
         let rows = customers.filter((customer) => customer.tenant_id === where.tenant_id);
         const clauses = (where.OR as Json[]) ?? [];
         rows = rows.filter((customer) =>
@@ -117,7 +118,8 @@ function createPrisma(world: World) {
               (clause.company_name && stringMatch(customer.company_name, clause.company_name)),
           ),
         );
-        return [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        const sorted = [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        return typeof take === 'number' ? sorted.slice(0, take) : sorted;
       },
       findFirst: async ({ where }: Json) =>
         customers.find(
@@ -311,6 +313,64 @@ describe('WorkshopCommandResolver fixtures', () => {
     const document = fixture('multiple-golfs-one-huber.json');
     const result = await runFixture('multiple-golfs-one-huber.json');
     expect(result).toEqual(document.expect.body);
+  });
+
+  it('caps customer choices at 10 and sets has_more flag when more than 10 match', async () => {
+    const world = fixture('world.json');
+    const manyCustomers = Array.from({ length: 15 }, (_, i) => ({
+      id: `51500000-0000-4000-8000-0000000000${String(20 + i).padStart(2, '0')}`,
+      type: 'PRIVATE',
+      first_name: `User${i + 1}`,
+      last_name: 'Huber',
+      company_name: null,
+    }));
+    const worldWithMany = {
+      ...world,
+      customers: manyCustomers,
+    };
+    const result = await resolveIn(worldWithMany, {
+      text: 'Huber Golf morgen 8 Uhr großes Service',
+      commandId: DEFAULT_COMMAND_ID,
+      source: 'keyboard',
+      now: DEFAULT_NOW,
+    });
+    expect(result.status).toBe('clarification');
+    if (result.status === 'clarification') {
+      expect(result.code).toBe('CUSTOMER_AMBIGUOUS');
+      expect(result.choices).toHaveLength(10);
+      expect(result.has_more).toBe(true);
+    }
+  });
+
+  it('caps vehicle choices at 10 and sets has_more flag when more than 10 match', async () => {
+    const world = fixture('world.json');
+    const customerId = '51500000-0000-4000-8000-000000000021';
+    const manyVehicles = Array.from({ length: 15 }, (_, i) => ({
+      id: `51500000-0000-4000-8000-0000000000${String(30 + i).padStart(2, '0')}`,
+      customer_id: customerId,
+      make: 'Volkswagen',
+      model: 'Golf',
+      year: 2015 + (i % 8),
+      plate: `W-SYN ${100 + i}`,
+      vin: `WVWZZZ3CZWE000${100 + i}`,
+    }));
+    const worldWithMany = {
+      ...world,
+      vehicles: manyVehicles,
+    };
+    const result = await resolveIn(worldWithMany, {
+      text: 'Huber Golf morgen 8 Uhr großes Service',
+      commandId: DEFAULT_COMMAND_ID,
+      source: 'keyboard',
+      now: DEFAULT_NOW,
+      selections: [{ slot: 'customer_id', value: customerId }],
+    });
+    expect(result.status).toBe('clarification');
+    if (result.status === 'clarification') {
+      expect(result.code).toBe('VEHICLE_AMBIGUOUS');
+      expect(result.choices).toHaveLength(10);
+      expect(result.has_more).toBe(true);
+    }
   });
 
   it('returns CUSTOMER_NOT_FOUND when the name is unknown', async () => {

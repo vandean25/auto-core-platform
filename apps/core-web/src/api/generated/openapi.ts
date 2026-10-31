@@ -12236,6 +12236,7 @@ export interface components {
             };
             /** @example null */
             proposal: string | null;
+            has_more?: boolean;
         };
         CommandSelectionDto: {
             /** @example customer_id */

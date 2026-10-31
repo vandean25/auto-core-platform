@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
+import { DialogFooter } from '@/components/ui/dialog'
 import {
   WORKSHOP_COMMAND_MAX_TEXT_LENGTH,
   type WorkshopCommandClarification,
@@ -25,9 +26,11 @@ export function CommandHeader({
         <h2 className="text-sm font-semibold">{t('command.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('command.description')}</p>
       </div>
-      <Button type="button" variant="ghost" size="sm" onClick={onExit} disabled={busy}>
-        {t('command.backToSearch')}
-      </Button>
+      <DialogFooter className="sm:justify-start sm:space-x-0">
+        <Button type="button" variant="ghost" size="sm" onClick={onExit} disabled={busy}>
+          {t('command.backToSearch')}
+        </Button>
+      </DialogFooter>
     </header>
   )
 }
@@ -104,7 +107,7 @@ export function CommandToolbar({
 }) {
   const { t } = useTranslation('workshop')
   return (
-    <div className="flex flex-wrap gap-2">
+    <DialogFooter className="flex flex-wrap gap-2 sm:justify-start sm:space-x-0">
       <Button type="button" onClick={onReview} disabled={!canReview}>
         {hasResult ? t('command.rereview') : t('command.review')}
       </Button>
@@ -127,7 +130,7 @@ export function CommandToolbar({
           {t('command.editSentence')}
         </Button>
       ) : null}
-    </div>
+    </DialogFooter>
   )
 }
 
@@ -159,9 +162,11 @@ export function CommandErrorAlert({
       {error.detail && error.code !== 'COMMAND_ID_REUSED' ? (
         <p className="text-muted-foreground">{error.detail}</p>
       ) : null}
-      <Button type="button" size="sm" variant="outline" onClick={onReset}>
-        {t('command.rereview')}
-      </Button>
+      <DialogFooter className="sm:justify-start sm:space-x-0">
+        <Button type="button" size="sm" variant="outline" onClick={onReset}>
+          {t('command.rereview')}
+        </Button>
+      </DialogFooter>
     </div>
   )
 }
@@ -176,6 +181,9 @@ export function ClarificationBlock({
   onChoose: (choiceId: string) => void
 }) {
   const { t } = useTranslation('workshop')
+  const prompt = t(`command.clarificationPrompts.${clarification.code}`, {
+    defaultValue: clarification.prompt,
+  })
   return (
     <section
       aria-labelledby="workshop-command-clarification"
@@ -184,9 +192,12 @@ export function ClarificationBlock({
       <h3 id="workshop-command-clarification" className="text-sm font-semibold">
         {t('command.clarificationHeading')}
       </h3>
-      <p className="text-sm">{clarification.prompt}</p>
+      <p className="text-sm">{prompt}</p>
+      {clarification.has_more ? (
+        <p className="text-xs text-muted-foreground">{t('command.hasMore')}</p>
+      ) : null}
       {clarification.choices.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <DialogFooter className="flex flex-wrap gap-2 sm:justify-start sm:space-x-0">
           {clarification.choices.map((choice) => (
             <Button
               key={choice.choice_id}
@@ -199,7 +210,7 @@ export function ClarificationBlock({
               {choice.label}
             </Button>
           ))}
-        </div>
+        </DialogFooter>
       ) : (
         <p className="text-xs text-muted-foreground">{t('command.clarificationNoChoices')}</p>
       )}
@@ -226,9 +237,11 @@ export function PendingProposalSection({
         {t('command.pendingHint', { id: proposal.pending_action_id })}
       </p>
       <p className="text-xs font-medium">{t('command.pendingNotApplied')}</p>
-      <Button type="button" size="sm" onClick={onApply} disabled={busy}>
-        {busy ? t('command.applying') : t('command.applyNow')}
-      </Button>
+      <DialogFooter className="sm:justify-start sm:space-x-0">
+        <Button type="button" size="sm" onClick={onApply} disabled={busy}>
+          {busy ? t('command.applying') : t('command.applyNow')}
+        </Button>
+      </DialogFooter>
     </section>
   )
 }
@@ -242,9 +255,11 @@ export function AppliedSection({ onOpenOrders }: { onOpenOrders?: () => void }) 
       </h3>
       <p className="text-xs">{t('command.appliedHint')}</p>
       {onOpenOrders ? (
-        <Button type="button" size="sm" variant="outline" onClick={onOpenOrders}>
-          {t('command.openOrders')}
-        </Button>
+        <DialogFooter className="sm:justify-start sm:space-x-0">
+          <Button type="button" size="sm" variant="outline" onClick={onOpenOrders}>
+            {t('command.openOrders')}
+          </Button>
+        </DialogFooter>
       ) : null}
     </section>
   )

@@ -68,6 +68,7 @@ type ClarificationPayload = {
   code: ClarificationCode;
   choices: CommandChoice[];
   recognized: Record<string, unknown>;
+  has_more?: boolean;
 };
 
 type IdentityResolution =
@@ -246,6 +247,7 @@ function clarification(
   code: ClarificationCode,
   choices: CommandChoice[],
   recognized: Record<string, unknown>,
+  has_more?: boolean,
 ): Clarification {
   return {
     contract_version: WORKSHOP_COMMAND_CONTRACT_VERSION,
@@ -256,6 +258,7 @@ function clarification(
     choices,
     recognized,
     proposal: null,
+    ...(has_more ? { has_more } : {}),
   };
 }
 
@@ -348,6 +351,7 @@ export class WorkshopCommandResolver {
         identity.clarification.code,
         identity.clarification.choices,
         identity.clarification.recognized,
+        identity.clarification.has_more,
       );
     }
     const { customer, vehicle } = identity;
@@ -621,8 +625,16 @@ export class WorkshopCommandResolver {
     code: ClarificationCode,
     choices: CommandChoice[],
     recognized: Record<string, unknown> = {},
+    has_more?: boolean,
   ): IdentityResolution {
-    return { clarification: { code, choices, recognized } };
+    return {
+      clarification: {
+        code,
+        choices,
+        recognized,
+        ...(has_more ? { has_more } : {}),
+      },
+    };
   }
 
   private async resolveVehicleIdentity(
@@ -633,17 +645,22 @@ export class WorkshopCommandResolver {
     const candidates = await this.prisma.vehicle.findMany({
       where: vehicleIdentityWhere(tenantId, identity),
       orderBy: { id: 'asc' },
+      take: 11,
     });
     if (candidates.length === 0) {
       return this.identityClarification('VEHICLE_NOT_FOUND', []);
     }
-    const selected = this.pickById(candidates, selections.get('vehicle_id'));
+    const hasMore = candidates.length > 10;
+    const capped = hasMore ? candidates.slice(0, 10) : candidates;
+    const selected = this.pickById(capped, selections.get('vehicle_id'));
     if (!selected) {
       return this.identityClarification(
         'VEHICLE_AMBIGUOUS',
-        candidates.map((vehicle) =>
+        capped.map((vehicle) =>
           choice('vehicle_id', vehicle.id, vehicleLabel(vehicle), 'vehicle'),
         ),
+        {},
+        hasMore,
       );
     }
     const customer = await this.findCustomerOfVehicle(tenantId, selected);
@@ -679,27 +696,34 @@ export class WorkshopCommandResolver {
         ],
       },
       orderBy: { id: 'asc' },
+      take: 11,
     });
     if (customers.length === 0) {
       return this.identityClarification('CUSTOMER_NOT_FOUND', [], tokens);
     }
 
+    const hasMoreCustomers = customers.length > 10;
+    const cappedCustomers = hasMoreCustomers
+      ? customers.slice(0, 10)
+      : customers;
+
     const vehicles = await this.prisma.vehicle.findMany({
       where: {
         tenant_id: tenantId,
-        customer_id: { in: customers.map((customer) => customer.id) },
+        customer_id: { in: cappedCustomers.map((customer) => customer.id) },
       },
       orderBy: { id: 'asc' },
     });
     const selectedCustomer = this.pickById(
-      customers,
+      cappedCustomers,
       selections.get('customer_id'),
     );
     if (!selectedCustomer) {
       return this.identityClarification(
         'CUSTOMER_AMBIGUOUS',
-        customerChoices(customers, vehicles),
+        customerChoices(cappedCustomers, vehicles),
         tokens,
+        hasMoreCustomers,
       );
     }
 
@@ -708,19 +732,22 @@ export class WorkshopCommandResolver {
       selectedCustomer.id,
       model,
     );
+    const hasMoreVehicles = matchingVehicles.length > 10;
+    const cappedVehicles = hasMoreVehicles
+      ? matchingVehicles.slice(0, 10)
+      : matchingVehicles;
     const selectedVehicle = this.pickById(
-      matchingVehicles,
+      cappedVehicles,
       selections.get('vehicle_id'),
     );
     if (!selectedVehicle) {
       return this.identityClarification(
-        matchingVehicles.length === 0
-          ? 'VEHICLE_NOT_FOUND'
-          : 'VEHICLE_AMBIGUOUS',
-        matchingVehicles.map((vehicle) =>
+        cappedVehicles.length === 0 ? 'VEHICLE_NOT_FOUND' : 'VEHICLE_AMBIGUOUS',
+        cappedVehicles.map((vehicle) =>
           choice('vehicle_id', vehicle.id, vehicleLabel(vehicle), 'vehicle'),
         ),
         { customer_id: selectedCustomer.id, vehicle_token: model },
+        hasMoreVehicles,
       );
     }
 

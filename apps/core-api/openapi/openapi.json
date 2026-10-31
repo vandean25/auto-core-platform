@@ -40596,6 +40596,9 @@
             "type": "string",
             "nullable": true,
             "example": null
+          },
+          "has_more": {
+            "type": "boolean"
           }
         },
         "required": [

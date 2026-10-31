@@ -116,6 +116,7 @@ export type Clarification = {
   choices: CommandChoice[];
   recognized: Record<string, unknown>;
   proposal: null;
+  has_more?: boolean;
 };
 
 export type InterpretResult = WorkshopIntent | Clarification;

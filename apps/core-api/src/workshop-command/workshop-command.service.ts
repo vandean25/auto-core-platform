@@ -433,7 +433,7 @@ export class WorkshopCommandService {
     intent: WorkshopIntent,
   ): boolean {
     const reviewed = replay.reviewed_fingerprint;
-    return reviewed != null && reviewed !== intentFingerprint(intent);
+    return reviewed == null || reviewed !== intentFingerprint(intent);
   }
 
   private assertReviewedPlan(

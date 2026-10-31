@@ -257,6 +257,48 @@ describe('Workshop command (e2e)', () => {
     return response.body as InterpretBody;
   }
 
+  async function createCallerWithRole(role: string): Promise<string> {
+    const uid = `workshop-${role.toLowerCase()}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const user = await basePrisma.user.create({
+      data: {
+        firebaseUid: uid,
+        email: `${uid}@test.local`,
+      },
+      select: { id: true },
+    });
+    await seedTestTenantMember(basePrisma, {
+      tenantId: tenant.tenantId,
+      userId: user.id,
+      role,
+    });
+    await prisma.siteMembership.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        user_id: user.id,
+        site_id: siteId,
+        is_active: true,
+      },
+    });
+    await basePrisma.user.update({
+      where: { id: user.id },
+      data: { active_site_id: siteId },
+    });
+    return `Bearer ${createTestAuthToken(authService, tenant, {
+      sub: uid,
+      email: `${uid}@test.local`,
+      role,
+    })}`;
+  }
+
+  async function createApiKeyCaller(): Promise<string> {
+    const res = await request(app.getHttpServer())
+      .post('/tenant-api-keys')
+      .set('Authorization', authToken)
+      .send({ name: 'Role Matrix Key', scopes: ['workshop_orders:write'] })
+      .expect(201);
+    return `Bearer ${res.body.token}`;
+  }
+
   async function createSalesCaller() {
     const uid = `workshop-sales-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const user = await basePrisma.user.create({
@@ -592,6 +634,92 @@ describe('Workshop command (e2e)', () => {
     expect(withoutLoaner.body.status).toBe('ready');
     expect(withoutLoaner.body.loaner.requested).toBe(false);
     expect(withoutLoaner.body.loaner.loaner_vehicle_id).toBeNull();
+  });
+
+  it('refuses to propose directly when the last interpret ended in a clarification', async () => {
+    await enableBookingPolicy();
+    const commandId = newCommandId();
+    const clarificationRes = await interpret({
+      command_id: commandId,
+      text: FULL_SENTENCE,
+    }).expect(200);
+    expect(clarificationRes.body.status).toBe('clarification');
+
+    const directPropose = await propose(commandId, [
+      { slot: 'customer_id', value: customerId },
+      { slot: 'vehicle_id', value: secondGolf.id },
+    ]).expect(409);
+
+    expect(directPropose.body.code).toBe('PLAN_STALE');
+  });
+
+  describe('HTTP role matrix authorization (403 for unauthorized roles)', () => {
+    const TRANSCRIBE_PATH = '/api/voice-translation/transcribe';
+
+    it.each(['TECH', 'DEMO'])(
+      'forbids %s from interpret, propose, and transcribe',
+      async (role) => {
+        const callerToken = await createCallerWithRole(role);
+
+        await request(app.getHttpServer())
+          .post(INTERPRET_PATH)
+          .set('Authorization', callerToken)
+          .send({
+            contract_version: CONTRACT_VERSION,
+            command_id: newCommandId(),
+            source: 'keyboard',
+            locale: 'de-AT',
+            text: FULL_SENTENCE,
+          })
+          .expect(403);
+
+        await request(app.getHttpServer())
+          .post(PROPOSE_PATH)
+          .set('Authorization', callerToken)
+          .send({
+            contract_version: CONTRACT_VERSION,
+            command_id: newCommandId(),
+          })
+          .expect(403);
+
+        await request(app.getHttpServer())
+          .post(TRANSCRIBE_PATH)
+          .set('Authorization', callerToken)
+          .attach('audio', Buffer.from('fake-audio-bytes-for-test'), 'test.webm')
+          .expect(403);
+      },
+    );
+
+    it('forbids tenant API key principals from interpret, propose, and transcribe', async () => {
+      const apiKeyToken = await createApiKeyCaller();
+
+      await request(app.getHttpServer())
+        .post(INTERPRET_PATH)
+        .set('Authorization', apiKeyToken)
+        .send({
+          contract_version: CONTRACT_VERSION,
+          command_id: newCommandId(),
+          source: 'keyboard',
+          locale: 'de-AT',
+          text: FULL_SENTENCE,
+        })
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post(PROPOSE_PATH)
+        .set('Authorization', apiKeyToken)
+        .send({
+          contract_version: CONTRACT_VERSION,
+          command_id: newCommandId(),
+        })
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post(TRANSCRIBE_PATH)
+        .set('Authorization', apiKeyToken)
+        .attach('audio', Buffer.from('fake-audio-bytes-for-test'), 'test.webm')
+        .expect(403);
+    });
   });
 
   it('fails the competing proposal when the bay is taken at apply time', async () => {

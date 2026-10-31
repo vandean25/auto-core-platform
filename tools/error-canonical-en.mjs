@@ -1,5 +1,23 @@
 /** Canonical English UI copy when backend harvest text is not English. */
 export const CANONICAL_EN_MESSAGES = {
+  SELECTION_NOT_OFFERED: "The selection was not offered. Please choose from the provided options.",
+  COMMAND_ID_REUSED: "This command ID has already been used. Please start a new command.",
+  INTENT_INCOMPLETE: "The command is not complete yet. Please answer the clarification question.",
+  PLAN_STALE: "The plan was not reviewed or has changed since review. Please review it again.",
+  LOANER_NOT_PERMITTED: "Your role does not have permission to reserve a loaner vehicle.",
+  DURATION_REQUIRED: "A duration is required for this service.",
+  CONTRACT_VERSION_UNSUPPORTED: "This command schema version is not supported.",
+  AUDIO_UNSUPPORTED_TYPE: "This audio format is not supported.",
+  UNSUPPORTED_SERVICE: "This service is not available in the local catalog.",
+  UNSUPPORTED_GRAMMAR: "The command could not be interpreted reliably.",
+  TIME_IN_PAST: "The appointment date is in the past.",
+  TIME_CONTRADICTORY: "The specified times contradict each other. Please select one.",
+  TEXT_TOO_LONG: "The entered text is too long.",
+  SITE_MISMATCH: "The specified site is not the active site.",
+  RESOURCE_MISSING: "No available resource found at the active site.",
+  RESOURCE_AMBIGUOUS: "Multiple resources match. Please choose one.",
+  HUMAN_ONLY_EXCLUDED: "This action requires manual handling and is not proposed automatically.",
+  LOCALE_UNSUPPORTED: "This locale is not supported for workshop commands.",
   TYRE_DOT_FUTURE_DATE:
     'The DOT date is later than the measurement capture date. Check the DOT marking and capture date.',
   TYRE_DOT_INVALID_FORMAT:

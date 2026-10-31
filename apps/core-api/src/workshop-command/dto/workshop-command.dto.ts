@@ -7,6 +7,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsNotEmpty,
   IsOptional,
@@ -255,6 +256,11 @@ export class WorkshopCommandClarificationDto {
 
   @ApiProperty({ nullable: true, type: String, example: null })
   proposal!: null;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  has_more?: boolean;
 }
 
 export class WorkshopCommandWouldChangeDto {

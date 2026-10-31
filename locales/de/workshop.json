@@ -49,7 +49,28 @@
     "errorPlanStale": "Die Vorschau ist veraltet (Standort oder Daten geändert). Bitte neu prüfen.",
     "errorIntentIncomplete": "Der Befehl ist noch nicht vollständig. Bitte die Rückfrage beantworten.",
     "errorSessionNotFound": "Bitte den Befehl zuerst prüfen.",
-    "errorForbidden": "Ihre Rolle darf diesen Vorschlag nicht übernehmen."
+    "errorForbidden": "Ihre Rolle darf diesen Vorschlag nicht übernehmen.",
+    "hasMore": "Weitere Treffer vorhanden. Bitte Eingabe präzisieren.",
+    "clarificationPrompts": {
+      "HUMAN_ONLY_EXCLUDED": "Diese Aktion bleibt bei einer Person und wird nicht vorgeschlagen.",
+      "UNSUPPORTED_GRAMMAR": "Der Satz liegt außerhalb der unterstützten Eingaben.",
+      "TIME_CONTRADICTORY": "Zwei Uhrzeiten widersprechen sich. Bitte eine wählen.",
+      "UNSUPPORTED_SERVICE": "Diese Leistung ist nicht in der lokalen Liste.",
+      "SITE_MISMATCH": "Der genannte Standort ist nicht der aktive Standort.",
+      "CUSTOMER_NOT_FOUND": "Kein Kunde mit diesem Namen im Mandanten.",
+      "CUSTOMER_AMBIGUOUS": "Mehrere Kunden passen. Bitte einen auswählen.",
+      "VEHICLE_NOT_FOUND": "Beim Kunden gibt es kein passendes Fahrzeug.",
+      "VEHICLE_AMBIGUOUS": "Mehrere Fahrzeuge passen. Bitte eines auswählen.",
+      "IDENTITY_CONTRADICTION": "Name und Kennzeichen passen nicht zusammen.",
+      "TIME_DOES_NOT_EXIST": "Diese Uhrzeit gibt es an diesem Tag nicht.",
+      "TIME_AMBIGUOUS": "Diese Uhrzeit gibt es an diesem Tag zweimal. Bitte eine wählen.",
+      "TIME_IN_PAST": "Der Termin liegt in der Vergangenheit.",
+      "PRESET_NOT_CONFIGURED": "Die Leistung ist erkannt, aber am Standort nicht hinterlegt.",
+      "DURATION_REQUIRED": "Ohne Endzeit oder hinterlegte Dauer kann der Termin nicht berechnet werden.",
+      "RESOURCE_MISSING": "Keine freie Ressource am aktiven Standort.",
+      "RESOURCE_AMBIGUOUS": "Mehrere Ressourcen passen. Bitte eine wählen.",
+      "LOANER_NOT_PERMITTED": "Leihwagen können mit diesem Konto nicht reserviert werden."
+    }
   },
   "tyreReport": {
     "title": "Reifengutachten",
@@ -80,12 +101,43 @@
     "includeSpare": "Reserverad erfassen",
     "invalidField": "Bitte prüfen Sie diesen Wert.",
     "weightClass": "Gewichtsklasse",
-    "weights": { "UP_TO_3500_KG": "Bis 3,5 t", "OVER_3500_KG": "Über 3,5 t" },
-    "positions": { "FL": "Vorne links", "FR": "Vorne rechts", "RL": "Hinten links", "RR": "Hinten rechts", "SPARE": "Reserverad" },
-    "fields": { "treadInnerMm": "Innen", "treadMiddleMm": "Mitte", "treadOuterMm": "Außen", "brand": "Marke", "model": "Modell", "size": "Größe", "dot": "DOT", "season": "Saison", "construction": "Bauart", "winterMarking": "Winterkennzeichnung" },
-    "seasons": { "SUMMER": "Sommerreifen", "WINTER": "Winterreifen", "ALL_SEASON": "Ganzjahresreifen" },
-    "constructions": { "RADIAL": "Radial", "DIAGONAL": "Diagonal" },
-    "markings": { "NONE": "Keine", "M_S": "M+S", "ALPINE": "Alpine-Symbol" },
+    "weights": {
+      "UP_TO_3500_KG": "Bis 3,5 t",
+      "OVER_3500_KG": "Über 3,5 t"
+    },
+    "positions": {
+      "FL": "Vorne links",
+      "FR": "Vorne rechts",
+      "RL": "Hinten links",
+      "RR": "Hinten rechts",
+      "SPARE": "Reserverad"
+    },
+    "fields": {
+      "treadInnerMm": "Innen",
+      "treadMiddleMm": "Mitte",
+      "treadOuterMm": "Außen",
+      "brand": "Marke",
+      "model": "Modell",
+      "size": "Größe",
+      "dot": "DOT",
+      "season": "Saison",
+      "construction": "Bauart",
+      "winterMarking": "Winterkennzeichnung"
+    },
+    "seasons": {
+      "SUMMER": "Sommerreifen",
+      "WINTER": "Winterreifen",
+      "ALL_SEASON": "Ganzjahresreifen"
+    },
+    "constructions": {
+      "RADIAL": "Radial",
+      "DIAGONAL": "Diagonal"
+    },
+    "markings": {
+      "NONE": "Keine",
+      "M_S": "M+S",
+      "ALPINE": "Alpine-Symbol"
+    },
     "reasons": {
       "TREAD_BELOW_LEGAL_MINIMUM": "Unter gesetzlicher Mindestprofiltiefe – nicht zulässig",
       "AT_WINTER_TREAD_INSUFFICIENT": "Gilt in Österreich nicht mehr als Winterreifen",

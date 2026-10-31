@@ -214,6 +214,22 @@ describe('WorkshopCommandPanel', () => {
     expect(screen.queryByRole('button', { name: 'Vorschlag übernehmen' })).not.toBeInTheDocument()
   })
 
+  it('translates clarification prompt through i18n from clarification code and shows hasMore hint', async () => {
+    interpretMock.mockResolvedValueOnce({
+      ...CLARIFICATION,
+      code: 'CUSTOMER_AMBIGUOUS',
+      prompt: 'Mehrere Kunden passen. Bitte einen auswählen.',
+      has_more: true,
+    })
+    renderPanel()
+
+    typeSentence()
+    fireEvent.click(screen.getByRole('button', { name: 'Prüfen' }))
+
+    expect(await screen.findByText('Mehrere Kunden passen. Bitte einen auswählen.')).toBeInTheDocument()
+    expect(screen.getByText('Weitere Treffer vorhanden. Bitte Eingabe präzisieren.')).toBeInTheDocument()
+  })
+
   it('keeps a stale preview from turning into a pending proposal', async () => {
     interpretMock.mockResolvedValueOnce(INTENT)
     proposeMock.mockRejectedValueOnce(

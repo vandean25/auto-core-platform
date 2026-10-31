@@ -288,6 +288,41 @@ describe('WorkshopCommandService reviewed plan', () => {
     expect(h.submissions.submitPendingAction).not.toHaveBeenCalled();
   });
 
+  it('refuses to propose when the last interpret ended in a clarification', async () => {
+    const h = createHarness();
+    h.resolver.resolveParsed.mockResolvedValueOnce({
+      status: 'clarification',
+      code: 'CUSTOMER_AMBIGUOUS',
+      prompt: 'Multiple customers match',
+      choices: [
+        {
+          choice_id: 'c1',
+          slot: 'customer_id',
+          value: 'cust-1',
+          label: 'Gruber',
+        },
+      ],
+      recognized: {},
+    });
+    const interpretResult = await h.service.interpret(interpretDto(), PREVIEW_AT);
+    expect(interpretResult.status).toBe('clarification');
+
+    h.resolver.resolveParsed.mockResolvedValueOnce(REVIEWED);
+
+    const error = await conflictOf(
+      h.service.propose(
+        {
+          ...proposeDto(),
+          selections: [{ slot: 'customer_id', value: 'cust-1' }],
+        },
+        SUBMIT_AT,
+      ),
+    );
+
+    expectPlanStale(error);
+    expect(h.submissions.submitPendingAction).not.toHaveBeenCalled();
+  });
+
   it('refuses to restate a pending proposal whose plan drifted', async () => {
     const h = createHarness();
     await reviewPreview(h);

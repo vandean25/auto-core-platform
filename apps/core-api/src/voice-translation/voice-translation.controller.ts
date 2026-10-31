@@ -8,6 +8,7 @@ import {
   Post,
   UnprocessableEntityException,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -32,6 +33,7 @@ import {
 } from './dto/voice-transcript.dto.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { VoiceTranslationService } from './voice-translation.service.js';
+import { VoiceTranscriptGuard } from './voice-transcript.guard.js';
 
 const TRANSCRIPT_ROLES = new Set(['OWNER', 'ADMIN', 'SALES']);
 
@@ -61,6 +63,7 @@ export class VoiceTranslationController {
 
   @Post('transcribe')
   @HttpCode(200)
+  @UseGuards(VoiceTranscriptGuard)
   @UseInterceptors(
     FileInterceptor('audio', { limits: { fileSize: MAX_TRANSCRIPT_BYTES } }),
   )

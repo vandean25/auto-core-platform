@@ -21,9 +21,6 @@ const EXCLUDED_EXACT_PATHS = new Set<string>([
   'pages/settings-finance-tab.tsx',
   'pages/platform/PlatformTenantsPage.tsx',
   'features/actions/RegistryActionButton.tsx',
-  'features/workshop-command/WorkshopCommandPanel.tsx',
-  'features/workshop-command/WorkshopCommandPreview.tsx',
-  'features/workshop-command/WorkshopCommandSections.tsx',
 ])
 
 const EXCLUDED_PATH_PREFIXES = [
