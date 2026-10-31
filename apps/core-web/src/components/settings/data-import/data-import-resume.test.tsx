@@ -221,6 +221,8 @@ describe('DataImportSettingsTab resume from ?job', () => {
     expect(await screen.findByText(di.dryRun.title)).toBeInTheDocument()
     expect(screen.getByText(di.dryRun.expired.description)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: di.dryRun.applyImport })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: di.dryRun.editMapping })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: di.dryRun.uploadAgain })).toBeInTheDocument()
   })
 
   it('shows a read-only report for a CANCELLED job', async () => {

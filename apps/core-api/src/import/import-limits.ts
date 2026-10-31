@@ -59,6 +59,22 @@ export function readImportUploadRetentionDays(): number {
   );
 }
 
+const DEFAULT_JOB_ROW_PURGE_ROW_BATCH_SIZE = 500;
+const DEFAULT_JOB_ROW_PURGE_ROW_BUDGET = 20_000;
+
+export function readImportJobRowPurgeRowBatchSize(): number {
+  return readPositiveInt(
+    process.env.IMPORT_JOB_ROW_PURGE_ROW_BATCH_SIZE,
+    DEFAULT_JOB_ROW_PURGE_ROW_BATCH_SIZE,
+  );
+}
+
+export function readImportJobRowPurgeRowBudget(): number {
+  return readPositiveInt(
+    process.env.IMPORT_JOB_ROW_PURGE_ROW_BUDGET,
+    DEFAULT_JOB_ROW_PURGE_ROW_BUDGET,
+  );
+}
 export function isBackgroundImportCandidate(params: {
   fileBytes: number;
 }): boolean {

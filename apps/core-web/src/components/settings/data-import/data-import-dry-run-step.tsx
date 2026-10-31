@@ -48,6 +48,7 @@ export type DataImportDryRunStepProps = {
   applyEnabled: boolean
   onApply: () => void
   onBackgroundCancelled?: () => void
+  onReset?: () => void
 }
 
 /** Wizard step 4: report of the dry-run with the validated rows of the file. */
@@ -153,14 +154,22 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={props.onEditMapping}>
-          {t('dataImport.dryRun.editMapping')}
-        </Button>
-        {!isExpired ? (
-          <Button type="button" disabled={!props.applyEnabled} onClick={props.onApply}>
-            {t('dataImport.dryRun.applyImport')}
-          </Button>
-        ) : null}
+        {isExpired ? (
+          props.onReset ? (
+            <Button type="button" variant="outline" onClick={props.onReset}>
+              {t('dataImport.dryRun.uploadAgain')}
+            </Button>
+          ) : null
+        ) : (
+          <>
+            <Button type="button" variant="outline" onClick={props.onEditMapping}>
+              {t('dataImport.dryRun.editMapping')}
+            </Button>
+            <Button type="button" disabled={!props.applyEnabled} onClick={props.onApply}>
+              {t('dataImport.dryRun.applyImport')}
+            </Button>
+          </>
+        )}
       </div>
     </section>
   )

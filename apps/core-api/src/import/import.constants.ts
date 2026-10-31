@@ -3,6 +3,7 @@ import {
   readImportMaxFileBytes,
   readImportUploadMaxFileBytes,
   readImportWorkerBatchSize,
+  readImportUploadRetentionDays,
 } from './import-limits.js';
 
 export const IMPORT_MAX_FILE_BYTES = readImportMaxFileBytes();
@@ -29,8 +30,7 @@ export const IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS = 8;
 
 export const IMPORT_JOB_RETENTION_DAYS = 180;
 export const IMPORT_FAILED_JOB_ROW_RETENTION_DAYS = 1;
-export const IMPORT_UPLOAD_RETENTION_DAYS = 7;
-
+export const IMPORT_UPLOAD_RETENTION_DAYS = readImportUploadRetentionDays();
 export const IMPORT_SOURCE = 'import';
 
 // Keeps log lines from the split collaborators under the same context as before.
@@ -49,6 +49,8 @@ export const IMPORT_ERROR_CODES = {
   JOB_NOT_FOUND: 'IMPORT_JOB_NOT_FOUND',
   JOB_ALREADY_APPLIED: 'IMPORT_JOB_ALREADY_APPLIED',
   JOB_STALE: 'IMPORT_JOB_STALE',
+  JOB_EXPIRED: 'IMPORT_JOB_EXPIRED',
+  JOB_PURGED: 'IMPORT_JOB_PURGED',
   APPLY_IN_PROGRESS: 'IMPORT_APPLY_IN_PROGRESS',
   DRY_RUN_IN_PROGRESS: 'IMPORT_DRY_RUN_IN_PROGRESS',
   INVALID_ENTITY_TYPE: 'IMPORT_INVALID_ENTITY_TYPE',

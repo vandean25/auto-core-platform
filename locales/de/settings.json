@@ -1161,6 +1161,7 @@
       "nextPage": "Nächste Seite",
       "editMapping": "Zuordnung bearbeiten",
       "applyImport": "Import anwenden",
+      "uploadAgain": "Erneut hochladen",
       "expired": {
         "title": "Probelauf abgelaufen",
         "description": "Probelauf abgelaufen, bitte erneut hochladen"

@@ -429,7 +429,7 @@ export class ImportService {
       status !== ImportJobStatus.FAILED &&
       status !== ImportJobStatus.APPLIED
     ) {
-      assertJobCanBeApplied(status, leaseExpiresAtOf(options));
+      assertJobCanBeApplied(status, leaseExpiresAtOf(options), options);
       return { kind: 'options', options };
     }
     const errorRows =
@@ -472,7 +472,7 @@ export class ImportService {
     if (status === ImportJobStatus.APPLIED) {
       return { kind: 'applied' };
     }
-    assertJobCanBeApplied(status, leaseExpiresAtOf(options));
+    assertJobCanBeApplied(status, leaseExpiresAtOf(options), options);
     if (status === ImportJobStatus.FAILED) {
       this.logTechnicalRetry(jobId, plan);
     }
@@ -534,6 +534,7 @@ export class ImportService {
           readUploadRef(applyingJob.options_json as ImportJobOptionsWithWorker),
         ),
         countApplyRows: () => this.jobStore.countApplyRows(tenantId, jobId),
+        options: applyingJob.options_json,
       });
     }
 
@@ -636,6 +637,7 @@ export class ImportService {
         leaseExpiresAtOf(
           applyingJob.options_json as ImportJobOptionsWithWorker,
         ),
+        applyingJob.options_json,
       );
     }
     return { outcome: 'run' as const, job: applyingJob };

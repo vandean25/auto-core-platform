@@ -1161,6 +1161,7 @@
       "nextPage": "Next page",
       "editMapping": "Edit mapping",
       "applyImport": "Apply import",
+      "uploadAgain": "Upload again",
       "expired": {
         "title": "Dry run expired",
         "description": "Dry run expired, please upload again"

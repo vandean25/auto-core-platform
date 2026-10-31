@@ -236,8 +236,44 @@ describe('ImportService job lifecycle — applyJob request guards and state mach
       await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
         status: 409,
         response: {
-          code: IMPORT_ERROR_CODES.JOB_STALE,
-          message: 'Import job cannot be applied in its current status',
+          code: IMPORT_ERROR_CODES.JOB_EXPIRED,
+          message: 'Import job has expired; please upload and run the dry run again',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses to apply a FAILED job whose rows were purged with JOB_PURGED', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.FAILED,
+          options_json: { rows_purged: true },
+        }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_PURGED,
+          message: 'Staged rows for this import job were purged; please upload again',
+        },
+      });
+      expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses to apply a CANCELLED job whose rows were purged with JOB_PURGED', async () => {
+      h.prisma.importJob.findFirst.mockResolvedValue(
+        importJobRecord({
+          status: ImportJobStatus.CANCELLED,
+          options_json: { rows_purged: true },
+        }),
+      );
+
+      await expect(h.service.applyJob(JOB_ID)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: IMPORT_ERROR_CODES.JOB_PURGED,
+          message: 'Staged rows for this import job were purged; please upload again',
         },
       });
       expect(h.prisma.importJob.updateMany).not.toHaveBeenCalled();

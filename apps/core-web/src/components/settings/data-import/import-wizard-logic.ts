@@ -51,8 +51,11 @@ export function isDryRunStale(params: {
 
 export function isDryRunExpired(job: ImportJob | null | undefined): boolean {
   if (!job) return false
+  const options = job.options as Record<string, unknown> | null | undefined
+  if (options?.['cancel_reason'] === 'expired' || options?.['rows_purged'] === true) {
+    return true
+  }
   if (job.status === 'CANCELLED') {
-    const options = job.options as Record<string, unknown> | null | undefined
     return options?.['cancel_reason'] === 'expired'
   }
   return false

@@ -52,24 +52,53 @@ describe('eligibleImportJobsForRowPurgeWhere', () => {
           rows: { some: {} },
         },
         {
+          status: ImportJobStatus.DRY_RUN_DONE,
+          updatedAt: { lt: cutoffs.dryRunCutoff },
+        },
+        {
           status: ImportJobStatus.CANCELLED,
           OR: [
-            { cancelled_at: { lt: cutoffs.failedCutoff } },
-            { cancelled_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+            {
+              OR: [
+                { cancelled_at: { lt: cutoffs.appliedCutoff } },
+                { cancelled_at: null, createdAt: { lt: cutoffs.appliedCutoff } },
+              ],
+              rows: { some: {} },
+            },
+            {
+              OR: [
+                { cancelled_at: { lt: cutoffs.failedCutoff } },
+                { cancelled_at: null, updatedAt: { lt: cutoffs.failedCutoff } },
+                { cancelled_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+              ],
+              NOT: { options_json: { path: ['rows_purged'], equals: true } },
+              rows: { some: { action: { not: ImportRowAction.ERROR } } },
+            },
           ],
-          rows: { some: {} },
         },
         {
           status: ImportJobStatus.FAILED,
           OR: [
-            { failed_at: { lt: cutoffs.failedCutoff } },
-            { failed_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+            {
+              OR: [
+                { failed_at: { lt: cutoffs.appliedCutoff } },
+                { failed_at: null, createdAt: { lt: cutoffs.appliedCutoff } },
+              ],
+              rows: { some: {} },
+            },
+            {
+              OR: [
+                { failed_at: { lt: cutoffs.failedCutoff } },
+                { failed_at: null, updatedAt: { lt: cutoffs.failedCutoff } },
+                { failed_at: null, createdAt: { lt: cutoffs.failedCutoff } },
+              ],
+              NOT: [
+                { options_json: { path: ['worker', 'phase'], equals: 'apply' } },
+                { options_json: { path: ['rows_purged'], equals: true } },
+              ],
+              rows: { some: { action: { not: ImportRowAction.ERROR } } },
+            },
           ],
-          rows: { some: {} },
-        },
-        {
-          status: ImportJobStatus.DRY_RUN_DONE,
-          createdAt: { lt: cutoffs.dryRunCutoff },
         },
       ],
     });
@@ -210,6 +239,100 @@ describe('isImportJobEligibleForRowPurge', () => {
         cutoffs,
       ),
     ).toBe(false);
+  });
+
+  it('uses updatedAt over createdAt for DRY_RUN_DONE jobs', () => {
+    const staleDate = new Date(cutoffs.dryRunCutoff.getTime() - 1);
+    const freshDate = new Date(cutoffs.dryRunCutoff.getTime() + 1000);
+
+    // Old createdAt, but fresh updatedAt: NOT eligible
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: staleDate,
+          updatedAt: freshDate,
+        },
+        cutoffs,
+      ),
+    ).toBe(false);
+
+    // Old updatedAt: IS eligible
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: new Date('2020-01-01'),
+          updatedAt: staleDate,
+        },
+        cutoffs,
+      ),
+    ).toBe(true);
+  });
+
+  it('excludes FAILED jobs with worker phase "apply" unless older than appliedCutoff (180d)', () => {
+    const staleFailedAt = new Date(cutoffs.failedCutoff.getTime() - 1);
+    const ancientFailedAt = new Date(cutoffs.appliedCutoff.getTime() - 1);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: staleFailedAt,
+          options_json: { worker: { phase: 'dry_run' } },
+        },
+        cutoffs,
+      ),
+    ).toBe(true);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: staleFailedAt,
+          options_json: { worker: { phase: 'apply' } },
+        },
+        cutoffs,
+      ),
+    ).toBe(false);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: ancientFailedAt,
+          options_json: { worker: { phase: 'apply' } },
+        },
+        cutoffs,
+      ),
+    ).toBe(true);
+  });
+
+  it('excludes jobs already marked rows_purged unless older than appliedCutoff (180d)', () => {
+    const staleFailedAt = new Date(cutoffs.failedCutoff.getTime() - 1);
+    const ancientFailedAt = new Date(cutoffs.appliedCutoff.getTime() - 1);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: staleFailedAt,
+          options_json: { rows_purged: true },
+        },
+        cutoffs,
+      ),
+    ).toBe(false);
+
+    expect(
+      isImportJobEligibleForRowPurge(
+        {
+          status: ImportJobStatus.FAILED,
+          failed_at: ancientFailedAt,
+          options_json: { rows_purged: true },
+        },
+        cutoffs,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -592,5 +715,130 @@ describe('purgeStaleImportJobRowsForTenant', () => {
     });
     expect(rowsByJob.get('job-stale-applied')).toHaveLength(3);
     expect(prisma.importJobRow.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('emits an auditLog event when expiring a DRY_RUN_DONE job', async () => {
+    const { prisma } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-stale-dry-run-audit',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: staleDryRunCreatedAt,
+        },
+      ],
+      { 'job-stale-dry-run-audit': [1] },
+      cutoffs,
+    );
+
+    await purgeStaleImportJobRowsForTenant(prisma as never, TENANT_A, NOW);
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tenant_id: TENANT_A,
+        entity_type: 'ImportJob',
+        entity_id: 'job-stale-dry-run-audit',
+        after: expect.objectContaining({
+          event: 'import_job.expired',
+        }),
+      }),
+    });
+  });
+
+  it('marks options_json.rows_purged = true on FAILED jobs after purging rows', async () => {
+    const { prisma, jobs } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-failed-mark-purged',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.FAILED,
+          failed_at: staleFailedAt,
+          createdAt: new Date('2020-01-01'),
+          totals_json: { rows: 2, create: 1, update: 0, skip: 0, error: 1 },
+          options_json: { existing_opt: true },
+        },
+      ],
+      {
+        'job-failed-mark-purged': [
+          { row_no: 1, action: ImportRowAction.CREATE },
+          { row_no: 2, action: ImportRowAction.ERROR },
+        ],
+      },
+      cutoffs,
+    );
+
+    await purgeStaleImportJobRowsForTenant(prisma as never, TENANT_A, NOW);
+
+    const job = jobs.find((j) => j.id === 'job-failed-mark-purged');
+    expect(job?.options_json).toEqual(
+      expect.objectContaining({
+        existing_opt: true,
+        rows_purged: true,
+      }),
+    );
+  });
+
+  it('halts row purging and does not purge rows if status changed concurrently (updateMany returns count 0)', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-race',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.DRY_RUN_DONE,
+          createdAt: staleDryRunCreatedAt,
+        },
+      ],
+      { 'job-race': [1, 2] },
+      cutoffs,
+    );
+
+    // Simulate concurrent update before purge: updateMany returns 0
+    (prisma.importJob.updateMany as jest.Mock).mockResolvedValueOnce({ count: 0 });
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result.rows_deleted).toBe(0);
+    expect(rowsByJob.get('job-race')).toHaveLength(2);
+  });
+
+  it('stops processing further jobs once rowBudget is reached', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-1',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.APPLIED,
+          appliedAt: staleAppliedAt,
+          createdAt: new Date('2020-01-01'),
+        },
+        {
+          id: 'job-2',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.APPLIED,
+          appliedAt: staleAppliedAt,
+          createdAt: new Date('2020-01-02'),
+        },
+      ],
+      {
+        'job-1': [1, 2, 3],
+        'job-2': [4, 5, 6],
+      },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+      { rowBudget: 3 },
+    );
+
+    expect(result.rows_deleted).toBe(3);
+    expect(rowsByJob.get('job-1')).toEqual([]);
+    expect(rowsByJob.get('job-2')).toHaveLength(3);
   });
 });
