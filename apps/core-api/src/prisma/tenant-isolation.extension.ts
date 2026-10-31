@@ -354,6 +354,56 @@ function getPresentRelationMutationKeys(
   return Object.keys(record).filter((k) => RELATION_MUTATION_KEYS.has(k));
 }
 
+function findDelegate(
+  client: unknown,
+  delegateName: string,
+):
+  | {
+      findMany: (
+        args: unknown,
+      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
+    }
+  | undefined {
+  if (
+    client &&
+    typeof client === 'object' &&
+    delegateName in client &&
+    typeof (client as Record<string, unknown>)[delegateName] === 'object'
+  ) {
+    const delegate = (client as Record<string, unknown>)[delegateName];
+    if (
+      delegate &&
+      typeof (delegate as Record<string, unknown>).findMany === 'function'
+    ) {
+      return delegate as {
+        findMany: (
+          args: unknown,
+        ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
+      };
+    }
+  }
+  return undefined;
+}
+
+function getModelDelegate(
+  targetModel: string,
+  contextClient?: unknown,
+):
+  | {
+      findMany: (
+        args: unknown,
+      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
+    }
+  | undefined {
+  const delegateName =
+    targetModel.charAt(0).toLowerCase() + targetModel.slice(1);
+  return (
+    findDelegate(PrismaTransactionContext.getClient(), delegateName) ??
+    findDelegate(DryRunStorage.getTransactionClient(), delegateName) ??
+    findDelegate(contextClient, delegateName)
+  );
+}
+
 function resolveBrandQueryClient(
   modelName: string,
   key: string,
@@ -363,28 +413,13 @@ function resolveBrandQueryClient(
     findMany: (args: unknown) => Promise<Array<{ id: number }>>;
   };
 } {
-  const transactionCtx =
-    PrismaTransactionContext.getClient() ??
-    DryRunStorage.getTransactionClient();
-  const candidate = transactionCtx ?? contextClient;
-
-  if (
-    candidate &&
-    typeof candidate === 'object' &&
-    'brand' in candidate &&
-    typeof (candidate as Record<string, unknown>).brand === 'object'
-  ) {
-    const brandDelegate = (candidate as Record<string, unknown>).brand;
-    if (
-      brandDelegate &&
-      typeof (brandDelegate as Record<string, unknown>).findMany === 'function'
-    ) {
-      return candidate as {
-        brand: {
-          findMany: (args: unknown) => Promise<Array<{ id: number }>>;
-        };
-      };
-    }
+  const delegate = getModelDelegate('Brand', contextClient);
+  if (delegate) {
+    return {
+      brand: delegate as unknown as {
+        findMany: (args: unknown) => Promise<Array<{ id: number }>>;
+      },
+    };
   }
 
   throw new Error(
@@ -523,39 +558,6 @@ function extractCreateManyData(payload: unknown): unknown {
     Object.hasOwn(payload, 'data')
   ) {
     return (payload as Record<string, unknown>).data;
-  }
-  return undefined;
-}
-
-function getModelDelegate(
-  targetModel: string,
-  contextClient?: unknown,
-):
-  | {
-      findMany: (
-        args: unknown,
-      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
-    }
-  | undefined {
-  const client =
-    PrismaTransactionContext.getClient() ??
-    DryRunStorage.getTransactionClient() ??
-    contextClient;
-  const delegateName =
-    targetModel.charAt(0).toLowerCase() + targetModel.slice(1);
-  const delegate = client
-    ? (client as Record<string, unknown>)[delegateName]
-    : undefined;
-
-  if (
-    delegate &&
-    typeof (delegate as Record<string, unknown>).findMany === 'function'
-  ) {
-    return delegate as {
-      findMany: (
-        args: unknown,
-      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
-    };
   }
   return undefined;
 }
@@ -1605,6 +1607,29 @@ async function dispatchTenantOperation(
   );
 }
 
+function resolveContextClient(thisArg: unknown, baseClient: unknown): unknown {
+  try {
+    const extCtx = Prisma.getExtensionContext(thisArg);
+    if (
+      extCtx &&
+      typeof extCtx === 'object' &&
+      Object.keys(extCtx).length > 0
+    ) {
+      return extCtx;
+    }
+  } catch {
+    // fallback if not a Prisma extension context
+  }
+  if (
+    thisArg &&
+    typeof thisArg === 'object' &&
+    Object.keys(thisArg).length > 0
+  ) {
+    return thisArg;
+  }
+  return baseClient;
+}
+
 /**
  * The core $allOperations handler logic — extracted for unit testability.
  * Applies tenant isolation rules to a single Prisma operation.
@@ -1632,6 +1657,7 @@ export async function applyTenantIsolation(
   assertOperationAllowed(model, operation);
 
   const tenantId = getCurrentTenantId();
+  const contextClient = resolveContextClient(this, baseClient);
 
   return dispatchTenantOperation(
     model,
@@ -1639,7 +1665,7 @@ export async function applyTenantIsolation(
     nextArgs,
     tenantId,
     query,
-    baseClient,
+    contextClient,
   );
 }
 
