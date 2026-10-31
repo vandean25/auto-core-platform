@@ -66,13 +66,11 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         name: 'Test Vendor Fix',
         email: 'test-fix-' + Date.now() + '@vendor.com',
         account_number: 'TEST-' + Date.now(),
+        supportedBrands: {
+          connect: { id: brand.id },
+        },
       },
     });
-    await prisma.$executeRaw`
-      INSERT INTO "_VendorBrands" ("A", "B")
-      VALUES (${brand.id}, ${vendor.id})
-      ON CONFLICT DO NOTHING
-    `;
     vendorId = vendor.id;
 
     // Create test catalog item

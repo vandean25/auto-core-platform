@@ -32,10 +32,7 @@ export const ALL_PRISMA_OPERATIONS = [
 
 export type PrismaOperation = (typeof ALL_PRISMA_OPERATIONS)[number];
 export type PrismaOperationClassification =
-  | 'scoped'
-  | 'stamped'
-  | 'rejected'
-  | 'composite';
+  'scoped' | 'stamped' | 'rejected' | 'composite';
 
 export const OPERATION_CLASSIFICATIONS: Record<
   PrismaOperation,
@@ -113,6 +110,17 @@ if (Prisma.dmmf?.datamodel?.models) {
   }
 }
 
+/**
+ * Explicit allowlist for nested relation writes on tenant-scoped models where
+ * Prisma provides no alternative (e.g. implicit m-n relations without a join model).
+ * Every entry must be justified.
+ * - 'Vendor.supportedBrands': implicit many-to-many (_VendorBrands) has no Prisma
+ *   delegate model; VendorService validates tenant ownership of brandIds prior to write.
+ */
+export const ALLOWED_NESTED_RELATION_WRITES = new Set<string>([
+  'Vendor.supportedBrands',
+]);
+
 const RELATION_MUTATION_KEYS = new Set([
   'connect',
   'connectOrCreate',
@@ -126,11 +134,29 @@ const RELATION_MUTATION_KEYS = new Set([
   'disconnect',
 ]);
 
-function hasRelationMutationKeys(value: unknown): boolean {
+function isRelationMutation(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
   }
-  return Object.keys(value).some((key) => RELATION_MUTATION_KEYS.has(key));
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (!keys.some((key) => RELATION_MUTATION_KEYS.has(key))) {
+    return false;
+  }
+  // In Prisma, scalar updates can use { set: 'val' }.
+  // If the only mutation key is 'set' and its value is a scalar or array of scalars, it is not a relation mutation.
+  if (keys.length === 1 && Object.hasOwn(record, 'set')) {
+    const setValue = record.set;
+    if (
+      typeof setValue !== 'object' ||
+      setValue === null ||
+      (Array.isArray(setValue) &&
+        setValue.every((item) => typeof item !== 'object' || item === null))
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function capitalizeFirstLetter(str: string): string {
@@ -181,33 +207,32 @@ function assertNoTenantScopedNestedWrites(
       continue;
     }
 
+    if (ALLOWED_NESTED_RELATION_WRITES.has(`${modelName}.${key}`)) {
+      continue;
+    }
+
     const targetModel = resolveTargetModel(modelName, key);
 
-    if (targetModel) {
-      if (!GLOBAL_MODELS.has(targetModel)) {
-        if (hasRelationMutationKeys(value)) {
-          throw new Error(
-            `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting tenant-scoped model '${targetModel}' is not permitted.`,
-          );
-        }
-      } else {
-        if (hasRelationMutationKeys(value)) {
-          const mutationRecord = value as Record<string, unknown>;
-          for (const mutKey of RELATION_MUTATION_KEYS) {
-            if (Object.hasOwn(mutationRecord, mutKey)) {
-              assertNoTenantScopedNestedWrites(
-                targetModel,
-                mutationRecord[mutKey],
-              );
-            }
+    if (targetModel && GLOBAL_MODELS.has(targetModel)) {
+      if (isRelationMutation(value)) {
+        const mutationRecord = value as Record<string, unknown>;
+        for (const mutKey of RELATION_MUTATION_KEYS) {
+          if (Object.hasOwn(mutationRecord, mutKey)) {
+            assertNoTenantScopedNestedWrites(
+              targetModel,
+              mutationRecord[mutKey],
+            );
           }
-          continue;
         }
+        continue;
       }
     } else {
-      if (hasRelationMutationKeys(value)) {
+      if (isRelationMutation(value)) {
+        const targetDesc = targetModel
+          ? `tenant-scoped model '${targetModel}'`
+          : 'tenant-scoped model';
         throw new Error(
-          `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting tenant-scoped model is not permitted.`,
+          `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting ${targetDesc} is not permitted.`,
         );
       }
     }
@@ -266,8 +291,13 @@ function validateAndStampCreateData(
     normalized.tenant_id !== undefined &&
     normalized.tenant_id !== tenantId
   ) {
+    const rawTenantId = normalized.tenant_id;
+    const tenantIdStr =
+      typeof rawTenantId === 'string'
+        ? rawTenantId
+        : JSON.stringify(rawTenantId);
     throw new Error(
-      `[TenantIsolation] Mismatching tenant_id '${normalized.tenant_id}' in ${operation} on model '${model}'. Expected '${tenantId}'.`,
+      `[TenantIsolation] Mismatching tenant_id '${tenantIdStr}' in ${operation} on model '${model}'. Expected '${tenantId}'.`,
     );
   }
 

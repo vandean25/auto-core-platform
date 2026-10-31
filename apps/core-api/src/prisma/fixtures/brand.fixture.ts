@@ -123,21 +123,18 @@ export async function seedVendors(
 ) {
   console.log('Seeding Vendors (one per brand)...');
   return Promise.all(
-    brands.map(async (brand) => {
-      const vendor = await prisma.vendor.create({
+    brands.map((brand) =>
+      prisma.vendor.create({
         data: {
           tenant_id: tenantId,
           name: `${brand.name} Parts Direct`,
           email: `sales@${brand.name.toLowerCase().replace(/\s+/g, '-')}-parts.com`,
           account_number: `VEND-${brand.name.substring(0, 3).toUpperCase()}`,
+          supportedBrands: {
+            connect: { id: brand.id },
+          },
         },
-      });
-      await prisma.$executeRaw`
-        INSERT INTO "_VendorBrands" ("A", "B")
-        VALUES (${brand.id}, ${vendor.id})
-        ON CONFLICT DO NOTHING
-      `;
-      return vendor;
-    }),
+      }),
+    ),
   );
 }

@@ -74,7 +74,10 @@ describe('applyTenantIsolation', () => {
     ];
 
     for (const extensionFile of extensionFiles) {
-      const source = readFileSync(join(import.meta.dirname, extensionFile), 'utf8');
+      const source = readFileSync(
+        join(import.meta.dirname, extensionFile),
+        'utf8',
+      );
 
       expect(source).not.toMatch(/\bany\b/);
     }
@@ -584,9 +587,11 @@ describe('applyTenantIsolation', () => {
     });
 
     it('injects tenant_id into createManyAndReturn when data is a single object', async () => {
-      const query = jest.fn().mockResolvedValue([
-        { id: '1', order_number: 'SO-1', tenant_id: TENANT_ID },
-      ]);
+      const query = jest
+        .fn()
+        .mockResolvedValue([
+          { id: '1', order_number: 'SO-1', tenant_id: TENANT_ID },
+        ]);
       const args = {
         data: { order_number: 'SO-1', status: 'DRAFT' },
       };
@@ -655,9 +660,7 @@ describe('applyTenantIsolation', () => {
     it('rejects createManyAndReturn when any payload row specifies a mismatching tenant_id', async () => {
       const query = jest.fn();
       const args = {
-        data: [
-          { order_number: 'SO-1', tenant_id: 'attacker-tenant' },
-        ],
+        data: [{ order_number: 'SO-1', tenant_id: 'attacker-tenant' }],
       };
 
       await expect(
@@ -812,12 +815,17 @@ describe('applyTenantIsolation', () => {
         ['connect', { connect: { id: 'cust-1' } }],
         [
           'connectOrCreate',
-          { connectOrCreate: { where: { id: 'c-1' }, create: { name: 'New' } } },
+          {
+            connectOrCreate: { where: { id: 'c-1' }, create: { name: 'New' } },
+          },
         ],
         ['create', { create: { first_name: 'John', last_name: 'Doe' } }],
         ['createMany', { createMany: { data: [{ first_name: 'John' }] } }],
         ['update', { update: { first_name: 'John' } }],
-        ['updateMany', { updateMany: { where: {}, data: { first_name: 'J' } } }],
+        [
+          'updateMany',
+          { updateMany: { where: {}, data: { first_name: 'J' } } },
+        ],
         ['delete', { delete: true }],
         ['deleteMany', { deleteMany: {} }],
         ['set', { set: [{ id: 'cust-1' }] }],
@@ -842,9 +850,9 @@ describe('applyTenantIsolation', () => {
         },
       );
 
-      it('rejects nested relation write on Vendor.supportedBrands in create', async () => {
-        const query = jest.fn();
-        const args = {
+      it('permits allowlisted nested relation write on Vendor.supportedBrands in create and update', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const argsCreate = {
           data: {
             name: 'Vendor A',
             email: 'v@a.com',
@@ -853,29 +861,49 @@ describe('applyTenantIsolation', () => {
           },
         };
 
-        await expect(
-          runWithTenant(() => call('Vendor', 'create', args, query)),
-        ).rejects.toThrow(
-          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' targeting tenant-scoped model 'Brand' is not permitted\./,
+        await runWithTenant(() => call('Vendor', 'create', argsCreate, query));
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              tenant_id: TENANT_ID,
+              supportedBrands: { connect: [{ id: 1 }] },
+            }),
+          }),
         );
-        expect(query).not.toHaveBeenCalled();
-      });
 
-      it('rejects nested relation write on Vendor.supportedBrands in update', async () => {
-        const query = jest.fn();
-        const args = {
+        query.mockClear();
+        const argsUpdate = {
           where: { id: 'vend-1' },
           data: {
             supportedBrands: { set: [{ id: 1 }] },
           },
         };
 
-        await expect(
-          runWithTenant(() => call('Vendor', 'update', args, query)),
-        ).rejects.toThrow(
-          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' targeting tenant-scoped model 'Brand' is not permitted\./,
+        await runWithTenant(() => call('Vendor', 'update', argsUpdate, query));
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              supportedBrands: { set: [{ id: 1 }] },
+            }),
+          }),
         );
-        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits scalar update using Prisma set clause (e.g. email: { set: val })', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const args = {
+          where: { id: 'cust-1' },
+          data: {
+            email: { set: 'new@example.com' },
+          },
+        };
+
+        await runWithTenant(() => call('Customer', 'update', args, query));
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { email: { set: 'new@example.com' } },
+          }),
+        );
       });
 
       it('rejects nested relation write in createMany payload', async () => {
