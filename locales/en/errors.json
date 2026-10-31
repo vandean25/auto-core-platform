@@ -381,7 +381,7 @@
     "SELECTION_NOT_OFFERED": "The selection was not offered. Please choose from the provided options.",
     "SELLER_IDENTITY_INCOMPLETE": "Business details are incomplete for send. Complete them.",
     "SENDER_NOT_CONFIGURED": "The sender address is not configured",
-    "SESSION_NOT_FOUND": "No interpreted command exists for this command_id.",
+    "SESSION_NOT_FOUND": "This command has expired. Please enter it again.",
     "SETTLEMENT_AMOUNT_MISMATCH": "Settlement amount mismatch.",
     "SETTLEMENT_NOT_IN_SLICE": "Settlement not in slice.",
     "SITE_MISMATCH": "The specified site is not the active site.",

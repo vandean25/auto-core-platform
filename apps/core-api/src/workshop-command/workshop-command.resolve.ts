@@ -707,17 +707,22 @@ export class WorkshopCommandResolver {
       ? customers.slice(0, 10)
       : customers;
 
-    const vehicles = await this.prisma.vehicle.findMany({
-      where: {
-        tenant_id: tenantId,
-        customer_id: { in: cappedCustomers.map((customer) => customer.id) },
-      },
-      orderBy: { id: 'asc' },
-    });
     const selectedCustomer = this.pickById(
       cappedCustomers,
       selections.get('customer_id'),
     );
+    const customerIds = selectedCustomer
+      ? [selectedCustomer.id]
+      : cappedCustomers.map((customer) => customer.id);
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: {
+        tenant_id: tenantId,
+        customer_id: { in: customerIds },
+      },
+      orderBy: { id: 'asc' },
+      take: 11,
+    });
     if (!selectedCustomer) {
       return this.identityClarification(
         'CUSTOMER_AMBIGUOUS',
@@ -732,7 +737,8 @@ export class WorkshopCommandResolver {
       selectedCustomer.id,
       model,
     );
-    const hasMoreVehicles = matchingVehicles.length > 10;
+    const hasMoreVehicles =
+      vehicles.length > 10 || matchingVehicles.length > 10;
     const cappedVehicles = hasMoreVehicles
       ? matchingVehicles.slice(0, 10)
       : matchingVehicles;

@@ -426,7 +426,7 @@ export class WorkshopCommandService {
 
   /**
    * A command whose last interpret ended in a clarification has no reviewed
-   * plan, so there is nothing to compare against.
+   * plan (reviewed_fingerprint is null), so propose treats it as changed/stale.
    */
   private reviewedPlanChanged(
     replay: WorkshopCommandReplay,

@@ -33,9 +33,10 @@ import {
 } from './dto/voice-transcript.dto.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { VoiceTranslationService } from './voice-translation.service.js';
-import { VoiceTranscriptGuard } from './voice-transcript.guard.js';
-
-const TRANSCRIPT_ROLES = new Set(['OWNER', 'ADMIN', 'SALES']);
+import {
+  VoiceTranscriptGuard,
+  TRANSCRIPT_ROLES,
+} from './voice-transcript.guard.js';
 
 @ApiTags('voice-translation')
 @Controller('voice-translation')

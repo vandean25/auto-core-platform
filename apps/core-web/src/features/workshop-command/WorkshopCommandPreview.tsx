@@ -5,7 +5,6 @@ import { useBay } from '@/api/bays'
 import { useMySites } from '@/api/sites'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DialogFooter } from '@/components/ui/dialog'
 import { formatCurrency } from '@/lib/format'
 import type { WorkshopCommandIntent } from '@/api/workshop-command'
 
@@ -144,14 +143,14 @@ function PreviewActions({
 }) {
   const { t } = useTranslation('workshop')
   return (
-    <DialogFooter className="flex flex-wrap gap-2 sm:justify-start sm:space-x-0">
-      <Button type="button" onClick={onApply} disabled={busy || applyDisabled}>
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" data-action-id="workshopCommand.apply" onClick={onApply} disabled={busy || applyDisabled}>
         {busy ? t('command.applying') : t('command.apply')}
       </Button>
-      <Button type="button" variant="outline" onClick={onEditSentence} disabled={busy}>
+      <Button type="button" variant="outline" data-action-id="workshopCommand.edit" onClick={onEditSentence} disabled={busy}>
         {t('command.editSentence')}
       </Button>
-    </DialogFooter>
+    </div>
   )
 }
 

@@ -2,7 +2,6 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
-import { DialogFooter } from '@/components/ui/dialog'
 import {
   WORKSHOP_COMMAND_MAX_TEXT_LENGTH,
   type WorkshopCommandClarification,
@@ -26,11 +25,16 @@ export function CommandHeader({
         <h2 className="text-sm font-semibold">{t('command.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('command.description')}</p>
       </div>
-      <DialogFooter className="sm:justify-start sm:space-x-0">
-        <Button type="button" variant="ghost" size="sm" onClick={onExit} disabled={busy}>
-          {t('command.backToSearch')}
-        </Button>
-      </DialogFooter>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        data-action-id="workshopCommand.exit"
+        onClick={onExit}
+        disabled={busy}
+      >
+        {t('command.backToSearch')}
+      </Button>
     </header>
   )
 }
@@ -107,14 +111,20 @@ export function CommandToolbar({
 }) {
   const { t } = useTranslation('workshop')
   return (
-    <DialogFooter className="flex flex-wrap gap-2 sm:justify-start sm:space-x-0">
-      <Button type="button" onClick={onReview} disabled={!canReview}>
+    <div className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        data-action-id="workshopCommand.review"
+        onClick={onReview}
+        disabled={!canReview}
+      >
         {hasResult ? t('command.rereview') : t('command.review')}
       </Button>
       {voiceSupported ? (
         <Button
           type="button"
           variant="outline"
+          data-action-id="workshopCommand.dictate"
           onClick={onVoice}
           disabled={busy || voiceState === 'transcribing'}
         >
@@ -126,11 +136,17 @@ export function CommandToolbar({
         </span>
       )}
       {hasResult ? (
-        <Button type="button" variant="ghost" onClick={onReset} disabled={busy}>
+        <Button
+          type="button"
+          variant="ghost"
+          data-action-id="workshopCommand.edit"
+          onClick={onReset}
+          disabled={busy}
+        >
           {t('command.editSentence')}
         </Button>
       ) : null}
-    </DialogFooter>
+    </div>
   )
 }
 
@@ -162,11 +178,15 @@ export function CommandErrorAlert({
       {error.detail && error.code !== 'COMMAND_ID_REUSED' ? (
         <p className="text-muted-foreground">{error.detail}</p>
       ) : null}
-      <DialogFooter className="sm:justify-start sm:space-x-0">
-        <Button type="button" size="sm" variant="outline" onClick={onReset}>
-          {t('command.rereview')}
-        </Button>
-      </DialogFooter>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        data-action-id="workshopCommand.reset"
+        onClick={onReset}
+      >
+        {t('command.rereview')}
+      </Button>
     </div>
   )
 }
@@ -197,20 +217,21 @@ export function ClarificationBlock({
         <p className="text-xs text-muted-foreground">{t('command.hasMore')}</p>
       ) : null}
       {clarification.choices.length > 0 ? (
-        <DialogFooter className="flex flex-wrap gap-2 sm:justify-start sm:space-x-0">
+        <div className="flex flex-wrap gap-2">
           {clarification.choices.map((choice) => (
             <Button
               key={choice.choice_id}
               type="button"
               size="sm"
               variant="outline"
+              data-action-id="workshopCommand.choose"
               disabled={busy}
               onClick={() => onChoose(choice.choice_id)}
             >
               {choice.label}
             </Button>
           ))}
-        </DialogFooter>
+        </div>
       ) : (
         <p className="text-xs text-muted-foreground">{t('command.clarificationNoChoices')}</p>
       )}
@@ -237,11 +258,15 @@ export function PendingProposalSection({
         {t('command.pendingHint', { id: proposal.pending_action_id })}
       </p>
       <p className="text-xs font-medium">{t('command.pendingNotApplied')}</p>
-      <DialogFooter className="sm:justify-start sm:space-x-0">
-        <Button type="button" size="sm" onClick={onApply} disabled={busy}>
-          {busy ? t('command.applying') : t('command.applyNow')}
-        </Button>
-      </DialogFooter>
+      <Button
+        type="button"
+        size="sm"
+        data-action-id="workshopCommand.applyNow"
+        onClick={onApply}
+        disabled={busy}
+      >
+        {busy ? t('command.applying') : t('command.applyNow')}
+      </Button>
     </section>
   )
 }
@@ -255,11 +280,15 @@ export function AppliedSection({ onOpenOrders }: { onOpenOrders?: () => void }) 
       </h3>
       <p className="text-xs">{t('command.appliedHint')}</p>
       {onOpenOrders ? (
-        <DialogFooter className="sm:justify-start sm:space-x-0">
-          <Button type="button" size="sm" variant="outline" onClick={onOpenOrders}>
-            {t('command.openOrders')}
-          </Button>
-        </DialogFooter>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-action-id="workshopCommand.openOrders"
+          onClick={onOpenOrders}
+        >
+          {t('command.openOrders')}
+        </Button>
       ) : null}
     </section>
   )

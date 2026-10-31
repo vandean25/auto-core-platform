@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  canApplyWorkshopCommand,
   canAssignWorkshopOrderMechanic,
   canCheckInWorkshopOrder,
   canDeleteCustomerFromList,
@@ -54,6 +55,15 @@ describe('action-role-predicates', () => {
     ['owner', false], ['', false], [null, false], [undefined, false],
   ] as const)('opens the command mode only for authorized roles (%s: %s)', (role, expected) => {
     expect(canUseWorkshopCommand(role)).toBe(expected)
+  })
+
+  it.each([
+    ['OWNER', true], ['ADMIN', true],
+    ['SALES', false], ['TECH', false], ['MECHANIC', false], ['SERVICE_ADVISOR', false],
+    ['ACCOUNTANT', false], ['SUPER_ADMIN', false], ['DEMO', false],
+    ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('allows workshop command apply only for supervisor roles (%s: %s)', (role, expected) => {
+    expect(canApplyWorkshopCommand(role)).toBe(expected)
   })
 
   it.each([

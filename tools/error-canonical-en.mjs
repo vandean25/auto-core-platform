@@ -1,5 +1,6 @@
 /** Canonical English UI copy when backend harvest text is not English. */
 export const CANONICAL_EN_MESSAGES = {
+  SESSION_NOT_FOUND: "This command has expired. Please enter it again.",
   SELECTION_NOT_OFFERED: "The selection was not offered. Please choose from the provided options.",
   COMMAND_ID_REUSED: "This command ID has already been used. Please start a new command.",
   INTENT_INCOMPLETE: "The command is not complete yet. Please answer the clarification question.",

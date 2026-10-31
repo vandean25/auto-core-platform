@@ -11,9 +11,6 @@ import baseline from './registry-parity.baseline.json'
  * and is treated as admin configuration.
  * `features/actions/RegistryActionButton.tsx` is the shared page-button primitive that
  * forwards `data-action-id={action.id}` to the underlying `<Button>`.
- * `features/workshop-command/*` are the internal steps of the reviewed Cmd+K command
- * surface itself: they have no entity row to register and are already only reachable
- * through the palette.
  */
 const EXCLUDED_EXACT_PATHS = new Set<string>([
   'pages/SettingsPage.tsx',
