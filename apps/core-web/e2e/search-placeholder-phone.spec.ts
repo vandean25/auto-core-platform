@@ -2,10 +2,12 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 import deVehicles from '../../../locales/de/vehicles.json' with { type: 'json' }
+import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 import { PHONE_WIDTHS } from './utils/phone-layout'
 
 /**
- * AUT-791: the search hint of a list is readable in full at 375 and 390 px (it used to be cut off after "Akte" and "Frist su").
+ * AUT-791 and AUT-833: the search hint of a list is readable in full at 375 and 390 px (it used to be cut off after
+ * "Akte", "Frist su" and, on the estimates list, "Kennzeiche").
  */
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const emptyList = { data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } }
@@ -27,16 +29,20 @@ async function mockApi(page: Page) {
   await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock/gewaehrleistung-due'), (route) =>
     route.fulfill(json({ data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } })),
   )
+  await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) =>
+    route.fulfill(json({ data: [], meta: { page_size: 25, next_cursor: null } })),
+  )
   await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) => route.fulfill(json([])))
 }
 
 const LISTS = [
   ['Audit-Logs', '/settings?tab=audit-logs', deSettings.auditLogs.searchPlaceholder],
   ['Gewährleistung fällig', '/vehicles/gewaehrleistung-due', deVehicles.gewaehrleistungDue.searchPlaceholder],
+  ['Kostenvoranschläge', '/workshop/estimates', deWorkshop.estimateList.searchPlaceholder],
 ] as const
 
 for (const width of PHONE_WIDTHS) {
-  test.describe(`Search hints at ${width}px (AUT-791)`, () => {
+  test.describe(`Search hints at ${width}px (AUT-791, AUT-833)`, () => {
     test.use({ viewport: { width, height: 812 } })
 
     for (const [name, path, placeholder] of LISTS) {
