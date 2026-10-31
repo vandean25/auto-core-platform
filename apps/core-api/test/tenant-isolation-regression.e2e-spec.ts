@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
+import { RequestContextService } from '../src/common/services/request-context.service.js';
 import { DryRunService } from '../src/dry-run/dry-run.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util.js';
@@ -61,7 +62,12 @@ describe('Tenant Isolation Regression (e2e)', () => {
 
     const authService = app.get(AuthService);
     adminHeaderA = `Bearer ${createTestAuthToken(authService, tenantA)}`;
-    techHeaderA = await createMemberBearer(prisma, authService, tenantA, 'TECH');
+    techHeaderA = await createMemberBearer(
+      prisma,
+      authService,
+      tenantA,
+      'TECH',
+    );
   });
 
   async function cleanupTestEntities() {
@@ -83,6 +89,9 @@ describe('Tenant Isolation Regression (e2e)', () => {
         where: { last_name: { startsWith: prefix } },
       }),
       client.salesOrder.deleteMany({
+        where: { order_number: { startsWith: prefix } },
+      }),
+      client.workshopOrder.deleteMany({
         where: { order_number: { startsWith: prefix } },
       }),
       client.vendor.deleteMany({
@@ -984,7 +993,9 @@ describe('Tenant Isolation Regression (e2e)', () => {
       });
       expect(groupByA).toHaveLength(1);
       const countObjA = groupByA[0]._count;
-      expect(typeof countObjA === 'object' && countObjA ? countObjA.id : countObjA).toBe(2);
+      expect(
+        typeof countObjA === 'object' && countObjA ? countObjA.id : countObjA,
+      ).toBe(2);
 
       const groupByB = await tenantBPrisma.brand.groupBy({
         by: ['isPartManufacturer'],
@@ -993,6 +1004,112 @@ describe('Tenant Isolation Regression (e2e)', () => {
         _count: { id: true },
       });
       expect(groupByB).toHaveLength(0);
+    });
+
+    it('creates a brand and connects it to a vendor in the same interactive transaction', async () => {
+      const brandName = `${prefix}-TX-BRAND-${Date.now()}`;
+      const vendorName = `${prefix}-TX-VENDOR-${Date.now()}`;
+
+      const vendor = await tenantAPrisma.$transaction(async (tx) => {
+        const brand = await tx.brand.create({
+          data: {
+            tenant_id: tenantAId,
+            ...brandData(brandName),
+            isPartManufacturer: true,
+          },
+        });
+
+        return tx.vendor.create({
+          data: {
+            tenant_id: tenantAId,
+            name: vendorName,
+            email: `vendor-tx-${Date.now()}@test.local`,
+            account_number: `${prefix}-TX-ACC-${Date.now()}`,
+            supportedBrands: {
+              connect: [{ id: brand.id }],
+            },
+          },
+          include: { supportedBrands: true },
+        });
+      });
+
+      expect(vendor.supportedBrands).toHaveLength(1);
+      expect(vendor.supportedBrands[0].name).toBe(brandName);
+      expect(vendor.supportedBrands[0].tenant_id).toBe(tenantAId);
+    });
+
+    it('rejects nested connect on composite-FK relations like WorkshopOrder.tasks', async () => {
+      await expect(
+        tenantAPrisma.workshopOrder.update({
+          where: { id: 'dummy-order-id' },
+          data: {
+            tasks: {
+              connect: [{ id: 'task-fake-id' }],
+            },
+          } as never,
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Nested relation 'connect' on 'WorkshopOrder\.tasks' is not permitted\./,
+      );
+    });
+
+    it('worker background job for Tenant A cannot read or modify Tenant B records', async () => {
+      const requestContext = app.get(RequestContextService);
+
+      const customerB = await tenantBPrisma.customer.create({
+        data: {
+          tenant_id: tenantBId,
+          type: 'PRIVATE',
+          first_name: 'WorkerIsoB',
+          last_name: `${prefix}-CUST-B`,
+          email: `worker-cust-${Date.now()}@test.local`,
+        },
+      });
+
+      await requestContext.runAsWorker(tenantAId, async () => {
+        const found = await prisma.customer.findMany({
+          where: { id: customerB.id },
+        });
+        expect(found).toHaveLength(0);
+
+        const updated = await prisma.customer.updateMany({
+          where: { id: customerB.id },
+          data: { first_name: 'TamperedByTenantAWorker' },
+        });
+        expect(updated.count).toBe(0);
+      });
+
+      const freshB = await tenantBPrisma.customer.findFirst({
+        where: { id: customerB.id },
+      });
+      expect(freshB?.first_name).toBe('WorkerIsoB');
+    });
+
+    it('background execution without tenant or worker context fails closed', async () => {
+      await expect(
+        prisma.customer.findMany({
+          where: { type: 'PRIVATE' },
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Model 'Customer' requires tenant isolation but no tenant context was found\./,
+      );
+    });
+
+    it('tenant-scoped raw query cannot see or lock records of another tenant', async () => {
+      const brandB = await tenantBPrisma.brand.create({
+        data: {
+          tenant_id: tenantBId,
+          ...brandData(`${prefix}-RAW-B`),
+          isPartManufacturer: true,
+        },
+      });
+
+      const rows = await prisma.$queryRaw<Array<{ id: number }>>`
+        SELECT id FROM brands
+        WHERE id = ${brandB.id} AND tenant_id = ${tenantAId}
+        FOR UPDATE
+      `;
+      expect(rows).toHaveLength(0);
     });
   });
 });

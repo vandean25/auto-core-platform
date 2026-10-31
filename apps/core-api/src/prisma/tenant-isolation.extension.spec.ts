@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
   ALL_PRISMA_OPERATIONS,
   OPERATION_CLASSIFICATIONS,
@@ -37,7 +37,7 @@ function call(
   baseClient: Record<string, unknown> = {},
 ) {
   return applyTenantIsolation.call(
-    {},
+    baseClient,
     baseClient,
     model,
     operation,
@@ -961,39 +961,42 @@ describe('applyTenantIsolation', () => {
         'updateMany',
         'delete',
         'deleteMany',
-      ])('rejects nested mutation %s on Vendor.supportedBrands', async (mutationKey) => {
-        const query = jest.fn();
-        const brandMockClient = {
-          brand: {
-            findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
-          },
-        };
-        const payload =
-          mutationKey === 'delete'
-            ? true
-            : mutationKey === 'deleteMany' || mutationKey === 'updateMany'
-              ? {}
-              : [{ name: 'New Brand' }];
-        const args = {
-          data: {
-            name: 'Vendor A',
-            email: 'v@a.com',
-            account_number: 'VA1',
-            supportedBrands: {
-              [mutationKey]: payload,
+      ])(
+        'rejects nested mutation %s on Vendor.supportedBrands',
+        async (mutationKey) => {
+          const query = jest.fn();
+          const brandMockClient = {
+            brand: {
+              findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
             },
-          },
-        };
+          };
+          const payload =
+            mutationKey === 'delete'
+              ? true
+              : mutationKey === 'deleteMany' || mutationKey === 'updateMany'
+                ? {}
+                : [{ name: 'New Brand' }];
+          const args = {
+            data: {
+              name: 'Vendor A',
+              email: 'v@a.com',
+              account_number: 'VA1',
+              supportedBrands: {
+                [mutationKey]: payload,
+              },
+            },
+          };
 
-        await expect(
-          runWithTenant(() =>
-            call('Vendor', 'create', args, query, brandMockClient),
-          ),
-        ).rejects.toThrow(
-          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' targeting tenant-scoped model 'Brand' is not permitted\./,
-        );
-        expect(query).not.toHaveBeenCalled();
-      });
+          await expect(
+            runWithTenant(() =>
+              call('Vendor', 'create', args, query, brandMockClient),
+            ),
+          ).rejects.toThrow(
+            /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' targeting tenant-scoped model 'Brand' is not permitted\./,
+          );
+          expect(query).not.toHaveBeenCalled();
+        },
+      );
 
       it('rejects Vendor.supportedBrands when no query client is available to verify brands', async () => {
         const query = jest.fn();
@@ -1012,6 +1015,146 @@ describe('applyTenantIsolation', () => {
           /\[TenantIsolation\] Cannot verify tenant ownership for nested relation write on 'Vendor\.supportedBrands'\. No brand query client available\./,
         );
         expect(query).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        [{ name: 'BMW' }],
+        [{ id: '1' }],
+        [{ id: -1 }],
+        [{ id: 1.5 }],
+        [{ id: 1, name: 'Extra' }],
+        [],
+        'invalid-payload',
+      ])(
+        'fails closed on non-numeric or non-id brand selectors: %j',
+        async (badBrandRef) => {
+          const query = jest.fn();
+          const brandMockClient = {
+            brand: {
+              findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
+            },
+          };
+          const args = {
+            data: {
+              name: 'Vendor A',
+              email: 'v@a.com',
+              account_number: 'VA1',
+              supportedBrands: {
+                connect: badBrandRef as unknown as Array<{ id: number }>,
+              },
+            },
+          };
+
+          await expect(
+            runWithTenant(() =>
+              call('Vendor', 'create', args, query, brandMockClient),
+            ),
+          ).rejects.toThrow(
+            /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' contains invalid brand reference|empty brand connect payload|unsupported brand reference selector|invalid brand id/,
+          );
+          expect(query).not.toHaveBeenCalled();
+          expect(brandMockClient.brand.findMany).not.toHaveBeenCalled();
+        },
+      );
+
+      it('permits empty set on Vendor.supportedBrands without querying brands', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const brandMockClient = {
+          brand: {
+            findMany: jest.fn(),
+          },
+        };
+        const args = {
+          where: { id: 'vend-1' },
+          data: {
+            supportedBrands: { set: [] },
+          },
+        };
+
+        await runWithTenant(() =>
+          call('Vendor', 'update', args, query, brandMockClient),
+        );
+        expect(query).toHaveBeenCalled();
+        expect(brandMockClient.brand.findMany).not.toHaveBeenCalled();
+      });
+
+      it('uses PrismaTransactionContext when inside an interactive transaction for brand queries', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const txBrandMock = jest.fn().mockResolvedValue([{ id: 10 }]);
+        const outerBrandMock = jest.fn().mockResolvedValue([{ id: 99 }]);
+
+        const txClient = {
+          brand: { findMany: txBrandMock },
+        };
+        const outerClient = {
+          brand: { findMany: outerBrandMock },
+        };
+
+        const args = {
+          data: {
+            name: 'Vendor TX',
+            email: 'tx@a.com',
+            account_number: 'VTX1',
+            supportedBrands: { connect: [{ id: 10 }] },
+          },
+        };
+
+        await runWithTenant(async () => {
+          await PrismaTransactionContext.run(
+            txClient as unknown as Prisma.TransactionClient,
+            async () => {
+              await call('Vendor', 'create', args, query, outerClient);
+            },
+          );
+        });
+
+        expect(txBrandMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: { in: [10] }, tenant_id: TENANT_ID },
+          }),
+        );
+        expect(outerBrandMock).not.toHaveBeenCalled();
+      });
+
+      it('uses DryRunStorage transaction client when inside dry-run context for brand queries', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const dryRunBrandMock = jest.fn().mockResolvedValue([{ id: 20 }]);
+        const outerBrandMock = jest.fn().mockResolvedValue([{ id: 99 }]);
+
+        const dryRunClient = {
+          brand: { findMany: dryRunBrandMock },
+        };
+        const outerClient = {
+          brand: { findMany: outerBrandMock },
+        };
+
+        const args = {
+          data: {
+            name: 'Vendor DryRun',
+            email: 'dry@a.com',
+            account_number: 'VDRY1',
+            supportedBrands: { connect: [{ id: 20 }] },
+          },
+        };
+
+        await runWithTenant(async () => {
+          await DryRunStorage.run(
+            {
+              isDryRun: true,
+              tx: dryRunClient as unknown as Prisma.TransactionClient,
+            },
+            async () => {
+              await call('Vendor', 'create', args, query, outerClient);
+            },
+          );
+        });
+
+        expect(dryRunBrandMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: { in: [20] }, tenant_id: TENANT_ID },
+          }),
+        );
+        expect(outerBrandMock).not.toHaveBeenCalled();
       });
 
       it('permits allowlisted aggregate root child relations in create and update', async () => {
@@ -1062,7 +1205,7 @@ describe('applyTenantIsolation', () => {
             data: expect.objectContaining({
               tasks: {
                 deleteMany: {},
-                create: [{ title: 'Oil replacement' }],
+                create: [{ tenant_id: TENANT_ID, title: 'Oil replacement' }],
               },
             }),
           }),
@@ -1093,6 +1236,120 @@ describe('applyTenantIsolation', () => {
         expect(query).not.toHaveBeenCalled();
       });
 
+      it.each(['connect', 'set', 'connectOrCreate'])(
+        'rejects nested mutation %s on composite relation WorkshopOrder.tasks',
+        async (mutationKey) => {
+          const query = jest.fn();
+          const payload =
+            mutationKey === 'connect'
+              ? [{ id: 'task-1' }]
+              : mutationKey === 'set'
+                ? [{ id: 'task-1' }]
+                : [{ where: { id: 'task-1' }, create: { title: 'New Task' } }];
+
+          const args = {
+            data: {
+              order_number: 'WO-1',
+              tasks: {
+                [mutationKey]: payload,
+              },
+            },
+          };
+
+          await expect(
+            runWithTenant(() => call('WorkshopOrder', 'create', args, query)),
+          ).rejects.toThrow(
+            /\[TenantIsolation\] Nested relation write on 'WorkshopOrder\.tasks' targeting tenant-scoped model 'WorkshopTask' is not permitted\./,
+          );
+          expect(query).not.toHaveBeenCalled();
+        },
+      );
+
+      it('permits nested upsert on composite relation WorkshopOrder.tasks and stamps create tenant_id', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: [
+                {
+                  where: { id: 'task-1' },
+                  create: { title: 'Upserted task' },
+                  update: { title: 'Updated task title' },
+                },
+              ],
+            },
+          },
+        };
+
+        await runWithTenant(() => call('WorkshopOrder', 'update', args, query));
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              tasks: {
+                upsert: [
+                  expect.objectContaining({
+                    create: expect.objectContaining({
+                      tenant_id: TENANT_ID,
+                      title: 'Upserted task',
+                    }),
+                    update: expect.objectContaining({
+                      title: 'Updated task title',
+                    }),
+                  }),
+                ],
+              },
+            }),
+          }),
+        );
+      });
+
+      it('rejects nested upsert on composite relation when create has conflicting tenant_id', async () => {
+        const query = jest.fn();
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: {
+                where: { id: 'task-1' },
+                create: { title: 'Upserted task', tenant_id: 'other-tenant' },
+                update: { title: 'Updated task' },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'update', args, query)),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Mismatching tenant_id in create on model 'WorkshopTask'\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects nested upsert on composite relation when update mutates tenant_id', async () => {
+        const query = jest.fn();
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: {
+                where: { id: 'task-1' },
+                create: { title: 'Upserted task' },
+                update: { tenant_id: 'other-tenant' },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'update', args, query)),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Modifying tenant_id in upsert update data on model 'WorkshopTask' is not permitted\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
       describe('single-FK tenant-scoped child relations', () => {
         it.each([
           ['PurchaseOrder', 'items', 'PurchaseOrderItem'],
@@ -1119,9 +1376,7 @@ describe('applyTenantIsolation', () => {
               },
             };
 
-            await runWithTenant(() =>
-              call(parentModel, 'create', args, query),
-            );
+            await runWithTenant(() => call(parentModel, 'create', args, query));
 
             expect(query).toHaveBeenCalledWith(
               expect.objectContaining({
@@ -1216,9 +1471,11 @@ describe('applyTenantIsolation', () => {
           'set',
           'update',
           'updateMany',
+          'upsert',
           'delete',
           'deleteMany',
           'disconnect',
+          'connectOrCreate',
         ])(
           'rejects unsafe nested mutation %s on PurchaseOrder.items',
           async (mutationKey) => {
@@ -1228,7 +1485,22 @@ describe('applyTenantIsolation', () => {
                 ? true
                 : mutationKey === 'deleteMany' || mutationKey === 'updateMany'
                   ? {}
-                  : [{ id: 'item-1' }];
+                  : mutationKey === 'upsert'
+                    ? [
+                        {
+                          where: { id: 'item-1' },
+                          create: { description: 'New' },
+                          update: { description: 'Updated' },
+                        },
+                      ]
+                    : mutationKey === 'connectOrCreate'
+                      ? [
+                          {
+                            where: { id: 'item-1' },
+                            create: { description: 'New' },
+                          },
+                        ]
+                      : [{ id: 'item-1' }];
             const args = {
               where: { id: 'po-1' },
               data: {
@@ -1586,27 +1858,20 @@ describe('applyTenantIsolation', () => {
 
   describe('Prisma model operations classification and fail-closed policy', () => {
     it('covers all model delegate operations in ALL_PRISMA_OPERATIONS', () => {
-      const expectedOperations = [
-        'findUnique',
-        'findUniqueOrThrow',
-        'findFirst',
-        'findFirstOrThrow',
-        'findMany',
-        'create',
-        'createMany',
-        'createManyAndReturn',
-        'update',
-        'updateMany',
-        'updateManyAndReturn',
-        'upsert',
-        'delete',
-        'deleteMany',
-        'count',
-        'aggregate',
-        'groupBy',
-        'findRaw',
-        'aggregateRaw',
-      ];
+      const dummyAdapter = {
+        provider: 'postgres',
+        adapterName: 'pg',
+        queryRaw: async () => ({ rows: [] }),
+        executeRaw: async () => 0,
+      };
+      const client = new PrismaClient({ adapter: dummyAdapter } as never);
+      const customerDelegate = client.customer as unknown as Record<
+        string,
+        unknown
+      >;
+      const expectedOperations = Object.getOwnPropertyNames(
+        customerDelegate,
+      ).filter((prop) => typeof customerDelegate[prop] === 'function');
 
       expect([...ALL_PRISMA_OPERATIONS].sort()).toEqual(
         [...expectedOperations].sort(),
