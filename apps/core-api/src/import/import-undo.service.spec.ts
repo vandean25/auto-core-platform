@@ -41,22 +41,22 @@ describe('ImportUndoService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       customer: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       vehicle: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       laborOperation: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       catalogItem: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
@@ -167,7 +167,7 @@ describe('ImportUndoService', () => {
       },
     ]);
 
-    mockPrisma.customer.findUnique.mockResolvedValue({
+    mockPrisma.customer.findFirst.mockResolvedValue({
       id: 'cust-1',
       tenant_id: tenantId,
       updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -218,7 +218,7 @@ describe('ImportUndoService', () => {
       },
     ]);
 
-    mockPrisma.customer.findUnique.mockResolvedValue({
+    mockPrisma.customer.findFirst.mockResolvedValue({
       id: 'cust-2',
       tenant_id: tenantId,
       updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -259,7 +259,7 @@ describe('ImportUndoService', () => {
       },
     ]);
 
-    mockPrisma.catalogItem.findUnique.mockResolvedValue({
+    mockPrisma.catalogItem.findFirst.mockResolvedValue({
       id: 'item-1',
       tenant_id: tenantId,
       updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -303,7 +303,7 @@ describe('ImportUndoService', () => {
       },
     ]);
 
-    mockPrisma.customer.findUnique
+    mockPrisma.customer.findFirst
       .mockResolvedValueOnce({
         id: 'cust-clean',
         tenant_id: tenantId,
@@ -359,7 +359,7 @@ describe('ImportUndoService', () => {
       },
     ]);
 
-    mockPrisma.customer.findUnique.mockResolvedValue({
+    mockPrisma.customer.findFirst.mockResolvedValue({
       id: 'cust-conflict',
       tenant_id: tenantId,
       updatedAt: new Date(appliedAt.getTime() + 10000), // modified post-import

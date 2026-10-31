@@ -10,22 +10,22 @@ describe('import-undo.guard', () => {
   beforeEach(() => {
     mockClient = {
       customer: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       } as unknown as UndoGuardPrismaClient['customer'],
       vehicle: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       } as unknown as UndoGuardPrismaClient['vehicle'],
       laborOperation: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       } as unknown as UndoGuardPrismaClient['laborOperation'],
       catalogItem: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       } as unknown as UndoGuardPrismaClient['catalogItem'],
       vehicleNotice: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       } as unknown as UndoGuardPrismaClient['vehicleNotice'],
       vehicleParty: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       } as unknown as UndoGuardPrismaClient['vehicleParty'],
       salesOrder: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -68,7 +68,7 @@ describe('import-undo.guard', () => {
 
   describe('Customer entity', () => {
     it('returns ELIGIBLE for untouched customer without downstream references', async () => {
-      (mockClient.customer.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
         id: 'cust-1',
         tenant_id: tenantId,
         updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -95,7 +95,7 @@ describe('import-undo.guard', () => {
     });
 
     it('returns BLOCKED when customer has an invoice', async () => {
-      (mockClient.customer.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
         id: 'cust-1',
         tenant_id: tenantId,
         updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -119,7 +119,7 @@ describe('import-undo.guard', () => {
     });
 
     it('returns BLOCKED when customer has a workshop order', async () => {
-      (mockClient.customer.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
         id: 'cust-1',
         tenant_id: tenantId,
         updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -143,7 +143,7 @@ describe('import-undo.guard', () => {
 
     it('returns CONFLICT when customer updatedAt is newer than appliedAt without references', async () => {
       const laterDate = new Date(appliedAt.getTime() + 10000);
-      (mockClient.customer.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
         id: 'cust-1',
         tenant_id: tenantId,
         updatedAt: laterDate,
@@ -164,7 +164,7 @@ describe('import-undo.guard', () => {
 
     it('returns CONFLICT when an audit log entry exists after appliedAt', async () => {
       const laterDate = new Date(appliedAt.getTime() + 5000);
-      (mockClient.customer.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
         id: 'cust-1',
         tenant_id: tenantId,
         updatedAt: new Date(appliedAt.getTime()),
@@ -191,7 +191,7 @@ describe('import-undo.guard', () => {
 
   describe('Vehicle entity', () => {
     it('returns ELIGIBLE for untouched vehicle', async () => {
-      (mockClient.vehicle.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.vehicle.findFirst as jest.Mock).mockResolvedValue({
         id: 'veh-1',
         tenant_id: tenantId,
         updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -209,7 +209,7 @@ describe('import-undo.guard', () => {
     });
 
     it('returns BLOCKED when vehicle has vehicle ledger entries', async () => {
-      (mockClient.vehicle.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.vehicle.findFirst as jest.Mock).mockResolvedValue({
         id: 'veh-1',
         tenant_id: tenantId,
         updatedAt: new Date(appliedAt.getTime() - 1000),
@@ -233,7 +233,7 @@ describe('import-undo.guard', () => {
 
   describe('Labor operation entity', () => {
     it('returns BLOCKED when labor operation is referenced in workshop task line items', async () => {
-      (mockClient.laborOperation.findUnique as jest.Mock).mockResolvedValue({
+      (mockClient.laborOperation.findFirst as jest.Mock).mockResolvedValue({
         id: 'lo-1',
         tenant_id: tenantId,
         updatedAt: new Date(appliedAt.getTime() - 1000),

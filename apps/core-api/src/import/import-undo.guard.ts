@@ -74,29 +74,29 @@ async function fetchEntity(
 ): Promise<UndoEntityRecord | null> {
   switch (entityType) {
     case 'CUSTOMER':
-      return client.customer.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: entityId } },
+      return client.customer.findFirst({
+        where: { tenant_id: tenantId, id: entityId },
       });
     case 'VEHICLE':
-      return client.vehicle.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: entityId } },
+      return client.vehicle.findFirst({
+        where: { tenant_id: tenantId, id: entityId },
       });
     case 'LABOR_OPERATION':
-      return client.laborOperation.findUnique({
-        where: { id: entityId },
+      return client.laborOperation.findFirst({
+        where: { tenant_id: tenantId, id: entityId },
       });
     case 'CATALOG_ITEM':
     case 'SUPPLIER_PRICE_LIST':
-      return client.catalogItem.findUnique({
-        where: { id: entityId },
+      return client.catalogItem.findFirst({
+        where: { tenant_id: tenantId, id: entityId },
       });
     case 'VEHICLE_NOTICE':
-      return client.vehicleNotice.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: entityId } },
+      return client.vehicleNotice.findFirst({
+        where: { tenant_id: tenantId, id: entityId },
       });
     case 'VEHICLE_PARTY':
-      return client.vehicleParty.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: entityId } },
+      return client.vehicleParty.findFirst({
+        where: { tenant_id: tenantId, id: entityId },
       });
     default:
       return null;

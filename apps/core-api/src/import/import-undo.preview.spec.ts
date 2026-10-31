@@ -28,10 +28,10 @@ describe('ImportUndoPreviewService', () => {
         findMany: jest.fn(),
       },
       customer: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       },
       vehicle: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       },
       invoice: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -126,7 +126,7 @@ describe('ImportUndoPreviewService', () => {
       },
     ]);
 
-    mockPrisma.customer.findUnique
+    mockPrisma.customer.findFirst
       .mockResolvedValueOnce({
         id: 'cust-1',
         first_name: 'Max',
@@ -179,7 +179,7 @@ describe('ImportUndoPreviewService', () => {
     ]);
 
     // cust-blocked has invoice
-    mockPrisma.customer.findUnique
+    mockPrisma.customer.findFirst
       .mockResolvedValueOnce({
         id: 'cust-blocked',
         first_name: 'Blocked',

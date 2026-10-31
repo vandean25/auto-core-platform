@@ -120,7 +120,8 @@ describe('Import Undo (e2e)', () => {
 
   it('role matrix: non-admin roles (SALES, TECH) get 403 on preview and undo', async () => {
     // 1. Create a dummy applied job
-    const dummyJob = await prisma.importJob.create({
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const dummyJob = await tenantPrisma.importJob.create({
       data: {
         tenant_id: tenant.tenantId,
         source_system: 'legacy-dms',
@@ -178,7 +179,7 @@ describe('Import Undo (e2e)', () => {
       },
     });
 
-    const initialJob = await prisma.importJob.create({
+    const initialJob = await tenantPrisma.importJob.create({
       data: {
         tenant_id: tenant.tenantId,
         source_system: 'legacy-dms',
@@ -235,7 +236,7 @@ describe('Import Undo (e2e)', () => {
     expect(applyRes.body.status).toBe('APPLIED');
 
     // Verify DB has updated pre-existing and created new customer
-    const updatedPreExisting = await tenantPrisma.customer.findUniqueOrThrow({
+    const updatedPreExisting = await tenantPrisma.customer.findFirstOrThrow({
       where: { id: preExistingCustomer.id },
     });
     expect(updatedPreExisting.last_name).toBe('UpdatedName');
@@ -283,7 +284,7 @@ describe('Import Undo (e2e)', () => {
     expect(createdMapping).toBeNull();
 
     // - Updated customer restored to pre-import snapshot
-    const restoredCustomer = await tenantPrisma.customer.findUniqueOrThrow({
+    const restoredCustomer = await tenantPrisma.customer.findFirstOrThrow({
       where: { id: preExistingCustomer.id },
     });
     expect(restoredCustomer.last_name).toBe('Customer');
@@ -383,7 +384,7 @@ describe('Import Undo (e2e)', () => {
 
     expect(undoWithoutConfirm.body.status).toBe('PARTIALLY_UNDONE');
 
-    const stillExists = await tenantPrisma.customer.findUnique({
+    const stillExists = await tenantPrisma.customer.findFirst({
       where: { id: createdCust.id },
     });
     expect(stillExists).toBeTruthy();
@@ -397,7 +398,7 @@ describe('Import Undo (e2e)', () => {
 
     expect(undoWithConfirm.body.status).toBe('UNDONE');
 
-    const deletedCust = await tenantPrisma.customer.findUnique({
+    const deletedCust = await tenantPrisma.customer.findFirst({
       where: { id: createdCust.id },
     });
     expect(deletedCust).toBeNull();
@@ -461,13 +462,13 @@ describe('Import Undo (e2e)', () => {
     expect(undoRes.body.status).toBe('PARTIALLY_UNDONE');
 
     // Verify customer is untouched
-    const untouchedCustomer = await tenantPrisma.customer.findUnique({
+    const untouchedCustomer = await tenantPrisma.customer.findFirst({
       where: { id: customer.id },
     });
     expect(untouchedCustomer).toBeTruthy();
 
     // Verify invoice and its lines are strictly unmodified
-    const checkInvoice = await tenantPrisma.invoice.findUniqueOrThrow({
+    const checkInvoice = await tenantPrisma.invoice.findFirstOrThrow({
       where: { id: invoice.id },
       include: { items: true },
     });
