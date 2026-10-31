@@ -120,7 +120,9 @@ export function isImportJobEligibleForRowPurge(
       );
     }
     case ImportJobStatus.DRY_RUN_DONE:
-      return job.createdAt !== undefined && job.createdAt < cutoffs.dryRunCutoff;
+      return (
+        job.createdAt !== undefined && job.createdAt < cutoffs.dryRunCutoff
+      );
     case ImportJobStatus.APPLYING:
     default:
       return false;

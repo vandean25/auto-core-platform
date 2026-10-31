@@ -20,7 +20,7 @@ export type RetentionTestJob = {
 
 export type RetentionTestRow = {
   row_no: number;
-  action?: ImportRowAction | string;
+  action?: ImportRowAction;
 };
 
 type ImportJobFindManyArgs = {
