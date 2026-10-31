@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { WorkshopCommandSessionRetentionService } from '../src/workshop-command/workshop-command-session-retention.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
@@ -49,6 +50,7 @@ type InterpretBody = {
 describe('Workshop command (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
+  let systemPrisma: SystemPrismaService;
   let authService: AuthService;
   let tenant: TestTenantResult;
   let prisma: PrismaService;
@@ -63,6 +65,7 @@ describe('Workshop command (e2e)', () => {
   beforeAll(async () => {
     app = await createE2eApp();
     basePrisma = app.get(PrismaService);
+    systemPrisma = app.get(SystemPrismaService);
     authService = app.get(AuthService);
   });
 
@@ -274,6 +277,8 @@ describe('Workshop command (e2e)', () => {
       data: {
         firebaseUid: uid,
         email: `${uid}@test.local`,
+        active_tenant_id: tenant.tenantId,
+        active_site_id: siteId,
       },
       select: { id: true },
     });
@@ -290,12 +295,8 @@ describe('Workshop command (e2e)', () => {
         is_active: true,
       },
     });
-    await basePrisma.user.update({
-      where: { id: user.id },
-      data: { active_site_id: siteId },
-    });
     if (role === 'DEMO') {
-      const accessRequest = await basePrisma.landingDemoAccessRequest.create({
+      const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
         data: {
           email: `${uid}@test.local`,
           name: 'Demo User',
@@ -304,7 +305,7 @@ describe('Workshop command (e2e)', () => {
         },
         select: { id: true },
       });
-      await basePrisma.landingDemoSignInGrant.create({
+      await systemPrisma.landingDemoSignInGrant.create({
         data: {
           access_request_id: accessRequest.id,
           user_id: user.id,
@@ -323,7 +324,10 @@ describe('Workshop command (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/api/tenant-api-keys')
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ name: 'Role Matrix Key', scopes: ['workshop_orders:write'] })
+      .send({
+        name: 'Role Matrix Key',
+        scopes: ['workshop-orders:read', 'customers:read'],
+      })
       .expect(201);
     return `Bearer ${res.body.token}`;
   }
@@ -708,10 +712,18 @@ describe('Workshop command (e2e)', () => {
       text: FULL_SENTENCE,
     }).expect(200);
     expect(clarificationRes.body.status).toBe('clarification');
+    expect(clarificationRes.body.choices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ slot: 'customer_id', value: customerId }),
+        expect.objectContaining({
+          slot: 'customer_id',
+          value: secondCustomer.id,
+        }),
+      ]),
+    );
 
     const directPropose = await propose(commandId, [
       { slot: 'customer_id', value: customerId },
-      { slot: 'vehicle_id', value: golfId },
     ]).expect(409);
 
     expect(directPropose.body.code).toBe('PLAN_STALE');
