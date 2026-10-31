@@ -806,6 +806,216 @@ describe('applyTenantIsolation', () => {
     });
   });
 
+  describe('nested relation writes rejection (depth 1 and 2)', () => {
+    describe('depth 1 writes targeting tenant-scoped models', () => {
+      it.each([
+        ['connect', { connect: { id: 'cust-1' } }],
+        [
+          'connectOrCreate',
+          { connectOrCreate: { where: { id: 'c-1' }, create: { name: 'New' } } },
+        ],
+        ['create', { create: { first_name: 'John', last_name: 'Doe' } }],
+        ['createMany', { createMany: { data: [{ first_name: 'John' }] } }],
+        ['update', { update: { first_name: 'John' } }],
+        ['updateMany', { updateMany: { where: {}, data: { first_name: 'J' } } }],
+        ['delete', { delete: true }],
+        ['deleteMany', { deleteMany: {} }],
+        ['set', { set: [{ id: 'cust-1' }] }],
+        ['disconnect', { disconnect: true }],
+      ])(
+        'rejects %s on customer relation in WorkshopOrder create',
+        async (op, mutation) => {
+          const query = jest.fn();
+          const args = {
+            data: {
+              order_number: 'WO-101',
+              customer: mutation,
+            },
+          };
+
+          await expect(
+            runWithTenant(() => call('WorkshopOrder', 'create', args, query)),
+          ).rejects.toThrow(
+            /\[TenantIsolation\] Nested relation write on 'WorkshopOrder\.customer' targeting tenant-scoped model 'Customer' is not permitted\./,
+          );
+          expect(query).not.toHaveBeenCalled();
+        },
+      );
+
+      it('rejects nested relation write on Vendor.supportedBrands in create', async () => {
+        const query = jest.fn();
+        const args = {
+          data: {
+            name: 'Vendor A',
+            email: 'v@a.com',
+            account_number: 'VA1',
+            supportedBrands: { connect: [{ id: 1 }] },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('Vendor', 'create', args, query)),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' targeting tenant-scoped model 'Brand' is not permitted\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects nested relation write on Vendor.supportedBrands in update', async () => {
+        const query = jest.fn();
+        const args = {
+          where: { id: 'vend-1' },
+          data: {
+            supportedBrands: { set: [{ id: 1 }] },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('Vendor', 'update', args, query)),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' targeting tenant-scoped model 'Brand' is not permitted\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects nested relation write in createMany payload', async () => {
+        const query = jest.fn();
+        const args = {
+          data: [
+            {
+              order_number: 'WO-1',
+              customer: { connect: { id: 'cust-1' } },
+            },
+          ],
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'createMany', args, query)),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation write on 'WorkshopOrder\.customer' targeting tenant-scoped model 'Customer' is not permitted\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects nested relation write in upsert.create and upsert.update', async () => {
+        const query = jest.fn();
+        const argsCreate = {
+          where: { tenant_id_code: { tenant_id: TENANT_ID, code: 'LOC-1' } },
+          create: {
+            code: 'LOC-1',
+            name: 'Main',
+            stagingWorkshopOrders: { connect: [{ id: 'wo-1' }] },
+          },
+          update: { name: 'Updated' },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('StorageLocation', 'upsert', argsCreate, query),
+          ),
+        ).rejects.toThrow(/\[TenantIsolation\] Nested relation write/);
+
+        const argsUpdate = {
+          where: { tenant_id_code: { tenant_id: TENANT_ID, code: 'LOC-1' } },
+          create: { code: 'LOC-1', name: 'Main' },
+          update: {
+            name: 'Updated',
+            stagingWorkshopOrders: { connect: [{ id: 'wo-1' }] },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('StorageLocation', 'upsert', argsUpdate, query),
+          ),
+        ).rejects.toThrow(/\[TenantIsolation\] Nested relation write/);
+        expect(query).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('depth 2 writes targeting tenant-scoped models', () => {
+      it('rejects nested relation write wrapped inside a container object at depth 2', async () => {
+        const query = jest.fn();
+        const args = {
+          data: {
+            order_number: 'WO-101',
+            metadata: {
+              customer: { connect: { id: 'cust-1' } },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'create', args, query)),
+        ).rejects.toThrow(/\[TenantIsolation\] Nested relation write/);
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects nested relation write inside an array at depth 2', async () => {
+        const query = jest.fn();
+        const args = {
+          data: {
+            order_number: 'WO-101',
+            steps: [{ customer: { connect: { id: 'cust-1' } } }],
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'create', args, query)),
+        ).rejects.toThrow(/\[TenantIsolation\] Nested relation write/);
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects nested relation write inside a global model relation at depth 2', async () => {
+        const query = jest.fn();
+        const args = {
+          data: {
+            order_number: 'WO-101',
+            user: {
+              create: {
+                name: 'Global User',
+                workshopOrdersAsMechanic: { connect: [{ id: 'wo-2' }] },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() => call('WorkshopOrder', 'create', args, query)),
+        ).rejects.toThrow(/\[TenantIsolation\] Nested relation write/);
+        expect(query).not.toHaveBeenCalled();
+      });
+    });
+
+    it('allows writes with regular scalars and non-tenant global relations without nested writes', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'wo-1' });
+      const args = {
+        data: {
+          order_number: 'WO-101',
+          status: 'DRAFT',
+          total_price: 100.5,
+          user: {
+            connect: { id: 'user-1' },
+          },
+        },
+      };
+
+      await runWithTenant(() => call('WorkshopOrder', 'create', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        data: {
+          order_number: 'WO-101',
+          status: 'DRAFT',
+          total_price: 100.5,
+          user: {
+            connect: { id: 'user-1' },
+          },
+          tenant_id: TENANT_ID,
+        },
+      });
+    });
+  });
+
   describe('findUnique() — must throw', () => {
     it('throws a developer-facing Error for findUnique', async () => {
       const query = jest.fn();

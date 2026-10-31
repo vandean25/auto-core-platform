@@ -93,6 +93,129 @@ const FILTERABLE_OPERATIONS = new Set([
   'groupBy',
 ]);
 
+interface RelationFieldMeta {
+  targetModel: string;
+}
+
+const MODEL_RELATIONS_MAP = new Map<string, Map<string, RelationFieldMeta>>();
+
+if (Prisma.dmmf?.datamodel?.models) {
+  for (const model of Prisma.dmmf.datamodel.models) {
+    const relations = new Map<string, RelationFieldMeta>();
+    for (const field of model.fields) {
+      if (field.kind === 'object') {
+        relations.set(field.name, {
+          targetModel: field.type,
+        });
+      }
+    }
+    MODEL_RELATIONS_MAP.set(model.name, relations);
+  }
+}
+
+const RELATION_MUTATION_KEYS = new Set([
+  'connect',
+  'connectOrCreate',
+  'create',
+  'createMany',
+  'update',
+  'updateMany',
+  'delete',
+  'deleteMany',
+  'set',
+  'disconnect',
+]);
+
+function hasRelationMutationKeys(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  return Object.keys(value).some((key) => RELATION_MUTATION_KEYS.has(key));
+}
+
+function capitalizeFirstLetter(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function resolveTargetModel(
+  modelName: string,
+  fieldName: string,
+): string | null {
+  const modelRelations = MODEL_RELATIONS_MAP.get(modelName);
+  if (modelRelations?.has(fieldName)) {
+    return modelRelations.get(fieldName)!.targetModel;
+  }
+
+  const capitalized = capitalizeFirstLetter(fieldName);
+  if (MODEL_RELATIONS_MAP.has(capitalized)) {
+    return capitalized;
+  }
+
+  if (GLOBAL_MODELS.has(capitalized) || GLOBAL_MODELS.has(fieldName)) {
+    return GLOBAL_MODELS.has(capitalized) ? capitalized : fieldName;
+  }
+
+  return null;
+}
+
+function assertNoTenantScopedNestedWrites(
+  modelName: string,
+  data: unknown,
+): void {
+  if (!data || typeof data !== 'object') {
+    return;
+  }
+
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      assertNoTenantScopedNestedWrites(modelName, item);
+    }
+    return;
+  }
+
+  const record = data as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(record)) {
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+
+    const targetModel = resolveTargetModel(modelName, key);
+
+    if (targetModel) {
+      if (!GLOBAL_MODELS.has(targetModel)) {
+        if (hasRelationMutationKeys(value)) {
+          throw new Error(
+            `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting tenant-scoped model '${targetModel}' is not permitted.`,
+          );
+        }
+      } else {
+        if (hasRelationMutationKeys(value)) {
+          const mutationRecord = value as Record<string, unknown>;
+          for (const mutKey of RELATION_MUTATION_KEYS) {
+            if (Object.hasOwn(mutationRecord, mutKey)) {
+              assertNoTenantScopedNestedWrites(
+                targetModel,
+                mutationRecord[mutKey],
+              );
+            }
+          }
+          continue;
+        }
+      }
+    } else {
+      if (hasRelationMutationKeys(value)) {
+        throw new Error(
+          `[TenantIsolation] Nested relation write on '${modelName}.${key}' targeting tenant-scoped model is not permitted.`,
+        );
+      }
+    }
+
+    assertNoTenantScopedNestedWrites(modelName, value);
+  }
+}
+
 /**
  * Returns the current tenant ID from the AsyncLocalStorage context.
  * Throws InternalServerErrorException if no context is set.
@@ -269,6 +392,7 @@ export function applyTenantIsolation(
     if (FILTERABLE_OPERATIONS.has(operation)) {
       if (operation === 'updateMany' || operation === 'updateManyAndReturn') {
         assertNoTenantIdInUpdateData(model, operation, nextArgs.data);
+        assertNoTenantScopedNestedWrites(model, nextArgs.data);
       }
 
       nextArgs.where = {
@@ -284,6 +408,7 @@ export function applyTenantIsolation(
     if (operation === 'update' || operation === 'delete') {
       if (operation === 'update') {
         assertNoTenantIdInUpdateData(model, 'update', nextArgs.data);
+        assertNoTenantScopedNestedWrites(model, nextArgs.data);
       }
 
       const { scopedWhere, injected } = injectTenantIntoWhere(
@@ -320,6 +445,8 @@ export function applyTenantIsolation(
 
     // create: stamp tenant_id onto the new record
     if (operation === 'create') {
+      assertNoTenantScopedNestedWrites(model, nextArgs.data);
+
       nextArgs.data = validateAndStampCreateData(
         model,
         'create',
@@ -331,6 +458,8 @@ export function applyTenantIsolation(
     }
 
     if (operation === 'createMany' || operation === 'createManyAndReturn') {
+      assertNoTenantScopedNestedWrites(model, nextArgs.data);
+
       nextArgs.data = stampTenantIntoCreateManyData(
         model,
         operation,
@@ -344,6 +473,8 @@ export function applyTenantIsolation(
     // upsert: tenant_id required in both where (lookup) and create (new row)
     if (operation === 'upsert') {
       assertNoTenantIdInUpdateData(model, 'upsert update', nextArgs.update);
+      assertNoTenantScopedNestedWrites(model, nextArgs.create);
+      assertNoTenantScopedNestedWrites(model, nextArgs.update);
 
       nextArgs.where = scopeUpsertWhere(
         model,
