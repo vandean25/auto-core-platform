@@ -91,8 +91,8 @@ describe('Import job row retention purge (e2e)', () => {
     jobId: string,
     expectedStatus: ImportJobStatus,
   ): Promise<void> {
-    const job = await tenantPrisma.importJob.findUnique({
-      where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
+    const job = await tenantPrisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
     });
     expect(job?.status).toBe(expectedStatus);
     const options = job?.options_json as Record<string, unknown>;
@@ -103,8 +103,8 @@ describe('Import job row retention purge (e2e)', () => {
     jobId: string,
     expectedStatus: ImportJobStatus,
   ): Promise<void> {
-    const job = await tenantPrisma.importJob.findUnique({
-      where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
+    const job = await tenantPrisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
     });
     expect(job?.status).toBe(expectedStatus);
   }
@@ -274,8 +274,8 @@ describe('Import job row retention purge (e2e)', () => {
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
 
       await expectJobStatus(jobId, ImportJobStatus.CANCELLED);
-      const job = await tenantPrisma.importJob.findUnique({
-        where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
+      const job = await tenantPrisma.importJob.findFirst({
+        where: { tenant_id: tenantId, id: jobId },
       });
       const options = job?.options_json as Record<string, unknown>;
       expect(options.cancel_reason).toBe('expired');
@@ -429,8 +429,8 @@ describe('Import job row retention purge (e2e)', () => {
       ]);
 
       // Concurrently change status to APPLYING before purge lock
-      await tenantPrisma.importJob.update({
-        where: { tenant_id_id: { tenant_id: tenantId, id: jobId } },
+      await tenantPrisma.importJob.updateMany({
+        where: { tenant_id: tenantId, id: jobId },
         data: { status: ImportJobStatus.APPLYING },
       });
 
