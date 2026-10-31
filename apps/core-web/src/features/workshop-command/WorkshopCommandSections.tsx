@@ -179,7 +179,7 @@ export function ClarificationBlock({
   return (
     <section
       aria-labelledby="workshop-command-clarification"
-      className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2"
+      className="space-y-2 rounded-md border border-warning/40 bg-warning/5 p-2"
     >
       <h3 id="workshop-command-clarification" className="text-sm font-semibold">
         {t('command.clarificationHeading')}

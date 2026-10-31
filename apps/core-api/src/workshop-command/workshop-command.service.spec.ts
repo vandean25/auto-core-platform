@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { Site } from '@prisma/client';
 import type { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -111,7 +111,7 @@ function sessionKey(tenantId: string, commandId: string): string {
   return `${tenantId}\u0000${commandId}`;
 }
 
-function createHarness() {
+function createHarness(userOverride?: { role?: string } | null) {
   const sessions = new Map<string, WorkshopCommandSessionRow>();
   const proposals = new Map<string, Record<string, unknown>>();
 
@@ -185,7 +185,7 @@ function createHarness() {
   };
   const tenantContext = {
     getTenantId: async () => TENANT_ID,
-    getAuthenticatedUser: () => ({ role: 'ADMIN' }),
+    getAuthenticatedUser: () => (userOverride !== undefined ? userOverride : { role: 'ADMIN' }),
   };
   const siteContext = { getSite: async () => SITE };
 
@@ -312,5 +312,73 @@ describe('WorkshopCommandService reviewed plan', () => {
 
     expect(retry.statusCode).toBe(200);
     expect(retry.body.pending_action_id).toBe(first.body.pending_action_id);
+  });
+});
+
+describe('WorkshopCommandService role matrix authorization', () => {
+  describe('interpret role matrix', () => {
+    it.each([
+      ['OWNER', true],
+      ['ADMIN', true],
+      ['SALES', true],
+      ['TECH', false],
+      ['MECHANIC', false],
+      ['SERVICE_ADVISOR', false],
+      ['ACCOUNTANT', false],
+      ['SUPER_ADMIN', false],
+      ['DEMO', false],
+      ['', false],
+      [null, false],
+      [undefined, false],
+    ] as const)('evaluates role %s (allowed: %s)', async (role, allowed) => {
+      const user = role === null ? null : role === undefined ? {} : { role };
+      const h = createHarness(user);
+      h.resolver.resolveParsed.mockResolvedValueOnce(REVIEWED);
+      if (allowed) {
+        const result = await h.service.interpret(interpretDto(), PREVIEW_AT);
+        expect(result.status).toBe('ready');
+      } else {
+        await expect(h.service.interpret(interpretDto(), PREVIEW_AT)).rejects.toThrow(
+          ForbiddenException,
+        );
+      }
+    });
+  });
+
+  describe('propose role matrix', () => {
+    it.each([
+      ['OWNER', true],
+      ['ADMIN', true],
+      ['SALES', false],
+      ['TECH', false],
+      ['MECHANIC', false],
+      ['SERVICE_ADVISOR', false],
+      ['ACCOUNTANT', false],
+      ['SUPER_ADMIN', false],
+      ['DEMO', false],
+      ['', false],
+      [null, false],
+      [undefined, false],
+    ] as const)('evaluates role %s (allowed: %s)', async (role, allowed) => {
+      const adminH = createHarness({ role: 'ADMIN' });
+      await reviewPreview(adminH);
+      const session = adminH.sessions.get(sessionKey(TENANT_ID, COMMAND_ID));
+
+      const user = role === null ? null : role === undefined ? {} : { role };
+      const h = createHarness(user);
+      if (session) {
+        h.sessions.set(sessionKey(TENANT_ID, COMMAND_ID), session);
+      }
+      h.resolver.resolveParsed.mockResolvedValueOnce(REVIEWED);
+
+      if (allowed) {
+        const outcome = await h.service.propose(proposeDto(), SUBMIT_AT);
+        expect(outcome.statusCode).toBe(201);
+      } else {
+        await expect(h.service.propose(proposeDto(), SUBMIT_AT)).rejects.toThrow(
+          ForbiddenException,
+        );
+      }
+    });
   });
 });

@@ -47,13 +47,15 @@ describe('action-role-predicates', () => {
     }
   })
 
-  it('opens the command mode only for the roles the command API accepts', () => {
-    for (const role of ['OWNER', 'ADMIN', 'SALES']) {
-      expect(canUseWorkshopCommand(role)).toBe(true)
-    }
-    for (const role of ['TECH', 'DEMO', '', null, undefined]) {
-      expect(canUseWorkshopCommand(role)).toBe(false)
-    }
+  it.each([
+    ['OWNER', true], ['ADMIN', true], ['SALES', true],
+    ['TECH', false], ['MECHANIC', false], ['SERVICE_ADVISOR', false],
+    ['ACCOUNTANT', false], ['SUPER_ADMIN', false], ['DEMO', false],
+    ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('opens the command mode only for authorized roles (%s: %s)', (role, expected) => {
+    expect(canUseWorkshopCommand(role)).toBe(expected)
+  })
+
   it.each([
     ['OWNER', true], ['ADMIN', true], ['SALES', true], ['TECH', true],
     ['ACCOUNTANT', false], ['SERVICE_ADVISOR', false], ['MECHANIC', false],
