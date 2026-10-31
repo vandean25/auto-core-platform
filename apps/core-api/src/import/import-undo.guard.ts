@@ -367,6 +367,16 @@ function checkVehicleNoticeReferences(
   return { status: 'ELIGIBLE' };
 }
 
+function getAuditEntityTypeVariants(entityType: string): string[] {
+  const upper = entityType.toUpperCase();
+  const lower = entityType.toLowerCase();
+  const pascal = entityType
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join('');
+  return [...new Set([entityType, upper, lower, pascal])];
+}
+
 async function checkModifications(
   client: UndoGuardPrismaClient,
   tenantId: string,
@@ -390,7 +400,7 @@ async function checkModifications(
   const subsequentAudit = await client.auditLog.findFirst({
     where: {
       tenant_id: tenantId,
-      entity_type: entityType,
+      entity_type: { in: getAuditEntityTypeVariants(entityType) },
       entity_id: entityId,
       occurred_at: { gt: threshold },
     },

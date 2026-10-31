@@ -349,7 +349,7 @@ describe('Import Undo (e2e)', () => {
       where: { id: createdCust.id },
       data: {
         phone: '999999',
-        updated_at: new Date(Date.now() + 60000),
+        updatedAt: new Date(Date.now() + 60000),
       },
     });
     // Add audit log after import
