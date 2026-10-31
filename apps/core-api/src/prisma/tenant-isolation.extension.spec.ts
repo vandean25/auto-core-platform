@@ -2,10 +2,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { applyTenantIsolation } from './tenant-isolation.extension.js';
+import {
+  ALL_PRISMA_OPERATIONS,
+  OPERATION_CLASSIFICATIONS,
+  applyTenantIsolation,
+} from './tenant-isolation.extension.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { PrismaTransactionContext } from './prisma-transaction-context.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
@@ -556,6 +561,195 @@ describe('applyTenantIsolation', () => {
       ).rejects.toThrow(InternalServerErrorException);
 
       expect(query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Prisma model operations classification and fail-closed policy', () => {
+    it('covers all model delegate operations in ALL_PRISMA_OPERATIONS', () => {
+      const expectedOperations = [
+        'findUnique',
+        'findUniqueOrThrow',
+        'findFirst',
+        'findFirstOrThrow',
+        'findMany',
+        'create',
+        'createMany',
+        'createManyAndReturn',
+        'update',
+        'updateMany',
+        'updateManyAndReturn',
+        'upsert',
+        'delete',
+        'deleteMany',
+        'count',
+        'aggregate',
+        'groupBy',
+        'findRaw',
+        'aggregateRaw',
+      ];
+
+      expect([...ALL_PRISMA_OPERATIONS].sort()).toEqual(
+        [...expectedOperations].sort(),
+      );
+
+      for (const op of ALL_PRISMA_OPERATIONS) {
+        expect(OPERATION_CLASSIFICATIONS).toHaveProperty(op);
+        expect(['scoped', 'stamped', 'rejected', 'composite']).toContain(
+          OPERATION_CLASSIFICATIONS[op],
+        );
+      }
+    });
+
+    it('throws and logs when an unknown operation is invoked on a tenant-scoped model', async () => {
+      const loggerErrorSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+      const query = jest.fn();
+      const sensitiveData = { secretField: 'top-secret-password-123' };
+
+      await expect(
+        runWithTenant(() =>
+          call(
+            'WorkshopOrder',
+            'unsupportedFuturePrismaOp',
+            { data: sensitiveData },
+            query,
+          ),
+        ),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Operation 'unsupportedFuturePrismaOp' on model 'WorkshopOrder' is not permitted by tenant isolation policy\./,
+      );
+
+      expect(query).not.toHaveBeenCalled();
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        "[TenantIsolation] Denied unhandled operation 'unsupportedFuturePrismaOp' on model 'WorkshopOrder'.",
+      );
+      const loggedMessages = loggerErrorSpy.mock.calls
+        .map((args) => args.join(' '))
+        .join(' ');
+      expect(loggedMessages).not.toContain('top-secret');
+      expect(loggedMessages).not.toContain('secretField');
+
+      loggerErrorSpy.mockRestore();
+    });
+
+    it('passes through unknown operations on GLOBAL_MODELS', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'u-1' });
+      const args = { someArg: true };
+
+      const result = await runWithTenant(() =>
+        call('User', 'unsupportedFuturePrismaOp', args, query),
+      );
+
+      expect(query).toHaveBeenCalledWith(args);
+      expect(result).toEqual({ id: 'u-1' });
+    });
+
+    describe.each(ALL_PRISMA_OPERATIONS)('operation: %s', (op) => {
+      it(`enforces ${OPERATION_CLASSIFICATIONS[op]} behavior on a tenant-scoped model`, async () => {
+        const classification = OPERATION_CLASSIFICATIONS[op];
+        const query = jest.fn().mockResolvedValue({ id: 'row-1' });
+
+        if (classification === 'rejected') {
+          await expect(
+            runWithTenant(() =>
+              call('SalesOrder', op, { where: { id: '1' } }, query),
+            ),
+          ).rejects.toThrow(/\[TenantIsolation\]/);
+          expect(query).not.toHaveBeenCalled();
+          return;
+        }
+
+        if (classification === 'stamped') {
+          if (op === 'create') {
+            await runWithTenant(() =>
+              call(
+                'SalesOrder',
+                op,
+                { data: { order_number: 'SO-101' } },
+                query,
+              ),
+            );
+            expect(query).toHaveBeenCalledWith({
+              data: { order_number: 'SO-101', tenant_id: TENANT_ID },
+            });
+          } else {
+            await runWithTenant(() =>
+              call(
+                'SalesOrder',
+                op,
+                { data: [{ order_number: 'SO-101' }] },
+                query,
+              ),
+            );
+            expect(query).toHaveBeenCalledWith({
+              data: [{ order_number: 'SO-101', tenant_id: TENANT_ID }],
+            });
+          }
+          return;
+        }
+
+        if (classification === 'scoped') {
+          if (op === 'update' || op === 'delete') {
+            await runWithTenant(() =>
+              call(
+                'SalesOrder',
+                op,
+                { where: { id: 'row-1' }, data: { status: 'DRAFT' } },
+                query,
+              ),
+            );
+            expect(query).toHaveBeenCalledWith(
+              expect.objectContaining({
+                where: expect.objectContaining({ tenant_id: TENANT_ID }),
+              }),
+            );
+          } else {
+            await runWithTenant(() =>
+              call('SalesOrder', op, { where: { status: 'DRAFT' } }, query),
+            );
+            expect(query).toHaveBeenCalledWith(
+              expect.objectContaining({
+                where: expect.objectContaining({ tenant_id: TENANT_ID }),
+              }),
+            );
+          }
+          return;
+        }
+
+        if (classification === 'composite') {
+          await runWithTenant(() =>
+            call(
+              'StorageLocation',
+              op,
+              {
+                where: { tenant_id_code: { tenant_id: 'old', code: 'LOC-1' } },
+                create: { code: 'LOC-1', name: 'Main' },
+                update: { name: 'Main Updated' },
+              },
+              query,
+            ),
+          );
+          expect(query).toHaveBeenCalledWith({
+            where: { tenant_id_code: { tenant_id: TENANT_ID, code: 'LOC-1' } },
+            create: { code: 'LOC-1', name: 'Main', tenant_id: TENANT_ID },
+            update: { name: 'Main Updated' },
+          });
+          return;
+        }
+      });
+
+      it(`passes through operation ${op} on a GLOBAL_MODEL`, async () => {
+        const query = jest.fn().mockResolvedValue({ id: 'global-1' });
+        const sampleArgs = {
+          where: { id: 'global-1' },
+          data: { name: 'Global' },
+        };
+
+        await runWithTenant(() => call('Tenant', op, sampleArgs, query));
+
+        expect(query).toHaveBeenCalledWith(sampleArgs);
+      });
     });
   });
 });

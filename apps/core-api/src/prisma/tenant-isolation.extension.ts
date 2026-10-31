@@ -1,9 +1,66 @@
 import {
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+
+const logger = new Logger('TenantIsolation');
+
+export const ALL_PRISMA_OPERATIONS = [
+  'findUnique',
+  'findUniqueOrThrow',
+  'findFirst',
+  'findFirstOrThrow',
+  'findMany',
+  'create',
+  'createMany',
+  'createManyAndReturn',
+  'update',
+  'updateMany',
+  'updateManyAndReturn',
+  'upsert',
+  'delete',
+  'deleteMany',
+  'count',
+  'aggregate',
+  'groupBy',
+  'findRaw',
+  'aggregateRaw',
+] as const;
+
+export type PrismaOperation = (typeof ALL_PRISMA_OPERATIONS)[number];
+export type PrismaOperationClassification =
+  | 'scoped'
+  | 'stamped'
+  | 'rejected'
+  | 'composite';
+
+export const OPERATION_CLASSIFICATIONS: Record<
+  PrismaOperation,
+  PrismaOperationClassification
+> = {
+  findUnique: 'rejected',
+  findUniqueOrThrow: 'rejected',
+  findFirst: 'scoped',
+  findFirstOrThrow: 'scoped',
+  findMany: 'scoped',
+  create: 'stamped',
+  createMany: 'stamped',
+  createManyAndReturn: 'stamped',
+  update: 'scoped',
+  updateMany: 'scoped',
+  updateManyAndReturn: 'scoped',
+  upsert: 'composite',
+  delete: 'scoped',
+  deleteMany: 'scoped',
+  count: 'scoped',
+  aggregate: 'scoped',
+  groupBy: 'scoped',
+  findRaw: 'rejected',
+  aggregateRaw: 'rejected',
+};
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.
@@ -29,6 +86,7 @@ const FILTERABLE_OPERATIONS = new Set([
   'findFirst',
   'findFirstOrThrow',
   'updateMany',
+  'updateManyAndReturn',
   'deleteMany',
   'count',
   'aggregate',
@@ -162,6 +220,13 @@ export function applyTenantIsolation(
       );
     }
 
+    if (operation === 'findRaw' || operation === 'aggregateRaw') {
+      throw new Error(
+        `[TenantIsolation] Do not use ${operation}() on model '${model}'. ` +
+          `Raw queries bypass tenant isolation.`,
+      );
+    }
+
     const tenantId = getCurrentTenantId();
 
     // Read + bulk-mutation operations: inject into where clause
@@ -219,7 +284,7 @@ export function applyTenantIsolation(
       return query(nextArgs);
     }
 
-    if (operation === 'createMany') {
+    if (operation === 'createMany' || operation === 'createManyAndReturn') {
       nextArgs.data = stampTenantIntoCreateManyData(nextArgs.data, tenantId);
 
       return query(nextArgs);
@@ -240,9 +305,12 @@ export function applyTenantIsolation(
       return query(nextArgs);
     }
 
-    // Passthrough for unhandled operations.
-
-    return query(nextArgs);
+    logger.error(
+      `[TenantIsolation] Denied unhandled operation '${operation}' on model '${model}'.`,
+    );
+    throw new Error(
+      `[TenantIsolation] Operation '${operation}' on model '${model}' is not permitted by tenant isolation policy.`,
+    );
   })();
 }
 
