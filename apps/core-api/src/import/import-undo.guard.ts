@@ -1,7 +1,9 @@
-import type {
-  ImportUndoEligibility,
-  UndoEntityRecord,
-  UndoGuardPrismaClient,
+import {
+  UNDO_BLOCKED_REASONS,
+  type ImportUndoEligibility,
+  type UndoBlockedReasonCode,
+  type UndoEntityRecord,
+  type UndoGuardPrismaClient,
 } from './import-undo.types.js';
 
 const LEAWAY_MS = 1000;
@@ -13,8 +15,22 @@ const DOC_OR_FINANCIAL_IMPORT_TYPES = new Set([
   'OPEN_WORKSHOP_ORDER',
 ]);
 
+const SUPPORTED_UNDO_ENTITY_TYPES = new Set([
+  'CUSTOMER',
+  'VEHICLE',
+  'LABOR_OPERATION',
+  'CATALOG_ITEM',
+  'SUPPLIER_PRICE_LIST',
+  'VEHICLE_NOTICE',
+  'VEHICLE_PARTY',
+]);
+
 export function isDocOrFinancialImport(entityType: string): boolean {
   return DOC_OR_FINANCIAL_IMPORT_TYPES.has(entityType);
+}
+
+export function isUndoSupportedEntityType(entityType: string): boolean {
+  return SUPPORTED_UNDO_ENTITY_TYPES.has(entityType);
 }
 
 export async function checkEntityUndoEligibility(
@@ -28,14 +44,25 @@ export async function checkEntityUndoEligibility(
   if (isDocOrFinancialImport(entityType)) {
     return {
       status: 'BLOCKED',
-      reason: 'Financial and document imports cannot be undone',
+      reason: UNDO_BLOCKED_REASONS.FINANCIAL_IMPORT_CANNOT_BE_UNDONE,
+    };
+  }
+
+  // Unsupported entity types fail closed
+  if (!isUndoSupportedEntityType(entityType)) {
+    return {
+      status: 'BLOCKED',
+      reason: UNDO_BLOCKED_REASONS.UNSUPPORTED_ENTITY_TYPE,
     };
   }
 
   // 1. Fetch current entity to check existence & updatedAt
   const entity = await fetchEntity(client, tenantId, entityType, entityId);
   if (!entity) {
-    return { status: 'ELIGIBLE', reason: 'Entity does not exist' };
+    return {
+      status: 'BLOCKED',
+      reason: UNDO_BLOCKED_REASONS.ENTITY_NOT_FOUND,
+    };
   }
 
   // 2. Check downstream references (Reference Guard)
@@ -47,7 +74,7 @@ export async function checkEntityUndoEligibility(
     entity,
   );
   if (refCheck.status === 'BLOCKED') {
-    return refCheck;
+    return { ...refCheck, entity };
   }
 
   // 3. Check for subsequent modifications (Conflict Guard)
@@ -60,13 +87,13 @@ export async function checkEntityUndoEligibility(
     entity.updatedAt,
   );
   if (conflictCheck.status === 'CONFLICT') {
-    return conflictCheck;
+    return { ...conflictCheck, entity };
   }
 
-  return { status: 'ELIGIBLE' };
+  return { status: 'ELIGIBLE', entity };
 }
 
-async function fetchEntity(
+export async function fetchEntity(
   client: UndoGuardPrismaClient,
   tenantId: string,
   entityType: string,
@@ -129,7 +156,7 @@ async function checkReferences(
 
 interface ReferenceCheckItem {
   type: string;
-  label: string;
+  reasonCode: UndoBlockedReasonCode;
   query: () => Promise<{ id: string; number?: string | null } | null>;
 }
 
@@ -141,7 +168,7 @@ async function evaluateReferenceChecks(
     if (ref) {
       return {
         status: 'BLOCKED',
-        reason: `Referenced by ${check.label} ${ref.number ?? ref.id}`,
+        reason: check.reasonCode,
         references: [`${check.type}:${ref.id}`],
       };
     }
@@ -157,7 +184,7 @@ async function checkCustomerReferences(
   return evaluateReferenceChecks([
     {
       type: 'invoice',
-      label: 'invoice',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
       query: async () => {
         const row = await client.invoice.findFirst({
           where: { tenant_id: tenantId, customer_id: customerId },
@@ -167,7 +194,7 @@ async function checkCustomerReferences(
     },
     {
       type: 'workshopOrder',
-      label: 'workshop order',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER,
       query: async () => {
         const row = await client.workshopOrder.findFirst({
           where: {
@@ -183,7 +210,7 @@ async function checkCustomerReferences(
     },
     {
       type: 'salesOrder',
-      label: 'sales order',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_SALES_ORDER,
       query: async () => {
         const row = await client.salesOrder.findFirst({
           where: { tenant_id: tenantId, customer_id: customerId },
@@ -193,7 +220,7 @@ async function checkCustomerReferences(
     },
     {
       type: 'vehicleSale',
-      label: 'vehicle sale',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_SALE,
       query: async () => {
         const row = await client.vehicleSale.findFirst({
           where: { tenant_id: tenantId, customer_id: customerId },
@@ -203,7 +230,7 @@ async function checkCustomerReferences(
     },
     {
       type: 'vehiclePurchase',
-      label: 'vehicle purchase',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_PURCHASE,
       query: async () => {
         const row = await client.vehiclePurchase.findFirst({
           where: { tenant_id: tenantId, customer_id: customerId },
@@ -213,10 +240,56 @@ async function checkCustomerReferences(
     },
     {
       type: 'loanerBooking',
-      label: 'loaner booking',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_LOANER_BOOKING,
       query: async () => {
         const row = await client.loanerBooking.findFirst({
           where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'customerConsent',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONSENT,
+      query: async () => {
+        const row = await client.customerConsent.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'customerContactPoint',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONTACT_POINT,
+      query: async () => {
+        const row = await client.customerContactPoint.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicle',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_VEHICLE,
+      query: async () => {
+        const row = await client.vehicle.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'legacyDocument',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_LEGACY_DOCUMENT,
+      query: async () => {
+        const row = await client.legacyDocument.findFirst({
+          where: {
+            tenant_id: tenantId,
+            OR: [
+              { customer_id: customerId },
+              { bill_to_customer_id: customerId },
+            ],
+          },
         });
         return row ? { id: row.id } : null;
       },
@@ -232,7 +305,7 @@ async function checkVehicleReferences(
   return evaluateReferenceChecks([
     {
       type: 'workshopOrder',
-      label: 'workshop order',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER,
       query: async () => {
         const row = await client.workshopOrder.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicleId },
@@ -242,7 +315,7 @@ async function checkVehicleReferences(
     },
     {
       type: 'invoice',
-      label: 'invoice',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
       query: async () => {
         const row = await client.invoice.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicleId },
@@ -252,7 +325,7 @@ async function checkVehicleReferences(
     },
     {
       type: 'salesOrder',
-      label: 'sales order',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_SALES_ORDER,
       query: async () => {
         const row = await client.salesOrder.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicleId },
@@ -262,7 +335,7 @@ async function checkVehicleReferences(
     },
     {
       type: 'vehicleLedgerEntry',
-      label: 'vehicle ledger entry',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_STOCK_MOVEMENT,
       query: async () => {
         const row = await client.vehicleLedgerEntry.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicleId },
@@ -272,7 +345,7 @@ async function checkVehicleReferences(
     },
     {
       type: 'vehicleSale',
-      label: 'vehicle sale',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_SALE,
       query: async () => {
         const row = await client.vehicleSale.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicleId },
@@ -282,12 +355,112 @@ async function checkVehicleReferences(
     },
     {
       type: 'vehiclePurchase',
-      label: 'vehicle purchase',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_PURCHASE,
       query: async () => {
         const row = await client.vehiclePurchase.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicleId },
         });
         return row ? { id: row.id, number: row.purchase_number } : null;
+      },
+    },
+    {
+      type: 'vehicleMedia',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_MEDIA,
+      query: async () => {
+        const row = await client.vehicleMedia.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleEquipmentSelection',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_EQUIPMENT,
+      query: async () => {
+        const row = await client.vehicleEquipmentSelection.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleEquipmentFreeTextItem',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_EQUIPMENT,
+      query: async () => {
+        const row = await client.vehicleEquipmentFreeTextItem.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleListing',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_LISTING,
+      query: async () => {
+        const row = await client.vehicleListing.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleValuationSnapshot',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_VALUATION,
+      query: async () => {
+        const row = await client.vehicleValuationSnapshot.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleParty',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_PARTY,
+      query: async () => {
+        const row = await client.vehicleParty.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleNotice',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_NOTICE,
+      query: async () => {
+        const row = await client.vehicleNotice.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'tyreSet',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_TYRE_RECORD,
+      query: async () => {
+        const row = await client.tyreSet.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'tyreMeasurement',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_TYRE_RECORD,
+      query: async () => {
+        const row = await client.tyreMeasurement.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleInspectionRecord',
+      reasonCode: UNDO_BLOCKED_REASONS.DOWNSTREAM_INSPECTION_RECORD,
+      query: async () => {
+        const row = await client.vehicleInspectionRecord.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
       },
     },
   ]);
@@ -304,7 +477,7 @@ async function checkLaborOperationReferences(
   if (lineItem) {
     return {
       status: 'BLOCKED',
-      reason: 'Referenced by workshop tasks',
+      reason: UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER,
       references: [`workshopTaskLineItem:${lineItem.id}`],
     };
   }
@@ -322,7 +495,7 @@ async function checkCatalogItemReferences(
   if (tx) {
     return {
       status: 'BLOCKED',
-      reason: `Referenced by inventory transaction ${tx.id}`,
+      reason: UNDO_BLOCKED_REASONS.DOWNSTREAM_STOCK_MOVEMENT,
       references: [`inventoryTransaction:${tx.id}`],
     };
   }
@@ -333,7 +506,7 @@ async function checkCatalogItemReferences(
   if (invItem) {
     return {
       status: 'BLOCKED',
-      reason: `Referenced by invoice line item ${invItem.id}`,
+      reason: UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
       references: [`invoiceItem:${invItem.id}`],
     };
   }
@@ -344,7 +517,7 @@ async function checkCatalogItemReferences(
   if (poItem) {
     return {
       status: 'BLOCKED',
-      reason: `Referenced by purchase order line item ${poItem.id}`,
+      reason: UNDO_BLOCKED_REASONS.DOWNSTREAM_PURCHASE_ORDER,
       references: [`purchaseOrderItem:${poItem.id}`],
     };
   }
@@ -358,7 +531,7 @@ function checkVehicleNoticeReferences(
   if (entity.resolved_workshop_order_id || entity.status === 'RESOLVED') {
     return {
       status: 'BLOCKED',
-      reason: 'Notice was resolved in a workshop order',
+      reason: UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER,
       references: entity.resolved_workshop_order_id
         ? [`workshopOrder:${entity.resolved_workshop_order_id}`]
         : [],
@@ -391,7 +564,7 @@ async function checkModifications(
   if (updatedAt && updatedAt.getTime() > threshold.getTime()) {
     return {
       status: 'CONFLICT',
-      reason: `Record was modified after import on ${updatedAt.toISOString()}`,
+      reason: UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT,
       currentUpdatedAt: updatedAt,
     };
   }
@@ -408,10 +581,9 @@ async function checkModifications(
   });
 
   if (subsequentAudit) {
-    const actor = subsequentAudit.actor_email ?? 'user';
     return {
       status: 'CONFLICT',
-      reason: `Record was modified by ${actor} after import on ${subsequentAudit.occurred_at.toISOString()}`,
+      reason: UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT,
       currentUpdatedAt: subsequentAudit.occurred_at,
     };
   }

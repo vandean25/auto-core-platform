@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ImportEntityType, ImportJobStatus, ImportRowAction } from '@prisma/client';
 import { ImportUndoPreviewService } from './import-undo.preview.service.js';
+import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
 
 describe('ImportUndoPreviewService', () => {
   const tenantId = 'tenant-123';
@@ -31,7 +32,19 @@ describe('ImportUndoPreviewService', () => {
         findFirst: jest.fn(),
       },
       vehicle: {
-        findFirst: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      laborOperation: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      catalogItem: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleNotice: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleParty: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       invoice: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -67,6 +80,39 @@ describe('ImportUndoPreviewService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       auditLog: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      customerConsent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      customerContactPoint: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      legacyDocument: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      tyreSet: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleMedia: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleEquipmentSelection: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleEquipmentFreeTextItem: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleListing: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleValuationSnapshot: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      tyreMeasurement: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleInspectionRecord: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
     };
@@ -110,21 +156,23 @@ describe('ImportUndoPreviewService', () => {
       totals_json: { create: 1, update: 1 },
     });
 
-    mockPrisma.importJobRow.findMany.mockResolvedValue([
-      {
-        row_no: 1,
-        action: ImportRowAction.CREATE,
-        entity_id: 'cust-1',
-        normalized_json: { first_name: 'Max', last_name: 'Muster' },
-      },
-      {
-        row_no: 2,
-        action: ImportRowAction.UPDATE,
-        entity_id: 'cust-2',
-        normalized_json: { first_name: 'Erika', last_name: 'Muster' },
-        before_snapshot_json: { first_name: 'Erika', last_name: 'Alt' },
-      },
-    ]);
+    mockPrisma.importJobRow.findMany
+      .mockResolvedValueOnce([
+        {
+          row_no: 1,
+          action: ImportRowAction.CREATE,
+          entity_id: 'cust-1',
+          normalized_json: { first_name: 'Max', last_name: 'Muster' },
+        },
+        {
+          row_no: 2,
+          action: ImportRowAction.UPDATE,
+          entity_id: 'cust-2',
+          normalized_json: { first_name: 'Erika', last_name: 'Muster' },
+          before_snapshot_json: { first_name: 'Erika', last_name: 'Alt' },
+        },
+      ])
+      .mockResolvedValueOnce([]);
 
     mockPrisma.customer.findFirst
       .mockResolvedValueOnce({
@@ -163,20 +211,22 @@ describe('ImportUndoPreviewService', () => {
       totals_json: { create: 2, update: 0 },
     });
 
-    mockPrisma.importJobRow.findMany.mockResolvedValue([
-      {
-        row_no: 1,
-        action: ImportRowAction.CREATE,
-        entity_id: 'cust-blocked',
-        normalized_json: { first_name: 'Blocked', last_name: 'Customer' },
-      },
-      {
-        row_no: 2,
-        action: ImportRowAction.CREATE,
-        entity_id: 'cust-conflict',
-        normalized_json: { first_name: 'Conflict', last_name: 'Customer' },
-      },
-    ]);
+    mockPrisma.importJobRow.findMany
+      .mockResolvedValueOnce([
+        {
+          row_no: 1,
+          action: ImportRowAction.CREATE,
+          entity_id: 'cust-blocked',
+          normalized_json: { first_name: 'Blocked', last_name: 'Customer' },
+        },
+        {
+          row_no: 2,
+          action: ImportRowAction.CREATE,
+          entity_id: 'cust-conflict',
+          normalized_json: { first_name: 'Conflict', last_name: 'Customer' },
+        },
+      ])
+      .mockResolvedValueOnce([]);
 
     // cust-blocked has invoice
     mockPrisma.customer.findFirst
@@ -205,9 +255,9 @@ describe('ImportUndoPreviewService', () => {
     expect(preview.counts.toDelete).toBe(0);
     expect(preview.blocked).toHaveLength(1);
     expect(preview.blocked[0].entityId).toBe('cust-blocked');
-    expect(preview.blocked[0].reason).toContain('invoice');
+    expect(preview.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE);
     expect(preview.conflicts).toHaveLength(1);
     expect(preview.conflicts[0].entityId).toBe('cust-conflict');
-    expect(preview.conflicts[0].reason).toContain('modified');
+    expect(preview.conflicts[0].reason).toBe(UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT);
   });
 });

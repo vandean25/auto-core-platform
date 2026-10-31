@@ -180,6 +180,64 @@ describe('DataImportUndoDialog', () => {
     expect(screen.getByText('Pilot Customer 3')).toBeInTheDocument()
   })
 
+  it('renders localized reasons for various blocked reason codes', () => {
+    const multiBlockedPreview: importsApi.ImportUndoPreviewResponse = {
+      ...mockPreview,
+      counts: { ...mockPreview.counts, blocked: 3 },
+      blocked: [
+        {
+          rowNumber: 5,
+          entityType: 'CUSTOMER',
+          entityId: 'cust-5' as unknown as Record<string, never>,
+          action: 'CREATE',
+          status: 'BLOCKED',
+          displayName: 'Customer with Consent',
+          reason: 'DOWNSTREAM_CUSTOMER_CONSENT',
+        },
+        {
+          rowNumber: 6,
+          entityType: 'VEHICLE',
+          entityId: 'veh-6' as unknown as Record<string, never>,
+          action: 'CREATE',
+          status: 'BLOCKED',
+          displayName: 'Vehicle with Media',
+          reason: 'DOWNSTREAM_VEHICLE_MEDIA',
+        },
+        {
+          rowNumber: 7,
+          entityType: 'UNKNOWN_TYPE',
+          entityId: 'unk-7' as unknown as Record<string, never>,
+          action: 'CREATE',
+          status: 'BLOCKED',
+          displayName: 'Unknown Entity',
+          reason: 'UNSUPPORTED_ENTITY_TYPE',
+        },
+      ],
+    }
+
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: multiBlockedPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+
+    const blockedToggle = screen.getByRole('button', { name: /Blockierte Datensätze \(3\)/i })
+    fireEvent.click(blockedToggle)
+
+    expect(
+      screen.getByText(di.blockedSection.reasons.DOWNSTREAM_CUSTOMER_CONSENT),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(di.blockedSection.reasons.DOWNSTREAM_VEHICLE_MEDIA),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(di.blockedSection.reasons.UNSUPPORTED_ENTITY_TYPE),
+    ).toBeInTheDocument()
+  })
+
   it('expands blocked section and shows blocked reasons in German', () => {
     ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
       data: mockPreview,

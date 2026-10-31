@@ -1,5 +1,8 @@
 import { checkEntityUndoEligibility } from './import-undo.guard.js';
-import type { UndoGuardPrismaClient } from './import-undo.types.js';
+import {
+  UNDO_BLOCKED_REASONS,
+  type UndoGuardPrismaClient,
+} from './import-undo.types.js';
 
 describe('import-undo.guard', () => {
   const tenantId = 'tenant-test-1';
@@ -63,6 +66,39 @@ describe('import-undo.guard', () => {
       auditLog: {
         findFirst: jest.fn().mockResolvedValue(null),
       } as unknown as UndoGuardPrismaClient['auditLog'],
+      customerConsent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['customerConsent'],
+      customerContactPoint: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['customerContactPoint'],
+      legacyDocument: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['legacyDocument'],
+      tyreSet: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['tyreSet'],
+      vehicleMedia: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['vehicleMedia'],
+      vehicleEquipmentSelection: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['vehicleEquipmentSelection'],
+      vehicleEquipmentFreeTextItem: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['vehicleEquipmentFreeTextItem'],
+      vehicleListing: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['vehicleListing'],
+      vehicleValuationSnapshot: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['vehicleValuationSnapshot'],
+      tyreMeasurement: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['tyreMeasurement'],
+      vehicleInspectionRecord: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as unknown as UndoGuardPrismaClient['vehicleInspectionRecord'],
     };
   });
 
@@ -114,7 +150,7 @@ describe('import-undo.guard', () => {
       );
 
       expect(result.status).toBe('BLOCKED');
-      expect(result.reason).toContain('invoice');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE);
       expect(result.references).toContain('invoice:inv-1');
     });
 
@@ -138,7 +174,95 @@ describe('import-undo.guard', () => {
       );
 
       expect(result.status).toBe('BLOCKED');
-      expect(result.reason).toContain('workshop order');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER);
+    });
+
+    it('returns BLOCKED when customer has a consent record', async () => {
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
+        id: 'cust-1',
+        tenant_id: tenantId,
+        updatedAt: new Date(appliedAt.getTime() - 1000),
+      });
+      (mockClient.customerConsent.findFirst as jest.Mock).mockResolvedValue({
+        id: 'consent-1',
+      });
+
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'CUSTOMER',
+        'cust-1',
+        appliedAt,
+      );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONSENT);
+    });
+
+    it('returns BLOCKED when customer has a contact point', async () => {
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
+        id: 'cust-1',
+        tenant_id: tenantId,
+        updatedAt: new Date(appliedAt.getTime() - 1000),
+      });
+      (mockClient.customerContactPoint.findFirst as jest.Mock).mockResolvedValue({
+        id: 'cp-1',
+      });
+
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'CUSTOMER',
+        'cust-1',
+        appliedAt,
+      );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONTACT_POINT);
+    });
+
+    it('returns BLOCKED when customer is linked to a vehicle', async () => {
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
+        id: 'cust-1',
+        tenant_id: tenantId,
+        updatedAt: new Date(appliedAt.getTime() - 1000),
+      });
+      (mockClient.vehicle.findFirst as jest.Mock).mockResolvedValue({
+        id: 'veh-1',
+      });
+
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'CUSTOMER',
+        'cust-1',
+        appliedAt,
+      );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_VEHICLE);
+    });
+
+    it('returns BLOCKED when customer is linked to a legacy document', async () => {
+      (mockClient.customer.findFirst as jest.Mock).mockResolvedValue({
+        id: 'cust-1',
+        tenant_id: tenantId,
+        updatedAt: new Date(appliedAt.getTime() - 1000),
+      });
+      (mockClient.legacyDocument.findFirst as jest.Mock).mockResolvedValue({
+        id: 'doc-1',
+      });
+
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'CUSTOMER',
+        'cust-1',
+        appliedAt,
+      );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_LEGACY_DOCUMENT);
     });
 
     it('returns CONFLICT when customer updatedAt is newer than appliedAt without references', async () => {
@@ -158,7 +282,7 @@ describe('import-undo.guard', () => {
       );
 
       expect(result.status).toBe('CONFLICT');
-      expect(result.reason).toContain('modified');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT);
       expect(result.currentUpdatedAt).toEqual(laterDate);
     });
 
@@ -184,7 +308,7 @@ describe('import-undo.guard', () => {
       );
 
       expect(result.status).toBe('CONFLICT');
-      expect(result.reason).toContain('admin@example.com');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT);
       expect(result.currentUpdatedAt).toEqual(laterDate);
     });
   });
@@ -227,7 +351,73 @@ describe('import-undo.guard', () => {
       );
 
       expect(result.status).toBe('BLOCKED');
-      expect(result.reason).toContain('vehicle ledger');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_STOCK_MOVEMENT);
+    });
+
+    it('returns BLOCKED when vehicle has media', async () => {
+      (mockClient.vehicle.findFirst as jest.Mock).mockResolvedValue({
+        id: 'veh-1',
+        tenant_id: tenantId,
+        updatedAt: new Date(appliedAt.getTime() - 1000),
+      });
+      (mockClient.vehicleMedia.findFirst as jest.Mock).mockResolvedValue({
+        id: 'media-1',
+      });
+
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'VEHICLE',
+        'veh-1',
+        appliedAt,
+      );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_MEDIA);
+    });
+
+    it('returns BLOCKED when vehicle has a party record', async () => {
+      (mockClient.vehicle.findFirst as jest.Mock).mockResolvedValue({
+        id: 'veh-1',
+        tenant_id: tenantId,
+        updatedAt: new Date(appliedAt.getTime() - 1000),
+      });
+      (mockClient.vehicleParty.findFirst as jest.Mock).mockResolvedValue({
+        id: 'party-1',
+      });
+
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'VEHICLE',
+        'veh-1',
+        appliedAt,
+      );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_PARTY);
+    });
+
+    it('returns BLOCKED when vehicle has a notice record', async () => {
+      (mockClient.vehicle.findFirst as jest.Mock).mockResolvedValue({
+        id: 'veh-1',
+        tenant_id: tenantId,
+        updatedAt: new Date(appliedAt.getTime() - 1000),
+      });
+      (mockClient.vehicleNotice.findFirst as jest.Mock).mockResolvedValue({
+        id: 'notice-1',
+      });
+
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'VEHICLE',
+        'veh-1',
+        appliedAt,
+      );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_VEHICLE_NOTICE);
     });
   });
 
@@ -253,7 +443,7 @@ describe('import-undo.guard', () => {
       );
 
       expect(result.status).toBe('BLOCKED');
-      expect(result.reason).toContain('workshop tasks');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.DOWNSTREAM_WORK_ORDER);
     });
   });
 
@@ -268,9 +458,22 @@ describe('import-undo.guard', () => {
       );
 
       expect(result.status).toBe('BLOCKED');
-      expect(result.reason).toContain(
-        'Financial and document imports cannot be undone',
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.FINANCIAL_IMPORT_CANNOT_BE_UNDONE);
+    });
+  });
+
+  describe('Unknown entity types', () => {
+    it('returns BLOCKED unconditionally for unknown entity type (fails closed)', async () => {
+      const result = await checkEntityUndoEligibility(
+        mockClient,
+        tenantId,
+        'UNKNOWN_FUTURE_ENTITY',
+        'id-1',
+        appliedAt,
       );
+
+      expect(result.status).toBe('BLOCKED');
+      expect(result.reason).toBe(UNDO_BLOCKED_REASONS.UNSUPPORTED_ENTITY_TYPE);
     });
   });
 });

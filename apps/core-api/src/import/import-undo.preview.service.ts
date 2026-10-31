@@ -20,8 +20,13 @@ import {
 import {
   checkEntityUndoEligibility,
   isDocOrFinancialImport,
+  isUndoSupportedEntityType,
 } from './import-undo.guard.js';
+import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
 import type { ImportJobTotals } from './import.types.js';
+
+const PREVIEW_PAGE_SIZE = 100;
+const MAX_PREVIEW_ITEMS_PER_BUCKET = 100;
 
 function formatCandidate(
   a?: unknown,
@@ -59,21 +64,6 @@ interface UndoBuckets {
   blocked: ImportUndoRowPreviewDto[];
 }
 
-function sortRowIntoBuckets(
-  rowPreview: ImportUndoRowPreviewDto,
-  buckets: UndoBuckets,
-): void {
-  if (rowPreview.status === 'BLOCKED') {
-    buckets.blocked.push(rowPreview);
-  } else if (rowPreview.status === 'CONFLICT') {
-    buckets.conflicts.push(rowPreview);
-  } else if (rowPreview.action === 'CREATE') {
-    buckets.deletions.push(rowPreview);
-  } else {
-    buckets.restorations.push(rowPreview);
-  }
-}
-
 function buildBlockedDocumentPreview(
   jobId: string,
   entityType: string,
@@ -100,7 +90,7 @@ function buildBlockedDocumentPreview(
         entityId: null,
         action: 'CREATE',
         status: 'BLOCKED',
-        reason: 'Financial and document imports cannot be undone',
+        reason: UNDO_BLOCKED_REASONS.FINANCIAL_IMPORT_CANNOT_BE_UNDONE,
       },
     ],
   };
@@ -123,27 +113,14 @@ function validateJobForPreview(job: ImportJob | null, jobId: string): number {
   );
   const isEligibleStatus =
     job.status === ImportJobStatus.APPLIED ||
+    job.status === ImportJobStatus.PARTIALLY_UNDONE ||
     (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
   if (!isEligibleStatus) {
     throw new BadRequestException(
-      'Import job is not in an undoable state (must be APPLIED or FAILED with applied rows)',
+      'Import job is not in an undoable state (must be APPLIED, PARTIALLY_UNDONE, or FAILED with applied rows)',
     );
   }
   return appliedRowsCount;
-}
-
-function calculateCounts(buckets: UndoBuckets): ImportUndoCountsDto {
-  return {
-    total:
-      buckets.deletions.length +
-      buckets.restorations.length +
-      buckets.conflicts.length +
-      buckets.blocked.length,
-    toDelete: buckets.deletions.length,
-    toRestore: buckets.restorations.length,
-    conflicts: buckets.conflicts.length,
-    blocked: buckets.blocked.length,
-  };
 }
 
 function calculateOverallStatus(
@@ -191,17 +168,54 @@ export class ImportUndoPreviewService {
       );
     }
 
-    const appliedRows = await this.prisma.importJobRow.findMany({
-      where: {
-        tenant_id: tenantId,
-        import_job_id: jobId,
-        action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
-      },
-      orderBy: { row_no: 'asc' },
-    });
+    const buckets: UndoBuckets = {
+      deletions: [],
+      restorations: [],
+      conflicts: [],
+      blocked: [],
+    };
 
-    const buckets = await this.collectRowBuckets(tenantId, job, appliedRows);
-    const counts = calculateCounts(buckets);
+    const counts: ImportUndoCountsDto = {
+      total: 0,
+      toDelete: 0,
+      toRestore: 0,
+      conflicts: 0,
+      blocked: 0,
+    };
+
+    const effectiveAppliedAt = job.appliedAt ?? job.updatedAt;
+
+    let cursor = 0;
+    while (true) {
+      const rows = await this.prisma.importJobRow.findMany({
+        where: {
+          tenant_id: tenantId,
+          import_job_id: jobId,
+          action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
+          row_no: { gt: cursor },
+          undone_at: null,
+        },
+        orderBy: { row_no: 'asc' },
+        take: PREVIEW_PAGE_SIZE,
+      });
+
+      if (rows.length === 0) {
+        break;
+      }
+      cursor = rows[rows.length - 1].row_no;
+
+      for (const row of rows) {
+        await this.processRowPreview(
+          tenantId,
+          job,
+          row,
+          effectiveAppliedAt,
+          buckets,
+          counts,
+        );
+      }
+    }
+
     const overallStatus = calculateOverallStatus(counts);
 
     return {
@@ -214,30 +228,48 @@ export class ImportUndoPreviewService {
     };
   }
 
-  private async collectRowBuckets(
-    tenantId: string,
+  private getStaticRowBlockReason(
     job: ImportJob,
-    rows: ImportJobRow[],
-  ): Promise<UndoBuckets> {
-    const buckets: UndoBuckets = {
-      deletions: [],
-      restorations: [],
-      conflicts: [],
-      blocked: [],
-    };
-    const effectiveAppliedAt = job.appliedAt ?? job.updatedAt;
-
-    for (const row of rows) {
-      await this.processRowPreview(
-        tenantId,
-        job,
-        row,
-        effectiveAppliedAt,
-        buckets,
-      );
+    row: ImportJobRow,
+  ): string | null {
+    if (!row.entity_id) {
+      return UNDO_BLOCKED_REASONS.UNKNOWN;
     }
+    if (row.action === ImportRowAction.UPDATE && !row.before_snapshot_json) {
+      return UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT;
+    }
+    if (!isUndoSupportedEntityType(job.entity_type)) {
+      return UNDO_BLOCKED_REASONS.UNSUPPORTED_ENTITY_TYPE;
+    }
+    return null;
+  }
 
-    return buckets;
+  private assignPreviewBucket(
+    preview: ImportUndoRowPreviewDto,
+    counts: ImportUndoCountsDto,
+    buckets: UndoBuckets,
+  ): void {
+    if (preview.status === 'BLOCKED') {
+      counts.blocked++;
+      if (buckets.blocked.length < MAX_PREVIEW_ITEMS_PER_BUCKET) {
+        buckets.blocked.push(preview);
+      }
+    } else if (preview.status === 'CONFLICT') {
+      counts.conflicts++;
+      if (buckets.conflicts.length < MAX_PREVIEW_ITEMS_PER_BUCKET) {
+        buckets.conflicts.push(preview);
+      }
+    } else if (preview.action === 'CREATE') {
+      counts.toDelete++;
+      if (buckets.deletions.length < MAX_PREVIEW_ITEMS_PER_BUCKET) {
+        buckets.deletions.push(preview);
+      }
+    } else {
+      counts.toRestore++;
+      if (buckets.restorations.length < MAX_PREVIEW_ITEMS_PER_BUCKET) {
+        buckets.restorations.push(preview);
+      }
+    }
   }
 
   private async processRowPreview(
@@ -246,25 +278,42 @@ export class ImportUndoPreviewService {
     row: ImportJobRow,
     effectiveAppliedAt: Date,
     buckets: UndoBuckets,
+    counts: ImportUndoCountsDto,
   ): Promise<void> {
-    if (!row.entity_id) return;
-
+    counts.total++;
     const payload = row.normalized_json as Record<string, unknown> | null;
     const displayName = resolveUndoDisplayName(payload);
     const action = row.action === ImportRowAction.CREATE ? 'CREATE' : 'UPDATE';
+
+    const staticBlockReason = this.getStaticRowBlockReason(job, row);
+    if (staticBlockReason) {
+      counts.blocked++;
+      if (buckets.blocked.length < MAX_PREVIEW_ITEMS_PER_BUCKET) {
+        buckets.blocked.push({
+          rowNumber: row.row_no,
+          entityType: job.entity_type,
+          entityId: row.entity_id ?? null,
+          action,
+          status: 'BLOCKED',
+          reason: staticBlockReason,
+          displayName,
+        });
+      }
+      return;
+    }
 
     const eligibility = await checkEntityUndoEligibility(
       this.prisma,
       tenantId,
       job.entity_type,
-      row.entity_id,
+      row.entity_id!,
       effectiveAppliedAt,
     );
 
     const rowPreview: ImportUndoRowPreviewDto = {
       rowNumber: row.row_no,
       entityType: job.entity_type,
-      entityId: row.entity_id,
+      entityId: row.entity_id!,
       action,
       status: eligibility.status,
       reason: eligibility.reason,
@@ -272,6 +321,6 @@ export class ImportUndoPreviewService {
       displayName,
     };
 
-    sortRowIntoBuckets(rowPreview, buckets);
+    this.assignPreviewBucket(rowPreview, counts, buckets);
   }
 }

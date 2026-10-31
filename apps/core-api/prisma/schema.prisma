@@ -5117,6 +5117,7 @@ enum ImportJobStatus {
   CANCELLED
   UNDONE
   PARTIALLY_UNDONE
+  UNDOING
 }
 
 enum ImportRowAction {
@@ -5317,9 +5318,11 @@ model ImportJobRow {
   normalized_json Json?
   apply_seq       Int?
   before_snapshot_json Json?
+  undone_at            DateTime?
 
   @@id([tenant_id, import_job_id, row_no])
   @@index([tenant_id, import_job_id, action])
+  @@index([tenant_id, import_job_id, undone_at])
   @@unique([tenant_id, import_job_id, apply_seq])
   @@map("import_job_rows")
 }

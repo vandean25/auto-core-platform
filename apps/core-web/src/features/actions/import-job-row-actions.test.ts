@@ -85,10 +85,12 @@ describe('createImportJobRowActions', () => {
     expect(isResumableImportJobStatus('APPLIED')).toBe(false)
     expect(isResumableImportJobStatus('CANCELLED')).toBe(false)
     expect(isResumableImportJobStatus('UNDONE')).toBe(false)
+    expect(isResumableImportJobStatus('PARTIALLY_UNDONE')).toBe(false)
   })
 
   it('identifies undoable jobs correctly', () => {
     expect(isUndoableImportJob(record('APPLIED'))).toBe(true)
+    expect(isUndoableImportJob(record('PARTIALLY_UNDONE'))).toBe(true)
     expect(isUndoableImportJob(record('FAILED', 1, false, 5, 0))).toBe(true)
     expect(isUndoableImportJob(record('FAILED', 1, false, 0, 2))).toBe(true)
     expect(isUndoableImportJob(record('FAILED', 1, false, 0, 0))).toBe(false)

@@ -47,11 +47,47 @@ const BLOCKED_REASON_KEY_MAP = {
     "dataImport.undo.blockedSection.reasons.DOWNSTREAM_STOCK_MOVEMENT",
   DOWNSTREAM_PURCHASE_ORDER:
     "dataImport.undo.blockedSection.reasons.DOWNSTREAM_PURCHASE_ORDER",
+  DOWNSTREAM_SALES_ORDER:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_SALES_ORDER",
+  DOWNSTREAM_VEHICLE_SALE:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_SALE",
+  DOWNSTREAM_VEHICLE_PURCHASE:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_PURCHASE",
+  DOWNSTREAM_LOANER_BOOKING:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_LOANER_BOOKING",
+  DOWNSTREAM_CUSTOMER_CONSENT:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_CUSTOMER_CONSENT",
+  DOWNSTREAM_CUSTOMER_CONTACT_POINT:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_CUSTOMER_CONTACT_POINT",
+  DOWNSTREAM_CUSTOMER_VEHICLE:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_CUSTOMER_VEHICLE",
+  DOWNSTREAM_CUSTOMER_LEGACY_DOCUMENT:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_CUSTOMER_LEGACY_DOCUMENT",
+  DOWNSTREAM_VEHICLE_MEDIA:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_MEDIA",
+  DOWNSTREAM_VEHICLE_EQUIPMENT:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_EQUIPMENT",
+  DOWNSTREAM_VEHICLE_LISTING:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_LISTING",
+  DOWNSTREAM_VEHICLE_VALUATION:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_VALUATION",
+  DOWNSTREAM_VEHICLE_PARTY:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_PARTY",
+  DOWNSTREAM_VEHICLE_NOTICE:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_VEHICLE_NOTICE",
+  DOWNSTREAM_TYRE_RECORD:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_TYRE_RECORD",
+  DOWNSTREAM_INSPECTION_RECORD:
+    "dataImport.undo.blockedSection.reasons.DOWNSTREAM_INSPECTION_RECORD",
   MODIFIED_SINCE_IMPORT:
     "dataImport.undo.blockedSection.reasons.MODIFIED_SINCE_IMPORT",
   MISSING_BEFORE_SNAPSHOT:
     "dataImport.undo.blockedSection.reasons.MISSING_BEFORE_SNAPSHOT",
   ENTITY_NOT_FOUND: "dataImport.undo.blockedSection.reasons.ENTITY_NOT_FOUND",
+  UNSUPPORTED_ENTITY_TYPE:
+    "dataImport.undo.blockedSection.reasons.UNSUPPORTED_ENTITY_TYPE",
+  FINANCIAL_IMPORT_CANNOT_BE_UNDONE:
+    "dataImport.undo.blockedSection.reasons.FINANCIAL_IMPORT_CANNOT_BE_UNDONE",
   UNKNOWN: "dataImport.undo.blockedSection.reasons.UNKNOWN",
 } as const;
 
@@ -312,7 +348,7 @@ export function DataImportUndoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg sm:max-w-xl max-h-[85vh] flex flex-col p-6 overflow-hidden">
+      <DialogContent fullScreenOnPhone className="max-w-lg sm:max-w-xl max-h-[85vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t("dataImport.undo.dialogTitle")}</DialogTitle>
           <DialogDescription>

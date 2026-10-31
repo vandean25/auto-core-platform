@@ -27,7 +27,7 @@ export function isResumableImportJobStatus(status: ImportJobStatus): boolean {
 
 /** A job whose applied records can be undone: APPLIED, or FAILED with applied rows. */
 export function isUndoableImportJob(row: ImportJobActionRecord): boolean {
-  if (row.status === 'APPLIED') return true
+  if (row.status === 'APPLIED' || row.status === 'PARTIALLY_UNDONE') return true
   if (
     row.status === 'FAILED' &&
     ((row.totals.create ?? 0) > 0 || (row.totals.update ?? 0) > 0)

@@ -7,7 +7,7 @@ export async function recordImportRowEntityId(
   rowNo: number,
   entityId: string,
 ): Promise<void> {
-  await tx.importJobRow?.update({
+  await tx.importJobRow.update({
     where: {
       tenant_id_import_job_id_row_no: {
         tenant_id: tenantId,
@@ -26,7 +26,7 @@ export async function recordImportRowBeforeSnapshot(
   rowNo: number,
   beforeSnapshot: Prisma.InputJsonValue,
 ): Promise<void> {
-  await tx.importJobRow?.update({
+  await tx.importJobRow.update({
     where: {
       tenant_id_import_job_id_row_no: {
         tenant_id: tenantId,

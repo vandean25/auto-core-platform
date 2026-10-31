@@ -14942,7 +14942,8 @@
                 "FAILED",
                 "CANCELLED",
                 "UNDONE",
-                "PARTIALLY_UNDONE"
+                "PARTIALLY_UNDONE",
+                "UNDOING"
               ],
               "type": "string"
             }
@@ -37750,7 +37751,8 @@
           "FAILED",
           "CANCELLED",
           "UNDONE",
-          "PARTIALLY_UNDONE"
+          "PARTIALLY_UNDONE",
+          "UNDOING"
         ]
       },
       "ImportJobTotalsDto": {

@@ -11285,7 +11285,7 @@ export interface components {
         /** @enum {string} */
         ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "PART" | "VENDOR" | "STOCK_OPENING_BALANCE" | "OPEN_WORKSHOP_ORDER" | "LEGACY_SERVICE_ORDER" | "LEGACY_INVOICE" | "LEGACY_OPEN_ITEM" | "TYRE_SET" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE" | "VEHICLE_NOTICE" | "LABOR_STANDARD_TIME" | "LABOR_PRICE_GROUP";
         /** @enum {string} */
-        ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED" | "UNDONE" | "PARTIALLY_UNDONE";
+        ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED" | "UNDONE" | "PARTIALLY_UNDONE" | "UNDOING";
         ImportJobTotalsDto: {
             rows: number;
             create: number;
@@ -21714,7 +21714,7 @@ export interface operations {
                 limit?: string;
                 page?: string;
                 source?: string;
-                status?: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED" | "UNDONE" | "PARTIALLY_UNDONE";
+                status?: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED" | "UNDONE" | "PARTIALLY_UNDONE" | "UNDOING";
             };
             header?: never;
             path?: never;
