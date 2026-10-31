@@ -417,7 +417,11 @@ describe('Import job row retention purge (e2e)', () => {
         .expect(200);
 
       expect(response.headers['content-type']).toMatch(/text\/csv/);
-      expect(response.text).toContain('Pflichtfeld fehlt');
+      expect(response.text).toContain('REQUIRED_FIELD');
+      expect(response.text).toContain('ext-2');
+      expect(response.text).toContain(
+        'Die Originaldatei ist nicht mehr verfügbar.',
+      );
     });
   });
 

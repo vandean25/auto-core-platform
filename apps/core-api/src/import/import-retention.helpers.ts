@@ -214,7 +214,6 @@ export function eligibleImportJobsForRowPurgeWhere(
               { cancelled_at: null, updatedAt: { lt: cutoffs.failedCutoff } },
               { cancelled_at: null, createdAt: { lt: cutoffs.failedCutoff } },
             ],
-            NOT: { options_json: { path: ['rows_purged'], equals: true } },
             rows: { some: { action: { not: ImportRowAction.ERROR } } },
           },
         ],
@@ -234,10 +233,6 @@ export function eligibleImportJobsForRowPurgeWhere(
               { failed_at: { lt: cutoffs.failedCutoff } },
               { failed_at: null, updatedAt: { lt: cutoffs.failedCutoff } },
               { failed_at: null, createdAt: { lt: cutoffs.failedCutoff } },
-            ],
-            NOT: [
-              { options_json: { path: ['worker', 'phase'], equals: 'apply' } },
-              { options_json: { path: ['rows_purged'], equals: true } },
             ],
             rows: { some: { action: { not: ImportRowAction.ERROR } } },
           },
@@ -330,7 +325,6 @@ async function markJobPurged(
       tenant_id: tenantId,
       id: job.id,
       status: job.status,
-      NOT: { options_json: { path: ['rows_purged'], equals: true } },
     },
     data: {
       options_json: {
