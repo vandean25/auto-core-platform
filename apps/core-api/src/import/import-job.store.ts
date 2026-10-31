@@ -344,28 +344,40 @@ async function adoptStaleApplyLease(
   return refreshed;
 }
 
+type LockTxClient = {
+  importJob: {
+    findFirst: (
+      args: any,
+    ) => Promise<{
+      status: ImportJobStatus;
+      options_json: Prisma.JsonValue | null;
+      updatedAt: Date;
+    } | null>;
+  };
+};
+
 /** Reads and writes import jobs and their rows. Every query is scoped to the tenant. */
-function verifyLockEligibility(
-  current: {
-    status?: ImportJobStatus;
-    options_json: Prisma.JsonValue | null;
-  } | null,
+async function loadEligibleJobForApplyLock(
+  tx: LockTxClient,
+  tenantId: string,
+  jobId: string,
   allowedStatuses: ImportJobStatus[],
-): { eligible: false } | { eligible: true; options: Record<string, unknown> } {
-  if (!current) {
-    return { eligible: false };
-  }
-  if (
-    current.status !== undefined &&
-    !allowedStatuses.includes(current.status)
-  ) {
+): Promise<
+  | { eligible: false }
+  | { eligible: true; options: Record<string, unknown>; updatedAt: Date }
+> {
+  const current = await tx.importJob.findFirst({
+    where: { tenant_id: tenantId, id: jobId },
+    select: { status: true, options_json: true, updatedAt: true },
+  });
+  if (!current || !allowedStatuses.includes(current.status)) {
     return { eligible: false };
   }
   const opts = (current.options_json ?? {}) as Record<string, unknown>;
   if (opts.rows_purged === true || opts.cancel_reason === 'expired') {
     return { eligible: false };
   }
-  return { eligible: true, options: opts };
+  return { eligible: true, options: opts, updatedAt: current.updatedAt };
 }
 
 export class ImportJobStore {
@@ -1051,28 +1063,26 @@ export class ImportJobStore {
       ((existing?.options_json ?? {}) as ImportJobOptionsWithWorker);
     const locked = applyLockForReapply(options, extraStatuses, Date.now());
     return this.prisma.$transaction(async (tx) => {
-      let currentOptions = options as Record<string, unknown>;
-      if (typeof tx.importJob.findFirst === 'function') {
-        const current = await tx.importJob.findFirst({
-          where: { tenant_id: tenantId, id: jobId },
-          select: { status: true, options_json: true },
-        });
-        const check = verifyLockEligibility(current, locked.statuses);
-        if (!check.eligible) {
-          return { count: 0 };
-        }
-        currentOptions = check.options;
+      const lockCheck = await loadEligibleJobForApplyLock(
+        tx,
+        tenantId,
+        jobId,
+        locked.statuses,
+      );
+      if (!lockCheck.eligible) {
+        return { count: 0 };
       }
       const lock = await tx.importJob.updateMany({
         where: {
           tenant_id: tenantId,
           id: jobId,
           status: { in: locked.statuses },
+          updatedAt: lockCheck.updatedAt,
         },
         data: {
           status: ImportJobStatus.APPLYING,
           options_json: {
-            ...currentOptions,
+            ...lockCheck.options,
             ...locked.options,
           },
         },
@@ -1130,28 +1140,30 @@ export class ImportJobStore {
     ];
     return this.prisma.$transaction(
       async (tx) => {
-        let currentOptions = optionsWithoutRetry as Record<string, unknown>;
-        if (typeof tx.importJob.findFirst === 'function') {
-          const current = await tx.importJob.findFirst({
-            where: { tenant_id: tenantId, id: jobId },
-            select: { status: true, options_json: true },
-          });
-          const check = verifyLockEligibility(current, lockStatuses);
-          if (!check.eligible) {
-            return { count: 0 };
-          }
-          currentOptions = check.options;
+        const lockCheck = await loadEligibleJobForApplyLock(
+          tx,
+          tenantId,
+          jobId,
+          lockStatuses,
+        );
+        if (!lockCheck.eligible) {
+          return { count: 0 };
         }
         const lock = await tx.importJob.updateMany({
           where: {
             tenant_id: tenantId,
             id: jobId,
             status: { in: lockStatuses },
+            updatedAt: lockCheck.updatedAt,
           },
           data: {
             status: ImportJobStatus.APPLYING,
             totals_json: applyTotals,
-            options_json: { ...currentOptions, ...optionsWithoutRetry, worker },
+            options_json: {
+              ...lockCheck.options,
+              ...optionsWithoutRetry,
+              worker,
+            },
             attempts_without_progress: 0,
           },
         });

@@ -6,8 +6,10 @@ import {
 } from './import.constants.js';
 import {
   eligibleImportJobsForRowPurgeWhere,
+  fetchEligiblePurgeJobs,
   importJobRowPurgeCutoffs,
   isImportJobEligibleForRowPurge,
+  markPurgeCompleted,
   purgeStaleImportJobRowsForTenant,
 } from './import-retention.helpers.js';
 import {
@@ -936,7 +938,10 @@ describe('purgeStaleImportJobRowsForTenant', () => {
         options_json: { worker: { phase: 'dry_run' } },
       };
 
-      const rowsByJob: Record<string, Array<{ row_no: number; action: ImportRowAction }>> = {
+      const rowsByJob: Record<
+        string,
+        Array<{ row_no: number; action: ImportRowAction }>
+      > = {
         'job-dry-run-failed-eligible': [
           { row_no: 1, action: ImportRowAction.CREATE },
         ],
@@ -961,8 +966,12 @@ describe('purgeStaleImportJobRowsForTenant', () => {
       expect(result.jobs_scanned).toBe(1);
       expect(result.rows_deleted).toBe(1);
       const purged = jobs.find((j) => j.id === 'job-dry-run-failed-eligible');
-      expect((purged?.options_json as Record<string, unknown>)?.rows_purged).toBe(true);
-      expect((purged?.options_json as Record<string, unknown>)?.rows_purge_completed).toBe(true);
+      expect(
+        (purged?.options_json as Record<string, unknown>)?.rows_purged,
+      ).toBe(true);
+      expect(
+        (purged?.options_json as Record<string, unknown>)?.rows_purge_completed,
+      ).toBe(true);
     });
 
     it('continues half-purged jobs on subsequent runs when budget truncated', async () => {
@@ -1047,7 +1056,102 @@ describe('purgeStaleImportJobRowsForTenant', () => {
 
       expect(result.rows_deleted).toBe(1);
       expect(warnMock).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to record audit log for import_job.purged'),
+        expect.stringContaining(
+          'Failed to record audit log for import_job.purged',
+        ),
+      );
+    });
+  });
+
+  describe('markPurgeCompleted', () => {
+    it('merges existing options and preserves existing keys when marking purge completed', async () => {
+      const existingOptions = {
+        worker: { phase: 'dry_run', lease_token: 'lease-1' },
+        custom_setting: 'preserve_this_value',
+        mapping: { colA: 'fieldA' },
+        rows_purged: true,
+        rows_purge_completed: false,
+      };
+      const updateMany = jest.fn(async () => ({ count: 1 }));
+      const prisma = {
+        importJob: {
+          findFirst: jest.fn(async () => ({
+            options_json: existingOptions,
+          })),
+          updateMany,
+        },
+      };
+
+      await markPurgeCompleted(
+        prisma as never,
+        TENANT_A,
+        'job-complete-1',
+        ImportJobStatus.FAILED,
+      );
+
+      expect(prisma.importJob.findFirst).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_A, id: 'job-complete-1' },
+        select: { options_json: true },
+      });
+      expect(updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_A,
+          id: 'job-complete-1',
+          status: ImportJobStatus.FAILED,
+        },
+        data: {
+          updatedAt: expect.any(Date),
+          options_json: {
+            worker: { phase: 'dry_run', lease_token: 'lease-1' },
+            custom_setting: 'preserve_this_value',
+            mapping: { colA: 'fieldA' },
+            rows_purged: true,
+            rows_purge_completed: true,
+          },
+        },
+      });
+    });
+  });
+
+  describe('fetchEligiblePurgeJobs candidate scanning cap', () => {
+    it('stops scanning candidate jobs once maxCandidatesScanned is reached', async () => {
+      const cutoffs = importJobRowPurgeCutoffs(NOW);
+      const findMany = jest.fn(
+        async ({ skip, take }: { skip: number; take: number }) => {
+          return Array.from({ length: take }, (_, idx) => ({
+            id: `job-ineligible-${skip + idx}`,
+            status: ImportJobStatus.FAILED,
+            options_json: { worker: { phase: 'apply' } },
+            totals_json: null,
+            createdAt: new Date('2026-01-01'),
+            updatedAt: new Date('2026-01-01'),
+            failed_at: new Date('2026-01-01'),
+            cancelled_at: null,
+            appliedAt: null,
+          }));
+        },
+      );
+      const prisma = {
+        importJob: { findMany },
+      };
+
+      const jobs = await fetchEligiblePurgeJobs(
+        prisma as never,
+        TENANT_A,
+        cutoffs,
+        25,
+        50,
+      );
+
+      expect(jobs).toEqual([]);
+      expect(findMany).toHaveBeenCalledTimes(2);
+      expect(findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ skip: 0, take: 25 }),
+      );
+      expect(findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ skip: 25, take: 25 }),
       );
     });
   });

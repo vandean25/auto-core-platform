@@ -12,6 +12,7 @@ import {
   IMPORT_SOURCE,
 } from './import.constants.js';
 import {
+  readImportJobRowPurgeMaxCandidatesScanned,
   readImportJobRowPurgeRowBatchSize,
   readImportJobRowPurgeRowBudget,
   readImportUploadRetentionDays,
@@ -49,6 +50,7 @@ export type ImportJobRowPurgeOptions = {
   jobsPerTenant?: number;
   rowBatchSize?: number;
   rowBudget?: number;
+  maxCandidatesScanned?: number;
   logger?: ImportJobRowPurgeLogger;
 };
 
@@ -326,6 +328,7 @@ async function expireStaleDryRunJob(
     data: {
       status: ImportJobStatus.CANCELLED,
       cancelled_at: now,
+      updatedAt: now,
       options_json: {
         ...jobOptions,
         cancel_reason: 'expired',
@@ -367,6 +370,7 @@ async function markJobPurged(
       status: job.status,
     },
     data: {
+      updatedAt: now,
       options_json: {
         ...jobOptions,
         rows_purged: true,
@@ -389,13 +393,13 @@ async function markJobPurged(
   return true;
 }
 
-async function markPurgeCompleted(
+export async function markPurgeCompleted(
   prisma: PrismaLike,
   tenantId: string,
   jobId: string,
   currentStatus: ImportJobStatus,
 ): Promise<void> {
-  const current = await prisma.importJob.findFirst?.({
+  const current = await prisma.importJob.findFirst({
     where: { tenant_id: tenantId, id: jobId },
     select: { options_json: true },
   });
@@ -410,6 +414,7 @@ async function markPurgeCompleted(
       status: currentStatus,
     },
     data: {
+      updatedAt: new Date(),
       options_json: {
         ...currentOptions,
         rows_purged: true,
@@ -643,17 +648,19 @@ async function purgeRowsForStaleJob(
   );
 }
 
-async function fetchEligiblePurgeJobs(
+export async function fetchEligiblePurgeJobs(
   prisma: PrismaLike,
   tenantId: string,
   cutoffs: ImportJobRowPurgeCutoffs,
   targetCount: number,
+  maxCandidatesScanned = readImportJobRowPurgeMaxCandidatesScanned(),
 ): Promise<StalePurgeJob[]> {
   const eligible: StalePurgeJob[] = [];
   const pageSize = Math.max(targetCount, 25);
   let skip = 0;
 
-  while (eligible.length < targetCount) {
+  while (eligible.length < targetCount && skip < maxCandidatesScanned) {
+    const take = Math.min(pageSize, maxCandidatesScanned - skip);
     const batch = await prisma.importJob.findMany({
       where: eligibleImportJobsForRowPurgeWhere(tenantId, cutoffs),
       select: {
@@ -669,7 +676,7 @@ async function fetchEligiblePurgeJobs(
       },
       orderBy: { createdAt: 'asc' },
       skip,
-      take: pageSize,
+      take,
     });
 
     if (batch.length === 0) {
@@ -686,7 +693,7 @@ async function fetchEligiblePurgeJobs(
     }
 
     skip += batch.length;
-    if (batch.length < pageSize) {
+    if (batch.length < take) {
       break;
     }
   }
@@ -706,6 +713,8 @@ export async function purgeStaleImportJobRowsForTenant(
   const rowBatchSize =
     options.rowBatchSize ?? IMPORT_JOB_ROW_PURGE_ROW_BATCH_SIZE;
   const rowBudget = options.rowBudget ?? readImportJobRowPurgeRowBudget();
+  const maxCandidatesScanned =
+    options.maxCandidatesScanned ?? readImportJobRowPurgeMaxCandidatesScanned();
   const cutoffs = importJobRowPurgeCutoffs(now, options);
 
   const jobs = await fetchEligiblePurgeJobs(
@@ -713,6 +722,7 @@ export async function purgeStaleImportJobRowsForTenant(
     tenantId,
     cutoffs,
     jobsPerTenant,
+    maxCandidatesScanned,
   );
 
   let rowsDeleted = 0;
