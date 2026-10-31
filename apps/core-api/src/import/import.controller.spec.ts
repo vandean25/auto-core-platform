@@ -8,6 +8,8 @@ import { ImportService } from './import.service.js';
 import { ImportDirectUploadService } from './import-direct-upload.service.js';
 import { ImportMappingProfileService } from './import-mapping-profile.service.js';
 import { ImportSourceService } from './import-source.service.js';
+import { ImportUndoPreviewService } from './import-undo.preview.service.js';
+import { ImportUndoService } from './import-undo.service.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 describe('ImportController', () => {
@@ -42,6 +44,14 @@ describe('ImportController', () => {
     assertSourceExists: jest.fn(),
   };
 
+  const mockImportUndoPreviewService = {
+    previewUndo: jest.fn(),
+  };
+
+  const mockImportUndoService = {
+    undoJob: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ImportController],
@@ -58,6 +68,14 @@ describe('ImportController', () => {
         {
           provide: ImportSourceService,
           useValue: mockImportSourceService,
+        },
+        {
+          provide: ImportUndoPreviewService,
+          useValue: mockImportUndoPreviewService,
+        },
+        {
+          provide: ImportUndoService,
+          useValue: mockImportUndoService,
         },
       ],
     }).compile();
