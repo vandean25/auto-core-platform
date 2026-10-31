@@ -1038,7 +1038,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       expect(vendor.supportedBrands[0].tenant_id).toBe(tenantAId);
     });
 
-    it('rejects nested connect on composite-FK relations like WorkshopOrder.tasks', async () => {
+    it('rejects nested connect on composite-FK relations like WorkshopOrder.tasks when referencing non-owned row', async () => {
       await expect(
         tenantAPrisma.workshopOrder.update({
           where: { id: 'dummy-order-id' },
@@ -1049,7 +1049,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
           } as never,
         }),
       ).rejects.toThrow(
-        /\[TenantIsolation\] Nested relation 'connect' on 'WorkshopOrder\.tasks' is not permitted\./,
+        /\[TenantIsolation\] Nested relation 'connect' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
       );
     });
 
@@ -1090,9 +1090,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
         prisma.customer.findMany({
           where: { type: 'PRIVATE' },
         }),
-      ).rejects.toThrow(
-        /\[TenantIsolation\] Model 'Customer' requires tenant isolation but no tenant context was found\./,
-      );
+      ).rejects.toThrow(/\[TenantIsolation\] Tenant context not initialised\./);
     });
 
     it('tenant-scoped raw query cannot see or lock records of another tenant', async () => {

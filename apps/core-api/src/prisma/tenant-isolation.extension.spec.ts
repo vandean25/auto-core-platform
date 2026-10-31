@@ -1205,7 +1205,7 @@ describe('applyTenantIsolation', () => {
             data: expect.objectContaining({
               tasks: {
                 deleteMany: {},
-                create: [{ tenant_id: TENANT_ID, title: 'Oil replacement' }],
+                create: [{ title: 'Oil replacement' }],
               },
             }),
           }),
@@ -1237,9 +1237,13 @@ describe('applyTenantIsolation', () => {
       });
 
       it.each(['connect', 'set', 'connectOrCreate'])(
-        'rejects nested mutation %s on composite relation WorkshopOrder.tasks',
+        'rejects nested mutation %s on composite relation WorkshopOrder.tasks when referencing non-owned row',
         async (mutationKey) => {
           const query = jest.fn();
+          const taskFindMany = jest.fn().mockResolvedValue([]);
+          const mockClient = {
+            workshopTask: { findMany: taskFindMany },
+          };
           const payload =
             mutationKey === 'connect'
               ? [{ id: 'task-1' }]
@@ -1257,16 +1261,64 @@ describe('applyTenantIsolation', () => {
           };
 
           await expect(
-            runWithTenant(() => call('WorkshopOrder', 'create', args, query)),
+            runWithTenant(() =>
+              call('WorkshopOrder', 'create', args, query, mockClient),
+            ),
           ).rejects.toThrow(
-            /\[TenantIsolation\] Nested relation write on 'WorkshopOrder\.tasks' targeting tenant-scoped model 'WorkshopTask' is not permitted\./,
+            new RegExp(
+              `\\[TenantIsolation\\] Nested relation '${mutationKey}' on 'WorkshopOrder\\.tasks' references records not belonging to current tenant\\.`,
+            ),
           );
           expect(query).not.toHaveBeenCalled();
         },
       );
 
-      it('permits nested upsert on composite relation WorkshopOrder.tasks and stamps create tenant_id', async () => {
+      it.each(['connect', 'set'])(
+        'permits nested mutation %s on composite relation WorkshopOrder.tasks when referencing own tenant row',
+        async (mutationKey) => {
+          const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+          const taskFindMany = jest.fn().mockResolvedValue([{ id: 'task-1' }]);
+          const mockClient = {
+            workshopTask: { findMany: taskFindMany },
+          };
+          const args = {
+            data: {
+              order_number: 'WO-1',
+              tasks: {
+                [mutationKey]: [{ id: 'task-1' }],
+              },
+            },
+          };
+
+          await runWithTenant(() =>
+            call('WorkshopOrder', 'create', args, query, mockClient),
+          );
+          expect(query).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                tenant_id: TENANT_ID,
+                tasks: {
+                  [mutationKey]: [{ id: 'task-1' }],
+                },
+              }),
+            }),
+          );
+          expect(taskFindMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+              where: { id: { in: ['task-1'] }, tenant_id: TENANT_ID },
+            }),
+          );
+        },
+      );
+
+      it('permits nested upsert on composite relation WorkshopOrder.tasks and validates payload', async () => {
         const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const taskFindMany = jest
+          .fn()
+          .mockResolvedValue([{ id: 'task-1', tenant_id: TENANT_ID }]);
+        const mockClient = {
+          workshopTask: { findMany: taskFindMany },
+        };
         const args = {
           where: { id: 'wo-1' },
           data: {
@@ -1282,7 +1334,9 @@ describe('applyTenantIsolation', () => {
           },
         };
 
-        await runWithTenant(() => call('WorkshopOrder', 'update', args, query));
+        await runWithTenant(() =>
+          call('WorkshopOrder', 'update', args, query, mockClient),
+        );
         expect(query).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
@@ -1290,7 +1344,6 @@ describe('applyTenantIsolation', () => {
                 upsert: [
                   expect.objectContaining({
                     create: expect.objectContaining({
-                      tenant_id: TENANT_ID,
                       title: 'Upserted task',
                     }),
                     update: expect.objectContaining({
@@ -1348,6 +1401,71 @@ describe('applyTenantIsolation', () => {
           /\[TenantIsolation\] Modifying tenant_id in upsert update data on model 'WorkshopTask' is not permitted\./,
         );
         expect(query).not.toHaveBeenCalled();
+      });
+
+      it('rejects nested upsert on composite relation when where references another tenant row', async () => {
+        const query = jest.fn();
+        const taskFindMany = jest
+          .fn()
+          .mockResolvedValue([{ id: 'task-1', tenant_id: 'foreign-tenant' }]);
+        const mockClient = {
+          workshopTask: { findMany: taskFindMany },
+        };
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: {
+                where: { id: 'task-1' },
+                create: { title: 'Upserted task' },
+                update: { title: 'Updated task' },
+              },
+            },
+          },
+        };
+
+        await expect(
+          runWithTenant(() =>
+            call('WorkshopOrder', 'update', args, query, mockClient),
+          ),
+        ).rejects.toThrow(
+          /\[TenantIsolation\] Nested relation 'upsert' on 'WorkshopOrder\.tasks' references records not belonging to current tenant\./,
+        );
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it('permits composite upsert when create has matching tenant_id (removes tenant_id for Prisma)', async () => {
+        const query = jest.fn().mockImplementation((a) => Promise.resolve(a));
+        const args = {
+          where: { id: 'wo-1' },
+          data: {
+            tasks: {
+              upsert: {
+                where: { id: 'task-new' },
+                create: {
+                  title: 'New task with matching tenant',
+                  tenant_id: TENANT_ID,
+                },
+                update: { title: 'Updated task' },
+              },
+            },
+          },
+        };
+
+        await runWithTenant(() => call('WorkshopOrder', 'update', args, query));
+        expect(query).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              tasks: {
+                upsert: expect.objectContaining({
+                  create: expect.not.objectContaining({
+                    tenant_id: expect.anything(),
+                  }),
+                }),
+              },
+            }),
+          }),
+        );
       });
 
       describe('single-FK tenant-scoped child relations', () => {

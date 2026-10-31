@@ -122,14 +122,16 @@ if (Prisma.dmmf?.datamodel?.models) {
  *
  * 1. COMPOSITE_KEY_NESTED_RELATIONS (13 entries):
  *    Child table carries a composite foreign key [tenant_id, <parent_id>] references
- *    [tenant_id, id] of the parent. Because connect/set/connectOrCreate can rewrite foreign
- *    key columns and re-parent rows across tenants, tenant isolation is strictly enforced:
- *    - nested create / createMany: automatically stamp current context tenant_id, rejecting
- *      conflicting tenant_id in child payload.
- *    - nested upsert: stamps and validates create payload; asserts update payload cannot mutate
- *      tenant_id and recurses into nested writes.
+ *    [tenant_id, id] of the parent. Prisma populates tenant_id from parent automatically.
+ *    Tenant isolation is enforced across all nested operations:
+ *    - nested create / createMany: validates child payload (rejects conflicting tenant_id;
+ *      omits tenant_id so Prisma schema validator does not reject it as unknown argument;
+ *      recurses into nested writes).
+ *    - nested connect / set: verifies tenant ownership of referenced IDs before execution.
+ *      Cross-tenant references are strictly rejected.
+ *    - nested connectOrCreate / upsert: verifies tenant ownership on where clause, validates
+ *      create and update payloads.
  *    - nested update / updateMany: asserts update payload cannot mutate tenant_id and recurses.
- *    - connect, set, connectOrCreate: strictly rejected to prevent cross-tenant row adoption.
  *    - delete, deleteMany, disconnect: permitted for unlinking/deletion.
  *
  * 2. SINGLE_KEY_CHILD_TENANT_RELATIONS (6 entries: PurchaseOrder.items, SalesOrder.items,
@@ -472,23 +474,207 @@ async function handleImplicitJoinNestedWrite(
   );
 }
 
-async function handleCompositeNestedUpsert(
+function toRecordArray(payload: unknown): Record<string, unknown>[] {
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+  const items = Array.isArray(payload) ? payload : [payload];
+  const records: Record<string, unknown>[] = [];
+  for (const item of items) {
+    if (item && typeof item === 'object') {
+      records.push(item as Record<string, unknown>);
+    }
+  }
+  return records;
+}
+
+function extractSingleId(item: unknown): string | number | undefined {
+  if (typeof item === 'string') {
+    return item.length > 0 ? item : undefined;
+  }
+  if (typeof item === 'number') {
+    return Number.isInteger(item) ? item : undefined;
+  }
+  if (item && typeof item === 'object') {
+    return extractSingleId((item as Record<string, unknown>).id);
+  }
+  return undefined;
+}
+
+function extractTargetIds(payload: unknown): Array<string | number> {
+  if (!payload) {
+    return [];
+  }
+  const items = Array.isArray(payload) ? payload : [payload];
+  const ids: Array<string | number> = [];
+  for (const item of items) {
+    const id = extractSingleId(item);
+    if (id !== undefined) {
+      ids.push(id);
+    }
+  }
+  return ids;
+}
+
+function extractCreateManyData(payload: unknown): unknown {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    Object.hasOwn(payload, 'data')
+  ) {
+    return (payload as Record<string, unknown>).data;
+  }
+  return undefined;
+}
+
+function getModelDelegate(
+  targetModel: string,
+  contextClient?: unknown,
+):
+  | {
+      findMany: (
+        args: unknown,
+      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
+    }
+  | undefined {
+  const client =
+    PrismaTransactionContext.getClient() ??
+    DryRunStorage.getTransactionClient() ??
+    contextClient;
+  const delegateName =
+    targetModel.charAt(0).toLowerCase() + targetModel.slice(1);
+  const delegate = client
+    ? (client as Record<string, unknown>)[delegateName]
+    : undefined;
+
+  if (
+    delegate &&
+    typeof (delegate as Record<string, unknown>).findMany === 'function'
+  ) {
+    return delegate as {
+      findMany: (
+        args: unknown,
+      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
+    };
+  }
+  return undefined;
+}
+
+async function validateCompositeChildRecord(
+  targetModel: string,
+  operation: string,
+  item: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<unknown> {
+  if (!item || typeof item !== 'object') {
+    return item;
+  }
+  const child = item as Record<string, unknown>;
+  if (Object.hasOwn(child, 'tenant_id')) {
+    if (child.tenant_id !== tenantId) {
+      throw new Error(
+        `[TenantIsolation] Mismatching tenant_id in ${operation} on model '${targetModel}'.`,
+      );
+    }
+    delete child.tenant_id;
+  }
+  await assertNoTenantScopedNestedWrites(
+    targetModel,
+    child,
+    tenantId,
+    contextClient,
+  );
+  return child;
+}
+
+async function validateCompositeChildPayload(
+  targetModel: string,
+  operation: string,
+  payload: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<unknown> {
+  if (Array.isArray(payload)) {
+    for (const entry of payload) {
+      await validateCompositeChildRecord(
+        targetModel,
+        operation,
+        entry,
+        tenantId,
+        contextClient,
+      );
+    }
+    return payload;
+  }
+  return validateCompositeChildRecord(
+    targetModel,
+    operation,
+    payload,
+    tenantId,
+    contextClient,
+  );
+}
+
+async function verifyCompositeNestedOwnership(
+  modelName: string,
+  key: string,
+  targetModel: string,
+  mutKey: string,
+  payload: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  const ids = extractTargetIds(payload);
+  if (ids.length === 0) {
+    return;
+  }
+
+  const delegate = getModelDelegate(targetModel, contextClient);
+  if (!delegate) {
+    throw new Error(
+      `[TenantIsolation] Cannot verify tenant ownership for nested relation write on '${modelName}.${key}'. No query client available for model '${targetModel}'.`,
+    );
+  }
+
+  const rows = await delegate.findMany({
+    where: {
+      id: { in: ids },
+      tenant_id: tenantId,
+    },
+    select: { id: true },
+  });
+
+  if (rows.length !== ids.length) {
+    throw new Error(
+      `[TenantIsolation] Nested relation '${mutKey}' on '${modelName}.${key}' references records not belonging to current tenant.`,
+    );
+  }
+}
+
+async function handleCompositeConnectOrCreate(
+  modelName: string,
+  key: string,
   targetModel: string,
   payload: unknown,
   tenantId: string,
   contextClient?: unknown,
 ): Promise<void> {
-  if (!payload || typeof payload !== 'object') {
-    return;
-  }
-  const items = Array.isArray(payload) ? payload : [payload];
-  for (const item of items) {
-    if (!item || typeof item !== 'object') {
-      continue;
+  const items = toRecordArray(payload);
+  for (const record of items) {
+    if (record.where) {
+      await verifyCompositeNestedOwnership(
+        modelName,
+        key,
+        targetModel,
+        'connectOrCreate',
+        record.where,
+        tenantId,
+        contextClient,
+      );
     }
-    const record = item as Record<string, unknown>;
-    if (record.create && typeof record.create === 'object') {
-      record.create = await stampAndValidateChildRecord(
+    if (record.create) {
+      await validateCompositeChildRecord(
         targetModel,
         'create',
         record.create,
@@ -496,15 +682,124 @@ async function handleCompositeNestedUpsert(
         contextClient,
       );
     }
-    if (record.update && typeof record.update === 'object') {
-      assertNoTenantIdInUpdateData(targetModel, 'upsert update', record.update);
-      await assertNoTenantScopedNestedWrites(
-        targetModel,
-        record.update,
-        tenantId,
-        contextClient,
+  }
+}
+
+async function validateCompositeUpsertWhere(
+  modelName: string,
+  key: string,
+  targetModel: string,
+  where: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  const ids = extractTargetIds(where);
+  if (ids.length === 0) {
+    return;
+  }
+  const delegate = getModelDelegate(targetModel, contextClient);
+  if (!delegate) {
+    return;
+  }
+  const rows = await delegate.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, tenant_id: true },
+  });
+  for (const row of rows) {
+    if (row.tenant_id && row.tenant_id !== tenantId) {
+      throw new Error(
+        `[TenantIsolation] Nested relation 'upsert' on '${modelName}.${key}' references records not belonging to current tenant.`,
       );
     }
+  }
+}
+
+async function validateCompositeUpsertCreate(
+  targetModel: string,
+  createData: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  if (createData && typeof createData === 'object') {
+    await validateCompositeChildRecord(
+      targetModel,
+      'create',
+      createData,
+      tenantId,
+      contextClient,
+    );
+  }
+}
+
+async function validateCompositeUpsertUpdate(
+  targetModel: string,
+  updateData: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  if (updateData && typeof updateData === 'object') {
+    assertNoTenantIdInUpdateData(targetModel, 'upsert update', updateData);
+    await assertNoTenantScopedNestedWrites(
+      targetModel,
+      updateData,
+      tenantId,
+      contextClient,
+    );
+  }
+}
+
+async function handleSingleCompositeUpsert(
+  modelName: string,
+  key: string,
+  targetModel: string,
+  entry: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  if (!entry || typeof entry !== 'object') {
+    return;
+  }
+  const record = entry as Record<string, unknown>;
+  await validateCompositeUpsertWhere(
+    modelName,
+    key,
+    targetModel,
+    record.where,
+    tenantId,
+    contextClient,
+  );
+  await validateCompositeUpsertCreate(
+    targetModel,
+    record.create,
+    tenantId,
+    contextClient,
+  );
+  await validateCompositeUpsertUpdate(
+    targetModel,
+    record.update,
+    tenantId,
+    contextClient,
+  );
+}
+
+async function handleCompositeNestedUpsert(
+  modelName: string,
+  key: string,
+  targetModel: string,
+  payload: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<void> {
+  const items = toRecordArray(payload);
+  for (const item of items) {
+    await handleSingleCompositeUpsert(
+      modelName,
+      key,
+      targetModel,
+      item,
+      tenantId,
+      contextClient,
+    );
   }
 }
 
@@ -514,37 +809,78 @@ async function handleCompositeNestedUpdate(
   tenantId: string,
   contextClient?: unknown,
 ): Promise<void> {
-  if (!payload || typeof payload !== 'object') {
-    return;
-  }
-  const items: readonly unknown[] = Array.isArray(payload)
-    ? payload
-    : [payload];
+  const items = toRecordArray(payload);
   for (const item of items) {
-    if (item && typeof item === 'object') {
-      const record = item as Record<string, unknown>;
-      const data: unknown =
-        'data' in record && record.data ? record.data : item;
-      assertNoTenantIdInUpdateData(targetModel, 'update', data);
-      await assertNoTenantScopedNestedWrites(
-        targetModel,
-        data,
-        tenantId,
-        contextClient,
-      );
-    }
+    const data: unknown = 'data' in item && item.data ? item.data : item;
+    assertNoTenantIdInUpdateData(targetModel, 'update', data);
+    await assertNoTenantScopedNestedWrites(
+      targetModel,
+      data,
+      tenantId,
+      contextClient,
+    );
   }
 }
 
-async function handleNestedCreateAndCreateMany(
+const COMPOSITE_NOOP_MUTATIONS = new Set([
+  'delete',
+  'deleteMany',
+  'disconnect',
+]);
+
+async function handleCompositeLinkMutation(
   mutKey: string,
   record: Record<string, unknown>,
+  modelName: string,
+  key: string,
   targetModel: string,
   tenantId: string,
   contextClient?: unknown,
 ): Promise<boolean> {
+  if (mutKey === 'connect' || mutKey === 'set') {
+    await verifyCompositeNestedOwnership(
+      modelName,
+      key,
+      targetModel,
+      mutKey,
+      record[mutKey],
+      tenantId,
+      contextClient,
+    );
+    return true;
+  }
+  if (mutKey === 'connectOrCreate') {
+    await handleCompositeConnectOrCreate(
+      modelName,
+      key,
+      targetModel,
+      record.connectOrCreate,
+      tenantId,
+      contextClient,
+    );
+    return true;
+  }
+  return false;
+}
+
+type ChildPayloadTransformer = (
+  targetModel: string,
+  kind: 'create' | 'createMany',
+  data: unknown,
+  tenantId: string,
+  contextClient?: unknown,
+) => Promise<unknown>;
+
+async function applyChildCreateMutation(
+  mutKey: string,
+  record: Record<string, unknown>,
+  targetModel: string,
+  tenantId: string,
+  contextClient: unknown,
+  transform: ChildPayloadTransformer,
+): Promise<boolean> {
   if (mutKey === 'create') {
-    record.create = await stampAndValidateChildPayload(
+    record.create = await transform(
       targetModel,
       'create',
       record.create,
@@ -555,25 +891,104 @@ async function handleNestedCreateAndCreateMany(
   }
 
   if (mutKey === 'createMany') {
-    const payload = record.createMany;
-    if (
-      payload &&
-      typeof payload === 'object' &&
-      Object.hasOwn(payload, 'data')
-    ) {
-      (payload as Record<string, unknown>).data =
-        await stampAndValidateChildPayload(
-          targetModel,
-          'createMany',
-          (payload as Record<string, unknown>).data,
-          tenantId,
-          contextClient,
-        );
+    const rawData = extractCreateManyData(record.createMany);
+    if (rawData !== undefined) {
+      (record.createMany as Record<string, unknown>).data = await transform(
+        targetModel,
+        'createMany',
+        rawData,
+        tenantId,
+        contextClient,
+      );
     }
     return true;
   }
 
   return false;
+}
+
+async function handleCompositeWriteMutation(
+  mutKey: string,
+  record: Record<string, unknown>,
+  modelName: string,
+  key: string,
+  targetModel: string,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<boolean> {
+  const handledCreate = await applyChildCreateMutation(
+    mutKey,
+    record,
+    targetModel,
+    tenantId,
+    contextClient,
+    validateCompositeChildPayload,
+  );
+  if (handledCreate) {
+    return true;
+  }
+
+  if (mutKey === 'upsert') {
+    await handleCompositeNestedUpsert(
+      modelName,
+      key,
+      targetModel,
+      record.upsert,
+      tenantId,
+      contextClient,
+    );
+    return true;
+  }
+
+  if (mutKey === 'update' || mutKey === 'updateMany') {
+    await handleCompositeNestedUpdate(
+      targetModel,
+      record[mutKey],
+      tenantId,
+      contextClient,
+    );
+    return true;
+  }
+
+  return false;
+}
+
+async function handleCompositeMutation(
+  mutKey: string,
+  record: Record<string, unknown>,
+  modelName: string,
+  key: string,
+  targetModel: string,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<boolean> {
+  if (
+    await handleCompositeLinkMutation(
+      mutKey,
+      record,
+      modelName,
+      key,
+      targetModel,
+      tenantId,
+      contextClient,
+    )
+  ) {
+    return true;
+  }
+  if (
+    await handleCompositeWriteMutation(
+      mutKey,
+      record,
+      modelName,
+      key,
+      targetModel,
+      tenantId,
+      contextClient,
+    )
+  ) {
+    return true;
+  }
+  return COMPOSITE_NOOP_MUTATIONS.has(mutKey);
 }
 
 async function handleCompositeNestedRelationWrite(
@@ -589,57 +1004,16 @@ async function handleCompositeNestedRelationWrite(
     modelName,
     key,
     targetModel,
-    async (mutKey) => {
-      if (
-        mutKey === 'connect' ||
-        mutKey === 'set' ||
-        mutKey === 'connectOrCreate'
-      ) {
-        return false;
-      }
-
-      if (
-        await handleNestedCreateAndCreateMany(
-          mutKey,
-          record,
-          targetModel,
-          tenantId,
-          contextClient,
-        )
-      ) {
-        return true;
-      }
-
-      if (mutKey === 'upsert') {
-        await handleCompositeNestedUpsert(
-          targetModel,
-          record.upsert,
-          tenantId,
-          contextClient,
-        );
-        return true;
-      }
-
-      if (mutKey === 'update' || mutKey === 'updateMany') {
-        await handleCompositeNestedUpdate(
-          targetModel,
-          record[mutKey],
-          tenantId,
-          contextClient,
-        );
-        return true;
-      }
-
-      if (
-        mutKey === 'delete' ||
-        mutKey === 'deleteMany' ||
-        mutKey === 'disconnect'
-      ) {
-        return true;
-      }
-
-      return false;
-    },
+    (mutKey) =>
+      handleCompositeMutation(
+        mutKey,
+        record,
+        modelName,
+        key,
+        targetModel,
+        tenantId,
+        contextClient,
+      ),
   );
 }
 
@@ -697,6 +1071,23 @@ async function stampAndValidateChildPayload(
   return payload;
 }
 
+async function handleSingleKeyChildMutation(
+  mutKey: string,
+  record: Record<string, unknown>,
+  targetModel: string,
+  tenantId: string,
+  contextClient?: unknown,
+): Promise<boolean> {
+  return applyChildCreateMutation(
+    mutKey,
+    record,
+    targetModel,
+    tenantId,
+    contextClient,
+    stampAndValidateChildPayload,
+  );
+}
+
 async function handleSingleKeyChildTenantWrite(
   modelName: string,
   key: string,
@@ -711,7 +1102,7 @@ async function handleSingleKeyChildTenantWrite(
     key,
     targetModel,
     (mutKey) =>
-      handleNestedCreateAndCreateMany(
+      handleSingleKeyChildMutation(
         mutKey,
         record,
         targetModel,
@@ -1248,7 +1639,7 @@ export async function applyTenantIsolation(
     nextArgs,
     tenantId,
     query,
-    this,
+    baseClient,
   );
 }
 
