@@ -84,6 +84,7 @@ export const statusClassMap: Record<string, string> = {
   DUE_SOON: WARNING,
   OVERDUE: DESTRUCTIVE,
   UNKNOWN: NEUTRAL,
+  NEW: NEUTRAL,
   IN_STORAGE: SUCCESS,
   ON_VEHICLE: INFO,
   DISPOSED: NEUTRAL,

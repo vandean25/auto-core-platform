@@ -82,7 +82,7 @@ describe('tyre set palette context', () => {
     (role) => expect(buildSection(role).section).toBeNull(),
   )
 
-  it.each(['IN_STORAGE', 'ON_VEHICLE', 'RETURNED'] as const)(
+  it.each(['NEW', 'IN_STORAGE', 'ON_VEHICLE', 'RETURNED'] as const)(
     'allows measurement for vehicle-linked %s sets',
     (status) => expect(buildSection('ADMIN', { ...tyreSet, status }).section?.items).toHaveLength(1),
   )

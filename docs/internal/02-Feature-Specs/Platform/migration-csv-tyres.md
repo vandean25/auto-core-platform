@@ -46,7 +46,7 @@ All headers are mandatory, in the following order. R/O describes cell values, no
 | dimension | O text | Known common size, e.g. 205/55 R16; preserve load/speed suffix when supplied. Never infer from vehicle. |
 | positions_json | O JSON object | Exact positional dictionary below; structured facts must not be flattened into condition_notes. |
 | condition_notes | O multiline | Supplied damage, mixed-season, TPMS or condition observations; no invented inspection result. |
-| status | R enum | IN_STORAGE, ON_VEHICLE, RETURNED, DISPOSED (TyreSetStatus). |
+| status | R enum | NEW, IN_STORAGE, ON_VEHICLE, RETURNED, DISPOSED (TyreSetStatus). |
 | stored_since | O date | Known beginning of current storage spell for IN_STORAGE, or most recent known spell for other statuses. Unknown never becomes cutover/apply date. |
 | last_change_on | O date | Last actual source storage/status change, not extraction, edit or future swap date. |
 | planned_swap_on | O date | Explicit known planned swap date; blank unknown, no settings-derived migration default. |
@@ -75,6 +75,7 @@ Resolve site_code/bin_code through OWNER/ADMIN-approved configuration; CSV data 
 
 | Status | Snapshot constraint |
 |---|---|
+| NEW | Not stored; bin_code/bin_label blank. |
 | IN_STORAGE | Currently in site custody. Requires resolved bin or approved label-only rule; unknown stored_since warns. |
 | ON_VEHICLE | Not stored; bin_code/bin_label blank. Vehicle reference required to substantiate status. |
 | RETURNED | Returned to customer, not stored; bin_code/bin_label blank. |

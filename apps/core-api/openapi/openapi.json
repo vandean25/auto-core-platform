@@ -38595,6 +38595,7 @@
       "TyreSetStatus": {
         "type": "string",
         "enum": [
+          "NEW",
           "IN_STORAGE",
           "ON_VEHICLE",
           "RETURNED",

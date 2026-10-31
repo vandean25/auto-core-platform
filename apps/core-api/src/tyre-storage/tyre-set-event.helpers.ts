@@ -54,7 +54,7 @@ export function applyTyreSetEvent(
       };
     case 'CHECK_OUT':
       return {
-        status: 'ON_VEHICLE',
+        status: 'RETURNED',
         location_id: null,
         stored_since: set.stored_since,
       };
@@ -93,7 +93,7 @@ export function projectTyreSetStateFromEvents(
     occurred_at: Date;
   }>,
 ): TyreSetEventPatch {
-  let status: TyreSetStatus = 'RETURNED';
+  let status: TyreSetStatus = 'NEW';
   let location_id: string | null = null;
   let stored_since: Date | null = null;
 

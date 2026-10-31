@@ -92,6 +92,7 @@ describe('validateMigrationManifestReconciliationV11', () => {
           vehicle_due_dates: null,
           vehicle_notices: null,
           tyre_sets: {
+            NEW: 0,
             IN_STORAGE: 0,
             ON_VEHICLE: 0,
             RETURNED: 0,
