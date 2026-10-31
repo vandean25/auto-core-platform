@@ -479,6 +479,9 @@ export async function purgeStaleImportJobRowsForTenant(
     if (rowsDeleted >= rowBudget) {
       break;
     }
+    if (!isImportJobEligibleForRowPurge(job, cutoffs)) {
+      continue;
+    }
     rowsDeleted += await purgeRowsForStaleJob(
       prisma,
       tenantId,
