@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import {
   AuditLogAction,
+  ImportJob,
+  ImportJobRow,
   ImportJobStatus,
   ImportRowAction,
   Prisma,
@@ -14,10 +16,61 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { assertTenantAdmin } from '../site/site.authorization.js';
 import { ImportAuditWriter } from './import-audit.writer.js';
 import { checkEntityUndoEligibility } from './import-undo.guard.js';
-import type { UndoImportJobDto } from './dto/undo-import-job.dto.js';
+import { UndoImportJobDto } from './dto/undo-import-job.dto.js';
 import type { ImportJobTotals } from './import.types.js';
 
-const UNDO_BATCH_SIZE = 100;
+const UNDO_BATCH_SIZE = 50;
+
+function validateJobForUndo(
+  job: ImportJob | null,
+  jobId: string,
+): { appliedRowsCount: number } {
+  if (!job) {
+    throw new NotFoundException(`Import job ${jobId} not found`);
+  }
+
+  const totals = job.totals_json as ImportJobTotals | null;
+  const appliedRowsCount = (totals?.create ?? 0) + (totals?.update ?? 0);
+
+  const isUndoableStatus =
+    job.status === ImportJobStatus.APPLIED ||
+    job.status === ImportJobStatus.PARTIALLY_UNDONE ||
+    (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
+
+  if (!isUndoableStatus) {
+    throw new BadRequestException(
+      'Import job is not in an undoable state (must be APPLIED, PARTIALLY_UNDONE, or FAILED with applied rows)',
+    );
+  }
+
+  if (
+    job.entity_type === 'LEGACY_INVOICE' ||
+    job.entity_type === 'LEGACY_SERVICE_ORDER' ||
+    job.entity_type === 'STOCK_OPENING_BALANCE' ||
+    job.entity_type === 'OPEN_WORKSHOP_ORDER'
+  ) {
+    throw new BadRequestException(
+      'Financial and document imports cannot be undone',
+    );
+  }
+
+  return { appliedRowsCount };
+}
+
+interface UndoExecutionContext {
+  tenantId: string;
+  actorUserId: string;
+  jobId: string;
+  entityType: string;
+  effectiveAppliedAt: Date;
+}
+
+interface UndoCounts {
+  deletedCount: number;
+  restoredCount: number;
+  blockedCount: number;
+  blockedReasons: Record<string, string>;
+}
 
 @Injectable()
 export class ImportUndoService {
@@ -30,7 +83,7 @@ export class ImportUndoService {
     this.audit = new ImportAuditWriter(tenantContext);
   }
 
-  async undoJob(jobId: string, dto?: UndoImportJobDto) {
+  async undoJob(jobId: string, dto?: UndoImportJobDto): Promise<ImportJob> {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const authUser = this.tenantContext.getAuthenticatedUser();
@@ -40,216 +93,58 @@ export class ImportUndoService {
       where: { tenant_id: tenantId, id: jobId },
     });
 
-    if (!job) {
-      throw new NotFoundException(`Import job ${jobId} not found`);
-    }
-
-    // Idempotent: already undone
-    if (job.status === ImportJobStatus.UNDONE) {
+    if (job?.status === ImportJobStatus.UNDONE) {
       return job;
     }
 
-    const totals = job.totals_json as ImportJobTotals | null;
-    const appliedRowsCount = (totals?.create ?? 0) + (totals?.update ?? 0);
-
-    const isUndoableStatus =
-      job.status === ImportJobStatus.APPLIED ||
-      job.status === ImportJobStatus.PARTIALLY_UNDONE ||
-      (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
-
-    if (!isUndoableStatus) {
-      throw new BadRequestException(
-        'Import job is not in an undoable state (must be APPLIED, PARTIALLY_UNDONE, or FAILED with applied rows)',
-      );
-    }
-
-    if (
-      job.entity_type === 'LEGACY_INVOICE' ||
-      job.entity_type === 'LEGACY_SERVICE_ORDER' ||
-      job.entity_type === 'STOCK_OPENING_BALANCE' ||
-      job.entity_type === 'OPEN_WORKSHOP_ORDER'
-    ) {
-      throw new BadRequestException(
-        'Financial and document imports cannot be undone',
-      );
-    }
-
+    validateJobForUndo(job, jobId);
     const confirmedSet = new Set(dto?.confirmedEntityIds ?? []);
 
     return await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        let deletedCount = 0;
-        let restoredCount = 0;
-        let blockedCount = 0;
-        const blockedReasons: Record<string, string> = {};
+        const execContext: UndoExecutionContext = {
+          tenantId,
+          actorUserId,
+          jobId,
+          entityType: job!.entity_type,
+          effectiveAppliedAt: job!.appliedAt ?? job!.updatedAt,
+        };
 
-        const effectiveAppliedAt = job.appliedAt ?? job.updatedAt;
+        const counts: UndoCounts = {
+          deletedCount: 0,
+          restoredCount: 0,
+          blockedCount: 0,
+          blockedReasons: {},
+        };
 
-        // Special handling for SUPPLIER_PRICE_LIST price updates
-        if (job.entity_type === 'SUPPLIER_PRICE_LIST') {
-          const priceHistories = await tx.catalogPriceHistory.findMany({
-            where: { tenant_id: tenantId, import_job_id: jobId },
-          });
-
-          for (const history of priceHistories) {
-            const eligibility = await checkEntityUndoEligibility(
-              tx,
-              tenantId,
-              'CATALOG_ITEM',
-              history.catalog_item_id,
-              effectiveAppliedAt,
-            );
-
-            const isConfirmed = confirmedSet.has(history.catalog_item_id);
-            if (
-              eligibility.status === 'BLOCKED' ||
-              (eligibility.status === 'CONFLICT' && !isConfirmed)
-            ) {
-              blockedCount++;
-              if (eligibility.reason) {
-                blockedReasons[history.catalog_item_id] = eligibility.reason;
-              }
-            } else {
-              await tx.catalogItem.updateMany({
-                where: { tenant_id: tenantId, id: history.catalog_item_id },
-                data: {
-                  cost_price: history.old_cost,
-                  retail_price: history.old_retail ?? 0,
-                },
-              });
-              await this.audit.writeEntityAudit(
-                tx,
-                tenantId,
-                actorUserId,
-                jobId,
-                'CATALOG_ITEM',
-                history.catalog_item_id,
-                AuditLogAction.UPDATE,
-                {
-                  cost_price: history.new_cost,
-                  retail_price: history.new_retail,
-                },
-                {
-                  cost_price: history.old_cost,
-                  retail_price: history.old_retail,
-                },
-              );
-              restoredCount++;
-            }
-          }
-
-          if (blockedCount === 0) {
-            await tx.catalogPriceHistory.deleteMany({
-              where: { tenant_id: tenantId, import_job_id: jobId },
-            });
-          }
+        if (job!.entity_type === 'SUPPLIER_PRICE_LIST') {
+          await this.undoSupplierPriceList(
+            tx,
+            execContext,
+            confirmedSet,
+            counts,
+          );
         }
 
-        // Process import_job_rows in batches
-        const rows = await tx.importJobRow.findMany({
-          where: {
-            tenant_id: tenantId,
-            import_job_id: jobId,
-            action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
-          },
-          orderBy: { row_no: 'asc' },
-        });
-
-        for (let i = 0; i < rows.length; i += UNDO_BATCH_SIZE) {
-          const batch = rows.slice(i, i + UNDO_BATCH_SIZE);
-
-          for (const row of batch) {
-            if (!row.entity_id) {
-              continue;
-            }
-
-            const eligibility = await checkEntityUndoEligibility(
-              tx,
-              tenantId,
-              job.entity_type,
-              row.entity_id,
-              effectiveAppliedAt,
-            );
-
-            const isConfirmed = confirmedSet.has(row.entity_id);
-            if (
-              eligibility.status === 'BLOCKED' ||
-              (eligibility.status === 'CONFLICT' && !isConfirmed)
-            ) {
-              blockedCount++;
-              if (eligibility.reason) {
-                blockedReasons[row.entity_id] = eligibility.reason;
-              }
-              continue;
-            }
-
-            if (row.action === ImportRowAction.CREATE) {
-              await this.deleteCreatedEntity(
-                tx,
-                tenantId,
-                job.entity_type,
-                row.entity_id,
-                jobId,
-              );
-              await this.audit.writeEntityAudit(
-                tx,
-                tenantId,
-                actorUserId,
-                jobId,
-                job.entity_type,
-                row.entity_id,
-                AuditLogAction.DELETE,
-                row.normalized_json,
-                null,
-              );
-              deletedCount++;
-            } else if (
-              row.action === ImportRowAction.UPDATE &&
-              row.before_snapshot_json
-            ) {
-              const beforeSnapshot = row.before_snapshot_json as Record<
-                string,
-                unknown
-              >;
-              await this.restoreUpdatedEntity(
-                tx,
-                tenantId,
-                job.entity_type,
-                row.entity_id,
-                beforeSnapshot,
-              );
-              await this.audit.writeEntityAudit(
-                tx,
-                tenantId,
-                actorUserId,
-                jobId,
-                job.entity_type,
-                row.entity_id,
-                AuditLogAction.UPDATE,
-                row.normalized_json,
-                beforeSnapshot,
-              );
-              restoredCount++;
-            }
-          }
-        }
+        await this.processJobRows(tx, execContext, confirmedSet, counts);
 
         const nextStatus =
-          blockedCount > 0
+          counts.blockedCount > 0
             ? ImportJobStatus.PARTIALLY_UNDONE
             : ImportJobStatus.UNDONE;
 
         const updatedOptions = {
-          ...(typeof job.options_json === 'object' && job.options_json !== null
-            ? (job.options_json as Record<string, unknown>)
+          ...(typeof job!.options_json === 'object' &&
+          job!.options_json !== null
+            ? (job!.options_json as Record<string, unknown>)
             : {}),
           undo: {
             undoneAt: new Date().toISOString(),
             status: nextStatus,
-            deletedCount,
-            restoredCount,
-            blockedCount,
-            blockedReasons,
+            deletedCount: counts.deletedCount,
+            restoredCount: counts.restoredCount,
+            blockedCount: counts.blockedCount,
+            blockedReasons: counts.blockedReasons,
           },
         };
 
@@ -260,10 +155,10 @@ export class ImportUndoService {
           jobId,
           {
             status: nextStatus,
-            deletedCount,
-            restoredCount,
-            blockedCount,
-            blockedReasons,
+            deletedCount: counts.deletedCount,
+            restoredCount: counts.restoredCount,
+            blockedCount: counts.blockedCount,
+            blockedReasons: counts.blockedReasons,
           },
         );
 
@@ -276,6 +171,172 @@ export class ImportUndoService {
         });
       },
     );
+  }
+
+  private async undoSupplierPriceList(
+    tx: Prisma.TransactionClient,
+    ctx: UndoExecutionContext,
+    confirmedSet: Set<string>,
+    counts: UndoCounts,
+  ): Promise<void> {
+    const priceHistories = await tx.catalogPriceHistory.findMany({
+      where: { tenant_id: ctx.tenantId, import_job_id: ctx.jobId },
+    });
+
+    for (const history of priceHistories) {
+      const eligibility = await checkEntityUndoEligibility(
+        tx,
+        ctx.tenantId,
+        'CATALOG_ITEM',
+        history.catalog_item_id,
+        ctx.effectiveAppliedAt,
+      );
+
+      const isConfirmed = confirmedSet.has(history.catalog_item_id);
+      if (
+        eligibility.status === 'BLOCKED' ||
+        (eligibility.status === 'CONFLICT' && !isConfirmed)
+      ) {
+        counts.blockedCount++;
+        if (eligibility.reason) {
+          counts.blockedReasons[history.catalog_item_id] = eligibility.reason;
+        }
+      } else {
+        await tx.catalogItem.updateMany({
+          where: { tenant_id: ctx.tenantId, id: history.catalog_item_id },
+          data: {
+            cost_price: history.old_cost,
+            retail_price: history.old_retail ?? 0,
+          },
+        });
+        await this.audit.writeEntityAudit(
+          tx,
+          ctx.tenantId,
+          ctx.actorUserId,
+          ctx.jobId,
+          'CATALOG_ITEM',
+          history.catalog_item_id,
+          AuditLogAction.UPDATE,
+          {
+            cost_price: history.new_cost,
+            retail_price: history.new_retail,
+          },
+          {
+            cost_price: history.old_cost,
+            retail_price: history.old_retail,
+          },
+        );
+        counts.restoredCount++;
+      }
+    }
+
+    if (counts.blockedCount === 0) {
+      await tx.catalogPriceHistory.deleteMany({
+        where: { tenant_id: ctx.tenantId, import_job_id: ctx.jobId },
+      });
+    }
+  }
+
+  private async processJobRows(
+    tx: Prisma.TransactionClient,
+    ctx: UndoExecutionContext,
+    confirmedSet: Set<string>,
+    counts: UndoCounts,
+  ): Promise<void> {
+    const rows = await tx.importJobRow.findMany({
+      where: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.jobId,
+        action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
+      },
+      orderBy: { row_no: 'asc' },
+    });
+
+    for (let i = 0; i < rows.length; i += UNDO_BATCH_SIZE) {
+      const batch = rows.slice(i, i + UNDO_BATCH_SIZE);
+      for (const row of batch) {
+        await this.processSingleRow(tx, row, ctx, confirmedSet, counts);
+      }
+    }
+  }
+
+  private async processSingleRow(
+    tx: Prisma.TransactionClient,
+    row: ImportJobRow,
+    ctx: UndoExecutionContext,
+    confirmedSet: Set<string>,
+    counts: UndoCounts,
+  ): Promise<void> {
+    if (!row.entity_id) return;
+
+    const eligibility = await checkEntityUndoEligibility(
+      tx,
+      ctx.tenantId,
+      ctx.entityType,
+      row.entity_id,
+      ctx.effectiveAppliedAt,
+    );
+
+    const isConfirmed = confirmedSet.has(row.entity_id);
+    if (
+      eligibility.status === 'BLOCKED' ||
+      (eligibility.status === 'CONFLICT' && !isConfirmed)
+    ) {
+      counts.blockedCount++;
+      if (eligibility.reason) {
+        counts.blockedReasons[row.entity_id] = eligibility.reason;
+      }
+      return;
+    }
+
+    if (row.action === ImportRowAction.CREATE) {
+      await this.deleteCreatedEntity(
+        tx,
+        ctx.tenantId,
+        ctx.entityType,
+        row.entity_id,
+        ctx.jobId,
+      );
+      await this.audit.writeEntityAudit(
+        tx,
+        ctx.tenantId,
+        ctx.actorUserId,
+        ctx.jobId,
+        ctx.entityType,
+        row.entity_id,
+        AuditLogAction.DELETE,
+        row.normalized_json,
+        null,
+      );
+      counts.deletedCount++;
+    } else if (
+      row.action === ImportRowAction.UPDATE &&
+      row.before_snapshot_json
+    ) {
+      const beforeSnapshot = row.before_snapshot_json as Record<
+        string,
+        unknown
+      >;
+      await this.restoreUpdatedEntity(
+        tx,
+        ctx.tenantId,
+        ctx.entityType,
+        row.entity_id,
+        beforeSnapshot,
+      );
+      await this.audit.writeEntityAudit(
+        tx,
+        ctx.tenantId,
+        ctx.actorUserId,
+        ctx.jobId,
+        ctx.entityType,
+        row.entity_id,
+        AuditLogAction.UPDATE,
+        row.normalized_json,
+        beforeSnapshot,
+      );
+      counts.restoredCount++;
+    }
   }
 
   private async deleteCreatedEntity(

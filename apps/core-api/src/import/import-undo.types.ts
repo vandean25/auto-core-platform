@@ -20,22 +20,6 @@ export interface ImportUndoRowPreview {
   displayName?: string;
 }
 
-export interface ImportUndoPreviewSummary {
-  jobId: string;
-  status: ImportUndoEligibilityStatus;
-  counts: {
-    total: number;
-    toDelete: number;
-    toRestore: number;
-    conflicts: number;
-    blocked: number;
-  };
-  deletions: ImportUndoRowPreview[];
-  restorations: ImportUndoRowPreview[];
-  conflicts: ImportUndoRowPreview[];
-  blocked: ImportUndoRowPreview[];
-}
-
 export type UndoGuardPrismaClient = Pick<
   Prisma.TransactionClient,
   | 'customer'

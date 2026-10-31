@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ImportJobStatus, ImportRowAction } from '@prisma/client';
+import {
+  ImportJob,
+  ImportJobStatus,
+  ImportJobRow,
+  ImportRowAction,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { assertTenantAdmin } from '../site/site.authorization.js';
@@ -14,6 +19,111 @@ import {
 } from './dto/undo-import-preview-response.dto.js';
 import { checkEntityUndoEligibility } from './import-undo.guard.js';
 import type { ImportJobTotals } from './import.types.js';
+
+function formatName(first?: unknown, last?: unknown): string | undefined {
+  const parts = [first, last].filter(
+    (p): p is string => typeof p === 'string' && p.trim().length > 0,
+  );
+  return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
+function formatCode(code?: unknown, desc?: unknown): string | undefined {
+  const parts = [code, desc].filter(
+    (p): p is string => typeof p === 'string' && p.trim().length > 0,
+  );
+  return parts.length > 0 ? parts.join(' - ') : undefined;
+}
+
+export function resolveUndoDisplayName(
+  payload?: Record<string, unknown> | null,
+): string | undefined {
+  if (!payload) return undefined;
+  if (
+    typeof payload.first_name === 'string' ||
+    typeof payload.last_name === 'string'
+  ) {
+    return formatName(payload.first_name, payload.last_name);
+  }
+  if (typeof payload.company_name === 'string' && payload.company_name.trim()) {
+    return payload.company_name.trim();
+  }
+  if (typeof payload.make === 'string' || typeof payload.model === 'string') {
+    return formatName(payload.make, payload.model);
+  }
+  if (
+    typeof payload.code === 'string' ||
+    typeof payload.description === 'string'
+  ) {
+    return formatCode(payload.code, payload.description);
+  }
+  if (typeof payload.sku === 'string' || typeof payload.name === 'string') {
+    return formatCode(payload.sku, payload.name);
+  }
+  return undefined;
+}
+
+interface UndoBuckets {
+  deletions: ImportUndoRowPreviewDto[];
+  restorations: ImportUndoRowPreviewDto[];
+  conflicts: ImportUndoRowPreviewDto[];
+  blocked: ImportUndoRowPreviewDto[];
+}
+
+function sortRowIntoBuckets(
+  rowPreview: ImportUndoRowPreviewDto,
+  buckets: UndoBuckets,
+): void {
+  if (rowPreview.status === 'BLOCKED') {
+    buckets.blocked.push(rowPreview);
+  } else if (rowPreview.status === 'CONFLICT') {
+    buckets.conflicts.push(rowPreview);
+  } else if (rowPreview.action === 'CREATE') {
+    buckets.deletions.push(rowPreview);
+  } else {
+    buckets.restorations.push(rowPreview);
+  }
+}
+
+function isDocOrFinancialImport(entityType: string): boolean {
+  return (
+    entityType === 'LEGACY_INVOICE' ||
+    entityType === 'LEGACY_SERVICE_ORDER' ||
+    entityType === 'STOCK_OPENING_BALANCE' ||
+    entityType === 'OPEN_WORKSHOP_ORDER'
+  );
+}
+
+function buildBlockedDocumentPreview(
+  jobId: string,
+  entityType: string,
+  total: number,
+): ImportUndoPreviewResponseDto {
+  return {
+    jobId,
+    status: 'BLOCKED',
+    canUndo: false,
+    counts: {
+      total,
+      toDelete: 0,
+      toRestore: 0,
+      conflicts: 0,
+      blocked: total,
+    },
+    deletions: [],
+    restorations: [],
+    conflicts: [],
+    blocked: [
+      {
+        rowNumber: 0,
+        entityType,
+        entityId: null,
+        action: 'CREATE',
+        status: 'BLOCKED',
+        reason: 'Financial and document imports cannot be undone',
+      },
+    ],
+  };
+}
 
 @Injectable()
 export class ImportUndoPreviewService {
@@ -51,38 +161,12 @@ export class ImportUndoPreviewService {
       );
     }
 
-    // Financial or document imports cannot be undone
-    if (
-      job.entity_type === 'LEGACY_INVOICE' ||
-      job.entity_type === 'LEGACY_SERVICE_ORDER' ||
-      job.entity_type === 'STOCK_OPENING_BALANCE' ||
-      job.entity_type === 'OPEN_WORKSHOP_ORDER'
-    ) {
-      return {
+    if (isDocOrFinancialImport(job.entity_type)) {
+      return buildBlockedDocumentPreview(
         jobId,
-        status: 'BLOCKED',
-        canUndo: false,
-        counts: {
-          total: appliedRowsCount,
-          toDelete: 0,
-          toRestore: 0,
-          conflicts: 0,
-          blocked: appliedRowsCount,
-        },
-        deletions: [],
-        restorations: [],
-        conflicts: [],
-        blocked: [
-          {
-            rowNumber: 0,
-            entityType: job.entity_type,
-            entityId: null,
-            action: 'CREATE',
-            status: 'BLOCKED',
-            reason: 'Financial and document imports cannot be undone',
-          },
-        ],
-      };
+        job.entity_type,
+        appliedRowsCount,
+      );
     }
 
     const appliedRows = await this.prisma.importJobRow.findMany({
@@ -94,64 +178,35 @@ export class ImportUndoPreviewService {
       orderBy: { row_no: 'asc' },
     });
 
-    const deletions: ImportUndoRowPreviewDto[] = [];
-    const restorations: ImportUndoRowPreviewDto[] = [];
-    const conflicts: ImportUndoRowPreviewDto[] = [];
-    const blocked: ImportUndoRowPreviewDto[] = [];
+    const buckets: UndoBuckets = {
+      deletions: [],
+      restorations: [],
+      conflicts: [],
+      blocked: [],
+    };
 
     const effectiveAppliedAt = job.appliedAt ?? job.updatedAt;
 
     for (const row of appliedRows) {
-      const payload = row.normalized_json as Record<string, unknown> | null;
-      const displayName = this.resolveDisplayName(payload);
-      const action =
-        row.action === ImportRowAction.CREATE ? 'CREATE' : 'UPDATE';
-
-      if (!row.entity_id) {
-        // Unsaved or missing entity
-        continue;
-      }
-
-      const eligibility = await checkEntityUndoEligibility(
-        this.prisma,
+      await this.processRowPreview(
         tenantId,
-        job.entity_type,
-        row.entity_id,
+        job,
+        row,
         effectiveAppliedAt,
+        buckets,
       );
-
-      const rowPreview: ImportUndoRowPreviewDto = {
-        rowNumber: row.row_no,
-        entityType: job.entity_type,
-        entityId: row.entity_id,
-        action,
-        status: eligibility.status,
-        reason: eligibility.reason,
-        references: eligibility.references,
-        displayName,
-      };
-
-      if (eligibility.status === 'BLOCKED') {
-        blocked.push(rowPreview);
-      } else if (eligibility.status === 'CONFLICT') {
-        conflicts.push(rowPreview);
-      } else if (action === 'CREATE') {
-        deletions.push(rowPreview);
-      } else {
-        restorations.push(rowPreview);
-      }
     }
 
     const counts: ImportUndoCountsDto = {
       total:
-        deletions.length +
-        restorations.length +
-        conflicts.length +
-        blocked.length,
-      toDelete: deletions.length,
-      toRestore: restorations.length,
-      conflicts: conflicts.length,
-      blocked: blocked.length,
+        buckets.deletions.length +
+        buckets.restorations.length +
+        buckets.conflicts.length +
+        buckets.blocked.length,
+      toDelete: buckets.deletions.length,
+      toRestore: buckets.restorations.length,
+      conflicts: buckets.conflicts.length,
+      blocked: buckets.blocked.length,
     };
 
     let overallStatus: 'ELIGIBLE' | 'CONFLICT' | 'BLOCKED' = 'ELIGIBLE';
@@ -174,57 +229,42 @@ export class ImportUndoPreviewService {
       status: overallStatus,
       canUndo,
       counts,
-      deletions,
-      restorations,
-      conflicts,
-      blocked,
+      ...buckets,
     };
   }
 
-  private resolveDisplayName(
-    payload?: Record<string, unknown> | null,
-  ): string | undefined {
-    if (!payload) return undefined;
-    if (
-      typeof payload.first_name === 'string' ||
-      typeof payload.last_name === 'string'
-    ) {
-      const parts = [payload.first_name, payload.last_name].filter(
-        (part): part is string =>
-          typeof part === 'string' && part.trim().length > 0,
-      );
-      if (parts.length > 0) return parts.join(' ');
-    }
-    if (
-      typeof payload.company_name === 'string' &&
-      payload.company_name.trim()
-    ) {
-      return payload.company_name.trim();
-    }
-    if (typeof payload.make === 'string' || typeof payload.model === 'string') {
-      const parts = [payload.make, payload.model].filter(
-        (part): part is string =>
-          typeof part === 'string' && part.trim().length > 0,
-      );
-      if (parts.length > 0) return parts.join(' ');
-    }
-    if (
-      typeof payload.code === 'string' ||
-      typeof payload.description === 'string'
-    ) {
-      const parts = [payload.code, payload.description].filter(
-        (part): part is string =>
-          typeof part === 'string' && part.trim().length > 0,
-      );
-      if (parts.length > 0) return parts.join(' - ');
-    }
-    if (typeof payload.sku === 'string' || typeof payload.name === 'string') {
-      const parts = [payload.sku, payload.name].filter(
-        (part): part is string =>
-          typeof part === 'string' && part.trim().length > 0,
-      );
-      if (parts.length > 0) return parts.join(' - ');
-    }
-    return undefined;
+  private async processRowPreview(
+    tenantId: string,
+    job: ImportJob,
+    row: ImportJobRow,
+    effectiveAppliedAt: Date,
+    buckets: UndoBuckets,
+  ): Promise<void> {
+    if (!row.entity_id) return;
+
+    const payload = row.normalized_json as Record<string, unknown> | null;
+    const displayName = resolveUndoDisplayName(payload);
+    const action = row.action === ImportRowAction.CREATE ? 'CREATE' : 'UPDATE';
+
+    const eligibility = await checkEntityUndoEligibility(
+      this.prisma,
+      tenantId,
+      job.entity_type,
+      row.entity_id,
+      effectiveAppliedAt,
+    );
+
+    const rowPreview: ImportUndoRowPreviewDto = {
+      rowNumber: row.row_no,
+      entityType: job.entity_type,
+      entityId: row.entity_id,
+      action,
+      status: eligibility.status,
+      reason: eligibility.reason,
+      references: eligibility.references,
+      displayName,
+    };
+
+    sortRowIntoBuckets(rowPreview, buckets);
   }
 }

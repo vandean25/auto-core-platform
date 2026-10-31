@@ -16,7 +16,6 @@ export type ImportMappingProfile = components['schemas']['ImportMappingProfileRe
 export type ImportEntityTypeEntry = components['schemas']['ImportEntityTypeResponseDto']
 export type ImportUndoPreviewResponse = components['schemas']['ImportUndoPreviewResponseDto']
 export type ImportUndoRowPreview = components['schemas']['ImportUndoRowPreviewDto']
-export type ImportUndoCounts = components['schemas']['ImportUndoCountsDto']
 export type UndoImportJobPayload = components['schemas']['UndoImportJobDto']
 
 export type ImportJobRowsMeta = {
