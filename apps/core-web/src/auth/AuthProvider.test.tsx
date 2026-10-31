@@ -13,6 +13,14 @@ type MockAuthUser = {
   getIdTokenResult: ReturnType<typeof vi.fn>
 }
 
+const pushMocks = vi.hoisted(() => ({
+  releasePushRegistration: vi.fn().mockResolvedValue(false),
+}))
+
+vi.mock('@/features/push/push-device', () => ({
+  releasePushRegistration: pushMocks.releasePushRegistration,
+}))
+
 const mocks = vi.hoisted(() => ({
   authListener: null as ((user: MockAuthUser | null) => void) | null,
   unsubscribe: vi.fn(),
@@ -93,15 +101,18 @@ describe('AuthProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.authListener = null
+    window.localStorage.clear()
+    window.sessionStorage.clear()
   })
 
   afterEach(() => {
     vi.clearAllMocks()
   })
 
-  it('clears cached auth-session queries when the Firebase user signs out or switches accounts', async () => {
+  it('clears the query cache and user storage when the Firebase user signs out', async () => {
     const queryClient = createQueryClient()
-    const removeQueries = vi.spyOn(queryClient, 'removeQueries')
+    const clear = vi.spyOn(queryClient, 'clear')
+    const cancelQueries = vi.spyOn(queryClient, 'cancelQueries')
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -116,7 +127,7 @@ describe('AuthProvider', () => {
     })
 
     await waitFor(() => {
-      expect(removeQueries).not.toHaveBeenCalled()
+      expect(clear).not.toHaveBeenCalled()
     })
 
     queryClient.setQueryData(authSessionKeys.all, {
@@ -130,19 +141,26 @@ describe('AuthProvider', () => {
       activeRole: 'ADMIN',
       memberships: [],
     })
+    window.localStorage.setItem('acp:saved-views:user-1', '[]')
+    window.localStorage.setItem('acp.push.registration', 'device-1')
 
     await act(async () => {
       mocks.authListener?.(null)
     })
 
     await waitFor(() => {
-      expect(removeQueries).toHaveBeenCalledTimes(1)
+      expect(cancelQueries).toHaveBeenCalled()
+      expect(clear).toHaveBeenCalledTimes(1)
     })
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+    expect(pushMocks.releasePushRegistration).toHaveBeenCalled()
+    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBe('[]')
+    expect(window.localStorage.getItem('acp.push.registration')).toBeNull()
   })
 
-  it('does not clear cached auth-session queries when the uid is unchanged (token refresh)', async () => {
+  it('keeps the query cache when the uid is unchanged (token refresh)', async () => {
     const queryClient = createQueryClient()
-    const removeQueries = vi.spyOn(queryClient, 'removeQueries')
+    const clear = vi.spyOn(queryClient, 'clear')
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -159,18 +177,50 @@ describe('AuthProvider', () => {
     })
 
     await waitFor(() => {
-      expect(removeQueries).not.toHaveBeenCalled()
+      expect(clear).not.toHaveBeenCalled()
     })
 
-    removeQueries.mockClear()
+    clear.mockClear()
 
     await act(async () => {
       mocks.authListener?.(user)
     })
 
+    expect(clear).not.toHaveBeenCalled()
+  })
+
+  it('resets the client session before signing out through Firebase', async () => {
+    const queryClient = createQueryClient()
+    const clear = vi.spyOn(queryClient, 'clear')
+    let actions: ReturnType<typeof useAuth> | null = null
+
+    queryClient.setQueryData(['customers', 'list'], [{ id: 'customer-1' }])
+    window.localStorage.setItem('acp:saved-views:user-1', '[]')
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AuthActions onReady={(nextActions) => {
+            actions = nextActions
+          }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
     await waitFor(() => {
-      expect(removeQueries).not.toHaveBeenCalled()
+      expect(actions).not.toBeNull()
     })
+
+    await act(async () => {
+      await actions!.signOutUser()
+    })
+
+    expect(clear).toHaveBeenCalledTimes(1)
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+    expect(pushMocks.releasePushRegistration).toHaveBeenCalled()
+    // The product decision for AUT-819 keeps per-user saved views across a sign-out.
+    expect(window.localStorage.getItem('acp:saved-views:user-1')).toBe('[]')
+    expect(mocks.signOut).toHaveBeenCalledWith({})
   })
 
   it('shows the auth init timeout screen when Firebase does not respond within 15 seconds', async () => {
