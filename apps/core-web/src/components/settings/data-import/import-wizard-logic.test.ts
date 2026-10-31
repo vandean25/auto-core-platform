@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ImportJob } from '@/api/imports'
 import {
-  canApplyImport,
+  canApplyImport, isDryRunExpired,
   importRowQueryFromFilter,
   isDryRunStale,
 } from './import-wizard-logic'
@@ -145,6 +145,31 @@ describe('import wizard logic', () => {
         dryRunStale: false,
         errorThreshold: 0,
         isApplying: true,
+      }),
+    ).toBe(false)
+  })
+
+  it('detects expired dry-run jobs and blocks apply', () => {
+    const expiredJob = mockJob({
+      status: 'CANCELLED',
+      options: { cancel_reason: 'expired' },
+    })
+    const userCancelledJob = mockJob({
+      status: 'CANCELLED',
+      options: {},
+    })
+
+    expect(isDryRunExpired(expiredJob)).toBe(true)
+    expect(isDryRunExpired(userCancelledJob)).toBe(false)
+    expect(isDryRunExpired(mockJob({ status: 'DRY_RUN_DONE' }))).toBe(false)
+    expect(isDryRunExpired(null)).toBe(false)
+
+    expect(
+      canApplyImport({
+        dryRunJob: expiredJob,
+        dryRunStale: false,
+        errorThreshold: 10,
+        isApplying: false,
       }),
     ).toBe(false)
   })

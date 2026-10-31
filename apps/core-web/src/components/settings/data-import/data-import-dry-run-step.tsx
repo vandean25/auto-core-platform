@@ -14,7 +14,7 @@ import {
 } from './data-import-dry-run-step-panels'
 import { ImportBackgroundProgressAlert } from './import-background-progress-alert'
 import type { ImportEntityTypeUi } from './import-field-labels'
-import type { ImportRowFilter, ImportWizardOptions } from './import-wizard-logic'
+import { isDryRunExpired, type ImportRowFilter, type ImportWizardOptions } from './import-wizard-logic'
 
 export type DataImportDryRunStepProps = {
   job: ImportJob
@@ -54,6 +54,7 @@ export type DataImportDryRunStepProps = {
 export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
   const { t } = useTranslation(['settings', 'common'])
   const job = props.job
+  const isExpired = isDryRunExpired(job)
   const catalogOptionChanged =
     props.options.create_new_catalog_items !==
     Boolean((job.options as ImportWizardOptions)?.create_new_catalog_items)
@@ -69,6 +70,14 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
         onCancelled={() => props.onBackgroundCancelled?.()}
         onResume={props.onApply}
       />
+
+      {isExpired ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle as="h5">{t('dataImport.dryRun.expired.title')}</AlertTitle>
+          <AlertDescription>{t('dataImport.dryRun.expired.description')}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {props.dryRunStale ? (
         <Alert variant="destructive">
@@ -147,9 +156,11 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
         <Button type="button" variant="outline" onClick={props.onEditMapping}>
           {t('dataImport.dryRun.editMapping')}
         </Button>
-        <Button type="button" disabled={!props.applyEnabled} onClick={props.onApply}>
-          {t('dataImport.dryRun.applyImport')}
-        </Button>
+        {!isExpired ? (
+          <Button type="button" disabled={!props.applyEnabled} onClick={props.onApply}>
+            {t('dataImport.dryRun.applyImport')}
+          </Button>
+        ) : null}
       </div>
     </section>
   )

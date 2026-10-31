@@ -49,6 +49,15 @@ export function isDryRunStale(params: {
   )
 }
 
+export function isDryRunExpired(job: ImportJob | null | undefined): boolean {
+  if (!job) return false
+  if (job.status === 'CANCELLED') {
+    const options = job.options as Record<string, unknown> | null | undefined
+    return options?.['cancel_reason'] === 'expired'
+  }
+  return false
+}
+
 export function canApplyImport(params: {
   dryRunJob: ImportJob | null
   dryRunStale: boolean
@@ -56,6 +65,7 @@ export function canApplyImport(params: {
   isApplying: boolean
 }): boolean {
   if (!params.dryRunJob || params.isApplying) return false
+  if (isDryRunExpired(params.dryRunJob)) return false
   if (params.dryRunJob.stalled && params.dryRunJob.status === 'APPLYING') {
     return true
   }

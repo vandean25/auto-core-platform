@@ -1160,7 +1160,11 @@
       "previousPage": "Vorherige Seite",
       "nextPage": "Nächste Seite",
       "editMapping": "Zuordnung bearbeiten",
-      "applyImport": "Import anwenden"
+      "applyImport": "Import anwenden",
+      "expired": {
+        "title": "Probelauf abgelaufen",
+        "description": "Probelauf abgelaufen, bitte erneut hochladen"
+      }
     },
     "errorReport": {
       "unknownError": "Die Zeile konnte nicht importiert werden. Bitte prüfen Sie die Werte und versuchen Sie es erneut.",

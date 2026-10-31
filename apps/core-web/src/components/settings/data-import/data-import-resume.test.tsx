@@ -206,6 +206,23 @@ describe('DataImportSettingsTab resume from ?job', () => {
     expect(screen.getByText(di.background.title)).toBeInTheDocument()
   })
 
+  it('shows expired message and does not offer apply for an expired dry-run job', async () => {
+    const job: ImportJob = {
+      ...customerDryRunJob,
+      id: 'job-resume-expired',
+      status: 'CANCELLED',
+      options: { cancel_reason: 'expired' },
+    }
+    installImportApiMocks({ dryRunJob: job })
+    mockResumedJob(job)
+
+    renderImportSettingsTab({ initialEntries: [RESUME_URL] })
+
+    expect(await screen.findByText(di.dryRun.title)).toBeInTheDocument()
+    expect(screen.getByText(di.dryRun.expired.description)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: di.dryRun.applyImport })).not.toBeInTheDocument()
+  })
+
   it('shows a read-only report for a CANCELLED job', async () => {
     const job: ImportJob = { ...customerDryRunJob, id: 'job-resume-1', status: 'CANCELLED' }
     installImportApiMocks({ dryRunJob: job })
