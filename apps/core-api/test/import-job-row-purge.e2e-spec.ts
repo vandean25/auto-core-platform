@@ -523,39 +523,73 @@ describe('Import job row retention purge (e2e)', () => {
         ],
       });
 
-      const store = new ImportJobStore(tenantPrisma);
-
       let intercepted = false;
-      const originalFindFirst = tenantPrisma.importJob.findFirst.bind(
-        tenantPrisma.importJob,
-      );
-      const findFirstSpy = jest
-        .spyOn(tenantPrisma.importJob, 'findFirst')
-        .mockImplementation(async (args: any) => {
-          const result = await originalFindFirst(args);
-          if (!intercepted && args?.where?.id === jobId) {
-            intercepted = true;
-            // Purge marks the job row in the DB before Apply performs updateMany
-            await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
+      const interceptingPrisma = new Proxy(tenantPrisma, {
+        get(target, prop, receiver) {
+          if (prop === '$transaction') {
+            return async (
+              fn: (tx: Prisma.TransactionClient) => Promise<unknown>,
+            ) => {
+              return tenantPrisma.$transaction(async (tx) => {
+                const originalFindFirst = tx.importJob.findFirst.bind(
+                  tx.importJob,
+                );
+                const interceptedTx = new Proxy(tx, {
+                  get(txTarget, txProp) {
+                    if (txProp === 'importJob') {
+                      return new Proxy(txTarget.importJob, {
+                        get(jobTarget, jobProp) {
+                          if (jobProp === 'findFirst') {
+                            return async (
+                              ...args: Parameters<typeof originalFindFirst>
+                            ) => {
+                              const result = await originalFindFirst(...args);
+                              const callArgs = args[0] as
+                                | { where?: { id?: string } }
+                                | undefined;
+                              if (
+                                !intercepted &&
+                                callArgs?.where?.id === jobId
+                              ) {
+                                intercepted = true;
+                                // Purge marks the job row in the DB before Apply performs updateMany
+                                await purgeStaleImportJobRowsForTenant(
+                                  tenantPrisma,
+                                  tenantId,
+                                  now,
+                                );
+                              }
+                              return result;
+                            };
+                          }
+                          return Reflect.get(jobTarget, jobProp);
+                        },
+                      });
+                    }
+                    return Reflect.get(txTarget, txProp);
+                  },
+                });
+                return fn(interceptedTx);
+              });
+            };
           }
-          return result;
-        });
+          return Reflect.get(target, prop, receiver);
+        },
+      });
 
-      try {
-        const lock = await store.lockForApply(tenantId, jobId);
-        // Apply was atomically rejected because updatedAt changed!
-        expect(lock.count).toBe(0);
+      const store = new ImportJobStore(interceptingPrisma);
 
-        // Verify the job in DB remains FAILED with rows_purged: true intact
-        const job = await tenantPrisma.importJob.findFirst({
-          where: { tenant_id: tenantId, id: jobId },
-        });
-        expect(job?.status).toBe(ImportJobStatus.FAILED);
-        const opts = (job?.options_json ?? {}) as Record<string, unknown>;
-        expect(opts.rows_purged).toBe(true);
-      } finally {
-        findFirstSpy.mockRestore();
-      }
+      const lock = await store.lockForApply(tenantId, jobId);
+      // Apply was atomically rejected because updatedAt changed!
+      expect(lock.count).toBe(0);
+
+      // Verify the job in DB remains FAILED with rows_purged: true intact
+      const job = await tenantPrisma.importJob.findFirst({
+        where: { tenant_id: tenantId, id: jobId },
+      });
+      expect(job?.status).toBe(ImportJobStatus.FAILED);
+      const opts = (job?.options_json ?? {}) as Record<string, unknown>;
+      expect(opts.rows_purged).toBe(true);
     });
   });
 
