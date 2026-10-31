@@ -105,6 +105,20 @@ describe('Tenant Isolation Regression (e2e)', () => {
     await tenantBPrisma.customer.deleteMany({
       where: { last_name: { startsWith: prefix } },
     });
+
+    await tenantAPrisma.salesOrder.deleteMany({
+      where: { order_number: { startsWith: prefix } },
+    });
+    await tenantBPrisma.salesOrder.deleteMany({
+      where: { order_number: { startsWith: prefix } },
+    });
+
+    await tenantAPrisma.vendor.deleteMany({
+      where: { account_number: { startsWith: prefix } },
+    });
+    await tenantBPrisma.vendor.deleteMany({
+      where: { account_number: { startsWith: prefix } },
+    });
   });
 
   afterAll(async () => {
@@ -149,6 +163,20 @@ describe('Tenant Isolation Regression (e2e)', () => {
       });
       await tenantBPrisma.customer.deleteMany({
         where: { last_name: { startsWith: prefix } },
+      });
+
+      await tenantAPrisma.salesOrder.deleteMany({
+        where: { order_number: { startsWith: prefix } },
+      });
+      await tenantBPrisma.salesOrder.deleteMany({
+        where: { order_number: { startsWith: prefix } },
+      });
+
+      await tenantAPrisma.vendor.deleteMany({
+        where: { account_number: { startsWith: prefix } },
+      });
+      await tenantBPrisma.vendor.deleteMany({
+        where: { account_number: { startsWith: prefix } },
       });
     }
 
@@ -840,6 +868,141 @@ describe('Tenant Isolation Regression (e2e)', () => {
           } as any,
         }),
       ).rejects.toThrow(/\[TenantIsolation\] Nested relation write/);
+    });
+
+    it('rejects nested connect on single-FK child relations like PurchaseOrder.items', async () => {
+      await expect(
+        tenantAPrisma.purchaseOrder.create({
+          data: {
+            tenant_id: tenantAId,
+            site_id: 'nonexistent-site',
+            order_number: `${prefix}-PO-ADV-CONN`,
+            status: 'DRAFT',
+            items: {
+              connect: [{ id: 'nonexistent-item' }],
+            },
+          } as any,
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Nested relation write on 'PurchaseOrder\.items' targeting tenant-scoped model 'PurchaseOrderItem' is not permitted\./,
+      );
+    });
+
+    it('rejects nested create with mismatching tenant_id on single-FK child relation', async () => {
+      await expect(
+        tenantAPrisma.salesOrder.create({
+          data: {
+            tenant_id: tenantAId,
+            site_id: 'nonexistent-site',
+            order_number: `${prefix}-SO-MISMATCH`,
+            status: 'DRAFT',
+            total_amount: 10,
+            items: {
+              create: [
+                {
+                  description: 'Adversarial child item',
+                  quantity: 1,
+                  unit_price: 10,
+                  total: 10,
+                  tenant_id: tenantBId,
+                },
+              ],
+            },
+          } as any,
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Mismatching tenant_id in create on model 'SalesOrderItem'\./,
+      );
+    });
+
+    it('stamps own-tenant tenant_id on nested create for single-FK child relations', async () => {
+      const siteA = await tenantAPrisma.site.findFirstOrThrow({
+        where: { tenant_id: tenantAId },
+      });
+      const customerA = await tenantAPrisma.customer.create({
+        data: {
+          tenant_id: tenantAId,
+          first_name: 'Own',
+          last_name: 'Customer',
+        },
+      });
+
+      const so = await tenantAPrisma.salesOrder.create({
+        data: {
+          tenant_id: tenantAId,
+          site_id: siteA.id,
+          customer_id: customerA.id,
+          order_number: `${prefix}-SO-STAMP`,
+          status: 'DRAFT',
+          total_amount: 50,
+          items: {
+            create: [
+              {
+                description: 'Auto-stamped child item',
+                quantity: 1,
+                unit_price: 50,
+                total: 50,
+              },
+            ],
+          },
+        },
+        include: { items: true },
+      });
+
+      expect(so.items).toHaveLength(1);
+      expect(so.items[0].tenant_id).toBe(tenantAId);
+      expect(so.items[0].description).toBe('Auto-stamped child item');
+    });
+
+    it("rejects Vendor.supportedBrands connect targeting another tenant's brand", async () => {
+      const brandB = await tenantBPrisma.brand.create({
+        data: {
+          tenant_id: tenantBId,
+          ...brandData(`${prefix}-BRAND-B-VEND`),
+        },
+      });
+
+      await expect(
+        tenantAPrisma.vendor.create({
+          data: {
+            tenant_id: tenantAId,
+            name: `${prefix}-Vendor-Adv`,
+            email: 'adv-vendor@example.com',
+            account_number: `${prefix}-V-ADV`,
+            supportedBrands: {
+              connect: [{ id: brandB.id }],
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        /\[TenantIsolation\] Nested relation write on 'Vendor\.supportedBrands' references brands not belonging to current tenant\./,
+      );
+    });
+
+    it("permits Vendor.supportedBrands connect targeting own tenant's brand", async () => {
+      const brandA = await tenantAPrisma.brand.create({
+        data: {
+          tenant_id: tenantAId,
+          ...brandData(`${prefix}-BRAND-A-VEND`),
+        },
+      });
+
+      const vendor = await tenantAPrisma.vendor.create({
+        data: {
+          tenant_id: tenantAId,
+          name: `${prefix}-Vendor-Own`,
+          email: 'own-vendor@example.com',
+          account_number: `${prefix}-V-OWN`,
+          supportedBrands: {
+            connect: [{ id: brandA.id }],
+          },
+        },
+        include: { supportedBrands: true },
+      });
+
+      expect(vendor.supportedBrands).toHaveLength(1);
+      expect(vendor.supportedBrands[0].id).toBe(brandA.id);
+      expect(vendor.supportedBrands[0].tenant_id).toBe(tenantAId);
     });
 
     it('count, aggregate, and groupBy with overlapping data return only own-tenant results', async () => {
