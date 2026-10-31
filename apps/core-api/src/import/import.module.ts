@@ -13,6 +13,7 @@ import { ImportWorkerController } from './import-worker.controller.js';
 import { ImportRecoveryService } from './import-recovery.service.js';
 import { ImportTaskGuard } from './import-task.guard.js';
 import { ImportSourceService } from './import-source.service.js';
+import { ImportUndoPreviewService } from './import-undo.preview.service.js';
 
 @Module({
   controllers: [ImportController, ImportWorkerController],
@@ -29,6 +30,7 @@ import { ImportSourceService } from './import-source.service.js';
     ImportRecoveryService,
     ImportTaskGuard,
     ImportSourceService,
+    ImportUndoPreviewService,
   ],
 })
 export class ImportModule {}

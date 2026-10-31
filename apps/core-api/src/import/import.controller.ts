@@ -65,6 +65,8 @@ import {
 } from './dto/import-source-response.dto.js';
 import { CreateImportSourceDto } from './dto/create-import-source.dto.js';
 import { UpdateImportSourceDto } from './dto/update-import-source.dto.js';
+import { ImportUndoPreviewService } from './import-undo.preview.service.js';
+import { ImportUndoPreviewResponseDto } from './dto/undo-import-preview-response.dto.js';
 
 @ApiTags('imports')
 @Controller('imports')
@@ -74,6 +76,7 @@ export class ImportController {
     private readonly directUploadService: ImportDirectUploadService,
     private readonly mappingProfileService: ImportMappingProfileService,
     private readonly importSourceService: ImportSourceService,
+    private readonly importUndoPreviewService?: ImportUndoPreviewService,
   ) {}
 
   @Post()
@@ -365,6 +368,20 @@ export class ImportController {
   @ApiOkResponse({ type: ImportJobResponseDto })
   getJob(@Param('id') id: string) {
     return this.importService.getJob(id);
+  }
+
+  @Post(':id/undo/preview')
+  @ApiOperation({
+    summary: 'Preview undoing an applied import job',
+  })
+  @ApiOkResponse({ type: ImportUndoPreviewResponseDto })
+  previewUndo(@Param('id') id: string) {
+    if (!this.importUndoPreviewService) {
+      throw new BadRequestException(
+        'Import undo preview service not available',
+      );
+    }
+    return this.importUndoPreviewService.previewUndo(id);
   }
 
   @Post(':id/apply')
