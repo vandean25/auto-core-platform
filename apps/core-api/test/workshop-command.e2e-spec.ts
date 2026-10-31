@@ -294,6 +294,24 @@ describe('Workshop command (e2e)', () => {
       where: { id: user.id },
       data: { active_site_id: siteId },
     });
+    if (role === 'DEMO') {
+      const accessRequest = await basePrisma.landingDemoAccessRequest.create({
+        data: {
+          email: `${uid}@test.local`,
+          name: 'Demo User',
+          betrieb: 'Demo Corp',
+          consent_recorded_at: new Date(),
+        },
+        select: { id: true },
+      });
+      await basePrisma.landingDemoSignInGrant.create({
+        data: {
+          access_request_id: accessRequest.id,
+          user_id: user.id,
+          expires_at: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
+    }
     return `Bearer ${createTestAuthToken(authService, tenant, {
       sub: uid,
       email: `${uid}@test.local`,
@@ -303,8 +321,8 @@ describe('Workshop command (e2e)', () => {
 
   async function createApiKeyCaller(): Promise<string> {
     const res = await request(app.getHttpServer())
-      .post('/tenant-api-keys')
-      .set('Authorization', authToken)
+      .post('/api/tenant-api-keys')
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'Role Matrix Key', scopes: ['workshop_orders:write'] })
       .expect(201);
     return `Bearer ${res.body.token}`;
@@ -676,6 +694,14 @@ describe('Workshop command (e2e)', () => {
 
   it('refuses to propose directly when the last interpret ended in a clarification', async () => {
     await enableBookingPolicy();
+    const secondCustomer = await prisma.customer.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        first_name: 'Max',
+        last_name: 'Huber',
+        type: 'PRIVATE',
+      },
+    });
     const commandId = newCommandId();
     const clarificationRes = await interpret({
       command_id: commandId,
