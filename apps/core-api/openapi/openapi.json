@@ -14940,7 +14940,9 @@
                 "APPLYING",
                 "APPLIED",
                 "FAILED",
-                "CANCELLED"
+                "CANCELLED",
+                "UNDONE",
+                "PARTIALLY_UNDONE"
               ],
               "type": "string"
             }
@@ -15442,6 +15444,78 @@
           }
         },
         "summary": "Get import job summary",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/{id}/undo/preview": {
+      "post": {
+        "operationId": "ImportController_previewUndo",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUndoPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Preview undoing an applied import job",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/{id}/undo": {
+      "post": {
+        "operationId": "ImportController_undoJob",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoImportJobDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Undo an applied import job",
         "tags": [
           "imports"
         ]
@@ -37674,7 +37748,9 @@
           "APPLYING",
           "APPLIED",
           "FAILED",
-          "CANCELLED"
+          "CANCELLED",
+          "UNDONE",
+          "PARTIALLY_UNDONE"
         ]
       },
       "ImportJobTotalsDto": {
@@ -38455,6 +38531,149 @@
           "data",
           "meta"
         ]
+      },
+      "ImportUndoCountsDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "toDelete": {
+            "type": "number"
+          },
+          "toRestore": {
+            "type": "number"
+          },
+          "conflicts": {
+            "type": "number"
+          },
+          "blocked": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "toDelete",
+          "toRestore",
+          "conflicts",
+          "blocked"
+        ]
+      },
+      "ImportUndoRowPreviewDto": {
+        "type": "object",
+        "properties": {
+          "rowNumber": {
+            "type": "number"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "object",
+            "nullable": true
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "CREATE",
+              "UPDATE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ELIGIBLE",
+              "CONFLICT",
+              "BLOCKED"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rowNumber",
+          "entityType",
+          "action",
+          "status"
+        ]
+      },
+      "ImportUndoPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ELIGIBLE",
+              "CONFLICT",
+              "BLOCKED"
+            ]
+          },
+          "canUndo": {
+            "type": "boolean"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ImportUndoCountsDto"
+          },
+          "deletions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportUndoRowPreviewDto"
+            }
+          },
+          "restorations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportUndoRowPreviewDto"
+            }
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportUndoRowPreviewDto"
+            }
+          },
+          "blocked": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportUndoRowPreviewDto"
+            }
+          }
+        },
+        "required": [
+          "jobId",
+          "status",
+          "canUndo",
+          "counts",
+          "deletions",
+          "restorations",
+          "conflicts",
+          "blocked"
+        ]
+      },
+      "UndoImportJobDto": {
+        "type": "object",
+        "properties": {
+          "confirmedEntityIds": {
+            "description": "Entity IDs of unreferenced records with post-import conflicts that the user explicitly confirmed to revert anyway",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "ApplyImportJobDto": {
         "type": "object",

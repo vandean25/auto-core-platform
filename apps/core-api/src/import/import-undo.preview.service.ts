@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ImportJobStatus, ImportRowAction } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service.js';
-import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { assertTenantAdmin } from '../site/site.authorization.js';
 import {
   ImportUndoCountsDto,
