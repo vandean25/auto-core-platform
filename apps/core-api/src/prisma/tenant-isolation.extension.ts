@@ -364,23 +364,26 @@ function findDelegate(
       ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
     }
   | undefined {
+  if (!client || typeof client !== 'object') {
+    return undefined;
+  }
+  const rec = client as Record<string, unknown>;
+  const candidate =
+    rec[delegateName] ??
+    (rec.$parent && typeof rec.$parent === 'object'
+      ? (rec.$parent as Record<string, unknown>)[delegateName]
+      : undefined);
+
   if (
-    client &&
-    typeof client === 'object' &&
-    delegateName in client &&
-    typeof (client as Record<string, unknown>)[delegateName] === 'object'
+    candidate &&
+    typeof candidate === 'object' &&
+    typeof (candidate as Record<string, unknown>).findMany === 'function'
   ) {
-    const delegate = (client as Record<string, unknown>)[delegateName];
-    if (
-      delegate &&
-      typeof (delegate as Record<string, unknown>).findMany === 'function'
-    ) {
-      return delegate as {
-        findMany: (
-          args: unknown,
-        ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
-      };
-    }
+    return candidate as {
+      findMany: (
+        args: unknown,
+      ) => Promise<Array<{ id: unknown; tenant_id?: string }>>;
+    };
   }
   return undefined;
 }
@@ -1608,26 +1611,21 @@ async function dispatchTenantOperation(
 }
 
 function resolveContextClient(thisArg: unknown, baseClient: unknown): unknown {
-  try {
-    const extCtx = Prisma.getExtensionContext(thisArg);
-    if (
-      extCtx &&
-      typeof extCtx === 'object' &&
-      Object.keys(extCtx).length > 0
-    ) {
-      return extCtx;
+  const activeTx =
+    PrismaTransactionContext.getClient() ??
+    DryRunStorage.getTransactionClient();
+  if (activeTx) {
+    return activeTx;
+  }
+
+  if (thisArg && typeof thisArg === 'object') {
+    const parent = (thisArg as Record<string, unknown>).$parent;
+    if (parent && typeof parent === 'object') {
+      return parent;
     }
-  } catch {
-    // fallback if not a Prisma extension context
   }
-  if (
-    thisArg &&
-    typeof thisArg === 'object' &&
-    Object.keys(thisArg).length > 0
-  ) {
-    return thisArg;
-  }
-  return baseClient;
+
+  return baseClient ?? thisArg;
 }
 
 /**
