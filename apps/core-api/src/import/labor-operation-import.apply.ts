@@ -14,6 +14,10 @@ import {
   createExternalMapping,
   upsertExternalMapping,
 } from './import-external-id.store.js';
+import {
+  recordImportRowBeforeSnapshot,
+  recordImportRowEntityId,
+} from './import-row-snapshot.util.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import {
   assignImportUpdateFields,
@@ -201,16 +205,13 @@ async function createLaborOperation(
     created.id,
     ctx.job.id,
   );
-  await tx.importJobRow?.update({
-    where: {
-      tenant_id_import_job_id_row_no: {
-        tenant_id: ctx.tenantId,
-        import_job_id: ctx.job.id,
-        row_no: rowNo,
-      },
-    },
-    data: { entity_id: created.id },
-  });
+  await recordImportRowEntityId(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    created.id,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -265,20 +266,13 @@ async function updateLaborOperation(
     after.id,
     ctx.job.id,
   );
-  await tx.importJobRow?.update({
-    where: {
-      tenant_id_import_job_id_row_no: {
-        tenant_id: ctx.tenantId,
-        import_job_id: ctx.job.id,
-        row_no: rowNo,
-      },
-    },
-    data: {
-      before_snapshot_json: pickLaborAuditSnapshot(
-        before,
-      ) as unknown as Prisma.InputJsonValue,
-    },
-  });
+  await recordImportRowBeforeSnapshot(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    pickLaborAuditSnapshot(before) as unknown as Prisma.InputJsonValue,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,

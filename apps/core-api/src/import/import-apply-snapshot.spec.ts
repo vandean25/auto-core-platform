@@ -5,6 +5,7 @@ import { applyLaborOperationImportRow, LaborApplyContext } from './labor-operati
 import { applyVehiclePartyImportRow, PartyApplyContext } from './vehicle-party-import.apply.js';
 import { applyVehicleDueDateImportRow, DueDateApplyContext } from './vehicle-due-date-import.apply.js';
 import { DUE_DATE_KIND } from './vehicle-due-date-import.logic.js';
+import type { ImportApplyJob } from './import-type-handler.js';
 
 describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
   const dummyAudit = {
@@ -13,11 +14,9 @@ describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
     writeImportJobUndoAudit: jest.fn().mockResolvedValue(undefined),
   } as any;
 
-  const baseJob = {
+  const baseJob: ImportApplyJob = {
     id: 'job-1',
-    entity_type: 'CUSTOMER' as const,
     source_system: 'test_dms',
-    status: ImportJobStatus.APPLYING,
     options_json: {},
     totals_json: { rows: 1, create: 0, update: 0, skip: 0, error: 0 },
   };
@@ -172,7 +171,7 @@ describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
 
       const ctx: VehicleApplyContext = {
         tenantId: 'tenant-1',
-        job: { ...baseJob, entity_type: 'VEHICLE' },
+        job: baseJob,
         actorUserId: 'user-1',
         audit: dummyAudit,
       };
@@ -253,7 +252,7 @@ describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
 
       const ctx: LaborApplyContext = {
         tenantId: 'tenant-1',
-        job: { ...baseJob, entity_type: 'LABOR_OPERATION' },
+        job: baseJob,
         actorUserId: 'user-1',
         audit: dummyAudit,
       };
@@ -353,7 +352,7 @@ describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
 
       const ctx: PartyApplyContext = {
         tenantId: 'tenant-1',
-        job: { ...baseJob, entity_type: 'VEHICLE_PARTY' },
+        job: baseJob,
         actorUserId: 'user-1',
         audit: dummyAudit,
       };
@@ -454,7 +453,7 @@ describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
 
       const ctx: DueDateApplyContext = {
         tenantId: 'tenant-1',
-        job: { ...baseJob, entity_type: 'VEHICLE_DUE_DATE' },
+        job: baseJob,
         actorUserId: 'user-1',
         audit: dummyAudit,
       };

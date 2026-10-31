@@ -14,6 +14,10 @@ import {
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
 import { withPhoneDigits } from '../customer/customer-phone.util.js';
+import {
+  recordImportRowBeforeSnapshot,
+  recordImportRowEntityId,
+} from './import-row-snapshot.util.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
 import type { ImportJobOptions } from './import.types.js';
 
@@ -99,16 +103,13 @@ async function createCustomer(
     created.id,
     ctx.job.id,
   );
-  await tx.importJobRow?.update({
-    where: {
-      tenant_id_import_job_id_row_no: {
-        tenant_id: ctx.tenantId,
-        import_job_id: ctx.job.id,
-        row_no: rowNo,
-      },
-    },
-    data: { entity_id: created.id },
-  });
+  await recordImportRowEntityId(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    created.id,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -158,16 +159,13 @@ async function updateCustomer(
     after.id,
     ctx.job.id,
   );
-  await tx.importJobRow?.update({
-    where: {
-      tenant_id_import_job_id_row_no: {
-        tenant_id: ctx.tenantId,
-        import_job_id: ctx.job.id,
-        row_no: rowNo,
-      },
-    },
-    data: { before_snapshot_json: beforeSnapshot },
-  });
+  await recordImportRowBeforeSnapshot(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    beforeSnapshot,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,

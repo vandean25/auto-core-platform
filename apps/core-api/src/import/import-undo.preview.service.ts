@@ -17,49 +17,39 @@ import {
   ImportUndoPreviewResponseDto,
   ImportUndoRowPreviewDto,
 } from './dto/undo-import-preview-response.dto.js';
-import { checkEntityUndoEligibility } from './import-undo.guard.js';
+import {
+  checkEntityUndoEligibility,
+  isDocOrFinancialImport,
+} from './import-undo.guard.js';
 import type { ImportJobTotals } from './import.types.js';
 
-function formatName(first?: unknown, last?: unknown): string | undefined {
-  const parts = [first, last].filter(
+function formatCandidate(
+  a?: unknown,
+  b?: unknown,
+  delimiter = ' ',
+): string | undefined {
+  const parts = [a, b].filter(
     (p): p is string => typeof p === 'string' && p.trim().length > 0,
   );
-  return parts.length > 0 ? parts.join(' ') : undefined;
-}
-
-function formatCode(code?: unknown, desc?: unknown): string | undefined {
-  const parts = [code, desc].filter(
-    (p): p is string => typeof p === 'string' && p.trim().length > 0,
-  );
-  return parts.length > 0 ? parts.join(' - ') : undefined;
+  return parts.length > 0 ? parts.join(delimiter) : undefined;
 }
 
 export function resolveUndoDisplayName(
   payload?: Record<string, unknown> | null,
 ): string | undefined {
   if (!payload) return undefined;
-  if (
-    typeof payload.first_name === 'string' ||
-    typeof payload.last_name === 'string'
-  ) {
-    return formatName(payload.first_name, payload.last_name);
-  }
-  if (typeof payload.company_name === 'string' && payload.company_name.trim()) {
-    return payload.company_name.trim();
-  }
-  if (typeof payload.make === 'string' || typeof payload.model === 'string') {
-    return formatName(payload.make, payload.model);
-  }
-  if (
-    typeof payload.code === 'string' ||
-    typeof payload.description === 'string'
-  ) {
-    return formatCode(payload.code, payload.description);
-  }
-  if (typeof payload.sku === 'string' || typeof payload.name === 'string') {
-    return formatCode(payload.sku, payload.name);
-  }
-  return undefined;
+  const company =
+    typeof payload.company_name === 'string' && payload.company_name.trim()
+      ? payload.company_name.trim()
+      : undefined;
+
+  return (
+    formatCandidate(payload.first_name, payload.last_name) ??
+    company ??
+    formatCandidate(payload.make, payload.model) ??
+    formatCandidate(payload.code, payload.description, ' - ') ??
+    formatCandidate(payload.sku, payload.name, ' - ')
+  );
 }
 
 interface UndoBuckets {
@@ -82,15 +72,6 @@ function sortRowIntoBuckets(
   } else {
     buckets.restorations.push(rowPreview);
   }
-}
-
-function isDocOrFinancialImport(entityType: string): boolean {
-  return (
-    entityType === 'LEGACY_INVOICE' ||
-    entityType === 'LEGACY_SERVICE_ORDER' ||
-    entityType === 'STOCK_OPENING_BALANCE' ||
-    entityType === 'OPEN_WORKSHOP_ORDER'
-  );
 }
 
 function buildBlockedDocumentPreview(
@@ -122,6 +103,46 @@ function buildBlockedDocumentPreview(
         reason: 'Financial and document imports cannot be undone',
       },
     ],
+  };
+}
+
+function getAppliedRowsCount(totals: ImportJobTotals | null): number {
+  if (!totals) return 0;
+  return (totals.create || 0) + (totals.update || 0);
+}
+
+function validateJobForPreview(job: ImportJob | null, jobId: string): number {
+  if (!job) {
+    throw new NotFoundException(`Import job ${jobId} not found`);
+  }
+  if (job.status === ImportJobStatus.UNDONE) {
+    throw new BadRequestException('IMPORT_JOB_ALREADY_UNDONE');
+  }
+  const appliedRowsCount = getAppliedRowsCount(
+    job.totals_json as ImportJobTotals | null,
+  );
+  const isEligibleStatus =
+    job.status === ImportJobStatus.APPLIED ||
+    (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
+  if (!isEligibleStatus) {
+    throw new BadRequestException(
+      'Import job is not in an undoable state (must be APPLIED or FAILED with applied rows)',
+    );
+  }
+  return appliedRowsCount;
+}
+
+function calculateCounts(buckets: UndoBuckets): ImportUndoCountsDto {
+  return {
+    total:
+      buckets.deletions.length +
+      buckets.restorations.length +
+      buckets.conflicts.length +
+      buckets.blocked.length,
+    toDelete: buckets.deletions.length,
+    toRestore: buckets.restorations.length,
+    conflicts: buckets.conflicts.length,
+    blocked: buckets.blocked.length,
   };
 }
 
@@ -157,25 +178,9 @@ export class ImportUndoPreviewService {
       where: { tenant_id: tenantId, id: jobId },
     });
 
+    const appliedRowsCount = validateJobForPreview(job, jobId);
     if (!job) {
       throw new NotFoundException(`Import job ${jobId} not found`);
-    }
-
-    if (job.status === ImportJobStatus.UNDONE) {
-      throw new BadRequestException('IMPORT_JOB_ALREADY_UNDONE');
-    }
-
-    const totals = job.totals_json as ImportJobTotals | null;
-    const appliedRowsCount = (totals?.create ?? 0) + (totals?.update ?? 0);
-
-    const isEligibleStatus =
-      job.status === ImportJobStatus.APPLIED ||
-      (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
-
-    if (!isEligibleStatus) {
-      throw new BadRequestException(
-        'Import job is not in an undoable state (must be APPLIED or FAILED with applied rows)',
-      );
     }
 
     if (isDocOrFinancialImport(job.entity_type)) {
@@ -195,16 +200,34 @@ export class ImportUndoPreviewService {
       orderBy: { row_no: 'asc' },
     });
 
+    const buckets = await this.collectRowBuckets(tenantId, job, appliedRows);
+    const counts = calculateCounts(buckets);
+    const overallStatus = calculateOverallStatus(counts);
+
+    return {
+      jobId,
+      status: overallStatus,
+      canUndo:
+        counts.toDelete > 0 || counts.toRestore > 0 || counts.conflicts > 0,
+      counts,
+      ...buckets,
+    };
+  }
+
+  private async collectRowBuckets(
+    tenantId: string,
+    job: ImportJob,
+    rows: ImportJobRow[],
+  ): Promise<UndoBuckets> {
     const buckets: UndoBuckets = {
       deletions: [],
       restorations: [],
       conflicts: [],
       blocked: [],
     };
-
     const effectiveAppliedAt = job.appliedAt ?? job.updatedAt;
 
-    for (const row of appliedRows) {
+    for (const row of rows) {
       await this.processRowPreview(
         tenantId,
         job,
@@ -214,30 +237,7 @@ export class ImportUndoPreviewService {
       );
     }
 
-    const counts: ImportUndoCountsDto = {
-      total:
-        buckets.deletions.length +
-        buckets.restorations.length +
-        buckets.conflicts.length +
-        buckets.blocked.length,
-      toDelete: buckets.deletions.length,
-      toRestore: buckets.restorations.length,
-      conflicts: buckets.conflicts.length,
-      blocked: buckets.blocked.length,
-    };
-
-    const overallStatus = calculateOverallStatus(counts);
-
-    const canUndo =
-      counts.toDelete > 0 || counts.toRestore > 0 || counts.conflicts > 0;
-
-    return {
-      jobId,
-      status: overallStatus,
-      canUndo,
-      counts,
-      ...buckets,
-    };
+    return buckets;
   }
 
   private async processRowPreview(

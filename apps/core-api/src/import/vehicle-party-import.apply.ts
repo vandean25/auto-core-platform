@@ -19,6 +19,10 @@ import {
 } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { createExternalMapping } from './import-external-id.store.js';
+import {
+  recordImportRowBeforeSnapshot,
+  recordImportRowEntityId,
+} from './import-row-snapshot.util.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import type { ImportJobOptions } from './import.types.js';
 
@@ -94,16 +98,13 @@ async function createParty(
     created.id,
     ctx.job.id,
   );
-  await tx.importJobRow?.update({
-    where: {
-      tenant_id_import_job_id_row_no: {
-        tenant_id: ctx.tenantId,
-        import_job_id: ctx.job.id,
-        row_no: rowNo,
-      },
-    },
-    data: { entity_id: created.id },
-  });
+  await recordImportRowEntityId(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    created.id,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -137,18 +138,13 @@ async function updateParty(
     partyId,
     payload,
   );
-  await tx.importJobRow?.update({
-    where: {
-      tenant_id_import_job_id_row_no: {
-        tenant_id: ctx.tenantId,
-        import_job_id: ctx.job.id,
-        row_no: rowNo,
-      },
-    },
-    data: {
-      before_snapshot_json: auditSnapshot(before),
-    },
-  });
+  await recordImportRowBeforeSnapshot(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    auditSnapshot(before),
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,

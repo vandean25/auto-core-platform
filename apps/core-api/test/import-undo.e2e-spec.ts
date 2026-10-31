@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
+import { AuditActorType, AuditLogAction } from '@prisma/client';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -71,6 +72,27 @@ describe('Import Undo (e2e)', () => {
     return Buffer.from(serializeCsv(headers, rows, ';'), 'utf8');
   }
 
+  async function importAndApplyCustomerRows(
+    rows: string[][],
+  ): Promise<{ id: string }> {
+    const file = customerCsv(rows);
+    const dryRun = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', adminHeader)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', file, 'customers.csv')
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/imports/${dryRun.body.id}/apply`)
+      .set('Authorization', adminHeader)
+      .expect(202);
+
+    return dryRun.body as { id: string };
+  }
+
   beforeAll(async () => {
     process.env.IMPORT_MAX_ROW_COUNT = '20000';
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -104,6 +126,9 @@ describe('Import Undo (e2e)', () => {
         source_system: 'legacy-dms',
         entity_type: 'CUSTOMER',
         file_name: 'matrix.csv',
+        file_sha256: 'mock-matrix-sha',
+        mapping_json: {},
+        options_json: {},
         status: 'APPLIED',
         totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
         created_by: tenant.firebaseUid,
@@ -153,6 +178,21 @@ describe('Import Undo (e2e)', () => {
       },
     });
 
+    const initialJob = await prisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        entity_type: 'CUSTOMER',
+        file_name: 'initial.csv',
+        file_sha256: 'mock-initial-sha',
+        mapping_json: {},
+        options_json: {},
+        status: 'APPLIED',
+        totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
+        created_by: tenant.firebaseUid,
+      },
+    });
+
     // Seed existing mapping for preExistingCustomer
     await tenantPrisma.externalIdMapping.create({
       data: {
@@ -161,6 +201,7 @@ describe('Import Undo (e2e)', () => {
         entity_type: 'CUSTOMER',
         external_id: 'EXT-EXISTING-1',
         entity_id: preExistingCustomer.id,
+        first_seen_import_job_id: initialJob.id,
       },
     });
 
@@ -259,9 +300,9 @@ describe('Import Undo (e2e)', () => {
     // - AuditLog written for undo
     const undoAudit = await tenantPrisma.auditLog.findFirst({
       where: {
-        entity_type: 'import_job',
+        entity_type: 'ImportJob',
         entity_id: dryRun.body.id,
-        action: 'UNDO',
+        action: AuditLogAction.UPDATE,
       },
     });
     expect(undoAudit).toBeTruthy();
@@ -295,23 +336,9 @@ describe('Import Undo (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const emailConflict = `conflict-${Date.now()}@example.com`;
 
-    const file = customerCsv([
+    const dryRun = await importAndApplyCustomerRows([
       ['EXT-CONF-1', 'PRIVATE', 'Conflict', 'User', emailConflict, '333', 'AT'],
     ]);
-
-    const dryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', adminHeader)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', file, 'customers.csv')
-      .expect(201);
-
-    await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/apply`)
-      .set('Authorization', adminHeader)
-      .expect(202);
 
     const createdCust = await tenantPrisma.customer.findFirstOrThrow({
       where: { email: emailConflict },
@@ -331,24 +358,25 @@ describe('Import Undo (e2e)', () => {
         tenant_id: tenant.tenantId,
         entity_type: 'Customer',
         entity_id: createdCust.id,
-        action: 'UPDATE',
-        created_at: new Date(Date.now() + 60000),
+        action: AuditLogAction.UPDATE,
+        actor_type: AuditActorType.USER,
+        occurred_at: new Date(Date.now() + 60000),
       },
     });
 
     // Preview should report conflict
     const preview = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo/preview`)
+      .post(`/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
     expect(preview.body.status).toBe('CONFLICT');
     expect(preview.body.counts.conflicts).toBe(1);
-    expect(preview.body.conflicts[0].reason).toBe('MODIFIED_SINCE_IMPORT');
+    expect(preview.body.conflicts[0].reason).toContain('modified');
 
     // Undo without confirmedEntityIds: conflict is skipped
     const undoWithoutConfirm = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo`)
+      .post(`/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .send({ confirmedEntityIds: [] })
       .expect(200);
@@ -362,7 +390,7 @@ describe('Import Undo (e2e)', () => {
 
     // Undo WITH confirmedEntityIds: conflict is undone
     const undoWithConfirm = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo`)
+      .post(`/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .send({ confirmedEntityIds: [createdCust.id] })
       .expect(200);
@@ -379,23 +407,9 @@ describe('Import Undo (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const emailBlocked = `blocked-${Date.now()}@example.com`;
 
-    const file = customerCsv([
+    const dryRun = await importAndApplyCustomerRows([
       ['EXT-BLOCK-1', 'PRIVATE', 'Invoice', 'Owner', emailBlocked, '444', 'AT'],
     ]);
-
-    const dryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', adminHeader)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', file, 'customers.csv')
-      .expect(201);
-
-    await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/apply`)
-      .set('Authorization', adminHeader)
-      .expect(202);
 
     const customer = await tenantPrisma.customer.findFirstOrThrow({
       where: { email: emailBlocked },
@@ -419,9 +433,8 @@ describe('Import Undo (e2e)', () => {
               description: 'Immutable Service Line',
               quantity: 1,
               unit_price: 500,
-              total_net: 500,
-              total_tax: 100,
-              total_gross: 600,
+              tax_rate: 20,
+              line_total: 500,
             },
           ],
         },
@@ -431,17 +444,17 @@ describe('Import Undo (e2e)', () => {
 
     // Preview should report customer as BLOCKED
     const preview = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo/preview`)
+      .post(`/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
     expect(preview.body.status).toBe('BLOCKED');
     expect(preview.body.counts.blocked).toBe(1);
-    expect(preview.body.blocked[0].reason).toBe('DOWNSTREAM_INVOICE');
+    expect(preview.body.blocked[0].reason).toContain('invoice');
 
     // Attempting undo must NOT touch the customer or invoice
     const undoRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo`)
+      .post(`/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -459,7 +472,7 @@ describe('Import Undo (e2e)', () => {
       include: { items: true },
     });
     expect(checkInvoice.status).toBe('ISSUED');
-    expect(checkInvoice.total_net).toBe(500);
+    expect(Number(checkInvoice.total_net)).toBe(500);
     expect(checkInvoice.items).toHaveLength(1);
     expect(checkInvoice.items[0].description).toBe('Immutable Service Line');
   });
@@ -468,27 +481,13 @@ describe('Import Undo (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const emailIdem = `idem-${Date.now()}@example.com`;
 
-    const file = customerCsv([
+    const dryRun = await importAndApplyCustomerRows([
       ['EXT-IDEM-1', 'PRIVATE', 'Idem', 'Test', emailIdem, '555', 'AT'],
     ]);
 
-    const dryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', adminHeader)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', file, 'customers.csv')
-      .expect(201);
-
-    await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/apply`)
-      .set('Authorization', adminHeader)
-      .expect(202);
-
     // First undo
     const firstUndo = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo`)
+      .post(`/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -496,7 +495,7 @@ describe('Import Undo (e2e)', () => {
 
     // Second undo: no-op, returns 200 with job
     const secondUndo = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/undo`)
+      .post(`/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 

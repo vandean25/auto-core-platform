@@ -6,6 +6,17 @@ import type {
 
 const LEAWAY_MS = 1000;
 
+const DOC_OR_FINANCIAL_IMPORT_TYPES = new Set([
+  'LEGACY_INVOICE',
+  'LEGACY_SERVICE_ORDER',
+  'STOCK_OPENING_BALANCE',
+  'OPEN_WORKSHOP_ORDER',
+]);
+
+export function isDocOrFinancialImport(entityType: string): boolean {
+  return DOC_OR_FINANCIAL_IMPORT_TYPES.has(entityType);
+}
+
 export async function checkEntityUndoEligibility(
   client: UndoGuardPrismaClient,
   tenantId: string,
@@ -14,12 +25,7 @@ export async function checkEntityUndoEligibility(
   appliedAt: Date,
 ): Promise<ImportUndoEligibility> {
   // Financial and document imports cannot be undone
-  if (
-    entityType === 'LEGACY_INVOICE' ||
-    entityType === 'LEGACY_SERVICE_ORDER' ||
-    entityType === 'STOCK_OPENING_BALANCE' ||
-    entityType === 'OPEN_WORKSHOP_ORDER'
-  ) {
+  if (isDocOrFinancialImport(entityType)) {
     return {
       status: 'BLOCKED',
       reason: 'Financial and document imports cannot be undone',
@@ -121,81 +127,101 @@ async function checkReferences(
   }
 }
 
+interface ReferenceCheckItem {
+  type: string;
+  label: string;
+  query: () => Promise<{ id: string; number?: string | null } | null>;
+}
+
+async function evaluateReferenceChecks(
+  checks: ReferenceCheckItem[],
+): Promise<ImportUndoEligibility> {
+  for (const check of checks) {
+    const ref = await check.query();
+    if (ref) {
+      return {
+        status: 'BLOCKED',
+        reason: `Referenced by ${check.label} ${ref.number ?? ref.id}`,
+        references: [`${check.type}:${ref.id}`],
+      };
+    }
+  }
+  return { status: 'ELIGIBLE' };
+}
+
 async function checkCustomerReferences(
   client: UndoGuardPrismaClient,
   tenantId: string,
   customerId: string,
 ): Promise<ImportUndoEligibility> {
-  const invoice = await client.invoice.findFirst({
-    where: { tenant_id: tenantId, customer_id: customerId },
-  });
-  if (invoice) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by invoice ${invoice.invoice_number ?? invoice.id}`,
-      references: [`invoice:${invoice.id}`],
-    };
-  }
-
-  const wo = await client.workshopOrder.findFirst({
-    where: {
-      tenant_id: tenantId,
-      OR: [{ customer_id: customerId }, { bill_to_customer_id: customerId }],
+  return evaluateReferenceChecks([
+    {
+      type: 'invoice',
+      label: 'invoice',
+      query: async () => {
+        const row = await client.invoice.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id, number: row.invoice_number } : null;
+      },
     },
-  });
-  if (wo) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by workshop order ${wo.order_number ?? wo.id}`,
-      references: [`workshopOrder:${wo.id}`],
-    };
-  }
-
-  const so = await client.salesOrder.findFirst({
-    where: { tenant_id: tenantId, customer_id: customerId },
-  });
-  if (so) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by sales order ${so.order_number ?? so.id}`,
-      references: [`salesOrder:${so.id}`],
-    };
-  }
-
-  const vs = await client.vehicleSale.findFirst({
-    where: { tenant_id: tenantId, customer_id: customerId },
-  });
-  if (vs) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by vehicle sale ${vs.sale_number ?? vs.id}`,
-      references: [`vehicleSale:${vs.id}`],
-    };
-  }
-
-  const vp = await client.vehiclePurchase.findFirst({
-    where: { tenant_id: tenantId, customer_id: customerId },
-  });
-  if (vp) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by vehicle purchase ${vp.purchase_number ?? vp.id}`,
-      references: [`vehiclePurchase:${vp.id}`],
-    };
-  }
-
-  const lb = await client.loanerBooking.findFirst({
-    where: { tenant_id: tenantId, customer_id: customerId },
-  });
-  if (lb) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by loaner booking ${lb.id}`,
-      references: [`loanerBooking:${lb.id}`],
-    };
-  }
-
-  return { status: 'ELIGIBLE' };
+    {
+      type: 'workshopOrder',
+      label: 'workshop order',
+      query: async () => {
+        const row = await client.workshopOrder.findFirst({
+          where: {
+            tenant_id: tenantId,
+            OR: [
+              { customer_id: customerId },
+              { bill_to_customer_id: customerId },
+            ],
+          },
+        });
+        return row ? { id: row.id, number: row.order_number } : null;
+      },
+    },
+    {
+      type: 'salesOrder',
+      label: 'sales order',
+      query: async () => {
+        const row = await client.salesOrder.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id, number: row.order_number } : null;
+      },
+    },
+    {
+      type: 'vehicleSale',
+      label: 'vehicle sale',
+      query: async () => {
+        const row = await client.vehicleSale.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id, number: row.sale_number } : null;
+      },
+    },
+    {
+      type: 'vehiclePurchase',
+      label: 'vehicle purchase',
+      query: async () => {
+        const row = await client.vehiclePurchase.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id, number: row.purchase_number } : null;
+      },
+    },
+    {
+      type: 'loanerBooking',
+      label: 'loaner booking',
+      query: async () => {
+        const row = await client.loanerBooking.findFirst({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+  ]);
 }
 
 async function checkVehicleReferences(
@@ -203,73 +229,68 @@ async function checkVehicleReferences(
   tenantId: string,
   vehicleId: string,
 ): Promise<ImportUndoEligibility> {
-  const wo = await client.workshopOrder.findFirst({
-    where: { tenant_id: tenantId, vehicle_id: vehicleId },
-  });
-  if (wo) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by workshop order ${wo.order_number ?? wo.id}`,
-      references: [`workshopOrder:${wo.id}`],
-    };
-  }
-
-  const inv = await client.invoice.findFirst({
-    where: { tenant_id: tenantId, vehicle_id: vehicleId },
-  });
-  if (inv) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by invoice ${inv.invoice_number ?? inv.id}`,
-      references: [`invoice:${inv.id}`],
-    };
-  }
-
-  const so = await client.salesOrder.findFirst({
-    where: { tenant_id: tenantId, vehicle_id: vehicleId },
-  });
-  if (so) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by sales order ${so.order_number ?? so.id}`,
-      references: [`salesOrder:${so.id}`],
-    };
-  }
-
-  const vle = await client.vehicleLedgerEntry.findFirst({
-    where: { tenant_id: tenantId, vehicle_id: vehicleId },
-  });
-  if (vle) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by vehicle ledger entry ${vle.id}`,
-      references: [`vehicleLedgerEntry:${vle.id}`],
-    };
-  }
-
-  const vs = await client.vehicleSale.findFirst({
-    where: { tenant_id: tenantId, vehicle_id: vehicleId },
-  });
-  if (vs) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by vehicle sale ${vs.sale_number ?? vs.id}`,
-      references: [`vehicleSale:${vs.id}`],
-    };
-  }
-
-  const vp = await client.vehiclePurchase.findFirst({
-    where: { tenant_id: tenantId, vehicle_id: vehicleId },
-  });
-  if (vp) {
-    return {
-      status: 'BLOCKED',
-      reason: `Referenced by vehicle purchase ${vp.purchase_number ?? vp.id}`,
-      references: [`vehiclePurchase:${vp.id}`],
-    };
-  }
-
-  return { status: 'ELIGIBLE' };
+  return evaluateReferenceChecks([
+    {
+      type: 'workshopOrder',
+      label: 'workshop order',
+      query: async () => {
+        const row = await client.workshopOrder.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id, number: row.order_number } : null;
+      },
+    },
+    {
+      type: 'invoice',
+      label: 'invoice',
+      query: async () => {
+        const row = await client.invoice.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id, number: row.invoice_number } : null;
+      },
+    },
+    {
+      type: 'salesOrder',
+      label: 'sales order',
+      query: async () => {
+        const row = await client.salesOrder.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id, number: row.order_number } : null;
+      },
+    },
+    {
+      type: 'vehicleLedgerEntry',
+      label: 'vehicle ledger entry',
+      query: async () => {
+        const row = await client.vehicleLedgerEntry.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id } : null;
+      },
+    },
+    {
+      type: 'vehicleSale',
+      label: 'vehicle sale',
+      query: async () => {
+        const row = await client.vehicleSale.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id, number: row.sale_number } : null;
+      },
+    },
+    {
+      type: 'vehiclePurchase',
+      label: 'vehicle purchase',
+      query: async () => {
+        const row = await client.vehiclePurchase.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        return row ? { id: row.id, number: row.purchase_number } : null;
+      },
+    },
+  ]);
 }
 
 async function checkLaborOperationReferences(

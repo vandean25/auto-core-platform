@@ -15,11 +15,24 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { assertTenantAdmin } from '../site/site.authorization.js';
 import { ImportAuditWriter } from './import-audit.writer.js';
-import { checkEntityUndoEligibility } from './import-undo.guard.js';
+import {
+  checkEntityUndoEligibility,
+  isDocOrFinancialImport,
+} from './import-undo.guard.js';
 import { UndoImportJobDto } from './dto/undo-import-job.dto.js';
 import type { ImportJobTotals } from './import.types.js';
 
 const UNDO_BATCH_SIZE = 50;
+
+const UNDOABLE_STATUSES = new Set<ImportJobStatus>([
+  ImportJobStatus.APPLIED,
+  ImportJobStatus.PARTIALLY_UNDONE,
+]);
+
+function getAppliedRowsCount(totals: ImportJobTotals | null): number {
+  if (!totals) return 0;
+  return (totals.create || 0) + (totals.update || 0);
+}
 
 function validateJobForUndo(
   job: ImportJob | null,
@@ -29,12 +42,12 @@ function validateJobForUndo(
     throw new NotFoundException(`Import job ${jobId} not found`);
   }
 
-  const totals = job.totals_json as ImportJobTotals | null;
-  const appliedRowsCount = (totals?.create ?? 0) + (totals?.update ?? 0);
+  const appliedRowsCount = getAppliedRowsCount(
+    job.totals_json as ImportJobTotals | null,
+  );
 
   const isUndoableStatus =
-    job.status === ImportJobStatus.APPLIED ||
-    job.status === ImportJobStatus.PARTIALLY_UNDONE ||
+    UNDOABLE_STATUSES.has(job.status) ||
     (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
 
   if (!isUndoableStatus) {
@@ -43,12 +56,7 @@ function validateJobForUndo(
     );
   }
 
-  if (
-    job.entity_type === 'LEGACY_INVOICE' ||
-    job.entity_type === 'LEGACY_SERVICE_ORDER' ||
-    job.entity_type === 'STOCK_OPENING_BALANCE' ||
-    job.entity_type === 'OPEN_WORKSHOP_ORDER'
-  ) {
+  if (isDocOrFinancialImport(job.entity_type)) {
     throw new BadRequestException(
       'Financial and document imports cannot be undone',
     );
@@ -71,6 +79,55 @@ interface UndoCounts {
   blockedCount: number;
   blockedReasons: Record<string, string>;
 }
+
+function parseDateOrNull(val: unknown): Date | null {
+  return val ? new Date(val as string) : null;
+}
+
+type EntityRestorer = (
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  entityId: string,
+  snapshot: Record<string, unknown>,
+) => Promise<unknown>;
+
+const ENTITY_RESTORERS: Record<string, EntityRestorer> = {
+  CUSTOMER: (tx, tenantId, id, data) =>
+    tx.customer.updateMany({
+      where: { tenant_id: tenantId, id },
+      data,
+    }),
+  VEHICLE: (tx, tenantId, id, data) =>
+    tx.vehicle.updateMany({
+      where: { tenant_id: tenantId, id },
+      data: {
+        ...data,
+        first_registration_date: parseDateOrNull(data.first_registration_date),
+      },
+    }),
+  LABOR_OPERATION: (tx, tenantId, id, data) =>
+    tx.laborOperation.updateMany({
+      where: { tenant_id: tenantId, id },
+      data,
+    }),
+  VEHICLE_PARTY: (tx, tenantId, id, data) =>
+    tx.vehicleParty.updateMany({
+      where: { tenant_id: tenantId, id },
+      data: {
+        ...data,
+        valid_from: parseDateOrNull(data.valid_from),
+        valid_to: parseDateOrNull(data.valid_to),
+      },
+    }),
+  VEHICLE_NOTICE: (tx, tenantId, id, data) =>
+    tx.vehicleNotice.updateMany({
+      where: { tenant_id: tenantId, id },
+      data: {
+        ...data,
+        due_date: parseDateOrNull(data.due_date),
+      },
+    }),
+};
 
 @Injectable()
 export class ImportUndoService {
@@ -408,61 +465,9 @@ export class ImportUndoService {
     entityId: string,
     snapshot: Record<string, unknown>,
   ): Promise<void> {
-    switch (entityType) {
-      case 'CUSTOMER':
-        await tx.customer.updateMany({
-          where: { tenant_id: tenantId, id: entityId },
-          data: snapshot,
-        });
-        break;
-      case 'VEHICLE': {
-        const vehicleData = {
-          ...snapshot,
-          first_registration_date: snapshot.first_registration_date
-            ? new Date(snapshot.first_registration_date as string)
-            : null,
-        } as Prisma.VehicleUpdateManyMutationInput;
-        await tx.vehicle.updateMany({
-          where: { tenant_id: tenantId, id: entityId },
-          data: vehicleData,
-        });
-        break;
-      }
-      case 'LABOR_OPERATION':
-        await tx.laborOperation.updateMany({
-          where: { tenant_id: tenantId, id: entityId },
-          data: snapshot,
-        });
-        break;
-      case 'VEHICLE_PARTY': {
-        const partyData = {
-          ...snapshot,
-          valid_from: snapshot.valid_from
-            ? new Date(snapshot.valid_from as string)
-            : null,
-          valid_to: snapshot.valid_to
-            ? new Date(snapshot.valid_to as string)
-            : null,
-        } as Prisma.VehiclePartyUpdateManyMutationInput;
-        await tx.vehicleParty.updateMany({
-          where: { tenant_id: tenantId, id: entityId },
-          data: partyData,
-        });
-        break;
-      }
-      case 'VEHICLE_NOTICE': {
-        const noticeData = {
-          ...snapshot,
-          due_date: snapshot.due_date
-            ? new Date(snapshot.due_date as string)
-            : null,
-        } as Prisma.VehicleNoticeUpdateManyMutationInput;
-        await tx.vehicleNotice.updateMany({
-          where: { tenant_id: tenantId, id: entityId },
-          data: noticeData,
-        });
-        break;
-      }
+    const restorer = ENTITY_RESTORERS[entityType];
+    if (restorer) {
+      await restorer(tx, tenantId, entityId, snapshot);
     }
   }
 }
