@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import type { TenantMemberRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -29,7 +30,12 @@ type InterpretBody = {
   status: string;
   command_id: string;
   code?: string;
-  choices?: Array<{ choice_id: string; slot: string; value: string; label: string }>;
+  choices?: Array<{
+    choice_id: string;
+    slot: string;
+    value: string;
+    label: string;
+  }>;
   site_id?: string;
   customer_id?: string;
   vehicle_id?: string;
@@ -228,7 +234,10 @@ describe('Workshop command (e2e)', () => {
       });
   }
 
-  function propose(commandId: string, selections?: Array<{ slot: string; value: string }>) {
+  function propose(
+    commandId: string,
+    selections?: Array<{ slot: string; value: string }>,
+  ) {
     return request(app.getHttpServer())
       .post(PROPOSE_PATH)
       .set('Authorization', `Bearer ${authToken}`)
@@ -247,7 +256,9 @@ describe('Workshop command (e2e)', () => {
       .expect(200);
   }
 
-  async function interpretReady(overrides: Record<string, unknown> = {}): Promise<InterpretBody> {
+  async function interpretReady(
+    overrides: Record<string, unknown> = {},
+  ): Promise<InterpretBody> {
     const response = await interpret({
       command_id: newCommandId(),
       text: FULL_SENTENCE,
@@ -257,7 +268,7 @@ describe('Workshop command (e2e)', () => {
     return response.body as InterpretBody;
   }
 
-  async function createCallerWithRole(role: string): Promise<string> {
+  async function createCallerWithRole(role: TenantMemberRole): Promise<string> {
     const uid = `workshop-${role.toLowerCase()}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const user = await basePrisma.user.create({
       data: {
@@ -349,15 +360,22 @@ describe('Workshop command (e2e)', () => {
       }),
     );
     expect(body.loaner).toEqual(
-      expect.objectContaining({ requested: true, loaner_vehicle_id: loanerVehicleId }),
+      expect.objectContaining({
+        requested: true,
+        loaner_vehicle_id: loanerVehicleId,
+      }),
     );
     expect(body.position_plan?.lines).toHaveLength(3);
 
     expect(
-      await prisma.workshopOrder.count({ where: { tenant_id: tenant.tenantId } }),
+      await prisma.workshopOrder.count({
+        where: { tenant_id: tenant.tenantId },
+      }),
     ).toBe(0);
     expect(
-      await prisma.loanerBooking.count({ where: { tenant_id: tenant.tenantId } }),
+      await prisma.loanerBooking.count({
+        where: { tenant_id: tenant.tenantId },
+      }),
     ).toBe(0);
   });
 
@@ -395,7 +413,9 @@ describe('Workshop command (e2e)', () => {
 
     const commandId = newCommandId();
     const customerClarification = (
-      await interpret({ command_id: commandId, text: FULL_SENTENCE }).expect(200)
+      await interpret({ command_id: commandId, text: FULL_SENTENCE }).expect(
+        200,
+      )
     ).body as InterpretBody;
     expect(customerClarification.status).toBe('clarification');
     expect(customerClarification.code).toBe('CUSTOMER_AMBIGUOUS');
@@ -414,8 +434,12 @@ describe('Workshop command (e2e)', () => {
     ).body as InterpretBody;
     expect(vehicleClarification.status).toBe('clarification');
     expect(vehicleClarification.code).toBe('VEHICLE_AMBIGUOUS');
-    const vehicleChoices = (vehicleClarification.choices ?? []).map((choice) => choice.value);
-    expect(vehicleChoices).toEqual(expect.arrayContaining([golfId, secondGolf.id]));
+    const vehicleChoices = (vehicleClarification.choices ?? []).map(
+      (choice) => choice.value,
+    );
+    expect(vehicleChoices).toEqual(
+      expect.arrayContaining([golfId, secondGolf.id]),
+    );
 
     const resolved = (
       await interpret({
@@ -496,10 +520,14 @@ describe('Workshop command (e2e)', () => {
     expect(retried.body.trace_id).toBe(created.body.trace_id);
 
     expect(
-      await prisma.workshopOrder.count({ where: { tenant_id: tenant.tenantId } }),
+      await prisma.workshopOrder.count({
+        where: { tenant_id: tenant.tenantId },
+      }),
     ).toBe(0);
     expect(
-      await prisma.loanerBooking.count({ where: { tenant_id: tenant.tenantId } }),
+      await prisma.loanerBooking.count({
+        where: { tenant_id: tenant.tenantId },
+      }),
     ).toBe(0);
   });
 
@@ -543,16 +571,23 @@ describe('Workshop command (e2e)', () => {
     expect(order.status).toBe('SCHEDULED');
     expect(order.site_id).toBe(siteId);
     expect(order.bay_id).toBe(bayId);
-    expect(order.scheduled_start_at?.toISOString()).toBe(intent.schedule!.start_at);
+    expect(order.scheduled_start_at?.toISOString()).toBe(
+      intent.schedule!.start_at,
+    );
     expect(order.scheduled_end_at?.toISOString()).toBe(intent.schedule!.end_at);
 
     const tasks = await prisma.workshopTask.findMany({
       where: { tenant_id: tenant.tenantId, workshop_order_id: order.id },
     });
     expect(tasks).toHaveLength(3);
-    expect(await prisma.workshopTaskLineItem.count({
-      where: { tenant_id: tenant.tenantId, workshop_task_id: { in: tasks.map((task) => task.id) } },
-    })).toBe(3);
+    expect(
+      await prisma.workshopTaskLineItem.count({
+        where: {
+          tenant_id: tenant.tenantId,
+          workshop_task_id: { in: tasks.map((task) => task.id) },
+        },
+      }),
+    ).toBe(3);
 
     const booking = await prisma.loanerBooking.findFirstOrThrow({
       where: { tenant_id: tenant.tenantId, workshop_order_id: order.id },
@@ -616,7 +651,10 @@ describe('Workshop command (e2e)', () => {
     expect(withLoaner.body.status).toBe('clarification');
     expect(withLoaner.body.code).toBe('LOANER_NOT_PERMITTED');
     expect(withLoaner.body.choices).toEqual([
-      expect.objectContaining({ slot: 'loaner', value: 'continue_without_loaner' }),
+      expect.objectContaining({
+        slot: 'loaner',
+        value: 'continue_without_loaner',
+      }),
     ]);
 
     const withoutLoaner = await request(app.getHttpServer())
@@ -647,7 +685,7 @@ describe('Workshop command (e2e)', () => {
 
     const directPropose = await propose(commandId, [
       { slot: 'customer_id', value: customerId },
-      { slot: 'vehicle_id', value: secondGolf.id },
+      { slot: 'vehicle_id', value: golfId },
     ]).expect(409);
 
     expect(directPropose.body.code).toBe('PLAN_STALE');
@@ -656,7 +694,8 @@ describe('Workshop command (e2e)', () => {
   describe('HTTP role matrix authorization (403 for unauthorized roles)', () => {
     const TRANSCRIBE_PATH = '/api/voice-translation/transcribe';
 
-    it.each(['TECH', 'DEMO'])(
+    const unauthorizedRoles: TenantMemberRole[] = ['TECH', 'DEMO'];
+    it.each(unauthorizedRoles)(
       'forbids %s from interpret, propose, and transcribe',
       async (role) => {
         const callerToken = await createCallerWithRole(role);
@@ -685,7 +724,11 @@ describe('Workshop command (e2e)', () => {
         await request(app.getHttpServer())
           .post(TRANSCRIBE_PATH)
           .set('Authorization', callerToken)
-          .attach('audio', Buffer.from('fake-audio-bytes-for-test'), 'test.webm')
+          .attach(
+            'audio',
+            Buffer.from('fake-audio-bytes-for-test'),
+            'test.webm',
+          )
           .expect(403);
       },
     );
@@ -725,7 +768,9 @@ describe('Workshop command (e2e)', () => {
   it('fails the competing proposal when the bay is taken at apply time', async () => {
     await enableBookingPolicy();
     const first = await interpretReady({ text: FULL_SENTENCE });
-    const second = await interpretReady({ text: NO_LOANER_SENTENCE.replace('Huber Golf', 'Huber Polo') });
+    const second = await interpretReady({
+      text: NO_LOANER_SENTENCE.replace('Huber Golf', 'Huber Polo'),
+    });
 
     expect(first.vehicle_id).toBe(golfId);
     expect(second.vehicle_id).toBe(poloId);
@@ -734,12 +779,16 @@ describe('Workshop command (e2e)', () => {
     const secondProposal = await propose(second.command_id).expect(201);
 
     await request(app.getHttpServer())
-      .post(`/api/agent-proposals/${firstProposal.body.pending_action_id}/apply`)
+      .post(
+        `/api/agent-proposals/${firstProposal.body.pending_action_id}/apply`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     const conflict = await request(app.getHttpServer())
-      .post(`/api/agent-proposals/${secondProposal.body.pending_action_id}/apply`)
+      .post(
+        `/api/agent-proposals/${secondProposal.body.pending_action_id}/apply`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
       .expect(409);
     expect(conflict.body.message).toMatch(/Bay is already occupied/);
@@ -759,7 +808,9 @@ describe('Workshop command (e2e)', () => {
     ).toBe(0);
 
     const retried = await request(app.getHttpServer())
-      .post(`/api/agent-proposals/${secondProposal.body.pending_action_id}/apply`)
+      .post(
+        `/api/agent-proposals/${secondProposal.body.pending_action_id}/apply`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
       .expect(409);
     expect(retried.body.message).toContain('FAILED');
