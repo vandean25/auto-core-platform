@@ -5115,6 +5115,8 @@ enum ImportJobStatus {
   APPLIED
   FAILED
   CANCELLED
+  UNDONE
+  PARTIALLY_UNDONE
 }
 
 enum ImportRowAction {
@@ -5314,6 +5316,7 @@ model ImportJobRow {
   warnings_json   Json?
   normalized_json Json?
   apply_seq       Int?
+  before_snapshot_json Json?
 
   @@id([tenant_id, import_job_id, row_no])
   @@index([tenant_id, import_job_id, action])

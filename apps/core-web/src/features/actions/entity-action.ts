@@ -29,6 +29,7 @@ export const ENTITY_ACTION_IDS = {
   tyreSetRecordTyreMeasurement: 'tyreSet.recordTyreMeasurement',
   importJobResume: 'importJob.resume',
   importJobOpen: 'importJob.open',
+  importJobUndo: 'importJob.undo',
   importJobDownloadErrors: 'importJob.downloadErrors',
   importJobCancel: 'importJob.cancel',
 } as const

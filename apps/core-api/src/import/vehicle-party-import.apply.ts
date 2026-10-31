@@ -19,6 +19,10 @@ import {
 } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { createExternalMapping } from './import-external-id.store.js';
+import {
+  recordImportRowBeforeSnapshot,
+  recordImportRowEntityId,
+} from './import-row-snapshot.util.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import type { ImportJobOptions } from './import.types.js';
 
@@ -68,6 +72,7 @@ function writeContext(ctx: PartyApplyContext): PartyWriteContext {
 async function createParty(
   tx: Prisma.TransactionClient,
   ctx: PartyApplyContext,
+  rowNo: number,
   externalId: string,
   payload: PartyPayload,
 ): Promise<void> {
@@ -93,6 +98,13 @@ async function createParty(
     created.id,
     ctx.job.id,
   );
+  await recordImportRowEntityId(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    created.id,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -109,6 +121,7 @@ async function createParty(
 async function updateParty(
   tx: Prisma.TransactionClient,
   ctx: PartyApplyContext,
+  rowNo: number,
   partyId: string,
   payload: PartyPayload,
 ): Promise<void> {
@@ -124,6 +137,13 @@ async function updateParty(
     payload.vehicle_id,
     partyId,
     payload,
+  );
+  await recordImportRowBeforeSnapshot(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    auditSnapshot(before),
   );
   await ctx.audit.writeEntityAudit(
     tx,
@@ -149,11 +169,11 @@ export async function applyVehiclePartyImportRow(
   const party = payload as unknown as PartyPayload;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createParty(tx, ctx, externalId, party);
+    await createParty(tx, ctx, row.row_no, externalId, party);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateParty(tx, ctx, row.entity_id, party);
+    await updateParty(tx, ctx, row.row_no, row.entity_id, party);
     if (party.adopts_existing === true) {
       await createExternalMapping(
         tx,

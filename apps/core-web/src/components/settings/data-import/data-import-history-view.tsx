@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { DataTable } from '@/components/data-table/DataTable'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
+import { DataImportUndoDialog } from './data-import-undo-dialog'
 import { useDataImportHistory } from './use-data-import-history'
 
 /** Read-only history of this tenant's imports; opening a row resumes it in the wizard. */
@@ -37,6 +38,14 @@ export function DataImportHistoryView({ onOpenJob }: { onOpenJob: (jobId: string
         rowBehaviour={history.rowBehaviour}
         enableCsvExport={false}
         emptyState={history.isError ? undefined : { message: t('dataImport.history.empty') }}
+      />
+
+      <DataImportUndoDialog
+        jobId={history.undoJobId}
+        open={Boolean(history.undoJobId)}
+        onOpenChange={(open) => {
+          if (!open) history.setUndoJobId(null)
+        }}
       />
     </div>
   )
