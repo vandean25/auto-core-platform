@@ -727,8 +727,7 @@ function wrapTransactionCallback(
     runWithTenantContext(tenantId, async () =>
       PrismaTransactionContext.run(
         tx as Prisma.TransactionClient,
-        async () =>
-          await callback(createTenantAwarePrisma(tx as object, tenantId)),
+        async () => await callback(tx),
       ),
     );
 }
@@ -746,8 +745,58 @@ function createTransactionProxy(
         ...rest,
       ]);
     }
-    return Reflect.apply(value, target, [first, ...rest]);
+    return runWithTenantContext(tenantId, () =>
+      Reflect.apply(value, target, [first, ...rest]),
+    );
   };
+}
+
+function createFunctionProxy(
+  value: (...args: unknown[]) => unknown,
+  target: object,
+  tenantId: string,
+) {
+  return (...args: unknown[]) =>
+    runWithTenantContext(tenantId, async () => {
+      const result = Reflect.apply(value, target, args);
+      return await Promise.resolve(result);
+    });
+}
+
+function resolveFunctionMember(
+  value: (...args: unknown[]) => unknown,
+  prop: string | symbol,
+  target: object,
+  tenantId: string,
+) {
+  if (prop === '$transaction') {
+    return createTransactionProxy(value, target, tenantId);
+  }
+  return createFunctionProxy(value, target, tenantId);
+}
+
+function resolveTenantMember(
+  target: object,
+  prop: string | symbol,
+  receiver: unknown,
+  tenantId: string,
+) {
+  const value = Reflect.get(target, prop, receiver);
+
+  if (typeof value === 'function') {
+    return resolveFunctionMember(
+      value as (...args: unknown[]) => unknown,
+      prop,
+      target,
+      tenantId,
+    );
+  }
+
+  if (value && typeof value === 'object') {
+    return wrapDelegateWithTenantContext(value as object, tenantId);
+  }
+
+  return value;
 }
 
 export function createTenantAwarePrisma<T extends object>(
@@ -758,33 +807,7 @@ export function createTenantAwarePrisma<T extends object>(
 
   return new Proxy(base, {
     get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
-
-      if (typeof value === 'function') {
-        if (prop === '$transaction') {
-          return createTransactionProxy(
-            value as (...args: unknown[]) => unknown,
-            target,
-            tenantId,
-          );
-        }
-
-        return (...args: unknown[]) =>
-          runWithTenantContext(tenantId, async () => {
-            const result = Reflect.apply(
-              value as (...args: unknown[]) => unknown,
-              target,
-              args,
-            );
-            return await Promise.resolve(result);
-          });
-      }
-
-      if (value && typeof value === 'object') {
-        return wrapDelegateWithTenantContext(value as object, tenantId);
-      }
-
-      return value;
+      return resolveTenantMember(target, prop, receiver, tenantId);
     },
   });
 }
