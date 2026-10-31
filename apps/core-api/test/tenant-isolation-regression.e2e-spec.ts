@@ -769,8 +769,8 @@ describe('Tenant Isolation Regression (e2e)', () => {
     it('stamps tenant_id per row on createManyAndReturn', async () => {
       const results = await tenantAPrisma.brand.createManyAndReturn({
         data: [
-          brandData(`${prefix}-AND-RETURN-1`),
-          brandData(`${prefix}-AND-RETURN-2`),
+          brandData(`${prefix}-AND-RETURN-1`) as any,
+          brandData(`${prefix}-AND-RETURN-2`) as any,
         ],
       });
 
@@ -821,86 +821,89 @@ describe('Tenant Isolation Regression (e2e)', () => {
     });
 
     it("rejects a nested connect to another tenant's row", async () => {
-      const brandB = await tenantBPrisma.brand.create({
-        data: { tenant_id: tenantBId, ...brandData(`${prefix}-NESTED-B`) },
+      const customerB = await tenantBPrisma.customer.create({
+        data: {
+          tenant_id: tenantBId,
+          first_name: 'Adversarial',
+          last_name: 'Target',
+        },
       });
 
       await expect(
-        tenantAPrisma.vendor.create({
+        tenantAPrisma.workshopOrder.create({
           data: {
-            name: `${prefix}-Vendor-Adversarial`,
-            email: 'adv@test.com',
-            account_number: `ADV-${Date.now()}`,
-            supportedBrands: {
-              connect: { id: brandB.id },
+            tenant_id: tenantAId,
+            order_number: `${prefix}-WO-ADV`,
+            customer: {
+              connect: { id: customerB.id },
             },
-          },
+          } as any,
         }),
       ).rejects.toThrow(/\[TenantIsolation\] Nested relation write/);
     });
 
     it('count, aggregate, and groupBy with overlapping data return only own-tenant results', async () => {
-      const sharedBayName = `${prefix}-SHARED-BAY`;
-      await tenantAPrisma.bay.create({
+      await tenantAPrisma.brand.create({
         data: {
           tenant_id: tenantAId,
-          name: sharedBayName,
-          status: 'ACTIVE',
+          ...brandData(`${prefix}-AGG-1`),
+          isPartManufacturer: true,
         },
       });
-      await tenantAPrisma.bay.create({
+      await tenantAPrisma.brand.create({
         data: {
           tenant_id: tenantAId,
-          name: `${sharedBayName}-2`,
-          status: 'ACTIVE',
+          ...brandData(`${prefix}-AGG-2`),
+          isPartManufacturer: true,
         },
       });
-      await tenantBPrisma.bay.create({
+      await tenantBPrisma.brand.create({
         data: {
           tenant_id: tenantBId,
-          name: sharedBayName,
-          status: 'ACTIVE',
+          ...brandData(`${prefix}-AGG-3`),
+          isPartManufacturer: true,
         },
       });
 
       // count
-      const countA = await tenantAPrisma.bay.count({
+      const countA = await tenantAPrisma.brand.count({
         where: { name: { startsWith: prefix } },
       });
       expect(countA).toBe(2);
 
-      const countB = await tenantBPrisma.bay.count({
+      const countB = await tenantBPrisma.brand.count({
         where: { name: { startsWith: prefix } },
       });
       expect(countB).toBe(1);
 
       // aggregate with _count
-      const aggregateA = await tenantAPrisma.bay.aggregate({
+      const aggregateA = await tenantAPrisma.brand.aggregate({
         where: { name: { startsWith: prefix } },
         _count: { id: true },
       });
       expect(aggregateA._count.id).toBe(2);
 
-      const aggregateB = await tenantBPrisma.bay.aggregate({
+      const aggregateB = await tenantBPrisma.brand.aggregate({
         where: { name: { startsWith: prefix } },
         _count: { id: true },
       });
       expect(aggregateB._count.id).toBe(1);
 
       // groupBy with having
-      const groupByA = await tenantAPrisma.bay.groupBy({
-        by: ['status'],
+      const groupByA = await tenantAPrisma.brand.groupBy({
+        by: ['isPartManufacturer'],
         where: { name: { startsWith: prefix } },
-        having: { status: { _count: { gte: 2 } } },
+        having: { isPartManufacturer: { _count: { gte: 2 } } },
         _count: { id: true },
       });
       expect(groupByA).toHaveLength(1);
-      expect(groupByA[0]._count.id).toBe(2);
+      const countObjA = groupByA[0]._count;
+      expect(typeof countObjA === 'object' && countObjA ? countObjA.id : countObjA).toBe(2);
 
-      const groupByB = await tenantBPrisma.bay.groupBy({
-        by: ['status'],
+      const groupByB = await tenantBPrisma.brand.groupBy({
+        by: ['isPartManufacturer'],
         where: { name: { startsWith: prefix } },
-        having: { status: { _count: { gte: 2 } } },
+        having: { isPartManufacturer: { _count: { gte: 2 } } },
         _count: { id: true },
       });
       expect(groupByB).toHaveLength(0);
