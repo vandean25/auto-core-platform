@@ -415,6 +415,8 @@ describe('Import Undo (e2e)', () => {
     });
     expect(restoredCustomer.last_name).toBe('Customer');
     expect(restoredCustomer.phone_digits).toBe('01234567');
+    // The deny-by-default extension rejects a restore that carries tenant_id in its data.
+    expect(restoredCustomer.tenant_id).toBe(tenant.tenantId);
 
     // - Original mapping for pre-existing customer preserved
     const origMapping = await tenantPrisma.externalIdMapping.findFirst({
@@ -1183,6 +1185,138 @@ describe('Import Undo (e2e)', () => {
     });
     expect(completedRows).toHaveLength(60);
     expect(completedRows.every((r) => r.undone_at !== null)).toBe(true);
+  });
+
+  it('resume: a killed undo run is reclaimed and finishes the remaining rows exactly once', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const stamp = Date.now();
+    const emails = [1, 2, 3].map((n) => `resume-${n}-${stamp}@example.com`);
+
+    const job = await importCustomerBatch(
+      emails.map((email, index) => [
+        `EXT-RESUME-${stamp}-${index + 1}`,
+        'PRIVATE',
+        `Resume${index + 1}`,
+        'Customer',
+        email,
+        '12345',
+        'AT',
+      ]),
+    );
+
+    const rows = await tenantPrisma.importJobRow.findMany({
+      where: { import_job_id: job.id },
+      orderBy: { row_no: 'asc' },
+    });
+    expect(rows).toHaveLength(3);
+
+    // Replay the one batch the dead worker committed before it was killed.
+    const doneRow = rows[0];
+    const doneEntityId = doneRow.entity_id ?? '';
+    await tenantPrisma.externalIdMapping.deleteMany({
+      where: { entity_id: doneEntityId },
+    });
+    await tenantPrisma.customer.deleteMany({ where: { id: doneEntityId } });
+    await tenantPrisma.importJobRow.updateMany({
+      where: { import_job_id: job.id, row_no: doneRow.row_no },
+      data: { undone_at: new Date() },
+    });
+
+    const adminUser = await systemPrisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true, email: true },
+    });
+    const deadAt = new Date(Date.now() - 10 * 60_000).toISOString();
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: {
+        status: ImportJobStatus.UNDOING,
+        options_json: {
+          undo_worker: {
+            lease_token: 'dead-worker',
+            lease_until: deadAt,
+            started_at: deadAt,
+            heartbeat_at: deadAt,
+            actor_user_id: adminUser.id,
+            actor_email: adminUser.email,
+            actor_role: 'ADMIN',
+            resume_status: ImportJobStatus.APPLIED,
+            confirmed_entity_ids: [],
+            cursor: String(doneRow.row_no),
+            processed_rows: 1,
+            total_rows: 3,
+            deleted_rows: 1,
+            restored_rows: 0,
+            blocked_reasons: {},
+          },
+        },
+      },
+    });
+
+    const countJobAudits = () =>
+      tenantPrisma.auditLog.count({
+        where: {
+          entity_type: 'ImportJob',
+          entity_id: job.id,
+          action: AuditLogAction.UPDATE,
+        },
+      });
+    const auditsBefore = await countJobAudits();
+
+    const resumeRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+
+    expect(resumeRes.body.status).toBe('UNDONE');
+    // The killed run's deletion stays in the total instead of being overwritten.
+    expect(resumeRes.body.options.undo).toMatchObject({
+      deleted: 3,
+      restored: 0,
+      blocked: 0,
+    });
+    expect(resumeRes.body.options.undo_worker).toBeUndefined();
+
+    expect(
+      await tenantPrisma.customer.findMany({
+        where: { email: { in: emails } },
+      }),
+    ).toEqual([]);
+
+    const finalRows = await tenantPrisma.importJobRow.findMany({
+      where: { import_job_id: job.id },
+    });
+    expect(finalRows).toHaveLength(3);
+    expect(finalRows.every((row) => row.undone_at !== null)).toBe(true);
+
+    expect(await countJobAudits()).toBe(auditsBefore + 1);
+  });
+
+  it('undoes a FAILED job whose apply already wrote rows', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const email = `failed-apply-${Date.now()}@example.com`;
+
+    const job = await importCustomerBatch([
+      ['EXT-FAILED-1', 'PRIVATE', 'Failed', 'Apply', email, '321', 'AT'],
+    ]);
+
+    // A failed apply keeps the rows it already wrote; undo must still revert them.
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: { status: ImportJobStatus.FAILED },
+    });
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+
+    expect(undoRes.body.status).toBe('UNDONE');
+    expect(undoRes.body.options.undo).toMatchObject({
+      deleted: 1,
+      blocked: 0,
+    });
+    expect(await tenantPrisma.customer.findFirst({ where: { email } })).toBeNull();
   });
 
   it('already undone: preview reports IMPORT_JOB_ALREADY_UNDONE and a second undo is a no-op', async () => {
