@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -16,26 +17,30 @@ export class CreateCustomerDto {
   @IsOptional()
   type?: CustomerType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ maxLength: 200 })
   @IsString()
+  @MaxLength(200)
   @IsOptional()
   company_name?: string;
 
-  @ApiProperty()
+  @ApiProperty({ maxLength: 120 })
   @IsString()
+  @MaxLength(120)
   first_name!: string;
 
-  @ApiProperty()
+  @ApiProperty({ maxLength: 120 })
   @IsString()
+  @MaxLength(120)
   last_name!: string;
 
   // A form sends an empty field as "". The address is optional, so blank text means no address (null clears it on a
   // PATCH, and is stored as no address on create); only real text is checked as an address.
-  @ApiPropertyOptional({ type: String, nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 254 })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() || null : value,
   )
   @IsEmail()
+  @MaxLength(254)
   @IsOptional()
   email?: string | null;
 
@@ -46,33 +51,40 @@ export class CreateCustomerDto {
   @IsBoolean()
   contact_email_ok?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ maxLength: 40 })
   @IsString()
+  @MaxLength(40)
   @IsOptional()
   phone?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ maxLength: 32 })
   @IsString()
+  @MaxLength(32)
   @IsOptional()
   vat_id?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ maxLength: 200 })
   @IsString()
+  @MaxLength(200)
   @IsOptional()
   address_street?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ maxLength: 120 })
   @IsString()
+  @MaxLength(120)
   @IsOptional()
   address_city?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ maxLength: 20 })
   @IsString()
+  @MaxLength(20)
   @IsOptional()
   address_zip?: string;
 
-  @ApiPropertyOptional()
+  // Rest accepts a free-text country (the MCP schema is restricted to an ISO code), so only a generous cap applies here.
+  @ApiPropertyOptional({ maxLength: 100 })
   @IsString()
+  @MaxLength(100)
   @IsOptional()
   address_country?: string;
 

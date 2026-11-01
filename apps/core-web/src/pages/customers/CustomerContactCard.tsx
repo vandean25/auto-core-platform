@@ -2,29 +2,18 @@ import { toast } from 'sonner'
 import { Phone, Mail, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useUpdateCustomer } from '@/api/customers'
+import { CUSTOMER_FIELD_MAX_LENGTH, type CustomerField } from '@/constants/field-limits'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LegacyNumbers } from '@/components/LegacyNumbers'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import type { CustomerDetailResponse } from './customer-detail-model'
 
-type EditableCustomerField =
-  | 'company_name'
-  | 'first_name'
-  | 'last_name'
-  | 'email'
-  | 'phone'
-  | 'vat_id'
-  | 'address_street'
-  | 'address_zip'
-  | 'address_city'
-  | 'address_country'
-
 function useSaveCustomerField(customerId: string) {
   const { t } = useTranslation('customers')
   const updateCustomer = useUpdateCustomer()
 
-  return async (field: EditableCustomerField, nextValue: string) => {
+  return async (field: CustomerField, nextValue: string) => {
     try {
       await updateCustomer.mutateAsync({
         id: customerId,
@@ -34,11 +23,8 @@ function useSaveCustomerField(customerId: string) {
       })
       toast.success(t('detail.updated'))
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message)
-      } else {
-        toast.error(t('detail.updateFailed'))
-      }
+      // The API answers a refusal in English, so the toast only ever shows the translated fallback.
+      toast.error(t('detail.updateFailed'))
       throw error
     }
   }
@@ -65,6 +51,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
               <InlineEdit
                 value={customer.company_name}
                 onSave={(nextValue) => handleSaveCustomerField('company_name', nextValue)}
+                maxLength={CUSTOMER_FIELD_MAX_LENGTH.company_name}
                 placeholder={t('detail.placeholders.companyName')}
                 emptyText={t('detail.empty.companyName')}
                 ariaLabel={t('detail.aria.companyName')}
@@ -76,6 +63,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
                 <InlineEdit
                   value={customer.first_name}
                   onSave={(nextValue) => handleSaveCustomerField('first_name', nextValue)}
+                  maxLength={CUSTOMER_FIELD_MAX_LENGTH.first_name}
                   placeholder={t('detail.placeholders.firstName')}
                   emptyText={t('detail.empty.firstName')}
                   ariaLabel={t('detail.aria.contactFirstName')}
@@ -86,6 +74,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
                 <InlineEdit
                   value={customer.last_name}
                   onSave={(nextValue) => handleSaveCustomerField('last_name', nextValue)}
+                  maxLength={CUSTOMER_FIELD_MAX_LENGTH.last_name}
                   placeholder={t('detail.placeholders.lastName')}
                   emptyText={t('detail.empty.lastName')}
                   ariaLabel={t('detail.aria.contactLastName')}
@@ -100,6 +89,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
               <InlineEdit
                 value={customer.first_name}
                 onSave={(nextValue) => handleSaveCustomerField('first_name', nextValue)}
+                maxLength={CUSTOMER_FIELD_MAX_LENGTH.first_name}
                 placeholder={t('detail.placeholders.firstName')}
                 emptyText={t('detail.empty.firstName')}
                 ariaLabel={t('detail.aria.firstName')}
@@ -110,6 +100,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
               <InlineEdit
                 value={customer.last_name}
                 onSave={(nextValue) => handleSaveCustomerField('last_name', nextValue)}
+                maxLength={CUSTOMER_FIELD_MAX_LENGTH.last_name}
                 placeholder={t('detail.placeholders.lastName')}
                 emptyText={t('detail.empty.lastName')}
                 ariaLabel={t('detail.aria.lastName')}
@@ -123,6 +114,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
           <InlineEdit
             value={customer.email}
             onSave={(nextValue) => handleSaveCustomerField('email', nextValue)}
+            maxLength={CUSTOMER_FIELD_MAX_LENGTH.email}
             placeholder={t('detail.placeholders.email')}
             emptyText={t('detail.empty.email')}
             ariaLabel={t('detail.aria.email')}
@@ -133,6 +125,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
           <InlineEdit
             value={customer.phone}
             onSave={(nextValue) => handleSaveCustomerField('phone', nextValue)}
+            maxLength={CUSTOMER_FIELD_MAX_LENGTH.phone}
             placeholder={t('detail.placeholders.phone')}
             emptyText={t('detail.empty.phone')}
             ariaLabel={t('detail.aria.phone')}
@@ -148,6 +141,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
               rows={3}
               value={customer.address_street}
               onSave={(nextValue) => handleSaveCustomerField('address_street', nextValue)}
+              maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_street}
               placeholder={t('detail.placeholders.street')}
               emptyText={t('detail.empty.street')}
               ariaLabel={t('detail.aria.street')}
@@ -156,6 +150,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
               <InlineEdit
                 value={customer.address_zip}
                 onSave={(nextValue) => handleSaveCustomerField('address_zip', nextValue)}
+                maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_zip}
                 placeholder={t('detail.placeholders.zip')}
                 emptyText={t('detail.empty.zip')}
                 ariaLabel={t('detail.aria.zip')}
@@ -163,6 +158,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
               <InlineEdit
                 value={customer.address_city}
                 onSave={(nextValue) => handleSaveCustomerField('address_city', nextValue)}
+                maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_city}
                 placeholder={t('detail.placeholders.city')}
                 emptyText={t('detail.empty.city')}
                 ariaLabel={t('detail.aria.city')}
@@ -171,6 +167,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
             <InlineEdit
               value={customer.address_country}
               onSave={(nextValue) => handleSaveCustomerField('address_country', nextValue)}
+              maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_country}
               placeholder={t('detail.placeholders.country')}
               emptyText={t('detail.empty.country')}
               ariaLabel={t('detail.aria.country')}
@@ -183,6 +180,7 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
             <InlineEdit
               value={customer.vat_id}
               onSave={(nextValue) => handleSaveCustomerField('vat_id', nextValue)}
+              maxLength={CUSTOMER_FIELD_MAX_LENGTH.vat_id}
               placeholder={t('detail.placeholders.vatId')}
               emptyText={t('detail.empty.vatId')}
               ariaLabel={t('detail.aria.vatId')}

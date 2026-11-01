@@ -421,7 +421,7 @@ describe('CustomerDetail characterization', () => {
       expect(mutateAsync).toHaveBeenCalledWith({ id: '12345678-aaaa-bbbb', data: { [field]: 'next value' } })
     })
 
-    it('shows the error message when the save fails with an Error', async () => {
+    it('shows the translated message, never the API text, when the save fails with an Error', async () => {
       mutateAsync.mockRejectedValue(new Error('Email already used'))
       renderDetail(baseCustomer())
 
@@ -429,7 +429,8 @@ describe('CustomerDetail characterization', () => {
       fireEvent.change(screen.getByLabelText(detail.aria.email), { target: { value: 'dup@example.com' } })
       fireEvent.keyDown(screen.getByLabelText(detail.aria.email), { key: 'Enter' })
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Email already used'))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(detail.updateFailed))
+      expect(toast.error).not.toHaveBeenCalledWith('Email already used')
       expect(toast.success).not.toHaveBeenCalled()
     })
 

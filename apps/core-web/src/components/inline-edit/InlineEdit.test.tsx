@@ -60,4 +60,26 @@ describe('InlineEdit', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Note must have at least 5 characters')
     expectFieldErrorLinked(textarea, 'Note must have at least 5 characters')
   })
+
+  it('caps the text editor at the length the caller passes', () => {
+    render(<InlineEdit value="Hauptstrasse 1" ariaLabel="Straße" maxLength={200} onSave={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Hauptstrasse 1' }))
+
+    expect(screen.getByRole('textbox', { name: 'Straße' })).toHaveAttribute('maxLength', '200')
+  })
+
+  it('caps the textarea editor at the length the caller passes', () => {
+    render(
+      <InlineEdit
+        value="Hauptstrasse 1"
+        mode="textarea"
+        ariaLabel="Straße"
+        maxLength={200}
+        onSave={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Hauptstrasse 1' }))
+
+    expect(screen.getByRole('textbox', { name: 'Straße' })).toHaveAttribute('maxLength', '200')
+  })
 })

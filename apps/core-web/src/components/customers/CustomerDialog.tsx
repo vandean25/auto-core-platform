@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/form'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { CUSTOMER_FIELD_MAX_LENGTH } from '@/constants/field-limits'
 import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -144,7 +145,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem className="sm:col-span-2">
                                             <FormLabel>{t('dialog.companyName')}</FormLabel>
                                             <FormControl>
-                                                <Input {...field} value={field.value ?? ''} />
+                                                <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.company_name} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -157,7 +158,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem>
                                             <FormLabel>{t('dialog.vatId')}</FormLabel>
                                             <FormControl>
-                                                <Input {...field} value={field.value ?? ''} />
+                                                <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.vat_id} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -174,7 +175,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>{t('dialog.firstName')}</FormLabel>
                                         <FormControl>
-                                            <Input {...field} value={field.value ?? ''} />
+                                            <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.first_name} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -187,7 +188,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>{t('dialog.lastName')}</FormLabel>
                                         <FormControl>
-                                            <Input {...field} value={field.value ?? ''} />
+                                            <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.last_name} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -203,7 +204,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>{t('dialog.email')}</FormLabel>
                                         <FormControl>
-                                            <Input type="email" {...field} value={field.value ?? ''} />
+                                            <Input type="email" {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.email} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -216,7 +217,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>{t('dialog.phone')}</FormLabel>
                                         <FormControl>
-                                            <Input type="tel" autoComplete="tel" {...field} value={field.value ?? ''} />
+                                            <Input type="tel" autoComplete="tel" {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.phone} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -257,7 +258,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>{t('dialog.street')}</FormLabel>
                                         <FormControl>
-                                            <Input {...field} value={field.value ?? ''} />
+                                            <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_street} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -271,7 +272,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem>
                                             <FormLabel>{t('dialog.zip')}</FormLabel>
                                             <FormControl>
-                                                <Input {...field} value={field.value ?? ''} />
+                                                <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_zip} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -284,7 +285,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem className="sm:col-span-2">
                                             <FormLabel>{t('dialog.city')}</FormLabel>
                                             <FormControl>
-                                                <Input {...field} value={field.value ?? ''} />
+                                                <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_city} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -298,7 +299,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>{t('dialog.country')}</FormLabel>
                                         <FormControl>
-                                            <Input {...field} value={field.value ?? ''} />
+                                            <Input {...field} value={field.value ?? ''} maxLength={CUSTOMER_FIELD_MAX_LENGTH.address_country} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

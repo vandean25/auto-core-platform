@@ -317,7 +317,7 @@
         }
       },
       "checklist": {
-        "loadError": "Checkliste konnte nicht gespeichert werden",
+        "saveError": "Checkliste konnte nicht gespeichert werden",
         "loading": "Checkliste wird geladen…"
       },
       "lifecycle": {
