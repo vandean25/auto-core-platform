@@ -4,6 +4,7 @@ import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 import deVehicles from '../../../locales/de/vehicles.json' with { type: 'json' }
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 import { PHONE_WIDTHS } from './utils/phone-layout'
+import { captureDocScreenshot } from './utils/doc-screenshot'
 
 /**
  * AUT-791 / AUT-841: the search hint of a list is readable in full at 375 and 390 px.
@@ -58,7 +59,7 @@ for (const width of PHONE_WIDTHS) {
         expect(await hiddenPlaceholderWidth(input), 'pixels of the hint that are cut off').toBe(0)
 
         if (width === 375 && (slug === 'estimates' || slug === 'intake')) {
-          await page.screenshot({ path: `../../docs/internal/assets/aut-841-${slug}-search-375.png` })
+          await captureDocScreenshot(page, `aut-841-${slug}-search-375.png`)
         }
       })
     }
