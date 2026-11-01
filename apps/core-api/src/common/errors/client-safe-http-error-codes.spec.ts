@@ -54,6 +54,11 @@ function readLocaleErrorTexts(language: 'de' | 'en'): Record<string, string> {
 }
 
 describe('client-safe HTTP error codes', () => {
+  it('lists workshop command error codes', () => {
+    for (const code of ['AUDIO_EMPTY', 'AUDIO_TOO_LARGE', 'AUDIO_UNSUPPORTED_TYPE', 'COMMAND_ID_REUSED', 'CONTRACT_VERSION_UNSUPPORTED', 'DURATION_REQUIRED', 'HUMAN_ONLY_EXCLUDED', 'INTENT_INCOMPLETE', 'LOANER_NOT_PERMITTED', 'LOCALE_UNSUPPORTED', 'PLAN_STALE', 'RESOURCE_AMBIGUOUS', 'RESOURCE_MISSING', 'SELECTION_NOT_OFFERED', 'SESSION_NOT_FOUND', 'SITE_MISMATCH', 'TEXT_TOO_LONG', 'TIME_CONTRADICTORY', 'TIME_IN_PAST', 'TRANSCRIPT_EMPTY', 'UNSUPPORTED_GRAMMAR', 'UNSUPPORTED_SERVICE']) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
   // The global filter drops any code that is not in this set, so a warranty code missing here would never reach
   // the client. This keeps the two lists in step.
   it('lists every warranty claim code', () => {

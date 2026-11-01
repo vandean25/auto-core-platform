@@ -10,6 +10,7 @@ export const tenantId = '00000000-0000-0000-0000-000000000001';
 export const userId = '00000000-0000-0000-0000-000000000002';
 export const proposalId = '11111111-1111-1111-1111-111111111111';
 export const traceId = '22222222-2222-2222-2222-222222222222';
+export const commandId = '33333333-3333-3333-3333-333333333333';
 
 /**
  * Builds the same mocks and collaborator wiring that the module provides.
@@ -81,6 +82,9 @@ export function createAgentProposalSpecHarness() {
     customer: {
       findFirst: jest.fn().mockResolvedValue({ id: 'cust-1' }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    workshopCommandSession: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
   };
 
@@ -245,6 +249,7 @@ export const createMockProposal = (overrides?: Partial<any>) => ({
   id: proposalId,
   tenant_id: tenantId,
   trace_id: traceId,
+  command_id: null,
   action_type: 'workshop_order.add_line',
   payload_json: {
     agent_id: 'workshop-agent',

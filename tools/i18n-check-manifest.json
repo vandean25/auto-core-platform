@@ -41,7 +41,8 @@
     "agent:changePreview.fields.",
     "nav:groups.",
     "nav:modules.",
-    "settings:dataImport.undo.blockedSection.reasons."
+    "settings:dataImport.undo.blockedSection.reasons.",
+    "workshop:command.clarificationPrompts."
   ],
   "usedKeys": [
     "settings:accountingExport.header.description",
