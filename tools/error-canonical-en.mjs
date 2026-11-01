@@ -105,6 +105,7 @@ export const CANONICAL_EN_MESSAGES = {
   IMPORT_JOB_ALREADY_UNDONE: 'This import has already been undone.',
   IMPORT_JOB_BUSY: 'This import is running. Please wait a moment.',
   IMPORT_JOB_CONFLICT: 'This import changed in the meantime. Reload it.',
+  IMPORT_JOB_NOT_UNDOABLE: 'This import cannot be undone.',
   IMPORT_JOB_EXPIRED:
     'The dry-run has expired. Upload the file again and run the dry-run again.',
   IMPORT_JOB_NOT_FOUND:

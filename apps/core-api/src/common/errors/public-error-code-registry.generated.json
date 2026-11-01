@@ -755,6 +755,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_JOB_NOT_UNDOABLE": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_JOB_PURGED": {
       "public": true,
       "params": []

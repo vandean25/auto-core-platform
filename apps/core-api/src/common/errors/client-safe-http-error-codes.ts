@@ -297,6 +297,7 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   IMPORT_ERROR_CODES.SOURCE_ALREADY_EXISTS,
   IMPORT_ERROR_CODES.SOURCE_NOT_FOUND,
   IMPORT_ERROR_CODES.JOB_ALREADY_UNDONE,
+  IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE,
   IMPORT_ERROR_CODES.JOB_BUSY,
   IMPORT_ERROR_CODES.JOB_CONFLICT,
   // Resumable direct upload and the expired/purged job gates. The upload dialog and the job detail map these

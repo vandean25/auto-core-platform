@@ -224,6 +224,7 @@ describe('client-safe allowlist parity', () => {
       'IMPORT_JOB_CONFLICT',
       'IMPORT_JOB_EXPIRED',
       'IMPORT_JOB_NOT_FOUND',
+      'IMPORT_JOB_NOT_UNDOABLE',
       'IMPORT_JOB_PURGED',
       'IMPORT_JOB_STALE',
       'IMPORT_SOURCE_ALREADY_EXISTS',

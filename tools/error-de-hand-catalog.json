@@ -178,6 +178,7 @@
   "IMPORT_JOB_ALREADY_UNDONE": "Dieser Import wurde bereits rückgängig gemacht.",
   "IMPORT_JOB_BUSY": "Dieser Import läuft gerade. Bitte warten Sie kurz.",
   "IMPORT_JOB_CONFLICT": "Dieser Import wurde geändert. Bitte laden Sie neu.",
+  "IMPORT_JOB_NOT_UNDOABLE": "Dieser Import kann nicht rückgängig gemacht werden.",
   "IMPORT_JOB_EXPIRED": "Der Probelauf ist abgelaufen. Bitte laden Sie die Datei erneut hoch und führen Sie den Probelauf erneut aus.",
   "IMPORT_JOB_NOT_FOUND": "Der Import wurde nicht gefunden. Bitte öffnen Sie einen vorhandenen Import oder laden Sie die Datei erneut hoch.",
   "IMPORT_JOB_PURGED": "Die zwischengespeicherten Zeilen dieses Imports wurden gelöscht. Bitte laden Sie die Datei erneut hoch und führen Sie den Probelauf erneut aus.",
