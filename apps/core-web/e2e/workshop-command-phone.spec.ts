@@ -201,6 +201,29 @@ test.describe("Cmd+K Command Mode at 375px mobile viewport (AUT-542)", () => {
     const textArea = page.locator("#workshop-command-text");
     await expect(textArea).toBeVisible();
 
+    // AUT-840: Back button and dialog close button must not overlap at 375px
+    const backBtn = page.getByRole("button", { name: "Zurück zur Suche" });
+    const closeBtn = page.getByRole("button", { name: "Schließen" });
+    await expect(backBtn).toBeVisible();
+    await expect(closeBtn).toBeVisible();
+    const backBox = await backBtn.boundingBox();
+    const closeBox = await closeBtn.boundingBox();
+    expect(backBox).not.toBeNull();
+    expect(closeBox).not.toBeNull();
+    if (backBox && closeBox) {
+      const horizontalOverlap =
+        backBox.x < closeBox.x + closeBox.width &&
+        backBox.x + backBox.width > closeBox.x;
+      const verticalOverlap =
+        backBox.y < closeBox.y + closeBox.height &&
+        backBox.y + backBox.height > closeBox.y;
+      expect(
+        horizontalOverlap && verticalOverlap,
+        "Back button and close button must not overlap at 375px",
+      ).toBe(false);
+    }
+    await page.screenshot({ path: "../../docs/internal/assets/aut-840-command-header-375.png" });
+
     // --- Phase 1: Input ---
     await expectNoPageScroll(page);
     const screenshotInput = await page.screenshot({ fullPage: true, path: testInfo.outputPath("aut-542-command-mode-01-input-375.png") });

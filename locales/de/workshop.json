@@ -882,7 +882,7 @@
     "title": "Werkstatt-Annahme",
     "quickRegister": "Schnellanlage",
     "searchTitle": "Annahme-Suche",
-    "searchPlaceholder": "FIN, Kennzeichen oder Kundenname suchen…",
+    "searchPlaceholder": "FIN, Kennzeichen, Kunde",
     "searching": "Suche…",
     "vehicleMeta": "FIN: {{vin}} | Kennzeichen: {{plate}}",
     "vehicles": "Fahrzeuge",
@@ -1648,7 +1648,7 @@
   "estimateList": {
     "title": "Kostenvoranschläge",
     "description": "Alle Kostenvoranschläge des Standorts. Ein Klick öffnet den Auftrag mit der Version.",
-    "searchPlaceholder": "Nummer, Auftrag, Kunde oder Kennzeichen suchen",
+    "searchPlaceholder": "Nr., Kunde, Kennzeichen",
     "version": "v{{version}}",
     "columns": {
       "number": "Nummer",

@@ -1238,7 +1238,78 @@
         "cancel": "Abbrechen",
         "downloadErrors": "Fehler-CSV herunterladen",
         "cancelConfirmTitle": "Import abbrechen?",
-        "cancelConfirmDescription": "Der laufende Import wird beendet."
+        "cancelConfirmDescription": "Der laufende Import wird beendet.",
+        "undo": "Rückgängig machen"
+      }
+    },
+    "undo": {
+      "button": "Import rückgängig machen",
+      "dialogTitle": "Import rückgängig machen?",
+      "dialogDescription": "Übernommene Datensätze dieses Imports zurücksetzen.",
+      "loadingPreview": "Rückgängig-Vorschau wird berechnet…",
+      "loadPreviewFailed": "Die Vorschau konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "summary": {
+        "toDelete": "Werden gelöscht",
+        "toRestore": "Werden wiederhergestellt",
+        "conflicts": "Konflikte (nach Import geändert)",
+        "blocked": "Blockiert (nicht rückgängig machbar)"
+      },
+      "blockedSection": {
+        "title": "Blockierte Datensätze ({{count}})",
+        "description": "Folgebelege verhindern das Rückgängigmachen.",
+        "reasons": {
+          "DOWNSTREAM_WORK_ORDER": "Mit Werkstattauftrag verknüpft",
+          "DOWNSTREAM_ESTIMATE": "Mit Kostenvoranschlag verknüpft",
+          "DOWNSTREAM_INVOICE": "Mit Rechnung verknüpft (unveränderlich)",
+          "DOWNSTREAM_CREDIT_NOTE": "Mit Gutschrift verknüpft",
+          "DOWNSTREAM_STOCK_MOVEMENT": "Mit Lagerbewegung verknüpft",
+          "DOWNSTREAM_PURCHASE_ORDER": "Mit Einkaufsbestellung verknüpft",
+          "DOWNSTREAM_SALES_ORDER": "Mit Kundenauftrag verknüpft",
+          "DOWNSTREAM_VEHICLE_SALE": "Mit Fahrzeugverkauf verknüpft",
+          "DOWNSTREAM_VEHICLE_PURCHASE": "Mit Fahrzeugankauf verknüpft",
+          "DOWNSTREAM_LOANER_BOOKING": "Mit Ersatzfahrzeug-Buchung verknüpft",
+          "DOWNSTREAM_CUSTOMER_CONSENT": "Mit Datenschutzeinwilligung verknüpft",
+          "DOWNSTREAM_CUSTOMER_CONTACT_POINT": "Mit Kontaktpunkt verknüpft",
+          "DOWNSTREAM_CUSTOMER_VEHICLE": "Mit Fahrzeug verknüpft",
+          "DOWNSTREAM_CUSTOMER_LEGACY_DOCUMENT": "Mit Bestandsdokument verknüpft",
+          "DOWNSTREAM_VEHICLE_MEDIA": "Mit Fahrzeugmedien verknüpft",
+          "DOWNSTREAM_VEHICLE_EQUIPMENT": "Mit Fahrzeugausstattung verknüpft",
+          "DOWNSTREAM_VEHICLE_LISTING": "Mit Inserat verknüpft",
+          "DOWNSTREAM_VEHICLE_VALUATION": "Mit Fahrzeugbewertung verknüpft",
+          "DOWNSTREAM_VEHICLE_PARTY": "Mit Beteiligtem verknüpft",
+          "DOWNSTREAM_VEHICLE_NOTICE": "Mit Fahrzeughinweis verknüpft",
+          "DOWNSTREAM_TYRE_RECORD": "Mit Reifendaten verknüpft",
+          "DOWNSTREAM_INSPECTION_RECORD": "Mit Prüfbericht verknüpft",
+          "MODIFIED_SINCE_IMPORT": "Nach Import geändert",
+          "MISSING_BEFORE_SNAPSHOT": "Kein vorheriger Stand gespeichert",
+          "ENTITY_NOT_FOUND": "Datensatz nicht mehr vorhanden",
+          "UNSUPPORTED_ENTITY_TYPE": "Objekttyp wird nicht unterstützt",
+          "FINANCIAL_IMPORT_CANNOT_BE_UNDONE": "Finanzdaten können nicht rückgängig gemacht werden",
+          "UNKNOWN": "Nicht rückgängig machbar",
+          "ROW_ERROR": "Fehler beim Rückgängig machen",
+          "ROWS_PURGED": "Zwischengespeicherte Daten gelöscht"
+        }
+      },
+      "conflictsSection": {
+        "title": "Geänderte Datensätze überschreiben ({{count}})",
+        "description": "Nach dem Import geändert. Überschreiben auswählen.",
+        "overwriteCheckbox": "Trotz nachträglicher Änderung auf Vor-Import-Stand zurücksetzen"
+      },
+      "confirmation": {
+        "label": "Geben Sie zur Bestätigung „{{keyword}}“ ein:",
+        "keyword": "RÜCKGÄNGIG",
+        "placeholder": "RÜCKGÄNGIG"
+      },
+      "actions": {
+        "cancel": "Abbrechen",
+        "submit": "Rückgängig machen",
+        "submitting": "Wird rückgängig gemacht…"
+      },
+      "toast": {
+        "success": "Import erfolgreich rückgängig gemacht.",
+        "partial": "Import teilweise rückgängig gemacht ({{blockedCount}} Datensätze blockiert).",
+        "started": "Import wird rückgängig gemacht.",
+        "failed": "Import konnte nicht rückgängig gemacht werden."
       }
     }
   },

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canApplyWorkshopCommand,
   canAssignWorkshopOrderMechanic,
+  canManageImportJobs,
   canCheckInWorkshopOrder,
   canDeleteCustomerFromList,
   canGenerateWorkshopJobCardPdf,
@@ -72,6 +73,15 @@ describe('action-role-predicates', () => {
     ['SUPER_ADMIN', false], ['owner', false], ['', false], [null, false], [undefined, false],
   ] as const)('allows tyre measurement only for authorized roles (%s)', (role, expected) => {
     expect(canRecordTyreMeasurement(role)).toBe(expected)
+  })
+
+  it.each([
+    ['OWNER', true], ['ADMIN', true],
+    ['SALES', false], ['TECH', false], ['ACCOUNTANT', false],
+    ['SERVICE_ADVISOR', false], ['MECHANIC', false], ['DEMO', false],
+    ['SUPER_ADMIN', false], ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('allows import job actions only for tenant admins (%s)', (role, expected) => {
+    expect(canManageImportJobs(role)).toBe(expected)
   })
 
   it('evaluates workshop order status predicates consistently', () => {

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useAuthSession } from '@/api/auth-session'
@@ -22,10 +23,7 @@ export function CommandHeader({
 }) {
   const { t } = useTranslation('workshop')
   return (
-    <header className="flex flex-wrap items-start justify-between gap-2">
-      <div className="space-y-1">
-        <h2 className="text-sm font-semibold">{t('command.title')}</h2>
-      </div>
+    <header className="flex items-center gap-2 pr-12">
       <Button
         type="button"
         variant="ghost"
@@ -33,9 +31,13 @@ export function CommandHeader({
         data-action-id="workshopCommand.exit"
         onClick={onExit}
         disabled={busy}
+        className="-ml-1 h-8 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
       >
+        <ArrowLeft className="h-3.5 w-3.5" />
         {t('command.backToSearch')}
       </Button>
+      <div className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+      <h2 className="truncate text-sm font-semibold">{t('command.title')}</h2>
     </header>
   )
 }
