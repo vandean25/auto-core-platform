@@ -713,8 +713,9 @@ describe("WorkshopOrderDetails Characterization", () => {
       fireEvent.click(screen.getByRole("option", { name: "Alex Tech" }));
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Cannot assign resources");
+        expect(toast.error).toHaveBeenCalledWith(orderDetailToast.technicianAssignFailed);
       });
+      expect(toast.error).not.toHaveBeenCalledWith("Cannot assign resources");
       expect(toast.success).not.toHaveBeenCalled();
     });
 
@@ -957,8 +958,9 @@ describe("WorkshopOrderDetails Characterization", () => {
       fireEvent.click(addButtons[0]);
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Server error");
+        expect(toast.error).toHaveBeenCalledWith(orderDetailToast.taskCreateFailed);
       });
+      expect(toast.error).not.toHaveBeenCalledWith("Server error");
     });
 
     it("disables task input when order is INVOICED", () => {
@@ -1633,7 +1635,10 @@ describe("WorkshopOrderDetails Characterization", () => {
 
         editInline("Customer waiting in lobby", deWorkshop.taskList.internalNotesAria, "New note");
 
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Notes rejected"));
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.notesSaveFailed),
+        );
+        expect(toast.error).not.toHaveBeenCalledWith("Notes rejected");
         expect(toast.success).not.toHaveBeenCalled();
       });
 
@@ -1836,7 +1841,10 @@ describe("WorkshopOrderDetails Characterization", () => {
         const dialog = openDeleteDialog();
         fireEvent.click(within(dialog).getByRole("button", { name: orderDetailCopy.deleteTask }));
 
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Task is referenced"));
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.taskDeleteFailed),
+        );
+        expect(toast.error).not.toHaveBeenCalledWith("Task is referenced");
         expect(toast.success).not.toHaveBeenCalled();
         expect(screen.getByRole("alertdialog")).toBeInTheDocument();
       });
@@ -2002,8 +2010,9 @@ describe("WorkshopOrderDetails Characterization", () => {
         pickAlex();
 
         await waitFor(() =>
-          expect(toast.error).toHaveBeenCalledWith("forbidden"),
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.technicianAssignFailed),
         );
+        expect(toast.error).not.toHaveBeenCalledWith("forbidden");
         await waitFor(() => {
           const order = queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
             workshopApi.workshopKeys.detail("order-1"),
