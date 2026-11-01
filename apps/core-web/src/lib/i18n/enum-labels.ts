@@ -29,6 +29,14 @@ export function formatStatusLabel(status: string): string {
 }
 
 /**
+ * Localized label for a tyre set wire value. Tyre-set wording lives in `enums:tyreSetStatus.*`
+ * (its NEW means "not racked yet"); values without a tyre-set key fall back to `enums:status.*`.
+ */
+export function formatTyreSetStatusLabel(status: string): string {
+  return enumsT()(`tyreSetStatus.${status}`, { defaultValue: formatStatusLabel(status) })
+}
+
+/**
  * `formatStatusLabel` for components: subscribes to the UI language, so a badge that only renders a
  * wire value re-renders in the new language instead of keeping the label of the previous one.
  */

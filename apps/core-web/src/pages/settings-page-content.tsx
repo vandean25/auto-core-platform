@@ -369,7 +369,13 @@ export default function SettingsPage() {
     }
 
     const tabPanels: Record<SettingsTab, React.ReactNode> = {
-        "finance": <FinanceSettingsTab form={finance} canManageExports={canManageTeam} />,
+        "finance": (
+            <FinanceSettingsTab
+                form={finance}
+                canManageExports={canManageTeam}
+                openExportProfile={canManageTeam && searchParams.get("subtab") === "accounting-export"}
+            />
+        ),
         "voice-translation": <VoiceTranslationSettingsTab />,
         "revenue-groups": <RevenueGroupsTab groups={groups} isLoading={isLoadingGroups} />,
         "brands": <BrandsTab brands={brands} isLoading={isLoadingBrands} />,

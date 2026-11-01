@@ -5,6 +5,7 @@ import type { TyreSet } from '@/api/tyre-storage'
 import { measurement } from '@/features/tyre-report/tyre-report.test-fixtures'
 import { registerGermanUiForTests } from '@/test/german-ui'
 import deInventory from '../../../../../locales/de/inventory.json'
+import deEnums from '../../../../../locales/de/enums.json'
 import TyreSetDetailPage from './TyreSetDetailPage'
 
 const state = vi.hoisted(() => ({ role: 'ADMIN' as string | undefined, tyreSet: {} as TyreSet, isLoading: false, isError: false }))
@@ -57,6 +58,12 @@ describe('TyreSetDetailPage', () => {
     expect(await screen.findByText(deInventory.tyreStorage.detail.loading)).toBeVisible()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Erneut versuchen' })).not.toBeInTheDocument()
+  })
+
+  it('labels a NEW set from the tyre-set status key so a generic NEW copy cannot leak into the badge (AUT-852)', async () => {
+    state.tyreSet.status = 'NEW'
+    renderPage()
+    expect(await screen.findByText(deEnums.tyreSetStatus.NEW)).toBeVisible()
   })
 
   it('renders the latest evaluated measurement instead of the empty state', async () => {
