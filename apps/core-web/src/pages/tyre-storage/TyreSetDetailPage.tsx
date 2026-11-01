@@ -134,12 +134,12 @@ function TyreSetStorageDetails({ tyreSet }: { tyreSet: TyreSet }) {
     | 'tyreStorage.detail.dimension'
 
   const field = (labelKey: DetailFieldKey, value: string | null | undefined) =>
-    t(labelKey, { value: value ?? emDash, interpolation: { escapeValue: false } })
+    t(labelKey, { value: value ?? emDash })
 
   const fieldDate = (
     labelKey: 'tyreStorage.detail.storedSince' | 'tyreStorage.detail.plannedSwap',
     value: string | null | undefined,
-  ) => t(labelKey, { value: value ? formatIsoDateOnly(value) : emDash, interpolation: { escapeValue: false } })
+  ) => t(labelKey, { value: value ? formatIsoDateOnly(value) : emDash })
 
   return (
     <div className="no-print grid gap-4 md:grid-cols-2">
