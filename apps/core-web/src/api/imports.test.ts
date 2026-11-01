@@ -162,7 +162,7 @@ describe('import wire codes', () => {
       .catch((caught: unknown) => caught)
 
     expect((error as Error).message).not.toContain("Import source with key 'legacy_dms' already exists")
-    expect((error as any).response?.data?.message).toBeUndefined()
+    expect((error as { response?: { data?: { message?: unknown } } }).response?.data?.message).toBeUndefined()
     expect(getErrorMessage(error, 'unused fallback')).toBe(
       deErrors.codes.IMPORT_SOURCE_ALREADY_EXISTS,
     )
