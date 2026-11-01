@@ -13,6 +13,8 @@ type InlineEditProps = {
   onSave: (nextValue: string) => Promise<void> | void
   /** Optional Zod schema to validate the draft value before committing. */
   schema?: ZodType<string>
+  /** Character cap for the editor, matching the limit the API enforces on the field. */
+  maxLength?: number
   mode?: InlineEditMode
   placeholder?: string
   emptyText?: string
@@ -107,53 +109,43 @@ function handleInlineEditKeyDown({
   }
 }
 
-interface InlineEditorInputProps {
-  mode: InlineEditMode
+interface InlineEditorBaseProps {
   draftValue: string
   onChange: (val: string) => void
   onBlur: () => void
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
-  inputRef: React.RefObject<HTMLInputElement | null>
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>
   validationError: string | null
   isSaving: boolean
   placeholder?: string
   ariaLabel?: string
   inputClassName?: string
-  rows?: number
+  maxLength?: number
+}
+
+function InlineEditError({ errorId, message }: { errorId: string; message: string }) {
+  return <p id={errorId} className='mt-1 text-xs text-red-500' role='alert'>{message}</p>
+}
+
+type InlineTextInputProps = InlineEditorBaseProps & {
+  inputRef: React.RefObject<HTMLInputElement | null>
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
   phone?: boolean
 }
 
-function InlineEditTextInput({
+function InlineTextInput({
   inputRef,
+  onKeyDown,
+  phone,
   draftValue,
   onChange,
   onBlur,
-  onKeyDown,
   validationError,
-  errorId,
   isSaving,
   placeholder,
   ariaLabel,
   inputClassName,
-  phone,
-}: {
-  inputRef: React.RefObject<HTMLInputElement | null>
-  draftValue: string
-  onChange: (val: string) => void
-  onBlur: () => void
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
-  validationError: string | null
-  errorId: string
-  isSaving: boolean
-  placeholder?: string
-  ariaLabel?: string
-  inputClassName?: string
-  phone?: boolean
-}) {
-  const errorMarkup = validationError ? (
-    <p id={errorId} className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
-  ) : null
+  maxLength,
+}: InlineTextInputProps) {
+  const errorId = React.useId()
 
   return (
     <div>
@@ -162,6 +154,7 @@ function InlineEditTextInput({
         type={phone ? 'tel' : undefined}
         autoComplete={phone ? 'tel' : undefined}
         value={draftValue}
+        maxLength={maxLength}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
@@ -176,74 +169,57 @@ function InlineEditTextInput({
         aria-describedby={validationError ? errorId : undefined}
         disabled={isSaving}
       />
-      {errorMarkup}
+      {validationError && <InlineEditError errorId={errorId} message={validationError} />}
     </div>
   )
 }
 
-function InlineEditorInput({
-  mode,
+type InlineTextareaInputProps = InlineEditorBaseProps & {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+  rows: number
+}
+
+function InlineTextareaInput({
+  textareaRef,
+  onKeyDown,
+  rows,
   draftValue,
   onChange,
   onBlur,
-  onKeyDown,
-  inputRef,
-  textareaRef,
   validationError,
   isSaving,
   placeholder,
   ariaLabel,
   inputClassName,
-  rows,
-  phone,
-}: InlineEditorInputProps) {
+  maxLength,
+}: InlineTextareaInputProps) {
   const errorId = React.useId()
-  const errorMarkup = validationError ? (
-    <p id={errorId} className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
-  ) : null
-
-  if (mode === 'textarea') {
-    return (
-      <div>
-        <textarea
-          ref={textareaRef}
-          rows={rows}
-          value={draftValue}
-          onChange={(event) => onChange(event.target.value)}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-          className={cn(
-            'w-full rounded-md border border-input bg-background px-3 py-2 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
-            mobileFieldTextClass,
-            validationError && 'border-red-500 focus-visible:ring-red-500',
-            inputClassName,
-          )}
-          placeholder={placeholder}
-          aria-label={ariaLabel}
-          aria-invalid={!!validationError}
-          aria-describedby={validationError ? errorId : undefined}
-          disabled={isSaving}
-        />
-        {errorMarkup}
-      </div>
-    )
-  }
 
   return (
-    <InlineEditTextInput
-      inputRef={inputRef}
-      draftValue={draftValue}
-      onChange={onChange}
-      onBlur={onBlur}
-      onKeyDown={onKeyDown}
-      validationError={validationError}
-      errorId={errorId}
-      isSaving={isSaving}
-      placeholder={placeholder}
-      ariaLabel={ariaLabel}
-      inputClassName={inputClassName}
-      phone={phone}
-    />
+    <div>
+      <textarea
+        ref={textareaRef}
+        rows={rows}
+        value={draftValue}
+        maxLength={maxLength}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        className={cn(
+          'w-full rounded-md border border-input bg-background px-3 py-2 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+          mobileFieldTextClass,
+          validationError && 'border-red-500 focus-visible:ring-red-500',
+          inputClassName,
+        )}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        aria-invalid={!!validationError}
+        aria-describedby={validationError ? errorId : undefined}
+        disabled={isSaving}
+      />
+      {validationError && <InlineEditError errorId={errorId} message={validationError} />}
+    </div>
   )
 }
 
@@ -315,6 +291,7 @@ export function InlineEdit({
   value,
   onSave,
   schema,
+  maxLength,
   mode = 'text',
   placeholder = '',
   emptyText,
@@ -425,21 +402,30 @@ export function InlineEdit({
   }
 
   if (isEditing) {
-    return (
-      <InlineEditorInput
-        mode={mode}
-        draftValue={draftValue}
-        onChange={setDraftValue}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        inputRef={inputRef}
+    const editorProps = {
+      draftValue,
+      onChange: setDraftValue,
+      onBlur: handleBlur,
+      validationError,
+      isSaving,
+      placeholder,
+      ariaLabel,
+      inputClassName,
+      maxLength,
+    }
+
+    return mode === 'textarea' ? (
+      <InlineTextareaInput
+        {...editorProps}
         textareaRef={textareaRef}
-        validationError={validationError}
-        isSaving={isSaving}
-        placeholder={placeholder}
-        ariaLabel={ariaLabel}
-        inputClassName={inputClassName}
         rows={rows}
+        onKeyDown={handleKeyDown}
+      />
+    ) : (
+      <InlineTextInput
+        {...editorProps}
+        inputRef={inputRef}
+        onKeyDown={handleKeyDown}
         phone={phone}
       />
     )

@@ -3,7 +3,34 @@ import { validate } from 'class-validator';
 import { CreateCustomerDto } from './create-customer.dto.js';
 import { UpdateCustomerDto } from './update-customer.dto.js';
 
+/** Field and character limit of every capped column on the customer DTOs (AUT-732). */
+const CAPS: ReadonlyArray<readonly [field: string, limit: number]> = [
+  ['company_name', 200],
+  ['first_name', 120],
+  ['last_name', 120],
+  ['email', 254],
+  ['phone', 40],
+  ['vat_id', 32],
+  ['address_street', 200],
+  ['address_city', 120],
+  ['address_zip', 20],
+  ['address_country', 100],
+];
+
 const CREATE_BASE = { first_name: 'Max', last_name: 'Muster' };
+
+/** A syntactically valid e-mail of exactly `length` characters (the e-mail rule itself also caps at 254). */
+function emailAtLength(length: number): string {
+  const tail = 'example.test';
+  const labelBlock = `${'l'.repeat(60)}.`;
+  const room = length - 1 - tail.length;
+  const labels = Math.floor((room - 1) / labelBlock.length);
+  return `${'a'.repeat(room - labels * labelBlock.length)}@${labelBlock.repeat(labels)}${tail}`;
+}
+
+function valueAtLength(field: string, length: number): string {
+  return field === 'email' ? emailAtLength(length) : 'x'.repeat(length);
+}
 
 async function failingProperties(
   dto: new () => object,
@@ -14,61 +41,36 @@ async function failingProperties(
 }
 
 describe('max length on the customer DTOs (AUT-732)', () => {
-  it('refuses a first_name longer than 120 characters on create', async () => {
+  it.each(CAPS)('accepts %s at its %i character limit', async (field, limit) => {
     expect(
-      await failingProperties(CreateCustomerDto, {
-        ...CREATE_BASE,
-        first_name: 'A'.repeat(121),
-      }),
-    ).toEqual(['first_name']);
-  });
-
-  it('accepts a first_name at the 120 character limit and normal values on create', async () => {
-    expect(
-      await failingProperties(CreateCustomerDto, {
-        ...CREATE_BASE,
-        first_name: 'A'.repeat(120),
-        company_name: 'Acme GmbH',
-        phone: '+43 660 1234567',
-        vat_id: 'ATU12345678',
-        address_street: 'Hauptstrasse 1',
-        address_city: 'Wien',
-        address_zip: '1010',
-        address_country: 'Austria',
-      }),
+      await failingProperties(UpdateCustomerDto, { [field]: valueAtLength(field, limit) }),
     ).toEqual([]);
   });
 
-  it('refuses a too-long last_name on create and company_name/phone on update', async () => {
+  it.each(CAPS)('refuses %s one character over its limit', async (field, limit) => {
+    expect(
+      await failingProperties(UpdateCustomerDto, { [field]: valueAtLength(field, limit + 1) }),
+    ).toEqual([field]);
+  });
+
+  it.each(CAPS)('refuses an over-long %s on create as well', async (field, limit) => {
     expect(
       await failingProperties(CreateCustomerDto, {
         ...CREATE_BASE,
-        last_name: 'B'.repeat(121),
+        [field]: valueAtLength(field, limit + 1),
       }),
-    ).toEqual(['last_name']);
-    expect(
-      await failingProperties(UpdateCustomerDto, { company_name: 'C'.repeat(201) }),
-    ).toEqual(['company_name']);
-    expect(await failingProperties(UpdateCustomerDto, { phone: '9'.repeat(41) })).toEqual(
-      ['phone'],
-    );
+    ).toContain(field);
   });
 
-  it('inherits the max length rules on update via PartialType', async () => {
-    expect(
-      await failingProperties(UpdateCustomerDto, { first_name: 'A'.repeat(121) }),
-    ).toEqual(['first_name']);
-    expect(
-      await failingProperties(UpdateCustomerDto, { first_name: 'A'.repeat(120) }),
-    ).toEqual([]);
+  it('keeps the required names working on create', async () => {
+    expect(await failingProperties(CreateCustomerDto, CREATE_BASE)).toEqual([]);
+    expect(await failingProperties(CreateCustomerDto, { first_name: 'Max' })).toEqual([
+      'last_name',
+    ]);
   });
 
-  it('refuses an address field longer than its cap', async () => {
-    expect(
-      await failingProperties(UpdateCustomerDto, { address_zip: '1'.repeat(21) }),
-    ).toEqual(['address_zip']);
-    expect(
-      await failingProperties(UpdateCustomerDto, { address_city: 'W'.repeat(121) }),
-    ).toEqual(['address_city']);
+  it('checks the e-mail helper itself, so a wrong length would not pass silently', () => {
+    expect(emailAtLength(254)).toHaveLength(254);
+    expect(emailAtLength(255)).toHaveLength(255);
   });
 });

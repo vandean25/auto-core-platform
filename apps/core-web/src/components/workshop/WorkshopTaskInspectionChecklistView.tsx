@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { INSPECTION_NOTES_MAX_LENGTH } from "@/constants/field-limits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -113,6 +114,7 @@ export function WorkshopTaskInspectionChecklistView({
                 className={touchFriendly ? "sm:col-span-2 min-h-11" : "sm:col-span-2"}
                 aria-label={resolvedLabels.noteAriaLabel(item.label_snapshot)}
                 placeholder={resolvedLabels.notePlaceholder}
+                maxLength={INSPECTION_NOTES_MAX_LENGTH}
                 value={itemNotes}
                 disabled={readOnly || saving}
                 onChange={(event) =>
