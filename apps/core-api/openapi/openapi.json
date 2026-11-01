@@ -15514,9 +15514,19 @@
                 }
               }
             }
+          },
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
           }
         },
-        "summary": "Undo an applied import job",
+        "summary": "Enqueue undo for an applied import job and return the current job",
         "tags": [
           "imports"
         ]
@@ -37792,7 +37802,8 @@
             "type": "string",
             "enum": [
               "dry_run",
-              "apply"
+              "apply",
+              "undo"
             ],
             "nullable": true
           },

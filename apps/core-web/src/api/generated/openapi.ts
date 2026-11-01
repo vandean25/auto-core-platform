@@ -4856,7 +4856,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Undo an applied import job */
+        /** Enqueue undo for an applied import job and return the current job */
         post: operations["ImportController_undoJob"];
         delete?: never;
         options?: never;
@@ -11296,7 +11296,7 @@ export interface components {
         };
         ImportJobProgressDto: {
             /** @enum {string|null} */
-            phase: "dry_run" | "apply" | null;
+            phase: "dry_run" | "apply" | "undo" | null;
             processed_rows: number;
             total_rows: number;
             eta_seconds: number | null;
@@ -22113,6 +22113,14 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

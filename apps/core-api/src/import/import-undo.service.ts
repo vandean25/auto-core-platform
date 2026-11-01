@@ -1,259 +1,1027 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   AuditLogAction,
-  ImportJob,
-  ImportJobRow,
   ImportJobStatus,
   ImportRowAction,
   Prisma,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service.js';
+import type {
+  CatalogPriceHistory,
+  ImportJob,
+  ImportJobRow,
+} from '@prisma/client';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { assertTenantAdmin } from '../site/site.authorization.js';
-import { withPhoneDigits } from '../customer/customer-phone.util.js';
-import { importJobPurged } from './import-job.errors.js';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
-import { ImportAuditWriter } from './import-audit.writer.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
-  checkEntityUndoEligibility,
-  isDocOrFinancialImport,
-  isUndoSupportedEntityType,
-} from './import-undo.guard.js';
+  assertTenantAdmin,
+  requireActiveCurrentUser,
+} from '../site/site.authorization.js';
+import { describeImportApplyCause } from './import-apply.errors.js';
+import { ImportAuditWriter } from './import-audit.writer.js';
+import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
+import { enqueueOrRunImportWorker } from './import-dispatch.js';
+import {
+  assertImportJobRowsAvailable,
+  importJobBusy,
+  importJobConflict,
+  importJobNotFound,
+  importJobNotUndoable,
+} from './import-job.errors.js';
+import {
+  serializeImportJob,
+  type SerializedImportJob,
+} from './import-job.serializer.js';
+import {
+  readImportUndoBatchSize,
+  readImportUndoUnitBudgetMs,
+  readImportUndoUnitRowBudget,
+} from './import-limits.js';
+import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
-import { UndoImportJobDto } from './dto/undo-import-job.dto.js';
+import {
+  IMPORT_UNDO_BATCH_TX,
+  createUndoWorkerState,
+  isUndoClaimStale,
+  nextUndoLeaseUntil,
+  readUndoOutcome,
+  readUndoWorkerState,
+  undoLeaseHolderPrefix,
+  type ImportJobOptionsWithUndo,
+  type ImportUndoOutcome,
+  type ImportUndoWorkerState,
+} from './import-undo-worker.js';
+import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
+import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
+import {
+  SUPPLIER_PRICE_LIST_ENTITY_TYPE,
+  planUndoPriceEntries,
+  planUndoRows,
+  undoRowKey,
+  type UndoPlanParams,
+  type UndoPricePlanItem,
+  type UndoRowPlanItem,
+} from './import-undo-plan.js';
+import {
+  deleteCreatedEntity,
+  restoreUpdatedEntity,
+} from './import-undo-writer.js';
+import { isDocOrFinancialImport } from './import-undo.guard.js';
+import type { UndoImportJobDto } from './dto/undo-import-job.dto.js';
 import type { ImportJobTotals } from './import.types.js';
 
-export const UNDO_BATCH_SIZE = 50;
+type UndoActor = {
+  userId: string;
+  email: string | null;
+  role: string | null;
+};
+
+/** Committed undo counters, written together with the rows they describe. */
+type UndoProgress = {
+  cursor: string;
+  processedRows: number;
+  deleted: number;
+  restored: number;
+};
+
+type UndoRunContext = UndoProgress & {
+  tenantId: string;
+  jobId: string;
+  entityType: string;
+  actor: UndoActor;
+  leaseToken: string;
+  appliedAt: Date;
+  appliedRowsCount: number;
+  totalRows: number;
+  claimSeq: number;
+  recoverySeq: number;
+  confirmedEntityIds: Set<string>;
+  blockedReasons: Record<string, string>;
+};
+
+type UndoBatchOutcome = 'done' | 'continue' | 'lease_lost' | 'abort';
+
+type UndoClaimPlan = {
+  worker: ImportUndoWorkerState;
+  claimableStatus: Prisma.ImportJobWhereInput['status'];
+};
 
 const UNDOABLE_STATUSES = new Set<ImportJobStatus>([
   ImportJobStatus.APPLIED,
   ImportJobStatus.PARTIALLY_UNDONE,
 ]);
 
+const UNDO_CLAIM_STATUSES = [
+  ImportJobStatus.APPLIED,
+  ImportJobStatus.PARTIALLY_UNDONE,
+  ImportJobStatus.FAILED,
+];
+
 function getAppliedRowsCount(totals: ImportJobTotals | null): number {
   if (!totals) return 0;
   return (totals.create || 0) + (totals.update || 0);
 }
 
-function validateJobForUndo(
-  job: ImportJob | null,
-  jobId: string,
-): { appliedRowsCount: number } {
-  if (!job) {
-    throw new NotFoundException(`Import job ${jobId} not found`);
-  }
-
-  const appliedRowsCount = getAppliedRowsCount(
-    job.totals_json as ImportJobTotals | null,
-  );
-
-  const isUndoableStatus =
-    UNDOABLE_STATUSES.has(job.status) ||
-    (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
-
-  if (!isUndoableStatus) {
-    throw new BadRequestException(
-      'Import job is not in an undoable state (must be APPLIED, PARTIALLY_UNDONE, or FAILED with applied rows)',
-    );
-  }
-
-  if (isDocOrFinancialImport(job.entity_type)) {
-    throw new BadRequestException(
-      'Financial and document imports cannot be undone',
-    );
-  }
-
-  const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
-  if (jobOptions.rows_purged === true) {
-    throw importJobPurged();
-  }
-
-  return { appliedRowsCount };
-}
-
-interface UndoExecutionContext {
-  tenantId: string;
-  actorUserId: string;
-  jobId: string;
-  entityType: string;
-  effectiveAppliedAt: Date;
-  appliedRowsCount: number;
-}
-
-interface UndoCounts {
-  deletedCount: number;
-  restoredCount: number;
-  blockedCount: number;
-  blockedReasons: Record<string, string>;
-}
-
-function parseDateOrNull(val: unknown): Date | null {
-  return val ? new Date(val as string) : null;
-}
-
-type EntityRestorer = (
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  entityId: string,
-  snapshot: Record<string, unknown>,
-) => Promise<unknown>;
-
-const ENTITY_RESTORERS: Record<string, EntityRestorer> = {
-  CUSTOMER: (tx, tenantId, id, data) =>
-    tx.customer.updateMany({
-      where: { tenant_id: tenantId, id },
-      data: withPhoneDigits(data as Prisma.CustomerUpdateManyMutationInput),
-    }),
-  VEHICLE: (tx, tenantId, id, data) =>
-    tx.vehicle.updateMany({
-      where: { tenant_id: tenantId, id },
-      data: {
-        ...data,
-        first_registration_date: parseDateOrNull(data.first_registration_date),
-      },
-    }),
-  LABOR_OPERATION: (tx, tenantId, id, data) =>
-    tx.laborOperation.updateMany({
-      where: { tenant_id: tenantId, id },
-      data,
-    }),
-  VEHICLE_PARTY: (tx, tenantId, id, data) =>
-    tx.vehicleParty.updateMany({
-      where: { tenant_id: tenantId, id },
-      data: {
-        ...data,
-        valid_from: parseDateOrNull(data.valid_from),
-        valid_to: parseDateOrNull(data.valid_to),
-      },
-    }),
-  VEHICLE_NOTICE: (tx, tenantId, id, data) =>
-    tx.vehicleNotice.updateMany({
-      where: { tenant_id: tenantId, id },
-      data: {
-        ...data,
-        due_date: parseDateOrNull(data.due_date),
-      },
-    }),
-};
-
+/**
+ * Undo runs as a background worker job: committed batches, a lease with heartbeat,
+ * resume after a crash and stale-claim recovery, exactly like the import apply worker.
+ */
 @Injectable()
 export class ImportUndoService {
+  private readonly logger = new Logger(IMPORT_LOGGER_CONTEXT);
   private readonly audit: ImportAuditWriter;
 
   constructor(
     private readonly tenantContext: TenantContextService,
     private readonly prisma: PrismaService,
+    private readonly systemPrisma: SystemPrismaService,
+    private readonly requestContext: RequestContextService,
+    private readonly cloudTasks: ImportCloudTasksService,
   ) {
     this.audit = new ImportAuditWriter(tenantContext);
   }
 
-  private async fetchAndValidateJobForUndo(
-    tenantId: string,
+  async undoJob(
     jobId: string,
-  ): Promise<{ job: ImportJob; validation: { appliedRowsCount: number } }> {
+    dto?: UndoImportJobDto,
+  ): Promise<SerializedImportJob> {
+    const outcome = await this.undoJobHttp(jobId, dto);
+    return outcome.job;
+  }
+
+  async undoJobHttp(
+    jobId: string,
+    dto?: UndoImportJobDto,
+  ): Promise<{ httpStatus: 200 | 202; job: SerializedImportJob }> {
+    assertTenantAdmin(this.tenantContext);
+    const tenantId = await this.tenantContext.getTenantId();
+    const currentUser = await requireActiveCurrentUser(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+    );
     const job = await this.prisma.importJob.findFirst({
       where: { tenant_id: tenantId, id: jobId },
     });
-
     if (!job) {
-      throw new NotFoundException(`Import job ${jobId} not found`);
+      throw importJobNotFound();
     }
-
     if (job.status === ImportJobStatus.UNDONE) {
-      return { job, validation: { appliedRowsCount: 0 } };
+      return { httpStatus: 200, job: this.serialize(job) };
     }
 
-    const validation = validateJobForUndo(job, jobId);
+    const claimed = await this.claimUndoRun(tenantId, job, currentUser, dto);
+    await this.dispatchUndo(tenantId, jobId, claimed);
 
-    if (
-      job.status === ImportJobStatus.UNDOING ||
-      job.status === ImportJobStatus.APPLYING
-    ) {
-      throw new ConflictException({
-        code: IMPORT_ERROR_CODES.JOB_BUSY,
-        message: 'Import job is currently being processed',
-      });
-    }
-
-    return { job, validation };
+    const current = await this.prisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
+    });
+    return {
+      httpStatus: current?.status === ImportJobStatus.UNDOING ? 202 : 200,
+      job: this.serialize(current ?? job),
+    };
   }
 
-  private async claimJobForUndo(
+  private async claimUndoRun(
     tenantId: string,
-    jobId: string,
-    updatedAt: Date,
-  ): Promise<void> {
+    job: ImportJob,
+    currentUser: { id: string },
+    dto?: UndoImportJobDto,
+  ): Promise<{ chunkSeq: number; claimSeq: number; recoverySeq: number }> {
+    const options = (job.options_json ?? {}) as ImportJobOptionsWithUndo;
+    const plan = await this.planUndoClaim(tenantId, job, currentUser, dto);
+
     const claim = await this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
-        id: jobId,
-        status: {
-          in: [
-            ImportJobStatus.APPLIED,
-            ImportJobStatus.PARTIALLY_UNDONE,
-            ImportJobStatus.FAILED,
-          ],
-        },
-        updatedAt,
+        id: job.id,
+        updatedAt: job.updatedAt,
+        status: plan.claimableStatus,
       },
       data: {
         status: ImportJobStatus.UNDOING,
+        options_json: {
+          ...options,
+          undo_worker: plan.worker,
+        },
       },
     });
-
     if (claim.count === 0) {
-      throw new ConflictException({
-        code: IMPORT_ERROR_CODES.JOB_CONFLICT,
-        message: 'Import job was modified or claimed concurrently',
-      });
+      throw importJobConflict();
+    }
+    return {
+      chunkSeq: plan.worker.processed_rows,
+      claimSeq: job.worker_claim_seq + 1,
+      recoverySeq: job.worker_recovery_seq,
+    };
+  }
+
+  /** Either a fresh claim or the takeover of a stale one; anything else is busy. */
+  private async planUndoClaim(
+    tenantId: string,
+    job: ImportJob,
+    currentUser: { id: string },
+    dto?: UndoImportJobDto,
+  ): Promise<UndoClaimPlan> {
+    const options = (job.options_json ?? {}) as ImportJobOptionsWithUndo;
+    const existingWorker = readUndoWorkerState(options);
+    const confirmedEntityIds =
+      dto?.confirmedEntityIds ?? existingWorker?.confirmed_entity_ids ?? [];
+
+    if (job.status !== ImportJobStatus.UNDOING) {
+      this.assertJobIsUndoable(job);
+      return {
+        claimableStatus: { in: UNDO_CLAIM_STATUSES },
+        worker: await this.buildUndoWorkerState(tenantId, job, currentUser, {
+          options,
+          confirmedEntityIds,
+        }),
+      };
+    }
+    if (!existingWorker || !isUndoClaimStale(existingWorker, Date.now())) {
+      // Nothing to adopt: the recovery cron releases a claimless UNDOING job.
+      throw importJobBusy();
+    }
+    return {
+      claimableStatus: ImportJobStatus.UNDOING,
+      worker: renewUndoClaim(existingWorker, { confirmedEntityIds }),
+    };
+  }
+
+  private assertJobIsUndoable(job: ImportJob): void {
+    if (job.status === ImportJobStatus.APPLYING) {
+      throw importJobBusy();
+    }
+    assertImportJobRowsAvailable(job.options_json);
+    if (isDocOrFinancialImport(job.entity_type)) {
+      throw importJobNotUndoable();
+    }
+    const appliedRowsCount = getAppliedRowsCount(
+      job.totals_json as ImportJobTotals | null,
+    );
+    const undoable =
+      UNDOABLE_STATUSES.has(job.status) ||
+      (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
+    if (!undoable) {
+      throw importJobNotUndoable();
     }
   }
 
-  private async finalizeUndoJob(
+  private async buildUndoWorkerState(
+    tenantId: string,
+    job: ImportJob,
+    currentUser: { id: string },
+    params: {
+      options: ImportJobOptionsWithUndo;
+      confirmedEntityIds: string[];
+    },
+  ): Promise<ImportUndoWorkerState> {
+    const authUser = this.tenantContext.getAuthenticatedUser();
+    return createUndoWorkerState({
+      actorUserId: currentUser.id,
+      actorEmail: authUser?.email || null,
+      actorRole: authUser?.role || null,
+      resumeStatus: job.status,
+      confirmedEntityIds: params.confirmedEntityIds,
+      totalRows: await this.countUndoableRows(tenantId, job),
+      previous: readUndoOutcome(params.options),
+    });
+  }
+
+  private async countUndoableRows(
+    tenantId: string,
+    job: ImportJob,
+  ): Promise<number> {
+    if (job.entity_type === SUPPLIER_PRICE_LIST_ENTITY_TYPE) {
+      return this.prisma.catalogPriceHistory.count({
+        where: { tenant_id: tenantId, import_job_id: job.id },
+      });
+    }
+    return this.prisma.importJobRow.count({
+      where: {
+        tenant_id: tenantId,
+        import_job_id: job.id,
+        action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
+        undone_at: null,
+      },
+    });
+  }
+
+  private async dispatchUndo(
     tenantId: string,
     jobId: string,
-    job: ImportJob,
-    counts: UndoCounts,
-    actorUserId: string,
-  ): Promise<ImportJob> {
-    const nextStatus =
-      counts.blockedCount > 0
-        ? ImportJobStatus.PARTIALLY_UNDONE
-        : ImportJobStatus.UNDONE;
-
-    const updatedOptions = {
-      ...(typeof job.options_json === 'object' && job.options_json !== null
-        ? (job.options_json as Record<string, unknown>)
-        : {}),
-      undo: {
-        undoneAt: new Date().toISOString(),
-        status: nextStatus,
-        deletedCount: counts.deletedCount,
-        restoredCount: counts.restoredCount,
-        blockedCount: counts.blockedCount,
-        blockedReasons: counts.blockedReasons,
-      },
-    };
-
-    await this.audit.writeImportJobUndoAudit(
-      this.prisma,
+    identity: { chunkSeq: number; claimSeq: number; recoverySeq: number },
+  ): Promise<void> {
+    await enqueueOrRunImportWorker({
       tenantId,
-      actorUserId,
       jobId,
-      {
-        status: nextStatus,
-        deletedCount: counts.deletedCount,
-        restoredCount: counts.restoredCount,
-        blockedCount: counts.blockedCount,
-        blockedReasons: counts.blockedReasons,
+      phase: 'undo',
+      cloudTasks: this.cloudTasks,
+      targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
+      nodeEnv: process.env.NODE_ENV,
+      taskIdentity: { jobId, phase: 'undo', ...identity },
+      delaySeconds: 0,
+      runInline: () =>
+        this.runUndoWorkerAttempt({ tenantId, jobId }).catch((error) => {
+          this.logUndoFailure('import.undo.attempt_failed', jobId, error);
+        }),
+    });
+  }
+
+  private logUndoFailure(event: string, jobId: string, error: unknown): void {
+    this.logger.error(
+      JSON.stringify({ event, jobId, cause: describeImportApplyCause(error) }),
+    );
+  }
+
+  /** One worker unit: batches until the row or time budget runs out, then hands off. */
+  async runUndoWorkerAttempt(params: {
+    tenantId: string;
+    jobId: string;
+  }): Promise<void> {
+    const ctx = await this.loadUndoRunContext(params.tenantId, params.jobId);
+    if (!ctx) {
+      return;
+    }
+    const rowBudget = readImportUndoUnitRowBudget();
+    const deadline = Date.now() + readImportUndoUnitBudgetMs();
+    const startRows = ctx.processedRows;
+    while (ctx.processedRows - startRows < rowBudget && Date.now() < deadline) {
+      const outcome = await this.commitNextUndoBatch(ctx);
+      if (outcome === 'lease_lost' || outcome === 'abort') {
+        return;
+      }
+      if (outcome === 'done') {
+        await this.finalizeUndoJob(ctx);
+        return;
+      }
+    }
+    await this.handoffUndoContinuation(ctx);
+  }
+
+  private async loadUndoRunContext(
+    tenantId: string,
+    jobId: string,
+  ): Promise<UndoRunContext | null> {
+    const job = await this.prisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
+    });
+    if (!job || job.status !== ImportJobStatus.UNDOING) {
+      return null;
+    }
+    const worker = readUndoWorkerState(
+      job.options_json as ImportJobOptionsWithUndo,
+    );
+    if (!worker) {
+      return null;
+    }
+    return {
+      tenantId,
+      jobId,
+      entityType: job.entity_type,
+      actor: {
+        userId: worker.actor_user_id,
+        email: worker.actor_email,
+        role: worker.actor_role,
+      },
+      leaseToken: worker.lease_token,
+      appliedAt: job.appliedAt ?? job.updatedAt,
+      appliedRowsCount: getAppliedRowsCount(
+        job.totals_json as ImportJobTotals | null,
+      ),
+      totalRows: worker.total_rows,
+      claimSeq: job.worker_claim_seq,
+      recoverySeq: job.worker_recovery_seq,
+      confirmedEntityIds: new Set(worker.confirmed_entity_ids),
+      blockedReasons: { ...worker.blocked_reasons },
+      cursor: worker.cursor,
+      processedRows: worker.processed_rows,
+      deleted: worker.deleted_rows,
+      restored: worker.restored_rows,
+    };
+  }
+
+  private async handoffUndoContinuation(ctx: UndoRunContext): Promise<void> {
+    const job = await this.prisma.importJob.findFirst({
+      where: { tenant_id: ctx.tenantId, id: ctx.jobId },
+      select: {
+        status: true,
+        worker_claim_seq: true,
+        worker_recovery_seq: true,
+      },
+    });
+    if (job?.status !== ImportJobStatus.UNDOING) {
+      return;
+    }
+    await this.dispatchUndo(ctx.tenantId, ctx.jobId, {
+      chunkSeq: ctx.processedRows,
+      claimSeq: job.worker_claim_seq,
+      recoverySeq: job.worker_recovery_seq,
+    });
+  }
+
+  private commitNextUndoBatch(ctx: UndoRunContext): Promise<UndoBatchOutcome> {
+    return ctx.entityType === SUPPLIER_PRICE_LIST_ENTITY_TYPE
+      ? this.commitPriceListBatch(ctx)
+      : this.commitRowBatch(ctx);
+  }
+
+  private planParams(ctx: UndoRunContext): UndoPlanParams {
+    return {
+      tenantId: ctx.tenantId,
+      entityType: ctx.entityType,
+      appliedAt: ctx.appliedAt,
+      confirmedEntityIds: ctx.confirmedEntityIds,
+    };
+  }
+
+  private async commitRowBatch(ctx: UndoRunContext): Promise<UndoBatchOutcome> {
+    const rows = await this.prisma.importJobRow.findMany({
+      where: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.jobId,
+        action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
+        undone_at: null,
+        row_no: { gt: Number.parseInt(ctx.cursor, 10) || 0 },
+      },
+      orderBy: { row_no: 'asc' },
+      take: readImportUndoBatchSize(),
+    });
+    if (rows.length === 0) {
+      return 'done';
+    }
+    const cursor = String(rows[rows.length - 1].row_no);
+    try {
+      const next = await this.prisma.$transaction(
+        (tx) => this.applyRowBatchInTx(tx, ctx, rows, cursor),
+        IMPORT_UNDO_BATCH_TX,
+      );
+      this.advance(ctx, next);
+      return 'continue';
+    } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        return 'lease_lost';
+      }
+      this.logUndoFailure('import.undo.batch_failed', ctx.jobId, error);
+      return this.retryRowsIndividually(ctx, rows);
+    }
+  }
+
+  private async applyRowBatchInTx(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    rows: ImportJobRow[],
+    cursor: string,
+  ): Promise<UndoProgress> {
+    const options = await this.assertUndoLeaseInTx(tx, ctx);
+    const plan = await planUndoRows(tx, this.planParams(ctx), rows);
+    const delta = await this.applyRowPlan(tx, ctx, plan);
+    const next = this.nextProgress(ctx, rows.length, cursor, delta);
+    await this.persistUndoProgressInTx(tx, ctx, options, next);
+    return next;
+  }
+
+  /** A batch that fails as a whole is retried row by row so one bad row cannot lose its neighbours. */
+  private async retryRowsIndividually(
+    ctx: UndoRunContext,
+    rows: ImportJobRow[],
+  ): Promise<UndoBatchOutcome> {
+    for (const row of rows) {
+      const outcome = await this.commitSingleRow(ctx, row);
+      if (outcome !== 'continue') {
+        return outcome;
+      }
+    }
+    return 'continue';
+  }
+
+  private async commitSingleRow(
+    ctx: UndoRunContext,
+    row: ImportJobRow,
+  ): Promise<UndoBatchOutcome> {
+    const cursor = String(row.row_no);
+    try {
+      const next = await this.prisma.$transaction(
+        (tx) => this.applyRowBatchInTx(tx, ctx, [row], cursor),
+        IMPORT_UNDO_BATCH_TX,
+      );
+      this.advance(ctx, next);
+      return 'continue';
+    } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        return 'lease_lost';
+      }
+      this.logger.warn(
+        JSON.stringify({
+          event: 'import.undo.row_failed',
+          jobId: ctx.jobId,
+          rowNo: row.row_no,
+          cause: describeImportApplyCause(error),
+        }),
+      );
+      return this.blockFailedRow(ctx, row, cursor);
+    }
+  }
+
+  private async blockFailedRow(
+    ctx: UndoRunContext,
+    row: ImportJobRow,
+    cursor: string,
+  ): Promise<UndoBatchOutcome> {
+    try {
+      const next = await this.prisma.$transaction(async (tx) => {
+        const options = await this.assertUndoLeaseInTx(tx, ctx);
+        this.blockEntity(ctx, undoRowKey(row), UNDO_BLOCKED_REASONS.ROW_ERROR);
+        const progress = this.nextProgress(ctx, 1, cursor, {
+          deleted: 0,
+          restored: 0,
+        });
+        await this.persistUndoProgressInTx(tx, ctx, options, progress);
+        return progress;
+      }, IMPORT_UNDO_BATCH_TX);
+      this.advance(ctx, next);
+      return 'continue';
+    } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        return 'lease_lost';
+      }
+      this.logUndoFailure('import.undo.row_block_failed', ctx.jobId, error);
+      return 'abort';
+    }
+  }
+
+  private async applyRowPlan(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    plan: UndoRowPlanItem[],
+  ): Promise<{ deleted: number; restored: number }> {
+    let deleted = 0;
+    let restored = 0;
+    for (const item of plan) {
+      if (!item.action) {
+        this.blockEntity(ctx, item.key, item.reason);
+        continue;
+      }
+      if (item.action === 'delete') {
+        await this.deleteRow(tx, ctx, item);
+        deleted++;
+        continue;
+      }
+      await this.restoreRow(tx, ctx, item);
+      restored++;
+    }
+    return { deleted, restored };
+  }
+
+  private async deleteRow(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    item: UndoRowPlanItem,
+  ): Promise<void> {
+    const entityId = item.row.entity_id as string;
+    await deleteCreatedEntity(
+      tx,
+      ctx.tenantId,
+      ctx.entityType,
+      entityId,
+      ctx.jobId,
+    );
+    await this.audit.writeEntityAudit(
+      tx,
+      ctx.tenantId,
+      ctx.actor.userId,
+      ctx.jobId,
+      ctx.entityType,
+      entityId,
+      AuditLogAction.DELETE,
+      item.entity ?? item.row.normalized_json,
+      null,
+    );
+    await this.markRowUndone(tx, ctx, item.row.row_no);
+    delete ctx.blockedReasons[item.key];
+  }
+
+  private async restoreRow(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    item: UndoRowPlanItem,
+  ): Promise<void> {
+    const entityId = item.row.entity_id as string;
+    const beforeSnapshot = item.row.before_snapshot_json as Record<
+      string,
+      unknown
+    >;
+    await restoreUpdatedEntity(
+      tx,
+      ctx.tenantId,
+      ctx.entityType,
+      entityId,
+      beforeSnapshot,
+    );
+    await this.audit.writeEntityAudit(
+      tx,
+      ctx.tenantId,
+      ctx.actor.userId,
+      ctx.jobId,
+      ctx.entityType,
+      entityId,
+      AuditLogAction.UPDATE,
+      item.entity ?? item.row.normalized_json,
+      beforeSnapshot,
+    );
+    await this.markRowUndone(tx, ctx, item.row.row_no);
+    delete ctx.blockedReasons[item.key];
+  }
+
+  private markRowUndone(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    rowNo: number,
+  ): Promise<unknown> {
+    return tx.importJobRow.update({
+      where: {
+        tenant_id_import_job_id_row_no: {
+          tenant_id: ctx.tenantId,
+          import_job_id: ctx.jobId,
+          row_no: rowNo,
+        },
+      },
+      data: { undone_at: new Date() },
+    });
+  }
+
+  private async commitPriceListBatch(
+    ctx: UndoRunContext,
+  ): Promise<UndoBatchOutcome> {
+    const histories = await this.prisma.catalogPriceHistory.findMany({
+      where: {
+        tenant_id: ctx.tenantId,
+        import_job_id: ctx.jobId,
+        id: { gt: ctx.cursor },
+      },
+      orderBy: { id: 'asc' },
+      take: readImportUndoBatchSize(),
+    });
+    if (histories.length === 0) {
+      return 'done';
+    }
+    const cursor = histories[histories.length - 1].id;
+    try {
+      const next = await this.prisma.$transaction(
+        (tx) => this.applyPriceBatchInTx(tx, ctx, histories, cursor),
+        IMPORT_UNDO_BATCH_TX,
+      );
+      this.advance(ctx, next);
+      return 'continue';
+    } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        return 'lease_lost';
+      }
+      this.logUndoFailure('import.undo.price_batch_failed', ctx.jobId, error);
+      return this.retryPriceEntriesIndividually(ctx, histories);
+    }
+  }
+
+  private async applyPriceBatchInTx(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    histories: CatalogPriceHistory[],
+    cursor: string,
+  ): Promise<UndoProgress> {
+    const options = await this.assertUndoLeaseInTx(tx, ctx);
+    const plan = await planUndoPriceEntries(
+      tx,
+      this.planParams(ctx),
+      histories,
+    );
+    const restored = await this.applyPricePlan(tx, ctx, plan);
+    const next = this.nextProgress(ctx, histories.length, cursor, {
+      deleted: 0,
+      restored,
+    });
+    await this.persistUndoProgressInTx(tx, ctx, options, next);
+    return next;
+  }
+
+  private async retryPriceEntriesIndividually(
+    ctx: UndoRunContext,
+    histories: CatalogPriceHistory[],
+  ): Promise<UndoBatchOutcome> {
+    for (const history of histories) {
+      const outcome = await this.commitSinglePriceEntry(ctx, history);
+      if (outcome !== 'continue') {
+        return outcome;
+      }
+    }
+    return 'continue';
+  }
+
+  private async commitSinglePriceEntry(
+    ctx: UndoRunContext,
+    history: CatalogPriceHistory,
+  ): Promise<UndoBatchOutcome> {
+    try {
+      const next = await this.prisma.$transaction(
+        (tx) => this.applyPriceBatchInTx(tx, ctx, [history], history.id),
+        IMPORT_UNDO_BATCH_TX,
+      );
+      this.advance(ctx, next);
+      return 'continue';
+    } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        return 'lease_lost';
+      }
+      this.logger.warn(
+        JSON.stringify({
+          event: 'import.undo.price_entry_failed',
+          jobId: ctx.jobId,
+          catalogItemId: history.catalog_item_id,
+          cause: describeImportApplyCause(error),
+        }),
+      );
+      return this.blockFailedPriceEntry(ctx, history);
+    }
+  }
+
+  private async blockFailedPriceEntry(
+    ctx: UndoRunContext,
+    history: CatalogPriceHistory,
+  ): Promise<UndoBatchOutcome> {
+    try {
+      const next = await this.prisma.$transaction(async (tx) => {
+        const options = await this.assertUndoLeaseInTx(tx, ctx);
+        this.blockEntity(
+          ctx,
+          history.catalog_item_id,
+          UNDO_BLOCKED_REASONS.ROW_ERROR,
+        );
+        const progress = this.nextProgress(ctx, 1, history.id, {
+          deleted: 0,
+          restored: 0,
+        });
+        await this.persistUndoProgressInTx(tx, ctx, options, progress);
+        return progress;
+      }, IMPORT_UNDO_BATCH_TX);
+      this.advance(ctx, next);
+      return 'continue';
+    } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        return 'lease_lost';
+      }
+      this.logUndoFailure('import.undo.price_block_failed', ctx.jobId, error);
+      return 'abort';
+    }
+  }
+
+  private async applyPricePlan(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    plan: UndoPricePlanItem[],
+  ): Promise<number> {
+    let restored = 0;
+    for (const item of plan) {
+      if (!item.action) {
+        this.blockEntity(ctx, item.key, item.reason);
+        continue;
+      }
+      await this.restorePriceEntry(tx, ctx, item.history);
+      delete ctx.blockedReasons[item.key];
+      restored++;
+    }
+    return restored;
+  }
+
+  private async restorePriceEntry(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    history: CatalogPriceHistory,
+  ): Promise<void> {
+    await tx.catalogItem.updateMany({
+      where: { tenant_id: ctx.tenantId, id: history.catalog_item_id },
+      data: {
+        cost_price: history.old_cost as Prisma.Decimal,
+        ...(history.old_retail != null
+          ? { retail_price: history.old_retail }
+          : {}),
+      },
+    });
+    await this.audit.writeEntityAudit(
+      tx,
+      ctx.tenantId,
+      ctx.actor.userId,
+      ctx.jobId,
+      'CATALOG_ITEM',
+      history.catalog_item_id,
+      AuditLogAction.UPDATE,
+      { cost_price: history.new_cost, retail_price: history.new_retail },
+      { cost_price: history.old_cost, retail_price: history.old_retail },
+    );
+    await tx.catalogPriceHistory.deleteMany({
+      where: { tenant_id: ctx.tenantId, id: history.id },
+    });
+  }
+
+  /** Blocked entries are keyed, so the same entity is counted once no matter how often it is seen. */
+  private blockEntity(ctx: UndoRunContext, key: string, reason?: string): void {
+    ctx.blockedReasons[key] = reason ?? UNDO_BLOCKED_REASONS.UNKNOWN;
+  }
+
+  private nextProgress(
+    ctx: UndoRunContext,
+    processedDelta: number,
+    cursor: string,
+    delta: { deleted: number; restored: number },
+  ): UndoProgress {
+    return {
+      cursor,
+      processedRows: ctx.processedRows + processedDelta,
+      deleted: ctx.deleted + delta.deleted,
+      restored: ctx.restored + delta.restored,
+    };
+  }
+
+  private advance(ctx: UndoRunContext, next: UndoProgress): void {
+    ctx.cursor = next.cursor;
+    ctx.processedRows = next.processedRows;
+    ctx.deleted = next.deleted;
+    ctx.restored = next.restored;
+  }
+
+  private async assertUndoLeaseInTx(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+  ): Promise<ImportJobOptionsWithUndo> {
+    const job = await tx.importJob.findFirst({
+      where: { tenant_id: ctx.tenantId, id: ctx.jobId },
+      select: { status: true, options_json: true },
+    });
+    const options = (job?.options_json ?? {}) as ImportJobOptionsWithUndo;
+    const worker = readUndoWorkerState(options);
+    if (
+      job?.status !== ImportJobStatus.UNDOING ||
+      worker?.lease_token !== ctx.leaseToken
+    ) {
+      throw new ImportWorkerLeaseLostError(
+        `undo lease lost for job ${ctx.jobId} (holder ${undoLeaseHolderPrefix(worker?.lease_token)})`,
+      );
+    }
+    return options;
+  }
+
+  private persistUndoProgressInTx(
+    tx: Prisma.TransactionClient,
+    ctx: UndoRunContext,
+    options: ImportJobOptionsWithUndo,
+    next: UndoProgress,
+  ): Promise<unknown> {
+    const now = Date.now();
+    const worker = readUndoWorkerState(options) as ImportUndoWorkerState;
+    const undoWorker: ImportUndoWorkerState = {
+      ...worker,
+      cursor: next.cursor,
+      processed_rows: next.processedRows,
+      deleted_rows: next.deleted,
+      restored_rows: next.restored,
+      heartbeat_at: new Date(now).toISOString(),
+      lease_until: nextUndoLeaseUntil(now),
+      blocked_reasons: { ...ctx.blockedReasons },
+    };
+    return tx.importJob.updateMany({
+      where: {
+        tenant_id: ctx.tenantId,
+        id: ctx.jobId,
+        status: ImportJobStatus.UNDOING,
+      },
+      data: {
+        options_json: {
+          ...options,
+          undo_worker: undoWorker,
+        },
+      },
+    });
+  }
+
+  private async finalizeUndoJob(ctx: UndoRunContext): Promise<void> {
+    const blocked = Object.keys(ctx.blockedReasons).length;
+    if (
+      blocked === 0 &&
+      ctx.deleted + ctx.restored === 0 &&
+      ctx.appliedRowsCount > 0
+    ) {
+      this.blockEntity(
+        ctx,
+        `job-${ctx.jobId}`,
+        UNDO_BLOCKED_REASONS.ROWS_PURGED,
+      );
+    }
+    const outcome: ImportUndoOutcome = {
+      status:
+        Object.keys(ctx.blockedReasons).length > 0
+          ? 'PARTIALLY_UNDONE'
+          : 'UNDONE',
+      undone_at: new Date().toISOString(),
+      deleted: ctx.deleted,
+      restored: ctx.restored,
+      blocked: Object.keys(ctx.blockedReasons).length,
+      blocked_reasons: { ...ctx.blockedReasons },
+    };
+    const nextStatus =
+      outcome.status === 'UNDONE'
+        ? ImportJobStatus.UNDONE
+        : ImportJobStatus.PARTIALLY_UNDONE;
+
+    await this.prisma.$transaction(async (tx) => {
+      const options = await this.assertUndoLeaseInTx(tx, ctx);
+      const nextOptions = { ...options, undo: outcome } as Record<
+        string,
+        unknown
+      >;
+      delete nextOptions.undo_worker;
+      const updated = await tx.importJob.updateMany({
+        where: {
+          tenant_id: ctx.tenantId,
+          id: ctx.jobId,
+          status: ImportJobStatus.UNDOING,
+        },
+        data: {
+          status: nextStatus,
+          options_json: nextOptions as Prisma.InputJsonValue,
+        },
+      });
+      if (updated.count !== 1) {
+        return;
+      }
+      await this.audit.writeImportJobUndoAudit(
+        tx,
+        ctx.tenantId,
+        ctx.actor.userId,
+        ctx.jobId,
+        {
+          status: outcome.status,
+          deletedCount: outcome.deleted,
+          restoredCount: outcome.restored,
+          blockedCount: outcome.blocked,
+          blockedReasons: outcome.blocked_reasons,
+        },
+      );
+    }, IMPORT_UNDO_BATCH_TX);
+  }
+
+  /** Reclaims UNDOING jobs whose lease expired or whose worker stopped heartbeating. */
+  async recoverStaleUndoJobs(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
+      'import-job-undo-recovery',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        for (const { id: tenantId } of tenants) {
+          await this.recoverTenantUndoJobs(tenantId);
+        }
       },
     );
+  }
 
+  private async recoverTenantUndoJobs(tenantId: string): Promise<void> {
+    try {
+      await this.requestContext.runAsWorker(
+        tenantId,
+        async () => {
+          const jobs = await this.prisma.importJob.findMany({
+            where: { status: ImportJobStatus.UNDOING },
+            select: { id: true },
+            take: 50,
+          });
+          for (const job of jobs) {
+            await this.resumeStaleUndoJob(tenantId, job.id);
+          }
+        },
+        { workerId: 'import-job-undo-recovery' },
+      );
+    } catch (error) {
+      this.logUndoFailure('import.undo.recovery_failed', tenantId, error);
+    }
+  }
+
+  async resumeStaleUndoJob(tenantId: string, jobId: string): Promise<boolean> {
+    const job = await this.prisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
+    });
+    if (!job || job.status !== ImportJobStatus.UNDOING) {
+      return false;
+    }
+    const options = (job.options_json ?? {}) as ImportJobOptionsWithUndo;
+    const worker = readUndoWorkerState(options);
+    if (!isUndoClaimStale(worker, Date.now())) {
+      return false;
+    }
+    if (!worker) {
+      await this.releaseUndoClaim(tenantId, job, options);
+      return false;
+    }
+    const now = Date.now();
     await this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
@@ -261,436 +1029,67 @@ export class ImportUndoService {
         status: ImportJobStatus.UNDOING,
       },
       data: {
-        status: nextStatus,
-        options_json: updatedOptions,
-      },
-    });
-
-    return await this.prisma.importJob.findFirstOrThrow({
-      where: { tenant_id: tenantId, id: jobId },
-    });
-  }
-
-  async undoJob(jobId: string, dto?: UndoImportJobDto): Promise<ImportJob> {
-    assertTenantAdmin(this.tenantContext);
-    const tenantId = await this.tenantContext.getTenantId();
-    const authUser = this.tenantContext.getAuthenticatedUser();
-
-    const { job, validation } = await this.fetchAndValidateJobForUndo(
-      tenantId,
-      jobId,
-    );
-    if (job.status === ImportJobStatus.UNDONE) {
-      return job;
-    }
-
-    await this.claimJobForUndo(tenantId, jobId, job.updatedAt);
-
-    const actorUserId = authUser?.userId ?? (job.created_by || 'system');
-    const confirmedSet = new Set(dto?.confirmedEntityIds ?? []);
-
-    const execContext: UndoExecutionContext = {
-      tenantId,
-      actorUserId,
-      jobId,
-      entityType: job.entity_type,
-      effectiveAppliedAt: job.appliedAt ?? job.updatedAt,
-      appliedRowsCount: validation.appliedRowsCount,
-    };
-
-    const counts: UndoCounts = {
-      deletedCount: 0,
-      restoredCount: 0,
-      blockedCount: 0,
-      blockedReasons: {},
-    };
-
-    if (job.entity_type === 'SUPPLIER_PRICE_LIST') {
-      await this.undoSupplierPriceList(execContext, confirmedSet, counts);
-    } else {
-      await this.processJobBatches(execContext, confirmedSet, counts);
-    }
-
-    return await this.finalizeUndoJob(
-      tenantId,
-      jobId,
-      job,
-      counts,
-      actorUserId,
-    );
-  }
-
-  private async undoSupplierPriceList(
-    ctx: UndoExecutionContext,
-    confirmedSet: Set<string>,
-    counts: UndoCounts,
-  ): Promise<void> {
-    while (true) {
-      const priceHistories = await this.prisma.catalogPriceHistory.findMany({
-        where: { tenant_id: ctx.tenantId, import_job_id: ctx.jobId },
-        take: UNDO_BATCH_SIZE,
-      });
-
-      if (priceHistories.length === 0) {
-        break;
-      }
-
-      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        for (const history of priceHistories) {
-          const eligibility = await checkEntityUndoEligibility(
-            tx,
-            ctx.tenantId,
-            'CATALOG_ITEM',
-            history.catalog_item_id,
-            ctx.effectiveAppliedAt,
-          );
-
-          if (history.old_cost == null) {
-            counts.blockedCount++;
-            counts.blockedReasons[history.catalog_item_id] =
-              UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT;
-            continue;
-          }
-
-          const isConfirmed = confirmedSet.has(history.catalog_item_id);
-          if (
-            eligibility.status === 'BLOCKED' ||
-            (eligibility.status === 'CONFLICT' && !isConfirmed)
-          ) {
-            counts.blockedCount++;
-            if (eligibility.reason) {
-              counts.blockedReasons[history.catalog_item_id] =
-                eligibility.reason;
-            }
-          } else {
-            await tx.catalogItem.updateMany({
-              where: { tenant_id: ctx.tenantId, id: history.catalog_item_id },
-              data: {
-                cost_price: history.old_cost,
-                ...(history.old_retail != null
-                  ? { retail_price: history.old_retail }
-                  : {}),
-              },
-            });
-            await this.audit.writeEntityAudit(
-              tx,
-              ctx.tenantId,
-              ctx.actorUserId,
-              ctx.jobId,
-              'CATALOG_ITEM',
-              history.catalog_item_id,
-              AuditLogAction.UPDATE,
-              {
-                cost_price: history.new_cost,
-                retail_price: history.new_retail,
-              },
-              {
-                cost_price: history.old_cost,
-                retail_price: history.old_retail,
-              },
-            );
-            // Delete this specific CatalogPriceHistory entry so partial undo remains consistent
-            await tx.catalogPriceHistory.delete({
-              where: { id: history.id },
-            });
-            counts.restoredCount++;
-          }
-        }
-      });
-
-      // Break if all remaining rows in this batch were blocked to prevent infinite loop
-      if (
-        priceHistories.every((h) => counts.blockedReasons[h.catalog_item_id])
-      ) {
-        break;
-      }
-    }
-  }
-
-  private async processJobBatches(
-    ctx: UndoExecutionContext,
-    confirmedSet: Set<string>,
-    counts: UndoCounts,
-  ): Promise<void> {
-    let cursor = 0;
-    while (true) {
-      const rows = await this.prisma.importJobRow.findMany({
-        where: {
-          tenant_id: ctx.tenantId,
-          import_job_id: ctx.jobId,
-          action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
-          row_no: { gt: cursor },
-        },
-        orderBy: { row_no: 'asc' },
-        take: UNDO_BATCH_SIZE,
-      });
-
-      if (rows.length === 0) {
-        if (cursor === 0 && ctx.appliedRowsCount > 0) {
-          throw importJobPurged();
-        }
-        break;
-      }
-      cursor = rows[rows.length - 1].row_no;
-
-      // Filter out rows that are already marked undone
-      const pendingRows = rows.filter((r) => !r.undone_at);
-      if (pendingRows.length === 0) {
-        continue;
-      }
-
-      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        for (const row of pendingRows) {
-          try {
-            await this.processSingleRow(tx, row, ctx, confirmedSet, counts);
-          } catch (rowError) {
-            // Per-row error handling: record as blocked instead of aborting whole batch
-            counts.blockedCount++;
-            const reason =
-              rowError instanceof Error ? rowError.message : String(rowError);
-            counts.blockedReasons[row.entity_id ?? `row-${row.row_no}`] =
-              `ROW_ERROR: ${reason}`;
-          }
-        }
-      });
-    }
-  }
-
-  private getRowStaticBlockReason(
-    row: ImportJobRow,
-    entityType: string,
-  ): string | null {
-    if (!row.entity_id) {
-      return UNDO_BLOCKED_REASONS.UNKNOWN;
-    }
-    if (row.action === ImportRowAction.UPDATE && !row.before_snapshot_json) {
-      return UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT;
-    }
-    if (
-      !isUndoSupportedEntityType(entityType) ||
-      (row.action === ImportRowAction.UPDATE && !ENTITY_RESTORERS[entityType])
-    ) {
-      return UNDO_BLOCKED_REASONS.UNSUPPORTED_ENTITY_TYPE;
-    }
-    return null;
-  }
-
-  private async executeRowDelete(
-    tx: Prisma.TransactionClient,
-    row: ImportJobRow,
-    ctx: UndoExecutionContext,
-    currentEntity: unknown,
-    counts: UndoCounts,
-  ): Promise<void> {
-    const entityId = row.entity_id!;
-    await this.deleteCreatedEntity(
-      tx,
-      ctx.tenantId,
-      ctx.entityType,
-      entityId,
-      ctx.jobId,
-    );
-    await this.audit.writeEntityAudit(
-      tx,
-      ctx.tenantId,
-      ctx.actorUserId,
-      ctx.jobId,
-      ctx.entityType,
-      entityId,
-      AuditLogAction.DELETE,
-      currentEntity ?? row.normalized_json,
-      null,
-    );
-    await tx.importJobRow.update({
-      where: {
-        tenant_id_import_job_id_row_no: {
-          tenant_id: ctx.tenantId,
-          import_job_id: ctx.jobId,
-          row_no: row.row_no,
+        worker_recovery_seq: { increment: 1 },
+        options_json: {
+          ...options,
+          undo_worker: {
+            ...worker,
+            lease_token: randomUUID(),
+            lease_until: nextUndoLeaseUntil(now),
+            heartbeat_at: new Date(now).toISOString(),
+          },
         },
       },
-      data: { undone_at: new Date() },
     });
-    counts.deletedCount++;
-  }
-
-  private async executeRowRestore(
-    tx: Prisma.TransactionClient,
-    row: ImportJobRow,
-    ctx: UndoExecutionContext,
-    currentEntity: unknown,
-    counts: UndoCounts,
-  ): Promise<void> {
-    const entityId = row.entity_id!;
-    const beforeSnapshot = row.before_snapshot_json as Record<string, unknown>;
-    await this.restoreUpdatedEntity(
-      tx,
-      ctx.tenantId,
-      ctx.entityType,
-      entityId,
-      beforeSnapshot,
-    );
-    await this.audit.writeEntityAudit(
-      tx,
-      ctx.tenantId,
-      ctx.actorUserId,
-      ctx.jobId,
-      ctx.entityType,
-      entityId,
-      AuditLogAction.UPDATE,
-      currentEntity ?? row.normalized_json,
-      beforeSnapshot,
-    );
-    await tx.importJobRow.update({
-      where: {
-        tenant_id_import_job_id_row_no: {
-          tenant_id: ctx.tenantId,
-          import_job_id: ctx.jobId,
-          row_no: row.row_no,
-        },
-      },
-      data: { undone_at: new Date() },
+    await this.dispatchUndo(tenantId, jobId, {
+      chunkSeq: worker.processed_rows,
+      claimSeq: job.worker_claim_seq,
+      recoverySeq: job.worker_recovery_seq + 1,
     });
-    counts.restoredCount++;
+    return true;
   }
 
-  private recordBlockedRow(
-    row: ImportJobRow,
-    counts: UndoCounts,
-    reason?: string,
-  ): void {
-    counts.blockedCount++;
-    if (reason) {
-      const key = row.entity_id ?? `row-${row.row_no}`;
-      counts.blockedReasons[key] = reason;
-    }
-  }
-
-  private async dispatchRowUndo(
-    tx: Prisma.TransactionClient,
-    row: ImportJobRow,
-    ctx: UndoExecutionContext,
-    currentEntity: unknown,
-    counts: UndoCounts,
-  ): Promise<void> {
-    if (row.action === ImportRowAction.CREATE) {
-      await this.executeRowDelete(tx, row, ctx, currentEntity, counts);
-      return;
-    }
-    if (row.before_snapshot_json) {
-      await this.executeRowRestore(tx, row, ctx, currentEntity, counts);
-    }
-  }
-
-  private async processSingleRow(
-    tx: Prisma.TransactionClient,
-    row: ImportJobRow,
-    ctx: UndoExecutionContext,
-    confirmedSet: Set<string>,
-    counts: UndoCounts,
-  ): Promise<void> {
-    const staticReason = this.getRowStaticBlockReason(row, ctx.entityType);
-    if (staticReason) {
-      this.recordBlockedRow(row, counts, staticReason);
-      return;
-    }
-
-    const eligibility = await checkEntityUndoEligibility(
-      tx,
-      ctx.tenantId,
-      ctx.entityType,
-      row.entity_id!,
-      ctx.effectiveAppliedAt,
-    );
-
-    const isConfirmed = confirmedSet.has(row.entity_id!);
-    const isBlocked =
-      eligibility.status === 'BLOCKED' ||
-      (eligibility.status === 'CONFLICT' && !isConfirmed);
-
-    if (isBlocked) {
-      this.recordBlockedRow(row, counts, eligibility.reason);
-      return;
-    }
-
-    await this.dispatchRowUndo(tx, row, ctx, eligibility.entity, counts);
-  }
-
-  private async deleteCreatedEntity(
-    tx: Prisma.TransactionClient,
+  /** An UNDOING job without a claim has no actor to continue with, so it goes back to its resume status. */
+  private async releaseUndoClaim(
     tenantId: string,
-    entityType: string,
-    entityId: string,
-    jobId: string,
+    job: ImportJob,
+    options: ImportJobOptionsWithUndo,
   ): Promise<void> {
-    await tx.externalIdMapping.deleteMany({
+    const resumeStatus =
+      (options.undo_worker?.resume_status as ImportJobStatus) ??
+      ImportJobStatus.PARTIALLY_UNDONE;
+    this.logger.warn(
+      JSON.stringify({
+        event: 'import.undo.claim_released',
+        jobId: job.id,
+        resumeStatus,
+      }),
+    );
+    await this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
-        first_seen_import_job_id: jobId,
-        entity_id: entityId,
+        id: job.id,
+        status: ImportJobStatus.UNDOING,
       },
+      data: { status: resumeStatus },
     });
-
-    switch (entityType) {
-      case 'CUSTOMER':
-        await tx.customerConsentUnsubscribeToken.deleteMany({
-          where: { tenant_id: tenantId, customer_id: entityId },
-        });
-        await tx.customerCommunicationState.deleteMany({
-          where: { tenant_id: tenantId, customer_id: entityId },
-        });
-        await tx.customer.deleteMany({
-          where: { tenant_id: tenantId, id: entityId },
-        });
-        break;
-      case 'VEHICLE':
-        await tx.vehicle.deleteMany({
-          where: { tenant_id: tenantId, id: entityId },
-        });
-        break;
-      case 'LABOR_OPERATION':
-        await tx.laborOperation.deleteMany({
-          where: { tenant_id: tenantId, id: entityId },
-        });
-        break;
-      case 'CATALOG_ITEM':
-        await tx.catalogPriceHistory.deleteMany({
-          where: { tenant_id: tenantId, catalog_item_id: entityId },
-        });
-        await tx.vendorArticle.deleteMany({
-          where: { tenant_id: tenantId, catalog_item_id: entityId },
-        });
-        await tx.catalogItem.deleteMany({
-          where: { tenant_id: tenantId, id: entityId },
-        });
-        break;
-      case 'VEHICLE_PARTY':
-        await tx.vehicleParty.deleteMany({
-          where: { tenant_id: tenantId, id: entityId },
-        });
-        break;
-      case 'VEHICLE_NOTICE':
-        await tx.vehicleNotice.deleteMany({
-          where: { tenant_id: tenantId, id: entityId },
-        });
-        break;
-      default:
-        throw new BadRequestException(
-          `Unsupported entity type for delete: ${entityType}`,
-        );
-    }
   }
 
-  private async restoreUpdatedEntity(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    entityType: string,
-    entityId: string,
-    snapshot: Record<string, unknown>,
-  ): Promise<void> {
-    const restorer = ENTITY_RESTORERS[entityType];
-    if (restorer) {
-      await restorer(tx, tenantId, entityId, snapshot);
-    }
+  private serialize(job: ImportJob): SerializedImportJob {
+    return serializeImportJob(job, (job.totals_json ?? {}) as ImportJobTotals);
   }
+}
+
+function renewUndoClaim(
+  worker: ImportUndoWorkerState,
+  params: { confirmedEntityIds: string[] },
+): ImportUndoWorkerState {
+  const now = Date.now();
+  return {
+    ...worker,
+    lease_token: randomUUID(),
+    lease_until: nextUndoLeaseUntil(now),
+    heartbeat_at: new Date(now).toISOString(),
+    confirmed_entity_ids: params.confirmedEntityIds,
+  };
 }

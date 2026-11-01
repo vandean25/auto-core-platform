@@ -389,17 +389,24 @@ export class ImportController {
   }
 
   @Post(':id/undo')
-  @HttpCode(200)
   @ApiOperation({
-    summary: 'Undo an applied import job',
+    summary:
+      'Enqueue undo for an applied import job and return the current job',
   })
   @ApiBody({ type: UndoImportJobDto, required: false })
+  @ApiAcceptedResponse({ type: ImportJobResponseDto })
   @ApiOkResponse({ type: ImportJobResponseDto })
-  undoJob(@Param('id') id: string, @Body() body?: UndoImportJobDto) {
+  async undoJob(
+    @Param('id') id: string,
+    @Body() body: UndoImportJobDto | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     if (!this.importUndoService) {
       throw new BadRequestException('Import undo service not available');
     }
-    return this.importUndoService.undoJob(id, body);
+    const outcome = await this.importUndoService.undoJobHttp(id, body);
+    res.status(outcome.httpStatus);
+    return outcome.job;
   }
 
   @Post(':id/apply')

@@ -9,7 +9,13 @@ import {
   computeImportProgress,
   readWorkerState,
   type ImportJobOptionsWithWorker,
+  type ImportJobProgress,
 } from './import-job.worker-state.js';
+import {
+  computeUndoProgress,
+  readUndoWorkerState,
+  type ImportJobOptionsWithUndo,
+} from './import-undo-worker.js';
 
 export type ImportJobView = {
   id: string;
@@ -27,20 +33,39 @@ export type ImportJobView = {
   appliedAt: Date | null;
 };
 
+export type ImportJobOptionsPublicView = ImportJobOptionsWithWorker &
+  ImportJobOptionsWithUndo;
+
+function computeUndoJobProgress(
+  status: ImportJobStatus,
+  options: ImportJobOptionsPublicView,
+): ImportJobProgress | null {
+  if (status !== ImportJobStatus.UNDOING) {
+    return null;
+  }
+  const worker = readUndoWorkerState(options);
+  if (!worker) {
+    return null;
+  }
+  return { phase: 'undo', ...computeUndoProgress(worker) };
+}
+
 export function serializeImportJob(
   job: ImportJobView,
   totals: ImportJobTotals,
 ) {
-  const rawOptions = (job.options_json ?? {}) as ImportJobOptionsWithWorker;
-  const progress = computeImportProgress({
-    status: job.status,
-    totals,
-    options: rawOptions,
-  });
+  const rawOptions = (job.options_json ?? {}) as ImportJobOptionsPublicView;
+  const progress =
+    computeImportProgress({
+      status: job.status,
+      totals,
+      options: rawOptions,
+    }) ?? computeUndoJobProgress(job.status, rawOptions);
   const stalled = isStaleApplyingImportJob(job, Date.now());
   const publicOptions = { ...rawOptions };
   delete publicOptions.worker;
   delete publicOptions.upload;
+  delete publicOptions.undo_worker;
   return {
     id: job.id,
     entity_type: job.entity_type,

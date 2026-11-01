@@ -115,6 +115,7 @@ import {
   readUploadRef,
   readWorkerState,
   type ImportJobOptionsWithWorker,
+  type ImportWorkerPhase,
 } from './import-job.worker-state.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
@@ -1020,12 +1021,12 @@ export class ImportService {
   }
 
   private runWorkerInlineForJob(tenantId: string, jobId: string) {
-    return (phase: 'dry_run' | 'apply') =>
+    return (phase: ImportWorkerPhase) =>
       this.runImportWorkerAttempt({ tenantId, jobId, phase });
   }
 
   private importWorkerFlowDeps(
-    runInline: (phase: 'dry_run' | 'apply') => Promise<void>,
+    runInline: (phase: ImportWorkerPhase) => Promise<void>,
   ): ImportWorkerFlowDeps {
     return {
       jobStore: this.jobStore,
@@ -1049,7 +1050,7 @@ export class ImportService {
   private async enqueueInitialImportWorker(
     tenantId: string,
     jobId: string,
-    phase: 'dry_run' | 'apply',
+    phase: ImportWorkerPhase,
   ): Promise<void> {
     const job = await this.jobStore.findJob(tenantId, jobId);
     if (!job) {
@@ -1070,7 +1071,7 @@ export class ImportService {
   async runImportWorkerAttempt(params: {
     tenantId: string;
     jobId: string;
-    phase: 'dry_run' | 'apply';
+    phase: ImportWorkerPhase;
   }): Promise<void> {
     try {
       await this.runClaimedImportWorkerBatch(params);
@@ -1085,7 +1086,7 @@ export class ImportService {
   private async runClaimedImportWorkerBatch(params: {
     tenantId: string;
     jobId: string;
-    phase: 'dry_run' | 'apply';
+    phase: ImportWorkerPhase;
   }): Promise<void> {
     const claimed = await this.jobStore.claimWorkerLease(
       params.tenantId,
@@ -1134,7 +1135,7 @@ export class ImportService {
     params: {
       tenantId: string;
       jobId: string;
-      phase: 'dry_run' | 'apply';
+      phase: ImportWorkerPhase;
     },
     error: unknown,
   ): Promise<void> {
