@@ -32,6 +32,7 @@ describe('TyreStorageService', () => {
     mockSiteContext = {
       getSiteId: jest.fn().mockResolvedValue(siteId),
     };
+    const storedTyreSets: any[] = [];
     mockPrisma = {
       $transaction: jest
         .fn()
@@ -66,11 +67,76 @@ describe('TyreStorageService', () => {
         }),
       },
       tyreSet: {
-        create: jest.fn(),
-        findFirst: jest.fn(),
-        updateMany: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn(),
+        create: jest.fn().mockImplementation(async ({ data }: any) => {
+          const row = {
+            id: setId,
+            tenant_id: tenantId,
+            site_id: siteId,
+            customer_id: data.customer_id,
+            vehicle_id: data.vehicle_id ?? null,
+            location_id: data.location_id ?? null,
+            label: data.label,
+            season: data.season,
+            tyre_count: data.tyre_count ?? 4,
+            rim_type: data.rim_type ?? 'NONE',
+            brand: data.brand ?? null,
+            model: data.model ?? null,
+            dimension: data.dimension ?? null,
+            dot_codes: data.dot_codes ?? [],
+            tread_depth_mm_json: data.tread_depth_mm_json ?? null,
+            condition_notes: data.condition_notes ?? null,
+            status: data.status,
+            stored_since: data.stored_since ?? null,
+            planned_swap_on: data.planned_swap_on ?? null,
+            bin_label: data.bin_label ?? null,
+            customer: {
+              first_name: 'Max',
+              last_name: 'Muster',
+              phone: null,
+              email: null,
+            },
+            vehicle: null,
+            location: data.location_id ? { code: 'RACK-1' } : null,
+            events: [],
+          };
+          storedTyreSets.push(row);
+          return row;
+        }),
+        findFirst: jest.fn().mockImplementation(async ({ where }: any) => {
+          return (
+            storedTyreSets.find(
+              (s) =>
+                (!where?.id || s.id === where.id) &&
+                (!where?.tenant_id || s.tenant_id === where.tenant_id) &&
+                (!where?.site_id || s.site_id === where.site_id),
+            ) ?? null
+          );
+        }),
+        updateMany: jest
+          .fn()
+          .mockImplementation(async ({ where, data }: any) => {
+            const match = storedTyreSets.find(
+              (s) =>
+                s.id === where.id &&
+                (where.status === undefined || s.status === where.status) &&
+                (where.location_id === undefined ||
+                  s.location_id === where.location_id),
+            );
+            if (!match) return { count: 0 };
+            Object.assign(match, data);
+            if (data.location_id !== undefined) {
+              match.location = data.location_id ? { code: 'RACK-1' } : null;
+            }
+            return { count: 1 };
+          }),
+        findMany: jest.fn().mockImplementation(async ({ where }: any) => {
+          return storedTyreSets.filter(
+            (s) =>
+              (!where?.status || s.status === where.status) &&
+              (!where?.tenant_id || s.tenant_id === where.tenant_id),
+          );
+        }),
+        count: jest.fn().mockResolvedValue(0),
       },
       tyreSetEvent: {
         create: jest.fn().mockResolvedValue({ id: 'event-1' }),
@@ -94,34 +160,6 @@ describe('TyreStorageService', () => {
 
   describe('create', () => {
     it('sets status NEW and creates no check-in event when created without location', async () => {
-      const mockCreated = {
-        id: setId,
-        tenant_id: tenantId,
-        site_id: siteId,
-        customer_id: customerId,
-        vehicle_id: null,
-        location_id: null,
-        label: 'Summer Set',
-        season: 'SUMMER',
-        tyre_count: 4,
-        rim_type: 'NONE',
-        status: 'NEW',
-        stored_since: null,
-        planned_swap_on: null,
-        bin_label: null,
-        customer: {
-          first_name: 'Max',
-          last_name: 'Muster',
-          phone: null,
-          email: null,
-        },
-        vehicle: null,
-        location: null,
-        events: [],
-      };
-      mockPrisma.tyreSet.create.mockResolvedValue(mockCreated);
-      mockPrisma.tyreSet.findFirst.mockResolvedValue(mockCreated);
-
       const result = await service.create({
         customerId,
         label: 'Summer Set',
@@ -138,37 +176,13 @@ describe('TyreStorageService', () => {
       expect(mockPrisma.tyreSetEvent.create).not.toHaveBeenCalled();
       expect(result.status).toBe('NEW');
       expect(result.locationId).toBeNull();
+      const persisted = await mockPrisma.tyreSet.findFirst({
+        where: { id: result.id },
+      });
+      expect(persisted?.status).toBe('NEW');
     });
 
     it('sets status IN_STORAGE and records a CHECK_IN event when location is supplied', async () => {
-      const mockCreated = {
-        id: setId,
-        tenant_id: tenantId,
-        site_id: siteId,
-        customer_id: customerId,
-        vehicle_id: null,
-        location_id: locationId,
-        label: 'Winter Set',
-        season: 'WINTER',
-        tyre_count: 4,
-        rim_type: 'NONE',
-        status: 'IN_STORAGE',
-        stored_since: clock.now(),
-        planned_swap_on: null,
-        bin_label: 'B-1',
-        customer: {
-          first_name: 'Max',
-          last_name: 'Muster',
-          phone: null,
-          email: null,
-        },
-        vehicle: null,
-        location: { code: 'RACK-1' },
-        events: [],
-      };
-      mockPrisma.tyreSet.create.mockResolvedValue(mockCreated);
-      mockPrisma.tyreSet.findFirst.mockResolvedValue(mockCreated);
-
       const result = await service.create({
         customerId,
         label: 'Winter Set',
@@ -191,43 +205,21 @@ describe('TyreStorageService', () => {
         }),
       });
       expect(result.status).toBe('IN_STORAGE');
+      expect(result.locationId).toBe(locationId);
+      const persisted = await mockPrisma.tyreSet.findFirst({
+        where: { id: result.id },
+      });
+      expect(persisted?.status).toBe('IN_STORAGE');
     });
   });
 
   describe('checkIn and checkOut lifecycle', () => {
     it('checks in a NEW tyre set into storage', async () => {
-      const existingNewSet = {
-        id: setId,
-        tenant_id: tenantId,
-        site_id: siteId,
-        customer_id: customerId,
-        vehicle_id: null,
-        location_id: null,
+      await service.create({
+        customerId,
         label: 'Set 1',
         season: 'SUMMER',
-        status: 'NEW',
-        stored_since: null,
-        events: [],
-      };
-      const updatedSet = {
-        ...existingNewSet,
-        status: 'IN_STORAGE',
-        location_id: locationId,
-        location: { code: 'RACK-1' },
-        customer: {
-          first_name: 'Max',
-          last_name: 'Muster',
-          phone: null,
-          email: null,
-        },
-        vehicle: null,
-        events: [],
-      };
-
-      mockPrisma.tyreSet.findFirst
-        .mockResolvedValueOnce(existingNewSet)
-        .mockResolvedValueOnce(updatedSet);
-      mockPrisma.tyreSet.updateMany.mockResolvedValue({ count: 1 });
+      });
 
       const result = await service.checkIn(setId, { locationId });
 
@@ -249,41 +241,20 @@ describe('TyreStorageService', () => {
         }),
       });
       expect(result.status).toBe('IN_STORAGE');
+      expect(result.locationId).toBe(locationId);
+      const persisted = await mockPrisma.tyreSet.findFirst({
+        where: { id: setId },
+      });
+      expect(persisted?.status).toBe('IN_STORAGE');
     });
 
     it('checks out an IN_STORAGE tyre set resulting in ON_VEHICLE status', async () => {
-      const storedSet = {
-        id: setId,
-        tenant_id: tenantId,
-        site_id: siteId,
-        customer_id: customerId,
-        vehicle_id: null,
-        location_id: locationId,
+      await service.create({
+        customerId,
         label: 'Set 1',
         season: 'SUMMER',
-        status: 'IN_STORAGE',
-        stored_since: clock.now(),
-        events: [],
-      };
-      const onVehicleSet = {
-        ...storedSet,
-        status: 'ON_VEHICLE',
-        location_id: null,
-        location: null,
-        customer: {
-          first_name: 'Max',
-          last_name: 'Muster',
-          phone: null,
-          email: null,
-        },
-        vehicle: null,
-        events: [],
-      };
-
-      mockPrisma.tyreSet.findFirst
-        .mockResolvedValueOnce(storedSet)
-        .mockResolvedValueOnce(onVehicleSet);
-      mockPrisma.tyreSet.updateMany.mockResolvedValue({ count: 1 });
+        locationId,
+      });
 
       const result = await service.checkOut(setId, {});
 
@@ -305,6 +276,11 @@ describe('TyreStorageService', () => {
         }),
       });
       expect(result.status).toBe('ON_VEHICLE');
+      expect(result.locationId).toBeNull();
+      const persisted = await mockPrisma.tyreSet.findFirst({
+        where: { id: setId },
+      });
+      expect(persisted?.status).toBe('ON_VEHICLE');
     });
   });
 
