@@ -386,7 +386,7 @@
   },
   "vehicleData": {
     "noAccess": "Vehicle data settings are available to workshop owners and administrators only.",
-    "loadFailed": "Failed to load vehicle data settings. Refresh and try again.",
+    "loadFailed": "Failed to load vehicle data settings.",
     "catalog": {
       "title": "Catalog defaults",
       "identityAdapter": "Identity adapter",
@@ -419,7 +419,7 @@
   "workshopHours": {
     "openTimeAria": "Opening time {{day}}",
     "closeTimeAria": "Closing time {{day}}",
-    "loadFailed": "Failed to load workshop hours. Refresh and try again.",
+    "loadFailed": "Failed to load workshop hours.",
     "title": "Workshop hours",
     "timezone": "Timezone",
     "slotMinutes": "Slot size (minutes)",
@@ -494,7 +494,7 @@
     "categories": {
       "title": "Labor Categories",
       "loading": "Loading categories...",
-      "empty": "No categories found. Create your first category using the form.",
+      "empty": "No categories found. Create first with the form.",
       "notSet": "Not set",
       "invalidRate": "Invalid hourly rate format",
       "tree": {
@@ -503,7 +503,9 @@
         "rateTitle": "Click to edit rate",
         "toggleActiveTitle": "Toggle active status",
         "editTitle": "Edit category",
-        "editAria": "Edit category {{name}}"
+        "editAria": "Edit category {{name}}",
+        "deleteTitle": "Delete category",
+        "deleteAria": "Delete category {{name}}"
       },
       "active": "Active",
       "inactive": "Inactive",
@@ -640,7 +642,8 @@
     "locationPlaceholder": "global",
     "credential": "Google Service Account JSON",
     "credentialPlaceholder": "{\"type\":\"service_account\",...}",
-    "credentialConfigured": "Configured",
+    "credentialInfo": "Leave empty to keep current value. Credentials are stored encrypted and never returned.",
+    "credentialInfoAria": "Show credential info",
     "credentialNotConfigured": "Not configured",
     "showCredential": "Show credential",
     "overwriteConfirm": "Overwrite the currently configured Google credential?",
@@ -771,6 +774,8 @@
       "nameLabel": "Name",
       "namePlaceholder": "Example GmbH",
       "countryLabel": "Country",
+      "countryInfo": "The country cannot be changed after creation.",
+      "countryInfoAria": "Show country info",
       "countryAt": "Austria (AT)",
       "countryDe": "Germany (DE)",
       "submit": "+ Legal entity"
@@ -793,6 +798,8 @@
     },
     "missingPrefix": "Missing: {{fields}}",
     "seller": {
+      "countryInfo": "The country cannot be changed after creation.",
+      "countryInfoAria": "Show country info",
       "ready": "Ready for invoice issuance",
       "incomplete": "Seller identity incomplete",
       "missing": {
@@ -908,6 +915,8 @@
     },
     "header": {
       "title": "Accounting export",
+      "info": "Activate DATEV only after tax advisor approval.",
+      "infoAria": "Show DATEV info",
       "selected": "Selected: <name>{{name}}</name>",
       "selectedPeriod": "Selected: <name>{{name}}</name> · {{from}} to {{to}}"
     },
@@ -936,7 +945,9 @@
       "title": "Preview results",
       "summary": "Profile v{{version}} · {{documents}} documents · {{rows}} booking rows",
       "blockers": "Blocking issues",
-      "emptyPeriod": "This closed period contains no exportable documents. Generation is not available for empty periods.",
+      "blockersNote": "Exports never skip blocked documents.",
+      "blockersInfoAria": "Show blocker info",
+      "emptyPeriod": "No exportable documents in this period.",
       "columns": {
         "account": "Account",
         "taxRate": "Tax rate",
@@ -955,6 +966,8 @@
     },
     "history": {
       "title": "Export run history",
+      "info": "A download does not confirm a DATEV import.",
+      "infoAria": "Show export download info",
       "searchPlaceholder": "ID, entity, checksum",
       "empty": "No authorized export runs yet.",
       "columns": {
@@ -1006,6 +1019,11 @@
       "dryRun": "Dry-run",
       "apply": "Apply"
     },
+    "consent": {
+      "title": "Marketing consent",
+      "description": "Consent, marketing, and advertising columns are not imported and only reported as warnings.",
+      "infoAria": "Show marketing consent notice"
+    },
     "source": {
       "title": "1. Entity & source",
       "entityLabel": "Entity",
@@ -1028,7 +1046,6 @@
       "title": "Import sources",
       "keyLabel": "Key",
       "keyPlaceholder": "e.g. legacy-dms",
-      "keyHint": "Lower-case letters, digits, hyphens, and underscores only. Canonical source_name:source_company_code keys may contain one colon.",
       "labelLabel": "Display name",
       "labelPlaceholder": "e.g. Legacy DMS",
       "defaultLabel": "Use as default",

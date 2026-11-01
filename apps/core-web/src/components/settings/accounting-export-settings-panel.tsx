@@ -6,6 +6,7 @@ import {
   Download,
   Eye,
   FileSpreadsheet,
+  Info,
   Loader2,
   Play,
   Search,
@@ -49,6 +50,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DateField } from '@/components/ui/date-field'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -450,7 +452,23 @@ export function AccountingExportSettingsPanel({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-lg border bg-white p-6 shadow-sm lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <SettingsSectionHeading title={t('accountingExport.header.title')} />
+          <div className="flex items-center gap-1.5">
+            <SettingsSectionHeading title={t('accountingExport.header.title')} />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={t('accountingExport.header.infoAria')}
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 text-xs">
+                {t('accountingExport.header.info')}
+              </PopoverContent>
+            </Popover>
+          </div>
           {selectedEntity ? (
             <p className="text-sm text-slate-500">
               {periodReady ? (
@@ -574,7 +592,23 @@ export function AccountingExportSettingsPanel({
 
           {preview.blockers.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">{t('accountingExport.preview.blockers')}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium text-slate-700">{t('accountingExport.preview.blockers')}</p>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={t('accountingExport.preview.blockersInfoAria')}
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 text-xs">
+                    {t('accountingExport.preview.blockersNote')}
+                  </PopoverContent>
+                </Popover>
+              </div>
               <ul className="space-y-2">
                 {preview.blockers.map((blocker, index) => {
                   const settingsTab = getBlockerSettingsTab(blocker)
@@ -675,7 +709,25 @@ export function AccountingExportSettingsPanel({
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <SettingsSubsectionIntro
-            title={t('accountingExport.history.title')}
+            title={
+              <div className="flex items-center gap-1.5">
+                <span>{t('accountingExport.history.title')}</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={t('accountingExport.history.infoAria')}
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 text-xs">
+                    {t('accountingExport.history.info')}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            }
           />
         </div>
         <DataTable

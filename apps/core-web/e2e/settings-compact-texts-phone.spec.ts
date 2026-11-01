@@ -36,7 +36,7 @@ async function mockCommonSettingsApi(page: Page) {
 test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
   test.use({ viewport: { width: 375, height: 812 } })
 
-  test('data-import: no intro or consent paragraphs, template fields behind info icon at 375px', async ({ page }) => {
+  test('data-import: no intro or consent paragraphs, template fields and consent behind info icon at 375px', async ({ page }, testInfo) => {
     await mockCommonSettingsApi(page)
     await page.route(AutoCorePage.apiRouteMatcher('/api/imports/entity-types'), async (route) => {
       await route.fulfill(json({
@@ -63,18 +63,24 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
 
     // Intro and consent alert must not be present
     await expect(page.getByText('Marketing-Einwilligungsspalten werden vom Importmodul ignoriert')).toBeHidden()
-    await expect(page.getByText('Spalten zu Einwilligung, Marketing')).toBeHidden()
+    await expect(page.getByText('Spalten zu Einwilligung, Marketing, Newsletter oder Werbung')).toBeHidden()
     await expect(page.getByText('Quellsysteme, die beim Import gewählt werden können')).toBeHidden()
+
+    // Consent info button is visible and opens popover
+    const consentInfoBtn = page.getByRole('button', { name: deSettings.dataImport.consent.infoAria })
+    await expect(consentInfoBtn).toBeVisible()
+    await consentInfoBtn.click()
+    await expect(page.getByText(deSettings.dataImport.consent.description)).toBeVisible()
 
     // Template fields info button is visible
     const templateFieldsBtn = page.getByRole('button', { name: deSettings.dataImport.source.templateFieldsInfo })
     await expect(templateFieldsBtn).toBeVisible()
 
     await expectNoPageScroll(page)
-    await page.screenshot({ path: '../../docs/internal/assets/aut-843-settings-import-375.png', fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath('aut-843-settings-import-375.png'), fullPage: true })
   })
 
-  test('margin-rules: no explanatory paragraphs, evaluation rule behind info popover at 375px', async ({ page }) => {
+  test('margin-rules: no explanatory paragraphs, evaluation rule behind info popover at 375px', async ({ page }, testInfo) => {
     await mockCommonSettingsApi(page)
     await page.route(/\/api\/margin-rules(\/threshold)?(\?.*)?$/, (route) =>
       route.fulfill(json(route.request().url().includes('threshold') ? { thresholdPercent: 10 } : [])),
@@ -92,10 +98,10 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await expect(page.getByText(deSettings.marginRules.activeRules.description)).toBeVisible()
 
     await expectNoPageScroll(page)
-    await page.screenshot({ path: '../../docs/internal/assets/aut-843-settings-margin-rules-375.png', fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath('aut-843-settings-margin-rules-375.png'), fullPage: true })
   })
 
-  test('voice-translation: short status without 3-sentence credentials paragraph at 375px', async ({ page }) => {
+  test('voice-translation: short status without 3-sentence credentials paragraph at 375px', async ({ page }, testInfo) => {
     await mockCommonSettingsApi(page)
     await page.route(AutoCorePage.apiRouteMatcher('/api/voice-translation/settings'), async (route) => {
       await route.fulfill(json({
@@ -110,7 +116,115 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await expect(page.getByText(deSettings.voiceTranslation.credentialNotConfigured)).toBeVisible()
     await expect(page.getByText(/Die Zugangsdaten werden verschlüsselt/)).toBeHidden()
 
+    // Info trigger explains credentials
+    const credentialInfoBtn = page.getByRole('button', { name: deSettings.voiceTranslation.credentialInfoAria })
+    await expect(credentialInfoBtn).toBeVisible()
+    await credentialInfoBtn.click()
+    await expect(page.getByText(deSettings.voiceTranslation.credentialInfo)).toBeVisible()
+
     await expectNoPageScroll(page)
-    await page.screenshot({ path: '../../docs/internal/assets/aut-843-settings-voice-375.png', fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath('aut-843-settings-voice-375.png'), fullPage: true })
+  })
+
+  test('accounting-export: compliance texts behind info icons at 375px', async ({ page }, testInfo) => {
+    await mockCommonSettingsApi(page)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
+      await route.fulfill(json([
+        { id: 'le-1', name: 'Auto Core GmbH', country_iso: 'DE', is_active: true },
+      ]))
+    })
+    await page.route(/\/api\/finance\/accounting-exports(\?.*)?$/, async (route) => {
+      await route.fulfill(json(list))
+    })
+
+    await new AutoCorePage(page, '').navigate('/settings?tab=finance')
+    await page.getByRole('tab', { name: deSettings.finance.subTabs.accountingExport }).click()
+    await expect(page.getByRole('heading', { level: 2, name: deSettings.accountingExport.header.title })).toBeVisible()
+
+    // DATEV prerequisite info icon
+    const datevInfoBtn = page.getByRole('button', { name: deSettings.accountingExport.header.infoAria })
+    await expect(datevInfoBtn).toBeVisible()
+    await datevInfoBtn.click()
+    await expect(page.getByText(deSettings.accountingExport.header.info)).toBeVisible()
+
+    // History download info icon
+    const historyInfoBtn = page.getByRole('button', { name: deSettings.accountingExport.history.infoAria })
+    await expect(historyInfoBtn).toBeVisible()
+    await historyInfoBtn.click()
+    await expect(page.getByText(deSettings.accountingExport.history.info)).toBeVisible()
+
+    await expectNoPageScroll(page)
+    await page.screenshot({ path: testInfo.outputPath('aut-843-settings-accounting-375.png'), fullPage: true })
+  })
+
+  test('legal-entities: country notice behind info popover at 375px', async ({ page }, testInfo) => {
+    await mockCommonSettingsApi(page)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
+      await route.fulfill(json([]))
+    })
+
+    await new AutoCorePage(page, '').navigate('/settings?tab=legal-entities')
+    await expect(page.getByRole('heading', { level: 2, name: deSettings.legalEntities.title })).toBeVisible()
+
+    // Country info icon in create form
+    const countryInfoBtn = page.getByRole('button', { name: deSettings.legalEntities.create.countryInfoAria })
+    await expect(countryInfoBtn).toBeVisible()
+    await countryInfoBtn.click()
+    await expect(page.getByText(deSettings.legalEntities.create.countryInfo)).toBeVisible()
+
+    await expectNoPageScroll(page)
+    await page.screenshot({ path: testInfo.outputPath('aut-843-settings-legal-entities-375.png'), fullPage: true })
+  })
+
+  test('labor: categories tab has discoverable delete action and no right-click description at 375px', async ({ page }, testInfo) => {
+    await mockCommonSettingsApi(page)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/labor/categories'), async (route) => {
+      await route.fulfill(json({
+        data: [
+          {
+            id: 'cat-1',
+            name: 'Engine',
+            description: null,
+            sort_order: 1,
+            parent_id: null,
+            default_hourly_rate: 120,
+            is_active: true,
+            children: [],
+          },
+        ],
+      }))
+    })
+
+    await new AutoCorePage(page, '').navigate('/settings?tab=labor')
+    await expect(page.getByRole('heading', { level: 3, name: deSettings.labor.categories.title })).toBeVisible()
+
+    // Delete button is discoverable on the row
+    const deleteBtn = page.getByRole('button', {
+      name: deSettings.labor.categories.tree.deleteAria.replace('{{name}}', 'Engine'),
+    })
+    await expect(deleteBtn).toBeVisible()
+
+    await expectNoPageScroll(page)
+    await page.screenshot({ path: testInfo.outputPath('aut-843-settings-labor-375.png'), fullPage: true })
+  })
+
+  test('api-keys & audit-logs: no introductory paragraphs at 375px', async ({ page }) => {
+    await mockCommonSettingsApi(page)
+    await page.route(/\/api\/tenant-api-keys(\?.*)?$/, async (route) => {
+      await route.fulfill(json(list))
+    })
+    await page.route(/\/api\/audit-logs(\?.*)?$/, async (route) => {
+      await route.fulfill(json(list))
+    })
+
+    await new AutoCorePage(page, '').navigate('/settings?tab=api-keys')
+    await expect(page.getByRole('heading', { name: deSettings.apiKeys.title })).toBeVisible()
+    await expect(page.getByText('Nur-Lese-Schlüssel für Integrationen')).toBeHidden()
+
+    await new AutoCorePage(page, '').navigate('/settings?tab=audit-logs')
+    await expect(page.getByRole('heading', { name: deSettings.auditLogs.title })).toBeVisible()
+    await expect(page.getByText('Unveränderliches, nur ergänzbares Audit-Protokoll')).toBeHidden()
+
+    await expectNoPageScroll(page)
   })
 })

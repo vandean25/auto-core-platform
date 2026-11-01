@@ -124,17 +124,36 @@ describe('ImportSourcesPanel', () => {
     expect(refetch).toHaveBeenCalledTimes(1)
   })
 
-  it('displays the key format hint as a validation message when key format is invalid', async () => {
+  it('submits key to backend without client-side regex check', async () => {
     renderPanel([defaultSource])
 
-    expect(screen.queryByText(di.keyHint)).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(di.keyLabel), { target: { value: 'Legacy DMS' } })
+    fireEvent.change(screen.getByLabelText(di.labelLabel), { target: { value: 'Legacy DMS' } })
+    fireEvent.click(screen.getByRole('button', { name: di.add }))
 
-    fireEvent.change(screen.getByLabelText(di.keyLabel), { target: { value: 'INVALID KEY!' } })
+    await waitFor(() => {
+      expect(createMutate).toHaveBeenCalledWith(
+        { key: 'Legacy DMS', label: 'Legacy DMS', is_default: false },
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      )
+    })
+  })
+
+  it('reports the German copy when the import source key is invalid', async () => {
+    renderPanel([defaultSource])
+    createMutate.mockImplementation((_payload: unknown, options?: { onError?: (error: unknown) => void }) => {
+      options?.onError?.(apiErrorWithCode(400, 'IMPORT_INVALID_SOURCE_KEY'))
+    })
+
+    fireEvent.change(screen.getByLabelText(di.keyLabel), { target: { value: 'invalid-key-' } })
     fireEvent.change(screen.getByLabelText(di.labelLabel), { target: { value: 'Incadea' } })
     fireEvent.click(screen.getByRole('button', { name: di.add }))
 
-    expect(screen.getByText(di.keyHint)).toBeInTheDocument()
-    expect(createMutate).not.toHaveBeenCalled()
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        deErrors.codes.IMPORT_INVALID_SOURCE_KEY,
+      )
+    })
   })
 
   it('creates a source with the entered key and label', async () => {

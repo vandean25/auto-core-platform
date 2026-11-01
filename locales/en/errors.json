@@ -190,7 +190,7 @@
     "IMPORT_INVALID_HOURLY_RATE": "The hourly rate is invalid. Enter an amount of zero or more.",
     "IMPORT_INVALID_INTERNAL_COST": "The internal cost rate is invalid. Enter an amount of zero or more.",
     "IMPORT_INVALID_MAPPING": "The column mapping is invalid. Map all required fields.",
-    "IMPORT_INVALID_SOURCE_KEY": "The import source key is invalid. Use only lower-case letters, digits, and hyphens.",
+    "IMPORT_INVALID_SOURCE_KEY": "Invalid source key. Please check the format.",
     "IMPORT_INVALID_STANDARD_AW": "The labor value is invalid. Enter a number of zero or more.",
     "IMPORT_JOB_ALREADY_APPLIED": "This import has already been applied. Upload a new file to start another import.",
     "IMPORT_JOB_ALREADY_UNDONE": "This import has already been undone.",

@@ -112,7 +112,7 @@ function EvaluationRuleInfo({ ariaLabel, description }: { ariaLabel: string; des
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={ariaLabel}
         >
           <Info className="h-4 w-4" />

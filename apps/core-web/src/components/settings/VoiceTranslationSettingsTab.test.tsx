@@ -41,10 +41,19 @@ describe('VoiceTranslationSettingsTab', () => {
     expect(screen.queryByText(/Die Zugangsdaten werden verschlüsselt/)).not.toBeInTheDocument()
   })
 
-  it('renders short status "Konfiguriert" when credential is configured', () => {
+  it('renders no status text when credential is configured (OK state)', () => {
     mockSettings.data.hasGoogleCredential = true
     renderTab()
 
-    expect(screen.getByText(deSettings.voiceTranslation.credentialConfigured)).toBeInTheDocument()
+    expect(screen.queryByText('Konfiguriert')).not.toBeInTheDocument()
+    expect(screen.queryByText(deSettings.voiceTranslation.credentialNotConfigured)).not.toBeInTheDocument()
+  })
+
+  it('renders info trigger with credential guidance', () => {
+    renderTab()
+
+    expect(
+      screen.getByRole('button', { name: deSettings.voiceTranslation.credentialInfoAria }),
+    ).toBeInTheDocument()
   })
 })

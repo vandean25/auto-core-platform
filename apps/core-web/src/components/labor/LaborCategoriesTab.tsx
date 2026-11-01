@@ -2,7 +2,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { SafeTrans } from "@/lib/i18n"
 import { toast } from "sonner"
-import { Plus, ChevronRight, ChevronDown, Loader2, GripVertical, Pencil } from "lucide-react"
+import { Plus, ChevronRight, ChevronDown, Loader2, GripVertical, Pencil, Trash2 } from "lucide-react"
 
 import {
   useLaborCategories,
@@ -162,10 +162,77 @@ interface DragProps {
   onDragEnd: () => void
 }
 
+function CategoryActiveBadge({
+  isActive,
+  onToggle,
+  title,
+  label,
+}: {
+  isActive: boolean
+  onToggle: (e: React.MouseEvent) => void
+  title: string
+  label: string
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className={cn(
+        "text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0",
+        isActive
+          ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+          : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
+      )}
+      title={title}
+    >
+      {label}
+    </button>
+  )
+}
+
+function CategoryRowActions({
+  category,
+  onEdit,
+  onDelete,
+  editAria,
+  editTitle,
+  deleteAria,
+  deleteTitle,
+}: {
+  category: CategoryRow
+  onEdit: (category: CategoryRow) => void
+  onDelete: (category: CategoryRow) => void
+  editAria: string
+  editTitle: string
+  deleteAria: string
+  deleteTitle: string
+}) {
+  return (
+    <>
+      <button
+        onClick={e => { e.stopPropagation(); onEdit(category) }}
+        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 text-slate-400 hover:text-slate-700 shrink-0"
+        aria-label={editAria}
+        title={editTitle}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(category) }}
+        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 text-slate-400 hover:text-red-600 shrink-0"
+        aria-label={deleteAria}
+        title={deleteTitle}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </>
+  )
+}
+
 function CategoryTreeRow({
   category,
   level = 0,
   onEdit,
+  onDelete,
   onContextMenu,
   onActiveToggle,
   onRateSave,
@@ -174,6 +241,7 @@ function CategoryTreeRow({
   category: CategoryRow
   level?: number
   onEdit: (category: CategoryRow) => void
+  onDelete: (category: CategoryRow) => void
   onContextMenu: (e: React.MouseEvent, category: CategoryRow) => void
   onActiveToggle: (category: CategoryRow) => Promise<void>
   onRateSave: (id: string, rate: number | null) => Promise<void>
@@ -232,28 +300,23 @@ function CategoryTreeRow({
         />
 
         {/* is_active Toggle */}
-        <button
-          onClick={e => { e.stopPropagation(); void onActiveToggle(category) }}
-          className={cn(
-            "text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0",
-            category.is_active
-              ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-              : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
-          )}
+        <CategoryActiveBadge
+          isActive={category.is_active}
+          onToggle={e => { e.stopPropagation(); void onActiveToggle(category) }}
           title={t("labor.categories.tree.toggleActiveTitle")}
-        >
-          {category.is_active ? t("labor.categories.active") : t("labor.categories.inactive")}
-        </button>
+          label={category.is_active ? t("labor.categories.active") : t("labor.categories.inactive")}
+        />
 
-        {/* Edit Button */}
-        <button
-          onClick={e => { e.stopPropagation(); onEdit(category) }}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 text-slate-400 hover:text-slate-700 shrink-0"
-          aria-label={t("labor.categories.tree.editAria", { name: category.name })}
-          title={t("labor.categories.tree.editTitle")}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
+        {/* Actions */}
+        <CategoryRowActions
+          category={category}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          editAria={t("labor.categories.tree.editAria", { name: category.name })}
+          editTitle={t("labor.categories.tree.editTitle")}
+          deleteAria={t("labor.categories.tree.deleteAria", { name: category.name })}
+          deleteTitle={t("labor.categories.tree.deleteTitle")}
+        />
       </div>
 
       {/* Children */}
@@ -265,6 +328,7 @@ function CategoryTreeRow({
               category={child}
               level={level + 1}
               onEdit={onEdit}
+              onDelete={onDelete}
               onContextMenu={onContextMenu}
               onActiveToggle={onActiveToggle}
               onRateSave={onRateSave}
@@ -424,12 +488,16 @@ export function LaborCategoriesTab() {
     })
   }
 
+  const handleDeleteCategory = (category: CategoryRow) => {
+    setDeleteTarget(category)
+    setIsDeleteOpen(true)
+  }
+
   const handleDeleteClick = () => {
     if (!contextMenu) return
     const found = flatCategories.find(c => c.id === contextMenu.categoryId)
     if (found) {
-      setDeleteTarget(found)
-      setIsDeleteOpen(true)
+      handleDeleteCategory(found)
     }
     setContextMenu(null)
   }
@@ -585,6 +653,7 @@ export function LaborCategoriesTab() {
                     key={cat.id}
                     category={cat}
                     onEdit={handleEditOpen}
+                    onDelete={handleDeleteCategory}
                     onContextMenu={handleContextMenu}
                     onActiveToggle={handleActiveToggle}
                     onRateSave={handleRateSave}

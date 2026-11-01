@@ -43,9 +43,26 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
 
   return (
     <section className="space-y-4" aria-labelledby="import-step-source">
-      <h4 id="import-step-source" className="font-medium">
-        {t('dataImport.source.title')}
-      </h4>
+      <div className="flex items-center gap-1.5">
+        <h4 id="import-step-source" className="font-medium">
+          {t('dataImport.source.title')}
+        </h4>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t('dataImport.consent.infoAria')}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 text-xs space-y-1">
+            <p className="font-medium">{t('dataImport.consent.title')}</p>
+            <p>{t('dataImport.consent.description')}</p>
+          </PopoverContent>
+        </Popover>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 max-w-2xl">
         <div className="space-y-2">
           <Label htmlFor="import-entity">{t('dataImport.source.entityLabel')}</Label>
@@ -154,7 +171,7 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                  className="h-11 w-11 text-muted-foreground hover:text-foreground"
                   aria-label={t('dataImport.source.templateFieldsInfo')}
                 >
                   <Info className="h-4 w-4" />

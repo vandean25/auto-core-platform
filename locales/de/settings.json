@@ -386,7 +386,7 @@
   },
   "vehicleData": {
     "noAccess": "Fahrzeugdaten-Einstellungen sind nur für Werkstattinhaber und Administratoren verfügbar.",
-    "loadFailed": "Fahrzeugdaten-Einstellungen konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "loadFailed": "Fahrzeugdaten-Einstellungen konnten nicht geladen werden.",
     "catalog": {
       "title": "Katalog-Standardwerte",
       "identityAdapter": "Identitäts-Adapter",
@@ -419,7 +419,7 @@
   "workshopHours": {
     "openTimeAria": "Öffnungszeit {{day}}",
     "closeTimeAria": "Schließzeit {{day}}",
-    "loadFailed": "Werkstattzeiten konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "loadFailed": "Werkstattzeiten konnten nicht geladen werden.",
     "title": "Werkstattzeiten",
     "timezone": "Zeitzone",
     "slotMinutes": "Slot-Größe (Minuten)",
@@ -494,7 +494,7 @@
     "categories": {
       "title": "Arbeitskategorien",
       "loading": "Kategorien werden geladen…",
-      "empty": "Keine Kategorien gefunden. Legen Sie Ihre erste Kategorie mit dem Formular an.",
+      "empty": "Keine Kategorien vorhanden. Mit Formular anlegen.",
       "notSet": "Nicht festgelegt",
       "invalidRate": "Ungültiges Format für den Stundensatz",
       "tree": {
@@ -503,7 +503,9 @@
         "rateTitle": "Klicken, um den Satz zu bearbeiten",
         "toggleActiveTitle": "Aktivstatus umschalten",
         "editTitle": "Kategorie bearbeiten",
-        "editAria": "Kategorie {{name}} bearbeiten"
+        "editAria": "Kategorie {{name}} bearbeiten",
+        "deleteTitle": "Kategorie löschen",
+        "deleteAria": "Kategorie {{name}} löschen"
       },
       "active": "Aktiv",
       "inactive": "Inaktiv",
@@ -640,7 +642,8 @@
     "locationPlaceholder": "global",
     "credential": "Google-Dienstkonto-JSON",
     "credentialPlaceholder": "{\"type\":\"service_account\",...}",
-    "credentialConfigured": "Konfiguriert",
+    "credentialInfo": "Leer lassen, um aktuellen Wert zu behalten. Zugangsdaten werden verschlüsselt gespeichert und nie zurückgegeben.",
+    "credentialInfoAria": "Hinweis zu Zugangsdaten anzeigen",
     "credentialNotConfigured": "Nicht konfiguriert",
     "showCredential": "Zugangsdaten anzeigen",
     "overwriteConfirm": "Die aktuell konfigurierten Google-Zugangsdaten überschreiben?",
@@ -771,6 +774,8 @@
       "nameLabel": "Name",
       "namePlaceholder": "Beispiel GmbH",
       "countryLabel": "Land",
+      "countryInfo": "Das Land kann nach dem Anlegen nicht mehr geändert werden.",
+      "countryInfoAria": "Hinweis zum Land anzeigen",
       "countryAt": "Österreich (AT)",
       "countryDe": "Deutschland (DE)",
       "submit": "+ Rechtsträger"
@@ -793,6 +798,8 @@
     },
     "missingPrefix": "Fehlend: {{fields}}",
     "seller": {
+      "countryInfo": "Das Land kann nach dem Anlegen nicht mehr geändert werden.",
+      "countryInfoAria": "Hinweis zum Land anzeigen",
       "ready": "Bereit für die Rechnungsausstellung",
       "incomplete": "Verkäuferidentität unvollständig",
       "missing": {
@@ -908,6 +915,8 @@
     },
     "header": {
       "title": "Buchhaltungsexport",
+      "info": "DATEV erst nach Freigabe des Steuerberaters aktivieren.",
+      "infoAria": "Hinweis zu DATEV anzeigen",
       "selected": "Ausgewählt: <name>{{name}}</name>",
       "selectedPeriod": "Ausgewählt: <name>{{name}}</name> · {{from}} bis {{to}}"
     },
@@ -936,7 +945,9 @@
       "title": "Vorschauergebnisse",
       "summary": "Profil v{{version}} · {{documents}} Belege · {{rows}} Buchungszeilen",
       "blockers": "Blockierende Probleme",
-      "emptyPeriod": "Dieser abgeschlossene Zeitraum enthält keine exportierbaren Belege. Für leere Zeiträume ist die Erstellung nicht verfügbar.",
+      "blockersNote": "Exporte lassen blockierte Belege nie aus.",
+      "blockersInfoAria": "Hinweis zu blockierenden Belegen anzeigen",
+      "emptyPeriod": "Keine exportierbaren Belege im Zeitraum.",
       "columns": {
         "account": "Konto",
         "taxRate": "Steuersatz",
@@ -955,6 +966,8 @@
     },
     "history": {
       "title": "Exportlauf-Verlauf",
+      "info": "Ein Download bestätigt keinen DATEV-Import.",
+      "infoAria": "Hinweis zu Export-Downloads anzeigen",
       "searchPlaceholder": "ID, Rechtsträger, Prüfsumme",
       "empty": "Noch keine autorisierten Exportläufe.",
       "columns": {
@@ -1006,6 +1019,11 @@
       "dryRun": "Probelauf",
       "apply": "Import"
     },
+    "consent": {
+      "title": "Marketing-Einwilligung",
+      "description": "Einwilligungs-, Marketing- und Werbespalten werden nicht importiert und nur als Warnung gemeldet.",
+      "infoAria": "Hinweis zur Marketing-Einwilligung anzeigen"
+    },
     "source": {
       "title": "1. Entität & Quelle",
       "entityLabel": "Entität",
@@ -1028,7 +1046,6 @@
       "title": "Importquellen",
       "keyLabel": "Schlüssel",
       "keyPlaceholder": "z. B. legacy-dms",
-      "keyHint": "Nur Kleinbuchstaben, Ziffern, Bindestriche und Unterstriche. Für kanonische Schlüssel im Format source_name:source_company_code ist ein Doppelpunkt erlaubt.",
       "labelLabel": "Anzeigename",
       "labelPlaceholder": "z. B. Legacy DMS",
       "defaultLabel": "Als Standard verwenden",

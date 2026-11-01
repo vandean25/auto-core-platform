@@ -182,7 +182,7 @@
   "IMPORT_INVALID_HOURLY_RATE": "Der Stundensatz ist ungültig. Bitte geben Sie einen Betrag ab null ein.",
   "IMPORT_INVALID_INTERNAL_COST": "Der interne Kostensatz ist ungültig. Bitte geben Sie einen Betrag ab null ein.",
   "IMPORT_INVALID_MAPPING": "Die Spaltenzuordnung ist ungültig. Bitte ordnen Sie alle Pflichtfelder zu.",
-  "IMPORT_INVALID_SOURCE_KEY": "Der Importquellenschlüssel ist ungültig. Bitte verwenden Sie nur Kleinbuchstaben, Ziffern und Bindestriche.",
+  "IMPORT_INVALID_SOURCE_KEY": "Ungültiger Quellenschlüssel. Format bitte prüfen.",
   "IMPORT_INVALID_STANDARD_AW": "Der Arbeitswert ist ungültig. Bitte geben Sie eine Zahl ab null ein.",
   "IMPORT_JOB_ALREADY_APPLIED": "Dieser Import wurde bereits übernommen. Bitte laden Sie für einen neuen Import eine neue Datei hoch.",
   "IMPORT_JOB_ALREADY_UNDONE": "Dieser Import wurde bereits rückgängig gemacht.",

@@ -177,6 +177,8 @@ export const CANONICAL_EN_MESSAGES = {
     'The existing record was not changed. Enable “Update existing” to apply the changes.',
   IMPORT_VALUE_INVALID:
     'A value is invalid. Check the values and their format in this row.',
+  IMPORT_INVALID_SOURCE_KEY:
+    'Invalid source key. Please check the format.',
   IMPORT_VALUE_REQUIRED:
     'A required value is missing. Fill in the missing value for this row.',
   IMPORT_VIN_CHECK_DIGIT:
