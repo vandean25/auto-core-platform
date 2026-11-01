@@ -1375,6 +1375,10 @@ describe('Import Undo (e2e)', () => {
       `import-undo scaled e2e: rows=${scaledRowCount} preview_ms=${previewMs} undo_ms=${undoMs}`,
     );
 
+    // One unit is budgeted at 25 s and hands off, so the bound is per row: it catches an
+    // N+1 regression without failing on a loaded runner (20k measured 13 ms/row).
+    expect(undoMs).toBeLessThan(scaledRowCount * 100);
+
     expect(undoRes.body.status).toBe('UNDONE');
     expect(undoRes.body.options.undo).toMatchObject({
       deleted: scaledRowCount,
