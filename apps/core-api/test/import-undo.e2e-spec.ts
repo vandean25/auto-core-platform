@@ -963,7 +963,7 @@ describe('Import Undo (e2e)', () => {
         customer_id: customer.id,
         order_number: `SO-${Date.now()}`,
         status: 'CONFIRMED',
-        total_gross: 120,
+        total_amount: 120,
       },
     });
 
