@@ -890,7 +890,7 @@ describe('Import Undo (e2e)', () => {
     expect(undoRes.body.options?.undo?.deleted).toBe(0);
     expect(undoRes.body.options?.undo?.restored).toBe(0);
 
-    const checkJob = await tenantPrisma.importJob.findUniqueOrThrow({
+    const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: dryRun.id },
     });
     expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
@@ -936,7 +936,7 @@ describe('Import Undo (e2e)', () => {
       UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
     );
 
-    const checkJob = await tenantPrisma.importJob.findUniqueOrThrow({
+    const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: job.id },
     });
     expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
@@ -982,7 +982,7 @@ describe('Import Undo (e2e)', () => {
       },
     });
 
-    const checkJob = await tenantPrisma.importJob.findUniqueOrThrow({
+    const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: job.id },
     });
     expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
