@@ -56,7 +56,6 @@ type BodyParserHttpError = Error & {
   status?: number;
   statusCode?: number;
   type?: unknown;
-  code?: unknown;
 };
 
 const BODY_PARSER_HTTP_ERROR_TYPES = new Set([
@@ -113,10 +112,10 @@ function asBodyDecompressionError(exception: Error): boolean {
   if (status !== HttpStatus.BAD_REQUEST) {
     return false;
   }
-  if (typeof err.type === 'string') {
-    return false;
-  }
-  return typeof err.code === 'string' && err.code.startsWith('Z_');
+  // body-parser tags every other failure with a `type`; only the decompression
+  // stream error reaches us untagged, and its zlib code differs per encoding
+  // and Node version (Z_DATA_ERROR for gzip/deflate, ERR__… for brotli).
+  return typeof err.type !== 'string';
 }
 
 function resolveBodyDecompressionError(

@@ -608,14 +608,14 @@ describe('GlobalExceptionFilter', () => {
       const exception = createBodyParserHttpError({
         status: 415,
         type: 'encoding.unsupported',
-        message: 'unsupported content encoding "gzip"',
+        message: 'unsupported content encoding "compress"',
       });
       filter.catch(exception, mockHost);
 
       expect(mockStatus).toHaveBeenCalledWith(415);
       expect(mockJson).toHaveBeenCalledWith({
         statusCode: 415,
-        message: 'unsupported content encoding "gzip"',
+        message: 'unsupported content encoding "compress"',
         error: 'Unsupported Media Type',
         code: 'HTTP_415',
       });
@@ -626,7 +626,7 @@ describe('GlobalExceptionFilter', () => {
       const exception = createBodyParserHttpError({
         status: 415,
         type: 'encoding.unsupported',
-        message: 'unsupported content encoding "br"',
+        message: 'unsupported content encoding "compress"',
       });
       filter.catch(exception, mockHost);
 
@@ -740,6 +740,37 @@ describe('GlobalExceptionFilter', () => {
         JSON.stringify({
           type: 'body_decompression_error',
           requestId: 'req-zlib',
+        }),
+      );
+      expect(mockLoggerError).not.toHaveBeenCalled();
+    });
+
+    it('maps a corrupt brotli body to 400 with a generic message (AUT-746)', () => {
+      const exception = createBodyDecompressionHttpError({
+        code: 'ERR__ERROR_FORMAT_PADDING_2',
+        message: 'Decompression failed',
+      });
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-brotli',
+          traceId: '00000000-0000-4000-8000-000000000014',
+          source: 'API',
+        });
+        filter.catch(exception, mockHost);
+      });
+
+      expect(mockStatus).toHaveBeenCalledWith(400);
+      expect(mockJson).toHaveBeenCalledWith({
+        statusCode: 400,
+        message: 'Invalid request body encoding',
+        error: 'Bad Request',
+        code: 'HTTP_400',
+      });
+      expect(mockCaptureException).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'body_decompression_error',
+          requestId: 'req-brotli',
         }),
       );
       expect(mockLoggerError).not.toHaveBeenCalled();

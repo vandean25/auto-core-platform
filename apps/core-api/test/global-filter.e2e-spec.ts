@@ -155,6 +155,10 @@ describe('GlobalExceptionFilter (e2e)', () => {
       encoding: 'deflate',
       body: Buffer.from([0x78, 0x9c, 0xff, 0xff, 0x00, 0x00, 0x00]),
     },
+    {
+      encoding: 'br',
+      body: Buffer.from('not brotli'),
+    },
   ])(
     'returns 400 for an unauthenticated $encoding body with invalid bytes (AUT-744)',
     async ({ encoding, body, requestId }) => {
@@ -199,11 +203,12 @@ describe('GlobalExceptionFilter (e2e)', () => {
   });
 
   it('returns 415 with an x-request-id when the body uses an unsupported content encoding (AUT-746)', async () => {
+    // body-parser decodes gzip, deflate and br; 'compress' is the LZW encoding it does not implement.
     const response = await request(app.getHttpServer())
       .post('/api/customers')
       .set('Content-Type', 'application/json')
-      .set('Content-Encoding', 'br')
-      .send(Buffer.from('not brotli'));
+      .set('Content-Encoding', 'compress')
+      .send(Buffer.from('not compressed'));
 
     expect(response.status).toBe(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     expect(response.body).toMatchObject({
