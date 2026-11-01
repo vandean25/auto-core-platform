@@ -242,6 +242,7 @@
         "winter": "Winter",
         "summer": "Summer",
         "allSeason": "All season",
+        "new": "Not stored",
         "inStorage": "In storage",
         "returned": "Returned",
         "disposed": "Disposed"

@@ -76,6 +76,7 @@
     "DUE_SOON": "Bald fällig",
     "OVERDUE": "Überfällig",
     "UNKNOWN": "Unbekannt",
+    "NEW": "Nicht eingelagert",
     "IN_STORAGE": "Eingelagert",
     "ON_VEHICLE": "Am Fahrzeug",
     "DISPOSED": "Entsorgt",
