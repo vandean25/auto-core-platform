@@ -98,7 +98,7 @@ Customer-owned sets create **no InventoryStock, InventoryTransaction, vehicle-st
 
 ## Manifest and reconciliation
 
-The central **v1.1** manifest schema is authoritative. `control_totals.counts_by_type.tyre_sets` equals logical data-row count and files[].row_count. `control_totals.domain_counts.tyre_sets` is **null iff tyre_sets.csv is absent**. When present it is an exact object containing every TyreSetStatus key, including zeros and for a header-only file:
+The central **v1.1** manifest schema is authoritative. `control_totals.counts_by_type.tyre_sets` equals logical data-row count and files[].row_count. `control_totals.domain_counts.tyre_sets` is **null iff tyre_sets.csv is absent**. When present it is an exact object containing every importable TyreSetStatus key (NEW is ACP-only), including zeros and for a header-only file:
 
 ```json
 {"IN_STORAGE":0,"ON_VEHICLE":0,"RETURNED":0,"DISPOSED":0}
