@@ -9,8 +9,13 @@ on:
       - main
       - 'feat/*'
       - 'feature/*'
+  # Push on main gives every squash-merge its own CI result. No paths-ignore: the PR trigger has none.
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
+# Push runs group by ref, so a newer push on main cancels the superseded main run.
 concurrency:
   group: pr-build-check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
