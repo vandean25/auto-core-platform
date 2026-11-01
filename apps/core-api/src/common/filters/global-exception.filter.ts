@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/node';
 import type { Request, Response } from 'express';
@@ -44,7 +45,7 @@ type ResolvedError = {
 };
 
 type ErrorRequestContext = {
-  requestId?: string;
+  requestId: string;
   tenantId?: string;
   actorId?: string;
 };
@@ -68,8 +69,10 @@ const BODY_PARSER_HTTP_ERROR_TYPES = new Set([
 
 const BODY_DECOMPRESSION_ERROR_MESSAGE = 'Invalid request body encoding';
 
+const REQUEST_ID_HEADER = 'x-request-id';
+
 function inboundRequestId(request: Request): string | undefined {
-  const value = request.headers?.['x-request-id'];
+  const value = request.headers?.[REQUEST_ID_HEADER];
   if (typeof value === 'string') {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
@@ -199,14 +202,24 @@ function whenRequestId(
   return { requestId };
 }
 
+/** Body-parser failures reach the filter before the middleware ran, so a correlation ID can still be missing. */
 function buildErrorRequestContext(request: Request): ErrorRequestContext {
   const user = TenantContextStorage.getUser();
   const requestMeta = TenantContextStorage.getRequestMeta();
   return {
-    requestId: requestMeta?.requestId ?? inboundRequestId(request),
+    requestId:
+      requestMeta?.requestId ?? inboundRequestId(request) ?? randomUUID(),
     tenantId: user?.tenantId,
     actorId: user?.userId,
   };
+}
+
+/** Echo the correlation ID the middleware would normally have set, leaving an existing one untouched. */
+function ensureRequestIdHeader(response: Response, requestId: string): void {
+  if (response.headersSent || response.getHeader(REQUEST_ID_HEADER)) {
+    return;
+  }
+  response.setHeader(REQUEST_ID_HEADER, requestId);
 }
 
 function resolveBodyParserHttpError(
@@ -271,7 +284,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     applyPdfDownloadCacheControlIfNeeded(request, response);
 
-    const writeBody = () =>
+    const writeBody = () => {
+      ensureRequestIdHeader(response, context.requestId);
       response.status(resolved.status).json({
         statusCode: resolved.status,
         message: resolved.message,
@@ -283,6 +297,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ...whenEvent(eventId),
         ...whenRequestId(resolved.status, context.requestId),
       });
+    };
     const flush = (Sentry as { flush?: (timeout: number) => Promise<unknown> })
       .flush;
     const sentryConfigured = Boolean(process.env.SENTRY_DSN?.trim());
