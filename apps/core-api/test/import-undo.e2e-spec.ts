@@ -259,7 +259,6 @@ describe('Import Undo (e2e)', () => {
             row_no: 1,
             action: 'CREATE',
             entity_id: dummyCustomer.id,
-            raw_data_json: { first_name: 'Matrix' },
             normalized_json: { first_name: 'Matrix' },
           },
         },
