@@ -358,7 +358,21 @@
         "storageFailed": "Die Datei konnte nicht gespeichert werden. Bitte versuchen Sie es erneut."
       }
     },
-    "taskDetailLoadFailed": "Aufgabendetails konnten nicht geladen werden"
+    "taskDetailLoadFailed": "Aufgabendetails konnten nicht geladen werden",
+    "loadChecklistFailed": "Checkliste konnte nicht geladen werden",
+    "saveChecklistFailed": "Checkliste konnte nicht gespeichert werden",
+    "loadQueueFailed": "Warteschlange konnte nicht geladen werden",
+    "startTaskFailed": "Aufgabe konnte nicht gestartet werden",
+    "switchTaskFailed": "Aufgabe konnte nicht gewechselt werden",
+    "pauseTaskFailed": "Aufgabe konnte nicht pausiert werden",
+    "completeTaskFailed": "Aufgabe konnte nicht abgeschlossen werden",
+    "saveDiagnosticsFailed": "Diagnose konnte nicht gespeichert werden",
+    "submitFindingFailed": "Feststellung konnte nicht gesendet werden",
+    "requestPartFailed": "Teileanfrage konnte nicht gesendet werden",
+    "getUploadPolicyFailed": "Upload-Richtlinie konnte nicht geladen werden",
+    "saveMediaFailed": "Medien konnten nicht gespeichert werden",
+    "uploadVoiceNoteFailed": "Sprachnotiz konnte nicht hochgeladen werden",
+    "audioMimeTypeRequired": "Audio-MIME-Typ ist erforderlich."
   },
   "actions": {
     "cancel": "Abbrechen",

@@ -10,25 +10,31 @@ export const FORMAT_LOCALE = 'de-AT'
 
 export const DEFAULT_TIME_ZONE = 'Europe/Vienna'
 
-export const PRELOAD_NAMESPACES = ['common', 'nav', 'errors', 'glossary', 'enums'] as const
+export const PRELOAD_NAMESPACES = [
+  'common',
+  'nav',
+  'errors',
+  'glossary',
+  'enums',
+  'agent',
+  'workshop',
+  'vehicleStock',
+  'settings',
+] as const
 
 export type PreloadNamespace = (typeof PRELOAD_NAMESPACES)[number]
 
 export const LAZY_NAMESPACES = [
-  'workshop',
   'sales',
   'finance',
   'inventory',
   'vehicles',
   'hr',
-  'agent',
-  'settings',
   'platform',
   'reports',
   'pdf',
   'email',
   'customers',
-  'vehicleStock',
 ] as const
 
 export type LazyNamespace = (typeof LAZY_NAMESPACES)[number]

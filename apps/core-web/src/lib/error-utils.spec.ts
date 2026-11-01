@@ -4,7 +4,7 @@ import ts from 'typescript'
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from 'vitest'
 import { initI18n } from '@/lib/i18n'
-import { getErrorBody, getErrorCode, getErrorMessage } from './error-utils'
+import { getErrorBody, getErrorCode, getErrorMessage, getErrorMessageFromResponse } from './error-utils'
 
 describe('getErrorMessage', () => {
   beforeAll(async () => {
@@ -168,20 +168,46 @@ describe('getErrorMessage', () => {
 
     expect(getErrorMessage(thrown, 'fallback')).toBe('Fiskalperiode ist gesperrt.')
   })
+
+  it('does not leak raw backend message from Response and maps known code', async () => {
+    const responseWithKnownCode = new Response(
+      JSON.stringify({
+        code: 'SELLER_IDENTITY_INCOMPLETE',
+        message: 'Raw backend seller message',
+      }),
+      { status: 422 },
+    )
+    const msg = await getErrorMessageFromResponse(responseWithKnownCode, 'fallback')
+    expect(msg).toBe('Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.')
+    expect(msg).not.toContain('Raw backend')
+  })
+
+  it('does not leak raw backend message from Response when code is unknown', async () => {
+    const responseWithUnknownCode = new Response(
+      JSON.stringify({
+        code: 'UNKNOWN_OR_INTERNAL',
+        message: 'Raw unlocalized server text',
+      }),
+      { status: 400 },
+    )
+    const msg = await getErrorMessageFromResponse(responseWithUnknownCode, 'Standardfehler')
+    expect(msg).toBe('Standardfehler')
+    expect(msg).not.toContain('Raw unlocalized')
+  })
 })
 
 
-describe('getErrorMessage fallback guard', () => {
+describe('error fallback literal guard', () => {
   it('ensures no call site in core-web/src passes a string literal as fallback', () => {
     const srcRoot = path.resolve(__dirname, '..')
 
-    function isSourceFile(file: string): boolean {
-      if (file.endsWith('.d.ts')) return false
-      if (file.endsWith('.test.ts') || file.endsWith('.test.tsx')) return false
-      if (file.endsWith('.spec.ts') || file.endsWith('.spec.tsx')) return false
-      if (file.includes('test-copy.ts')) return false
-      if (file.includes(`${path.sep}test${path.sep}`) || file.includes('/test/')) return false
-      return file.endsWith('.ts') || file.endsWith('.tsx')
+    function isSourceFile(filePath: string): boolean {
+      if (filePath.endsWith('.d.ts')) return false
+      if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) return false
+      if (filePath.endsWith('.spec.ts') || filePath.endsWith('.spec.tsx')) return false
+      if (filePath.includes('test-copy.ts')) return false
+      if (filePath.includes(`${path.sep}test${path.sep}`) || filePath.includes('/test/')) return false
+      return filePath.endsWith('.ts') || filePath.endsWith('.tsx')
     }
 
     function walk(dir: string): string[] {
@@ -210,11 +236,32 @@ describe('getErrorMessage fallback guard', () => {
       }
     }
 
-    for (const file of files) {
-      const src = fs.readFileSync(file, 'utf8')
-      if (!src.includes('getErrorMessage')) continue
+    const checkedFunctions = new Set([
+      'getErrorMessage',
+      'throwImportResponseError',
+      'throwHttpError',
+    ])
 
-      const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true)
+    // Legacy call sites outside AUT-836 scope to be addressed in follow-up audit
+    const UNMIGRATED_THROW_HTTP_ERROR_FILES = new Set([
+      'api/api-keys.ts',
+      'api/document-branding.ts',
+      'api/tyre-storage.ts',
+      'components/workshop/MechanicFindingAdvisorPanel.tsx',
+    ])
+
+    for (const filePath of files) {
+      const src = fs.readFileSync(filePath, 'utf8')
+      if (
+        !src.includes('getErrorMessage') &&
+        !src.includes('throwImportResponseError') &&
+        !src.includes('throwHttpError')
+      ) {
+        continue
+      }
+
+      const sf = ts.createSourceFile(filePath, src, ts.ScriptTarget.Latest, true)
+      const relPath = path.relative(srcRoot, filePath).replace(/\\/g, '/')
 
       function visit(node: ts.Node) {
         if (ts.isCallExpression(node)) {
@@ -222,10 +269,12 @@ describe('getErrorMessage fallback guard', () => {
           let name = ''
           if (ts.isIdentifier(expr)) name = expr.text
           else if (ts.isPropertyAccessExpression(expr)) name = expr.name.text
-          if (name === 'getErrorMessage') {
+          if (name === 'throwHttpError' && UNMIGRATED_THROW_HTTP_ERROR_FILES.has(relPath)) {
+            return
+          }
+          if (checkedFunctions.has(name)) {
             const fallbackArg = node.arguments[1]
             if (fallbackArg) {
-              const relPath = path.relative(srcRoot, file).replace(/\\/g, '/')
               checkLiteral(fallbackArg, sf, relPath)
             }
           }

@@ -146,7 +146,8 @@ describe('agent-actions api hooks', () => {
         expect(result.current.isError).toBe(true)
       })
 
-      expect(result.current.error?.message).toBe('Forbidden')
+      expect(result.current.error?.message).toBe('Agenten-Aktivitäten konnten nicht geladen werden')
+      expect(result.current.error?.message).not.toContain('Forbidden')
     })
   })
 
@@ -214,7 +215,38 @@ describe('agent-actions api hooks', () => {
         expect(result.current.isError).toBe(true)
       })
 
-      expect(result.current.error?.message).toBe('Trace not found')
+      expect(result.current.error?.message).toBe('Trace-Details konnten nicht geladen werden')
+      expect(result.current.error?.message).not.toContain('Trace not found')
+    })
+
+  
+    it('maps known error code to translated text instead of backend message', async () => {
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse(
+          {
+            code: 'SELLER_IDENTITY_INCOMPLETE',
+            message: 'Raw backend message',
+          },
+          false,
+        ),
+      )
+
+      const queryClient = createQueryClient()
+      const wrapper = createWrapper(queryClient)
+
+      const { result } = renderHook(
+        () => useAgentActionTraceDetail('trace-err'),
+        { wrapper },
+      )
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error?.message).toBe(
+        'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+      )
+      expect(result.current.error?.message).not.toContain('Raw backend message')
     })
   })
 })

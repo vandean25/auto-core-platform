@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchWithAuth } from "./client";
-import { useStockTransfer } from "./stock-transfers";
+import { useStockTransfer, useApproveStockTransfer } from "./stock-transfers";
 
 vi.mock("./client", () => ({
   fetchWithAuth: vi.fn(),
@@ -64,5 +64,50 @@ describe("useStockTransfer", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(result.current.data?.lines[0]?.sourceLocationId).toBeNull();
+  });
+  it("does not leak raw backend message on mutation error and maps known code", async () => {
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({
+        code: "SELLER_IDENTITY_INCOMPLETE",
+        message: "Raw backend transfer error message",
+      }),
+      status: 422,
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useApproveStockTransfer("transfer-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ expectedVersion: 1 }),
+    ).rejects.toThrow("Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.");
+
+    await expect(
+      result.current.mutateAsync({ expectedVersion: 1 }),
+    ).rejects.not.toThrow("Raw backend transfer error message");
+  });
+
+  it("does not leak raw backend message when code is unknown", async () => {
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({
+        code: "SOME_UNKNOWN_CODE",
+        message: "Internal unexpected transfer failure",
+      }),
+      status: 400,
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useApproveStockTransfer("transfer-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ expectedVersion: 1 }),
+    ).rejects.toThrow("Failed to approve stock transfer");
+
+    await expect(
+      result.current.mutateAsync({ expectedVersion: 1 }),
+    ).rejects.not.toThrow("Internal unexpected transfer failure");
   });
 });

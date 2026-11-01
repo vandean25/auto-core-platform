@@ -1311,6 +1311,26 @@
         "started": "Undo started.",
         "failed": "Failed to undo import."
       }
+    },
+    "errors": {
+      "directUploadFailed": "Failed to start direct import upload",
+      "dryRunFailed": "Import dry-run failed",
+      "historyLoadFailed": "Failed to load import history",
+      "entityTypesLoadFailed": "Failed to load import entity types",
+      "templateLoadFailed": "Failed to load import template",
+      "mappingProfilesLoadFailed": "Failed to load mapping profiles",
+      "mappingProfileSaveFailed": "Failed to save mapping profile",
+      "rowsLoadFailed": "Failed to load import rows",
+      "cancelFailed": "Failed to cancel import",
+      "applyFailed": "Failed to apply import",
+      "downloadTemplateFailed": "Failed to download template",
+      "downloadErrorsFailed": "Failed to download error rows",
+      "sourcesLoadFailed": "Failed to load import sources",
+      "sourceCreateFailed": "Failed to create import source",
+      "sourceUpdateFailed": "Failed to update import source",
+      "sourceDeleteFailed": "Failed to delete import source",
+      "undoPreviewFailed": "Failed to load undo preview",
+      "undoFailed": "Failed to undo import"
     }
   },
   "documentBranding": {

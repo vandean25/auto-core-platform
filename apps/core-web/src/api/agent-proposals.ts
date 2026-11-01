@@ -10,6 +10,7 @@ import type { components } from './generated/openapi'
 import { agentActionKeys } from './agent-actions'
 import { agentSupervisionTriageKeys } from './agent-supervision-triage'
 import { fetchWithAuth } from './client'
+import { getErrorMessageFromResponse as getErrorMessage } from '@/lib/error-utils'
 
 export type AgentProposal = components['schemas']['AgentProposalResponseDto']
 export type AgentProposalListResponse = components['schemas']['AgentProposalListResponseDto']
@@ -36,10 +37,6 @@ export const agentProposalKeys = {
   detail: (id: string) => [...agentProposalKeys.details(), id] as const,
 }
 
-async function getErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
-  const payload = (await response.json().catch(() => undefined)) as { message?: string } | undefined
-  return payload?.message || fallbackMessage
-}
 
 export function chunkAgentProposalIds(
   ids: string[],

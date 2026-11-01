@@ -199,9 +199,8 @@ describe('agent-proposals api hooks', () => {
         expect(result.current.isError).toBe(true)
       })
 
-      expect(result.current.error?.message).toBe(
-        'Unauthorized supervisor access',
-      )
+      expect(result.current.error?.message).toBe('Agenten-Vorschläge konnten nicht geladen werden')
+      expect(result.current.error?.message).not.toContain('Unauthorized supervisor access')
     })
   })
 
@@ -261,6 +260,9 @@ describe('agent-proposals api hooks', () => {
       })
 
       await expect(result.current.mutateAsync('prop-1')).rejects.toThrow(
+        'Fehler beim Genehmigen des Vorschlags',
+      )
+      await expect(result.current.mutateAsync('prop-1')).rejects.not.toThrow(
         'Action requires human execution',
       )
     })
@@ -324,7 +326,10 @@ describe('agent-proposals api hooks', () => {
 
       await expect(
         result.current.mutateAsync({ id: 'prop-1', reason: 'Too late' }),
-      ).rejects.toThrow('Proposal already rejected')
+      ).rejects.toThrow('Fehler beim Ablehnen des Vorschlags')
+      await expect(
+        result.current.mutateAsync({ id: 'prop-1', reason: 'Too late' }),
+      ).rejects.not.toThrow('Proposal already rejected')
     })
   })
 })

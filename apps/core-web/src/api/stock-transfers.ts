@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchWithAuth } from "./client";
+import { getErrorMessageFromResponse as getErrorMessage } from "@/lib/error-utils";
 import type { components } from "./generated/openapi";
 
 export const stockTransferKeys = {
@@ -28,12 +29,6 @@ export type ReturnStockTransferPayload =
 
 const STOCK_TRANSFER_API = "/api/stock-transfers";
 
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
-    | undefined;
-  return payload?.message || fallbackMessage;
-}
 
 async function parseStockTransferResponse(response: Response, fallbackMessage: string) {
   if (!response.ok) {

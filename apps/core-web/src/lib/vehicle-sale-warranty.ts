@@ -91,5 +91,5 @@ const SHORTENING_REJECTION_CODES = new Set([
 export function shorteningSaveErrorMessage(error: unknown): string | null {
   const code = getErrorCode(error)
   if (!code || !SHORTENING_REJECTION_CODES.has(code)) return null
-  return getErrorMessage(error, i18n.t('vehicleStock:sale.shorteningFailed')) || null
+  return getErrorMessage(error, i18n.t('vehicleStock:sale.shorteningFailed'))
 }

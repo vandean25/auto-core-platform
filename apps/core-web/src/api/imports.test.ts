@@ -67,13 +67,14 @@ describe('downloadImportErrorRowsCsv', () => {
       headers: { 'Content-Type': 'application/json' },
     }))
 
-    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Failed to download error rows')
+    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Fehlerzeilen konnten nicht heruntergeladen werden')
+    await expect(downloadImportErrorRowsCsv('job-1')).rejects.not.toThrow('Download unavailable')
   })
 
   it('uses the existing fallback when the failed response is not JSON', async () => {
     fetchMock.mockResolvedValueOnce(new Response('Unavailable', { status: 503 }))
 
-    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Failed to download error rows')
+    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Fehlerzeilen konnten nicht heruntergeladen werden')
   })
 
   it('propagates a network failure', async () => {

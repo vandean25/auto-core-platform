@@ -156,7 +156,7 @@ describe('decision-shadow-logs api hooks', () => {
     )
   })
 
-  it('surfaces the server message when the request is forbidden', async () => {
+  it('does not surface the raw server message and uses translated fallback when forbidden', async () => {
     vi.mocked(fetchWithAuth).mockResolvedValue(
       createJsonResponse({ message: 'Tenant supervisor or admin access is required.' }, false),
     )
@@ -169,8 +169,32 @@ describe('decision-shadow-logs api hooks', () => {
       expect(result.current.isError).toBe(true)
     })
 
-    expect(result.current.error).toEqual(
-      new Error('Tenant supervisor or admin access is required.'),
+    expect(result.current.error?.message).toBe('Entscheidungs-Schattenprotokolle konnten nicht geladen werden')
+    expect(result.current.error?.message).not.toContain('Tenant supervisor or admin access is required.')
+  })
+
+  it('maps known error codes to translated copy instead of raw server message', async () => {
+    vi.mocked(fetchWithAuth).mockResolvedValue(
+      createJsonResponse(
+        {
+          code: 'SELLER_IDENTITY_INCOMPLETE',
+          message: 'Raw server exception',
+        },
+        false,
+      ),
     )
+
+    const { result } = renderHook(() => useDecisionShadowLogs(), {
+      wrapper: createWrapper(createQueryClient()),
+    })
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true)
+    })
+
+    expect(result.current.error?.message).toBe(
+      'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+    )
+    expect(result.current.error?.message).not.toContain('Raw server exception')
   })
 })

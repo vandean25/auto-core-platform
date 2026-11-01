@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { LazyNamespace } from './constants'
+import type { AppNamespace, LazyNamespace } from './constants'
 import { ensureNamespaceLoaded, i18n } from './init-i18n'
 
 export type LazyNamespaceBundleStatus = 'loading' | 'ready' | 'failed'
 
-function bundlesReady(namespaces: readonly LazyNamespace[]): boolean {
+function bundlesReady(namespaces: readonly (AppNamespace | LazyNamespace)[]): boolean {
   const language = i18n.language
   return namespaces.every((namespace) => i18n.hasResourceBundle(language, namespace))
 }
@@ -16,7 +16,7 @@ export type LazyNamespaceBundleReadyState = {
 
 /** Loads lazy namespaces once per language; returns `failed` when a locale chunk cannot be loaded. */
 export function useLazyNamespaceBundleReady(
-  namespaces: readonly LazyNamespace[],
+  namespaces: readonly (AppNamespace | LazyNamespace)[],
 ): LazyNamespaceBundleReadyState {
   const language = i18n.language
   const namespaceKey = namespaces.slice().sort().join('\0')

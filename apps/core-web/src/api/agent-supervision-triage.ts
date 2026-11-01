@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
+import { getErrorMessageFromResponse as getErrorMessage } from '@/lib/error-utils'
 
 export type AgentSupervisionTriageItem =
   components['schemas']['AgentSupervisionTriageItemDto']
@@ -20,15 +21,6 @@ export const agentSupervisionTriageKeys = {
     [...agentSupervisionTriageKeys.lists(), filters] as const,
 }
 
-async function getErrorMessage(
-  response: Response,
-  fallbackMessage: string,
-): Promise<string> {
-  const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
-    | undefined
-  return payload?.message || fallbackMessage
-}
 
 export function useAgentSupervisionTriage(
   filters: AgentSupervisionTriageFilters = {},
