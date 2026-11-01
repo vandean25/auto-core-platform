@@ -74,16 +74,7 @@ export function InvoiceSettlementPanel({
   )
 
   if (rksvMode === 'OFF' || rksvMode === 'UNKNOWN') {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">{t('settlement.title')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-slate-600">{t('settlement.fiscalOffPanel')}</p>
-        </CardContent>
-      </Card>
-    )
+    return null
   }
 
   return (

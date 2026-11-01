@@ -2,9 +2,10 @@ import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { Info, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { dashboardWidgetKeys } from '@/features/dashboard-widgets/dashboard-widget-keys'
 import {
   fetchWidgetRows,
@@ -109,7 +110,25 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
     return (
       <Card>
         <CardContent className="pt-6">
-          <p className="text-sm text-slate-500">{t('dashboard.emptyWidgets')}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm text-slate-500">{t('dashboard.emptyWidgets')}</p>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
+                  aria-label={t('dashboard.emptyWidgetsInfoAria')}
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('dashboard.emptyWidgetsInfoAria')}>
+                {t('dashboard.emptyWidgetsHint')}
+              </PopoverContent>
+            </Popover>
+          </div>
         </CardContent>
       </Card>
     )

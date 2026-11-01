@@ -1242,7 +1242,9 @@
     "versionLabel": "Version {{version}}",
     "approvalNote": " · Note: {{note}}",
     "recordDecision": "Record confirmation",
-    "sendDisabledLegal": "Customer send is disabled until legal text is approved. You can still review the draft.",
+    "sendDisabledLegal": "Customer sending disabled.",
+    "sendDisabledLegalReason": "Customer send is disabled until legal text is approved. You can still review the draft.",
+    "sendDisabledLegalInfoAria": "Show note on customer sending status",
     "status": {
       "DRAFT": "Draft",
       "SENT": "Sent",

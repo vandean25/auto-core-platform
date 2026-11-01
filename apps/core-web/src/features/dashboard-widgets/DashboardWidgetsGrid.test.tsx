@@ -240,3 +240,14 @@ describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => 
   })
 })
 
+describe('DashboardWidgetsGrid empty state', () => {
+  it('renders short empty state with how-to hint behind info icon', () => {
+    mocks.widgets = []
+    renderGrid()
+
+    expect(screen.getByText('Noch keine Widgets vorhanden.')).toBeInTheDocument()
+    const infoBtn = screen.getByRole('button', { name: 'Hinweis zum Hinzufügen von Widgets anzeigen' })
+    expect(infoBtn).toBeInTheDocument()
+  })
+})
+

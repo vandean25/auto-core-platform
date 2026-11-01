@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { Inbox } from 'lucide-react'
+import { Inbox, Info } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { AgentDateRangeFields, AgentErrorState, AgentLoadingState, AgentRefreshButton } from '@/components/agent/agent-tab-parts'
 import {
   Table,
@@ -58,20 +59,34 @@ export function DecisionShadowTab() {
 
   return (
     <div className="space-y-6" data-testid="decision-shadow-tab">
-      <p className="text-sm text-slate-500">
-        {t('decisionShadow.description')}
-      </p>
-
       {/* Filter toolbar: filters apply on change, so there is no Apply button */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-            <label
-              htmlFor="decision-shadow-use-case-select"
-              className="text-xs text-slate-500 font-medium"
-            >
-              {t('decisionShadow.filters.useCaseLabel')}:
-            </label>
+            <div className="flex items-center gap-1">
+              <label
+                htmlFor="decision-shadow-use-case-select"
+                className="text-xs text-slate-500 font-medium"
+              >
+                {t('decisionShadow.filters.useCaseLabel')}:
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
+                    aria-label={t('decisionShadow.infoAria')}
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('decisionShadow.infoAria')}>
+                  {t('decisionShadow.description')}
+                </PopoverContent>
+              </Popover>
+            </div>
             <select
               id="decision-shadow-use-case-select"
               value={useCaseFilter}

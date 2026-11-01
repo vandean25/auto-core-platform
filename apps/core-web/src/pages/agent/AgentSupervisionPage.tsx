@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
 import { cn } from '@/lib/utils'
-import { AgentSafetyBanner } from './components/AgentSafetyBanner'
 import { ApprovalsTab } from './components/ApprovalsTab'
 import { ActivityTab } from './components/ActivityTab'
 import { DecisionShadowTab } from './components/DecisionShadowTab'
@@ -41,12 +43,29 @@ export default function AgentSupervisionPage() {
             <h1 className="text-2xl font-semibold tracking-tight">
               {t('header.title')}
             </h1>
-            <p className="text-slate-500">{t('header.subtitle')}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-slate-500">{t('header.subtitle')}</p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 shrink-0 text-slate-500 hover:text-slate-700 sm:h-5 sm:w-5"
+                    aria-label={t('banner.infoAria')}
+                    data-testid="agent-safety-info"
+                  >
+                    <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('banner.infoAria')}>
+                  {t('banner.description')}
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
       </div>
-
-      <AgentSafetyBanner />
 
       <Tabs
         value={currentTab}
