@@ -973,6 +973,22 @@ describe("WorkshopOrderDetails Characterization", () => {
       const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
       inputs.forEach((input) => expect(input).toBeDisabled());
     });
+
+    it("renders quick-add task container with responsive classes for mobile wrapping (AUT-842)", () => {
+      renderComponent();
+
+      const input = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder)[0];
+      expect(input).toHaveClass("min-w-0", "flex-1");
+
+      const quickAddContainer = input.parentElement;
+      expect(quickAddContainer).toHaveClass("flex", "w-full", "items-center", "gap-2", "sm:max-w-md");
+
+      const headerRow = quickAddContainer?.parentElement;
+      expect(headerRow).toHaveClass("flex", "flex-wrap", "items-center", "justify-between", "gap-3");
+
+      const addButton = screen.getAllByRole("button", { name: taskListCopy.addTask })[0];
+      expect(addButton).toHaveClass("shrink-0");
+    });
   });
 
   describe("handleToggleTask", () => {

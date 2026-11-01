@@ -90,9 +90,9 @@ export function TaskList({
 
       <Card>
         <CardHeader className='pb-3'>
-          <div className='flex items-center justify-between gap-3'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
             <CardTitle className='text-base font-semibold'>{t('taskList.repairTasks')}</CardTitle>
-            <div className='flex items-center gap-2 w-full max-w-md'>
+            <div className='flex w-full items-center gap-2 sm:max-w-md'>
               <Input
                 value={newTaskTitle}
                 onChange={(e) => onNewTaskTitleChange(e.target.value)}
@@ -103,13 +103,13 @@ export function TaskList({
                   }
                 }}
                 placeholder={t('taskList.newTaskPlaceholder')}
-                className='h-8'
+                className='h-8 min-w-0 flex-1'
                 disabled={isLocked}
               />
               <Button
                 variant='outline'
                 size='sm'
-                className='h-8'
+                className='h-8 shrink-0'
                 onClick={onAddTask}
                 disabled={isLocked}
               >
