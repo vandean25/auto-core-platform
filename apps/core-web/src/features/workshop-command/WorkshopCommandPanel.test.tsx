@@ -208,6 +208,12 @@ describe('WorkshopCommandPanel', () => {
     expect(onOpenOrders).toHaveBeenCalledTimes(1)
   })
 
+  it('calls onExit when clicking back to search', () => {
+    const { onExit } = renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Zurück zur Suche' }))
+    expect(onExit).toHaveBeenCalledTimes(1)
+  })
+
   it('shows a clarify question without a guessed row when the sentence is unsupported', async () => {
     interpretMock.mockResolvedValueOnce(NO_CHOICE_CLARIFICATION)
     renderPanel()
