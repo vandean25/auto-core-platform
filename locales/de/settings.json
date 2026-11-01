@@ -1283,6 +1283,7 @@
           "MODIFIED_SINCE_IMPORT": "Nach Import geändert",
           "MISSING_BEFORE_SNAPSHOT": "Kein vorheriger Stand gespeichert",
           "ENTITY_NOT_FOUND": "Datensatz nicht mehr vorhanden",
+          "LEGACY_JOB_NO_ENTITY_LINK": "Vor Rückgängig-Funktion importiert",
           "UNSUPPORTED_ENTITY_TYPE": "Objekttyp wird nicht unterstützt",
           "FINANCIAL_IMPORT_CANNOT_BE_UNDONE": "Finanzdaten können nicht rückgängig gemacht werden",
           "UNKNOWN": "Nicht rückgängig machbar",

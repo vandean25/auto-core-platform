@@ -30,6 +30,7 @@ import {
   importJobNotFound,
   importJobNotUndoable,
 } from './import-job.errors.js';
+import { hasUndoableRows } from './import-undo.helpers.js';
 import {
   serializeImportJob,
   type SerializedImportJob,
@@ -101,6 +102,7 @@ type UndoRunContext = UndoProgress & {
   recoverySeq: number;
   confirmedEntityIds: Set<string>;
   blockedReasons: Record<string, string>;
+  resumeStatus: string;
 };
 
 type UndoBatchOutcome = 'done' | 'continue' | 'lease_lost' | 'abort';
@@ -222,6 +224,29 @@ export class ImportUndoService {
     };
   }
 
+  private async planFreshUndoClaim(
+    tenantId: string,
+    job: ImportJob,
+    currentUser: { id: string },
+    options: ImportJobOptionsWithUndo,
+    confirmedEntityIds: string[],
+  ): Promise<UndoClaimPlan> {
+    this.assertJobIsUndoable(job);
+    const hasRows = await hasUndoableRows(this.prisma, tenantId, job);
+    if (!hasRows) {
+      throw importJobNotUndoable({
+        reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+      });
+    }
+    return {
+      claimableStatus: { in: UNDO_CLAIM_STATUSES },
+      worker: await this.buildUndoWorkerState(tenantId, job, currentUser, {
+        options,
+        confirmedEntityIds,
+      }),
+    };
+  }
+
   /** Either a fresh claim or the takeover of a stale one; anything else is busy. */
   private async planUndoClaim(
     tenantId: string,
@@ -235,14 +260,13 @@ export class ImportUndoService {
       dto?.confirmedEntityIds ?? existingWorker?.confirmed_entity_ids ?? [];
 
     if (job.status !== ImportJobStatus.UNDOING) {
-      this.assertJobIsUndoable(job);
-      return {
-        claimableStatus: { in: UNDO_CLAIM_STATUSES },
-        worker: await this.buildUndoWorkerState(tenantId, job, currentUser, {
-          options,
-          confirmedEntityIds,
-        }),
-      };
+      return this.planFreshUndoClaim(
+        tenantId,
+        job,
+        currentUser,
+        options,
+        confirmedEntityIds,
+      );
     }
     if (!existingWorker || !isUndoClaimStale(existingWorker, Date.now())) {
       // Nothing to adopt: the recovery cron releases a claimless UNDOING job.
@@ -308,6 +332,7 @@ export class ImportUndoService {
         tenant_id: tenantId,
         import_job_id: job.id,
         action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
+        entity_id: { not: null },
         undone_at: null,
       },
     });
@@ -454,6 +479,7 @@ export class ImportUndoService {
       recoverySeq: job.worker_recovery_seq,
       confirmedEntityIds: new Set(worker.confirmed_entity_ids),
       blockedReasons: { ...worker.blocked_reasons },
+      resumeStatus: worker.resume_status,
       cursor: worker.cursor,
       processedRows: worker.processed_rows,
       deleted: worker.deleted_rows,
@@ -1036,6 +1062,28 @@ export class ImportUndoService {
     }
   }
 
+  private buildFinalUndoOutcome(ctx: UndoRunContext): {
+    outcome: ImportUndoOutcome;
+    nextStatus: ImportJobStatus;
+  } {
+    const blocked = Object.keys(ctx.blockedReasons).length;
+    const outcome: ImportUndoOutcome = {
+      status: blocked > 0 ? 'PARTIALLY_UNDONE' : 'UNDONE',
+      undone_at: new Date().toISOString(),
+      deleted: ctx.deleted,
+      restored: ctx.restored,
+      blocked,
+      blocked_reasons: { ...ctx.blockedReasons },
+    };
+    const nextStatus =
+      ctx.deleted + ctx.restored === 0
+        ? ((ctx.resumeStatus as ImportJobStatus) ?? ImportJobStatus.APPLIED)
+        : outcome.status === 'UNDONE'
+          ? ImportJobStatus.UNDONE
+          : ImportJobStatus.PARTIALLY_UNDONE;
+    return { outcome, nextStatus };
+  }
+
   private async finalizeUndoJob(ctx: UndoRunContext): Promise<void> {
     const blocked = Object.keys(ctx.blockedReasons).length;
     if (
@@ -1049,21 +1097,7 @@ export class ImportUndoService {
         UNDO_BLOCKED_REASONS.ROWS_PURGED,
       );
     }
-    const outcome: ImportUndoOutcome = {
-      status:
-        Object.keys(ctx.blockedReasons).length > 0
-          ? 'PARTIALLY_UNDONE'
-          : 'UNDONE',
-      undone_at: new Date().toISOString(),
-      deleted: ctx.deleted,
-      restored: ctx.restored,
-      blocked: Object.keys(ctx.blockedReasons).length,
-      blocked_reasons: { ...ctx.blockedReasons },
-    };
-    const nextStatus =
-      outcome.status === 'UNDONE'
-        ? ImportJobStatus.UNDONE
-        : ImportJobStatus.PARTIALLY_UNDONE;
+    const { outcome, nextStatus } = this.buildFinalUndoOutcome(ctx);
 
     try {
       await this.prisma.$transaction(async (tx) => {
