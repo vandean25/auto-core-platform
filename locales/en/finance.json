@@ -107,8 +107,8 @@
     "periodOpen": "Open",
     "searchPlaceholder": "Search documents…",
     "emptyState": "No documents match these filters.",
-    "exportProfileDisabled": "The accounting export profile for this legal entity is turned off, so no period can be exported yet. Turn it on in Settings.",
-    "exportProfileMissing": "This legal entity has no accounting export profile, so no period can be exported yet. Set one up in Settings.",
+    "exportProfileDisabled": "Export profile inactive.",
+    "exportProfileMissing": "Export profile not configured.",
     "tenantWideIssue_one": "One issue applies to every export in this period.",
     "tenantWideIssue_other": "{{count}} issues apply to every export in this period.",
     "blockers": {
@@ -123,7 +123,8 @@
     "documentKind": {
       "INVOICE": "Invoice",
       "CREDIT_NOTE": "Credit note"
-    }
+    },
+    "settingsLink": "Settings"
   },
   "creditNotes": {
     "list": {
@@ -194,8 +195,7 @@
   },
   "settlement": {
     "title": "Settlement",
-    "fiscalOff": "Fiscal settlement is off for this legal entity.",
-    "fiscalOffPanel": "The fiscal settlement path is off for this legal entity. No RKSV or external Kasse action is available for this invoice.",
+    "fiscalOff": "Fiscal settlement disabled.",
     "fullSettlement": "Full EUR settlement ({{amount}}) for the workshop invoice.",
     "openReceiptHint": "The same provider receipt id is read with GET before any new sign. Use Reconcile to finish this attempt.",
     "externalKasseHint": "ACP is not the Registrierkasse. Record the external Kasse receipt number (1–40) and date when you confirm settlement.",

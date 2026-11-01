@@ -107,8 +107,8 @@
     "periodOpen": "Offen",
     "searchPlaceholder": "Belege durchsuchen…",
     "emptyState": "Keine Belege entsprechen diesen Filtern.",
-    "exportProfileDisabled": "Das Buchhaltungsexport-Profil für diesen Rechtsträger ist deaktiviert — es kann noch kein Zeitraum exportiert werden. Aktivieren Sie es in den Einstellungen.",
-    "exportProfileMissing": "Für diesen Rechtsträger ist kein Buchhaltungsexport-Profil hinterlegt — es kann noch kein Zeitraum exportiert werden. Richten Sie eines in den Einstellungen ein.",
+    "exportProfileDisabled": "Exportprofil inaktiv.",
+    "exportProfileMissing": "Exportprofil nicht konfiguriert.",
     "tenantWideIssue_one": "Ein Problem betrifft jeden Export in diesem Zeitraum.",
     "tenantWideIssue_other": "{{count}} Probleme betreffen jeden Export in diesem Zeitraum.",
     "blockers": {
@@ -123,7 +123,8 @@
     "documentKind": {
       "INVOICE": "Rechnung",
       "CREDIT_NOTE": "Gutschrift"
-    }
+    },
+    "settingsLink": "Einstellungen"
   },
   "creditNotes": {
     "list": {
@@ -194,8 +195,7 @@
   },
   "settlement": {
     "title": "Abrechnung",
-    "fiscalOff": "Die fiskalische Abrechnung ist für diesen Rechtsträger deaktiviert.",
-    "fiscalOffPanel": "Der fiskalische Abrechnungsweg ist für diesen Rechtsträger ausgeschaltet. Für diese Rechnung ist keine RKSV- oder externe Kassen-Aktion verfügbar.",
+    "fiscalOff": "Fiskalische Abrechnung deaktiviert.",
     "fullSettlement": "Volle EUR-Abrechnung ({{amount}}) für die Werkstattrechnung.",
     "openReceiptHint": "Dieselbe Kassen-Beleg-ID wird vor jeder neuen Signierung per GET gelesen. Nutzen Sie „Abgleichen“, um diesen Versuch abzuschließen.",
     "externalKasseHint": "ACP ist nicht die Registrierkasse. Erfassen Sie bei der Bestätigung der Abrechnung die externe Kassen-Belegnummer (1–40) und das Datum.",

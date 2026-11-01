@@ -329,18 +329,13 @@ describe('AgentSupervisionPage', () => {
     } as unknown as ReturnType<typeof useAgentActionTraceDetail>)
   })
 
-  it('renders persistent safety banner and header', () => {
+  it('renders header and omits permanent safety banner on normal state', () => {
     renderSupervisionPage()
 
     expect(
       screen.getByRole('heading', { level: 1, name: deAgent.header.title }),
     ).toBeInTheDocument()
-    expect(screen.getByTestId('agent-safety-banner')).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        /Agenten-Überwachung aktiv: Vorgeschlagen/i,
-      ),
-    ).toBeInTheDocument()
+    expect(screen.queryByTestId('agent-safety-banner')).not.toBeInTheDocument()
   })
 
   it('lets the tab labels wrap on a phone only and makes the controls 44px there', () => {

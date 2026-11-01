@@ -7,7 +7,9 @@ import { useAuthSession } from '@/api/auth-session'
 import { useVehicleInspectionRecords } from '@/api/vehicle-inspection-records'
 import { canRecordVehicleInspection } from '@/components/vehicles/vehicle-pickerl-permissions'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -38,6 +40,40 @@ function PickerlSourceLabel({ source }: { source: string }) {
 type VehiclePickerlSectionProps = {
   vehicleId: string
   pickerlDue?: PickerlDue | null
+}
+
+function PickerlWarningsInfo({
+  warnings,
+  formatWarning,
+}: {
+  warnings: Array<{ code: string; message: string }>
+  formatWarning: (warning: { code: string; message: string }) => string
+}) {
+  const { t } = useTranslation('vehicles')
+  if (!warnings.length) return null
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 text-amber-700 hover:text-amber-800"
+          aria-label={t('pickerlSection.warningsInfoAria')}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 text-xs">
+        <ul className="text-amber-700 list-disc pl-4 space-y-1">
+          {warnings.map((warning) => (
+            <li key={warning.code}>{formatWarning(warning)}</li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export function VehiclePickerlSection({
@@ -81,7 +117,15 @@ export function VehiclePickerlSection({
     <div className='pt-4 border-t space-y-3'>
       <div className='flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between'>
         <div className='min-w-0'>
-          <div className='text-sm font-medium'>{t('pickerlSection.title')}</div>
+          <div className='flex items-center gap-1.5'>
+            <div className='text-sm font-medium'>{t('pickerlSection.title')}</div>
+            {pickerlDue?.warnings?.length ? (
+              <PickerlWarningsInfo
+                warnings={pickerlDue.warnings}
+                formatWarning={formatWarning}
+              />
+            ) : null}
+          </div>
           <div className='text-xs text-muted-foreground'>
             {t('pickerlSection.subtitle')}
           </div>
@@ -136,13 +180,7 @@ export function VehiclePickerlSection({
         </p>
       ) : null}
 
-      {pickerlDue?.warnings?.length ? (
-        <ul className='text-xs text-amber-700 list-disc pl-4 space-y-1'>
-          {pickerlDue.warnings.map((warning) => (
-            <li key={warning.code}>{formatWarning(warning)}</li>
-          ))}
-        </ul>
-      ) : null}
+      
 
       <Table>
         <TableHeader>

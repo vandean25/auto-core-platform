@@ -277,5 +277,8 @@ describe('AccountingExportReadinessPage', () => {
     expect(
       screen.getByText(deFinance.accountingExportReadiness.exportProfileMissing),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: deFinance.accountingExportReadiness.settingsLink }),
+    ).toHaveAttribute('href', '/settings')
   })
 })

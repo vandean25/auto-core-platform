@@ -107,7 +107,7 @@
     "summedValue": "Summenwert",
     "totalItems": "Positionen gesamt",
     "partialResult": "Berechnet aus den ersten {{count}} von {{total}} Einträgen.",
-    "emptyWidgets": "Noch keine Widgets. Öffnen Sie eine Liste, setzen Sie Filter und klicken Sie auf „Zum Dashboard hinzufügen“.",
+    "emptyWidgets": "Noch keine Widgets vorhanden.",
     "sourceUnavailable": "Widget-Quelle ist nicht mehr verfügbar.",
     "unknownGroup": "Unbekannt",
     "sources": {
@@ -164,7 +164,7 @@
   },
   "onboarding": {
     "title": "Werkstatt einrichten",
-    "description": "Vier Schritte bis zum ersten Auftrag am Board. Blenden Sie diese Karte aus, sobald Sie fertig sind.",
+    "description": "Vier Schritte bis zum ersten Auftrag am Board.",
     "dismissAria": "Onboarding-Checkliste ausblenden",
     "dismissTitle": "Onboarding-Checkliste ausblenden",
     "steps": {

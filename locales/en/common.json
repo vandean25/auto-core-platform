@@ -107,7 +107,7 @@
     "summedValue": "Summed value",
     "totalItems": "Total items",
     "partialResult": "Calculated from the first {{count}} of {{total}} entries.",
-    "emptyWidgets": "No widgets yet. Open a list view, apply filters, then click Add to dashboard.",
+    "emptyWidgets": "No widgets configured yet.",
     "sourceUnavailable": "Widget source is no longer available.",
     "unknownGroup": "Unknown",
     "sources": {
@@ -164,7 +164,7 @@
   },
   "onboarding": {
     "title": "Get your workshop set up",
-    "description": "Four steps to get your first jobs on the board. Dismiss this card once you are set up.",
+    "description": "Four steps to your first board order.",
     "dismissAria": "Dismiss onboarding checklist",
     "dismissTitle": "Dismiss onboarding checklist",
     "steps": {

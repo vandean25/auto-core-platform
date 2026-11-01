@@ -1,9 +1,4 @@
 {
-  "banner": {
-    "title": "Agent Supervision Active",
-    "description": "Agent supervision active: proposed agent actions require supervisor approval before execution. “Human Only” actions must be performed manually.",
-    "badge": "Supervision Mode"
-  },
   "header": {
     "title": "Agent Supervision",
     "subtitle": "Approve or reject queue for proposed agent actions and audit agent activities."
@@ -150,7 +145,8 @@
     "matchNo": "Mismatch",
     "noSuggestion": "No suggestion",
     "emptyState": "No shadow suggestions found",
-    "emptyStateDesc": "No decision shadow rows match the selected filters."
+    "emptyStateDesc": "No decision shadow rows match the selected filters.",
+    "infoAria": "Show shadow mode note"
   },
   "traceDialog": {
     "title": "Trace Audit & Correlation",

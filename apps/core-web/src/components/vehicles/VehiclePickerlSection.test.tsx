@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { VehiclePickerlSection } from './VehiclePickerlSection'
@@ -81,6 +81,7 @@ describe('VehiclePickerlSection', () => {
       </MemoryRouter>,
     )
 
+    fireEvent.click(screen.getByRole('button', { name: 'Hinweise zur §57a-Berechnung anzeigen' }))
     expect(screen.getByText(/Die Fahrzeugklasse ist nicht gespeichert/)).toBeInTheDocument()
     expect(screen.getByText(/Intervall- und Toleranztabellen folgen den WKO-Hinweisseiten/)).toBeInTheDocument()
     expect(screen.getByText(/Übergang 2027/)).toBeInTheDocument()

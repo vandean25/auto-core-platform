@@ -5,7 +5,6 @@ import { PageLoader } from '@/components/ui/PageLoader'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
 import { cn } from '@/lib/utils'
-import { AgentSafetyBanner } from './components/AgentSafetyBanner'
 import { ApprovalsTab } from './components/ApprovalsTab'
 import { ActivityTab } from './components/ActivityTab'
 import { DecisionShadowTab } from './components/DecisionShadowTab'
@@ -46,8 +45,7 @@ export default function AgentSupervisionPage() {
         </div>
       </div>
 
-      <AgentSafetyBanner />
-
+      
       <Tabs
         value={currentTab}
         onValueChange={(val) => setCurrentTab(val as SupervisionTab)}

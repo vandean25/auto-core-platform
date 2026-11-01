@@ -1,9 +1,4 @@
 {
-  "banner": {
-    "title": "Agenten-Überwachung aktiv",
-    "description": "Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung vor der Ausführung. Aktionen der Stufe „Nur manuell“ müssen manuell durchgeführt werden.",
-    "badge": "Überwachungsmodus"
-  },
   "header": {
     "title": "Agenten-Überwachung",
     "subtitle": "Genehmigungswarteschlange für vorgeschlagene Agenten-Aktionen und Aktivitätenprotokoll."
@@ -150,7 +145,8 @@
     "matchNo": "Abweichung",
     "noSuggestion": "Kein Vorschlag",
     "emptyState": "Keine Schatten-Vorschläge gefunden",
-    "emptyStateDesc": "Keine Einträge zur Entscheidungs-Schattenprotokollierung entsprechen den gewählten Filtern."
+    "emptyStateDesc": "Keine Einträge zur Entscheidungs-Schattenprotokollierung entsprechen den gewählten Filtern.",
+    "infoAria": "Hinweis zum Schattenmodus anzeigen"
   },
   "traceDialog": {
     "title": "Trace-Audit & Korrelation",

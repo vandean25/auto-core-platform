@@ -1242,7 +1242,7 @@
     "versionLabel": "Version {{version}}",
     "approvalNote": " · Notiz: {{note}}",
     "recordDecision": "Bestätigung erfassen",
-    "sendDisabledLegal": "Der Versand an Kunden ist derzeit deaktiviert, bis die rechtlichen Texte freigegeben sind. Der Entwurf kann bis dahin geprüft werden.",
+    "sendDisabledLegal": "Kundenversand deaktiviert.",
     "status": {
       "DRAFT": "Entwurf",
       "SENT": "Gesendet",
