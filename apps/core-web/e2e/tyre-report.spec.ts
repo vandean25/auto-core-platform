@@ -169,6 +169,7 @@ test.describe('Synthetic tyre reports', () => {
         await page.setViewportSize({ width, height: 1000 })
         await mockTyreReport(page)
         await navigateToPlacement(page, placement)
+        await expect(page.getByText('Bewertung und Grenzwerte')).toHaveCount(0)
         const layout = page.getByTestId('tyre-wheel-layout')
         for (const position of POSITIONS) {
           const card = layout.getByRole('article', { name: report.positions[position], exact: true })

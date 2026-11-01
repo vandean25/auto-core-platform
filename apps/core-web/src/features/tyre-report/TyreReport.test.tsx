@@ -1,7 +1,10 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import type { components } from '@/api/generated/openapi'
 import { TyreReport } from './TyreReport'
 import { measurement } from './tyre-report.test-fixtures'
+
+type ReasonCode = components['schemas']['TyreWheelResponseDto']['evaluation']['reasonCodes'][number]
 
 afterEach(cleanup)
 
@@ -24,7 +27,8 @@ describe('TyreReport', () => {
     const wheel = screen.getByRole('article', { name: 'Vorne links' })
     expect(within(wheel).getByText('3,5 mm')).toHaveAttribute('data-worst-point', 'true')
     expect(within(wheel).getByText('79 Monate')).toBeVisible()
-    expect(within(wheel).getByText(/Austausch empfohlen.*keine gesetzliche Grenze/)).toBeVisible()
+    expect(within(wheel).getByText('Empfehlung: Austausch (Profil)')).toBeVisible()
+    expect(within(wheel).queryByText(/keine gesetzliche Grenze/)).not.toBeInTheDocument()
     expect(screen.queryByText('TREAD_REPLACEMENT_RECOMMENDED')).not.toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
@@ -39,26 +43,88 @@ describe('TyreReport', () => {
     expect(screen.getByRole('article', { name: 'Reserverad' })).toBeVisible()
   })
 
-  it('uses the API threshold snapshot in the legend, including raised recommendations', () => {
-    render(<TyreReport measurement={{ ...measurement, wheels: [{ ...measurement.wheels[0],
-      evaluation: { ...measurement.wheels[0].evaluation,
-        thresholds: { legalMinimumMm: 2, recommendedBelowMm: 5.5, ordinaryMinimumMm: 2 } },
-    }] }} />)
-    const legend = screen.getByRole('region', { name: 'Bewertung und Grenzwerte' })
-    expect(within(legend).getByText(/5,5 mm/)).toBeVisible()
-    expect(within(legend).getByText('Gesetzlicher Grenzwert: unter 2 mm')).toBeVisible()
+  it('does not render any threshold, explanation or legend block on any tyre report view', () => {
+    render(<TyreReport measurement={measurement} />)
+    expect(screen.queryByRole('region', { name: /Bewertung und Grenzwerte/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Bewertung und Grenzwerte/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Allgemeine Mindestprofiltiefe/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Gesetzlicher Grenzwert/)).not.toBeInTheDocument()
   })
 
-  it('renders numeric age recommendations only when supplied by the API snapshot', () => {
-    const wheel = measurement.wheels[0]
-    const { rerender } = render(<TyreReport measurement={{ ...measurement, wheels: [{ ...wheel,
-      evaluation: { ...wheel.evaluation, ageRecommendations: { conditionCheckFromMonths: 84, replacementFromMonths: 132 } },
-    }] }} />)
-    const legend = screen.getByRole('region', { name: 'Bewertung und Grenzwerte' })
-    expect(within(legend).getByText(/Zustand prüfen ab 84 Monaten/)).toBeVisible()
-    expect(within(legend).getByText(/Austausch empfohlen ab 132 Monaten/)).toBeVisible()
-    rerender(<TyreReport measurement={{ ...measurement, wheels: [{ ...wheel, evaluation: { ...wheel.evaluation, ageRecommendations: undefined } }] }} />)
-    expect(within(legend).queryByText(/Zustand prüfen ab/)).not.toBeInTheDocument()
+  it('renders no reason line for green wheels even if reason codes are present', () => {
+    const greenWheel = {
+      ...measurement.wheels[0],
+      evaluation: {
+        ...measurement.wheels[0].evaluation,
+        status: 'GOOD' as const,
+        reasonCodes: ['DOT_CONDITION_CHECK_RECOMMENDED', 'AT_WINTER_RULE_NOTICE'] as ReasonCode[],
+      },
+    }
+    render(<TyreReport measurement={{ ...measurement, worstStatus: 'GOOD', wheels: [greenWheel] }} />)
+    const wheel = screen.getByRole('article', { name: 'Vorne links' })
+    expect(within(wheel).queryByText(/Empfehlung/)).not.toBeInTheDocument()
+    expect(within(wheel).queryByText(/Hinweis/)).not.toBeInTheDocument()
+  })
+
+  it('renders exactly one reason line containing "Empfehlung" for amber wheels', () => {
+    const amberWheel = {
+      ...measurement.wheels[0],
+      evaluation: {
+        ...measurement.wheels[0].evaluation,
+        status: 'RECOMMENDED' as const,
+        reasonCodes: ['DOT_CONDITION_CHECK_RECOMMENDED'] as ReasonCode[],
+      },
+    }
+    render(<TyreReport measurement={{ ...measurement, wheels: [amberWheel] }} />)
+    const wheel = screen.getByRole('article', { name: 'Vorne links' })
+    const reasonElement = within(wheel).getByText('Empfehlung: Alter prüfen (DOT)')
+    expect(reasonElement).toBeVisible()
+    expect(reasonElement.textContent).toContain('Empfehlung')
+  })
+
+  it('renders exactly one short reason line for red wheels with dynamic threshold formatting', () => {
+    const redWheel = {
+      ...measurement.wheels[0],
+      evaluation: {
+        ...measurement.wheels[0].evaluation,
+        status: 'URGENT' as const,
+        reasonCodes: ['TREAD_BELOW_LEGAL_MINIMUM'] as ReasonCode[],
+        thresholds: { ordinaryMinimumMm: 2, legalMinimumMm: 2, recommendedBelowMm: 4 },
+      },
+    }
+    render(<TyreReport measurement={{ ...measurement, worstStatus: 'URGENT', wheels: [redWheel] }} />)
+    const wheel = screen.getByRole('article', { name: 'Vorne links' })
+    expect(within(wheel).getByText('Unter 2 mm: gesetzliches Minimum')).toBeVisible()
+  })
+
+  it('selects the worst reason when multiple reason codes are present on amber and red wheels', () => {
+    // Amber wheel: tread replacement (50) vs dot check (20) -> tread replacement wins
+    const amberWheel = {
+      ...measurement.wheels[0],
+      evaluation: {
+        ...measurement.wheels[0].evaluation,
+        status: 'RECOMMENDED' as const,
+        reasonCodes: ['DOT_CONDITION_CHECK_RECOMMENDED', 'TREAD_REPLACEMENT_RECOMMENDED'] as ReasonCode[],
+      },
+    }
+    // Red wheel: tread below legal min (100) vs winter insufficient (90) -> tread below legal min wins
+    const redWheel = {
+      ...measurement.wheels[1],
+      evaluation: {
+        ...measurement.wheels[1].evaluation,
+        status: 'URGENT' as const,
+        reasonCodes: ['AT_WINTER_TREAD_INSUFFICIENT', 'TREAD_BELOW_LEGAL_MINIMUM'] as ReasonCode[],
+        thresholds: { ordinaryMinimumMm: 1.6, legalMinimumMm: 4, recommendedBelowMm: 4 },
+      },
+    }
+    render(<TyreReport measurement={{ ...measurement, wheels: [amberWheel, redWheel] }} />)
+    const amberArticle = screen.getByRole('article', { name: 'Vorne links' })
+    expect(within(amberArticle).getByText('Empfehlung: Austausch (Profil)')).toBeVisible()
+    expect(within(amberArticle).queryByText(/Alter prüfen/)).not.toBeInTheDocument()
+
+    const redArticle = screen.getByRole('article', { name: 'Vorne rechts' })
+    expect(within(redArticle).getByText('Unter 1,6 mm: gesetzliches Minimum')).toBeVisible()
+    expect(within(redArticle).queryByText(/kein Winterreifen mehr/)).not.toBeInTheDocument()
   })
 
   it('renders the wheel thumbnail only from the supplied media URLs', () => {
