@@ -64,7 +64,7 @@ function PickerlWarningsInfo({
           <Info className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 text-xs">
+      <PopoverContent className="w-80 text-xs" aria-label={t('pickerlSection.warningsInfoAria')}>
         <ul className="text-amber-700 list-disc pl-4 space-y-1">
           {warnings.map((warning) => (
             <li key={warning.code}>{formatWarning(warning)}</li>

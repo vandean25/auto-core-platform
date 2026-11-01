@@ -82,7 +82,7 @@ export function DecisionShadowTab() {
                     <Info className="h-3.5 w-3.5" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 text-xs text-slate-600">
+                <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('decisionShadow.infoAria')}>
                   {t('decisionShadow.description')}
                 </PopoverContent>
               </Popover>

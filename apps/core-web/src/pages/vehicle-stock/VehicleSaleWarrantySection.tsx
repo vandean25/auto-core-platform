@@ -156,7 +156,7 @@ export function VehicleSaleWarrantySection({
                 <Info className="h-3.5 w-3.5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 text-xs text-slate-600">
+            <PopoverContent className="w-72 text-xs text-slate-600" aria-label={t('sale.warranty.repairsNoteAria')}>
               {t('sale.warranty.repairsNote')}
             </PopoverContent>
           </Popover>

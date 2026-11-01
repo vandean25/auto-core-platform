@@ -58,7 +58,7 @@ export default function AgentSupervisionPage() {
                     <Info className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 text-xs text-slate-600">
+                <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('banner.infoAria')}>
                   {t('banner.description')}
                 </PopoverContent>
               </Popover>

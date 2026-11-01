@@ -124,7 +124,7 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
                   <Info className="h-3.5 w-3.5" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 text-xs text-slate-600">
+              <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('dashboard.emptyWidgetsInfoAria')}>
                 {t('dashboard.emptyWidgetsHint')}
               </PopoverContent>
             </Popover>
