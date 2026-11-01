@@ -20,7 +20,8 @@
   "documentSave": {
     "saving": "Speichern…",
     "saved": "Alle Änderungen gespeichert",
-    "error": "Speichern fehlgeschlagen"
+    "error": "Speichern fehlgeschlagen",
+    "checkConnection": "Bitte prüfen Sie Ihre Internetverbindung."
   },
   "appVersion": {
     "available": "Neue Version verfügbar",
@@ -347,5 +348,8 @@
     "placeholder": "TT.MM.JJJJ",
     "openCalendar": "Kalender öffnen",
     "invalid": "Bitte ein gültiges Datum im Format TT.MM.JJJJ eingeben."
+  },
+  "pdf": {
+    "generationFailed": "PDF-Erstellung fehlgeschlagen"
   }
 }

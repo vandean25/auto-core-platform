@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
@@ -56,7 +57,7 @@ export function useDecisionShadowLogs(filters: DecisionShadowLogFilters = {}) {
         throw new Error(
           await getErrorMessage(
             response,
-            'Failed to fetch decision shadow logs',
+            i18n.t('agent:decisionShadow.loadFailed'),
           ),
         )
       }

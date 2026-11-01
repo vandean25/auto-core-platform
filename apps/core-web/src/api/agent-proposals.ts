@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import {
   useMutation,
   useQueries,
@@ -71,7 +72,7 @@ export async function fetchAgentProposalsList(
   const response = await fetchWithAuth(url)
 
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response, 'Failed to fetch agent proposals'))
+    throw new Error(await getErrorMessage(response, i18n.t('agent:approvals.loadFailed')))
   }
 
   return response.json()
@@ -139,7 +140,7 @@ export function useApproveAgentProposal() {
       })
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to approve agent proposal'))
+        throw new Error(await getErrorMessage(response, i18n.t('agent:approvals.approveError')))
       }
 
       return response.json()
@@ -164,7 +165,7 @@ export function useRejectAgentProposal() {
       })
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to reject agent proposal'))
+        throw new Error(await getErrorMessage(response, i18n.t('agent:approvals.rejectError')))
       }
 
       return response.json()

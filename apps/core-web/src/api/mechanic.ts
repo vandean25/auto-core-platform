@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { optimisticMutationOptions } from "@/lib/optimistic-mutation";
 import type { components } from "./generated/openapi";
@@ -226,7 +227,7 @@ export function mechanicTaskDetailQueryOptions(taskId: string) {
       );
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, "Failed to load task detail"),
+          await getErrorMessage(response, i18n.t('workshop:mechanic.taskDetailLoadFailed')),
         );
       }
       return response.json() as Promise<MechanicTaskDetail>;

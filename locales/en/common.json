@@ -20,7 +20,8 @@
   "documentSave": {
     "saving": "Saving…",
     "saved": "All changes saved",
-    "error": "Save failed"
+    "error": "Save failed",
+    "checkConnection": "Please check your internet connection."
   },
   "appVersion": {
     "available": "New version available",
@@ -347,5 +348,8 @@
     "placeholder": "DD.MM.YYYY",
     "openCalendar": "Open calendar",
     "invalid": "Please enter a valid date as DD.MM.YYYY."
+  },
+  "pdf": {
+    "generationFailed": "PDF generation failed"
   }
 }

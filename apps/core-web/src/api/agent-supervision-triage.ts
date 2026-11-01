@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import { useEffect } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
@@ -52,7 +53,7 @@ export function useAgentSupervisionTriage(
       const response = await fetchWithAuth(url)
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, 'Failed to fetch supervision triage'),
+          await getErrorMessage(response, i18n.t('agent:approvals.triageLoadFailed')),
         )
       }
       return response.json()

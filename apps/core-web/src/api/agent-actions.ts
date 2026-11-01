@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
@@ -77,7 +78,7 @@ export function useAgentActions(filters: AgentActionFilters = {}) {
 
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, 'Failed to fetch agent actions'),
+          await getErrorMessage(response, i18n.t('agent:activity.loadFailed')),
         )
       }
 
@@ -98,7 +99,7 @@ export function useAgentActionTraceDetail(traceId: string) {
         throw new Error(
           await getErrorMessage(
             response,
-            'Failed to fetch agent action trace detail',
+            i18n.t('agent:traceDialog.loadFailed'),
           ),
         )
       }

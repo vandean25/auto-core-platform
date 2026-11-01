@@ -84,7 +84,9 @@
     "approveSuccess": "Proposal approved",
     "rejectSuccess": "Proposal rejected",
     "approveError": "Failed to approve proposal",
-    "rejectError": "Failed to reject proposal"
+    "rejectError": "Failed to reject proposal",
+    "loadFailed": "Failed to load agent proposals",
+    "triageLoadFailed": "Failed to load supervision triage"
   },
   "rejectDialog": {
     "title": "Reject Agent Proposal",
@@ -122,7 +124,8 @@
     "viewAudit": "View correlated audit logs",
     "copyTraceId": "Copy trace ID",
     "traceIdCopied": "Trace ID copied",
-    "traceIdCopyFailed": "Copy failed. Select the trace ID and copy it manually."
+    "traceIdCopyFailed": "Copy failed. Select the trace ID and copy it manually.",
+    "loadFailed": "Failed to load agent activities"
   },
   "decisionShadow": {
     "description": "Read-only view of AI suggestions recorded in shadow mode. Suggestions are never applied and do not change any outcome.",
@@ -150,7 +153,8 @@
     "matchNo": "Mismatch",
     "noSuggestion": "No suggestion",
     "emptyState": "No shadow suggestions found",
-    "emptyStateDesc": "No decision shadow rows match the selected filters."
+    "emptyStateDesc": "No decision shadow rows match the selected filters.",
+    "loadFailed": "Failed to load decision shadow logs"
   },
   "traceDialog": {
     "title": "Trace Audit & Correlation",
@@ -163,7 +167,8 @@
     "onBehalfOf": "On behalf of",
     "time": "Time",
     "user": "User",
-    "systemActor": "System / Agent"
+    "systemActor": "System / Agent",
+    "loadFailed": "Failed to load trace details"
   },
   "common": {
     "unknownUser": "Unknown user",

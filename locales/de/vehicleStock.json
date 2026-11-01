@@ -147,7 +147,8 @@
         "saved": "Gespeichert",
         "error": "Speichern fehlgeschlagen"
       }
-    }
+    },
+    "shorteningFailed": "Verkürzung der Gewährleistung konnte nicht gespeichert werden"
   },
   "reports": {
     "title": "Fahrzeugbestand Berichte",

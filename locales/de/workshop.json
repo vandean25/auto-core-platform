@@ -357,7 +357,8 @@
         "uploadFailed": "Hochladen fehlgeschlagen",
         "storageFailed": "Die Datei konnte nicht gespeichert werden. Bitte versuchen Sie es erneut."
       }
-    }
+    },
+    "taskDetailLoadFailed": "Aufgabendetails konnten nicht geladen werden"
   },
   "actions": {
     "cancel": "Abbrechen",
@@ -1683,5 +1684,9 @@
     "loadingMore": "Wird geladen…",
     "loadErrorTitle": "Kostenvoranschläge nicht verfügbar",
     "loadErrorFallback": "Kostenvoranschläge konnten nicht geladen werden."
+  },
+  "inspectorEvidence": {
+    "loadFailed": "Prüfnachweise konnten nicht geladen werden",
+    "assessFailed": "Prüfnachweis konnte nicht bewertet werden"
   }
 }
