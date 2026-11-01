@@ -366,10 +366,10 @@ export class ImportUndoService {
   }
 
   /**
-   * Mints this attempt's lease token with a compare-and-swap on the stored one, so an
-   * overlapping delivery of the same Cloud Tasks task never processes the same rows: the
-   * loser matches no row and returns, and every later write of the winner is conditioned
-   * on its own token.
+   * Mints this attempt's lease token with a compare-and-swap on the stored token and on
+   * `updatedAt`, so an overlapping delivery of the same Cloud Tasks task never processes the
+   * same rows and never starts from another holder's stale progress: the loser matches no row
+   * and returns, and every later write of the winner is conditioned on its own token.
    */
   private async claimUndoWorkerLease(
     tenantId: string,
@@ -403,6 +403,11 @@ export class ImportUndoService {
         tenant_id: tenantId,
         id: jobId,
         status: ImportJobStatus.UNDOING,
+        // The holder's heartbeat and progress writes keep its own token, so the token alone
+        // cannot tell whether the state read above is still current. An expired holder that
+        // commits one more batch in between must make this claim match no row, otherwise the
+        // new holder would overwrite that batch's cursor, counters and blocked reasons.
+        updatedAt: job.updatedAt,
         options_json: {
           path: ['undo_worker', 'lease_token'],
           equals: worker.lease_token,
@@ -421,6 +426,13 @@ export class ImportUndoService {
       },
     });
     if (claimed.count === 0) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'import.undo.lease_claim_lost',
+          jobId,
+          holder: undoLeaseHolderPrefix(worker.lease_token),
+        }),
+      );
       return null;
     }
     return {
@@ -450,7 +462,15 @@ export class ImportUndoService {
   }
 
   private async handoffUndoContinuation(ctx: UndoRunContext): Promise<void> {
-    await this.releaseUndoLeaseForHandoff(ctx);
+    if (!(await this.releaseUndoLeaseForHandoff(ctx))) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'import.undo.handoff_skipped',
+          jobId: ctx.jobId,
+        }),
+      );
+      return;
+    }
     const job = await this.prisma.importJob.findFirst({
       where: { tenant_id: ctx.tenantId, id: ctx.jobId },
       select: {
@@ -469,8 +489,13 @@ export class ImportUndoService {
     });
   }
 
-  /** Releases the lease so the continuation attempt can claim it; token-conditioned. */
-  private async releaseUndoLeaseForHandoff(ctx: UndoRunContext): Promise<void> {
+  /**
+   * Releases the lease so the continuation attempt can claim it; token-conditioned. Returns
+   * false when this attempt no longer owns the job, in which case nothing may be dispatched.
+   */
+  private async releaseUndoLeaseForHandoff(
+    ctx: UndoRunContext,
+  ): Promise<boolean> {
     const job = await this.prisma.importJob.findFirst({
       where: { tenant_id: ctx.tenantId, id: ctx.jobId },
       select: { options_json: true },
@@ -478,9 +503,9 @@ export class ImportUndoService {
     const options = (job?.options_json ?? {}) as ImportJobOptionsWithUndo;
     const worker = readUndoWorkerState(options);
     if (!worker) {
-      return;
+      return false;
     }
-    await this.prisma.importJob.updateMany({
+    const released = await this.prisma.importJob.updateMany({
       where: this.undoLeaseWhere(ctx),
       data: {
         options_json: {
@@ -493,6 +518,7 @@ export class ImportUndoService {
         },
       },
     });
+    return released.count === 1;
   }
 
   /** Matches only while this attempt still owns the job. */
@@ -1039,37 +1065,53 @@ export class ImportUndoService {
         ? ImportJobStatus.UNDONE
         : ImportJobStatus.PARTIALLY_UNDONE;
 
-    await this.prisma.$transaction(async (tx) => {
-      const options = await this.assertUndoLeaseInTx(tx, ctx);
-      const nextOptions = { ...options, undo: outcome } as Record<
-        string,
-        unknown
-      >;
-      delete nextOptions.undo_worker;
-      const updated = await tx.importJob.updateMany({
-        where: this.undoLeaseWhere(ctx),
-        data: {
-          status: nextStatus,
-          options_json: nextOptions as Prisma.InputJsonValue,
-        },
-      });
-      if (updated.count !== 1) {
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const options = await this.assertUndoLeaseInTx(tx, ctx);
+        const nextOptions = { ...options, undo: outcome } as Record<
+          string,
+          unknown
+        >;
+        delete nextOptions.undo_worker;
+        const updated = await tx.importJob.updateMany({
+          where: this.undoLeaseWhere(ctx),
+          data: {
+            status: nextStatus,
+            options_json: nextOptions as Prisma.InputJsonValue,
+          },
+        });
+        if (updated.count !== 1) {
+          return;
+        }
+        await this.audit.writeImportJobUndoAudit(
+          tx,
+          ctx.tenantId,
+          ctx.actor.userId,
+          ctx.jobId,
+          {
+            status: outcome.status,
+            deletedCount: outcome.deleted,
+            restoredCount: outcome.restored,
+            blockedCount: outcome.blocked,
+            blockedReasons: outcome.blocked_reasons,
+          },
+        );
+      }, IMPORT_UNDO_BATCH_TX);
+    } catch (error) {
+      // The new holder finalizes with its own counters, so this attempt just stops. Throwing
+      // would only make Cloud Tasks retry a delivery that can never win the lease again.
+      if (error instanceof ImportWorkerLeaseLostError) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'import.undo.lease_lost',
+            jobId: ctx.jobId,
+            phase: 'finalize',
+          }),
+        );
         return;
       }
-      await this.audit.writeImportJobUndoAudit(
-        tx,
-        ctx.tenantId,
-        ctx.actor.userId,
-        ctx.jobId,
-        {
-          status: outcome.status,
-          deletedCount: outcome.deleted,
-          restoredCount: outcome.restored,
-          blockedCount: outcome.blocked,
-          blockedReasons: outcome.blocked_reasons,
-        },
-      );
-    }, IMPORT_UNDO_BATCH_TX);
+      throw error;
+    }
   }
 
   /** Reclaims UNDOING jobs whose lease expired or whose worker stopped heartbeating. */
@@ -1169,6 +1211,20 @@ export class ImportUndoService {
       job,
       options,
     );
+    const released = await this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: job.id,
+        status: ImportJobStatus.UNDOING,
+        // An HTTP takeover can land after the snapshot this release was planned from; it then
+        // owns the claim and must not be pushed back to a resumable status.
+        updatedAt: job.updatedAt,
+      },
+      data: { status: resumeStatus },
+    });
+    if (released.count === 0) {
+      return;
+    }
     this.logger.warn(
       JSON.stringify({
         event: 'import.undo.claim_released',
@@ -1176,14 +1232,6 @@ export class ImportUndoService {
         resumeStatus,
       }),
     );
-    await this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: job.id,
-        status: ImportJobStatus.UNDOING,
-      },
-      data: { status: resumeStatus },
-    });
   }
 
   /** Rows already undone make the job partially undone, whatever status it was claimed from. */

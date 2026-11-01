@@ -1631,6 +1631,88 @@ describe('ImportUndoService', () => {
       expect(new Set(taskIds(harness)).size).toBe(2);
     });
 
+    /**
+     * Another worker takes the token over right before the n-th lease read of an attempt, which
+     * is how a lost lease looks to the attempt that has already committed its earlier batches.
+     */
+    function takeoverOnLeaseRead(harness: Harness, readIndex: number): void {
+      const findFirst = (harness.prisma as any).importJob
+        .findFirst as jest.Mock;
+      let leaseReads = 0;
+      findFirst.mockImplementation(async (args?: { select?: unknown }) => {
+        if (args?.select) {
+          leaseReads += 1;
+          if (leaseReads >= readIndex) {
+            replaceLeaseToken(harness, 'taken-over');
+          }
+        }
+        return { ...harness.db.job };
+      });
+    }
+
+    it('loses the claim when the holder commits a batch between the read and the claim', async () => {
+      const harness = await dispatchOnlyHarness(4);
+      // The holder keeps its own token while it commits, so only `updatedAt` shows that the
+      // state this attempt read is already gone.
+      (harness.prisma as any).importJob.findFirst.mockResolvedValueOnce({
+        ...harness.db.job,
+        updatedAt: new Date(harness.db.job.updatedAt.getTime() - 1000),
+      });
+
+      await withEnv({ IMPORT_UNDO_BATCH_SIZE: '2' }, () =>
+        harness.service.runUndoWorkerAttempt({
+          tenantId: TENANT_ID,
+          jobId: JOB_ID,
+        }),
+      );
+
+      expect(harness.db.deletedEntityIds).toHaveLength(0);
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDOING);
+      expect(harness.undoWorker()?.processed_rows).toBe(0);
+      expect(harness.undoOutcome()).toBeNull();
+    });
+
+    it('does not dispatch a continuation once the handoff release matched no row', async () => {
+      const harness = await dispatchOnlyHarness(6);
+      const enqueue = { CLOUD_TASKS_TARGET_BASE_URL: 'https://api.example.test' };
+      const dispatched = harness.cloudTasks.enqueueImportWorker.mock.calls.length;
+      takeoverOnLeaseRead(harness, 2);
+
+      await withEnv(
+        { ...enqueue, IMPORT_UNDO_BATCH_SIZE: '2', IMPORT_UNDO_UNIT_ROW_BUDGET: '2' },
+        () =>
+          harness.service.runUndoWorkerAttempt({
+            tenantId: TENANT_ID,
+            jobId: JOB_ID,
+          }),
+      );
+
+      expect(harness.db.deletedEntityIds).toHaveLength(2);
+      expect(harness.undoWorker()?.lease_token).toBe('taken-over');
+      expect(harness.cloudTasks.enqueueImportWorker.mock.calls).toHaveLength(
+        dispatched,
+      );
+    });
+
+    it('stops quietly when the lease is lost while finalizing', async () => {
+      const harness = await dispatchOnlyHarness(2);
+      takeoverOnLeaseRead(harness, 2);
+
+      await withEnv({ IMPORT_UNDO_BATCH_SIZE: '2' }, () =>
+        harness.service.runUndoWorkerAttempt({
+          tenantId: TENANT_ID,
+          jobId: JOB_ID,
+        }),
+      );
+
+      expect(harness.db.deletedEntityIds).toHaveLength(2);
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDOING);
+      expect(harness.undoOutcome()).toBeNull();
+      expect(
+        harness.db.audits.filter((entry) => entry.entity_type === 'ImportJob'),
+      ).toHaveLength(0);
+    });
+
     it('persists the claim sequence so a re-run dispatches a new task id', async () => {
       const harness = await dispatchOnlyHarness(1);
       expect(harness.db.job.worker_claim_seq).toBe(1);
@@ -1701,6 +1783,23 @@ describe('ImportUndoService', () => {
       await harness.service.recoverStaleUndoJobs();
 
       expect(harness.db.job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
+    });
+
+    it('does not release a claimless job that a takeover claimed after the read', async () => {
+      const harness = createHarness({
+        rows: [makeRow(1, ImportRowAction.CREATE, 'cust-1')],
+        totals: { create: 1, update: 0 },
+        status: ImportJobStatus.UNDOING,
+        options: { undo_worker: { lease_token: '', actor_user_id: '' } },
+      });
+      (harness.prisma as any).importJob.findFirst.mockResolvedValueOnce({
+        ...harness.db.job,
+        updatedAt: new Date(harness.db.job.updatedAt.getTime() - 1000),
+      });
+
+      await harness.service.recoverStaleUndoJobs();
+
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDOING);
     });
   });
 });
