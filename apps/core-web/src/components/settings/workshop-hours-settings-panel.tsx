@@ -275,7 +275,7 @@ export function WorkshopHoursSettingsPanel() {
   return (
     <div className='space-y-8'>
       <form onSubmit={handleSaveSettings} className='space-y-6'>
-        <SettingsTabPanel title={t('workshopHours.title')} description={t('workshopHours.description')}>
+        <SettingsTabPanel title={t('workshopHours.title')}>
           <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
             <div className='space-y-2'>
               <Label htmlFor='workshop-timezone'>{t('workshopHours.timezone')}</Label>
@@ -412,7 +412,6 @@ export function WorkshopHoursSettingsPanel() {
       <SettingsTabPanel
         density="compact"
         title={t('workshopHours.holidays.title')}
-        description={t('workshopHours.holidays.description')}
         headerActions={
           canManage ? (
             <div className='flex items-center gap-2 max-sm:flex-wrap'>

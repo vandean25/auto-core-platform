@@ -124,6 +124,19 @@ describe('ImportSourcesPanel', () => {
     expect(refetch).toHaveBeenCalledTimes(1)
   })
 
+  it('displays the key format hint as a validation message when key format is invalid', async () => {
+    renderPanel([defaultSource])
+
+    expect(screen.queryByText(di.keyHint)).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(di.keyLabel), { target: { value: 'INVALID KEY!' } })
+    fireEvent.change(screen.getByLabelText(di.labelLabel), { target: { value: 'Incadea' } })
+    fireEvent.click(screen.getByRole('button', { name: di.add }))
+
+    expect(screen.getByText(di.keyHint)).toBeInTheDocument()
+    expect(createMutate).not.toHaveBeenCalled()
+  })
+
   it('creates a source with the entered key and label', async () => {
     renderPanel([defaultSource])
 

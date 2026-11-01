@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { Download } from 'lucide-react'
+import { Download, Info } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 import type { ImportSource } from '@/api/imports'
 import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
@@ -141,10 +142,34 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={props.onDownloadTemplate}>
-          <Download className="mr-2 h-4 w-4" />
-          {t('dataImport.source.downloadTemplate')}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="outline" onClick={props.onDownloadTemplate}>
+            <Download className="mr-2 h-4 w-4" />
+            {t('dataImport.source.downloadTemplate')}
+          </Button>
+          {props.templateFields.length > 0 ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                  aria-label={t('dataImport.source.templateFieldsInfo')}
+                >
+                  <Info className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 text-xs">
+                <p>
+                  {t('dataImport.source.templateFields', {
+                    fields: props.templateFields.join(', '),
+                  })}
+                </p>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+        </div>
         <Button
           type="button"
           disabled={
@@ -156,13 +181,6 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
           {t('dataImport.source.continue')}
         </Button>
       </div>
-      {props.templateFields.length > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {t('dataImport.source.templateFields', {
-            fields: props.templateFields.join(', '),
-          })}
-        </p>
-      ) : null}
     </section>
   )
 }

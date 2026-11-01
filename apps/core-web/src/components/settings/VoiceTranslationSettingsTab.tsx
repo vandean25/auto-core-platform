@@ -8,7 +8,7 @@ import {
   useVoiceTranslationSettings,
 } from '@/api/voice-translation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -86,9 +86,6 @@ export function VoiceTranslationSettingsTab() {
     <Card>
       <CardHeader>
         <CardTitle>{t('voiceTranslation.title')}</CardTitle>
-        <CardDescription>
-          {t('voiceTranslation.description')}
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSave} className='space-y-4'>
@@ -164,11 +161,9 @@ export function VoiceTranslationSettingsTab() {
               placeholder={t('voiceTranslation.credentialPlaceholder')}
             />
             <p className='text-sm text-slate-500'>
-              {t('voiceTranslation.credentialHint', {
-                status: data?.hasGoogleCredential
-                  ? t('voiceTranslation.credentialConfigured')
-                  : t('voiceTranslation.credentialNotConfigured'),
-              })}
+              {data?.hasGoogleCredential
+                ? t('voiceTranslation.credentialConfigured')
+                : t('voiceTranslation.credentialNotConfigured')}
             </p>
             <label className='flex items-center gap-2 text-sm text-slate-600'>
               <input

@@ -77,8 +77,6 @@ import { triggerBlobDownload } from '@/lib/download'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 import { formatCurrency, formatDateTime, formatIsoDateOnly, formatNumber, formatPercent } from '@/lib/format'
 
-const DATEV_PROFILE_CODE = 'ACP-DATEV-DE-EUR-1'
-
 function truncateHash(value: string, visible = 10): string {
   if (value.length <= visible * 2 + 3) return value
   return `${value.slice(0, visible)}…${value.slice(-visible)}`
@@ -453,14 +451,6 @@ export function AccountingExportSettingsPanel({
       <div className="flex flex-col gap-4 rounded-lg border bg-white p-6 shadow-sm lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <SettingsSectionHeading title={t('accountingExport.header.title')} />
-          <p className="max-w-2xl text-sm text-slate-600">
-            <SafeTrans
-              t={t}
-              i18nKey="accountingExport.header.description"
-              values={{ profileCode: DATEV_PROFILE_CODE }}
-              components={{ code: <span className="font-mono text-xs" /> }}
-            />
-          </p>
           {selectedEntity ? (
             <p className="text-sm text-slate-500">
               {periodReady ? (
@@ -611,9 +601,6 @@ export function AccountingExportSettingsPanel({
                   )
                 })}
               </ul>
-              <p className="text-xs text-slate-500">
-                {t('accountingExport.preview.blockersNote')}
-              </p>
             </div>
           ) : null}
 
@@ -689,8 +676,6 @@ export function AccountingExportSettingsPanel({
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <SettingsSubsectionIntro
             title={t('accountingExport.history.title')}
-            description={t('accountingExport.history.description')}
-            descriptionClassName="text-sm text-slate-500"
           />
         </div>
         <DataTable
@@ -710,8 +695,8 @@ export function AccountingExportSettingsPanel({
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>{t('accountingExport.detail.title')}</SheetTitle>
-            <SheetDescription>
-              {t('accountingExport.detail.description')}
+            <SheetDescription className="sr-only">
+              {t('accountingExport.detail.title')}
             </SheetDescription>
           </SheetHeader>
           {detailQuery.isLoading ? (

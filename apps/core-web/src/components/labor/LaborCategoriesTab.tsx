@@ -566,9 +566,6 @@ export function LaborCategoriesTab() {
       <div className="md:col-span-2 space-y-4">
         <div>
           <h3 className="text-lg font-medium">{t("labor.categories.title")}</h3>
-          <p className="text-sm text-slate-500">
-            {t("labor.categories.description")}
-          </p>
         </div>
 
         <Card>

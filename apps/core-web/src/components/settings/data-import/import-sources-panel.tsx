@@ -52,13 +52,21 @@ export function ImportSourcesPanel() {
   const deleteSource = useDeleteImportSource()
 
   const [form, setForm] = React.useState<SourceForm>(EMPTY_FORM)
+  const [keyError, setKeyError] = React.useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null)
   const pendingDelete = sources.find((source) => source.id === pendingDeleteId) ?? null
 
   function handleCreate(event: React.FormEvent) {
     event.preventDefault()
+    setKeyError(null)
     if (!form.key.trim() || !form.label.trim()) {
       toast.error(t('dataImport.sources.toastFieldsRequired'))
+      return
+    }
+    const keyTrimmed = form.key.trim()
+    const keyRegex = /^[a-z0-9][a-z0-9_-]{0,63}(:[a-z0-9][a-z0-9_-]{0,63})?$/
+    if (!keyRegex.test(keyTrimmed)) {
+      setKeyError(t('dataImport.sources.keyHint'))
       return
     }
     createSource.mutate(
@@ -66,6 +74,7 @@ export function ImportSourcesPanel() {
       {
         onSuccess: () => {
           setForm(EMPTY_FORM)
+          setKeyError(null)
           toast.success(t('dataImport.sources.toastCreated'))
         },
         onError: (error) =>
@@ -109,9 +118,6 @@ export function ImportSourcesPanel() {
         <h3 id="import-sources-heading" className="text-base font-medium">
           {t('dataImport.sources.title')}
         </h3>
-        <p className="text-sm text-muted-foreground max-w-2xl">
-          {t('dataImport.sources.description')}
-        </p>
       </div>
 
       <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
@@ -121,8 +127,18 @@ export function ImportSourcesPanel() {
             id="import-source-key"
             value={form.key}
             placeholder={t('dataImport.sources.keyPlaceholder')}
-            onChange={(event) => setForm((prev) => ({ ...prev, key: event.target.value }))}
+            onChange={(event) => {
+              setKeyError(null)
+              setForm((prev) => ({ ...prev, key: event.target.value }))
+            }}
+            aria-invalid={keyError ? true : undefined}
+            aria-describedby={keyError ? 'import-source-key-error' : undefined}
           />
+          {keyError ? (
+            <p id="import-source-key-error" className="text-xs text-destructive">
+              {keyError}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="import-source-label">{t('dataImport.sources.labelLabel')}</Label>
@@ -149,9 +165,6 @@ export function ImportSourcesPanel() {
             {t('dataImport.sources.add')}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground md:col-span-3">
-          {t('dataImport.sources.keyHint')}
-        </p>
       </form>
 
       {sourcesQuery.isError ? (

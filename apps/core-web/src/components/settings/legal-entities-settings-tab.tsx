@@ -444,9 +444,6 @@ export function LegalEntityAccountingProfileForm({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="font-medium">{t('legalEntities.profile.title')}</h3>
-          <p className="text-sm text-slate-500">
-            {t('legalEntities.profile.description', { name: entity.name })}
-          </p>
         </div>
         <DocumentSaveIndicator status={saveStatus} />
       </div>
@@ -839,9 +836,6 @@ function LegalEntitySellerForm({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="font-medium">{entity.name}</h3>
-          <p className="text-sm text-slate-500">
-            {t('legalEntities.seller.description', { country: entity.country_iso })}
-          </p>
         </div>
         <DocumentSaveIndicator status={saveStatus} />
       </div>
@@ -1115,9 +1109,6 @@ export function LegalEntitiesSettingsTab() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-medium">{t('legalEntities.title')}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t('legalEntities.description')}
-        </p>
       </div>
 
       <div className="rounded-lg border bg-white p-6 shadow-sm">
