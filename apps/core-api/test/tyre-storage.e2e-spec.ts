@@ -229,7 +229,7 @@ describe('Tyre storage (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({})
       .expect(200);
-    expect(checkOutRes.body.status).toBe('RETURNED');
+    expect(checkOutRes.body.status).toBe('ON_VEHICLE');
     expect(checkOutRes.body.locationId).toBeNull();
   });
 

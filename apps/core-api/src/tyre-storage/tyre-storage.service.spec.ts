@@ -22,7 +22,9 @@ describe('TyreStorageService', () => {
     clock = new TyreStorageClock();
     mockTenantContext = {
       getTenantId: jest.fn().mockResolvedValue(tenantId),
-      getAuthenticatedUser: jest.fn().mockReturnValue({ userId, role: 'ADMIN' }),
+      getAuthenticatedUser: jest
+        .fn()
+        .mockReturnValue({ userId, role: 'ADMIN' }),
       hasRole: jest.fn().mockReturnValue(true),
       isOfficeUser: jest.fn().mockReturnValue(true),
       getMembership: jest.fn().mockReturnValue({ role: 'ADMIN' }),
@@ -31,7 +33,11 @@ describe('TyreStorageService', () => {
       getSiteId: jest.fn().mockResolvedValue(siteId),
     };
     mockPrisma = {
-      $transaction: jest.fn().mockImplementation(async (cb: (tx: any) => Promise<any>) => cb(mockPrisma)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (cb: (tx: any) => Promise<any>) =>
+          cb(mockPrisma),
+        ),
       customer: {
         findFirst: jest.fn().mockResolvedValue({ id: customerId }),
       },
@@ -39,7 +45,9 @@ describe('TyreStorageService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       storageLocation: {
-        findFirst: jest.fn().mockResolvedValue({ id: locationId, site_id: siteId }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: locationId, site_id: siteId }),
       },
       tyreStorageSettings: {
         findUnique: jest.fn().mockResolvedValue({
@@ -101,7 +109,12 @@ describe('TyreStorageService', () => {
         stored_since: null,
         planned_swap_on: null,
         bin_label: null,
-        customer: { first_name: 'Max', last_name: 'Muster', phone: null, email: null },
+        customer: {
+          first_name: 'Max',
+          last_name: 'Muster',
+          phone: null,
+          email: null,
+        },
         vehicle: null,
         location: null,
         events: [],
@@ -143,7 +156,12 @@ describe('TyreStorageService', () => {
         stored_since: clock.now(),
         planned_swap_on: null,
         bin_label: 'B-1',
-        customer: { first_name: 'Max', last_name: 'Muster', phone: null, email: null },
+        customer: {
+          first_name: 'Max',
+          last_name: 'Muster',
+          phone: null,
+          email: null,
+        },
         vehicle: null,
         location: { code: 'RACK-1' },
         events: [],
@@ -196,12 +214,19 @@ describe('TyreStorageService', () => {
         status: 'IN_STORAGE',
         location_id: locationId,
         location: { code: 'RACK-1' },
-        customer: { first_name: 'Max', last_name: 'Muster', phone: null, email: null },
+        customer: {
+          first_name: 'Max',
+          last_name: 'Muster',
+          phone: null,
+          email: null,
+        },
         vehicle: null,
         events: [],
       };
 
-      mockPrisma.tyreSet.findFirst.mockResolvedValueOnce(existingNewSet).mockResolvedValueOnce(updatedSet);
+      mockPrisma.tyreSet.findFirst
+        .mockResolvedValueOnce(existingNewSet)
+        .mockResolvedValueOnce(updatedSet);
       mockPrisma.tyreSet.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.checkIn(setId, { locationId });
@@ -226,7 +251,7 @@ describe('TyreStorageService', () => {
       expect(result.status).toBe('IN_STORAGE');
     });
 
-    it('checks out an IN_STORAGE tyre set resulting in RETURNED status', async () => {
+    it('checks out an IN_STORAGE tyre set resulting in ON_VEHICLE status', async () => {
       const storedSet = {
         id: setId,
         tenant_id: tenantId,
@@ -240,17 +265,24 @@ describe('TyreStorageService', () => {
         stored_since: clock.now(),
         events: [],
       };
-      const returnedSet = {
+      const onVehicleSet = {
         ...storedSet,
-        status: 'RETURNED',
+        status: 'ON_VEHICLE',
         location_id: null,
         location: null,
-        customer: { first_name: 'Max', last_name: 'Muster', phone: null, email: null },
+        customer: {
+          first_name: 'Max',
+          last_name: 'Muster',
+          phone: null,
+          email: null,
+        },
         vehicle: null,
         events: [],
       };
 
-      mockPrisma.tyreSet.findFirst.mockResolvedValueOnce(storedSet).mockResolvedValueOnce(returnedSet);
+      mockPrisma.tyreSet.findFirst
+        .mockResolvedValueOnce(storedSet)
+        .mockResolvedValueOnce(onVehicleSet);
       mockPrisma.tyreSet.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.checkOut(setId, {});
@@ -262,7 +294,7 @@ describe('TyreStorageService', () => {
           location_id: locationId,
         }),
         data: expect.objectContaining({
-          status: 'RETURNED',
+          status: 'ON_VEHICLE',
           location_id: null,
         }),
       });
@@ -272,7 +304,7 @@ describe('TyreStorageService', () => {
           to_location_id: null,
         }),
       });
-      expect(result.status).toBe('RETURNED');
+      expect(result.status).toBe('ON_VEHICLE');
     });
   });
 

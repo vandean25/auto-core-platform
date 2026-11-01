@@ -54,7 +54,7 @@ export function applyTyreSetEvent(
       };
     case 'CHECK_OUT':
       return {
-        status: 'RETURNED',
+        status: 'ON_VEHICLE',
         location_id: null,
         stored_since: set.stored_since,
       };

@@ -13,7 +13,7 @@ describe('tyre-set-event.helpers', () => {
       { event_type: 'MOVED', to_location_id: 'loc-b', occurred_at: t1 },
       { event_type: 'CHECK_OUT', to_location_id: null, occurred_at: t2 },
     ]);
-    expect(projected.status).toBe('RETURNED');
+    expect(projected.status).toBe('ON_VEHICLE');
     expect(projected.location_id).toBeNull();
   });
 

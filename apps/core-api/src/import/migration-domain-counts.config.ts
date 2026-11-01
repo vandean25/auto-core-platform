@@ -41,7 +41,7 @@ export const MIGRATION_V11_DOMAIN_COUNT_SPECS: readonly MigrationDomainCountSpec
       domainKey: 'tyre_sets',
       fileName: 'tyre_sets.csv',
       enumField: 'status',
-      enumKeys: ['NEW', 'IN_STORAGE', 'ON_VEHICLE', 'RETURNED', 'DISPOSED'],
+      enumKeys: ['IN_STORAGE', 'ON_VEHICLE', 'RETURNED', 'DISPOSED'],
     },
     {
       domainKey: 'open_orders',

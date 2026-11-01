@@ -300,7 +300,6 @@ export const MIGRATION_CSV_FILE_SPECS: Record<
       col('positions_json', false),
       col('condition_notes', false),
       enumCol('status', true, [
-        'NEW',
         'IN_STORAGE',
         'ON_VEHICLE',
         'RETURNED',

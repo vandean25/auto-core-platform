@@ -291,7 +291,6 @@ export const MIGRATION_MANIFEST_SCHEMA_V11 = {
       'SERVICE_DUE',
     ]),
     tyreSetsCounts: domainEnumCountSchema([
-      'NEW',
       'IN_STORAGE',
       'ON_VEHICLE',
       'RETURNED',
