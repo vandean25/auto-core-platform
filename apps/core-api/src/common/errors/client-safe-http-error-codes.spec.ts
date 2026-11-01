@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WARRANTY_CLAIM_ERROR_CODES } from '../../warranty-claim/warranty-claim.rules.js';
@@ -13,24 +13,31 @@ import {
 const API_SRC_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
 
-/** Files that throw import errors straight at an API client. */
-const CLIENT_FACING_IMPORT_FILES = [
-  'import/import-source.service.ts',
-  'import/import.controller.ts',
-  'import/import-worker.controller.ts',
-  'import/import-direct-upload.ts',
-  'import/import-job.errors.ts',
-] as const;
-
-/** Codes those files can throw at a client, read off the sources so a new one is caught. */
+/** Codes import sources throw at a client, recursively scanned across all non-test files under import/. */
 function clientFacingImportCodes(): string[] {
   const keys = new Set<keyof typeof IMPORT_ERROR_CODES>();
-  for (const file of CLIENT_FACING_IMPORT_FILES) {
-    const source = readFileSync(resolve(API_SRC_ROOT, file), 'utf8');
-    for (const match of source.matchAll(/IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g)) {
-      keys.add(match[1] as keyof typeof IMPORT_ERROR_CODES);
+  const importDir = resolve(API_SRC_ROOT, 'import');
+
+  function scanDir(dir: string) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanDir(fullPath);
+      } else if (
+        entry.name.endsWith('.ts') &&
+        !entry.name.endsWith('.spec.ts') &&
+        !entry.name.endsWith('.test.ts') &&
+        entry.name !== 'import.constants.ts'
+      ) {
+        const source = readFileSync(fullPath, 'utf8');
+        for (const match of source.matchAll(/IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g)) {
+          keys.add(match[1] as keyof typeof IMPORT_ERROR_CODES);
+        }
+      }
     }
   }
+
+  scanDir(importDir);
   return [...keys].map((key) => IMPORT_ERROR_CODES[key]).sort();
 }
 
@@ -213,22 +220,52 @@ describe('client-safe allowlist parity', () => {
     const codes = clientFacingImportCodes();
 
     expect(codes).toEqual([
+      'IMPORT_AMBIGUOUS_VENDOR',
+      'IMPORT_APPLY_FAILED',
       'IMPORT_APPLY_INTERRUPTED',
       'IMPORT_APPLY_IN_PROGRESS',
+      'IMPORT_ARTICLE_NOT_FOUND',
+      'IMPORT_DESCRIPTION_REQUIRED',
       'IMPORT_DIRECT_UPLOAD_CONTENT_TYPE',
       'IMPORT_DIRECT_UPLOAD_INVALID',
       'IMPORT_DIRECT_UPLOAD_NOT_FOUND',
       'IMPORT_DIRECT_UPLOAD_TOO_LARGE',
+      'IMPORT_DUPLICATE_ARTICLE_NO_IN_FILE',
+      'IMPORT_DUPLICATE_CODE_IN_FILE',
+      'IMPORT_DUPLICATE_EMAIL_IN_FILE',
+      'IMPORT_DUPLICATE_EXTERNAL_ID_IN_FILE',
+      'IMPORT_EMPTY_FILE',
+      'IMPORT_FILE_TOO_LARGE',
+      'IMPORT_GROUP_TOO_LARGE',
+      'IMPORT_INVALID_COST_PRICE',
+      'IMPORT_INVALID_ENCODING',
+      'IMPORT_INVALID_ENTITY_TYPE',
+      'IMPORT_INVALID_HOURLY_RATE',
+      'IMPORT_INVALID_INTERNAL_COST',
       'IMPORT_INVALID_MAPPING',
       'IMPORT_INVALID_SOURCE_KEY',
+      'IMPORT_INVALID_STANDARD_AW',
       'IMPORT_JOB_ALREADY_APPLIED',
       'IMPORT_JOB_EXPIRED',
       'IMPORT_JOB_NOT_FOUND',
       'IMPORT_JOB_PURGED',
       'IMPORT_JOB_STALE',
+      'IMPORT_LABOR_CODE_CONFLICT',
+      'IMPORT_LABOR_CODE_REQUIRED',
+      'IMPORT_LABOR_DESCRIPTION_REQUIRED',
+      'IMPORT_LABOR_FITMENT_MAKE_MODEL_REQUIRED',
+      'IMPORT_MAPPING_PROFILE_EXISTS',
+      'IMPORT_PRICE_JUMP_REQUIRES_ACCEPTANCE',
+      'IMPORT_ROW_LIMIT_EXCEEDED',
+      'IMPORT_ROW_STALE',
       'IMPORT_SOURCE_ALREADY_EXISTS',
       'IMPORT_SOURCE_NOT_FOUND',
+      'IMPORT_STORAGE_UNAVAILABLE',
+      'IMPORT_SUPPLIER_ARTICLE_NO_REQUIRED',
+      'IMPORT_SUPPLIER_VENDOR_REQUIRED',
       'IMPORT_UNKNOWN_SOURCE',
+      'PRICE_JUMP_EXCEEDED',
+      'RRP_MISSING_FOR_MARGIN_RULE',
     ]);
     for (const code of codes) {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
