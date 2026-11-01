@@ -890,6 +890,15 @@ describe('Import Undo (e2e)', () => {
     expect(undoRes.body.options?.undo?.deleted).toBe(0);
     expect(undoRes.body.options?.undo?.restored).toBe(0);
 
+    const checkJob = await tenantPrisma.importJob.findUniqueOrThrow({
+      where: { id: dryRun.id },
+    });
+    expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
+    const opts = (checkJob.options_json ?? {}) as Record<string, any>;
+    expect(opts.undo?.deleted).toBe(0);
+    expect(opts.undo?.restored).toBe(0);
+    expect(opts.undo?.blocked).toBe(1);
+
     // Verify customer is untouched
     const untouchedCustomer = await tenantPrisma.customer.findFirst({
       where: { id: customer.id },
@@ -909,37 +918,12 @@ describe('Import Undo (e2e)', () => {
 
   it('legacy job: job with all rows entity_id null gives 409 IMPORT_JOB_NOT_UNDOABLE on POST undo, status stays APPLIED, no undo_worker or options.undo written', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
-    const job = await tenantPrisma.importJob.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        entity_type: 'CUSTOMER',
-        source_system: 'legacy_dms',
-        file_name: 'legacy_customers.csv',
-        file_sha256: 'legacy-sha',
-        status: ImportJobStatus.APPLIED,
-        mapping_json: customerMapping,
-        totals_json: { create: 2, update: 0 },
-        created_by: 'admin-user',
-        appliedAt: new Date(),
-        rows: {
-          create: [
-            {
-              tenant_id: tenant.tenantId,
-              row_no: 1,
-              action: 'CREATE',
-              entity_id: null,
-              normalized_json: { first_name: 'Legacy1' },
-            },
-            {
-              tenant_id: tenant.tenantId,
-              row_no: 2,
-              action: 'CREATE',
-              entity_id: null,
-              normalized_json: { first_name: 'Legacy2' },
-            },
-          ],
-        },
-      },
+    const job = await importCustomerBatch([
+      [`EXT-LEGACY-${Date.now()}`, 'PRIVATE', 'Legacy', 'One', `legacy-${Date.now()}@example.com`, '111', 'AT'],
+    ]);
+    await tenantPrisma.importJobRow.updateMany({
+      where: { import_job_id: job.id },
+      data: { entity_id: null },
     });
 
     const undoRes = await request(app.getHttpServer())
@@ -973,15 +957,12 @@ describe('Import Undo (e2e)', () => {
       where: { email: emailBlocked },
     });
 
-    await tenantPrisma.invoice.create({
+    await tenantPrisma.salesOrder.create({
       data: {
         tenant_id: tenant.tenantId,
         customer_id: customer.id,
-        status: 'ISSUED',
-        date: new Date(),
-        due_date: new Date(),
-        total_net: 100,
-        total_tax: 20,
+        order_number: `SO-${Date.now()}`,
+        status: 'CONFIRMED',
         total_gross: 120,
       },
     });
@@ -997,7 +978,7 @@ describe('Import Undo (e2e)', () => {
       restored: 0,
       blocked: 1,
       blocked_reasons: {
-        [customer.id]: UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
+        [customer.id]: UNDO_BLOCKED_REASONS.DOWNSTREAM_SALES_ORDER,
       },
     });
 
