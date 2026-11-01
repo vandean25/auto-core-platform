@@ -40,7 +40,23 @@ export interface TaskListProps {
   onOpenFitmentSearch?: (taskId: string) => void
 }
 
-export function TaskList({
+export function TaskList({ onSaveReportedIssue, onSaveNotes, ...sections }: TaskListProps) {
+  return (
+    <>
+      <ReportedIssueCard
+        order={sections.order}
+        isLocked={sections.isLocked}
+        onSave={onSaveReportedIssue}
+      />
+      <RepairTasksCard {...sections} />
+      <InternalNotesCard order={sections.order} isLocked={sections.isLocked} onSave={onSaveNotes} />
+    </>
+  )
+}
+
+type RepairTasksCardProps = Omit<TaskListProps, 'onSaveReportedIssue' | 'onSaveNotes'>
+
+function RepairTasksCard({
   order,
   tasks,
   rawTaskTotals,
@@ -57,117 +73,165 @@ export function TaskList({
   onTaskDelete,
   canDeleteTask,
   isDeletingTask,
-  onSaveReportedIssue,
-  onSaveNotes,
   onOpenFitmentSearch,
-}: TaskListProps) {
+}: RepairTasksCardProps) {
   const { t } = useTranslation('workshop')
 
   return (
-    <>
-      <Card>
-        <CardHeader className='pb-3'>
-          <div className='flex items-center justify-between'>
-            <CardTitle className='text-base font-semibold'>{t('taskList.reportedIssue')}</CardTitle>
-            {order.status !== 'COMPLETED' && (
-              <Badge className='border-rose-200 bg-rose-100 text-rose-800 hover:bg-rose-100'>
-                {t('taskList.highPriority')}
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className='text-sm leading-relaxed'>
-          <InlineEdit
-            mode='textarea'
-            rows={4}
-            placeholder={t('taskList.reportedIssuePlaceholder')}
-            value={order.reportedIssue || order.reported_issue || ''}
-            readOnly={isLocked}
-            onSave={onSaveReportedIssue}
-            emptyText={t('taskList.reportedIssueEmpty')}
-            ariaLabel={t('taskList.reportedIssueAria')}
+    <Card>
+      <CardHeader className='pb-3'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <CardTitle className='text-base font-semibold'>{t('taskList.repairTasks')}</CardTitle>
+          <TaskQuickAddForm
+            newTaskTitle={newTaskTitle}
+            isLocked={isLocked}
+            isAddingTask={isAddingTask}
+            onNewTaskTitleChange={onNewTaskTitleChange}
+            onAddTask={onAddTask}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </CardHeader>
+      <CardContent className='space-y-2'>
+        {tasks.length === 0 && (
+          <div className='text-sm text-muted-foreground'>{t('taskList.noTasks')}</div>
+        )}
+        {tasks.map((task) => (
+          <TaskAccordionRow
+            key={task.id}
+            task={task}
+            workshopOrderId={order.id}
+            totals={rawTaskTotals.get(task.id)}
+            isExpanded={expandedTaskId === task.id}
+            isLocked={isLocked}
+            onToggleTask={onToggleTask}
+            onToggleExpanded={() =>
+              onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
+            }
+            onTaskLineItemsChange={onTaskLineItemsChange}
+            onTaskMechanicNotesChange={onTaskMechanicNotesChange}
+            onTaskDelete={onTaskDelete}
+            canDeleteTask={canDeleteTask}
+            isDeletingTask={isDeletingTask}
+            onOpenFitmentSearch={onOpenFitmentSearch}
+          />
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
 
-      <Card>
-        <CardHeader className='pb-3'>
-          <div className='flex flex-wrap items-center justify-between gap-3'>
-            <CardTitle className='text-base font-semibold'>{t('taskList.repairTasks')}</CardTitle>
-            <div className='flex w-full items-center gap-2 sm:max-w-md'>
-              <Input
-                value={newTaskTitle}
-                onChange={(e) => onNewTaskTitleChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    if (!isLocked && !isAddingTask) {
-                      onAddTask()
-                    }
-                  }
-                }}
-                placeholder={t('taskList.newTaskPlaceholder')}
-                className='h-11 sm:h-8 min-w-0 flex-1'
-                disabled={isLocked}
-              />
-              <Button
-                variant='outline'
-                size='sm'
-                className='h-11 sm:h-8 shrink-0'
-                onClick={onAddTask}
-                disabled={isLocked || isAddingTask}
-              >
-                <Plus className='h-3.5 w-3.5 mr-1' />
-                {t('taskList.addTask')}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className='space-y-2'>
-          {tasks.length === 0 && (
-            <div className='text-sm text-muted-foreground'>{t('taskList.noTasks')}</div>
+interface InternalNotesCardProps {
+  order: WorkshopOrder
+  isLocked: boolean
+  onSave: (value: string) => void
+}
+
+function InternalNotesCard({ order, isLocked, onSave }: InternalNotesCardProps) {
+  const { t } = useTranslation('workshop')
+
+  return (
+    <Card>
+      <CardHeader className='pb-3'>
+        <CardTitle className='text-base font-semibold'>{t('taskList.internalNotes')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <InlineEdit
+          mode='textarea'
+          rows={5}
+          placeholder={t('taskList.internalNotesPlaceholder')}
+          value={order.notes || ''}
+          readOnly={isLocked}
+          onSave={onSave}
+          emptyText={t('taskList.internalNotesEmpty')}
+          ariaLabel={t('taskList.internalNotesAria')}
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+interface ReportedIssueCardProps {
+  order: WorkshopOrderWithLegacyReportedIssue
+  isLocked: boolean
+  onSave: (value: string) => void
+}
+
+function ReportedIssueCard({ order, isLocked, onSave }: ReportedIssueCardProps) {
+  const { t } = useTranslation('workshop')
+
+  return (
+    <Card>
+      <CardHeader className='pb-3'>
+        <div className='flex items-center justify-between'>
+          <CardTitle className='text-base font-semibold'>{t('taskList.reportedIssue')}</CardTitle>
+          {order.status !== 'COMPLETED' && (
+            <Badge className='border-rose-200 bg-rose-100 text-rose-800 hover:bg-rose-100'>
+              {t('taskList.highPriority')}
+            </Badge>
           )}
-          {tasks.map((task) => (
-            <TaskAccordionRow
-              key={task.id}
-              task={task}
-              workshopOrderId={order.id}
-              totals={rawTaskTotals.get(task.id)}
-              isExpanded={expandedTaskId === task.id}
-              isLocked={isLocked}
-              onToggleTask={onToggleTask}
-              onToggleExpanded={() =>
-                onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
-              }
-              onTaskLineItemsChange={onTaskLineItemsChange}
-              onTaskMechanicNotesChange={onTaskMechanicNotesChange}
-              onTaskDelete={onTaskDelete}
-              canDeleteTask={canDeleteTask}
-              isDeletingTask={isDeletingTask}
-              onOpenFitmentSearch={onOpenFitmentSearch}
-            />
-          ))}
-        </CardContent>
-      </Card>
+        </div>
+      </CardHeader>
+      <CardContent className='text-sm leading-relaxed'>
+        <InlineEdit
+          mode='textarea'
+          rows={4}
+          placeholder={t('taskList.reportedIssuePlaceholder')}
+          value={order.reportedIssue || order.reported_issue || ''}
+          readOnly={isLocked}
+          onSave={onSave}
+          emptyText={t('taskList.reportedIssueEmpty')}
+          ariaLabel={t('taskList.reportedIssueAria')}
+        />
+      </CardContent>
+    </Card>
+  )
+}
 
-      <Card>
-        <CardHeader className='pb-3'>
-          <CardTitle className='text-base font-semibold'>{t('taskList.internalNotes')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <InlineEdit
-            mode='textarea'
-            rows={5}
-            placeholder={t('taskList.internalNotesPlaceholder')}
-            value={order.notes || ''}
-            readOnly={isLocked}
-            onSave={onSaveNotes}
-            emptyText={t('taskList.internalNotesEmpty')}
-            ariaLabel={t('taskList.internalNotesAria')}
-          />
-        </CardContent>
-      </Card>
-    </>
+interface TaskQuickAddFormProps {
+  newTaskTitle: string
+  isLocked: boolean
+  isAddingTask: boolean
+  onNewTaskTitleChange: (value: string) => void
+  onAddTask: () => void
+}
+
+function TaskQuickAddForm({
+  newTaskTitle,
+  isLocked,
+  isAddingTask,
+  onNewTaskTitleChange,
+  onAddTask,
+}: TaskQuickAddFormProps) {
+  const { t } = useTranslation('workshop')
+
+  return (
+    <div className='flex w-full items-center gap-2 sm:max-w-md'>
+      <Input
+        value={newTaskTitle}
+        onChange={(e) => onNewTaskTitleChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            if (!isLocked && !isAddingTask) {
+              onAddTask()
+            }
+          }
+        }}
+        placeholder={t('taskList.newTaskPlaceholder')}
+        className='h-11 sm:h-8 min-w-0 flex-1'
+        disabled={isLocked}
+      />
+      <Button
+        variant='outline'
+        size='sm'
+        className='h-11 sm:h-8 shrink-0'
+        onClick={onAddTask}
+        disabled={isLocked || isAddingTask}
+      >
+        <Plus className='h-3.5 w-3.5 mr-1' />
+        {t('taskList.addTask')}
+      </Button>
+    </div>
   )
 }
 
