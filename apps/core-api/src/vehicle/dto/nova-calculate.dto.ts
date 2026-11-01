@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -65,7 +65,7 @@ export class NovaCalculateRequestDto {
   @ValidateIf(
     (_request: NovaCalculateRequestDto, value: unknown) => value !== undefined,
   )
-  @IsEnum(IMPORT_MODES)
+  @IsIn(IMPORT_MODES)
   importMode?: NovaImportMode;
 
   @ApiPropertyOptional({
@@ -93,7 +93,7 @@ export class NovaCalculateRequestDto {
       (!!request.vehicleId && request.emissionCycle !== undefined) ||
       (isEuUsedM1Request(request) && request.emissionCycle !== undefined),
   )
-  @IsEnum(EMISSION_CYCLES)
+  @IsIn(EMISSION_CYCLES)
   emissionCycle?: EmissionCycle;
 
   @ApiPropertyOptional({ enum: DRIVE_TYPES })
@@ -103,7 +103,7 @@ export class NovaCalculateRequestDto {
       (!!request.vehicleId && request.driveType !== undefined) ||
       (isEuUsedM1Request(request) && request.driveType !== undefined),
   )
-  @IsEnum(DRIVE_TYPES)
+  @IsIn(DRIVE_TYPES)
   driveType?: NovaDriveType;
 
   @ApiPropertyOptional({ format: 'date' })
@@ -123,7 +123,7 @@ export class NovaCalculateRequestDto {
 
   @ApiPropertyOptional({ enum: VEHICLE_CLASSES })
   @IsOptional()
-  @IsEnum(VEHICLE_CLASSES)
+  @IsIn(VEHICLE_CLASSES)
   vehicleClass?: NovaVehicleClass;
 
   @ApiPropertyOptional({ minimum: 0 })
