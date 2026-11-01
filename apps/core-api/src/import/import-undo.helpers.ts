@@ -1,11 +1,15 @@
-import { ImportJobStatus, ImportRowAction } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction, Prisma } from '@prisma/client';
 import { SUPPLIER_PRICE_LIST_ENTITY_TYPE } from './import-undo-plan.js';
 import { isDocOrFinancialImport } from './import-undo.guard.js';
 
 export type UndoableRowCheckClient = {
   catalogPriceHistory: {
     findFirst: (args: {
-      where: { tenant_id: string; import_job_id: string };
+      where: {
+        tenant_id: string;
+        import_job_id: string;
+        old_cost: { not: null };
+      };
       select: { id: true };
     }) => Promise<{ id: string } | null>;
   };
@@ -23,18 +27,30 @@ export type UndoableRowCheckClient = {
   };
 };
 
+function executeRawSql<T>(
+  client: UndoableBatchCheckClient,
+  query: Prisma.Sql,
+): Promise<T> {
+  const runner = (client as Record<string, unknown>)['$queryRaw'] as (
+    q: Prisma.Sql,
+  ) => Promise<T>;
+  return runner.call(client, query);
+}
+
 export type UndoableBatchCheckClient = {
-  catalogPriceHistory: {
+  $queryRaw?: <T = unknown>(query: Prisma.Sql) => Promise<T>;
+  catalogPriceHistory?: {
     findMany: (args: {
       where: {
         tenant_id: string;
         import_job_id: { in: string[] };
+        old_cost: { not: null };
       };
       select: { import_job_id: true };
       distinct: ['import_job_id'];
     }) => Promise<{ import_job_id: string | null }[]>;
   };
-  importJobRow: {
+  importJobRow?: {
     findMany: (args: {
       where: {
         tenant_id: string;
@@ -60,7 +76,11 @@ export async function hasUndoableRows(
 ): Promise<boolean> {
   if (job.entity_type === SUPPLIER_PRICE_LIST_ENTITY_TYPE) {
     const history = await prisma.catalogPriceHistory.findFirst({
-      where: { tenant_id: tenantId, import_job_id: job.id },
+      where: {
+        tenant_id: tenantId,
+        import_job_id: job.id,
+        old_cost: { not: null },
+      },
       select: { id: true },
     });
     return history !== null;
@@ -105,6 +125,7 @@ export function isCandidateUndoableJob(job: {
 
 /**
  * Computes which job IDs on a page are undoable using at most one batched query per table (no N+1).
+ * Uses a raw SQL existence probe with early exit per job to avoid scanning all rows of large jobs.
  */
 export async function findUndoableJobIds(
   prisma: UndoableBatchCheckClient,
@@ -130,7 +151,61 @@ export async function findUndoableJobIds(
 
   const undoableIds = new Set<string>();
 
-  if (standardJobIds.length > 0) {
+  const hasRawQuery =
+    typeof (prisma as Record<string, unknown>)['$queryRaw'] === 'function';
+
+  if (hasRawQuery) {
+    if (standardJobIds.length > 0) {
+      const rows = await executeRawSql<Array<{ import_job_id: string }>>(
+        prisma,
+        Prisma.sql`
+          SELECT j.id AS import_job_id
+          FROM unnest(ARRAY[${Prisma.join(standardJobIds)}]::text[]) AS j(id)
+          WHERE EXISTS (
+            SELECT 1
+            FROM import_job_rows r
+            WHERE r.tenant_id = ${tenantId}
+              AND r.import_job_id = j.id
+              AND r.action IN ('CREATE'::"ImportRowAction", 'UPDATE'::"ImportRowAction")
+              AND r.entity_id IS NOT NULL
+              AND r.undone_at IS NULL
+          )
+        `,
+      );
+      for (const r of rows) {
+        undoableIds.add(r.import_job_id);
+      }
+    }
+
+    if (priceListJobIds.length > 0) {
+      const priceHistories = await executeRawSql<
+        Array<{ import_job_id: string }>
+      >(
+        prisma,
+        Prisma.sql`
+          SELECT j.id AS import_job_id
+          FROM unnest(ARRAY[${Prisma.join(priceListJobIds)}]::text[]) AS j(id)
+          WHERE EXISTS (
+            SELECT 1
+            FROM catalog_price_histories h
+            WHERE h.tenant_id = ${tenantId}
+              AND h.import_job_id = j.id
+              AND h.old_cost IS NOT NULL
+          )
+        `,
+      );
+      for (const ph of priceHistories) {
+        if (ph.import_job_id) {
+          undoableIds.add(ph.import_job_id);
+        }
+      }
+    }
+
+    return undoableIds;
+  }
+
+  // Fallback if client does not provide $queryRaw (e.g. lightweight mocks)
+  if (standardJobIds.length > 0 && prisma.importJobRow) {
     const rows = await prisma.importJobRow.findMany({
       where: {
         tenant_id: tenantId,
@@ -147,11 +222,12 @@ export async function findUndoableJobIds(
     }
   }
 
-  if (priceListJobIds.length > 0) {
+  if (priceListJobIds.length > 0 && prisma.catalogPriceHistory) {
     const priceHistories = await prisma.catalogPriceHistory.findMany({
       where: {
         tenant_id: tenantId,
         import_job_id: { in: priceListJobIds },
+        old_cost: { not: null },
       },
       select: { import_job_id: true },
       distinct: ['import_job_id'],

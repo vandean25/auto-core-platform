@@ -131,7 +131,7 @@ describe('Import Undo Eligibility (AUT-846)', () => {
       expect(result).toBe(false);
     });
 
-    it('queries catalogPriceHistory for SUPPLIER_PRICE_LIST', async () => {
+    it('queries catalogPriceHistory for SUPPLIER_PRICE_LIST with old_cost not null', async () => {
       const mockHistoryFindFirst = jest.fn().mockResolvedValue({ id: 'cph-1' });
       const client: UndoableRowCheckClient = {
         importJobRow: { findFirst: jest.fn() },
@@ -145,25 +145,53 @@ describe('Import Undo Eligibility (AUT-846)', () => {
 
       expect(result).toBe(true);
       expect(mockHistoryFindFirst).toHaveBeenCalledWith({
-        where: { tenant_id: tenantId, import_job_id: 'spl-job' },
+        where: {
+          tenant_id: tenantId,
+          import_job_id: 'spl-job',
+          old_cost: { not: null },
+        },
+        select: { id: true },
+      });
+    });
+
+    it('returns false for SUPPLIER_PRICE_LIST when all history rows have null old_cost', async () => {
+      const mockHistoryFindFirst = jest.fn().mockResolvedValue(null);
+      const client: UndoableRowCheckClient = {
+        importJobRow: { findFirst: jest.fn() },
+        catalogPriceHistory: { findFirst: mockHistoryFindFirst },
+      };
+
+      const result = await hasUndoableRows(client, tenantId, {
+        id: 'spl-job',
+        entity_type: SUPPLIER_PRICE_LIST_ENTITY_TYPE,
+      });
+
+      expect(result).toBe(false);
+      expect(mockHistoryFindFirst).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+          import_job_id: 'spl-job',
+          old_cost: { not: null },
+        },
         select: { id: true },
       });
     });
   });
 
   describe('findUndoableJobIds (Batched query per page - No N+1)', () => {
-    it('performs exactly one batched query per table for candidate jobs on the page', async () => {
-      const importJobRowFindMany = jest.fn().mockResolvedValue([
-        { import_job_id: 'job-applied' },
-        { import_job_id: 'job-failed-partial' },
-      ]);
-      const catalogPriceHistoryFindMany = jest.fn().mockResolvedValue([
-        { import_job_id: 'job-spl' },
-      ]);
+    it('performs exactly one batched query per table for candidate jobs on the page (raw SQL query shape)', async () => {
+      const mockQueryRaw = jest
+        .fn()
+        // First call: standard jobs
+        .mockResolvedValueOnce([
+          { import_job_id: 'job-applied' },
+          { import_job_id: 'job-failed-partial' },
+        ])
+        // Second call: price list jobs
+        .mockResolvedValueOnce([{ import_job_id: 'job-spl' }]);
 
       const client: UndoableBatchCheckClient = {
-        importJobRow: { findMany: importJobRowFindMany },
-        catalogPriceHistory: { findMany: catalogPriceHistoryFindMany },
+        $queryRaw: mockQueryRaw,
       };
 
       const pageJobs = [
@@ -218,49 +246,31 @@ describe('Import Undo Eligibility (AUT-846)', () => {
       const undoableIds = await findUndoableJobIds(client, tenantId, pageJobs);
 
       // Verify batched query was called exactly once for standard jobs and once for price list jobs
-      expect(importJobRowFindMany).toHaveBeenCalledTimes(1);
-      expect(catalogPriceHistoryFindMany).toHaveBeenCalledTimes(1);
+      expect(mockQueryRaw).toHaveBeenCalledTimes(2);
 
-      // Verify the standard jobs filter only candidate standard job IDs
-      expect(importJobRowFindMany).toHaveBeenCalledWith({
-        where: {
-          tenant_id: tenantId,
-          import_job_id: {
-            in: [
-              'job-applied',
-              'job-legacy-applied',
-              'job-failed-dry-run',
-              'job-failed-partial',
-            ],
-          },
-          action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
-          entity_id: { not: null },
-          undone_at: null,
-        },
-        select: { import_job_id: true },
-        distinct: ['import_job_id'],
-      });
+      // Verify first query shape (standard jobs with EXISTS subquery and early exit)
+      const standardCallArg = mockQueryRaw.mock.calls[0][0];
+      const standardSql = standardCallArg.sql;
+      expect(standardSql).toContain('import_job_rows');
+      expect(standardSql).toContain('EXISTS');
+      expect(standardSql).toContain('CREATE');
+      expect(standardSql).toContain('UPDATE');
+      expect(standardSql).toContain('entity_id IS NOT NULL');
+      expect(standardSql).toContain('undone_at IS NULL');
+      expect(standardCallArg.values).toContain(tenantId);
+      expect(standardCallArg.values).toContain('job-applied');
+      expect(standardCallArg.values).toContain('job-failed-partial');
 
-      // Verify the price list filter only candidate price list job IDs
-      expect(catalogPriceHistoryFindMany).toHaveBeenCalledWith({
-        where: {
-          tenant_id: tenantId,
-          import_job_id: { in: ['job-spl'] },
-        },
-        select: { import_job_id: true },
-        distinct: ['import_job_id'],
-      });
+      // Verify second query shape (price list jobs with EXISTS subquery and old_cost IS NOT NULL)
+      const priceListCallArg = mockQueryRaw.mock.calls[1][0];
+      const priceListSql = priceListCallArg.sql;
+      expect(priceListSql).toContain('catalog_price_histories');
+      expect(priceListSql).toContain('EXISTS');
+      expect(priceListSql).toContain('old_cost IS NOT NULL');
+      expect(priceListCallArg.values).toContain(tenantId);
+      expect(priceListCallArg.values).toContain('job-spl');
 
       // Verify results:
-      // - APPLIED with entity_ids: true ('job-applied')
-      // - Legacy APPLIED without entity_ids: false ('job-legacy-applied')
-      // - FAILED dry-run: false ('job-failed-dry-run')
-      // - FAILED partial apply: true ('job-failed-partial')
-      // - UNDONE: false
-      // - DRY_RUN_DONE: false
-      // - Financial: false
-      // - Purged: false
-      // - SPL: true ('job-spl')
       expect(undoableIds.has('job-applied')).toBe(true);
       expect(undoableIds.has('job-failed-partial')).toBe(true);
       expect(undoableIds.has('job-spl')).toBe(true);
@@ -270,6 +280,128 @@ describe('Import Undo Eligibility (AUT-846)', () => {
       expect(undoableIds.has('job-dry-run-done')).toBe(false);
       expect(undoableIds.has('job-financial')).toBe(false);
       expect(undoableIds.has('job-purged')).toBe(false);
+    });
+
+    it('skips database queries entirely when page has no candidate jobs ($queryRaw path)', async () => {
+      const mockQueryRaw = jest.fn();
+      const client: UndoableBatchCheckClient = {
+        $queryRaw: mockQueryRaw,
+      };
+
+      const nonCandidateJobs = [
+        {
+          id: 'job-undone',
+          status: ImportJobStatus.UNDONE,
+          entity_type: ImportEntityType.CUSTOMER,
+        },
+        {
+          id: 'job-dry-run',
+          status: ImportJobStatus.DRY_RUN_DONE,
+          entity_type: ImportEntityType.CUSTOMER,
+        },
+        {
+          id: 'job-financial',
+          status: ImportJobStatus.APPLIED,
+          entity_type: ImportEntityType.LEGACY_INVOICE,
+        },
+      ];
+
+      const undoableIds = await findUndoableJobIds(
+        client,
+        tenantId,
+        nonCandidateJobs,
+      );
+
+      expect(undoableIds.size).toBe(0);
+      expect(mockQueryRaw).not.toHaveBeenCalled();
+    });
+
+    it('marks price-list job as NOT undoable when all history rows have null old_cost ($queryRaw path)', async () => {
+      const mockQueryRaw = jest.fn().mockResolvedValueOnce([]); // no rows with old_cost not null
+      const client: UndoableBatchCheckClient = {
+        $queryRaw: mockQueryRaw,
+      };
+
+      const pageJobs = [
+        {
+          id: 'job-spl-first-ever',
+          status: ImportJobStatus.APPLIED,
+          entity_type: SUPPLIER_PRICE_LIST_ENTITY_TYPE,
+        },
+      ];
+
+      const undoableIds = await findUndoableJobIds(client, tenantId, pageJobs);
+
+      expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+      expect(undoableIds.has('job-spl-first-ever')).toBe(false);
+      expect(undoableIds.size).toBe(0);
+    });
+
+    it('supports Prisma findMany fallback and includes old_cost not null for price list jobs', async () => {
+      const importJobRowFindMany = jest.fn().mockResolvedValue([
+        { import_job_id: 'job-applied' },
+      ]);
+      const catalogPriceHistoryFindMany = jest.fn().mockResolvedValue([
+        { import_job_id: 'job-spl' },
+      ]);
+
+      const client: UndoableBatchCheckClient = {
+        importJobRow: { findMany: importJobRowFindMany },
+        catalogPriceHistory: { findMany: catalogPriceHistoryFindMany },
+      };
+
+      const pageJobs = [
+        {
+          id: 'job-applied',
+          status: ImportJobStatus.APPLIED,
+          entity_type: ImportEntityType.CUSTOMER,
+        },
+        {
+          id: 'job-spl',
+          status: ImportJobStatus.APPLIED,
+          entity_type: SUPPLIER_PRICE_LIST_ENTITY_TYPE,
+        },
+      ];
+
+      const undoableIds = await findUndoableJobIds(client, tenantId, pageJobs);
+
+      expect(importJobRowFindMany).toHaveBeenCalledTimes(1);
+      expect(catalogPriceHistoryFindMany).toHaveBeenCalledTimes(1);
+
+      expect(catalogPriceHistoryFindMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+          import_job_id: { in: ['job-spl'] },
+          old_cost: { not: null },
+        },
+        select: { import_job_id: true },
+        distinct: ['import_job_id'],
+      });
+
+      expect(undoableIds.has('job-applied')).toBe(true);
+      expect(undoableIds.has('job-spl')).toBe(true);
+    });
+
+    it('marks price-list job as NOT undoable when findMany returns no rows due to null old_cost', async () => {
+      const catalogPriceHistoryFindMany = jest.fn().mockResolvedValue([]);
+
+      const client: UndoableBatchCheckClient = {
+        catalogPriceHistory: { findMany: catalogPriceHistoryFindMany },
+      };
+
+      const pageJobs = [
+        {
+          id: 'job-spl-null-costs',
+          status: ImportJobStatus.APPLIED,
+          entity_type: SUPPLIER_PRICE_LIST_ENTITY_TYPE,
+        },
+      ];
+
+      const undoableIds = await findUndoableJobIds(client, tenantId, pageJobs);
+
+      expect(catalogPriceHistoryFindMany).toHaveBeenCalledTimes(1);
+      expect(undoableIds.has('job-spl-null-costs')).toBe(false);
+      expect(undoableIds.size).toBe(0);
     });
 
     it('skips database queries entirely when page has no candidate jobs', async () => {

@@ -47,8 +47,10 @@ describe('Import Undo (e2e)', () => {
   let systemPrisma: SystemPrismaService;
   let authService: AuthService;
   let tenant: Awaited<ReturnType<typeof createTestTenant>>;
+  let tenantB: Awaited<ReturnType<typeof createTestTenant>>;
   let siteId: string;
   let adminHeader: string;
+  let adminHeaderB: string;
   let ownerHeader: string;
   let salesHeader: string;
   let techHeader: string;
@@ -169,8 +171,10 @@ describe('Import Undo (e2e)', () => {
     authService = app.get(AuthService);
 
     tenant = await createTestTenant(prisma, 'import-undo');
+    tenantB = await createTestTenant(prisma, 'import-undo-b');
     siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
     adminHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
+    adminHeaderB = `Bearer ${createTestAuthToken(authService, tenantB)}`;
     ownerHeader = await createMemberBearer(
       prisma,
       authService,
@@ -225,6 +229,9 @@ describe('Import Undo (e2e)', () => {
       where: { email: `demo-${tenant.tenantId}@example.com` },
     });
     await cleanupTestTenantGraph(prisma, tenant.tenantId);
+    if (tenantB) {
+      await cleanupTestTenantGraph(prisma, tenantB.tenantId);
+    }
     await teardownTestApp(app, prisma);
   });
 
@@ -320,6 +327,60 @@ describe('Import Undo (e2e)', () => {
       .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
+  });
+
+  it('rejects a tenant admin of another tenant with 404 IMPORT_JOB_NOT_FOUND on preview and undo', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const jobA = await tenantPrisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        entity_type: 'CUSTOMER',
+        file_name: 'cross-tenant.csv',
+        file_sha256: 'mock-cross-sha',
+        mapping_json: {},
+        options_json: {},
+        status: 'APPLIED',
+        totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
+        created_by: tenant.firebaseUid,
+      },
+    });
+
+    const previewRes = await request(app.getHttpServer())
+      .post(`/api/imports/${jobA.id}/undo/preview`)
+      .set('Authorization', adminHeaderB)
+      .expect(404);
+    expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_FOUND);
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${jobA.id}/undo`)
+      .set('Authorization', adminHeaderB)
+      .expect(404);
+    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_FOUND);
+  });
+
+  it('preview returns 409 IMPORT_JOB_BUSY when job is in APPLYING status', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const applyingJob = await tenantPrisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        entity_type: 'CUSTOMER',
+        file_name: 'applying.csv',
+        file_sha256: 'mock-applying-sha',
+        mapping_json: {},
+        options_json: {},
+        status: 'APPLYING',
+        totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
+        created_by: tenant.firebaseUid,
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/api/imports/${applyingJob.id}/undo/preview`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(res.body.code).toBe(IMPORT_ERROR_CODES.JOB_BUSY);
   });
 
   it('customer acceptance: imports synthetic customers (CREATE & UPDATE), undoes them, and restores original state with audit logs', async () => {
@@ -2159,7 +2220,7 @@ describe('Import Undo (e2e)', () => {
       expect([200, 202]).toContain(undoRes.status);
     });
 
-    it('eligibility: GET /api/imports returns correct undoable per job and evaluates page in batched query', async () => {
+    it('eligibility: GET /api/imports returns correct undoable flag per job across mixed job states', async () => {
       const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
       const stamp = Date.now();
 

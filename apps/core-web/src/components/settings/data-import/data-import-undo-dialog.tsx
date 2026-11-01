@@ -167,7 +167,7 @@ function UndoBlockedSection({
   onToggle: () => void;
 }) {
   const { t } = useTranslation("settings");
-  if (totalCount === 0 && blocked.length === 0) return null;
+  if (totalCount <= 0 || blocked.length === 0) return null;
 
   const resolveReason = (reason?: string) => {
     const key = reason
@@ -183,8 +183,9 @@ function UndoBlockedSection({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between text-left text-sm font-medium hover:underline"
+        className="w-full flex items-center justify-between text-left text-sm font-medium hover:underline min-h-11 py-2 px-1"
         aria-expanded={expanded}
+        data-testid="undo-blocked-section-toggle"
       >
         <span className="flex items-center gap-2 text-destructive flex-wrap">
           <ShieldAlert className="h-4 w-4 shrink-0" />

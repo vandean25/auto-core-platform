@@ -266,6 +266,38 @@ describe('DataImportUndoDialog', () => {
     ).toBeInTheDocument()
   })
 
+  it('does not render blocked section when blocked array is empty even if counts.blocked > 0', () => {
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: {
+        ...mockPreview,
+        counts: { ...mockPreview.counts, blocked: 2 },
+        blocked: [],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+
+    expect(screen.queryByTestId('undo-blocked-section-toggle')).not.toBeInTheDocument()
+  })
+
+  it('renders blocked toggle with at least 44px min height class and test id', () => {
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: mockPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+
+    const toggle = screen.getByTestId('undo-blocked-section-toggle')
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).toHaveClass('min-h-11')
+  })
+
   it('enforces typed confirmation before allowing submission and sends confirmedEntityIds', async () => {
     const mockMutateAsync = vi.fn().mockResolvedValue({
       id: 'job-1',

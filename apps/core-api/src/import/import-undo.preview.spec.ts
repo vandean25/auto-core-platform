@@ -117,6 +117,19 @@ describe('ImportUndoPreviewService', () => {
     await expect(service.previewUndo(jobId)).rejects.toThrow(ConflictException);
   });
 
+  it('throws ConflictException with IMPORT_JOB_BUSY when job is APPLYING', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      status: ImportJobStatus.APPLYING,
+      totals_json: { create: 1, update: 0 },
+    });
+
+    await expect(service.previewUndo(jobId)).rejects.toMatchObject({
+      response: { code: 'IMPORT_JOB_BUSY' },
+    });
+  });
+
   it('throws BadRequestException when job is already UNDONE', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
       id: jobId,
