@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import * as readinessApi from '@/api/useAccountingExportReadiness'
@@ -88,6 +88,11 @@ function mockReadiness(result: { data?: unknown; error?: Error | null } = {}) {
   })
 }
 
+function SettingsLocationProbe() {
+  const location = useLocation()
+  return <div>settings?{location.search.replace(/^\?/, '')}</div>
+}
+
 function renderPage(initialPath: string = APP_ROUTE_PATHS.accountingExportReadiness) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -105,6 +110,7 @@ function renderPage(initialPath: string = APP_ROUTE_PATHS.accountingExportReadin
             path={APP_ROUTE_PATHS.salesInvoiceDetail}
             element={<div>Invoice detail page</div>}
           />
+          <Route path={APP_ROUTE_PATHS.settings} element={<SettingsLocationProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -277,5 +283,13 @@ describe('AccountingExportReadinessPage', () => {
     expect(
       screen.getByText(deFinance.accountingExportReadiness.exportProfileMissing),
     ).toBeInTheDocument()
+  })
+
+  it('opens the accounting export profile from the settings action instead of plain /settings (AUT-852)', async () => {
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: deFinance.actions.openSettings }))
+
+    expect(await screen.findByText('settings?tab=finance&subtab=accounting-export')).toBeInTheDocument()
   })
 })

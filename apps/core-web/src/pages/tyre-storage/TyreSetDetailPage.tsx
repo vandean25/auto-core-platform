@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, LogIn, LogOut, MoveRight, Pencil, Printer, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { formatTyreSetStatusLabel } from '@/lib/i18n/enum-labels'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTyreSet, type TyreSet } from '@/api/tyre-storage'
@@ -83,7 +84,7 @@ function TyreSetHeader({ tyreSet, canWrite, role, inspectionAction, runContext, 
             {String(tyreSet.customerName ?? '')} · {tyreSet.vehiclePlate ?? t('shared.noVehicle')}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <StatusBadge status={tyreSet.status} />
+            <StatusBadge status={tyreSet.status} label={formatTyreSetStatusLabel(tyreSet.status)} />
             <StatusBadge status={tyreSet.season} />
           </div>
         </div>

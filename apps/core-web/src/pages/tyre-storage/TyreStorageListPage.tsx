@@ -6,6 +6,7 @@ import { Download, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { formatTyreSetStatusLabel } from '@/lib/i18n/enum-labels'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DateField } from '@/components/ui/date-field'
@@ -128,7 +129,9 @@ export default function TyreStorageListPage() {
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.status')} />
         ),
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <StatusBadge status={row.original.status} label={formatTyreSetStatusLabel(row.original.status)} />
+        ),
       },
       {
         accessorKey: 'binLabel',
