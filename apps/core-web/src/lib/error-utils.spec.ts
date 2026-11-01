@@ -132,6 +132,20 @@ describe('getErrorMessage', () => {
     expect(message).toBe('Die Anfrage ist zu groß.')
   })
 
+  it('prefers the caller fallback over generic copy when the wire code has no translation', () => {
+    const message = getErrorMessage(
+      {
+        response: {
+          status: 409,
+          data: { code: 'NOT_IN_THE_CATALOG', message: 'internal copy' },
+        },
+      },
+      'Import fehlgeschlagen',
+    )
+
+    expect(message).toBe('Import fehlgeschlagen')
+  })
+
   it('re-resolves wire codes from errors thrown by throwHttpError', async () => {
     const { throwHttpError } = await import('./error-utils')
     const response = new Response(

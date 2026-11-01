@@ -20,6 +20,10 @@ import {
   createExternalMapping,
   upsertExternalMapping,
 } from './import-external-id.store.js';
+import {
+  recordImportRowBeforeSnapshot,
+  recordImportRowEntityId,
+} from './import-row-snapshot.util.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
 import type { ImportJobOptions } from './import.types.js';
@@ -73,6 +77,7 @@ function buildVehicleUpdateData(
 async function createVehicle(
   tx: Prisma.TransactionClient,
   ctx: VehicleApplyContext,
+  rowNo: number,
   externalId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
@@ -114,6 +119,13 @@ async function createVehicle(
     created.id,
     ctx.job.id,
   );
+  await recordImportRowEntityId(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    created.id,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -130,6 +142,7 @@ async function createVehicle(
 async function updateVehicle(
   tx: Prisma.TransactionClient,
   ctx: VehicleApplyContext,
+  rowNo: number,
   entityId: string,
   externalId: string,
   payload: Record<string, unknown>,
@@ -140,6 +153,12 @@ async function updateVehicle(
   if (!before) {
     throw new ApplyRowStaleError();
   }
+  const beforeSnapshot = {
+    ...pickVehicleImportAuditSnapshot(before),
+    first_registration_date: before.first_registration_date
+      ? before.first_registration_date.toISOString().slice(0, 10)
+      : null,
+  };
   const updateData = buildVehicleUpdateData(
     before,
     payload,
@@ -157,6 +176,13 @@ async function updateVehicle(
     externalId,
     after.id,
     ctx.job.id,
+  );
+  await recordImportRowBeforeSnapshot(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    beforeSnapshot,
   );
   await ctx.audit.writeEntityAudit(
     tx,
@@ -183,10 +209,17 @@ export async function applyVehicleImportRow(
   delete payload.owner_external_id_provided;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createVehicle(tx, ctx, externalId, payload);
+    await createVehicle(tx, ctx, row.row_no, externalId, payload);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateVehicle(tx, ctx, row.entity_id, externalId, payload);
+    await updateVehicle(
+      tx,
+      ctx,
+      row.row_no,
+      row.entity_id,
+      externalId,
+      payload,
+    );
   }
 }

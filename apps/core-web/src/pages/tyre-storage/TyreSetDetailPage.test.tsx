@@ -80,8 +80,18 @@ describe('TyreSetDetailPage', () => {
     renderPage()
     expect(await screen.findByText(/: B-4$/)).toBeVisible()
     expect(screen.getByText(/RACK-A/)).toBeVisible()
-    expect(screen.getByText('Dimension: 205&#x2F;55 R16')).toBeVisible()
+    expect(screen.getByText('Dimension: 205/55 R16')).toBeVisible()
+    expect(screen.queryByText(/&#x2F;/)).not.toBeInTheDocument()
     expect(screen.getByText('Rack checked')).toBeVisible()
+  })
+
+  it('renders tyre dimension and other fields containing slashes without HTML entity escaping (AUT-829)', async () => {
+    state.tyreSet.dimension = '205/55 R16 91H'
+    state.tyreSet.binLabel = 'RACK/B-1'
+    renderPage()
+    expect(await screen.findByText('Dimension: 205/55 R16 91H')).toBeVisible()
+    expect(screen.getByText('Lagerplatz: RACK/B-1')).toBeVisible()
+    expect(screen.queryByText(/&#x2F;/)).not.toBeInTheDocument()
   })
 
   it.each(['OWNER', 'ADMIN', 'SALES', 'TECH'])('offers the registered inspection action to %s and opens the dialog via URL', async (role) => {
@@ -152,6 +162,7 @@ describe('TyreSetDetailPage', () => {
     ['IN_STORAGE', deInventory.actions.move, deInventory.tyreStorage.actionDialog.move],
     ['IN_STORAGE', deInventory.actions.dispose, deInventory.tyreStorage.actionDialog.dispose],
     ['ON_VEHICLE', deInventory.actions.checkIn, deInventory.tyreStorage.actionDialog.checkIn],
+    ['NEW', deInventory.actions.checkIn, deInventory.tyreStorage.actionDialog.checkIn],
   ] as const)('opens the matching dialog for %s action %s', async (status, label, title) => {
     state.tyreSet.status = status
     renderPage('?tab=history')

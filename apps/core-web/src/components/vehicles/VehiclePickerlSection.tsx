@@ -65,7 +65,6 @@ export function VehiclePickerlSection({
     const month = /(\d{4})-(\d{2})/.exec(warning.message)
     return t(`pickerlSection.warnings.${warning.code}`, {
       defaultValue: warning.message,
-      interpolation: { escapeValue: false },
       month: month ? `${month[2]}/${month[1]}` : '',
     })
   }

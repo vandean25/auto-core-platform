@@ -25,6 +25,7 @@ Lock helper: `SystemPrismaService.withCronJobLock(jobName, fn)` pins one connect
 | `registration-intake-byte-purge` | Every minute | `RegistrationIntakeBytePurgeService` | Delete registration intake page bytes after apply (outbox claim). |
 | `registration-intake-expiry` | Every hour | `RegistrationIntakeExpiryService` | Abort unapplied registration intakes past TTL. |
 | `workshop-check-in-orphan-upload-cleanup` | Every minute | `WorkshopCheckInOrphanUploadCleanupService` | Purge unattached workshop check-in media (env gated). |
+| `workshop-command-session-purge` | Every hour | `WorkshopCommandSessionRetentionService` | Delete expired Cmd+K command replay rows (surname, plate, VIN tokens) per tenant. |
 
 There are no `@Interval` schedulers in core-api today.
 

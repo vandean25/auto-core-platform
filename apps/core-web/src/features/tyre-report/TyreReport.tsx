@@ -18,6 +18,47 @@ const WHEEL_PLACEMENT = {
   SPARE: 'lg:col-start-2 lg:row-start-3',
 }
 
+const REASON_SEVERITY: Record<string, number> = {
+  TREAD_BELOW_LEGAL_MINIMUM: 100,
+  AT_WINTER_TREAD_INSUFFICIENT: 90,
+  DE_ALPINE_MISSING: 80,
+  TREAD_REPLACEMENT_RECOMMENDED: 50,
+  DOT_REPLACEMENT_RECOMMENDED: 40,
+  DOT_LEGACY_OVER_20_YEARS: 30,
+  DOT_CONDITION_CHECK_RECOMMENDED: 20,
+  AT_WINTER_RULE_NOTICE: 10,
+  UNSUPPORTED_COUNTRY: 5,
+}
+
+export function getWheelReasonLine(
+  wheel: Wheel,
+  t: TFunction<'workshop', undefined>,
+): string | null {
+  const { evaluation } = wheel
+  if (evaluation.status !== 'URGENT' && evaluation.status !== 'RECOMMENDED') {
+    return null
+  }
+  const codes = evaluation.reasonCodes ?? []
+  if (codes.length === 0) {
+    return null
+  }
+  const sortedCodes = [...codes].sort(
+    (a, b) => (REASON_SEVERITY[b] ?? 0) - (REASON_SEVERITY[a] ?? 0),
+  )
+  const worstReason = sortedCodes[0]
+  if (!worstReason) {
+    return null
+  }
+  const thresholds = evaluation.thresholds
+  let value: string | undefined
+  if (worstReason === 'TREAD_BELOW_LEGAL_MINIMUM') {
+    value = formatNumber(thresholds?.ordinaryMinimumMm ?? 1.6)
+  } else if (worstReason === 'AT_WINTER_TREAD_INSUFFICIENT') {
+    value = formatNumber(thresholds?.legalMinimumMm ?? 4)
+  }
+  return t(`tyreReport.reasons.${worstReason}`, { value })
+}
+
 function formatDotAge(
   dot: Wheel['evaluation']['dot'],
   hasDot: boolean,
@@ -50,6 +91,7 @@ function TyreWheelCard({ wheel, photoUrl }: { wheel: Wheel; photoUrl?: string })
   const cardBorderClass = statusClassMap[statusKey] ?? NEUTRAL
   const statusLabel = getWheelStatusLabel(evaluation, tEnums)
   const ageDisplay = formatDotAge(evaluation.dot, Boolean(wheel.dot), t)
+  const reasonLine = getWheelReasonLine(wheel, t)
 
   return (
     <article aria-label={position} className={cn('min-w-0 space-y-3 rounded-md border-2 p-4', cardBorderClass)}>
@@ -87,7 +129,9 @@ function TyreWheelCard({ wheel, photoUrl }: { wheel: Wheel; photoUrl?: string })
         <div><dt className="text-muted-foreground">{t('tyreReport.ageLabel')}</dt><dd>{ageDisplay}</dd></div>
       </dl>
       {photoUrl && <img src={photoUrl} alt={t('tyreReport.photo', { position })} className="h-24 w-24 rounded-md object-cover" />}
-      <ul className="space-y-1 text-sm">{evaluation.reasonCodes.map((reason) => <li key={reason}>{t(`tyreReport.reasons.${reason}`)}</li>)}</ul>
+      {reasonLine && (
+        <p className="text-sm font-medium text-foreground">{reasonLine}</p>
+      )}
     </article>
   )
 }
@@ -109,25 +153,6 @@ export function TyreReport({ measurement, mediaUrls = {} }: { measurement: Measu
           <TyreWheelCard wheel={wheel} photoUrl={wheel.mediaId ? mediaUrls[wheel.mediaId] : undefined} />
         </div>)}
       </div>
-      <section aria-label={t('tyreReport.legend')} className="space-y-2 rounded-md border p-4 text-sm">
-        <h3 className="font-semibold">{t('tyreReport.legend')}</h3>
-        <p>{t('tyreReport.lowestPoint')}</p>
-        {measurement.wheels.map((wheel) => {
-          const thresholds = wheel.evaluation.thresholds
-          return thresholds && <div key={wheel.id} className="space-y-1">
-            <h4 className="font-medium">{t(`tyreReport.positions.${wheel.position}`)} · {t(`tyreReport.seasons.${wheel.season}`)}</h4>
-            <p>{thresholds.legalMinimumMm !== thresholds.ordinaryMinimumMm
-              ? t('tyreReport.winterLimit', { value: formatNumber(thresholds.legalMinimumMm) })
-              : t('tyreReport.legalLimit', { value: formatNumber(thresholds.legalMinimumMm) })}</p>
-            <p>{t('tyreReport.ordinaryLimit', { value: formatNumber(thresholds.ordinaryMinimumMm) })}</p>
-            <p>{t('tyreReport.recommendedLimit', { value: formatNumber(thresholds.recommendedBelowMm) })}</p>
-            {wheel.evaluation.ageRecommendations && <>
-              <p>{t('tyreReport.ageCheckRecommendation', { value: formatNumber(wheel.evaluation.ageRecommendations.conditionCheckFromMonths) })}</p>
-              <p>{t('tyreReport.ageReplacementRecommendation', { value: formatNumber(wheel.evaluation.ageRecommendations.replacementFromMonths) })}</p>
-            </>}
-          </div>
-        })}
-      </section>
     </div>
   )
 }

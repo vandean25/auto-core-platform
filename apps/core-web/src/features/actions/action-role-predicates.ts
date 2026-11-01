@@ -10,6 +10,22 @@ export function canCreateWorkshopEntry(role: string | null | undefined): boolean
   return role !== 'TECH'
 }
 
+/**
+ * Command mode in Cmd+K mirrors the roles the command API accepts for interpret
+ * (OWNER/ADMIN/SALES). Techs and demo members keep the plain palette.
+ */
+export function canUseWorkshopCommand(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+}
+
+/**
+ * Proposing and applying workshop command booking packages requires supervisor write access (OWNER/ADMIN),
+ * matching the backend PROPOSE_ROLES in WorkshopCommandService.
+ */
+export function canApplyWorkshopCommand(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN'
+}
+
 export function canOpenCustomer(role: string | null | undefined): boolean {
   return role !== ''
 }

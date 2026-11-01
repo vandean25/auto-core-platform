@@ -76,6 +76,7 @@
     "DUE_SOON": "Due Soon",
     "OVERDUE": "Overdue",
     "UNKNOWN": "Unknown",
+    "NEW": "Not stored",
     "IN_STORAGE": "In Storage",
     "ON_VEHICLE": "On Vehicle",
     "DISPOSED": "Disposed",
@@ -102,6 +103,8 @@
     "DRY_RUN_DONE": "Dry run complete",
     "APPLYING": "Applying",
     "ABORTED": "Aborted",
+    "UNDONE": "Undone",
+    "PARTIALLY_UNDONE": "Partially undone",
     "MOVED": "Moved"
   },
   "tyreMeasurementStatus": {

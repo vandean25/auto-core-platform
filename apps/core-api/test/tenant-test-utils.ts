@@ -1,7 +1,13 @@
-import type { Employee, EmployeeRole, TenantMemberRole } from '@prisma/client';
+import type {
+  Employee,
+  EmployeeRole,
+  Prisma,
+  TenantMemberRole,
+} from '@prisma/client';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 import { enableLegacyMigrationPurgeFlag } from '../src/prisma/fixtures/legacy-migration-purge-flag.js';
 import { TenantContextStorage } from '../src/common/services/tenant-context.storage.js';
+import { PrismaTransactionContext } from '../src/prisma/prisma-transaction-context.js';
 import { randomUUID } from 'node:crypto';
 
 export const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875;
@@ -713,6 +719,86 @@ function extractBasePrismaClient<T extends object>(prisma: T): T {
   return prisma;
 }
 
+function wrapTransactionCallback(
+  callback: (tx: unknown) => unknown,
+  tenantId: string,
+) {
+  return async (tx: unknown) =>
+    runWithTenantContext(tenantId, async () =>
+      PrismaTransactionContext.run(
+        tx as Prisma.TransactionClient,
+        async () => await callback(tx),
+      ),
+    );
+}
+
+function createTransactionProxy(
+  value: (...args: unknown[]) => unknown,
+  target: object,
+  tenantId: string,
+) {
+  return (first: unknown, ...rest: unknown[]) => {
+    if (typeof first === 'function') {
+      const callback = first as (tx: unknown) => unknown;
+      return Reflect.apply(value, target, [
+        wrapTransactionCallback(callback, tenantId),
+        ...rest,
+      ]);
+    }
+    return runWithTenantContext(tenantId, () =>
+      Reflect.apply(value, target, [first, ...rest]),
+    );
+  };
+}
+
+function createFunctionProxy(
+  value: (...args: unknown[]) => unknown,
+  target: object,
+  tenantId: string,
+) {
+  return (...args: unknown[]) =>
+    runWithTenantContext(tenantId, async () => {
+      const result = Reflect.apply(value, target, args);
+      return await Promise.resolve(result);
+    });
+}
+
+function resolveFunctionMember(
+  value: (...args: unknown[]) => unknown,
+  prop: string | symbol,
+  target: object,
+  tenantId: string,
+) {
+  if (prop === '$transaction') {
+    return createTransactionProxy(value, target, tenantId);
+  }
+  return createFunctionProxy(value, target, tenantId);
+}
+
+function resolveTenantMember(
+  target: object,
+  prop: string | symbol,
+  receiver: unknown,
+  tenantId: string,
+) {
+  const value = Reflect.get(target, prop, receiver);
+
+  if (typeof value === 'function') {
+    return resolveFunctionMember(
+      value as (...args: unknown[]) => unknown,
+      prop,
+      target,
+      tenantId,
+    );
+  }
+
+  if (value && typeof value === 'object') {
+    return wrapDelegateWithTenantContext(value as object, tenantId);
+  }
+
+  return value;
+}
+
 export function createTenantAwarePrisma<T extends object>(
   prisma: T,
   tenantId: string,
@@ -721,25 +807,7 @@ export function createTenantAwarePrisma<T extends object>(
 
   return new Proxy(base, {
     get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
-
-      if (typeof value === 'function') {
-        return (...args: unknown[]) =>
-          runWithTenantContext(tenantId, async () => {
-            const result = Reflect.apply(
-              value as (...args: unknown[]) => unknown,
-              target,
-              args,
-            );
-            return await Promise.resolve(result);
-          });
-      }
-
-      if (value && typeof value === 'object') {
-        return wrapDelegateWithTenantContext(value as object, tenantId);
-      }
-
-      return value;
+      return resolveTenantMember(target, prop, receiver, tenantId);
     },
   });
 }

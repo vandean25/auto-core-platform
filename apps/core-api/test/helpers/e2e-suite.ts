@@ -2,7 +2,10 @@ import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module.js';
 import { AuthService } from '../../src/auth/auth.service.js';
-import { createGlobalValidationPipe } from '../../src/common/index.js';
+import {
+  createGlobalValidationPipe,
+  GlobalExceptionFilter,
+} from '../../src/common/index.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { installFakeInvoiceArchiveStorage } from '../invoice-branding-archive-test-utils.js';
 import {
@@ -11,8 +14,17 @@ import {
   createTestTenant,
 } from '../tenant-test-utils.js';
 
+export type E2eAppOptions = {
+  /**
+   * Installs the production exception filter. Without it the raw exception body reaches the client, so a
+   * code the filter would drop still looks correct in a spec.
+   */
+  productionErrorFilter?: boolean;
+};
+
 export async function createE2eApp(
   configureModule?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+  options: E2eAppOptions = {},
 ): Promise<INestApplication> {
   const builder = Test.createTestingModule({
     imports: [AppModule],
@@ -24,6 +36,9 @@ export async function createE2eApp(
   const app = moduleFixture.createNestApplication();
   app.setGlobalPrefix('api');
   app.useGlobalPipes(createGlobalValidationPipe());
+  if (options.productionErrorFilter) {
+    app.useGlobalFilters(new GlobalExceptionFilter());
+  }
   await app.init();
   return app;
 }

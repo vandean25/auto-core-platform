@@ -1,4 +1,8 @@
-import { ImportEntityType, ImportJobStatus, ImportRowAction } from '@prisma/client';
+import {
+  ImportEntityType,
+  ImportJobStatus,
+  ImportRowAction,
+} from '@prisma/client';
 import { ImportJobStore } from './import-job.store.js';
 import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
@@ -14,22 +18,30 @@ describe('legacy apply resume', () => {
         lease_token: string;
       } | null;
     } = { worker: null };
-    const updateMany = jest.fn(async (args: { data: { options_json: { worker: NonNullable<typeof saved.worker> } } }) => {
-      saved.worker = args.data.options_json.worker;
-      return { count: 1 };
-    });
+    const updateMany = jest.fn(
+      async (args: {
+        data: { options_json: { worker: NonNullable<typeof saved.worker> } };
+      }) => {
+        saved.worker = args.data.options_json.worker;
+        return { count: 1 };
+      },
+    );
     const db: {
       client?: {
         importJob: {
           findFirst: () => Promise<unknown>;
           updateMany: typeof updateMany;
         };
-        $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+        $transaction: (
+          fn: (tx: unknown) => Promise<unknown>,
+        ) => Promise<unknown>;
       };
     } = {};
     db.client = {
       importJob: {
         findFirst: async () => ({
+          status: ImportJobStatus.FAILED,
+          updatedAt: new Date(),
           options_json: {
             worker: {
               phase: 'apply',

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  canApplyWorkshopCommand,
   canAssignWorkshopOrderMechanic,
+  canManageImportJobs,
   canCheckInWorkshopOrder,
   canDeleteCustomerFromList,
   canGenerateWorkshopJobCardPdf,
@@ -11,6 +13,7 @@ import {
   canOpenWorkshopOrder,
   canRecordTyreMeasurement,
   canUpdateWorkshopOrderTaskState,
+  canUseWorkshopCommand,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
   isWorkshopTechAssignableStatus,
@@ -47,11 +50,38 @@ describe('action-role-predicates', () => {
   })
 
   it.each([
+    ['OWNER', true], ['ADMIN', true], ['SALES', true],
+    ['TECH', false], ['MECHANIC', false], ['SERVICE_ADVISOR', false],
+    ['ACCOUNTANT', false], ['SUPER_ADMIN', false], ['DEMO', false],
+    ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('opens the command mode only for authorized roles (%s: %s)', (role, expected) => {
+    expect(canUseWorkshopCommand(role)).toBe(expected)
+  })
+
+  it.each([
+    ['OWNER', true], ['ADMIN', true],
+    ['SALES', false], ['TECH', false], ['MECHANIC', false], ['SERVICE_ADVISOR', false],
+    ['ACCOUNTANT', false], ['SUPER_ADMIN', false], ['DEMO', false],
+    ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('allows workshop command apply only for supervisor roles (%s: %s)', (role, expected) => {
+    expect(canApplyWorkshopCommand(role)).toBe(expected)
+  })
+
+  it.each([
     ['OWNER', true], ['ADMIN', true], ['SALES', true], ['TECH', true],
     ['ACCOUNTANT', false], ['SERVICE_ADVISOR', false], ['MECHANIC', false],
     ['SUPER_ADMIN', false], ['owner', false], ['', false], [null, false], [undefined, false],
   ] as const)('allows tyre measurement only for authorized roles (%s)', (role, expected) => {
     expect(canRecordTyreMeasurement(role)).toBe(expected)
+  })
+
+  it.each([
+    ['OWNER', true], ['ADMIN', true],
+    ['SALES', false], ['TECH', false], ['ACCOUNTANT', false],
+    ['SERVICE_ADVISOR', false], ['MECHANIC', false], ['DEMO', false],
+    ['SUPER_ADMIN', false], ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('allows import job actions only for tenant admins (%s)', (role, expected) => {
+    expect(canManageImportJobs(role)).toBe(expected)
   })
 
   it('evaluates workshop order status predicates consistently', () => {

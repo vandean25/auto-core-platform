@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TyreSetStatus" ADD VALUE 'NEW' BEFORE 'IN_STORAGE';

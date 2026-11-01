@@ -505,6 +505,7 @@ export class SupplierChunkedApplyRunner {
           where: { id: jobId, status: ImportJobStatus.APPLYING },
           data: {
             status: ImportJobStatus.FAILED,
+            failed_at: new Date(),
             totals_json: totals,
             ...failurePatch,
           },

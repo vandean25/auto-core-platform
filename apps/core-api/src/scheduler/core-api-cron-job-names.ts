@@ -17,4 +17,5 @@ export const CORE_API_CRON_JOB_NAMES = [
   'registration-intake-byte-purge',
   'registration-intake-expiry',
   'workshop-check-in-orphan-upload-cleanup',
+  'workshop-command-session-purge',
 ] as const;

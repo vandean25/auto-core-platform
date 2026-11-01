@@ -74,7 +74,7 @@ export class ImportRetentionService {
           this.prisma,
           tenantId,
           now,
-          { dryRun },
+          { dryRun, logger: this.logger },
         );
         span.setAttributes({
           jobs_scanned: counts.jobs_scanned,

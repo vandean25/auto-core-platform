@@ -14,7 +14,12 @@ import {
 } from './data-import-dry-run-step-panels'
 import { ImportBackgroundProgressAlert } from './import-background-progress-alert'
 import type { ImportEntityTypeUi } from './import-field-labels'
-import type { ImportRowFilter, ImportWizardOptions } from './import-wizard-logic'
+import {
+  isDryRunExpired,
+  isJobRowsPurged,
+  type ImportRowFilter,
+  type ImportWizardOptions,
+} from './import-wizard-logic'
 
 export type DataImportDryRunStepProps = {
   job: ImportJob
@@ -48,12 +53,16 @@ export type DataImportDryRunStepProps = {
   applyEnabled: boolean
   onApply: () => void
   onBackgroundCancelled?: () => void
+  onReset?: () => void
 }
 
 /** Wizard step 4: report of the dry-run with the validated rows of the file. */
 export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
   const { t } = useTranslation(['settings', 'common'])
   const job = props.job
+  const isExpired = isDryRunExpired(job)
+  const isPurged = isJobRowsPurged(job)
+  const isExpiredOrPurged = isExpired || isPurged
   const catalogOptionChanged =
     props.options.create_new_catalog_items !==
     Boolean((job.options as ImportWizardOptions)?.create_new_catalog_items)
@@ -69,6 +78,20 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
         onCancelled={() => props.onBackgroundCancelled?.()}
         onResume={props.onApply}
       />
+
+      {isExpired ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle as="h5">{t('dataImport.dryRun.expired.title')}</AlertTitle>
+          <AlertDescription>{t('dataImport.dryRun.expired.description')}</AlertDescription>
+        </Alert>
+      ) : isPurged ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle as="h5">{t('dataImport.dryRun.purged.title')}</AlertTitle>
+          <AlertDescription>{t('dataImport.dryRun.purged.description')}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {props.dryRunStale ? (
         <Alert variant="destructive">
@@ -144,12 +167,22 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={props.onEditMapping}>
-          {t('dataImport.dryRun.editMapping')}
-        </Button>
-        <Button type="button" disabled={!props.applyEnabled} onClick={props.onApply}>
-          {t('dataImport.dryRun.applyImport')}
-        </Button>
+        {isExpiredOrPurged ? (
+          props.onReset ? (
+            <Button type="button" variant="outline" onClick={props.onReset}>
+              {t('dataImport.dryRun.uploadAgain')}
+            </Button>
+          ) : null
+        ) : (
+          <>
+            <Button type="button" variant="outline" onClick={props.onEditMapping}>
+              {t('dataImport.dryRun.editMapping')}
+            </Button>
+            <Button type="button" disabled={!props.applyEnabled} onClick={props.onApply}>
+              {t('dataImport.dryRun.applyImport')}
+            </Button>
+          </>
+        )}
       </div>
     </section>
   )

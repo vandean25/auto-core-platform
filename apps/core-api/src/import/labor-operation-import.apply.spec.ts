@@ -46,6 +46,7 @@ describe('labor-operation-import.apply', () => {
         create: jest.fn(),
       },
       auditLog: { create: jest.fn() },
+      importJobRow: { update: jest.fn().mockResolvedValue({}) },
     };
 
     const audit: Pick<ImportAuditWriter, 'writeEntityAudit'> = {

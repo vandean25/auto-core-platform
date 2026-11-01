@@ -38,4 +38,44 @@ describe('tyre-set-event.helpers', () => {
       ),
     ).toThrow('already checked in');
   });
+
+  it('projects status NEW when no events exist', () => {
+    const projected = projectTyreSetStateFromEvents([]);
+    expect(projected.status).toBe('NEW');
+    expect(projected.location_id).toBeNull();
+    expect(projected.stored_since).toBeNull();
+  });
+
+  it('allows check-in from NEW status to IN_STORAGE', () => {
+    const occurredAt = new Date('2026-04-01T10:00:00.000Z');
+    const patch = applyTyreSetEvent(
+      { status: 'NEW', location_id: null, stored_since: null },
+      'CHECK_IN',
+      'loc-a',
+      occurredAt,
+    );
+    expect(patch.status).toBe('IN_STORAGE');
+    expect(patch.location_id).toBe('loc-a');
+    expect(patch.stored_since).toEqual(occurredAt);
+  });
+
+  it('rejects check-out and move when status is NEW', () => {
+    expect(() =>
+      applyTyreSetEvent(
+        { status: 'NEW', location_id: null, stored_since: null },
+        'CHECK_OUT',
+        null,
+        new Date(),
+      ),
+    ).toThrow('only allowed while the set is in storage');
+
+    expect(() =>
+      applyTyreSetEvent(
+        { status: 'NEW', location_id: null, stored_since: null },
+        'MOVED',
+        'loc-b',
+        new Date(),
+      ),
+    ).toThrow('only allowed while the set is in storage');
+  });
 });

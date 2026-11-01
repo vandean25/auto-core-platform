@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WARRANTY_CLAIM_ERROR_CODES } from '../../warranty-claim/warranty-claim.rules.js';
+import { IMPORT_ERROR_CODES } from '../../import/import.constants.js';
 import {
   CLIENT_SAFE_HTTP_ERROR_CODES,
   pickClientSafeHttpErrorDetails,
@@ -6,7 +10,55 @@ import {
   pickClientSafeHttpErrorStructuredDetails,
 } from './client-safe-http-error-codes.js';
 
+const API_SRC_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
+
+/** Files that throw import errors straight at an API client. */
+const CLIENT_FACING_IMPORT_FILES = [
+  'import/import-source.service.ts',
+  'import/import.controller.ts',
+  'import/import-worker.controller.ts',
+  'import/import-direct-upload.ts',
+  'import/import-job.errors.ts',
+  'import/import-undo.service.ts',
+  'import/import-undo.preview.service.ts',
+] as const;
+
+/** Codes those files can throw at a client, read off the sources so a new one is caught. */
+function clientFacingImportCodes(): string[] {
+  const keys = new Set<keyof typeof IMPORT_ERROR_CODES>();
+  for (const file of CLIENT_FACING_IMPORT_FILES) {
+    const source = readFileSync(resolve(API_SRC_ROOT, file), 'utf8');
+    for (const match of source.matchAll(/IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g)) {
+      keys.add(match[1] as keyof typeof IMPORT_ERROR_CODES);
+    }
+  }
+  return [...keys].map((key) => IMPORT_ERROR_CODES[key]).sort();
+}
+
+function readWebPublicErrorCodes(): Set<string> {
+  const source = readFileSync(
+    resolve(REPO_ROOT, 'apps/core-web/src/api/generated/public-error-codes.ts'),
+    'utf8',
+  );
+  return new Set(
+    [...source.matchAll(/"([A-Z][A-Z0-9_]+)"/g)].map((match) => match[1]),
+  );
+}
+
+function readLocaleErrorTexts(language: 'de' | 'en'): Record<string, string> {
+  const bundle = JSON.parse(
+    readFileSync(resolve(REPO_ROOT, `locales/${language}/errors.json`), 'utf8'),
+  ) as { codes: Record<string, string> };
+  return bundle.codes;
+}
+
 describe('client-safe HTTP error codes', () => {
+  it('lists workshop command error codes', () => {
+    for (const code of ['AUDIO_EMPTY', 'AUDIO_TOO_LARGE', 'AUDIO_UNSUPPORTED_TYPE', 'COMMAND_ID_REUSED', 'CONTRACT_VERSION_UNSUPPORTED', 'DURATION_REQUIRED', 'HUMAN_ONLY_EXCLUDED', 'INTENT_INCOMPLETE', 'LOANER_NOT_PERMITTED', 'LOCALE_UNSUPPORTED', 'PLAN_STALE', 'RESOURCE_AMBIGUOUS', 'RESOURCE_MISSING', 'SELECTION_NOT_OFFERED', 'SESSION_NOT_FOUND', 'SITE_MISMATCH', 'TEXT_TOO_LONG', 'TIME_CONTRADICTORY', 'TIME_IN_PAST', 'TRANSCRIPT_EMPTY', 'UNSUPPORTED_GRAMMAR', 'UNSUPPORTED_SERVICE']) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
   // The global filter drops any code that is not in this set, so a warranty code missing here would never reach
   // the client. This keeps the two lists in step.
   it('lists every warranty claim code', () => {
@@ -155,5 +207,57 @@ describe('client-safe HTTP error codes', () => {
     ).toEqual({
       field_issues: [{ field: 'price_gross_eur', code: 'LISTING_PRICE_REQUIRED' }],
     });
+  });
+});
+
+describe('client-safe allowlist parity', () => {
+  it('lists every import code the controllers and error helpers throw at a client', () => {
+    const codes = clientFacingImportCodes();
+
+    expect(codes).toEqual([
+      'IMPORT_APPLY_INTERRUPTED',
+      'IMPORT_APPLY_IN_PROGRESS',
+      'IMPORT_DIRECT_UPLOAD_CONTENT_TYPE',
+      'IMPORT_DIRECT_UPLOAD_INVALID',
+      'IMPORT_DIRECT_UPLOAD_NOT_FOUND',
+      'IMPORT_DIRECT_UPLOAD_TOO_LARGE',
+      'IMPORT_INVALID_MAPPING',
+      'IMPORT_INVALID_SOURCE_KEY',
+      'IMPORT_JOB_ALREADY_APPLIED',
+      'IMPORT_JOB_ALREADY_UNDONE',
+      'IMPORT_JOB_BUSY',
+      'IMPORT_JOB_CONFLICT',
+      'IMPORT_JOB_EXPIRED',
+      'IMPORT_JOB_NOT_FOUND',
+      'IMPORT_JOB_NOT_UNDOABLE',
+      'IMPORT_JOB_PURGED',
+      'IMPORT_JOB_STALE',
+      'IMPORT_SOURCE_ALREADY_EXISTS',
+      'IMPORT_SOURCE_NOT_FOUND',
+      'IMPORT_UNKNOWN_SOURCE',
+    ]);
+    for (const code of codes) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
+
+  it('publishes every allowlisted code to the web app with German and English copy', () => {
+    const publicCodes = readWebPublicErrorCodes();
+    const de = readLocaleErrorTexts('de');
+    const en = readLocaleErrorTexts('en');
+
+    const unpublished: string[] = [];
+    const untranslated: string[] = [];
+    for (const code of CLIENT_SAFE_HTTP_ERROR_CODES) {
+      if (!publicCodes.has(code)) {
+        unpublished.push(code);
+      }
+      if (!de[code]?.trim() || !en[code]?.trim()) {
+        untranslated.push(code);
+      }
+    }
+
+    expect(unpublished).toEqual([]);
+    expect(untranslated).toEqual([]);
   });
 });

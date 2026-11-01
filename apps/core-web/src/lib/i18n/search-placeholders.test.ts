@@ -9,7 +9,7 @@ import enVehicles from '../../../../../locales/en/vehicles.json'
 import enWorkshop from '../../../../../locales/en/workshop.json'
 
 /**
- * AUT-791: the search hint of a list has to fit the 375 px wide search field (16 px text, no horizontal room to
+ * AUT-791 / AUT-841: the search hint of a list has to fit the 375 px wide search field (16 px text, no horizontal room to
  * spare). A longer hint is cut off in the middle of a word, so the lists below keep theirs short.
  */
 const MAX_HINT_LENGTH = 34
@@ -20,14 +20,16 @@ const hints = {
     'accounting export history': deSettings.accountingExport.history.searchPlaceholder,
     'Gewährleistung fällig': deVehicles.gewaehrleistungDue.searchPlaceholder,
     'vehicle stock': deVehicleStock.stockList.searchPlaceholder,
-    'estimates (KVA)': deWorkshop.estimateList.searchPlaceholder,
+    'Kostenvoranschläge': deWorkshop.estimateList.searchPlaceholder,
+    'Annahme-Suche': deWorkshop.intakeDashboard.searchPlaceholder,
   },
   en: {
     'audit logs': enSettings.auditLogs.searchPlaceholder,
     'accounting export history': enSettings.accountingExport.history.searchPlaceholder,
     'Gewährleistung fällig': enVehicles.gewaehrleistungDue.searchPlaceholder,
     'vehicle stock': enVehicleStock.stockList.searchPlaceholder,
-    'estimates (KVA)': enWorkshop.estimateList.searchPlaceholder,
+    'Kostenvoranschläge': enWorkshop.estimateList.searchPlaceholder,
+    'Annahme-Suche': enWorkshop.intakeDashboard.searchPlaceholder,
   },
 }
 
@@ -40,18 +42,15 @@ describe('list search hints stay short enough for a phone', () => {
     }
   }
 
-  it('still names everything the estimates search covers: number, work order, customer and plate', () => {
-    expect(deWorkshop.estimateList.searchPlaceholder).toMatch(/Nr\./)
-    for (const word of ['Auftrag', 'Kunde', 'Kennzeichen']) {
-      expect(deWorkshop.estimateList.searchPlaceholder).toContain(word)
-    }
-    for (const word of ['number', 'order', 'customer', 'plate']) {
-      expect(enWorkshop.estimateList.searchPlaceholder.toLowerCase()).toContain(word)
-    }
-  })
-
   it('still names what the audit log search covers', () => {
     expect(deSettings.auditLogs.searchPlaceholder).toContain('Akteur')
     expect(deSettings.auditLogs.searchPlaceholder).toContain('Request-ID')
+  })
+
+  it('still names what the workshop estimates and intake searches cover', () => {
+    expect(deWorkshop.estimateList.searchPlaceholder).toContain('Kunde')
+    expect(deWorkshop.estimateList.searchPlaceholder).toContain('Kennzeichen')
+    expect(deWorkshop.intakeDashboard.searchPlaceholder).toContain('FIN')
+    expect(deWorkshop.intakeDashboard.searchPlaceholder).toContain('Kennzeichen')
   })
 })

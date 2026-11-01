@@ -5,6 +5,7 @@ import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantUserContact } from '../common/services/tenant-user-contact.util.js';
 import type { PendingActionExecutor } from '../pending-action-executor/pending-action-executor.service.js';
+import { deleteCommandReplays } from '../workshop-command/workshop-command-session-cleanup.js';
 import { siteBoundExecutionContext } from './site-bound-pending-actions.js';
 import { proposalUserAuditBase } from './agent-proposal-decision-audit.js';
 import { toAgentProposalResponseDto } from './agent-proposal-response.mapper.js';
@@ -96,6 +97,7 @@ export async function claimAndExecuteProposal(
         },
         data: { status: AgentProposalStatus.EXECUTED },
       });
+      await deleteCommandReplays(tx, tenantId, [proposal.command_id]);
       const executedProposal = await tx.agentProposal.findFirst({
         where: { id: proposal.id, tenant_id: tenantId },
       });
@@ -159,6 +161,7 @@ export async function markExecutionFailed(params: {
         },
       });
       if (failed.count === 0) return;
+      await deleteCommandReplays(tx, tenantId, [proposal.command_id]);
       await agentActionLog.recordInTransaction(
         {
           ...proposalUserAuditBase({

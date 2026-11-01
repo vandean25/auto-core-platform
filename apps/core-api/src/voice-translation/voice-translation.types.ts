@@ -16,3 +16,12 @@ export interface VoiceTranslationResult {
   model: string;
   durationSeconds?: number;
 }
+
+/** Speech-only result used by the advisor command surface. */
+export interface VoiceTranscriptResult {
+  transcript: string;
+  sourceLanguageCode: string;
+  detectedLanguageCode?: string;
+  provider: string;
+  model: string;
+}

@@ -42,6 +42,15 @@ Imports create new rows. They do not merge duplicates by plate or email unless t
   <Accordion title="History and resume">
     The tab has two views: **Import** (the wizard) and **History**. History lists every import job for the tenant, newest first, with status, entity, source, file, result, user, and date. Clicking a row opens the job in the wizard and resumes it: a finished dry run lands on the dry-run report, a running or completed import lands on the result. A running import keeps refreshing itself; a failed import shows the reason and can be applied again. Right-click a row for **Open** or **Resume**, **Cancel** (only while a background dry run is still cancellable, never during the apply itself), and **Download errors CSV**.
   </Accordion>
+  <Accordion title="Undoing an import batch">
+    Applied imports can be reverted from the **History** tab via the row action menu (**Undo import**) or the command palette (Cmd+K):
+
+    - **Preview:** A preview dialog details exactly what will be deleted (newly created records), restored to its pre-import state (updated records), flagged as conflicts (edited after import), and blocked.
+    - **Downstream reference guard:** Records that have since been referenced by work orders, estimates, invoices, credit notes, or stock movements are strictly blocked and cannot be deleted or modified. Finalized invoices and booked accounting records remain immutable.
+    - **Conflict handling:** Records modified by users after the import are flagged as conflicts and are only reverted if you explicitly select them via their checkbox.
+    - **Confirmation:** You must type **UNDO** to enable the destructive action.
+    - **Result:** The job transitions to the terminal status **Undone** (or **Partially undone** if blocked records remain). External ID mappings created by the job are removed, so a subsequent re-import creates fresh records without duplicates.
+  </Accordion>
   <Accordion title="Import row retention">
     Detailed row payloads from finished import jobs are purged after **180 days** per tenant. Job headers, status, and external IDs remain for traceability. The nightly `import-job-row-purge` job is listed under [Core API scheduled jobs](/en/operations/core-api-scheduled-jobs).
   </Accordion>

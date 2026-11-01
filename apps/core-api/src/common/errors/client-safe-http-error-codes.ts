@@ -1,3 +1,5 @@
+import { IMPORT_ERROR_CODES } from '../../import/import.constants.js';
+
 /**
  * Structured HTTP error codes that are safe to return to API clients in
  * production even when the status is 5xx. These represent intentional,
@@ -8,6 +10,29 @@
  * with WARRANTY_CLAIM_ERROR_CODES in warranty-claim.rules.ts.
  */
 export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
+  // Workshop command operational codes
+  'AUDIO_EMPTY',
+  'AUDIO_TOO_LARGE',
+  'AUDIO_UNSUPPORTED_TYPE',
+  'COMMAND_ID_REUSED',
+  'CONTRACT_VERSION_UNSUPPORTED',
+  'DURATION_REQUIRED',
+  'HUMAN_ONLY_EXCLUDED',
+  'INTENT_INCOMPLETE',
+  'LOANER_NOT_PERMITTED',
+  'LOCALE_UNSUPPORTED',
+  'PLAN_STALE',
+  'RESOURCE_AMBIGUOUS',
+  'RESOURCE_MISSING',
+  'SELECTION_NOT_OFFERED',
+  'SESSION_NOT_FOUND',
+  'SITE_MISMATCH',
+  'TEXT_TOO_LONG',
+  'TIME_CONTRADICTORY',
+  'TIME_IN_PAST',
+  'TRANSCRIPT_EMPTY',
+  'UNSUPPORTED_GRAMMAR',
+  'UNSUPPORTED_SERVICE',
   'HTTP_400',
   'HTTP_401',
   'HTTP_403',
@@ -288,6 +313,24 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'VEHICLE_LISTING_REVISION_CONFLICT',
   'VEHICLE_LISTING_SERIALIZER_PROFILE_INVALID',
   'VEHICLE_LISTING_STOCK_CYCLE_MISMATCH',
+  // Import source CRUD and the upload source check. Without these the filter swaps the code for the status
+  // fallback and the web app can only show the generic copy.
+  IMPORT_ERROR_CODES.UNKNOWN_SOURCE,
+  IMPORT_ERROR_CODES.INVALID_SOURCE_KEY,
+  IMPORT_ERROR_CODES.SOURCE_ALREADY_EXISTS,
+  IMPORT_ERROR_CODES.SOURCE_NOT_FOUND,
+  IMPORT_ERROR_CODES.JOB_ALREADY_UNDONE,
+  IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE,
+  IMPORT_ERROR_CODES.JOB_BUSY,
+  IMPORT_ERROR_CODES.JOB_CONFLICT,
+  // Resumable direct upload and the expired/purged job gates. The upload dialog and the job detail map these
+  // to localized copy; without the entries the filter swaps the code for the status fallback.
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_INVALID,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_NOT_FOUND,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_TOO_LARGE,
+  IMPORT_ERROR_CODES.DIRECT_UPLOAD_CONTENT_TYPE,
+  IMPORT_ERROR_CODES.JOB_EXPIRED,
+  IMPORT_ERROR_CODES.JOB_PURGED,
 ]);
 
 export type ClientSafeHttpFieldIssue = {

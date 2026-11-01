@@ -14,6 +14,10 @@ import {
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
 import { withPhoneDigits } from '../customer/customer-phone.util.js';
+import {
+  recordImportRowBeforeSnapshot,
+  recordImportRowEntityId,
+} from './import-row-snapshot.util.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
 import type { ImportJobOptions } from './import.types.js';
 
@@ -70,6 +74,7 @@ function buildCustomerUpdateData(
 async function createCustomer(
   tx: Prisma.TransactionClient,
   ctx: CustomerApplyContext,
+  rowNo: number,
   externalId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
@@ -98,6 +103,13 @@ async function createCustomer(
     created.id,
     ctx.job.id,
   );
+  await recordImportRowEntityId(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    created.id,
+  );
   await ctx.audit.writeEntityAudit(
     tx,
     ctx.tenantId,
@@ -114,6 +126,7 @@ async function createCustomer(
 async function updateCustomer(
   tx: Prisma.TransactionClient,
   ctx: CustomerApplyContext,
+  rowNo: number,
   entityId: string,
   externalId: string,
   payload: Record<string, unknown>,
@@ -124,6 +137,10 @@ async function updateCustomer(
   if (!before) {
     throw new Error('Customer not found');
   }
+  const beforeSnapshot = {
+    ...pickCustomerAuditSnapshot(before),
+    contact_email_ok: before.contact_email_ok,
+  };
   const updateData = buildCustomerUpdateData(
     before,
     payload,
@@ -141,6 +158,13 @@ async function updateCustomer(
     externalId,
     after.id,
     ctx.job.id,
+  );
+  await recordImportRowBeforeSnapshot(
+    tx,
+    ctx.tenantId,
+    ctx.job.id,
+    rowNo,
+    beforeSnapshot,
   );
   await ctx.audit.writeEntityAudit(
     tx,
@@ -166,10 +190,17 @@ export async function applyCustomerImportRow(
   delete payload.external_id;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createCustomer(tx, ctx, externalId, payload);
+    await createCustomer(tx, ctx, row.row_no, externalId, payload);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
-    await updateCustomer(tx, ctx, row.entity_id, externalId, payload);
+    await updateCustomer(
+      tx,
+      ctx,
+      row.row_no,
+      row.entity_id,
+      externalId,
+      payload,
+    );
   }
 }

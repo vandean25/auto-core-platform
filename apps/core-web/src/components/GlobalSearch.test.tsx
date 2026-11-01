@@ -195,7 +195,12 @@ describe('GlobalSearch', () => {
     expect(open).toHaveBeenCalledWith('/customers/cust-123', '_blank', 'noopener,noreferrer')
     expect(mockNavigate).not.toHaveBeenCalled()
 
-    fireEvent.keyDown(input, { key: 'Enter' })
+    // The palette closes on select in the app; a fresh open keeps the plain Enter path honest.
+    cleanup()
+    mockSearch({ groups: [{ type: 'customer', results: [customer] }] })
+    const reopened = renderPalette()
+    fireEvent.change(reopened.input, { target: { value: 'Mustermann' } })
+    fireEvent.keyDown(reopened.input, { key: 'Enter' })
     expect(mockNavigate).toHaveBeenCalledWith('/customers/cust-123')
     open.mockRestore()
   })
@@ -248,6 +253,23 @@ describe('GlobalSearch', () => {
     fireEvent.change(second.input, { target: { value: 'zzz unknown' } })
     expect(screen.getByText('Search is temporarily unavailable.')).toBeInTheDocument()
     expect(screen.queryByText(/No parts, customers/)).not.toBeInTheDocument()
+  })
+
+  it('opens the workshop command mode from the palette and returns to search', () => {
+    renderPalette()
+
+    fireEvent.click(screen.getByText('Workshop command (text or voice)'))
+    expect(screen.getByLabelText('Sentence')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to search' }))
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeInTheDocument()
+  })
+
+  it('keeps the workshop command mode away from techs', () => {
+    mockSession('TECH')
+    renderPalette()
+
+    expect(screen.queryByText('Workshop command (text or voice)')).not.toBeInTheDocument()
   })
 
   it('routes Create Sales Order to the new sales order form', () => {

@@ -22,6 +22,7 @@ import { createImportJobRowActions } from './import-job-row-actions'
 import { createVehicleRowActions } from './vehicle-row-actions'
 import { createWorkshopOrderRowActions } from './work-order-row-actions'
 import { createTyreSetTyreMeasurementAction } from './tyre-set-row-actions'
+import { createWorkshopCommandActions } from './workshop-command-actions'
 
 type RecordItem = { id: string; status: string }
 type Context = { navigate: (path: string) => void }
@@ -89,6 +90,7 @@ describe('entity action registry helpers', () => {
       ...createEstimateRowActions(passthroughT as TFunction<'workshop'>),
       createTyreSetTyreMeasurementAction(passthroughT as TFunction<'workshop'>),
       ...createImportJobRowActions(passthroughT as TFunction<'settings'>),
+      ...createWorkshopCommandActions(passthroughT as TFunction<'workshop'>),
     ]
 
     expect(allRegistered.map((action) => action.id)).toEqual([...REGISTERED_ENTITY_ACTION_IDS])
