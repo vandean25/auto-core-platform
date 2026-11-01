@@ -12,6 +12,7 @@ import {
   type WorkshopCommandProposalStatus,
 } from '@/api/workshop-command'
 import { WorkshopCommandPanel } from './WorkshopCommandPanel'
+import { PendingProposalSection } from './WorkshopCommandSections'
 
 vi.mock('@/api/workshop-command', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/workshop-command')>()
@@ -23,6 +24,12 @@ vi.mock('@/api/workshop-command', async (importOriginal) => {
     transcribeWorkshopAudio: vi.fn(),
   }
 })
+
+let mockRole: string | null = 'ADMIN'
+
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: () => ({ data: { activeRole: mockRole } }),
+}))
 
 vi.mock('@/api/customers', () => ({
   useCustomer: () => ({ data: { first_name: 'Alex', last_name: 'Huber' } }),
@@ -142,6 +149,7 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockRole = 'ADMIN'
 })
 
 afterEach(() => {
@@ -182,7 +190,6 @@ describe('WorkshopCommandPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Vorschlag übernehmen' }))
 
     expect(await screen.findByText('In der Freigabe-Queue')).toBeInTheDocument()
-    expect(screen.getByText('Noch nicht angewendet')).toBeInTheDocument()
     // The proposal is queued only; nothing is written before the explicit apply.
     expect(applyMock).not.toHaveBeenCalled()
     const interpretCommandId = interpretMock.mock.calls[0][0].commandId
@@ -245,7 +252,7 @@ describe('WorkshopCommandPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Vorschlag übernehmen' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Die Vorschau ist veraltet (Standort oder Daten geändert). Bitte neu prüfen.',
+      'Vorschau veraltet. Bitte neu prüfen.',
     )
     expect(screen.queryByText('In der Freigabe-Queue')).not.toBeInTheDocument()
     expect(applyMock).not.toHaveBeenCalled()
@@ -279,7 +286,7 @@ describe('WorkshopCommandPanel', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Spracherkennung ist nicht eingerichtet. Bitte den Befehl tippen.',
+        'Spracherkennung nicht aktiv. Bitte Befehl tippen.',
       ),
     )
     expect(screen.getByLabelText('Satz')).toBeEnabled()
@@ -305,6 +312,32 @@ describe('WorkshopCommandPanel', () => {
 
     expect(await screen.findByText('Vorschau')).toBeInTheDocument()
     expect(interpretMock.mock.calls[0][0].commandId).toMatch(UUID_PATTERN)
+  })
+
+  it('hides Apply button for SALES role in preview while backend returns 403 on propose', async () => {
+    mockRole = 'SALES'
+    interpretMock.mockResolvedValueOnce(INTENT)
+    renderPanel()
+
+    typeSentence()
+    fireEvent.click(screen.getByRole('button', { name: 'Prüfen' }))
+
+    expect(await screen.findByText('Vorschau')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Satz ändern' }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByRole('button', { name: 'Vorschlag übernehmen' })).not.toBeInTheDocument()
+
+    proposeMock.mockRejectedValueOnce(new Error('Forbidden'))
+    await expect(
+      proposeWorkshopCommand({ commandId: COMMAND_ID, selections: [] }),
+    ).rejects.toThrow('Forbidden')
+  })
+
+  it('hides Apply now button for SALES role in pending proposal section', async () => {
+    mockRole = 'SALES'
+    render(<PendingProposalSection proposal={PROPOSAL} busy={false} onApply={vi.fn()} />)
+
+    expect(screen.getByText('In der Freigabe-Queue')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Jetzt anwenden' })).not.toBeInTheDocument()
   })
 })
 

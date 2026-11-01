@@ -35,7 +35,7 @@ function clock(date: Date | string): number {
  * Minimal in-memory stand-in for the Prisma delegate calls the resolver makes.
  * It intentionally keeps filtering dumb so the fixtures drive the assertions.
  */
-function createPrisma(world: World) {
+function createPrisma(world: World, vehicleCalls?: Json[]) {
   const sites = world.sites as Json[];
   const customers = world.customers as Json[];
   const vehicles = (world.vehicles as Json[]).map(
@@ -86,10 +86,17 @@ function createPrisma(world: World) {
         sites.find((site) => site.id === where.id && site.is_active === where.is_active) ?? null,
     },
     vehicle: {
-      findMany: async ({ where, take }: Json) => {
+      findMany: async (args: Json) => {
+        if (vehicleCalls) vehicleCalls.push(args);
+        const { where, take, distinct } = args;
         let rows = vehicles.filter((vehicle) => vehicle.tenant_id === where.tenant_id);
         if (where.customer_id?.in) {
           rows = rows.filter((vehicle) => where.customer_id.in.includes(vehicle.customer_id));
+        } else if (where.customer_id !== undefined) {
+          rows = rows.filter((vehicle) => vehicle.customer_id === where.customer_id);
+        }
+        if (where.model !== undefined) {
+          rows = rows.filter((vehicle) => stringMatch(vehicle.model, where.model));
         }
         for (const clause of (where.OR as Json[] | undefined) ?? []) {
           if (clause.plate !== undefined) {
@@ -104,7 +111,16 @@ function createPrisma(world: World) {
           rows = rows.filter((vehicle) => stringMatch(vehicle.vin, where.vin));
         }
         const sorted = [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id)));
-        return typeof take === 'number' ? sorted.slice(0, take) : sorted;
+        let result = sorted;
+        if (Array.isArray(distinct) && distinct.includes('customer_id')) {
+          const seen = new Set<string>();
+          result = result.filter((row) => {
+            if (seen.has(row.customer_id)) return false;
+            seen.add(row.customer_id);
+            return true;
+          });
+        }
+        return typeof take === 'number' ? result.slice(0, take) : result;
       },
     },
     customer: {
@@ -190,8 +206,8 @@ function createPrisma(world: World) {
   };
 }
 
-function buildResolver(world: World): WorkshopCommandResolver {
-  const prisma = createPrisma(world);
+function buildResolver(world: World, vehicleCalls?: Json[]): WorkshopCommandResolver {
+  const prisma = createPrisma(world, vehicleCalls);
   const authorization = {
     assertWriteAccess: async () => undefined,
   } as unknown as LoanerVehiclesAuthorization;
@@ -232,9 +248,9 @@ type ResolveOptions = {
   selections?: CommandSelection[];
 };
 
-function resolveIn(world: World, options: ResolveOptions): Promise<InterpretResult> {
+function resolveIn(world: World, options: ResolveOptions, vehicleCalls?: Json[]): Promise<InterpretResult> {
   const tagged = withTenant(world);
-  return buildResolver(tagged).resolve({
+  return buildResolver(tagged, vehicleCalls).resolve({
     tenantId: 'tenant-1',
     site: siteOf(tagged),
     text: options.text,
@@ -371,6 +387,156 @@ describe('WorkshopCommandResolver fixtures', () => {
       expect(result.choices).toHaveLength(10);
       expect(result.has_more).toBe(true);
     }
+  });
+
+  it('finds matching model when customer has more than 11 vehicles and matching vehicle is beyond the first 11 rows', async () => {
+    const world = fixture('world.json');
+    const customerId = '51500000-0000-4000-8000-000000000021';
+    // 12 Passats with lower IDs (30-41), and 1 Golf with ID 42 (13th vehicle)
+    const vehicles = [
+      ...Array.from({ length: 12 }, (_, i) => ({
+        id: `51500000-0000-4000-8000-0000000000${String(30 + i).padStart(2, '0')}`,
+        customer_id: customerId,
+        make: 'Volkswagen',
+        model: 'Passat',
+        year: 2018,
+        plate: `W-SYN ${100 + i}`,
+        vin: `WVWZZZ3CZWE000${100 + i}`,
+      })),
+      {
+        id: '51500000-0000-4000-8000-000000000042',
+        customer_id: customerId,
+        make: 'Volkswagen',
+        model: 'Golf',
+        year: 2021,
+        plate: 'W-SYN 999',
+        vin: 'WVWZZZ3CZWE000999',
+      },
+    ];
+    const worldWithMany = {
+      ...world,
+      vehicles,
+    };
+    const result = await resolveIn(worldWithMany, {
+      text: 'Huber Golf morgen 8 Uhr großes Service',
+      commandId: DEFAULT_COMMAND_ID,
+      source: 'keyboard',
+      now: DEFAULT_NOW,
+      selections: [{ slot: 'customer_id', value: customerId }],
+    });
+    // Should NOT be VEHICLE_NOT_FOUND or fail; it should find the Golf!
+    expect(result.status).not.toBe('clarification');
+    if (result.status === 'ready') {
+      expect(result.vehicle_id).toBe('51500000-0000-4000-8000-000000000042');
+    }
+  });
+
+  it('loads vehicle hints per customer across multiple ambiguous customers without starvation', async () => {
+    const world = fixture('world.json');
+    const customer1Id = '51500000-0000-4000-8000-000000000021';
+    const customer2Id = '51500000-0000-4000-8000-000000000022';
+    const customers = [
+      {
+        id: customer1Id,
+        first_name: 'Alex',
+        last_name: 'Huber',
+        company_name: null,
+      },
+      {
+        id: customer2Id,
+        first_name: 'Berta',
+        last_name: 'Huber',
+        company_name: null,
+      },
+    ];
+    // Customer 1 has 15 Passats with lower IDs
+    const customer1Vehicles = Array.from({ length: 15 }, (_, i) => ({
+      id: `51500000-0000-4000-8000-0000000000${String(10 + i).padStart(2, '0')}`,
+      customer_id: customer1Id,
+      make: 'Volkswagen',
+      model: 'Passat',
+      year: 2018,
+      plate: `W-C1 ${100 + i}`,
+      vin: `WVWC1ZZZ3CZWE0${100 + i}`,
+    }));
+    // Customer 2 has 2 Golfs with higher IDs
+    const customer2Vehicles = [
+      {
+        id: '51500000-0000-4000-8000-000000000080',
+        customer_id: customer2Id,
+        make: 'Volkswagen',
+        model: 'Golf',
+        year: 2020,
+        plate: 'W-C2 201',
+        vin: 'WVWC2ZZZ3CZWE0201',
+      },
+      {
+        id: '51500000-0000-4000-8000-000000000081',
+        customer_id: customer2Id,
+        make: 'Volkswagen',
+        model: 'Golf',
+        year: 2022,
+        plate: 'W-C2 202',
+        vin: 'WVWC2ZZZ3CZWE0202',
+      },
+    ];
+    const worldMulti = {
+      ...world,
+      customers,
+      vehicles: [...customer1Vehicles, ...customer2Vehicles],
+    };
+    const vehicleCalls: Json[] = [];
+    const result = await resolveIn(
+      worldMulti,
+      {
+        text: 'Huber Golf morgen 8 Uhr großes Service',
+        commandId: DEFAULT_COMMAND_ID,
+        source: 'keyboard',
+        now: DEFAULT_NOW,
+      },
+      vehicleCalls,
+    );
+    expect(result.status).toBe('clarification');
+    if (result.status === 'clarification') {
+      expect(result.code).toBe('CUSTOMER_AMBIGUOUS');
+      expect(result.choices).toHaveLength(2);
+      // Both customers must have their vehicle hint in their choice label!
+      const c1Choice = result.choices.find((c) => c.value === customer1Id);
+      const c2Choice = result.choices.find((c) => c.value === customer2Id);
+      expect(c1Choice?.label).toContain('Passat');
+      expect(c2Choice?.label).toContain('Golf');
+    }
+    // Verify distinct: ['customer_id'] was used
+    const disambigCall = vehicleCalls.find(
+      (c) => Array.isArray(c.distinct) && c.distinct.includes('customer_id'),
+    );
+    expect(disambigCall).toBeDefined();
+    expect(disambigCall?.where.customer_id.in).toEqual([customer1Id, customer2Id]);
+  });
+
+  it('passes customer_id, model and take: 11 in prisma vehicle findMany where clause', async () => {
+    const world = fixture('world.json');
+    const customerId = '51500000-0000-4000-8000-000000000021';
+    const vehicleCalls: Json[] = [];
+    await resolveIn(
+      world,
+      {
+        text: 'Huber Golf morgen 8 Uhr großes Service',
+        commandId: DEFAULT_COMMAND_ID,
+        source: 'keyboard',
+        now: DEFAULT_NOW,
+        selections: [{ slot: 'customer_id', value: customerId }],
+      },
+      vehicleCalls,
+    );
+    const modelCall = vehicleCalls.find(
+      (c) => c.where.model && c.where.model.equals === 'Golf',
+    );
+    expect(modelCall).toBeDefined();
+    expect(modelCall?.where.tenant_id).toBe('tenant-1');
+    expect(modelCall?.where.customer_id).toBe(customerId);
+    expect(modelCall?.where.model).toEqual({ equals: 'Golf', mode: 'insensitive' });
+    expect(modelCall?.take).toBe(11);
   });
 
   it('returns CUSTOMER_NOT_FOUND when the name is unknown', async () => {

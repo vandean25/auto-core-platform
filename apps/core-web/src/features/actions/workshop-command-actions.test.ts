@@ -65,4 +65,11 @@ describe('workshop-command-actions', () => {
     await applyNowAction.run(record, { applyNow })
     expect(applyNow).toHaveBeenCalled()
   })
+
+  it('maps choose and reset labels to command.choose and command.reset', () => {
+    const resetAction = definitions.find((a) => a.id === ENTITY_ACTION_IDS.workshopCommandReset)!
+    const chooseAction = definitions.find((a) => a.id === ENTITY_ACTION_IDS.workshopCommandChoose)!
+    expect(resetAction.label).toBe('command.reset')
+    expect(chooseAction.label).toBe('command.choose')
+  })
 })

@@ -1,6 +1,3 @@
-import path from "path";
-import { fileURLToPath } from "url";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { test, expect, type Page } from "@playwright/test";
 import { AutoCorePage } from "./pom/AutoCorePage";
 import { expectNoPageScroll } from "./utils/phone-layout";
@@ -206,7 +203,7 @@ test.describe("Cmd+K Command Mode at 375px mobile viewport (AUT-542)", () => {
 
     // --- Phase 1: Input ---
     await expectNoPageScroll(page);
-    const screenshotInput = await page.screenshot({ fullPage: true, path: path.resolve(__dirname, "../../../docs/internal/assets/aut-542-command-mode-01-input-375.png") });
+    const screenshotInput = await page.screenshot({ fullPage: true, path: testInfo.outputPath("aut-542-command-mode-01-input-375.png") });
     await testInfo.attach("01-command-mode-input-375px.png", {
       body: screenshotInput,
       contentType: "image/png",
@@ -226,7 +223,7 @@ test.describe("Cmd+K Command Mode at 375px mobile viewport (AUT-542)", () => {
       page.getByText("Weitere Treffer vorhanden. Bitte Eingabe präzisieren."),
     ).toBeVisible();
     await expectNoPageScroll(page);
-    const screenshotClarify = await page.screenshot({ fullPage: true, path: path.resolve(__dirname, "../../../docs/internal/assets/aut-542-command-mode-02-clarification-375.png") });
+    const screenshotClarify = await page.screenshot({ fullPage: true, path: testInfo.outputPath("aut-542-command-mode-02-clarification-375.png") });
     await testInfo.attach("02-command-mode-clarification-375px.png", {
       body: screenshotClarify,
       contentType: "image/png",
@@ -245,7 +242,7 @@ test.describe("Cmd+K Command Mode at 375px mobile viewport (AUT-542)", () => {
       page.getByRole("button", { name: "Vorschlag übernehmen" }),
     ).toBeVisible();
     await expectNoPageScroll(page);
-    const screenshotPreview = await page.screenshot({ fullPage: true, path: path.resolve(__dirname, "../../../docs/internal/assets/aut-542-command-mode-03-preview-375.png") });
+    const screenshotPreview = await page.screenshot({ fullPage: true, path: testInfo.outputPath("aut-542-command-mode-03-preview-375.png") });
     await testInfo.attach("03-command-mode-preview-375px.png", {
       body: screenshotPreview,
       contentType: "image/png",
@@ -267,7 +264,7 @@ test.describe("Cmd+K Command Mode at 375px mobile viewport (AUT-542)", () => {
       page.getByRole("button", { name: "Werkstattaufträge öffnen" }),
     ).toBeVisible();
     await expectNoPageScroll(page);
-    const screenshotApplied = await page.screenshot({ fullPage: true, path: path.resolve(__dirname, "../../../docs/internal/assets/aut-542-command-mode-04-applied-375.png") });
+    const screenshotApplied = await page.screenshot({ fullPage: true, path: testInfo.outputPath("aut-542-command-mode-04-applied-375.png") });
     await testInfo.attach("04-command-mode-applied-375px.png", {
       body: screenshotApplied,
       contentType: "image/png",

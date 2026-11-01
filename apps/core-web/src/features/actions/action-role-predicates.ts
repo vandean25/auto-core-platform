@@ -20,7 +20,7 @@ export function canUseWorkshopCommand(role: string | null | undefined): boolean 
 
 /**
  * Proposing and applying workshop command booking packages requires supervisor write access (OWNER/ADMIN),
- * matching the backend PROPOSE_ROLES in WorkshopCommandService and SUPERVISOR_ROLES in AgentProposalAuthorization.
+ * matching the backend PROPOSE_ROLES in WorkshopCommandService.
  */
 export function canApplyWorkshopCommand(role: string | null | undefined): boolean {
   return role === 'OWNER' || role === 'ADMIN'

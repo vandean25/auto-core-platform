@@ -1,7 +1,9 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import { useAuthSession } from '@/api/auth-session'
 import { Button } from '@/components/ui/button'
+import { canApplyWorkshopCommand } from '@/features/actions/action-role-predicates'
 import {
   WORKSHOP_COMMAND_MAX_TEXT_LENGTH,
   type WorkshopCommandClarification,
@@ -23,7 +25,6 @@ export function CommandHeader({
     <header className="flex flex-wrap items-start justify-between gap-2">
       <div className="space-y-1">
         <h2 className="text-sm font-semibold">{t('command.title')}</h2>
-        <p className="text-xs text-muted-foreground">{t('command.description')}</p>
       </div>
       <Button
         type="button"
@@ -185,7 +186,7 @@ export function CommandErrorAlert({
         data-action-id="workshopCommand.reset"
         onClick={onReset}
       >
-        {t('command.rereview')}
+        {t('command.reset')}
       </Button>
     </div>
   )
@@ -240,7 +241,7 @@ export function ClarificationBlock({
 }
 
 export function PendingProposalSection({
-  proposal,
+  proposal: _proposal,
   busy,
   onApply,
 }: {
@@ -249,24 +250,24 @@ export function PendingProposalSection({
   onApply: () => void
 }) {
   const { t } = useTranslation('workshop')
+  const role = useAuthSession().data?.activeRole
+  const canApply = canApplyWorkshopCommand(role)
   return (
-    <section aria-labelledby="workshop-command-pending" className="space-y-1 rounded-md border p-2">
+    <section aria-labelledby="workshop-command-pending" className="space-y-2 rounded-md border p-2">
       <h3 id="workshop-command-pending" className="text-sm font-semibold">
         {t('command.pendingHeading')}
       </h3>
-      <p className="text-xs text-muted-foreground">
-        {t('command.pendingHint', { id: proposal.pending_action_id })}
-      </p>
-      <p className="text-xs font-medium">{t('command.pendingNotApplied')}</p>
-      <Button
-        type="button"
-        size="sm"
-        data-action-id="workshopCommand.applyNow"
-        onClick={onApply}
-        disabled={busy}
-      >
-        {busy ? t('command.applying') : t('command.applyNow')}
-      </Button>
+      {canApply ? (
+        <Button
+          type="button"
+          size="sm"
+          data-action-id="workshopCommand.applyNow"
+          onClick={onApply}
+          disabled={busy}
+        >
+          {busy ? t('command.applying') : t('command.applyNow')}
+        </Button>
+      ) : null}
     </section>
   )
 }
@@ -278,7 +279,6 @@ export function AppliedSection({ onOpenOrders }: { onOpenOrders?: () => void }) 
       <h3 id="workshop-command-applied" className="text-sm font-semibold">
         {t('command.appliedHeading')}
       </h3>
-      <p className="text-xs">{t('command.appliedHint')}</p>
       {onOpenOrders ? (
         <Button
           type="button"

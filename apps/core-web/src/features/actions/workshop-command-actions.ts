@@ -99,7 +99,7 @@ export function createWorkshopCommandActions<
     {
       id: ENTITY_ACTION_IDS.workshopCommandReset,
       kind: 'run',
-      label: t('command.rereview'),
+      label: t('command.reset'),
       icon: RotateCcw,
       isAllowedForRole: canUseWorkshopCommand,
       isEnabled: () => true,
@@ -110,7 +110,7 @@ export function createWorkshopCommandActions<
     {
       id: ENTITY_ACTION_IDS.workshopCommandChoose,
       kind: 'run',
-      label: t('command.clarificationHeading'),
+      label: t('command.choose'),
       icon: HelpCircle,
       isAllowedForRole: canUseWorkshopCommand,
       isEnabled: () => true,

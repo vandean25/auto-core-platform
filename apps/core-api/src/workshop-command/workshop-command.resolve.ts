@@ -137,19 +137,6 @@ function customerChoices(
   });
 }
 
-function matchingModelVehicles(
-  vehicles: Vehicle[],
-  customerId: string,
-  model: string,
-): Vehicle[] {
-  return vehicles.filter(
-    (vehicle) =>
-      vehicle.customer_id === customerId &&
-      vehicle.model.toLocaleLowerCase('de-AT') ===
-        model.toLocaleLowerCase('de-AT'),
-  );
-}
-
 function instantChoice(
   startClock: string,
   instant: Date,
@@ -711,34 +698,35 @@ export class WorkshopCommandResolver {
       cappedCustomers,
       selections.get('customer_id'),
     );
-    const customerIds = selectedCustomer
-      ? [selectedCustomer.id]
-      : cappedCustomers.map((customer) => customer.id);
 
-    const vehicles = await this.prisma.vehicle.findMany({
-      where: {
-        tenant_id: tenantId,
-        customer_id: { in: customerIds },
-      },
-      orderBy: { id: 'asc' },
-      take: 11,
-    });
     if (!selectedCustomer) {
+      const vehicleHints = await this.prisma.vehicle.findMany({
+        where: {
+          tenant_id: tenantId,
+          customer_id: { in: cappedCustomers.map((customer) => customer.id) },
+        },
+        distinct: ['customer_id'],
+        orderBy: { id: 'asc' },
+      });
       return this.identityClarification(
         'CUSTOMER_AMBIGUOUS',
-        customerChoices(cappedCustomers, vehicles),
+        customerChoices(cappedCustomers, vehicleHints),
         tokens,
         hasMoreCustomers,
       );
     }
 
-    const matchingVehicles = matchingModelVehicles(
-      vehicles,
-      selectedCustomer.id,
-      model,
-    );
-    const hasMoreVehicles =
-      vehicles.length > 10 || matchingVehicles.length > 10;
+    const matchingVehicles = await this.prisma.vehicle.findMany({
+      where: {
+        tenant_id: tenantId,
+        customer_id: selectedCustomer.id,
+        model: { equals: model, mode: 'insensitive' },
+      },
+      orderBy: { id: 'asc' },
+      take: 11,
+    });
+
+    const hasMoreVehicles = matchingVehicles.length > 10;
     const cappedVehicles = hasMoreVehicles
       ? matchingVehicles.slice(0, 10)
       : matchingVehicles;

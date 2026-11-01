@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next'
+import { useAuthSession } from '@/api/auth-session'
 import { useCustomer } from '@/api/customers'
 import { useVehicle } from '@/api/vehicles'
 import { useBay } from '@/api/bays'
 import { useMySites } from '@/api/sites'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { canApplyWorkshopCommand } from '@/features/actions/action-role-predicates'
 import { formatCurrency } from '@/lib/format'
 import type { WorkshopCommandIntent } from '@/api/workshop-command'
 
@@ -142,12 +144,27 @@ function PreviewActions({
   onApply: () => void
 }) {
   const { t } = useTranslation('workshop')
+  const role = useAuthSession().data?.activeRole
+  const canApply = canApplyWorkshopCommand(role)
   return (
     <div className="flex flex-wrap gap-2">
-      <Button type="button" data-action-id="workshopCommand.apply" onClick={onApply} disabled={busy || applyDisabled}>
-        {busy ? t('command.applying') : t('command.apply')}
-      </Button>
-      <Button type="button" variant="outline" data-action-id="workshopCommand.edit" onClick={onEditSentence} disabled={busy}>
+      {canApply ? (
+        <Button
+          type="button"
+          data-action-id="workshopCommand.apply"
+          onClick={onApply}
+          disabled={busy || applyDisabled}
+        >
+          {busy ? t('command.applying') : t('command.apply')}
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        data-action-id="workshopCommand.edit"
+        onClick={onEditSentence}
+        disabled={busy}
+      >
         {t('command.editSentence')}
       </Button>
     </div>
