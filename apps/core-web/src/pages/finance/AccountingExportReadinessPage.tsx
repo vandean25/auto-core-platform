@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import {
@@ -435,18 +435,10 @@ export default function AccountingExportReadinessPage() {
 
           {response && !response.exportProfile.canGenerate ? (
             <Alert className="mb-6">
-              <AlertDescription className="flex items-center justify-between gap-2">
-                <span>
-                  {response.exportProfile.configured
-                    ? t('accountingExportReadiness.exportProfileDisabled')
-                    : t('accountingExportReadiness.exportProfileMissing')}
-                </span>
-                <Link
-                  to={APP_ROUTE_PATHS.settings}
-                  className="font-medium underline underline-offset-4 hover:text-slate-900"
-                >
-                  {t('accountingExportReadiness.settingsLink')}
-                </Link>
+              <AlertDescription>
+                {response.exportProfile.configured
+                  ? t('accountingExportReadiness.exportProfileDisabled')
+                  : t('accountingExportReadiness.exportProfileMissing')}
               </AlertDescription>
             </Alert>
           ) : null}

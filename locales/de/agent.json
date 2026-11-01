@@ -1,4 +1,8 @@
 {
+  "banner": {
+    "description": "Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung vor der Ausführung. Aktionen der Stufe „Nur manuell“ müssen manuell durchgeführt werden.",
+    "infoAria": "Hinweis zum Überwachungsmodus anzeigen"
+  },
   "header": {
     "title": "Agenten-Überwachung",
     "subtitle": "Genehmigungswarteschlange für vorgeschlagene Agenten-Aktionen und Aktivitätenprotokoll."

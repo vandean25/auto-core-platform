@@ -50,7 +50,6 @@ function PickerlWarningsInfo({
   formatWarning: (warning: { code: string; message: string }) => string
 }) {
   const { t } = useTranslation('vehicles')
-  if (!warnings.length) return null
 
   return (
     <Popover>

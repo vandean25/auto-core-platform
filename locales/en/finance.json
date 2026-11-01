@@ -123,8 +123,7 @@
     "documentKind": {
       "INVOICE": "Invoice",
       "CREDIT_NOTE": "Credit note"
-    },
-    "settingsLink": "Settings"
+    }
   },
   "creditNotes": {
     "list": {

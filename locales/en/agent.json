@@ -1,4 +1,8 @@
 {
+  "banner": {
+    "description": "Agent supervision active: proposed agent actions require supervisor approval before execution. “Human Only” actions must be performed manually.",
+    "infoAria": "Show supervision mode note"
+  },
   "header": {
     "title": "Agent Supervision",
     "subtitle": "Approve or reject queue for proposed agent actions and audit agent activities."

@@ -338,6 +338,14 @@ describe('AgentSupervisionPage', () => {
     expect(screen.queryByTestId('agent-safety-banner')).not.toBeInTheDocument()
   })
 
+  it('keeps the safety text available behind the header info icon', () => {
+    renderSupervisionPage()
+
+    fireEvent.click(screen.getByRole('button', { name: deAgent.banner.infoAria }))
+
+    expect(screen.getByText(deAgent.banner.description)).toBeInTheDocument()
+  })
+
   it('lets the tab labels wrap on a phone only and makes the controls 44px there', () => {
     renderSupervisionPage()
 

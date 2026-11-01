@@ -104,7 +104,7 @@ test.describe('AUT-844: Operational compact texts on phone (375px)', () => {
     })
   })
 
-  test('accounting export readiness shows compact inactive profile with settings link', async ({ page }, testInfo) => {
+  test('accounting export readiness shows compact inactive profile with header settings action', async ({ page }, testInfo) => {
     await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), (route) =>
       route.fulfill(
         json([
@@ -136,9 +136,11 @@ test.describe('AUT-844: Operational compact texts on phone (375px)', () => {
     await page.goto('/finance/accounting-export-readiness')
     await page.waitForLoadState('networkidle')
 
-    // Short status line and settings link
+    // Short status line; the header settings button is the single settings action and stays 44px
     await expect(page.getByText(DE_FINANCE.accountingExportReadiness.exportProfileMissing)).toBeVisible()
-    await expect(page.getByRole('link', { name: DE_FINANCE.accountingExportReadiness.settingsLink })).toBeVisible()
+    const settingsButton = page.getByRole('button', { name: DE_FINANCE.actions.openSettings })
+    await expect(settingsButton).toBeVisible()
+    expect((await settingsButton.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     // Old long text not present
     await expect(page.getByText(/Für diesen Rechtsträger ist kein Buchhaltungsexport-Profil hinterlegt/)).toHaveCount(0)
 

@@ -123,8 +123,7 @@
     "documentKind": {
       "INVOICE": "Rechnung",
       "CREDIT_NOTE": "Gutschrift"
-    },
-    "settingsLink": "Einstellungen"
+    }
   },
   "creditNotes": {
     "list": {

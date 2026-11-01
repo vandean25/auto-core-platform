@@ -165,14 +165,18 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     })
   }
 
-  test('renders persistent safety banner, proposal queue, and passes axe a11y', async ({ page }) => {
+  test('renders safety note behind info icon, proposal queue, and passes axe a11y', async ({ page }) => {
     test.setTimeout(90_000)
     const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
     await waitForSupervisionShell(page)
 
-    // Verify Heading & Safety Banner omitted on normal state
+    // Compact header: no persistent banner, safety text available behind the info icon
     await expect(page.getByTestId('agent-safety-banner')).toHaveCount(0)
+    const safetyInfo = page.getByTestId('agent-safety-info')
+    await expect(safetyInfo).toBeVisible()
+    await safetyInfo.click()
+    await expect(page.getByText(DE_AGENT.banner.description)).toBeVisible()
 
     // Verify proposals queue
     await expect(page.getByTestId('proposal-card-prop-1')).toBeVisible()
