@@ -1,5 +1,6 @@
 import * as React from "react"
-import { Trans, useTranslation } from "react-i18next"
+import { useTranslation } from "react-i18next"
+import { SafeTrans } from "@/lib/i18n"
 import { toast } from "sonner"
 import { Plus, ChevronRight, ChevronDown, Loader2, GripVertical, Pencil } from "lucide-react"
 
@@ -738,7 +739,7 @@ export function LaborCategoriesTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("labor.categories.editDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <Trans
+              <SafeTrans
                 t={t}
                 i18nKey="labor.categories.editDialog.description"
                 values={{ name: editCategory?.name ?? "" }}
@@ -860,7 +861,7 @@ export function LaborCategoriesTab() {
             <AlertDialogDescription asChild>
               <div>
                 <p>
-                  <Trans
+                  <SafeTrans
                     t={t}
                     i18nKey="labor.categories.deleteDialog.description"
                     values={{ name: deleteTarget?.name ?? "" }}
