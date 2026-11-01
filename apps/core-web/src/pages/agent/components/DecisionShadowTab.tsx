@@ -78,7 +78,7 @@ export function DecisionShadowTab() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 text-slate-500 hover:text-slate-700"
+                    className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
                     aria-label={t('decisionShadow.infoAria')}
                   >
                     <Info className="h-3.5 w-3.5" />
