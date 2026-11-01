@@ -238,5 +238,14 @@ describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => 
     await waitFor(() => expect(screen.queryByText('Widget wird geladen…')).not.toBeInTheDocument())
     expect(screen.queryByTestId('widget-partial-hint')).not.toBeInTheDocument()
   })
+
+  it('renders short empty state with how-to hint behind info icon', async () => {
+    mocks.widgets = []
+    renderGrid()
+
+    expect(screen.getByText('Noch keine Widgets vorhanden.')).toBeInTheDocument()
+    const infoBtn = screen.getByRole('button', { name: 'Hinweis zum Hinzufügen von Widgets anzeigen' })
+    expect(infoBtn).toBeInTheDocument()
+  })
 })
 

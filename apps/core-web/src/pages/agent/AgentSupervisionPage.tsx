@@ -45,7 +45,6 @@ export default function AgentSupervisionPage() {
         </div>
       </div>
 
-      
       <Tabs
         value={currentTab}
         onValueChange={(val) => setCurrentTab(val as SupervisionTab)}

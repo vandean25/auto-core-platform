@@ -1243,6 +1243,8 @@
     "approvalNote": " · Notiz: {{note}}",
     "recordDecision": "Bestätigung erfassen",
     "sendDisabledLegal": "Kundenversand deaktiviert.",
+    "sendDisabledLegalReason": "Der Versand an Kunden ist derzeit deaktiviert, bis die rechtlichen Texte freigegeben sind. Der Entwurf kann bis dahin geprüft werden.",
+    "sendDisabledLegalInfoAria": "Hinweis zum Kundenversand anzeigen",
     "status": {
       "DRAFT": "Entwurf",
       "SENT": "Gesendet",

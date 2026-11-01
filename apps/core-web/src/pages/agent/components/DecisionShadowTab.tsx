@@ -59,8 +59,6 @@ export function DecisionShadowTab() {
 
   return (
     <div className="space-y-6" data-testid="decision-shadow-tab">
-      
-
       {/* Filter toolbar: filters apply on change, so there is no Apply button */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">

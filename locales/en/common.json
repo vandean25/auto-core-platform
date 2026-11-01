@@ -108,6 +108,8 @@
     "totalItems": "Total items",
     "partialResult": "Calculated from the first {{count}} of {{total}} entries.",
     "emptyWidgets": "No widgets configured yet.",
+    "emptyWidgetsHint": "Open a list view, apply filters, then click Add to dashboard.",
+    "emptyWidgetsInfoAria": "Show note on adding widgets",
     "sourceUnavailable": "Widget source is no longer available.",
     "unknownGroup": "Unknown",
     "sources": {

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { AlertTriangle, Download, Loader2, Plus, Send } from 'lucide-react'
+import { AlertTriangle, Download, Info, Loader2, Plus, Send } from 'lucide-react'
 import { EstimateSendDialog } from '@/components/workshop/EstimateSendDialog'
 import { RecordEstimateDecisionDialog } from '@/components/workshop/RecordEstimateDecisionDialog'
 import { RecordOverrunNoticeDialog } from '@/components/workshop/RecordOverrunNoticeDialog'
@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   fetchWorkshopEstimatePdfError,
   workshopEstimateKeys,
@@ -476,7 +477,25 @@ function EstimateVersions({
   return (
     <>
       {latestIsDraft && !sendFeatureEnabled && (
-        <p className='text-sm text-slate-600'>{t('estimateCard.sendDisabledLegal')}</p>
+        <div className='flex items-center gap-1.5'>
+          <p className='text-sm text-slate-600'>{t('estimateCard.sendDisabledLegal')}</p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                className='h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700'
+                aria-label={t('estimateCard.sendDisabledLegalInfoAria')}
+              >
+                <Info className='h-3.5 w-3.5' />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className='w-80 text-xs text-slate-600'>
+              {t('estimateCard.sendDisabledLegalReason')}
+            </PopoverContent>
+          </Popover>
+        </div>
       )}
       {latestIsDraft && sendFeatureEnabled && customerSendBlockerCount > 0 && (
         <p className='text-sm text-amber-800' data-testid='estimate-customer-send-blockers'>

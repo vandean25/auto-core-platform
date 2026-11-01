@@ -173,7 +173,6 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
 
     // Verify Heading & Safety Banner omitted on normal state
     await expect(page.getByTestId('agent-safety-banner')).toHaveCount(0)
-    await expect(page.getByTestId('agent-safety-banner')).not.toBeVisible()
 
     // Verify proposals queue
     await expect(page.getByTestId('proposal-card-prop-1')).toBeVisible()
@@ -293,7 +292,6 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     await waitForSupervisionShell(page)
     await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible()
     await expect(page.getByTestId('agent-safety-banner')).toHaveCount(0)
-    await expect(page.getByTestId('agent-safety-banner')).not.toBeVisible()
     await expectNoCriticalA11yViolations(page)
   })
 })

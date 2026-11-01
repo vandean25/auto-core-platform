@@ -108,6 +108,8 @@
     "totalItems": "Positionen gesamt",
     "partialResult": "Berechnet aus den ersten {{count}} von {{total}} Einträgen.",
     "emptyWidgets": "Noch keine Widgets vorhanden.",
+    "emptyWidgetsHint": "Öffnen Sie eine Liste, setzen Sie Filter und klicken Sie auf „Zum Dashboard hinzufügen“.",
+    "emptyWidgetsInfoAria": "Hinweis zum Hinzufügen von Widgets anzeigen",
     "sourceUnavailable": "Widget-Quelle ist nicht mehr verfügbar.",
     "unknownGroup": "Unbekannt",
     "sources": {
