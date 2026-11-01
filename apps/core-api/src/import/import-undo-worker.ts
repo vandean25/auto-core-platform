@@ -10,6 +10,31 @@ export const IMPORT_UNDO_LEASE_MS = 120_000;
 /** An UNDOING job whose heartbeat is older than this may be reclaimed even with a live lease. */
 export const IMPORT_UNDO_STALE_CLAIM_MS = 2 * 60_000;
 
+/**
+ * Epoch lease: the claim is dispatched but no worker holds it yet, so the next attempt may
+ * take it. A live `lease_until` therefore always means a worker is running right now.
+ */
+export const UNDO_RELEASED_LEASE_UNTIL = new Date(0).toISOString();
+
+export function isUndoLeaseReleased(leaseUntil: string | undefined): boolean {
+  if (!leaseUntil) {
+    return true;
+  }
+  return Date.parse(leaseUntil) === 0;
+}
+
+/** True while another worker holds the lease, so a new attempt must not steal it. */
+export function isUndoLeaseHeld(
+  worker: ImportUndoWorkerState | null,
+  nowMs: number,
+): boolean {
+  if (!worker || isUndoLeaseReleased(worker.lease_until)) {
+    return false;
+  }
+  const leaseUntil = readTimestampMs(worker.lease_until);
+  return leaseUntil !== null && leaseUntil > nowMs;
+}
+
 export type ImportUndoOutcome = {
   status: 'UNDONE' | 'PARTIALLY_UNDONE';
   undone_at: string;
@@ -92,7 +117,7 @@ export function createUndoWorkerState(params: {
   const now = new Date(nowMs).toISOString();
   return {
     lease_token: randomUUID(),
-    lease_until: nextUndoLeaseUntil(nowMs),
+    lease_until: UNDO_RELEASED_LEASE_UNTIL,
     started_at: now,
     heartbeat_at: now,
     actor_user_id: params.actorUserId,
@@ -125,15 +150,19 @@ export function isUndoClaimStale(
   if (!worker) {
     return true;
   }
-  const leaseUntil = readTimestampMs(worker.lease_until);
-  if (leaseUntil === null || leaseUntil <= nowMs) {
-    return true;
-  }
   const heartbeat = readTimestampMs(worker.heartbeat_at);
   if (heartbeat === null) {
     return true;
   }
-  return nowMs - heartbeat >= IMPORT_UNDO_STALE_CLAIM_MS;
+  if (nowMs - heartbeat >= IMPORT_UNDO_STALE_CLAIM_MS) {
+    return true;
+  }
+  if (isUndoLeaseReleased(worker.lease_until)) {
+    // A dispatched claim waits for its worker; only the heartbeat ages it out.
+    return false;
+  }
+  const leaseUntil = readTimestampMs(worker.lease_until);
+  return leaseUntil === null || leaseUntil <= nowMs;
 }
 
 export function undoLeaseHolderPrefix(

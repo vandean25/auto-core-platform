@@ -13,12 +13,15 @@ import {
 import { ImportUndoService } from './import-undo.service.js';
 import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
 import {
+  isUndoLeaseReleased,
   readUndoOutcome,
   readUndoWorkerState,
   type ImportJobOptionsWithUndo,
   type ImportUndoOutcome,
   type ImportUndoWorkerState,
 } from './import-undo-worker.js';
+import { deterministicImportWorkerTaskId } from './import-worker-task-identity.js';
+import type { ImportWorkerTaskIdentity } from './import-worker-task-identity.js';
 
 const TENANT_ID = 'tenant-123';
 const JOB_ID = 'job-456';
@@ -185,6 +188,22 @@ function matchesStatus(
   return Array.isArray(list) ? list.includes(current) : true;
 }
 
+/** Resolves the `options_json: { path, equals }` filter the lease claim uses. */
+function matchesJsonPath(
+  options: Record<string, unknown>,
+  filter: unknown,
+): boolean {
+  if (filter === undefined) return true;
+  const { path, equals } = filter as { path?: string[]; equals?: unknown };
+  if (!Array.isArray(path)) return true;
+  let value: unknown = options;
+  for (const segment of path) {
+    if (value === null || typeof value !== 'object') return false;
+    value = (value as Record<string, unknown>)[segment];
+  }
+  return value === equals;
+}
+
 function applyJobUpdate(
   db: FakeDb,
   where: Record<string, unknown>,
@@ -200,6 +219,9 @@ function applyJobUpdate(
   ) {
     return { count: 0 };
   }
+  if (!matchesJsonPath(db.job.options_json, where.options_json)) {
+    return { count: 0 };
+  }
   if (typeof data.status === 'string') {
     db.job.status = data.status as ImportJobStatus;
   }
@@ -209,6 +231,9 @@ function applyJobUpdate(
   if (data.worker_recovery_seq) {
     db.job.worker_recovery_seq += 1;
   }
+  if (data.worker_claim_seq) {
+    db.job.worker_claim_seq += 1;
+  }
   db.job.updatedAt = new Date(db.job.updatedAt.getTime() + 1);
   return { count: 1 };
 }
@@ -216,10 +241,14 @@ function applyJobUpdate(
 function selectRows(db: FakeDb, where: Record<string, unknown>, take?: number) {
   const actions = (where.action as { in?: ImportRowAction[] } | undefined)?.in;
   const cursor = (where.row_no as { gt?: number } | undefined)?.gt;
+  const undoneFilter = where.undone_at as { not?: null } | null | undefined;
   const rows = db.rows
     .filter((row) => {
       if (actions && !actions.includes(row.action)) return false;
-      if (where.undone_at === null && row.undone_at !== null) return false;
+      if (undoneFilter === null && row.undone_at !== null) return false;
+      if (undoneFilter && 'not' in undoneFilter && row.undone_at === null) {
+        return false;
+      }
       if (typeof cursor === 'number' && row.row_no <= cursor) return false;
       return true;
     })
@@ -1458,6 +1487,220 @@ describe('ImportUndoService', () => {
         /^IMPORT_JOB_(BUSY|CONFLICT)$/,
       );
       expect(harness.cloudTasks.enqueueImportWorker).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('worker lease', () => {
+    /** Claims over HTTP with Cloud Tasks on, so no worker attempt runs inline. */
+    async function dispatchOnlyHarness(rowCount: number) {
+      const harness = createHarness({
+        rows: Array.from({ length: rowCount }, (_, index) =>
+          makeRow(index + 1, ImportRowAction.CREATE, `cust-${index + 1}`),
+        ),
+        totals: { create: rowCount, update: 0 },
+      });
+      harness.cloudTasks.isEnabled.mockReturnValue(true);
+      await withEnv(
+        { CLOUD_TASKS_TARGET_BASE_URL: 'https://api.example.test' },
+        () => harness.service.undoJobHttp(JOB_ID),
+      );
+      return harness;
+    }
+
+    function replaceLeaseToken(harness: Harness, leaseToken: string): void {
+      const options = harness.optionsJson();
+      const worker = options.undo_worker as ImportUndoWorkerState;
+      harness.db.job.options_json = {
+        ...options,
+        undo_worker: { ...worker, lease_token: leaseToken },
+      };
+    }
+
+    function taskIds(harness: Harness): string[] {
+      return harness.cloudTasks.enqueueImportWorker.mock.calls.map(
+        (call) =>
+          deterministicImportWorkerTaskId(
+            (call[0] as { taskIdentity: ImportWorkerTaskIdentity }).taskIdentity,
+          ),
+      );
+    }
+
+    it('lets exactly one of two concurrent worker attempts process the rows', async () => {
+      const harness = await dispatchOnlyHarness(4);
+
+      await withEnv({ IMPORT_UNDO_BATCH_SIZE: '2' }, () =>
+        Promise.all([
+          harness.service.runUndoWorkerAttempt({
+            tenantId: TENANT_ID,
+            jobId: JOB_ID,
+          }),
+          harness.service.runUndoWorkerAttempt({
+            tenantId: TENANT_ID,
+            jobId: JOB_ID,
+          }),
+        ]),
+      );
+
+      expect(harness.db.deletedEntityIds).toEqual([
+        'cust-1',
+        'cust-2',
+        'cust-3',
+        'cust-4',
+      ]);
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDONE);
+      expect(harness.undoOutcome()).toMatchObject({ deleted: 4, blocked: 0 });
+      expect(
+        harness.db.audits.filter((entry) => entry.entity_type === 'ImportJob'),
+      ).toHaveLength(1);
+    });
+
+    it('refuses to steal a live lease from a worker that is still running', async () => {
+      const harness = await dispatchOnlyHarness(4);
+      const options = harness.optionsJson();
+      const worker = options.undo_worker as ImportUndoWorkerState;
+      harness.db.job.options_json = {
+        ...options,
+        undo_worker: {
+          ...worker,
+          lease_until: new Date(Date.now() + 60_000).toISOString(),
+        },
+      };
+
+      await harness.service.runUndoWorkerAttempt({
+        tenantId: TENANT_ID,
+        jobId: JOB_ID,
+      });
+
+      expect(harness.db.deletedEntityIds).toHaveLength(0);
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDOING);
+      expect(harness.undoWorker()?.lease_token).toBe(worker.lease_token);
+    });
+
+    it('writes nothing once another worker has taken the token over', async () => {
+      const harness = await dispatchOnlyHarness(4);
+      let taken = false;
+      harness.db.beforeTransaction = () => {
+        if (taken) return;
+        taken = true;
+        replaceLeaseToken(harness, 'taken-over');
+      };
+
+      await withEnv({ IMPORT_UNDO_BATCH_SIZE: '2' }, () =>
+        harness.service.runUndoWorkerAttempt({
+          tenantId: TENANT_ID,
+          jobId: JOB_ID,
+        }),
+      );
+
+      expect(harness.db.deletedEntityIds).toHaveLength(0);
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDOING);
+      expect(harness.undoWorker()).toMatchObject({
+        lease_token: 'taken-over',
+        processed_rows: 0,
+        deleted_rows: 0,
+      });
+      expect(harness.undoOutcome()).toBeNull();
+    });
+
+    it('releases the lease on handoff so the next unit can claim it', async () => {
+      const harness = await dispatchOnlyHarness(6);
+      const enqueue = { CLOUD_TASKS_TARGET_BASE_URL: 'https://api.example.test' };
+
+      await withEnv(
+        { ...enqueue, IMPORT_UNDO_BATCH_SIZE: '2', IMPORT_UNDO_UNIT_ROW_BUDGET: '2' },
+        () =>
+          harness.service.runUndoWorkerAttempt({
+            tenantId: TENANT_ID,
+            jobId: JOB_ID,
+          }),
+      );
+      expect(harness.db.deletedEntityIds).toHaveLength(2);
+      expect(isUndoLeaseReleased(harness.undoWorker()?.lease_until)).toBe(true);
+
+      await withEnv({ ...enqueue, IMPORT_UNDO_BATCH_SIZE: '2' }, () =>
+        harness.service.runUndoWorkerAttempt({
+          tenantId: TENANT_ID,
+          jobId: JOB_ID,
+        }),
+      );
+
+      expect(harness.db.deletedEntityIds).toHaveLength(6);
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDONE);
+      expect(harness.undoOutcome()).toMatchObject({ deleted: 6, blocked: 0 });
+      expect(taskIds(harness)).toHaveLength(2);
+      expect(new Set(taskIds(harness)).size).toBe(2);
+    });
+
+    it('persists the claim sequence so a re-run dispatches a new task id', async () => {
+      const harness = await dispatchOnlyHarness(1);
+      expect(harness.db.job.worker_claim_seq).toBe(1);
+
+      harness.db.job.status = ImportJobStatus.PARTIALLY_UNDONE;
+      harness.db.job.updatedAt = new Date(
+        harness.db.job.updatedAt.getTime() + 1,
+      );
+      await withEnv(
+        { CLOUD_TASKS_TARGET_BASE_URL: 'https://api.example.test' },
+        () => harness.service.undoJobHttp(JOB_ID),
+      );
+
+      expect(harness.db.job.worker_claim_seq).toBe(2);
+      const ids = taskIds(harness);
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids).size).toBe(2);
+    });
+
+    it('skips the cron resume when a takeover landed after the stale read', async () => {
+      const harness = createHarness({
+        rows: Array.from({ length: 4 }, (_, index) =>
+          makeRow(index + 1, ImportRowAction.CREATE, `cust-${index + 1}`),
+        ),
+        totals: { create: 4, update: 0 },
+      });
+      harness.cloudTasks.isEnabled.mockReturnValue(true);
+      harness.db.killAfterTx = 1;
+      await withEnv({ IMPORT_UNDO_BATCH_SIZE: '2' }, () =>
+        harness.service.undoJob(JOB_ID),
+      );
+      harness.db.killAfterTx = null;
+      expect(harness.db.job.status).toBe(ImportJobStatus.UNDOING);
+      expireUndoClaim(harness);
+      const claimedToken = harness.undoWorker()?.lease_token;
+      const enqueuedBefore = harness.cloudTasks.enqueueImportWorker.mock.calls
+        .length;
+      (harness.prisma as any).importJob.findFirst.mockResolvedValueOnce({
+        ...harness.db.job,
+        updatedAt: new Date(harness.db.job.updatedAt.getTime() - 1000),
+      });
+
+      const resumed = await withEnv(
+        { CLOUD_TASKS_TARGET_BASE_URL: 'https://api.example.test' },
+        () => harness.service.resumeStaleUndoJob(TENANT_ID, JOB_ID),
+      );
+
+      expect(resumed).toBe(false);
+      expect(harness.db.job.worker_recovery_seq).toBe(0);
+      expect(harness.undoWorker()?.lease_token).toBe(claimedToken);
+      expect(harness.cloudTasks.enqueueImportWorker).toHaveBeenCalledTimes(
+        enqueuedBefore,
+      );
+    });
+
+    it('releases a claimless UNDOING job to PARTIALLY_UNDONE once rows are undone', async () => {
+      const harness = createHarness({
+        rows: [
+          makeRow(1, ImportRowAction.CREATE, 'cust-1'),
+          makeRow(2, ImportRowAction.CREATE, 'cust-2'),
+        ],
+        totals: { create: 2, update: 0 },
+        status: ImportJobStatus.UNDOING,
+        options: { undo_worker: { lease_token: '', actor_user_id: '' } },
+      });
+      harness.db.rows[0].undone_at = new Date();
+
+      await harness.service.recoverStaleUndoJobs();
+
+      expect(harness.db.job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
     });
   });
 });
