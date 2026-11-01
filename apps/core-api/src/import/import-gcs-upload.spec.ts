@@ -148,7 +148,12 @@ describe('GCS import upload retry', () => {
     jest.spyOn((filter as unknown as { logger: { error: () => void } }).logger, 'error').mockImplementation(() => undefined);
     filter.catch(http, {
       switchToHttp: () => ({
-        getResponse: () => ({ status: () => ({ json }) }),
+        getResponse: () => ({
+          status: () => ({ json }),
+          getHeader: () => undefined,
+          setHeader: jest.fn(),
+          headersSent: false,
+        }),
         getRequest: () => ({ headers: { 'x-request-id': 'req-764' }, params: {} }),
       }),
     } as never);

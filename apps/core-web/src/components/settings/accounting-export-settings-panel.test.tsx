@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -147,6 +147,20 @@ describe('AccountingExportSettingsPanel', () => {
     )
 
     expect(await screen.findByRole('cell', { name: 'Ada Admin' })).toBeInTheDocument()
+  })
+
+  it('keeps the export history info trigger out of the heading name', async () => {
+    render(
+      <MemoryRouter>
+        <AccountingExportSettingsPanel canManageExports={true} />
+      </MemoryRouter>,
+    )
+
+    const heading = await screen.findByRole('heading', {
+      level: 3,
+      name: deSettings.accountingExport.history.title,
+    })
+    expect(within(heading).queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('clears preview after profile autosave so Generate stays disabled', async () => {

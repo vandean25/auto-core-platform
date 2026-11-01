@@ -81,9 +81,8 @@ export function PushPreferencesCard() {
                 disabled={!data || update.isPending}
                 onCheckedChange={(checked) => void toggleEvent(event, checked === true)}
               />
-              <Label htmlFor={`push-event-${event}`} className="grid gap-1 font-normal">
-                <span className="font-medium">{t(`notifications.events.${event}.label`)}</span>
-                <span className="text-slate-500">{t(`notifications.events.${event}.hint`)}</span>
+              <Label htmlFor={`push-event-${event}`} className="font-medium cursor-pointer">
+                {t(`notifications.events.${event}.label`)}
               </Label>
             </div>
           ))}

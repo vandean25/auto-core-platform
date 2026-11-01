@@ -66,27 +66,41 @@ function createBodyDecompressionHttpError(options: {
   return error;
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 describe('GlobalExceptionFilter', () => {
   let filter: InstanceType<typeof GlobalExceptionFilter>;
   let mockStatus: jest.Mock;
   let mockJson: jest.Mock;
+  let mockGetHeader: jest.Mock;
+  let mockSetHeader: jest.Mock;
   let mockHost: ArgumentsHost;
   let mockLoggerError: jest.SpyInstance;
   let mockLoggerWarn: jest.SpyInstance;
+
+  /** Response stand-in for a request whose headers have not been written yet. */
+  const buildHost = (request: object = {}) =>
+    ({
+      switchToHttp: () => ({
+        getResponse: () => ({
+          status: mockStatus,
+          getHeader: mockGetHeader,
+          setHeader: mockSetHeader,
+          headersSent: false,
+        }),
+        getRequest: () => request,
+      }),
+    }) as unknown as ArgumentsHost;
 
   beforeEach(() => {
     filter = new GlobalExceptionFilter();
     mockJson = jest.fn();
     mockStatus = jest.fn().mockReturnValue({ json: mockJson });
+    mockGetHeader = jest.fn().mockReturnValue(undefined);
+    mockSetHeader = jest.fn();
 
-    mockHost = {
-      switchToHttp: () => ({
-        getResponse: () => ({
-          status: mockStatus,
-        }),
-        getRequest: () => ({}),
-      }),
-    } as unknown as ArgumentsHost;
+    mockHost = buildHost();
 
     mockLoggerError = jest.spyOn((filter as any).logger, 'error').mockImplementation();
     mockLoggerWarn = jest.spyOn((filter as any).logger, 'warn').mockImplementation();
@@ -276,7 +290,9 @@ describe('GlobalExceptionFilter', () => {
       expect(mockJson).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
-          message: 'Something went wrong',
+          message: expect.stringMatching(
+            /^Something went wrong \(ref: [0-9a-f-]{36}\)$/,
+          ),
         }),
       );
       expect(mockJson.mock.calls[0][0]).toMatchObject({ code: 'HTTP_500' });
@@ -592,18 +608,39 @@ describe('GlobalExceptionFilter', () => {
       const exception = createBodyParserHttpError({
         status: 415,
         type: 'encoding.unsupported',
-        message: 'unsupported content encoding "gzip"',
+        message: 'unsupported content encoding "compress"',
       });
       filter.catch(exception, mockHost);
 
       expect(mockStatus).toHaveBeenCalledWith(415);
       expect(mockJson).toHaveBeenCalledWith({
         statusCode: 415,
-        message: 'unsupported content encoding "gzip"',
+        message: 'unsupported content encoding "compress"',
         error: 'Unsupported Media Type',
         code: 'HTTP_415',
       });
       expect(mockCaptureException).not.toHaveBeenCalled();
+    });
+
+    it('logs and echoes a request id on the 415 encoding.unsupported path (AUT-746)', () => {
+      const exception = createBodyParserHttpError({
+        status: 415,
+        type: 'encoding.unsupported',
+        message: 'unsupported content encoding "compress"',
+      });
+      filter.catch(exception, mockHost);
+
+      const loggedRequestId = JSON.parse(
+        mockLoggerWarn.mock.calls[0][0] as string,
+      ).requestId as string;
+      expect(loggedRequestId).toMatch(UUID_PATTERN);
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'encoding.unsupported',
+          requestId: loggedRequestId,
+        }),
+      );
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', loggedRequestId);
     });
 
     it('keeps expose=false 413 errors as 500 with Sentry capture', () => {
@@ -708,6 +745,37 @@ describe('GlobalExceptionFilter', () => {
       expect(mockLoggerError).not.toHaveBeenCalled();
     });
 
+    it('maps a corrupt brotli body to 400 with a generic message (AUT-746)', () => {
+      const exception = createBodyDecompressionHttpError({
+        code: 'ERR__ERROR_FORMAT_PADDING_2',
+        message: 'Decompression failed',
+      });
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-brotli',
+          traceId: '00000000-0000-4000-8000-000000000014',
+          source: 'API',
+        });
+        filter.catch(exception, mockHost);
+      });
+
+      expect(mockStatus).toHaveBeenCalledWith(400);
+      expect(mockJson).toHaveBeenCalledWith({
+        statusCode: 400,
+        message: 'Invalid request body encoding',
+        error: 'Bad Request',
+        code: 'HTTP_400',
+      });
+      expect(mockCaptureException).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'body_decompression_error',
+          requestId: 'req-brotli',
+        }),
+      );
+      expect(mockLoggerError).not.toHaveBeenCalled();
+    });
+
     it('keeps a bare zlib error without status as 500 with Sentry capture', () => {
       mockCaptureException.mockReturnValue('evt-zlib');
       const exception = new Error('incorrect header check') as Error & {
@@ -726,6 +794,100 @@ describe('GlobalExceptionFilter', () => {
         }),
       );
       expect(mockLoggerWarn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('request id when the body parsers fail (AUT-746)', () => {
+    const bodyParseFailure = () =>
+      createBodyParserHttpError({
+        status: 400,
+        type: 'entity.parse.failed',
+        message: 'Unexpected end of JSON input',
+      });
+
+    const loggedRequestId = () =>
+      JSON.parse(mockLoggerWarn.mock.calls[0][0] as string).requestId as string;
+
+    it('generates a request id, logs it and sets it on the response', () => {
+      filter.catch(bodyParseFailure(), mockHost);
+
+      expect(loggedRequestId()).toMatch(UUID_PATTERN);
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', loggedRequestId());
+      expect(mockJson.mock.calls[0][0]).not.toHaveProperty('requestId');
+    });
+
+    it('logs and echoes a validated client request id', () => {
+      filter.catch(
+        bodyParseFailure(),
+        buildHost({ headers: { 'x-request-id': ['  ', ' client-req-746 '] } }),
+      );
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'entity.parse.failed',
+          requestId: 'client-req-746',
+        }),
+      );
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', 'client-req-746');
+    });
+
+    it('ignores a whitespace-only client request id and generates one', () => {
+      filter.catch(
+        bodyParseFailure(),
+        buildHost({ headers: { 'x-request-id': '   ' } }),
+      );
+
+      expect(loggedRequestId()).toMatch(UUID_PATTERN);
+    });
+
+    it('ignores an oversized client request id and generates one', () => {
+      filter.catch(
+        bodyParseFailure(),
+        buildHost({ headers: { 'x-request-id': 'a'.repeat(129) } }),
+      );
+
+      const generated = loggedRequestId();
+      expect(generated).toMatch(UUID_PATTERN);
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', generated);
+    });
+
+    it('ignores a client request id with a disallowed character and generates one', () => {
+      filter.catch(
+        bodyParseFailure(),
+        buildHost({ headers: { 'x-request-id': 'bad id/slash' } }),
+      );
+
+      const generated = loggedRequestId();
+      expect(generated).toMatch(UUID_PATTERN);
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', generated);
+    });
+
+    it('falls back to the response x-request-id header when ALS and inbound are both missing', () => {
+      mockGetHeader.mockReturnValue('req-echoed-from-middleware');
+      filter.catch(bodyParseFailure(), mockHost);
+
+      expect(loggedRequestId()).toBe('req-echoed-from-middleware');
+    });
+
+    it('keeps the middleware request id and does not overwrite the header', () => {
+      mockGetHeader.mockReturnValue('req-from-middleware');
+
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-from-middleware',
+          traceId: '00000000-0000-4000-8000-000000000013',
+          source: 'API',
+        });
+        filter.catch(bodyParseFailure(), mockHost);
+      });
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'entity.parse.failed',
+          requestId: 'req-from-middleware',
+        }),
+      );
+      expect(mockSetHeader).not.toHaveBeenCalledWith('x-request-id', expect.anything());
     });
   });
 
@@ -1117,31 +1279,33 @@ describe('GlobalExceptionFilter', () => {
         });
       });
 
-      it('leaves optional log fields and the request id out when there is no context', () => {
+      it('generates a request id and keeps tenant and actor out when there is no context', () => {
         const exception = new HttpException(
           'Boom',
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
         filter.catch(exception, mockHost);
 
-        expect(mockLoggerError).toHaveBeenCalledWith(
-          JSON.stringify({
-            type: 'http_error',
-            statusCode: 500,
-            errorName: 'HttpException',
-            message: 'Boom',
-          }),
-          exception.stack,
-        );
+        const logged = JSON.parse(mockLoggerError.mock.calls[0][0] as string);
+        expect(logged).toMatchObject({
+          type: 'http_error',
+          statusCode: 500,
+          errorName: 'HttpException',
+          message: 'Boom',
+        });
+        expect(logged.requestId).toMatch(UUID_PATTERN);
+        expect(logged).not.toHaveProperty('tenantId');
+        expect(logged).not.toHaveProperty('actorId');
         expect(body()).toEqual({
           statusCode: 500,
-          message: 'Something went wrong',
+          message: `Something went wrong (ref: ${logged.requestId})`,
           error: 'Internal Server Error',
           code: 'HTTP_500',
+          requestId: logged.requestId,
         });
       });
 
-      it('logs tenant and actor without a request id when only the user is known', () => {
+      it('logs tenant and actor together with a generated request id when only the user is known', () => {
         const exception = new HttpException(
           'Boom',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1150,18 +1314,16 @@ describe('GlobalExceptionFilter', () => {
           filter.catch(exception, mockHost),
         );
 
-        expect(mockLoggerError).toHaveBeenCalledWith(
-          JSON.stringify({
-            type: 'http_error',
-            statusCode: 500,
-            errorName: 'HttpException',
-            message: 'Boom',
-            tenantId: 'tenant-8',
-            actorId: 'user-8',
-          }),
-          exception.stack,
-        );
-        expect(body()).not.toHaveProperty('requestId');
+        const logged = JSON.parse(mockLoggerError.mock.calls[0][0] as string);
+        expect(logged.requestId).toMatch(UUID_PATTERN);
+        expect(logged).toMatchObject({
+          type: 'http_error',
+          statusCode: 500,
+          errorName: 'HttpException',
+          message: 'Boom',
+          tenantId: 'tenant-8',
+          actorId: 'user-8',
+        });
       });
 
       it('warns without the stack and keeps code, message and details for a client-safe 5xx', () => {
@@ -1257,7 +1419,7 @@ describe('GlobalExceptionFilter', () => {
         expect(mockCaptureException).toHaveBeenCalledTimes(1);
         expect(mockCaptureException.mock.calls[0]?.[0]).toBe(exception);
         expect(body()).toMatchObject({
-          message: 'Something went wrong',
+          message: expect.stringMatching(/^Something went wrong \(ref: /),
           eventId: 'evt-prod',
         });
       });
@@ -1307,7 +1469,12 @@ describe('GlobalExceptionFilter', () => {
         ({
           switchToHttp: () => ({
             getRequest: () => request,
-            getResponse: () => ({ status: mockStatus, setHeader }),
+            getResponse: () => ({
+              status: mockStatus,
+              setHeader,
+              getHeader: mockGetHeader,
+              headersSent: false,
+            }),
           }),
         }) as unknown as ArgumentsHost;
 
@@ -1330,7 +1497,11 @@ describe('GlobalExceptionFilter', () => {
           hostWith({ method: 'GET', path: '/api/invoices/1' }, setHeader),
         );
 
-        expect(setHeader).not.toHaveBeenCalled();
+        expect(setHeader).not.toHaveBeenCalledWith(
+          'Cache-Control',
+          expect.anything(),
+        );
+        expect(setHeader).not.toHaveBeenCalledWith('Pragma', expect.anything());
       });
     });
   });

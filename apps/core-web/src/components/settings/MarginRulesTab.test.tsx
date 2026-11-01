@@ -1,3 +1,4 @@
+import deSettings from '../../../../../locales/de/settings.json'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -299,4 +300,14 @@ describe('MarginRulesTab', () => {
     expect(toast.error).toHaveBeenCalledWith('Aufschlag darf nicht negativ sein')
     expect(createMutation.mutateAsync).not.toHaveBeenCalled()
   })
-})
+  it('displays the top-to-bottom evaluation rule in an info popover when triggered', async () => {
+    renderTab()
+
+    const infoBtn = screen.getByRole('button', { name: deSettings.marginRules.activeRules.infoAria })
+    expect(infoBtn).toBeInTheDocument()
+    expect(screen.queryByText(deSettings.marginRules.activeRules.description)).not.toBeInTheDocument()
+
+    fireEvent.click(infoBtn)
+    expect(screen.getByText(deSettings.marginRules.activeRules.description)).toBeInTheDocument()
+  })
+});

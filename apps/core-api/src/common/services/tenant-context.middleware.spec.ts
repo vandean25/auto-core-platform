@@ -95,6 +95,42 @@ describe('TenantContextMiddleware', () => {
       });
     });
 
+    it('generates a UUID when the inbound x-request-id exceeds 128 characters', (done) => {
+      const req = buildRequest({ 'x-request-id': 'a'.repeat(129) });
+      const { res, headers } = buildResponse();
+
+      middleware.use(req, res, () => {
+        const meta = TenantContextStorage.getRequestMeta();
+        expect(meta?.requestId).toMatch(UUID_REGEX);
+        expect(headers['x-request-id']).toMatch(UUID_REGEX);
+        done();
+      });
+    });
+
+    it('generates a UUID when the inbound x-request-id has a disallowed character', (done) => {
+      const req = buildRequest({ 'x-request-id': 'bad id with spaces' });
+      const { res, headers } = buildResponse();
+
+      middleware.use(req, res, () => {
+        const meta = TenantContextStorage.getRequestMeta();
+        expect(meta?.requestId).toMatch(UUID_REGEX);
+        expect(headers['x-request-id']).toMatch(UUID_REGEX);
+        done();
+      });
+    });
+
+    it('generates a UUID when the only inbound x-request-id value is oversized', (done) => {
+      const req = buildRequest({ 'x-request-id': ['   ', 'a'.repeat(129)] });
+      const { res, headers } = buildResponse();
+
+      middleware.use(req, res, () => {
+        const meta = TenantContextStorage.getRequestMeta();
+        expect(meta?.requestId).toMatch(UUID_REGEX);
+        expect(headers['x-request-id']).toMatch(UUID_REGEX);
+        done();
+      });
+    });
+
     it('generates distinct IDs for concurrent requests', (done) => {
       let id1: string | undefined;
       let id2: string | undefined;
