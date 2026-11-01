@@ -198,6 +198,22 @@ describe('GlobalExceptionFilter (e2e)', () => {
     expect(response.headers['x-request-id']).toMatch(REQUEST_ID_PATTERN);
   });
 
+  it('returns 415 with an x-request-id when the body uses an unsupported content encoding (AUT-746)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/customers')
+      .set('Content-Type', 'application/json')
+      .set('Content-Encoding', 'br')
+      .send(Buffer.from('not brotli'));
+
+    expect(response.status).toBe(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    expect(response.body).toMatchObject({
+      statusCode: HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+      error: 'Unsupported Media Type',
+      code: 'HTTP_415',
+    });
+    expect(response.headers['x-request-id']).toMatch(REQUEST_ID_PATTERN);
+  });
+
   it('keeps leaseExpiresAt on an IMPORT_APPLY_IN_PROGRESS 409 response (AUT-796)', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/import-apply-conflict-probe/live-lease')

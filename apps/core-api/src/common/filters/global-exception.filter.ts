@@ -29,6 +29,7 @@ import {
   PRISMA_REQUEST_ERROR_CODES,
   resolveHttpStatusFallbackCode,
 } from '../errors/http-status-error-codes.js';
+import { sanitizeInboundRequestId } from '../utils/request-id.util.js';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
@@ -70,18 +71,6 @@ const BODY_PARSER_HTTP_ERROR_TYPES = new Set([
 const BODY_DECOMPRESSION_ERROR_MESSAGE = 'Invalid request body encoding';
 
 const REQUEST_ID_HEADER = 'x-request-id';
-
-function inboundRequestId(request: Request): string | undefined {
-  const value = request.headers?.[REQUEST_ID_HEADER];
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => entry.trim()).find((entry) => entry.length > 0);
-  }
-  return undefined;
-}
 
 const HTTP_STATUS_DISPLAY_NAMES: Readonly<Record<number, string>> = {
   400: 'Bad Request',
@@ -145,7 +134,7 @@ function resolveBodyDecompressionError(
   logger.warn(
     JSON.stringify({
       type: 'body_decompression_error',
-      ...(context.requestId ? { requestId: context.requestId } : {}),
+      requestId: context.requestId,
     }),
   );
 
@@ -194,21 +183,33 @@ function whenEvent(eventId: string | undefined): { eventId?: string } {
 
 function whenRequestId(
   status: number,
-  requestId: string | undefined,
+  requestId: string,
 ): { requestId?: string } {
-  if (status < 500 || !requestId) {
+  if (status < 500) {
     return {};
   }
   return { requestId };
 }
 
 /** Body-parser failures reach the filter before the middleware ran, so a correlation ID can still be missing. */
-function buildErrorRequestContext(request: Request): ErrorRequestContext {
+function pickEchoedRequestId(response: Response): string | undefined {
+  const value = response.getHeader(REQUEST_ID_HEADER);
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function buildErrorRequestContext(
+  request: Request,
+  response: Response,
+): ErrorRequestContext {
   const user = TenantContextStorage.getUser();
   const requestMeta = TenantContextStorage.getRequestMeta();
+  const requestId =
+    requestMeta?.requestId ??
+    sanitizeInboundRequestId(request.headers?.[REQUEST_ID_HEADER]) ??
+    pickEchoedRequestId(response) ??
+    randomUUID();
   return {
-    requestId:
-      requestMeta?.requestId ?? inboundRequestId(request) ?? randomUUID(),
+    requestId,
     tenantId: user?.tenantId,
     actorId: user?.userId,
   };
@@ -238,7 +239,7 @@ function resolveBodyParserHttpError(
   logger.warn(
     JSON.stringify({
       type: parsed.type,
-      ...(context.requestId ? { requestId: context.requestId } : {}),
+      requestId: context.requestId,
     }),
   );
 
@@ -272,7 +273,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
-    const context = buildErrorRequestContext(request);
+    const context = buildErrorRequestContext(request, response);
 
     const resolved = this.resolveException(exception, context);
     const eventId = this.captureSentryIfInternal(
@@ -391,7 +392,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   ): void {
     const logPayload = JSON.stringify({
       type: 'http_error',
-      ...(context.requestId ? { requestId: context.requestId } : {}),
+      requestId: context.requestId,
       statusCode: exception.getStatus(),
       errorName: exception.constructor.name,
       message: exception.message,
@@ -412,7 +413,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   ): ResolvedError {
     const logPayload = {
       type: 'prisma_error',
-      ...(context.requestId ? { requestId: context.requestId } : {}),
+      requestId: context.requestId,
       code: exception.code,
       meta: exception.meta ?? {},
       ...(context.tenantId ? { tenantId: context.tenantId } : {}),
@@ -480,7 +481,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   ): ResolvedError {
     const logPayload = {
       type: 'http_error',
-      ...(context.requestId ? { requestId: context.requestId } : {}),
+      requestId: context.requestId,
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       errorName: exception.constructor.name,
       message: exception.message,
@@ -506,7 +507,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   ): ResolvedError {
     const logPayload = {
       type: 'unknown_error',
-      ...(context.requestId ? { requestId: context.requestId } : {}),
+      requestId: context.requestId,
       error: String(exception),
       ...(context.tenantId ? { tenantId: context.tenantId } : {}),
       ...(context.actorId ? { actorId: context.actorId } : {}),
@@ -520,10 +521,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   /** The message for a masked 5xx. It names the request id so the user can quote it to support. */
-  private serverErrorMessage(requestId?: string): string {
-    return requestId
-      ? `Something went wrong (ref: ${requestId})`
-      : 'Something went wrong';
+  private serverErrorMessage(requestId: string): string {
+    return `Something went wrong (ref: ${requestId})`;
   }
 
   private captureSentryIfInternal(
@@ -537,10 +536,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     try {
       const jobId = readImportJobId(exception, request);
-      const tags: Record<string, string> = {};
-      if (context.requestId) {
-        tags.requestId = context.requestId;
-      }
+      const tags: Record<string, string> = { requestId: context.requestId };
       if (jobId) {
         tags.jobId = jobId;
       }

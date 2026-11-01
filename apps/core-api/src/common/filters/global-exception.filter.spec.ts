@@ -622,6 +622,27 @@ describe('GlobalExceptionFilter', () => {
       expect(mockCaptureException).not.toHaveBeenCalled();
     });
 
+    it('logs and echoes a request id on the 415 encoding.unsupported path (AUT-746)', () => {
+      const exception = createBodyParserHttpError({
+        status: 415,
+        type: 'encoding.unsupported',
+        message: 'unsupported content encoding "br"',
+      });
+      filter.catch(exception, mockHost);
+
+      const loggedRequestId = JSON.parse(
+        mockLoggerWarn.mock.calls[0][0] as string,
+      ).requestId as string;
+      expect(loggedRequestId).toMatch(UUID_PATTERN);
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'encoding.unsupported',
+          requestId: loggedRequestId,
+        }),
+      );
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', loggedRequestId);
+    });
+
     it('keeps expose=false 413 errors as 500 with Sentry capture', () => {
       mockCaptureException.mockReturnValue('evt-bp');
       const exception = createBodyParserHttpError({
@@ -786,6 +807,35 @@ describe('GlobalExceptionFilter', () => {
       );
 
       expect(loggedRequestId()).toMatch(UUID_PATTERN);
+    });
+
+    it('ignores an oversized client request id and generates one', () => {
+      filter.catch(
+        bodyParseFailure(),
+        buildHost({ headers: { 'x-request-id': 'a'.repeat(129) } }),
+      );
+
+      const generated = loggedRequestId();
+      expect(generated).toMatch(UUID_PATTERN);
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', generated);
+    });
+
+    it('ignores a client request id with a disallowed character and generates one', () => {
+      filter.catch(
+        bodyParseFailure(),
+        buildHost({ headers: { 'x-request-id': 'bad id/slash' } }),
+      );
+
+      const generated = loggedRequestId();
+      expect(generated).toMatch(UUID_PATTERN);
+      expect(mockSetHeader).toHaveBeenCalledWith('x-request-id', generated);
+    });
+
+    it('falls back to the response x-request-id header when ALS and inbound are both missing', () => {
+      mockGetHeader.mockReturnValue('req-echoed-from-middleware');
+      filter.catch(bodyParseFailure(), mockHost);
+
+      expect(loggedRequestId()).toBe('req-echoed-from-middleware');
     });
 
     it('keeps the middleware request id and does not overwrite the header', () => {
