@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { changeUiLanguage } from '@/lib/i18n'
 import { TyreMeasurementForm } from './TyreMeasurementForm'
 
 function fillTreads() {
@@ -95,6 +96,47 @@ describe('TyreMeasurementForm', () => {
     fireEvent.change(screen.getByLabelText('Vorne links Innen'), { target: { value } })
     fireEvent.submit(container.querySelector('form')!)
     await waitFor(() => expect(screen.getByLabelText('Vorne links Innen')).toHaveAttribute('aria-invalid', 'true'))
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('validates tread depth for 25 and -1 with localized inline messages in German (DE)', async () => {
+    const onSave = vi.fn()
+    const { container } = render(<TyreMeasurementForm onSave={onSave} />)
+    expect(container.querySelector('form')).toHaveAttribute('noValidate')
+    fillTreads()
+    fireEvent.change(screen.getByLabelText('Vorne links Innen'), { target: { value: '25' } })
+    fireEvent.change(screen.getByLabelText('Vorne links Mitte'), { target: { value: '-1' } })
+    fireEvent.submit(container.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('Profiltiefe max. 20 mm')).toBeVisible()
+      expect(screen.getByText('Profiltiefe min. 0 mm')).toBeVisible()
+    })
+    expect(screen.getByLabelText('Vorne links Innen')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Vorne links Mitte')).toHaveAttribute('aria-invalid', 'true')
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('validates tread depth for 25 and -1 with localized inline messages in English (EN)', async () => {
+    await changeUiLanguage('en')
+    const onSave = vi.fn()
+    const { container } = render(<TyreMeasurementForm onSave={onSave} />)
+    expect(container.querySelector('form')).toHaveAttribute('noValidate')
+    for (const position of ['Front left', 'Front right', 'Rear left', 'Rear right']) {
+      for (const point of ['Inner', 'Middle', 'Outer']) {
+        fireEvent.change(screen.getByLabelText(`${position} ${point}`), { target: { value: '5.25' } })
+      }
+    }
+    fireEvent.change(screen.getByLabelText('Front left Inner'), { target: { value: '25' } })
+    fireEvent.change(screen.getByLabelText('Front left Middle'), { target: { value: '-1' } })
+    fireEvent.submit(container.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('Tread depth max. 20 mm')).toBeVisible()
+      expect(screen.getByText('Tread depth min. 0 mm')).toBeVisible()
+    })
+    expect(screen.getByLabelText('Front left Inner')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Front left Middle')).toHaveAttribute('aria-invalid', 'true')
     expect(onSave).not.toHaveBeenCalled()
   })
 
