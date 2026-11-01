@@ -93,7 +93,7 @@ export function projectTyreSetStateFromEvents(
     occurred_at: Date;
   }>,
 ): TyreSetEventPatch {
-  let status: TyreSetStatus = 'RETURNED';
+  let status: TyreSetStatus = 'NEW';
   let location_id: string | null = null;
   let stored_since: Date | null = null;
 

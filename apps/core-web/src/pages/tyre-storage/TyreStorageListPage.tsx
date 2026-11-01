@@ -228,6 +228,7 @@ export default function TyreStorageListPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>{t('tyreStorage.list.filters.all')}</SelectItem>
+                <SelectItem value="NEW">{t('tyreStorage.list.filters.new')}</SelectItem>
                 <SelectItem value="IN_STORAGE">{t('tyreStorage.list.filters.inStorage')}</SelectItem>
                 <SelectItem value="RETURNED">{t('tyreStorage.list.filters.returned')}</SelectItem>
                 <SelectItem value="DISPOSED">{t('tyreStorage.list.filters.disposed')}</SelectItem>

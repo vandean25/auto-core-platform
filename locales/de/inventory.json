@@ -242,6 +242,7 @@
         "winter": "Winter",
         "summer": "Sommer",
         "allSeason": "Ganzjahres",
+        "new": "Nicht eingelagert",
         "inStorage": "Eingelagert",
         "returned": "Zurückgegeben",
         "disposed": "Entsorgt"
