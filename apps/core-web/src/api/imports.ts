@@ -521,7 +521,7 @@ export function useImportUndoPreview(jobId: string | null, enabled = true) {
         method: 'POST',
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load undo preview'))
+        return throwImportResponseError(response, 'Failed to load undo preview')
       }
       return response.json() as Promise<ImportUndoPreviewResponse>
     },
@@ -546,7 +546,7 @@ export function useUndoImportJob() {
         body: payload ? JSON.stringify(payload) : undefined,
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to undo import'))
+        return throwImportResponseError(response, 'Failed to undo import')
       }
       return response.json() as Promise<ImportJob>
     },

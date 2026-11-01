@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -101,7 +102,7 @@ describe('ImportUndoPreviewService', () => {
     await expect(service.previewUndo(jobId)).rejects.toThrow(NotFoundException);
   });
 
-  it('throws BadRequestException when job is not APPLIED or FAILED with applied rows', async () => {
+  it('throws ConflictException when job is not APPLIED or FAILED with applied rows', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
       id: jobId,
       tenant_id: tenantId,
@@ -109,7 +110,7 @@ describe('ImportUndoPreviewService', () => {
       totals_json: { create: 0, update: 0 },
     });
 
-    await expect(service.previewUndo(jobId)).rejects.toThrow(BadRequestException);
+    await expect(service.previewUndo(jobId)).rejects.toThrow(ConflictException);
   });
 
   it('throws BadRequestException when job is already UNDONE', async () => {
@@ -312,5 +313,63 @@ describe('ImportUndoPreviewService', () => {
     await expect(service.previewUndo(jobId)).rejects.toMatchObject({
       response: { code: 'IMPORT_JOB_EXPIRED' },
     });
+  });
+
+  it('marks rows without entity_id as LEGACY_JOB_NO_ENTITY_LINK instead of UNKNOWN', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.CUSTOMER,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 1, update: 0 },
+    });
+    mockPrisma.importJobRow.findMany
+      .mockResolvedValueOnce([
+        {
+          row_no: 1,
+          action: ImportRowAction.CREATE,
+          entity_id: null,
+          normalized_json: { first_name: 'Legacy' },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const preview = await service.previewUndo(jobId);
+
+    expect(preview.canUndo).toBe(false);
+    expect(preview.counts.blocked).toBe(1);
+    expect(preview.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    );
+  });
+
+  it('marks rows whose eligibility check is missing as ENTITY_NOT_FOUND instead of UNKNOWN', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.CUSTOMER,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 1, update: 0 },
+    });
+    mockPrisma.importJobRow.findMany
+      .mockResolvedValueOnce([
+        {
+          row_no: 1,
+          action: ImportRowAction.CREATE,
+          entity_id: 'cust-unknown',
+          normalized_json: { first_name: 'Unknown' },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockPrisma.customer.findMany.mockResolvedValue([]);
+
+    const preview = await service.previewUndo(jobId);
+
+    expect(preview.counts.blocked).toBe(1);
+    expect(preview.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.ENTITY_NOT_FOUND,
+    );
   });
 });

@@ -739,13 +739,13 @@ describe('Import Undo (e2e)', () => {
       UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONSENT,
     );
 
-    // Attempting undo on custJob must leave customer in DB and return PARTIALLY_UNDONE
+    // Attempting undo on custJob must leave customer in DB and return APPLIED because 0 rows were deleted or restored
     const undoCust = await request(app.getHttpServer())
       .post(`/api/imports/${custJob.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
-    expect(undoCust.body.status).toBe('PARTIALLY_UNDONE');
+    expect(undoCust.body.status).toBe('APPLIED');
 
     const custStillExists = await tenantPrisma.customer.findFirst({
       where: { id: customer.id },
@@ -799,14 +799,14 @@ describe('Import Undo (e2e)', () => {
       UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT,
     );
 
-    // Undo without confirmedEntityIds: conflict is skipped
+    // Undo without confirmedEntityIds: conflict is skipped, deleted + restored is 0, so status returns to APPLIED
     const undoWithoutConfirm = await request(app.getHttpServer())
       .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .send({ confirmedEntityIds: [] })
       .expect(200);
 
-    expect(undoWithoutConfirm.body.status).toBe('PARTIALLY_UNDONE');
+    expect(undoWithoutConfirm.body.status).toBe('APPLIED');
 
     const stillExists = await tenantPrisma.customer.findFirst({
       where: { id: createdCust.id },
@@ -885,7 +885,10 @@ describe('Import Undo (e2e)', () => {
       .set('Authorization', adminHeader)
       .expect(200);
 
-    expect(undoRes.body.status).toBe('PARTIALLY_UNDONE');
+    expect(undoRes.body.status).toBe('APPLIED');
+    expect(undoRes.body.options?.undo?.blocked).toBe(1);
+    expect(undoRes.body.options?.undo?.deleted).toBe(0);
+    expect(undoRes.body.options?.undo?.restored).toBe(0);
 
     // Verify customer is untouched
     const untouchedCustomer = await tenantPrisma.customer.findFirst({
@@ -902,6 +905,110 @@ describe('Import Undo (e2e)', () => {
     expect(Number(checkInvoice.total_net)).toBe(500);
     expect(checkInvoice.items).toHaveLength(1);
     expect(checkInvoice.items[0].description).toBe('Immutable Service Line');
+  });
+
+  it('legacy job: job with all rows entity_id null gives 409 IMPORT_JOB_NOT_UNDOABLE on POST undo, status stays APPLIED, no undo_worker or options.undo written', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const job = await tenantPrisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        entity_type: 'CUSTOMER',
+        source_system: 'legacy_dms',
+        file_name: 'legacy_customers.csv',
+        file_sha256: 'legacy-sha',
+        status: ImportJobStatus.APPLIED,
+        mapping_json: customerMapping,
+        totals_json: { create: 2, update: 0 },
+        created_by: 'admin-user',
+        appliedAt: new Date(),
+        rows: {
+          create: [
+            {
+              tenant_id: tenant.tenantId,
+              row_no: 1,
+              action: 'CREATE',
+              entity_id: null,
+              normalized_json: { first_name: 'Legacy1' },
+            },
+            {
+              tenant_id: tenant.tenantId,
+              row_no: 2,
+              action: 'CREATE',
+              entity_id: null,
+              normalized_json: { first_name: 'Legacy2' },
+            },
+          ],
+        },
+      },
+    });
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+
+    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
+    expect(undoRes.body.details?.reason).toBe(
+      UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    );
+
+    const checkJob = await tenantPrisma.importJob.findUniqueOrThrow({
+      where: { id: job.id },
+    });
+    expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
+    const opts = (checkJob.options_json ?? {}) as Record<string, unknown>;
+    expect(opts.undo_worker).toBeUndefined();
+    expect(opts.undo).toBeUndefined();
+  });
+
+  it('downstream block: job where every row is blocked by a downstream reference ends back in APPLIED (not PARTIALLY_UNDONE) with options.undo blocked equal to row count and deleted and restored 0', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const emailBlocked = `all-blocked-${Date.now()}@example.com`;
+
+    const job = await importCustomerBatch([
+      ['EXT-ALL-BLOCK', 'PRIVATE', 'Blocked', 'Cust', emailBlocked, '555', 'AT'],
+    ]);
+
+    const customer = await tenantPrisma.customer.findFirstOrThrow({
+      where: { email: emailBlocked },
+    });
+
+    await tenantPrisma.invoice.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        customer_id: customer.id,
+        status: 'ISSUED',
+        date: new Date(),
+        due_date: new Date(),
+        total_net: 100,
+        total_tax: 20,
+        total_gross: 120,
+      },
+    });
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+
+    expect(undoRes.body.status).toBe('APPLIED');
+    expect(undoRes.body.options?.undo).toMatchObject({
+      deleted: 0,
+      restored: 0,
+      blocked: 1,
+      blocked_reasons: {
+        [customer.id]: UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
+      },
+    });
+
+    const checkJob = await tenantPrisma.importJob.findUniqueOrThrow({
+      where: { id: job.id },
+    });
+    expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
+    const opts = (checkJob.options_json ?? {}) as Record<string, any>;
+    expect(opts.undo?.deleted).toBe(0);
+    expect(opts.undo?.restored).toBe(0);
+    expect(opts.undo?.blocked).toBe(1);
   });
 
   it('race condition guard: rejects undo when job is currently UNDOING or APPLYING', async () => {

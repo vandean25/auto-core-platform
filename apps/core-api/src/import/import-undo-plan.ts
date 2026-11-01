@@ -55,7 +55,7 @@ function getRowStaticBlockReason(
   entityType: string,
 ): string | null {
   if (!row.entity_id) {
-    return UNDO_BLOCKED_REASONS.UNKNOWN;
+    return UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK;
   }
   if (row.action === ImportRowAction.UPDATE && !row.before_snapshot_json) {
     return UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT;

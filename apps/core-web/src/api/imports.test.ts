@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getErrorMessage } from '@/lib/error-utils'
@@ -17,6 +17,8 @@ import {
   useCreateImportSource,
   useDeleteImportSource,
   useImportDryRun,
+  useImportUndoPreview,
+  useUndoImportJob,
   type ImportSourceListResponse,
 } from './imports'
 
@@ -142,7 +144,7 @@ describe('import wire codes', () => {
 
   function renderWithQueryClient<T>(hook: () => T) {
     const queryClient = new QueryClient({
-      defaultOptions: { mutations: { retry: false } },
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(QueryClientProvider, { client: queryClient }, children)
@@ -258,5 +260,39 @@ describe('import wire codes', () => {
     expect(getErrorMessage(error, 'unused fallback')).toBe(
       deErrors.codes[code as keyof typeof deErrors.codes],
     )
+  })
+
+  it.each([
+    ['IMPORT_JOB_CONFLICT', 'Import job conflict'],
+    ['IMPORT_JOB_BUSY', 'Import job is busy'],
+    ['IMPORT_JOB_NOT_UNDOABLE', 'Import job cannot be undone'],
+  ])('keeps the %s code in useImportUndoPreview so it shows the German copy', async (code, message) => {
+    rejectOnceWith(409, code, message)
+    const { result } = renderWithQueryClient(() => useImportUndoPreview('job-1'))
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+
+    expect(getErrorMessage(result.current.error, 'unused fallback')).toBe(
+      deErrors.codes[code as keyof typeof deErrors.codes],
+    )
+    expect(getErrorMessage(result.current.error, 'unused fallback')).not.toBe(message)
+  })
+
+  it.each([
+    ['IMPORT_JOB_CONFLICT', 'Import job conflict'],
+    ['IMPORT_JOB_BUSY', 'Import job is busy'],
+    ['IMPORT_JOB_NOT_UNDOABLE', 'Import job cannot be undone'],
+  ])('keeps the %s code in useUndoImportJob so it shows the German copy', async (code, message) => {
+    rejectOnceWith(409, code, message)
+    const { result } = renderWithQueryClient(() => useUndoImportJob())
+
+    const error = await result.current
+      .mutateAsync({ jobId: 'job-1' })
+      .catch((caught: unknown) => caught)
+
+    expect(getErrorMessage(error, 'unused fallback')).toBe(
+      deErrors.codes[code as keyof typeof deErrors.codes],
+    )
+    expect(getErrorMessage(error, 'unused fallback')).not.toBe(message)
   })
 })

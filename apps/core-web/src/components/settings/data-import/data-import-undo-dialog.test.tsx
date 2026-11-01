@@ -373,4 +373,57 @@ describe('DataImportUndoDialog', () => {
       ),
     )
   })
+
+  it('renders LEGACY_JOB_NO_ENTITY_LINK blocked reason with localized text', async () => {
+    const previewWithLegacy: importsApi.ImportUndoPreviewResponse = {
+      ...mockPreview,
+      blocked: [
+        {
+          rowNumber: 1,
+          entityType: 'CUSTOMER',
+          entityId: null as unknown as Record<string, never>,
+          action: 'CREATE',
+          status: 'BLOCKED',
+          displayName: 'Legacy Customer',
+          reason: 'LEGACY_JOB_NO_ENTITY_LINK',
+        },
+      ],
+    }
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: previewWithLegacy,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+    const blockedBtn = screen.getByRole('button', { name: /Blockierte Datensätze/i })
+    fireEvent.click(blockedBtn)
+
+    expect(screen.getByText('Vor Rückgängig-Funktion importiert')).toBeInTheDocument()
+  })
+
+  it('shows German translated text from errors:codes when undo fails with IMPORT_JOB_NOT_UNDOABLE', async () => {
+    const mockMutateAsync = vi.fn().mockRejectedValue({
+      response: { status: 409, data: { code: 'IMPORT_JOB_NOT_UNDOABLE' } },
+    })
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: mockPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({ mockMutateAsync })
+    fireEvent.change(screen.getByTestId('undo-confirm-input'), {
+      target: { value: di.confirmation.keyword },
+    })
+    fireEvent.click(screen.getByTestId('undo-submit-button'))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Dieser Import kann nicht rückgängig gemacht werden.',
+      ),
+    )
+  })
 })

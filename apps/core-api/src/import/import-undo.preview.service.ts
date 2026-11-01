@@ -185,7 +185,7 @@ function getStaticRowBlockReason(
   row: ImportJobRow,
 ): string | null {
   if (!row.entity_id) {
-    return UNDO_BLOCKED_REASONS.UNKNOWN;
+    return UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK;
   }
   if (row.action === ImportRowAction.UPDATE && !row.before_snapshot_json) {
     return UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT;
@@ -220,7 +220,7 @@ function buildRowPreview(
     return {
       ...preview,
       status: 'BLOCKED',
-      reason: UNDO_BLOCKED_REASONS.UNKNOWN,
+      reason: UNDO_BLOCKED_REASONS.ENTITY_NOT_FOUND,
     };
   }
   return {

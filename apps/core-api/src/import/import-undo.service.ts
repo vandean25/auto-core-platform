@@ -30,6 +30,7 @@ import {
   importJobNotFound,
   importJobNotUndoable,
 } from './import-job.errors.js';
+import { hasUndoableRows } from './import-undo.helpers.js';
 import {
   serializeImportJob,
   type SerializedImportJob,
@@ -101,6 +102,7 @@ type UndoRunContext = UndoProgress & {
   recoverySeq: number;
   confirmedEntityIds: Set<string>;
   blockedReasons: Record<string, string>;
+  resumeStatus: string;
 };
 
 type UndoBatchOutcome = 'done' | 'continue' | 'lease_lost' | 'abort';
@@ -236,6 +238,12 @@ export class ImportUndoService {
 
     if (job.status !== ImportJobStatus.UNDOING) {
       this.assertJobIsUndoable(job);
+      const hasRows = await hasUndoableRows(this.prisma, tenantId, job);
+      if (!hasRows) {
+        throw importJobNotUndoable({
+          reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+        });
+      }
       return {
         claimableStatus: { in: UNDO_CLAIM_STATUSES },
         worker: await this.buildUndoWorkerState(tenantId, job, currentUser, {
@@ -308,6 +316,7 @@ export class ImportUndoService {
         tenant_id: tenantId,
         import_job_id: job.id,
         action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
+        entity_id: { not: null },
         undone_at: null,
       },
     });
@@ -454,6 +463,7 @@ export class ImportUndoService {
       recoverySeq: job.worker_recovery_seq,
       confirmedEntityIds: new Set(worker.confirmed_entity_ids),
       blockedReasons: { ...worker.blocked_reasons },
+      resumeStatus: worker.resume_status,
       cursor: worker.cursor,
       processedRows: worker.processed_rows,
       deleted: worker.deleted_rows,
@@ -1061,9 +1071,11 @@ export class ImportUndoService {
       blocked_reasons: { ...ctx.blockedReasons },
     };
     const nextStatus =
-      outcome.status === 'UNDONE'
-        ? ImportJobStatus.UNDONE
-        : ImportJobStatus.PARTIALLY_UNDONE;
+      ctx.deleted + ctx.restored === 0
+        ? ((ctx.resumeStatus as ImportJobStatus) ?? ImportJobStatus.APPLIED)
+        : outcome.status === 'UNDONE'
+          ? ImportJobStatus.UNDONE
+          : ImportJobStatus.PARTIALLY_UNDONE;
 
     try {
       await this.prisma.$transaction(async (tx) => {
