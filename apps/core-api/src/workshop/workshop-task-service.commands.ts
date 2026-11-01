@@ -14,6 +14,10 @@ import { wakeUpAfterCommit } from './workshop-estimate-email-queue.js';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import {
+  assertWorkshopTaskExecutionRole,
+  assertWorkshopTaskWriteRole,
+} from './workshop-task-scope.js';
+import {
   applyDerivedOrderStatusWithStockPrep,
   executeLineItemReplacement,
   executeTaskCreation,
@@ -75,6 +79,7 @@ export async function runWorkshopTaskCreate(
   orderId: string,
   dto: CreateWorkshopTaskDto,
 ) {
+  assertWorkshopTaskWriteRole(deps.tenantContext, 'Creating workshop tasks');
   const { tenantId, siteId } = await resolveScopedContext(deps);
   const { task, queuedOutboxId } = await deps.prisma.$transaction(
     async (tx) => {
@@ -119,6 +124,10 @@ export async function runWorkshopTaskUpdate(
   taskId: string,
   dto: UpdateWorkshopTaskDto,
 ) {
+  assertWorkshopTaskExecutionRole(
+    deps.tenantContext,
+    'Updating workshop tasks',
+  );
   const { tenantId, siteId } = await resolveScopedContext(deps);
   const queuedOutboxId = await deps.prisma.$transaction(async (tx) => {
     let outboxId: string | null = null;
@@ -155,6 +164,7 @@ export async function runWorkshopTaskDelete(
   orderId: string,
   taskId: string,
 ) {
+  assertWorkshopTaskWriteRole(deps.tenantContext, 'Deleting workshop tasks');
   const { tenantId, siteId } = await resolveScopedContext(deps);
   const queuedOutboxId = await deps.prisma.$transaction(async (tx) => {
     await executeTaskDeletion({ tx, tenantId, siteId, orderId, taskId });
@@ -191,6 +201,7 @@ export async function runWorkshopTaskLineItemReplacement(
   taskId: string,
   dto: ReplaceWorkshopTaskLineItemsDto,
 ) {
+  assertWorkshopTaskWriteRole(deps.tenantContext, 'Modifying task line items');
   const { tenantId, siteId } = await resolveScopedContext(deps);
   await validateTaskForLineItemReplacement({
     prisma: deps.prisma,

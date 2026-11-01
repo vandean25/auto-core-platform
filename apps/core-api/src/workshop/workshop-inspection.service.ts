@@ -14,6 +14,7 @@ import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';
 import { assertCheckInDraftForMutation } from './workshop-check-in-immutability.js';
 import { toWorkshopInspectionResponse } from './workshop-inspection.mapper.js';
 import type { WorkshopInspectionResponseDto } from './dto/workshop-inspection-response.dto.js';
+import { assertWorkshopTaskExecutionRole } from './workshop-task-scope.js';
 
 const taskInspectionInclude = {
   items: { orderBy: { createdAt: 'asc' as const } },
@@ -66,6 +67,10 @@ export class WorkshopInspectionService {
     taskId: string,
     dto: UpdateWorkshopInspectionDto,
   ) {
+    assertWorkshopTaskExecutionRole(
+      this.tenantContext,
+      'Updating task checklist',
+    );
     const inspection = await this.getTaskChecklist(orderId, taskId);
     await this.applyInspectionItemUpdates(
       orderId,

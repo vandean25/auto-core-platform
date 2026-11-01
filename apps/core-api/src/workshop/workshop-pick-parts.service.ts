@@ -19,6 +19,7 @@ import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { AtpService } from '../inventory/atp.service.js';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { assertWorkshopTaskWriteRole } from './workshop-task-scope.js';
 import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto.js';
 import {
   aggregateRequestedPicks,
@@ -203,6 +204,7 @@ export class WorkshopPickPartsService {
   }
 
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
+    assertWorkshopTaskWriteRole(this.tenantContext, 'Picking workshop parts');
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
 
