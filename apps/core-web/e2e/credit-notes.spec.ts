@@ -1,6 +1,7 @@
 import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_COMMON } from './helpers/de-common';
 import { DE_SALES } from './helpers/de-sales';
 import { DE_FINANCE } from './helpers/de-finance';
 import { deErrorCode } from './helpers/de-errors';
@@ -693,7 +694,7 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
     await page.getByLabel(DE_FINANCE.columns.reason).fill('Trigger autosave failure');
-    await expect(page.getByText(/Speichern fehlgeschlagen|Auto-save failed/i)).toBeVisible();
+    await expect(page.getByText(DE_COMMON.documentSave.error).first()).toBeVisible();
     await expect(
       page.getByRole('button', { name: DE_FINANCE.actions.finalize }),
     ).toBeDisabled();
