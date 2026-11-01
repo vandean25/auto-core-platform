@@ -17,6 +17,7 @@ import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
   createMemberBearer,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils.js';
@@ -25,6 +26,7 @@ import { teardownTestApp } from './test-lifecycle.js';
 describe('Import Job Row Purge Scheduler (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
+  let tenantPrisma: PrismaService;
   let systemPrisma: SystemPrismaService;
   let authService: AuthService;
   let scheduledJobService: ScheduledJobService;
@@ -59,6 +61,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
 
     tenant = await createTestTenant(basePrisma, 'purge-sched');
     tenantId = tenant.tenantId;
+    tenantPrisma = createTenantAwarePrisma(basePrisma, tenantId);
 
     adminHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
     roleHeaders = {
@@ -201,7 +204,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
       const ancientDate = new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000); // 40 days ago
 
       // 1. Seed eligible job with 5 rows (> budget 2)
-      const eligibleJob = await basePrisma.importJob.create({
+      const eligibleJob = await tenantPrisma.importJob.create({
         data: {
           tenant_id: tenantId,
           entity_type: ImportEntityType.CUSTOMER,
@@ -218,7 +221,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
         },
       });
 
-      await basePrisma.importJobRow.createMany({
+      await tenantPrisma.importJobRow.createMany({
         data: [1, 2, 3, 4, 5].map((row_no) => ({
           tenant_id: tenantId,
           import_job_id: eligibleJob.id,
@@ -228,7 +231,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
       });
 
       // 2. Seed non-eligible job with 3 rows (created just now)
-      const nonEligibleJob = await basePrisma.importJob.create({
+      const nonEligibleJob = await tenantPrisma.importJob.create({
         data: {
           tenant_id: tenantId,
           entity_type: ImportEntityType.CUSTOMER,
@@ -244,7 +247,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
         },
       });
 
-      await basePrisma.importJobRow.createMany({
+      await tenantPrisma.importJobRow.createMany({
         data: [1, 2, 3].map((row_no) => ({
           tenant_id: tenantId,
           import_job_id: nonEligibleJob.id,
@@ -294,7 +297,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
       expect(enqueuedTasks).toHaveLength(1);
       expect(enqueuedTasks[0]).toEqual({ runId: activeRunId, sequence: 1 });
 
-      let eligibleRowsRemaining = await basePrisma.importJobRow.count({
+      let eligibleRowsRemaining = await tenantPrisma.importJobRow.count({
         where: { tenant_id: tenantId, import_job_id: eligibleJob.id },
       });
       expect(eligibleRowsRemaining).toBe(3);
@@ -314,7 +317,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
       expect(enqueuedTasks).toHaveLength(2);
       expect(enqueuedTasks[1]).toEqual({ runId: activeRunId, sequence: 2 });
 
-      eligibleRowsRemaining = await basePrisma.importJobRow.count({
+      eligibleRowsRemaining = await tenantPrisma.importJobRow.count({
         where: { tenant_id: tenantId, import_job_id: eligibleJob.id },
       });
       expect(eligibleRowsRemaining).toBe(1);
@@ -335,13 +338,13 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
       expect(enqueuedTasks).toHaveLength(2);
 
       // All eligible rows deleted
-      eligibleRowsRemaining = await basePrisma.importJobRow.count({
+      eligibleRowsRemaining = await tenantPrisma.importJobRow.count({
         where: { tenant_id: tenantId, import_job_id: eligibleJob.id },
       });
       expect(eligibleRowsRemaining).toBe(0);
 
       // Non-eligible rows kept
-      const nonEligibleRowsRemaining = await basePrisma.importJobRow.count({
+      const nonEligibleRowsRemaining = await tenantPrisma.importJobRow.count({
         where: { tenant_id: tenantId, import_job_id: nonEligibleJob.id },
       });
       expect(nonEligibleRowsRemaining).toBe(3);
