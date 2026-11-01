@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsString, IsUUID } from 'class-validator';
 import {
   EstimateApprovalChannel,
   EstimateApprovalDecision,
@@ -11,7 +11,7 @@ import {
 
 export class WorkshopEstimateCustomerSendBlockerDto {
   @ApiProperty({ enum: ['ZERO_UNIT_PRICE', 'CLAIMED_FITMENT'] })
-  @IsEnum(['ZERO_UNIT_PRICE', 'CLAIMED_FITMENT'])
+  @IsIn(['ZERO_UNIT_PRICE', 'CLAIMED_FITMENT'])
   code!: 'ZERO_UNIT_PRICE' | 'CLAIMED_FITMENT';
 
   @ApiProperty({ format: 'uuid' })
