@@ -181,6 +181,10 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   - Backend tests go in `apps/core-api/test/` as `.e2e-spec.ts` files.
   - Use the established testing patterns (e.g., `test/purchase-receipt.e2e-spec.ts`).
   - Ensure tests cover both happy paths and error cases.
+- **Every test proves a regression**: the name (or one short line above it) says which regression it catches, and it must fail against the code before the fix. Check that by reverting the fix once while the test runs.
+- **Assert on the system under test**: never green-light a test by only reading back state that the test's own fake, mock or fixture wrote (a fake that echoes what it stored proves nothing about the code).
+- **Test comments must match the test**: a comment may only claim what an assertion actually checks; delete claims about cases the test never builds.
+- **Doc screenshots**: e2e specs never write into `docs/` on a normal run; they go through `apps/core-web/e2e/utils/doc-screenshot.ts`, which only re-captures them with `UPDATE_DOC_SCREENSHOTS=1`.
 
 ## GitHub Pull Request Workflow
 
