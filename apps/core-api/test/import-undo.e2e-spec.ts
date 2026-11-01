@@ -5,18 +5,17 @@ process.env.API_KEY_PEPPER = Buffer.alloc(32, 1).toString('base64');
 process.env.IMPORT_MAX_ROW_COUNT = '20000';
 
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import {
   AuditActorType,
   AuditLogAction,
   ImportJobStatus,
 } from '@prisma/client';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
+import { IMPORT_ERROR_CODES } from '../src/import/import.constants.js';
+import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
   createMemberBearer,
@@ -100,7 +99,7 @@ describe('Import Undo (e2e)', () => {
     totals: { total: number; create: number; update: number };
   }> {
     const dryRun = await request(app.getHttpServer())
-      .post('/imports')
+      .post('/api/imports')
       .set('Authorization', adminHeader)
       .field('entityType', params.entityType)
       .field('sourceSystem', 'legacy-dms')
@@ -113,7 +112,7 @@ describe('Import Undo (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .post(`/imports/${dryRun.body.id}/apply`)
+      .post(`/api/imports/${dryRun.body.id}/apply`)
       .set('Authorization', adminHeader)
       .expect(202);
 
@@ -150,13 +149,7 @@ describe('Import Undo (e2e)', () => {
   }
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp(undefined, { productionErrorFilter: true });
 
     prisma = app.get(PrismaService);
     systemPrisma = app.get(SystemPrismaService);
@@ -204,7 +197,7 @@ describe('Import Undo (e2e)', () => {
 
     // Create an API key for API key role matrix testing
     const apiKeyRes = await request(app.getHttpServer())
-      .post('/tenant-api-keys')
+      .post('/api/tenant-api-keys')
       .set('Authorization', adminHeader)
       .send({ name: 'Import Undo Matrix Key', scopes: ['customers:read'] })
       .expect(201);
@@ -241,57 +234,57 @@ describe('Import Undo (e2e)', () => {
 
     // 1. SALES forbidden
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo/preview`)
+      .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', salesHeader)
       .expect(403);
 
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo`)
+      .post(`/api/imports/${dummyJob.id}/undo`)
       .set('Authorization', salesHeader)
       .expect(403);
 
     // 2. TECH forbidden
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo/preview`)
+      .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', techHeader)
       .expect(403);
 
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo`)
+      .post(`/api/imports/${dummyJob.id}/undo`)
       .set('Authorization', techHeader)
       .expect(403);
 
     // 3. DEMO forbidden
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo/preview`)
+      .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', demoHeader)
       .expect(403);
 
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo`)
+      .post(`/api/imports/${dummyJob.id}/undo`)
       .set('Authorization', demoHeader)
       .expect(403);
 
     // 4. API Key forbidden
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo/preview`)
+      .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', apiKeyHeader)
       .expect(403);
 
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo`)
+      .post(`/api/imports/${dummyJob.id}/undo`)
       .set('Authorization', apiKeyHeader)
       .expect(403);
 
     // 5. OWNER allowed
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo/preview`)
+      .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', ownerHeader)
       .expect(200);
 
     // 6. ADMIN allowed
     await request(app.getHttpServer())
-      .post(`/imports/${dummyJob.id}/undo/preview`)
+      .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
   });
@@ -381,7 +374,7 @@ describe('Import Undo (e2e)', () => {
 
     // 3. Preview undo
     const previewRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo/preview`)
+      .post(`/api/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -394,7 +387,7 @@ describe('Import Undo (e2e)', () => {
 
     // 4. Execute undo
     const undoRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo`)
+      .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -543,7 +536,7 @@ describe('Import Undo (e2e)', () => {
 
     // 3. Preview undo
     const previewRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo/preview`)
+      .post(`/api/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -554,7 +547,7 @@ describe('Import Undo (e2e)', () => {
 
     // 4. Execute undo
     const undoRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo`)
+      .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -625,7 +618,7 @@ describe('Import Undo (e2e)', () => {
     });
 
     const custPreviewWO = await request(app.getHttpServer())
-      .post(`/imports/${custJob.id}/undo/preview`)
+      .post(`/api/imports/${custJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -637,7 +630,7 @@ describe('Import Undo (e2e)', () => {
 
     // Case B: Link vehicle to active WorkshopOrder -> DOWNSTREAM_WORK_ORDER
     const vehPreviewWO = await request(app.getHttpServer())
-      .post(`/imports/${vehJob.id}/undo/preview`)
+      .post(`/api/imports/${vehJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -667,7 +660,7 @@ describe('Import Undo (e2e)', () => {
     });
 
     const vehPreviewMedia = await request(app.getHttpServer())
-      .post(`/imports/${vehJob.id}/undo/preview`)
+      .post(`/api/imports/${vehJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -690,7 +683,7 @@ describe('Import Undo (e2e)', () => {
     });
 
     const vehPreviewParty = await request(app.getHttpServer())
-      .post(`/imports/${vehJob.id}/undo/preview`)
+      .post(`/api/imports/${vehJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -721,7 +714,7 @@ describe('Import Undo (e2e)', () => {
     });
 
     const custPreviewConsent = await request(app.getHttpServer())
-      .post(`/imports/${custJob.id}/undo/preview`)
+      .post(`/api/imports/${custJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -733,7 +726,7 @@ describe('Import Undo (e2e)', () => {
 
     // Attempting undo on custJob must leave customer in DB and return PARTIALLY_UNDONE
     const undoCust = await request(app.getHttpServer())
-      .post(`/imports/${custJob.id}/undo`)
+      .post(`/api/imports/${custJob.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -781,7 +774,7 @@ describe('Import Undo (e2e)', () => {
 
     // Preview should report conflict with stable code MODIFIED_SINCE_IMPORT
     const preview = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo/preview`)
+      .post(`/api/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -793,7 +786,7 @@ describe('Import Undo (e2e)', () => {
 
     // Undo without confirmedEntityIds: conflict is skipped
     const undoWithoutConfirm = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo`)
+      .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .send({ confirmedEntityIds: [] })
       .expect(200);
@@ -807,7 +800,7 @@ describe('Import Undo (e2e)', () => {
 
     // Undo WITH confirmedEntityIds: conflict is undone
     const undoWithConfirm = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo`)
+      .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .send({ confirmedEntityIds: [createdCust.id] })
       .expect(200);
@@ -861,7 +854,7 @@ describe('Import Undo (e2e)', () => {
 
     // Preview should report customer as BLOCKED with DOWNSTREAM_INVOICE
     const preview = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo/preview`)
+      .post(`/api/imports/${dryRun.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -873,7 +866,7 @@ describe('Import Undo (e2e)', () => {
 
     // Attempting undo must NOT touch the customer or invoice
     const undoRes = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo`)
+      .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -896,7 +889,7 @@ describe('Import Undo (e2e)', () => {
     expect(checkInvoice.items[0].description).toBe('Immutable Service Line');
   });
 
-  it('race condition guard: rejects undo when job is currently UNDOING or APPLYING, or claimed concurrently', async () => {
+  it('race condition guard: rejects undo when job is currently UNDOING or APPLYING', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
 
     const raceJob = await tenantPrisma.importJob.create({
@@ -920,10 +913,11 @@ describe('Import Undo (e2e)', () => {
       data: { status: 'UNDOING' },
     });
 
-    await request(app.getHttpServer())
-      .post(`/imports/${raceJob.id}/undo`)
+    const undoingRes = await request(app.getHttpServer())
+      .post(`/api/imports/${raceJob.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(409);
+    expect(undoingRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_BUSY);
 
     // Case 2: Job in APPLYING status -> 409 Conflict
     await tenantPrisma.importJob.update({
@@ -931,16 +925,129 @@ describe('Import Undo (e2e)', () => {
       data: { status: 'APPLYING' },
     });
 
-    await request(app.getHttpServer())
-      .post(`/imports/${raceJob.id}/undo`)
+    const applyingRes = await request(app.getHttpServer())
+      .post(`/api/imports/${raceJob.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(409);
+    expect(applyingRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_BUSY);
+  });
 
-    // Reset status to APPLIED
-    await tenantPrisma.importJob.update({
-      where: { id: raceJob.id },
-      data: { status: 'APPLIED' },
+  it('race condition guard: two concurrent undo requests run the undo exactly once', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const email = `race-concurrent-${Date.now()}@example.com`;
+
+    const job = await importCustomerBatch([
+      ['EXT-RACE-1', 'PRIVATE', 'Race', 'Customer', email, '777', 'AT'],
+    ]);
+
+    const countJobAudits = () =>
+      tenantPrisma.auditLog.count({
+        where: {
+          entity_type: 'ImportJob',
+          entity_id: job.id,
+          action: AuditLogAction.UPDATE,
+        },
+      });
+
+    const auditsBefore = await countJobAudits();
+
+    const postUndo = () =>
+      request(app.getHttpServer())
+        .post(`/api/imports/${job.id}/undo`)
+        .set('Authorization', adminHeader);
+
+    const responses = await Promise.all([postUndo(), postUndo()]);
+
+    for (const res of responses) {
+      expect([200, 409]).toContain(res.status);
+      if (res.status === 409) {
+        expect([
+          IMPORT_ERROR_CODES.JOB_BUSY,
+          IMPORT_ERROR_CODES.JOB_CONFLICT,
+        ]).toContain(res.body.code);
+      }
+    }
+
+    const finalJob = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
     });
+    expect(finalJob.status).toBe('UNDONE');
+
+    expect(await countJobAudits()).toBe(auditsBefore + 1);
+
+    expect(
+      await tenantPrisma.customer.findFirst({ where: { email } }),
+    ).toBeNull();
+  });
+
+  it('purge gate: undo reports IMPORT_JOB_PURGED when staged rows were purged', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+
+    const job = await tenantPrisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        entity_type: 'CUSTOMER',
+        file_name: 'purged.csv',
+        file_sha256: 'mock-purged-sha',
+        mapping_json: {},
+        options_json: { rows_purged: true },
+        status: 'APPLIED',
+        totals_json: { total: 2, create: 2, update: 0, skip: 0, error: 0 },
+        created_by: tenant.firebaseUid,
+      },
+    });
+
+    const previewRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo/preview`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+    expect(previewRes.body.status).toBe('BLOCKED');
+    expect(previewRes.body.canUndo).toBe(false);
+    expect(previewRes.body.blocked[0].reason).toBe(
+      UNDO_BLOCKED_REASONS.ROWS_PURGED,
+    );
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
+
+    const untouched = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(untouched.status).toBe('APPLIED');
+  });
+
+  it('expiry gate: undo reports IMPORT_JOB_EXPIRED when the job was cancelled as expired', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+
+    const job = await tenantPrisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        entity_type: 'CUSTOMER',
+        file_name: 'expired.csv',
+        file_sha256: 'mock-expired-sha',
+        mapping_json: {},
+        options_json: { cancel_reason: 'expired' },
+        status: 'APPLIED',
+        totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
+        created_by: tenant.firebaseUid,
+      },
+    });
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_EXPIRED);
+
+    const untouched = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(untouched.status).toBe('APPLIED');
   });
 
   it('partial undo idempotency: re-running undo on PARTIALLY_UNDONE job is idempotent, does not duplicate audits or inflate counts', async () => {
@@ -983,7 +1090,7 @@ describe('Import Undo (e2e)', () => {
 
     // First undo attempt
     const firstUndo = await request(app.getHttpServer())
-      .post(`/imports/${job.id}/undo`)
+      .post(`/api/imports/${job.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -1020,7 +1127,7 @@ describe('Import Undo (e2e)', () => {
 
     // Second undo attempt on PARTIALLY_UNDONE job
     const secondUndo = await request(app.getHttpServer())
-      .post(`/imports/${job.id}/undo`)
+      .post(`/api/imports/${job.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -1064,7 +1171,7 @@ describe('Import Undo (e2e)', () => {
 
     // Execute undo
     const undoRes = await request(app.getHttpServer())
-      .post(`/imports/${job.id}/undo`)
+      .post(`/api/imports/${job.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
@@ -1078,27 +1185,43 @@ describe('Import Undo (e2e)', () => {
     expect(completedRows.every((r) => r.undone_at !== null)).toBe(true);
   });
 
-  it('idempotency: calling undo twice on an already UNDONE job is a safe no-op', async () => {
+  it('already undone: preview reports IMPORT_JOB_ALREADY_UNDONE and a second undo is a no-op', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const emailIdem = `idem-${Date.now()}@example.com`;
 
     const dryRun = await importCustomerBatch([
       ['EXT-IDEM-1', 'PRIVATE', 'Idem', 'Test', emailIdem, '555', 'AT'],
     ]);
 
-    // First undo
+    const countJobAudits = () =>
+      tenantPrisma.auditLog.count({
+        where: {
+          entity_type: 'ImportJob',
+          entity_id: dryRun.id,
+          action: AuditLogAction.UPDATE,
+        },
+      });
+
     const firstUndo = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo`)
+      .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
     expect(firstUndo.body.status).toBe('UNDONE');
+    const auditsAfterFirst = await countJobAudits();
 
-    // Second undo: no-op, returns 200 with job
+    const previewRes = await request(app.getHttpServer())
+      .post(`/api/imports/${dryRun.id}/undo/preview`)
+      .set('Authorization', adminHeader)
+      .expect(400);
+    expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_ALREADY_UNDONE);
+
     const secondUndo = await request(app.getHttpServer())
-      .post(`/imports/${dryRun.id}/undo`)
+      .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
     expect(secondUndo.body.status).toBe('UNDONE');
+    expect(await countJobAudits()).toBe(auditsAfterFirst);
   });
 });
