@@ -816,6 +816,37 @@ describe('purgeStaleImportJobRowsForTenant', () => {
     expect(rowsByJob.get('job-race')).toHaveLength(2);
   });
 
+  it('never purges the staged rows of a job whose undo is running', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-undoing',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.UNDOING,
+          appliedAt: staleAppliedAt,
+          createdAt: new Date('2020-01-01'),
+          updatedAt: staleAppliedAt,
+        },
+      ],
+      { 'job-undoing': [1, 2, 3] },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      jobs_scanned: 0,
+      rows_deleted: 0,
+      dry_run: false,
+    });
+    expect(rowsByJob.get('job-undoing')).toHaveLength(3);
+    expect(prisma.importJobRow.deleteMany).not.toHaveBeenCalled();
+  });
+
   it('stops processing further jobs once rowBudget is reached', async () => {
     const { prisma, rowsByJob } = createImportRetentionPrismaFake(
       [

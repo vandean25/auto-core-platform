@@ -739,6 +739,18 @@ describe('ImportUndoService', () => {
         response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
       });
     });
+
+    it('refuses a FAILED job that never applied a row', async () => {
+      const harness = createHarness({
+        status: ImportJobStatus.FAILED,
+        totals: { create: 0, update: 0, error: 2 },
+      });
+
+      await expect(harness.service.undoJob(JOB_ID)).rejects.toMatchObject({
+        response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
+      });
+      expect(harness.db.txCount).toBe(0);
+    });
   });
 
   describe('background dispatch', () => {
@@ -819,6 +831,33 @@ describe('ImportUndoService', () => {
         (entry) => entry.entity_type === 'ImportJob',
       );
       expect(jobAudit?.actor_user_id).toBe('admin-user');
+    });
+
+    it('undoes the applied rows of a FAILED job and keeps FAILED as the resume status', async () => {
+      const harness = createHarness({
+        status: ImportJobStatus.FAILED,
+        rows: [
+          makeRow(1, ImportRowAction.CREATE, 'cust-1'),
+          makeRow(2, ImportRowAction.ERROR, null),
+        ],
+        totals: { create: 1, update: 0, error: 1 },
+      });
+      let resumeStatus: string | null = null;
+      harness.db.beforeTransaction = () => {
+        resumeStatus ??= harness.undoWorker()?.resume_status ?? null;
+      };
+
+      const job = await harness.service.undoJob(JOB_ID);
+
+      expect(job.status).toBe(ImportJobStatus.UNDONE);
+      expect(harness.db.deletedEntityIds).toEqual(['cust-1']);
+      expect(harness.db.rows[1].undone_at).toBeNull();
+      expect(harness.undoOutcome()).toMatchObject({
+        deleted: 1,
+        restored: 0,
+        blocked: 0,
+      });
+      expect(resumeStatus).toBe(ImportJobStatus.FAILED);
     });
 
     it('restores updated customers from the before snapshot', async () => {
