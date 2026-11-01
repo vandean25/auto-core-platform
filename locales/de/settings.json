@@ -1245,7 +1245,7 @@
     "undo": {
       "button": "Import rückgängig machen",
       "dialogTitle": "Import rückgängig machen?",
-      "dialogDescription": "Macht die übernommenen Datensätze dieses Imports rückgängig. Bereits finalisierte Dokumente bleiben stets unberührt.",
+      "dialogDescription": "Übernommene Datensätze dieses Imports zurücksetzen.",
       "loadingPreview": "Rückgängig-Vorschau wird berechnet…",
       "loadPreviewFailed": "Die Vorschau konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
       "summary": {
@@ -1256,7 +1256,7 @@
       },
       "blockedSection": {
         "title": "Blockierte Datensätze ({{count}})",
-        "description": "Diese Datensätze sind mit Folgebelegen verknüpft und können nicht rückgängig gemacht werden:",
+        "description": "Folgebelege verhindern das Rückgängigmachen.",
         "reasons": {
           "DOWNSTREAM_WORK_ORDER": "Mit Werkstattauftrag verknüpft",
           "DOWNSTREAM_ESTIMATE": "Mit Kostenvoranschlag verknüpft",
@@ -1292,7 +1292,7 @@
       },
       "conflictsSection": {
         "title": "Geänderte Datensätze überschreiben ({{count}})",
-        "description": "Diese Datensätze wurden nach dem Import manuell bearbeitet. Wählen Sie aus, welche trotzdem auf den Stand vor dem Import zurückgesetzt werden sollen:",
+        "description": "Nach dem Import geändert. Überschreiben auswählen.",
         "overwriteCheckbox": "Trotz nachträglicher Änderung auf Vor-Import-Stand zurücksetzen"
       },
       "confirmation": {
