@@ -1,10 +1,14 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
-import { validateSync } from 'class-validator';
+import { ValidationError, validateSync } from 'class-validator';
 import { createGlobalValidationPipe } from '../../common/validation.pipe.js';
 import { NovaCalculateRequestDto } from './nova-calculate.dto.js';
 
 const validationPipe = createGlobalValidationPipe();
+
+function constraintMessages(errors: ValidationError[]): string[] {
+  return errors.flatMap((error) => Object.values(error.constraints ?? {}));
+}
 
 describe('NovaCalculateRequestDto', () => {
   it('lets the engine map negative monetary and CO2 values to stable 422 codes', () => {
@@ -119,4 +123,42 @@ describe('NovaCalculateRequestDto', () => {
 
     expect(co2Metadata.maximum).toBeUndefined();
   });
+
+  it('names the allowed values for importMode and emissionCycle on the repro body', () => {
+    const dto = plainToInstance(NovaCalculateRequestDto, {
+      netPriceEuro: 1,
+      emissionCycle: 'NEDC2',
+      driveType: 'ICE',
+      taxableEventDate: '2026-10-24',
+      importMode: 'zzz',
+    });
+
+    const messages = constraintMessages(validateSync(dto));
+    expect(messages).toContain(
+      'importMode must be one of the following values: eu_used_m1, third_country, previously_exempt',
+    );
+    expect(messages).toContain(
+      'emissionCycle must be one of the following values: WLTP, NEDC',
+    );
+  });
+
+  it.each([
+    ['driveType', 'HYBRID', 'BEV, FCEV, PHEV, ICE, OTHER'],
+    ['vehicleClass', 'suv', 'passenger_z3, n1_legacy_z6, motorcycle_z1_z2'],
+  ])(
+    'names the allowed values for %s when an invalid one is supplied',
+    (property, invalidValue, allowedValues) => {
+      const dto = plainToInstance(NovaCalculateRequestDto, {
+        netPriceEuro: 10000,
+        emissionCycle: 'WLTP',
+        driveType: 'ICE',
+        taxableEventDate: '2026-10-24',
+        [property]: invalidValue,
+      });
+
+      expect(constraintMessages(validateSync(dto))).toContain(
+        `${property} must be one of the following values: ${allowedValues}`,
+      );
+    },
+  );
 });

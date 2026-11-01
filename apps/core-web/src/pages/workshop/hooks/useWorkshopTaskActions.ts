@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -38,14 +38,18 @@ export function useWorkshopTaskActions({
   const updateTask = useUpdateWorkshopTask()
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [taskPendingDelete, setTaskPendingDelete] = useState<WorkshopTask | null>(null)
+  const [isAddingTask, setIsAddingTask] = useState(false)
+  const isAddingRef = useRef(false)
 
   const canDeleteTasks = !isLocked && !hasLinkedInvoice
 
   const addTask = async () => {
-    if (isLocked) return
+    if (isLocked || isAddingRef.current || isAddingTask) return
     const title = newTaskTitle.trim()
     if (!title) return
 
+    isAddingRef.current = true
+    setIsAddingTask(true)
     try {
       const created = await createTask.mutateAsync({
         orderId: order.id,
@@ -56,6 +60,9 @@ export function useWorkshopTaskActions({
       toast.success(t('orderDetail.toast.taskCreated'))
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, t('orderDetail.toast.taskCreateFailed')))
+    } finally {
+      isAddingRef.current = false
+      setIsAddingTask(false)
     }
   }
 
@@ -124,6 +131,7 @@ export function useWorkshopTaskActions({
     setNewTaskTitle,
     canDeleteTasks,
     isDeletingTask: deleteTask.isPending,
+    isAddingTask,
     taskPendingDelete,
     cancelDeleteTask: () => setTaskPendingDelete(null),
     addTask,
