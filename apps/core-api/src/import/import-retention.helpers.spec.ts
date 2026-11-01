@@ -45,7 +45,7 @@ describe('importJobRowPurgeCutoffs', () => {
 describe('eligibleImportJobsForRowPurgeWhere', () => {
   const cutoffs = importJobRowPurgeCutoffs(NOW);
 
-  it('targets applied (180d), cancelled (1d), failed (1d), and stale dry runs (7d)', () => {
+  it('targets applied (180d), undone (180d), cancelled (1d), failed (1d), and stale dry runs (7d)', () => {
     expect(eligibleImportJobsForRowPurgeWhere(TENANT_A, cutoffs)).toEqual({
       tenant_id: TENANT_A,
       OR: [
@@ -57,6 +57,13 @@ describe('eligibleImportJobsForRowPurgeWhere', () => {
         {
           status: ImportJobStatus.DRY_RUN_DONE,
           updatedAt: { lt: cutoffs.dryRunCutoff },
+        },
+        {
+          status: {
+            in: [ImportJobStatus.UNDONE, ImportJobStatus.PARTIALLY_UNDONE],
+          },
+          updatedAt: { lt: cutoffs.appliedCutoff },
+          rows: { some: {} },
         },
         {
           status: ImportJobStatus.CANCELLED,
@@ -231,6 +238,30 @@ describe('isImportJobEligibleForRowPurge', () => {
         cutoffs,
       ),
     ).toBe(false);
+  });
+
+  it('evaluates UNDONE and PARTIALLY_UNDONE jobs against the 180-day appliedCutoff', () => {
+    const staleUpdatedAt = new Date(cutoffs.appliedCutoff.getTime() - 1);
+    const freshUpdatedAt = new Date(cutoffs.appliedCutoff.getTime() + 1000);
+
+    for (const status of [
+      ImportJobStatus.UNDONE,
+      ImportJobStatus.PARTIALLY_UNDONE,
+    ]) {
+      expect(
+        isImportJobEligibleForRowPurge(
+          { status, createdAt: staleUpdatedAt, updatedAt: staleUpdatedAt },
+          cutoffs,
+        ),
+      ).toBe(true);
+
+      expect(
+        isImportJobEligibleForRowPurge(
+          { status, createdAt: staleUpdatedAt, updatedAt: freshUpdatedAt },
+          cutoffs,
+        ),
+      ).toBe(false);
+    }
   });
 
   it('never treats APPLYING as eligible even when old', () => {
@@ -845,6 +876,68 @@ describe('purgeStaleImportJobRowsForTenant', () => {
     });
     expect(rowsByJob.get('job-undoing')).toHaveLength(3);
     expect(prisma.importJobRow.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('purges the staged rows of undone jobs so their personal data is not kept forever', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-undone',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.UNDONE,
+          appliedAt: staleAppliedAt,
+          createdAt: new Date('2020-01-01'),
+          updatedAt: staleAppliedAt,
+        },
+        {
+          id: 'job-partially-undone',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.PARTIALLY_UNDONE,
+          appliedAt: staleAppliedAt,
+          createdAt: new Date('2020-01-01'),
+          updatedAt: staleAppliedAt,
+        },
+      ],
+      { 'job-undone': [1, 2], 'job-partially-undone': [1] },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result.jobs_scanned).toBe(2);
+    expect(result.rows_deleted).toBe(3);
+    expect(rowsByJob.get('job-undone')).toHaveLength(0);
+    expect(rowsByJob.get('job-partially-undone')).toHaveLength(0);
+  });
+
+  it('keeps the staged rows of a recently undone job', async () => {
+    const { prisma, rowsByJob } = createImportRetentionPrismaFake(
+      [
+        {
+          id: 'job-recent-undo',
+          tenant_id: TENANT_A,
+          status: ImportJobStatus.UNDONE,
+          appliedAt: staleAppliedAt,
+          createdAt: new Date('2020-01-01'),
+          updatedAt: NOW,
+        },
+      ],
+      { 'job-recent-undo': [1, 2] },
+      cutoffs,
+    );
+
+    const result = await purgeStaleImportJobRowsForTenant(
+      prisma as never,
+      TENANT_A,
+      NOW,
+    );
+
+    expect(result.rows_deleted).toBe(0);
+    expect(rowsByJob.get('job-recent-undo')).toHaveLength(2);
   });
 
   it('stops processing further jobs once rowBudget is reached', async () => {
