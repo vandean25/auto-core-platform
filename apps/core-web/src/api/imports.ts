@@ -104,17 +104,23 @@ async function readErrorPayload(response: Response): Promise<{
     | undefined
 }
 
-async function readErrorMessage(response: Response, fallback: string) {
-  const payload = await readErrorPayload(response)
-  return payload?.message ?? fallback
-}
-
 async function throwImportResponseError(response: Response, fallback: string): Promise<never> {
   const payload = await readErrorPayload(response)
-  const error = new Error(payload?.message ?? fallback) as Error & {
-    response?: { status: number; data?: typeof payload }
+  const error = new Error(fallback) as Error & {
+    status?: number
+    response?: {
+      status: number
+      data?: {
+        code?: string
+        leaseExpiresAt?: string | null
+      }
+    }
   }
-  error.response = { status: response.status, data: payload }
+  error.status = response.status
+  error.response = {
+    status: response.status,
+    data: payload ? { code: payload.code, leaseExpiresAt: payload.leaseExpiresAt } : undefined,
+  }
   throw error
 }
 
@@ -207,7 +213,7 @@ export function useImportJobs(filters: ImportJobListFilters = {}) {
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/imports?${toImportQueryString(params)}`)
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load import history'))
+        return throwImportResponseError(response, 'Failed to load import history')
       }
       return response.json() as Promise<ImportJobListResult>
     },
@@ -221,7 +227,7 @@ export function useImportEntityTypes() {
     queryFn: async () => {
       const response = await fetchWithAuth('/api/imports/entity-types')
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load import entity types'))
+        return throwImportResponseError(response, 'Failed to load import entity types')
       }
       const body = (await response.json()) as { data: ImportEntityTypeEntry[] }
       return body.data
@@ -236,7 +242,7 @@ export function useImportTemplate(entityType: ImportEntityType | null) {
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/imports/templates/${entityType}`)
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load import template'))
+        return throwImportResponseError(response, 'Failed to load import template')
       }
       return response.json() as Promise<ImportTemplate>
     },
@@ -258,7 +264,7 @@ export function useImportMappingProfiles(
       })
       const response = await fetchWithAuth(`/api/imports/mapping-profiles?${params}`)
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load mapping profiles'))
+        return throwImportResponseError(response, 'Failed to load mapping profiles')
       }
       const body = (await response.json()) as { data: ImportMappingProfile[] }
       return body.data
@@ -281,7 +287,7 @@ export function useCreateImportMappingProfile() {
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to save mapping profile'))
+        return throwImportResponseError(response, 'Failed to save mapping profile')
       }
       return response.json() as Promise<ImportMappingProfile>
     },
@@ -345,7 +351,7 @@ export function useImportJobRows(
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/imports/${jobId}/rows?${toImportQueryString(params)}`)
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load import rows'))
+        return throwImportResponseError(response, 'Failed to load import rows')
       }
       const body = (await response.json()) as ImportJobRowsResult
       return body
@@ -371,7 +377,7 @@ export function useCancelImportJob() {
         method: 'POST',
       })
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to cancel import'))
+        return throwImportResponseError(response, 'Failed to cancel import')
       }
       return response.json() as Promise<ImportJob>
     },
@@ -407,7 +413,7 @@ export async function downloadImportTemplateCsv(entityType: ImportEntityType): P
     headers: { Accept: 'text/csv' },
   })
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Failed to download template'))
+    return throwImportResponseError(response, 'Failed to download template')
   }
   return response.blob()
 }
@@ -418,7 +424,7 @@ export async function downloadImportErrorRowsCsv(jobId: string, language?: strin
     headers: { Accept: 'text/csv', 'Accept-Language': csvLanguage },
   })
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Failed to download error rows'))
+    return throwImportResponseError(response, 'Failed to download error rows')
   }
   return response.blob()
 }
@@ -429,7 +435,7 @@ export function useImportSources() {
     queryFn: async (): Promise<ImportSourceListResponse> => {
       const response = await fetchWithAuth('/api/imports/sources')
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load import sources'))
+        return throwImportResponseError(response, 'Failed to load import sources')
       }
       return response.json() as Promise<ImportSourceListResponse>
     },
