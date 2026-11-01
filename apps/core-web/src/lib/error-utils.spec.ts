@@ -1,7 +1,7 @@
+// @vitest-environment node
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
-// @vitest-environment node
 import { beforeAll, describe, expect, it } from 'vitest'
 import { initI18n } from '@/lib/i18n'
 import { getErrorBody, getErrorCode, getErrorMessage, getErrorMessageFromResponse } from './error-utils'
@@ -198,7 +198,7 @@ describe('getErrorMessage', () => {
 
 
 describe('error fallback literal guard', () => {
-  it('ensures no call site in core-web/src passes a string literal as fallback', () => {
+  it('ensures no direct call site in core-web/src passes a string literal fallback (wrapper indirection not covered)', () => {
     const srcRoot = path.resolve(__dirname, '..')
 
     function isSourceFile(filePath: string): boolean {
@@ -240,9 +240,10 @@ describe('error fallback literal guard', () => {
       'getErrorMessage',
       'throwImportResponseError',
       'throwHttpError',
+      'createHttpError',
     ])
 
-    // Legacy call sites outside AUT-836 scope to be addressed in follow-up audit
+    // Exempted from the AUT-836 migration; tracked in AUT-836 for a follow-up audit
     const UNMIGRATED_THROW_HTTP_ERROR_FILES = new Set([
       'api/api-keys.ts',
       'api/document-branding.ts',
@@ -255,7 +256,8 @@ describe('error fallback literal guard', () => {
       if (
         !src.includes('getErrorMessage') &&
         !src.includes('throwImportResponseError') &&
-        !src.includes('throwHttpError')
+        !src.includes('throwHttpError') &&
+        !src.includes('createHttpError')
       ) {
         continue
       }
@@ -269,11 +271,10 @@ describe('error fallback literal guard', () => {
           let name = ''
           if (ts.isIdentifier(expr)) name = expr.text
           else if (ts.isPropertyAccessExpression(expr)) name = expr.name.text
-          if (name === 'throwHttpError' && UNMIGRATED_THROW_HTTP_ERROR_FILES.has(relPath)) {
-            return
-          }
-          if (checkedFunctions.has(name)) {
-            const fallbackArg = node.arguments[1]
+          const exempt = name === 'throwHttpError' && UNMIGRATED_THROW_HTTP_ERROR_FILES.has(relPath)
+          if (!exempt && checkedFunctions.has(name)) {
+            const fallbackArgIndex = name === 'createHttpError' ? 0 : 1
+            const fallbackArg = node.arguments[fallbackArgIndex]
             if (fallbackArg) {
               checkLiteral(fallbackArg, sf, relPath)
             }

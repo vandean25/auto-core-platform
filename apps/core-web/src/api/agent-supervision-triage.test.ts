@@ -24,9 +24,10 @@ function createWrapper(client: QueryClient) {
     createElement(QueryClientProvider, { client }, children)
 }
 
-function createJsonResponse(body: unknown, ok = true): Response {
+function createJsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
     ok,
+    status,
     json: async () => body,
   } as Response
 }
@@ -72,6 +73,7 @@ describe('useAgentSupervisionTriage', () => {
           message: 'Raw triage backend message',
         },
         false,
+        422,
       ),
     )
 

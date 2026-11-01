@@ -69,7 +69,7 @@ export async function fetchAgentProposalsList(
   const response = await fetchWithAuth(url)
 
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response, i18n.t('agent:approvals.loadFailed')))
+    throw new Error(await getErrorMessage(response, i18n.t('common:apiErrors.agent.approvals.loadFailed')))
   }
 
   return response.json()

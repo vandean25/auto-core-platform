@@ -357,22 +357,7 @@
         "uploadFailed": "Upload failed",
         "storageFailed": "Upload to storage failed. Please retry."
       }
-    },
-    "taskDetailLoadFailed": "Failed to load task details",
-    "loadChecklistFailed": "Failed to load checklist",
-    "saveChecklistFailed": "Failed to save checklist",
-    "loadQueueFailed": "Failed to load mechanic queue",
-    "startTaskFailed": "Failed to start task",
-    "switchTaskFailed": "Failed to switch task",
-    "pauseTaskFailed": "Failed to pause task",
-    "completeTaskFailed": "Failed to complete task",
-    "saveDiagnosticsFailed": "Failed to save diagnostics",
-    "submitFindingFailed": "Failed to submit finding to advisor",
-    "requestPartFailed": "Failed to request part",
-    "getUploadPolicyFailed": "Failed to get upload policy",
-    "saveMediaFailed": "Failed to save media metadata",
-    "uploadVoiceNoteFailed": "Failed to upload voice note",
-    "audioMimeTypeRequired": "Audio file must have a known MIME type."
+    }
   },
   "actions": {
     "cancel": "Cancel",
@@ -1698,9 +1683,5 @@
     "loadingMore": "Loading…",
     "loadErrorTitle": "Estimates unavailable",
     "loadErrorFallback": "Estimates could not be loaded."
-  },
-  "inspectorEvidence": {
-    "loadFailed": "Failed to load inspector evidence",
-    "assessFailed": "Failed to assess inspector evidence"
   }
 }

@@ -35,7 +35,7 @@ export function useInspectorEvidenceList(employeeId: string | null, enabled: boo
       )
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, i18n.t('workshop:inspectorEvidence.loadFailed')),
+          await getErrorMessage(response, i18n.t('common:apiErrors.workshop.inspectorEvidence.loadFailed')),
         )
       }
       return (await response.json()) as {
@@ -71,7 +71,7 @@ export function useInspectorEvidenceAssessment(
       )
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, i18n.t('workshop:inspectorEvidence.assessFailed')),
+          await getErrorMessage(response, i18n.t('common:apiErrors.workshop.inspectorEvidence.assessFailed')),
         )
       }
       return (await response.json()) as InspectorEvidenceAssessment

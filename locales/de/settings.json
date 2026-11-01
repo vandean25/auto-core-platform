@@ -1311,26 +1311,6 @@
         "started": "Import wird rückgängig gemacht.",
         "failed": "Import konnte nicht rückgängig gemacht werden."
       }
-    },
-    "errors": {
-      "directUploadFailed": "Upload konnte nicht gestartet werden",
-      "dryRunFailed": "Probelauf fehlgeschlagen",
-      "historyLoadFailed": "Importverlauf konnte nicht geladen werden",
-      "entityTypesLoadFailed": "Entitätstypen konnten nicht geladen werden",
-      "templateLoadFailed": "Importvorlage konnte nicht geladen werden",
-      "mappingProfilesLoadFailed": "Profile konnten nicht geladen werden",
-      "mappingProfileSaveFailed": "Profil konnte nicht gespeichert werden",
-      "rowsLoadFailed": "Importzeilen konnten nicht geladen werden",
-      "cancelFailed": "Import konnte nicht abgebrochen werden",
-      "applyFailed": "Import konnte nicht angewendet werden",
-      "downloadTemplateFailed": "Vorlage konnte nicht heruntergeladen werden",
-      "downloadErrorsFailed": "Fehlerzeilen konnten nicht heruntergeladen werden",
-      "sourcesLoadFailed": "Importquellen konnten nicht geladen werden",
-      "sourceCreateFailed": "Importquelle konnte nicht erstellt werden",
-      "sourceUpdateFailed": "Importquelle konnte nicht aktualisiert werden",
-      "sourceDeleteFailed": "Importquelle konnte nicht gelöscht werden",
-      "undoPreviewFailed": "Vorschau konnte nicht geladen werden",
-      "undoFailed": "Import konnte nicht rückgängig gemacht werden"
     }
   },
   "documentBranding": {

@@ -147,8 +147,7 @@
         "saved": "Saved",
         "error": "Save failed"
       }
-    },
-    "shorteningFailed": "Failed to save warranty shortening"
+    }
   },
   "reports": {
     "title": "Vehicle stock reports",

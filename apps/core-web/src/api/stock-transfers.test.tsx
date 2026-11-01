@@ -104,7 +104,7 @@ describe("useStockTransfer", () => {
 
     await expect(
       result.current.mutateAsync({ expectedVersion: 1 }),
-    ).rejects.toThrow("Failed to approve stock transfer");
+    ).rejects.toThrow("Umlagerung konnte nicht genehmigt werden");
 
     await expect(
       result.current.mutateAsync({ expectedVersion: 1 }),

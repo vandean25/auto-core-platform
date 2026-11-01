@@ -114,8 +114,8 @@ async function readErrorPayload(response: Response): Promise<{
 async function throwImportResponseError(response: Response, fallback: string): Promise<never> {
   const payload = await readErrorPayload(response)
   const error = new Error(fallback) as Error & {
-    status?: number
-    response?: {
+    status: number
+    response: {
       status: number
       data?: {
         code?: string
@@ -161,7 +161,7 @@ export async function startDirectImportUpload(params: {
     body: JSON.stringify(params),
   })
   if (!response.ok) {
-    return throwImportResponseError(response, i18n.t('settings:dataImport.errors.directUploadFailed'))
+    return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.directUploadFailed'))
   }
   return response.json() as Promise<DirectImportUploadStart>
 }
@@ -179,7 +179,7 @@ export async function finalizeDirectImportUpload(
     },
   )
   if (!response.ok) {
-    return throwImportResponseError(response, i18n.t('settings:dataImport.errors.dryRunFailed'))
+    return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.dryRunFailed'))
   }
   return response.json() as Promise<ImportJob>
 }
@@ -220,7 +220,7 @@ export function useImportJobs(filters: ImportJobListFilters = {}) {
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/imports?${toImportQueryString(params)}`)
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.historyLoadFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.historyLoadFailed'))
       }
       return response.json() as Promise<ImportJobListResult>
     },
@@ -234,7 +234,7 @@ export function useImportEntityTypes() {
     queryFn: async () => {
       const response = await fetchWithAuth('/api/imports/entity-types')
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.entityTypesLoadFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.entityTypesLoadFailed'))
       }
       const body = (await response.json()) as { data: ImportEntityTypeEntry[] }
       return body.data
@@ -249,7 +249,7 @@ export function useImportTemplate(entityType: ImportEntityType | null) {
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/imports/templates/${entityType}`)
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.templateLoadFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.templateLoadFailed'))
       }
       return response.json() as Promise<ImportTemplate>
     },
@@ -271,7 +271,7 @@ export function useImportMappingProfiles(
       })
       const response = await fetchWithAuth(`/api/imports/mapping-profiles?${params}`)
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.mappingProfilesLoadFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.mappingProfilesLoadFailed'))
       }
       const body = (await response.json()) as { data: ImportMappingProfile[] }
       return body.data
@@ -294,7 +294,7 @@ export function useCreateImportMappingProfile() {
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.mappingProfileSaveFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.mappingProfileSaveFailed'))
       }
       return response.json() as Promise<ImportMappingProfile>
     },
@@ -327,7 +327,7 @@ export function useImportDryRun() {
         body: form,
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.dryRunFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.dryRunFailed'))
       }
       return response.json() as Promise<ImportJob>
     },
@@ -358,7 +358,7 @@ export function useImportJobRows(
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/imports/${jobId}/rows?${toImportQueryString(params)}`)
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.rowsLoadFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.rowsLoadFailed'))
       }
       const body = (await response.json()) as ImportJobRowsResult
       return body
@@ -384,7 +384,7 @@ export function useCancelImportJob() {
         method: 'POST',
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.cancelFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.cancelFailed'))
       }
       return response.json() as Promise<ImportJob>
     },
@@ -404,7 +404,7 @@ export function useApplyImportJob() {
         applyRequestInit(payload),
       )
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.applyFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.applyFailed'))
       }
       return response.json() as Promise<ImportJob>
     },
@@ -420,7 +420,7 @@ export async function downloadImportTemplateCsv(entityType: ImportEntityType): P
     headers: { Accept: 'text/csv' },
   })
   if (!response.ok) {
-    return throwImportResponseError(response, i18n.t('settings:dataImport.errors.downloadTemplateFailed'))
+    return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.downloadTemplateFailed'))
   }
   return response.blob()
 }
@@ -431,7 +431,7 @@ export async function downloadImportErrorRowsCsv(jobId: string, language?: strin
     headers: { Accept: 'text/csv', 'Accept-Language': csvLanguage },
   })
   if (!response.ok) {
-    return throwImportResponseError(response, i18n.t('settings:dataImport.errors.downloadErrorsFailed'))
+    return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.downloadErrorsFailed'))
   }
   return response.blob()
 }
@@ -442,7 +442,7 @@ export function useImportSources() {
     queryFn: async (): Promise<ImportSourceListResponse> => {
       const response = await fetchWithAuth('/api/imports/sources')
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.sourcesLoadFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.sourcesLoadFailed'))
       }
       return response.json() as Promise<ImportSourceListResponse>
     },
@@ -459,7 +459,7 @@ export function useCreateImportSource() {
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.sourceCreateFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.sourceCreateFailed'))
       }
       return response.json() as Promise<ImportSource>
     },
@@ -482,7 +482,7 @@ export function useUpdateImportSource() {
         body: JSON.stringify(params.payload),
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.sourceUpdateFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.sourceUpdateFailed'))
       }
       return response.json() as Promise<ImportSource>
     },
@@ -500,7 +500,7 @@ export function useDeleteImportSource() {
         method: 'DELETE',
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.sourceDeleteFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.sourceDeleteFailed'))
       }
     },
     onSuccess: (_data, id) => {
@@ -528,7 +528,7 @@ export function useImportUndoPreview(jobId: string | null, enabled = true) {
         method: 'POST',
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.undoPreviewFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.undoPreviewFailed'))
       }
       return response.json() as Promise<ImportUndoPreviewResponse>
     },
@@ -553,7 +553,7 @@ export function useUndoImportJob() {
         body: payload ? JSON.stringify(payload) : undefined,
       })
       if (!response.ok) {
-        return throwImportResponseError(response, i18n.t('settings:dataImport.errors.undoFailed'))
+        return throwImportResponseError(response, i18n.t('common:apiErrors.dataImport.undoFailed'))
       }
       return response.json() as Promise<ImportJob>
     },

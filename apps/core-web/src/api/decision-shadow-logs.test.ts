@@ -29,9 +29,10 @@ function createWrapper(client: QueryClient) {
     createElement(QueryClientProvider, { client }, children)
 }
 
-function createJsonResponse(body: unknown, ok = true): Response {
+function createJsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
     ok,
+    status,
     json: async () => body,
   } as Response
 }
@@ -158,7 +159,7 @@ describe('decision-shadow-logs api hooks', () => {
 
   it('does not surface the raw server message and uses translated fallback when forbidden', async () => {
     vi.mocked(fetchWithAuth).mockResolvedValue(
-      createJsonResponse({ message: 'Tenant supervisor or admin access is required.' }, false),
+      createJsonResponse({ code: 'NOT_A_REAL_CODE', message: 'Tenant supervisor or admin access is required.' }, false, 403),
     )
 
     const { result } = renderHook(() => useDecisionShadowLogs(), {
@@ -169,7 +170,7 @@ describe('decision-shadow-logs api hooks', () => {
       expect(result.current.isError).toBe(true)
     })
 
-    expect(result.current.error?.message).toBe('Entscheidungs-Schattenprotokolle konnten nicht geladen werden')
+    expect(result.current.error?.message).toBe('Schattenprotokolle konnten nicht geladen werden')
     expect(result.current.error?.message).not.toContain('Tenant supervisor or admin access is required.')
   })
 
@@ -181,6 +182,7 @@ describe('decision-shadow-logs api hooks', () => {
           message: 'Raw server exception',
         },
         false,
+        422,
       ),
     )
 

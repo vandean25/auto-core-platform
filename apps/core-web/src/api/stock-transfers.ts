@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { i18n } from "@/lib/i18n";
 import { fetchWithAuth } from "./client";
 import { getErrorMessageFromResponse as getErrorMessage } from "@/lib/error-utils";
 import type { components } from "./generated/openapi";
@@ -63,7 +64,7 @@ export function useStockTransfers(
       const response = await fetchWithAuth(
         query ? `${STOCK_TRANSFER_API}?${query}` : STOCK_TRANSFER_API,
       );
-      if (!response.ok) throw new Error("Failed to fetch stock transfers");
+      if (!response.ok) throw new Error(i18n.t("inventory:stockTransfers.errors.listLoadFailed"));
       return (await response.json()) as StockTransfer[];
     },
   });
@@ -77,7 +78,7 @@ export function useStockTransfer(transferId: string) {
       const response = await fetchWithAuth(
         `${STOCK_TRANSFER_API}/${transferId}`,
       );
-      if (!response.ok) throw new Error("Failed to fetch stock transfer");
+      if (!response.ok) throw new Error(i18n.t("inventory:stockTransfers.errors.detailLoadFailed"));
       return (await response.json()) as StockTransfer;
     },
   });
@@ -93,7 +94,7 @@ export function useCreateStockTransfer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      return parseStockTransferResponse(response, "Failed to create stock transfer");
+      return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.createFailed"));
     },
     onSuccess: (transfer) => {
       invalidateStockTransferQueries(queryClient, transfer.id);
@@ -114,7 +115,7 @@ export function useApproveStockTransfer(transferId: string) {
           body: JSON.stringify(payload),
         },
       );
-      return parseStockTransferResponse(response, "Failed to approve stock transfer");
+      return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.approveFailed"));
     },
     onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
   });
@@ -133,7 +134,7 @@ export function useRejectStockTransfer(transferId: string) {
           body: JSON.stringify(payload),
         },
       );
-      return parseStockTransferResponse(response, "Failed to reject stock transfer");
+      return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.rejectFailed"));
     },
     onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
   });
@@ -152,7 +153,7 @@ export function useCancelStockTransfer(transferId: string) {
           body: JSON.stringify(payload),
         },
       );
-      return parseStockTransferResponse(response, "Failed to cancel stock transfer");
+      return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.cancelFailed"));
     },
     onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
   });
@@ -171,7 +172,7 @@ export function useShipStockTransfer(transferId: string) {
           body: JSON.stringify(payload),
         },
       );
-      return parseStockTransferResponse(response, "Failed to ship stock transfer");
+      return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.shipFailed"));
     },
     onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
   });
@@ -190,7 +191,7 @@ export function useReceiveStockTransfer(transferId: string) {
           body: JSON.stringify(payload),
         },
       );
-      return parseStockTransferResponse(response, "Failed to receive stock transfer");
+      return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.receiveFailed"));
     },
     onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
   });
@@ -209,7 +210,7 @@ export function useReturnStockTransfer(transferId: string) {
           body: JSON.stringify(payload),
         },
       );
-      return parseStockTransferResponse(response, "Failed to return stock transfer");
+      return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.returnFailed"));
     },
     onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
   });

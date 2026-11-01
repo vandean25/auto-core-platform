@@ -39,7 +39,13 @@ export function MechanicTaskInspectionChecklist({
     return (
       <p className="text-sm text-muted-foreground">{t("mechanic.taskDetail.checklist.loading")}</p>
     );
-  if (checklistQuery.isError || !checklistQuery.data) return null;
+  if (checklistQuery.isError)
+    return (
+      <p className="text-sm text-destructive">
+        {t("apiErrors.workshop.mechanic.loadChecklistFailed", { ns: "common" })}
+      </p>
+    );
+  if (!checklistQuery.data) return null;
   return (
     <WorkshopTaskInspectionChecklistView
       checklist={checklistQuery.data}

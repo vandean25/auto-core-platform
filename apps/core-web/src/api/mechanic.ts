@@ -142,7 +142,7 @@ export function useMechanicTaskChecklist(taskId: string) {
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/checklist`,
       );
       if (!response.ok)
-        await throwHttpError(response, i18n.t('workshop:mechanic.loadChecklistFailed'));
+        await throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.loadChecklistFailed'));
       return response.json() as Promise<MechanicTaskChecklist>;
     },
     enabled: Boolean(taskId),
@@ -169,7 +169,7 @@ export function useUpdateMechanicTaskChecklist() {
         },
       );
       if (!response.ok)
-        await throwHttpError(response, i18n.t('workshop:mechanic.saveChecklistFailed'));
+        await throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveChecklistFailed'));
       return response.json() as Promise<MechanicTaskChecklist>;
     },
     onSuccess: (_result, payload) => {
@@ -187,7 +187,7 @@ export function useMechanicQueue() {
     queryFn: async () => {
       const response = await fetchWithAuth("/api/mechanic/queue");
       if (!response.ok) {
-        await throwHttpError(response, i18n.t('workshop:mechanic.loadQueueFailed'));
+        await throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.loadQueueFailed'));
       }
       return response.json() as Promise<MechanicQueueResponse>;
     },
@@ -205,7 +205,7 @@ export function mechanicTaskDetailQueryOptions(taskId: string) {
       );
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, i18n.t('workshop:mechanic.taskDetailLoadFailed')),
+          await getErrorMessage(response, i18n.t('common:apiErrors.workshop.mechanic.taskDetailLoadFailed')),
         );
       }
       return response.json() as Promise<MechanicTaskDetail>;
@@ -232,7 +232,7 @@ export function useStartTask() {
         { method: "POST" },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.startTaskFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.startTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -264,7 +264,7 @@ export function useSwitchTask() {
       );
       if (!response.ok) {
         // Expose HTTP status so callers can implement 409 → start fallback
-        return throwHttpError(response, i18n.t('workshop:mechanic.switchTaskFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.switchTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -294,7 +294,7 @@ export function usePauseTask() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.pauseTaskFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.pauseTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -312,7 +312,7 @@ export function useCompleteTask() {
         { method: "POST" },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.completeTaskFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.completeTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -338,7 +338,7 @@ export function useSaveDiagnostics() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.saveDiagnosticsFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveDiagnosticsFailed'));
       }
       return response.json() as Promise<SaveDiagnosticsResponse>;
     },
@@ -381,7 +381,7 @@ export function useSubmitMechanicFinding() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.submitFindingFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.submitFindingFailed'));
       }
       return response.json() as Promise<SubmitMechanicFindingResponse>;
     },
@@ -407,7 +407,7 @@ export function useRequestPart() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.requestPartFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.requestPartFailed'));
       }
       return response.json() as Promise<RequestPartResponse>;
     },
@@ -437,7 +437,7 @@ export function useCreateMediaUploadPolicy() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.getUploadPolicyFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.getUploadPolicyFailed'));
       }
       return response.json() as Promise<MediaUploadPolicy>;
     },
@@ -462,7 +462,7 @@ export function useSaveMediaMetadata() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.saveMediaFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveMediaFailed'));
       }
       return response.json() as Promise<WorkshopMedia>;
     },
@@ -489,7 +489,11 @@ export function useUploadVoiceNote() {
       audio: File | Blob;
     }) => {
       if (!audio.type) {
-        throw createHttpError(i18n.t('workshop:mechanic.audioMimeTypeRequired'), 422);
+        throw createHttpError(
+          i18n.t('errors:codes.AUDIO_UNSUPPORTED_TYPE'),
+          422,
+          { code: 'AUDIO_UNSUPPORTED_TYPE' },
+        );
       }
       const form = new FormData();
       form.append("audio", audio, getVoiceNoteFilename(audio));
@@ -498,7 +502,7 @@ export function useUploadVoiceNote() {
         { method: "POST", body: form },
       );
       if (!response.ok) {
-        return throwHttpError(response, i18n.t('workshop:mechanic.uploadVoiceNoteFailed'));
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.uploadVoiceNoteFailed'));
       }
       return response.json() as Promise<VoiceNoteDraftResponse>;
     },

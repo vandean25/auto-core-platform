@@ -67,8 +67,10 @@ describe('downloadImportErrorRowsCsv', () => {
       headers: { 'Content-Type': 'application/json' },
     }))
 
-    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Fehlerzeilen konnten nicht heruntergeladen werden')
-    await expect(downloadImportErrorRowsCsv('job-1')).rejects.not.toThrow('Download unavailable')
+    const error = await downloadImportErrorRowsCsv('job-1').catch((caught: unknown) => caught)
+
+    expect((error as Error).message).toBe('Fehlerzeilen konnten nicht heruntergeladen werden')
+    expect((error as Error).message).not.toContain('Download unavailable')
   })
 
   it('uses the existing fallback when the failed response is not JSON', async () => {

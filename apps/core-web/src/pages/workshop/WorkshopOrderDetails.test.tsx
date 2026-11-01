@@ -1117,7 +1117,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       rejectMutation(new Error("Network disconnect"));
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Network disconnect");
+        expect(toast.error).toHaveBeenCalledWith(orderDetailToast.taskCreateFailed);
         expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeEnabled();
       });
     });

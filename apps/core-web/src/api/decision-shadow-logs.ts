@@ -50,7 +50,7 @@ export function useDecisionShadowLogs(filters: DecisionShadowLogFilters = {}) {
         throw new Error(
           await getErrorMessage(
             response,
-            i18n.t('agent:decisionShadow.loadFailed'),
+            i18n.t('common:apiErrors.agent.decisionShadow.loadFailed'),
           ),
         )
       }

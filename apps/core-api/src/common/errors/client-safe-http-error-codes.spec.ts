@@ -13,7 +13,7 @@ import {
 const API_SRC_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL('../../../../../', import.meta.url));
 
-/** Codes import sources throw at a client, recursively scanned across all non-test files under import/. */
+/** Every IMPORT_ERROR_CODES member referenced by non-test files under import/, recursively scanned. Includes row-issue codes that are never thrown as HTTP errors. */
 function clientFacingImportCodes(): string[] {
   const keys = new Set<keyof typeof IMPORT_ERROR_CODES>();
   const importDir = resolve(API_SRC_ROOT, 'import');
@@ -216,7 +216,7 @@ describe('client-safe HTTP error codes', () => {
 });
 
 describe('client-safe allowlist parity', () => {
-  it('lists every import code the controllers and error helpers throw at a client', () => {
+  it('pins every import code scanned from the import/ sources to the allowlist', () => {
     const codes = clientFacingImportCodes();
 
     expect(codes).toEqual([

@@ -24,9 +24,10 @@ function createWrapper(client: QueryClient) {
     createElement(QueryClientProvider, { client }, children)
 }
 
-function createJsonResponse(body: unknown, ok = true): Response {
+function createJsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
     ok,
+    status,
     json: async () => body,
   } as Response
 }
@@ -44,6 +45,7 @@ describe('useInspectorEvidenceList error handling', () => {
           message: 'Raw inspector backend error',
         },
         false,
+        422,
       ),
     )
 
@@ -73,6 +75,7 @@ describe('useInspectorEvidenceList error handling', () => {
           message: 'Server internal details',
         },
         false,
+        400,
       ),
     )
 

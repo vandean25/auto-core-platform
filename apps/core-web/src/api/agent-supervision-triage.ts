@@ -45,7 +45,7 @@ export function useAgentSupervisionTriage(
       const response = await fetchWithAuth(url)
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, i18n.t('agent:approvals.triageLoadFailed')),
+          await getErrorMessage(response, i18n.t('common:apiErrors.agent.approvals.triageLoadFailed')),
         )
       }
       return response.json()

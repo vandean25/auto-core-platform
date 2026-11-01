@@ -84,9 +84,7 @@
     "approveSuccess": "Vorschlag genehmigt",
     "rejectSuccess": "Vorschlag abgelehnt",
     "approveError": "Fehler beim Genehmigen des Vorschlags",
-    "rejectError": "Fehler beim Ablehnen des Vorschlags",
-    "loadFailed": "Agenten-Vorschläge konnten nicht geladen werden",
-    "triageLoadFailed": "Überwachungs-Posteingang konnte nicht geladen werden"
+    "rejectError": "Fehler beim Ablehnen des Vorschlags"
   },
   "rejectDialog": {
     "title": "Agenten-Vorschlag ablehnen",
@@ -124,8 +122,7 @@
     "viewAudit": "Korrelierte Audit-Logs anzeigen",
     "copyTraceId": "Trace-ID kopieren",
     "traceIdCopied": "Trace-ID kopiert",
-    "traceIdCopyFailed": "Kopieren fehlgeschlagen. Trace-ID manuell auswählen und kopieren.",
-    "loadFailed": "Agenten-Aktivitäten konnten nicht geladen werden"
+    "traceIdCopyFailed": "Kopieren fehlgeschlagen. Trace-ID manuell auswählen und kopieren."
   },
   "decisionShadow": {
     "description": "Nur-Lese-Ansicht der im Schattenmodus protokollierten KI-Vorschläge. Vorschläge werden nie angewendet und ändern kein Ergebnis.",
@@ -153,8 +150,7 @@
     "matchNo": "Abweichung",
     "noSuggestion": "Kein Vorschlag",
     "emptyState": "Keine Schatten-Vorschläge gefunden",
-    "emptyStateDesc": "Keine Einträge zur Entscheidungs-Schattenprotokollierung entsprechen den gewählten Filtern.",
-    "loadFailed": "Entscheidungs-Schattenprotokolle konnten nicht geladen werden"
+    "emptyStateDesc": "Keine Einträge zur Entscheidungs-Schattenprotokollierung entsprechen den gewählten Filtern."
   },
   "traceDialog": {
     "title": "Trace-Audit & Korrelation",
@@ -167,8 +163,7 @@
     "onBehalfOf": "Im Auftrag von",
     "time": "Zeit",
     "user": "Benutzer",
-    "systemActor": "System / Agent",
-    "loadFailed": "Trace-Details konnten nicht geladen werden"
+    "systemActor": "System / Agent"
   },
   "common": {
     "unknownUser": "Unbekannter Benutzer",

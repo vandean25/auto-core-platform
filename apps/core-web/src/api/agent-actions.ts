@@ -71,7 +71,7 @@ export function useAgentActions(filters: AgentActionFilters = {}) {
 
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, i18n.t('agent:activity.loadFailed')),
+          await getErrorMessage(response, i18n.t('common:apiErrors.agent.activity.loadFailed')),
         )
       }
 
@@ -92,7 +92,7 @@ export function useAgentActionTraceDetail(traceId: string) {
         throw new Error(
           await getErrorMessage(
             response,
-            i18n.t('agent:traceDialog.loadFailed'),
+            i18n.t('common:apiErrors.agent.traceDialog.loadFailed'),
           ),
         )
       }

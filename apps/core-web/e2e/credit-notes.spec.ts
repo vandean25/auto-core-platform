@@ -694,7 +694,9 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
     await page.getByLabel(DE_FINANCE.columns.reason).fill('Trigger autosave failure');
-    await expect(page.getByText(DE_COMMON.documentSave.error).first()).toBeVisible();
+    await expect(
+      page.locator('[data-sonner-toast]').filter({ hasText: DE_COMMON.documentSave.error }).first(),
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: DE_FINANCE.actions.finalize }),
     ).toBeDisabled();
