@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import ts from 'typescript'
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from 'vitest'
 import { initI18n } from '@/lib/i18n'
@@ -164,5 +167,75 @@ describe('getErrorMessage', () => {
     }
 
     expect(getErrorMessage(thrown, 'fallback')).toBe('Fiskalperiode ist gesperrt.')
+  })
+})
+
+
+describe('getErrorMessage fallback guard', () => {
+  it('ensures no call site in core-web/src passes a string literal as fallback', () => {
+    const srcRoot = path.resolve(__dirname, '..')
+
+    function isSourceFile(file: string): boolean {
+      if (file.endsWith('.d.ts')) return false
+      if (file.endsWith('.test.ts') || file.endsWith('.test.tsx')) return false
+      if (file.endsWith('.spec.ts') || file.endsWith('.spec.tsx')) return false
+      if (file.includes('test-copy.ts')) return false
+      if (file.includes(`${path.sep}test${path.sep}`) || file.includes('/test/')) return false
+      return file.endsWith('.ts') || file.endsWith('.tsx')
+    }
+
+    function walk(dir: string): string[] {
+      let results: string[] = []
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          results = results.concat(walk(fullPath))
+        } else if (isSourceFile(fullPath)) {
+          results.push(fullPath)
+        }
+      }
+      return results
+    }
+
+    const files = walk(srcRoot)
+    const violations: Array<{ file: string; line: number; text: string }> = []
+
+    function checkLiteral(node: ts.Node, sf: ts.SourceFile, relPath: string) {
+      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+        const { line } = sf.getLineAndCharacterOfPosition(node.getStart())
+        violations.push({ file: relPath, line: line + 1, text: node.getText(sf) })
+      } else if (ts.isBinaryExpression(node)) {
+        checkLiteral(node.left, sf, relPath)
+        checkLiteral(node.right, sf, relPath)
+      }
+    }
+
+    for (const file of files) {
+      const src = fs.readFileSync(file, 'utf8')
+      if (!src.includes('getErrorMessage')) continue
+
+      const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true)
+
+      function visit(node: ts.Node) {
+        if (ts.isCallExpression(node)) {
+          const expr = node.expression
+          let name = ''
+          if (ts.isIdentifier(expr)) name = expr.text
+          else if (ts.isPropertyAccessExpression(expr)) name = expr.name.text
+          if (name === 'getErrorMessage') {
+            const fallbackArg = node.arguments[1]
+            if (fallbackArg) {
+              const relPath = path.relative(srcRoot, file).replace(/\\/g, '/')
+              checkLiteral(fallbackArg, sf, relPath)
+            }
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+
+      visit(sf)
+    }
+
+    expect(violations).toEqual([])
   })
 })
