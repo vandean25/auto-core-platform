@@ -15,9 +15,11 @@ describe('ScheduledJobService', () => {
 
   beforeEach(() => {
     mockScheduledJobRun = {
-      upsert: jest.fn<any>().mockResolvedValue({ job_name: 'import-job-row-purge' }),
-      updateMany: jest.fn<any>(),
-      findUnique: jest.fn<any>(),
+      upsert: jest
+        .fn<() => Promise<any>>()
+        .mockResolvedValue({ job_name: 'import-job-row-purge' }),
+      updateMany: jest.fn(),
+      findUnique: jest.fn(),
     };
     mockSystemPrisma = {
       scheduledJobRun: mockScheduledJobRun,

@@ -26,14 +26,18 @@ describe('ScheduledJobTriggerService', () => {
     jest.setSystemTime(new Date('2026-11-01T12:00:00.000Z'));
 
     mockScheduledJobService = {
-      tryClaimJob: jest.fn<any>().mockResolvedValue({ claimed: false }),
+      tryClaimJob: jest
+        .fn<() => Promise<any>>()
+        .mockResolvedValue({ claimed: false }),
     };
     mockPurgeWorkerService = {
-      dispatchPurgeTask: jest.fn<any>().mockResolvedValue(undefined),
+      dispatchPurgeTask: jest
+        .fn<() => Promise<any>>()
+        .mockResolvedValue(undefined),
     };
 
     const mockModuleRef = {
-      get: jest.fn<any>().mockReturnValue(mockPurgeWorkerService),
+      get: jest.fn().mockReturnValue(mockPurgeWorkerService),
     };
 
     service = new ScheduledJobTriggerService(
@@ -73,7 +77,6 @@ describe('ScheduledJobTriggerService', () => {
 
     it('never delays or fails a request when trigger throws an error', async () => {
       const errorSpy = jest
-        // @ts-expect-error accessing private logger
         .spyOn(service['logger'], 'error')
         .mockImplementation(() => {});
 

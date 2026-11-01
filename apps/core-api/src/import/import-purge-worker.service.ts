@@ -194,33 +194,35 @@ export class ImportPurgeWorkerService {
     rowBudget: number,
   ): Promise<boolean> {
     try {
-      const counts = await this.requestContext.runAsWorker(
+      return await this.requestContext.runAsWorker(
         tenantId,
-        () =>
-          this.purgeForTenant(tenantId, now, dryRun, {
+        async () => {
+          const counts = await this.purgeForTenant(tenantId, now, dryRun, {
             rowBudget,
-          }),
+          });
+
+          if (counts.rows_deleted >= rowBudget) {
+            return true;
+          }
+          if (counts.jobs_scanned >= IMPORT_JOB_ROW_PURGE_JOBS_PER_TENANT) {
+            const cutoffs = importJobRowPurgeCutoffs(now);
+            const remaining = await fetchEligiblePurgeJobs(
+              this.prisma,
+              tenantId,
+              cutoffs,
+              1,
+            );
+            return remaining.length > 0;
+          }
+          return false;
+        },
         { workerId: 'import-job-row-purge' },
       );
-
-      if (counts.rows_deleted >= rowBudget) {
-        return true;
-      }
-      if (counts.jobs_scanned >= IMPORT_JOB_ROW_PURGE_JOBS_PER_TENANT) {
-        const cutoffs = importJobRowPurgeCutoffs(now);
-        const remaining = await fetchEligiblePurgeJobs(
-          this.prisma,
-          tenantId,
-          cutoffs,
-          1,
-        );
-        return remaining.length > 0;
-      }
     } catch (error) {
       this.logger.error(
         `Import job row purge failed for tenant ${tenantId}: ${error instanceof Error ? error.message : 'unknown error'}`,
       );
+      return false;
     }
-    return false;
   }
 }

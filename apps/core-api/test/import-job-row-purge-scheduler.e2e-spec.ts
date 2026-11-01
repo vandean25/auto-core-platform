@@ -213,6 +213,7 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
           createdAt: ancientDate,
           updatedAt: ancientDate,
           options_json: { worker: { phase: 'dry_run' } },
+          mapping_json: {},
           totals_json: { rows: 5, error: 0 },
         },
       });
@@ -237,6 +238,8 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
           status: ImportJobStatus.DRY_RUN_DONE,
           createdAt: now,
           updatedAt: now,
+          options_json: {},
+          mapping_json: {},
           totals_json: { rows: 3, error: 0 },
         },
       });

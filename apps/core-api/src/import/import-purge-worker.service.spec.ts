@@ -21,24 +21,26 @@ describe('ImportPurgeWorkerService', () => {
   beforeEach(() => {
     mockSystemPrisma = {
       tenant: {
-        findMany: jest.fn<any>(),
+        findMany: jest.fn(),
       },
     };
     mockPrisma = {
       importJob: {
-        findMany: jest.fn<any>().mockResolvedValue([]),
+        findMany: jest.fn<() => Promise<any>>().mockResolvedValue([]),
       },
     };
     mockScheduledJobService = {
-      getJobRun: jest.fn<any>(),
-      markJobRunCompleted: jest.fn<any>(),
+      getJobRun: jest.fn(),
+      markJobRunCompleted: jest.fn(),
     };
     mockCloudTasks = {
-      isEnabled: jest.fn<any>().mockReturnValue(true),
-      enqueueImportPurgeWorker: jest.fn<any>().mockResolvedValue(undefined),
+      isEnabled: jest.fn().mockReturnValue(true),
+      enqueueImportPurgeWorker: jest
+        .fn<() => Promise<any>>()
+        .mockResolvedValue(undefined),
     };
     mockRequestContext = {
-      runAsWorker: jest.fn<any>().mockImplementation(
+      runAsWorker: jest.fn(
         async (_tenantId: string, fn: () => Promise<any>) => fn(),
       ),
     };
