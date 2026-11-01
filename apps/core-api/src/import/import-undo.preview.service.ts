@@ -20,10 +20,12 @@ import {
 } from './import-undo.types.js';
 import {
   importJobAlreadyUndone,
+  importJobBusy,
   importJobExpired,
   importJobNotFound,
   importJobNotUndoable,
 } from './import-job.errors.js';
+import { hasUndoableRows } from './import-undo.helpers.js';
 import type { ImportJobTotals } from './import.types.js';
 
 const PREVIEW_PAGE_SIZE = 100;
@@ -110,21 +112,14 @@ function validateJobForPreview(job: ImportJob | null): number {
   if (job.status === ImportJobStatus.UNDONE) {
     throw importJobAlreadyUndone();
   }
+  if (job.status === ImportJobStatus.APPLYING) {
+    throw importJobBusy();
+  }
   const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
   if (jobOptions.cancel_reason === 'expired') {
     throw importJobExpired();
   }
-  const appliedRowsCount = getAppliedRowsCount(
-    job.totals_json as ImportJobTotals | null,
-  );
-  const isEligibleStatus =
-    job.status === ImportJobStatus.APPLIED ||
-    job.status === ImportJobStatus.PARTIALLY_UNDONE ||
-    (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
-  if (!isEligibleStatus) {
-    throw importJobNotUndoable();
-  }
-  return appliedRowsCount;
+  return getAppliedRowsCount(job.totals_json as ImportJobTotals | null);
 }
 
 function checkBlockedJobPreview(
@@ -250,6 +245,19 @@ export class ImportUndoPreviewService {
     const earlyBlocked = checkBlockedJobPreview(job!, appliedRowsCount);
     if (earlyBlocked) {
       return earlyBlocked;
+    }
+
+    const isEligibleStatus =
+      job!.status === ImportJobStatus.APPLIED ||
+      job!.status === ImportJobStatus.PARTIALLY_UNDONE ||
+      job!.status === ImportJobStatus.FAILED;
+    if (!isEligibleStatus) {
+      throw importJobNotUndoable();
+    }
+
+    const hasRows = await hasUndoableRows(this.prisma, tenantId, job!);
+    if (!hasRows) {
+      throw importJobNotUndoable();
     }
 
     const buckets: UndoBuckets = {

@@ -157,15 +157,17 @@ function UndoSummaryCards({
 
 function UndoBlockedSection({
   blocked,
+  totalCount,
   expanded,
   onToggle,
 }: {
   blocked: ImportUndoRowPreview[];
+  totalCount: number;
   expanded: boolean;
   onToggle: () => void;
 }) {
   const { t } = useTranslation("settings");
-  if (blocked.length === 0) return null;
+  if (totalCount === 0 && blocked.length === 0) return null;
 
   const resolveReason = (reason?: string) => {
     const key = reason
@@ -173,6 +175,8 @@ function UndoBlockedSection({
       : undefined;
     return t(key ?? "dataImport.undo.blockedSection.reasons.UNKNOWN");
   };
+
+  const isCapped = blocked.length < totalCount;
 
   return (
     <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
@@ -182,21 +186,26 @@ function UndoBlockedSection({
         className="w-full flex items-center justify-between text-left text-sm font-medium hover:underline"
         aria-expanded={expanded}
       >
-        <span className="flex items-center gap-2 text-destructive">
-          <ShieldAlert className="h-4 w-4" />
-          {t("dataImport.undo.blockedSection.title", { count: blocked.length })}
+        <span className="flex items-center gap-2 text-destructive flex-wrap">
+          <ShieldAlert className="h-4 w-4 shrink-0" />
+          <span>{t("dataImport.undo.blockedSection.title", { count: totalCount })}</span>
+          {isCapped ? (
+            <span className="text-xs text-muted-foreground font-normal">
+              {t("dataImport.undo.shownOfTotal", {
+                shown: blocked.length,
+                total: totalCount,
+              })}
+            </span>
+          ) : null}
         </span>
         {expanded ? (
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4 shrink-0" />
         ) : (
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 shrink-0" />
         )}
       </button>
       {expanded ? (
         <div className="pt-2 space-y-2 text-xs">
-          <p className="text-muted-foreground">
-            {t("dataImport.undo.blockedSection.description")}
-          </p>
           <ul className="divide-y divide-border rounded-md border border-border bg-card max-h-40 overflow-y-auto">
             {blocked.map((row: ImportUndoRowPreview) => (
               <li
@@ -220,23 +229,35 @@ function UndoBlockedSection({
 
 function UndoConflictsSection({
   conflicts,
+  totalCount,
   confirmedEntityIds,
   onToggle,
 }: {
   conflicts: ImportUndoRowPreview[];
+  totalCount: number;
   confirmedEntityIds: Set<string>;
   onToggle: (entityId: string) => void;
 }) {
   const { t } = useTranslation("settings");
-  if (conflicts.length === 0) return null;
+  if (totalCount === 0 && conflicts.length === 0) return null;
+
+  const isCapped = conflicts.length < totalCount;
 
   return (
     <div className="rounded-md border border-border bg-warning/5 p-3 space-y-2">
-      <h4 className="text-sm font-medium text-warning flex items-center gap-1.5">
-        <AlertTriangle className="h-4 w-4" />
-        {t("dataImport.undo.conflictsSection.title", {
-          count: conflicts.length,
-        })}
+      <h4 className="text-sm font-medium text-warning flex items-center gap-1.5 flex-wrap">
+        <AlertTriangle className="h-4 w-4 shrink-0" />
+        <span>{t("dataImport.undo.conflictsSection.title", {
+          count: totalCount,
+        })}</span>
+        {isCapped ? (
+          <span className="text-xs text-muted-foreground font-normal">
+            {t("dataImport.undo.shownOfTotal", {
+              shown: conflicts.length,
+              total: totalCount,
+            })}
+          </span>
+        ) : null}
       </h4>
       <p className="text-xs text-muted-foreground">
         {t("dataImport.undo.conflictsSection.description")}
@@ -404,11 +425,13 @@ export function DataImportUndoDialog({
               <UndoSummaryCards counts={preview.counts} />
               <UndoBlockedSection
                 blocked={preview.blocked}
+                totalCount={preview.counts.blocked}
                 expanded={blockedExpanded}
                 onToggle={() => setBlockedExpanded((prev) => !prev)}
               />
               <UndoConflictsSection
                 conflicts={preview.conflicts}
+                totalCount={preview.counts.conflicts}
                 confirmedEntityIds={confirmedEntityIds}
                 onToggle={handleToggleConflict}
               />

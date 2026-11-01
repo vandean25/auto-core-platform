@@ -11593,6 +11593,7 @@ export interface components {
             created_at: string;
             applied_at: string | null;
             cancellable: boolean;
+            undoable: boolean;
             apply_failure_code?: string;
         };
         ImportJobListMetaDto: {

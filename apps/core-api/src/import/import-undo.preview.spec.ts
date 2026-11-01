@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -68,6 +69,10 @@ describe('ImportUndoPreviewService', () => {
       },
       importJobRow: {
         findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({ row_no: 1 }),
+      },
+      catalogPriceHistory: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'cph-1' }),
       },
     };
     for (const model of GUARD_MODELS) {
@@ -101,7 +106,7 @@ describe('ImportUndoPreviewService', () => {
     await expect(service.previewUndo(jobId)).rejects.toThrow(NotFoundException);
   });
 
-  it('throws BadRequestException when job is not APPLIED or FAILED with applied rows', async () => {
+  it('throws ConflictException when job is not APPLIED or FAILED with applied rows', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
       id: jobId,
       tenant_id: tenantId,
@@ -109,7 +114,7 @@ describe('ImportUndoPreviewService', () => {
       totals_json: { create: 0, update: 0 },
     });
 
-    await expect(service.previewUndo(jobId)).rejects.toThrow(BadRequestException);
+    await expect(service.previewUndo(jobId)).rejects.toThrow(ConflictException);
   });
 
   it('throws BadRequestException when job is already UNDONE', async () => {
