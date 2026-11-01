@@ -73,4 +73,37 @@ export class ImportAuditWriter {
       },
     });
   }
+  async writeImportJobUndoAudit(
+    client: Pick<Prisma.TransactionClient, 'auditLog'>,
+    tenantId: string,
+    actorUserId: string,
+    jobId: string,
+    outcome: {
+      status: 'UNDONE' | 'PARTIALLY_UNDONE';
+      deletedCount: number;
+      restoredCount: number;
+      blockedCount: number;
+      blockedReasons?: Record<string, string>;
+    },
+  ): Promise<void> {
+    const authUser = this.tenantContext.getAuthenticatedUser();
+    await client.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        entity_type: 'ImportJob',
+        entity_id: jobId,
+        action: AuditLogAction.UPDATE,
+        actor_user_id: actorUserId,
+        actor_email: authUser?.email ?? null,
+        actor_role: authUser?.role ?? null,
+        actor_type: AuditActorType.USER,
+        source: IMPORT_SOURCE,
+        after: {
+          event: 'import_job.undone',
+          importJobId: jobId,
+          outcome,
+        },
+      },
+    });
+  }
 }

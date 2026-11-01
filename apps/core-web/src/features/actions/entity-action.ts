@@ -29,8 +29,18 @@ export const ENTITY_ACTION_IDS = {
   tyreSetRecordTyreMeasurement: 'tyreSet.recordTyreMeasurement',
   importJobResume: 'importJob.resume',
   importJobOpen: 'importJob.open',
+  importJobUndo: 'importJob.undo',
   importJobDownloadErrors: 'importJob.downloadErrors',
   importJobCancel: 'importJob.cancel',
+  workshopCommandApply: 'workshopCommand.apply',
+  workshopCommandApplyNow: 'workshopCommand.applyNow',
+  workshopCommandReview: 'workshopCommand.review',
+  workshopCommandDictate: 'workshopCommand.dictate',
+  workshopCommandEdit: 'workshopCommand.edit',
+  workshopCommandReset: 'workshopCommand.reset',
+  workshopCommandChoose: 'workshopCommand.choose',
+  workshopCommandOpenOrders: 'workshopCommand.openOrders',
+  workshopCommandExit: 'workshopCommand.exit',
 } as const
 
 export const REGISTERED_ENTITY_ACTION_IDS: readonly string[] = Object.values(ENTITY_ACTION_IDS)

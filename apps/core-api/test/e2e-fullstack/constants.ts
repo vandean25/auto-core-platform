@@ -22,3 +22,12 @@ export const E2E_FULLSTACK_VEHICLE_SALE_PRICE = 12_000;
 export const E2E_FULLSTACK_MECHANIC_NAME = 'E2E Werkstatt Monteur';
 export const E2E_FULLSTACK_WORKSHOP_ORDER_NUMBER = 'E2E-FS-WO-0001';
 export const E2E_FULLSTACK_WORKSHOP_TASK_TITLE = 'E2E Bremsenprüfung';
+
+/** Cmd+K command mode: synthetic pilot customer, one bay, one available loaner. */
+export const E2E_FULLSTACK_COMMAND_CUSTOMER_FIRST = 'Alex';
+export const E2E_FULLSTACK_COMMAND_CUSTOMER_LAST = 'Huber';
+export const E2E_FULLSTACK_COMMAND_GOLF_PLATE = 'W-CMD 515';
+export const E2E_FULLSTACK_COMMAND_POLO_PLATE = 'W-CMD 516';
+export const E2E_FULLSTACK_COMMAND_BAY_NAME = 'Bucht 1';
+export const E2E_FULLSTACK_COMMAND_LOANER_DISPLAY_NAME = 'Leihwagen Gelb';
+

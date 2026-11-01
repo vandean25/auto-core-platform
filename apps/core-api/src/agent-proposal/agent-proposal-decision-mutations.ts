@@ -4,6 +4,7 @@ import type { AgentActionLogService } from '../agent-action-log/agent-action-log
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 import type { PendingActionExecutor } from '../pending-action-executor/pending-action-executor.types.js';
+import { deleteCommandReplays } from '../workshop-command/workshop-command-session-cleanup.js';
 import { proposalUserAuditBase } from './agent-proposal-decision-audit.js';
 import type { RejectAgentProposalDto } from './dto/agent-proposal.dto.js';
 
@@ -68,6 +69,7 @@ export async function recordProposalRejection(
     });
     if (updated.count === 0) return null;
 
+    await deleteCommandReplays(tx, tenantId, [proposal.command_id]);
     await agentActionLog.recordInTransaction(
       {
         ...proposalUserAuditBase({
@@ -112,6 +114,7 @@ export async function resolveExecutorOrFail(
         },
       });
       if (failed.count === 0) return;
+      await deleteCommandReplays(tx, tenantId, [proposal.command_id]);
       await agentActionLog.recordInTransaction(
         {
           ...proposalUserAuditBase({

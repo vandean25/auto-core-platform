@@ -1,19 +1,33 @@
 import { Injectable } from '@nestjs/common';
 import { ImportService } from './import.service.js';
+import { ImportUndoService } from './import-undo.service.js';
+import type { ImportWorkerPhase } from './import-job.worker-state.js';
 
 @Injectable()
 export class ImportWorkerService {
-  constructor(private readonly importService: ImportService) {}
+  constructor(
+    private readonly importService: ImportService,
+    private readonly undoService: ImportUndoService,
+  ) {}
 
-  runWorkerAttempt(params: {
+  async runWorkerAttempt(params: {
     tenantId: string;
     jobId: string;
-    phase: 'dry_run' | 'apply';
+    phase: ImportWorkerPhase;
   }): Promise<void> {
-    return this.importService.runImportWorkerAttempt(params);
+    if (params.phase === 'undo') {
+      await this.undoService.runUndoWorkerAttempt(params);
+      return;
+    }
+    await this.importService.runImportWorkerAttempt({
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      phase: params.phase,
+    });
   }
 
-  recoverStaleJobs(): Promise<boolean> {
-    return this.importService.recoverStaleImportJobs();
+  async recoverStaleJobs(): Promise<boolean> {
+    await this.importService.recoverStaleImportJobs();
+    return this.undoService.recoverStaleUndoJobs();
   }
 }

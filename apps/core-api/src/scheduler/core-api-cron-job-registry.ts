@@ -16,6 +16,7 @@ import { PushDeviceCleanupService } from '../push/push-device-cleanup.service.js
 import { RegistrationIntakeBytePurgeService } from '../registration-intake/registration-intake-byte-purge.service.js';
 import { RegistrationIntakeExpiryService } from '../registration-intake/registration-intake-expiry.service.js';
 import { WorkshopCheckInOrphanUploadCleanupService } from '../workshop/workshop-check-in-orphan-upload-cleanup.service.js';
+import { WorkshopCommandSessionRetentionService } from '../workshop-command/workshop-command-session-retention.service.js';
 import { CORE_API_CRON_JOB_NAMES } from './core-api-cron-job-names.js';
 import type { CoreApiCronJobName } from './core-api-cron-job-name.js';
 import type { CoreApiCronJobRunner } from './core-api-cron-job-runner.js';
@@ -40,6 +41,7 @@ export const CORE_API_CRON_JOB_RUNNER_TYPES = {
   'registration-intake-expiry': RegistrationIntakeExpiryService,
   'workshop-check-in-orphan-upload-cleanup':
     WorkshopCheckInOrphanUploadCleanupService,
+  'workshop-command-session-purge': WorkshopCommandSessionRetentionService,
 } satisfies Record<CoreApiCronJobName, Type<CoreApiCronJobRunner>>;
 
 function assertCronJobRegistryExhaustive(): void {

@@ -1,13 +1,14 @@
 import {
   readWorkerState,
   type ImportJobOptionsWithWorker,
+  type ImportWorkerPhase,
 } from './import-job.worker-state.js';
 import { IMPORT_WORKER_HANDOFF_GRACE_MS } from './import-worker-handoff.constants.js';
 
 export type StaleImportJobCandidate = {
   tenantId: string;
   jobId: string;
-  phase: 'dry_run' | 'apply';
+  phase: ImportWorkerPhase;
 };
 
 export type ImportJobRecoveryRow = {

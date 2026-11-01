@@ -1,6 +1,6 @@
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 
-export type ImportWorkerPhase = 'dry_run' | 'apply';
+export type ImportWorkerPhase = 'dry_run' | 'apply' | 'undo';
 
 export type ImportDryRunReconcileUnit = {
   context_from_row: number;

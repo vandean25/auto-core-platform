@@ -10,6 +10,29 @@ import { IMPORT_ERROR_CODES } from '../../import/import.constants.js';
  * with WARRANTY_CLAIM_ERROR_CODES in warranty-claim.rules.ts.
  */
 export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
+  // Workshop command operational codes
+  'AUDIO_EMPTY',
+  'AUDIO_TOO_LARGE',
+  'AUDIO_UNSUPPORTED_TYPE',
+  'COMMAND_ID_REUSED',
+  'CONTRACT_VERSION_UNSUPPORTED',
+  'DURATION_REQUIRED',
+  'HUMAN_ONLY_EXCLUDED',
+  'INTENT_INCOMPLETE',
+  'LOANER_NOT_PERMITTED',
+  'LOCALE_UNSUPPORTED',
+  'PLAN_STALE',
+  'RESOURCE_AMBIGUOUS',
+  'RESOURCE_MISSING',
+  'SELECTION_NOT_OFFERED',
+  'SESSION_NOT_FOUND',
+  'SITE_MISMATCH',
+  'TEXT_TOO_LONG',
+  'TIME_CONTRADICTORY',
+  'TIME_IN_PAST',
+  'TRANSCRIPT_EMPTY',
+  'UNSUPPORTED_GRAMMAR',
+  'UNSUPPORTED_SERVICE',
   'HTTP_400',
   'HTTP_401',
   'HTTP_403',
@@ -296,6 +319,10 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   IMPORT_ERROR_CODES.INVALID_SOURCE_KEY,
   IMPORT_ERROR_CODES.SOURCE_ALREADY_EXISTS,
   IMPORT_ERROR_CODES.SOURCE_NOT_FOUND,
+  IMPORT_ERROR_CODES.JOB_ALREADY_UNDONE,
+  IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE,
+  IMPORT_ERROR_CODES.JOB_BUSY,
+  IMPORT_ERROR_CODES.JOB_CONFLICT,
   // Resumable direct upload and the expired/purged job gates. The upload dialog and the job detail map these
   // to localized copy; without the entries the filter swaps the code for the status fallback.
   IMPORT_ERROR_CODES.DIRECT_UPLOAD_INVALID,

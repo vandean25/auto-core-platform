@@ -199,4 +199,51 @@ describe('VoiceTranslationService', () => {
     expect(result.translatedText).toBe('Bereits Deutsch');
     expect(mockTranslateText).not.toHaveBeenCalled();
   });
+
+  it('returns only the transcript for the advisor voice path', async () => {
+    const seeded = await service.updateSettings({
+      googleProjectId: 'my-project',
+      googleServiceAccountJson: JSON.stringify({
+        client_email: 'service@project.iam.gserviceaccount.com',
+        private_key: 'secret',
+        project_id: 'my-project',
+      }),
+    });
+    mockFindFirst.mockResolvedValue({
+      google_project_id: seeded.googleProjectId,
+      google_location: seeded.googleLocation,
+      google_service_account_encrypted:
+        mockUpsert.mock.calls[0][0].update.google_service_account_encrypted,
+    });
+    mockLongRunningRecognize.mockResolvedValue([
+      {
+        promise: async () => [
+          {
+            results: [
+              {
+                alternatives: [{ transcript: 'Huber Golf morgen acht Uhr' }],
+                languageCode: 'de-AT',
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const result = await service.transcribeVoiceNote({
+      audioBuffer: Buffer.from('audio'),
+      filename: 'command.webm',
+      mimeType: 'audio/webm',
+      sourceLanguageCode: 'de-AT',
+    });
+
+    expect(result).toEqual({
+      transcript: 'Huber Golf morgen acht Uhr',
+      sourceLanguageCode: 'de-AT',
+      detectedLanguageCode: 'de-AT',
+      provider: 'google-cloud',
+      model: 'latest_long',
+    });
+    expect(mockTranslateText).not.toHaveBeenCalled();
+  });
 });

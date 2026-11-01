@@ -301,7 +301,7 @@ export function TyreMeasurementForm({ onSave, onStateChange, initial, disabled =
   }
 
   return (
-    <form onSubmit={save} className="min-w-0 space-y-4">
+    <form noValidate onSubmit={save} className="min-w-0 space-y-4">
       <fieldset disabled={disabled || saving || uploading} className="min-w-0 space-y-4">
         <WeightClassField form={form} />
         <SpareWheelToggle hasSpare={fields.length === 5} onToggle={toggleSpare} />

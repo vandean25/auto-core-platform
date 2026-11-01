@@ -20,6 +20,8 @@ const CLIENT_FACING_IMPORT_FILES = [
   'import/import-worker.controller.ts',
   'import/import-direct-upload.ts',
   'import/import-job.errors.ts',
+  'import/import-undo.service.ts',
+  'import/import-undo.preview.service.ts',
 ] as const;
 
 /** Codes those files can throw at a client, read off the sources so a new one is caught. */
@@ -52,6 +54,11 @@ function readLocaleErrorTexts(language: 'de' | 'en'): Record<string, string> {
 }
 
 describe('client-safe HTTP error codes', () => {
+  it('lists workshop command error codes', () => {
+    for (const code of ['AUDIO_EMPTY', 'AUDIO_TOO_LARGE', 'AUDIO_UNSUPPORTED_TYPE', 'COMMAND_ID_REUSED', 'CONTRACT_VERSION_UNSUPPORTED', 'DURATION_REQUIRED', 'HUMAN_ONLY_EXCLUDED', 'INTENT_INCOMPLETE', 'LOANER_NOT_PERMITTED', 'LOCALE_UNSUPPORTED', 'PLAN_STALE', 'RESOURCE_AMBIGUOUS', 'RESOURCE_MISSING', 'SELECTION_NOT_OFFERED', 'SESSION_NOT_FOUND', 'SITE_MISMATCH', 'TEXT_TOO_LONG', 'TIME_CONTRADICTORY', 'TIME_IN_PAST', 'TRANSCRIPT_EMPTY', 'UNSUPPORTED_GRAMMAR', 'UNSUPPORTED_SERVICE']) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
   // The global filter drops any code that is not in this set, so a warranty code missing here would never reach
   // the client. This keeps the two lists in step.
   it('lists every warranty claim code', () => {
@@ -217,8 +224,12 @@ describe('client-safe allowlist parity', () => {
       'IMPORT_INVALID_MAPPING',
       'IMPORT_INVALID_SOURCE_KEY',
       'IMPORT_JOB_ALREADY_APPLIED',
+      'IMPORT_JOB_ALREADY_UNDONE',
+      'IMPORT_JOB_BUSY',
+      'IMPORT_JOB_CONFLICT',
       'IMPORT_JOB_EXPIRED',
       'IMPORT_JOB_NOT_FOUND',
+      'IMPORT_JOB_NOT_UNDOABLE',
       'IMPORT_JOB_PURGED',
       'IMPORT_JOB_STALE',
       'IMPORT_SOURCE_ALREADY_EXISTS',

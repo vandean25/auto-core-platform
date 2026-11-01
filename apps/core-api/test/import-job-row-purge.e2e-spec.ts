@@ -11,6 +11,7 @@ import { ImportJobStore } from '../src/import/import-job.store.js';
 import {
   purgeStaleImportJobRowsForTenant,
   importJobRowPurgeCutoffs,
+  fetchEligiblePurgeJobs,
 } from '../src/import/import-retention.helpers.js';
 import {
   IMPORT_ERROR_CODES,
@@ -41,6 +42,8 @@ type CreateJobParams = {
   totals_json?: Prisma.InputJsonObject;
   rows?: TestRow[];
 };
+
+type PurgeSelection = Awaited<ReturnType<typeof fetchEligiblePurgeJobs>>;
 
 describe('Import job row retention purge (e2e)', () => {
   let app: INestApplication;
@@ -238,6 +241,28 @@ describe('Import job row retention purge (e2e)', () => {
     });
   }
 
+  /** Purges from a candidate list that was read before a status change landed. */
+  function withStalePurgeSelection(selected: PurgeSelection): PrismaService {
+    return new Proxy(tenantPrisma, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        const isJobDelegate =
+          prop === 'importJob' && typeof value === 'object' && value !== null;
+        if (!isJobDelegate) {
+          return value;
+        }
+        return new Proxy(value as object, {
+          get(delegate, delegateProp) {
+            if (delegateProp === 'findMany') {
+              return async () => selected;
+            }
+            return Reflect.get(delegate, delegateProp, delegate);
+          },
+        });
+      },
+    });
+  }
+
   describe('Row purge for each terminal and stale status', () => {
     it('purges all rows for APPLIED jobs older than 180 days', async () => {
       const staleAppliedAt = daysAgo(IMPORT_JOB_RETENTION_DAYS);
@@ -342,6 +367,104 @@ describe('Import job row retention purge (e2e)', () => {
 
       await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
       await expectRowCount(jobId, 0);
+    });
+  });
+
+  describe('Undo retention', () => {
+    const undoneRows: TestRow[] = [
+      { row_no: 1, action: ImportRowAction.CREATE },
+      { row_no: 2, action: ImportRowAction.CREATE },
+    ];
+
+    it('never purges the staged rows of a job whose undo is running', async () => {
+      const ancientAt = daysAgo(IMPORT_JOB_RETENTION_DAYS);
+      const jobId = await createJob({
+        status: ImportJobStatus.UNDOING,
+        createdAt: ancientAt,
+        updatedAt: ancientAt,
+        rows: undoneRows,
+      });
+
+      await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
+
+      await expectRowCount(jobId, 2);
+      await expectJobStatus(jobId, ImportJobStatus.UNDOING);
+    });
+
+    it('keeps the staged rows of a job an undo claimed after the purge selected it', async () => {
+      const staleAppliedAt = daysAgo(IMPORT_JOB_RETENTION_DAYS);
+      const jobId = await createJob({
+        status: ImportJobStatus.APPLIED,
+        appliedAt: staleAppliedAt,
+        createdAt: staleAppliedAt,
+        updatedAt: staleAppliedAt,
+        rows: undoneRows,
+      });
+
+      // The retention run reads its candidates while the job is still APPLIED ...
+      const selected = (
+        await fetchEligiblePurgeJobs(tenantPrisma, tenantId, cutoffs, 100)
+      ).filter((job) => job.id === jobId);
+      expect(selected).toHaveLength(1);
+
+      // ... and the undo claims it before the purge deletes anything.
+      await tenantPrisma.importJob.updateMany({
+        where: { tenant_id: tenantId, id: jobId },
+        data: { status: ImportJobStatus.UNDOING },
+      });
+
+      await purgeStaleImportJobRowsForTenant(
+        withStalePurgeSelection(selected),
+        tenantId,
+        now,
+      );
+
+      await expectRowCount(jobId, 2);
+      await expectJobStatus(jobId, ImportJobStatus.UNDOING);
+      const job = await tenantPrisma.importJob.findFirst({
+        where: { tenant_id: tenantId, id: jobId },
+      });
+      const options = (job?.options_json ?? {}) as Record<string, unknown>;
+      expect(options.rows_purged).toBeUndefined();
+    });
+
+    it('purges the staged rows of undone jobs once they pass the applied cutoff', async () => {
+      const staleAppliedAt = daysAgo(IMPORT_JOB_RETENTION_DAYS);
+      const undoneJobId = await createJob({
+        status: ImportJobStatus.UNDONE,
+        createdAt: staleAppliedAt,
+        updatedAt: staleAppliedAt,
+        rows: undoneRows,
+      });
+      const partialJobId = await createJob({
+        status: ImportJobStatus.PARTIALLY_UNDONE,
+        createdAt: staleAppliedAt,
+        updatedAt: staleAppliedAt,
+        rows: undoneRows,
+      });
+
+      const counts = await purgeStaleImportJobRowsForTenant(
+        tenantPrisma,
+        tenantId,
+        now,
+      );
+
+      expect(counts.rows_deleted).toBeGreaterThanOrEqual(4);
+      await expectRowCount(undoneJobId, 0);
+      await expectRowCount(partialJobId, 0);
+      await expectJobStatus(undoneJobId, ImportJobStatus.UNDONE);
+    });
+
+    it('keeps the staged rows of a recently undone job', async () => {
+      const jobId = await createJob({
+        status: ImportJobStatus.UNDONE,
+        createdAt: now,
+        rows: undoneRows,
+      });
+
+      await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
+
+      await expectRowCount(jobId, 2);
     });
   });
 
