@@ -4293,6 +4293,7 @@ enum TyreRimType {
 }
 
 enum TyreSetStatus {
+  NEW
   IN_STORAGE
   ON_VEHICLE
   RETURNED

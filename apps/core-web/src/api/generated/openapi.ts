@@ -11700,7 +11700,7 @@ export interface components {
         /** @enum {string} */
         TyreRimType: "NONE" | "STEEL" | "ALLOY";
         /** @enum {string} */
-        TyreSetStatus: "IN_STORAGE" | "ON_VEHICLE" | "RETURNED" | "DISPOSED";
+        TyreSetStatus: "NEW" | "IN_STORAGE" | "ON_VEHICLE" | "RETURNED" | "DISPOSED";
         /** @enum {string} */
         TyreSetEventType: "CHECK_IN" | "CHECK_OUT" | "MOVED" | "INSPECTED" | "DISPOSED";
         TyreSetEventResponseDto: {
