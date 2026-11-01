@@ -21,6 +21,7 @@ import {
 } from '@/components/settings/workshop-hours-holiday-columns'
 import {
   commitSettingsTabMutation,
+  SettingsLoadFailedState,
   SettingsSubmitRow,
   SettingsTabLoadingState,
   SettingsTabPanel,
@@ -101,6 +102,7 @@ export function WorkshopHoursSettingsPanel() {
     data: settings,
     isLoading: isLoadingSettings,
     isError: isSettingsError,
+    refetch: refetchSettings,
   } = useWorkshopSettings()
   const { data: holidaysResponse, isLoading: isLoadingHolidays } = useWorkshopHolidays()
   const updateSettingsMutation = useUpdateWorkshopSettings()
@@ -260,9 +262,10 @@ export function WorkshopHoursSettingsPanel() {
 
   if (isSettingsError) {
     return (
-      <p className='text-sm text-destructive'>
-        {t('workshopHours.loadFailed')}
-      </p>
+      <SettingsLoadFailedState
+        message={t('workshopHours.loadFailed')}
+        onRetry={() => void refetchSettings()}
+      />
     )
   }
 

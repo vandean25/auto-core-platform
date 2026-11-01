@@ -707,28 +707,22 @@ export function AccountingExportSettingsPanel({
       ) : null}
 
       <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <SettingsSubsectionIntro
-            title={
-              <div className="flex items-center gap-1.5">
-                <span>{t('accountingExport.history.title')}</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={t('accountingExport.history.infoAria')}
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 text-xs">
-                    {t('accountingExport.history.info')}
-                  </PopoverContent>
-                </Popover>
-              </div>
-            }
-          />
+        <div className="mb-4 flex items-center gap-1.5">
+          <SettingsSubsectionIntro title={t('accountingExport.history.title')} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t('accountingExport.history.infoAria')}
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 text-xs">
+              {t('accountingExport.history.info')}
+            </PopoverContent>
+          </Popover>
         </div>
         <DataTable
           columns={columns}

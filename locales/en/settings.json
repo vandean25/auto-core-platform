@@ -494,7 +494,7 @@
     "categories": {
       "title": "Labor Categories",
       "loading": "Loading categories...",
-      "empty": "No categories found. Create first with the form.",
+      "empty": "No categories yet. Create one with the form.",
       "notSet": "Not set",
       "invalidRate": "Invalid hourly rate format",
       "tree": {

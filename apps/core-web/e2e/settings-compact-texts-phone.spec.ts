@@ -1,10 +1,15 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
-import { expectNoPageScroll } from './utils/phone-layout'
+import { controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const list = { data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } }
+
+/** The row a control sits in must stay reachable by touch, not shrink the icon to a 16px dot. */
+async function expectReachableRow(trigger: Locator) {
+  expect(await controlsShorterThan44(trigger.locator('xpath=..')), 'controls below the 44px target').toEqual([])
+}
 
 async function mockCommonSettingsApi(page: Page) {
   await page.route(AutoCorePage.apiRouteMatcher('/api/finance/settings'), async (route) => {
@@ -34,7 +39,7 @@ async function mockCommonSettingsApi(page: Page) {
 }
 
 test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
-  test.use({ viewport: { width: 375, height: 812 } })
+  test.use({ viewport: { width: PHONE_WIDTHS[0], height: 812 } })
 
   test('data-import: no intro or consent paragraphs, template fields and consent behind info icon at 375px', async ({ page }, testInfo) => {
     await mockCommonSettingsApi(page)
@@ -71,6 +76,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await expect(consentInfoBtn).toBeVisible()
     await consentInfoBtn.click()
     await expect(page.getByText(deSettings.dataImport.consent.description)).toBeVisible()
+    await expectReachableRow(consentInfoBtn)
 
     // Template fields info button is visible
     const templateFieldsBtn = page.getByRole('button', { name: deSettings.dataImport.source.templateFieldsInfo })
@@ -96,6 +102,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     // Click to open popover
     await infoBtn.click()
     await expect(page.getByText(deSettings.marginRules.activeRules.description)).toBeVisible()
+    await expectReachableRow(infoBtn)
 
     await expectNoPageScroll(page)
     await page.screenshot({ path: testInfo.outputPath('aut-843-settings-margin-rules-375.png'), fullPage: true })
@@ -121,6 +128,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await expect(credentialInfoBtn).toBeVisible()
     await credentialInfoBtn.click()
     await expect(page.getByText(deSettings.voiceTranslation.credentialInfo)).toBeVisible()
+    await expectReachableRow(credentialInfoBtn)
 
     await expectNoPageScroll(page)
     await page.screenshot({ path: testInfo.outputPath('aut-843-settings-voice-375.png'), fullPage: true })
@@ -146,12 +154,14 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await expect(datevInfoBtn).toBeVisible()
     await datevInfoBtn.click()
     await expect(page.getByText(deSettings.accountingExport.header.info)).toBeVisible()
+    await expectReachableRow(datevInfoBtn)
 
     // History download info icon
     const historyInfoBtn = page.getByRole('button', { name: deSettings.accountingExport.history.infoAria })
     await expect(historyInfoBtn).toBeVisible()
     await historyInfoBtn.click()
     await expect(page.getByText(deSettings.accountingExport.history.info)).toBeVisible()
+    await expectReachableRow(historyInfoBtn)
 
     await expectNoPageScroll(page)
     await page.screenshot({ path: testInfo.outputPath('aut-843-settings-accounting-375.png'), fullPage: true })
@@ -171,6 +181,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await expect(countryInfoBtn).toBeVisible()
     await countryInfoBtn.click()
     await expect(page.getByText(deSettings.legalEntities.create.countryInfo)).toBeVisible()
+    await expectReachableRow(countryInfoBtn)
 
     await expectNoPageScroll(page)
     await page.screenshot({ path: testInfo.outputPath('aut-843-settings-legal-entities-375.png'), fullPage: true })
@@ -203,6 +214,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       name: deSettings.labor.categories.tree.deleteAria.replace('{{name}}', 'Engine'),
     })
     await expect(deleteBtn).toBeVisible()
+    await expectReachableRow(deleteBtn)
 
     await expectNoPageScroll(page)
     await page.screenshot({ path: testInfo.outputPath('aut-843-settings-labor-375.png'), fullPage: true })

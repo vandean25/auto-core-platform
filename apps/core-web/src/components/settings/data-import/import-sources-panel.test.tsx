@@ -146,7 +146,7 @@ describe('ImportSourcesPanel', () => {
     })
 
     fireEvent.change(screen.getByLabelText(di.keyLabel), { target: { value: 'invalid-key-' } })
-    fireEvent.change(screen.getByLabelText(di.labelLabel), { target: { value: 'Incadea' } })
+    fireEvent.change(screen.getByLabelText(di.labelLabel), { target: { value: 'Legacy DMS' } })
     fireEvent.click(screen.getByRole('button', { name: di.add }))
 
     await waitFor(() => {

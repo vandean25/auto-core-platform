@@ -207,10 +207,10 @@ function CategoryRowActions({
   deleteTitle: string
 }) {
   return (
-    <>
+    <div className="flex shrink-0 items-center gap-1">
       <button
         onClick={e => { e.stopPropagation(); onEdit(category) }}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 text-slate-400 hover:text-slate-700 shrink-0"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-slate-700"
         aria-label={editAria}
         title={editTitle}
       >
@@ -218,13 +218,13 @@ function CategoryRowActions({
       </button>
       <button
         onClick={e => { e.stopPropagation(); onDelete(category) }}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 text-slate-400 hover:text-red-600 shrink-0"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-red-600"
         aria-label={deleteAria}
         title={deleteTitle}
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
-    </>
+    </div>
   )
 }
 
