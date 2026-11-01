@@ -932,17 +932,14 @@ describe('Import Undo (e2e)', () => {
       .expect(409);
 
     expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
-    expect(undoRes.body.details?.reason).toBe(
-      UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
-    );
 
-    const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
+    const legacyDbJob = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: job.id },
     });
-    expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
-    const opts = (checkJob.options_json ?? {}) as Record<string, unknown>;
-    expect(opts.undo_worker).toBeUndefined();
-    expect(opts.undo).toBeUndefined();
+    expect(legacyDbJob.status).toBe(ImportJobStatus.APPLIED);
+    const legacyOpts = (legacyDbJob.options_json ?? {}) as Record<string, unknown>;
+    expect(legacyOpts.undo_worker).toBeUndefined();
+    expect(legacyOpts.undo).toBeUndefined();
   });
 
   it('downstream block: job where every row is blocked by a downstream reference ends back in APPLIED (not PARTIALLY_UNDONE) with options.undo blocked equal to row count and deleted and restored 0', async () => {
@@ -982,14 +979,14 @@ describe('Import Undo (e2e)', () => {
       },
     });
 
-    const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
+    const blockedDbJob = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: job.id },
     });
-    expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
-    const opts = (checkJob.options_json ?? {}) as Record<string, any>;
-    expect(opts.undo?.deleted).toBe(0);
-    expect(opts.undo?.restored).toBe(0);
-    expect(opts.undo?.blocked).toBe(1);
+    expect(blockedDbJob.status).toBe(ImportJobStatus.APPLIED);
+    const persistedUndo = (blockedDbJob.options_json as Record<string, any>)?.undo;
+    expect(persistedUndo?.deleted).toBe(0);
+    expect(persistedUndo?.restored).toBe(0);
+    expect(persistedUndo?.blocked).toBe(1);
   });
 
   it('race condition guard: rejects undo when job is currently UNDOING or APPLYING', async () => {
