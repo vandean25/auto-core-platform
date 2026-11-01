@@ -230,6 +230,17 @@ describe('Import Undo (e2e)', () => {
 
   it('role matrix: non-admin roles (SALES, TECH, DEMO) and API keys get 403 on preview and undo; OWNER and ADMIN get 200', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const dummyCustomer = await tenantPrisma.customer.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        type: 'PRIVATE',
+        first_name: 'Matrix',
+        last_name: 'Customer',
+        phone: '+43 1 999999',
+        phone_digits: '01999999',
+      },
+    });
+
     const dummyJob = await tenantPrisma.importJob.create({
       data: {
         tenant_id: tenant.tenantId,
@@ -242,6 +253,16 @@ describe('Import Undo (e2e)', () => {
         status: 'APPLIED',
         totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
         created_by: tenant.firebaseUid,
+        rows: {
+          create: {
+            tenant_id: tenant.tenantId,
+            row_no: 1,
+            action: 'CREATE',
+            entity_id: dummyCustomer.id,
+            raw_data_json: { first_name: 'Matrix' },
+            normalized_json: { first_name: 'Matrix' },
+          },
+        },
       },
     });
 
