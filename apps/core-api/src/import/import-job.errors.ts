@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
   ServiceUnavailableException,
@@ -51,6 +52,46 @@ export function importJobPurged(): ConflictException {
     message: 'Staged rows for this import job were purged; please upload again',
   });
 }
+
+export function importJobAlreadyUndone(): BadRequestException {
+  return new BadRequestException({
+    code: IMPORT_ERROR_CODES.JOB_ALREADY_UNDONE,
+    message: 'This import has already been undone',
+  });
+}
+
+export function importJobNotUndoable(): BadRequestException {
+  return new BadRequestException({
+    code: IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE,
+    message: 'Import job is not in an undoable state',
+  });
+}
+
+export function importJobBusy(): ConflictException {
+  return new ConflictException({
+    code: IMPORT_ERROR_CODES.JOB_BUSY,
+    message: 'Import job is currently being processed',
+  });
+}
+
+export function importJobConflict(): ConflictException {
+  return new ConflictException({
+    code: IMPORT_ERROR_CODES.JOB_CONFLICT,
+    message: 'Import job was modified or claimed concurrently',
+  });
+}
+
+/** Purge and expiry gates (AUT-827): staged rows are gone, so apply and undo both stop. */
+export function assertImportJobRowsAvailable(options: unknown): void {
+  const opts = (options ?? {}) as Record<string, unknown>;
+  if (opts.rows_purged === true) {
+    throw importJobPurged();
+  }
+  if (opts.cancel_reason === 'expired') {
+    throw importJobExpired();
+  }
+}
+
 export function importJobApplyStale(): ConflictException {
   return new ConflictException({
     code: IMPORT_ERROR_CODES.JOB_STALE,
@@ -63,13 +104,7 @@ export async function assertFailedImportJobCanReApply(params: {
   countApplyRows: () => Promise<number>;
   options?: unknown;
 }): Promise<void> {
-  const opts = (params.options ?? {}) as Record<string, unknown>;
-  if (opts.rows_purged === true) {
-    throw importJobPurged();
-  }
-  if (opts.cancel_reason === 'expired') {
-    throw importJobExpired();
-  }
+  assertImportJobRowsAvailable(params.options);
   if (params.uploadPresent) {
     return;
   }
@@ -94,13 +129,7 @@ export function assertJobCanBeApplied(
       message: 'Import job was already applied',
     });
   }
-  const opts = (options ?? {}) as Record<string, unknown>;
-  if (opts.rows_purged === true) {
-    throw importJobPurged();
-  }
-  if (opts.cancel_reason === 'expired') {
-    throw importJobExpired();
-  }
+  assertImportJobRowsAvailable(options);
   if (status === ImportJobStatus.CANCELLED) {
     throw importJobApplyStale();
   }

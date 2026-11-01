@@ -174,6 +174,18 @@ function isDryRunJobEligible(
   return Boolean(completedAt && completedAt < cutoffs.dryRunCutoff);
 }
 
+/**
+ * Undone jobs keep their staged rows and `before_snapshot_json`, which hold personal data,
+ * so they age out on the applied cutoff like the records they reverted.
+ */
+function isUndoneJobEligible(
+  job: ImportJobRowPurgeCandidate,
+  cutoffs: ImportJobRowPurgeCutoffs,
+): boolean {
+  const undoneAt = job.updatedAt ?? job.createdAt;
+  return Boolean(undoneAt && undoneAt < cutoffs.appliedCutoff);
+}
+
 /** Evaluates whether an import job is eligible for staged row purge. */
 export function isImportJobEligibleForRowPurge(
   job: ImportJobRowPurgeCandidate,
@@ -189,6 +201,9 @@ export function isImportJobEligibleForRowPurge(
       return isCancelledJobEligible(job, cutoffs);
     case ImportJobStatus.DRY_RUN_DONE:
       return isDryRunJobEligible(job, cutoffs);
+    case ImportJobStatus.UNDONE:
+    case ImportJobStatus.PARTIALLY_UNDONE:
+      return isUndoneJobEligible(job, cutoffs);
     default:
       return false;
   }
@@ -211,6 +226,13 @@ export function eligibleImportJobsForRowPurgeWhere(
       {
         status: ImportJobStatus.DRY_RUN_DONE,
         updatedAt: { lt: cutoffs.dryRunCutoff },
+      },
+      {
+        status: {
+          in: [ImportJobStatus.UNDONE, ImportJobStatus.PARTIALLY_UNDONE],
+        },
+        updatedAt: { lt: cutoffs.appliedCutoff },
+        rows: { some: {} },
       },
       {
         status: ImportJobStatus.CANCELLED,

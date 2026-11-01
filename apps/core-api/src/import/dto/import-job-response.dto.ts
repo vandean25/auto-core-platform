@@ -2,8 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ImportEntityType, ImportJobStatus } from '@prisma/client';
 
 export class ImportJobProgressDto {
-  @ApiProperty({ enum: ['dry_run', 'apply'], nullable: true })
-  phase!: 'dry_run' | 'apply' | null;
+  @ApiProperty({ enum: ['dry_run', 'apply', 'undo'], nullable: true })
+  phase!: 'dry_run' | 'apply' | 'undo' | null;
 
   @ApiProperty()
   processed_rows!: number;

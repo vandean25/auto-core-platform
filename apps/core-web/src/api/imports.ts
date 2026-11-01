@@ -14,6 +14,9 @@ export type ImportJobRow = components['schemas']['ImportJobRowDto']
 export type ImportTemplate = components['schemas']['ImportTemplateResponseDto']
 export type ImportMappingProfile = components['schemas']['ImportMappingProfileResponseDto']
 export type ImportEntityTypeEntry = components['schemas']['ImportEntityTypeResponseDto']
+export type ImportUndoPreviewResponse = components['schemas']['ImportUndoPreviewResponseDto']
+export type ImportUndoRowPreview = components['schemas']['ImportUndoRowPreviewDto']
+export type UndoImportJobPayload = components['schemas']['UndoImportJobDto']
 
 export type ImportJobRowsMeta = {
   total: number
@@ -68,7 +71,10 @@ export const importKeys = {
   profiles: (entityType: ImportEntityType, sourceSystem: string) =>
     [...importKeys.all, 'profiles', entityType, sourceSystem] as const,
   sources: () => [...importKeys.all, 'sources'] as const,
+  undoPreview: (id: string) => [...importKeys.all, 'undo-preview', id] as const,
 }
+
+export const importJobKeys = importKeys
 
 export type ImportSource = {
   id: string
@@ -502,6 +508,51 @@ export function useDeleteImportSource() {
         },
       )
       void queryClient.invalidateQueries({ queryKey: importKeys.sources() })
+    },
+  })
+}
+
+export function useImportUndoPreview(jobId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: jobId ? importKeys.undoPreview(jobId) : (['imports', 'undo-preview', 'none'] as const),
+    queryFn: async (): Promise<ImportUndoPreviewResponse> => {
+      if (!jobId) throw new Error('Missing job ID')
+      const response = await fetchWithAuth(`/api/imports/${jobId}/undo/preview`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to load undo preview'))
+      }
+      return response.json() as Promise<ImportUndoPreviewResponse>
+    },
+    enabled: Boolean(jobId) && enabled,
+    staleTime: 0,
+  })
+}
+
+export function useUndoImportJob() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      jobId,
+      payload,
+    }: {
+      jobId: string
+      payload?: UndoImportJobPayload
+    }): Promise<ImportJob> => {
+      const response = await fetchWithAuth(`/api/imports/${jobId}/undo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload ? JSON.stringify(payload) : undefined,
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to undo import'))
+      }
+      return response.json() as Promise<ImportJob>
+    },
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: importKeys.all })
+      queryClient.setQueryData(importKeys.job(data.id), data)
     },
   })
 }

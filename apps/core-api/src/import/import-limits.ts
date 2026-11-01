@@ -50,6 +50,33 @@ export function readImportApplyBatchSize(): number {
   return readPositiveInt(process.env.IMPORT_APPLY_BATCH_SIZE, 50);
 }
 
+const DEFAULT_UNDO_BATCH_SIZE = 200;
+const DEFAULT_UNDO_UNIT_ROW_BUDGET = 5_000;
+const DEFAULT_UNDO_UNIT_BUDGET_MS = 25_000;
+
+/** Rows undone inside one committed transaction. */
+export function readImportUndoBatchSize(): number {
+  return readPositiveInt(
+    process.env.IMPORT_UNDO_BATCH_SIZE,
+    DEFAULT_UNDO_BATCH_SIZE,
+  );
+}
+
+/** Rows one worker attempt undoes before handing off to the next attempt. */
+export function readImportUndoUnitRowBudget(): number {
+  return readPositiveInt(
+    process.env.IMPORT_UNDO_UNIT_ROW_BUDGET,
+    DEFAULT_UNDO_UNIT_ROW_BUDGET,
+  );
+}
+
+export function readImportUndoUnitBudgetMs(): number {
+  return readPositiveInt(
+    process.env.IMPORT_UNDO_UNIT_BUDGET_MS,
+    DEFAULT_UNDO_UNIT_BUDGET_MS,
+  );
+}
+
 const DEFAULT_UPLOAD_RETENTION_DAYS = 7;
 
 export function readImportUploadRetentionDays(): number {

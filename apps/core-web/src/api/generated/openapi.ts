@@ -4846,6 +4846,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports/{id}/undo/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview undoing an applied import job */
+        post: operations["ImportController_previewUndo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue undo for an applied import job and return the current job */
+        post: operations["ImportController_undoJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/{id}/apply": {
         parameters: {
             query?: never;
@@ -11319,7 +11353,7 @@ export interface components {
         /** @enum {string} */
         ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "PART" | "VENDOR" | "STOCK_OPENING_BALANCE" | "OPEN_WORKSHOP_ORDER" | "LEGACY_SERVICE_ORDER" | "LEGACY_INVOICE" | "LEGACY_OPEN_ITEM" | "TYRE_SET" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE" | "VEHICLE_NOTICE" | "LABOR_STANDARD_TIME" | "LABOR_PRICE_GROUP";
         /** @enum {string} */
-        ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
+        ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED" | "UNDONE" | "PARTIALLY_UNDONE" | "UNDOING";
         ImportJobTotalsDto: {
             rows: number;
             create: number;
@@ -11330,7 +11364,7 @@ export interface components {
         };
         ImportJobProgressDto: {
             /** @enum {string|null} */
-            phase: "dry_run" | "apply" | null;
+            phase: "dry_run" | "apply" | "undo" | null;
             processed_rows: number;
             total_rows: number;
             eta_seconds: number | null;
@@ -11584,6 +11618,40 @@ export interface components {
         ImportJobRowsResponseDto: {
             data: components["schemas"]["ImportJobRowDto"][];
             meta: Record<string, never>;
+        };
+        ImportUndoCountsDto: {
+            total: number;
+            toDelete: number;
+            toRestore: number;
+            conflicts: number;
+            blocked: number;
+        };
+        ImportUndoRowPreviewDto: {
+            rowNumber: number;
+            entityType: string;
+            entityId?: Record<string, never> | null;
+            /** @enum {string} */
+            action: "CREATE" | "UPDATE";
+            /** @enum {string} */
+            status: "ELIGIBLE" | "CONFLICT" | "BLOCKED";
+            reason?: string;
+            references?: string[];
+            displayName?: string;
+        };
+        ImportUndoPreviewResponseDto: {
+            jobId: string;
+            /** @enum {string} */
+            status: "ELIGIBLE" | "CONFLICT" | "BLOCKED";
+            canUndo: boolean;
+            counts: components["schemas"]["ImportUndoCountsDto"];
+            deletions: components["schemas"]["ImportUndoRowPreviewDto"][];
+            restorations: components["schemas"]["ImportUndoRowPreviewDto"][];
+            conflicts: components["schemas"]["ImportUndoRowPreviewDto"][];
+            blocked: components["schemas"]["ImportUndoRowPreviewDto"][];
+        };
+        UndoImportJobDto: {
+            /** @description Entity IDs of unreferenced records with post-import conflicts that the user explicitly confirmed to revert anyway */
+            confirmedEntityIds?: string[];
         };
         ApplyImportJobDto: {
             /**
@@ -21948,7 +22016,7 @@ export interface operations {
                 limit?: string;
                 page?: string;
                 source?: string;
-                status?: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
+                status?: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED" | "UNDONE" | "PARTIALLY_UNDONE" | "UNDOING";
             };
             header?: never;
             path?: never;
@@ -22301,6 +22369,60 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_previewUndo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportUndoPreviewResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_undoJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UndoImportJobDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

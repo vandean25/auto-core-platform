@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next'
-import { Ban, Download, ExternalLink, Play } from 'lucide-react'
+import { Ban, Download, ExternalLink, Play, RotateCcw } from 'lucide-react'
 
 import type { ImportJobStatus } from '@/api/imports'
 import { canManageImportJobs } from './action-role-predicates'
@@ -9,7 +9,7 @@ import { ENTITY_ACTION_IDS, type EntityActionDefinition } from './entity-action'
 export type ImportJobActionRecord = {
   id: string
   status: ImportJobStatus
-  totals: { error: number }
+  totals: { error: number; create?: number; update?: number }
   cancellable: boolean
 }
 
@@ -17,11 +17,24 @@ export type ImportJobActionContext = {
   openJob: (jobId: string) => void
   cancelJob: (jobId: string) => void
   downloadErrors: (jobId: string) => void
+  undoJob?: (jobId: string) => void
 }
 
 /** A job that can be picked back up in the wizard: a finished dry run, a running apply, or a failed apply. */
 export function isResumableImportJobStatus(status: ImportJobStatus): boolean {
   return status === 'DRY_RUN_DONE' || status === 'APPLYING' || status === 'FAILED'
+}
+
+/** A job whose applied records can be undone: APPLIED, or FAILED with applied rows. */
+export function isUndoableImportJob(row: ImportJobActionRecord): boolean {
+  if (row.status === 'APPLIED' || row.status === 'PARTIALLY_UNDONE') return true
+  if (
+    row.status === 'FAILED' &&
+    ((row.totals.create ?? 0) > 0 || (row.totals.update ?? 0) > 0)
+  ) {
+    return true
+  }
+  return false
 }
 
 export function createImportJobRowActions<TRecord extends ImportJobActionRecord>(
@@ -45,6 +58,15 @@ export function createImportJobRowActions<TRecord extends ImportJobActionRecord>
       isAllowedForRole: canManageImportJobs,
       isEnabled: (row) => !isResumableImportJobStatus(row.status),
       run: (row, { openJob }) => openJob(row.id),
+    },
+    {
+      id: ENTITY_ACTION_IDS.importJobUndo,
+      kind: 'dialog',
+      label: t('dataImport.history.actions.undo'),
+      icon: RotateCcw,
+      isAllowedForRole: canManageImportJobs,
+      isEnabled: (row) => isUndoableImportJob(row),
+      run: (row, { undoJob }) => undoJob?.(row.id),
     },
     {
       id: ENTITY_ACTION_IDS.importJobDownloadErrors,

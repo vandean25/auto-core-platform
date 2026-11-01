@@ -20,6 +20,8 @@ const CLIENT_FACING_IMPORT_FILES = [
   'import/import-worker.controller.ts',
   'import/import-direct-upload.ts',
   'import/import-job.errors.ts',
+  'import/import-undo.service.ts',
+  'import/import-undo.preview.service.ts',
 ] as const;
 
 /** Codes those files can throw at a client, read off the sources so a new one is caught. */
@@ -222,8 +224,12 @@ describe('client-safe allowlist parity', () => {
       'IMPORT_INVALID_MAPPING',
       'IMPORT_INVALID_SOURCE_KEY',
       'IMPORT_JOB_ALREADY_APPLIED',
+      'IMPORT_JOB_ALREADY_UNDONE',
+      'IMPORT_JOB_BUSY',
+      'IMPORT_JOB_CONFLICT',
       'IMPORT_JOB_EXPIRED',
       'IMPORT_JOB_NOT_FOUND',
+      'IMPORT_JOB_NOT_UNDOABLE',
       'IMPORT_JOB_PURGED',
       'IMPORT_JOB_STALE',
       'IMPORT_SOURCE_ALREADY_EXISTS',

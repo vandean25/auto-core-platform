@@ -38,6 +38,9 @@ it.each([
         findFirst: async () => notice,
         updateMany: async () => ({ count: 1 }),
       },
+      importJobRow: {
+        update: async () => ({}),
+      },
       auditLog: {
         create: async ({
           data,
