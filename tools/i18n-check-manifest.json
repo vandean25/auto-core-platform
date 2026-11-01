@@ -45,7 +45,6 @@
     "workshop:command.clarificationPrompts."
   ],
   "usedKeys": [
-    "settings:accountingExport.header.description",
     "settings:accountingExport.header.selected",
     "settings:accountingExport.header.selectedPeriod",
     "settings:labor.categories.deleteDialog.description",

@@ -242,9 +242,6 @@ export function AuditLogsTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-medium">{t('auditLogs.title')}</h3>
-          <p className="text-sm text-slate-500">
-            {t('auditLogs.description')}
-          </p>
         </div>
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <Filter className="h-4 w-4 text-slate-400 max-sm:hidden" />

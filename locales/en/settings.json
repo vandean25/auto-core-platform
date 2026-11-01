@@ -174,11 +174,9 @@
   },
   "marginRules": {
     "title": "Margin rules",
-    "description": "Rules for automatically calculating sales prices from purchase prices, brands, and revenue groups.",
     "createButton": "Margin rule",
     "priceJump": {
       "title": "Price jump threshold",
-      "description": "Maximum percentage price jump before a warning and approval is required during price list import.",
       "label": "Threshold (%)",
       "save": "Save threshold",
       "toastUpdated": "Price jump threshold updated",
@@ -186,7 +184,8 @@
     },
     "activeRules": {
       "title": "Active rules",
-      "description": "Rules are evaluated top to bottom (lowest priority first). The first matching rule applies."
+      "description": "Rules are evaluated top to bottom (lowest priority first). The first matching rule applies.",
+      "infoAria": "Show evaluation rule"
     },
     "columns": {
       "sortPriorityAria": "Sort by priority",
@@ -270,7 +269,6 @@
   },
   "apiKeys": {
     "title": "API keys",
-    "description": "Read-only keys for integrations. Each key works only for the scopes you grant and has its own request budget.",
     "createButton": "+ API key",
     "loadFailed": "Failed to load API keys",
     "searchPlaceholder": "Search API keys...",
@@ -343,7 +341,6 @@
   },
   "auditLogs": {
     "title": "Audit Logs",
-    "description": "Immutable, append-only audit trail of business entity mutations and deletions.",
     "filters": {
       "action": "Action",
       "allActions": "All Actions",
@@ -389,10 +386,9 @@
   },
   "vehicleData": {
     "noAccess": "Vehicle data settings are available to workshop owners and administrators only.",
-    "loadFailed": "Failed to load vehicle data settings. Refresh and try again.",
+    "loadFailed": "Failed to load vehicle data settings.",
     "catalog": {
       "title": "Catalog defaults",
-      "description": "Default adapters and labor conversion used when resolving vehicles and searching external parts and labor catalogs.",
       "identityAdapter": "Identity adapter",
       "partsAdapter": "Aftermarket parts adapter",
       "laborAdapter": "Aftermarket labor adapter",
@@ -409,7 +405,6 @@
     },
     "oemConcerns": {
       "title": "OEM concerns",
-      "description": "Assign vehicle makes to BMW, Mercedes-Benz, or Stellantis concerns. Stellantis typically includes Peugeot, Citroën, Opel, Fiat, Jeep, and related makes.",
       "partsCredential": "OEM parts credentials",
       "laborCredential": "OEM labor credentials",
       "memberMakesAria": "{{concern}} member makes"
@@ -424,9 +419,8 @@
   "workshopHours": {
     "openTimeAria": "Opening time {{day}}",
     "closeTimeAria": "Closing time {{day}}",
-    "loadFailed": "Failed to load workshop hours. Refresh and try again.",
+    "loadFailed": "Failed to load workshop hours.",
     "title": "Workshop hours",
-    "description": "Opening hours and holidays drive the Workshop Planner grid. Slot size sets the day-view column width.",
     "timezone": "Timezone",
     "slotMinutes": "Slot size (minutes)",
     "slotMinutesOption": "{{minutes}} minutes",
@@ -446,7 +440,6 @@
     "saveHours": "Save hours",
     "holidays": {
       "title": "Holidays",
-      "description": "Closed or short days override weekday hours on the planner. Public holidays from OpenHolidays API.",
       "import": "Import public holidays",
       "importing": "Importing...",
       "createButton": "+ Holiday",
@@ -500,9 +493,8 @@
   "labor": {
     "categories": {
       "title": "Labor Categories",
-      "description": "Manage hierarchical labor categories with hourly rates. Right-click a row to delete.",
       "loading": "Loading categories...",
-      "empty": "No categories found. Create your first category using the form.",
+      "empty": "No categories yet. Create one with the form.",
       "notSet": "Not set",
       "invalidRate": "Invalid hourly rate format",
       "tree": {
@@ -511,7 +503,9 @@
         "rateTitle": "Click to edit rate",
         "toggleActiveTitle": "Toggle active status",
         "editTitle": "Edit category",
-        "editAria": "Edit category {{name}}"
+        "editAria": "Edit category {{name}}",
+        "deleteTitle": "Delete category",
+        "deleteAria": "Delete category {{name}}"
       },
       "active": "Active",
       "inactive": "Inactive",
@@ -640,7 +634,6 @@
   },
   "voiceTranslation": {
     "title": "Voice Translation",
-    "description": "Configure Google speech-to-text and translated output language for mechanic voice notes.",
     "loading": "Loading voice translation settings...",
     "targetLanguage": "Target Language",
     "projectId": "Google Project ID",
@@ -649,9 +642,9 @@
     "locationPlaceholder": "global",
     "credential": "Google Service Account JSON",
     "credentialPlaceholder": "{\"type\":\"service_account\",...}",
-    "credentialHint": "Credential is stored encrypted on the server and never returned to the browser. Leave this blank to keep the current credential unchanged. Current status: {{status}}.",
-    "credentialConfigured": "configured",
-    "credentialNotConfigured": "not configured",
+    "credentialInfo": "Leave empty to keep current value. Credentials are stored encrypted and never returned.",
+    "credentialInfoAria": "Show credential info",
+    "credentialNotConfigured": "Not configured",
     "showCredential": "Show credential",
     "overwriteConfirm": "Overwrite the currently configured Google credential?",
     "saving": "Saving...",
@@ -663,7 +656,6 @@
   },
   "sites": {
     "title": "Sites",
-    "description": "Operational shop locations. Site memberships control who can activate each site in the sidebar switcher.",
     "columns": {
       "code": "Code",
       "name": "Name",
@@ -673,7 +665,6 @@
     },
     "memberships": {
       "title": "Memberships for {{name}}",
-      "description": "Users need an active tenant role and a site membership before the site appears in Current Site.",
       "addLabel": "Add tenant member",
       "addPlaceholder": "Select team member",
       "addButton": "Add Membership",
@@ -779,11 +770,12 @@
   },
   "legalEntities": {
     "title": "Legal entities",
-    "description": "Legal entities own seller identity for invoices. Sites inherit the entity configured here.",
     "create": {
       "nameLabel": "Name",
       "namePlaceholder": "Example GmbH",
       "countryLabel": "Country",
+      "countryInfo": "The country cannot be changed after creation.",
+      "countryInfoAria": "Show country info",
       "countryAt": "Austria (AT)",
       "countryDe": "Germany (DE)",
       "submit": "+ Legal entity"
@@ -806,7 +798,8 @@
     },
     "missingPrefix": "Missing: {{fields}}",
     "seller": {
-      "description": "Seller identity for {{country}} invoices. Country is fixed after creation.",
+      "countryInfo": "The country cannot be changed after creation.",
+      "countryInfoAria": "Show country info",
       "ready": "Ready for invoice issuance",
       "incomplete": "Seller identity incomplete",
       "missing": {
@@ -850,7 +843,6 @@
     },
     "profile": {
       "title": "Accounting profile",
-      "description": "Configure accounting export mappings for {{name}}. Incomplete profiles can be saved; issuance readiness is surfaced separately.",
       "ready": "Mapping configuration complete",
       "incomplete": "Accounting mappings incomplete",
       "missing": {
@@ -923,7 +915,8 @@
     },
     "header": {
       "title": "Accounting export",
-      "description": "Preview and download immutable DATEV Buchungsstapel CSV runs for a closed period. Generation requires profile <code>{{profileCode}}</code> to be enabled after accountant approval.",
+      "info": "Activate DATEV only after tax advisor approval.",
+      "infoAria": "Show DATEV info",
       "selected": "Selected: <name>{{name}}</name>",
       "selectedPeriod": "Selected: <name>{{name}}</name> · {{from}} to {{to}}"
     },
@@ -952,8 +945,9 @@
       "title": "Preview results",
       "summary": "Profile v{{version}} · {{documents}} documents · {{rows}} booking rows",
       "blockers": "Blocking issues",
-      "blockersNote": "Exports never omit blocked documents or export valid rows only.",
-      "emptyPeriod": "This closed period contains no exportable documents. Generation is not available for empty periods.",
+      "blockersNote": "Exports never skip blocked documents.",
+      "blockersInfoAria": "Show blocker info",
+      "emptyPeriod": "No exportable documents in this period.",
       "columns": {
         "account": "Account",
         "taxRate": "Tax rate",
@@ -972,7 +966,8 @@
     },
     "history": {
       "title": "Export run history",
-      "description": "Immutable completed runs. Downloads are audit-logged with run ID and checksum; they do not confirm DATEV import.",
+      "info": "A download does not confirm a DATEV import.",
+      "infoAria": "Show export download info",
       "searchPlaceholder": "ID, entity, checksum",
       "empty": "No authorized export runs yet.",
       "columns": {
@@ -986,7 +981,6 @@
     },
     "detail": {
       "title": "Export run details",
-      "description": "Exact metadata stored with the immutable CSV artifact.",
       "runId": "Run ID:",
       "period": "Period:",
       "documentsRows": "Documents / rows:",
@@ -1017,7 +1011,6 @@
   },
   "dataImport": {
     "title": "Data import",
-    "description": "Legacy DMS CSV import for new tenant onboarding. Dry-run validates rows before any write. Marketing consent columns are ignored by the import engine.",
     "stepsNavAria": "Import wizard steps",
     "steps": {
       "source": "Source",
@@ -1028,7 +1021,8 @@
     },
     "consent": {
       "title": "Marketing consent",
-      "description": "Columns related to consent, marketing, newsletter, or Werbung are not imported and are reported as warnings only."
+      "description": "Consent, marketing, and advertising columns are not imported and only reported as warnings.",
+      "infoAria": "Show marketing consent notice"
     },
     "source": {
       "title": "1. Entity & source",
@@ -1045,14 +1039,13 @@
       "downloadTemplate": "Download CSV template",
       "continue": "Continue",
       "templateFields": "Template fields: {{fields}}",
-      "noSources": "Create a source above under \"Import sources\" first."
+      "noSources": "Create a source above under \"Import sources\" first.",
+      "templateFieldsInfo": "Show template fields"
     },
     "sources": {
       "title": "Import sources",
-      "description": "Source systems that can be picked for an import. The key stays stable so re-imports do not create duplicates.",
       "keyLabel": "Key",
       "keyPlaceholder": "e.g. legacy-dms",
-      "keyHint": "Lower-case letters, digits, hyphens, and underscores only. Canonical source_name:source_company_code keys may contain one colon.",
       "labelLabel": "Display name",
       "labelPlaceholder": "e.g. Legacy DMS",
       "defaultLabel": "Use as default",
@@ -1467,12 +1460,10 @@
       "description": "Only the selected events are sent. None is active by default.",
       "saveFailed": "Events could not be saved.",
       "CUSTOMER_ESTIMATE_DECIDED": {
-        "label": "Estimate decided",
-        "hint": "The customer approved or declined an estimate."
+        "label": "Estimate decided"
       },
       "WORKSHOP_TASK_WAITING_CUSTOMER": {
-        "label": "Waiting for the customer",
-        "hint": "A task is paused because the customer needs to be asked."
+        "label": "Waiting for the customer"
       }
     },
     "quietHours": {

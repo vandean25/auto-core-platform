@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.unmock('@/components/settings/workshop-hours-settings-panel')
 
+import deCommon from '../../../../../locales/de/common.json'
 import deSettings from '../../../../../locales/de/settings.json'
 import { WorkshopHoursSettingsPanel } from './workshop-hours-settings-panel'
 
@@ -40,6 +41,7 @@ const { mocks, defaultSettings, sampleHoliday } = vi.hoisted(() => {
     settings: defaultSettings,
     holidays: [] as (typeof sampleHoliday)[],
     isSettingsError: false,
+    refetchSettings: vi.fn(),
     updateSettingsMutateAsync: vi.fn(),
     deleteHolidayMutateAsync: vi.fn(),
     importHolidaysMutateAsync: vi.fn(),
@@ -69,6 +71,7 @@ vi.mock('@/api/workshop', () => ({
     data: mocks.settings,
     isLoading: false,
     isError: mocks.isSettingsError,
+    refetch: mocks.refetchSettings,
   }),
   useWorkshopHolidays: () => ({
     data: { data: mocks.holidays },
@@ -114,6 +117,7 @@ describe('WorkshopHoursSettingsPanel', () => {
     mocks.settings = defaultSettings
     mocks.holidays = []
     mocks.isSettingsError = false
+    mocks.refetchSettings.mockReset()
     mocks.updateSettingsMutateAsync.mockReset()
     mocks.deleteHolidayMutateAsync.mockReset()
     mocks.importHolidaysMutateAsync.mockReset()
@@ -226,5 +230,16 @@ describe('WorkshopHoursSettingsPanel', () => {
     await waitFor(() => {
       expect(mocks.importHolidaysMutateAsync).toHaveBeenCalledWith({})
     })
+  })
+
+  it('offers retry that refetches when the settings load fails', () => {
+    mocks.isSettingsError = true
+    renderTab()
+
+    expect(screen.getByText(deSettings.workshopHours.loadFailed)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: deCommon.actions.retry }))
+
+    expect(mocks.refetchSettings).toHaveBeenCalledTimes(1)
   })
 })
