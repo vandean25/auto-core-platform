@@ -19,6 +19,11 @@ import {
   requireRuntimePooler,
 } from './prisma/runtime-database-url-health.js';
 import { assertE2eFullstackInMemoryPdfAllowed } from './e2e-fullstack/assert-in-memory-pdf-allowed.js';
+import { ScheduledJobTriggerInterceptor } from './scheduler/scheduled-job-trigger.interceptor.js';
+import {
+  ScheduledJobTriggerService,
+  runStartupScheduledJobTrigger,
+} from './scheduler/scheduled-job-trigger.service.js';
 
 async function bootstrap() {
   const env = validateEnv();
@@ -47,7 +52,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(...createGlobalValidationPipes());
   app.useGlobalFilters(new GlobalExceptionFilter());
-  app.useGlobalInterceptors(new HttpLoggingInterceptor());
+  app.useGlobalInterceptors(
+    new HttpLoggingInterceptor(),
+    new ScheduledJobTriggerInterceptor(app.get(ScheduledJobTriggerService)),
+  );
   configureHttpSecurity(app, {
     frontendUrl: env.FRONTEND_URL,
     nodeEnv: env.NODE_ENV,
@@ -56,5 +64,6 @@ async function bootstrap() {
   const port = env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
   console.log(`Application is running on: http://0.0.0.0:${port}`);
+  runStartupScheduledJobTrigger(app);
 }
 void bootstrap();
