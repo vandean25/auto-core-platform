@@ -10,7 +10,8 @@ import {
   Play,
   Search,
 } from 'lucide-react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
+import { SafeTrans } from '@/lib/i18n'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -453,7 +454,7 @@ export function AccountingExportSettingsPanel({
         <div className="space-y-1">
           <SettingsSectionHeading title={t('accountingExport.header.title')} />
           <p className="max-w-2xl text-sm text-slate-600">
-            <Trans
+            <SafeTrans
               t={t}
               i18nKey="accountingExport.header.description"
               values={{ profileCode: DATEV_PROFILE_CODE }}
@@ -463,7 +464,7 @@ export function AccountingExportSettingsPanel({
           {selectedEntity ? (
             <p className="text-sm text-slate-500">
               {periodReady ? (
-                <Trans
+                <SafeTrans
                   t={t}
                   i18nKey="accountingExport.header.selectedPeriod"
                   values={{
@@ -474,7 +475,7 @@ export function AccountingExportSettingsPanel({
                   components={{ name: <span className="font-medium text-slate-700" /> }}
                 />
               ) : (
-                <Trans
+                <SafeTrans
                   t={t}
                   i18nKey="accountingExport.header.selected"
                   values={{ name: selectedEntity.name }}

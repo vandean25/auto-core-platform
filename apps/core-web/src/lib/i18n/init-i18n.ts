@@ -42,7 +42,7 @@ export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i1
       supportedLngs: ['de', 'en'],
       ns: [...PRELOAD_NAMESPACES],
       defaultNS: 'common',
-      interpolation: { escapeValue: true },
+      interpolation: { escapeValue: false },
       returnNull: false,
       // Lazy namespaces are added after first render; re-render on 'added' so their keys are not left raw.
       react: { useSuspense: true, bindI18nStore: 'added' },

@@ -162,6 +162,7 @@ describe('TyreSetDetailPage', () => {
     ['IN_STORAGE', deInventory.actions.move, deInventory.tyreStorage.actionDialog.move],
     ['IN_STORAGE', deInventory.actions.dispose, deInventory.tyreStorage.actionDialog.dispose],
     ['ON_VEHICLE', deInventory.actions.checkIn, deInventory.tyreStorage.actionDialog.checkIn],
+    ['NEW', deInventory.actions.checkIn, deInventory.tyreStorage.actionDialog.checkIn],
   ] as const)('opens the matching dialog for %s action %s', async (status, label, title) => {
     state.tyreSet.status = status
     renderPage('?tab=history')
