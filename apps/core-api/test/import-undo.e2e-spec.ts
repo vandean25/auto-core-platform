@@ -1146,10 +1146,9 @@ describe('Import Undo (e2e)', () => {
     expect(auditsAfterSecond).toBe(auditsAfterFirst);
   });
 
-  it('large batching: processes >50 rows in committed chunks with progress and marks undone_at', async () => {
+  it('large batching: commits 60 rows in several chunks and marks every row undone', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
 
-    // Create 60 synthetic rows (exceeds UNDO_BATCH_SIZE of 50 to test multiple committed chunks)
     const rows: string[][] = [];
     for (let i = 1; i <= 60; i++) {
       rows.push([
@@ -1171,13 +1170,22 @@ describe('Import Undo (e2e)', () => {
     expect(initialRows).toHaveLength(60);
     expect(initialRows.every((r) => r.undone_at === null)).toBe(true);
 
-    // Execute undo
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
+    // A small batch size exercises the chunked commit path without importing hundreds of rows.
+    process.env.IMPORT_UNDO_BATCH_SIZE = '20';
+    try {
+      const undoRes = await request(app.getHttpServer())
+        .post(`/api/imports/${job.id}/undo`)
+        .set('Authorization', adminHeader)
+        .expect(200);
 
-    expect(undoRes.body.status).toBe('UNDONE');
+      expect(undoRes.body.status).toBe('UNDONE');
+      expect(undoRes.body.options.undo).toMatchObject({
+        deleted: 60,
+        blocked: 0,
+      });
+    } finally {
+      delete process.env.IMPORT_UNDO_BATCH_SIZE;
+    }
 
     // Verify all rows have undone_at populated
     const completedRows = await tenantPrisma.importJobRow.findMany({
