@@ -11,7 +11,7 @@ import { DataImportUndoDialog } from './data-import-undo-dialog'
 const di = deSettings.dataImport.undo
 
 vi.mock('sonner', () => ({
-  toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
+  toast: { error: vi.fn(), info: vi.fn(), success: vi.fn(), warning: vi.fn() },
 }))
 
 vi.mock('@/api/imports', async (importOriginal) => {
@@ -94,7 +94,13 @@ function renderDialog(props: {
   onSuccess?: () => void
   mockMutateAsync?: Mock
 }) {
-  const mockMutateAsync = props.mockMutateAsync ?? vi.fn().mockResolvedValue({ id: 'job-1' })
+  const mockMutateAsync =
+    props.mockMutateAsync ??
+    vi.fn().mockResolvedValue({
+      id: 'job-1',
+      status: 'UNDONE',
+      options: { undo: { blocked: 0 } },
+    })
   ;(importsApi.useUndoImportJob as Mock).mockReturnValue({
     mutateAsync: mockMutateAsync,
     isPending: false,
@@ -261,7 +267,11 @@ describe('DataImportUndoDialog', () => {
   })
 
   it('enforces typed confirmation before allowing submission and sends confirmedEntityIds', async () => {
-    const mockMutateAsync = vi.fn().mockResolvedValue({ id: 'job-1' })
+    const mockMutateAsync = vi.fn().mockResolvedValue({
+      id: 'job-1',
+      status: 'PARTIALLY_UNDONE',
+      options: { undo: { blocked: 1 } },
+    })
     const mockOpenChange = vi.fn()
     const mockSuccess = vi.fn()
 
@@ -314,5 +324,53 @@ describe('DataImportUndoDialog', () => {
     )
     expect(mockOpenChange).toHaveBeenCalledWith(false)
     expect(mockSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports the started toast when undo continues in the background', async () => {
+    const mockMutateAsync = vi
+      .fn()
+      .mockResolvedValue({ id: 'job-1', status: 'UNDOING' })
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: mockPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({ mockMutateAsync })
+    fireEvent.change(screen.getByTestId('undo-confirm-input'), {
+      target: { value: di.confirmation.keyword },
+    })
+    fireEvent.click(screen.getByTestId('undo-submit-button'))
+
+    await waitFor(() =>
+      expect(toast.info).toHaveBeenCalledWith(di.toast.started),
+    )
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+  })
+
+  it('falls back to its own failure text when the error code has no translation', async () => {
+    const mockMutateAsync = vi.fn().mockRejectedValue({
+      response: { status: 409, data: { code: 'NOT_A_PUBLIC_CODE' } },
+    })
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: mockPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({ mockMutateAsync })
+    fireEvent.change(screen.getByTestId('undo-confirm-input'), {
+      target: { value: di.confirmation.keyword },
+    })
+    fireEvent.click(screen.getByTestId('undo-submit-button'))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining(di.toast.failed),
+      ),
+    )
   })
 })

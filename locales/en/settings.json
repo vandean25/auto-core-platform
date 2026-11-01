@@ -1286,7 +1286,8 @@
           "UNSUPPORTED_ENTITY_TYPE": "Entity type not supported",
           "FINANCIAL_IMPORT_CANNOT_BE_UNDONE": "Financial imports cannot be undone",
           "UNKNOWN": "Cannot be undone",
-          "ROWS_PURGED": "Staged import data was purged (retention period expired)"
+          "ROW_ERROR": "Undo failed for this record",
+          "ROWS_PURGED": "Staged import data was purged"
         }
       },
       "conflictsSection": {
@@ -1307,6 +1308,7 @@
       "toast": {
         "success": "Import successfully undone.",
         "partial": "Import partially undone ({{blockedCount}} records blocked).",
+        "started": "Undo started.",
         "failed": "Failed to undo import."
       }
     }

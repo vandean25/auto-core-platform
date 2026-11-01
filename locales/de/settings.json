@@ -1286,7 +1286,8 @@
           "UNSUPPORTED_ENTITY_TYPE": "Objekttyp wird nicht unterstützt",
           "FINANCIAL_IMPORT_CANNOT_BE_UNDONE": "Finanzdaten können nicht rückgängig gemacht werden",
           "UNKNOWN": "Nicht rückgängig machbar",
-          "ROWS_PURGED": "Die zwischengespeicherten Daten wurden gelöscht (Aufbewahrungsfrist abgelaufen)"
+          "ROW_ERROR": "Fehler beim Rückgängig machen",
+          "ROWS_PURGED": "Zwischengespeicherte Daten gelöscht"
         }
       },
       "conflictsSection": {
@@ -1307,6 +1308,7 @@
       "toast": {
         "success": "Import erfolgreich rückgängig gemacht.",
         "partial": "Import teilweise rückgängig gemacht ({{blockedCount}} Datensätze blockiert).",
+        "started": "Import wird rückgängig gemacht.",
         "failed": "Import konnte nicht rückgängig gemacht werden."
       }
     }

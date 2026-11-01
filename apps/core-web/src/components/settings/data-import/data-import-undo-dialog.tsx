@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
 import {
   useImportUndoPreview,
   useUndoImportJob,
+  type ImportJob,
   type ImportUndoPreviewResponse,
   type ImportUndoRowPreview,
 } from "@/api/imports";
@@ -91,6 +93,7 @@ const BLOCKED_REASON_KEY_MAP = {
   FINANCIAL_IMPORT_CANNOT_BE_UNDONE:
     "dataImport.undo.blockedSection.reasons.FINANCIAL_IMPORT_CANNOT_BE_UNDONE",
   UNKNOWN: "dataImport.undo.blockedSection.reasons.UNKNOWN",
+  ROW_ERROR: "dataImport.undo.blockedSection.reasons.ROW_ERROR",
 } as const;
 
 function UndoSummaryCards({
@@ -165,12 +168,10 @@ function UndoBlockedSection({
   if (blocked.length === 0) return null;
 
   const resolveReason = (reason?: string) => {
-    if (reason && reason in BLOCKED_REASON_KEY_MAP) {
-      return t(
-        BLOCKED_REASON_KEY_MAP[reason as keyof typeof BLOCKED_REASON_KEY_MAP],
-      );
-    }
-    return reason || t("dataImport.undo.blockedSection.reasons.UNKNOWN");
+    const key = reason
+      ? BLOCKED_REASON_KEY_MAP[reason as keyof typeof BLOCKED_REASON_KEY_MAP]
+      : undefined;
+    return t(key ?? "dataImport.undo.blockedSection.reasons.UNKNOWN");
   };
 
   return (
@@ -280,6 +281,26 @@ export type DataImportUndoDialogProps = {
   onSuccess?: () => void;
 };
 
+/** Undo runs in the background, so a 202 answer only means the worker took the job. */
+function toastUndoOutcome(job: ImportJob, t: TFunction<"settings">): void {
+  if (job.status === "UNDOING") {
+    toast.info(t("dataImport.undo.toast.started"));
+    return;
+  }
+  const blockedCount = readUndoBlockedCount(job);
+  if (job.status === "PARTIALLY_UNDONE" || blockedCount > 0) {
+    toast.warning(t("dataImport.undo.toast.partial", { blockedCount }));
+    return;
+  }
+  toast.success(t("dataImport.undo.toast.success"));
+}
+
+/** The worker's own outcome; the preview count is only a prediction. */
+function readUndoBlockedCount(job: ImportJob): number {
+  const options = job.options as { undo?: { blocked?: number } } | undefined;
+  return options?.undo?.blocked ?? 0;
+}
+
 export function DataImportUndoDialog({
   jobId,
   open,
@@ -328,19 +349,11 @@ export function DataImportUndoDialog({
   const handleUndo = async () => {
     if (!jobId || !canSubmit) return;
     try {
-      await undoMutation.mutateAsync({
+      const job = await undoMutation.mutateAsync({
         jobId,
         payload: { confirmedEntityIds: Array.from(confirmedEntityIds) },
       });
-      if (preview && preview.counts.blocked > 0) {
-        toast.warning(
-          t("dataImport.undo.toast.partial", {
-            blockedCount: preview.counts.blocked,
-          }),
-        );
-      } else {
-        toast.success(t("dataImport.undo.toast.success"));
-      }
+      toastUndoOutcome(job, t);
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {

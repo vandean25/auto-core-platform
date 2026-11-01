@@ -116,6 +116,7 @@ export const statusClassMap: Record<string, string> = {
   APPLIED: SUCCESS,
   DRY_RUN_DONE: INFO,
   APPLYING: WARNING,
+  UNDOING: WARNING,
   ABORTED: NEUTRAL,
   UNDONE: NEUTRAL,
   PARTIALLY_UNDONE: WARNING,

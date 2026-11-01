@@ -22,6 +22,8 @@ import { getErrorMessage } from '@/lib/error-utils'
 
 import { createImportHistoryColumns } from './import-history-columns'
 
+const HISTORY_POLL_MS = 5000
+
 /** Import history table data, columns and registry row actions for the settings data-import tab. */
 export function useDataImportHistory(openJob: (jobId: string) => void) {
   const { t, i18n } = useTranslation('settings')
@@ -40,6 +42,21 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
     limit: pagination.pageSize,
   })
   const membersQuery = useTenantMembers({ includeInactive: true, limit: 200 })
+
+  const refetchJobs = jobsQuery.refetch
+  const hasRunningJob = React.useMemo(
+    () =>
+      (jobsQuery.data?.data ?? []).some(
+        (job) => job.status === 'APPLYING' || job.status === 'UNDOING',
+      ),
+    [jobsQuery.data],
+  )
+
+  React.useEffect(() => {
+    if (!hasRunningJob) return
+    const timer = setInterval(() => void refetchJobs(), HISTORY_POLL_MS)
+    return () => clearInterval(timer)
+  }, [hasRunningJob, refetchJobs])
 
   const userNames = React.useMemo(() => {
     const names = new Map<string, string>()
