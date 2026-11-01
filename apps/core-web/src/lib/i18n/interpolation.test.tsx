@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { Trans, useTranslation } from 'react-i18next'
-import { i18n } from '@/lib/i18n'
+import { i18n, SafeTrans } from '@/lib/i18n'
 
 describe('i18n interpolation escaping (AUT-838)', () => {
   it('renders special characters (/ & < > \' ") unchanged in translated strings', () => {
@@ -45,14 +45,14 @@ describe('i18n interpolation escaping (AUT-838)', () => {
     expect(screen.getByText('Dimension: <img src=x onerror=alert(1)>')).toBeInTheDocument()
   })
 
-  it('renders HTML injection strings as plain text inside Trans components with mapped tags', () => {
-    const injection = '<img src=x onerror=alert(1)>'
+  it('renders allowed HTML tags and numbered slots inside SafeTrans as plain text without creating extra elements', () => {
+    const injection = '<strong>bold</strong> and <br /> with <1>slot</1> and <p>paragraph</p>'
 
-    function TransComponent() {
+    function SafeTransComponent() {
       const { t } = useTranslation('settings')
       return (
-        <div data-testid="trans-target">
-          <Trans
+        <div data-testid="safe-trans-target">
+          <SafeTrans
             t={t}
             i18nKey="labor.categories.editDialog.description"
             values={{ name: injection }}
@@ -62,11 +62,100 @@ describe('i18n interpolation escaping (AUT-838)', () => {
       )
     }
 
-    const { container } = render(<TransComponent />)
+    const { container } = render(<SafeTransComponent />)
 
-    expect(container.querySelector('img')).toBeNull()
+    // Only the single outer <strong> wrapper mapped by components should exist
+    const strongElements = container.querySelectorAll('strong')
+    expect(strongElements).toHaveLength(1)
+    expect(container.querySelector('br')).toBeNull()
+    expect(container.querySelector('p')).toBeNull()
+
+    // The text content should be unchanged plain text containing the literal tags
+    const target = screen.getByTestId('safe-trans-target')
+    expect(target.textContent).toBe(
+      'Aktualisieren Sie die Details für <strong>bold</strong> and <br /> with <1>slot</1> and <p>paragraph</p>.',
+    )
+    expect(strongElements[0]?.textContent).toBe(injection)
+  })
+
+  it('renders special characters in SafeTrans values unchanged without entity encoding', () => {
+    const nameWithSpecialChars = 'Halle A/B & "x" \'y\''
+
+    function SafeTransComponent() {
+      const { t } = useTranslation('settings')
+      return (
+        <div data-testid="special-chars-target">
+          <SafeTrans
+            t={t}
+            i18nKey="labor.categories.editDialog.description"
+            values={{ name: nameWithSpecialChars }}
+            components={{ strong: <strong /> }}
+          />
+        </div>
+      )
+    }
+
+    const { container } = render(<SafeTransComponent />)
     const strong = container.querySelector('strong')
-    expect(strong).not.toBeNull()
-    expect(strong?.textContent).toBe('<img src=x onerror=alert(1)>')
+    expect(strong?.textContent).toBe('Halle A/B & "x" \'y\'')
+    expect(strong?.textContent).not.toContain('&#x2F;')
+    expect(strong?.textContent).not.toContain('&amp;')
+    expect(strong?.textContent).not.toContain('&quot;')
+    expect(strong?.textContent).not.toContain('&#39;')
+    expect(strong?.textContent).not.toContain('&#27;')
+  })
+
+  it('renders entity names with allowed tags and special characters safely in accountingExport headers with SafeTrans', () => {
+    const entityName = 'Auto <br> <strong>Repair</strong> & "Co" <1>slot</1>'
+
+    function ExportHeaderComponent() {
+      const { t } = useTranslation('settings')
+      return (
+        <div data-testid="export-header-target">
+          <SafeTrans
+            t={t}
+            i18nKey="accountingExport.header.selected"
+            values={{ name: entityName }}
+            components={{ name: <span className="font-medium text-slate-700" /> }}
+          />
+        </div>
+      )
+    }
+
+    const { container } = render(<ExportHeaderComponent />)
+    expect(container.querySelector('br')).toBeNull()
+    expect(container.querySelector('strong')).toBeNull()
+
+    const nameSpan = container.querySelector('span')
+    expect(nameSpan?.textContent).toBe(entityName)
+    expect(nameSpan?.textContent).not.toContain('&amp;')
+    expect(nameSpan?.textContent).not.toContain('&quot;')
+  })
+
+  it('renders plain text when passing shouldUnescape and escapeValue:true directly to Trans', () => {
+    const injection = '<strong>allowed tag</strong> <br /> <1>slot</1>'
+
+    function DirectTransComponent() {
+      const { t } = useTranslation('settings')
+      return (
+        <div data-testid="direct-trans-target">
+          <Trans
+            t={t}
+            i18nKey="labor.categories.editDialog.description"
+            values={{ name: injection }}
+            components={{ strong: <strong /> }}
+            shouldUnescape
+            tOptions={{ interpolation: { escapeValue: true } }}
+          />
+        </div>
+      )
+    }
+
+    const { container } = render(<DirectTransComponent />)
+    expect(container.querySelectorAll('strong')).toHaveLength(1)
+    expect(container.querySelector('br')).toBeNull()
+
+    const strong = container.querySelector('strong')
+    expect(strong?.textContent).toBe(injection)
   })
 })
