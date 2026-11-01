@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -18,15 +19,18 @@ export class CreateCustomerDto {
 
   @ApiPropertyOptional()
   @IsString()
+  @MaxLength(200)
   @IsOptional()
   company_name?: string;
 
   @ApiProperty()
   @IsString()
+  @MaxLength(120)
   first_name!: string;
 
   @ApiProperty()
   @IsString()
+  @MaxLength(120)
   last_name!: string;
 
   // A form sends an empty field as "". The address is optional, so blank text means no address (null clears it on a
@@ -36,6 +40,7 @@ export class CreateCustomerDto {
     typeof value === 'string' ? value.trim() || null : value,
   )
   @IsEmail()
+  @MaxLength(254)
   @IsOptional()
   email?: string | null;
 
@@ -48,31 +53,38 @@ export class CreateCustomerDto {
 
   @ApiPropertyOptional()
   @IsString()
+  @MaxLength(40)
   @IsOptional()
   phone?: string;
 
   @ApiPropertyOptional()
   @IsString()
+  @MaxLength(32)
   @IsOptional()
   vat_id?: string;
 
   @ApiPropertyOptional()
   @IsString()
+  @MaxLength(200)
   @IsOptional()
   address_street?: string;
 
   @ApiPropertyOptional()
   @IsString()
+  @MaxLength(120)
   @IsOptional()
   address_city?: string;
 
   @ApiPropertyOptional()
   @IsString()
+  @MaxLength(20)
   @IsOptional()
   address_zip?: string;
 
+  // Rest accepts a free-text country (the MCP schema is restricted to an ISO code), so only a generous cap applies here.
   @ApiPropertyOptional()
   @IsString()
+  @MaxLength(100)
   @IsOptional()
   address_country?: string;
 

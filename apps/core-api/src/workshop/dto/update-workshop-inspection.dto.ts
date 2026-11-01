@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -23,6 +24,7 @@ export class UpdateWorkshopInspectionItemDto {
   @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   notes?: string | null;
 }
 
