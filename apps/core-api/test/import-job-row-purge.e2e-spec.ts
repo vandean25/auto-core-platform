@@ -345,6 +345,67 @@ describe('Import job row retention purge (e2e)', () => {
     });
   });
 
+  describe('Undo retention', () => {
+    const undoneRows: TestRow[] = [
+      { row_no: 1, action: ImportRowAction.CREATE },
+      { row_no: 2, action: ImportRowAction.CREATE },
+    ];
+
+    it('never purges the staged rows of a job whose undo is running', async () => {
+      const ancientAt = daysAgo(IMPORT_JOB_RETENTION_DAYS);
+      const jobId = await createJob({
+        status: ImportJobStatus.UNDOING,
+        createdAt: ancientAt,
+        updatedAt: ancientAt,
+        rows: undoneRows,
+      });
+
+      await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
+
+      await expectRowCount(jobId, 2);
+      await expectJobStatus(jobId, ImportJobStatus.UNDOING);
+    });
+
+    it('purges the staged rows of undone jobs once they pass the applied cutoff', async () => {
+      const staleAppliedAt = daysAgo(IMPORT_JOB_RETENTION_DAYS);
+      const undoneJobId = await createJob({
+        status: ImportJobStatus.UNDONE,
+        createdAt: staleAppliedAt,
+        updatedAt: staleAppliedAt,
+        rows: undoneRows,
+      });
+      const partialJobId = await createJob({
+        status: ImportJobStatus.PARTIALLY_UNDONE,
+        createdAt: staleAppliedAt,
+        updatedAt: staleAppliedAt,
+        rows: undoneRows,
+      });
+
+      const counts = await purgeStaleImportJobRowsForTenant(
+        tenantPrisma,
+        tenantId,
+        now,
+      );
+
+      expect(counts.rows_deleted).toBeGreaterThanOrEqual(4);
+      await expectRowCount(undoneJobId, 0);
+      await expectRowCount(partialJobId, 0);
+      await expectJobStatus(undoneJobId, ImportJobStatus.UNDONE);
+    });
+
+    it('keeps the staged rows of a recently undone job', async () => {
+      const jobId = await createJob({
+        status: ImportJobStatus.UNDONE,
+        createdAt: now,
+        rows: undoneRows,
+      });
+
+      await purgeStaleImportJobRowsForTenant(tenantPrisma, tenantId, now);
+
+      await expectRowCount(jobId, 2);
+    });
+  });
+
   describe('Grace period boundaries (±1 ms)', () => {
     it('purges rows for jobs just beyond the grace cutoff (-1 ms) and keeps rows just within (+1 ms)', async () => {
       const boundaryPast = new Date(cutoffs.dryRunCutoff.getTime() - 1);

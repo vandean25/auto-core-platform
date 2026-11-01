@@ -14,7 +14,11 @@ import {
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import { IMPORT_ERROR_CODES } from '../src/import/import.constants.js';
+import { RequestContextService } from '../src/common/services/request-context.service.js';
+import {
+  IMPORT_ERROR_CODES,
+  IMPORT_SOURCE,
+} from '../src/import/import.constants.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
@@ -27,6 +31,8 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 import { UNDO_BLOCKED_REASONS } from '../src/import/import-undo.types.js';
+import { ImportUndoService } from '../src/import/import-undo.service.js';
+import { createUndoWorkerState } from '../src/import/import-undo-worker.js';
 
 describe('Import Undo (e2e)', () => {
   let app: INestApplication;
@@ -982,6 +988,114 @@ describe('Import Undo (e2e)', () => {
     ).toBeNull();
   });
 
+  it('worker race: two concurrent worker attempts on one run process every row exactly once', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const stamp = Date.now();
+    const emails = [1, 2, 3, 4, 5, 6].map(
+      (n) => `worker-race-${n}-${stamp}@example.com`,
+    );
+
+    const job = await importCustomerBatch(
+      emails.map((email, index) => [
+        `EXT-WRACE-${stamp}-${index + 1}`,
+        'PRIVATE',
+        `Worker${index + 1}`,
+        'Race',
+        email,
+        '45678',
+        'AT',
+      ]),
+    );
+
+    const entityIds = (
+      await tenantPrisma.importJobRow.findMany({
+        where: { import_job_id: job.id },
+        select: { entity_id: true },
+      })
+    )
+      .map((row) => row.entity_id)
+      .filter((entityId): entityId is string => Boolean(entityId));
+    expect(entityIds).toHaveLength(emails.length);
+
+    const adminUser = await systemPrisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true, email: true },
+    });
+
+    // The state an HTTP claim leaves behind: the lease is released, so both of the two
+    // overlapping Cloud Tasks deliveries of the same task are allowed to try to take it.
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: {
+        status: ImportJobStatus.UNDOING,
+        options_json: {
+          undo_worker: createUndoWorkerState({
+            actorUserId: adminUser.id,
+            actorEmail: adminUser.email,
+            actorRole: 'ADMIN',
+            resumeStatus: ImportJobStatus.APPLIED,
+            confirmedEntityIds: [],
+            totalRows: emails.length,
+          }),
+        },
+      },
+    });
+
+    const undoService = app.get(ImportUndoService);
+    const requestContext = app.get(RequestContextService);
+    const attempt = (workerId: string) =>
+      requestContext.runAsWorker(
+        tenant.tenantId,
+        () =>
+          undoService.runUndoWorkerAttempt({
+            tenantId: tenant.tenantId,
+            jobId: job.id,
+          }),
+        { workerId },
+      );
+
+    // A small batch size keeps the winner inside the loop long enough to interleave.
+    process.env.IMPORT_UNDO_BATCH_SIZE = '2';
+    try {
+      await Promise.all([attempt('worker-a'), attempt('worker-b')]);
+    } finally {
+      delete process.env.IMPORT_UNDO_BATCH_SIZE;
+    }
+
+    const finalJob = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(finalJob.status).toBe(ImportJobStatus.UNDONE);
+    expect(
+      (finalJob.options_json as { undo?: Record<string, number> }).undo,
+    ).toMatchObject({ deleted: emails.length, restored: 0, blocked: 0 });
+
+    // The loser of the compare-and-swap writes nothing. The generic Prisma audit extension
+    // adds its own entry per delete, so only the import's trail is counted here.
+    const audits = await tenantPrisma.auditLog.findMany({
+      where: {
+        entity_id: { in: entityIds },
+        action: AuditLogAction.DELETE,
+        source: IMPORT_SOURCE,
+      },
+      select: { entity_id: true },
+    });
+    expect(audits).toHaveLength(emails.length);
+    expect(new Set(audits.map((audit) => audit.entity_id)).size).toBe(
+      emails.length,
+    );
+
+    const finalRows = await tenantPrisma.importJobRow.findMany({
+      where: { import_job_id: job.id },
+    });
+    expect(finalRows.every((row) => row.undone_at !== null)).toBe(true);
+    expect(
+      await tenantPrisma.customer.findMany({
+        where: { email: { in: emails } },
+      }),
+    ).toEqual([]);
+  });
+
   it('purge gate: undo reports IMPORT_JOB_PURGED when staged rows were purged', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
 
@@ -1195,6 +1309,115 @@ describe('Import Undo (e2e)', () => {
     expect(completedRows.every((r) => r.undone_at !== null)).toBe(true);
   });
 
+  // Row count of the scaled run, from IMPORT_UNDO_E2E_ROWS. PR CI uses the small default; a
+  // nightly run sets IMPORT_UNDO_E2E_ROWS=20000 to measure preview and undo on Postgres.
+  const scaledRowCount = Number(process.env.IMPORT_UNDO_E2E_ROWS ?? 120);
+
+  it(`scaled run: previews and undoes ${scaledRowCount} imported customers on a real database`, async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const stamp = Date.now();
+    const emailPrefix = `undo-scale-${stamp}-`;
+
+    const job = await importCustomerBatch(
+      Array.from({ length: scaledRowCount }, (_, index) => [
+        `EXT-SCALE-${stamp}-${index + 1}`,
+        'PRIVATE',
+        `Scale${index + 1}`,
+        'Customer',
+        `${emailPrefix}${index + 1}@example.com`,
+        '98765',
+        'AT',
+      ]),
+    );
+    expect(job.totals.create).toBe(scaledRowCount);
+
+    const entityIds = (
+      await tenantPrisma.importJobRow.findMany({
+        where: { import_job_id: job.id },
+        select: { entity_id: true },
+      })
+    )
+      .map((row) => row.entity_id)
+      .filter((entityId): entityId is string => Boolean(entityId));
+    expect(entityIds).toHaveLength(scaledRowCount);
+
+    const previewStartedAt = Date.now();
+    const preview = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo/preview`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+    const previewMs = Date.now() - previewStartedAt;
+
+    expect(preview.body.canUndo).toBe(true);
+    expect(preview.body.counts).toMatchObject({
+      total: scaledRowCount,
+      toDelete: scaledRowCount,
+      toRestore: 0,
+      conflicts: 0,
+      blocked: 0,
+    });
+
+    const undoStartedAt = Date.now();
+    const jobAuditsBeforeUndo = await tenantPrisma.auditLog.count({
+      where: {
+        entity_type: 'ImportJob',
+        entity_id: job.id,
+        action: AuditLogAction.UPDATE,
+      },
+    });
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+    const undoMs = Date.now() - undoStartedAt;
+
+    console.info(
+      `import-undo scaled e2e: rows=${scaledRowCount} preview_ms=${previewMs} undo_ms=${undoMs}`,
+    );
+
+    expect(undoRes.body.status).toBe('UNDONE');
+    expect(undoRes.body.options.undo).toMatchObject({
+      deleted: scaledRowCount,
+      restored: 0,
+      blocked: 0,
+    });
+
+    expect(
+      await tenantPrisma.importJobRow.count({
+        where: { import_job_id: job.id, undone_at: { not: null } },
+      }),
+    ).toBe(scaledRowCount);
+
+    expect(
+      await tenantPrisma.customer.count({
+        where: { email: { startsWith: emailPrefix } },
+      }),
+    ).toBe(0);
+
+    // One import DELETE audit per reverted row (the generic audit extension writes its own
+    // entry per delete), and one finalize audit for the whole run.
+    let deleteAudits = 0;
+    for (let start = 0; start < entityIds.length; start += 1000) {
+      deleteAudits += await tenantPrisma.auditLog.count({
+        where: {
+          action: AuditLogAction.DELETE,
+          source: IMPORT_SOURCE,
+          entity_id: { in: entityIds.slice(start, start + 1000) },
+        },
+      });
+    }
+    expect(deleteAudits).toBe(scaledRowCount);
+    expect(
+      await tenantPrisma.auditLog.count({
+        where: {
+          entity_type: 'ImportJob',
+          entity_id: job.id,
+          action: AuditLogAction.UPDATE,
+        },
+      }),
+    ).toBe(jobAuditsBeforeUndo + 1);
+  }, 1_800_000);
+
   it('resume: a killed undo run is reclaimed and finishes the remaining rows exactly once', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const stamp = Date.now();
@@ -1365,5 +1588,174 @@ describe('Import Undo (e2e)', () => {
 
     expect(secondUndo.body.status).toBe('UNDONE');
     expect(await countJobAudits()).toBe(auditsAfterFirst);
+  });
+
+  it('cron recovery: a stale undo claim is resumed by the scheduler and finishes the remaining rows once', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const stamp = Date.now();
+    const emails = [1, 2, 3].map(
+      (n) => `cron-resume-${n}-${stamp}@example.com`,
+    );
+
+    const job = await importCustomerBatch(
+      emails.map((email, index) => [
+        `EXT-CRON-${stamp}-${index + 1}`,
+        'PRIVATE',
+        `Cron${index + 1}`,
+        'Resume',
+        email,
+        '24680',
+        'AT',
+      ]),
+    );
+
+    const rows = await tenantPrisma.importJobRow.findMany({
+      where: { import_job_id: job.id },
+      orderBy: { row_no: 'asc' },
+    });
+    expect(rows).toHaveLength(3);
+
+    // Replay the one batch the dead worker committed before it was killed.
+    const doneRow = rows[0];
+    const doneEntityId = doneRow.entity_id ?? '';
+    await tenantPrisma.externalIdMapping.deleteMany({
+      where: { entity_id: doneEntityId },
+    });
+    await tenantPrisma.customer.deleteMany({ where: { id: doneEntityId } });
+    await tenantPrisma.importJobRow.updateMany({
+      where: { import_job_id: job.id, row_no: doneRow.row_no },
+      data: { undone_at: new Date() },
+    });
+
+    const adminUser = await systemPrisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true, email: true },
+    });
+    const diedAtMs = Date.now() - 10 * 60_000;
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: {
+        status: ImportJobStatus.UNDOING,
+        options_json: {
+          undo_worker: {
+            ...createUndoWorkerState({
+              actorUserId: adminUser.id,
+              actorEmail: adminUser.email,
+              actorRole: 'ADMIN',
+              resumeStatus: ImportJobStatus.APPLIED,
+              confirmedEntityIds: [],
+              totalRows: 3,
+              previous: {
+                status: 'PARTIALLY_UNDONE',
+                undone_at: new Date(diedAtMs).toISOString(),
+                deleted: 1,
+                restored: 0,
+                blocked: 0,
+                blocked_reasons: {},
+              },
+              nowMs: diedAtMs,
+            }),
+            cursor: String(doneRow.row_no),
+            processed_rows: 1,
+          },
+        },
+      },
+    });
+
+    const countJobAudits = () =>
+      tenantPrisma.auditLog.count({
+        where: {
+          entity_type: 'ImportJob',
+          entity_id: job.id,
+          action: AuditLogAction.UPDATE,
+        },
+      });
+    const auditsBefore = await countJobAudits();
+
+    const resumed = await app
+      .get(RequestContextService)
+      .runAsWorker(
+        tenant.tenantId,
+        () =>
+          app
+            .get(ImportUndoService)
+            .resumeStaleUndoJob(tenant.tenantId, job.id),
+        { workerId: 'import-job-undo-recovery' },
+      );
+    expect(resumed).toBe(true);
+
+    const finalJob = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(finalJob.status).toBe(ImportJobStatus.UNDONE);
+    expect(finalJob.worker_recovery_seq).toBe(1);
+    const options = finalJob.options_json as {
+      undo?: Record<string, number>;
+      undo_worker?: unknown;
+    };
+    // The killed run's deletion stays in the total instead of being overwritten.
+    expect(options.undo).toMatchObject({ deleted: 3, restored: 0, blocked: 0 });
+    expect(options.undo_worker).toBeUndefined();
+
+    expect(
+      await tenantPrisma.customer.findMany({
+        where: { email: { in: emails } },
+      }),
+    ).toEqual([]);
+    const finalRows = await tenantPrisma.importJobRow.findMany({
+      where: { import_job_id: job.id },
+    });
+    expect(finalRows).toHaveLength(3);
+    expect(finalRows.every((row) => row.undone_at !== null)).toBe(true);
+
+    expect(await countJobAudits()).toBe(auditsBefore + 1);
+  });
+
+  it('apply race: apply is refused while a job is being undone and after it was undone', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const stamp = Date.now();
+    const email = `apply-race-${stamp}@example.com`;
+
+    const job = await importCustomerBatch([
+      [
+        `EXT-APPLY-RACE-${stamp}`,
+        'PRIVATE',
+        'Apply',
+        'Race',
+        email,
+        '86420',
+        'AT',
+      ],
+    ]);
+
+    // An undo in flight owns the job, so apply must not write over it.
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: { status: ImportJobStatus.UNDOING },
+    });
+    const whileUndoing = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/apply`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(whileUndoing.body.code).toBe(IMPORT_ERROR_CODES.JOB_STALE);
+
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: { status: ImportJobStatus.APPLIED },
+    });
+    await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+
+    // The reverted import must not come back through a late apply delivery.
+    const afterUndo = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/apply`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(afterUndo.body.code).toBe(IMPORT_ERROR_CODES.JOB_STALE);
+    expect(
+      await tenantPrisma.customer.findFirst({ where: { email } }),
+    ).toBeNull();
   });
 });
