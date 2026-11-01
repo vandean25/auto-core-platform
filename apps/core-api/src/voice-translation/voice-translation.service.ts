@@ -15,6 +15,7 @@ import type {
 import type {
   VoiceTranslationRequest,
   VoiceTranslationResult,
+  VoiceTranscriptResult,
 } from './voice-translation.types.js';
 import {
   createCipheriv,
@@ -158,69 +159,17 @@ export class VoiceTranslationService {
   async translateVoiceNote(
     request: VoiceTranslationRequest,
   ): Promise<VoiceTranslationResult> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const settings = await this.prisma.voiceTranslationSettings.findFirst({
-      where: { tenant_id: tenantId },
-      select: {
-        google_project_id: true,
-        google_location: true,
-        google_service_account_encrypted: true,
-      },
-    });
-
-    if (!settings?.google_service_account_encrypted) {
-      throw new ServiceUnavailableException(
-        'Google voice translation credential is not configured.',
-      );
-    }
-
-    const credentials = this.decryptCredential(
-      settings.google_service_account_encrypted,
+    const context = await this.loadProviderContext(request.sourceLanguageCode);
+    const { originalText, detectedLanguageCode } = await this.recognizeSpeech(
+      request,
+      context,
     );
-    const parsed = this.parseServiceAccount(credentials);
-    const projectId = settings.google_project_id ?? parsed.project_id;
-    if (!projectId) {
-      throw new ServiceUnavailableException(
-        'Google project id is required for voice translation.',
-      );
-    }
-
-    const location = settings.google_location || DEFAULT_LOCATION;
-    const { speech, translation } = this.getOrCreateClients(parsed, projectId);
-    const sourceLanguage = normalizeLanguageCode(request.sourceLanguageCode);
+    const sourceLanguage = context.sourceLanguageCode;
     const targetLanguage = normalizeTargetTranslationLanguage(
       request.targetLanguageCode,
     );
-    const requestEncoding = toRecognitionEncoding(request.mimeType);
-    const [recognizeOperation] = await speech.longRunningRecognize({
-      config: {
-        ...(requestEncoding ? { encoding: requestEncoding } : {}),
-        languageCode: sourceLanguage,
-        model: MODEL_NAME,
-      },
-      audio: {
-        content: request.audioBuffer.toString('base64'),
-      },
-    });
-    const [recognizeResponse] =
-      (await recognizeOperation.promise()) as unknown as [
-        {
-          results?: Array<{
-            alternatives?: Array<{ transcript?: string }>;
-            languageCode?: string;
-          }>;
-        },
-      ];
-
-    const originalText =
-      recognizeResponse.results
-        ?.flatMap((r) => r.alternatives ?? [])
-        .map((a) => a.transcript ?? '')
-        .join(' ')
-        .trim() ?? '';
-
-    const detectedLanguageCode =
-      recognizeResponse.results?.[0]?.languageCode ?? undefined;
+    const { translation } = context.clients;
+    const { projectId, location } = context;
 
     if (!originalText) {
       return {
@@ -272,6 +221,111 @@ export class VoiceTranslationService {
       detectedLanguageCode,
       provider: PROVIDER_NAME,
       model: MODEL_NAME,
+    };
+  }
+
+  /**
+   * Speech-only path for the advisor command surface. Returns the transcript
+   * and never translates or forwards the text to another provider.
+   */
+  async transcribeVoiceNote(
+    request: Omit<VoiceTranslationRequest, 'targetLanguageCode'>,
+  ): Promise<VoiceTranscriptResult> {
+    const context = await this.loadProviderContext(request.sourceLanguageCode);
+    const { originalText, detectedLanguageCode } = await this.recognizeSpeech(
+      request,
+      context,
+    );
+    return {
+      transcript: originalText,
+      sourceLanguageCode: context.sourceLanguageCode,
+      detectedLanguageCode,
+      provider: PROVIDER_NAME,
+      model: MODEL_NAME,
+    };
+  }
+
+  private async loadProviderContext(sourceLanguageCode: string): Promise<{
+    clients: GoogleClientBundle;
+    projectId: string;
+    location: string;
+    sourceLanguageCode: string;
+  }> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const settings = await this.prisma.voiceTranslationSettings.findFirst({
+      where: { tenant_id: tenantId },
+      select: {
+        google_project_id: true,
+        google_location: true,
+        google_service_account_encrypted: true,
+      },
+    });
+
+    if (!settings?.google_service_account_encrypted) {
+      throw new ServiceUnavailableException(
+        'Google voice translation credential is not configured.',
+      );
+    }
+
+    const credentials = this.decryptCredential(
+      settings.google_service_account_encrypted,
+    );
+    const parsed = this.parseServiceAccount(credentials);
+    const projectId = settings.google_project_id ?? parsed.project_id;
+    if (!projectId) {
+      throw new ServiceUnavailableException(
+        'Google project id is required for voice translation.',
+      );
+    }
+
+    return {
+      clients: this.getOrCreateClients(parsed, projectId),
+      projectId,
+      location: settings.google_location || DEFAULT_LOCATION,
+      sourceLanguageCode: normalizeLanguageCode(sourceLanguageCode),
+    };
+  }
+
+  private async recognizeSpeech(
+    request: Pick<VoiceTranslationRequest, 'audioBuffer' | 'mimeType'>,
+    context: {
+      clients: GoogleClientBundle;
+      sourceLanguageCode: string;
+    },
+  ): Promise<{ originalText: string; detectedLanguageCode?: string }> {
+    const { speech } = context.clients;
+    const requestEncoding = toRecognitionEncoding(request.mimeType);
+    const [recognizeOperation] = await speech.longRunningRecognize({
+      config: {
+        ...(requestEncoding ? { encoding: requestEncoding } : {}),
+        languageCode: context.sourceLanguageCode,
+        model: MODEL_NAME,
+      },
+      audio: {
+        content: request.audioBuffer.toString('base64'),
+      },
+    });
+    const [recognizeResponse] =
+      (await recognizeOperation.promise()) as unknown as [
+        {
+          results?: Array<{
+            alternatives?: Array<{ transcript?: string }>;
+            languageCode?: string;
+          }>;
+        },
+      ];
+
+    const originalText =
+      recognizeResponse.results
+        ?.flatMap((r) => r.alternatives ?? [])
+        .map((a) => a.transcript ?? '')
+        .join(' ')
+        .trim() ?? '';
+
+    return {
+      originalText,
+      detectedLanguageCode:
+        recognizeResponse.results?.[0]?.languageCode ?? undefined,
     };
   }
 

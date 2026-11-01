@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { AgentProposalStatus, type AgentProposal } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { deleteCommandReplays } from '../workshop-command/workshop-command-session-cleanup.js';
 import type { AgentProposalReadService } from './agent-proposal-read.service.js';
 
 export function proposalIsExpired(
@@ -39,6 +40,10 @@ export function proposalIsExpiredOnReload(
   );
 }
 
+/**
+ * Claims a lapsed proposal as EXPIRED. Expiry decides the command, so the
+ * replay row behind it — surname, plate, VIN tokens — goes with it.
+ */
 export async function expirePendingProposal(
   prisma: PrismaService,
   proposal: AgentProposal,
@@ -53,6 +58,7 @@ export async function expirePendingProposal(
     },
     data: { status: AgentProposalStatus.EXPIRED },
   });
+  await deleteCommandReplays(prisma, tenantId, [proposal.command_id]);
 }
 
 export async function resolveUnclaimedRejection(

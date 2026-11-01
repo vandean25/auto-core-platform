@@ -41,6 +41,18 @@
       "public": false,
       "params": []
     },
+    "AUDIO_EMPTY": {
+      "public": true,
+      "params": []
+    },
+    "AUDIO_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "AUDIO_UNSUPPORTED_TYPE": {
+      "public": true,
+      "params": []
+    },
     "AUSTAUSCHPLAKETTE_NOT_TRACKED": {
       "public": false,
       "params": []
@@ -213,8 +225,16 @@
       "public": false,
       "params": []
     },
+    "COMMAND_ID_REUSED": {
+      "public": true,
+      "params": []
+    },
     "COMMUNICATION_CONTROLLER_REQUIRED": {
       "public": false,
+      "params": []
+    },
+    "CONTRACT_VERSION_UNSUPPORTED": {
+      "public": true,
       "params": []
     },
     "CREDIT_LIMIT_EXCEEDED": {
@@ -275,6 +295,10 @@
     },
     "DUPLICATE_CUSTOMER": {
       "public": false,
+      "params": []
+    },
+    "DURATION_REQUIRED": {
+      "public": true,
       "params": []
     },
     "EQUIPMENT_PORTAL_MAP_UNSUPPORTED": {
@@ -593,6 +617,10 @@
       "public": true,
       "params": []
     },
+    "HUMAN_ONLY_EXCLUDED": {
+      "public": true,
+      "params": []
+    },
     "IDEMPOTENCY_MISMATCH": {
       "public": true,
       "params": []
@@ -879,6 +907,10 @@
       "public": false,
       "params": []
     },
+    "INTENT_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
     "INVALID_ASSESSMENT_TIMESTAMP": {
       "public": false,
       "params": []
@@ -1087,6 +1119,14 @@
       "public": true,
       "params": []
     },
+    "LOANER_NOT_PERMITTED": {
+      "public": true,
+      "params": []
+    },
+    "LOCALE_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
     "MANUAL_EXPIRY_AMBIGUITY": {
       "public": false,
       "params": []
@@ -1267,6 +1307,10 @@
       "public": false,
       "params": []
     },
+    "PLAN_STALE": {
+      "public": true,
+      "params": []
+    },
     "PRICE_JUMP_EXCEEDED": {
       "public": true,
       "params": []
@@ -1435,6 +1479,14 @@
       "public": true,
       "params": []
     },
+    "RESOURCE_AMBIGUOUS": {
+      "public": true,
+      "params": []
+    },
+    "RESOURCE_MISSING": {
+      "public": true,
+      "params": []
+    },
     "RESULT_UNCONFIRMED": {
       "public": false,
       "params": []
@@ -1451,6 +1503,10 @@
       "public": false,
       "params": []
     },
+    "SELECTION_NOT_OFFERED": {
+      "public": true,
+      "params": []
+    },
     "SELLER_IDENTITY_INCOMPLETE": {
       "public": true,
       "params": []
@@ -1459,11 +1515,19 @@
       "public": false,
       "params": []
     },
+    "SESSION_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
     "SETTLEMENT_AMOUNT_MISMATCH": {
       "public": true,
       "params": []
     },
     "SETTLEMENT_NOT_IN_SLICE": {
+      "public": true,
+      "params": []
+    },
+    "SITE_MISMATCH": {
       "public": true,
       "params": []
     },
@@ -1485,6 +1549,22 @@
     },
     "STATION_MISMATCH": {
       "public": false,
+      "params": []
+    },
+    "TEXT_TOO_LONG": {
+      "public": true,
+      "params": []
+    },
+    "TIME_CONTRADICTORY": {
+      "public": true,
+      "params": []
+    },
+    "TIME_IN_PAST": {
+      "public": true,
+      "params": []
+    },
+    "TRANSCRIPT_EMPTY": {
+      "public": true,
       "params": []
     },
     "TRANSITION_2027_TOLERANCE": {
@@ -1571,12 +1651,16 @@
       "public": false,
       "params": []
     },
+    "UNSUPPORTED_GRAMMAR": {
+      "public": true,
+      "params": []
+    },
     "UNSUPPORTED_SCHEMA_VERSION": {
       "public": true,
       "params": []
     },
     "UNSUPPORTED_SERVICE": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "UNSUPPORTED_TAX_PROFILE": {

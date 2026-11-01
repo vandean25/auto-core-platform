@@ -28,6 +28,12 @@ import { installInMemoryInvoicePdfStorage } from './in-memory-invoice-pdf-storag
 import {
   E2E_FULLSTACK_CATALOG_NAME,
   E2E_FULLSTACK_CATALOG_SKU,
+  E2E_FULLSTACK_COMMAND_BAY_NAME,
+  E2E_FULLSTACK_COMMAND_CUSTOMER_FIRST,
+  E2E_FULLSTACK_COMMAND_CUSTOMER_LAST,
+  E2E_FULLSTACK_COMMAND_GOLF_PLATE,
+  E2E_FULLSTACK_COMMAND_LOANER_DISPLAY_NAME,
+  E2E_FULLSTACK_COMMAND_POLO_PLATE,
   E2E_FULLSTACK_CUSTOMER_LABEL,
   E2E_FULLSTACK_FIXTURE_RELATIVE_PATH,
   E2E_FULLSTACK_JWT_SECRET,
@@ -59,6 +65,16 @@ export type E2eFullstackFixture = {
   workshopOrderNumber: string;
   workshopTaskId: string;
   workshopTaskTitle: string;
+  commandCustomerId: string;
+  commandCustomerLabel: string;
+  commandGolfVehicleId: string;
+  commandGolfLabel: string;
+  commandPoloVehicleId: string;
+  commandPoloLabel: string;
+  commandBayName: string;
+  commandLoanerName: string;
+  commandSentence: string;
+  commandConflictSentence: string;
 };
 
 const repoRoot = resolve(
@@ -104,6 +120,9 @@ async function seedBaseTenantData(
   workshopOrderNumber: string;
   workshopTaskId: string;
   workshopTaskTitle: string;
+  commandCustomerId: string;
+  commandGolfVehicleId: string;
+  commandPoloVehicleId: string;
 }> {
   await truncateTransactionalTables(prisma);
 
@@ -227,6 +246,135 @@ async function seedBaseTenantData(
       status: 'NOT_STARTED',
     },
   });
+  // Cmd+K command mode: a synthetic "pilot customer" with two cars, one bay and one available
+  // loaner. The interpreter resolves sentences against these rows only.
+  const commandCustomer = await tenantPrisma.customer.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      first_name: E2E_FULLSTACK_COMMAND_CUSTOMER_FIRST,
+      last_name: E2E_FULLSTACK_COMMAND_CUSTOMER_LAST,
+      email: 'e2e-fullstack-command-customer@auto.core.test',
+      type: 'PRIVATE',
+    },
+  });
+  const commandGolf = await tenantPrisma.vehicle.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      customer_id: commandCustomer.id,
+      make: 'Volkswagen',
+      model: 'Golf',
+      year: 2019,
+      vin: 'WVWZZZ3CZWE000515',
+      plate: E2E_FULLSTACK_COMMAND_GOLF_PLATE,
+    },
+  });
+  const commandPolo = await tenantPrisma.vehicle.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      customer_id: commandCustomer.id,
+      make: 'Volkswagen',
+      model: 'Polo',
+      year: 2021,
+      vin: 'WVWZZZ3CZWE000516',
+      plate: E2E_FULLSTACK_COMMAND_POLO_PLATE,
+    },
+  });
+  await tenantPrisma.bay.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      site_id: siteId,
+      name: E2E_FULLSTACK_COMMAND_BAY_NAME,
+      is_active: true,
+      sort_order: 1,
+    },
+  });
+  const loanerFleetVehicle = await tenantPrisma.vehicle.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      customer_id: commandCustomer.id,
+      make: 'Seat',
+      model: 'Ibiza',
+      year: 2022,
+      vin: 'WVWZZZ3CZWE000900',
+      plate: 'W-CMD 900',
+    },
+  });
+  await tenantPrisma.loanerVehicle.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      site_id: siteId,
+      vehicle_id: loanerFleetVehicle.id,
+      display_name: E2E_FULLSTACK_COMMAND_LOANER_DISPLAY_NAME,
+      status: 'AVAILABLE',
+      active: true,
+    },
+  });
+
+  const commandOperations = await Promise.all([
+    tenantPrisma.laborOperation.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        code: 'SVC-MAJOR',
+        description: 'Großes Service',
+        standard_aw: '90.00',
+        hourly_rate: '90.00',
+      },
+    }),
+    tenantPrisma.laborOperation.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        code: 'PICKERL',
+        description: 'Pickerl §57a',
+        standard_aw: '30.00',
+        hourly_rate: '90.00',
+      },
+    }),
+    tenantPrisma.laborOperation.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        code: 'BRAKES-FRONT',
+        description: 'Bremsen vorne prüfen',
+        standard_aw: '30.00',
+        hourly_rate: '90.00',
+      },
+    }),
+  ]);
+
+  await tenantPrisma.workshopCommandPreset.createMany({
+    data: [
+      {
+        tenant_id: tenant.tenantId,
+        preset_key: 'service.major',
+        kind: 'LABOR',
+        labor_operation_id: commandOperations[0].id,
+        duration_minutes: 90,
+        active: true,
+      },
+      {
+        tenant_id: tenant.tenantId,
+        preset_key: 'inspection.pickerl_57a',
+        kind: 'LABOR',
+        labor_operation_id: commandOperations[1].id,
+        duration_minutes: 30,
+        active: true,
+      },
+      {
+        tenant_id: tenant.tenantId,
+        preset_key: 'inspection.brakes_front',
+        kind: 'LABOR',
+        labor_operation_id: commandOperations[2].id,
+        duration_minutes: 30,
+        active: true,
+      },
+      {
+        tenant_id: tenant.tenantId,
+        preset_key: 'loaner.reserve',
+        kind: 'LOANER_FLAG',
+        active: true,
+      },
+    ],
+  });
+
   const catalogItem = await tenantPrisma.catalogItem.create({
     data: {
       tenant_id: tenant.tenantId,
@@ -280,6 +428,13 @@ async function seedBaseTenantData(
     headerText: 'E2E fullstack branding profile',
   });
 
+  // The command mode only proposes while the tenant rule enables the package action.
+  await request(app.getHttpServer())
+    .put('/api/agent-policy/rules/workshop.booking_package')
+    .set('Authorization', `Bearer ${authToken}`)
+    .send({ tier: 'PROPOSE', enabled: true })
+    .expect(200);
+
   return {
     tenant,
     authToken,
@@ -295,6 +450,9 @@ async function seedBaseTenantData(
     workshopOrderNumber: E2E_FULLSTACK_WORKSHOP_ORDER_NUMBER,
     workshopTaskId: workshopTask.id,
     workshopTaskTitle: E2E_FULLSTACK_WORKSHOP_TASK_TITLE,
+    commandCustomerId: commandCustomer.id,
+    commandGolfVehicleId: commandGolf.id,
+    commandPoloVehicleId: commandPolo.id,
   };
 }
 
@@ -349,6 +507,16 @@ export async function seedE2eFullstackFixture(
       workshopOrderNumber: seeded.workshopOrderNumber,
       workshopTaskId: seeded.workshopTaskId,
       workshopTaskTitle: seeded.workshopTaskTitle,
+      commandCustomerId: seeded.commandCustomerId,
+      commandCustomerLabel: `${E2E_FULLSTACK_COMMAND_CUSTOMER_FIRST} ${E2E_FULLSTACK_COMMAND_CUSTOMER_LAST}`,
+      commandGolfVehicleId: seeded.commandGolfVehicleId,
+      commandGolfLabel: `Volkswagen Golf — ${E2E_FULLSTACK_COMMAND_GOLF_PLATE}`,
+      commandPoloVehicleId: seeded.commandPoloVehicleId,
+      commandPoloLabel: `Volkswagen Polo — ${E2E_FULLSTACK_COMMAND_POLO_PLATE}`,
+      commandBayName: E2E_FULLSTACK_COMMAND_BAY_NAME,
+      commandLoanerName: E2E_FULLSTACK_COMMAND_LOANER_DISPLAY_NAME,
+      commandSentence: `${E2E_FULLSTACK_COMMAND_CUSTOMER_LAST} Golf montag 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren`,
+      commandConflictSentence: `${E2E_FULLSTACK_COMMAND_CUSTOMER_LAST} Polo montag 8 Uhr großes Service`,
     };
 
     await mkdir(dirname(fixturePath), { recursive: true });

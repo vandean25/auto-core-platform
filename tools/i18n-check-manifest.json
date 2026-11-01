@@ -1,5 +1,11 @@
 {
-  "treatNamespaceAsUsed": ["enums", "errors", "pdf", "email", "seedMaster"],
+  "treatNamespaceAsUsed": [
+    "enums",
+    "errors",
+    "pdf",
+    "email",
+    "seedMaster"
+  ],
   "usedKeyPrefixes": [
     "errors:codes.",
     "enums:status.",
@@ -34,7 +40,8 @@
     "settings:documentBranding.letterheadImport.states.",
     "agent:changePreview.fields.",
     "nav:groups.",
-    "nav:modules."
+    "nav:modules.",
+    "workshop:command.clarificationPrompts."
   ],
   "usedKeys": [
     "settings:accountingExport.header.description",

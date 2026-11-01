@@ -25,6 +25,7 @@ Lock-Helfer: `SystemPrismaService.withCronJobLock(jobName, fn)` hält für den g
 | `registration-intake-byte-purge` | Jede Minute | `RegistrationIntakeBytePurgeService` | Zulassungs-Intake-Seitenbytes nach Apply löschen (Outbox-Claim). |
 | `registration-intake-expiry` | Stündlich | `RegistrationIntakeExpiryService` | Nicht angewendete Zulassungs-Intakes nach TTL abbrechen. |
 | `workshop-check-in-orphan-upload-cleanup` | Jede Minute | `WorkshopCheckInOrphanUploadCleanupService` | Nicht verknüpfte Werkstatt-Annahme-Medien purgen (env-gated). |
+| `workshop-command-session-purge` | Stündlich | `WorkshopCommandSessionRetentionService` | Abgelaufene Cmd+K-Befehls-Replay-Zeilen (Nachname, Kennzeichen, VIN) pro Mandant löschen. |
 
 Es gibt heute keine `@Interval`-Scheduler in core-api.
 

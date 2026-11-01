@@ -9988,6 +9988,56 @@
         ]
       }
     },
+    "/api/voice-translation/transcribe": {
+      "post": {
+        "operationId": "VoiceTranslationController_transcribe",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "audio"
+                ],
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Speech recording. Max 25 MiB. Transcript only, no translation."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceTranscriptResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unsupported audio type, empty recording, or no speech detected."
+          },
+          "502": {
+            "description": "Speech provider failed."
+          },
+          "503": {
+            "description": "Speech provider is not configured."
+          }
+        },
+        "tags": [
+          "voice-translation"
+        ]
+      }
+    },
     "/api/agent-proposals": {
       "get": {
         "description": "Returns agent proposals for the authenticated tenant with lazy expiration handling.",
@@ -16816,6 +16866,104 @@
         },
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/api/workshop/commands/interpret": {
+      "post": {
+        "description": "Local resolution only. No provider call and no domain write; one replay row is stored for the command.",
+        "operationId": "WorkshopCommandController_interpret",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterpretWorkshopCommandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/WorkshopCommandIntentDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WorkshopCommandClarificationDto"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "summary": "Interpret an advisor sentence into a reviewed booking preview",
+        "tags": [
+          "Workshop Commands"
+        ]
+      }
+    },
+    "/api/workshop/commands/propose": {
+      "post": {
+        "description": "Recomputes the intent from the stored tokens and accepted selections, then persists one PENDING proposal. A matching retry returns the same ids.",
+        "operationId": "WorkshopCommandController_propose",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposeWorkshopCommandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCommandProposalResultDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCommandProposalResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "summary": "Store the reviewed booking package in the proposal queue",
+        "tags": [
+          "Workshop Commands"
         ]
       }
     },
@@ -31845,6 +31993,37 @@
           }
         }
       },
+      "VoiceTranscriptResponseDto": {
+        "type": "object",
+        "properties": {
+          "transcript": {
+            "type": "string",
+            "description": "Recognized speech, ready to be edited before interpret."
+          },
+          "sourceLanguageCode": {
+            "type": "string",
+            "example": "de-AT"
+          },
+          "detectedLanguageCode": {
+            "type": "string",
+            "example": "de-AT"
+          },
+          "provider": {
+            "type": "string",
+            "example": "google-cloud"
+          },
+          "model": {
+            "type": "string",
+            "example": "latest_long"
+          }
+        },
+        "required": [
+          "transcript",
+          "sourceLanguageCode",
+          "provider",
+          "model"
+        ]
+      },
       "AgentProposalEffectiveSummaryDto": {
         "type": "object",
         "properties": {
@@ -40115,6 +40294,597 @@
         },
         "required": [
           "groups"
+        ]
+      },
+      "WorkshopCommandPositionLineDto": {
+        "type": "object",
+        "properties": {
+          "preset_key": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
+          },
+          "labor_operation_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "catalog_item_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "unit": {
+            "type": "string",
+            "example": "h"
+          },
+          "unit_price_cents": {
+            "type": "number"
+          },
+          "net_cents": {
+            "type": "number"
+          },
+          "reservation": {
+            "type": "string",
+            "enum": [
+              "not_applicable",
+              "unbooked",
+              "reserved"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "labor_operation_id",
+          "catalog_item_id",
+          "description",
+          "quantity",
+          "unit",
+          "unit_price_cents",
+          "net_cents",
+          "reservation"
+        ]
+      },
+      "WorkshopCommandScheduleDto": {
+        "type": "object",
+        "properties": {
+          "local_date": {
+            "type": "string",
+            "example": "2026-10-16"
+          },
+          "local_start": {
+            "type": "string",
+            "example": "08:00"
+          },
+          "local_end": {
+            "type": "string",
+            "example": "10:30"
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_minutes": {
+            "type": "number",
+            "example": 150
+          },
+          "duration_source": {
+            "type": "string",
+            "enum": [
+              "preset_sum",
+              "end_clock"
+            ]
+          }
+        },
+        "required": [
+          "local_date",
+          "local_start",
+          "local_end",
+          "start_at",
+          "end_at",
+          "duration_minutes",
+          "duration_source"
+        ]
+      },
+      "WorkshopCommandLoanerDto": {
+        "type": "object",
+        "properties": {
+          "requested": {
+            "type": "boolean"
+          },
+          "loaner_vehicle_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "planned_from": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "planned_to": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "requested",
+          "loaner_vehicle_id",
+          "planned_from",
+          "planned_to"
+        ]
+      },
+      "WorkshopCommandPositionPlanDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "example": 1
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCommandPositionLineDto"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "lines"
+        ]
+      },
+      "WorkshopCommandIntentDto": {
+        "type": "object",
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "enum": [
+              "workshop-command/v1"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/WorkshopCommandScheduleDto"
+          },
+          "bay_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mechanic_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "loaner": {
+            "$ref": "#/components/schemas/WorkshopCommandLoanerDto"
+          },
+          "position_plan": {
+            "$ref": "#/components/schemas/WorkshopCommandPositionPlanDto"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER_REPAIR"
+            ]
+          },
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED"
+            ]
+          },
+          "reported_issue": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready"
+            ]
+          }
+        },
+        "required": [
+          "contract_version",
+          "command_id",
+          "site_id",
+          "timezone",
+          "customer_id",
+          "vehicle_id",
+          "schedule",
+          "bay_id",
+          "mechanic_id",
+          "loaner",
+          "position_plan",
+          "purpose",
+          "order_status",
+          "reported_issue",
+          "status"
+        ]
+      },
+      "WorkshopCommandChoiceDto": {
+        "type": "object",
+        "properties": {
+          "choice_id": {
+            "type": "string",
+            "example": "customer:51500000-0000-4000-8000-000000000021"
+          },
+          "slot": {
+            "type": "string",
+            "example": "customer_id"
+          },
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "choice_id",
+          "slot",
+          "value",
+          "label"
+        ]
+      },
+      "WorkshopCommandClarificationDto": {
+        "type": "object",
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "enum": [
+              "workshop-command/v1"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "clarification"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCommandChoiceDto"
+            }
+          },
+          "recognized": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "proposal": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "contract_version",
+          "status",
+          "command_id",
+          "code",
+          "prompt",
+          "choices",
+          "recognized",
+          "proposal"
+        ]
+      },
+      "CommandSelectionDto": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "string",
+            "example": "customer_id"
+          },
+          "value": {
+            "type": "string",
+            "example": "51500000-0000-4000-8000-000000000021"
+          }
+        },
+        "required": [
+          "slot",
+          "value"
+        ]
+      },
+      "InterpretWorkshopCommandDto": {
+        "type": "object",
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "enum": [
+              "workshop-command/v1"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "keyboard",
+              "voice_transcript"
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "de-AT"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Advisor sentence or edited voice transcript. Never sent to a provider."
+          },
+          "selections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommandSelectionDto"
+            }
+          }
+        },
+        "required": [
+          "contract_version",
+          "command_id",
+          "source",
+          "locale",
+          "text"
+        ]
+      },
+      "ProposeWorkshopCommandDto": {
+        "type": "object",
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "enum": [
+              "workshop-command/v1"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "selections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommandSelectionDto"
+            }
+          }
+        },
+        "required": [
+          "contract_version",
+          "command_id"
+        ]
+      },
+      "WorkshopCommandWouldChangeDto": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string",
+            "example": "WorkshopOrder"
+          },
+          "op": {
+            "type": "string",
+            "example": "create"
+          },
+          "provisional": {
+            "type": "boolean",
+            "example": true
+          },
+          "id": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "status": {
+            "type": "string",
+            "example": "SCHEDULED"
+          },
+          "count": {
+            "type": "number",
+            "example": 3
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "entity",
+          "op",
+          "provisional",
+          "id"
+        ]
+      },
+      "WorkshopCommandIntentBodyDto": {
+        "type": "object",
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "enum": [
+              "workshop-command/v1"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/WorkshopCommandScheduleDto"
+          },
+          "bay_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mechanic_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "loaner": {
+            "$ref": "#/components/schemas/WorkshopCommandLoanerDto"
+          },
+          "position_plan": {
+            "$ref": "#/components/schemas/WorkshopCommandPositionPlanDto"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER_REPAIR"
+            ]
+          },
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED"
+            ]
+          },
+          "reported_issue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_version",
+          "command_id",
+          "site_id",
+          "timezone",
+          "customer_id",
+          "vehicle_id",
+          "schedule",
+          "bay_id",
+          "mechanic_id",
+          "loaner",
+          "position_plan",
+          "purpose",
+          "order_status",
+          "reported_issue"
+        ]
+      },
+      "WorkshopCommandProposalResultDto": {
+        "type": "object",
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "enum": [
+              "workshop-command/v1"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "needs_approval"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pending_action_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action_type": {
+            "type": "string",
+            "example": "workshop.booking_package"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "PROPOSE"
+            ]
+          },
+          "provisional": {
+            "type": "boolean",
+            "example": true
+          },
+          "applied": {
+            "type": "boolean",
+            "example": false
+          },
+          "would_change": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCommandWouldChangeDto"
+            }
+          },
+          "intent": {
+            "$ref": "#/components/schemas/WorkshopCommandIntentBodyDto"
+          }
+        },
+        "required": [
+          "contract_version",
+          "status",
+          "command_id",
+          "pending_action_id",
+          "trace_id",
+          "action_type",
+          "tier",
+          "provisional",
+          "applied",
+          "would_change",
+          "intent"
         ]
       },
       "AgentSupervisionTriageItemDto": {

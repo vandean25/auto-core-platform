@@ -10,6 +10,7 @@ import { AgentPolicyTier, AgentProposalStatus } from '@prisma/client';
 import {
   createAgentProposalSpecHarness,
   createMockProposal,
+  commandId,
   proposalId,
   tenantId,
   userId,
@@ -21,6 +22,13 @@ describe('AgentProposalDecisionService', () => {
   beforeEach(() => {
     h = createAgentProposalSpecHarness();
   });
+
+  /** The command box stores surname, plate and VIN tokens in its replay row. */
+  function expectReplayDeleted(): void {
+    expect(h.mockPrisma.workshopCommandSession.deleteMany).toHaveBeenCalledWith({
+      where: { tenant_id: tenantId, command_id: { in: [commandId] } },
+    });
+  }
 
   it('refuses decisions from roles without supervision access, before reading the proposal', async () => {
     h.mockTenantContext.getAuthenticatedUser.mockReturnValue({
@@ -63,6 +71,21 @@ describe('AgentProposalDecisionService', () => {
       data: { status: AgentProposalStatus.EXPIRED },
     });
     expect(h.mockAgentPolicyService.evaluate).not.toHaveBeenCalled();
+  });
+
+  it('deletes the command replay row when a lapsed proposal expires', async () => {
+    h.mockPrisma.agentProposal.findFirst.mockResolvedValue(
+      createMockProposal({
+        command_id: commandId,
+        expires_at: new Date(Date.now() - 1000),
+      }),
+    );
+    h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(h.decisions.approveProposal(proposalId)).rejects.toThrow(
+      UnprocessableEntityException,
+    );
+    expectReplayDeleted();
   });
 
   it('returns an already executed proposal without resolving its executor again', async () => {
@@ -108,6 +131,34 @@ describe('AgentProposalDecisionService', () => {
       }),
     );
     expect(result.status).toBe(AgentProposalStatus.REJECTED);
+  });
+
+  it('deletes the command replay row when a supervisor rejects the proposal', async () => {
+    h.mockPrisma.agentProposal.findFirst
+      .mockResolvedValueOnce(createMockProposal({ command_id: commandId }))
+      .mockResolvedValueOnce(
+        createMockProposal({
+          command_id: commandId,
+          status: AgentProposalStatus.REJECTED,
+          decided_by: userId,
+        }),
+      );
+    h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+    await h.decisions.rejectProposal(proposalId, { reason: 'duplicate' });
+
+    expectReplayDeleted();
+  });
+
+  it('leaves the replay table alone for a proposal that came from outside the command box', async () => {
+    h.mockPrisma.agentProposal.findFirst.mockResolvedValue(createMockProposal());
+    h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+    await h.decisions.rejectProposal(proposalId, { reason: 'duplicate' });
+
+    expect(
+      h.mockPrisma.workshopCommandSession.deleteMany,
+    ).not.toHaveBeenCalled();
   });
 
   it('refuses to reject a proposal that was already approved', async () => {
@@ -206,6 +257,23 @@ describe('AgentProposalDecisionService', () => {
         }),
       }),
     );
+  });
+
+  it('deletes the command replay row when approval fails on an unsupported action', async () => {
+    jest
+      .spyOn(h.mockPendingActionExecutors, 'resolve')
+      .mockImplementation(() => {
+        throw new BadRequestException('Unsupported action type');
+      });
+    h.mockPrisma.agentProposal.findFirst.mockResolvedValue(
+      createMockProposal({ command_id: commandId }),
+    );
+    h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(h.decisions.approveProposal(proposalId)).rejects.toThrow(
+      BadRequestException,
+    );
+    expectReplayDeleted();
   });
 
   it('logs when audit persistence for a failed execution cannot be stored', async () => {
