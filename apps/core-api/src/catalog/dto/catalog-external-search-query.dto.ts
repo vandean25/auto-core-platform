@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
 import type {
   CatalogSearchConcern,
   CatalogSearchSource,
@@ -32,7 +32,7 @@ export class CatalogExternalSearchQueryDto {
   taskId!: string;
 
   @ApiProperty({ enum: ['PARTS', 'LABOR'] })
-  @IsEnum(['PARTS', 'LABOR'] as const)
+  @IsIn(['PARTS', 'LABOR'] as const)
   concern!: CatalogSearchConcern;
 
   @ApiProperty({ required: false })
@@ -46,7 +46,7 @@ export class CatalogExternalSearchQueryDto {
     default: 'AUTO',
   })
   @IsOptional()
-  @IsEnum(['AUTO', 'OEM', 'AFTERMARKET'] as const)
+  @IsIn(['AUTO', 'OEM', 'AFTERMARKET'] as const)
   source?: CatalogSearchSource;
 
   @ApiProperty({ required: false, default: false })
@@ -62,6 +62,6 @@ export class CatalogAssemblyGroupsQueryDto {
   workshopOrderId!: string;
 
   @ApiProperty({ enum: ['PARTS'] })
-  @IsEnum(['PARTS'] as const)
+  @IsIn(['PARTS'] as const)
   concern!: 'PARTS';
 }
