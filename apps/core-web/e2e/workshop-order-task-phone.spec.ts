@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockWorkshopOrder } from './utils/mock-factories'
-import { expectNoPageScroll } from './utils/phone-layout'
+import { controlsShorterThan44, expectNoPageScroll } from './utils/phone-layout'
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 
 test.describe('Workshop order task quick-add layout (AUT-842)', () => {
@@ -36,7 +36,7 @@ test.describe('Workshop order task quick-add layout (AUT-842)', () => {
     })
   })
 
-  test('at 375px phone width, quick-add input wraps to full-width row below title', async ({ page }) => {
+  test('at 375px phone width, quick-add input wraps to full-width row below title', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 375, height: 812 })
     const corePage = new AutoCorePage(page, 'Order')
     await corePage.navigate(`/workshop/orders/${order.id}`)
@@ -67,13 +67,17 @@ test.describe('Workshop order task quick-add layout (AUT-842)', () => {
     // Button stays on the same line as the input
     expect(Math.abs(inputBox!.y - addBtnBox!.y)).toBeLessThan(10)
 
+    // Verify touch targets at 375px: both input and button are at least 44px
+    const quickAddContainer = input.locator('xpath=..')
+    expect(await controlsShorterThan44(quickAddContainer), 'quick-add controls under 44px').toEqual([])
+    expect(inputBox!.height).toBeGreaterThanOrEqual(43.5)
+    expect(addBtnBox!.height).toBeGreaterThanOrEqual(43.5)
+
     // Verify no horizontal overflow at 375px
     await expectNoPageScroll(page)
 
-    // Capture 375px screenshot of the tasks card
-    const screenshotPath = process.cwd().endsWith('core-web')
-      ? '../../docs/internal/assets/aut-842-task-quick-add-375.png'
-      : 'docs/internal/assets/aut-842-task-quick-add-375.png'
+    // Capture 375px screenshot of the tasks card into test output dir
+    const screenshotPath = testInfo.outputPath('aut-842-task-quick-add-375.png')
     const taskCard = page.locator('div.rounded-xl.border').filter({ has: title }).first()
     if (await taskCard.isVisible()) {
       await taskCard.screenshot({ path: screenshotPath })

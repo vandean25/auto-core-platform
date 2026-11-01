@@ -134,6 +134,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
               tasks={checkout.tasks}
               rawTaskTotals={checkout.rawTaskTotals}
               isLocked={isLocked}
+              isAddingTask={taskActions.isAddingTask}
               newTaskTitle={taskActions.newTaskTitle}
               expandedTaskId={expandedTaskId}
               onNewTaskTitleChange={taskActions.setNewTaskTitle}

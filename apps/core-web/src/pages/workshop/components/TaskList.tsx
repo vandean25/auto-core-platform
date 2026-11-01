@@ -23,6 +23,7 @@ export interface TaskListProps {
   tasks: WorkshopTask[]
   rawTaskTotals: Map<string, TaskTotals>
   isLocked: boolean
+  isAddingTask?: boolean
   newTaskTitle: string
   expandedTaskId: string | null
   onNewTaskTitleChange: (value: string) => void
@@ -44,6 +45,7 @@ export function TaskList({
   tasks,
   rawTaskTotals,
   isLocked,
+  isAddingTask = false,
   newTaskTitle,
   expandedTaskId,
   onNewTaskTitleChange,
@@ -99,19 +101,21 @@ export function TaskList({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    onAddTask()
+                    if (!isLocked && !isAddingTask) {
+                      onAddTask()
+                    }
                   }
                 }}
                 placeholder={t('taskList.newTaskPlaceholder')}
-                className='h-8 min-w-0 flex-1'
+                className='h-11 sm:h-8 min-w-0 flex-1'
                 disabled={isLocked}
               />
               <Button
                 variant='outline'
                 size='sm'
-                className='h-8 shrink-0'
+                className='h-11 sm:h-8 shrink-0'
                 onClick={onAddTask}
-                disabled={isLocked}
+                disabled={isLocked || isAddingTask}
               >
                 <Plus className='h-3.5 w-3.5 mr-1' />
                 {t('taskList.addTask')}

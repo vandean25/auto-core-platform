@@ -974,20 +974,150 @@ describe("WorkshopOrderDetails Characterization", () => {
       inputs.forEach((input) => expect(input).toBeDisabled());
     });
 
-    it("renders quick-add task container with responsive classes for mobile wrapping (AUT-842)", () => {
+    it("renders quick-add controls and disables them when order is INVOICED", () => {
+      setupDefaultMocks(invoicedOrder);
+      asMock(salesApi.useInvoice).mockReturnValue({
+        data: invoicedOrder.invoice,
+        isLoading: false,
+      });
+
       renderComponent();
 
-      const input = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder)[0];
-      expect(input).toHaveClass("min-w-0", "flex-1");
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
 
-      const quickAddContainer = input.parentElement;
-      expect(quickAddContainer).toHaveClass("flex", "w-full", "items-center", "gap-2", "sm:max-w-md");
+      expect(input).toBeInTheDocument();
+      expect(addButton).toBeInTheDocument();
+      expect(input).toBeDisabled();
+      expect(addButton).toBeDisabled();
+    });
 
-      const headerRow = quickAddContainer?.parentElement;
-      expect(headerRow).toHaveClass("flex", "flex-wrap", "items-center", "justify-between", "gap-3");
+    it("creates exactly one task on rapid double click while request is in flight", async () => {
+      let resolveMutation!: (val: { id: string }) => void;
+      const pendingPromise = new Promise<{ id: string }>((resolve) => {
+        resolveMutation = resolve;
+      });
+      const mockMutateAsync = vi.fn().mockImplementation(() => pendingPromise);
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(
+        createMutationMock({
+          mutateAsync: mockMutateAsync,
+        }),
+      );
 
-      const addButton = screen.getAllByRole("button", { name: taskListCopy.addTask })[0];
-      expect(addButton).toHaveClass("shrink-0");
+      renderComponent();
+
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      expect(input).toBeEnabled();
+      fireEvent.change(input, { target: { value: "Brake check" } });
+
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
+      expect(addButton).toBeEnabled();
+
+      // First click initiates task creation
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeDisabled();
+      });
+
+      // Second rapid click while request is in flight
+      fireEvent.click(addButton);
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+
+      // Resolve in-flight request
+      resolveMutation({ id: "task-brake" });
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeEnabled();
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        orderId: "order-1",
+        title: "Brake check",
+      });
+    });
+
+    it("creates exactly one task on Enter followed by click while request is in flight", async () => {
+      let resolveMutation!: (val: { id: string }) => void;
+      const pendingPromise = new Promise<{ id: string }>((resolve) => {
+        resolveMutation = resolve;
+      });
+      const mockMutateAsync = vi.fn().mockImplementation(() => pendingPromise);
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(
+        createMutationMock({
+          mutateAsync: mockMutateAsync,
+        }),
+      );
+
+      renderComponent();
+
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      fireEvent.change(input, { target: { value: "Oil change" } });
+
+      // Enter initiates task creation
+      const currentInput = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      fireEvent.keyDown(currentInput, { key: "Enter" });
+
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeDisabled();
+      });
+
+      // Rapid click while request is in flight
+      fireEvent.click(addButton);
+      // Second Enter while request is in flight
+      fireEvent.keyDown(screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder), { key: "Enter" });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+
+      // Resolve the in-flight request
+      resolveMutation({ id: "task-oil" });
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeEnabled();
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        orderId: "order-1",
+        title: "Oil change",
+      });
+    });
+
+    it("re-enables the add button after task create fails with an error", async () => {
+      let rejectMutation!: (err: Error) => void;
+      const pendingPromise = new Promise<{ id: string }>((_, reject) => {
+        rejectMutation = reject;
+      });
+      const mockMutateAsync = vi.fn().mockImplementation(() => pendingPromise);
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(
+        createMutationMock({
+          mutateAsync: mockMutateAsync,
+        }),
+      );
+
+      renderComponent();
+
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      fireEvent.change(input, { target: { value: "Faulty task" } });
+
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeDisabled();
+      });
+
+      // Reject the mutation with error
+      rejectMutation(new Error("Network disconnect"));
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith("Network disconnect");
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeEnabled();
+      });
     });
   });
 
