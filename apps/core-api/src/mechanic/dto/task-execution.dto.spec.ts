@@ -41,15 +41,18 @@ describe('task-execution.dto', () => {
     );
   });
 
-  it.each([
-    ['pauseReason', PauseTaskDto, LaborPauseReason.WAITING_PARTS],
-    [
-      'previousPauseReason',
-      SwitchTaskDto,
-      LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY,
-    ],
-  ])('accepts an allowed value for %s', (property, dtoClass, value) => {
-    const dto = plainToInstance(dtoClass, { [property]: value });
+  it('accepts an allowed value for pauseReason', () => {
+    const dto = plainToInstance(PauseTaskDto, {
+      pauseReason: LaborPauseReason.WAITING_PARTS,
+    });
+
+    expect(validateSync(dto)).toEqual([]);
+  });
+
+  it('accepts an allowed value for previousPauseReason', () => {
+    const dto = plainToInstance(SwitchTaskDto, {
+      previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY,
+    });
 
     expect(validateSync(dto)).toEqual([]);
   });
