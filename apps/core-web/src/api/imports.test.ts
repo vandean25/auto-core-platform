@@ -61,19 +61,22 @@ describe('downloadImportErrorRowsCsv', () => {
     expect(await blob.text()).toBe(csv)
   })
 
-  it('preserves the server error when the download fails', async () => {
+  it('does not carry the raw backend message when download fails', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Download unavailable' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
     }))
 
-    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Download unavailable')
+    const error = await downloadImportErrorRowsCsv('job-1').catch((caught: unknown) => caught)
+
+    expect((error as Error).message).toBe('Fehlerzeilen konnten nicht heruntergeladen werden')
+    expect((error as Error).message).not.toContain('Download unavailable')
   })
 
   it('uses the existing fallback when the failed response is not JSON', async () => {
     fetchMock.mockResolvedValueOnce(new Response('Unavailable', { status: 503 }))
 
-    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Failed to download error rows')
+    await expect(downloadImportErrorRowsCsv('job-1')).rejects.toThrow('Fehlerzeilen konnten nicht heruntergeladen werden')
   })
 
   it('propagates a network failure', async () => {
@@ -161,6 +164,8 @@ describe('import wire codes', () => {
       .mutateAsync({ key: 'legacy_dms', label: 'Legacy DMS' })
       .catch((caught: unknown) => caught)
 
+    expect((error as Error).message).not.toContain("Import source with key 'legacy_dms' already exists")
+    expect((error as { response?: { data?: { message?: unknown } } }).response?.data?.message).toBeUndefined()
     expect(getErrorMessage(error, 'unused fallback')).toBe(
       deErrors.codes.IMPORT_SOURCE_ALREADY_EXISTS,
     )

@@ -1,7 +1,10 @@
 // @vitest-environment node
+import fs from 'node:fs'
+import path from 'node:path'
+import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { initI18n } from '@/lib/i18n'
-import { getErrorBody, getErrorCode, getErrorMessage } from './error-utils'
+import { getErrorBody, getErrorCode, getErrorMessage, getErrorMessageFromResponse } from './error-utils'
 
 describe('getErrorMessage', () => {
   beforeAll(async () => {
@@ -164,5 +167,125 @@ describe('getErrorMessage', () => {
     }
 
     expect(getErrorMessage(thrown, 'fallback')).toBe('Fiskalperiode ist gesperrt.')
+  })
+
+  it('does not leak raw backend message from Response and maps known code', async () => {
+    const responseWithKnownCode = new Response(
+      JSON.stringify({
+        code: 'SELLER_IDENTITY_INCOMPLETE',
+        message: 'Raw backend seller message',
+      }),
+      { status: 422 },
+    )
+    const msg = await getErrorMessageFromResponse(responseWithKnownCode, 'fallback')
+    expect(msg).toBe('Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.')
+    expect(msg).not.toContain('Raw backend')
+  })
+
+  it('does not leak raw backend message from Response when code is unknown', async () => {
+    const responseWithUnknownCode = new Response(
+      JSON.stringify({
+        code: 'UNKNOWN_OR_INTERNAL',
+        message: 'Raw unlocalized server text',
+      }),
+      { status: 400 },
+    )
+    const msg = await getErrorMessageFromResponse(responseWithUnknownCode, 'Standardfehler')
+    expect(msg).toBe('Standardfehler')
+    expect(msg).not.toContain('Raw unlocalized')
+  })
+})
+
+
+describe('error fallback literal guard', () => {
+  it('ensures no direct call site in core-web/src passes a string literal fallback (wrapper indirection not covered)', () => {
+    const srcRoot = path.resolve(__dirname, '..')
+
+    function isSourceFile(filePath: string): boolean {
+      if (filePath.endsWith('.d.ts')) return false
+      if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) return false
+      if (filePath.endsWith('.spec.ts') || filePath.endsWith('.spec.tsx')) return false
+      if (filePath.includes('test-copy.ts')) return false
+      if (filePath.includes(`${path.sep}test${path.sep}`) || filePath.includes('/test/')) return false
+      return filePath.endsWith('.ts') || filePath.endsWith('.tsx')
+    }
+
+    function walk(dir: string): string[] {
+      let results: string[] = []
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          results = results.concat(walk(fullPath))
+        } else if (isSourceFile(fullPath)) {
+          results.push(fullPath)
+        }
+      }
+      return results
+    }
+
+    const files = walk(srcRoot)
+    const violations: Array<{ file: string; line: number; text: string }> = []
+
+    function checkLiteral(node: ts.Node, sf: ts.SourceFile, relPath: string) {
+      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+        const { line } = sf.getLineAndCharacterOfPosition(node.getStart())
+        violations.push({ file: relPath, line: line + 1, text: node.getText(sf) })
+      } else if (ts.isBinaryExpression(node)) {
+        checkLiteral(node.left, sf, relPath)
+        checkLiteral(node.right, sf, relPath)
+      }
+    }
+
+    const checkedFunctions = new Set([
+      'getErrorMessage',
+      'throwImportResponseError',
+      'throwHttpError',
+      'createHttpError',
+    ])
+
+    // Exempted from the AUT-836 migration; tracked in AUT-836 for a follow-up audit
+    const UNMIGRATED_THROW_HTTP_ERROR_FILES = new Set([
+      'api/api-keys.ts',
+      'api/document-branding.ts',
+      'api/tyre-storage.ts',
+      'components/workshop/MechanicFindingAdvisorPanel.tsx',
+    ])
+
+    for (const filePath of files) {
+      const src = fs.readFileSync(filePath, 'utf8')
+      if (
+        !src.includes('getErrorMessage') &&
+        !src.includes('throwImportResponseError') &&
+        !src.includes('throwHttpError') &&
+        !src.includes('createHttpError')
+      ) {
+        continue
+      }
+
+      const sf = ts.createSourceFile(filePath, src, ts.ScriptTarget.Latest, true)
+      const relPath = path.relative(srcRoot, filePath).replace(/\\/g, '/')
+
+      function visit(node: ts.Node) {
+        if (ts.isCallExpression(node)) {
+          const expr = node.expression
+          let name = ''
+          if (ts.isIdentifier(expr)) name = expr.text
+          else if (ts.isPropertyAccessExpression(expr)) name = expr.name.text
+          const exempt = name === 'throwHttpError' && UNMIGRATED_THROW_HTTP_ERROR_FILES.has(relPath)
+          if (!exempt && checkedFunctions.has(name)) {
+            const fallbackArgIndex = name === 'createHttpError' ? 0 : 1
+            const fallbackArg = node.arguments[fallbackArgIndex]
+            if (fallbackArg) {
+              checkLiteral(fallbackArg, sf, relPath)
+            }
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+
+      visit(sf)
+    }
+
+    expect(violations).toEqual([])
   })
 })

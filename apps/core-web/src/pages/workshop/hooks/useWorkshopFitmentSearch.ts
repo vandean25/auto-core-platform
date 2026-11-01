@@ -11,7 +11,7 @@ import {
   type CatalogSearchSession,
   type CatalogSourceMetadata,
 } from '@/features/workshop/catalog-source-copy'
-import { getErrorMessage } from '../utils/error'
+import { getErrorMessage } from '@/lib/error-utils'
 
 /** Fitment search of one task: the open modal's props, the catalog source banner state and the OEM concern of the vehicle. */
 export function useWorkshopFitmentSearch(order: WorkshopOrder) {

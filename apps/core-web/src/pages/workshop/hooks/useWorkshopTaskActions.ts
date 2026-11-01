@@ -8,7 +8,7 @@ import {
 } from '@/api/workshop'
 import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
 import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
-import { getErrorMessage } from '../utils/error'
+import { getErrorMessage } from '@/lib/error-utils'
 
 interface UseWorkshopTaskActionsOptions {
   order: WorkshopOrder

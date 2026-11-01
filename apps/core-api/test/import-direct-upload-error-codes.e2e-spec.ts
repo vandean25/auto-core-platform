@@ -93,6 +93,7 @@ describe('Direct import upload error codes (e2e)', () => {
     }).expect(413);
 
     expect(response.body.code).toBe(IMPORT_ERROR_CODES.DIRECT_UPLOAD_TOO_LARGE);
+    expect(response.body.message).toBe('Direct import upload is too large.');
   });
 
   it('reports its own code when the declared content type is not a CSV type', async () => {
@@ -105,6 +106,9 @@ describe('Direct import upload error codes (e2e)', () => {
     expect(response.body.code).toBe(
       IMPORT_ERROR_CODES.DIRECT_UPLOAD_CONTENT_TYPE,
     );
+    expect(response.body.message).toBe(
+      'This file type is not supported for direct import upload.',
+    );
   });
 
   it('reports its own code when the file name is not a CSV name', async () => {
@@ -114,12 +118,14 @@ describe('Direct import upload error codes (e2e)', () => {
     }).expect(400);
 
     expect(response.body.code).toBe(IMPORT_ERROR_CODES.DIRECT_UPLOAD_INVALID);
+    expect(response.body.message).toBe('Invalid direct import upload.');
   });
 
   it('reports its own code when finalize gets a malformed upload id', async () => {
     const response = await finalizeUpload('not-an-upload-id').expect(400);
 
     expect(response.body.code).toBe(IMPORT_ERROR_CODES.DIRECT_UPLOAD_INVALID);
+    expect(response.body.message).toBe('Invalid direct import upload.');
   });
 
   it('reports its own code when the upload id was never staged', async () => {
@@ -127,6 +133,9 @@ describe('Direct import upload error codes (e2e)', () => {
 
     expect(response.body.code).toBe(
       IMPORT_ERROR_CODES.DIRECT_UPLOAD_NOT_FOUND,
+    );
+    expect(response.body.message).toBe(
+      'Direct import upload not found or already finalized.',
     );
   });
 });

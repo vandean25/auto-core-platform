@@ -30,9 +30,10 @@ function createWrapper(client: QueryClient) {
     createElement(QueryClientProvider, { client }, children)
 }
 
-function createJsonResponse(body: unknown, ok = true): Response {
+function createJsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
     ok,
+    status,
     json: async () => body,
   } as Response
 }
@@ -134,7 +135,7 @@ describe('agent-actions api hooks', () => {
 
     it('handles error response from server', async () => {
       vi.mocked(fetchWithAuth).mockResolvedValue(
-        createJsonResponse({ message: 'Forbidden' }, false),
+        createJsonResponse({ code: 'NOT_A_REAL_CODE', message: 'Forbidden' }, false, 403),
       )
 
       const queryClient = createQueryClient()
@@ -146,7 +147,8 @@ describe('agent-actions api hooks', () => {
         expect(result.current.isError).toBe(true)
       })
 
-      expect(result.current.error?.message).toBe('Forbidden')
+      expect(result.current.error?.message).toBe('Agenten-Aktivitäten konnten nicht geladen werden')
+      expect(result.current.error?.message).not.toContain('Forbidden')
     })
   })
 
@@ -199,7 +201,7 @@ describe('agent-actions api hooks', () => {
 
     it('handles error response when trace detail fails', async () => {
       vi.mocked(fetchWithAuth).mockResolvedValue(
-        createJsonResponse({ message: 'Trace not found' }, false),
+        createJsonResponse({ code: 'NOT_A_REAL_CODE', message: 'Trace not found' }, false, 404),
       )
 
       const queryClient = createQueryClient()
@@ -214,7 +216,39 @@ describe('agent-actions api hooks', () => {
         expect(result.current.isError).toBe(true)
       })
 
-      expect(result.current.error?.message).toBe('Trace not found')
+      expect(result.current.error?.message).toBe('Trace-Details konnten nicht geladen werden')
+      expect(result.current.error?.message).not.toContain('Trace not found')
+    })
+
+  
+    it('maps known error code to translated text instead of backend message', async () => {
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse(
+          {
+            code: 'SELLER_IDENTITY_INCOMPLETE',
+            message: 'Raw backend message',
+          },
+          false,
+          422,
+        ),
+      )
+
+      const queryClient = createQueryClient()
+      const wrapper = createWrapper(queryClient)
+
+      const { result } = renderHook(
+        () => useAgentActionTraceDetail('trace-err'),
+        { wrapper },
+      )
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error?.message).toBe(
+        'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+      )
+      expect(result.current.error?.message).not.toContain('Raw backend message')
     })
   })
 })

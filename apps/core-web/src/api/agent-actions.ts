@@ -1,6 +1,8 @@
+import { i18n } from '@/lib/i18n'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
+import { getErrorMessageFromResponse as getErrorMessage } from '@/lib/error-utils'
 
 export type AgentActionLog = components['schemas']['AgentActionLogResponseDto']
 export type AgentActionLogListResponse =
@@ -37,14 +39,6 @@ export const agentActionKeys = {
   detail: (traceId: string) => [...agentActionKeys.details(), traceId] as const,
 }
 
-async function getErrorMessage(
-  response: Response,
-  fallbackMessage: string,
-): Promise<string> {
-  const payload = (await response.json().catch(() => undefined)) as
-    { message?: string } | undefined
-  return payload?.message || fallbackMessage
-}
 
 export function useAgentActions(filters: AgentActionFilters = {}) {
   return useInfiniteQuery({
@@ -77,7 +71,7 @@ export function useAgentActions(filters: AgentActionFilters = {}) {
 
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, 'Failed to fetch agent actions'),
+          await getErrorMessage(response, i18n.t('common:apiErrors.agent.activity.loadFailed')),
         )
       }
 
@@ -98,7 +92,7 @@ export function useAgentActionTraceDetail(traceId: string) {
         throw new Error(
           await getErrorMessage(
             response,
-            'Failed to fetch agent action trace detail',
+            i18n.t('common:apiErrors.agent.traceDialog.loadFailed'),
           ),
         )
       }

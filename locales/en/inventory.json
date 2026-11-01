@@ -222,6 +222,17 @@
       "sourceBinOptional": "Source bin (optional)",
       "requestedQtyAria": "Requested quantity for {{sku}}",
       "sourceBinAria": "Source bin for {{sku}}"
+    },
+    "errors": {
+      "listLoadFailed": "Failed to load stock transfers",
+      "detailLoadFailed": "Failed to load stock transfer",
+      "createFailed": "Failed to create stock transfer",
+      "approveFailed": "Failed to approve stock transfer",
+      "rejectFailed": "Failed to reject stock transfer",
+      "cancelFailed": "Failed to cancel stock transfer",
+      "shipFailed": "Failed to ship stock transfer",
+      "receiveFailed": "Failed to receive stock transfer",
+      "returnFailed": "Failed to return stock transfer"
     }
   },
   "tyreStorage": {

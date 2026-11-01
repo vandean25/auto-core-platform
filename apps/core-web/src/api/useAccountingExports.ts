@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
 import { createHttpError } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
 import { fetchWithAuth } from './client'
 
 export type PreviewAccountingExportDto =
@@ -158,9 +159,9 @@ export async function downloadAccountingExportCsv(
   if (!response.ok) {
     const contentType = response.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
-      await parseApiError(response, 'Failed to download accounting export')
+      await parseApiError(response, i18n.t('common:apiErrors.accounting.exportDownloadFailed'))
     }
-    throw createHttpError('Failed to download accounting export', response.status)
+    throw createHttpError(i18n.t('common:apiErrors.accounting.exportDownloadFailed'), response.status)
   }
 
   const headerSha256 =
@@ -187,10 +188,7 @@ export function assertBlobMatchesSha256(
   const reference = (expectedSha256 ?? headerSha256 ?? '').trim().toLowerCase()
   const actual = computedHex.trim().toLowerCase()
   if (!reference || actual !== reference) {
-    throw createHttpError(
-      'The file bytes do not match the recorded SHA-256. Do not import this file.',
-      422,
-    )
+    throw createHttpError(i18n.t('common:apiErrors.accounting.checksumMismatch'), 422)
   }
 }
 

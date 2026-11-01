@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -110,7 +111,7 @@ export function usePdfDownload(config?: Partial<UsePdfDownloadConfig>): UsePdfDo
           timeoutErrorMessage:
             mergedMessages.timeout ?? DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE,
           errorFallbackMessage:
-            mergedMessages.errorFallback ?? 'PDF-Erstellung fehlgeschlagen',
+            mergedMessages.errorFallback ?? i18n.t('common:pdf.generationFailed'),
           checkGenerationFailed,
           onPoll: (attempt) => {
             if (attempt === 1) {
@@ -144,7 +145,7 @@ export function usePdfDownload(config?: Partial<UsePdfDownloadConfig>): UsePdfDo
         toast.error(
           getErrorMessage(
             error,
-            mergedMessages.errorFallback ?? 'PDF-Erstellung fehlgeschlagen',
+            mergedMessages.errorFallback ?? i18n.t('common:pdf.generationFailed'),
           ),
           { id: toastId },
         )

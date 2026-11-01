@@ -172,6 +172,23 @@ export function createHttpError(
   return err
 }
 
+/** Reads structured API errors from a Response and translates known codes, or returns the fallback message. Never leaks raw backend message text. */
+export async function getErrorMessageFromResponse(
+  response: Response,
+  fallbackMessage: string,
+): Promise<string> {
+  const data = (await response.json().catch(() => undefined)) as
+    | ReturnType<typeof getApiErrorBody>
+    | undefined
+  const synthetic = {
+    response: {
+      status: response.status,
+      data,
+    },
+  }
+  return getErrorMessage(synthetic, fallbackMessage)
+}
+
 /** Reads structured API errors and throws with `.status` attached (no backend message text). */
 export async function throwHttpError(
   response: Response,

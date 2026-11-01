@@ -10,7 +10,7 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { triggerBlobDownload } from '@/lib/download'
 import { toast } from 'sonner'
 import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
-import { getErrorMessage } from '@/pages/workshop/utils/error'
+import { getErrorMessage } from '@/lib/error-utils'
 import {
   canAssignWorkshopOrderMechanic,
   canCheckInWorkshopOrder,

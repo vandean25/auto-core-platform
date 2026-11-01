@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { getErrorMessage, isAbortError } from '@/lib/error-utils'
@@ -63,8 +64,8 @@ export function useDebouncedAutoSave<TSnapshot>({
           onError(error)
           return
         }
-        toast.error('Auto-save failed', {
-          description: getErrorMessage(error, 'Please check your connection'),
+        toast.error(i18n.t('common:documentSave.error'), {
+          description: getErrorMessage(error, i18n.t('common:documentSave.checkConnection')),
         })
       }
     },
