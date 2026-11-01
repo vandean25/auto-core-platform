@@ -881,7 +881,7 @@
     "title": "Workshop intake",
     "quickRegister": "Quick register",
     "searchTitle": "Intake search",
-    "searchPlaceholder": "Search VIN, plate, or customer name...",
+    "searchPlaceholder": "VIN, plate, customer",
     "searching": "Searching...",
     "vehicleMeta": "VIN: {{vin}} | Plate: {{plate}}",
     "vehicles": "Vehicles",
@@ -1647,7 +1647,7 @@
   "estimateList": {
     "title": "Estimates",
     "description": "All estimates of the site. A click opens the work order at that version.",
-    "searchPlaceholder": "Search number, work order, customer or plate",
+    "searchPlaceholder": "No., customer, plate",
     "version": "v{{version}}",
     "columns": {
       "number": "Number",
