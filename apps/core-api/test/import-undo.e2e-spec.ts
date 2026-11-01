@@ -32,7 +32,14 @@ import { teardownTestApp } from './test-lifecycle.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 import { UNDO_BLOCKED_REASONS } from '../src/import/import-undo.types.js';
 import { ImportUndoService } from '../src/import/import-undo.service.js';
-import { createUndoWorkerState } from '../src/import/import-undo-worker.js';
+import { ImportAuditWriter } from '../src/import/import-audit.writer.js';
+import { deleteCreatedEntity } from '../src/import/import-undo-writer.js';
+import {
+  createUndoWorkerState,
+  nextUndoLeaseUntil,
+  readUndoWorkerState,
+} from '../src/import/import-undo-worker.js';
+import type { ImportJobOptionsWithUndo } from '../src/import/import-undo-worker.js';
 
 describe('Import Undo (e2e)', () => {
   let app: INestApplication;
@@ -1096,6 +1103,293 @@ describe('Import Undo (e2e)', () => {
     ).toEqual([]);
   });
 
+  /** True once some backend waits for a row lock, so the claim is queued behind the holder. */
+  async function waitForBlockedRowLock(): Promise<void> {
+    for (let poll = 0; poll < 400; poll += 1) {
+      const waiting = await prisma.$queryRaw<Array<{ waiting: number }>>`
+        SELECT count(*)::int AS waiting
+        FROM pg_locks blocked
+        JOIN pg_stat_activity backend ON backend.pid = blocked.pid
+        WHERE NOT blocked.granted AND backend.datname = current_database()`;
+      if (waiting[0].waiting > 0) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('the claim never waited on the holder row lock');
+  }
+
+  it('worker lease: a claim from a stale read loses when the holder commits one more batch', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const stamp = Date.now();
+    const emails = [1, 2, 3, 4].map(
+      (n) => `lease-stale-${n}-${stamp}@example.com`,
+    );
+
+    const job = await importCustomerBatch(
+      emails.map((email, index) => [
+        `EXT-LSTALE-${stamp}-${index + 1}`,
+        'PRIVATE',
+        `Stale${index + 1}`,
+        'Claim',
+        email,
+        '34567',
+        'AT',
+      ]),
+    );
+
+    const rows = await tenantPrisma.importJobRow.findMany({
+      where: { import_job_id: job.id },
+      orderBy: { row_no: 'asc' },
+    });
+    const entityIds = rows
+      .map((row) => row.entity_id)
+      .filter((entityId): entityId is string => Boolean(entityId));
+    expect(entityIds).toHaveLength(emails.length);
+
+    const adminUser = await systemPrisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true, email: true },
+    });
+
+    // Holder A: its lease has just expired while it is still running, so a second delivery of
+    // the same task is allowed to read the job and try to take the claim over.
+    const expiredAt = new Date(Date.now() - 60_000).toISOString();
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: {
+        status: ImportJobStatus.UNDOING,
+        options_json: {
+          undo_worker: {
+            ...createUndoWorkerState({
+              actorUserId: adminUser.id,
+              actorEmail: adminUser.email,
+              actorRole: 'ADMIN',
+              resumeStatus: ImportJobStatus.APPLIED,
+              confirmedEntityIds: [],
+              totalRows: emails.length,
+            }),
+            lease_token: 'lease-a',
+            lease_until: expiredAt,
+            started_at: expiredAt,
+            heartbeat_at: expiredAt,
+          },
+        },
+      },
+    });
+
+    const undoService = app.get(ImportUndoService);
+    const requestContext = app.get(RequestContextService);
+    const attempt = (workerId: string) =>
+      requestContext.runAsWorker(
+        tenant.tenantId,
+        () =>
+          undoService.runUndoWorkerAttempt({
+            tenantId: tenant.tenantId,
+            jobId: job.id,
+          }),
+        { workerId },
+      );
+
+    // A's one remaining batch, held open before its commit. Like a real batch it locks the job
+    // row first, so B reads the state from before the batch and then queues behind that lock to
+    // claim. A claim built on that stale read must match no row, or it would roll A's counters
+    // and cursor back and lose the batch A is committing right now.
+    const holderAudit = new ImportAuditWriter({
+      getAuthenticatedUser: () => ({
+        userId: adminUser.id,
+        email: adminUser.email,
+        role: 'ADMIN',
+      }),
+    } as never);
+    let releaseBatch!: () => void;
+    const batchGate = new Promise<void>((resolve) => {
+      releaseBatch = resolve;
+    });
+    let rowLocked!: () => void;
+    const rowLock = new Promise<void>((resolve) => {
+      rowLocked = resolve;
+    });
+    const holderBatch = tenantPrisma.$transaction(
+      async (tx) => {
+        const held = await tx.importJob.findFirstOrThrow({
+          where: { tenant_id: tenant.tenantId, id: job.id },
+        });
+        const worker = readUndoWorkerState(
+          held.options_json as ImportJobOptionsWithUndo,
+        );
+        if (!worker) {
+          throw new Error('holder state missing');
+        }
+        const leaseWhere = {
+          tenant_id: tenant.tenantId,
+          id: job.id,
+          status: ImportJobStatus.UNDOING,
+          options_json: {
+            path: ['undo_worker', 'lease_token'],
+            equals: 'lease-a',
+          },
+        };
+        const locked = await tx.importJob.updateMany({
+          where: leaseWhere,
+          data: {
+            options_json: {
+              undo_worker: {
+                ...worker,
+                heartbeat_at: new Date().toISOString(),
+                lease_until: nextUndoLeaseUntil(Date.now()),
+              },
+            },
+          },
+        });
+        if (locked.count !== 1) {
+          throw new Error('holder lost its lease before the batch');
+        }
+        rowLocked();
+        await deleteCreatedEntity(
+          tx,
+          tenant.tenantId,
+          'CUSTOMER',
+          entityIds[0],
+          job.id,
+        );
+        await holderAudit.writeEntityAudit(
+          tx,
+          tenant.tenantId,
+          adminUser.id,
+          job.id,
+          'CUSTOMER',
+          entityIds[0],
+          AuditLogAction.DELETE,
+          rows[0].normalized_json,
+          null,
+        );
+        await tx.importJobRow.update({
+          where: {
+            tenant_id_import_job_id_row_no: {
+              tenant_id: tenant.tenantId,
+              import_job_id: job.id,
+              row_no: rows[0].row_no,
+            },
+          },
+          data: { undone_at: new Date() },
+        });
+        const progress = await tx.importJob.updateMany({
+          where: leaseWhere,
+          data: {
+            options_json: {
+              undo_worker: {
+                ...worker,
+                cursor: String(rows[0].row_no),
+                processed_rows: 1,
+                deleted_rows: 1,
+                heartbeat_at: new Date().toISOString(),
+                lease_until: nextUndoLeaseUntil(Date.now()),
+              },
+            },
+          },
+        });
+        if (progress.count !== 1) {
+          throw new Error('holder lost its lease during the batch');
+        }
+        await batchGate;
+      },
+      { timeout: 60_000, maxWait: 10_000 },
+    );
+
+    await rowLock;
+    const staleClaim = attempt('worker-b');
+    await waitForBlockedRowLock();
+    releaseBatch();
+    await Promise.all([holderBatch, staleClaim]);
+
+    const afterRace = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(afterRace.status).toBe(ImportJobStatus.UNDOING);
+    expect(
+      readUndoWorkerState(afterRace.options_json as ImportJobOptionsWithUndo),
+    ).toMatchObject({
+      lease_token: 'lease-a',
+      cursor: String(rows[0].row_no),
+      processed_rows: 1,
+      deleted_rows: 1,
+      restored_rows: 0,
+    });
+
+    // A dies right after its commit, so its lease lapses and the next attempt takes over from
+    // the counters A actually reached.
+    const survivor = readUndoWorkerState(
+      afterRace.options_json as ImportJobOptionsWithUndo,
+    );
+    await tenantPrisma.importJob.update({
+      where: { id: job.id },
+      data: {
+        options_json: {
+          undo_worker: {
+            ...survivor,
+            lease_until: expiredAt,
+            heartbeat_at: expiredAt,
+          },
+        },
+      },
+    });
+
+    const jobAuditsBefore = await tenantPrisma.auditLog.count({
+      where: {
+        entity_type: 'ImportJob',
+        entity_id: job.id,
+        action: AuditLogAction.UPDATE,
+      },
+    });
+    await attempt('worker-c');
+
+    const finalJob = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(finalJob.status).toBe(ImportJobStatus.UNDONE);
+    expect(
+      (finalJob.options_json as { undo?: Record<string, number> }).undo,
+    ).toMatchObject({
+      deleted: emails.length,
+      restored: 0,
+      blocked: 0,
+    });
+
+    const finalRows = await tenantPrisma.importJobRow.findMany({
+      where: { import_job_id: job.id },
+    });
+    expect(finalRows.every((row) => row.undone_at !== null)).toBe(true);
+    expect(
+      await tenantPrisma.customer.findMany({
+        where: { email: { in: emails } },
+      }),
+    ).toEqual([]);
+
+    // One import DELETE audit per reverted row: A's batch wrote the first, the takeover the rest.
+    const deleteAudits = await tenantPrisma.auditLog.findMany({
+      where: {
+        entity_id: { in: entityIds },
+        action: AuditLogAction.DELETE,
+        source: IMPORT_SOURCE,
+      },
+      select: { entity_id: true },
+    });
+    expect(deleteAudits).toHaveLength(emails.length);
+    expect(new Set(deleteAudits.map((audit) => audit.entity_id)).size).toBe(
+      emails.length,
+    );
+    expect(
+      await tenantPrisma.auditLog.count({
+        where: {
+          entity_type: 'ImportJob',
+          entity_id: job.id,
+          action: AuditLogAction.UPDATE,
+        },
+      }),
+    ).toBe(jobAuditsBefore + 1);
+  }, 120_000);
+
   it('purge gate: undo reports IMPORT_JOB_PURGED when staged rows were purged', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
 
@@ -1309,8 +1603,8 @@ describe('Import Undo (e2e)', () => {
     expect(completedRows.every((r) => r.undone_at !== null)).toBe(true);
   });
 
-  // Row count of the scaled run, from IMPORT_UNDO_E2E_ROWS. PR CI uses the small default; a
-  // nightly run sets IMPORT_UNDO_E2E_ROWS=20000 to measure preview and undo on Postgres.
+  // Row count of the scaled run. PR CI uses the small default; the 20k run at the supported
+  // maximum (IMPORT_MAX_ROW_COUNT) is `npm --workspace=core-api run test:e2e:import-undo-20k`.
   const scaledRowCount = Number(process.env.IMPORT_UNDO_E2E_ROWS ?? 120);
 
   it(`scaled run: previews and undoes ${scaledRowCount} imported customers on a real database`, async () => {
@@ -1356,6 +1650,10 @@ describe('Import Undo (e2e)', () => {
       conflicts: 0,
       blocked: 0,
     });
+    // One request walks every page with batched guard queries (2000 rows measured 0.3 ms per
+    // row), so the bound is per row plus the request overhead: a per-row query shows up at any
+    // size, and a loaded runner still passes.
+    expect(previewMs).toBeLessThan(5_000 + scaledRowCount * 2);
 
     const undoStartedAt = Date.now();
     const jobAuditsBeforeUndo = await tenantPrisma.auditLog.count({
