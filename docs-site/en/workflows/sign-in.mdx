@@ -21,9 +21,10 @@ After sign-in, ACP loads your tenant session. If you belong to more than one wor
 
 - **Ctrl+B** / **Cmd+B** toggles icon mode on laptop widths (tooltips show module names).
 - On a **phone**, the menu control opens navigation as a **sheet**; it closes after you pick a module. **Close** dismisses the sheet without navigating.
+- Supported browsers show **Install app** under **Profile** (PWA). The installed app suits mechanic tablets and is required on iPhone/iPad for web push in [Notifications](/en/settings/notifications).
 
 <Tip>
-Under **Profile** in the sidebar, switch **Language** between German and English. Customer PDFs and emails follow the customer or tenant default separately (see [Customers](/en/workflows/customers) and [Workshop orders](/en/workflows/workshop-orders)).
+Under **Profile** in the sidebar, switch **Language** between German and English — the UI updates without a full reload. Customer PDFs and emails use the language stored on the customer record or the tenant default (see [Customers](/en/workflows/customers) and [Invoices](/en/workflows/invoices)); you cannot edit customer language in the customer form today, but import or integrations may set it.
 </Tip>
 
 <Tabs>
@@ -31,7 +32,7 @@ Under **Profile** in the sidebar, switch **Language** between German and English
     OWNER, ADMIN, and SALES get the full sidebar: dashboard, customers, workshop, inventory, purchasing, settings gear. Default landing after `/` is **Inventory**.
   </Tab>
   <Tab title="TECH (mechanic)">
-    A TECH membership only loads **My Queue** (`/mechanic/queue`). Any other URL redirects there. There is no finance or vendor nav on that shell. **Sign out** is in the top bar.
+    A TECH membership only loads **My Queue** (`/mechanic/queue`). Any other URL redirects there. There is no finance or vendor nav on that shell. **Sign out** is in the top bar. On a phone you use the same queue and task detail in a large touch layout (see [Mechanic queue](/en/workflows/mechanic)).
   </Tab>
   <Tab title="Platform super-admin">
     Sidebar shows **Tenants** as well. That list is not a workshop screen. See [Platform tenants](/en/workflows/platform-tenants).

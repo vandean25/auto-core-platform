@@ -54,4 +54,10 @@ Importe legen neue Zeilen an. Sie führen keine Duplikate per Kennzeichen oder E
   <Accordion title="Aufbewahrung alter Importzeilen">
     Detaillierte Zeilenpayloads aus abgeschlossenen Importjobs werden nach **180 Tagen** pro Mandant bereinigt. Job-Header, Status und External-IDs bleiben für die Nachverfolgung erhalten. Der nächtliche Lauf `import-job-row-purge` ist in [Geplante Core-API-Jobs](/operations/core-api-scheduled-jobs) beschrieben.
   </Accordion>
+  <Accordion title="Große CSV-Dateien">
+    Dateien über **30 MiB** werden beim Probelauf direkt in den Speicher hochgeladen; der Fortschritt erscheint im Assistenten (Hinweis **Dateien über 30 MiB werden beim Probelauf direkt in den Speicher übertragen**). Kleinere Dateien laufen weiter über den normalen Upload.
+  </Accordion>
+  <Accordion title="Fehler-CSV">
+    Schlägt der Probelauf oder Import Zeilen fehl, können Sie über das Kontextmenü im **Verlauf** eine **Fehler-CSV herunterladen** — lokalisierte Fehlermeldungen pro Zeile, nicht nur technische Codes.
+  </Accordion>
 </AccordionGroup>

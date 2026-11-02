@@ -18,7 +18,16 @@ description: "Open a private or company record before you write an order or star
   <Step title="Contact preferences">
     Open the **Contact preferences** tab. Per legal entity you see channel, purpose, and whether contact is allowed. **Record marketing consent** or **Revoke marketing** appends to the **consent history** (text version and the wording shown to the customer). Outbound messages enforce these settings — marketing without consent is not sent.
   </Step>
+  <Step title="Legacy numbers">
+    After [data import](/en/settings/data-import), **Legacy customer no. (source system)** appears read-only on the detail card (per import source). **Search customers...** and [Global search](/en/workflows/dashboard) match those IDs too.
+  </Step>
 </Steps>
+
+<AccordionGroup>
+  <Accordion title="Language for PDFs and email">
+    Estimate, ready-for-pickup, and invoice PDFs plus related customer emails use the customer’s stored preferred language when set — otherwise the tenant default (usually German). You cannot edit language on the customer form today; import or integrations may set it.
+  </Accordion>
+</AccordionGroup>
 
 <Warning>
 Delete fails if the customer still owns a sales order, invoice, workshop order, or vehicle. The toast shows the server message.
