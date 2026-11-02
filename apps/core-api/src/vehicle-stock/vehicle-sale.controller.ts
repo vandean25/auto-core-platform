@@ -16,6 +16,8 @@ import { ApiOkResponse, ApiProduces, ApiTags } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
 import { PdfWorker } from '../common/pdf/index.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
+import { VehicleSaleTransitionService } from './vehicle-sale-transition.service.js';
+import { VehicleSaleFinalizeService } from './vehicle-sale-finalize.service.js';
 import { VehicleSaleTradeInService } from './vehicle-sale-trade-in.service.js';
 import { VehicleSaleKaufvertragPdfService } from './kaufvertrag/kaufvertrag-pdf.service.js';
 import { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
@@ -52,6 +54,8 @@ export class VehicleSaleController {
 
   constructor(
     private readonly sales: VehicleSaleService,
+    private readonly transitions: VehicleSaleTransitionService,
+    private readonly finalizer: VehicleSaleFinalizeService,
     private readonly tradeIn: VehicleSaleTradeInService,
     private readonly kaufvertragPdf: VehicleSaleKaufvertragPdfService,
   ) {}
@@ -68,12 +72,12 @@ export class VehicleSaleController {
 
   @Patch(':id')
   updateDraft(@Param('id') id: string, @Body() dto: PatchVehicleSaleDto) {
-    return this.sales.updateDraft(id, dto);
+    return this.transitions.updateDraft(id, dto);
   }
 
   @Post(':id/finalize')
   finalize(@Param('id') id: string) {
-    return this.sales.finalize(id);
+    return this.finalizer.finalize(id);
   }
 
   @Put(':id/trade-in')
@@ -94,7 +98,7 @@ export class VehicleSaleController {
     @Param('id') id: string,
     @Body() dto: CorrectGewaehrleistungSnapshotDto,
   ) {
-    return this.sales.correctGewaehrleistungSnapshot(id, dto);
+    return this.transitions.correctGewaehrleistungSnapshot(id, dto);
   }
 
   @Post(':id/kaufvertrag/pdf')
