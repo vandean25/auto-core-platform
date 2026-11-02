@@ -1907,7 +1907,7 @@
       "params": []
     },
     "WORKSHOP_ROLE_FORBIDDEN": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "WORKSHOP_TASK_CHANGED": {

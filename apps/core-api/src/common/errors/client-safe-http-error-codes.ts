@@ -111,6 +111,8 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'SELLER_IDENTITY_INCOMPLETE',
   'WORKSHOP_ORDER_NOT_ESTIMATABLE',
   'ESTIMATE_ROLE_FORBIDDEN',
+  // Back-office workshop role gate (task writes, checklist, waiting tasks, completion). UI maps it to the errors:codes copy.
+  'WORKSHOP_ROLE_FORBIDDEN',
   'REGISTRATION_EXTRACTION_UNAVAILABLE',
   'REGISTRATION_INTAKE_IDEMPOTENCY_KEY_INVALID',
   'REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT',

@@ -9,10 +9,28 @@ import { deWorkshop } from '@/test/de-workshop'
 const actualHoursLabel = deWorkshop.taskLineEditor.actualHoursAria
 import * as salesApi from '@/api/sales'
 import * as invoicesApi from '@/api/invoices'
+import * as authSessionApi from '@/api/auth-session'
 
-vi.mock('@/api/workshop')
+vi.mock('@/api/workshop', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/workshop')>()
+  return {
+    ...actual,
+    useWorkshopOrder: vi.fn(),
+    useUpdateWorkshopOrder: vi.fn(),
+    useCreateWorkshopTask: vi.fn(),
+    useDeleteWorkshopTask: vi.fn(),
+    useUpdateWorkshopTask: vi.fn(),
+    useReplaceWorkshopTaskLineItems: vi.fn(),
+    useCatalogSearch: vi.fn(),
+    useWorkshopResources: vi.fn(),
+    useAssignBoard: vi.fn(),
+    useGenerateWorkshopPdf: vi.fn(),
+    downloadWorkshopPdf: vi.fn(),
+  }
+})
 vi.mock('@/api/sales')
 vi.mock('@/api/invoices')
+vi.mock('@/api/auth-session')
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -102,6 +120,10 @@ describe('WorkshopOrderDetails line-item persistence', () => {
     })
 
     vi.clearAllMocks()
+
+    ;(authSessionApi.useAuthSession as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { activeRole: 'ADMIN' },
+    })
 
     ;(workshopApi.useWorkshopOrder as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       data: baseOrder,
