@@ -101,6 +101,24 @@ const allTenants = await rawClient.tenant.findMany();
 
 ---
 
+## Approved Exception: Tenant-Scoped Read-Probe Existence Checks (AUT-846)
+
+A literal `prisma.$queryRaw` call is allowed in `src/` for a **read-only existence probe that the typed Prisma API cannot express**, i.e. a per-key `EXISTS` with early exit over a batch of ids. Typed alternatives (`findMany`, `groupBy`, `distinct`) either issue one query per key (N+1) or scan every matching row of the largest job. Precedent: `apps/core-api/src/import/import-undo.helpers.ts` (`findUndoableJobIds`, cited by AUT-846).
+
+The exception holds **only** while all three conditions are met:
+
+1. **Tagged template only.** The query is a `Prisma.sql` tagged-template `$queryRaw` (`Prisma.sql` plus `Prisma.join` for id lists is fine). Never `$queryRawUnsafe` / `$executeRawUnsafe`, and never SQL assembled by string concatenation or template interpolation outside `Prisma.sql`.
+2. **Bound tenant filter.** `tenant_id` is filtered with the tenant id as a **bound parameter** in every predicate that reads a tenant-scoped table (for AUT-846: `import_job_rows` and `catalog_price_histories`). A predicate missing that filter is a blocker, not a note.
+3. **Visible, single-line suppression naming the ticket.** Each call site is preceded by exactly one line of the form
+   `// eslint-disable-next-line no-restricted-syntax -- <TICKET>: <why the typed Prisma API is not enough>; tenant_id bound in both predicates, ids via Prisma.join.`
+   The same pattern is already used for set-based writes at `apps/core-api/src/import/import-apply-sequence-fill.ts` (AUT-623).
+
+Evasions of the gate are not an exception: computed member access (`client['$queryRaw']`), re-export shims, or a wrapper function that hides the literal call defeats the `no-restricted-syntax` selector and is a definition-of-done violation.
+
+This category covers **reads only**. It is not an alternative to the cross-tenant escape hatch above, and it does not license raw mutations — those keep the existing set-based-write precedent.
+
+---
+
 ## CI Pipeline
 
 The ESLint check runs in the **Backend Lint, Typecheck and Build** job of `.github/workflows/build.yaml` (`npm run lint`), alongside `lint:prisma-tenant`. That job is one of the inputs to the **Backend Build and Test** required check. `npm run lint` runs ESLint **without** `--fix`, so committed violations fail the job instead of being rewritten only in CI.
