@@ -20,10 +20,14 @@ describe('ScheduledJobTriggerService', () => {
     error: jest.MockedFunction<any>;
     warn: jest.MockedFunction<any>;
   };
+  const savedSchedulerMode = process.env.SCHEDULER_MODE;
+  const savedSchedulerEnabled = process.env.SCHEDULER_ENABLED;
 
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-11-01T12:00:00.000Z'));
+    process.env.SCHEDULER_MODE = 'in-process';
+    delete process.env.SCHEDULER_ENABLED;
 
     mockScheduledJobService = {
       tryClaimJob: jest
@@ -44,9 +48,21 @@ describe('ScheduledJobTriggerService', () => {
       mockScheduledJobService as unknown as ScheduledJobService,
       mockModuleRef as unknown as any,
     );
+    jest.spyOn(service['logger'], 'debug').mockImplementation(() => {});
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
+    if (savedSchedulerMode === undefined) {
+      delete process.env.SCHEDULER_MODE;
+    } else {
+      process.env.SCHEDULER_MODE = savedSchedulerMode;
+    }
+    if (savedSchedulerEnabled === undefined) {
+      delete process.env.SCHEDULER_ENABLED;
+    } else {
+      process.env.SCHEDULER_ENABLED = savedSchedulerEnabled;
+    }
     jest.useRealTimers();
   });
 
@@ -150,5 +166,58 @@ describe('ScheduledJobTriggerService', () => {
       });
       expect(mockTriggerService.triggerStartupJobs).toHaveBeenCalledTimes(1);
     });
+
+    it('WHEN the pdf worker starts with SCHEDULER_MODE=off THEN the startup trigger does not claim any scheduled_job_runs row', async () => {
+      process.env.SCHEDULER_MODE = 'off';
+
+      service.triggerStartupJobs();
+      await flushPendingTriggerWork();
+
+      expect(mockScheduledJobService.tryClaimJob).not.toHaveBeenCalled();
+      expect(mockPurgeWorkerService.dispatchPurgeTask).not.toHaveBeenCalled();
+    });
+
+    it('WHEN core-api starts after a deploy with SCHEDULER_MODE=http THEN the startup trigger claims the due purge run and dispatches it via the purge worker', async () => {
+      process.env.SCHEDULER_MODE = 'http';
+      mockScheduledJobService.tryClaimJob.mockResolvedValue({
+        claimed: true,
+        runId: 'deploy-run-789',
+      });
+
+      service.triggerStartupJobs();
+      await flushPendingTriggerWork();
+
+      expect(mockScheduledJobService.tryClaimJob).toHaveBeenCalledWith({
+        jobName: 'import-job-row-purge',
+      });
+      expect(mockPurgeWorkerService.dispatchPurgeTask).toHaveBeenCalledWith({
+        runId: 'deploy-run-789',
+        sequence: 0,
+      });
+    });
+
+    it('WHEN the trigger is disabled with SCHEDULER_MODE=off THEN neither startup nor request paths reach the database and no trigger error is logged', async () => {
+      const errorSpy = jest
+        .spyOn(service['logger'], 'error')
+        .mockImplementation(() => {});
+      mockScheduledJobService.tryClaimJob.mockRejectedValue(
+        new Error('Startup scheduled job trigger should never run'),
+      );
+      process.env.SCHEDULER_MODE = 'off';
+
+      service.triggerStartupJobs();
+      service.triggerOpportunisticFromRequest();
+      await flushPendingTriggerWork();
+
+      expect(mockScheduledJobService.tryClaimJob).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
   });
 });
+
+/** Await every microtask queued by the fire-and-forget trigger paths. */
+async function flushPendingTriggerWork(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+  }
+}
