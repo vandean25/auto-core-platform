@@ -482,7 +482,6 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
           tenant_id: tenantId,
           workshop_inspection_id: inspection.id,
           label_snapshot: 'Test Item',
-          sort_order: 1,
         },
       });
 
