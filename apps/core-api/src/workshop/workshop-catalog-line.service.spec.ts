@@ -106,6 +106,11 @@ describe('WorkshopCatalogLineService', () => {
   };
   const mockTenantContext = {
     getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+    getAuthenticatedUser: jest.fn().mockReturnValue({
+      role: 'ADMIN',
+      tenantId: TENANT_ID,
+      userId: 'user-1',
+    }),
   };
 
   beforeEach(async () => {

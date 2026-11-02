@@ -51,7 +51,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 
@@ -96,7 +103,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 
@@ -136,7 +150,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 
@@ -166,7 +187,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 
