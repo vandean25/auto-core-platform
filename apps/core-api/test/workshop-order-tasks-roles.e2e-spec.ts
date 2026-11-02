@@ -383,7 +383,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       async (role, getToken) => {
         const { orderId, taskId, vehicleId } =
           await createTestOrderAndTask('Catalog Task');
-        const articleNumber = `PAD-${role}`;
+        const articleNumber = `PAD${role}`;
         const hitToken = createPartHitToken({
           orderId,
           taskId,
@@ -476,7 +476,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
             location_id: fixture.toteId,
           },
         });
-        expect(stock?.quantity_on_hand).toBe(1);
+        expect(Number(stock?.quantity_on_hand)).toBe(1);
       },
     );
   });
