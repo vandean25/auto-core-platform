@@ -1,4 +1,5 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { countDbStatements } from './helpers/db-statement-counter.js';
 
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -141,21 +142,19 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
-  async function createSalesOrderInvoice() {
+  async function createSalesOrderInvoice(lineCount = 1) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customer_id: customerId,
-        items: [
-          {
-            catalog_item_id: catalogItemId,
-            description: 'Brake Pad',
-            quantity: 1,
-            unit_price: 100,
-            tax_rate: 20,
-          },
-        ],
+        items: Array.from({ length: lineCount }, () => ({
+          catalog_item_id: catalogItemId,
+          description: 'Brake Pad',
+          quantity: 1,
+          unit_price: 100,
+          tax_rate: 20,
+        })),
       })
       .expect(201);
 
@@ -172,7 +171,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     return invoiceRes.body;
   }
 
-  async function createCompletedWorkshopDraftInvoice() {
+  async function createCompletedWorkshopDraftInvoice(lineCount = 1) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/workshop/orders')
       .set('Authorization', `Bearer ${authToken}`)
@@ -198,15 +197,13 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         expectedLineItemsVersion: 0,
-        items: [
-          {
-            type: 'LABOR',
-            itemNo: 'LAB-001',
-            description: 'Brake labor',
-            qty: 2,
-            unitPrice: 80,
-          },
-        ],
+        items: Array.from({ length: lineCount }, (_, index) => ({
+          type: 'LABOR',
+          itemNo: `LAB-${String(index + 1).padStart(3, '0')}`,
+          description: 'Brake labor',
+          qty: 2,
+          unitPrice: 80,
+        })),
       })
       .expect(200);
 
@@ -269,6 +266,41 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     });
     expect(invoice.items[0].accounting_snapshot).toBeTruthy();
   });
+
+  it.each([
+    [
+      'sales finalize',
+      createSalesOrderInvoice,
+      (invoiceId: string) =>
+        request(app.getHttpServer()).put(
+          `/api/sales/invoices/${invoiceId}/finalize`,
+        ),
+    ],
+    [
+      'workshop issue',
+      async (lineCount: number) =>
+        (await createCompletedWorkshopDraftInvoice(lineCount)).invoice,
+      (invoiceId: string) =>
+        request(app.getHttpServer()).patch(`/api/invoices/${invoiceId}/issue`),
+    ],
+  ])(
+    'AUT-860 S1: %s sends the same number of SQL statements for 2 and 10 lines',
+    async (_flow, createDraft, send) => {
+      const statementsFor = async (lineCount: number) => {
+        const draft = await createDraft(lineCount);
+        return countDbStatements(async () => {
+          await send(draft.id)
+            .set('Authorization', `Bearer ${authToken}`)
+            .expect(200);
+        });
+      };
+
+      const twoLines = await statementsFor(2);
+      const tenLines = await statementsFor(10);
+
+      expect(tenLines).toBe(twoLines);
+    },
+  );
 
   it('LI-03: rejects source-less sales invoice finalization', async () => {
     const invoice = await tenantPrisma.invoice.create({
