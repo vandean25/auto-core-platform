@@ -51,16 +51,6 @@ jobs:
       - name: Compare screenshots with the baselines
         run: npm run test:visual --workspace=core-web
 
-      - name: TEMP print actual images
-        if: failure()
-        run: |
-          for f in $(find apps/core-web/test-results -name '*-actual.png'); do
-            echo "ACTUAL-BEGIN $f"
-            base64 -w0 "$f"
-            echo
-            echo "ACTUAL-END"
-          done
-
       - name: Upload expected, actual and diff images
         if: failure()
         id: upload
