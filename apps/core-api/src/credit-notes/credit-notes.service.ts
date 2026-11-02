@@ -205,19 +205,24 @@ export class CreditNotesService {
       this.prisma.creditNote.count({ where }),
     ]);
 
-    const data = await Promise.all(
-      rows.map(async (row) => {
-        const invoice = await this.prisma.invoice.findFirst({
-          where: { id: row.original_invoice_id, tenant_id: tenantId },
-        });
-        const snapshot = invoice ? this.tryV2Snapshot(invoice) : null;
-        const priorCredits = await this.loadPriorCredits(
-          tenantId,
-          row.original_invoice_id,
-        );
-        return this.serializeCreditNote(row, snapshot, priorCredits);
+    const invoiceIds = [...new Set(rows.map((row) => row.original_invoice_id))];
+    const [invoices, priorCreditsByInvoice] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where: { id: { in: invoiceIds }, tenant_id: tenantId },
       }),
+      this.loadPriorCreditsByInvoice(tenantId, invoiceIds),
+    ]);
+    const invoiceById = new Map(
+      invoices.map((invoice) => [invoice.id, invoice]),
     );
+    const data = rows.map((row) => {
+      const invoice = invoiceById.get(row.original_invoice_id);
+      return this.serializeCreditNote(
+        row,
+        invoice ? this.tryV2Snapshot(invoice) : null,
+        priorCreditsByInvoice.get(row.original_invoice_id) ?? [],
+      );
+    });
 
     return {
       data,
@@ -471,16 +476,34 @@ export class CreditNotesService {
           'Credit note was already transitioned by another request',
       });
 
-      for (const item of itemPayloads) {
-        await tx.creditNoteItem.updateMany({
-          where: {
-            credit_note_id: id,
-            tenant_id: tenantId,
-            original_invoice_item_id: item.originalItemId,
-          },
-          data: { snapshot: item.snapshot as Prisma.InputJsonValue },
-        });
+      // Each line gets its own snapshot, so replace the rows in two statements instead of one update per line. Ids and createdAt stay.
+      const draftItems = new Map(
+        creditNote.items.map((item) => [item.original_invoice_item_id, item]),
+      );
+      const removed = await tx.creditNoteItem.deleteMany({
+        where: {
+          credit_note_id: id,
+          tenant_id: tenantId,
+          id: { in: creditNote.items.map((item) => item.id) },
+        },
+      });
+      if (removed.count !== creditNote.items.length) {
+        throw new ConflictException('Credit note version is stale.');
       }
+      await tx.creditNoteItem.createMany({
+        data: itemPayloads.map((item) => {
+          const draftItem = draftItems.get(item.originalItemId)!;
+          return {
+            id: draftItem.id,
+            tenant_id: tenantId,
+            credit_note_id: id,
+            original_invoice_item_id: item.originalItemId,
+            quantity: draftItem.quantity,
+            snapshot: item.snapshot as Prisma.InputJsonValue,
+            createdAt: draftItem.createdAt,
+          };
+        }),
+      });
 
       return tx.creditNote.findFirstOrThrow({
         where: { id, tenant_id: tenantId },
@@ -924,18 +947,34 @@ export class CreditNotesService {
     tx: Prisma.TransactionClient = this.prisma,
     excludeCreditNoteId?: string,
   ): Promise<PriorCreditLine[]> {
+    const byInvoice = await this.loadPriorCreditsByInvoice(
+      tenantId,
+      [invoiceId],
+      tx,
+      excludeCreditNoteId,
+    );
+    return byInvoice.get(invoiceId) ?? [];
+  }
+
+  private async loadPriorCreditsByInvoice(
+    tenantId: string,
+    invoiceIds: string[],
+    tx: Prisma.TransactionClient = this.prisma,
+    excludeCreditNoteId?: string,
+  ): Promise<Map<string, PriorCreditLine[]>> {
     const credits = await tx.creditNote.findMany({
       where: {
         tenant_id: tenantId,
-        original_invoice_id: invoiceId,
+        original_invoice_id: { in: invoiceIds },
         status: CreditNoteStatus.FINALIZED,
         ...(excludeCreditNoteId ? { id: { not: excludeCreditNoteId } } : {}),
       },
       include: { items: true },
     });
 
-    const lines: PriorCreditLine[] = [];
+    const linesByInvoice = new Map<string, PriorCreditLine[]>();
     for (const credit of credits) {
+      const lines = linesByInvoice.get(credit.original_invoice_id) ?? [];
       for (const item of credit.items) {
         const snapshot = item.snapshot as {
           net?: string;
@@ -950,8 +989,9 @@ export class CreditNotesService {
           gross: new Prisma.Decimal(snapshot?.gross ?? 0),
         });
       }
+      linesByInvoice.set(credit.original_invoice_id, lines);
     }
-    return lines;
+    return linesByInvoice;
   }
 
   private async lockOriginalInvoice(
