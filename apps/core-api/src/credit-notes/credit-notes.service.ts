@@ -63,6 +63,21 @@ const ELIGIBLE_INVOICE_STATUSES: InvoiceStatus[] = [
   InvoiceStatus.PAID,
 ];
 
+function toPriorCreditLine(item: CreditNoteItem): PriorCreditLine {
+  const snapshot = item.snapshot as {
+    net?: string;
+    tax?: string;
+    gross?: string;
+  } | null;
+  return {
+    originalItemId: item.original_invoice_item_id,
+    quantity: item.quantity,
+    net: new Prisma.Decimal(snapshot?.net ?? 0),
+    tax: new Prisma.Decimal(snapshot?.tax ?? 0),
+    gross: new Prisma.Decimal(snapshot?.gross ?? 0),
+  };
+}
+
 @Injectable()
 export class CreditNotesService {
   constructor(
@@ -975,20 +990,7 @@ export class CreditNotesService {
     const linesByInvoice = new Map<string, PriorCreditLine[]>();
     for (const credit of credits) {
       const lines = linesByInvoice.get(credit.original_invoice_id) ?? [];
-      for (const item of credit.items) {
-        const snapshot = item.snapshot as {
-          net?: string;
-          tax?: string;
-          gross?: string;
-        } | null;
-        lines.push({
-          originalItemId: item.original_invoice_item_id,
-          quantity: item.quantity,
-          net: new Prisma.Decimal(snapshot?.net ?? 0),
-          tax: new Prisma.Decimal(snapshot?.tax ?? 0),
-          gross: new Prisma.Decimal(snapshot?.gross ?? 0),
-        });
-      }
+      lines.push(...credit.items.map(toPriorCreditLine));
       linesByInvoice.set(credit.original_invoice_id, lines);
     }
     return linesByInvoice;
