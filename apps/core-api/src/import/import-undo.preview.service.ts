@@ -30,6 +30,7 @@ import {
   hasStagedImportJobRows,
   hasUndoableRows,
 } from './import-undo.helpers.js';
+import { noUndoableRowsReason } from './import-undo-plan.js';
 import type { ImportJobTotals } from './import.types.js';
 
 const PREVIEW_PAGE_SIZE = 100;
@@ -239,7 +240,9 @@ export class ImportUndoPreviewService {
       );
     }
     if (!hasRows) {
-      throw importJobNotUndoable();
+      throw importJobNotUndoable({
+        reason: noUndoableRowsReason(job!.entity_type),
+      });
     }
 
     const buckets: UndoBuckets = {
@@ -299,7 +302,7 @@ export class ImportUndoPreviewService {
     // preview agrees with POST /undo (409) for doc/financial dry-run jobs too,
     // instead of short-circuiting into a blocked preview below.
     if (job.status === ImportJobStatus.FAILED && !hasRows) {
-      throw importJobNotUndoable();
+      throw importJobNotUndoable({ reason: noUndoableRowsReason(job.entity_type) });
     }
     if (await this.isPurgedWithoutMark(tenantId, job, appliedRowsCount)) {
       throw importJobPurged();

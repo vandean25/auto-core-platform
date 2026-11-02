@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { ImportJobStatus } from '@prisma/client';
 import type { ImportJobOptions } from './import.types.js';
 
 /** One committed undo transaction may take this long before Prisma aborts it. */
@@ -36,7 +37,8 @@ export function isUndoLeaseHeld(
 }
 
 export type ImportUndoOutcome = {
-  status: 'UNDONE' | 'PARTIALLY_UNDONE';
+  /** The import job status the run left behind, e.g. UNDONE or APPLIED. */
+  status: ImportJobStatus;
   undone_at: string;
   deleted: number;
   restored: number;
@@ -53,7 +55,7 @@ export type ImportUndoWorkerState = {
   actor_email: string | null;
   actor_role: string | null;
   /** Status to return to when a claim has to be released without an actor. */
-  resume_status: string;
+  resume_status: ImportJobStatus;
   confirmed_entity_ids: string[];
   /** Keyset cursor over import_job_rows.row_no, or catalog_price_histories.id. */
   cursor: string;
@@ -107,7 +109,7 @@ export function createUndoWorkerState(params: {
   actorUserId: string;
   actorEmail: string | null;
   actorRole: string | null;
-  resumeStatus: string;
+  resumeStatus: ImportJobStatus;
   confirmedEntityIds: string[];
   totalRows: number;
   previous?: ImportUndoOutcome | null;

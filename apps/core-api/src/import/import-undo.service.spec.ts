@@ -988,6 +988,7 @@ describe('ImportUndoService', () => {
       expect(job.status).toBe(ImportJobStatus.APPLIED);
       expect(harness.db.deletedEntityIds).toEqual([]);
       expect(harness.undoOutcome()).toMatchObject({
+        status: ImportJobStatus.APPLIED,
         deleted: 0,
         restored: 0,
         blocked: 2,
@@ -1089,6 +1090,7 @@ describe('ImportUndoService', () => {
       });
 
       expect(harness.db.job.status).toBe(ImportJobStatus.APPLIED);
+      expect(harness.undoOutcome()?.status).toBe(ImportJobStatus.APPLIED);
       expect(harness.undoOutcome()?.blocked_reasons).toEqual({
         [`job-${JOB_ID}`]: UNDO_BLOCKED_REASONS.ROWS_PURGED,
       });
@@ -1329,6 +1331,7 @@ describe('ImportUndoService', () => {
 
       expect(job.status).toBe(ImportJobStatus.APPLIED);
       expect(harness.undoOutcome()).toMatchObject({
+        status: ImportJobStatus.APPLIED,
         restored: 0,
         blocked: 1,
         blocked_reasons: {
@@ -1393,7 +1396,11 @@ describe('ImportUndoService', () => {
       );
 
       expect(job.status).toBe(ImportJobStatus.APPLIED);
-      expect(harness.undoOutcome()).toMatchObject({ restored: 0, blocked: 3 });
+      expect(harness.undoOutcome()).toMatchObject({
+        status: ImportJobStatus.APPLIED,
+        restored: 0,
+        blocked: 3,
+      });
       expect(harness.db.histories).toHaveLength(3);
     });
 

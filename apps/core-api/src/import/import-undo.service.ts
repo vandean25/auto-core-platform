@@ -64,6 +64,7 @@ import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 import {
   SUPPLIER_PRICE_LIST_ENTITY_TYPE,
+  noUndoableRowsReason,
   planUndoPriceEntries,
   planUndoRows,
   undoRowKey,
@@ -106,7 +107,7 @@ type UndoRunContext = UndoProgress & {
   recoverySeq: number;
   confirmedEntityIds: Set<string>;
   blockedReasons: Record<string, string>;
-  resumeStatus: string;
+  resumeStatus: ImportJobStatus;
 };
 
 type UndoBatchOutcome = 'done' | 'continue' | 'lease_lost' | 'abort';
@@ -325,12 +326,7 @@ export class ImportUndoService {
     if (await hasUndoableRows(this.prisma, tenantId, job)) {
       return;
     }
-    throw importJobNotUndoable({
-      reason:
-        job.entity_type === SUPPLIER_PRICE_LIST_ENTITY_TYPE
-          ? UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT
-          : UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
-    });
+    throw importJobNotUndoable({ reason: noUndoableRowsReason(job.entity_type) });
   }
 
   private async buildUndoWorkerState(
@@ -1102,20 +1098,22 @@ export class ImportUndoService {
     nextStatus: ImportJobStatus;
   } {
     const blocked = Object.keys(ctx.blockedReasons).length;
+    const nextStatus =
+      ctx.deleted + ctx.restored === 0
+        ? (ctx.resumeStatus ?? ImportJobStatus.APPLIED)
+        : blocked > 0
+          ? ImportJobStatus.PARTIALLY_UNDONE
+          : ImportJobStatus.UNDONE;
     const outcome: ImportUndoOutcome = {
-      status: blocked > 0 ? 'PARTIALLY_UNDONE' : 'UNDONE',
+      // The outcome status is the status the job ends in, so a fully blocked
+      // run that restores APPLIED never records PARTIALLY_UNDONE or UNDONE.
+      status: nextStatus,
       undone_at: new Date().toISOString(),
       deleted: ctx.deleted,
       restored: ctx.restored,
       blocked,
       blocked_reasons: { ...ctx.blockedReasons },
     };
-    const nextStatus =
-      ctx.deleted + ctx.restored === 0
-        ? ((ctx.resumeStatus as ImportJobStatus) ?? ImportJobStatus.APPLIED)
-        : outcome.status === 'UNDONE'
-          ? ImportJobStatus.UNDONE
-          : ImportJobStatus.PARTIALLY_UNDONE;
     return { outcome, nextStatus };
   }
 
@@ -1320,8 +1318,7 @@ export class ImportUndoService {
       return ImportJobStatus.PARTIALLY_UNDONE;
     }
     return (
-      (options.undo_worker?.resume_status as ImportJobStatus) ??
-      ImportJobStatus.PARTIALLY_UNDONE
+      options.undo_worker?.resume_status ?? ImportJobStatus.PARTIALLY_UNDONE
     );
   }
 

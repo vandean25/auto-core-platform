@@ -8,10 +8,20 @@ import { isRestorableEntityType } from './import-undo-writer.js';
 import {
   UNDO_BLOCKED_REASONS,
   type ImportUndoEligibility,
+  type UndoBlockedReasonCode,
   type UndoGuardPrismaClient,
 } from './import-undo.types.js';
 
 export const SUPPLIER_PRICE_LIST_ENTITY_TYPE = 'SUPPLIER_PRICE_LIST';
+
+/** Refusal reason POST /undo and preview report together when a job has no undoable rows. */
+export function noUndoableRowsReason(
+  entityType: string,
+): UndoBlockedReasonCode {
+  return entityType === SUPPLIER_PRICE_LIST_ENTITY_TYPE
+    ? UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT
+    : UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK;
+}
 
 export type UndoRowPlanItem = {
   row: ImportJobRow;
