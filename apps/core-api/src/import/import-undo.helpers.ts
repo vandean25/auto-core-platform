@@ -31,16 +31,6 @@ export type UndoableBatchCheckClient = {
   $queryRaw: <T = unknown>(query: Prisma.Sql) => Promise<T>;
 };
 
-// Computed access: the AUT-65 lint gate bans literal `.$queryRaw` members in
-// application code, but this tenant-scoped existence probe must stay raw.
-function executeRawSql<T>(
-  client: UndoableBatchCheckClient,
-  query: Prisma.Sql,
-): Promise<T> {
-  const queryRaw = client['$queryRaw'];
-  return queryRaw.call(client, query) as Promise<T>;
-}
-
 /**
  * Checks whether this job has at least one applied row that has not yet been undone.
  * Runs one indexed existence query with early exit (never N+1).
@@ -169,28 +159,24 @@ function collectJobIds(target: Set<string>, rows: UndoableJobIdRow[]): void {
 }
 
 async function findUndoableJobIdsRaw(
-  client: UndoableBatchCheckClient,
+  prisma: UndoableBatchCheckClient,
   tenantId: string,
   groups: BatchedJobIds,
 ): Promise<Set<string>> {
   const undoableIds = new Set<string>();
   if (groups.standardJobIds.length > 0) {
-    collectJobIds(
-      undoableIds,
-      await executeRawSql<UndoableJobIdRow[]>(
-        client,
-        undoableRowJobIdsSql(tenantId, groups.standardJobIds),
-      ),
+    // eslint-disable-next-line no-restricted-syntax -- AUT-846: findMany/groupBy/distinct cannot express a per-job EXISTS with early exit and would scan every matching row of large jobs; tenant_id bound in both predicates, ids via Prisma.join.
+    const standardRows = await prisma.$queryRaw<UndoableJobIdRow[]>(
+      undoableRowJobIdsSql(tenantId, groups.standardJobIds),
     );
+    collectJobIds(undoableIds, standardRows);
   }
   if (groups.priceListJobIds.length > 0) {
-    collectJobIds(
-      undoableIds,
-      await executeRawSql<UndoableJobIdRow[]>(
-        client,
-        undoablePriceHistoryJobIdsSql(tenantId, groups.priceListJobIds),
-      ),
+    // eslint-disable-next-line no-restricted-syntax -- AUT-846: findMany/groupBy/distinct cannot express a per-job EXISTS with early exit and would scan every matching row of large jobs; tenant_id bound in both predicates, ids via Prisma.join.
+    const priceListRows = await prisma.$queryRaw<UndoableJobIdRow[]>(
+      undoablePriceHistoryJobIdsSql(tenantId, groups.priceListJobIds),
     );
+    collectJobIds(undoableIds, priceListRows);
   }
   return undoableIds;
 }
