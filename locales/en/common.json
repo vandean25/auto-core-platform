@@ -20,7 +20,8 @@
   "documentSave": {
     "saving": "Saving…",
     "saved": "All changes saved",
-    "error": "Save failed"
+    "error": "Save failed",
+    "checkConnection": "Please check your internet connection."
   },
   "appVersion": {
     "available": "New version available",
@@ -347,5 +348,74 @@
     "placeholder": "DD.MM.YYYY",
     "openCalendar": "Open calendar",
     "invalid": "Please enter a valid date as DD.MM.YYYY."
+  },
+  "pdf": {
+    "generationFailed": "PDF generation failed"
+  },
+  "apiErrors": {
+    "agent": {
+      "approvals": {
+        "loadFailed": "Failed to load agent proposals",
+        "triageLoadFailed": "Failed to load supervision triage"
+      },
+      "activity": {
+        "loadFailed": "Failed to load agent activities"
+      },
+      "decisionShadow": {
+        "loadFailed": "Failed to load decision shadow logs"
+      },
+      "traceDialog": {
+        "loadFailed": "Failed to load trace details"
+      }
+    },
+    "workshop": {
+      "mechanic": {
+        "taskDetailLoadFailed": "Failed to load task details",
+        "loadChecklistFailed": "Failed to load checklist",
+        "saveChecklistFailed": "Failed to save checklist",
+        "loadQueueFailed": "Failed to load mechanic queue",
+        "startTaskFailed": "Failed to start task",
+        "switchTaskFailed": "Failed to switch task",
+        "pauseTaskFailed": "Failed to pause task",
+        "completeTaskFailed": "Failed to complete task",
+        "saveDiagnosticsFailed": "Failed to save diagnostics",
+        "submitFindingFailed": "Failed to submit finding to advisor",
+        "requestPartFailed": "Failed to request part",
+        "getUploadPolicyFailed": "Failed to get upload policy",
+        "saveMediaFailed": "Failed to save media metadata",
+        "uploadVoiceNoteFailed": "Failed to upload voice note"
+      },
+      "inspectorEvidence": {
+        "loadFailed": "Failed to load inspector evidence",
+        "assessFailed": "Failed to assess inspector evidence"
+      }
+    },
+    "vehicleStock": {
+      "shorteningFailed": "Failed to save warranty shortening"
+    },
+    "dataImport": {
+      "directUploadFailed": "Failed to start direct import upload",
+      "dryRunFailed": "Import dry-run failed",
+      "historyLoadFailed": "Failed to load import history",
+      "entityTypesLoadFailed": "Failed to load import entity types",
+      "templateLoadFailed": "Failed to load import template",
+      "mappingProfilesLoadFailed": "Failed to load mapping profiles",
+      "mappingProfileSaveFailed": "Failed to save mapping profile",
+      "rowsLoadFailed": "Failed to load import rows",
+      "cancelFailed": "Failed to cancel import",
+      "applyFailed": "Failed to apply import",
+      "downloadTemplateFailed": "Failed to download template",
+      "downloadErrorsFailed": "Failed to download error rows",
+      "sourcesLoadFailed": "Failed to load import sources",
+      "sourceCreateFailed": "Failed to create import source",
+      "sourceUpdateFailed": "Failed to update import source",
+      "sourceDeleteFailed": "Failed to delete import source",
+      "undoPreviewFailed": "Failed to load undo preview",
+      "undoFailed": "Failed to undo import"
+    },
+    "accounting": {
+      "exportDownloadFailed": "Failed to download accounting export",
+      "checksumMismatch": "The file is corrupt or was modified."
+    }
   }
 }

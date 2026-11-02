@@ -483,7 +483,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     await waitFor(
       () => {
-        expect(toast.error).toHaveBeenCalledWith('Auto-save failed', {
+        expect(toast.error).toHaveBeenCalledWith(deCommon.documentSave.error, {
           description:
             'Rechnungen ohne zugrunde liegenden Auftrag sind nicht möglich. Bitte legen Sie die Rechnung aus einem Kundenauftrag an.',
         })

@@ -270,12 +270,39 @@ describe('mechanic api hooks', () => {
         wrapper: createWrapper(queryClient),
       })
 
-      await expect(
-        result.current.mutateAsync({ taskId: TASK_ID }),
-      ).rejects.toMatchObject({
+      const promise = result.current.mutateAsync({ taskId: TASK_ID })
+      await expect(promise).rejects.toMatchObject({
         status: 409,
       })
+      await expect(promise).rejects.not.toThrow('Mechanic already has an open labor entry')
     })
+    it('maps known wire codes to translated copy and hides raw backend message', async () => {
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse(
+          {
+            code: 'SELLER_IDENTITY_INCOMPLETE',
+            message: 'Raw mechanic server message',
+          },
+          false,
+          422,
+        ),
+      )
+
+      const queryClient = createQueryClient()
+      const { result } = renderHook(() => useStartTask(), {
+        wrapper: createWrapper(queryClient),
+      })
+
+      await expect(
+        result.current.mutateAsync({ taskId: TASK_ID }),
+      ).rejects.toThrow(
+        'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+      )
+      await expect(
+        result.current.mutateAsync({ taskId: TASK_ID }),
+      ).rejects.not.toThrow('Raw mechanic server message')
+    })
+
   })
 
   // ─── useSwitchTask ────────────────────────────────────────────────────────────
