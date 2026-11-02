@@ -215,6 +215,11 @@
     "VALIDATION_RETRIES_EXHAUSTED": "Validation retries exhausted",
     "BRAND_SOURCE_EXPIRED": "Source expired"
   },
+  "documentBrandPreviewWarning": {
+    "HEADER_TEXT_MAY_BE_CLIPPED": "The header text may be clipped in the document.",
+    "FOOTER_TEXT_MAY_BE_CLIPPED": "The footer text may be clipped in the document.",
+    "generic": "The layout may differ in the printed document."
+  },
   "letterheadSource": {
     "message": {
       "pollTimedOut": "Validation is taking longer than expected. Refresh the status or try again later.",

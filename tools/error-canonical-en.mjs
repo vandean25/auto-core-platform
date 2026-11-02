@@ -197,4 +197,12 @@ export const CANONICAL_EN_MESSAGES = {
     'The recommended retail price is missing for the price calculation. Enter it or set a markup.',
   LISTING_SERIALIZER_UNSUPPORTED:
     'No listing export format is available for this portal.',
+  BRAND_ASSET_QUARANTINE_MISSING:
+    'The uploaded file is no longer available. Please upload it again.',
+  BRAND_LOGO_TOO_LARGE:
+    'The logo file is too large. Please choose a smaller PNG file.',
+  BRAND_PNG_DIMENSIONS_INVALID:
+    'The PNG image size is not supported. Please choose another PNG file.',
+  BRAND_PNG_INVALID:
+    'The PNG file could not be read. Please choose another PNG file.',
 }

@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   DEFAULT_DOCUMENT_BRAND_THEME,
-  documentBrandAssetUploadErrorMessage,
   useConfirmDocumentBranding,
   useDiscardDocumentBrandDraft,
   useDocumentBrandProfile,
@@ -18,7 +17,9 @@ import {
   hasDocumentBrandThemeFieldErrors,
   validateDocumentBrandThemeFields,
 } from "@/api/document-branding-theme-validation";
-import { getErrorStatus } from "@/lib/error-utils";
+import { getErrorMessage, getErrorStatus } from "@/lib/error-utils";
+import { translateEnum } from "@/lib/i18n/enum-labels";
+import { describeBrandAssetFailure } from "./letterhead-source-messages";
 import { LetterheadImport } from "./LetterheadImport";
 import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
@@ -43,7 +44,9 @@ const MIME_SHORT_LABELS: Record<string, string> = {
 
 function uploadTypeLabels(mimeTypes: string[]): string {
   const labels = [
-    ...new Set(mimeTypes.map((mime) => MIME_SHORT_LABELS[mime] ?? mime)),
+    ...new Set(
+      mimeTypes.map((mime) => MIME_SHORT_LABELS[mime] ?? mime.split("/")[1] ?? mime),
+    ),
   ];
   return labels.join(" / ");
 }
@@ -51,6 +54,17 @@ function uploadTypeLabels(mimeTypes: string[]): string {
 function uploadMaxMiB(maxBytes: number): string {
   const mib = maxBytes / (1024 * 1024);
   return Number.isInteger(mib) ? String(mib) : mib.toFixed(1);
+}
+
+const PREVIEW_WARNING_CODES = new Set([
+  "HEADER_TEXT_MAY_BE_CLIPPED",
+  "FOOTER_TEXT_MAY_BE_CLIPPED",
+]);
+
+function previewWarningLabel(warning: string): string {
+  return PREVIEW_WARNING_CODES.has(warning)
+    ? translateEnum("documentBrandPreviewWarning", warning)
+    : translateEnum("documentBrandPreviewWarning", "generic");
 }
 
 export function DocumentBrandingSettings({
@@ -146,6 +160,17 @@ export function DocumentBrandingSettings({
   const hasThemeValidationErrors = hasDocumentBrandThemeFieldErrors(
     themeFieldErrors,
   );
+  const reportDraftFailure = React.useCallback(
+    (failure: unknown, fallback: string) => {
+      const message = getErrorMessage(failure, fallback);
+      setDraftError(message);
+      toast.error(t("documentBranding.toast.saveFailed"), {
+        description: message,
+      });
+    },
+    [t],
+  );
+
   const {
     saveStatus,
     triggerAutoSave,
@@ -171,18 +196,13 @@ export function DocumentBrandingSettings({
         return JSON.stringify(snapshot) !== JSON.stringify(savedTheme);
       },
       onError: (saveError) => {
-        const status = getErrorStatus(saveError);
-        if (status === 409) {
+        if (getErrorStatus(saveError) === 409) {
           setRevisionConflict(true);
         }
-        const message =
-          saveError instanceof Error
-            ? saveError.message
-            : t("documentBranding.toast.draftValidationFallback");
-        setDraftError(message);
-        toast.error(t("documentBranding.toast.saveFailed"), {
-          description: message,
-        });
+        reportDraftFailure(
+          saveError,
+          t("documentBranding.toast.draftValidationFallback"),
+        );
       },
     });
 
@@ -253,10 +273,10 @@ export function DocumentBrandingSettings({
       const result = await refetchProfile();
       if (!recoveryStillCurrent(requestId, entityId)) return;
       if (!result.isSuccess || !result.data) {
-        const message =
-          result.error instanceof Error
-            ? result.error.message
-            : t("documentBranding.toast.loadLatestFallback");
+        const message = getErrorMessage(
+          result.error,
+          t("documentBranding.toast.loadLatestFallback"),
+        );
         setDraftError(message);
         toast.error(t("documentBranding.toast.reloadFailed"), {
           description: message,
@@ -294,11 +314,11 @@ export function DocumentBrandingSettings({
       const result = await refetchProfile();
       if (!recoveryStillCurrent(requestId, entityId)) return;
       if (!result.isSuccess || !result.data) {
-        throw new Error(
-          result.error instanceof Error
-            ? result.error.message
-            : t("documentBranding.toast.loadLatestFallback"),
+        reportDraftFailure(
+          result.error,
+          t("documentBranding.toast.loadLatestFallback"),
         );
+        return;
       }
       if (!recoveryStillCurrent(requestId, entityId)) return;
       revisionRef.current = result.data.revision;
@@ -318,14 +338,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.reapplied"));
     } catch (reapplyError) {
       if (!recoveryStillCurrent(requestId, entityId)) return;
-      const message =
-        reapplyError instanceof Error
-          ? reapplyError.message
-          : t("documentBranding.toast.reapplyFallback");
-      setDraftError(message);
-      toast.error(t("documentBranding.toast.saveFailed"), {
-        description: message,
-      });
+      reportDraftFailure(
+        reapplyError,
+        t("documentBranding.toast.reapplyFallback"),
+      );
     } finally {
       if (recoveryStillCurrent(requestId, entityId)) {
         setReapplyingConflict(false);
@@ -338,6 +354,7 @@ export function DocumentBrandingSettings({
     markSaved,
     recoveryStillCurrent,
     refetchProfile,
+    reportDraftFailure,
     saveDraft,
     t,
   ]);
@@ -362,7 +379,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.logoValidated"));
     } else if (logoAsset.data.state === "REJECTED") {
       toast.error(t("documentBranding.toast.logoRejected"), {
-        description: logoAsset.data.failureCode ?? undefined,
+        description: describeBrandAssetFailure(
+          logoAsset.data.failureCode,
+          t("documentBranding.errors.logoRejected"),
+        ),
       });
     }
     setPendingLogoId(null);
@@ -392,10 +412,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.confirmed"));
     } catch (confirmError) {
       toast.error(t("documentBranding.toast.confirmFailed"), {
-        description:
-          confirmError instanceof Error
-            ? confirmError.message
-            : t("documentBranding.toast.reviewDraftFallback"),
+        description: getErrorMessage(
+          confirmError,
+          t("documentBranding.toast.reviewDraftFallback"),
+        ),
       });
     }
   };
@@ -421,10 +441,10 @@ export function DocumentBrandingSettings({
       });
     } catch (applyError) {
       toast.error(t("documentBranding.toast.proposalFailed"), {
-        description:
-          applyError instanceof Error
-            ? applyError.message
-            : t("documentBranding.toast.proposalFallback"),
+        description: getErrorMessage(
+          applyError,
+          t("documentBranding.toast.proposalFallback"),
+        ),
       });
     }
   };
@@ -447,10 +467,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.defaultsConfirmed"));
     } catch (resetError) {
       toast.error(t("documentBranding.toast.defaultsFailed"), {
-        description:
-          resetError instanceof Error
-            ? resetError.message
-            : t("documentBranding.toast.reviewRevisionFallback"),
+        description: getErrorMessage(
+          resetError,
+          t("documentBranding.toast.reviewRevisionFallback"),
+        ),
       });
     }
   };
@@ -474,10 +494,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.draftDiscarded"));
     } catch (discardError) {
       toast.error(t("documentBranding.toast.discardFailed"), {
-        description:
-          discardError instanceof Error
-            ? discardError.message
-            : t("documentBranding.toast.reviewRevisionFallback"),
+        description: getErrorMessage(
+          discardError,
+          t("documentBranding.toast.reviewRevisionFallback"),
+        ),
       });
     }
   };
@@ -492,10 +512,10 @@ export function DocumentBrandingSettings({
       });
     } catch (previewError) {
       toast.error(t("documentBranding.toast.previewFailed"), {
-        description:
-          previewError instanceof Error
-            ? previewError.message
-            : t("documentBranding.toast.tryAgain"),
+        description: getErrorMessage(
+          previewError,
+          t("documentBranding.toast.tryAgain"),
+        ),
       });
     }
   };
@@ -523,11 +543,9 @@ export function DocumentBrandingSettings({
           ? t("documentBranding.toast.logoUploadFailed")
           : t("documentBranding.toast.sourceUploadFailed"),
         {
-          description: documentBrandAssetUploadErrorMessage(
+          description: getErrorMessage(
             uploadError,
-            purpose === "LOGO"
-              ? t("documentBranding.errors.logoUploadFailed")
-              : t("documentBranding.errors.sourceUploadFailed"),
+            t("documentBranding.errors.uploadFailed"),
           ),
         },
       );
@@ -541,7 +559,7 @@ export function DocumentBrandingSettings({
   if (error)
     return (
       <p role="alert" className="text-sm text-red-700">
-        {t("documentBranding.loadFailed", { message: error.message })}
+        {getErrorMessage(error, t("documentBranding.loadFailed"))}
       </p>
     );
   if (!theme) return null;
@@ -858,7 +876,7 @@ export function DocumentBrandingSettings({
       ) : null}
       {draftError && !revisionConflict ? (
         <p role="alert" className="text-sm text-red-700">
-          {t("documentBranding.draftFailed", { message: draftError })}
+          {t("documentBranding.draftFailed")}
         </p>
       ) : null}
       <p role="status" className="text-sm text-slate-600">
@@ -924,9 +942,7 @@ export function DocumentBrandingSettings({
               className="list-disc px-8 py-3 text-sm text-amber-800"
             >
               {preview.data.warnings.map((warning) => (
-                <li key={warning}>
-                  {warning.replaceAll("_", " ").toLowerCase()}
-                </li>
+                <li key={warning}>{previewWarningLabel(warning)}</li>
               ))}
             </ul>
           ) : null}

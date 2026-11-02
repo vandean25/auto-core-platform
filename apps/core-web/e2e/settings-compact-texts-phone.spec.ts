@@ -259,6 +259,17 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       await expect(page.getByText(copy.documentBranding.letterheadSource.info)).toBeVisible()
       await page.keyboard.press('Escape')
 
+      // The translated logo hint must fit one line at 375px in both languages (AUT-904).
+      const logoHint = copy.documentBranding.logo.hint
+        .replaceAll('{{types}}', 'PNG')
+        .replaceAll('{{maxMiB}}', '2')
+      const logoHintEl = page.getByText(logoHint, { exact: true })
+      await expect(logoHintEl).toBeVisible()
+      expect(
+        await logoHintEl.evaluate((el) => el.scrollWidth <= el.clientWidth),
+        'logo hint is clipped at 375px',
+      ).toBe(true)
+
       // The row sits next to the longest headings in the tab; a shrinking trigger would drop below 44px here.
       const mappingsBtn = page.getByRole('button', { name: copy.legalEntities.profile.mappings.infoAria })
       await expect(mappingsBtn).toBeVisible()

@@ -1312,7 +1312,7 @@
     "subtitle": "Diese Einstellungen gelten nach Ihrer Bestätigung für künftige Rechnungen.",
     "inactiveEntity": "Reaktivieren Sie diesen Rechtsträger, um sein Dokumentenbranding zu bearbeiten.",
     "loading": "Dokumentenbranding wird geladen…",
-    "loadFailed": "Dokumentenbranding konnte nicht geladen werden: {{message}}",
+    "loadFailed": "Dokumentenbranding konnte nicht geladen werden.",
     "logo": {
       "label": "Logo",
       "hint": "{{types}} · max. {{maxMiB}} MiB.",
@@ -1322,8 +1322,8 @@
       "refreshStatus": "Prüfstatus aktualisieren"
     },
     "errors": {
-      "logoUploadFailed": "Wählen Sie eine unterstützte PNG-Datei und versuchen Sie es erneut.",
-      "sourceUploadFailed": "Wählen Sie eine unterstützte PDF- oder PNG-Datei und versuchen Sie es erneut."
+      "logoRejected": "Diese Datei kann nicht als Logo verwendet werden. Bitte wählen Sie eine andere PNG-Datei aus.",
+      "uploadFailed": "Die Datei konnte nicht hochgeladen werden. Bitte versuchen Sie es erneut."
     },
     "fields": {
       "primaryColor": "Primärfarbe",
@@ -1342,7 +1342,7 @@
       "keep": "Meine Änderungen behalten",
       "reapplying": "Wird erneut angewendet…"
     },
-    "draftFailed": "Entwurf konnte nicht gespeichert werden. Beheben Sie Validierungsprobleme oder versuchen Sie es erneut. {{message}}",
+    "draftFailed": "Entwurf konnte nicht gespeichert werden. Beheben Sie Validierungsprobleme oder versuchen Sie es erneut.",
     "status": {
       "activeRevision": "Aktives Erscheinungsbild · Revision {{revision}}",
       "activeDefaults": "Aktives Erscheinungsbild · ACP-Standard",

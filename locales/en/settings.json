@@ -1312,7 +1312,7 @@
     "subtitle": "These settings apply to future invoices after you confirm them.",
     "inactiveEntity": "Reactivate this legal entity to edit its document branding.",
     "loading": "Loading document branding…",
-    "loadFailed": "Document branding could not be loaded: {{message}}",
+    "loadFailed": "Document branding could not be loaded.",
     "logo": {
       "label": "Logo",
       "hint": "{{types}} · max {{maxMiB}} MiB.",
@@ -1322,8 +1322,8 @@
       "refreshStatus": "Refresh validation status"
     },
     "errors": {
-      "logoUploadFailed": "Choose a supported PNG file and try again.",
-      "sourceUploadFailed": "Choose a supported PDF or PNG file and try again."
+      "logoRejected": "This file cannot be used as a logo. Please choose another PNG file.",
+      "uploadFailed": "The file could not be uploaded. Please try again."
     },
     "fields": {
       "primaryColor": "Primary color",
@@ -1342,7 +1342,7 @@
       "keep": "Keep my edits",
       "reapplying": "Re-applying…"
     },
-    "draftFailed": "Draft save failed. Fix validation issues or try again. {{message}}",
+    "draftFailed": "Draft save failed. Fix validation issues or try again.",
     "status": {
       "activeRevision": "Active appearance · revision {{revision}}",
       "activeDefaults": "Active appearance · ACP defaults",

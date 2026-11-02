@@ -8,6 +8,7 @@ import {
   type DocumentBrandTheme,
 } from "@/api/document-branding";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/error-utils";
 import { generateId } from "@/lib/id";
 
 const POLL_LIMIT_MS = 2 * 60 * 1000;
@@ -160,10 +161,10 @@ export function LetterheadImport({
       });
     } catch (error) {
       toast.error(t("documentBranding.letterheadImport.toast.startFailed"), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t("documentBranding.letterheadImport.toast.tryLater"),
+        description: getErrorMessage(
+          error,
+          t("documentBranding.letterheadImport.toast.tryLater"),
+        ),
       });
     }
   };
@@ -189,10 +190,10 @@ export function LetterheadImport({
       });
     } catch (error) {
       toast.error(t("documentBranding.letterheadImport.toast.discardFailed"), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t("documentBranding.letterheadImport.toast.tryAgain"),
+        description: getErrorMessage(
+          error,
+          t("documentBranding.letterheadImport.toast.tryAgain"),
+        ),
       });
     }
   };

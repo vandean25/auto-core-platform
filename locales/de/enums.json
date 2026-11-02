@@ -215,6 +215,11 @@
     "VALIDATION_RETRIES_EXHAUSTED": "Validierung fehlgeschlagen",
     "BRAND_SOURCE_EXPIRED": "Quelle abgelaufen"
   },
+  "documentBrandPreviewWarning": {
+    "HEADER_TEXT_MAY_BE_CLIPPED": "Der Kopftext kann im Dokument abgeschnitten werden.",
+    "FOOTER_TEXT_MAY_BE_CLIPPED": "Der Fußtext kann im Dokument abgeschnitten werden.",
+    "generic": "Die Darstellung kann im gedruckten Dokument abweichen."
+  },
   "letterheadSource": {
     "message": {
       "pollTimedOut": "Die Validierung dauert länger als erwartet. Status aktualisieren oder später erneut versuchen.",

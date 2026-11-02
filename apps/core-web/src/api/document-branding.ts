@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchWithAuth } from "./client";
-import { createHttpError, getErrorMessage } from "@/lib/error-utils";
-import type { ApiErrorBody } from "@/api/api-error";
+import { throwHttpError } from "@/lib/error-utils";
 
 export type DocumentBrandTheme = {
   schemaVersion: 1;
@@ -21,6 +20,7 @@ export type DocumentBrandUploadConstraints = {
   maxBytes: number;
   mimeTypes: string[];
   accept: string;
+  /** Still on the wire; the UI builds its hint from `mimeTypes` and `maxBytes`. */
   requirementLabel: string;
 };
 
@@ -92,39 +92,6 @@ export const documentBrandingKeys = {
   extraction: (legalEntityId: string, extractionId: string) =>
     [...documentBrandingKeys.all, "extraction", legalEntityId, extractionId] as const,
 };
-
-async function readErrorBody(response: Response): Promise<ApiErrorBody | undefined> {
-  return (await response.json().catch(() => undefined)) as
-    | ApiErrorBody
-    | undefined;
-}
-
-function backendMessageFromBody(
-  body: ApiErrorBody | undefined,
-  fallback: string,
-): string {
-  const message = body?.message;
-  if (typeof message === "string" && message.trim()) return message;
-  if (Array.isArray(message)) return message.join(", ");
-  return fallback;
-}
-
-async function throwHttpError(response: Response, fallback: string) {
-  const body = await readErrorBody(response);
-  throw createHttpError(
-    backendMessageFromBody(body, fallback),
-    response.status,
-    body,
-  );
-}
-
-/** Maps a rejected branding upload to translated copy via its stable error code; never shows backend text. */
-export function documentBrandAssetUploadErrorMessage(
-  error: unknown,
-  fallback: string,
-): string {
-  return getErrorMessage(error, fallback);
-}
 
 export function useDocumentBrandProfile(legalEntityId: string | null) {
   return useQuery<DocumentBrandProfile>({

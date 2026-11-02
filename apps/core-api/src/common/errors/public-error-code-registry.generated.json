@@ -77,6 +77,10 @@
       "public": true,
       "params": []
     },
+    "BRAND_ASSET_QUARANTINE_MISSING": {
+      "public": true,
+      "params": []
+    },
     "BRAND_COLOR_CONTRAST": {
       "public": true,
       "params": []
@@ -130,6 +134,18 @@
       "params": []
     },
     "BRAND_IDEMPOTENCY_KEY_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_LOGO_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PNG_DIMENSIONS_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PNG_INVALID": {
       "public": true,
       "params": []
     },
