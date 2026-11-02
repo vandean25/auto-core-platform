@@ -60,10 +60,13 @@ export function importJobAlreadyUndone(): BadRequestException {
   });
 }
 
-export function importJobNotUndoable(): BadRequestException {
-  return new BadRequestException({
+export function importJobNotUndoable(details?: {
+  reason?: string;
+}): ConflictException {
+  return new ConflictException({
     code: IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE,
     message: 'Import job is not in an undoable state',
+    ...(details ? { details } : {}),
   });
 }
 
