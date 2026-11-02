@@ -305,10 +305,11 @@ export class ImportUndoService {
     }
     const hasRows = await hasUndoableRows(this.prisma, tenantId, job);
     if (!hasRows) {
-      // No row carries a live entity link, so there is nothing to revert: an
-      // import applied before undo support existed, or one that linked nothing.
       throw importJobNotUndoable({
-        reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+        reason:
+          job.entity_type === SUPPLIER_PRICE_LIST_ENTITY_TYPE
+            ? UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT
+            : UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
       });
     }
   }
@@ -348,7 +349,6 @@ export class ImportUndoService {
         tenant_id: tenantId,
         import_job_id: job.id,
         action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
-        entity_id: { not: null },
         undone_at: null,
       },
     });

@@ -1026,6 +1026,9 @@ describe('Import Undo (e2e)', () => {
       .expect(409);
 
     expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
+    expect(undoRes.body.reason).toBe(
+      UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    );
 
     const legacyDbJob = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: job.id },
@@ -1077,7 +1080,9 @@ describe('Import Undo (e2e)', () => {
       where: { id: job.id },
     });
     expect(blockedDbJob.status).toBe(ImportJobStatus.APPLIED);
-    const persistedUndo = (blockedDbJob.options_json as Record<string, any>)?.undo;
+    const persistedUndo = (blockedDbJob.options_json as {
+      undo?: { deleted: number; restored: number; blocked: number };
+    }).undo;
     expect(persistedUndo?.deleted).toBe(0);
     expect(persistedUndo?.restored).toBe(0);
     expect(persistedUndo?.blocked).toBe(1);

@@ -329,6 +329,7 @@ export const PUBLIC_API_ERROR_CODES = [
 export type PublicApiErrorCode = (typeof PUBLIC_API_ERROR_CODES)[number]
 export const PUBLIC_API_ERROR_CODE_PARAMS: Partial<Record<PublicApiErrorCode, readonly string[]>> = {
   IMPORT_APPLY_IN_PROGRESS: ["leaseExpiresAt"],
+  IMPORT_JOB_NOT_UNDOABLE: ["reason"],
   TYRE_DOT_FUTURE_DATE: ["position"],
   TYRE_DOT_INVALID_FORMAT: ["position"],
   TYRE_DOT_INVALID_WEEK: ["position"],
