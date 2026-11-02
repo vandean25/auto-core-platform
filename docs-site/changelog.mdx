@@ -5,6 +5,30 @@ description: "Was sich in Auto Core Platform für Werkstatt- und Büro-Anwender 
 
 Aktuelle Releases, nach Woche gruppiert. Für Schritt-für-Schritt-Anleitungen nutzen Sie die Rollen-Karten auf der [Willkommensseite](/introduction).
 
+<Update label="27. Oktober – 2. November 2026" description="Handy, Push, KVAs und Import">
+  **Installierbare App (PWA).** ACP lässt sich am Computer oder Android als App installieren (**App installieren** im Profilmenü). Mechaniker und Berater profitieren von Vollbild und schnellerem Wiedereinstieg; auf dem iPhone/iPad ist Push an die installierte App gebunden.
+
+  **Mechaniker am Smartphone.** TECH-Nutzer sehen **Meine Warteschlange** und die Aufgabendetailseite in einem annahmeartigen Layout: Suche in der Warteschlange, große Schaltflächen, Fahrzeugkarte und Checkliste — ohne Büro-Navigation.
+
+  **Web-Push für Mitarbeiter.** Unter **Einstellungen → Benachrichtigungen** Push pro Gerät aktivieren und Ereignisse wählen (u. a. KVA entschieden, Aufgabe wartet auf Kunden), optional mit Ruhezeiten.
+
+  **Kostenvoranschläge (Liste).** Neuer Menüpunkt **Kostenvoranschläge** filtert alle KVAs am Standort; ein Klick öffnet den Auftrag mit der Version.
+
+  **Werkstatt-Befehl (Strg+K).** In der leeren globalen Suche: Satz tippen oder diktieren, Vorschau prüfen, dann erst anwenden — optional über die Agenten-Freigabe.
+
+  **Import.** Mandanten-**Importquellen**, Tab **Verlauf** mit Fortsetzen, **Import rückgängig machen**, lokalisierte **Fehler-CSV**; CSV über **30 MiB** beim Probelauf per Direkt-Upload.
+
+  **Altsystem-Nummern.** Importierte **Alte Kundennr.** / **Alte Fahrzeugnr.** erscheinen auf den Stammdaten; Listen- und globale Suche finden diese Nummern.
+
+  **Sprache.** **Sprache** im Profil wechselt die Oberfläche ohne Neuladen. Rechnungs-, Gutschrift- und KVA-PDFs nutzen die hinterlegte Kundensprache (sonst Mandanten-Standard); Beträge auf deutschen PDFs im österreichischen Zahlenformat.
+
+  **Reifen.** Gemeinsame Reifenmessungen, DOT-Auswertung, Reifengutachten und Hotel-Anbindung; im Gutachten eine Begründungszeile pro Rad statt eines Schwellenblocks.
+
+  **Listen-Vorschau.** Kunden-, Fahrzeug- und Auftragslisten: eine Zeile unten mit **Öffnen** und **⋯** für weitere Aktionen.
+
+  **Agenten (MCP).** `get_workshop_order` liefert **Arbeitsmarge und Effizienz** (`labor_summary`) für Integrationen.
+</Update>
+
 <Update label="20.–26. Oktober 2026" description="Suche, Navigation und Fahrzeug-Beteiligte">
   **Globale Suche (Strg+K / Cmd+K).** Einheitliche Suche über Kunden, Fahrzeuge, Fahrzeugbestand, Werkstattaufträge, Rechnungen und Teile; Präfix-Filter (`k:`, `fz:`, `a:`, `r:`, `t:`), **Zuletzt geöffnet**, Telefon-Suche nur mit Ziffern, Navigation und Anlegen-Shortcuts. Auf geöffneten Datensätzen: **Aktueller Datensatz** mit Schnellaktionen (z. B. Annahme, Mechaniker zuweisen, Aufgabe erledigen, Werkstattkarte als PDF).
 

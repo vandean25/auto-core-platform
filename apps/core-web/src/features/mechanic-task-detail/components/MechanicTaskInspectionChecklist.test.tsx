@@ -42,4 +42,16 @@ describe('MechanicTaskInspectionChecklist', () => {
     expect(toast.error).toHaveBeenCalledWith(deWorkshop.mechanic.taskDetail.checklist.saveError)
     expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('must be shorter'))
   })
+
+  it('shows a localized load error instead of hiding the checklist', () => {
+    vi.mocked(mechanicApi.useMechanicTaskChecklist).mockReturnValue({
+      isLoading: false,
+      isError: true,
+      data: undefined,
+    } as never)
+
+    render(<MechanicTaskInspectionChecklist taskId='task-1' />)
+
+    expect(screen.getByText('Checkliste konnte nicht geladen werden')).toBeInTheDocument()
+  })
 })

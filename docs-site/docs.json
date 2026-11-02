@@ -153,6 +153,7 @@
                 "pages": [
                   "workflows/workshop-intake",
                   "workflows/workshop-orders",
+                  "workflows/workshop-estimates",
                   "workflows/workshop-check-in",
                   "workflows/warranty-claims",
                   "workflows/workshop-planner",
@@ -251,7 +252,8 @@
               {
                 "group": "Zugriff",
                 "pages": [
-                  "settings/team"
+                  "settings/team",
+                  "settings/notifications"
                 ]
               },
               {
@@ -385,6 +387,7 @@
                 "pages": [
                   "en/workflows/workshop-intake",
                   "en/workflows/workshop-orders",
+                  "en/workflows/workshop-estimates",
                   "en/workflows/workshop-check-in",
                   "en/workflows/warranty-claims",
                   "en/workflows/workshop-planner",
@@ -483,7 +486,8 @@
               {
                 "group": "Access",
                 "pages": [
-                  "en/settings/team"
+                  "en/settings/team",
+                  "en/settings/notifications"
                 ]
               },
               {

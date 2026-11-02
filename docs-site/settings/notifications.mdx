@@ -1,0 +1,37 @@
+---
+title: "Benachrichtigungen"
+description: "Web-Push auf diesem Gerät aktivieren und wählen, welche Werkstatt-Ereignisse Sie benachrichtigen."
+---
+
+**Einstellungen → Benachrichtigungen** steuert **Web-Push** für Ihr Anmeldekonto — getrennt von Kunden-E-Mails (KVA, Abholbereit). Jede Person richtet ihre Geräte selbst ein; OWNER und ADMIN sehen den Tab wie alle anderen Rollen mit Einstellungszugang.
+
+<Steps>
+  <Step title="Tab öffnen">
+    Zahnrad → **Benachrichtigungen**.
+  </Step>
+  <Step title="Push auf diesem Gerät">
+    Unter **Dieses Gerät** **Push aktivieren**. Der Browser fragt nach Erlaubnis. **Push deaktivieren** meldet nur dieses Gerät ab.
+  </Step>
+  <Step title="Ereignisse wählen">
+    Unter **Ereignisse** aktivieren Sie mindestens einen Typ — standardmäßig ist keiner an. Verfügbar u. a. **Kostenvoranschlag entschieden** (Kunde hat online oder im Büro entschieden) und **Wartet auf den Kunden** (Aufgabe pausiert mit Grund Kunde).
+  </Step>
+  <Step title="Optional: Ruhezeiten">
+    **Ruhezeiten verwenden** mit **Von** / **Bis** (Ortszeit des Standorts). In diesem Fenster sendet die Plattform keine Push-Nachrichten.
+  </Step>
+</Steps>
+
+<Warning>
+Push ist mandanten- und deploymentsabhängig. Steht **Push-Benachrichtigungen sind in dieser Umgebung nicht eingerichtet**, kann Ihr Betrieb Push noch nicht nutzen. Auf **iPhone und iPad** funktioniert Push nur in der **installierten App** (Safari → **Teilen** → **Zum Home-Bildschirm**, App von dort öffnen, dann Push hier aktivieren).
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Registrierte Geräte">
+    Liste aller angemeldeten Browser/Installationen mit **Zuletzt aktiv**, Plattform (Computer, Android, iPhone/iPad) und Kennzeichnung **App installiert**, wo zutreffend. **Entfernen** widerruft ein anderes Gerät — nützlich bei verlorenem Handy.
+  </Accordion>
+  <Accordion title="Testnachricht">
+    **Testnachricht senden** liefert eine Push an Ihre eigenen Geräte (höchstens fünf pro Stunde). Ohne aktives Gerät zuerst Push aktivieren.
+  </Accordion>
+  <Accordion title="Abweichung von E-Mail">
+    Kunden erhalten weiterhin transaktionale E-Mails nach Ihren Regeln unter [Kunden](/workflows/customers) und [Werkstattaufträge](/workflows/workshop-orders). Push informiert nur angemeldete Mitarbeiter am Gerät.
+  </Accordion>
+</AccordionGroup>

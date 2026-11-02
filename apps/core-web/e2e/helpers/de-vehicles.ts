@@ -29,6 +29,12 @@ export const DE_VEHICLES = {
   gewaehrleistungDue: {
     title: vehiclesDe.gewaehrleistungDue.title,
   },
+  pickerlSection: {
+    warningsInfoAria: vehiclesDe.pickerlSection.warningsInfoAria,
+  },
+  gewaehrleistungSection: {
+    repairsNoteAria: vehiclesDe.gewaehrleistungSection.repairsNoteAria,
+  },
 } as const
 
 /** `list.rowAria` with `{{vehicle}}` filled in (e.g. "Fahrzeug Honda Civic"). */

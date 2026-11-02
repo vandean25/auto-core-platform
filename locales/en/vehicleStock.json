@@ -112,7 +112,8 @@
       "monthsError": "Enter a duration between 1 and 120 months.",
       "terms": "Guarantee terms",
       "termsHint": "Without a duration, no guarantee block appears on the contract. The guarantee applies in addition to statutory warranty.",
-      "repairsNote": "Extensions through repairs are not recorded."
+      "repairsNote": "Extensions through repairs are not recorded.",
+      "repairsNoteAria": "Show extension note"
     },
     "preview": {
       "costBasis": "Cost basis",

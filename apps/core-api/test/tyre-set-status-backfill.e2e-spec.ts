@@ -172,9 +172,9 @@ describe('AUT-831 tyre set status data migration (e2e)', () => {
       },
     });
 
-    // Tenant isolation verification:
-    // Even if an event with another tenant's id references setB's UUID,
-    // the subquery tenant_id match prevents cross-tenant pollution.
+    // A Tenant A event cannot point at setB: tyre_set_events has a composite
+    // (tenant_id, tyre_set_id) FK onto tyre_sets. So only independent per-tenant
+    // migration is asserted below, not a rejected cross-tenant event.
 
     // Run the migration statement
     await basePrisma.$executeRawUnsafe(updateStatement);

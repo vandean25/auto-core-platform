@@ -13,6 +13,9 @@ import { Public } from '../src/common/decorators/public.decorator.js';
 import { applyInProgress } from '../src/import/import-job.errors.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
+const REQUEST_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /**
  * The apply endpoint no longer emits IMPORT_APPLY_IN_PROGRESS for a running job (AUT-788 returns 202), so this
  * probe keeps the global filter contract pinned at the HTTP boundary.
@@ -138,6 +141,8 @@ describe('GlobalExceptionFilter (e2e)', () => {
     expect(response.body).toHaveProperty('message');
     expect(response.body).not.toHaveProperty('requestId');
     expect(response.body).not.toHaveProperty('eventId');
+    // AUT-746: the body parsers fail before the request middleware, so the filter supplies the id.
+    expect(response.headers['x-request-id']).toMatch(REQUEST_ID_PATTERN);
   });
 
   it.each([
@@ -149,6 +154,10 @@ describe('GlobalExceptionFilter (e2e)', () => {
     {
       encoding: 'deflate',
       body: Buffer.from([0x78, 0x9c, 0xff, 0xff, 0x00, 0x00, 0x00]),
+    },
+    {
+      encoding: 'br',
+      body: Buffer.from('not brotli'),
     },
   ])(
     'returns 400 for an unauthenticated $encoding body with invalid bytes (AUT-744)',
@@ -171,8 +180,44 @@ describe('GlobalExceptionFilter (e2e)', () => {
       });
       expect(response.body).not.toHaveProperty('eventId');
       expect(JSON.stringify(response.body)).not.toMatch(/Z_DATA_ERROR|zlib/i);
+      if (requestId) {
+        expect(response.headers['x-request-id']).toBe(requestId);
+      } else {
+        expect(response.headers['x-request-id']).toMatch(REQUEST_ID_PATTERN);
+      }
     },
   );
+
+  it('returns 400 for unauthenticated invalid JSON with a generated x-request-id (AUT-746)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/customers')
+      .set('Content-Type', 'application/json')
+      .send('{"broken":');
+
+    expect(response.status).toBe(HttpStatus.BAD_REQUEST);
+    expect(response.body).toMatchObject({
+      statusCode: HttpStatus.BAD_REQUEST,
+      code: 'HTTP_400',
+    });
+    expect(response.headers['x-request-id']).toMatch(REQUEST_ID_PATTERN);
+  });
+
+  it('returns 415 with an x-request-id when the body uses an unsupported content encoding (AUT-746)', async () => {
+    // body-parser decodes gzip, deflate and br; 'compress' is the LZW encoding it does not implement.
+    const response = await request(app.getHttpServer())
+      .post('/api/customers')
+      .set('Content-Type', 'application/json')
+      .set('Content-Encoding', 'compress')
+      .send(Buffer.from('not compressed'));
+
+    expect(response.status).toBe(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    expect(response.body).toMatchObject({
+      statusCode: HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+      error: 'Unsupported Media Type',
+      code: 'HTTP_415',
+    });
+    expect(response.headers['x-request-id']).toMatch(REQUEST_ID_PATTERN);
+  });
 
   it('keeps leaseExpiresAt on an IMPORT_APPLY_IN_PROGRESS 409 response (AUT-796)', async () => {
     const response = await request(app.getHttpServer())

@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_SETTINGS } from './helpers/de-settings'
 import { createMockFinanceSettings, createMockListResponse } from './utils/mock-factories'
+import { captureDocScreenshot } from './utils/doc-screenshot'
 
 type ImportJobMock = {
   id: string
@@ -329,9 +330,6 @@ test.describe('Data import settings wizard', () => {
     await expect(page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.editMapping })).not.toBeVisible()
     await expect(page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.uploadAgain })).toBeVisible()
 
-    await page.screenshot({
-      path: '../../docs/internal/assets/aut-827-import-expired-375.png',
-      fullPage: true,
-    })
+    await captureDocScreenshot(page, 'aut-827-import-expired-375.png', { fullPage: true })
   })
 })

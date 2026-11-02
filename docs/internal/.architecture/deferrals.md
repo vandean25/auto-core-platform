@@ -248,6 +248,15 @@ Then update status, or cancel the phase if the product dropped it.
 | Grant refresh tokens | A 12 hour grant matches one shift. A refresh token is a long-lived secret on the watch | Mechanics regularly lose a recording because the grant expired mid-shift and re-pairing is not acceptable |
 | Play production release | Internal testing is enough for the named devices | The device pass on Pixel Watch 4 and Galaxy Watch Ultra (2025) is written up and a release owner asks for a production track |
 
+### Infinite-list follow-ons (ADR-0035)
+
+**Status:** Deferred follow-ons — 2026-11-02; [ADR-0035](../01-ADR/2026-11-02-cursor-based-infinite-lists.md) accepted by Dejan Dosenovic. Owner: Product Owner with the relevant list-module owner.
+
+| Deferred capability | Reason / cost of waiting | Re-entry trigger |
+|---|---|---|
+| Filter-wide bulk selection and new server-side full exports | Scrolling retains explicit loaded-ID selection and existing export scopes; selecting all matches needs a separate execution/authorization contract | Approved follow-up defines selection versus execution time, exclusions, confirmation, renewed authorization, concurrency, partial failures and execution limits |
+| Replacing offset for relation, calculated or relevance sorts | Existing sorts remain usable; denormalization and relevance truncation are not part of the pilot | Equivalent replacement approved per endpoint/sort, supported by query plans and consumer/test migration |
+
 ## Metrics
 
 Reset 2026-08-18. Counts below are **product deferrals only**. Twenty-two framework-meta items were archived that day and are not in these numbers.

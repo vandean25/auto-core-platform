@@ -1,6 +1,8 @@
+import { i18n } from '@/lib/i18n'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
+import { getErrorMessageFromResponse as getErrorMessage } from '@/lib/error-utils'
 
 export type DecisionShadowLog =
   components['schemas']['DecisionShadowLogResponseDto']
@@ -22,14 +24,6 @@ export const decisionShadowLogKeys = {
     [...decisionShadowLogKeys.lists(), filters] as const,
 }
 
-async function getErrorMessage(
-  response: Response,
-  fallbackMessage: string,
-): Promise<string> {
-  const payload = (await response.json().catch(() => undefined)) as
-    { message?: string } | undefined
-  return payload?.message || fallbackMessage
-}
 
 /** Read-only: this hook only issues GET requests. Suggestions are never applied. */
 export function useDecisionShadowLogs(filters: DecisionShadowLogFilters = {}) {
@@ -56,7 +50,7 @@ export function useDecisionShadowLogs(filters: DecisionShadowLogFilters = {}) {
         throw new Error(
           await getErrorMessage(
             response,
-            'Failed to fetch decision shadow logs',
+            i18n.t('common:apiErrors.agent.decisionShadow.loadFailed'),
           ),
         )
       }

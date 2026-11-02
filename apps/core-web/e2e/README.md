@@ -16,6 +16,7 @@ npm run test:e2e          # Build the E2E bundle, then run all E2E tests (headle
 npm run test:e2e -- --shard=1/3  # Run one of three shards (CI runs them in parallel)
 npx playwright test --ui  # Interactive UI mode (run `npm run build:e2e && npm run build:pwa` first)
 E2E_LIVE_BACKEND=true npm run test:e2e  # Include seed-based smoke tests against a live seeded backend
+UPDATE_DOC_SCREENSHOTS=1 npm run test:e2e -- e2e/<spec>.spec.ts  # Re-capture the screenshots under docs/internal/assets (skipped without the flag)
 ```
 
 The suite runs against a production bundle built by `npm run build:e2e` (mode `e2e`, with
