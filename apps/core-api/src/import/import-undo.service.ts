@@ -64,6 +64,7 @@ import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 import {
   SUPPLIER_PRICE_LIST_ENTITY_TYPE,
+  noUndoableRowsReason,
   planUndoPriceEntries,
   planUndoRows,
   undoRowKey,
@@ -106,6 +107,7 @@ type UndoRunContext = UndoProgress & {
   recoverySeq: number;
   confirmedEntityIds: Set<string>;
   blockedReasons: Record<string, string>;
+  resumeStatus: ImportJobStatus;
 };
 
 type UndoBatchOutcome = 'done' | 'continue' | 'lease_lost' | 'abort';
@@ -283,29 +285,50 @@ export class ImportUndoService {
       throw importJobBusy();
     }
     assertImportJobRowsAvailable(job.options_json);
-    // One purge rule for every path: staged rows gone although totals report
-    // applied rows means the rows_purged-flagged or the unflagged ancient purge
-    // deleted the undo basis. FAILED jobs without applied rows stay NOT_UNDOABLE.
-    if (
-      job.status !== ImportJobStatus.FAILED &&
-      getAppliedRowsCount(job.totals_json as ImportJobTotals | null) > 0 &&
-      !(await hasStagedImportJobRows(this.prisma, tenantId, job.id))
-    ) {
-      throw importJobPurged();
-    }
+    await this.assertUndoBasisStaged(tenantId, job);
     if (isDocOrFinancialImport(job.entity_type)) {
       throw importJobNotUndoable();
     }
-    const undoable =
-      UNDOABLE_STATUSES.has(job.status) ||
-      job.status === ImportJobStatus.FAILED;
-    if (!undoable) {
+    this.assertUndoableStatus(job.status);
+    await this.assertHasUndoableRows(tenantId, job);
+  }
+
+  /**
+   * One purge rule for every path: staged rows gone although totals report
+   * applied rows means the rows_purged-flagged or the unflagged ancient purge
+   * deleted the undo basis. FAILED jobs without applied rows stay NOT_UNDOABLE.
+   */
+  private async assertUndoBasisStaged(
+    tenantId: string,
+    job: ImportJob,
+  ): Promise<void> {
+    if (job.status === ImportJobStatus.FAILED) {
+      return;
+    }
+    if (getAppliedRowsCount(job.totals_json as ImportJobTotals | null) === 0) {
+      return;
+    }
+    if (!(await hasStagedImportJobRows(this.prisma, tenantId, job.id))) {
+      throw importJobPurged();
+    }
+  }
+
+  private assertUndoableStatus(status: ImportJobStatus): void {
+    if (!UNDOABLE_STATUSES.has(status) && status !== ImportJobStatus.FAILED) {
       throw importJobNotUndoable();
     }
-    const hasRows = await hasUndoableRows(this.prisma, tenantId, job);
-    if (!hasRows) {
-      throw importJobNotUndoable();
+  }
+
+  private async assertHasUndoableRows(
+    tenantId: string,
+    job: ImportJob,
+  ): Promise<void> {
+    if (await hasUndoableRows(this.prisma, tenantId, job)) {
+      return;
     }
+    throw importJobNotUndoable({
+      reason: noUndoableRowsReason(job.entity_type),
+    });
   }
 
   private async buildUndoWorkerState(
@@ -489,6 +512,7 @@ export class ImportUndoService {
       recoverySeq: job.worker_recovery_seq,
       confirmedEntityIds: new Set(worker.confirmed_entity_ids),
       blockedReasons: { ...worker.blocked_reasons },
+      resumeStatus: worker.resume_status,
       cursor: worker.cursor,
       processedRows: worker.processed_rows,
       deleted: worker.deleted_rows,
@@ -1071,6 +1095,30 @@ export class ImportUndoService {
     }
   }
 
+  private buildFinalUndoOutcome(ctx: UndoRunContext): {
+    outcome: ImportUndoOutcome;
+    nextStatus: ImportJobStatus;
+  } {
+    const blocked = Object.keys(ctx.blockedReasons).length;
+    const nextStatus =
+      ctx.deleted + ctx.restored === 0
+        ? (ctx.resumeStatus ?? ImportJobStatus.APPLIED)
+        : blocked > 0
+          ? ImportJobStatus.PARTIALLY_UNDONE
+          : ImportJobStatus.UNDONE;
+    const outcome: ImportUndoOutcome = {
+      // The outcome status is the status the job ends in, so a fully blocked
+      // run that restores APPLIED never records PARTIALLY_UNDONE or UNDONE.
+      status: nextStatus,
+      undone_at: new Date().toISOString(),
+      deleted: ctx.deleted,
+      restored: ctx.restored,
+      blocked,
+      blocked_reasons: { ...ctx.blockedReasons },
+    };
+    return { outcome, nextStatus };
+  }
+
   private async finalizeUndoJob(ctx: UndoRunContext): Promise<void> {
     const blocked = Object.keys(ctx.blockedReasons).length;
     if (
@@ -1084,21 +1132,7 @@ export class ImportUndoService {
         UNDO_BLOCKED_REASONS.ROWS_PURGED,
       );
     }
-    const outcome: ImportUndoOutcome = {
-      status:
-        Object.keys(ctx.blockedReasons).length > 0
-          ? 'PARTIALLY_UNDONE'
-          : 'UNDONE',
-      undone_at: new Date().toISOString(),
-      deleted: ctx.deleted,
-      restored: ctx.restored,
-      blocked: Object.keys(ctx.blockedReasons).length,
-      blocked_reasons: { ...ctx.blockedReasons },
-    };
-    const nextStatus =
-      outcome.status === 'UNDONE'
-        ? ImportJobStatus.UNDONE
-        : ImportJobStatus.PARTIALLY_UNDONE;
+    const { outcome, nextStatus } = this.buildFinalUndoOutcome(ctx);
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -1286,8 +1320,7 @@ export class ImportUndoService {
       return ImportJobStatus.PARTIALLY_UNDONE;
     }
     return (
-      (options.undo_worker?.resume_status as ImportJobStatus) ??
-      ImportJobStatus.PARTIALLY_UNDONE
+      options.undo_worker?.resume_status ?? ImportJobStatus.PARTIALLY_UNDONE
     );
   }
 

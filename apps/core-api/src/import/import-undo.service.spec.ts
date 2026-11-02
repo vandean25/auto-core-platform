@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Logger,
@@ -266,9 +265,14 @@ function selectHistories(
   take?: number,
 ) {
   const cursor = (where.id as { gt?: string } | undefined)?.gt;
+  const oldCostFilter = where.old_cost as { not?: null } | undefined;
   const histories = db.histories
     .filter((history) => {
+      if (history.tenant_id !== where.tenant_id) return false;
       if (history.import_job_id !== where.import_job_id) return false;
+      if (oldCostFilter && 'not' in oldCostFilter && history.old_cost === null) {
+        return false;
+      }
       if (typeof cursor === 'string' && history.id <= cursor) return false;
       return true;
     })
@@ -792,6 +796,27 @@ describe('ImportUndoService', () => {
       });
       expect(harness.db.txCount).toBe(0);
     });
+
+    it('refuses a legacy job where all rows have entity_id null before claiming', async () => {
+      const harness = createHarness({
+        status: ImportJobStatus.APPLIED,
+        rows: [
+          makeRow(1, ImportRowAction.CREATE, null),
+          makeRow(2, ImportRowAction.UPDATE, null),
+        ],
+        totals: { create: 1, update: 1 },
+      });
+
+      await expect(harness.service.undoJobHttp(JOB_ID)).rejects.toMatchObject({
+        response: {
+          code: 'IMPORT_JOB_NOT_UNDOABLE',
+          reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+        },
+      });
+      expect(harness.db.job.status).toBe(ImportJobStatus.APPLIED);
+      expect(harness.db.job.options_json).toEqual({});
+      expect(harness.db.txCount).toBe(0);
+    });
   });
 
   describe('background dispatch', () => {
@@ -942,6 +967,38 @@ describe('ImportUndoService', () => {
       });
     });
 
+    it('restores resume_status instead of PARTIALLY_UNDONE when every row is blocked', async () => {
+      const harness = createHarness({
+        status: ImportJobStatus.APPLIED,
+        rows: [
+          makeRow(1, ImportRowAction.CREATE, 'cust-blocked-1'),
+          makeRow(2, ImportRowAction.CREATE, 'cust-blocked-2'),
+        ],
+        refs: {
+          invoice: [
+            { id: 'inv-1', customer_id: 'cust-blocked-1' },
+            { id: 'inv-2', customer_id: 'cust-blocked-2' },
+          ],
+        },
+        totals: { create: 2, update: 0 },
+      });
+
+      const job = await harness.service.undoJob(JOB_ID);
+
+      expect(job.status).toBe(ImportJobStatus.APPLIED);
+      expect(harness.db.deletedEntityIds).toEqual([]);
+      expect(harness.undoOutcome()).toMatchObject({
+        status: ImportJobStatus.APPLIED,
+        deleted: 0,
+        restored: 0,
+        blocked: 2,
+        blocked_reasons: {
+          'cust-blocked-1': UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
+          'cust-blocked-2': UNDO_BLOCKED_REASONS.DOWNSTREAM_INVOICE,
+        },
+      });
+    });
+
     it('skips unconfirmed conflicts and reverts confirmed ones', async () => {
       const rows = [makeRow(1, ImportRowAction.CREATE, 'cust-conflict')];
       const entities = {
@@ -958,7 +1015,7 @@ describe('ImportUndoService', () => {
         totals: { create: 1, update: 0 },
       });
       const unconfirmedJob = await unconfirmed.service.undoJob(JOB_ID);
-      expect(unconfirmedJob.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
+      expect(unconfirmedJob.status).toBe(ImportJobStatus.APPLIED);
       expect(unconfirmed.db.deletedEntityIds).toEqual([]);
       expect(unconfirmed.undoOutcome()?.blocked_reasons).toEqual({
         'cust-conflict': UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT,
@@ -984,7 +1041,7 @@ describe('ImportUndoService', () => {
 
       const job = await harness.service.undoJob(JOB_ID);
 
-      expect(job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
+      expect(job.status).toBe(ImportJobStatus.APPLIED);
       expect(harness.db.updatedEntities).toEqual([]);
       expect(harness.undoOutcome()?.blocked_reasons).toEqual({
         'cust-nosnap': UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT,
@@ -1006,10 +1063,46 @@ describe('ImportUndoService', () => {
       expect(harness.db.deletedEntityIds).toEqual(['cust-remaining']);
     });
 
+    it('reports ROWS_PURGED when nothing was left to undo during worker run', async () => {
+      const harness = createHarness({
+        rows: [],
+        totals: { create: 4, update: 0 },
+        status: ImportJobStatus.UNDOING,
+        options: {
+          undo_worker: {
+            lease_token: 'worker-token',
+            lease_until: new Date(Date.now() - 1000).toISOString(),
+            actor_user_id: 'admin-user',
+            resume_status: ImportJobStatus.APPLIED,
+            cursor: '0',
+            processed_rows: 0,
+            total_rows: 4,
+            deleted_rows: 0,
+            restored_rows: 0,
+            blocked_reasons: {},
+          },
+        },
+      });
+
+      await harness.service.runUndoWorkerAttempt({
+        tenantId: TENANT_ID,
+        jobId: JOB_ID,
+      });
+
+      expect(harness.db.job.status).toBe(ImportJobStatus.APPLIED);
+      expect(harness.undoOutcome()?.status).toBe(ImportJobStatus.APPLIED);
+      expect(harness.undoOutcome()?.blocked_reasons).toEqual({
+        [`job-${JOB_ID}`]: UNDO_BLOCKED_REASONS.ROWS_PURGED,
+      });
+    });
+
     it('answers IMPORT_JOB_PURGED when applied rows are gone without the rows_purged flag', async () => {
       // The retention purge deletes rows of ancient jobs without marking them;
       // undo must not treat that as a merely empty job.
-      const harness = createHarness({ rows: [], totals: { create: 4, update: 0 } });
+      const harness = createHarness({
+        rows: [],
+        totals: { create: 4, update: 0 },
+      });
 
       await expect(harness.service.undoJob(JOB_ID)).rejects.toThrow(
         ConflictException,
@@ -1137,7 +1230,7 @@ describe('ImportUndoService', () => {
 
       const job = await harness.service.undoJob(JOB_ID);
 
-      expect(job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
+      expect(job.status).toBe(ImportJobStatus.APPLIED);
       expect(JSON.stringify(job)).not.toContain('violates not-null constraint');
       expect(harness.undoOutcome()?.blocked_reasons).toEqual({
         'cust-1': UNDO_BLOCKED_REASONS.ROW_ERROR,
@@ -1236,8 +1329,9 @@ describe('ImportUndoService', () => {
 
       const job = await harness.service.undoJob(JOB_ID);
 
-      expect(job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
+      expect(job.status).toBe(ImportJobStatus.APPLIED);
       expect(harness.undoOutcome()).toMatchObject({
+        status: ImportJobStatus.APPLIED,
         restored: 0,
         blocked: 1,
         blocked_reasons: {
@@ -1301,21 +1395,48 @@ describe('ImportUndoService', () => {
         harness.service.undoJob(JOB_ID),
       );
 
-      expect(job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
-      expect(harness.undoOutcome()).toMatchObject({ restored: 0, blocked: 3 });
+      expect(job.status).toBe(ImportJobStatus.APPLIED);
+      expect(harness.undoOutcome()).toMatchObject({
+        status: ImportJobStatus.APPLIED,
+        restored: 0,
+        blocked: 3,
+      });
       expect(harness.db.histories).toHaveLength(3);
     });
 
-    it('blocks a price entry without an old cost snapshot', async () => {
+    it('refuses a price-list job whose histories all lack an old cost before claiming', async () => {
+      // All-new prices have nothing to restore; claiming would run a full pass that changes nothing.
       const harness = priceHarness(
         [makeHistory(1, 'item-no-old', null)],
         { 'item-no-old': catalogItem('item-no-old') },
       );
 
+      await expect(harness.service.undoJobHttp(JOB_ID)).rejects.toMatchObject({
+        response: {
+          code: 'IMPORT_JOB_NOT_UNDOABLE',
+          reason: UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT,
+        },
+      });
+      expect(harness.db.job.status).toBe(ImportJobStatus.APPLIED);
+      expect(harness.db.job.options_json).toEqual({});
+      expect(harness.db.txCount).toBe(0);
+    });
+
+    it('blocks a price entry without an old cost snapshot while undoing its sibling', async () => {
+      const harness = priceHarness(
+        [makeHistory(1, 'item-no-old', null), makeHistory(2, 'item-old', 15)],
+        {
+          'item-no-old': catalogItem('item-no-old'),
+          'item-old': catalogItem('item-old'),
+        },
+      );
+
       const job = await harness.service.undoJob(JOB_ID);
 
       expect(job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
-      expect(harness.db.updatedEntities).toEqual([]);
+      expect(harness.db.updatedEntities).toEqual([
+        { id: 'item-old', data: { cost_price: 15, retail_price: 35 } },
+      ]);
       expect(harness.undoOutcome()?.blocked_reasons).toEqual({
         'item-no-old': UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT,
       });

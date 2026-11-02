@@ -385,7 +385,7 @@ export const CLIENT_SAFE_HTTP_ERROR_STRUCTURED_DETAIL_KEYS: Partial<
 
 /**
  * Body fields, beyond `code` and `message`, that the global filter forwards for a client-safe code. Only IDs, order
- * numbers and timestamps belong here, and a field is forwarded only when its value is a string.
+ * numbers, timestamps and stable reason keys belong here, and a field is forwarded only when its value is a string.
  */
 export const CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS: Partial<
   Record<string, readonly string[]>
@@ -393,6 +393,8 @@ export const CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS: Partial<
   VEHICLE_HAS_ACTIVE_ORDER: ['orderId', 'orderNumber'],
   // A re-apply on a running import tells the client when the live apply lease ends.
   IMPORT_APPLY_IN_PROGRESS: ['leaseExpiresAt'],
+  // Tells the client which undo gate refused, using a stable blocked-reason key.
+  IMPORT_JOB_NOT_UNDOABLE: ['reason'],
   TYRE_DOT_FUTURE_DATE: ['position'],
   TYRE_DOT_INVALID_FORMAT: ['position'],
   TYRE_DOT_INVALID_WEEK: ['position'],

@@ -88,6 +88,8 @@ const BLOCKED_REASON_KEY_MAP = {
   ROWS_PURGED:
     "dataImport.undo.blockedSection.reasons.ROWS_PURGED",
   ENTITY_NOT_FOUND: "dataImport.undo.blockedSection.reasons.ENTITY_NOT_FOUND",
+  LEGACY_JOB_NO_ENTITY_LINK:
+    "dataImport.undo.blockedSection.reasons.LEGACY_JOB_NO_ENTITY_LINK",
   UNSUPPORTED_ENTITY_TYPE:
     "dataImport.undo.blockedSection.reasons.UNSUPPORTED_ENTITY_TYPE",
   FINANCIAL_IMPORT_CANNOT_BE_UNDONE:

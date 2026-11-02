@@ -1,4 +1,5 @@
 import { AuditActorType, AuditLogAction, Prisma } from '@prisma/client';
+import type { ImportJobStatus } from '@prisma/client';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import { buildImportAuditDiff } from './import-audit.util.js';
 import { IMPORT_SOURCE } from './import.constants.js';
@@ -79,7 +80,7 @@ export class ImportAuditWriter {
     actorUserId: string,
     jobId: string,
     outcome: {
-      status: 'UNDONE' | 'PARTIALLY_UNDONE';
+      status: ImportJobStatus;
       deletedCount: number;
       restoredCount: number;
       blockedCount: number;

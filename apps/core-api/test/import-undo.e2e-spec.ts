@@ -176,6 +176,18 @@ describe('Import Undo (e2e)', () => {
     expect(response.body.code).toBe(expectedCode);
   }
 
+  async function expectUndoSucceeded(
+    jobId: string,
+    expectedStatus: string,
+  ): Promise<request.Response> {
+    const response = await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+    expect(response.body.status).toBe(expectedStatus);
+    return response;
+  }
+
   beforeAll(async () => {
     app = await createE2eApp(undefined, { productionErrorFilter: true });
 
@@ -493,12 +505,7 @@ describe('Import Undo (e2e)', () => {
     expect(previewRes.body.counts.blocked).toBe(0);
 
     // 4. Execute undo
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${dryRun.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('UNDONE');
+    await expectUndoSucceeded(dryRun.id, 'UNDONE');
 
     // 5. Verify DB equals pre-import state
     // - Created customer removed
@@ -655,12 +662,7 @@ describe('Import Undo (e2e)', () => {
     expect(previewRes.body.counts.toRestore).toBe(1);
 
     // 4. Execute undo
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${dryRun.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('UNDONE');
+    await expectUndoSucceeded(dryRun.id, 'UNDONE');
 
     // 5. Verify DB state restored
     const remainingNewVeh = await tenantPrisma.vehicle.findFirst({
@@ -833,13 +835,13 @@ describe('Import Undo (e2e)', () => {
       UNDO_BLOCKED_REASONS.DOWNSTREAM_CUSTOMER_CONSENT,
     );
 
-    // Attempting undo on custJob must leave customer in DB and return PARTIALLY_UNDONE
+    // Attempting undo on custJob must leave customer in DB and return APPLIED because 0 rows were deleted or restored
     const undoCust = await request(app.getHttpServer())
       .post(`/api/imports/${custJob.id}/undo`)
       .set('Authorization', adminHeader)
       .expect(200);
 
-    expect(undoCust.body.status).toBe('PARTIALLY_UNDONE');
+    expect(undoCust.body.status).toBe('APPLIED');
 
     const custStillExists = await tenantPrisma.customer.findFirst({
       where: { id: customer.id },
@@ -893,14 +895,14 @@ describe('Import Undo (e2e)', () => {
       UNDO_BLOCKED_REASONS.MODIFIED_SINCE_IMPORT,
     );
 
-    // Undo without confirmedEntityIds: conflict is skipped
+    // Undo without confirmedEntityIds: conflict is skipped, deleted + restored is 0, so status returns to APPLIED
     const undoWithoutConfirm = await request(app.getHttpServer())
       .post(`/api/imports/${dryRun.id}/undo`)
       .set('Authorization', adminHeader)
       .send({ confirmedEntityIds: [] })
       .expect(200);
 
-    expect(undoWithoutConfirm.body.status).toBe('PARTIALLY_UNDONE');
+    expect(undoWithoutConfirm.body.status).toBe('APPLIED');
 
     const stillExists = await tenantPrisma.customer.findFirst({
       where: { id: createdCust.id },
@@ -974,12 +976,21 @@ describe('Import Undo (e2e)', () => {
     );
 
     // Attempting undo must NOT touch the customer or invoice
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${dryRun.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
+    const undoRes = await expectUndoSucceeded(dryRun.id, 'APPLIED');
+    expect(undoRes.body.options?.undo?.blocked).toBe(1);
+    expect(undoRes.body.options?.undo?.deleted).toBe(0);
+    expect(undoRes.body.options?.undo?.restored).toBe(0);
 
-    expect(undoRes.body.status).toBe('PARTIALLY_UNDONE');
+    const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: dryRun.id },
+    });
+    expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
+    const opts = (checkJob.options_json as {
+      undo?: { deleted: number; restored: number; blocked: number };
+    }).undo;
+    expect(opts?.deleted).toBe(0);
+    expect(opts?.restored).toBe(0);
+    expect(opts?.blocked).toBe(1);
 
     // Verify customer is untouched
     const untouchedCustomer = await tenantPrisma.customer.findFirst({
@@ -996,6 +1007,79 @@ describe('Import Undo (e2e)', () => {
     expect(Number(checkInvoice.total_net)).toBe(500);
     expect(checkInvoice.items).toHaveLength(1);
     expect(checkInvoice.items[0].description).toBe('Immutable Service Line');
+  });
+
+  it('legacy job: job with all rows entity_id null gives 409 IMPORT_JOB_NOT_UNDOABLE on POST undo, status stays APPLIED, no undo_worker or options.undo written', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const job = await importCustomerBatch([
+      [`EXT-LEGACY-${Date.now()}`, 'PRIVATE', 'Legacy', 'One', `legacy-${Date.now()}@example.com`, '111', 'AT'],
+    ]);
+    await tenantPrisma.importJobRow.updateMany({
+      where: { import_job_id: job.id },
+      data: { entity_id: null },
+    });
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${job.id}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+
+    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
+    expect(undoRes.body.reason).toBe(
+      UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    );
+
+    const legacyDbJob = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(legacyDbJob.status).toBe(ImportJobStatus.APPLIED);
+    const legacyOpts = (legacyDbJob.options_json ?? {}) as Record<string, unknown>;
+    expect(legacyOpts.undo_worker).toBeUndefined();
+    expect(legacyOpts.undo).toBeUndefined();
+  });
+
+  it('downstream block: job where every row is blocked by a downstream reference ends back in APPLIED (not PARTIALLY_UNDONE) with options.undo blocked equal to row count and deleted and restored 0', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const emailBlocked = `all-blocked-${Date.now()}@example.com`;
+
+    const job = await importCustomerBatch([
+      ['EXT-ALL-BLOCK', 'PRIVATE', 'Blocked', 'Cust', emailBlocked, '555', 'AT'],
+    ]);
+
+    const customer = await tenantPrisma.customer.findFirstOrThrow({
+      where: { email: emailBlocked },
+    });
+
+    await tenantPrisma.salesOrder.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        customer_id: customer.id,
+        order_number: `SO-${Date.now()}`,
+        status: 'CONFIRMED',
+        total_amount: 120,
+      },
+    });
+
+    const undoRes = await expectUndoSucceeded(job.id, 'APPLIED');
+    expect(undoRes.body.options?.undo).toMatchObject({
+      deleted: 0,
+      restored: 0,
+      blocked: 1,
+      blocked_reasons: {
+        [customer.id]: UNDO_BLOCKED_REASONS.DOWNSTREAM_SALES_ORDER,
+      },
+    });
+
+    const blockedDbJob = await tenantPrisma.importJob.findFirstOrThrow({
+      where: { id: job.id },
+    });
+    expect(blockedDbJob.status).toBe(ImportJobStatus.APPLIED);
+    const persistedUndo = (blockedDbJob.options_json as {
+      undo?: { deleted: number; restored: number; blocked: number };
+    }).undo;
+    expect(persistedUndo?.deleted).toBe(0);
+    expect(persistedUndo?.restored).toBe(0);
+    expect(persistedUndo?.blocked).toBe(1);
   });
 
   it('race condition guard: rejects undo when job is currently UNDOING or APPLYING', async () => {
@@ -1688,12 +1772,7 @@ describe('Import Undo (e2e)', () => {
     // A small batch size exercises the chunked commit path without importing hundreds of rows.
     process.env.IMPORT_UNDO_BATCH_SIZE = '20';
     try {
-      const undoRes = await request(app.getHttpServer())
-        .post(`/api/imports/${job.id}/undo`)
-        .set('Authorization', adminHeader)
-        .expect(200);
-
-      expect(undoRes.body.status).toBe('UNDONE');
+      const undoRes = await expectUndoSucceeded(job.id, 'UNDONE');
       expect(undoRes.body.options.undo).toMatchObject({
         deleted: 60,
         blocked: 0,
@@ -1946,12 +2025,7 @@ describe('Import Undo (e2e)', () => {
       data: { status: ImportJobStatus.FAILED },
     });
 
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('UNDONE');
+    const undoRes = await expectUndoSucceeded(job.id, 'UNDONE');
     expect(undoRes.body.options.undo).toMatchObject({
       deleted: 1,
       blocked: 0,
@@ -2251,11 +2325,7 @@ describe('Import Undo (e2e)', () => {
       expect(previewRes.body.canUndo).toBe(true);
       expect(previewRes.body.counts.toDelete).toBe(1);
 
-      const undoRes = await request(app.getHttpServer())
-        .post(`/api/imports/${job.id}/undo`)
-        .set('Authorization', adminHeader)
-        .expect(200);
-      expect(undoRes.body.status).toBe(ImportJobStatus.UNDONE);
+      await expectUndoSucceeded(job.id, ImportJobStatus.UNDONE);
     });
 
     it('eligibility: GET /api/imports returns correct undoable flag per job across mixed job states', async () => {

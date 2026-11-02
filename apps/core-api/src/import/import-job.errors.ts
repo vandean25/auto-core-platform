@@ -66,7 +66,8 @@ export function importJobNotUndoable(details?: {
   return new ConflictException({
     code: IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE,
     message: 'Import job is not in an undoable state',
-    ...(details ? { details } : {}),
+    // The global filter forwards allowlisted keys flat, never a nested details object.
+    ...(details?.reason ? { reason: details.reason } : {}),
   });
 }
 

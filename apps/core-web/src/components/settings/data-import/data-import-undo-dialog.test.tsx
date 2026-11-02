@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import { toast } from 'sonner'
 
 import * as importsApi from '@/api/imports'
+import deErrors from '../../../../../../locales/de/errors.json'
 import deSettings from '../../../../../../locales/de/settings.json'
 import { DataImportUndoDialog } from './data-import-undo-dialog'
 
@@ -382,6 +383,35 @@ describe('DataImportUndoDialog', () => {
     expect(toast.warning).not.toHaveBeenCalled()
   })
 
+  it('still reports the blocked count when a fully blocked undo leaves the job applied', async () => {
+    // Catches the regression where a job that reverted nothing reads back as APPLIED
+    // and the dialog announces a successful undo instead of the blocked rows.
+    const mockMutateAsync = vi.fn().mockResolvedValue({
+      id: 'job-1',
+      status: 'APPLIED',
+      options: { undo: { deleted: 0, restored: 0, blocked: 3 } },
+    })
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: mockPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({ mockMutateAsync })
+    fireEvent.change(screen.getByTestId('undo-confirm-input'), {
+      target: { value: di.confirmation.keyword },
+    })
+    fireEvent.click(screen.getByTestId('undo-submit-button'))
+
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith(
+        di.toast.partial.replace('{{blockedCount}}', '3'),
+      ),
+    )
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
   it('falls back to its own failure text when the error code has no translation', async () => {
     const mockMutateAsync = vi.fn().mockRejectedValue({
       response: { status: 409, data: { code: 'NOT_A_PUBLIC_CODE' } },
@@ -404,6 +434,35 @@ describe('DataImportUndoDialog', () => {
         expect.stringContaining(di.toast.failed),
       ),
     )
+  })
+
+  it('renders LEGACY_JOB_NO_ENTITY_LINK blocked reason with localized text', async () => {
+    const previewWithLegacy: importsApi.ImportUndoPreviewResponse = {
+      ...mockPreview,
+      blocked: [
+        {
+          rowNumber: 1,
+          entityType: 'CUSTOMER',
+          entityId: null as unknown as Record<string, never>,
+          action: 'CREATE',
+          status: 'BLOCKED',
+          displayName: 'Legacy Customer',
+          reason: 'LEGACY_JOB_NO_ENTITY_LINK',
+        },
+      ],
+    }
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: previewWithLegacy,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+    const blockedBtn = screen.getByRole('button', { name: /Blockierte Datensätze/i })
+    fireEvent.click(blockedBtn)
+
+    expect(screen.getByText('Vor Rückgängig-Funktion importiert')).toBeInTheDocument()
   })
 
   it('shows total count 151 and capped indicator label "100 von 151 angezeigt" when blocked is capped', () => {
@@ -440,6 +499,41 @@ describe('DataImportUndoDialog', () => {
       screen.queryByText(/Folgebelege verhindern das Rückgängigmachen/i),
     ).not.toBeInTheDocument()
   })
+
+  it.each(
+    ['IMPORT_JOB_NOT_UNDOABLE', 'IMPORT_JOB_CONFLICT', 'IMPORT_JOB_BUSY'] as const,
+  )(
+    'shows the German errors:codes copy when undo fails with $code',
+    async (code) => {
+      // Catches the regression where the hook threw a plain Error and dropped
+      // response.data.code, leaving only this dialog's own fallback text.
+      const mockMutateAsync = vi.fn().mockRejectedValue({
+        response: {
+          status: 409,
+          data: { code, message: 'Import job is not in an undoable state' },
+        },
+      })
+      ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+        data: mockPreview,
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+
+      renderDialog({ mockMutateAsync })
+      fireEvent.change(screen.getByTestId('undo-confirm-input'), {
+        target: { value: di.confirmation.keyword },
+      })
+      fireEvent.click(screen.getByTestId('undo-submit-button'))
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(deErrors.codes[code]),
+      )
+      expect(toast.error).not.toHaveBeenCalledWith(
+        expect.stringContaining('Import job is not in an undoable state'),
+      )
+    },
+  )
 
   it('shows total count and capped indicator label for conflicts when capped', () => {
     const cappedConflicts = Array.from({ length: 100 }, (_, i) => ({
