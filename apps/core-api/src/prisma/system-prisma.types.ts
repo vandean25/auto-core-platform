@@ -19,6 +19,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * - site, siteMembership: AUT-547 demo user provisioning (membership on the landing demo tenant only).
  * - notificationOutbox: AUT-547 outbox writes in the same transaction as demo access grants (tenant id on row).
  * - customerConsentUnsubscribeToken: public marketing opt-out lookup by token hash before tenant context (AUT-589).
+ * - scheduledJobRun: scheduled background job execution timestamps and distributed lease claims (AUT-839).
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -41,6 +42,7 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'siteMembership',
   'notificationOutbox',
   'customerConsentUnsubscribeToken',
+  'scheduledJobRun',
 ] as const;
 
 export type SystemPrismaModelDelegate =
@@ -108,5 +110,6 @@ export function createSystemPrismaTransactionClient(
     siteMembership: client.siteMembership,
     notificationOutbox: client.notificationOutbox,
     customerConsentUnsubscribeToken: client.customerConsentUnsubscribeToken,
+    scheduledJobRun: client.scheduledJobRun,
   };
 }

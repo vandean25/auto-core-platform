@@ -141,6 +141,10 @@ export class SystemPrismaService
     return this.prisma.customerConsentUnsubscribeToken;
   }
 
+  get scheduledJobRun(): PrismaClient['scheduledJobRun'] {
+    return this.prisma.scheduledJobRun;
+  }
+
   $transaction<Result>(
     fn: (transaction: SystemPrismaTransactionClient) => Promise<Result>,
     options?: Parameters<SystemPrismaClient['$transaction']>[1],

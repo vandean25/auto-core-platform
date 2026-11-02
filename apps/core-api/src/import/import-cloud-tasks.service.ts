@@ -22,6 +22,8 @@ import {
   deterministicImportWorkerTaskId,
   type ImportWorkerTaskIdentity,
 } from './import-worker-task-identity.js';
+import { signImportPurgeTaskPayload } from './import-purge-task.payload.js';
+import { deterministicImportPurgeTaskId } from './import-purge-task-identity.js';
 
 @Injectable()
 export class ImportCloudTasksService {
@@ -60,6 +62,42 @@ export class ImportCloudTasksService {
     return raw.endsWith('/') ? raw : `${raw}/`;
   }
 
+  private getQueueEnvConfig() {
+    return {
+      workerSecret: process.env.CLOUD_TASKS_WORKER_SECRET as string,
+      invokerServiceAccount: process.env.CLOUD_TASKS_INVOKER_SA as string,
+      location: process.env.CLOUD_TASKS_LOCATION as string,
+      queue: process.env.CLOUD_TASKS_QUEUE as string,
+      targetBaseUrl: this.resolveTargetBaseUrl(),
+    };
+  }
+
+  private async dispatchNamedTask(params: {
+    projectId: string;
+    location: string;
+    queue: string;
+    taskId: string;
+    taskBody: ReturnType<typeof buildTaskRequest>;
+  }): Promise<void> {
+    const parent = this.client.queuePath(
+      params.projectId,
+      params.location,
+      params.queue,
+    );
+    const name = this.client.taskPath(
+      params.projectId,
+      params.location,
+      params.queue,
+      params.taskId,
+    );
+    await this.createTaskWithDeduplication(
+      parent,
+      name,
+      params.taskId,
+      params.taskBody,
+    );
+  }
+
   async enqueueImportWorker(params: {
     tenantId: string;
     jobId: string;
@@ -71,11 +109,13 @@ export class ImportCloudTasksService {
     if (!this.isEnabled()) {
       throw new InternalServerErrorException('Cloud Tasks is not enabled');
     }
-    const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET as string;
-    const invokerServiceAccount = process.env.CLOUD_TASKS_INVOKER_SA as string;
-    const location = process.env.CLOUD_TASKS_LOCATION as string;
-    const queue = process.env.CLOUD_TASKS_QUEUE as string;
-    const targetBaseUrl = this.resolveTargetBaseUrl();
+    const {
+      workerSecret,
+      invokerServiceAccount,
+      location,
+      queue,
+      targetBaseUrl,
+    } = this.getQueueEnvConfig();
     const url = new URL(
       `imports/${params.jobId}/worker`,
       targetBaseUrl,
@@ -100,8 +140,78 @@ export class ImportCloudTasksService {
       delaySeconds: params.delaySeconds,
       dispatchDeadlineSeconds: IMPORT_WORKER_DISPATCH_DEADLINE_SECONDS,
     });
-    const parent = this.client.queuePath(projectId, location, queue);
-    const name = this.client.taskPath(projectId, location, queue, taskId);
+    await this.dispatchNamedTask({
+      projectId,
+      location,
+      queue,
+      taskId,
+      taskBody,
+    });
+    this.logger.log(
+      `Enqueued import ${params.phase} worker for job ${params.jobId} (${taskId})`,
+    );
+  }
+
+  async enqueueImportPurgeWorker(params: {
+    runId: string;
+    sequence: number;
+    delaySeconds?: number;
+  }): Promise<void> {
+    SideEffectGuard.assertAllowed('QUEUE_ENQUEUE');
+    if (!this.isEnabled()) {
+      throw new InternalServerErrorException('Cloud Tasks is not enabled');
+    }
+    const {
+      workerSecret,
+      invokerServiceAccount,
+      location,
+      queue,
+      targetBaseUrl,
+    } = this.getQueueEnvConfig();
+    const url = new URL(
+      'imports/maintenance/row-purge/worker',
+      targetBaseUrl,
+    ).toString();
+    const projectId = await this.getProjectId();
+    const payload = signImportPurgeTaskPayload(
+      {
+        runId: params.runId,
+        sequence: params.sequence,
+      },
+      workerSecret,
+    );
+    const taskId = deterministicImportPurgeTaskId(
+      params.runId,
+      params.sequence,
+    );
+    const taskBody = buildTaskRequest({
+      url,
+      workerSecret,
+      tenantId: 'system',
+      payload,
+      invokerServiceAccount,
+      targetBaseUrl,
+      delaySeconds: params.delaySeconds,
+      dispatchDeadlineSeconds: IMPORT_WORKER_DISPATCH_DEADLINE_SECONDS,
+    });
+    await this.dispatchNamedTask({
+      projectId,
+      location,
+      queue,
+      taskId,
+      taskBody,
+    });
+    this.logger.log(
+      `Enqueued import row purge worker (runId: ${params.runId}, seq: ${params.sequence}, taskId: ${taskId})`,
+    );
+  }
+
+  private async createTaskWithDeduplication(
+    parent: string,
+    name: string,
+    taskId: string,
+    taskBody: ReturnType<typeof buildTaskRequest>,
+  ): Promise<void> {
     try {
       await this.client.createTask({
         parent,
@@ -128,8 +238,5 @@ export class ImportCloudTasksService {
         throw lookupError;
       }
     }
-    this.logger.log(
-      `Enqueued import ${params.phase} worker for job ${params.jobId} (${taskId})`,
-    );
   }
 }
