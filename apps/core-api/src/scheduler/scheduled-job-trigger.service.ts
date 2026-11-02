@@ -2,6 +2,7 @@ import { Injectable, Logger, type INestApplication } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ScheduledJobService } from './scheduled-job.service.js';
 import { ImportPurgeWorkerService } from '../import/import-purge-worker.service.js';
+import { resolveSchedulerMode } from './scheduler-mode.js';
 
 export const SCHEDULED_JOB_REQUEST_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -72,6 +73,10 @@ export class ScheduledJobTriggerService {
   }
 
   private async runDueJobs(): Promise<void> {
+    if (resolveSchedulerMode(process.env) === 'off') {
+      this.logger.debug('Scheduled job trigger disabled by SCHEDULER_MODE=off');
+      return;
+    }
     await this.triggerJob('import-job-row-purge');
   }
 }
