@@ -42,22 +42,80 @@ export function findUnknownPermissions(
   );
 }
 
+/** A message naming `where` when the entry is incomplete, otherwise null. */
 function describeEntryProblem(
   entry: OperationEntry | ClassifiedOperation,
+  where: string,
 ): string | null {
   if (entry.kind === 'protected') {
     if (entry.permissions.length === 0) {
-      return 'has no permission';
+      return `${where} has no permission`;
     }
     if (entry.legacy.length === 0 || entry.principals.length === 0) {
-      return 'records no legacy access or principal';
+      return `${where} records no legacy access or principal`;
     }
     return null;
   }
   if (entry.kind === 'api_key' && entry.permissions.length === 0) {
-    return 'has no permission';
+    return `${where} has no permission`;
   }
-  return entry.policy.trim() === '' ? 'has no policy text' : null;
+  return entry.policy.trim() === '' ? `${where} has no policy text` : null;
+}
+
+function findRouteProblems(
+  routes: readonly RegisteredRoute[],
+  table: OperationTable,
+): string[] {
+  const problems = routes.flatMap((route) => {
+    const where = `${route.method} ${route.path} (${route.id})`;
+    const entry = table[route.id];
+    if (!entry) {
+      return [`${where} has no operation entry`];
+    }
+    const allowed = allowedKinds(route);
+    return [
+      allowed.includes(entry.kind)
+        ? null
+        : `${where} is classified as ${entry.kind} but its metadata requires ${allowed.join(' or ')}`,
+      entry.kind === 'api_key' && entry.apiKeyScope !== route.publicApiScope
+        ? `${where} maps API key scope ${entry.apiKeyScope}`
+        : null,
+      describeEntryProblem(entry, where),
+    ].filter((problem) => problem !== null);
+  });
+  const routeIds = new Set(routes.map((route) => route.id));
+  return [
+    ...problems,
+    ...Object.keys(table)
+      .filter((id) => !routeIds.has(id))
+      .map(
+        (id) => `${id} has an operation entry but is not a registered route`,
+      ),
+  ];
+}
+
+function findToolProblems(
+  tools: readonly string[],
+  mcpTable: McpToolTable,
+): string[] {
+  const problems = tools.flatMap((tool) => {
+    const entry = mcpTable[tool];
+    return entry
+      ? [describeEntryProblem(entry, `MCP tool ${tool}`)].filter(
+          (problem) => problem !== null,
+        )
+      : [`MCP tool ${tool} has no operation entry`];
+  });
+  const toolNames = new Set(tools);
+  return [
+    ...problems,
+    ...Object.keys(mcpTable)
+      .filter((tool) => !toolNames.has(tool))
+      .map(
+        (tool) =>
+          `${tool} has an operation entry but is not a registered MCP tool`,
+      ),
+  ];
 }
 
 export type CoverageInput = {
@@ -72,66 +130,10 @@ export type CoverageInput = {
  * each naming the route or tool; an empty list means zero missing or invalid mappings.
  */
 export function findCoverageProblems(input: CoverageInput): string[] {
-  const { routes, mcpTools, table, mcpTable } = input;
-  const problems: string[] = [];
-
-  for (const route of routes) {
-    const where = `${route.method} ${route.path} (${route.id})`;
-    const entry = table[route.id];
-    if (!entry) {
-      problems.push(`${where} has no operation entry`);
-      continue;
-    }
-    const allowed = allowedKinds(route);
-    if (!allowed.includes(entry.kind)) {
-      problems.push(
-        `${where} is classified as ${entry.kind} but its metadata requires ${allowed.join(' or ')}`,
-      );
-    }
-    if (
-      entry.kind === 'api_key' &&
-      entry.apiKeyScope !== route.publicApiScope
-    ) {
-      problems.push(`${where} maps API key scope ${entry.apiKeyScope}`);
-    }
-    const problem = describeEntryProblem(entry);
-    if (problem) {
-      problems.push(`${where} ${problem}`);
-    }
-  }
-
-  const routeIds = new Set(routes.map((route) => route.id));
-  for (const id of Object.keys(table)) {
-    if (!routeIds.has(id)) {
-      problems.push(
-        `${id} has an operation entry but is not a registered route`,
-      );
-    }
-  }
-
-  for (const tool of mcpTools) {
-    const entry = mcpTable[tool];
-    if (!entry) {
-      problems.push(`MCP tool ${tool} has no operation entry`);
-      continue;
-    }
-    const problem = describeEntryProblem(entry);
-    if (problem) {
-      problems.push(`MCP tool ${tool} ${problem}`);
-    }
-  }
-  const toolNames = new Set(mcpTools);
-  for (const tool of Object.keys(mcpTable)) {
-    if (!toolNames.has(tool)) {
-      problems.push(
-        `${tool} has an operation entry but is not a registered MCP tool`,
-      );
-    }
-  }
-
   return [
-    ...problems,
-    ...findUnknownPermissions(table),
-    ...findUnknownPermissions(mcpTable),
+    ...findRouteProblems(input.routes, input.table),
+    ...findToolProblems(input.mcpTools, input.mcpTable),
+    ...findUnknownPermissions(input.table),
+    ...findUnknownPermissions(input.mcpTable),
   ];
 }

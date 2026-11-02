@@ -58,30 +58,39 @@ function metadata<T>(key: string, target: object): T | undefined {
   return Reflect.getMetadata(key, target) as T | undefined;
 }
 
+function moduleParts(ref: ModuleRef): {
+  module: Type<unknown>;
+  controllers: Type<unknown>[];
+  imports: ModuleRef[];
+} {
+  const { module, dynamic } = resolveModule(ref);
+  const extra = dynamic ?? { controllers: [], imports: [] };
+  return {
+    module,
+    controllers: [
+      ...(metadata<Type<unknown>[]>(MODULE_METADATA.CONTROLLERS, module) ?? []),
+      ...(extra.controllers as Type<unknown>[]),
+    ],
+    imports: [
+      ...(metadata<ModuleRef[]>(MODULE_METADATA.IMPORTS, module) ?? []),
+      ...(extra.imports as ModuleRef[]),
+    ],
+  };
+}
+
 /** Controllers of every module reachable from the root through static and dynamic imports. */
 function collectControllers(root: ModuleRef): Type<unknown>[] {
   const seen = new Set<Type<unknown>>();
   const controllers = new Set<Type<unknown>>();
-  const visit = (ref: ModuleRef): void => {
-    const { module, dynamic } = resolveModule(ref);
-    if (seen.has(module)) {
-      return;
+  const pending: ModuleRef[] = [root];
+  for (let ref = pending.pop(); ref; ref = pending.pop()) {
+    const parts = moduleParts(ref);
+    if (!seen.has(parts.module)) {
+      seen.add(parts.module);
+      parts.controllers.forEach((controller) => controllers.add(controller));
+      pending.push(...parts.imports);
     }
-    seen.add(module);
-    for (const controller of [
-      ...(metadata<Type<unknown>[]>(MODULE_METADATA.CONTROLLERS, module) ?? []),
-      ...(dynamic?.controllers ?? []),
-    ]) {
-      controllers.add(controller as Type<unknown>);
-    }
-    for (const imported of [
-      ...(metadata<ModuleRef[]>(MODULE_METADATA.IMPORTS, module) ?? []),
-      ...((dynamic?.imports ?? []) as ModuleRef[]),
-    ]) {
-      visit(imported);
-    }
-  };
-  visit(root);
+  }
   return [...controllers];
 }
 
