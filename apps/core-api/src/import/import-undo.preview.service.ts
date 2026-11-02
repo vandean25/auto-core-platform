@@ -20,14 +20,26 @@ import {
 } from './import-undo.types.js';
 import {
   importJobAlreadyUndone,
+  importJobBusy,
   importJobExpired,
   importJobNotFound,
   importJobNotUndoable,
+  importJobPurged,
 } from './import-job.errors.js';
+import {
+  hasStagedImportJobRows,
+  hasUndoableRows,
+} from './import-undo.helpers.js';
 import type { ImportJobTotals } from './import.types.js';
 
 const PREVIEW_PAGE_SIZE = 100;
 const MAX_PREVIEW_ITEMS_PER_BUCKET = 100;
+
+const PREVIEW_ELIGIBLE_STATUSES = new Set<ImportJobStatus>([
+  ImportJobStatus.APPLIED,
+  ImportJobStatus.PARTIALLY_UNDONE,
+  ImportJobStatus.FAILED,
+]);
 
 function formatCandidate(
   a?: unknown,
@@ -110,53 +122,18 @@ function validateJobForPreview(job: ImportJob | null): number {
   if (job.status === ImportJobStatus.UNDONE) {
     throw importJobAlreadyUndone();
   }
+  if (job.status === ImportJobStatus.APPLYING) {
+    throw importJobBusy();
+  }
   const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
   if (jobOptions.cancel_reason === 'expired') {
     throw importJobExpired();
   }
-  const appliedRowsCount = getAppliedRowsCount(
-    job.totals_json as ImportJobTotals | null,
-  );
-  const isEligibleStatus =
-    job.status === ImportJobStatus.APPLIED ||
-    job.status === ImportJobStatus.PARTIALLY_UNDONE ||
-    (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
-  if (!isEligibleStatus) {
-    throw importJobNotUndoable();
-  }
-  return appliedRowsCount;
-}
-
-function checkBlockedJobPreview(
-  job: ImportJob,
-  appliedRowsCount: number,
-): ImportUndoPreviewResponseDto | null {
-  if (isDocOrFinancialImport(job.entity_type)) {
-    return buildBlockedPreview(
-      job.id,
-      job.entity_type,
-      appliedRowsCount,
-      UNDO_BLOCKED_REASONS.FINANCIAL_IMPORT_CANNOT_BE_UNDONE,
-    );
-  }
-  const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
-  if (jobOptions.rows_purged === true) {
-    return buildBlockedPreview(
-      job.id,
-      job.entity_type,
-      appliedRowsCount,
-      UNDO_BLOCKED_REASONS.ROWS_PURGED,
-    );
-  }
-  return null;
+  return getAppliedRowsCount(job.totals_json as ImportJobTotals | null);
 }
 
 function canUndoCounts(counts: ImportUndoCountsDto): boolean {
   return counts.toDelete > 0 || counts.toRestore > 0 || counts.conflicts > 0;
-}
-
-function isPurgedByCount(total: number, appliedRowsCount: number): boolean {
-  return total === 0 && appliedRowsCount > 0;
 }
 
 function getEffectiveAppliedAt(job: ImportJob): Date {
@@ -247,9 +224,22 @@ export class ImportUndoPreviewService {
     });
 
     const appliedRowsCount = validateJobForPreview(job);
-    const earlyBlocked = checkBlockedJobPreview(job!, appliedRowsCount);
-    if (earlyBlocked) {
-      return earlyBlocked;
+    const hasRows = await this.assertPreviewUndoable(
+      tenantId,
+      job!,
+      appliedRowsCount,
+    );
+
+    if (isDocOrFinancialImport(job!.entity_type)) {
+      return buildBlockedPreview(
+        job!.id,
+        job!.entity_type,
+        appliedRowsCount,
+        UNDO_BLOCKED_REASONS.FINANCIAL_IMPORT_CANNOT_BE_UNDONE,
+      );
+    }
+    if (!hasRows) {
+      throw importJobNotUndoable();
     }
 
     const buckets: UndoBuckets = {
@@ -276,15 +266,6 @@ export class ImportUndoPreviewService {
       counts,
     );
 
-    if (isPurgedByCount(counts.total, appliedRowsCount)) {
-      return buildBlockedPreview(
-        jobId,
-        job!.entity_type,
-        appliedRowsCount,
-        UNDO_BLOCKED_REASONS.ROWS_PURGED,
-      );
-    }
-
     return {
       jobId,
       status: calculateOverallStatus(counts),
@@ -292,6 +273,54 @@ export class ImportUndoPreviewService {
       counts,
       ...buckets,
     };
+  }
+
+  /**
+   * One eligibility gate for every preview path, mirroring POST /undo: rejects
+   * not-undoable and purged jobs before any count is built. Returns whether
+   * undoable rows remain; the doc/financial branch answers before that is
+   * enforced.
+   */
+  private async assertPreviewUndoable(
+    tenantId: string,
+    job: ImportJob,
+    appliedRowsCount: number,
+  ): Promise<boolean> {
+    if (!PREVIEW_ELIGIBLE_STATUSES.has(job.status)) {
+      throw importJobNotUndoable();
+    }
+    const jobOptions = (job.options_json ?? {}) as Record<string, unknown>;
+    if (jobOptions.rows_purged === true) {
+      throw importJobPurged();
+    }
+
+    const hasRows = await hasUndoableRows(this.prisma, tenantId, job);
+    // A FAILED job that never applied rows is not undoable: reject it here so
+    // preview agrees with POST /undo (409) for doc/financial dry-run jobs too,
+    // instead of short-circuiting into a blocked preview below.
+    if (job.status === ImportJobStatus.FAILED && !hasRows) {
+      throw importJobNotUndoable();
+    }
+    if (await this.isPurgedWithoutMark(tenantId, job, appliedRowsCount)) {
+      throw importJobPurged();
+    }
+    return hasRows;
+  }
+
+  /**
+   * The retention purge marks recent purges with rows_purged and deletes the
+   * staged rows of ancient jobs without marking: missing rows although the
+   * totals report applied rows prove the undo basis was purged.
+   */
+  private async isPurgedWithoutMark(
+    tenantId: string,
+    job: ImportJob,
+    appliedRowsCount: number,
+  ): Promise<boolean> {
+    return (
+      appliedRowsCount > 0 &&
+      !(await hasStagedImportJobRows(this.prisma, tenantId, job.id))
+    );
   }
 
   private async scanPreviewRows(

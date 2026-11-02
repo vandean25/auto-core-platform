@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -68,6 +69,10 @@ describe('ImportUndoPreviewService', () => {
       },
       importJobRow: {
         findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({ row_no: 1 }),
+      },
+      catalogPriceHistory: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'cph-1' }),
       },
     };
     for (const model of GUARD_MODELS) {
@@ -101,7 +106,7 @@ describe('ImportUndoPreviewService', () => {
     await expect(service.previewUndo(jobId)).rejects.toThrow(NotFoundException);
   });
 
-  it('throws BadRequestException when job is not APPLIED or FAILED with applied rows', async () => {
+  it('throws ConflictException when job is not APPLIED or FAILED with applied rows', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
       id: jobId,
       tenant_id: tenantId,
@@ -109,7 +114,20 @@ describe('ImportUndoPreviewService', () => {
       totals_json: { create: 0, update: 0 },
     });
 
-    await expect(service.previewUndo(jobId)).rejects.toThrow(BadRequestException);
+    await expect(service.previewUndo(jobId)).rejects.toThrow(ConflictException);
+  });
+
+  it('throws ConflictException with IMPORT_JOB_BUSY when job is APPLYING', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      status: ImportJobStatus.APPLYING,
+      totals_json: { create: 1, update: 0 },
+    });
+
+    await expect(service.previewUndo(jobId)).rejects.toMatchObject({
+      response: { code: 'IMPORT_JOB_BUSY' },
+    });
   });
 
   it('throws BadRequestException when job is already UNDONE', async () => {
@@ -124,6 +142,29 @@ describe('ImportUndoPreviewService', () => {
       response: { code: 'IMPORT_JOB_ALREADY_UNDONE' },
     });
   });
+
+  it.each([
+    { entityType: ImportEntityType.CUSTOMER },
+    { entityType: ImportEntityType.LEGACY_INVOICE },
+  ])(
+    'rejects FAILED dry-run $entityType job that never applied rows with IMPORT_JOB_NOT_UNDOABLE, matching POST /undo',
+    async ({ entityType }) => {
+      // Catches the regression where the blocked-preview short-circuit ran
+      // before the status gate and returned 200 for these jobs.
+      mockPrisma.importJob.findFirst.mockResolvedValue({
+        id: jobId,
+        tenant_id: tenantId,
+        entity_type: entityType,
+        status: ImportJobStatus.FAILED,
+        totals_json: { create: 0, update: 0 },
+      });
+      mockPrisma.importJobRow.findFirst.mockResolvedValue(null);
+
+      await expect(service.previewUndo(jobId)).rejects.toMatchObject({
+        response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
+      });
+    },
+  );
 
   it('generates preview for APPLIED customer job with clean create and update rows', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
@@ -256,47 +297,30 @@ describe('ImportUndoPreviewService', () => {
     );
   });
 
-  it('returns BLOCKED preview when job options has rows_purged: true', async () => {
-    mockPrisma.importJob.findFirst.mockResolvedValue({
-      id: jobId,
-      tenant_id: tenantId,
-      entity_type: ImportEntityType.CUSTOMER,
-      status: ImportJobStatus.APPLIED,
-      appliedAt,
-      totals_json: { create: 5, update: 0 },
-      options_json: { rows_purged: true },
-    });
+  it.each([
+    { label: 'flagged', options_json: { rows_purged: true } },
+    { label: 'deleted without flag', options_json: {} },
+  ])(
+    'answers 409 IMPORT_JOB_PURGED when the applied rows were $label',
+    async ({ options_json }) => {
+      // Catches the regression where purged jobs got a BLOCKED preview whose
+      // counts were synthesized from totals_json instead of a 409.
+      mockPrisma.importJob.findFirst.mockResolvedValue({
+        id: jobId,
+        tenant_id: tenantId,
+        entity_type: ImportEntityType.CUSTOMER,
+        status: ImportJobStatus.APPLIED,
+        appliedAt,
+        totals_json: { create: 5, update: 0 },
+        options_json,
+      });
+      mockPrisma.importJobRow.findFirst.mockResolvedValue(null);
 
-    const preview = await service.previewUndo(jobId);
-
-    expect(preview.canUndo).toBe(false);
-    expect(preview.status).toBe('BLOCKED');
-    expect(preview.counts.blocked).toBe(5);
-    expect(preview.blocked).toHaveLength(1);
-    expect(preview.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.ROWS_PURGED);
-  });
-
-  it('returns BLOCKED preview when applied job rows have been purged from database', async () => {
-    mockPrisma.importJob.findFirst.mockResolvedValue({
-      id: jobId,
-      tenant_id: tenantId,
-      entity_type: ImportEntityType.CUSTOMER,
-      status: ImportJobStatus.APPLIED,
-      appliedAt,
-      totals_json: { create: 3, update: 0 },
-      options_json: {},
-    });
-
-    mockPrisma.importJobRow.findMany.mockResolvedValueOnce([]);
-
-    const preview = await service.previewUndo(jobId);
-
-    expect(preview.canUndo).toBe(false);
-    expect(preview.status).toBe('BLOCKED');
-    expect(preview.counts.blocked).toBe(3);
-    expect(preview.blocked).toHaveLength(1);
-    expect(preview.blocked[0].reason).toBe(UNDO_BLOCKED_REASONS.ROWS_PURGED);
-  });
+      await expect(service.previewUndo(jobId)).rejects.toMatchObject({
+        response: { code: 'IMPORT_JOB_PURGED' },
+      });
+    },
+  );
 
   it('returns BLOCKED preview when the job expired', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
