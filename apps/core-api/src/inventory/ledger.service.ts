@@ -1,7 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 
@@ -243,64 +242,79 @@ export class LedgerService {
       ]),
     );
 
-    type InventoryStockRecord = (typeof existingStocks)[number];
+    const missingDeltas = deltas.filter(
+      (delta) => !existingStocksMap.has(`${delta.itemId}-${delta.locationId}`),
+    );
+    if (missingDeltas.length > 0) {
+      await tx.inventoryStock.createMany({
+        data: missingDeltas.map((delta) => ({
+          tenant_id: tenantId,
+          site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
+          catalog_item_id: delta.itemId,
+          location_id: delta.locationId,
+          quantity_on_hand: delta.quantity,
+          quantity_reserved: new Decimal(0),
+        })),
+      });
+    }
 
-    await chunkedPromiseAll(deltas, async (delta) => {
-      const stockKey = `${delta.itemId}-${delta.locationId}`;
-      const existingStock = existingStocksMap.get(stockKey);
-
-      let stock: InventoryStockRecord;
+    // Stocks that change by the same quantity share one update; the order of the statements does not matter inside the transaction.
+    const stockIdsByQuantity = new Map<string, string[]>();
+    for (const delta of deltas) {
+      const existingStock = existingStocksMap.get(
+        `${delta.itemId}-${delta.locationId}`,
+      );
       if (existingStock) {
-        const updateResult = await tx.inventoryStock.updateMany({
-          where: { id: existingStock.id, tenant_id: tenantId },
-          data: {
-            quantity_on_hand: {
-              increment: delta.quantity,
-            },
-          },
-        });
-
-        if (updateResult.count === 0) {
-          throw new BadRequestException(
-            `Inventory stock ${existingStock.id} not found for current tenant`,
-          );
-        }
-
-        const refreshedStock = await tx.inventoryStock.findFirst({
-          where: {
-            id: existingStock.id,
-            tenant_id: tenantId,
-            site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
-          },
-        });
-
-        if (!refreshedStock) {
-          throw new BadRequestException(
-            `Inventory stock ${existingStock.id} not found after update`,
-          );
-        }
-
-        stock = refreshedStock;
-      } else {
-        stock = await tx.inventoryStock.create({
-          data: {
-            tenant_id: tenantId,
-            site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
-            catalog_item_id: delta.itemId,
-            location_id: delta.locationId,
-            quantity_on_hand: delta.quantity,
-            quantity_reserved: new Decimal(0),
-          },
-        });
-        existingStocksMap.set(stockKey, stock);
+        const key = delta.quantity.toString();
+        stockIdsByQuantity.set(key, [
+          ...(stockIdsByQuantity.get(key) ?? []),
+          existingStock.id,
+        ]);
       }
+    }
+    for (const [quantity, stockIds] of stockIdsByQuantity) {
+      const result = await tx.inventoryStock.updateMany({
+        where: { id: { in: stockIds }, tenant_id: tenantId },
+        data: { quantity_on_hand: { increment: new Decimal(quantity) } },
+      });
+      if (result.count !== stockIds.length) {
+        throw new BadRequestException(
+          `Inventory stock ${stockIds[0]} not found for current tenant`,
+        );
+      }
+    }
 
+    const refreshedStocks = await tx.inventoryStock.findMany({
+      where: {
+        tenant_id: tenantId,
+        OR: deltas.map((delta) => ({
+          catalog_item_id: delta.itemId,
+          location_id: delta.locationId,
+          site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
+        })),
+      },
+    });
+    const refreshedByKey = new Map(
+      refreshedStocks.map((stock) => [
+        `${stock.catalog_item_id}-${stock.location_id}`,
+        stock,
+      ]),
+    );
+
+    for (const delta of deltas) {
+      const stockKey = `${delta.itemId}-${delta.locationId}`;
+      const stock = refreshedByKey.get(stockKey);
+      if (!stock) {
+        throw new BadRequestException(
+          `Inventory stock ${existingStocksMap.get(stockKey)?.id ?? stockKey} not found after update`,
+        );
+      }
       if (new Decimal(stock.quantity_on_hand).lt(0)) {
         throw new BadRequestException(
           `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand.toString()}) for item ${delta.itemId} at location ${delta.locationId}`,
         );
       }
-    });
+    }
   }
 
   private getLocationSiteId(

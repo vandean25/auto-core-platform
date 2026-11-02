@@ -10,7 +10,6 @@ import {
   StockTransferCommandAction,
   StockTransferStatus,
 } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import type {
   ApproveStockTransferDto,
   ApproveStockTransferLineDto,
@@ -38,6 +37,44 @@ import { TRANSFER_INCLUDE } from './stock-transfer-include.js';
 import { SerializedStockTransfer } from './stock-transfer-serializer.js';
 
 import Decimal = Prisma.Decimal;
+
+type TransferLineChange = {
+  lineId: string;
+  guard: Prisma.StockTransferLineWhereInput;
+  data: Prisma.StockTransferLineUncheckedUpdateManyInput;
+};
+
+/**
+ * Applies guarded line updates with one updateMany per distinct guard and data, so lines with equal values share a
+ * statement. A stale count names the first line of its group; the whole transaction rolls back either way.
+ */
+async function updateTransferLines(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  transferId: string,
+  changes: TransferLineChange[],
+  staleMessage: (lineId: string) => string,
+): Promise<void> {
+  const groups = new Map<string, TransferLineChange[]>();
+  for (const change of changes) {
+    const key = JSON.stringify([change.guard, change.data]);
+    groups.set(key, [...(groups.get(key) ?? []), change]);
+  }
+  for (const group of groups.values()) {
+    const result = await tx.stockTransferLine.updateMany({
+      where: {
+        tenant_id: tenantId,
+        transfer_id: transferId,
+        id: { in: group.map((change) => change.lineId) },
+        ...group[0].guard,
+      },
+      data: group[0].data,
+    });
+    if (result.count !== group.length) {
+      throw new ConflictException(staleMessage(group[0].lineId));
+    }
+  }
+}
 
 @Injectable()
 export class StockTransferMutationService {
@@ -214,30 +251,28 @@ export class StockTransferMutationService {
         }
       }
 
-      for (const update of updates) {
-        const line = linesById.get(update.id)!;
-        const approvedQty = new Decimal(
-          update.approvedQty ?? line.requested_qty.toNumber(),
-        );
-        const result = await tx.stockTransferLine.updateMany({
-          where: {
-            tenant_id: access.tenantId,
-            id: update.id,
-            transfer_id: id,
-            approved_qty: line.approved_qty,
-          },
-          data: {
-            approved_qty: approvedQty,
-            ...(update.sourceLocationId && !line.source_location_id
-              ? { source_location_id: update.sourceLocationId }
-              : {}),
-          },
-        });
-        this.assertSingleUpdate(
-          result,
-          `Line ${update.id} changed during approval. Refresh and retry.`,
-        );
-      }
+      await updateTransferLines(
+        tx,
+        access.tenantId,
+        id,
+        updates.map((update) => {
+          const line = linesById.get(update.id)!;
+          return {
+            lineId: update.id,
+            guard: { approved_qty: line.approved_qty },
+            data: {
+              approved_qty: new Decimal(
+                update.approvedQty ?? line.requested_qty.toNumber(),
+              ),
+              ...(update.sourceLocationId && !line.source_location_id
+                ? { source_location_id: update.sourceLocationId }
+                : {}),
+            },
+          };
+        }),
+        (lineId) =>
+          `Line ${lineId} changed during approval. Refresh and retry.`,
+      );
 
       const guarded = await tx.stockTransfer.updateMany({
         where: {
@@ -471,25 +506,21 @@ export class StockTransferMutationService {
         'Transfer changed during shipping. Refresh and retry.',
       );
 
-      await chunkedPromiseAll(transfer.lines, async (line) => {
-        const sourceLocationId = frozenSourceByLine.get(line.id) ?? null;
-        const result = await tx.stockTransferLine.updateMany({
-          where: {
-            tenant_id: access.tenantId,
-            id: line.id,
-            transfer_id: id,
-            shipped_qty: line.shipped_qty,
-          },
+      await updateTransferLines(
+        tx,
+        access.tenantId,
+        id,
+        transfer.lines.map((line) => ({
+          lineId: line.id,
+          guard: { shipped_qty: line.shipped_qty },
           data: {
             shipped_qty: line.approved_qty,
-            source_location_id: sourceLocationId,
+            source_location_id: frozenSourceByLine.get(line.id) ?? null,
           },
-        });
-        this.assertSingleUpdate(
-          result,
-          `Line ${line.id} changed during shipping. Refresh and retry.`,
-        );
-      });
+        })),
+        (lineId) =>
+          `Line ${lineId} changed during shipping. Refresh and retry.`,
+      );
 
       await this.ledgerPostingService.writeShipLedgerPairs(
         tx,
@@ -604,28 +635,29 @@ export class StockTransferMutationService {
             'Transfer changed during receiving. Refresh and retry.',
           );
 
-          await chunkedPromiseAll(dto.lines, async (update) => {
-            const line = linesById.get(update.id)!;
-            const result = await tx.stockTransferLine.updateMany({
-              where: {
-                tenant_id: access.tenantId,
-                id: update.id,
-                transfer_id: id,
-                received_qty: line.received_qty,
-                returned_qty: line.returned_qty,
-              },
-              data: {
-                received_qty: { increment: update.receiveQty },
-                ...(line.dest_location_id
-                  ? {}
-                  : { dest_location_id: update.destLocationId }),
-              },
-            });
-            this.assertSingleUpdate(
-              result,
-              `Line ${update.id} changed during receiving. Refresh and retry.`,
-            );
-          });
+          await updateTransferLines(
+            tx,
+            access.tenantId,
+            id,
+            dto.lines.map((update) => {
+              const line = linesById.get(update.id)!;
+              return {
+                lineId: update.id,
+                guard: {
+                  received_qty: line.received_qty,
+                  returned_qty: line.returned_qty,
+                },
+                data: {
+                  received_qty: { increment: update.receiveQty },
+                  ...(line.dest_location_id
+                    ? {}
+                    : { dest_location_id: update.destLocationId }),
+                },
+              };
+            }),
+            (lineId) =>
+              `Line ${lineId} changed during receiving. Refresh and retry.`,
+          );
 
           await this.ledgerPostingService.writeSettlementLedgerPairs(
             tx,
@@ -761,23 +793,24 @@ export class StockTransferMutationService {
             'Transfer changed during return. Refresh and retry.',
           );
 
-          await chunkedPromiseAll(dto.lines, async (update) => {
-            const line = linesById.get(update.id)!;
-            const result = await tx.stockTransferLine.updateMany({
-              where: {
-                tenant_id: access.tenantId,
-                id: update.id,
-                transfer_id: id,
-                received_qty: line.received_qty,
-                returned_qty: line.returned_qty,
-              },
-              data: { returned_qty: { increment: update.returnQty } },
-            });
-            this.assertSingleUpdate(
-              result,
-              `Line ${update.id} changed during return. Refresh and retry.`,
-            );
-          });
+          await updateTransferLines(
+            tx,
+            access.tenantId,
+            id,
+            dto.lines.map((update) => {
+              const line = linesById.get(update.id)!;
+              return {
+                lineId: update.id,
+                guard: {
+                  received_qty: line.received_qty,
+                  returned_qty: line.returned_qty,
+                },
+                data: { returned_qty: { increment: update.returnQty } },
+              };
+            }),
+            (lineId) =>
+              `Line ${lineId} changed during return. Refresh and retry.`,
+          );
 
           await this.ledgerPostingService.writeSettlementLedgerPairs(
             tx,
