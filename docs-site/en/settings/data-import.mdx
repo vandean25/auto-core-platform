@@ -54,4 +54,10 @@ Imports create new rows. They do not merge duplicates by plate or email unless t
   <Accordion title="Import row retention">
     Detailed row payloads from finished import jobs are purged after **180 days** per tenant. Job headers, status, and external IDs remain for traceability. The nightly `import-job-row-purge` job is listed under [Core API scheduled jobs](/en/operations/core-api-scheduled-jobs).
   </Accordion>
+  <Accordion title="Large CSV files">
+    Files over **30 MiB** upload directly to storage during the dry run; progress appears in the wizard (hint: **Files over 30 MiB are uploaded directly to storage during the dry run**). Smaller files still use the normal upload path.
+  </Accordion>
+  <Accordion title="Errors CSV">
+    When dry run or apply fails rows, download **errors CSV** from the **History** row menu — localized messages per row, not only technical codes.
+  </Accordion>
 </AccordionGroup>

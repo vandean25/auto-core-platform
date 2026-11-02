@@ -21,9 +21,10 @@ Die **Hauptnavigation** ist in Gruppen gegliedert (z. B. **Übersicht**, **Verka
 
 - **Strg+B** / **Cmd+B** blendet die Leiste auf schmalen Bildschirmen in den Icon-Modus ein oder aus (Tooltips zeigen die Modulnamen).
 - Am **Smartphone** öffnet das Menü-Symbol die Navigation als **Blatt**; nach einem Modulwechsel schließt es sich. **Schließen** beendet das Blatt ohne Navigation.
+- Unterstützte Browser bieten **App installieren** im **Profil**-Menü (PWA). Die installierte App eignet sich besonders für Mechaniker-Tablets und ist auf iPhone/iPad Voraussetzung für Web-Push unter [Benachrichtigungen](/settings/notifications).
 
 <Tip>
-Unter **Profil** in der Seitenleiste können Sie **Sprache** zwischen Deutsch und Englisch umschalten. Kunden-PDFs und E-Mails folgen separat der Kundensprache bzw. Mandanten-Vorgabe (siehe [Kunden](/workflows/customers) und [Werkstattaufträge](/workflows/workshop-orders)).
+Unter **Profil** in der Seitenleiste können Sie **Sprache** zwischen Deutsch und Englisch umschalten — die Oberfläche aktualisiert sich ohne Neuladen. Kunden-PDFs und E-Mails folgen separat der im Kundenstamm hinterlegten Sprache bzw. dem Mandanten-Standard (siehe [Kunden](/workflows/customers) und [Rechnungen](/workflows/invoices)); die Sprache am Kunden ist derzeit nicht im Kundenformular editierbar, kann aber z. B. beim Import mitgeliefert werden.
 </Tip>
 
 <Tabs>
@@ -31,7 +32,7 @@ Unter **Profil** in der Seitenleiste können Sie **Sprache** zwischen Deutsch un
     OWNER, ADMIN und SALES erhalten die volle Seitenleiste: Dashboard, Kunden, Werkstatt, Lager, Einkauf, Einstellungs-Zahnrad. Standard-Landing nach `/` ist **Lager**.
   </Tab>
   <Tab title="TECH (Mechaniker)">
-    Eine TECH-Mitgliedschaft lädt nur **Meine Warteschlange** (`/mechanic/queue`). Jede andere URL leitet dorthin um. In dieser Oberfläche gibt es kein Finanz- oder Lieferanten-Menü. **Abmelden** ist in der oberen Leiste.
+    Eine TECH-Mitgliedschaft lädt nur **Meine Warteschlange** (`/mechanic/queue`). Jede andere URL leitet dorthin um. In dieser Oberfläche gibt es kein Finanz- oder Lieferanten-Menü. **Abmelden** ist in der oberen Leiste. Am Smartphone nutzen Sie dieselbe Warteschlange und Aufgabendetails in einem großformatigen Layout (siehe [Mechaniker](/workflows/mechanic)).
   </Tab>
   <Tab title="Plattform-Super-Admin">
     In der Seitenleiste erscheint zusätzlich **Mandanten**. Diese Liste ist kein Werkstatt-Bildschirm. Siehe [Plattform-Mandanten](/workflows/platform-tenants).

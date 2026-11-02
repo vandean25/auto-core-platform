@@ -22,7 +22,7 @@ import {
 import type { DiscountState } from './useWorkshopCalculations'
 import type { CheckoutFooterProps } from '../components/CheckoutFooter'
 import { i18n } from '@/lib/i18n'
-import { getErrorMessage } from '../utils/error'
+import { getErrorMessage } from '@/lib/error-utils'
 
 export interface InvoiceLineDiscountUpdate {
   id: string

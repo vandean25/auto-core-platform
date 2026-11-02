@@ -31,4 +31,9 @@ describe('i18n foundation', () => {
     expect(i18n.t('glossary:workshopOrder.term')).toBe('Workshop order')
     await changeUiLanguage('de')
   })
+  it('resolves API-layer fallback keys from the preloaded common namespace without lazy loading', () => {
+    expect(i18n.t('common:apiErrors.workshop.mechanic.loadQueueFailed')).toBe('Warteschlange konnte nicht geladen werden')
+    expect(i18n.t('common:apiErrors.vehicleStock.shorteningFailed')).toBe('Gewährleistungsverkürzung konnte nicht gespeichert werden')
+    expect(i18n.t('common:apiErrors.dataImport.applyFailed')).toBe('Import konnte nicht angewendet werden')
+  })
 })

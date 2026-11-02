@@ -1,8 +1,9 @@
+import { i18n } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { optimisticMutationOptions } from "@/lib/optimistic-mutation";
 import type { components } from "./generated/openapi";
 import { fetchWithAuth } from "./client";
-import { createHttpError } from "@/lib/error-utils";
+import { createHttpError, getErrorMessageFromResponse as getErrorMessage, throwHttpError } from "@/lib/error-utils";
 
 export type MechanicQueueItem = components["schemas"]["MechanicQueueItemDto"];
 export type MechanicQueueResponse =
@@ -141,7 +142,7 @@ export function useMechanicTaskChecklist(taskId: string) {
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/checklist`,
       );
       if (!response.ok)
-        await throwHttpError(response, "Failed to load checklist");
+        await throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.loadChecklistFailed'));
       return response.json() as Promise<MechanicTaskChecklist>;
     },
     enabled: Boolean(taskId),
@@ -168,7 +169,7 @@ export function useUpdateMechanicTaskChecklist() {
         },
       );
       if (!response.ok)
-        await throwHttpError(response, "Failed to save checklist");
+        await throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveChecklistFailed'));
       return response.json() as Promise<MechanicTaskChecklist>;
     },
     onSuccess: (_result, payload) => {
@@ -179,28 +180,6 @@ export function useUpdateMechanicTaskChecklist() {
   });
 }
 
-/** Reads error message from a failed HTTP Response body. */
-async function getErrorMessage(
-  response: Response,
-  fallback: string,
-): Promise<string> {
-  const payload = (await response.json().catch(() => undefined)) as
-    { message?: string } | undefined;
-  return payload?.message ?? fallback;
-}
-
-/**
- * Reads the error message from the response body and throws an error with the
- * HTTP status attached. Callers can use `getErrorStatus()` from `@/lib/error-utils`
- * to extract the status and branch on specific codes (e.g. 409 Conflict).
- */
-async function throwHttpError(
-  response: Response,
-  fallback: string,
-): Promise<never> {
-  const message = await getErrorMessage(response, fallback);
-  throw createHttpError(message, response.status);
-}
 
 export function useMechanicQueue() {
   return useQuery<MechanicQueueResponse>({
@@ -208,7 +187,7 @@ export function useMechanicQueue() {
     queryFn: async () => {
       const response = await fetchWithAuth("/api/mechanic/queue");
       if (!response.ok) {
-        await throwHttpError(response, "Failed to load mechanic queue");
+        await throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.loadQueueFailed'));
       }
       return response.json() as Promise<MechanicQueueResponse>;
     },
@@ -226,7 +205,7 @@ export function mechanicTaskDetailQueryOptions(taskId: string) {
       );
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, "Failed to load task detail"),
+          await getErrorMessage(response, i18n.t('common:apiErrors.workshop.mechanic.taskDetailLoadFailed')),
         );
       }
       return response.json() as Promise<MechanicTaskDetail>;
@@ -253,7 +232,7 @@ export function useStartTask() {
         { method: "POST" },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to start task");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.startTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -285,7 +264,7 @@ export function useSwitchTask() {
       );
       if (!response.ok) {
         // Expose HTTP status so callers can implement 409 → start fallback
-        return throwHttpError(response, "Failed to switch task");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.switchTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -315,7 +294,7 @@ export function usePauseTask() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to pause task");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.pauseTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -333,7 +312,7 @@ export function useCompleteTask() {
         { method: "POST" },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to complete task");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.completeTaskFailed'));
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
@@ -359,7 +338,7 @@ export function useSaveDiagnostics() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to save diagnostics");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveDiagnosticsFailed'));
       }
       return response.json() as Promise<SaveDiagnosticsResponse>;
     },
@@ -402,7 +381,7 @@ export function useSubmitMechanicFinding() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to submit finding to advisor");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.submitFindingFailed'));
       }
       return response.json() as Promise<SubmitMechanicFindingResponse>;
     },
@@ -428,7 +407,7 @@ export function useRequestPart() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to request part");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.requestPartFailed'));
       }
       return response.json() as Promise<RequestPartResponse>;
     },
@@ -458,7 +437,7 @@ export function useCreateMediaUploadPolicy() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to get upload policy");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.getUploadPolicyFailed'));
       }
       return response.json() as Promise<MediaUploadPolicy>;
     },
@@ -483,7 +462,7 @@ export function useSaveMediaMetadata() {
         },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to save media metadata");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveMediaFailed'));
       }
       return response.json() as Promise<WorkshopMedia>;
     },
@@ -511,8 +490,9 @@ export function useUploadVoiceNote() {
     }) => {
       if (!audio.type) {
         throw createHttpError(
-          "Audio file must have a known MIME type (e.g. audio/webm, audio/mp4).",
+          i18n.t('errors:codes.AUDIO_UNSUPPORTED_TYPE'),
           422,
+          { code: 'AUDIO_UNSUPPORTED_TYPE' },
         );
       }
       const form = new FormData();
@@ -522,7 +502,7 @@ export function useUploadVoiceNote() {
         { method: "POST", body: form },
       );
       if (!response.ok) {
-        return throwHttpError(response, "Failed to upload voice note");
+        return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.uploadVoiceNoteFailed'));
       }
       return response.json() as Promise<VoiceNoteDraftResponse>;
     },
