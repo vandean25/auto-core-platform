@@ -1,4 +1,5 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { countDbStatements } from './helpers/db-statement-counter.js';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -157,6 +158,94 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       select: { quantity_on_hand: true },
     });
     return Number(stock?.quantity_on_hand ?? 0);
+  }
+
+  /** Creates `count` catalog items, each with 5 on hand in the MAIN bin. */
+  async function seedStockedItems(count: number): Promise<string[]> {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const items = await Promise.all(
+      Array.from({ length: count }, (_, index) =>
+        tenantPrisma.catalogItem.create({
+          data: {
+            tenant_id: tenant.tenantId,
+            sku: `AUT861-${Date.now()}-${index}`,
+            name: `Part ${index}`,
+            retail_price: 10,
+            cost_price: 5,
+          },
+          select: { id: true },
+        }),
+      ),
+    );
+    await tenantPrisma.inventoryStock.createMany({
+      data: items.map((item) => ({
+        tenant_id: tenant.tenantId,
+        site_id: mainSiteId,
+        catalog_item_id: item.id,
+        location_id: mainBinId,
+        quantity_on_hand: 5,
+      })),
+    });
+    return items.map((item) => item.id);
+  }
+
+  /** Drives a MAIN -> GRZ transfer of `lineCount` lines up to `action` and counts that request's SQL statements. */
+  async function statementsForAction(
+    action: 'create' | 'approve' | 'ship' | 'receive',
+    lineCount: number,
+  ) {
+    const itemIds = await seedStockedItems(lineCount);
+    const statements = (send: () => Promise<{ status: number }>) =>
+      countDbStatements(async () => {
+        expect((await send()).status).toBeLessThan(300);
+      });
+
+    const createRequest = () =>
+      postTransfer({
+        fromSiteId: mainSiteId,
+        toSiteId: grzSiteId,
+        lines: itemIds.map((itemId) => ({
+          catalogItemId: itemId,
+          requestedQty: 2,
+          sourceLocationId: mainBinId,
+        })),
+      });
+    if (action === 'create') {
+      return statements(createRequest);
+    }
+
+    const created = await createRequest().expect(201);
+    const lineIds: string[] = created.body.lines.map(
+      (line: { id: string }) => line.id,
+    );
+    if (action === 'approve') {
+      return statements(() =>
+        postAction(created.body.id, 'approve', { expectedVersion: 1 }),
+      );
+    }
+    await postAction(created.body.id, 'approve', { expectedVersion: 1 }).expect(
+      201,
+    );
+    const ship = () =>
+      postAction(created.body.id, 'ship', {
+        expectedVersion: 2,
+        lines: lineIds.map((id) => ({ id })),
+      });
+    if (action === 'ship') {
+      return statements(ship);
+    }
+    await ship().expect(201);
+    return statements(() =>
+      postAction(created.body.id, 'receive', {
+        expectedVersion: 3,
+        idempotencyKey: `aut861-${lineCount}`,
+        lines: lineIds.map((id) => ({
+          id,
+          receiveQty: 2,
+          destLocationId: grzBinId,
+        })),
+      }),
+    );
   }
 
   describe('create (POST /api/stock-transfers)', () => {
@@ -322,6 +411,16 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       expect(await onHandAt(mainBinId)).toBe(3);
     });
   });
+
+  it.each(['create', 'approve', 'ship', 'receive'] as const)(
+    'AUT-861 S1: transfer %s sends the same number of SQL statements for 2 and 10 lines',
+    async (action) => {
+      const twoLines = await statementsForAction(action, 2);
+      const tenLines = await statementsForAction(action, 10);
+
+      expect(tenLines).toBe(twoLines);
+    },
+  );
 
   describe('to-site-only member (AUT-466 review)', () => {
     // A user with membership on GRZ only: receive and return both settle
