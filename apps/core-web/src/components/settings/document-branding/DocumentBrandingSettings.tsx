@@ -36,6 +36,23 @@ import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { generateId } from "@/lib/id";
 import type { LegalEntityRecord } from "@/api/site-admin";
 
+const MIME_SHORT_LABELS: Record<string, string> = {
+  "image/png": "PNG",
+  "application/pdf": "PDF",
+};
+
+function uploadTypeLabels(mimeTypes: string[]): string {
+  const labels = [
+    ...new Set(mimeTypes.map((mime) => MIME_SHORT_LABELS[mime] ?? mime)),
+  ];
+  return labels.join(" / ");
+}
+
+function uploadMaxMiB(maxBytes: number): string {
+  const mib = maxBytes / (1024 * 1024);
+  return Number.isInteger(mib) ? String(mib) : mib.toFixed(1);
+}
+
 export function DocumentBrandingSettings({
   entity,
 }: {
@@ -501,19 +518,16 @@ export function DocumentBrandingSettings({
           : t("documentBranding.toast.sourceUploaded"),
       );
     } catch (uploadError) {
-      const constraints =
-        purpose === "LOGO"
-          ? uploadCapabilities?.logo
-          : uploadCapabilities?.source;
       toast.error(
         purpose === "LOGO"
           ? t("documentBranding.toast.logoUploadFailed")
           : t("documentBranding.toast.sourceUploadFailed"),
         {
           description: documentBrandAssetUploadErrorMessage(
-            purpose,
             uploadError,
-            constraints,
+            purpose === "LOGO"
+              ? t("documentBranding.errors.logoUploadFailed")
+              : t("documentBranding.errors.sourceUploadFailed"),
           ),
         },
       );
@@ -571,9 +585,12 @@ export function DocumentBrandingSettings({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="brand-logo">{t("documentBranding.logo.label")}</Label>
-          {uploadCapabilities?.logo.requirementLabel ? (
+          {uploadCapabilities ? (
             <p className="text-xs text-slate-500">
-              {uploadCapabilities.logo.requirementLabel}
+              {t("documentBranding.logo.hint", {
+                types: uploadTypeLabels(uploadCapabilities.logo.mimeTypes),
+                maxMiB: uploadMaxMiB(uploadCapabilities.logo.maxBytes),
+              })}
             </p>
           ) : null}
           <Input

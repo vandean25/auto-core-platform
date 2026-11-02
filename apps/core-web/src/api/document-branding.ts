@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchWithAuth } from "./client";
 import { createHttpError, getErrorMessage } from "@/lib/error-utils";
+import type { ApiErrorBody } from "@/api/api-error";
 
 export type DocumentBrandTheme = {
   schemaVersion: 1;
@@ -92,50 +93,37 @@ export const documentBrandingKeys = {
     [...documentBrandingKeys.all, "extraction", legalEntityId, extractionId] as const,
 };
 
-async function readError(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => undefined)) as
-    | {
-        message?: string | string[] | { message?: string };
-        code?: string;
-      }
+async function readErrorBody(response: Response): Promise<ApiErrorBody | undefined> {
+  return (await response.json().catch(() => undefined)) as
+    | ApiErrorBody
     | undefined;
-  const message = payload?.message;
+}
+
+function backendMessageFromBody(
+  body: ApiErrorBody | undefined,
+  fallback: string,
+): string {
+  const message = body?.message;
   if (typeof message === "string" && message.trim()) return message;
   if (Array.isArray(message)) return message.join(", ");
-  if (message && typeof message === "object" && message.message) {
-    return message.message;
-  }
-  if (payload?.code) {
-    return getErrorMessage({ message: payload.code }, fallback);
-  }
   return fallback;
 }
 
 async function throwHttpError(response: Response, fallback: string) {
-  throw createHttpError(await readError(response, fallback), response.status);
+  const body = await readErrorBody(response);
+  throw createHttpError(
+    backendMessageFromBody(body, fallback),
+    response.status,
+    body,
+  );
 }
 
+/** Maps a rejected branding upload to translated copy via its stable error code; never shows backend text. */
 export function documentBrandAssetUploadErrorMessage(
-  purpose: "SOURCE" | "LOGO",
   error: unknown,
-  constraints: DocumentBrandUploadConstraints | undefined,
+  fallback: string,
 ): string {
-  const status =
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof (error as { status: unknown }).status === "number"
-      ? (error as { status: number }).status
-      : null;
-  if (status === 415 && constraints?.requirementLabel) {
-    return constraints.requirementLabel;
-  }
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return purpose === "LOGO"
-    ? "Logo could not be uploaded."
-    : "Source file could not be uploaded.";
+  return getErrorMessage(error, fallback);
 }
 
 export function useDocumentBrandProfile(legalEntityId: string | null) {
@@ -354,9 +342,7 @@ export function useAttachDocumentBrandDraftSource() {
         },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to attach letterhead source"),
-        );
+        await throwHttpError(response, "Failed to attach letterhead source");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -381,9 +367,7 @@ export function useRemoveDocumentBrandDraftSource() {
         { method: "DELETE" },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to remove letterhead source"),
-        );
+        await throwHttpError(response, "Failed to remove letterhead source");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },

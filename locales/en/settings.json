@@ -1315,10 +1315,15 @@
     "loadFailed": "Document branding could not be loaded: {{message}}",
     "logo": {
       "label": "Logo",
+      "hint": "{{types}} · max {{maxMiB}} MiB.",
       "selected": "Selected logo asset: {{id}}",
       "remove": "Remove logo",
       "uploading": "Uploading and validating logo…",
       "refreshStatus": "Refresh validation status"
+    },
+    "errors": {
+      "logoUploadFailed": "Choose a supported PNG file and try again.",
+      "sourceUploadFailed": "Choose a supported PDF or PNG file and try again."
     },
     "fields": {
       "primaryColor": "Primary color",

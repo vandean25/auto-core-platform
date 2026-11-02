@@ -15,9 +15,17 @@ import type { UseDebouncedAutoSaveOptions } from "@/hooks/useDebouncedAutoSave";
 import type { DocumentBrandTheme } from "@/api/document-branding";
 import deCommon from "../../../../../../locales/de/common.json";
 import deSettings from "../../../../../../locales/de/settings.json";
+import enSettings from "../../../../../../locales/en/settings.json";
+import { changeUiLanguage } from "@/lib/i18n";
 import { DocumentBrandingSettings } from "./DocumentBrandingSettings";
 
 const branding = deSettings.documentBranding;
+const logoHint = branding.logo.hint
+  .replaceAll("{{types}}", "PNG")
+  .replaceAll("{{maxMiB}}", "2");
+const logoHintEn = enSettings.documentBranding.logo.hint
+  .replaceAll("{{types}}", "PNG")
+  .replaceAll("{{maxMiB}}", "2");
 const footerTextLabel = new RegExp(branding.fields.footerText.split(" (")[0]);
 
 const fixtures = vi.hoisted(() => ({
@@ -49,14 +57,11 @@ const fixtures = vi.hoisted(() => ({
           maxBytes: 2 * 1024 * 1024,
           mimeTypes: ["image/png"],
           accept: "image/png,.png",
-          requirementLabel: "Logo must be PNG (max 2 MiB).",
         },
         source: {
           maxBytes: 10 * 1024 * 1024,
           mimeTypes: ["image/png", "application/pdf"],
           accept: "application/pdf,image/png,.pdf,.png",
-          requirementLabel:
-            "Letterhead source must be PNG or PDF (max 10 MiB).",
         },
       },
     },
@@ -248,13 +253,20 @@ describe("DocumentBrandingSettings", () => {
     expect(preview.getAttribute("srcdoc")).toContain("SAMPLE — NOT AN INVOICE");
   });
 
-  it("keeps the bounded PNG logo upload control from backend capabilities", () => {
+  it("shows the bounded PNG logo upload control with a German hint", () => {
     render(<DocumentBrandingSettings entity={entity} />);
     expect(screen.getByLabelText(branding.logo.label)).toHaveProperty(
       "accept",
       "image/png,.png",
     );
-    expect(screen.getByText("Logo must be PNG (max 2 MiB).")).toBeTruthy();
+    expect(screen.getByText(logoHint)).toBeTruthy();
+  });
+
+  it("shows the logo upload hint in English when the UI language is English", async () => {
+    await changeUiLanguage("en");
+    render(<DocumentBrandingSettings entity={entity} />);
+    expect(screen.getByText(logoHintEn).textContent).toBe(logoHintEn);
+    expect(screen.queryByText(logoHint)).toBeNull();
   });
 
   it("enables extraction when the draft letterhead source is validated", async () => {
