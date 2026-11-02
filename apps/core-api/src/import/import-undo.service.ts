@@ -326,7 +326,9 @@ export class ImportUndoService {
     if (await hasUndoableRows(this.prisma, tenantId, job)) {
       return;
     }
-    throw importJobNotUndoable({ reason: noUndoableRowsReason(job.entity_type) });
+    throw importJobNotUndoable({
+      reason: noUndoableRowsReason(job.entity_type),
+    });
   }
 
   private async buildUndoWorkerState(

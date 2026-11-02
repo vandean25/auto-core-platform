@@ -985,10 +985,12 @@ describe('Import Undo (e2e)', () => {
       where: { id: dryRun.id },
     });
     expect(checkJob.status).toBe(ImportJobStatus.APPLIED);
-    const opts = (checkJob.options_json ?? {}) as Record<string, any>;
-    expect(opts.undo?.deleted).toBe(0);
-    expect(opts.undo?.restored).toBe(0);
-    expect(opts.undo?.blocked).toBe(1);
+    const opts = (checkJob.options_json as {
+      undo?: { deleted: number; restored: number; blocked: number };
+    }).undo;
+    expect(opts?.deleted).toBe(0);
+    expect(opts?.restored).toBe(0);
+    expect(opts?.blocked).toBe(1);
 
     // Verify customer is untouched
     const untouchedCustomer = await tenantPrisma.customer.findFirst({

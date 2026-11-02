@@ -267,33 +267,31 @@ describe('import wire codes', () => {
     )
   })
 
-  it.each([
-    ['IMPORT_JOB_CONFLICT', 'Import job conflict'],
-    ['IMPORT_JOB_BUSY', 'Import job is busy'],
-    ['IMPORT_JOB_NOT_UNDOABLE', 'Import job cannot be undone'],
-  ])('keeps the %s code in useImportUndoPreview so it shows the German copy', async (code, message) => {
+  it.each(
+    [
+      ['IMPORT_JOB_CONFLICT', 'Import job conflict'],
+      ['IMPORT_JOB_BUSY', 'Import job is busy'],
+      ['IMPORT_JOB_NOT_UNDOABLE', 'Import job cannot be undone'],
+    ].flatMap(
+      ([code, message]) =>
+        ['useImportUndoPreview', 'useUndoImportJob'].map(
+          (hook) => [hook, code, message] as [string, string, string],
+        ),
+    ),
+  )('%s keeps the %s code so it shows the German copy', async (hook, code, message) => {
     rejectOnceWith(409, code, message)
-    const { result } = renderWithQueryClient(() => useImportUndoPreview('job-1'))
 
-    await waitFor(() => expect(result.current.isError).toBe(true))
-
-    expect(getErrorMessage(result.current.error, 'unused fallback')).toBe(
-      deErrors.codes[code as keyof typeof deErrors.codes],
-    )
-    expect(getErrorMessage(result.current.error, 'unused fallback')).not.toBe(message)
-  })
-
-  it.each([
-    ['IMPORT_JOB_CONFLICT', 'Import job conflict'],
-    ['IMPORT_JOB_BUSY', 'Import job is busy'],
-    ['IMPORT_JOB_NOT_UNDOABLE', 'Import job cannot be undone'],
-  ])('keeps the %s code in useUndoImportJob so it shows the German copy', async (code, message) => {
-    rejectOnceWith(409, code, message)
-    const { result } = renderWithQueryClient(() => useUndoImportJob())
-
-    const error = await result.current
-      .mutateAsync({ jobId: 'job-1' })
-      .catch((caught: unknown) => caught)
+    let error: unknown
+    if (hook === 'useImportUndoPreview') {
+      const { result } = renderWithQueryClient(() => useImportUndoPreview('job-1'))
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      error = result.current.error
+    } else {
+      const { result } = renderWithQueryClient(() => useUndoImportJob())
+      error = await result.current
+        .mutateAsync({ jobId: 'job-1' })
+        .catch((caught: unknown) => caught)
+    }
 
     expect(getErrorMessage(error, 'unused fallback')).toBe(
       deErrors.codes[code as keyof typeof deErrors.codes],

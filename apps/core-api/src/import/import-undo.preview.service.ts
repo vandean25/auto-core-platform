@@ -302,7 +302,9 @@ export class ImportUndoPreviewService {
     // preview agrees with POST /undo (409) for doc/financial dry-run jobs too,
     // instead of short-circuiting into a blocked preview below.
     if (job.status === ImportJobStatus.FAILED && !hasRows) {
-      throw importJobNotUndoable({ reason: noUndoableRowsReason(job.entity_type) });
+      throw importJobNotUndoable({
+        reason: noUndoableRowsReason(job.entity_type),
+      });
     }
     if (await this.isPurgedWithoutMark(tenantId, job, appliedRowsCount)) {
       throw importJobPurged();

@@ -3,66 +3,16 @@ import {
   UNDO_BLOCKED_REASONS,
   type UndoGuardPrismaClient,
 } from './import-undo.types.js';
-
-const GUARD_MODELS = [
-  'customer',
-  'vehicle',
-  'laborOperation',
-  'catalogItem',
-  'vehicleNotice',
-  'vehicleParty',
-  'invoice',
-  'workshopOrder',
-  'salesOrder',
-  'vehicleSale',
-  'vehiclePurchase',
-  'loanerBooking',
-  'vehicleLedgerEntry',
-  'workshopTaskLineItem',
-  'inventoryTransaction',
-  'invoiceItem',
-  'purchaseOrderItem',
-  'auditLog',
-  'customerConsent',
-  'customerContactPoint',
-  'legacyDocument',
-  'tyreSet',
-  'vehicleMedia',
-  'vehicleEquipmentSelection',
-  'vehicleEquipmentFreeTextItem',
-  'vehicleListing',
-  'vehicleValuationSnapshot',
-  'tyreMeasurement',
-  'vehicleInspectionRecord',
-] as const;
-
-type GuardModel = (typeof GUARD_MODELS)[number];
-
-type MockDelegate = { findMany: jest.Mock };
+import {
+  createMockClient,
+  delegateOf,
+  mockRows,
+  type GuardModel,
+} from './import-undo.guard.spec.support.js';
 
 const TENANT_ID = 'tenant-test-1';
 const APPLIED_AT = new Date('2026-10-30T10:00:00.000Z');
 const BEFORE_APPLIED_AT = new Date(APPLIED_AT.getTime() - 1000);
-
-function createMockClient(): UndoGuardPrismaClient {
-  const client: Record<string, MockDelegate> = {};
-  for (const model of GUARD_MODELS) {
-    client[model] = { findMany: jest.fn().mockResolvedValue([]) };
-  }
-  return client as unknown as UndoGuardPrismaClient;
-}
-
-function delegateOf(client: UndoGuardPrismaClient, model: GuardModel) {
-  return client[model] as unknown as MockDelegate;
-}
-
-function mockRows(
-  client: UndoGuardPrismaClient,
-  model: GuardModel,
-  rows: Record<string, unknown>[],
-): void {
-  delegateOf(client, model).findMany.mockResolvedValue(rows);
-}
 
 function entity(overrides: Record<string, unknown> = {}) {
   return { updatedAt: BEFORE_APPLIED_AT, ...overrides };
