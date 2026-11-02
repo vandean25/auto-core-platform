@@ -195,7 +195,9 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **No empty assertions**: no test whose only assertion is `toBeDefined` / "should be defined", or a bare `toHaveBeenCalled()` without an argument or outcome check.
 - **Public API only**: never reach into private methods (`as any`, `['privateMethod']`); test through the public API.
 - **No mock-heavy duplicates of e2e**: if an existing e2e already covers a flow, extend that e2e or test the pure logic instead of adding a heavily mocked unit test.
-- **WHEN/THEN scenarios → one test each**: every WHEN/THEN scenario listed in a ticket maps to exactly one test, preferably by extending an existing spec (scenario format borrowed from OpenSpec; we do not adopt OpenSpec itself).
+
+### Ticket Scenarios (WHEN/THEN)
+- Every WHEN/THEN scenario listed in a ticket maps to exactly one test, preferably by extending an existing spec (format borrowed from OpenSpec; we do not adopt OpenSpec itself).
 
 ## GitHub Pull Request Workflow
 
