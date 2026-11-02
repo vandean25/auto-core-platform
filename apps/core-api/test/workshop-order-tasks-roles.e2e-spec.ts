@@ -4,6 +4,7 @@ import type { TenantMemberRole } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
@@ -18,6 +19,7 @@ import { teardownTestApp } from './test-lifecycle.js';
 describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
+  let systemPrisma: SystemPrismaService;
   let prisma: PrismaService;
   let foreignPrisma: PrismaService;
   let auth: AuthService;
@@ -30,8 +32,11 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   let adminToken: string;
   let salesToken: string;
   let techToken: string;
-  let accountantToken: string;
+  let demoToken: string;
   let foreignAdminToken: string;
+
+  let demoGrantId: string | undefined;
+  let demoAccessRequestId: string | undefined;
 
   let customerId: string;
   let vehicleId: string;
@@ -41,6 +46,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   beforeAll(async () => {
     app = await createE2eApp(undefined, { productionErrorFilter: true });
     basePrisma = app.get(PrismaService);
+    systemPrisma = app.get(SystemPrismaService);
     auth = app.get(AuthService);
 
     const tenant = await createTestTenant(basePrisma, 'aut-847');
@@ -62,23 +68,19 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       role: 'ADMIN',
     });
 
-    const seedScopedUser = async (
-      memberRole: TenantMemberRole,
-      tokenRole?: string,
-    ) => {
-      const roleName = (tokenRole ?? memberRole).toLowerCase();
-      const uid = `task-${roleName}-${tenantId}`;
+    const seedScopedUser = async (role: TenantMemberRole) => {
+      const uid = `task-${role.toLowerCase()}-${tenantId}`;
       const user = await prisma.user.create({
         data: {
           firebaseUid: uid,
-          email: `${roleName}-${tenantId}@test.local`,
+          email: `${role.toLowerCase()}-${tenantId}@test.local`,
           active_tenant_id: tenantId,
         },
       });
       await seedTestTenantMember(basePrisma, {
         tenantId,
         userId: user.id,
-        role: memberRole,
+        role,
       });
       await prisma.siteMembership.create({
         data: {
@@ -96,7 +98,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         sub: uid,
         email: user.email,
         tenantId,
-        role: tokenRole ?? memberRole,
+        role,
       });
       return { user, token };
     };
@@ -119,9 +121,28 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       userId: techSetup.user.id,
     });
 
-    // Seed Accountant (unrelated role with token claims)
-    const accountantSetup = await seedScopedUser('DEMO', 'ACCOUNTANT');
-    accountantToken = accountantSetup.token;
+    // Seed Demo (read-only viewer role with valid grant)
+    const demoSetup = await seedScopedUser('DEMO');
+    demoToken = demoSetup.token;
+    const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
+      data: {
+        email: demoSetup.user.email,
+        name: 'Demo Viewer',
+        betrieb: 'Demo Corp',
+        consent_recorded_at: new Date(),
+      },
+      select: { id: true },
+    });
+    demoAccessRequestId = accessRequest.id;
+    const grant = await systemPrisma.landingDemoSignInGrant.create({
+      data: {
+        access_request_id: accessRequest.id,
+        user_id: demoSetup.user.id,
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      },
+      select: { id: true },
+    });
+    demoGrantId = grant.id;
 
     // Foreign Admin from createTestTenant already has active_tenant_id, active_site_id, and SiteMembership
     foreignAdminToken = auth.createTestToken({
@@ -156,6 +177,16 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (demoGrantId) {
+      await systemPrisma.landingDemoSignInGrant.deleteMany({
+        where: { id: demoGrantId },
+      });
+    }
+    if (demoAccessRequestId) {
+      await systemPrisma.landingDemoAccessRequest.deleteMany({
+        where: { id: demoAccessRequestId },
+      });
+    }
     if (basePrisma && tenantId)
       await cleanupTestTenantGraph(basePrisma, tenantId);
     if (basePrisma && foreignTenantId)
@@ -191,11 +222,11 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   }
 
   describe('POST /api/workshop/orders/:id/tasks (createTask)', () => {
-    it('refuses ACCOUNTANT with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
+    it('refuses DEMO viewer role with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
       const orderId = await createTestOrder();
       const res = await api()
         .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${accountantToken}`)
+        .set('Authorization', `Bearer ${demoToken}`)
         .send({ title: 'Unauthorized Task' })
         .expect(403);
 
@@ -230,14 +261,66 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
     });
   });
 
+  describe('POST /api/workshop/orders/:id/tasks/:taskId/lines/from-catalog', () => {
+    it('refuses DEMO viewer role with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
+      const { orderId, taskId } = await createTestOrderAndTask('Catalog Task');
+      const res = await api()
+        .post(
+          `/api/workshop/orders/${orderId}/tasks/${taskId}/lines/from-catalog`,
+        )
+        .set('Authorization', `Bearer ${demoToken}`)
+        .send({ hitToken: 'invalid' })
+        .expect(403);
+
+      expect(res.body).toMatchObject({
+        code: 'WORKSHOP_ROLE_FORBIDDEN',
+      });
+    });
+
+    it('refuses TECH with 403', async () => {
+      const { orderId, taskId } = await createTestOrderAndTask('Catalog Task');
+      await api()
+        .post(
+          `/api/workshop/orders/${orderId}/tasks/${taskId}/lines/from-catalog`,
+        )
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({ hitToken: 'invalid' })
+        .expect(403);
+    });
+  });
+
+  describe('POST /api/workshop/orders/:id/pick-parts', () => {
+    it('refuses DEMO viewer role with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
+      const orderId = await createTestOrder();
+      const res = await api()
+        .post(`/api/workshop/orders/${orderId}/pick-parts`)
+        .set('Authorization', `Bearer ${demoToken}`)
+        .send({ lineItemIds: [] })
+        .expect(403);
+
+      expect(res.body).toMatchObject({
+        code: 'WORKSHOP_ROLE_FORBIDDEN',
+      });
+    });
+
+    it('refuses TECH with 403', async () => {
+      const orderId = await createTestOrder();
+      await api()
+        .post(`/api/workshop/orders/${orderId}/pick-parts`)
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({ lineItemIds: [] })
+        .expect(403);
+    });
+  });
+
   describe('PATCH /api/workshop/orders/:orderId/tasks/:taskId/line-items (replaceTaskLineItems)', () => {
-    it('refuses ACCOUNTANT with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
+    it('refuses DEMO viewer role with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Line Items Task');
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer ${accountantToken}`)
+        .set('Authorization', `Bearer ${demoToken}`)
         .send({
           expectedLineItemsVersion: 0,
           items: [
@@ -310,13 +393,13 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('PATCH /api/workshop/orders/:orderId/tasks/:taskId (updateTask)', () => {
-    it('refuses ACCOUNTANT with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
+    it('refuses DEMO viewer role with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
       const { orderId, taskId } = await createTestOrderAndTask('Update Task');
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${accountantToken}`)
-        .send({ title: 'Accountant Rename' })
+        .set('Authorization', `Bearer ${demoToken}`)
+        .send({ title: 'Demo Rename' })
         .expect(403);
 
       expect(res.body).toMatchObject({
@@ -328,6 +411,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       ['OWNER', () => ownerToken],
       ['ADMIN', () => adminToken],
       ['SALES', () => salesToken],
+      ['TECH', () => techToken],
     ])('allows %s to update task', async (_role, getToken) => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Original Title');
@@ -345,13 +429,13 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('DELETE /api/workshop/orders/:orderId/tasks/:taskId (deleteTask)', () => {
-    it('refuses ACCOUNTANT with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
+    it('refuses DEMO viewer role with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Task to Delete');
 
       const res = await api()
         .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${accountantToken}`)
+        .set('Authorization', `Bearer ${demoToken}`)
         .expect(403);
 
       expect(res.body).toMatchObject({
@@ -390,13 +474,13 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('Checklist updates and Mechanic execution', () => {
-    it('refuses ACCOUNTANT with 403 on task checklist update', async () => {
+    it('refuses DEMO viewer role with 403 on task checklist update', async () => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Checklist Task');
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/checklist`)
-        .set('Authorization', `Bearer ${accountantToken}`)
+        .set('Authorization', `Bearer ${demoToken}`)
         .send({ items: [] })
         .expect(403);
 
