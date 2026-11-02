@@ -14,6 +14,10 @@ import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';
 import { assertCheckInDraftForMutation } from './workshop-check-in-immutability.js';
 import { toWorkshopInspectionResponse } from './workshop-inspection.mapper.js';
 import type { WorkshopInspectionResponseDto } from './dto/workshop-inspection-response.dto.js';
+import {
+  assertWorkshopTaskExecutionRole,
+  assertWorkshopTaskWriteRole,
+} from './workshop-task-scope.js';
 
 const taskInspectionInclude = {
   items: { orderBy: { createdAt: 'asc' as const } },
@@ -61,7 +65,30 @@ export class WorkshopInspectionService {
     return inspection;
   }
 
+  /** Back-office checklist write: task write roles (back-office plus demo), mirrors the other task write routes. */
   async updateTaskChecklist(
+    orderId: string,
+    taskId: string,
+    dto: UpdateWorkshopInspectionDto,
+  ) {
+    assertWorkshopTaskWriteRole(this.tenantContext, 'Updating task checklist');
+    return this.applyTaskChecklistUpdate(orderId, taskId, dto);
+  }
+
+  /** Mechanic execution path (`/api/mechanic/tasks/:taskId/checklist`): TECH is allowed here. */
+  async updateTaskChecklistForMechanic(
+    orderId: string,
+    taskId: string,
+    dto: UpdateWorkshopInspectionDto,
+  ) {
+    assertWorkshopTaskExecutionRole(
+      this.tenantContext,
+      'Updating task checklist',
+    );
+    return this.applyTaskChecklistUpdate(orderId, taskId, dto);
+  }
+
+  private async applyTaskChecklistUpdate(
     orderId: string,
     taskId: string,
     dto: UpdateWorkshopInspectionDto,

@@ -10,14 +10,14 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { triggerBlobDownload } from '@/lib/download'
 import { toast } from 'sonner'
 import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
-import { getErrorMessage } from '@/pages/workshop/utils/error'
+import { getErrorMessage } from '@/lib/error-utils'
 import {
   canAssignWorkshopOrderMechanic,
   canCheckInWorkshopOrder,
   canGenerateWorkshopJobCardPdf,
+  canManageWorkshopTasks,
   canOpenWorkshopOrder,
   canRecordTyreMeasurement,
-  canUpdateWorkshopOrderTaskState,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
   isWorkshopTechAssignableStatus,
@@ -297,7 +297,7 @@ export function createWorkshopOrderRowActions(
       kind: 'run',
       label: t('orders.list.actions.taskState'),
       icon: CheckSquare,
-      isAllowedForRole: canUpdateWorkshopOrderTaskState,
+      isAllowedForRole: canManageWorkshopTasks,
       isEnabled: (row) => !isWorkshopOrderLockedStatus(row.status) && (row.tasks?.length ?? 0) > 0,
       children: (row, context) => buildTaskStateChildren(row, context, t),
       run: () => {},

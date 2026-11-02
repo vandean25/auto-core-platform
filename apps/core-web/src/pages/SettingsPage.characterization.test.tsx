@@ -516,4 +516,11 @@ describe('SettingsPage characterization: accounting export sub tab', () => {
     expect(screen.getByText('Accounting export tab content')).toBeVisible()
     expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
   })
+
+  it('opens the accounting export panel on the export profile deep link (AUT-852)', () => {
+    renderSettings('?tab=finance&subtab=accounting-export')
+
+    expect(screen.getByText('Accounting export tab content')).toBeVisible()
+    expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
+  })
 })

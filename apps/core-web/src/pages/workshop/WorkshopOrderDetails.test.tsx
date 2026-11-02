@@ -713,8 +713,9 @@ describe("WorkshopOrderDetails Characterization", () => {
       fireEvent.click(screen.getByRole("option", { name: "Alex Tech" }));
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Cannot assign resources");
+        expect(toast.error).toHaveBeenCalledWith(orderDetailToast.technicianAssignFailed);
       });
+      expect(toast.error).not.toHaveBeenCalledWith("Cannot assign resources");
       expect(toast.success).not.toHaveBeenCalled();
     });
 
@@ -866,6 +867,25 @@ describe("WorkshopOrderDetails Characterization", () => {
     });
   });
 
+  describe("demo session task writes", () => {
+    it("keeps task add, checkboxes and the fitment search usable on an editable order", () => {
+      asMock(authSessionApi.useAuthSession).mockReturnValue({
+        data: { activeRole: "DEMO" },
+      });
+
+      renderComponent();
+
+      const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      inputs.forEach((input) => expect(input).toBeEnabled());
+      const addButtons = screen.getAllByRole("button", { name: taskListCopy.addTask });
+      addButtons.forEach((button) => expect(button).toBeEnabled());
+      screen.getAllByRole("checkbox").forEach((cb) => expect(cb).toBeEnabled());
+
+      fireEvent.click(screen.getByText("Oil Change"));
+      expect(screen.getByTestId("open-fitment-search-button")).toBeInTheDocument();
+    });
+  });
+
   // =====================================================================
   // P0: Mutation Handler Tests
   // =====================================================================
@@ -957,8 +977,9 @@ describe("WorkshopOrderDetails Characterization", () => {
       fireEvent.click(addButtons[0]);
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Server error");
+        expect(toast.error).toHaveBeenCalledWith(orderDetailToast.taskCreateFailed);
       });
+      expect(toast.error).not.toHaveBeenCalledWith("Server error");
     });
 
     it("disables task input when order is INVOICED", () => {
@@ -972,6 +993,152 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
       inputs.forEach((input) => expect(input).toBeDisabled());
+    });
+
+    it("renders quick-add controls and disables them when order is INVOICED", () => {
+      setupDefaultMocks(invoicedOrder);
+      asMock(salesApi.useInvoice).mockReturnValue({
+        data: invoicedOrder.invoice,
+        isLoading: false,
+      });
+
+      renderComponent();
+
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
+
+      expect(input).toBeInTheDocument();
+      expect(addButton).toBeInTheDocument();
+      expect(input).toBeDisabled();
+      expect(addButton).toBeDisabled();
+    });
+
+    it("creates exactly one task on rapid double click while request is in flight", async () => {
+      let resolveMutation!: (val: { id: string }) => void;
+      const pendingPromise = new Promise<{ id: string }>((resolve) => {
+        resolveMutation = resolve;
+      });
+      const mockMutateAsync = vi.fn().mockImplementation(() => pendingPromise);
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(
+        createMutationMock({
+          mutateAsync: mockMutateAsync,
+        }),
+      );
+
+      renderComponent();
+
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      expect(input).toBeEnabled();
+      fireEvent.change(input, { target: { value: "Brake check" } });
+
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
+      expect(addButton).toBeEnabled();
+
+      // First click initiates task creation
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeDisabled();
+      });
+
+      // Second rapid click while request is in flight
+      fireEvent.click(addButton);
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+
+      // Resolve in-flight request
+      resolveMutation({ id: "task-brake" });
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeEnabled();
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        orderId: "order-1",
+        title: "Brake check",
+      });
+    });
+
+    it("creates exactly one task on Enter followed by click while request is in flight", async () => {
+      let resolveMutation!: (val: { id: string }) => void;
+      const pendingPromise = new Promise<{ id: string }>((resolve) => {
+        resolveMutation = resolve;
+      });
+      const mockMutateAsync = vi.fn().mockImplementation(() => pendingPromise);
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(
+        createMutationMock({
+          mutateAsync: mockMutateAsync,
+        }),
+      );
+
+      renderComponent();
+
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      fireEvent.change(input, { target: { value: "Oil change" } });
+
+      // Enter initiates task creation
+      const currentInput = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      fireEvent.keyDown(currentInput, { key: "Enter" });
+
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeDisabled();
+      });
+
+      // Rapid click while request is in flight
+      fireEvent.click(addButton);
+      // Second Enter while request is in flight
+      fireEvent.keyDown(screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder), { key: "Enter" });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+
+      // Resolve the in-flight request
+      resolveMutation({ id: "task-oil" });
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeEnabled();
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        orderId: "order-1",
+        title: "Oil change",
+      });
+    });
+
+    it("re-enables the add button after task create fails with an error", async () => {
+      let rejectMutation!: (err: Error) => void;
+      const pendingPromise = new Promise<{ id: string }>((_, reject) => {
+        rejectMutation = reject;
+      });
+      const mockMutateAsync = vi.fn().mockImplementation(() => pendingPromise);
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(
+        createMutationMock({
+          mutateAsync: mockMutateAsync,
+        }),
+      );
+
+      renderComponent();
+
+      const input = screen.getByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      fireEvent.change(input, { target: { value: "Faulty task" } });
+
+      const addButton = screen.getByRole("button", { name: taskListCopy.addTask });
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeDisabled();
+      });
+
+      // Reject the mutation with error
+      rejectMutation(new Error("Network disconnect"));
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith(orderDetailToast.taskCreateFailed);
+        expect(screen.getByRole("button", { name: taskListCopy.addTask })).toBeEnabled();
+      });
     });
   });
 
@@ -1633,7 +1800,10 @@ describe("WorkshopOrderDetails Characterization", () => {
 
         editInline("Customer waiting in lobby", deWorkshop.taskList.internalNotesAria, "New note");
 
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Notes rejected"));
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.notesSaveFailed),
+        );
+        expect(toast.error).not.toHaveBeenCalledWith("Notes rejected");
         expect(toast.success).not.toHaveBeenCalled();
       });
 
@@ -1836,7 +2006,10 @@ describe("WorkshopOrderDetails Characterization", () => {
         const dialog = openDeleteDialog();
         fireEvent.click(within(dialog).getByRole("button", { name: orderDetailCopy.deleteTask }));
 
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Task is referenced"));
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.taskDeleteFailed),
+        );
+        expect(toast.error).not.toHaveBeenCalledWith("Task is referenced");
         expect(toast.success).not.toHaveBeenCalled();
         expect(screen.getByRole("alertdialog")).toBeInTheDocument();
       });
@@ -2002,8 +2175,9 @@ describe("WorkshopOrderDetails Characterization", () => {
         pickAlex();
 
         await waitFor(() =>
-          expect(toast.error).toHaveBeenCalledWith("forbidden"),
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.technicianAssignFailed),
         );
+        expect(toast.error).not.toHaveBeenCalledWith("forbidden");
         await waitFor(() => {
           const order = queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
             workshopApi.workshopKeys.detail("order-1"),

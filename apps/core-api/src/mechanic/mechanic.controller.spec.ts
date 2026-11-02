@@ -62,7 +62,7 @@ describe('MechanicController', () => {
   };
   const mockInspectionService = {
     getTaskChecklist: jest.fn(),
-    updateTaskChecklist: jest.fn(),
+    updateTaskChecklistForMechanic: jest.fn(),
   };
   const mockFindingService = {
     submitFinding: jest.fn(),
@@ -132,7 +132,7 @@ describe('MechanicController', () => {
 
   it('scopes mechanic checklist updates through the assigned task detail', async () => {
     mockMechanicService.getMechanicTaskDetail.mockResolvedValue(baseDetail);
-    mockInspectionService.updateTaskChecklist.mockResolvedValue({
+    mockInspectionService.updateTaskChecklistForMechanic.mockResolvedValue({
       id: 'inspection-1',
     });
     const payload = { items: [{ id: 'item-1', passed: true }] };
@@ -140,7 +140,7 @@ describe('MechanicController', () => {
     await expect(
       controller.updateTaskChecklist(TASK_ID, payload),
     ).resolves.toEqual({ id: 'inspection-1' });
-    expect(mockInspectionService.updateTaskChecklist).toHaveBeenCalledWith(
+    expect(mockInspectionService.updateTaskChecklistForMechanic).toHaveBeenCalledWith(
       'order-1',
       TASK_ID,
       payload,

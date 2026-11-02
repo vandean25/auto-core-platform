@@ -37,7 +37,7 @@ describe('TyreMeasurementForm', () => {
     fillTreads()
     fireEvent.click(screen.getByRole('button', { name: 'Messung speichern' }))
     await screen.findByRole('alert')
-    expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: true, isSubmitting: false })
+    await waitFor(() => expect(onStateChange).toHaveBeenLastCalledWith({ isDirty: true, isSubmitting: false }))
   })
 
   it('discards edits only after confirmation without posting a measurement', async () => {

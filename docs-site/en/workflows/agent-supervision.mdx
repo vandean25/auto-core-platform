@@ -40,5 +40,7 @@ The banner states that **HUMAN_ONLY** actions must be performed manually. Superv
   </Accordion>
   <Accordion title="Additional MCP read tools (wave 2)">
     Integrators can also read **`list_loaner_bookings`** (including overdue returns), **`list_estimates`** (estimate versions), **`list_order_communications`** (timeline without message bodies), **`get_check_in`** (check-in summary), and **`get_staff_availability`** (OWNER/ADMIN staff presence) — each scoped to tenant or active site as returned by `get_capabilities`.
+
+    **`get_workshop_order`** also returns **`labor_summary`**: labor revenue, internal cost, margin, and efficiency for the order (null when no cost rates or hours — not zero).
   </Accordion>
 </AccordionGroup>

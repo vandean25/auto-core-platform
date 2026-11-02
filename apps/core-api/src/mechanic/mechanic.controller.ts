@@ -120,7 +120,11 @@ export class MechanicController {
   ) {
     const mechanicId = await this.identity.resolveMechanic();
     const task = await this.execution.getMechanicTaskDetail(mechanicId, taskId);
-    return this.inspections.updateTaskChecklist(task.orderId, taskId, dto);
+    return this.inspections.updateTaskChecklistForMechanic(
+      task.orderId,
+      taskId,
+      dto,
+    );
   }
 
   /**

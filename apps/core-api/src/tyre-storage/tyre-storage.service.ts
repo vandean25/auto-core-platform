@@ -331,7 +331,7 @@ export class TyreStorageService {
           tread_depth_mm_json: (dto.treadDepthMm ??
             undefined) as Prisma.InputJsonValue,
           condition_notes: dto.conditionNotes ?? null,
-          status: dto.locationId ? 'IN_STORAGE' : 'RETURNED',
+          status: dto.locationId ? 'IN_STORAGE' : 'NEW',
           stored_since: dto.locationId ? now : null,
           planned_swap_on: planned,
           bin_label: dto.binLabel ?? null,

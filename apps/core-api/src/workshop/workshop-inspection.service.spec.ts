@@ -1,6 +1,50 @@
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
 
 describe('WorkshopInspectionService', () => {
+  const buildRoleGuardedService = (role: string) => {
+    const prisma = {
+      workshopInspection: { findFirst: jest.fn() },
+    } as any;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+      getAuthenticatedUser: jest
+        .fn()
+        .mockReturnValue({ role, tenantId: 'tenant-1', userId: 'user-1' }),
+    } as any;
+    const service = new WorkshopInspectionService(
+      prisma,
+      tenantContext,
+      { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
+    );
+    return { service, prisma };
+  };
+
+  it('refuses a TECH session on the back-office checklist entry before reading anything', async () => {
+    const { service, prisma } = buildRoleGuardedService('TECH');
+
+    await expect(
+      service.updateTaskChecklist('order-1', 'task-1', {
+        items: [{ id: 'item-1', passed: true }],
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'WORKSHOP_ROLE_FORBIDDEN' },
+    });
+    expect(prisma.workshopInspection.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('refuses a DEMO session on the mechanic checklist entry before reading anything', async () => {
+    const { service, prisma } = buildRoleGuardedService('DEMO');
+
+    await expect(
+      service.updateTaskChecklistForMechanic('order-1', 'task-1', {
+        items: [{ id: 'item-1', passed: true }],
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'WORKSHOP_ROLE_FORBIDDEN' },
+    });
+    expect(prisma.workshopInspection.findFirst).not.toHaveBeenCalled();
+  });
+
   it('loads only the requested task inspection inside the active tenant and site', async () => {
     const expected = { id: 'inspection-1', items: [] };
     const prisma = {
@@ -51,7 +95,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 
@@ -96,7 +147,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 
@@ -136,7 +194,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 
@@ -166,7 +231,14 @@ describe('WorkshopInspectionService', () => {
     } as any;
     const service = new WorkshopInspectionService(
       prisma,
-      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      {
+        getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+        getAuthenticatedUser: jest.fn().mockReturnValue({
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+        }),
+      } as any,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
     );
 

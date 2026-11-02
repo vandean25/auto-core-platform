@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useUpdateWorkshopOrder } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
-import { getErrorMessage } from '../utils/error'
+import { getErrorMessage } from '@/lib/error-utils'
 
 /** Order-level saves (internal notes, reported issue) and the job card PDF. Saves are ignored once the order is invoiced. */
 export function useWorkshopOrderActions(order: WorkshopOrder, isLocked: boolean) {

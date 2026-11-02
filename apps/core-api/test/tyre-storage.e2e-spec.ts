@@ -193,6 +193,46 @@ describe('Tyre storage (e2e)', () => {
     assertSetMatchesEventLedger(detail, events);
   });
 
+  it('creates a new tyre set without location as NEW, excludes from due list, and supports check-in', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId,
+        label: 'Brand New Summer',
+        season: 'SUMMER',
+      })
+      .expect(201);
+
+    const setId = createRes.body.id;
+    expect(createRes.body.status).toBe('NEW');
+    expect(createRes.body.locationId).toBeNull();
+    expect(createRes.body.storedSince).toBeNull();
+
+    const dueRes = await request(app.getHttpServer())
+      .get('/api/tyre-sets/due-for-swap')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(dueRes.body.data.some((row: { id: string }) => row.id === setId)).toBe(false);
+
+    const checkInRes = await request(app.getHttpServer())
+      .post(`/api/tyre-sets/${setId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ locationId: storageLocationId })
+      .expect(200);
+    expect(checkInRes.body.status).toBe('IN_STORAGE');
+    expect(checkInRes.body.locationId).toBe(storageLocationId);
+
+    const checkOutRes = await request(app.getHttpServer())
+      .post(`/api/tyre-sets/${setId}/check-out`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(200);
+    expect(checkOutRes.body.status).toBe('ON_VEHICLE');
+    expect(checkOutRes.body.locationId).toBeNull();
+  });
+
   it('rejects storage locations from another site', async () => {
     await request(app.getHttpServer())
       .post('/api/tyre-sets')
@@ -717,6 +757,9 @@ describe('Tyre storage (e2e)', () => {
       data: { role: 'TECH' },
     });
     try {
+      await setAction(created.id, 'check-in', {
+        locationId: storageLocationId,
+      }).expect(403);
       await setAction(created.id, 'check-out', {
         wheels: [wheelAt('FL', 5)],
       }).expect(403);

@@ -267,6 +267,12 @@ describe('WorkshopEstimateCard', () => {
     const send = screen.getByRole('button', { name: 'An Kunden senden' }) as HTMLButtonElement
     expect(send.disabled).toBe(true)
     expect(
+      screen.getByText(/Kundenversand deaktiviert\./),
+    ).toBeTruthy()
+    const infoBtn = screen.getByRole('button', { name: 'Hinweis zum Kundenversand anzeigen' })
+    expect(infoBtn).toBeTruthy()
+    fireEvent.click(infoBtn)
+    expect(
       screen.getByText(/Der Versand an Kunden ist derzeit deaktiviert, bis die rechtlichen Texte freigegeben sind/),
     ).toBeTruthy()
   })

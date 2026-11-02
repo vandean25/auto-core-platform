@@ -5,7 +5,7 @@ import {
   ArrayUnique,
   IsArray,
   IsDateString,
-  IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -41,7 +41,7 @@ export class CreateCreditNoteDto {
   reason!: string;
 
   @ApiProperty({ enum: ['FULL', 'PARTIAL'] })
-  @IsEnum(['FULL', 'PARTIAL'] as const)
+  @IsIn(['FULL', 'PARTIAL'] as const)
   mode!: 'FULL' | 'PARTIAL';
 
   @ApiPropertyOptional({ type: [CreditNotePartialLineDto] })

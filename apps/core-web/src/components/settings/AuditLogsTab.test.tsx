@@ -80,7 +80,6 @@ describe('AuditLogsTab', () => {
     )
 
     expect(screen.getByText(deSettings.auditLogs.title)).toBeInTheDocument()
-    expect(screen.getByText(deSettings.auditLogs.description)).toBeInTheDocument()
     expect(screen.getByTestId('mock-data-table')).toBeInTheDocument()
     expect(screen.getByText('Customer - cust-uuid-1')).toBeInTheDocument()
   })

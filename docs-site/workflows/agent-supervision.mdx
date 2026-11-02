@@ -40,5 +40,7 @@ Das Banner weist darauf hin, dass **HUMAN_ONLY**-Aktionen manuell ausgeführt we
   </Accordion>
   <Accordion title="Zusätzliche MCP-Lese-Tools (Wave 2)">
     Integratoren können u. a. **`list_loaner_bookings`** (inkl. überfällige Rückgaben), **`list_estimates`** (KVA-Versionen), **`list_order_communications`** (Zeitleiste ohne Nachrichtentext), **`get_check_in`** (Annahme-Zusammenfassung) und **`get_staff_availability`** (OWNER/ADMIN, Personal-Anwesenheit) lesen — jeweils mandanten- bzw. standortgebunden wie in `get_capabilities`.
+
+    **`get_workshop_order`** liefert zusätzlich **`labor_summary`**: Arbeitsumsatz, interne Kosten, Marge und Effizienz je Auftrag (null, wenn keine Kostensätze oder Stunden — nicht 0).
   </Accordion>
 </AccordionGroup>

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,11 @@ import { fetchWithAuth } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   describeLetterheadSourceAsset,
   formatDocumentBrandFileSize,
@@ -210,9 +216,25 @@ export function LetterheadSourceAsset({
 
   return (
     <div className="grid gap-2 sm:col-span-2">
-      <Label htmlFor="brand-source">
-        {t("documentBranding.letterheadSource.label")}
-      </Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor="brand-source">
+          {t("documentBranding.letterheadSource.label")}
+        </Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t("documentBranding.letterheadSource.infoAria")}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 text-xs">
+            {t("documentBranding.letterheadSource.info")}
+          </PopoverContent>
+        </Popover>
+      </div>
       <Input
         id="brand-source"
         type="file"

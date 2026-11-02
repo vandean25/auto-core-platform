@@ -9,7 +9,9 @@ import request from 'supertest';
 import {
   AuditActorType,
   AuditLogAction,
+  ImportEntityType,
   ImportJobStatus,
+  Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
@@ -47,8 +49,10 @@ describe('Import Undo (e2e)', () => {
   let systemPrisma: SystemPrismaService;
   let authService: AuthService;
   let tenant: Awaited<ReturnType<typeof createTestTenant>>;
+  let tenantB: Awaited<ReturnType<typeof createTestTenant>>;
   let siteId: string;
   let adminHeader: string;
+  let adminHeaderB: string;
   let ownerHeader: string;
   let salesHeader: string;
   let techHeader: string;
@@ -161,6 +165,17 @@ describe('Import Undo (e2e)', () => {
     });
   }
 
+  async function expectUndoRejected(
+    jobId: string,
+    expectedCode: string,
+  ): Promise<void> {
+    const response = await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(response.body.code).toBe(expectedCode);
+  }
+
   beforeAll(async () => {
     app = await createE2eApp(undefined, { productionErrorFilter: true });
 
@@ -169,8 +184,10 @@ describe('Import Undo (e2e)', () => {
     authService = app.get(AuthService);
 
     tenant = await createTestTenant(prisma, 'import-undo');
+    tenantB = await createTestTenant(prisma, 'import-undo-b');
     siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
     adminHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
+    adminHeaderB = `Bearer ${createTestAuthToken(authService, tenantB)}`;
     ownerHeader = await createMemberBearer(
       prisma,
       authService,
@@ -225,11 +242,25 @@ describe('Import Undo (e2e)', () => {
       where: { email: `demo-${tenant.tenantId}@example.com` },
     });
     await cleanupTestTenantGraph(prisma, tenant.tenantId);
+    if (tenantB) {
+      await cleanupTestTenantGraph(prisma, tenantB.tenantId);
+    }
     await teardownTestApp(app, prisma);
   });
 
   it('role matrix: non-admin roles (SALES, TECH, DEMO) and API keys get 403 on preview and undo; OWNER and ADMIN get 200', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const dummyCustomer = await tenantPrisma.customer.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        type: 'PRIVATE',
+        first_name: 'Matrix',
+        last_name: 'Customer',
+        phone: '+43 1 999999',
+        phone_digits: '01999999',
+      },
+    });
+
     const dummyJob = await tenantPrisma.importJob.create({
       data: {
         tenant_id: tenant.tenantId,
@@ -242,6 +273,15 @@ describe('Import Undo (e2e)', () => {
         status: 'APPLIED',
         totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
         created_by: tenant.firebaseUid,
+        rows: {
+          create: {
+            tenant_id: tenant.tenantId,
+            row_no: 1,
+            action: 'CREATE',
+            entity_id: dummyCustomer.id,
+            normalized_json: { first_name: 'Matrix' },
+          },
+        },
       },
     });
 
@@ -300,6 +340,60 @@ describe('Import Undo (e2e)', () => {
       .post(`/api/imports/${dummyJob.id}/undo/preview`)
       .set('Authorization', adminHeader)
       .expect(200);
+  });
+
+  it('rejects a tenant admin of another tenant with 404 IMPORT_JOB_NOT_FOUND on preview and undo', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const jobA = await tenantPrisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        entity_type: 'CUSTOMER',
+        file_name: 'cross-tenant.csv',
+        file_sha256: 'mock-cross-sha',
+        mapping_json: {},
+        options_json: {},
+        status: 'APPLIED',
+        totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
+        created_by: tenant.firebaseUid,
+      },
+    });
+
+    const previewRes = await request(app.getHttpServer())
+      .post(`/api/imports/${jobA.id}/undo/preview`)
+      .set('Authorization', adminHeaderB)
+      .expect(404);
+    expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_FOUND);
+
+    const undoRes = await request(app.getHttpServer())
+      .post(`/api/imports/${jobA.id}/undo`)
+      .set('Authorization', adminHeaderB)
+      .expect(404);
+    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_FOUND);
+  });
+
+  it('preview returns 409 IMPORT_JOB_BUSY when job is in APPLYING status', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const applyingJob = await tenantPrisma.importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        source_system: 'legacy-dms',
+        entity_type: 'CUSTOMER',
+        file_name: 'applying.csv',
+        file_sha256: 'mock-applying-sha',
+        mapping_json: {},
+        options_json: {},
+        status: 'APPLYING',
+        totals_json: { total: 1, create: 1, update: 0, skip: 0, error: 0 },
+        created_by: tenant.firebaseUid,
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/api/imports/${applyingJob.id}/undo/preview`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(res.body.code).toBe(IMPORT_ERROR_CODES.JOB_BUSY);
   });
 
   it('customer acceptance: imports synthetic customers (CREATE & UPDATE), undoes them, and restores original state with audit logs', async () => {
@@ -1475,45 +1569,62 @@ describe('Import Undo (e2e)', () => {
     ).toBe(jobAuditsBefore + 1);
   }, 120_000);
 
-  it('purge gate: undo reports IMPORT_JOB_PURGED when staged rows were purged', async () => {
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+  it.each([
+    { variant: 'marked with rows_purged', markPurged: true },
+    { variant: 'deleted without the mark', markPurged: false },
+  ])(
+    'purge gate: WHEN staged rows of an applied job were purged ($variant) THEN preview and undo answer 409 IMPORT_JOB_PURGED and the job list reports undoable false',
+    async ({ markPurged }) => {
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+      const stamp = Date.now();
 
-    const job = await tenantPrisma.importJob.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        source_system: 'legacy-dms',
-        entity_type: 'CUSTOMER',
-        file_name: 'purged.csv',
-        file_sha256: 'mock-purged-sha',
-        mapping_json: {},
-        options_json: { rows_purged: true },
-        status: 'APPLIED',
-        totals_json: { total: 2, create: 2, update: 0, skip: 0, error: 0 },
-        created_by: tenant.firebaseUid,
-      },
-    });
+      const job = await importCustomerBatch([
+        [
+          `EXT-PG-${stamp}`,
+          'PRIVATE',
+          'Purge',
+          'Gate',
+          `pg-${stamp}@example.com`,
+          '900',
+          'AT',
+        ],
+      ]);
 
-    const previewRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo/preview`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-    expect(previewRes.body.status).toBe('BLOCKED');
-    expect(previewRes.body.canUndo).toBe(false);
-    expect(previewRes.body.blocked[0].reason).toBe(
-      UNDO_BLOCKED_REASONS.ROWS_PURGED,
-    );
+      // Simulate the retention row purge: it always deletes the staged rows;
+      // only recent purges additionally mark the job with rows_purged.
+      await tenantPrisma.importJobRow.deleteMany({
+        where: { import_job_id: job.id },
+      });
+      if (markPurged) {
+        await tenantPrisma.importJob.update({
+          where: { id: job.id },
+          data: { options_json: { rows_purged: true } },
+        });
+      }
 
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(409);
-    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
+      const previewRes = await request(app.getHttpServer())
+        .post(`/api/imports/${job.id}/undo/preview`)
+        .set('Authorization', adminHeader)
+        .expect(409);
+      expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
 
-    const untouched = await tenantPrisma.importJob.findFirstOrThrow({
-      where: { id: job.id },
-    });
-    expect(untouched.status).toBe('APPLIED');
-  });
+      await expectUndoRejected(job.id, IMPORT_ERROR_CODES.JOB_PURGED);
+
+      const listRes = await request(app.getHttpServer())
+        .get('/api/imports?limit=50')
+        .set('Authorization', adminHeader)
+        .expect(200);
+      const listed = listRes.body.data.find(
+        (j: { id: string }) => j.id === job.id,
+      );
+      expect(listed?.undoable).toBe(false);
+
+      const untouched = await tenantPrisma.importJob.findFirstOrThrow({
+        where: { id: job.id },
+      });
+      expect(untouched.status).toBe(ImportJobStatus.APPLIED);
+    },
+  );
 
   it('expiry gate: undo reports IMPORT_JOB_EXPIRED when the job was cancelled as expired', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
@@ -1533,11 +1644,7 @@ describe('Import Undo (e2e)', () => {
       },
     });
 
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(409);
-    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_EXPIRED);
+    await expectUndoRejected(job.id, IMPORT_ERROR_CODES.JOB_EXPIRED);
 
     const untouched = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: job.id },
@@ -2144,5 +2251,161 @@ describe('Import Undo (e2e)', () => {
     expect(
       await tenantPrisma.customer.findFirst({ where: { email } }),
     ).toBeNull();
+  });
+
+  describe('AUT-846 Undo Eligibility', () => {
+    function seedTestImportJob(
+      db: PrismaService,
+      attrs: {
+        status: ImportJobStatus;
+        entityType?: ImportEntityType;
+        totals?: { total: number; create: number; update: number; skip: number; error: number };
+        options?: Prisma.InputJsonObject;
+      },
+    ) {
+      const stamp = Date.now();
+      return db.importJob.create({
+        data: {
+          tenant_id: tenant.tenantId,
+          source_system: 'legacy-dms',
+          entity_type: attrs.entityType ?? ImportEntityType.CUSTOMER,
+          file_name: `test-${stamp}.csv`,
+          file_sha256: `sha-${stamp}`,
+          mapping_json: {},
+          options_json: attrs.options ?? {},
+          status: attrs.status,
+          totals_json: attrs.totals ?? { total: 1, create: 1, update: 0, skip: 0, error: 0 },
+          created_by: tenant.firebaseUid,
+        },
+      });
+    }
+
+    it.each([
+      ImportEntityType.CUSTOMER,
+      ImportEntityType.LEGACY_INVOICE,
+      ImportEntityType.LEGACY_SERVICE_ORDER,
+      ImportEntityType.STOCK_OPENING_BALANCE,
+      ImportEntityType.OPEN_WORKSHOP_ORDER,
+    ])(
+      'eligibility: FAILED dry-run %s job with planned totals and no applied rows gives 409 IMPORT_JOB_NOT_UNDOABLE on preview and on undo, status unchanged',
+      async (entityType) => {
+        const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+        const failedDryRun = await seedTestImportJob(tenantPrisma, {
+          status: ImportJobStatus.FAILED,
+          entityType,
+          totals: { total: 10, create: 10, update: 0, skip: 0, error: 0 },
+        });
+
+        const previewRes = await request(app.getHttpServer())
+          .post(`/api/imports/${failedDryRun.id}/undo/preview`)
+          .set('Authorization', adminHeader)
+          .expect(409);
+        expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
+
+        const undoRes = await request(app.getHttpServer())
+          .post(`/api/imports/${failedDryRun.id}/undo`)
+          .set('Authorization', adminHeader)
+          .expect(409);
+        expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
+
+        const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
+          where: { id: failedDryRun.id },
+        });
+        expect(checkJob.status).toBe(ImportJobStatus.FAILED);
+      },
+    );
+
+    it('eligibility: FAILED job with at least one applied row stays undoable (preview 200, undo 200)', async () => {
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+      const stamp = Date.now();
+      const email = `failed-partial-${stamp}@example.com`;
+
+      const job = await importCustomerBatch([
+        [`EXT-FP-${stamp}`, 'PRIVATE', 'Partial', 'Apply', email, '123', 'AT'],
+      ]);
+
+      await tenantPrisma.importJob.update({
+        where: { id: job.id },
+        data: { status: ImportJobStatus.FAILED },
+      });
+
+      const previewRes = await request(app.getHttpServer())
+        .post(`/api/imports/${job.id}/undo/preview`)
+        .set('Authorization', adminHeader)
+        .expect(200);
+      expect(previewRes.body.canUndo).toBe(true);
+      expect(previewRes.body.counts.toDelete).toBe(1);
+
+      const undoRes = await request(app.getHttpServer())
+        .post(`/api/imports/${job.id}/undo`)
+        .set('Authorization', adminHeader)
+        .expect(200);
+      expect(undoRes.body.status).toBe(ImportJobStatus.UNDONE);
+    });
+
+    it('eligibility: GET /api/imports returns correct undoable flag per job across mixed job states', async () => {
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+      const stamp = Date.now();
+
+      // 1. APPLIED with entity_id
+      const jobApplied = await importCustomerBatch([
+        [`EXT-APP-${stamp}`, 'PRIVATE', 'Applied', 'Cust', `app-${stamp}@example.com`, '111', 'AT'],
+      ]);
+
+      // 2. Legacy APPLIED without entity_id
+      const jobLegacy = await importCustomerBatch([
+        [`EXT-LEG-${stamp}`, 'PRIVATE', 'Legacy', 'Cust', `leg-${stamp}@example.com`, '222', 'AT'],
+      ]);
+      await tenantPrisma.importJobRow.updateMany({
+        where: { import_job_id: jobLegacy.id },
+        data: { entity_id: null },
+      });
+
+      // 3. FAILED dry run (no rows with entity_id)
+      const jobFailedDryRun = await seedTestImportJob(tenantPrisma, {
+        status: ImportJobStatus.FAILED,
+        totals: { total: 5, create: 5, update: 0, skip: 0, error: 0 },
+      });
+
+      // 4. FAILED partial apply (has row with entity_id)
+      const jobFailedPartial = await importCustomerBatch([
+        [`EXT-FP2-${stamp}`, 'PRIVATE', 'Partial2', 'Cust', `fp2-${stamp}@example.com`, '333', 'AT'],
+      ]);
+      await tenantPrisma.importJob.update({
+        where: { id: jobFailedPartial.id },
+        data: { status: ImportJobStatus.FAILED },
+      });
+
+      // 5. UNDONE
+      const jobUndone = await importCustomerBatch([
+        [`EXT-UND-${stamp}`, 'PRIVATE', 'Undone', 'Cust', `und-${stamp}@example.com`, '444', 'AT'],
+      ]);
+      await request(app.getHttpServer())
+        .post(`/api/imports/${jobUndone.id}/undo`)
+        .set('Authorization', adminHeader)
+        .expect(200);
+
+      // 6. DRY_RUN_DONE
+      const jobDryRunDone = await seedTestImportJob(tenantPrisma, {
+        status: ImportJobStatus.DRY_RUN_DONE,
+        totals: { total: 3, create: 3, update: 0, skip: 0, error: 0 },
+      });
+
+      const listRes = await request(app.getHttpServer())
+        .get('/api/imports?limit=50')
+        .set('Authorization', adminHeader)
+        .expect(200);
+
+      const jobsMap = new Map<string, { undoable?: boolean }>(
+        listRes.body.data.map((j: { id: string; undoable?: boolean }) => [j.id, j]),
+      );
+
+      expect(jobsMap.get(jobApplied.id)?.undoable).toBe(true);
+      expect(jobsMap.get(jobLegacy.id)?.undoable).toBe(false);
+      expect(jobsMap.get(jobFailedDryRun.id)?.undoable).toBe(false);
+      expect(jobsMap.get(jobFailedPartial.id)?.undoable).toBe(true);
+      expect(jobsMap.get(jobUndone.id)?.undoable).toBe(false);
+      expect(jobsMap.get(jobDryRunDone.id)?.undoable).toBe(false);
+    });
   });
 });

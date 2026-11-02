@@ -11593,6 +11593,7 @@ export interface components {
             created_at: string;
             applied_at: string | null;
             cancellable: boolean;
+            undoable: boolean;
             apply_failure_code?: string;
         };
         ImportJobListMetaDto: {
@@ -11700,7 +11701,7 @@ export interface components {
         /** @enum {string} */
         TyreRimType: "NONE" | "STEEL" | "ALLOY";
         /** @enum {string} */
-        TyreSetStatus: "IN_STORAGE" | "ON_VEHICLE" | "RETURNED" | "DISPOSED";
+        TyreSetStatus: "NEW" | "IN_STORAGE" | "ON_VEHICLE" | "RETURNED" | "DISPOSED";
         /** @enum {string} */
         TyreSetEventType: "CHECK_IN" | "CHECK_OUT" | "MOVED" | "INSPECTED" | "DISPOSED";
         TyreSetEventResponseDto: {

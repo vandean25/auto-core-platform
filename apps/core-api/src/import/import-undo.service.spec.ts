@@ -250,11 +250,7 @@ function selectRows(db: FakeDb, where: Record<string, unknown>, take?: number) {
       if (undoneFilter && 'not' in undoneFilter && row.undone_at === null) {
         return false;
       }
-      if (
-        entityIdFilter &&
-        'not' in entityIdFilter &&
-        (row.entity_id === null || row.entity_id === undefined)
-      ) {
+      if (entityIdFilter && 'not' in entityIdFilter && !row.entity_id) {
         return false;
       }
       if (typeof cursor === 'number' && row.row_no <= cursor) return false;
@@ -432,6 +428,10 @@ function createHarness(
       async ({ where, take }: { where: Record<string, unknown>; take?: number }) =>
         selectHistories(db, where, take),
     ),
+    findFirst: jest.fn(
+      async ({ where }: { where: Record<string, unknown> }) =>
+        selectHistories(db, where)[0] ?? null,
+    ),
     count: jest.fn(
       async ({ where }: { where: Record<string, unknown> }) =>
         selectHistories(db, where).length,
@@ -476,6 +476,10 @@ function createHarness(
     findMany: jest.fn(
       async ({ where, take }: { where: Record<string, unknown>; take?: number }) =>
         selectRows(db, where, take),
+    ),
+    findFirst: jest.fn(
+      async ({ where }: { where: Record<string, unknown> }) =>
+        selectRows(db, where)[0] ?? null,
     ),
     count: jest.fn(
       async ({ where }: { where: Record<string, unknown> }) =>
@@ -1094,9 +1098,25 @@ describe('ImportUndoService', () => {
       });
     });
 
+    it('answers IMPORT_JOB_PURGED when applied rows are gone without the rows_purged flag', async () => {
+      // The retention purge deletes rows of ancient jobs without marking them;
+      // undo must not treat that as a merely empty job.
+      const harness = createHarness({
+        rows: [],
+        totals: { create: 4, update: 0 },
+      });
+
+      await expect(harness.service.undoJob(JOB_ID)).rejects.toThrow(
+        ConflictException,
+      );
+      await expect(harness.service.undoJob(JOB_ID)).rejects.toMatchObject({
+        response: { code: 'IMPORT_JOB_PURGED' },
+      });
+    });
+
     it('skips the job audit when the finalize update lost the race', async () => {
       const harness = createHarness({
-        rows: [makeRow(1, ImportRowAction.CREATE, 'cust-1')],
+        rows: [makeRow(1, ImportRowAction.CREATE, 'cust-race')],
         totals: { create: 1, update: 0 },
       });
       harness.cloudTasks.isEnabled.mockReturnValue(true);
@@ -1268,7 +1288,11 @@ describe('ImportUndoService', () => {
     ) {
       return createHarness({
         entityType: ImportEntityType.SUPPLIER_PRICE_LIST,
-        rows: [],
+        // A price list apply stages one UPDATE row per changed entry, like the
+        // generic dry-run staging does; the purge gate checks their presence.
+        rows: histories.map((history, index) =>
+          makeRow(index + 1, ImportRowAction.UPDATE, history.catalog_item_id),
+        ),
         histories,
         entities,
         refs,

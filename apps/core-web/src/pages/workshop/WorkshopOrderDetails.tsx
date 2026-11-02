@@ -8,8 +8,10 @@ import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import { WorkshopOrderMeasurementsSection } from "@/components/workshop/WorkshopOrderMeasurementsSection";
 import { TyreMeasurementSection } from "@/features/tyre-report/TyreMeasurementSection";
 import { useWorkshopOrder } from "@/api/workshop";
+import { useAuthSession } from "@/api/auth-session";
 import type { WorkshopOrder } from "@/api/types";
 import {
+  canManageWorkshopTasks,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
 } from "@/features/actions/action-role-predicates";
@@ -42,6 +44,8 @@ export function WorkshopOrderDetails() {
 
 function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
   const isLocked = isWorkshopOrderLockedStatus(order.status);
+  const activeRole = useAuthSession()?.data?.activeRole;
+  const taskWriteBlocked = isLocked || !canManageWorkshopTasks(activeRole);
   const checkInHref = isWorkshopCheckInOpenStatus(order.status)
     ? APP_ROUTE_PATHS.workshopOrderCheckIn.replace(":id", order.id)
     : null;
@@ -53,7 +57,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
     clearTaskLineItemOverrides,
   } = useWorkshopTaskLineItems({
     orderId: order.id,
-    isLocked,
+    isLocked: taskWriteBlocked,
     getTasks: () => checkout.tasks,
   });
   const checkout = useWorkshopCheckout({
@@ -67,7 +71,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
   const fitment = useWorkshopFitmentSearch(order);
   const taskActions = useWorkshopTaskActions({
     order,
-    isLocked,
+    isLocked: taskWriteBlocked,
     tasks: checkout.tasks,
     hasLinkedInvoice: checkout.hasLinkedInvoice,
     expandedTaskId,
@@ -133,7 +137,8 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
               order={order}
               tasks={checkout.tasks}
               rawTaskTotals={checkout.rawTaskTotals}
-              isLocked={isLocked}
+              isLocked={taskWriteBlocked}
+              isAddingTask={taskActions.isAddingTask}
               newTaskTitle={taskActions.newTaskTitle}
               expandedTaskId={expandedTaskId}
               onNewTaskTitleChange={taskActions.setNewTaskTitle}
@@ -156,7 +161,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
               }
               onSaveNotes={(value) => void orderActions.saveNotes(value)}
               onOpenFitmentSearch={
-                isLocked ? undefined : fitment.openFitmentSearch
+                taskWriteBlocked ? undefined : fitment.openFitmentSearch
               }
             />
           </motion.div>

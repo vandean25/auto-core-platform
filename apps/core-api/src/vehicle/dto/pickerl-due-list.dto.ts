@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { VehicleResponseDto } from './vehicle-response.dto.js';
 import type { PickerlDueStatus } from '../pickerl/compute-pickerl-due.js';
@@ -17,7 +17,7 @@ export class PickerlDueListQueryDto {
     enum: ['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'],
   })
   @IsOptional()
-  @IsEnum(['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'])
+  @IsIn(['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'])
   status?: PickerlDueStatus;
 
   @ApiProperty({ required: false, minimum: 1, type: Number })
@@ -53,7 +53,7 @@ export class PickerlDueListExportQueryDto {
     enum: ['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'],
   })
   @IsOptional()
-  @IsEnum(['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'])
+  @IsIn(['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'])
   status?: PickerlDueStatus;
 }
 

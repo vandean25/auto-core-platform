@@ -26,12 +26,8 @@ export function MechanicTaskInspectionChecklist({
         taskId,
         items: [{ id: itemId, ...values }],
       });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("mechanic.taskDetail.checklist.loadError"),
-      );
+    } catch {
+      toast.error(t("mechanic.taskDetail.checklist.saveError"));
     }
   }
 
@@ -39,7 +35,13 @@ export function MechanicTaskInspectionChecklist({
     return (
       <p className="text-sm text-muted-foreground">{t("mechanic.taskDetail.checklist.loading")}</p>
     );
-  if (checklistQuery.isError || !checklistQuery.data) return null;
+  if (checklistQuery.isError)
+    return (
+      <p className="text-sm text-destructive">
+        {t("apiErrors.workshop.mechanic.loadChecklistFailed", { ns: "common" })}
+      </p>
+    );
+  if (!checklistQuery.data) return null;
   return (
     <WorkshopTaskInspectionChecklistView
       checklist={checklistQuery.data}

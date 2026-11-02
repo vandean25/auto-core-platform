@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum } from 'class-validator';
+import { IsIn } from 'class-validator';
 import { LaborPauseReason } from '@prisma/client';
 
 /**
@@ -32,7 +32,7 @@ export class PauseTaskDto {
     description:
       'Reason for pausing the task. AUTO_SHIFT_CLOSE is reserved for the scheduler.',
   })
-  @IsEnum(PAUSE_REASONS)
+  @IsIn(PAUSE_REASONS)
   pauseReason!: MechanicPauseReason;
 }
 
@@ -42,6 +42,6 @@ export class SwitchTaskDto {
     description:
       'Pause reason applied to the task being vacated. Determines the resulting status of the previous task.',
   })
-  @IsEnum(SWITCH_PAUSE_REASONS)
+  @IsIn(SWITCH_PAUSE_REASONS)
   previousPauseReason!: MechanicSwitchPreviousPauseReason;
 }

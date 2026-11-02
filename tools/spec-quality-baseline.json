@@ -1,0 +1,674 @@
+{
+  "allowlist": [
+    {
+      "file": "apps/core-api/src/audit/audit.controller.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "should be defined"
+    },
+    {
+      "file": "apps/core-api/src/audit/audit.service.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "should be defined"
+    },
+    {
+      "file": "apps/core-api/src/brand/brand.service.spec.ts",
+      "rule": "private-access",
+      "key": "brandRepository"
+    },
+    {
+      "file": "apps/core-api/src/catalog/catalog.controller.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "documents external search unauthorized and conflict responses"
+    },
+    {
+      "file": "apps/core-api/src/common/filters/global-exception.filter.spec.ts",
+      "rule": "private-access",
+      "key": "logger"
+    },
+    {
+      "file": "apps/core-api/src/common/i18n/pdf-email-i18n-isolation.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "keeps pdf and email bundles when email is initialized before pdf"
+    },
+    {
+      "file": "apps/core-api/src/common/logging/http-logging.interceptor.spec.ts",
+      "rule": "private-access",
+      "key": "logger"
+    },
+    {
+      "file": "apps/core-api/src/common/logging/log-level.service.spec.ts",
+      "rule": "private-access",
+      "key": "logger"
+    },
+    {
+      "file": "apps/core-api/src/common/observability/observability.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "compiles and initializes ObserveModule when credentials are provided"
+    },
+    {
+      "file": "apps/core-api/src/customer-consent/customer-consent-unsubscribe-transaction.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "appends a revoke when the ledger shows a grant after the lock is taken"
+    },
+    {
+      "file": "apps/core-api/src/customer-consent/customer-consent-unsubscribe-transaction.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/dashboard-realtime/dashboard.gateway.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "cleans up Redis clients on module destroy"
+    },
+    {
+      "file": "apps/core-api/src/dashboard-realtime/dashboard.gateway.spec.ts",
+      "rule": "private-access",
+      "key": "logger"
+    },
+    {
+      "file": "apps/core-api/src/dry-run/prisma-dry-run-integration.spec.ts",
+      "rule": "private-access",
+      "key": "client"
+    },
+    {
+      "file": "apps/core-api/src/dry-run/prisma-dry-run-integration.spec.ts",
+      "rule": "private-access",
+      "key": "customer"
+    },
+    {
+      "file": "apps/core-api/src/finance/fiscal-lock.helpers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "locks the finance settings row before reading lock_date"
+    },
+    {
+      "file": "apps/core-api/src/import/import-dry-run-reconcile.production-path.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-gcs-media-client.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-job.reconcile-poison.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-legacy-resume.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-row-apply.runner.apply-409.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-row-apply.runner.apply-parity.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-row-apply.runner.background-retry.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-row-apply.runner.batch-continuation.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-row-apply.runner.cursor-advance.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/import-row-apply.runner.duplicate-create.spec.ts",
+      "rule": "private-access",
+      "key": "applyRowBodyInTransaction"
+    },
+    {
+      "file": "apps/core-api/src/import/import-undo.service.spec.ts",
+      "rule": "private-access",
+      "key": "customer"
+    },
+    {
+      "file": "apps/core-api/src/import/import-undo.service.spec.ts",
+      "rule": "private-access",
+      "key": "importJob"
+    },
+    {
+      "file": "apps/core-api/src/import/import-undo.service.spec.ts",
+      "rule": "private-access",
+      "key": "invoice"
+    },
+    {
+      "file": "apps/core-api/src/import/import-undo.service.spec.ts",
+      "rule": "private-access",
+      "key": "tenantContext"
+    },
+    {
+      "file": "apps/core-api/src/import/import-undo.service.spec.ts",
+      "rule": "private-access",
+      "key": "user"
+    },
+    {
+      "file": "apps/core-api/src/import/import.service.worker-background-p2034.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/supplier-price-list-apply.runner.batch.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/supplier-price-list-apply.runner.retry.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/import/vehicle-party-import.handler.background-resume.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/inventory/inventory.controller.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "should be defined"
+    },
+    {
+      "file": "apps/core-api/src/invoices/invoice-pdf.helpers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "supports object parameters for persistInvoiceGeneratedPdf"
+    },
+    {
+      "file": "apps/core-api/src/invoices/invoice-pdf.helpers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "supports object parameters for safeStoreInvoiceGenerationError"
+    },
+    {
+      "file": "apps/core-api/src/mcp/mcp-agent-instructions.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/mcp/mcp-customer-propose-tools.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "registers both tools with a closed input schema"
+    },
+    {
+      "file": "apps/core-api/src/mcp/mcp-read-tool-catalog.aut605.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "publishes merged output schemas for every compliance read tool"
+    },
+    {
+      "file": "apps/core-api/src/mcp/mcp-read-tool.availability-reads.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/mcp/mcp-server.factory.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "registers an input schema for every tool"
+    },
+    {
+      "file": "apps/core-api/src/mcp/mcp-write-pipeline.trace.host-deps.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "types estimate send, media upload, and weekly report ctor stubs"
+    },
+    {
+      "file": "apps/core-api/src/mcp/mcp-write-weekly-report-pipeline.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/mechanic/mechanic-execution.service.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "includes vehicle via workshop_order and line_items in the query"
+    },
+    {
+      "file": "apps/core-api/src/mechanic/mechanic-voice-note.service.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "resets the rate-limit window after TTL expires"
+    },
+    {
+      "file": "apps/core-api/src/notifications/notification-outbox-retention.service.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "purges bodies on any instance, since the purge sends nothing"
+    },
+    {
+      "file": "apps/core-api/src/nova-calculator/nova-eu-used-import.cases.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/parts-requisition/parts-requisition-lifecycle.helpers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "delegates to handleToteReturnStock when staged quantity is positive"
+    },
+    {
+      "file": "apps/core-api/src/parts-requisition/parts-requisition-lifecycle.helpers.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "validates supported brand and returns catalog item map"
+    },
+    {
+      "file": "apps/core-api/src/prisma/fixtures/demo-legal-entity-accounting-profile.fixture.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/prisma/fixtures/gewaehrleistung-demo.fixture.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/prisma/prisma-audit.extension.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "defines prisma extension"
+    },
+    {
+      "file": "apps/core-api/src/prisma/prisma.service.spec.ts",
+      "rule": "private-access",
+      "key": "customer"
+    },
+    {
+      "file": "apps/core-api/src/prisma/prisma.service.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "should be defined"
+    },
+    {
+      "file": "apps/core-api/src/prisma/seed-staging-totes.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/prisma/tenant-isolation-raw-sql.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/prisma/tenant-isolation.extension.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "permits mixed selectors on composite relation when all belong to current tenant"
+    },
+    {
+      "file": "apps/core-api/src/prisma/tenant-isolation.extension.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "permits nested connect on composite relation using composite unique key for same-tenant row"
+    },
+    {
+      "file": "apps/core-api/src/prisma/tenant-isolation.extension.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "permits nested connect on ImportJob.rows using composite key for same-tenant row"
+    },
+    {
+      "file": "apps/core-api/src/prisma/tenant-isolation.extension.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "permits nested connect on LegacyDocument.lines using composite key for same-tenant row"
+    },
+    {
+      "file": "apps/core-api/src/prisma/tenant-isolation.extension.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "permits nested upsert on composite relation with composite key where selector for same tenant"
+    },
+    {
+      "file": "apps/core-api/src/public-api/api-keys/tenant-api-key.service.spec.ts",
+      "rule": "private-access",
+      "key": "logger"
+    },
+    {
+      "file": "apps/core-api/src/purchase/purchase-receipt.service.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "should be defined"
+    },
+    {
+      "file": "apps/core-api/src/purchase/purchase.controller.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "should be defined"
+    },
+    {
+      "file": "apps/core-api/src/purchase/purchase.service.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "should be defined"
+    },
+    {
+      "file": "apps/core-api/src/search/search-providers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "still lets non-TECH roles find orders by customer email"
+    },
+    {
+      "file": "apps/core-api/src/site/site.service.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "re-exports the runtime facade for Nest"
+    },
+    {
+      "file": "apps/core-api/src/vehicle/dto/nova-calculate.dto.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "rejects a non-string taxableEventDate on eu_used_m1 with HTTP 400 semantics"
+    },
+    {
+      "file": "apps/core-api/src/vehicle/pickerl/compute-pickerl-due.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/src/vehicle/vehicle-inspection-record.service.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "still deletes a MANUAL record"
+    },
+    {
+      "file": "apps/core-api/src/vehicle/vehicle-party.rules.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "rejects a future interval that overlaps an open-ended singleton"
+    },
+    {
+      "file": "apps/core-api/src/vehicle/vehicle-party.rules.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "rejects overlapping OWNER intervals even for the same customer"
+    },
+    {
+      "file": "apps/core-api/src/workshop/workshop-estimate-decision.helpers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "appends only the durable domain event in the caller transaction"
+    },
+    {
+      "file": "apps/core-api/src/workshop/workshop-pdf.renderer.spec.ts",
+      "rule": "private-access",
+      "key": "generateHtml"
+    },
+    {
+      "file": "apps/core-api/src/workshop/workshop-task.helpers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "locks generic table rows for parts_reservations"
+    },
+    {
+      "file": "apps/core-api/src/workshop/workshop-task.helpers.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "locks workshop_tasks with siteId via joined workshop_orders query"
+    },
+    {
+      "file": "apps/core-api/src/workshop/workshop.controller.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "delegates getPlanner"
+    },
+    {
+      "file": "apps/core-api/src/workshop/workshop.controller.spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "delegates getSettings and updateSettings"
+    },
+    {
+      "file": "apps/core-api/test/agent-policy.e2e-spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "writes audit log with before/after on rule change"
+    },
+    {
+      "file": "apps/core-api/test/catalog-workflow.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/catalog.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/customer-consent.e2e-spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "records audit log entries for consent changes"
+    },
+    {
+      "file": "apps/core-api/test/decision-shadow.e2e-spec.ts",
+      "rule": "bare-spy-assertion",
+      "key": "returns 201 when shadow provider fails"
+    },
+    {
+      "file": "apps/core-api/test/import-error-report.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/invoice-branding-archive.e2e-spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "stores a logo reference for an invoice with matching tenant and legal entity"
+    },
+    {
+      "file": "apps/core-api/test/invoice-branding-commit-concurrency.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/invoice-branding-render.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/legacy-global-uniques.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/legal-entity-accounting-profile-margin.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/legal-invoicing-snapshot.e2e-spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "LI-03: rejects source-less sales invoice finalization"
+    },
+    {
+      "file": "apps/core-api/test/mcp-compliance-reads.aut605.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/mcp.e2e-spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "rejects cross-tenant session reuse with 404"
+    },
+    {
+      "file": "apps/core-api/test/purchase-receipt-fix.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/push-waiting-customer.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/sales-inventory-concurrency.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/sales-invoice-origin.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/staging-tote-seed.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/tyre-set-status-backfill.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/vehicle-listing-sale-finalize.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/vehicle-stock-listing-export.e2e-spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "returns 404 when the listing exists on another site in the same tenant"
+    },
+    {
+      "file": "apps/core-api/test/vehicle-stock-sale-branding.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/vehicle-stock-sale-snapshot.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/workshop-domain-models.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/workshop-estimate-pdf.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/workshop-invoicing-branding-origin.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/workshop-invoicing-task-deletion.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-api/test/workshop-labor.e2e-spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/e2e-fullstack/sales-invoice-and-credit-note.flow.spec.ts",
+      "rule": "weak-existence-assertion",
+      "key": "flow 2: create and finalize a full credit note"
+    },
+    {
+      "file": "apps/core-web/e2e/core-workflows.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/e2e/settings.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/e2e/workshop-check-in-tablet.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/e2e/workshop-command-phone.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/e2e/workshop-estimate.spec.ts",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/api/mechanic.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "accepts empty payload for partial save (no notes change)"
+    },
+    {
+      "file": "apps/core-web/src/App.session-refresh.test.tsx",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/components/layout/PageContainer.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "renders the breadcrumb trail above the page content"
+    },
+    {
+      "file": "apps/core-web/src/components/settings/document-branding/DocumentBrandingSettings.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "shows conflict recovery actions after a revision conflict"
+    },
+    {
+      "file": "apps/core-web/src/components/workshop/WorkshopEstimateCard.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "falls back to a mapped German text when the server sends only a code"
+    },
+    {
+      "file": "apps/core-web/src/components/workshop/WorkshopEstimateCard.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "maps a refused role to German copy that names the missing permission"
+    },
+    {
+      "file": "apps/core-web/src/components/workshop/WorkshopEstimateCard.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "maps a send to a completed order to German copy that says the order is closed"
+    },
+    {
+      "file": "apps/core-web/src/components/workshop/WorkshopEstimateCard.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "shows the overrun banner with the threshold when the total exceeds the approved amount"
+    },
+    {
+      "file": "apps/core-web/src/features/actions/workshop-command-actions.test.ts",
+      "rule": "bare-spy-assertion",
+      "key": "runs action handlers from context"
+    },
+    {
+      "file": "apps/core-web/src/features/workshop/check-in/check-in-signature-pad.test.tsx",
+      "rule": "bare-spy-assertion",
+      "key": "updates signer name on input"
+    },
+    {
+      "file": "apps/core-web/src/pages/finance/CreditNoteDetailPage.test.tsx",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/pages/public/PublicEstimateApprovalPage.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "keeps the form and shows a hint when the server rejects incomplete confirmations"
+    },
+    {
+      "file": "apps/core-web/src/pages/public/PublicEstimateApprovalPage.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "shows the link message when the decision hits an expired or used link"
+    },
+    {
+      "file": "apps/core-web/src/pages/SettingsPage.test.support.test.tsx",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/pages/vehicle-stock/VehicleSalePage.kaufvertrag-download.test.tsx",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/pages/vendors/VendorDetail.test.tsx",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/pages/workshop/WorkshopBoard.integration.test.tsx",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/pages/workshop/WorkshopOrderDetails.line-items.test.tsx",
+      "rule": "thin-large-spec",
+      "key": "*"
+    },
+    {
+      "file": "apps/core-web/src/pages/workshop/WorkshopOrderDetails.test.tsx",
+      "rule": "weak-existence-assertion",
+      "key": "shows empty checkout message when there are no tasks"
+    }
+  ]
+}

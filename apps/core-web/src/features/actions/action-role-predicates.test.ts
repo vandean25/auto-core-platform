@@ -4,6 +4,7 @@ import {
   canApplyWorkshopCommand,
   canAssignWorkshopOrderMechanic,
   canManageImportJobs,
+  canManageWorkshopTasks,
   canCheckInWorkshopOrder,
   canDeleteCustomerFromList,
   canGenerateWorkshopJobCardPdf,
@@ -12,7 +13,6 @@ import {
   canOpenVehicle,
   canOpenWorkshopOrder,
   canRecordTyreMeasurement,
-  canUpdateWorkshopOrderTaskState,
   canUseWorkshopCommand,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
@@ -28,7 +28,6 @@ describe('action-role-predicates', () => {
     expect(canCheckInWorkshopOrder('SERVICE_ADVISOR')).toBe(true)
     expect(canGenerateWorkshopJobCardPdf('OWNER')).toBe(true)
     expect(canAssignWorkshopOrderMechanic('ADMIN')).toBe(true)
-    expect(canUpdateWorkshopOrderTaskState('TECH')).toBe(true)
 
     expect(canOpenCustomer('')).toBe(false)
     expect(canDeleteCustomerFromList('')).toBe(false)
@@ -37,7 +36,14 @@ describe('action-role-predicates', () => {
     expect(canCheckInWorkshopOrder('')).toBe(false)
     expect(canGenerateWorkshopJobCardPdf('')).toBe(false)
     expect(canAssignWorkshopOrderMechanic('')).toBe(false)
-    expect(canUpdateWorkshopOrderTaskState('')).toBe(false)
+  })
+
+  it.each([
+    ['OWNER', true], ['ADMIN', true], ['SALES', true], ['DEMO', true],
+    ['TECH', false], ['MECHANIC', false],
+    ['SERVICE_ADVISOR', false], ['owner', false], ['', false], [null, false], [undefined, false],
+  ] as const)('gates workshop task writes to back-office roles plus demo (%s: %s)', (role, expected) => {
+    expect(canManageWorkshopTasks(role)).toBe(expected)
   })
 
   it('limits the estimates list to the roles that manage estimates', () => {
