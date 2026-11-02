@@ -76,7 +76,7 @@
     "DUE_SOON": "Bald fällig",
     "OVERDUE": "Überfällig",
     "UNKNOWN": "Unbekannt",
-    "NEW": "Nicht eingelagert",
+    "NEW": "Neu",
     "IN_STORAGE": "Eingelagert",
     "ON_VEHICLE": "Am Fahrzeug",
     "DISPOSED": "Entsorgt",
@@ -106,6 +106,9 @@
     "UNDONE": "Rückgängig gemacht",
     "PARTIALLY_UNDONE": "Teilweise rückgängig gemacht",
     "MOVED": "Umgelagert"
+  },
+  "tyreSetStatus": {
+    "NEW": "Nicht eingelagert"
   },
   "tyreMeasurementStatus": {
     "GOOD": "Messwerte unauffällig",

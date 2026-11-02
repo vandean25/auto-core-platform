@@ -22443,38 +22443,48 @@
             ]
           },
           "company_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200
           },
           "first_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 120
           },
           "last_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 120
           },
           "email": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "maxLength": 254
           },
           "contact_email_ok": {
             "type": "boolean"
           },
           "phone": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 40
           },
           "vat_id": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 32
           },
           "address_street": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200
           },
           "address_city": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 120
           },
           "address_zip": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 20
           },
           "address_country": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 100
           },
           "preferred_language": {
             "nullable": true,
@@ -22937,35 +22947,45 @@
             ]
           },
           "company_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200
           },
           "first_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 120
           },
           "last_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 120
           },
           "email": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "maxLength": 254
           },
           "phone": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 40
           },
           "vat_id": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 32
           },
           "address_street": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200
           },
           "address_city": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 120
           },
           "address_zip": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 20
           },
           "address_country": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 100
           },
           "preferred_language": {
             "nullable": true,
@@ -26626,7 +26646,8 @@
           },
           "notes": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "maxLength": 2000
           }
         },
         "required": [
@@ -31625,7 +31646,8 @@
           },
           "notes": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "maxLength": 2000
           }
         },
         "required": [

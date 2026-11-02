@@ -3,15 +3,20 @@ trigger: always_on
 ---
 
 ## Agentic Execution Framework (Superpowers)
-You are operating under the `obra/superpowers` methodology. Before generating any code, creating plans, or executing terminal commands, you MUST read the relevant skill from the `.agents/skills/superpowers/` directory.
+You are operating under the `obra/superpowers` methodology. Before writing code, debugging or reporting work complete, you MUST read the relevant mandatory skill listed below from the `.agents/skills/superpowers/` directory.
 
 ### Mandatory Workflows:
-1. **Planning:** Before writing code or modifying architecture, read `.agents/skills/superpowers/writing-plans/SKILL.md` and create a checklist. Do not proceed until the user approves the plan.
-2. **Test-Driven Development (TDD):** For behaviour changes and bugfixes, you MUST follow the Red-Green-Refactor cycle (failing test first) defined in `.agents/skills/superpowers/test-driven-development/SKILL.md`. For pure refactors the existing tests are the safety net; no new tests are required. The skill's "wrote code before the test? delete it" rule does not apply in ACP.
-3. **Debugging:** If a test fails or a build error occurs, do not guess. Read `.agents/skills/superpowers/systematic-debugging/SKILL.md` and execute the formal root cause analysis.
-4. **Brainstorming:** If a user request is vague or open-ended, read `.agents/skills/superpowers/brainstorming/SKILL.md` first.
+1. **Test-Driven Development (TDD):** For behaviour changes and bugfixes, you MUST follow the Red-Green-Refactor cycle (failing test first) defined in `.agents/skills/superpowers/test-driven-development/SKILL.md`. For pure refactors the existing tests are the safety net; no new tests are required. The skill's "wrote code before the test? delete it" rule does not apply in ACP.
+2. **Debugging:** If a test fails or a build error occurs, do not guess. Read `.agents/skills/superpowers/systematic-debugging/SKILL.md` and execute the formal root cause analysis.
+3. **Verification:** Before reporting work as complete, read `.agents/skills/superpowers/verification-before-completion/SKILL.md` and run its checks.
 
-Do not bypass these rules under any circumstances.
+### Optional Workflows (cloud agents):
+- **Planning:** Specs are settled upstream in Linear, so cloud agents proceed without waiting for plan approval. `writing-plans/SKILL.md` may be loaded on request.
+- **Brainstorming:** `brainstorming/SKILL.md` is optional for vague, open-ended requests.
+
+Only load the superpowers skills listed above. Do not require or load unused ones (e.g. `writing-skills`, `subagent-driven-development`, `using-git-worktrees`) — this saves context, unless a plan document declares it as a REQUIRED SUB-SKILL.
+
+Do not bypass the mandatory workflows under any circumstances.
 
 ## Project Overview
 
@@ -190,6 +195,10 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **No empty assertions**: no test whose only assertion is `toBeDefined` / "should be defined", or a bare `toHaveBeenCalled()` without an argument or outcome check.
 - **Public API only**: never reach into private methods (`as any`, `['privateMethod']`); test through the public API.
 - **No mock-heavy duplicates of e2e**: if an existing e2e already covers a flow, extend that e2e or test the pure logic instead of adding a heavily mocked unit test.
+- **Spec-quality guard**: `npm run spec-quality:check` (self-test `npm run spec-quality:check:test`, also a step in PR Build Check) fails on NEW low-value tests — specs over 150 lines with two or fewer tests, existence-only assertions, bare `toHaveBeenCalled()`, and `as any` / `['privateMethod']` access; existing offenders are listed in `tools/spec-quality-baseline.json`, which only shrinks (regenerate with `npm run spec-quality:check -- --write-baseline` after deleting offenders).
+
+### Ticket Scenarios (WHEN/THEN)
+- Every WHEN/THEN scenario listed in a ticket maps to exactly one test, preferably by extending an existing spec (format borrowed from OpenSpec; we do not adopt OpenSpec itself), unless the ticket changes no behaviour, in which case each scenario maps to the doc section that states it.
 
 ## GitHub Pull Request Workflow
 

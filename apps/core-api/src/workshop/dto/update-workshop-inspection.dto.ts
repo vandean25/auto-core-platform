@@ -6,9 +6,11 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { INSPECTION_NOTES_MAX_LENGTH } from '../workshop-inspection-limits.js';
 
 export class UpdateWorkshopInspectionItemDto {
   @ApiProperty({ format: 'uuid' })
@@ -20,9 +22,14 @@ export class UpdateWorkshopInspectionItemDto {
   @IsBoolean()
   passed?: boolean | null;
 
-  @ApiPropertyOptional({ type: String, nullable: true })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: INSPECTION_NOTES_MAX_LENGTH,
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(INSPECTION_NOTES_MAX_LENGTH)
   notes?: string | null;
 }
 

@@ -50,3 +50,18 @@ describe('fiscal settlement disabled (AUT-844)', () => {
     expect(screen.queryByText(deFinance.settlement.title)).not.toBeInTheDocument()
   })
 })
+
+describe('role without invoice permissions (AUT-852)', () => {
+  it('renders no settlement block and no empty card while settlement data is still loading', () => {
+    vi.mocked(useInvoiceSettlement).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof useInvoiceSettlement>)
+
+    const { container } = render(
+      <InvoiceSettlementActions invoiceId="inv-1" invoiceStatus="PAID" canManage={false} />,
+    )
+
+    expect(container).toBeEmptyDOMElement()
+  })
+})

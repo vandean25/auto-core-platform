@@ -7,11 +7,17 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { INSPECTION_NOTES_MAX_LENGTH } from '../../workshop/workshop-inspection-limits.js';
 
 export class InspectionItemValueDto {
+  // Only `notes` is capped here. responseValue holds a measurement rather than free text, and mechanicNotes on
+  // SaveDiagnosticsDto has a second writer in UpdateWorkshopTaskDto. Capping one REST path of a column the other
+  // paths still leave open would recreate the disagreement this ticket removes, so both wait for a ticket that
+  // caps every writer at once.
   @ApiProperty({ description: 'WorkshopInspectionItem.id to update' })
   @IsUUID()
   itemId!: string;
@@ -35,9 +41,16 @@ export class InspectionItemValueDto {
   @IsOptional()
   severity?: WorkshopInspectionSeverity | null;
 
-  @ApiProperty({ type: String, required: false, nullable: true })
+  // Same cap as the checklist and check-in routes: all four of them write this one column.
+  @ApiProperty({
+    type: String,
+    required: false,
+    nullable: true,
+    maxLength: INSPECTION_NOTES_MAX_LENGTH,
+  })
   @IsString()
   @IsOptional()
+  @MaxLength(INSPECTION_NOTES_MAX_LENGTH)
   notes?: string | null;
 }
 
