@@ -15,6 +15,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
+import { VehicleSaleTransitionService } from './vehicle-sale-transition.service.js';
+import { VehicleSaleFinalizeService } from './vehicle-sale-finalize.service.js';
 import { AuditLogAction } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
@@ -28,6 +30,8 @@ describe('VehicleSaleService', () => {
   const saleId = 'sale-1';
   const customerId = 'customer-1';
   let service: VehicleSaleService;
+  let transitions: VehicleSaleTransitionService;
+  let finalizer: VehicleSaleFinalizeService;
   let prisma: {
     vehicleSale: {
       findFirst: jest.Mock;
@@ -153,6 +157,21 @@ describe('VehicleSaleService', () => {
       tenantContext as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
       ledger as unknown as VehicleLedgerService,
+    );
+    transitions = new VehicleSaleTransitionService(
+      prisma as unknown as PrismaService,
+      tenantContext as unknown as TenantContextService,
+      siteContext as unknown as SiteContextService,
+      service,
+      auditService as unknown as AuditService,
+      requestContext as unknown as RequestContextService,
+    );
+    finalizer = new VehicleSaleFinalizeService(
+      prisma as unknown as PrismaService,
+      tenantContext as unknown as TenantContextService,
+      siteContext as unknown as SiteContextService,
+      service,
+      ledger as unknown as VehicleLedgerService,
       snapshotCommit as unknown as InvoiceSnapshotCommitService,
       auditService as unknown as AuditService,
       requestContext as unknown as RequestContextService,
@@ -184,7 +203,7 @@ describe('VehicleSaleService', () => {
         vehicle: { first_registration_date: new Date('2020-01-01'), location: { site_id: 'site-1' } },
       }).mockResolvedValueOnce({ id: saleId, vehicle_id: vehicleId, sale_price: 100 });
 
-      await service.updateDraft(saleId, { gewaehrleistung_note: 'note' });
+      await transitions.updateDraft(saleId, { gewaehrleistung_note: 'note' });
 
       expect(prisma.vehicleSale.findFirst.mock.calls[0][0].where.vehicle).toEqual({
         is: { tenant_id: tenantId, site_id: { in: ['site-1'] } },
@@ -209,7 +228,7 @@ describe('VehicleSaleService', () => {
       prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
       prisma.vehicleSale.update.mockResolvedValue({});
 
-      await service.correctGewaehrleistungSnapshot(saleId, {
+      await transitions.correctGewaehrleistungSnapshot(saleId, {
         buyer_is_consumer: true,
         gewaehrleistung_shortened_negotiated: false,
         reason: 'Corrected contract facts',
@@ -315,7 +334,7 @@ describe('VehicleSaleService', () => {
         });
 
         await expect(
-          service.updateDraft(saleId, {
+          transitions.updateDraft(saleId, {
             contract_concluded_at: new Date('2026-10-02T00:00:00.000Z'),
             handed_over_at: new Date('2026-10-08T00:00:00.000Z'),
             buyer_is_consumer:
@@ -359,7 +378,7 @@ describe('VehicleSaleService', () => {
         });
       prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.updateDraft(saleId, {
+      await transitions.updateDraft(saleId, {
         handed_over_at: new Date('2026-10-10T00:00:00.000Z'),
       });
 
@@ -384,7 +403,7 @@ describe('VehicleSaleService', () => {
       });
 
       await expect(
-        service.updateDraft(saleId, { handed_over_at: new Date() }),
+        transitions.updateDraft(saleId, { handed_over_at: new Date() }),
       ).rejects.toMatchObject({ status: 422 });
       expect(prisma.vehicleSale.updateMany).not.toHaveBeenCalled();
     });
@@ -419,7 +438,7 @@ describe('VehicleSaleService', () => {
       prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
       prisma.user.findFirst.mockResolvedValue({ id: 'user-db-1' });
 
-      await service.correctGewaehrleistungSnapshot(saleId, {
+      await transitions.correctGewaehrleistungSnapshot(saleId, {
         reason: 'Erfassungsfehler korrigiert',
         contract_concluded_at: before.contract_concluded_at,
         handed_over_at: new Date('2026-10-10T00:00:00.000Z'),
@@ -473,7 +492,7 @@ describe('VehicleSaleService', () => {
       }));
 
       await expect(
-        service.correctGewaehrleistungSnapshot(saleId, {
+        transitions.correctGewaehrleistungSnapshot(saleId, {
           reason: 'Concurrent correction',
           handed_over_at: new Date('2026-10-10T00:00:00.000Z'),
           buyer_is_consumer: true,
@@ -614,7 +633,7 @@ describe('VehicleSaleService', () => {
     prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
     prisma.$queryRaw.mockResolvedValueOnce([{ id: 'site-1', is_active: true }]);
 
-    const result = await service.finalize(saleId);
+    const result = await finalizer.finalize(saleId);
 
     expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
@@ -743,7 +762,7 @@ describe('VehicleSaleService', () => {
       new Error('simulated DMS outage'),
     );
 
-    await expect(service.finalize(saleId)).resolves.toBeDefined();
+    await expect(finalizer.finalize(saleId)).resolves.toBeDefined();
     expect(autoscout24DmsPush.deactivateAfterVehicleSale).toHaveBeenCalled();
   });
 
@@ -772,7 +791,7 @@ describe('VehicleSaleService', () => {
     prisma.workshopOrder.count.mockResolvedValue(0);
     prisma.$queryRaw.mockResolvedValueOnce([{ id: 'site-1', is_active: true }]);
 
-    await expect(service.finalize(saleId)).rejects.toBeInstanceOf(
+    await expect(finalizer.finalize(saleId)).rejects.toBeInstanceOf(
       UnprocessableEntityException,
     );
 
@@ -801,7 +820,7 @@ describe('VehicleSaleService', () => {
       ]);
       prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.updateDraft(saleId, {
+      await transitions.updateDraft(saleId, {
         siteId: 'site-2',
         expectedSiteId: 'site-1',
       });
@@ -844,7 +863,7 @@ describe('VehicleSaleService', () => {
       prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
 
       await expect(
-        service.updateDraft(saleId, {
+        transitions.updateDraft(saleId, {
           siteId: 'site-2',
           expectedSiteId: 'site-1',
         }),
@@ -870,7 +889,7 @@ describe('VehicleSaleService', () => {
       prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
 
       await expect(
-        service.updateDraft(saleId, { siteId: 'site-2' }),
+        transitions.updateDraft(saleId, { siteId: 'site-2' }),
       ).rejects.toThrow(
         'Vehicle is parked on another site; move the vehicle before retargeting sale',
       );
@@ -892,7 +911,7 @@ describe('VehicleSaleService', () => {
       prisma.siteMembership.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateDraft(saleId, { siteId: 'site-2' }),
+        transitions.updateDraft(saleId, { siteId: 'site-2' }),
       ).rejects.toThrow('Active site membership required on target site');
     });
 
@@ -905,7 +924,7 @@ describe('VehicleSaleService', () => {
       });
 
       await expect(
-        service.updateDraft(saleId, {
+        transitions.updateDraft(saleId, {
           siteId: 'site-2',
           expectedSiteId: 'stale-site',
         }),

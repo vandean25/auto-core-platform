@@ -14,6 +14,8 @@ import { VehiclePurchaseService } from './vehicle-purchase.service.js';
 import { VehiclePurchaseController } from './vehicle-purchase.controller.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
 import { VehicleSaleController } from './vehicle-sale.controller.js';
+import { VehicleSaleTransitionService } from './vehicle-sale-transition.service.js';
+import { VehicleSaleFinalizeService } from './vehicle-sale-finalize.service.js';
 import { VehicleSaleTradeInService } from './vehicle-sale-trade-in.service.js';
 import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 import { VehicleStockController } from './vehicle-stock.controller.js';
@@ -49,6 +51,8 @@ import {
     VehicleLedgerService,
     VehiclePurchaseService,
     VehicleSaleService,
+    VehicleSaleTransitionService,
+    VehicleSaleFinalizeService,
     VehicleSaleTradeInService,
     KaufvertragPdfRenderer,
     KaufvertragPdfSnapshotService,

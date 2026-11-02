@@ -21,6 +21,8 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
+import { VehicleSaleTransitionService } from './vehicle-sale-transition.service.js';
+import { VehicleSaleFinalizeService } from './vehicle-sale-finalize.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { Autoscout24DmsListingPushService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-listing-push.service.js';
@@ -64,6 +66,8 @@ describe('VehicleSaleService characterization', () => {
   });
 
   let service: VehicleSaleService;
+  let transitions: VehicleSaleTransitionService;
+  let finalizer: VehicleSaleFinalizeService;
   let prisma: ReturnType<typeof makePrisma>;
   let ledger: { listForVehicle: jest.Mock; append: jest.Mock };
   let auditService: { recordTenantMutation: jest.Mock };
@@ -227,6 +231,21 @@ describe('VehicleSaleService characterization', () => {
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
+      ledger as unknown as VehicleLedgerService,
+    );
+    transitions = new VehicleSaleTransitionService(
+      prisma as unknown as PrismaService,
+      tenantContext as unknown as TenantContextService,
+      siteContext as unknown as SiteContextService,
+      service,
+      auditService as unknown as AuditService,
+      requestContext as unknown as RequestContextService,
+    );
+    finalizer = new VehicleSaleFinalizeService(
+      prisma as unknown as PrismaService,
+      tenantContext as unknown as TenantContextService,
+      siteContext as unknown as SiteContextService,
+      service,
       ledger as unknown as VehicleLedgerService,
       snapshotCommit as unknown as InvoiceSnapshotCommitService,
       auditService as unknown as AuditService,
@@ -424,7 +443,7 @@ describe('VehicleSaleService characterization', () => {
       async (status) => {
         prisma.vehicleSale.findFirst.mockResolvedValue(saleFixture({ status }));
         const error = await rejectionOf(
-          service.updateDraft(saleId, {
+          transitions.updateDraft(saleId, {
             sale_price: 1,
           }),
         );
@@ -441,7 +460,7 @@ describe('VehicleSaleService characterization', () => {
       prisma.vehicleSale.findFirst.mockResolvedValue(sale);
       prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
 
-      const detail = await service.updateDraft(saleId, { sale_price: 12000 });
+      const detail = await transitions.updateDraft(saleId, { sale_price: 12000 });
 
       expect(prisma.vehicleSale.updateMany).toHaveBeenCalledWith({
         where: {
@@ -460,7 +479,7 @@ describe('VehicleSaleService characterization', () => {
       prisma.vehicleSale.findFirst.mockResolvedValue(saleFixture());
       prisma.vehicleSale.updateMany.mockResolvedValue({ count: 0 });
       const error = await rejectionOf(
-        service.updateDraft(saleId, { sale_price: 12000 }),
+        transitions.updateDraft(saleId, { sale_price: 12000 }),
       );
       expect(error).toBeInstanceOf(ConflictException);
       expect(error).toMatchObject({
@@ -472,7 +491,7 @@ describe('VehicleSaleService characterization', () => {
     it('only corrects the Gewaehrleistung snapshot of an invoiced sale in the caller scope', async () => {
       prisma.vehicleSale.findFirst.mockResolvedValue(null);
       const error = await rejectionOf(
-        service.correctGewaehrleistungSnapshot(saleId, {
+        transitions.correctGewaehrleistungSnapshot(saleId, {
           reason: 'Datum korrigiert',
           buyer_is_consumer: true,
           gewaehrleistung_shortened_negotiated: false,
@@ -493,7 +512,7 @@ describe('VehicleSaleService characterization', () => {
       );
       prisma.vehiclePurchase.findFirst.mockResolvedValue(tradeInFixture());
       const error = await rejectionOf(
-        service.updateDraft(saleId, {
+        transitions.updateDraft(saleId, {
           customer_id: 'customer-2',
         }),
       );
@@ -509,7 +528,7 @@ describe('VehicleSaleService characterization', () => {
       );
       prisma.vehiclePurchase.findFirst.mockResolvedValue(tradeInFixture());
       const error = await rejectionOf(
-        service.updateDraft(saleId, {
+        transitions.updateDraft(saleId, {
           sale_price: 1500,
         }),
       );
@@ -523,7 +542,7 @@ describe('VehicleSaleService characterization', () => {
         saleFixture({ status: VehicleSaleStatus.INVOICED }),
       );
       const error = await rejectionOf(
-        service.correctGewaehrleistungSnapshot(saleId, {
+        transitions.correctGewaehrleistungSnapshot(saleId, {
           reason: '   ',
           buyer_is_consumer: true,
           gewaehrleistung_shortened_negotiated: false,
@@ -540,7 +559,7 @@ describe('VehicleSaleService characterization', () => {
   describe('finalize', () => {
     it('refuses to finalize an unknown sale', async () => {
       prisma.vehicleSale.findFirst.mockResolvedValue(null);
-      const error = await rejectionOf(service.finalize(saleId));
+      const error = await rejectionOf(finalizer.finalize(saleId));
       expect(error).toBeInstanceOf(NotFoundException);
       expect(error).toMatchObject({
         message: `Vehicle sale ${saleId} not found`,
@@ -558,7 +577,7 @@ describe('VehicleSaleService characterization', () => {
         prisma.vehicleSale.findFirst
           .mockResolvedValueOnce(saleFixture(status ? { status } : {}))
           .mockResolvedValueOnce(null);
-        const error = await rejectionOf(service.finalize(saleId));
+        const error = await rejectionOf(finalizer.finalize(saleId));
         expect(error).toBeInstanceOf(ConflictException);
         expect(error).toMatchObject({
           message:
@@ -585,7 +604,7 @@ describe('VehicleSaleService characterization', () => {
         ],
       });
 
-      await service.finalize(saleId);
+      await finalizer.finalize(saleId);
 
       expect(prisma.vehicleListingChannel.update).toHaveBeenCalledWith({
         where: { tenant_id: tenantId, id: 'channel-1' },
@@ -627,7 +646,7 @@ describe('VehicleSaleService characterization', () => {
           parties[2],
         ]);
 
-      await service.finalize(saleId);
+      await finalizer.finalize(saleId);
 
       expect(prisma.vehicleParty.update).toHaveBeenCalledTimes(1);
       expect(prisma.vehicleParty.update).toHaveBeenCalledWith({
@@ -644,7 +663,7 @@ describe('VehicleSaleService characterization', () => {
       const sale = saleFixture();
       primeFinalize(sale);
 
-      const result = await service.finalize(saleId);
+      const result = await finalizer.finalize(saleId);
 
       expect(result).toMatchObject({
         id: saleId,
@@ -704,14 +723,14 @@ describe('VehicleSaleService characterization', () => {
 
     it('refuses to finalize when the vehicle is no longer sellable at the stock guard', async () => {
       primeFinalize(saleFixture(), { stockGuardCount: 0 });
-      const error = await rejectionOf(service.finalize(saleId));
+      const error = await rejectionOf(finalizer.finalize(saleId));
       expect(error).toBeInstanceOf(ConflictException);
       expect(error).toMatchObject({ message: 'Vehicle is no longer sellable' });
     });
 
     it('refuses to finalize when another request already numbered the invoice', async () => {
       primeFinalize(saleFixture(), { invoiceNumberCount: 0 });
-      const error = await rejectionOf(service.finalize(saleId));
+      const error = await rejectionOf(finalizer.finalize(saleId));
       expect(error).toBeInstanceOf(ConflictException);
       expect(error).toMatchObject({
         message: 'Invoice was already transitioned by another request',
@@ -746,7 +765,7 @@ describe('VehicleSaleService characterization', () => {
           saleFixture({ trade_in_purchase_id: 'purchase-1' }),
           { purchase },
         );
-        const error = await rejectionOf(service.finalize(saleId));
+        const error = await rejectionOf(finalizer.finalize(saleId));
         expect(error).toBeInstanceOf(ConflictException);
         expect(error).toMatchObject({
           message:
@@ -759,7 +778,7 @@ describe('VehicleSaleService characterization', () => {
       primeFinalize(saleFixture({ trade_in_purchase_id: 'purchase-1' }), {
         purchase: tradeInFixture({ vin: 'VIN-1' }),
       });
-      const error = await rejectionOf(service.finalize(saleId));
+      const error = await rejectionOf(finalizer.finalize(saleId));
       expect(error).toBeInstanceOf(UnprocessableEntityException);
       expect(error).toMatchObject({
         response: { code: 'TRADE_IN_VIN_IS_SOLD_VEHICLE' },
@@ -770,7 +789,7 @@ describe('VehicleSaleService characterization', () => {
       primeFinalize(saleFixture({ trade_in_purchase_id: 'purchase-1' }), {
         purchase: tradeInFixture({ purchase_price: new Prisma.Decimal(20000) }),
       });
-      const error = await rejectionOf(service.finalize(saleId));
+      const error = await rejectionOf(finalizer.finalize(saleId));
       expect(error).toBeInstanceOf(UnprocessableEntityException);
       expect(error).toMatchObject({
         response: { code: 'TRADE_IN_ALLOWANCE_INVALID' },
@@ -782,7 +801,7 @@ describe('VehicleSaleService characterization', () => {
         purchase: tradeInFixture(),
       });
 
-      const result = await service.finalize(saleId);
+      const result = await finalizer.finalize(saleId);
 
       expect(result).toMatchObject({
         status: VehicleSaleStatus.INVOICED,
