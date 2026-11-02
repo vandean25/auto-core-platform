@@ -1,0 +1,35 @@
+---
+title: "Kostenvoranschläge (Liste)"
+description: "Alle KVAs am Standort durchsuchen, filtern und vom Listeneintrag zum Auftrag springen."
+---
+
+**Kostenvoranschläge** in der Seitenleiste (`/workshop/estimates`) ist die standortbezogene Übersicht aller Kostenvoranschläge — nicht der Editor am einzelnen Werkstattauftrag. Untertitel in der App: *Alle Kostenvoranschläge des Standorts. Ein Klick öffnet den Auftrag mit der Version.*
+
+OWNER, ADMIN und SALES sehen den Menüpunkt unter **Werkstatt**.
+
+<Steps>
+  <Step title="Liste öffnen">
+    Seitenleiste → **Kostenvoranschläge**.
+  </Step>
+  <Step title="Suchen und filtern">
+    Suche: **Nr., Kunde, Kennzeichen**. Status, Kunde und Zeitraum **Gesendet von/bis** schränken die Tabelle ein. **Ältere Versionen anzeigen** blendet frühere KVA-Versionen ein (standardmäßig nur die jeweils aktuelle Version pro Nummer).
+  </Step>
+  <Step title="Zum Auftrag">
+    Zeile anklicken oder **Kostenvoranschlag öffnen** — Sie landen am Werkstattauftrag mit der gewählten Version. Erstellen, senden und überarbeiten Sie KVAs weiterhin auf der Karte **Kostenvoranschlag** am Auftrag (siehe [Werkstattaufträge](/workflows/workshop-orders)).
+  </Step>
+</Steps>
+
+| Spalte | Bedeutung |
+| --- | --- |
+| **Nummer** | KVA-Nummer |
+| **Auftrag** | Verknüpfter Werkstattauftrag |
+| **Kunde** / **Kennzeichen** | Fahrzeugkontext |
+| **Status** | Entwurf, gesendet, entschieden usw. |
+| **Gesendet am** / **Gültig bis** | Versand- und Fristdaten |
+| **Brutto** | Gesamtbetrag der Version |
+
+<Tip>
+Bei vielen Datensätzen lädt die Tabelle seitenweise; **Mehr laden** holt ältere Einträge. Suche und Sortierung gelten nur für bereits geladene Seiten — bei Bedarf zuerst filtern, dann nachladen.
+</Tip>
+
+Verwandt: [Werkstattaufträge](/workflows/workshop-orders) (KVA am Auftrag), [Kunden](/workflows/customers) (E-Mail für Auftragskommunikation).
