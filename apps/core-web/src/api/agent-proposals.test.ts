@@ -35,9 +35,10 @@ function createWrapper(client: QueryClient) {
     createElement(QueryClientProvider, { client }, children)
 }
 
-function createJsonResponse(body: unknown, ok = true): Response {
+function createJsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
     ok,
+    status,
     json: async () => body,
   } as Response
 }
@@ -185,8 +186,9 @@ describe('agent-proposals api hooks', () => {
     it('handles query error', async () => {
       vi.mocked(fetchWithAuth).mockResolvedValue(
         createJsonResponse(
-          { message: 'Unauthorized supervisor access' },
+          { code: 'NOT_A_REAL_CODE', message: 'Unauthorized supervisor access' },
           false,
+          401,
         ),
       )
 
@@ -199,9 +201,8 @@ describe('agent-proposals api hooks', () => {
         expect(result.current.isError).toBe(true)
       })
 
-      expect(result.current.error?.message).toBe(
-        'Unauthorized supervisor access',
-      )
+      expect(result.current.error?.message).toBe('Agenten-Vorschläge konnten nicht geladen werden')
+      expect(result.current.error?.message).not.toContain('Unauthorized supervisor access')
     })
   })
 
@@ -248,8 +249,9 @@ describe('agent-proposals api hooks', () => {
     it('handles approve failure', async () => {
       vi.mocked(fetchWithAuth).mockResolvedValue(
         createJsonResponse(
-          { message: 'Action requires human execution' },
+          { code: 'NOT_A_REAL_CODE', message: 'Action requires human execution' },
           false,
+          409,
         ),
       )
 
@@ -261,6 +263,9 @@ describe('agent-proposals api hooks', () => {
       })
 
       await expect(result.current.mutateAsync('prop-1')).rejects.toThrow(
+        'Fehler beim Genehmigen des Vorschlags',
+      )
+      await expect(result.current.mutateAsync('prop-1')).rejects.not.toThrow(
         'Action requires human execution',
       )
     })
@@ -314,7 +319,7 @@ describe('agent-proposals api hooks', () => {
 
     it('handles reject failure', async () => {
       vi.mocked(fetchWithAuth).mockResolvedValue(
-        createJsonResponse({ message: 'Proposal already rejected' }, false),
+        createJsonResponse({ code: 'NOT_A_REAL_CODE', message: 'Proposal already rejected' }, false, 409),
       )
 
       const queryClient = createQueryClient()
@@ -324,7 +329,10 @@ describe('agent-proposals api hooks', () => {
 
       await expect(
         result.current.mutateAsync({ id: 'prop-1', reason: 'Too late' }),
-      ).rejects.toThrow('Proposal already rejected')
+      ).rejects.toThrow('Fehler beim Ablehnen des Vorschlags')
+      await expect(
+        result.current.mutateAsync({ id: 'prop-1', reason: 'Too late' }),
+      ).rejects.not.toThrow('Proposal already rejected')
     })
   })
 })

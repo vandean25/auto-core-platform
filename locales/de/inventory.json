@@ -222,6 +222,17 @@
       "sourceBinOptional": "Quell-Lagerplatz (optional)",
       "requestedQtyAria": "Angefragte Menge für {{sku}}",
       "sourceBinAria": "Quell-Lagerplatz für {{sku}}"
+    },
+    "errors": {
+      "listLoadFailed": "Umlagerungen konnten nicht geladen werden",
+      "detailLoadFailed": "Umlagerung konnte nicht geladen werden",
+      "createFailed": "Umlagerung konnte nicht erstellt werden",
+      "approveFailed": "Umlagerung konnte nicht genehmigt werden",
+      "rejectFailed": "Umlagerung konnte nicht abgelehnt werden",
+      "cancelFailed": "Umlagerung konnte nicht storniert werden",
+      "shipFailed": "Umlagerung konnte nicht versandt werden",
+      "receiveFailed": "Umlagerung konnte nicht empfangen werden",
+      "returnFailed": "Umlagerung konnte nicht zurückgebucht werden"
     }
   },
   "tyreStorage": {

@@ -5,7 +5,7 @@ description: "Turn saved list filters into widgets, and jump to parts, customers
 
 **Dashboard** is a command board you build, not a fixed report pack. Subtitle: build your command center from saved table filters.
 
-Empty dashboard copy: **No widgets yet. Open a list view, apply filters, then click Add to dashboard.**
+Empty dashboard copy: **No widgets configured yet.** How to add widgets is behind the info icon next to it.
 
 That button is on Customers, Vehicles, Sales Orders, Workshop Orders, Inventory, Vendors, Purchase Orders, and Purchase Bills.
 
@@ -71,6 +71,10 @@ After you open a hit, the palette remembers it under **Recently opened** (per us
 ### Actions on the current record
 
 On a customer, vehicle, or workshop order detail page, the palette shows **Current record** with quick actions from the action registry — for example **Vehicle check-in** on an order or **Create workshop order** from a customer. On a workshop order you can also run actions such as **Assign mechanic**, mark tasks **Done** / **Reopen task**, and **Job card PDF** from search when your role and order status allow it.
+
+### Workshop command
+
+When the input is empty and your role may plan workshop work, you see **Workshop command (text or voice)**. Type or dictate a sentence (appointment, service, loaner), **Review** shows a preview without saving, and **Apply proposal** creates the order and reservation — or queues an approval proposal when your tenant requires agent review. Personal tokens from the sentence (surname, plate, VIN) are kept only briefly to replay the command and are purged on a schedule.
 
 <Tip>
 Lists stay live. When someone else receives stock or updates a job, the widgets update.

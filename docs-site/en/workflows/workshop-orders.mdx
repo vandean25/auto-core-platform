@@ -17,7 +17,7 @@ Task statuses include **NOT_STARTED**, **IN_PROGRESS**, **WAITING_PARTS**, **DON
     **Print Job Card** queues or downloads the PDF. Toast: **Generating Job Card PDF...**
   </Step>
   <Step title="Cost estimate (Kostenvoranschlag)">
-    OWNER, ADMIN, and SALES see the **Estimate** card while the job is in **INTAKE** or **IN_PROGRESS**. **Create estimate** snapshots tasks and lines; **Send to customer** emails a PDF and optional notification. The customer opens the public approval link (`/approve/:token`), reviews totals, and approves or declines. **Record confirmation** captures phone or in-person approval when they do not use the link. Revisions create a new draft version; overrun warnings appear when work exceeds the approved total.
+    OWNER, ADMIN, and SALES see the **Estimate** card while the job is in **INTAKE** or **IN_PROGRESS**. **Create estimate** snapshots tasks and lines; **Send to customer** emails a PDF and optional notification. The customer opens the public approval link (`/approve/:token`), reviews totals, and approves or declines. **Record confirmation** captures phone or in-person approval when they do not use the link. Revisions create a new draft version; overrun warnings appear when work exceeds the approved total. Browse every estimate at the site from [Estimates (list)](/en/workflows/workshop-estimates).
   </Step>
   <Step title="Checkout">
     **Generate Invoice** is enabled when status is **COMPLETED** (or a linked invoice already exists). Inside checkout: **Create Draft Invoice**, then **Issue Invoice**. After issue the order is **INVOICED** and tasks lock.

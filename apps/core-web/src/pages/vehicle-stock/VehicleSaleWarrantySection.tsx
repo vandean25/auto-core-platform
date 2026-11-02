@@ -1,4 +1,7 @@
 import { useTranslation } from 'react-i18next'
+import { Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { GewaehrleistungFristen } from '@/components/vehicles/GewaehrleistungFristen'
@@ -139,7 +142,25 @@ export function VehicleSaleWarrantySection({
   return (
     <section aria-labelledby="gewaehrleistung-form-title" className="space-y-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="gewaehrleistung-form-title" className="font-medium">{t('sale.gewaehrleistung')}</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 id="gewaehrleistung-form-title" className="font-medium">{t('sale.gewaehrleistung')}</h2>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
+                aria-label={t('sale.warranty.repairsNoteAria')}
+              >
+                <Info className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 text-xs text-slate-600" aria-label={t('sale.warranty.repairsNoteAria')}>
+              {t('sale.warranty.repairsNote')}
+            </PopoverContent>
+          </Popover>
+        </div>
         {warrantyBadge ? <StatusBadge status={warrantyBadge.status} label={warrantyBadge.label} /> : null}
       </div>
       {sale?.gewaehrleistung_ends_on ? <GewaehrleistungFristen sale={sale} /> : null}
@@ -182,7 +203,6 @@ export function VehicleSaleWarrantySection({
         />
       </label>
       <GarantieFields form={form} locked={locked} />
-      <p className="text-xs text-slate-500">{t('sale.warranty.repairsNote')}</p>
     </section>
   )
 }

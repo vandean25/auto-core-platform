@@ -1,3 +1,4 @@
+import { i18n } from '@/lib/i18n'
 import {
   useMutation,
   useQueries,
@@ -9,6 +10,7 @@ import type { components } from './generated/openapi'
 import { agentActionKeys } from './agent-actions'
 import { agentSupervisionTriageKeys } from './agent-supervision-triage'
 import { fetchWithAuth } from './client'
+import { getErrorMessageFromResponse as getErrorMessage } from '@/lib/error-utils'
 
 export type AgentProposal = components['schemas']['AgentProposalResponseDto']
 export type AgentProposalListResponse = components['schemas']['AgentProposalListResponseDto']
@@ -35,10 +37,6 @@ export const agentProposalKeys = {
   detail: (id: string) => [...agentProposalKeys.details(), id] as const,
 }
 
-async function getErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
-  const payload = (await response.json().catch(() => undefined)) as { message?: string } | undefined
-  return payload?.message || fallbackMessage
-}
 
 export function chunkAgentProposalIds(
   ids: string[],
@@ -71,7 +69,7 @@ export async function fetchAgentProposalsList(
   const response = await fetchWithAuth(url)
 
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response, 'Failed to fetch agent proposals'))
+    throw new Error(await getErrorMessage(response, i18n.t('common:apiErrors.agent.approvals.loadFailed')))
   }
 
   return response.json()
@@ -139,7 +137,7 @@ export function useApproveAgentProposal() {
       })
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to approve agent proposal'))
+        throw new Error(await getErrorMessage(response, i18n.t('agent:approvals.approveError')))
       }
 
       return response.json()
@@ -164,7 +162,7 @@ export function useRejectAgentProposal() {
       })
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to reject agent proposal'))
+        throw new Error(await getErrorMessage(response, i18n.t('agent:approvals.rejectError')))
       }
 
       return response.json()

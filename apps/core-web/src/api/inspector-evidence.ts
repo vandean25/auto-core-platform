@@ -1,19 +1,10 @@
+import { i18n } from '@/lib/i18n'
 import { useQuery } from '@tanstack/react-query'
 
 import type { components } from '@/api/generated/openapi'
 import { fetchWithAuth } from './client'
+import { getErrorMessageFromResponse as getErrorMessage } from '@/lib/error-utils'
 
-async function getErrorMessage(
-  response: Response,
-  fallbackMessage: string,
-): Promise<string> {
-  try {
-    const body = (await response.json()) as { message?: string }
-    return body.message ?? fallbackMessage
-  } catch {
-    return fallbackMessage
-  }
-}
 
 export type InspectorEvidenceRevision =
   components['schemas']['InspectorEvidenceRevisionResponseDto']
@@ -44,7 +35,7 @@ export function useInspectorEvidenceList(employeeId: string | null, enabled: boo
       )
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, 'Failed to fetch inspector evidence'),
+          await getErrorMessage(response, i18n.t('common:apiErrors.workshop.inspectorEvidence.loadFailed')),
         )
       }
       return (await response.json()) as {
@@ -80,7 +71,7 @@ export function useInspectorEvidenceAssessment(
       )
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, 'Failed to assess inspector evidence'),
+          await getErrorMessage(response, i18n.t('common:apiErrors.workshop.inspectorEvidence.assessFailed')),
         )
       }
       return (await response.json()) as InspectorEvidenceAssessment
