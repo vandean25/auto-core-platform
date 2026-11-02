@@ -58,10 +58,12 @@ substitutions:
   _LANDING_DEMO_OPERATOR_EMAIL: ""
   _LANDING_DEMO_SIGN_IN_CONTINUE_URL: https://auto-core-platform-vande.web.app/login
   _LANDING_PAGE_ORIGINS: https://acp-landing.web.app
-  # AUT-715: HTTP cron mode is built but QA stays in-process until Infra overrides these.
-  _SCHEDULER_MODE: in-process
-  _CRON_OIDC_AUDIENCE: PLACEHOLDER_CORE_API_RUN_APP_URL
-  _CRON_INVOKER_SA_EMAIL: PLACEHOLDER_CLOUD_SCHEDULER_INVOKER_SA_EMAIL
+  # AUT-715: QA core-api cron runs via Cloud Scheduler (jobs cron-<jobName>, europe-west3)
+  # -> POST /api/internal/cron/:jobName with an OIDC token for the invoker SA.
+  # Only the QA trigger release-tag-deploy uses this file; cloudbuild.staging.yaml never sets SCHEDULER_MODE.
+  _SCHEDULER_MODE: http
+  _CRON_OIDC_AUDIENCE: https://core-api-ha2yzynaqa-ey.a.run.app
+  _CRON_INVOKER_SA_EMAIL: cron-invoker@auto-core-platform-vande.iam.gserviceaccount.com
 options:
   logging: CLOUD_LOGGING_ONLY
 
