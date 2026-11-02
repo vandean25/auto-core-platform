@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { AutoCorePage } from "./pom/AutoCorePage";
 import { expectNoPageScroll } from "./utils/phone-layout";
+import { captureDocScreenshot } from "./utils/doc-screenshot";
 
 const json = (body: unknown) => ({
   status: 200,
@@ -222,7 +223,7 @@ test.describe("Cmd+K Command Mode at 375px mobile viewport (AUT-542)", () => {
         "Back button and close button must not overlap at 375px",
       ).toBe(false);
     }
-    await page.screenshot({ path: "../../docs/internal/assets/aut-840-command-header-375.png" });
+    await captureDocScreenshot(page, "aut-840-command-header-375.png");
 
     // --- Phase 1: Input ---
     await expectNoPageScroll(page);

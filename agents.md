@@ -7,7 +7,7 @@ You are operating under the `obra/superpowers` methodology. Before generating an
 
 ### Mandatory Workflows:
 1. **Planning:** Before writing code or modifying architecture, read `.agents/skills/superpowers/writing-plans/SKILL.md` and create a checklist. Do not proceed until the user approves the plan.
-2. **Test-Driven Development (TDD):** When writing code, you MUST follow the Red-Green-Refactor cycle defined in `.agents/skills/superpowers/test-driven-development/SKILL.md`.
+2. **Test-Driven Development (TDD):** For behaviour changes and bugfixes, you MUST follow the Red-Green-Refactor cycle (failing test first) defined in `.agents/skills/superpowers/test-driven-development/SKILL.md`. For pure refactors the existing tests are the safety net; no new tests are required. The skill's "wrote code before the test? delete it" rule does not apply in ACP.
 3. **Debugging:** If a test fails or a build error occurs, do not guess. Read `.agents/skills/superpowers/systematic-debugging/SKILL.md` and execute the formal root cause analysis.
 4. **Brainstorming:** If a user request is vague or open-ended, read `.agents/skills/superpowers/brainstorming/SKILL.md` first.
 
@@ -181,6 +181,15 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   - Backend tests go in `apps/core-api/test/` as `.e2e-spec.ts` files.
   - Use the established testing patterns (e.g., `test/purchase-receipt.e2e-spec.ts`).
   - Ensure tests cover both happy paths and error cases.
+- **Every test proves a regression**: the name (or one short line above it) says which regression it catches, and it must fail against the code before the fix. Check that by reverting the fix once while the test runs.
+- **Assert on the system under test**: never green-light a test by only reading back state that the test's own fake, mock or fixture wrote (a fake that echoes what it stored proves nothing about the code).
+- **Test comments must match the test**: a comment may only claim what an assertion actually checks; delete claims about cases the test never builds.
+- **Doc screenshots**: e2e specs never write into `docs/` on a normal run; they go through `apps/core-web/e2e/utils/doc-screenshot.ts`, which only re-captures them with `UPDATE_DOC_SCREENSHOTS=1`.
+- **Extend, don't fork specs**: add a bugfix test to the existing spec for the unit under test, using a shared test factory or builder; never create a new `<file>.<fix>.spec.ts` per bugfix.
+- **`it.each` for data variants**: the same flow with different data is one `it.each`, not copied tests.
+- **No empty assertions**: no test whose only assertion is `toBeDefined` / "should be defined", or a bare `toHaveBeenCalled()` without an argument or outcome check.
+- **Public API only**: never reach into private methods (`as any`, `['privateMethod']`); test through the public API.
+- **No mock-heavy duplicates of e2e**: if an existing e2e already covers a flow, extend that e2e or test the pure logic instead of adding a heavily mocked unit test.
 
 ## GitHub Pull Request Workflow
 
