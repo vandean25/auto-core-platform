@@ -3,19 +3,17 @@ import { RequestMethod, type Type } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessible.decorator.js';
 import { DRY_RUN_SUPPORTED_KEY } from '../dry-run/dry-run.constants.js';
-import { VehicleController } from './vehicle.controller.js';
+import { VehicleValuationController } from './vehicle-valuation.controller.js';
 import { VehicleModule } from './vehicle.module.js';
 
-describe('VehicleController NoVA calculation', () => {
+describe('VehicleValuationController NoVA calculation', () => {
   it('delegates the calculate request to the NoVA service', async () => {
     const request = { netPriceEuro: 20_000, vehicleId: 'vehicle-1' };
     const response = { novaAmountEuro: 1200 };
     const novaCalculationService = {
       calculate: jest.fn().mockResolvedValue(response),
     };
-    const controller = new VehicleController(
-      {} as never,
-      {} as never,
+    const controller = new VehicleValuationController(
       {} as never,
       novaCalculationService as never,
     );
@@ -27,7 +25,7 @@ describe('VehicleController NoVA calculation', () => {
   it('documents vehicle and explicit-input request modes', () => {
     const parameters = Reflect.getMetadata(
       'swagger/apiParameters',
-      VehicleController.prototype.calculateNova,
+      VehicleValuationController.prototype.calculateNova,
     ) as Array<{
       in: string;
       schema?: {
