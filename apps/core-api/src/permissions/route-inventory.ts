@@ -64,7 +64,7 @@ function moduleParts(ref: ModuleRef): {
   imports: ModuleRef[];
 } {
   const { module, dynamic } = resolveModule(ref);
-  const extra = dynamic ?? { controllers: [], imports: [] };
+  const extra = { controllers: [], imports: [], ...dynamic };
   return {
     module,
     controllers: [
