@@ -1,49 +1,29 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   ApiBody,
-  ApiConflictResponse,
-  ApiCreatedResponse,
   ApiExtraModels,
-  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiServiceUnavailableResponse,
+  ApiTags,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
 import {
   NovaCalculateRequestDto,
   NovaCalculateResponseDto,
   NovaCalculationErrorResponseDto,
 } from './dto/nova-calculate.dto.js';
-import {
-  CreateVehicleValuationDto,
-  VehicleValuationErrorResponseDto,
-  VehicleValuationResponseDto,
-} from './dto/vehicle-valuation.dto.js';
 import { NovaCalculationService } from './nova-calculation.service.js';
-import { VehicleValuationService } from './vehicle-valuation.service.js';
 
 /**
- * NoVA preview and market valuation snapshots. Operation ids keep the `VehicleController_`
- * prefix the OpenAPI contract and generated client already use.
+ * NoVA preview. Tag and operation id keep the `Vehicle` names the OpenAPI contract and
+ * generated client already use.
  */
+@ApiTags('Vehicle')
 @Controller('vehicles')
-export class VehicleValuationController {
+export class VehicleNovaController {
   constructor(
-    private readonly vehicleValuationService: VehicleValuationService,
     private readonly novaCalculationService: NovaCalculationService,
   ) {}
 
@@ -104,44 +84,5 @@ export class VehicleValuationController {
   @ApiNotFoundResponse({ description: 'Vehicle was not found' })
   calculateNova(@Body() request: NovaCalculateRequestDto) {
     return this.novaCalculationService.calculate(request);
-  }
-
-  @Get(':id/valuations')
-  @ApiOperation({
-    operationId: 'VehicleController_listValuations',
-    summary: 'List stored vehicle valuations (newest first)',
-  })
-  @ApiOkResponse({ type: [VehicleValuationResponseDto] })
-  listValuations(@Param('id', ParseUUIDPipe) id: string) {
-    return this.vehicleValuationService.listValuations(id);
-  }
-
-  @Post(':id/valuations')
-  @ApiOperation({
-    operationId: 'VehicleController_createValuation',
-    summary: 'Request a market valuation snapshot',
-  })
-  @ApiHeader({ name: 'Idempotency-Key', required: true })
-  @ApiCreatedResponse({ type: VehicleValuationResponseDto })
-  @ApiUnprocessableEntityResponse({ type: VehicleValuationErrorResponseDto })
-  @ApiConflictResponse({ type: VehicleValuationErrorResponseDto })
-  @ApiServiceUnavailableResponse({ type: VehicleValuationErrorResponseDto })
-  createValuation(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: CreateVehicleValuationDto,
-    @Req() request: Request,
-  ) {
-    const header = request.headers['idempotency-key'];
-    const idempotencyKey =
-      typeof header === 'string'
-        ? header
-        : Array.isArray(header)
-          ? header[0]
-          : undefined;
-    return this.vehicleValuationService.createValuation(
-      id,
-      dto,
-      idempotencyKey,
-    );
   }
 }

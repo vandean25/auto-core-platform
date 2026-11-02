@@ -6,7 +6,7 @@ import {
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   PickerlDueListExportQueryDto,
   PickerlDueListQueryDto,
@@ -16,22 +16,30 @@ import { OpenPickerlOrderDto } from './dto/vehicle-response.dto.js';
 import { VehicleService } from './vehicle.service.js';
 
 /**
- * Pickerl (periodic inspection) due list and open order lookup. Operation ids keep the
- * `VehicleController_` prefix the OpenAPI contract and generated client already use.
+ * Pickerl (periodic inspection) due list and open order lookup. Tag and operation ids keep the
+ * `Vehicle` names the OpenAPI contract and generated client already use. `summary: undefined`
+ * stops ApiOperation from adding an empty summary these routes never had.
  */
+@ApiTags('Vehicle')
 @Controller('vehicles')
 export class VehiclePickerlDueController {
   constructor(private readonly vehicleService: VehicleService) {}
 
   @Get('pickerl-due')
-  @ApiOperation({ operationId: 'VehicleController_findPickerlDue' })
+  @ApiOperation({
+    operationId: 'VehicleController_findPickerlDue',
+    summary: undefined,
+  })
   @ApiOkResponse({ type: PickerlDuePaginatedResponseDto })
   findPickerlDue(@Query() query: PickerlDueListQueryDto) {
     return this.vehicleService.findPickerlDue(query);
   }
 
   @Get('pickerl-due/export')
-  @ApiOperation({ operationId: 'VehicleController_exportPickerlDue' })
+  @ApiOperation({
+    operationId: 'VehicleController_exportPickerlDue',
+    summary: undefined,
+  })
   @Header('Content-Type', 'text/csv; charset=utf-8')
   exportPickerlDue(@Query() query: PickerlDueListExportQueryDto) {
     return this.vehicleService.exportPickerlDueCsv(query);
@@ -40,6 +48,7 @@ export class VehiclePickerlDueController {
   @Get(':id/pickerl-open-order')
   @ApiOperation({
     operationId: 'VehicleController_findOpenPickerlWorkshopOrder',
+    summary: undefined,
   })
   @ApiOkResponse({ type: OpenPickerlOrderDto, nullable: true })
   findOpenPickerlWorkshopOrder(@Param('id', ParseUUIDPipe) id: string) {
