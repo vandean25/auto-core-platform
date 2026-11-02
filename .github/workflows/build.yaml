@@ -50,6 +50,12 @@ jobs:
       - name: Verify Mintlify excludes app assets
         run: npm run docs:verify-mintignore
 
+      - name: Verify spec quality guard
+        run: npm run spec-quality:check
+
+      - name: Verify spec quality guard script (unit tests)
+        run: npm run spec-quality:check:test
+
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
