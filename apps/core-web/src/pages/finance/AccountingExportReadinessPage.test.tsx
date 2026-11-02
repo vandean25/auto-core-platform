@@ -277,5 +277,8 @@ describe('AccountingExportReadinessPage', () => {
     expect(
       screen.getByText(deFinance.accountingExportReadiness.exportProfileMissing),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: deFinance.actions.openSettings }),
+    ).toBeInTheDocument()
   })
 })
