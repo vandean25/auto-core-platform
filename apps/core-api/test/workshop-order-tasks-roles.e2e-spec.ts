@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
+import type { TenantMemberRole } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -61,19 +62,23 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       role: 'ADMIN',
     });
 
-    const seedScopedUser = async (role: TenantMemberRole) => {
-      const uid = `task-${role.toLowerCase()}-${tenantId}`;
+    const seedScopedUser = async (
+      memberRole: TenantMemberRole,
+      tokenRole?: string,
+    ) => {
+      const roleName = (tokenRole ?? memberRole).toLowerCase();
+      const uid = `task-${roleName}-${tenantId}`;
       const user = await prisma.user.create({
         data: {
           firebaseUid: uid,
-          email: `${role.toLowerCase()}-${tenantId}@test.local`,
+          email: `${roleName}-${tenantId}@test.local`,
           active_tenant_id: tenantId,
         },
       });
       await seedTestTenantMember(basePrisma, {
         tenantId,
         userId: user.id,
-        role,
+        role: memberRole,
       });
       await prisma.siteMembership.create({
         data: {
@@ -91,7 +96,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         sub: uid,
         email: user.email,
         tenantId,
-        role,
+        role: tokenRole ?? memberRole,
       });
       return { user, token };
     };
@@ -115,7 +120,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
     });
 
     // Seed Accountant (unrelated role with token claims)
-    const accountantSetup = await seedScopedUser('ACCOUNTANT');
+    const accountantSetup = await seedScopedUser('DEMO', 'ACCOUNTANT');
     accountantToken = accountantSetup.token;
 
     // Foreign Admin from createTestTenant already has active_tenant_id, active_site_id, and SiteMembership
