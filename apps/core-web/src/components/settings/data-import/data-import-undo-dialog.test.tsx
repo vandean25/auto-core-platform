@@ -383,6 +383,35 @@ describe('DataImportUndoDialog', () => {
     expect(toast.warning).not.toHaveBeenCalled()
   })
 
+  it('still reports the blocked count when a fully blocked undo leaves the job applied', async () => {
+    // Catches the regression where a job that reverted nothing reads back as APPLIED
+    // and the dialog announces a successful undo instead of the blocked rows.
+    const mockMutateAsync = vi.fn().mockResolvedValue({
+      id: 'job-1',
+      status: 'APPLIED',
+      options: { undo: { deleted: 0, restored: 0, blocked: 3 } },
+    })
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: mockPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({ mockMutateAsync })
+    fireEvent.change(screen.getByTestId('undo-confirm-input'), {
+      target: { value: di.confirmation.keyword },
+    })
+    fireEvent.click(screen.getByTestId('undo-submit-button'))
+
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith(
+        di.toast.partial.replace('{{blockedCount}}', '3'),
+      ),
+    )
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
   it('falls back to its own failure text when the error code has no translation', async () => {
     const mockMutateAsync = vi.fn().mockRejectedValue({
       response: { status: 409, data: { code: 'NOT_A_PUBLIC_CODE' } },
