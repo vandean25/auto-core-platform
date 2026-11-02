@@ -248,6 +248,18 @@ These rules apply when `VehicleValuationSnapshot` exists. This spec PR does not 
 
 The snapshot does not reference `VehiclePurchase` or `VehicleSale`, because this feature does not write those prices.
 
+## ADR-0034 — Custom tenant roles (proposed)
+
+These rules are proposed by [ADR-0034](internal/01-ADR/2026-11-02-custom-tenant-roles.md). This documentation change creates no tables or endpoints; the rules become enforced requirements with the corresponding implementation.
+
+| Entity | Delete | Proposed rule |
+|---|---|---|
+| `TenantRole` | Archive only | Set `is_active = false` under a version check. Block while assignments exist; protected system roles cannot be archived. Retain the row for audit/proposal history. No ordinary hard-delete endpoint. |
+| `TenantMemberRoleAssignment` | Authorized revocation | Remove only through the versioned member-assignment operation, with current management authorization and immutable before/after audit. No independent delete endpoint. Archived roles cannot be assigned. |
+| `TenantMember` owner protection | Extends existing rule | Disable/delete and ownership transfer must preserve at least one active, non-demo owner with protected administration rights. Serialize concurrent membership/ownership changes on the tenant row. Role edits cannot remove the OWNER flag. |
+
+Pending role proposals become non-applicable when their expected role or member authorization versions change. Archive/revocation must not delete retained audit or proposal evidence. Tenant purge follows the existing authorized purge and retention rules; this proposal grants no exception.
+
 ## UI Contract
 
 - Show row context `Delete` only for entities with delete support.
