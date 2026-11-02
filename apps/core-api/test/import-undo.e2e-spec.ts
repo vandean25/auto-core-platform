@@ -1473,45 +1473,66 @@ describe('Import Undo (e2e)', () => {
     ).toBe(jobAuditsBefore + 1);
   }, 120_000);
 
-  it('purge gate: undo reports IMPORT_JOB_PURGED when staged rows were purged', async () => {
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+  it.each([
+    { variant: 'marked with rows_purged', markPurged: true },
+    { variant: 'deleted without the mark', markPurged: false },
+  ])(
+    'purge gate: WHEN staged rows of an applied job were purged ($variant) THEN preview and undo answer 409 IMPORT_JOB_PURGED and the job list reports undoable false',
+    async ({ markPurged }) => {
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+      const stamp = Date.now();
 
-    const job = await tenantPrisma.importJob.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        source_system: 'legacy-dms',
-        entity_type: 'CUSTOMER',
-        file_name: 'purged.csv',
-        file_sha256: 'mock-purged-sha',
-        mapping_json: {},
-        options_json: { rows_purged: true },
-        status: 'APPLIED',
-        totals_json: { total: 2, create: 2, update: 0, skip: 0, error: 0 },
-        created_by: tenant.firebaseUid,
-      },
-    });
+      const job = await importCustomerBatch([
+        [
+          `EXT-PG-${stamp}`,
+          'PRIVATE',
+          'Purge',
+          'Gate',
+          `pg-${stamp}@example.com`,
+          '900',
+          'AT',
+        ],
+      ]);
 
-    const previewRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo/preview`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-    expect(previewRes.body.status).toBe('BLOCKED');
-    expect(previewRes.body.canUndo).toBe(false);
-    expect(previewRes.body.blocked[0].reason).toBe(
-      UNDO_BLOCKED_REASONS.ROWS_PURGED,
-    );
+      // Simulate the retention row purge: it always deletes the staged rows;
+      // only recent purges additionally mark the job with rows_purged.
+      await tenantPrisma.importJobRow.deleteMany({
+        where: { import_job_id: job.id },
+      });
+      if (markPurged) {
+        await tenantPrisma.importJob.update({
+          where: { id: job.id },
+          data: { options_json: { rows_purged: true } },
+        });
+      }
 
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(409);
-    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
+      const previewRes = await request(app.getHttpServer())
+        .post(`/api/imports/${job.id}/undo/preview`)
+        .set('Authorization', adminHeader)
+        .expect(409);
+      expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
 
-    const untouched = await tenantPrisma.importJob.findFirstOrThrow({
-      where: { id: job.id },
-    });
-    expect(untouched.status).toBe('APPLIED');
-  });
+      const undoRes = await request(app.getHttpServer())
+        .post(`/api/imports/${job.id}/undo`)
+        .set('Authorization', adminHeader)
+        .expect(409);
+      expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
+
+      const listRes = await request(app.getHttpServer())
+        .get('/api/imports?limit=50')
+        .set('Authorization', adminHeader)
+        .expect(200);
+      const listed = listRes.body.data.find(
+        (j: { id: string }) => j.id === job.id,
+      );
+      expect(listed?.undoable).toBe(false);
+
+      const untouched = await tenantPrisma.importJob.findFirstOrThrow({
+        where: { id: job.id },
+      });
+      expect(untouched.status).toBe(ImportJobStatus.APPLIED);
+    },
+  );
 
   it('expiry gate: undo reports IMPORT_JOB_EXPIRED when the job was cancelled as expired', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);

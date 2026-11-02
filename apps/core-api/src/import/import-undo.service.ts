@@ -29,6 +29,7 @@ import {
   importJobConflict,
   importJobNotFound,
   importJobNotUndoable,
+  importJobPurged,
 } from './import-job.errors.js';
 import {
   serializeImportJob,
@@ -40,7 +41,10 @@ import {
   readImportUndoUnitRowBudget,
 } from './import-limits.js';
 import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
-import { hasUndoableRows } from './import-undo.helpers.js';
+import {
+  hasStagedImportJobRows,
+  hasUndoableRows,
+} from './import-undo.helpers.js';
 import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
 import {
   IMPORT_UNDO_BATCH_TX,
@@ -279,6 +283,16 @@ export class ImportUndoService {
       throw importJobBusy();
     }
     assertImportJobRowsAvailable(job.options_json);
+    // One purge rule for every path: staged rows gone although totals report
+    // applied rows means the rows_purged-flagged or the unflagged ancient purge
+    // deleted the undo basis. FAILED jobs without applied rows stay NOT_UNDOABLE.
+    if (
+      job.status !== ImportJobStatus.FAILED &&
+      getAppliedRowsCount(job.totals_json as ImportJobTotals | null) > 0 &&
+      !(await hasStagedImportJobRows(this.prisma, tenantId, job.id))
+    ) {
+      throw importJobPurged();
+    }
     if (isDocOrFinancialImport(job.entity_type)) {
       throw importJobNotUndoable();
     }

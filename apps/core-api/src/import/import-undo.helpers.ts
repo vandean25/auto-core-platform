@@ -18,9 +18,9 @@ export type UndoableRowCheckClient = {
       where: {
         tenant_id: string;
         import_job_id: string;
-        action: { in: ImportRowAction[] };
-        entity_id: { not: null };
-        undone_at: null;
+        action?: { in: ImportRowAction[] };
+        entity_id?: { not: null };
+        undone_at?: null;
       };
       select: { row_no: true };
     }) => Promise<{ row_no: number } | null>;
@@ -59,6 +59,23 @@ export async function hasUndoableRows(
       entity_id: { not: null },
       undone_at: null,
     },
+    select: { row_no: true },
+  });
+  return row !== null;
+}
+
+/**
+ * Checks whether any staged row still exists for the job (any action, undone or not).
+ * The retention purge marks jobs with `rows_purged`, but it deletes the rows of ancient
+ * jobs without the mark; missing staged rows then prove the undo basis was purged.
+ */
+export async function hasStagedImportJobRows(
+  prisma: UndoableRowCheckClient,
+  tenantId: string,
+  jobId: string,
+): Promise<boolean> {
+  const row = await prisma.importJobRow.findFirst({
+    where: { tenant_id: tenantId, import_job_id: jobId },
     select: { row_no: true },
   });
   return row !== null;

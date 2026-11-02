@@ -1006,14 +1006,16 @@ describe('ImportUndoService', () => {
       expect(harness.db.deletedEntityIds).toEqual(['cust-remaining']);
     });
 
-    it('refuses undo when nothing is left to undo (no undoable rows)', async () => {
+    it('answers IMPORT_JOB_PURGED when applied rows are gone without the rows_purged flag', async () => {
+      // The retention purge deletes rows of ancient jobs without marking them;
+      // undo must not treat that as a merely empty job.
       const harness = createHarness({ rows: [], totals: { create: 4, update: 0 } });
 
       await expect(harness.service.undoJob(JOB_ID)).rejects.toThrow(
         ConflictException,
       );
       await expect(harness.service.undoJob(JOB_ID)).rejects.toMatchObject({
-        response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
+        response: { code: 'IMPORT_JOB_PURGED' },
       });
     });
 
@@ -1191,7 +1193,11 @@ describe('ImportUndoService', () => {
     ) {
       return createHarness({
         entityType: ImportEntityType.SUPPLIER_PRICE_LIST,
-        rows: [],
+        // A price list apply stages one UPDATE row per changed entry, like the
+        // generic dry-run staging does; the purge gate checks their presence.
+        rows: histories.map((history, index) =>
+          makeRow(index + 1, ImportRowAction.UPDATE, history.catalog_item_id),
+        ),
         histories,
         entities,
         refs,
