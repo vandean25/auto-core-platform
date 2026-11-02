@@ -6,6 +6,8 @@ import { CommonModule } from '../common/index.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 import { Autoscout24DmsModule } from '../vehicle/listing-export/autoscout24-dms.module.js';
 import { KaufvertragPdfRenderer } from './kaufvertrag/kaufvertrag-pdf.renderer.js';
+import { KaufvertragPdfArchiveService } from './kaufvertrag/kaufvertrag-pdf.archive.service.js';
+import { KaufvertragPdfSnapshotService } from './kaufvertrag/kaufvertrag-pdf.snapshot.service.js';
 import { VehicleSaleKaufvertragPdfService } from './kaufvertrag/kaufvertrag-pdf.service.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { VehiclePurchaseService } from './vehicle-purchase.service.js';
@@ -49,6 +51,8 @@ import {
     VehicleSaleService,
     VehicleSaleTradeInService,
     KaufvertragPdfRenderer,
+    KaufvertragPdfSnapshotService,
+    KaufvertragPdfArchiveService,
     VehicleSaleKaufvertragPdfService,
     VehicleStockQueryService,
     VehicleStockMoveService,

@@ -2,6 +2,8 @@ import { NotFoundException, UnprocessableEntityException } from '@nestjs/common'
 import { Prisma } from '@prisma/client';
 import { extractVisibleTextFromHtml } from '../../common/pdf/pdf-html-text.js';
 import { buildKaufvertragHtmlDocument } from './kaufvertrag-pdf.layout.js';
+import { KaufvertragPdfArchiveService } from './kaufvertrag-pdf.archive.service.js';
+import { KaufvertragPdfSnapshotService } from './kaufvertrag-pdf.snapshot.service.js';
 import { VehicleSaleKaufvertragPdfService } from './kaufvertrag-pdf.service.js';
 import {
   buildKaufvertragArchiveIdentity,
@@ -162,13 +164,16 @@ function createHarness(sale: unknown, options: { cloudTasks?: boolean } = {}) {
   };
 
   const service = new VehicleSaleKaufvertragPdfService(
-    prisma as never,
-    renderer as never,
-    storage as never,
+    new KaufvertragPdfSnapshotService(prisma as never),
+    new KaufvertragPdfArchiveService(
+      prisma as never,
+      renderer as never,
+      storage as never,
+      undefined,
+    ),
     cloudTasks as never,
     tenantContext as never,
     siteContext as never,
-    undefined,
   );
 
   return { service, prisma, vehicleSale, renderer, storage, cloudTasks, tenantContext, siteContext };
