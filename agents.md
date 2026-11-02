@@ -195,6 +195,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **No empty assertions**: no test whose only assertion is `toBeDefined` / "should be defined", or a bare `toHaveBeenCalled()` without an argument or outcome check.
 - **Public API only**: never reach into private methods (`as any`, `['privateMethod']`); test through the public API.
 - **No mock-heavy duplicates of e2e**: if an existing e2e already covers a flow, extend that e2e or test the pure logic instead of adding a heavily mocked unit test.
+- **Spec-quality guard**: `npm run spec-quality:check` (self-test `npm run spec-quality:check:test`, also a step in PR Build Check) fails on NEW low-value tests — specs over 150 lines with two or fewer tests, existence-only assertions, bare `toHaveBeenCalled()`, and `as any` / `['privateMethod']` access; existing offenders are listed in `tools/spec-quality-baseline.json`, which only shrinks (regenerate with `npm run spec-quality:check -- --write-baseline` after deleting offenders).
 
 ### Ticket Scenarios (WHEN/THEN)
 - Every WHEN/THEN scenario listed in a ticket maps to exactly one test, preferably by extending an existing spec (format borrowed from OpenSpec; we do not adopt OpenSpec itself), unless the ticket changes no behaviour, in which case each scenario maps to the doc section that states it.
