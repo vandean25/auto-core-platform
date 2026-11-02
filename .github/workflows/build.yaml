@@ -302,7 +302,9 @@ jobs:
     name: Backend E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     # Official Playwright image (see frontend-e2e): no apt-get at job time. Inside a job container the
-    # Postgres service is reached by its service name, not localhost.
+    # Postgres service is reached by its service name, not localhost. The image is required, not just
+    # convenient: test/invoice-branding-render.e2e-spec.ts launches chromium through
+    # PlaywrightBrowserService, and check-playwright-docker-version.spec.ts pins this container.
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --ipc=host
@@ -323,11 +325,13 @@ jobs:
           POSTGRES_DB: auto_core_test
         ports:
           - 5432:5432
+        # Short probe interval: the runner only learns the service is ready on its own poll, and a
+        # 10s probe left every shard waiting ~15s. 30 retries still cover the initdb window.
         options: >-
           --health-cmd pg_isready
-          --health-interval 10s
+          --health-interval 2s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -339,10 +343,25 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Restore workspace dependencies
+        id: node-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Deliberately no restore-keys: an exact key match is the only hit that may skip npm ci,
+          # so a tree built from a different lockfile or Node version can never be reused.
+          # A failed npm ci fails the job, and actions/cache does not save a failed job's cache.
+          path: |
+            node_modules
+            apps/core-api/node_modules
+            apps/core-web/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json', 'apps/core-api/package.json', 'apps/core-web/package.json', '.nvmrc') }}
+
       - name: Install workspace dependencies
-        run: npm ci
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Generate Prisma Client
+        # Unconditional: the cached node_modules tree may hold a client built from another schema.
         run: npm exec --workspace=core-api -- prisma generate
 
       - name: Run E2E tests
