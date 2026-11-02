@@ -224,7 +224,7 @@ export function LetterheadSourceAsset({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={t("documentBranding.letterheadSource.infoAria")}
             >
               <Info className="h-4 w-4" />

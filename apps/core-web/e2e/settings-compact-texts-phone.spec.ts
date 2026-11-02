@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
+import { createMockAccountingProfile, createMockLegalEntity } from './utils/mock-factories'
 import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants'
 import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 import enSettings from '../../../locales/en/settings.json' with { type: 'json' }
@@ -38,6 +39,17 @@ async function mockCommonSettingsApi(page: Page) {
   await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), async (route) => {
     await route.fulfill(json([]))
   })
+}
+
+/** The app resolves the UI language from localStorage on boot; switching the key and reloading avoids stacking one init script per language. */
+async function ensureUiLanguage(page: Page, language: 'de' | 'en') {
+  const current = await page.evaluate((key) => window.localStorage.getItem(key), UI_LANGUAGE_STORAGE_KEY)
+  if (current === language) return
+  await page.evaluate(
+    ({ key, language }) => window.localStorage.setItem(key, language),
+    { key: UI_LANGUAGE_STORAGE_KEY, language },
+  )
+  await page.reload({ waitUntil: 'networkidle' })
 }
 
 test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
@@ -189,6 +201,80 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await page.screenshot({ path: testInfo.outputPath('aut-843-settings-legal-entities-375.png'), fullPage: true })
   })
 
+  test('letterhead & mappings: info triggers stay 44px and open by click and keyboard at 375px in DE and EN', async ({ page }, testInfo) => {
+    await mockCommonSettingsApi(page)
+    const entity = createMockLegalEntity()
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
+      await route.fulfill(json([entity]))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/legal-entities/${entity.id}/accounting-profile`), async (route) => {
+      await route.fulfill(json(createMockAccountingProfile({ legal_entity_id: entity.id })))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/legal-entities/${entity.id}/document-branding`), async (route) => {
+      await route.fulfill(json({
+        revision: 1,
+        activeRevision: 1,
+        activeTheme: {
+          schemaVersion: 1,
+          presetId: 'standard-v1',
+          logoAssetId: null,
+          primaryColor: '#111827',
+          secondaryColor: '#E5E7EB',
+          fontId: 'acp-sans-v1',
+          headerBand: 'none',
+          footerBand: 'none',
+          headerText: '',
+          footerText: '',
+        },
+        draftTheme: null,
+        confirmedAt: null,
+        confirmedByUserId: null,
+        capabilities: {
+          extractionAvailable: false,
+          theme: { decorativeTextMaxCodePoints: 120 },
+          uploads: {
+            logo: { maxBytes: 2 * 1024 * 1024, mimeTypes: ['image/png'], accept: 'image/png,.png', requirementLabel: 'PNG' },
+            source: { maxBytes: 10 * 1024 * 1024, mimeTypes: ['application/pdf', 'image/png'], accept: 'application/pdf,image/png,.pdf,.png', requirementLabel: 'PDF / PNG' },
+          },
+        },
+        draftSourceAssetId: null,
+        draftSourceAsset: null,
+      }))
+    })
+
+    await new AutoCorePage(page, '').navigate('/settings?tab=legal-entities')
+
+    for (const language of ['de', 'en'] as const) {
+      await ensureUiLanguage(page, language)
+      const copy = language === 'de' ? deSettings : enSettings
+
+      const letterheadBtn = page.getByRole('button', { name: copy.documentBranding.letterheadSource.infoAria })
+      await expect(letterheadBtn).toBeVisible()
+      await expectReachableRow(letterheadBtn)
+      await letterheadBtn.click()
+      await expect(page.getByText(copy.documentBranding.letterheadSource.info)).toBeVisible()
+      await page.keyboard.press('Escape')
+      await letterheadBtn.focus()
+      await page.keyboard.press('Enter')
+      await expect(page.getByText(copy.documentBranding.letterheadSource.info)).toBeVisible()
+      await page.keyboard.press('Escape')
+
+      // The row sits next to the longest headings in the tab; a shrinking trigger would drop below 44px here.
+      const mappingsBtn = page.getByRole('button', { name: copy.legalEntities.profile.mappings.infoAria })
+      await expect(mappingsBtn).toBeVisible()
+      await expectReachableRow(mappingsBtn)
+      await mappingsBtn.click()
+      await expect(page.getByText(copy.legalEntities.profile.mappings.description)).toBeVisible()
+      await page.keyboard.press('Escape')
+      await mappingsBtn.focus()
+      await page.keyboard.press('Enter')
+      await expect(page.getByText(copy.legalEntities.profile.mappings.description)).toBeVisible()
+
+      await expectNoPageScroll(page)
+      await page.screenshot({ path: testInfo.outputPath(`aut-901-settings-info-icons-375-${language}.png`), fullPage: true })
+    }
+  })
+
   test('labor: categories tab has discoverable delete action and no right-click description at 375px', async ({ page }, testInfo) => {
     await mockCommonSettingsApi(page)
     await page.route(AutoCorePage.apiRouteMatcher('/api/labor/categories'), async (route) => {
@@ -258,13 +344,11 @@ async function credentialPlaceholderFit(page: Page): Promise<{ placeholder: stri
 async function openVoiceTranslationTab(page: Page, width: number, language: 'de' | 'en') {
   await page.setViewportSize({ width, height: 812 })
   await mockCommonSettingsApi(page)
-  await page.route(AutoCorePage.apiRouteMatcher('/api/voice-translation/settings'), (route) => {
-    route.fulfill(json({ targetLanguageCode: 'de', googleProjectId: '', googleLocation: 'global', hasGoogleCredential: false }))
+  await page.route(AutoCorePage.apiRouteMatcher('/api/voice-translation/settings'), async (route) => {
+    await route.fulfill(json({ targetLanguageCode: 'de', googleProjectId: '', googleLocation: 'global', hasGoogleCredential: false }))
   })
-  await page.addInitScript((args) => {
-    window.localStorage.setItem(args.key, args.language)
-  }, { key: UI_LANGUAGE_STORAGE_KEY, language })
   await new AutoCorePage(page, '').navigate('/settings?tab=voice-translation')
+  await ensureUiLanguage(page, language)
   await expect(page.locator('#voice-google-credential')).toBeVisible()
   // The canvas measures with the font the page has loaded by now, not a fallback.
   await page.evaluate(() => document.fonts.ready)

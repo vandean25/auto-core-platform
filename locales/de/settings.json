@@ -641,7 +641,7 @@
     "location": "Google-Standort",
     "locationPlaceholder": "global",
     "credential": "Google-Dienstkonto-JSON",
-    "credentialPlaceholder": "service_account-JSON",
+    "credentialPlaceholder": "service_account JSON",
     "credentialInfo": "Leer lassen, um aktuellen Wert zu behalten. Zugangsdaten werden verschlüsselt gespeichert und nie zurückgegeben.",
     "credentialInfoAria": "Hinweis zu Zugangsdaten anzeigen",
     "credentialNotConfigured": "Nicht konfiguriert",
@@ -1391,7 +1391,7 @@
     },
     "letterheadSource": {
       "label": "Briefkopf-Vorlage (PDF oder PNG, bis zu 10 MiB)",
-      "hint": "PDF oder PNG, wird im Branding-Entwurf gespeichert.",
+      "hint": "Wird im Branding-Entwurf gespeichert.",
       "info": "Laden Sie einen PDF- oder PNG-Briefkopf hoch, um ihn mit Ihrem Branding-Entwurf aufzubewahren.",
       "infoAria": "Hinweis zum Briefkopf anzeigen",
       "download": "Herunterladen",

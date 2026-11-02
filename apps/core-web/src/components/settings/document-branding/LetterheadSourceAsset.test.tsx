@@ -10,6 +10,7 @@ import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DocumentBrandAsset } from "@/api/document-branding";
 import { changeUiLanguage } from "@/lib/i18n";
+import { DEFAULT_UI_LANGUAGE } from "@/lib/i18n/constants";
 import deSettings from "../../../../../../locales/de/settings.json";
 import enSettings from "../../../../../../locales/en/settings.json";
 import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
@@ -120,8 +121,9 @@ const quarantinedAsset: DocumentBrandAsset = {
   pagePreviewAvailable: false,
 };
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await changeUiLanguage(DEFAULT_UI_LANGUAGE);
   mocks.upload.mockReset();
   mocks.attach.mockReset();
   mocks.remove.mockReset();
@@ -289,35 +291,20 @@ describe("LetterheadSourceAsset", () => {
     ).toBeInTheDocument();
   });
 
-  // A touch sequence ends in the same activation event a mouse click sends (jsdom does not synthesize
-  // keyboard activation of a native button; the browser handles that natively).
-  const activations: ReadonlyArray<readonly [string, (trigger: HTMLElement) => void]> = [
-    ["click", (trigger) => fireEvent.click(trigger)],
-    [
-      "touch",
-      (trigger) => {
-        fireEvent.touchStart(trigger);
-        fireEvent.touchEnd(trigger, { bubbles: true, cancelable: true });
-        fireEvent.click(trigger);
-      },
-    ],
-  ];
-
+  // jsdom does not synthesize keyboard or touch activation of a native button;
+  // the real-browser phone spec e2e/settings-compact-texts-phone.spec.ts covers Enter activation.
   for (const language of ["de", "en"] as const) {
-    it.each(activations)(
-      `AUT-901: activates the letterhead info icon by %s in ${language} and shows the moved guidance`,
-      async (_label, activate) => {
-        await changeUiLanguage(language);
-        const copy =
-          language === "de"
-            ? deSettings.documentBranding.letterheadSource
-            : enSettings.documentBranding.letterheadSource;
-        renderSource();
+    it(`AUT-901: activates the letterhead info icon by click in ${language} and shows the moved guidance`, async () => {
+      await changeUiLanguage(language);
+      const copy =
+        language === "de"
+          ? deSettings.documentBranding.letterheadSource
+          : enSettings.documentBranding.letterheadSource;
+      renderSource();
 
-        expect(screen.queryByText(copy.info)).not.toBeInTheDocument();
-        activate(screen.getByRole("button", { name: copy.infoAria }));
-        expect(screen.getByText(copy.info)).toBeInTheDocument();
-      },
-    );
+      expect(screen.queryByText(copy.info)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: copy.infoAria }));
+      expect(screen.getByText(copy.info)).toBeInTheDocument();
+    });
   }
 });
