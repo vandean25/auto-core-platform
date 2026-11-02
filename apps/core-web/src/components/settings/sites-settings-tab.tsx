@@ -96,9 +96,6 @@ export function SitesSettingsTab() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-medium">{t('sites.title')}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t('sites.description')}
-        </p>
       </div>
 
       <SitesTable sites={sites ?? []} selectedSiteId={selectedSiteId} onSelect={setSelectedSiteId} />
@@ -110,9 +107,6 @@ export function SitesSettingsTab() {
               {t('sites.memberships.title', { name: selectedSite.name })}
               <span className="ml-2 font-mono text-sm text-slate-500">{selectedSite.code}</span>
             </h3>
-            <p className="text-sm text-muted-foreground">
-              {t('sites.memberships.description')}
-            </p>
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end">

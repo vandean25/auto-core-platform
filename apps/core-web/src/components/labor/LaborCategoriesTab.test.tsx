@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import deSettings from "../../../../../locales/de/settings.json";
 import { LaborCategoriesTab } from "./LaborCategoriesTab";
@@ -32,5 +32,19 @@ describe("LaborCategoriesTab", () => {
     render(<LaborCategoriesTab />);
 
     expect(screen.getByText(deSettings.labor.categories.notSet)).toBeInTheDocument();
+  });
+
+  it("opens delete confirmation dialog when clicking the row delete button", () => {
+    render(<LaborCategoriesTab />);
+
+    const deleteBtn = screen.getByRole("button", {
+      name: deSettings.labor.categories.tree.deleteAria.replace("{{name}}", "Engine"),
+    });
+    expect(deleteBtn).toBeInTheDocument();
+
+    fireEvent.click(deleteBtn);
+    expect(
+      screen.getByText(deSettings.labor.categories.deleteDialog.title),
+    ).toBeInTheDocument();
   });
 });

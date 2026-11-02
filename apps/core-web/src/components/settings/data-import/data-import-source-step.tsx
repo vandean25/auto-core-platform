@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { Download } from 'lucide-react'
+import { Download, Info } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 import type { ImportSource } from '@/api/imports'
 import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
@@ -42,9 +43,26 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
 
   return (
     <section className="space-y-4" aria-labelledby="import-step-source">
-      <h4 id="import-step-source" className="font-medium">
-        {t('dataImport.source.title')}
-      </h4>
+      <div className="flex items-center gap-1.5">
+        <h4 id="import-step-source" className="font-medium">
+          {t('dataImport.source.title')}
+        </h4>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t('dataImport.consent.infoAria')}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 text-xs space-y-1">
+            <p className="font-medium">{t('dataImport.consent.title')}</p>
+            <p>{t('dataImport.consent.description')}</p>
+          </PopoverContent>
+        </Popover>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 max-w-2xl">
         <div className="space-y-2">
           <Label htmlFor="import-entity">{t('dataImport.source.entityLabel')}</Label>
@@ -141,10 +159,34 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={props.onDownloadTemplate}>
-          <Download className="mr-2 h-4 w-4" />
-          {t('dataImport.source.downloadTemplate')}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="outline" onClick={props.onDownloadTemplate}>
+            <Download className="mr-2 h-4 w-4" />
+            {t('dataImport.source.downloadTemplate')}
+          </Button>
+          {props.templateFields.length > 0 ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 text-muted-foreground hover:text-foreground"
+                  aria-label={t('dataImport.source.templateFieldsInfo')}
+                >
+                  <Info className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 text-xs">
+                <p>
+                  {t('dataImport.source.templateFields', {
+                    fields: props.templateFields.join(', '),
+                  })}
+                </p>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+        </div>
         <Button
           type="button"
           disabled={
@@ -156,13 +198,6 @@ export function DataImportSourceStep(props: DataImportSourceStepProps) {
           {t('dataImport.source.continue')}
         </Button>
       </div>
-      {props.templateFields.length > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {t('dataImport.source.templateFields', {
-            fields: props.templateFields.join(', '),
-          })}
-        </p>
-      ) : null}
     </section>
   )
 }

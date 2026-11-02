@@ -8,28 +8,19 @@ import type { NextFunction, Request, Response } from 'express';
 import { TenantContextStorage } from './tenant-context.storage.js';
 import { linkAppTraceIdToSentry } from '../observability/trace.js';
 import { isTraceIdUuid } from './trace-id.util.js';
-
-function getNormalizedHeaderValue(
-  value: string | string[] | undefined,
-): string | undefined {
-  if (Array.isArray(value)) {
-    return value.map((entry) => entry.trim()).find((entry) => entry.length > 0);
-  }
-
-  const normalized = value?.trim();
-  return normalized && normalized.length > 0 ? normalized : undefined;
-}
+import {
+  firstNonEmptyHeaderValue,
+  resolveRequestId,
+} from '../utils/request-id.util.js';
 
 @Injectable()
 export class TenantContextMiddleware implements NestMiddleware {
   use(request: Request, response: Response, next: NextFunction) {
     TenantContextStorage.run(() => {
-      // Reuse an inbound correlation ID or generate a server-side one.
-      const requestId =
-        getNormalizedHeaderValue(request.headers['x-request-id']) ??
-        randomUUID();
+      // Reuse a valid inbound correlation ID or generate a server-side one.
+      const requestId = resolveRequestId(request.headers['x-request-id']);
 
-      const inboundTraceId = getNormalizedHeaderValue(
+      const inboundTraceId = firstNonEmptyHeaderValue(
         request.headers['x-trace-id'],
       );
       if (inboundTraceId !== undefined && !isTraceIdUuid(inboundTraceId)) {
@@ -43,7 +34,7 @@ export class TenantContextMiddleware implements NestMiddleware {
       response.setHeader('x-trace-id', traceId);
 
       const ip = request.ip;
-      const userAgent = getNormalizedHeaderValue(request.headers['user-agent']);
+      const userAgent = firstNonEmptyHeaderValue(request.headers['user-agent']);
 
       TenantContextStorage.setRequestMeta({
         requestId,
