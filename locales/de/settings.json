@@ -174,11 +174,9 @@
   },
   "marginRules": {
     "title": "Margenregeln",
-    "description": "Regeln zur automatischen Berechnung von Verkaufspreisen basierend auf Einkaufspreisen, Marken und Erlösgruppen.",
     "createButton": "Margenregel",
     "priceJump": {
       "title": "Schwellenwert für Preissprünge",
-      "description": "Definiert den maximalen prozentualen Preissprung vor Warnung und Genehmigungserfordernis beim Preislistenimport.",
       "label": "Schwellenwert (%)",
       "save": "Schwellenwert speichern",
       "toastUpdated": "Schwellenwert für Preissprünge aktualisiert",
@@ -186,7 +184,8 @@
     },
     "activeRules": {
       "title": "Aktive Regeln",
-      "description": "Regeln werden von oben nach unten (niedrigste Priorität zuerst) ausgewertet. Die erste passende Regel greift."
+      "description": "Regeln werden von oben nach unten (niedrigste Priorität zuerst) ausgewertet. Die erste passende Regel greift.",
+      "infoAria": "Auswertungsregel anzeigen"
     },
     "columns": {
       "sortPriorityAria": "Priorität sortieren",
@@ -270,7 +269,6 @@
   },
   "apiKeys": {
     "title": "API-Schlüssel",
-    "description": "Nur-Lese-Schlüssel für Integrationen. Jeder Schlüssel gilt nur für die gewählten Bereiche und hat ein eigenes Anfragebudget.",
     "createButton": "+ API-Schlüssel",
     "loadFailed": "API-Schlüssel konnten nicht geladen werden",
     "searchPlaceholder": "API-Schlüssel suchen…",
@@ -343,7 +341,6 @@
   },
   "auditLogs": {
     "title": "Audit-Logs",
-    "description": "Unveränderliches, nur ergänzbares Audit-Protokoll von Änderungen und Löschungen an Geschäftsobjekten.",
     "filters": {
       "action": "Aktion",
       "allActions": "Alle Aktionen",
@@ -389,10 +386,9 @@
   },
   "vehicleData": {
     "noAccess": "Fahrzeugdaten-Einstellungen sind nur für Werkstattinhaber und Administratoren verfügbar.",
-    "loadFailed": "Fahrzeugdaten-Einstellungen konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "loadFailed": "Fahrzeugdaten-Einstellungen konnten nicht geladen werden.",
     "catalog": {
       "title": "Katalog-Standardwerte",
-      "description": "Standard-Adapter und Arbeitszeitumrechnung für die Fahrzeugauflösung sowie die Suche in externen Teile- und Arbeitskatalogen.",
       "identityAdapter": "Identitäts-Adapter",
       "partsAdapter": "Aftermarket-Teile-Adapter",
       "laborAdapter": "Aftermarket-Arbeitsadapter",
@@ -409,7 +405,6 @@
     },
     "oemConcerns": {
       "title": "OEM-Konzerne",
-      "description": "Ordnen Sie Fahrzeugmarken den Konzernen BMW, Mercedes-Benz oder Stellantis zu. Stellantis umfasst typischerweise Peugeot, Citroën, Opel, Fiat, Jeep und verwandte Marken.",
       "partsCredential": "OEM-Teile-Zugangsdaten",
       "laborCredential": "OEM-Arbeits-Zugangsdaten",
       "memberMakesAria": "Zugehörige Marken von {{concern}}"
@@ -424,9 +419,8 @@
   "workshopHours": {
     "openTimeAria": "Öffnungszeit {{day}}",
     "closeTimeAria": "Schließzeit {{day}}",
-    "loadFailed": "Werkstattzeiten konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "loadFailed": "Werkstattzeiten konnten nicht geladen werden.",
     "title": "Werkstattzeiten",
-    "description": "Öffnungszeiten und Feiertage steuern das Raster des Werkstattplaners. Die Slot-Größe legt die Spaltenbreite der Tagesansicht fest.",
     "timezone": "Zeitzone",
     "slotMinutes": "Slot-Größe (Minuten)",
     "slotMinutesOption": "{{minutes}} Minuten",
@@ -446,7 +440,6 @@
     "saveHours": "Zeiten speichern",
     "holidays": {
       "title": "Feiertage",
-      "description": "Geschlossene oder verkürzte Tage überschreiben die Wochentagszeiten im Planer. Gesetzliche Feiertage stammen aus der OpenHolidays-API.",
       "import": "Gesetzliche Feiertage importieren",
       "importing": "Import läuft…",
       "createButton": "+ Feiertag",
@@ -500,9 +493,8 @@
   "labor": {
     "categories": {
       "title": "Arbeitskategorien",
-      "description": "Hierarchische Arbeitskategorien mit Stundensätzen verwalten. Rechtsklick auf eine Zeile zum Löschen.",
       "loading": "Kategorien werden geladen…",
-      "empty": "Keine Kategorien gefunden. Legen Sie Ihre erste Kategorie mit dem Formular an.",
+      "empty": "Keine Kategorien vorhanden. Mit Formular anlegen.",
       "notSet": "Nicht festgelegt",
       "invalidRate": "Ungültiges Format für den Stundensatz",
       "tree": {
@@ -511,7 +503,9 @@
         "rateTitle": "Klicken, um den Satz zu bearbeiten",
         "toggleActiveTitle": "Aktivstatus umschalten",
         "editTitle": "Kategorie bearbeiten",
-        "editAria": "Kategorie {{name}} bearbeiten"
+        "editAria": "Kategorie {{name}} bearbeiten",
+        "deleteTitle": "Kategorie löschen",
+        "deleteAria": "Kategorie {{name}} löschen"
       },
       "active": "Aktiv",
       "inactive": "Inaktiv",
@@ -640,7 +634,6 @@
   },
   "voiceTranslation": {
     "title": "Sprachübersetzung",
-    "description": "Google Speech-to-Text und die Ausgabesprache der Übersetzung für Sprachnotizen der Mechaniker konfigurieren.",
     "loading": "Einstellungen zur Sprachübersetzung werden geladen…",
     "targetLanguage": "Zielsprache",
     "projectId": "Google-Projekt-ID",
@@ -649,9 +642,9 @@
     "locationPlaceholder": "global",
     "credential": "Google-Dienstkonto-JSON",
     "credentialPlaceholder": "{\"type\":\"service_account\",...}",
-    "credentialHint": "Die Zugangsdaten werden verschlüsselt auf dem Server gespeichert und nie an den Browser zurückgegeben. Lassen Sie das Feld leer, um die aktuellen Zugangsdaten unverändert zu lassen. Aktueller Status: {{status}}.",
-    "credentialConfigured": "konfiguriert",
-    "credentialNotConfigured": "nicht konfiguriert",
+    "credentialInfo": "Leer lassen, um aktuellen Wert zu behalten. Zugangsdaten werden verschlüsselt gespeichert und nie zurückgegeben.",
+    "credentialInfoAria": "Hinweis zu Zugangsdaten anzeigen",
+    "credentialNotConfigured": "Nicht konfiguriert",
     "showCredential": "Zugangsdaten anzeigen",
     "overwriteConfirm": "Die aktuell konfigurierten Google-Zugangsdaten überschreiben?",
     "saving": "Wird gespeichert…",
@@ -663,7 +656,6 @@
   },
   "sites": {
     "title": "Standorte",
-    "description": "Betriebliche Werkstattstandorte. Standortzuordnungen legen fest, wer welchen Standort in der Seitenleiste aktivieren kann.",
     "columns": {
       "code": "Code",
       "name": "Name",
@@ -673,7 +665,6 @@
     },
     "memberships": {
       "title": "Zuordnungen für {{name}}",
-      "description": "Benutzer benötigen eine aktive Mandantenrolle und eine Standortzuordnung, bevor der Standort unter „Aktueller Standort“ erscheint.",
       "addLabel": "Mandantenmitglied hinzufügen",
       "addPlaceholder": "Teammitglied wählen",
       "addButton": "Zuordnung hinzufügen",
@@ -779,11 +770,12 @@
   },
   "legalEntities": {
     "title": "Rechtsträger",
-    "description": "Rechtsträger bilden die Verkäuferidentität für Rechnungen. Standorte übernehmen den hier konfigurierten Rechtsträger.",
     "create": {
       "nameLabel": "Name",
       "namePlaceholder": "Beispiel GmbH",
       "countryLabel": "Land",
+      "countryInfo": "Das Land kann nach dem Anlegen nicht mehr geändert werden.",
+      "countryInfoAria": "Hinweis zum Land anzeigen",
       "countryAt": "Österreich (AT)",
       "countryDe": "Deutschland (DE)",
       "submit": "+ Rechtsträger"
@@ -806,7 +798,8 @@
     },
     "missingPrefix": "Fehlend: {{fields}}",
     "seller": {
-      "description": "Verkäuferidentität für {{country}}-Rechnungen. Das Land kann nach dem Anlegen nicht mehr geändert werden.",
+      "countryInfo": "Das Land kann nach dem Anlegen nicht mehr geändert werden.",
+      "countryInfoAria": "Hinweis zum Land anzeigen",
       "ready": "Bereit für die Rechnungsausstellung",
       "incomplete": "Verkäuferidentität unvollständig",
       "missing": {
@@ -850,7 +843,6 @@
     },
     "profile": {
       "title": "Buchhaltungsprofil",
-      "description": "Konfigurieren Sie die Zuordnungen für den Buchhaltungsexport von {{name}}. Unvollständige Profile können gespeichert werden; die Ausstellungsbereitschaft wird separat angezeigt.",
       "ready": "Zuordnungskonfiguration vollständig",
       "incomplete": "Buchhaltungszuordnungen unvollständig",
       "missing": {
@@ -923,7 +915,8 @@
     },
     "header": {
       "title": "Buchhaltungsexport",
-      "description": "Zeigen Sie unveränderliche DATEV-Buchungsstapel-CSV-Läufe für einen abgeschlossenen Zeitraum in der Vorschau an und laden Sie sie herunter. Die Erstellung setzt voraus, dass das Profil <code>{{profileCode}}</code> nach der Freigabe durch den Steuerberater aktiviert wurde.",
+      "info": "DATEV erst nach Freigabe des Steuerberaters aktivieren.",
+      "infoAria": "Hinweis zu DATEV anzeigen",
       "selected": "Ausgewählt: <name>{{name}}</name>",
       "selectedPeriod": "Ausgewählt: <name>{{name}}</name> · {{from}} bis {{to}}"
     },
@@ -952,8 +945,9 @@
       "title": "Vorschauergebnisse",
       "summary": "Profil v{{version}} · {{documents}} Belege · {{rows}} Buchungszeilen",
       "blockers": "Blockierende Probleme",
-      "blockersNote": "Exporte lassen blockierte Belege nie aus und exportieren nie nur gültige Zeilen.",
-      "emptyPeriod": "Dieser abgeschlossene Zeitraum enthält keine exportierbaren Belege. Für leere Zeiträume ist die Erstellung nicht verfügbar.",
+      "blockersNote": "Exporte lassen blockierte Belege nie aus.",
+      "blockersInfoAria": "Hinweis zu blockierenden Belegen anzeigen",
+      "emptyPeriod": "Keine exportierbaren Belege im Zeitraum.",
       "columns": {
         "account": "Konto",
         "taxRate": "Steuersatz",
@@ -972,7 +966,8 @@
     },
     "history": {
       "title": "Exportlauf-Verlauf",
-      "description": "Unveränderliche abgeschlossene Läufe. Downloads werden mit Lauf-ID und Prüfsumme im Audit-Protokoll erfasst; sie bestätigen keinen DATEV-Import.",
+      "info": "Ein Download bestätigt keinen DATEV-Import.",
+      "infoAria": "Hinweis zu Export-Downloads anzeigen",
       "searchPlaceholder": "ID, Rechtsträger, Prüfsumme",
       "empty": "Noch keine autorisierten Exportläufe.",
       "columns": {
@@ -986,7 +981,6 @@
     },
     "detail": {
       "title": "Details zum Exportlauf",
-      "description": "Exakte Metadaten, die mit dem unveränderlichen CSV-Artefakt gespeichert wurden.",
       "runId": "Lauf-ID:",
       "period": "Zeitraum:",
       "documentsRows": "Belege / Zeilen:",
@@ -1017,7 +1011,6 @@
   },
   "dataImport": {
     "title": "Datenimport",
-    "description": "Import von CSV-Dateien aus Alt-DMS für das Onboarding neuer Mandanten. Der Probelauf validiert die Zeilen, bevor Daten geschrieben werden. Marketing-Einwilligungsspalten werden vom Importmodul ignoriert.",
     "stepsNavAria": "Schritte des Import-Assistenten",
     "steps": {
       "source": "Quelle",
@@ -1028,7 +1021,8 @@
     },
     "consent": {
       "title": "Marketing-Einwilligung",
-      "description": "Spalten zu Einwilligung, Marketing, Newsletter oder Werbung werden nicht importiert und nur als Warnungen gemeldet."
+      "description": "Einwilligungs-, Marketing- und Werbespalten werden nicht importiert und nur als Warnung gemeldet.",
+      "infoAria": "Hinweis zur Marketing-Einwilligung anzeigen"
     },
     "source": {
       "title": "1. Entität & Quelle",
@@ -1045,14 +1039,13 @@
       "downloadTemplate": "CSV-Vorlage herunterladen",
       "continue": "Weiter",
       "templateFields": "Vorlagenfelder: {{fields}}",
-      "noSources": "Legen Sie zuerst oben unter „Importquellen“ eine Quelle an."
+      "noSources": "Legen Sie zuerst oben unter „Importquellen“ eine Quelle an.",
+      "templateFieldsInfo": "Vorlagenfelder anzeigen"
     },
     "sources": {
       "title": "Importquellen",
-      "description": "Quellsysteme, die beim Import gewählt werden können. Der Schlüssel bleibt stabil, damit erneute Importe keine Dubletten erzeugen.",
       "keyLabel": "Schlüssel",
       "keyPlaceholder": "z. B. legacy-dms",
-      "keyHint": "Nur Kleinbuchstaben, Ziffern, Bindestriche und Unterstriche. Für kanonische Schlüssel im Format source_name:source_company_code ist ein Doppelpunkt erlaubt.",
       "labelLabel": "Anzeigename",
       "labelPlaceholder": "z. B. Legacy DMS",
       "defaultLabel": "Als Standard verwenden",
@@ -1467,12 +1460,10 @@
       "description": "Gesendet werden nur die gewählten Ereignisse. Standardmäßig ist keines aktiv.",
       "saveFailed": "Ereignisse konnten nicht gespeichert werden.",
       "CUSTOMER_ESTIMATE_DECIDED": {
-        "label": "Kostenvoranschlag entschieden",
-        "hint": "Der Kunde hat einen Kostenvoranschlag freigegeben oder abgelehnt."
+        "label": "Kostenvoranschlag entschieden"
       },
       "WORKSHOP_TASK_WAITING_CUSTOMER": {
-        "label": "Wartet auf den Kunden",
-        "hint": "Eine Arbeit ist pausiert, weil eine Rückfrage beim Kunden nötig ist."
+        "label": "Wartet auf den Kunden"
       }
     },
     "quietHours": {

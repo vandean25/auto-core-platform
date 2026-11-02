@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { Info, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -8,9 +8,10 @@ import {
   useVoiceTranslationSettings,
 } from '@/api/voice-translation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TARGET_LANGUAGE_CODES, formatTargetLanguage } from '@/constants/voice-languages'
 import { getErrorMessage } from '@/lib/error-utils'
@@ -86,9 +87,6 @@ export function VoiceTranslationSettingsTab() {
     <Card>
       <CardHeader>
         <CardTitle>{t('voiceTranslation.title')}</CardTitle>
-        <CardDescription>
-          {t('voiceTranslation.description')}
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSave} className='space-y-4'>
@@ -138,9 +136,25 @@ export function VoiceTranslationSettingsTab() {
           </div>
 
           <div className='grid gap-2'>
-            <Label htmlFor='voice-google-credential'>
-              {t('voiceTranslation.credential')}
-            </Label>
+            <div className='flex items-center gap-1.5'>
+              <Label htmlFor='voice-google-credential'>
+                {t('voiceTranslation.credential')}
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type='button'
+                    className='text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                    aria-label={t('voiceTranslation.credentialInfoAria')}
+                  >
+                    <Info className='h-4 w-4' />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className='w-80 text-xs'>
+                  {t('voiceTranslation.credentialInfo')}
+                </PopoverContent>
+              </Popover>
+            </div>
             <textarea
               id='voice-google-credential'
               className='min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm font-mono'
@@ -163,13 +177,11 @@ export function VoiceTranslationSettingsTab() {
               readOnly={!showCredential}
               placeholder={t('voiceTranslation.credentialPlaceholder')}
             />
-            <p className='text-sm text-slate-500'>
-              {t('voiceTranslation.credentialHint', {
-                status: data?.hasGoogleCredential
-                  ? t('voiceTranslation.credentialConfigured')
-                  : t('voiceTranslation.credentialNotConfigured'),
-              })}
-            </p>
+            {!data?.hasGoogleCredential ? (
+              <p className='text-sm text-slate-500'>
+                {t('voiceTranslation.credentialNotConfigured')}
+              </p>
+            ) : null}
             <label className='flex items-center gap-2 text-sm text-slate-600'>
               <input
                 type='checkbox'

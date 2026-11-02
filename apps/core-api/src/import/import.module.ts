@@ -15,9 +15,18 @@ import { ImportTaskGuard } from './import-task.guard.js';
 import { ImportSourceService } from './import-source.service.js';
 import { ImportUndoPreviewService } from './import-undo.preview.service.js';
 import { ImportUndoService } from './import-undo.service.js';
+import { ImportPurgeWorkerController } from './import-purge-worker.controller.js';
+import { ImportPurgeWorkerService } from './import-purge-worker.service.js';
+import { ImportPurgeTaskGuard } from './import-purge-task.guard.js';
+import { SchedulerModule } from '../scheduler/scheduler.module.js';
 
 @Module({
-  controllers: [ImportController, ImportWorkerController],
+  imports: [SchedulerModule],
+  controllers: [
+    ImportController,
+    ImportWorkerController,
+    ImportPurgeWorkerController,
+  ],
   providers: [
     ImportService,
     ImportDirectUploadService,
@@ -33,6 +42,9 @@ import { ImportUndoService } from './import-undo.service.js';
     ImportSourceService,
     ImportUndoPreviewService,
     ImportUndoService,
+    ImportPurgeWorkerService,
+    ImportPurgeTaskGuard,
   ],
+  exports: [ImportRetentionService, ImportPurgeWorkerService],
 })
 export class ImportModule {}

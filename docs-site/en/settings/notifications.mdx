@@ -1,0 +1,37 @@
+---
+title: "Notifications"
+description: "Turn on web push on this device and pick which workshop events notify you."
+---
+
+**Settings → Notifications** controls **web push** for your login — separate from customer emails (estimates, ready-for-pickup). Each person sets up their own devices; OWNER and ADMIN use the same tab as other roles with settings access.
+
+<Steps>
+  <Step title="Open the tab">
+    Gear → **Notifications** (German UI: **Benachrichtigungen**).
+  </Step>
+  <Step title="Push on this device">
+    Under **This device**, choose **Enable push**. The browser asks for permission. **Disable push** unregisters only this device.
+  </Step>
+  <Step title="Pick events">
+    Under **Events**, enable at least one type — none are on by default. Options include **Estimate decided** (customer approved or declined) and **Waiting for customer** (task paused for the customer).
+  </Step>
+  <Step title="Optional quiet hours">
+    Turn on **Use quiet hours** with **From** / **To** (site local time). No push is sent in that window.
+  </Step>
+</Steps>
+
+<Warning>
+Push depends on tenant and deployment setup. If you see **Push notifications are not set up in this environment**, your shop cannot use push yet. On **iPhone and iPad**, push works only in the **installed app** (Safari → **Share** → **Add to Home Screen**, open the app from there, then enable push here).
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Registered devices">
+    Lists every signed-in browser or install with **Last active**, platform (desktop, Android, iPhone/iPad), and **App installed** where applicable. **Remove** drops another device — useful if a phone was lost.
+  </Accordion>
+  <Accordion title="Test message">
+    **Send test message** delivers push to your own devices (at most five per hour). Enable push on a device first.
+  </Accordion>
+  <Accordion title="Not the same as email">
+    Customers still get transactional email under your rules on [Customers](/en/workflows/customers) and [Workshop orders](/en/workflows/workshop-orders). Push only notifies signed-in staff on their devices.
+  </Accordion>
+</AccordionGroup>

@@ -283,6 +283,9 @@ describe('AccountingExportReadinessPage', () => {
     expect(
       screen.getByText(deFinance.accountingExportReadiness.exportProfileMissing),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: deFinance.actions.openSettings }),
+    ).toBeInTheDocument()
   })
 
   it('opens the accounting export profile from the settings action instead of plain /settings (AUT-852)', async () => {

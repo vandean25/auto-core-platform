@@ -391,6 +391,7 @@ describe('DataImportSettingsTab characterization', () => {
     it('lists the template fields of the selected entity type', () => {
       renderImportSettingsTab()
 
+      fireEvent.click(screen.getByRole('button', { name: di.source.templateFieldsInfo }))
       expect(screen.getByText(di.source.templateFields.replace('{{fields}}', 'external_id'))).toBeInTheDocument()
     })
 

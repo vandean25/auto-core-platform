@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.unmock('@/components/settings/vehicle-data-settings-panel')
 
+import deCommon from '../../../../../locales/de/common.json'
 import deSettings from '../../../../../locales/de/settings.json'
 import { VehicleDataSettingsPanel } from './vehicle-data-settings-panel'
 
@@ -62,6 +63,7 @@ const { mocks, defaultSettings } = vi.hoisted(() => {
     activeRole: 'ADMIN' as string,
     settings: defaultSettings,
     isSettingsError: false,
+    refetchSettings: vi.fn(),
     updateSettingsMutateAsync: vi.fn(),
     laborCategories: {
       data: [
@@ -96,6 +98,7 @@ vi.mock('@/api/useCatalogProviderSettings', () => ({
     data: mocks.settings,
     isLoading: false,
     isError: mocks.isSettingsError,
+    refetch: mocks.refetchSettings,
   }),
   useUpdateCatalogProviderSettings: () => ({
     mutateAsync: mocks.updateSettingsMutateAsync,
@@ -162,6 +165,7 @@ describe('VehicleDataSettingsPanel', () => {
     mocks.activeRole = 'ADMIN'
     mocks.settings = defaultSettings
     mocks.isSettingsError = false
+    mocks.refetchSettings.mockReset()
     mocks.updateSettingsMutateAsync.mockReset()
     mocks.updateSettingsMutateAsync.mockResolvedValue(defaultSettings)
   })
@@ -207,5 +211,16 @@ describe('VehicleDataSettingsPanel', () => {
 
     expect(screen.getByText(deSettings.vehicleData.noAccess)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: deSettings.vehicleData.saveChanges })).not.toBeInTheDocument()
+  })
+
+  it('offers retry that refetches when the settings load fails', () => {
+    mocks.isSettingsError = true
+    renderTab()
+
+    expect(screen.getByText(deSettings.vehicleData.loadFailed)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: deCommon.actions.retry }))
+
+    expect(mocks.refetchSettings).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Loader2, Save } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { SettingsSectionHeading } from '@/components/settings/SettingsSectionHeading'
@@ -52,6 +53,25 @@ export function SettingsTabLoadingState({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center justify-center py-12', className)}>
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  )
+}
+
+/** Short load-failure message plus the control that makes it recoverable. */
+export function SettingsLoadFailedState({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  const { t } = useTranslation('common')
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <p className="text-sm text-destructive">{message}</p>
+      <Button type="button" variant="outline" className="min-h-11" onClick={onRetry}>
+        {t('actions.retry')}
+      </Button>
     </div>
   )
 }

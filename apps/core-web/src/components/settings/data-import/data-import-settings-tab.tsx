@@ -1,9 +1,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { AlertTriangle } from 'lucide-react'
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { DataImportApplyDialog } from './data-import-apply-dialog'
@@ -46,9 +44,6 @@ export function DataImportSettingsTab() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-medium">{model.t('dataImport.title')}</h2>
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            {model.t('dataImport.description')}
-          </p>
         </div>
       </div>
 
@@ -66,14 +61,6 @@ export function DataImportSettingsTab() {
           <DataImportWizardNav step={model.wizard.step} />
 
           <ImportSourcesPanel />
-
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle as="h3">{model.t('dataImport.consent.title')}</AlertTitle>
-            <AlertDescription>
-              {model.t('dataImport.consent.description')}
-            </AlertDescription>
-          </Alert>
 
           {model.wizard.step === 1 ? (
             <DataImportSourceStep
