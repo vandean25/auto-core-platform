@@ -89,6 +89,7 @@ export function readImportUploadRetentionDays(): number {
 const DEFAULT_JOB_ROW_PURGE_ROW_BATCH_SIZE = 500;
 const DEFAULT_JOB_ROW_PURGE_ROW_BUDGET = 20_000;
 const DEFAULT_JOB_ROW_PURGE_MAX_CANDIDATES_SCANNED = 500;
+const DEFAULT_JOB_ROW_PURGE_MAX_SEQUENCE = 50;
 
 export function readImportJobRowPurgeRowBatchSize(): number {
   return readPositiveInt(
@@ -108,6 +109,14 @@ export function readImportJobRowPurgeMaxCandidatesScanned(): number {
   return readPositiveInt(
     process.env.IMPORT_JOB_ROW_PURGE_MAX_CANDIDATES_SCANNED,
     DEFAULT_JOB_ROW_PURGE_MAX_CANDIDATES_SCANNED,
+  );
+}
+
+/** Highest batch sequence one claimed purge run may enqueue before the chain ends. */
+export function readImportJobRowPurgeMaxSequence(): number {
+  return readPositiveInt(
+    process.env.IMPORT_JOB_ROW_PURGE_MAX_SEQUENCE,
+    DEFAULT_JOB_ROW_PURGE_MAX_SEQUENCE,
   );
 }
 

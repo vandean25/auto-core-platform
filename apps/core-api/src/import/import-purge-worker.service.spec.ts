@@ -1,5 +1,17 @@
-import { describe, expect, it, jest, beforeEach } from '@jest/globals';
+import {
+  describe,
+  expect,
+  it,
+  jest,
+  beforeEach,
+  afterEach,
+} from '@jest/globals';
+import { Logger } from '@nestjs/common';
 import { ImportPurgeWorkerService } from './import-purge-worker.service.js';
+import {
+  readImportJobRowPurgeMaxSequence,
+  readImportJobRowPurgeRowBudget,
+} from './import-limits.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import type { ImportRetentionService } from './import-retention.service.js';
 import type { ScheduledJobService } from '../scheduler/scheduled-job.service.js';
@@ -40,8 +52,8 @@ describe('ImportPurgeWorkerService', () => {
         .mockResolvedValue(undefined),
     };
     mockRequestContext = {
-      runAsWorker: jest.fn(
-        async (_tenantId: string, fn: () => Promise<any>) => fn(),
+      runAsWorker: jest.fn(async (_tenantId: string, fn: () => Promise<any>) =>
+        fn(),
       ),
     };
 
@@ -52,6 +64,11 @@ describe('ImportPurgeWorkerService', () => {
       mockCloudTasks,
       mockRequestContext,
     );
+  });
+
+  afterEach(() => {
+    delete process.env.IMPORT_JOB_ROW_RETENTION_DRY_RUN;
+    jest.restoreAllMocks();
   });
 
   it('skips (no-op) when task payload has a stale or unowned runId', async () => {
@@ -153,7 +170,100 @@ describe('ImportPurgeWorkerService', () => {
     expect(mockScheduledJobService.markJobRunCompleted).toHaveBeenCalledWith(
       'import-job-row-purge',
       runId,
-      expect.any(Date),
     );
+  });
+
+  describe('re-enqueue bounds (AUT-839)', () => {
+    const givenTenantWithWorkRemaining = () => {
+      mockScheduledJobService.getJobRun.mockResolvedValue({
+        job_name: 'import-job-row-purge',
+        claimed_at: now,
+        run_id: runId,
+      });
+      mockSystemPrisma.tenant.findMany
+        .mockResolvedValueOnce([{ id: 'tenant-1' }])
+        .mockResolvedValueOnce([]);
+      jest.spyOn(service, 'purgeForTenant').mockResolvedValue({
+        jobs_scanned: 1,
+        rows_deleted: readImportJobRowPurgeRowBudget(),
+        dry_run: process.env.IMPORT_JOB_ROW_RETENTION_DRY_RUN === 'true',
+      });
+    };
+
+    it('dry-run with rows remaining enqueues NO follow-up task (unbounded dry-run re-enqueue loop)', async () => {
+      process.env.IMPORT_JOB_ROW_RETENTION_DRY_RUN = 'true';
+      givenTenantWithWorkRemaining();
+
+      const result = await service.processPurgeBatch({
+        runId,
+        sequence: 0,
+      });
+
+      expect(result.status).toBe('completed');
+      expect(mockCloudTasks.enqueueImportPurgeWorker).not.toHaveBeenCalled();
+      expect(mockScheduledJobService.markJobRunCompleted).toHaveBeenCalledWith(
+        'import-job-row-purge',
+        runId,
+      );
+    });
+
+    it('dry-run with rows remaining schedules no in-process continuation when Cloud Tasks is disabled (tight setImmediate recursion)', async () => {
+      process.env.IMPORT_JOB_ROW_RETENTION_DRY_RUN = 'true';
+      mockCloudTasks.isEnabled.mockReturnValue(false);
+      givenTenantWithWorkRemaining();
+      const dispatchSpy = jest.spyOn(service, 'dispatchPurgeTask');
+
+      const result = await service.processPurgeBatch({
+        runId,
+        sequence: 0,
+      });
+
+      expect(result.status).toBe('completed');
+      expect(dispatchSpy).not.toHaveBeenCalled();
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(mockSystemPrisma.tenant.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops the chain at MAX_PURGE_SEQUENCE with a warning instead of enqueuing (unbounded re-enqueue chain)', async () => {
+      const maxSequence = readImportJobRowPurgeMaxSequence();
+      givenTenantWithWorkRemaining();
+      const warnSpy = jest
+        .spyOn(service['logger'], 'warn')
+        .mockImplementation(() => {});
+
+      const result = await service.processPurgeBatch({
+        runId,
+        sequence: maxSequence,
+      });
+
+      expect(result.status).toBe('completed');
+      expect(mockCloudTasks.enqueueImportPurgeWorker).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`MAX_PURGE_SEQUENCE=${maxSequence}`),
+      );
+      expect(mockScheduledJobService.markJobRunCompleted).toHaveBeenCalledWith(
+        'import-job-row-purge',
+        runId,
+      );
+    });
+
+    it('still enqueues the follow-up below MAX_PURGE_SEQUENCE when rows remain', async () => {
+      const maxSequence = readImportJobRowPurgeMaxSequence();
+      givenTenantWithWorkRemaining();
+
+      const result = await service.processPurgeBatch({
+        runId,
+        sequence: maxSequence - 1,
+      });
+
+      expect(result).toEqual({
+        status: 'continued',
+        nextSequence: maxSequence,
+      });
+      expect(mockCloudTasks.enqueueImportPurgeWorker).toHaveBeenCalledWith({
+        runId,
+        sequence: maxSequence,
+      });
+    });
   });
 });

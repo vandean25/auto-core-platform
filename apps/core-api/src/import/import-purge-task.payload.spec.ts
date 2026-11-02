@@ -23,9 +23,9 @@ describe('ImportPurgeTaskPayload', () => {
 
   it('throws error when secret does not match', () => {
     const signed = signImportPurgeTaskPayload(payload, secret);
-    expect(() =>
-      verifyImportPurgeTaskPayload(signed, 'wrong-secret'),
-    ).toThrow('Invalid import purge task signature');
+    expect(() => verifyImportPurgeTaskPayload(signed, 'wrong-secret')).toThrow(
+      'Invalid import purge task signature',
+    );
   });
 
   it('throws error when sequence or runId is tampered with', () => {
@@ -34,5 +34,20 @@ describe('ImportPurgeTaskPayload', () => {
     expect(() => verifyImportPurgeTaskPayload(tampered, secret)).toThrow(
       'Invalid import purge task signature',
     );
+  });
+
+  it('rejects a non-integer or negative sequence before it can drive the batch chain', () => {
+    expect(() =>
+      verifyImportPurgeTaskPayload(
+        { ...payload, sequence: -1, signature: 'a'.repeat(64) },
+        secret,
+      ),
+    ).toThrow('Invalid import purge task payload structure');
+    expect(() =>
+      verifyImportPurgeTaskPayload(
+        { ...payload, sequence: 1.5, signature: 'a'.repeat(64) },
+        secret,
+      ),
+    ).toThrow('Invalid import purge task payload structure');
   });
 });

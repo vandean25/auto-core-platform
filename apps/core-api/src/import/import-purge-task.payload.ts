@@ -28,7 +28,8 @@ export function verifyImportPurgeTaskPayload(
   if (
     !payload ||
     typeof payload.runId !== 'string' ||
-    typeof payload.sequence !== 'number' ||
+    !Number.isInteger(payload.sequence) ||
+    payload.sequence < 0 ||
     typeof payload.signature !== 'string'
   ) {
     throw new Error('Invalid import purge task payload structure');

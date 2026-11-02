@@ -47,6 +47,10 @@ export class ImportRetentionService {
               sequence: 0,
             });
           }
+        } else {
+          this.logger.warn(
+            'Import job row purge needs ScheduledJobService and ImportPurgeWorkerService; skipping this run.',
+          );
         }
       },
       this.logger,

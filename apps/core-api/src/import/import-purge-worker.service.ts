@@ -15,7 +15,10 @@ import {
   type ImportJobRowPurgeCounts,
   type ImportJobRowPurgeOptions,
 } from './import-retention.helpers.js';
-import { readImportJobRowPurgeRowBudget } from './import-limits.js';
+import {
+  readImportJobRowPurgeMaxSequence,
+  readImportJobRowPurgeRowBudget,
+} from './import-limits.js';
 import type { ImportPurgeTaskPayload } from './import-purge-task.payload.js';
 
 export type PurgeBatchResult =
@@ -65,7 +68,7 @@ export class ImportPurgeWorkerService {
         });
         if (counts.rows_deleted > 0 || counts.dry_run) {
           this.logger.log(
-            `Import job row ${counts.dry_run ? 'dry-run' : 'purge'} for one tenant: jobs=${counts.jobs_scanned} rows=${counts.rows_deleted}`,
+            `Import job row ${counts.dry_run ? 'would-purge (dry-run)' : 'purge'} for tenant ${tenantId}: jobs=${counts.jobs_scanned} rows=${counts.rows_deleted}`,
           );
         }
         return counts;
@@ -95,7 +98,8 @@ export class ImportPurgeWorkerService {
 
   /**
    * Processes one purge batch invocation (up to rowBudget rows per tenant).
-   * Re-enqueues itself if rows remain; marks run completed when done.
+   * Re-enqueues itself while rows remain, bounded by the sequence cap, and marks
+   * the run completed when the chain ends.
    */
   async processPurgeBatch(
     payload: ImportPurgeTaskPayload,
@@ -118,30 +122,46 @@ export class ImportPurgeWorkerService {
     const now = new Date();
     const config = readImportJobRowRetentionPurgeConfig();
     const rowBudget = readImportJobRowPurgeRowBudget();
-    const rowsRemain = await this.purgeAllTenants(
-      now,
-      config.dryRun,
-      rowBudget,
-    );
+    const pass = await this.purgeAllTenants(now, config.dryRun, rowBudget);
 
-    if (rowsRemain) {
+    if (!pass.rowsRemain) {
       this.logger.log(
-        `Import purge runId=${payload.runId} sequence=${payload.sequence} finished with remaining rows. Enqueuing sequence=${payload.sequence + 1}`,
+        `Import purge runId=${payload.runId} sequence=${payload.sequence} completed all tenants. Marking run completed.`,
       );
-      await this.dispatchPurgeTask({
-        runId: payload.runId,
-        sequence: payload.sequence + 1,
-      });
-      return { status: 'continued', nextSequence: payload.sequence + 1 };
+      return this.completeRun(payload.runId);
+    }
+
+    // A dry run deletes nothing, so every eligible job stays eligible and the
+    // remaining-rows signal is always true. One reporting pass per claim only.
+    if (config.dryRun) {
+      this.logger.warn(
+        `Import purge dry-run runId=${payload.runId} sequence=${payload.sequence} reported would-purge rows in ${pass.tenantsRemaining.length} tenants. Stopping chain without a follow-up task; would-purge totals were logged per tenant.`,
+      );
+      return this.completeRun(payload.runId);
+    }
+
+    const maxSequence = readImportJobRowPurgeMaxSequence();
+    if (payload.sequence + 1 > maxSequence) {
+      this.logger.warn(
+        `Import purge runId=${payload.runId} reached MAX_PURGE_SEQUENCE=${maxSequence} at sequence=${payload.sequence} with rows remaining in ${pass.tenantsRemaining.length} tenants (${pass.tenantsRemaining.slice(0, 10).join(', ')}). Ending chain; the next scheduled run starts a new one.`,
+      );
+      return this.completeRun(payload.runId);
     }
 
     this.logger.log(
-      `Import purge runId=${payload.runId} sequence=${payload.sequence} completed all tenants. Marking run completed.`,
+      `Import purge runId=${payload.runId} sequence=${payload.sequence} finished with remaining rows. Enqueuing sequence=${payload.sequence + 1}`,
     );
+    await this.dispatchPurgeTask({
+      runId: payload.runId,
+      sequence: payload.sequence + 1,
+    });
+    return { status: 'continued', nextSequence: payload.sequence + 1 };
+  }
+
+  private async completeRun(runId: string): Promise<PurgeBatchResult> {
     await this.scheduledJobService.markJobRunCompleted(
       'import-job-row-purge',
-      payload.runId,
-      now,
+      runId,
     );
     return { status: 'completed' };
   }
@@ -150,8 +170,8 @@ export class ImportPurgeWorkerService {
     now: Date,
     dryRun: boolean,
     rowBudget: number,
-  ): Promise<boolean> {
-    let rowsRemain = false;
+  ): Promise<{ rowsRemain: boolean; tenantsRemaining: string[] }> {
+    const tenantsRemaining: string[] = [];
     let skip = 0;
 
     while (true) {
@@ -174,7 +194,7 @@ export class ImportPurgeWorkerService {
           rowBudget,
         );
         if (tenantHasMore) {
-          rowsRemain = true;
+          tenantsRemaining.push(tenantId);
         }
       }
 
@@ -184,7 +204,7 @@ export class ImportPurgeWorkerService {
       }
     }
 
-    return rowsRemain;
+    return { rowsRemain: tenantsRemaining.length > 0, tenantsRemaining };
   }
 
   private async purgeSingleTenant(
