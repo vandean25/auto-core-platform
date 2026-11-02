@@ -6,6 +6,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestTenant,
   resolveTestMainSiteId,
   seedTestEmployee,
@@ -15,7 +16,9 @@ import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   let app: INestApplication;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
+  let foreignPrisma: PrismaService;
   let auth: AuthService;
   let tenantId: string;
   let siteId: string;
@@ -36,16 +39,19 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
 
   beforeAll(async () => {
     app = await createE2eApp(undefined, { productionErrorFilter: true });
-    prisma = app.get(PrismaService);
+    basePrisma = app.get(PrismaService);
     auth = app.get(AuthService);
 
-    const tenant = await createTestTenant(prisma, 'aut-847');
+    const tenant = await createTestTenant(basePrisma, 'aut-847');
     tenantId = tenant.tenantId;
-    siteId = await resolveTestMainSiteId(prisma, tenantId);
+    siteId = await resolveTestMainSiteId(basePrisma, tenantId);
 
-    const foreignTenant = await createTestTenant(prisma, 'aut-847-foreign');
+    const foreignTenant = await createTestTenant(basePrisma, 'aut-847-foreign');
     foreignTenantId = foreignTenant.tenantId;
-    foreignSiteId = await resolveTestMainSiteId(prisma, foreignTenantId);
+    foreignSiteId = await resolveTestMainSiteId(basePrisma, foreignTenantId);
+
+    prisma = createTenantAwarePrisma(basePrisma, tenantId);
+    foreignPrisma = createTenantAwarePrisma(basePrisma, foreignTenantId);
 
     // Seed Owner
     const ownerUid = `task-owner-${tenantId}`;
@@ -57,7 +63,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         active_site_id: siteId,
       },
     });
-    await seedTestTenantMember(prisma, { tenantId, userId: owner.id, role: 'OWNER' });
+    await seedTestTenantMember(basePrisma, { tenantId, userId: owner.id, role: 'OWNER' });
     await prisma.siteMembership.create({
       data: { tenant_id: tenantId, user_id: owner.id, site_id: siteId, is_active: true },
     });
@@ -73,7 +79,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         active_site_id: siteId,
       },
     });
-    await seedTestTenantMember(prisma, { tenantId, userId: admin.id, role: 'ADMIN' });
+    await seedTestTenantMember(basePrisma, { tenantId, userId: admin.id, role: 'ADMIN' });
     await prisma.siteMembership.create({
       data: { tenant_id: tenantId, user_id: admin.id, site_id: siteId, is_active: true },
     });
@@ -89,7 +95,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         active_site_id: siteId,
       },
     });
-    await seedTestTenantMember(prisma, { tenantId, userId: sales.id, role: 'SALES' });
+    await seedTestTenantMember(basePrisma, { tenantId, userId: sales.id, role: 'SALES' });
     await prisma.siteMembership.create({
       data: { tenant_id: tenantId, user_id: sales.id, site_id: siteId, is_active: true },
     });
@@ -105,7 +111,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         active_site_id: siteId,
       },
     });
-    await seedTestTenantMember(prisma, { tenantId, userId: techUser.id, role: 'TECH' });
+    await seedTestTenantMember(basePrisma, { tenantId, userId: techUser.id, role: 'TECH' });
     await prisma.siteMembership.create({
       data: { tenant_id: tenantId, user_id: techUser.id, site_id: siteId, is_active: true },
     });
@@ -136,7 +142,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
 
     // Seed Foreign Admin in Tenant B
     const foreignAdminUid = `task-admin-${foreignTenantId}`;
-    const foreignAdmin = await prisma.user.create({
+    const foreignAdmin = await foreignPrisma.user.create({
       data: {
         firebaseUid: foreignAdminUid,
         email: `foreign-admin-${foreignTenantId}@test.local`,
@@ -144,8 +150,8 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         active_site_id: foreignSiteId,
       },
     });
-    await seedTestTenantMember(prisma, { tenantId: foreignTenantId, userId: foreignAdmin.id, role: 'ADMIN' });
-    await prisma.siteMembership.create({
+    await seedTestTenantMember(basePrisma, { tenantId: foreignTenantId, userId: foreignAdmin.id, role: 'ADMIN' });
+    await foreignPrisma.siteMembership.create({
       data: { tenant_id: foreignTenantId, user_id: foreignAdmin.id, site_id: foreignSiteId, is_active: true },
     });
     foreignAdminToken = auth.createTestToken({
@@ -180,8 +186,8 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (prisma && tenantId) await cleanupTestTenantGraph(prisma, tenantId);
-    if (prisma && foreignTenantId) await cleanupTestTenantGraph(prisma, foreignTenantId);
+    if (basePrisma && tenantId) await cleanupTestTenantGraph(basePrisma, tenantId);
+    if (basePrisma && foreignTenantId) await cleanupTestTenantGraph(basePrisma, foreignTenantId);
     if (app) await teardownTestApp(app);
   });
 
