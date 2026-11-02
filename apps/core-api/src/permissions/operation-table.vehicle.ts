@@ -8,22 +8,22 @@ import {
 import type { OperationTable } from './operation-types.js';
 
 export const VEHICLE_OPERATIONS: OperationTable = {
-  'VehicleController.calculateNova': op(
+  'VehicleNovaController.calculateNova': op(
     'vehicle.nova.calculate',
     BACK_OFFICE_DEMO,
     'tenant',
   ),
-  'VehicleController.findPickerlDue': op(
+  'VehiclePickerlDueController.findPickerlDue': op(
     'vehicle.pickerl.read',
     BACK_OFFICE_DEMO,
     'tenant',
   ),
-  'VehicleController.exportPickerlDue': op(
+  'VehiclePickerlDueController.exportPickerlDue': op(
     'vehicle.pickerl.export',
     BACK_OFFICE_DEMO,
     'tenant',
   ),
-  'VehicleController.findOpenPickerlWorkshopOrder': op(
+  'VehiclePickerlDueController.findOpenPickerlWorkshopOrder': op(
     'vehicle.pickerl.read',
     BACK_OFFICE_DEMO,
     'site',
