@@ -28,7 +28,7 @@ tags:
 
 > One scenario per behavior. Every scenario maps to exactly one test (see `agents.md`).
 
-- **WHEN** a workshop admin saves a parts form with valid values, **THEN** the order is stored as `DRAFT` and shows the Saved indicator.
+- **WHEN** a workshop admin saves a sales order form with valid values, **THEN** the order is stored as `DRAFT` and shows the Saved indicator.
 
 ---
 

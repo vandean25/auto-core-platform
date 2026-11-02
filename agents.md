@@ -3,7 +3,7 @@ trigger: always_on
 ---
 
 ## Agentic Execution Framework (Superpowers)
-You are operating under the `obra/superpowers` methodology. Before generating any code, creating plans, or executing terminal commands, you MUST read the relevant skill from the `.agents/skills/superpowers/` directory.
+You are operating under the `obra/superpowers` methodology. Before writing code, debugging or reporting work complete, you MUST read the relevant mandatory skill listed below from the `.agents/skills/superpowers/` directory.
 
 ### Mandatory Workflows:
 1. **Test-Driven Development (TDD):** For behaviour changes and bugfixes, you MUST follow the Red-Green-Refactor cycle (failing test first) defined in `.agents/skills/superpowers/test-driven-development/SKILL.md`. For pure refactors the existing tests are the safety net; no new tests are required. The skill's "wrote code before the test? delete it" rule does not apply in ACP.
@@ -14,7 +14,7 @@ You are operating under the `obra/superpowers` methodology. Before generating an
 - **Planning:** Specs are settled upstream in Linear, so cloud agents proceed without waiting for plan approval. `writing-plans/SKILL.md` may be loaded on request.
 - **Brainstorming:** `brainstorming/SKILL.md` is optional for vague, open-ended requests.
 
-Only load the superpowers skills listed above. Do not require or load unused ones (e.g. `writing-skills`, `subagent-driven-development`, `using-git-worktrees`) — this saves context.
+Only load the superpowers skills listed above. Do not require or load unused ones (e.g. `writing-skills`, `subagent-driven-development`, `using-git-worktrees`) — this saves context, unless a plan document declares it as a REQUIRED SUB-SKILL.
 
 Do not bypass the mandatory workflows under any circumstances.
 
@@ -197,7 +197,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **No mock-heavy duplicates of e2e**: if an existing e2e already covers a flow, extend that e2e or test the pure logic instead of adding a heavily mocked unit test.
 
 ### Ticket Scenarios (WHEN/THEN)
-- Every WHEN/THEN scenario listed in a ticket maps to exactly one test, preferably by extending an existing spec (format borrowed from OpenSpec; we do not adopt OpenSpec itself).
+- Every WHEN/THEN scenario listed in a ticket maps to exactly one test, preferably by extending an existing spec (format borrowed from OpenSpec; we do not adopt OpenSpec itself), unless the ticket changes no behaviour, in which case each scenario maps to the doc section that states it.
 
 ## GitHub Pull Request Workflow
 
