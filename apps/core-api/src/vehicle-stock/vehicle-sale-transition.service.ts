@@ -94,7 +94,11 @@ export class VehicleSaleTransitionService {
       await this.assertRetargetAllowed(tenantId, sale, tradeIn, targetSiteId);
     }
     if (dto.customer_id) {
-      await this.sales.assertSellable(tenantId, sale.vehicle_id, dto.customer_id);
+      await this.sales.assertSellable(
+        tenantId,
+        sale.vehicle_id,
+        dto.customer_id,
+      );
     }
 
     const warrantyFacts = buildDraftWarrantyFacts(sale, dto);
@@ -206,7 +210,11 @@ export class VehicleSaleTransitionService {
         entityType: 'VehicleSale',
         entityId: sale.id,
         action: AuditLogAction.UPDATE,
-        actorUserId: await findAuditActorId(tx, this.tenantContext, scope.tenantId),
+        actorUserId: await findAuditActorId(
+          tx,
+          this.tenantContext,
+          scope.tenantId,
+        ),
         source: this.requestContext.getSource() ?? 'API',
         before,
         after,

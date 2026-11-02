@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -94,7 +100,12 @@ export class KaufvertragPdfArchiveService {
     tenantId: string;
     saleId: string;
     snapshotSha256: string;
-    pointer: { bucket: string; key: string; generation: string; sha256: string };
+    pointer: {
+      bucket: string;
+      key: string;
+      generation: string;
+      sha256: string;
+    };
   }) {
     const { tenantId, saleId, snapshotSha256, pointer } = params;
     const identity = buildKaufvertragArchiveIdentity({

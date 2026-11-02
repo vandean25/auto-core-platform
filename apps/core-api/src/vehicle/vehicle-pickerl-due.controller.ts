@@ -38,7 +38,9 @@ export class VehiclePickerlDueController {
   }
 
   @Get(':id/pickerl-open-order')
-  @ApiOperation({ operationId: 'VehicleController_findOpenPickerlWorkshopOrder' })
+  @ApiOperation({
+    operationId: 'VehicleController_findOpenPickerlWorkshopOrder',
+  })
   @ApiOkResponse({ type: OpenPickerlOrderDto, nullable: true })
   findOpenPickerlWorkshopOrder(@Param('id', ParseUUIDPipe) id: string) {
     return this.vehicleService.findOpenPickerlWorkshopOrder(id);
