@@ -8,6 +8,7 @@ import {
   type TyreSet,
 } from '@/api/tyre-storage'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { formatTyreSetStatusLabel } from '@/lib/i18n/enum-labels'
 import { Button } from '@/components/ui/button'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
@@ -72,7 +73,7 @@ export function TyreSetsSummary({ vehicleId, customerId, readOnly = false, as: H
               >
                 {set.label}
               </Link>
-              <StatusBadge status={set.status} />
+              <StatusBadge status={set.status} label={formatTyreSetStatusLabel(set.status)} />
               {!readOnly ? (
                 <Button
                   type="button"

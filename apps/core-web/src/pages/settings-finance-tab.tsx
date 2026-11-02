@@ -150,11 +150,20 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
     )
 }
 
-export function FinanceSettingsTab({ form, canManageExports }: { form: FinanceSettingsForm; canManageExports: boolean }) {
+export function FinanceSettingsTab({
+    form,
+    canManageExports,
+    openExportProfile = false,
+}: {
+    form: FinanceSettingsForm;
+    canManageExports: boolean;
+    /** Deep link from the export readiness page: start on the accounting export sub tab. */
+    openExportProfile?: boolean;
+}) {
     const { t } = useTranslation(['settings', 'common'])
 
     return (
-        <Tabs defaultValue="fiscal" className="space-y-6">
+        <Tabs defaultValue={openExportProfile ? 'accounting-export' : 'fiscal'} className="space-y-6">
             <TabsList>
                 <TabsTrigger value="fiscal">{t('finance.subTabs.fiscal')}</TabsTrigger>
                 {canManageExports ? (

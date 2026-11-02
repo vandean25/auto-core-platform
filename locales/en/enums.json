@@ -76,7 +76,7 @@
     "DUE_SOON": "Due Soon",
     "OVERDUE": "Overdue",
     "UNKNOWN": "Unknown",
-    "NEW": "Not stored",
+    "NEW": "New",
     "IN_STORAGE": "In Storage",
     "ON_VEHICLE": "On Vehicle",
     "DISPOSED": "Disposed",
@@ -106,6 +106,9 @@
     "UNDONE": "Undone",
     "PARTIALLY_UNDONE": "Partially undone",
     "MOVED": "Moved"
+  },
+  "tyreSetStatus": {
+    "NEW": "Not stored"
   },
   "tyreMeasurementStatus": {
     "GOOD": "Measured values within thresholds",
