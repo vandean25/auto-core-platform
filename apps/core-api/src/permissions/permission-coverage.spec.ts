@@ -185,17 +185,22 @@ describe('permission coverage', () => {
 
     for (const [id, entry] of Object.entries(OPERATION_TABLE)) {
       const route = byId.get(id);
-      if (entry.kind !== 'protected' || !route) {
+      const legacy = 'legacy' in entry ? entry.legacy : undefined;
+      if (!legacy || !route) {
         continue;
       }
-      if (entry.legacy.includes('TECH') && !route.mechanicAccessible) {
-        violations.push(`${id}: TECH listed but route is not mechanic-accessible`);
+      if (legacy.includes('TECH') && !route.mechanicAccessible) {
+        violations.push(
+          `${id}: TECH listed but route is not mechanic-accessible`,
+        );
       }
       if (
-        entry.legacy.includes('DEMO') &&
+        legacy.includes('DEMO') &&
         !isDemoMutationAllowed(route.method, route.path.replace(/:\w+/g, 'x'))
       ) {
-        violations.push(`${id}: DEMO listed but the demo restriction blocks it`);
+        violations.push(
+          `${id}: DEMO listed but the demo restriction blocks it`,
+        );
       }
     }
 

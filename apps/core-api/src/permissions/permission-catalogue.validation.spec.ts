@@ -20,7 +20,9 @@ describe('permission catalogue validation', () => {
     const ids = PERMISSION_CATALOGUE.map((permission) => permission.id);
 
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.filter((id) => !/^[a-z]+(\.[a-zA-Z]+)+$/.test(id))).toEqual([]);
+    expect(
+      ids.filter((id) => !/^[a-z][a-z_]*(\.[a-z][a-z_]*)+$/.test(id)),
+    ).toEqual([]);
     expect(Number.isInteger(PERMISSION_CATALOGUE_VERSION)).toBe(true);
     expect(PERMISSION_CATALOGUE_VERSION).toBeGreaterThan(0);
   });
