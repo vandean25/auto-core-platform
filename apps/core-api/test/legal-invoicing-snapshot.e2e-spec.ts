@@ -142,16 +142,20 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
-  async function createSalesOrderInvoice(lineCount = 1) {
+  async function createSalesOrderInvoice(
+    lineCount = 1,
+    quantity = 1,
+    itemId = catalogItemId,
+  ) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customer_id: customerId,
         items: Array.from({ length: lineCount }, () => ({
-          catalog_item_id: catalogItemId,
+          catalog_item_id: itemId,
           description: 'Brake Pad',
-          quantity: 1,
+          quantity,
           unit_price: 100,
           tax_rate: 20,
         })),
@@ -301,6 +305,85 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       expect(tenLines).toBe(twoLines);
     },
   );
+
+  it('AUT-860 S2: two invoices finalized at the same time get unique, gap-free numbers', async () => {
+    const drafts = await Promise.all([
+      createSalesOrderInvoice(),
+      createSalesOrderInvoice(),
+    ]);
+
+    const responses = await Promise.all(
+      drafts.map((draft) =>
+        request(app.getHttpServer())
+          .put(`/api/sales/invoices/${draft.id}/finalize`)
+          .set('Authorization', `Bearer ${authToken}`),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const sequences = responses
+      .map((response) => Number(response.body.invoice_number.split('-')[2]))
+      .sort((left, right) => left - right);
+    expect(sequences[1]).toBe(sequences[0] + 1);
+    const sequenceRow = await tenantPrisma.invoiceSequence.findFirstOrThrow({
+      where: { year: new Date().getFullYear() },
+    });
+    expect(sequenceRow.current).toBe(sequences[1]);
+  });
+
+  it('AUT-860 S4: a finalize that fails after the number is allocated leaves no trace', async () => {
+    const scarceItem = await tenantPrisma.catalogItem.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        sku: `AUT860-${Date.now()}`,
+        name: 'Scarce Part',
+        cost_price: 10,
+        retail_price: 20,
+      },
+    });
+    const location = await tenantPrisma.storageLocation.findFirstOrThrow({
+      where: { site_id: siteId },
+    });
+    await tenantPrisma.inventoryStock.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        catalog_item_id: scarceItem.id,
+        site_id: siteId,
+        location_id: location.id,
+        quantity_on_hand: 1,
+      },
+    });
+    const draft = await createSalesOrderInvoice(1, 5, scarceItem.id);
+    const sequenceBefore = await tenantPrisma.invoiceSequence.findFirstOrThrow({
+      where: { year: new Date().getFullYear() },
+    });
+    const ledgerBefore = await tenantPrisma.inventoryTransaction.count();
+
+    await request(app.getHttpServer())
+      .put(`/api/sales/invoices/${draft.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(409);
+
+    const invoice = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: draft.id },
+    });
+    expect(invoice).toMatchObject({ status: 'DRAFT', invoice_number: null });
+    expect(
+      (
+        await tenantPrisma.invoiceSequence.findFirstOrThrow({
+          where: { year: new Date().getFullYear() },
+        })
+      ).current,
+    ).toBe(sequenceBefore.current);
+    expect(await tenantPrisma.inventoryTransaction.count()).toBe(ledgerBefore);
+    expect(
+      (
+        await tenantPrisma.inventoryStock.findFirstOrThrow({
+          where: { catalog_item_id: scarceItem.id },
+        })
+      ).quantity_on_hand.toString(),
+    ).toBe('1');
+  });
 
   it('LI-03: rejects source-less sales invoice finalization', async () => {
     const invoice = await tenantPrisma.invoice.create({
