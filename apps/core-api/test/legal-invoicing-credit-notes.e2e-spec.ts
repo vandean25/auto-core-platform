@@ -1,4 +1,5 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { countDbStatements } from './helpers/db-statement-counter.js';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -85,7 +86,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
         catalog_item_id: catalogItemId,
         site_id: siteId,
         location_id: location.id,
-        quantity_on_hand: 50,
+        quantity_on_hand: 500,
       },
     });
   });
@@ -105,21 +106,23 @@ describe('Legal invoicing credit notes (e2e)', () => {
   /** Stable invoice date so credit-note tests can use fixed calendar dates on any CI day. */
   const fixtureInvoiceDate = new Date('2026-09-21T12:00:00.000Z');
 
-  async function finalizeSalesInvoice(quantity = 2, unitPrice = 50) {
+  async function finalizeSalesInvoice(
+    quantity = 2,
+    unitPrice = 50,
+    lineCount = 1,
+  ) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customer_id: customerId,
-        items: [
-          {
-            catalog_item_id: catalogItemId,
-            description: 'Oil Filter',
-            quantity,
-            unit_price: unitPrice,
-            tax_rate: 20,
-          },
-        ],
+        items: Array.from({ length: lineCount }, () => ({
+          catalog_item_id: catalogItemId,
+          description: 'Oil Filter',
+          quantity,
+          unit_price: unitPrice,
+          tax_rate: 20,
+        })),
       })
       .expect(201);
 
@@ -214,6 +217,49 @@ describe('Legal invoicing credit notes (e2e)', () => {
       snapshot: patchedSnapshot,
     };
   }
+
+  async function finalizeCreditStatementsFor(lineCount: number) {
+    const invoice = await finalizeSalesInvoice(1, 50, lineCount);
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-21',
+      reason: 'Statement count',
+      mode: 'FULL',
+    }).expect(201);
+    return countDbStatements(async () => {
+      await finalizeCredit(draft.body.id, `count-${lineCount}`).expect(201);
+    });
+  }
+
+  async function listCreditsStatementsFor(rows: number) {
+    const invoice = await finalizeSalesInvoice(rows, 50);
+    for (let index = 0; index < rows; index += 1) {
+      await createDraftCredit(invoice.id, {
+        date: '2026-09-21',
+        reason: `Row ${index + 1}`,
+        mode: 'PARTIAL',
+        lines: [{ originalItemId: invoice.items[0].id, quantity: '1.000' }],
+      }).expect(201);
+    }
+    return countDbStatements(async () => {
+      await request(app.getHttpServer())
+        .get(`/api/credit-notes?originalInvoiceId=${invoice.id}&limit=${rows}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+    });
+  }
+
+  it.each([
+    ['finalize', finalizeCreditStatementsFor],
+    ['list', listCreditsStatementsFor],
+  ])(
+    'AUT-860 S1: credit note %s sends the same number of SQL statements for 2 and 10 lines or rows',
+    async (_flow, statementsFor) => {
+      const twoLines = await statementsFor(2);
+      const tenLines = await statementsFor(10);
+
+      expect(tenLines).toBe(twoLines);
+    },
+  );
 
   it('LI-07: assigns independent CN numbers and replays finalize idempotently', async () => {
     const invoice = await finalizeSalesInvoice();

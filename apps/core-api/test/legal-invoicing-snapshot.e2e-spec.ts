@@ -1,4 +1,5 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { countDbStatementsWithoutAuditLogInserts } from './helpers/db-statement-counter.js';
 
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -141,21 +142,23 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
-  async function createSalesOrderInvoice() {
+  async function createSalesOrderInvoice(
+    lineCount = 1,
+    quantity = 1,
+    itemId = catalogItemId,
+  ) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customer_id: customerId,
-        items: [
-          {
-            catalog_item_id: catalogItemId,
-            description: 'Brake Pad',
-            quantity: 1,
-            unit_price: 100,
-            tax_rate: 20,
-          },
-        ],
+        items: Array.from({ length: lineCount }, () => ({
+          catalog_item_id: itemId,
+          description: 'Brake Pad',
+          quantity,
+          unit_price: 100,
+          tax_rate: 20,
+        })),
       })
       .expect(201);
 
@@ -172,7 +175,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     return invoiceRes.body;
   }
 
-  async function createCompletedWorkshopDraftInvoice() {
+  async function createCompletedWorkshopDraftInvoice(lineCount = 1) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/workshop/orders')
       .set('Authorization', `Bearer ${authToken}`)
@@ -198,15 +201,13 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         expectedLineItemsVersion: 0,
-        items: [
-          {
-            type: 'LABOR',
-            itemNo: 'LAB-001',
-            description: 'Brake labor',
-            qty: 2,
-            unitPrice: 80,
-          },
-        ],
+        items: Array.from({ length: lineCount }, (_, index) => ({
+          type: 'LABOR',
+          itemNo: `LAB-${String(index + 1).padStart(3, '0')}`,
+          description: 'Brake labor',
+          qty: 2,
+          unitPrice: 80,
+        })),
       })
       .expect(200);
 
@@ -268,6 +269,126 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       },
     });
     expect(invoice.items[0].accounting_snapshot).toBeTruthy();
+  });
+
+  it.each([
+    [
+      'sales finalize',
+      createSalesOrderInvoice,
+      (invoiceId: string) =>
+        request(app.getHttpServer()).put(
+          `/api/sales/invoices/${invoiceId}/finalize`,
+        ),
+    ],
+    [
+      'workshop issue',
+      async (lineCount: number) =>
+        (await createCompletedWorkshopDraftInvoice(lineCount)).invoice,
+      (invoiceId: string) =>
+        request(app.getHttpServer()).patch(`/api/invoices/${invoiceId}/issue`),
+    ],
+  ])(
+    'AUT-860 S1: %s sends the same number of SQL statements outside the audit log for 2 and 10 lines',
+    async (_flow, createDraft, send) => {
+      const statementsFor = async (lineCount: number) => {
+        const draft = await createDraft(lineCount);
+        return countDbStatementsWithoutAuditLogInserts(async () => {
+          await send(draft.id)
+            .set('Authorization', `Bearer ${authToken}`)
+            .expect(200);
+        });
+      };
+
+      const twoLines = await statementsFor(2);
+      const tenLines = await statementsFor(10);
+
+      // The one audit_logs INSERT per line is a known follow-up (AUT-905: batch these
+      // INSERTs with createMany in prisma-audit.extension.ts); everything else must stay
+      // constant, and S1 is re-tightened to fully constant once AUT-905 lands.
+      expect(tenLines.counted).toBe(twoLines.counted);
+      expect(tenLines.auditLogInserts - twoLines.auditLogInserts).toBe(
+        10 - 2,
+      );
+    },
+  );
+
+  it('AUT-860 S2: two invoices finalized at the same time get unique, gap-free numbers', async () => {
+    const drafts = await Promise.all([
+      createSalesOrderInvoice(),
+      createSalesOrderInvoice(),
+    ]);
+
+    const responses = await Promise.all(
+      drafts.map((draft) =>
+        request(app.getHttpServer())
+          .put(`/api/sales/invoices/${draft.id}/finalize`)
+          .set('Authorization', `Bearer ${authToken}`),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const sequences = responses
+      .map((response) => Number(response.body.invoice_number.split('-')[2]))
+      .sort((left, right) => left - right);
+    expect(sequences[1]).toBe(sequences[0] + 1);
+    const sequenceRow = await tenantPrisma.invoiceSequence.findFirstOrThrow({
+      where: { year: new Date().getFullYear() },
+    });
+    expect(sequenceRow.current).toBe(sequences[1]);
+  });
+
+  it('AUT-860 S4: a finalize that fails after the number is allocated leaves no trace', async () => {
+    const scarceItem = await tenantPrisma.catalogItem.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        sku: `AUT860-${Date.now()}`,
+        name: 'Scarce Part',
+        cost_price: 10,
+        retail_price: 20,
+      },
+    });
+    const location = await tenantPrisma.storageLocation.findFirstOrThrow({
+      where: { site_id: siteId },
+    });
+    await tenantPrisma.inventoryStock.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        catalog_item_id: scarceItem.id,
+        site_id: siteId,
+        location_id: location.id,
+        quantity_on_hand: 1,
+      },
+    });
+    const draft = await createSalesOrderInvoice(1, 5, scarceItem.id);
+    const sequenceBefore = await tenantPrisma.invoiceSequence.findFirstOrThrow({
+      where: { year: new Date().getFullYear() },
+    });
+    const ledgerBefore = await tenantPrisma.inventoryTransaction.count();
+
+    await request(app.getHttpServer())
+      .put(`/api/sales/invoices/${draft.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(409);
+
+    const invoice = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: draft.id },
+    });
+    expect(invoice).toMatchObject({ status: 'DRAFT', invoice_number: null });
+    expect(
+      (
+        await tenantPrisma.invoiceSequence.findFirstOrThrow({
+          where: { year: new Date().getFullYear() },
+        })
+      ).current,
+    ).toBe(sequenceBefore.current);
+    expect(await tenantPrisma.inventoryTransaction.count()).toBe(ledgerBefore);
+    expect(
+      (
+        await tenantPrisma.inventoryStock.findFirstOrThrow({
+          where: { catalog_item_id: scarceItem.id },
+        })
+      ).quantity_on_hand.toString(),
+    ).toBe('1');
   });
 
   it('LI-03: rejects source-less sales invoice finalization', async () => {
