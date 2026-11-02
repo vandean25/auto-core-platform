@@ -32,7 +32,7 @@ describe('LedgerService', () => {
       inventoryStock: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
-        create: jest.fn(),
+        createMany: jest.fn(),
         updateMany: jest.fn(),
       },
     };
@@ -161,10 +161,22 @@ describe('LedgerService', () => {
           name: 'Tote 1',
         },
       ]);
-      mockPrisma.inventoryStock.findMany.mockResolvedValue([]);
-      mockPrisma.inventoryStock.create
-        .mockResolvedValueOnce({ id: 'stock-1', quantity_on_hand: 5 })
-        .mockResolvedValueOnce({ id: 'stock-2', quantity_on_hand: 3 });
+      mockPrisma.inventoryStock.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-1',
+            catalog_item_id: ITEM_ID,
+            location_id: 'loc-bin',
+            quantity_on_hand: 5,
+          },
+          {
+            id: 'stock-2',
+            catalog_item_id: ITEM_ID,
+            location_id: 'loc-tote',
+            quantity_on_hand: 3,
+          },
+        ]);
 
       const params: RecordTransactionParams[] = [
         {
@@ -211,15 +223,18 @@ describe('LedgerService', () => {
           name: 'Bin 1',
         },
       ]);
-      mockPrisma.inventoryStock.findMany.mockResolvedValue([]);
-      mockPrisma.inventoryStock.create.mockResolvedValue({
-        id: 'stock-new-1',
-        tenant_id: TENANT_ID,
-        catalog_item_id: ITEM_ID,
-        location_id: LOCATION_ID,
-        quantity_on_hand: 10,
-        quantity_reserved: 0,
-      });
+      mockPrisma.inventoryStock.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-new-1',
+            tenant_id: TENANT_ID,
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: 10,
+            quantity_reserved: 0,
+          },
+        ]);
 
       const params: RecordTransactionParams[] = [
         {
@@ -250,15 +265,17 @@ describe('LedgerService', () => {
           },
         ],
       });
-      expect(mockPrisma.inventoryStock.create).toHaveBeenCalledWith({
-        data: {
-          tenant_id: TENANT_ID,
-          site_id: SITE_ID,
-          catalog_item_id: ITEM_ID,
-          location_id: LOCATION_ID,
-          quantity_on_hand: new Prisma.Decimal('10'),
-          quantity_reserved: new Prisma.Decimal(0),
-        },
+      expect(mockPrisma.inventoryStock.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            tenant_id: TENANT_ID,
+            site_id: SITE_ID,
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: new Prisma.Decimal('10'),
+            quantity_reserved: new Prisma.Decimal(0),
+          },
+        ],
       });
     });
 
@@ -271,11 +288,16 @@ describe('LedgerService', () => {
           name: 'Bin 1',
         },
       ]);
-      mockPrisma.inventoryStock.findMany.mockResolvedValue([]);
-      mockPrisma.inventoryStock.create.mockResolvedValue({
-        id: 'stock-null-cost',
-        quantity_on_hand: 1,
-      });
+      mockPrisma.inventoryStock.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-null-cost',
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: 1,
+          },
+        ]);
 
       await service.recordTransactions([
         {
@@ -307,19 +329,24 @@ describe('LedgerService', () => {
           name: 'Bin 1',
         },
       ]);
-      mockPrisma.inventoryStock.findMany.mockResolvedValue([
-        {
-          id: 'stock-existing-1',
-          catalog_item_id: ITEM_ID,
-          location_id: LOCATION_ID,
-          quantity_on_hand: 20,
-        },
-      ]);
+      mockPrisma.inventoryStock.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-existing-1',
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: 20,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-existing-1',
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: 35,
+          },
+        ]);
       mockPrisma.inventoryStock.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.inventoryStock.findFirst.mockResolvedValue({
-        id: 'stock-existing-1',
-        quantity_on_hand: 35,
-      });
 
       const params: RecordTransactionParams[] = [
         {
@@ -349,7 +376,7 @@ describe('LedgerService', () => {
       // Stock is updated once with aggregated delta = 15
       expect(mockPrisma.inventoryStock.updateMany).toHaveBeenCalledTimes(1);
       expect(mockPrisma.inventoryStock.updateMany).toHaveBeenCalledWith({
-        where: { id: 'stock-existing-1', tenant_id: TENANT_ID },
+        where: { id: { in: ['stock-existing-1'] }, tenant_id: TENANT_ID },
         data: {
           quantity_on_hand: {
             increment: new Prisma.Decimal('15'),
@@ -402,16 +429,17 @@ describe('LedgerService', () => {
           name: 'Bin 1',
         },
       ]);
-      mockPrisma.inventoryStock.findMany.mockResolvedValue([
-        {
-          id: 'stock-1',
-          catalog_item_id: ITEM_ID,
-          location_id: LOCATION_ID,
-          quantity_on_hand: 5,
-        },
-      ]);
+      mockPrisma.inventoryStock.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-1',
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: 5,
+          },
+        ])
+        .mockResolvedValueOnce([]);
       mockPrisma.inventoryStock.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.inventoryStock.findFirst.mockResolvedValue(null);
 
       const params: RecordTransactionParams[] = [
         {
@@ -438,19 +466,24 @@ describe('LedgerService', () => {
           name: 'Bin 1',
         },
       ]);
-      mockPrisma.inventoryStock.findMany.mockResolvedValue([
-        {
-          id: 'stock-1',
-          catalog_item_id: ITEM_ID,
-          location_id: LOCATION_ID,
-          quantity_on_hand: 2,
-        },
-      ]);
+      mockPrisma.inventoryStock.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-1',
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: 2,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'stock-1',
+            catalog_item_id: ITEM_ID,
+            location_id: LOCATION_ID,
+            quantity_on_hand: -3,
+          },
+        ]);
       mockPrisma.inventoryStock.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.inventoryStock.findFirst.mockResolvedValue({
-        id: 'stock-1',
-        quantity_on_hand: -3,
-      });
 
       const params: RecordTransactionParams[] = [
         {
@@ -484,11 +517,18 @@ describe('LedgerService', () => {
           createMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         inventoryStock: {
-          findMany: jest.fn().mockResolvedValue([]),
-          create: jest.fn().mockResolvedValue({
-            id: 'stock-tx-1',
-            quantity_on_hand: 5,
-          }),
+          findMany: jest
+            .fn()
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+              {
+                id: 'stock-tx-1',
+                catalog_item_id: ITEM_ID,
+                location_id: LOCATION_ID,
+                quantity_on_hand: 5,
+              },
+            ]),
+          createMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
       };
 
@@ -505,7 +545,7 @@ describe('LedgerService', () => {
 
       expect(mockTx.storageLocation.findMany).toHaveBeenCalled();
       expect(mockTx.inventoryTransaction.createMany).toHaveBeenCalled();
-      expect(mockTx.inventoryStock.create).toHaveBeenCalled();
+      expect(mockTx.inventoryStock.createMany).toHaveBeenCalled();
       expect(mockPrisma.storageLocation.findMany).not.toHaveBeenCalled();
     });
   });
