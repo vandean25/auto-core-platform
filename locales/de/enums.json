@@ -215,6 +215,12 @@
     "VALIDATION_RETRIES_EXHAUSTED": "Validierung fehlgeschlagen",
     "BRAND_SOURCE_EXPIRED": "Quelle abgelaufen"
   },
+  "documentBrandExtractionWarning": {
+    "PDF_ADDITIONAL_PAGES_IGNORED": "Weitere Seiten des PDFs wurden nicht übernommen.",
+    "UNSUPPORTED_FONT_IGNORED": "Eine nicht unterstützte Schriftart wurde durch die Standardschrift ersetzt.",
+    "UNSUPPORTED_LAYOUT_IGNORED": "Das Layout des Briefpapiers wurde nicht unterstützt. Es gilt die Standardvorlage.",
+    "generic": "Ein Teil des Briefpapiers konnte nicht übernommen werden."
+  },
   "documentBrandPreviewWarning": {
     "HEADER_TEXT_MAY_BE_CLIPPED": "Der Kopftext kann im Dokument abgeschnitten werden.",
     "FOOTER_TEXT_MAY_BE_CLIPPED": "Der Fußtext kann im Dokument abgeschnitten werden.",
@@ -229,7 +235,6 @@
       "removed": "Diese Datei wurde entfernt und ist nicht mehr verfügbar.",
       "processing": "Datei wird verarbeitet…",
       "rejectedGeneric": "Diese Datei wurde abgelehnt. Anderes PDF- oder PNG-Briefpapier wählen.",
-      "rejectedWithCode": "Diese Datei wurde abgelehnt ({{code}}).",
       "rejectedUnsupportedType": "Dieser Dateityp wird nicht unterstützt. PDF- oder PNG-Briefpapier hochladen.",
       "rejectedTooLarge": "Diese Datei ist zu groß. Briefpapierquellen dürfen höchstens 10 MiB groß sein.",
       "rejectedRetries": "Diese Datei konnte nach mehreren Versuchen nicht geprüft werden. Bitte versuchen Sie es mit einer anderen Datei oder einem anderen Format.",

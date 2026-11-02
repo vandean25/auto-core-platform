@@ -8,11 +8,17 @@ import {
   type DocumentBrandTheme,
 } from "@/api/document-branding";
 import { Button } from "@/components/ui/button";
+import { describeBrandAssetFailure } from "./letterhead-source-messages";
 import { getErrorMessage } from "@/lib/error-utils";
+import { translateEnumWithGenericFallback } from "@/lib/i18n/enum-labels";
 import { generateId } from "@/lib/id";
 
 const POLL_LIMIT_MS = 2 * 60 * 1000;
 const EXTRACTION_STORAGE_PREFIX = "acp.document-brand-extraction.";
+
+function extractionWarningLabel(warning: string): string {
+  return translateEnumWithGenericFallback("documentBrandExtractionWarning", warning);
+}
 
 type ExtractionViewState = {
   legalEntityId: string;
@@ -201,6 +207,7 @@ export function LetterheadImport({
   const job = extraction.data?.id === extractionId ? extraction.data : null;
   const pending = job?.state === "QUEUED" || job?.state === "RUNNING";
   const proposal = job?.state === "SUCCEEDED" ? job.proposal : null;
+  const failureLabel = job ? describeBrandAssetFailure(job.failureCode, "") : "";
 
   return (
     <div className="space-y-2 rounded-md border border-dashed p-3">
@@ -234,12 +241,12 @@ export function LetterheadImport({
             {t("documentBranding.letterheadImport.stateLine", {
               state: t(`documentBranding.letterheadImport.states.${job.state}`),
             })}
-            {job.failureCode ? ` · ${job.failureCode}` : ""}
+            {failureLabel ? ` · ${failureLabel}` : ""}
           </p>
           {job.warnings.length > 0 ? (
             <ul className="list-disc pl-5 text-xs text-amber-800">
               {job.warnings.map((warning) => (
-                <li key={warning}>{warning.replaceAll("_", " ").toLowerCase()}</li>
+                <li key={warning}>{extractionWarningLabel(warning)}</li>
               ))}
             </ul>
           ) : null}

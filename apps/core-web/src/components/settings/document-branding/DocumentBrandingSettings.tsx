@@ -18,7 +18,7 @@ import {
   validateDocumentBrandThemeFields,
 } from "@/api/document-branding-theme-validation";
 import { getErrorMessage, getErrorStatus } from "@/lib/error-utils";
-import { translateEnum } from "@/lib/i18n/enum-labels";
+import { translateEnumWithGenericFallback } from "@/lib/i18n/enum-labels";
 import { describeBrandAssetFailure } from "./letterhead-source-messages";
 import { LetterheadImport } from "./LetterheadImport";
 import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
@@ -56,15 +56,8 @@ function uploadMaxMiB(maxBytes: number): string {
   return Number.isInteger(mib) ? String(mib) : mib.toFixed(1);
 }
 
-const PREVIEW_WARNING_CODES = new Set([
-  "HEADER_TEXT_MAY_BE_CLIPPED",
-  "FOOTER_TEXT_MAY_BE_CLIPPED",
-]);
-
 function previewWarningLabel(warning: string): string {
-  return PREVIEW_WARNING_CODES.has(warning)
-    ? translateEnum("documentBrandPreviewWarning", warning)
-    : translateEnum("documentBrandPreviewWarning", "generic");
+  return translateEnumWithGenericFallback("documentBrandPreviewWarning", warning);
 }
 
 export function DocumentBrandingSettings({

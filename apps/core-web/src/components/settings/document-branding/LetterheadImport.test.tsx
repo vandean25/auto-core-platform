@@ -1,5 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import deEnums from "../../../../../../locales/de/enums.json";
+import deErrors from "../../../../../../locales/de/errors.json";
 import deSettings from "../../../../../../locales/de/settings.json";
 import { LetterheadImport } from "./LetterheadImport";
 
@@ -293,5 +295,66 @@ describe("LetterheadImport", () => {
       enabled: false,
     });
     expect(screen.queryByText(importCopy.stateLine.replace("{{state}}", importCopy.states.SUCCEEDED))).toBeNull();
+  });
+
+  it("names a failed extraction in German instead of the wire code", () => {
+    sessionStorage.setItem("acp.document-brand-extraction.entity-1", "extraction-1");
+    mocks.extraction.data = {
+      id: "extraction-1",
+      state: "FAILED",
+      proposal: null,
+      warnings: [],
+      failureCode: "BRAND_REQUESTER_UNAVAILABLE",
+      baseRevision: 4,
+    };
+
+    const { container } = render(
+      <LetterheadImport
+        legalEntityId="entity-1"
+        sourceAssetId="source-1"
+        expectedRevision={4}
+        enabled
+        onApply={vi.fn()}
+      />,
+    );
+
+    expect(container.textContent).toContain(
+      deErrors.codes.BRAND_REQUESTER_UNAVAILABLE,
+    );
+    expect(container.textContent).not.toMatch(/BRAND_[A-Z_]+/);
+  });
+
+  it("lists extraction warnings in German instead of lowercased codes", () => {
+    sessionStorage.setItem("acp.document-brand-extraction.entity-1", "extraction-1");
+    mocks.extraction.data = {
+      id: "extraction-1",
+      state: "SUCCEEDED",
+      proposal: null,
+      warnings: [
+        "UNSUPPORTED_FONT_IGNORED",
+        "PDF_ADDITIONAL_PAGES_IGNORED",
+        "UNSUPPORTED_LAYOUT_IGNORED",
+        "SOME_FUTURE_WARNING",
+      ],
+      failureCode: null,
+      baseRevision: 4,
+    };
+
+    const { container } = render(
+      <LetterheadImport
+        legalEntityId="entity-1"
+        sourceAssetId="source-1"
+        expectedRevision={4}
+        enabled
+        onApply={vi.fn()}
+      />,
+    );
+
+    const warningCopy = deEnums.documentBrandExtractionWarning;
+    expect(container.textContent).toContain(warningCopy.UNSUPPORTED_FONT_IGNORED);
+    expect(container.textContent).toContain(warningCopy.PDF_ADDITIONAL_PAGES_IGNORED);
+    expect(container.textContent).toContain(warningCopy.UNSUPPORTED_LAYOUT_IGNORED);
+    expect(container.textContent).toContain(warningCopy.generic);
+    expect(container.textContent).not.toMatch(/unsupported font ignored/i);
   });
 });

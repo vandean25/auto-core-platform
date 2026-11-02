@@ -265,10 +265,16 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
         .replaceAll('{{maxMiB}}', '2')
       const logoHintEl = page.getByText(logoHint, { exact: true })
       await expect(logoHintEl).toBeVisible()
-      expect(
-        await logoHintEl.evaluate((el) => el.scrollWidth <= el.clientWidth),
-        'logo hint is clipped at 375px',
-      ).toBe(true)
+      const logoHintLayout = await logoHintEl.evaluate((el) => {
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        return {
+          lines: Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0).length,
+          clipped: el.scrollWidth > el.clientWidth,
+        }
+      })
+      expect(logoHintLayout.lines, 'logo hint wraps to several lines at 375px').toBe(1)
+      expect(logoHintLayout.clipped, 'logo hint is clipped at 375px').toBe(false)
 
       // The row sits next to the longest headings in the tab; a shrinking trigger would drop below 44px here.
       const mappingsBtn = page.getByRole('button', { name: copy.legalEntities.profile.mappings.infoAria })

@@ -1,6 +1,6 @@
 import type { DocumentBrandAsset } from "@/api/document-branding";
 import { getErrorMessage } from "@/lib/error-utils";
-import { translateEnum, translateEnumOptions } from "@/lib/i18n/enum-labels";
+import { translateEnum } from "@/lib/i18n/enum-labels";
 
 export function formatDocumentBrandFileSize(byteLength: number): string {
   if (byteLength < 1024) return `${byteLength} B`;
@@ -48,12 +48,7 @@ function describeRejection(failureCode: string | null): string {
     default:
       return describeBrandAssetFailure(
         failureCode,
-        failureCode
-          ? translateEnumOptions(
-              ["letterheadSource", "message", "rejectedWithCode"],
-              { code: failureCode.replaceAll("_", " ").toLowerCase() },
-            )
-          : translateEnum("letterheadSource", "message", "rejectedGeneric"),
+        translateEnum("letterheadSource", "message", "rejectedGeneric"),
       );
   }
 }
