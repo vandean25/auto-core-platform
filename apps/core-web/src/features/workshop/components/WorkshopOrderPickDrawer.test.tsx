@@ -21,17 +21,23 @@ vi.mock('sonner', () => ({
   },
 }))
 
+const mocked = (fn: unknown) => fn as ReturnType<typeof vi.fn>
+
 function createQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  })
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } })
 }
 
-function createOrder(overrides: Record<string, unknown> = {}) {
+function createTask(lineQty: number) {
+  return {
+    id: 'task-1',
+    title: 'Inspect',
+    lineItems: [
+      { id: 'line-1', type: 'PART', itemNo: 'PART-001', description: 'Air filter', qty: lineQty },
+    ],
+  }
+}
+
+function createOrder(tote: string, lineQty = 2) {
   return {
     id: 'order-1',
     order_number: 'WO-2026-0001',
@@ -42,24 +48,9 @@ function createOrder(overrides: Record<string, unknown> = {}) {
       first_name: 'Ada',
       last_name: 'Lovelace',
     },
-    tasks: [
-      {
-        id: 'task-1',
-        title: 'Inspect',
-        lineItems: [
-          {
-            id: 'line-1',
-            type: 'PART',
-            itemNo: 'PART-001',
-            description: 'Air filter',
-            qty: 2,
-          },
-        ],
-      },
-    ],
-    staging_location_id: 'tote-1',
-    stagingLocationId: 'tote-1',
-    ...overrides,
+    tasks: [createTask(lineQty)],
+    staging_location_id: tote,
+    stagingLocationId: tote,
   }
 }
 
@@ -68,19 +59,15 @@ describe('WorkshopOrderPickDrawer', () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
 
-    ;(authSessionApi.useAuthSession as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: { activeRole: 'SALES' },
-    })
-
-    ;(locationsApi.useLocations as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    mocked(authSessionApi.useAuthSession).mockReturnValue({ data: { activeRole: 'SALES' } })
+    mocked(locationsApi.useLocations).mockReturnValue({
       data: [
         { id: 'tote-1', code: 'TOTE-01', name: 'Primary Tote', type: 'staging_tote' },
         { id: 'tote-2', code: 'TOTE-02', name: 'Overflow Tote', type: 'staging_tote' },
       ],
       isLoading: false,
     })
-
-    ;(workshopApi.usePickWorkshopParts as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    mocked(workshopApi.usePickWorkshopParts).mockReturnValue({
       mutateAsync: vi.fn(),
       isPending: false,
     })
@@ -93,9 +80,9 @@ describe('WorkshopOrderPickDrawer', () => {
   })
 
   it('keeps edited quantities when the order data refreshes while the drawer stays open', () => {
-    let order = createOrder()
+    let order = createOrder('tote-1')
 
-    ;(workshopApi.useWorkshopOrder as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+    mocked(workshopApi.useWorkshopOrder).mockImplementation(() => ({
       data: order,
       isLoading: false,
     }))
@@ -122,25 +109,7 @@ describe('WorkshopOrderPickDrawer', () => {
     fireEvent.change(quantityInput, { target: { value: '1' } })
     expect(quantityInput).toHaveValue(1)
 
-    order = createOrder({
-      staging_location_id: 'tote-2',
-      stagingLocationId: 'tote-2',
-      tasks: [
-        {
-          id: 'task-1',
-          title: 'Inspect',
-          lineItems: [
-            {
-              id: 'line-1',
-              type: 'PART',
-              itemNo: 'PART-001',
-              description: 'Air filter',
-              qty: 5,
-            },
-          ],
-        },
-      ],
-    })
+    order = createOrder('tote-2', 5)
 
     rerender(
       <QueryClientProvider client={queryClient}>

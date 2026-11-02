@@ -1,9 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
-import { assertBackOfficeRole } from './workshop-estimate-scope.js';
 import {
   assertWorkshopTaskExecutionRole,
+  assertWorkshopTaskWriteRole,
   WORKSHOP_TASK_EXECUTION_ROLES,
+  WORKSHOP_TASK_WRITE_ROLES,
 } from './workshop-task-scope.js';
 
 function mockTenantContextWithRole(
@@ -30,22 +31,34 @@ describe('workshop-task-scope', () => {
         'TECH',
       ]);
     });
+
+    it('derives WORKSHOP_TASK_WRITE_ROLES as the estimate roles plus DEMO', () => {
+      expect(Array.from(WORKSHOP_TASK_WRITE_ROLES).sort()).toEqual([
+        'ADMIN',
+        'DEMO',
+        'OWNER',
+        'SALES',
+      ]);
+    });
   });
 
-  describe('assertBackOfficeRole (task write guard)', () => {
-    it.each(['OWNER', 'ADMIN', 'SALES'])('allows back-office role %s', (role) => {
-      const tenantContext = mockTenantContextWithRole(role);
-      expect(() =>
-        assertBackOfficeRole(tenantContext, 'Creating workshop tasks'),
-      ).not.toThrow();
-    });
+  describe('assertWorkshopTaskWriteRole (task write guard)', () => {
+    it.each(['OWNER', 'ADMIN', 'SALES', 'DEMO'])(
+      'allows role %s (back-office plus the demo allowlist)',
+      (role) => {
+        const tenantContext = mockTenantContextWithRole(role);
+        expect(() =>
+          assertWorkshopTaskWriteRole(tenantContext, 'Creating workshop tasks'),
+        ).not.toThrow();
+      },
+    );
 
-    it.each(['TECH', 'DEMO', '', null, undefined])(
+    it.each(['TECH', '', null, undefined])(
       'refuses disallowed role %s with WORKSHOP_ROLE_FORBIDDEN',
       (role) => {
         const tenantContext = mockTenantContextWithRole(role);
         try {
-          assertBackOfficeRole(tenantContext, 'Creating workshop tasks');
+          assertWorkshopTaskWriteRole(tenantContext, 'Creating workshop tasks');
           fail('Expected ForbiddenException to be thrown');
         } catch (error) {
           expect(error).toBeInstanceOf(ForbiddenException);

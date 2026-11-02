@@ -13,7 +13,7 @@ import { NotificationCloudTasksService } from '../notifications/notification-clo
 import { wakeUpAfterCommit } from './workshop-estimate-email-queue.js';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
-import { assertBackOfficeRole } from './workshop-estimate-scope.js';
+import { assertWorkshopTaskWriteRole } from './workshop-task-scope.js';
 import {
   applyDerivedOrderStatusWithStockPrep,
   executeLineItemReplacement,
@@ -76,7 +76,7 @@ export async function runWorkshopTaskCreate(
   orderId: string,
   dto: CreateWorkshopTaskDto,
 ) {
-  assertBackOfficeRole(deps.tenantContext, 'Creating workshop tasks');
+  assertWorkshopTaskWriteRole(deps.tenantContext, 'Creating workshop tasks');
   const { tenantId, siteId } = await resolveScopedContext(deps);
   const { task, queuedOutboxId } = await deps.prisma.$transaction(
     async (tx) => {
@@ -121,7 +121,7 @@ export async function runWorkshopTaskUpdate(
   taskId: string,
   dto: UpdateWorkshopTaskDto,
 ) {
-  assertBackOfficeRole(deps.tenantContext, 'Updating workshop tasks');
+  assertWorkshopTaskWriteRole(deps.tenantContext, 'Updating workshop tasks');
   const { tenantId, siteId } = await resolveScopedContext(deps);
   const queuedOutboxId = await deps.prisma.$transaction(async (tx) => {
     let outboxId: string | null = null;
@@ -158,7 +158,7 @@ export async function runWorkshopTaskDelete(
   orderId: string,
   taskId: string,
 ) {
-  assertBackOfficeRole(deps.tenantContext, 'Deleting workshop tasks');
+  assertWorkshopTaskWriteRole(deps.tenantContext, 'Deleting workshop tasks');
   const { tenantId, siteId } = await resolveScopedContext(deps);
   const queuedOutboxId = await deps.prisma.$transaction(async (tx) => {
     await executeTaskDeletion({ tx, tenantId, siteId, orderId, taskId });
@@ -195,7 +195,7 @@ export async function runWorkshopTaskLineItemReplacement(
   taskId: string,
   dto: ReplaceWorkshopTaskLineItemsDto,
 ) {
-  assertBackOfficeRole(deps.tenantContext, 'Modifying task line items');
+  assertWorkshopTaskWriteRole(deps.tenantContext, 'Modifying task line items');
   const { tenantId, siteId } = await resolveScopedContext(deps);
   await validateTaskForLineItemReplacement({
     prisma: deps.prisma,

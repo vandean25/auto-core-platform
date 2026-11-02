@@ -14,8 +14,10 @@ import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';
 import { assertCheckInDraftForMutation } from './workshop-check-in-immutability.js';
 import { toWorkshopInspectionResponse } from './workshop-inspection.mapper.js';
 import type { WorkshopInspectionResponseDto } from './dto/workshop-inspection-response.dto.js';
-import { assertBackOfficeRole } from './workshop-estimate-scope.js';
-import { assertWorkshopTaskExecutionRole } from './workshop-task-scope.js';
+import {
+  assertWorkshopTaskExecutionRole,
+  assertWorkshopTaskWriteRole,
+} from './workshop-task-scope.js';
 
 const taskInspectionInclude = {
   items: { orderBy: { createdAt: 'asc' as const } },
@@ -63,13 +65,13 @@ export class WorkshopInspectionService {
     return inspection;
   }
 
-  /** Back-office checklist write: advisor roles only, mirrors the other task write routes. */
+  /** Back-office checklist write: task write roles (back-office plus demo), mirrors the other task write routes. */
   async updateTaskChecklist(
     orderId: string,
     taskId: string,
     dto: UpdateWorkshopInspectionDto,
   ) {
-    assertBackOfficeRole(this.tenantContext, 'Updating task checklist');
+    assertWorkshopTaskWriteRole(this.tenantContext, 'Updating task checklist');
     return this.applyTaskChecklistUpdate(orderId, taskId, dto);
   }
 

@@ -39,10 +39,10 @@ describe('action-role-predicates', () => {
   })
 
   it.each([
-    ['OWNER', true], ['ADMIN', true], ['SALES', true],
-    ['TECH', false], ['DEMO', false], ['MECHANIC', false],
+    ['OWNER', true], ['ADMIN', true], ['SALES', true], ['DEMO', true],
+    ['TECH', false], ['MECHANIC', false],
     ['SERVICE_ADVISOR', false], ['owner', false], ['', false], [null, false], [undefined, false],
-  ] as const)('gates workshop task writes to the back-office roles (%s: %s)', (role, expected) => {
+  ] as const)('gates workshop task writes to back-office roles plus demo (%s: %s)', (role, expected) => {
     expect(canManageWorkshopTasks(role)).toBe(expected)
   })
 

@@ -319,16 +319,6 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   }
 
   describe('POST /api/workshop/orders/:id/tasks (createTask)', () => {
-    it('refuses DEMO viewer role with 403', async () => {
-      const { orderId } = await createTestOrder();
-      const res = await api()
-        .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${demoToken}`)
-        .send({ title: 'Unauthorized Task' })
-        .expect(403);
-      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
-    });
-
     it('refuses TECH session with 403', async () => {
       const { orderId } = await createTestOrder();
       await api()
@@ -355,16 +345,15 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('POST /api/workshop/orders/:id/tasks/:taskId/lines/from-catalog', () => {
-    it('refuses DEMO viewer role with 403', async () => {
+    it('lets the DEMO session past the role check on catalog line adds (invalid token reaches token validation)', async () => {
       const { orderId, taskId } = await createTestOrderAndTask('Catalog Task');
-      const res = await api()
+      await api()
         .post(
           `/api/workshop/orders/${orderId}/tasks/${taskId}/lines/from-catalog`,
         )
         .set('Authorization', `Bearer ${demoToken}`)
         .send({ hitToken: 'invalid' })
-        .expect(403);
-      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
+        .expect(401);
     });
 
     it('refuses TECH with 403', async () => {
@@ -410,9 +399,9 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('POST /api/workshop/orders/:id/pick-parts', () => {
-    it('refuses DEMO viewer role with 403', async () => {
+    it('lets the DEMO session past the role check on pick-parts (unknown destination reaches location validation)', async () => {
       const { orderId } = await createTestOrder();
-      const res = await api()
+      await api()
         .post(`/api/workshop/orders/${orderId}/pick-parts`)
         .set('Authorization', `Bearer ${demoToken}`)
         .send({
@@ -424,8 +413,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
             },
           ],
         })
-        .expect(403);
-      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
+        .expect(404);
     });
 
     it('refuses TECH with 403', async () => {
@@ -482,7 +470,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('PATCH /api/workshop/orders/:orderId/tasks/:taskId/line-items (replaceTaskLineItems)', () => {
-    it('refuses DEMO viewer role with 403', async () => {
+    it('allows the DEMO session to replace task line items', async () => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Line Items Task');
 
@@ -501,8 +489,9 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
             },
           ],
         })
-        .expect(403);
-      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
+        .expect(200);
+
+      expect(res.body.id).toBe(orderId);
     });
 
     it('refuses TECH with 403', async () => {
@@ -554,25 +543,57 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('PATCH /api/workshop/orders/:orderId/tasks/:taskId (updateTask)', () => {
-    it('refuses DEMO viewer role with 403', async () => {
-      const { orderId, taskId } = await createTestOrderAndTask('Update Task');
+    // AUT-847 product decision: demo sessions may write workshop tasks exactly like workshop orders
+    // (same demo allowlist); real tenant users without the back-office role stay refused.
+    it.each([
+      {
+        label: 'demo session',
+        token: () => demoToken,
+        allowed: true,
+        createTitle: 'DEMO-authored Task',
+        editTitle: 'DEMO-edited Task',
+      },
+      {
+        label: 'TECH tenant user',
+        token: () => techToken,
+        allowed: false,
+        createTitle: 'TECH-authored Task',
+        editTitle: 'TECH-edited Task',
+      },
+    ])(
+      'handles create-then-edit task writes for a $label',
+      async ({ token, allowed, createTitle, editTitle }) => {
+        const { orderId } = await createTestOrder();
+        const createRes = await api()
+          .post(`/api/workshop/orders/${orderId}/tasks`)
+          .set('Authorization', `Bearer ${token()}`)
+          .send({ title: createTitle });
 
-      await api()
-        .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${demoToken}`)
-        .send({ title: 'Demo Rename' })
-        .expect(403);
-    });
+        if (!allowed) {
+          expect(createRes.status).toBe(403);
+          const editRes = await api()
+            .patch(
+              `/api/workshop/orders/${orderId}/tasks/${randomUUID()}`,
+            )
+            .set('Authorization', `Bearer ${token()}`)
+            .send({ title: editTitle });
+          expect(editRes.status).toBe(403);
+          return;
+        }
 
-    it('refuses TECH with 403', async () => {
-      const { orderId, taskId } = await createTestOrderAndTask('Update Task');
-
-      await api()
-        .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${techToken}`)
-        .send({ title: 'Tech Rename' })
-        .expect(403);
-    });
+        expect(createRes.status).toBe(201);
+        const taskId = createRes.body.id as string;
+        const editRes = await api()
+          .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
+          .set('Authorization', `Bearer ${token()}`)
+          .send({ title: editTitle })
+          .expect(200);
+        expect(
+          editRes.body.tasks.find((t: { id: string }) => t.id === taskId)
+            ?.title,
+        ).toBe(editTitle);
+      },
+    );
 
     it.each(backOfficeTokens)('allows %s to update task', async (_role, getToken) => {
       const { orderId, taskId } =
@@ -628,23 +649,37 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   describe('Checklist updates and Mechanic execution', () => {
-    it('refuses DEMO viewer role with 403 on task checklist update', async () => {
+    it('allows the DEMO session to update the task checklist on the back-office route', async () => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Checklist Task');
+      const inspection = await prisma.workshopInspection.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          workshop_task_id: taskId,
+          title: 'Demo Inspection',
+        },
+      });
+      const item = await prisma.workshopInspectionItem.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_inspection_id: inspection.id,
+          label_snapshot: 'Test Item',
+        },
+      });
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/checklist`)
         .set('Authorization', `Bearer ${demoToken}`)
-        .send({
-          items: [
-            {
-              id: '00000000-0000-0000-0000-000000000000',
-              passed: true,
-            },
-          ],
-        })
-        .expect(403);
-      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
+        .send({ items: [{ id: item.id, passed: true }] })
+        .expect(200);
+
+      expect(res.body.id).toBe(inspection.id);
+      expect(
+        res.body.items.find(
+          (candidate: { id: string }) => candidate.id === item.id,
+        ),
+      ).toMatchObject({ passed: true });
     });
 
     it('refuses TECH with 403 on back-office task checklist update', async () => {

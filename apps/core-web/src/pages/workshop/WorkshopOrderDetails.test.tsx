@@ -868,7 +868,7 @@ describe("WorkshopOrderDetails Characterization", () => {
   });
 
   describe("demo session task writes", () => {
-    it("disables task add and checkboxes, and hides the fitment search on an editable order", () => {
+    it("keeps task add, checkboxes and the fitment search usable on an editable order", () => {
       asMock(authSessionApi.useAuthSession).mockReturnValue({
         data: { activeRole: "DEMO" },
       });
@@ -876,13 +876,13 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
-      inputs.forEach((input) => expect(input).toBeDisabled());
+      inputs.forEach((input) => expect(input).toBeEnabled());
       const addButtons = screen.getAllByRole("button", { name: taskListCopy.addTask });
-      addButtons.forEach((button) => expect(button).toBeDisabled());
-      screen.getAllByRole("checkbox").forEach((cb) => expect(cb).toBeDisabled());
+      addButtons.forEach((button) => expect(button).toBeEnabled());
+      screen.getAllByRole("checkbox").forEach((cb) => expect(cb).toBeEnabled());
 
       fireEvent.click(screen.getByText("Oil Change"));
-      expect(screen.queryByTestId("open-fitment-search-button")).not.toBeInTheDocument();
+      expect(screen.getByTestId("open-fitment-search-button")).toBeInTheDocument();
     });
   });
 

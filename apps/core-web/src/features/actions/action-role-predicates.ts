@@ -62,11 +62,12 @@ export function canAssignWorkshopOrderMechanic(role: string | null | undefined):
 
 /**
  * Back-office task writes (add/delete, status, line items, from-catalog, pick-parts, checklist) are
- * restricted to OWNER/ADMIN/SALES, mirroring the backend `assertBackOfficeRole`. TECH keeps its
+ * restricted to OWNER/ADMIN/SALES plus DEMO, mirroring the backend `assertWorkshopTaskWriteRole`
+ * (demo sessions write workshop tasks exactly like workshop orders). TECH keeps its
  * execution path on the mechanic routes.
  */
 export function canManageWorkshopTasks(role: string | null | undefined): boolean {
-  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES' || role === 'DEMO'
 }
 
 export function canRecordTyreMeasurement(role: string | null | undefined): boolean {
