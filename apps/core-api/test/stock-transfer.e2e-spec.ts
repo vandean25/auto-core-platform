@@ -3,8 +3,10 @@ import { countDbStatements } from './helpers/db-statement-counter.js';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
+import { LedgerService } from '../src/inventory/ledger.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
+import { TransactionType } from '@prisma/client';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -421,6 +423,79 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       expect(tenLines).toBe(twoLines);
     },
   );
+
+  it('AUT-861 S2: two transfers shipped at the same time leave on-hand equal to the ledger', async () => {
+    await seedBinStock(mainSiteId, mainBinId, 5);
+    const shipOutOfMainBin = async () => {
+      const created = await postTransfer({
+        fromSiteId: mainSiteId,
+        toSiteId: grzSiteId,
+        lines: [
+          { catalogItemId, requestedQty: 2, sourceLocationId: mainBinId },
+        ],
+      }).expect(201);
+      await postAction(created.body.id, 'approve', {
+        expectedVersion: 1,
+      }).expect(201);
+      return () =>
+        postAction(created.body.id, 'ship', {
+          expectedVersion: 2,
+          lines: [{ id: created.body.lines[0].id }],
+        });
+    };
+    const ships = await Promise.all([shipOutOfMainBin(), shipOutOfMainBin()]);
+
+    const responses = await Promise.all(ships.map((ship) => ship()));
+
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+    const ledger = await createTenantAwarePrisma(
+      prisma,
+      tenant.tenantId,
+    ).inventoryTransaction.aggregate({
+      where: { item_id: catalogItemId, location_id: mainBinId },
+      _sum: { quantity: true },
+    });
+    expect(Number(ledger._sum.quantity)).toBe(-4);
+    expect(await onHandAt(mainBinId)).toBe(1);
+  });
+
+  it('AUT-861 S3: a posting that fails on its second line writes nothing to the ledger', async () => {
+    const [stockedItemId] = await seedStockedItems(1);
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    const ledgerBefore = await tenantPrisma.inventoryTransaction.count();
+
+    await expect(
+      runWithTenantContext(tenant.tenantId, () =>
+        prisma.$transaction((tx) =>
+          app.get(LedgerService).recordTransactions(
+            [
+              {
+                itemId: stockedItemId,
+                locationId: mainBinId,
+                quantity: -1,
+                type: TransactionType.TRANSFER_OUT,
+              },
+              {
+                itemId: catalogItemId,
+                locationId: mainBinId,
+                quantity: -1,
+                type: TransactionType.TRANSFER_OUT,
+              },
+            ],
+            tx,
+            { authorizedSiteIds: [mainSiteId] },
+          ),
+        ),
+      ),
+    ).rejects.toThrow('Insufficient Stock');
+
+    expect(await tenantPrisma.inventoryTransaction.count()).toBe(ledgerBefore);
+    const stocked = await tenantPrisma.inventoryStock.findFirstOrThrow({
+      where: { catalog_item_id: stockedItemId, location_id: mainBinId },
+    });
+    expect(Number(stocked.quantity_on_hand)).toBe(5);
+    expect(await onHandAt(mainBinId)).toBe(0);
+  });
 
   describe('to-site-only member (AUT-466 review)', () => {
     // A user with membership on GRZ only: receive and return both settle
