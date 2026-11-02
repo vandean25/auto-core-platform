@@ -247,16 +247,22 @@ export class InvoiceSnapshotCommitService {
       },
     });
 
-    await Promise.all(
-      prepared.snapshot.items.map((item) =>
-        tx.invoiceItem.updateMany({
-          where: { id: item.id, tenant_id: tenantId, invoice_id: invoiceId },
-          data: {
-            accounting_snapshot: item.accounting_allocation,
-          },
-        }),
-      ),
-    );
+    // Lines of the same revenue category and tax rate share one allocation: one update per distinct allocation, not per line.
+    const itemsByAllocation = new Map<string, InvoiceSnapshotV2['items']>();
+    for (const item of prepared.snapshot.items) {
+      const key = JSON.stringify(item.accounting_allocation);
+      itemsByAllocation.set(key, [...(itemsByAllocation.get(key) ?? []), item]);
+    }
+    for (const items of itemsByAllocation.values()) {
+      await tx.invoiceItem.updateMany({
+        where: {
+          id: { in: items.map((item) => item.id) },
+          tenant_id: tenantId,
+          invoice_id: invoiceId,
+        },
+        data: { accounting_snapshot: items[0].accounting_allocation },
+      });
+    }
 
     if (prepared.logoAssetId) {
       await tx.invoiceBrandAssetReference.create({
