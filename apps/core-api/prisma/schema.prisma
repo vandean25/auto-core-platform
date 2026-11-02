@@ -402,6 +402,18 @@ model PublicRateLimitCounter {
   @@map("public_rate_limit_counters")
 }
 
+/// Persistent execution state and distributed lease claims for background jobs (AUT-839).
+model ScheduledJobRun {
+  job_name    String    @id @db.VarChar(128)
+  last_run_at DateTime?
+  claimed_at  DateTime?
+  run_id      String?   @db.VarChar(128)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("scheduled_job_runs")
+}
+
 model PlatformAdmin {
   id        String            @id @default(uuid())
   user_id   String            @unique

@@ -1,15 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { withStatusSpan } from '../common/observability/trace.js';
-import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
-import { IMPORT_JOB_RETENTION_DAYS } from './import.constants.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
+import { ScheduledJobService } from '../scheduler/scheduled-job.service.js';
 import {
-  purgeStaleImportJobRowsForTenant,
-  readImportJobRowRetentionPurgeConfig,
   type ImportJobRowPurgeCounts,
+  type ImportJobRowPurgeOptions,
+  purgeStaleImportJobRowsForTenant,
 } from './import-retention.helpers.js';
+import { ImportPurgeWorkerService } from './import-purge-worker.service.js';
 
 /**
  * Purges legacy import row payloads (PII from CSV dry-runs) after retention while keeping
@@ -22,7 +22,9 @@ export class ImportRetentionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly systemPrisma: SystemPrismaService,
-    private readonly requestContext: RequestContextService,
+    @Optional() private readonly requestContext?: RequestContextService,
+    @Optional() private readonly scheduledJobService?: ScheduledJobService,
+    @Optional() private readonly purgeWorkerService?: ImportPurgeWorkerService,
   ) {}
 
   @Cron('31 3 * * *', { name: 'import-job-row-purge' })
@@ -34,23 +36,21 @@ export class ImportRetentionService {
     return this.systemPrisma.withCronJobLock(
       'import-job-row-purge',
       async () => {
-        const config = readImportJobRowRetentionPurgeConfig();
-        const tenants = await this.systemPrisma.tenant.findMany({
-          select: { id: true },
-        });
-        const now = new Date();
-        for (const { id: tenantId } of tenants) {
-          try {
-            await this.requestContext.runAsWorker(
-              tenantId,
-              () => this.purgeForTenant(tenantId, now, config.dryRun),
-              { workerId: 'import-job-row-purge' },
-            );
-          } catch (cause) {
-            this.logger.error(
-              `Import job row purge failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
-            );
+        if (this.scheduledJobService && this.purgeWorkerService) {
+          const claim = await this.scheduledJobService.tryClaimJob({
+            jobName: 'import-job-row-purge',
+          });
+
+          if (claim.claimed) {
+            await this.purgeWorkerService.dispatchPurgeTask({
+              runId: claim.runId,
+              sequence: 0,
+            });
           }
+        } else {
+          this.logger.warn(
+            'Import job row purge needs ScheduledJobService and ImportPurgeWorkerService; skipping this run.',
+          );
         }
       },
       this.logger,
@@ -61,32 +61,11 @@ export class ImportRetentionService {
     tenantId: string,
     now: Date,
     dryRun = false,
+    options: Omit<ImportJobRowPurgeOptions, 'dryRun'> = {},
   ): Promise<ImportJobRowPurgeCounts> {
-    return withStatusSpan(
-      'Purge stale import job rows',
-      'import.retention.purge',
-      {
-        retention_days: IMPORT_JOB_RETENTION_DAYS,
-        dry_run: dryRun,
-      },
-      async (span) => {
-        const counts = await purgeStaleImportJobRowsForTenant(
-          this.prisma,
-          tenantId,
-          now,
-          { dryRun, logger: this.logger },
-        );
-        span.setAttributes({
-          jobs_scanned: counts.jobs_scanned,
-          rows_deleted: counts.rows_deleted,
-        });
-        if (counts.rows_deleted > 0 || counts.dry_run) {
-          this.logger.log(
-            `Import job row ${counts.dry_run ? 'dry-run' : 'purge'} for one tenant: jobs=${counts.jobs_scanned} rows=${counts.rows_deleted}`,
-          );
-        }
-        return counts;
-      },
-    );
+    return purgeStaleImportJobRowsForTenant(this.prisma, tenantId, now, {
+      dryRun,
+      ...options,
+    });
   }
 }
