@@ -49,6 +49,7 @@ import {
   type ImportJobView,
   type SerializedImportJob,
 } from './import-job.serializer.js';
+import { findUndoableJobIds } from './import-undo.helpers.js';
 import {
   ImportJobStore,
   type CreateDryRunJobInput,
@@ -361,8 +362,11 @@ export class ImportService {
       ...(query.source ? { source_system: query.source } : {}),
     };
     const [jobs, total] = await this.jobStore.findJobsPage(where, skip, limit);
+    const undoableIds = await findUndoableJobIds(this.prisma, tenantId, jobs);
     return {
-      data: jobs.map((job) => serializeImportJobListItem(job)),
+      data: jobs.map((job) =>
+        serializeImportJobListItem(job, undoableIds.has(job.id)),
+      ),
       meta: { total, page, limit },
     };
   }

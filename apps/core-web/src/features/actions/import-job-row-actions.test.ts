@@ -19,8 +19,9 @@ function record(
   cancellable = false,
   create = 0,
   update = 0,
+  undoable?: boolean,
 ): ImportJobActionRecord {
-  return { id: 'job-1', status, totals: { error, create, update }, cancellable }
+  return { id: 'job-1', status, totals: { error, create, update }, cancellable, undoable }
 }
 
 function enabledIds(role: string | undefined, rec: ImportJobActionRecord): string[] {
@@ -49,23 +50,36 @@ describe('createImportJobRowActions', () => {
     ])
   })
 
-  it('offers open plus undo for an applied job (owner)', () => {
-    expect(enabledIds('OWNER', record('APPLIED'))).toEqual([
+  it('offers open plus undo for an applied undoable job (owner)', () => {
+    expect(enabledIds('OWNER', record('APPLIED', 0, false, 0, 0, true))).toEqual([
       ENTITY_ACTION_IDS.importJobOpen,
       ENTITY_ACTION_IDS.importJobUndo,
     ])
   })
 
-  it('offers resume plus undo and error download for a failed job with applied rows (admin)', () => {
-    expect(enabledIds('ADMIN', record('FAILED', 3, false, 2, 0))).toEqual([
+  it('hides undo for an applied job when undoable is false or missing (owner)', () => {
+    expect(enabledIds('OWNER', record('APPLIED', 0, false, 0, 0, false))).toEqual([
+      ENTITY_ACTION_IDS.importJobOpen,
+    ])
+    expect(enabledIds('OWNER', record('APPLIED'))).toEqual([
+      ENTITY_ACTION_IDS.importJobOpen,
+    ])
+  })
+
+  it('offers resume plus undo and error download for a failed job with applied rows when undoable is true (admin)', () => {
+    expect(enabledIds('ADMIN', record('FAILED', 3, false, 2, 0, true))).toEqual([
       ENTITY_ACTION_IDS.importJobResume,
       ENTITY_ACTION_IDS.importJobUndo,
       ENTITY_ACTION_IDS.importJobDownloadErrors,
     ])
   })
 
-  it('does not offer undo for a failed job with 0 applied rows (admin)', () => {
-    expect(enabledIds('ADMIN', record('FAILED', 3, false, 0, 0))).toEqual([
+  it('hides undo for a failed job when undoable is false or missing (admin)', () => {
+    expect(enabledIds('ADMIN', record('FAILED', 3, false, 2, 0, false))).toEqual([
+      ENTITY_ACTION_IDS.importJobResume,
+      ENTITY_ACTION_IDS.importJobDownloadErrors,
+    ])
+    expect(enabledIds('ADMIN', record('FAILED', 3, false, 2, 0))).toEqual([
       ENTITY_ACTION_IDS.importJobResume,
       ENTITY_ACTION_IDS.importJobDownloadErrors,
     ])
@@ -74,7 +88,7 @@ describe('createImportJobRowActions', () => {
   it.each(['SALES', 'TECH', 'DEMO', undefined])(
     'hides every action from a non-admin role (%s)',
     (role) => {
-      expect(enabledIds(role, record('APPLIED'))).toEqual([])
+      expect(enabledIds(role, record('APPLIED', 0, false, 0, 0, true))).toEqual([])
     },
   )
 
@@ -88,12 +102,14 @@ describe('createImportJobRowActions', () => {
     expect(isResumableImportJobStatus('PARTIALLY_UNDONE')).toBe(false)
   })
 
-  it('identifies undoable jobs correctly', () => {
-    expect(isUndoableImportJob(record('APPLIED'))).toBe(true)
-    expect(isUndoableImportJob(record('PARTIALLY_UNDONE'))).toBe(true)
-    expect(isUndoableImportJob(record('FAILED', 1, false, 5, 0))).toBe(true)
-    expect(isUndoableImportJob(record('FAILED', 1, false, 0, 2))).toBe(true)
-    expect(isUndoableImportJob(record('FAILED', 1, false, 0, 0))).toBe(false)
+  it('identifies undoable jobs strictly from row.undoable', () => {
+    expect(isUndoableImportJob(record('APPLIED', 0, false, 0, 0, true))).toBe(true)
+    expect(isUndoableImportJob(record('PARTIALLY_UNDONE', 0, false, 0, 0, true))).toBe(true)
+    expect(isUndoableImportJob(record('FAILED', 1, false, 5, 0, true))).toBe(true)
+    expect(isUndoableImportJob(record('APPLIED', 0, false, 0, 0, false))).toBe(false)
+    expect(isUndoableImportJob(record('APPLIED'))).toBe(false)
+    expect(isUndoableImportJob(record('FAILED', 1, false, 5, 0, false))).toBe(false)
+    expect(isUndoableImportJob(record('FAILED', 1, false, 5, 0))).toBe(false)
     expect(isUndoableImportJob(record('DRY_RUN_DONE'))).toBe(false)
     expect(isUndoableImportJob(record('UNDONE'))).toBe(false)
   })

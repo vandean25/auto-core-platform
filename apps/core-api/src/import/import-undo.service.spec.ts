@@ -242,11 +242,15 @@ function selectRows(db: FakeDb, where: Record<string, unknown>, take?: number) {
   const actions = (where.action as { in?: ImportRowAction[] } | undefined)?.in;
   const cursor = (where.row_no as { gt?: number } | undefined)?.gt;
   const undoneFilter = where.undone_at as { not?: null } | null | undefined;
+  const entityIdFilter = where.entity_id as { not?: null } | null | undefined;
   const rows = db.rows
     .filter((row) => {
       if (actions && !actions.includes(row.action)) return false;
       if (undoneFilter === null && row.undone_at !== null) return false;
       if (undoneFilter && 'not' in undoneFilter && row.undone_at === null) {
+        return false;
+      }
+      if (entityIdFilter && 'not' in entityIdFilter && !row.entity_id) {
         return false;
       }
       if (typeof cursor === 'number' && row.row_no <= cursor) return false;
@@ -420,6 +424,10 @@ function createHarness(
       async ({ where, take }: { where: Record<string, unknown>; take?: number }) =>
         selectHistories(db, where, take),
     ),
+    findFirst: jest.fn(
+      async ({ where }: { where: Record<string, unknown> }) =>
+        selectHistories(db, where)[0] ?? null,
+    ),
     count: jest.fn(
       async ({ where }: { where: Record<string, unknown> }) =>
         selectHistories(db, where).length,
@@ -460,6 +468,10 @@ function createHarness(
     findMany: jest.fn(
       async ({ where, take }: { where: Record<string, unknown>; take?: number }) =>
         selectRows(db, where, take),
+    ),
+    findFirst: jest.fn(
+      async ({ where }: { where: Record<string, unknown> }) =>
+        selectRows(db, where)[0] ?? null,
     ),
     count: jest.fn(
       async ({ where }: { where: Record<string, unknown> }) =>
@@ -752,7 +764,7 @@ describe('ImportUndoService', () => {
       });
 
       await expect(harness.service.undoJob(JOB_ID)).rejects.toThrow(
-        BadRequestException,
+        ConflictException,
       );
       await expect(harness.service.undoJob(JOB_ID)).rejects.toMatchObject({
         response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
@@ -994,19 +1006,22 @@ describe('ImportUndoService', () => {
       expect(harness.db.deletedEntityIds).toEqual(['cust-remaining']);
     });
 
-    it('reports ROWS_PURGED when nothing was left to undo', async () => {
+    it('refuses undo when nothing is left to undo (no undoable rows)', async () => {
       const harness = createHarness({ rows: [], totals: { create: 4, update: 0 } });
 
-      const job = await harness.service.undoJob(JOB_ID);
-
-      expect(job.status).toBe(ImportJobStatus.PARTIALLY_UNDONE);
-      expect(harness.undoOutcome()?.blocked_reasons).toEqual({
-        [`job-${JOB_ID}`]: UNDO_BLOCKED_REASONS.ROWS_PURGED,
+      await expect(harness.service.undoJob(JOB_ID)).rejects.toThrow(
+        ConflictException,
+      );
+      await expect(harness.service.undoJob(JOB_ID)).rejects.toMatchObject({
+        response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
       });
     });
 
     it('skips the job audit when the finalize update lost the race', async () => {
-      const harness = createHarness({ rows: [], totals: { create: 0, update: 0 } });
+      const harness = createHarness({
+        rows: [makeRow(1, ImportRowAction.CREATE, 'cust-race')],
+        totals: { create: 1, update: 0 },
+      });
       harness.cloudTasks.isEnabled.mockReturnValue(true);
       await withEnv({ CLOUD_TASKS_TARGET_BASE_URL: 'https://api.example.test' }, () =>
         harness.service.undoJobHttp(JOB_ID),

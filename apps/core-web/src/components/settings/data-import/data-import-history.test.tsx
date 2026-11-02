@@ -41,6 +41,7 @@ const jobs: ImportJobListItem[] = [
     created_by: null,
     created_at: '2026-01-02T00:00:00.000Z',
     applied_at: null,
+    undoable: false,
     cancellable: false,
   },
   {
@@ -53,6 +54,7 @@ const jobs: ImportJobListItem[] = [
     created_by: 'user-1',
     created_at: '2026-01-01T00:00:00.000Z',
     applied_at: '2026-01-01T01:00:00.000Z',
+    undoable: true,
     cancellable: false,
   },
 ]

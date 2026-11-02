@@ -266,6 +266,38 @@ describe('DataImportUndoDialog', () => {
     ).toBeInTheDocument()
   })
 
+  it('does not render blocked section when blocked array is empty even if counts.blocked > 0', () => {
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: {
+        ...mockPreview,
+        counts: { ...mockPreview.counts, blocked: 2 },
+        blocked: [],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+
+    expect(screen.queryByTestId('undo-blocked-section-toggle')).not.toBeInTheDocument()
+  })
+
+  it('renders blocked toggle with at least 44px min height class and test id', () => {
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: mockPreview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+
+    const toggle = screen.getByTestId('undo-blocked-section-toggle')
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).toHaveClass('min-h-11')
+  })
+
   it('enforces typed confirmation before allowing submission and sends confirmedEntityIds', async () => {
     const mockMutateAsync = vi.fn().mockResolvedValue({
       id: 'job-1',
@@ -372,5 +404,71 @@ describe('DataImportUndoDialog', () => {
         expect.stringContaining(di.toast.failed),
       ),
     )
+  })
+
+  it('shows total count 151 and capped indicator label "100 von 151 angezeigt" when blocked is capped', () => {
+    const cappedBlocked = Array.from({ length: 100 }, (_, i) => ({
+      rowNumber: i + 1,
+      entityType: 'CUSTOMER',
+      entityId: `cust-${i + 1}` as unknown as Record<string, never>,
+      action: 'CREATE' as const,
+      status: 'BLOCKED' as const,
+      displayName: `Customer ${i + 1}`,
+      reason: 'DOWNSTREAM_WORK_ORDER',
+    }))
+
+    const previewWithCappedBlocked: importsApi.ImportUndoPreviewResponse = {
+      ...mockPreview,
+      counts: {
+        ...mockPreview.counts,
+        blocked: 151,
+      },
+      blocked: cappedBlocked,
+    }
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: previewWithCappedBlocked,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+    expect(screen.getByText(/Blockierte Datensätze \(151\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/100 von 151 angezeigt/i)).toBeInTheDocument()
+    // blockedSection.description removed
+    expect(
+      screen.queryByText(/Folgebelege verhindern das Rückgängigmachen/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows total count and capped indicator label for conflicts when capped', () => {
+    const cappedConflicts = Array.from({ length: 100 }, (_, i) => ({
+      rowNumber: i + 1,
+      entityType: 'CUSTOMER',
+      entityId: `cust-${i + 1}` as unknown as Record<string, never>,
+      action: 'UPDATE' as const,
+      status: 'CONFLICT' as const,
+      displayName: `Customer ${i + 1}`,
+      reason: 'MODIFIED_SINCE_IMPORT',
+    }))
+
+    const previewWithCappedConflicts: importsApi.ImportUndoPreviewResponse = {
+      ...mockPreview,
+      counts: {
+        ...mockPreview.counts,
+        conflicts: 151,
+      },
+      conflicts: cappedConflicts,
+    }
+    ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+      data: previewWithCappedConflicts,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    renderDialog({})
+    expect(screen.getByText(/Geänderte Datensätze überschreiben \(151\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/100 von 151 angezeigt/i)).toBeInTheDocument()
   })
 })

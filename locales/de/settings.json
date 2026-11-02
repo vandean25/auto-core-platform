@@ -1241,6 +1241,7 @@
       "dialogDescription": "Übernommene Datensätze dieses Imports zurücksetzen.",
       "loadingPreview": "Rückgängig-Vorschau wird berechnet…",
       "loadPreviewFailed": "Die Vorschau konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "shownOfTotal": "{{shown}} von {{total}} angezeigt",
       "summary": {
         "toDelete": "Werden gelöscht",
         "toRestore": "Werden wiederhergestellt",
@@ -1249,7 +1250,6 @@
       },
       "blockedSection": {
         "title": "Blockierte Datensätze ({{count}})",
-        "description": "Folgebelege verhindern das Rückgängigmachen.",
         "reasons": {
           "DOWNSTREAM_WORK_ORDER": "Mit Werkstattauftrag verknüpft",
           "DOWNSTREAM_ESTIMATE": "Mit Kostenvoranschlag verknüpft",

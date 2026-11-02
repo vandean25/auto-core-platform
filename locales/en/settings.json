@@ -1241,6 +1241,7 @@
       "dialogDescription": "Revert the applied records of this import.",
       "loadingPreview": "Calculating undo preview…",
       "loadPreviewFailed": "Failed to load undo preview. Please try again.",
+      "shownOfTotal": "Showing {{shown}} of {{total}}",
       "summary": {
         "toDelete": "Will be deleted",
         "toRestore": "Will be restored",
@@ -1249,7 +1250,6 @@
       },
       "blockedSection": {
         "title": "Blocked records ({{count}})",
-        "description": "Downstream documents block the undo.",
         "reasons": {
           "DOWNSTREAM_WORK_ORDER": "Linked to work order",
           "DOWNSTREAM_ESTIMATE": "Linked to estimate",

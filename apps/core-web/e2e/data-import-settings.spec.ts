@@ -334,4 +334,128 @@ test.describe('Data import settings wizard', () => {
       fullPage: true,
     })
   })
+
+  test('undo dialog at 375px viewport has no horizontal overflow and toggle is at least 44px high', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await installSettingsShellMocks(page)
+    await installImportMocks(page, {})
+
+    const undoableJob = {
+      ...createMockImportJob({
+        id: 'job-undo-1',
+        status: 'APPLIED',
+        totals: { rows: 2, create: 1, update: 1, skip: 0, error: 0 },
+      }),
+      undoable: true,
+      cancellable: false,
+    }
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/imports'), async (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() === 'GET' && url.pathname === '/api/imports') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: [undoableJob],
+            meta: { total: 1, page: 1, limit: 20 },
+          }),
+        })
+        return
+      }
+      await route.fallback()
+    })
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/imports/${undoableJob.id}/undo/preview`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            jobId: undoableJob.id,
+            status: 'CONFLICT',
+            canUndo: true,
+            counts: {
+              total: 3,
+              toDelete: 1,
+              toRestore: 1,
+              conflicts: 0,
+              blocked: 1,
+            },
+            deletions: [
+              {
+                rowNumber: 1,
+                entityType: 'CUSTOMER',
+                entityId: 'cust-1',
+                action: 'CREATE',
+                status: 'ELIGIBLE',
+                displayName: 'Pilot Customer 1',
+              },
+            ],
+            restorations: [
+              {
+                rowNumber: 2,
+                entityType: 'CUSTOMER',
+                entityId: 'cust-2',
+                action: 'UPDATE',
+                status: 'ELIGIBLE',
+                displayName: 'Pilot Customer 2',
+              },
+            ],
+            conflicts: [],
+            blocked: [
+              {
+                rowNumber: 3,
+                entityType: 'CUSTOMER',
+                entityId: 'cust-3',
+                action: 'CREATE',
+                status: 'BLOCKED',
+                displayName: 'Pilot Customer 3',
+                reason: 'DOWNSTREAM_WORK_ORDER',
+                references: ['wo-1'],
+              },
+            ],
+          }),
+        })
+      },
+    )
+
+    const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
+    await corePage.navigate('/settings?tab=data-import')
+
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible({
+      timeout: 15_000,
+    })
+
+    await page.getByRole('tab', { name: DE_SETTINGS.dataImport.view.history }).click()
+
+    const actionsTrigger = page.getByRole('button', { name: /Aktionen für Zeile|Aktionen/i }).first()
+    await actionsTrigger.click()
+
+    await page.getByRole('menuitem', { name: DE_SETTINGS.dataImport.history.actions.undo }).click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.undo.dialogTitle })).toBeVisible()
+
+    const hasDocOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    )
+    expect(hasDocOverflow).toBe(false)
+
+    const isDialogOverflowing = await dialog.evaluate((el) => el.scrollWidth > el.clientWidth)
+    expect(isDialogOverflowing).toBe(false)
+
+    const toggle = page.getByTestId('undo-blocked-section-toggle')
+    await expect(toggle).toBeVisible()
+    const box = await toggle.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+
+    await page.screenshot({
+      path: 'test-results/aut-846-undo-dialog-375.png',
+      fullPage: true,
+    })
+  })
 })

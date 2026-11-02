@@ -11,6 +11,7 @@ export type ImportJobActionRecord = {
   status: ImportJobStatus
   totals: { error: number; create?: number; update?: number }
   cancellable: boolean
+  undoable?: boolean
 }
 
 export type ImportJobActionContext = {
@@ -25,16 +26,9 @@ export function isResumableImportJobStatus(status: ImportJobStatus): boolean {
   return status === 'DRY_RUN_DONE' || status === 'APPLYING' || status === 'FAILED'
 }
 
-/** A job whose applied records can be undone: APPLIED, or FAILED with applied rows. */
+/** A job whose applied records can be undone. Server computes undoable eligibility. */
 export function isUndoableImportJob(row: ImportJobActionRecord): boolean {
-  if (row.status === 'APPLIED' || row.status === 'PARTIALLY_UNDONE') return true
-  if (
-    row.status === 'FAILED' &&
-    ((row.totals.create ?? 0) > 0 || (row.totals.update ?? 0) > 0)
-  ) {
-    return true
-  }
-  return false
+  return row.undoable === true
 }
 
 export function createImportJobRowActions<TRecord extends ImportJobActionRecord>(

@@ -46,6 +46,9 @@ export class ImportJobListItemDto {
   @ApiProperty()
   cancellable!: boolean;
 
+  @ApiProperty()
+  undoable!: boolean;
+
   @ApiPropertyOptional()
   apply_failure_code?: string;
 }
