@@ -285,7 +285,15 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       await api()
         .post(`/api/workshop/orders/${orderId}/pick-parts`)
         .set('Authorization', `Bearer ${demoToken}`)
-        .send({ lineItemIds: [] })
+        .send({
+          destinationLocationId: '00000000-0000-0000-0000-000000000000',
+          lines: [
+            {
+              workshopTaskLineItemId: '00000000-0000-0000-0000-000000000000',
+              quantity: 1,
+            },
+          ],
+        })
         .expect(403);
     });
 
@@ -294,7 +302,15 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       await api()
         .post(`/api/workshop/orders/${orderId}/pick-parts`)
         .set('Authorization', `Bearer ${techToken}`)
-        .send({ lineItemIds: [] })
+        .send({
+          destinationLocationId: '00000000-0000-0000-0000-000000000000',
+          lines: [
+            {
+              workshopTaskLineItemId: '00000000-0000-0000-0000-000000000000',
+              quantity: 1,
+            },
+          ],
+        })
         .expect(403);
     });
   });
@@ -385,11 +401,20 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .expect(403);
     });
 
+    it('refuses TECH with 403', async () => {
+      const { orderId, taskId } = await createTestOrderAndTask('Update Task');
+
+      await api()
+        .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({ title: 'Tech Rename' })
+        .expect(403);
+    });
+
     it.each([
       ['OWNER', () => ownerToken],
       ['ADMIN', () => adminToken],
       ['SALES', () => salesToken],
-      ['TECH', () => techToken],
     ])('allows %s to update task', async (_role, getToken) => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Original Title');
@@ -455,7 +480,32 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/checklist`)
         .set('Authorization', `Bearer ${demoToken}`)
-        .send({ items: [] })
+        .send({
+          items: [
+            {
+              id: '00000000-0000-0000-0000-000000000000',
+              passed: true,
+            },
+          ],
+        })
+        .expect(403);
+    });
+
+    it('refuses TECH with 403 on back-office task checklist update', async () => {
+      const { orderId, taskId } =
+        await createTestOrderAndTask('Checklist Task');
+
+      await api()
+        .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/checklist`)
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({
+          items: [
+            {
+              id: '00000000-0000-0000-0000-000000000000',
+              passed: true,
+            },
+          ],
+        })
         .expect(403);
     });
 
