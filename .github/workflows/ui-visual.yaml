@@ -11,6 +11,11 @@ on:
       - 'apps/core-web/**'
       - 'locales/**'
       - '.github/workflows/ui-visual.yaml'
+      # npm ci installs the UI dependency tree from the root lockfile, and setup-node reads .nvmrc;
+      # a bump in any of these can change text rendering and must trigger the advisory job.
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
   workflow_dispatch:
 
 concurrency:
