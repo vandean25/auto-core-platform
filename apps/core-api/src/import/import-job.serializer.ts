@@ -106,7 +106,10 @@ export type ImportJobListItemView = {
  * List-row shape for the import history. Deliberately omits mapping, options
  * and per-row payloads so the list never carries raw CSV data or PII.
  */
-export function serializeImportJobListItem(job: ImportJobListItemView) {
+export function serializeImportJobListItem(
+  job: ImportJobListItemView,
+  undoable = false,
+) {
   const totals = (job.totals_json ?? {}) as Partial<ImportJobTotals>;
   const options = (job.options_json ?? {}) as ImportJobOptionsWithWorker & {
     apply_failure_code?: string;
@@ -135,6 +138,7 @@ export function serializeImportJobListItem(job: ImportJobListItemView) {
     created_at: job.createdAt.toISOString(),
     applied_at: job.appliedAt?.toISOString() ?? null,
     cancellable,
+    undoable,
     ...(failureCode ? { apply_failure_code: failureCode } : {}),
   };
 }

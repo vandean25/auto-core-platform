@@ -29,6 +29,7 @@ import {
   importJobConflict,
   importJobNotFound,
   importJobNotUndoable,
+  importJobPurged,
 } from './import-job.errors.js';
 import {
   serializeImportJob,
@@ -40,6 +41,10 @@ import {
   readImportUndoUnitRowBudget,
 } from './import-limits.js';
 import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
+import {
+  hasStagedImportJobRows,
+  hasUndoableRows,
+} from './import-undo.helpers.js';
 import { UNDO_BLOCKED_REASONS } from './import-undo.types.js';
 import {
   IMPORT_UNDO_BATCH_TX,
@@ -222,6 +227,23 @@ export class ImportUndoService {
     };
   }
 
+  private async planFreshUndoClaim(
+    tenantId: string,
+    job: ImportJob,
+    currentUser: { id: string },
+    options: ImportJobOptionsWithUndo,
+    confirmedEntityIds: string[],
+  ): Promise<UndoClaimPlan> {
+    await this.assertJobIsUndoable(tenantId, job);
+    return {
+      claimableStatus: { in: UNDO_CLAIM_STATUSES },
+      worker: await this.buildUndoWorkerState(tenantId, job, currentUser, {
+        options,
+        confirmedEntityIds,
+      }),
+    };
+  }
+
   /** Either a fresh claim or the takeover of a stale one; anything else is busy. */
   private async planUndoClaim(
     tenantId: string,
@@ -235,14 +257,13 @@ export class ImportUndoService {
       dto?.confirmedEntityIds ?? existingWorker?.confirmed_entity_ids ?? [];
 
     if (job.status !== ImportJobStatus.UNDOING) {
-      this.assertJobIsUndoable(job);
-      return {
-        claimableStatus: { in: UNDO_CLAIM_STATUSES },
-        worker: await this.buildUndoWorkerState(tenantId, job, currentUser, {
-          options,
-          confirmedEntityIds,
-        }),
-      };
+      return this.planFreshUndoClaim(
+        tenantId,
+        job,
+        currentUser,
+        options,
+        confirmedEntityIds,
+      );
     }
     if (!existingWorker || !isUndoClaimStale(existingWorker, Date.now())) {
       // Nothing to adopt: the recovery cron releases a claimless UNDOING job.
@@ -254,21 +275,35 @@ export class ImportUndoService {
     };
   }
 
-  private assertJobIsUndoable(job: ImportJob): void {
+  private async assertJobIsUndoable(
+    tenantId: string,
+    job: ImportJob,
+  ): Promise<void> {
     if (job.status === ImportJobStatus.APPLYING) {
       throw importJobBusy();
     }
     assertImportJobRowsAvailable(job.options_json);
+    // One purge rule for every path: staged rows gone although totals report
+    // applied rows means the rows_purged-flagged or the unflagged ancient purge
+    // deleted the undo basis. FAILED jobs without applied rows stay NOT_UNDOABLE.
+    if (
+      job.status !== ImportJobStatus.FAILED &&
+      getAppliedRowsCount(job.totals_json as ImportJobTotals | null) > 0 &&
+      !(await hasStagedImportJobRows(this.prisma, tenantId, job.id))
+    ) {
+      throw importJobPurged();
+    }
     if (isDocOrFinancialImport(job.entity_type)) {
       throw importJobNotUndoable();
     }
-    const appliedRowsCount = getAppliedRowsCount(
-      job.totals_json as ImportJobTotals | null,
-    );
     const undoable =
       UNDOABLE_STATUSES.has(job.status) ||
-      (job.status === ImportJobStatus.FAILED && appliedRowsCount > 0);
+      job.status === ImportJobStatus.FAILED;
     if (!undoable) {
+      throw importJobNotUndoable();
+    }
+    const hasRows = await hasUndoableRows(this.prisma, tenantId, job);
+    if (!hasRows) {
       throw importJobNotUndoable();
     }
   }

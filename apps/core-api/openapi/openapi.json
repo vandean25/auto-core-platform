@@ -38617,6 +38617,9 @@
           "cancellable": {
             "type": "boolean"
           },
+          "undoable": {
+            "type": "boolean"
+          },
           "apply_failure_code": {
             "type": "string"
           }
@@ -38631,7 +38634,8 @@
           "created_by",
           "created_at",
           "applied_at",
-          "cancellable"
+          "cancellable",
+          "undoable"
         ]
       },
       "ImportJobListMetaDto": {
