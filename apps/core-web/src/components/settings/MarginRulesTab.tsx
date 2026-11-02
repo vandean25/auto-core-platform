@@ -1,5 +1,6 @@
 import * as React from 'react'
-import { AlertCircle, ArrowDown, ArrowUp, Edit2, Loader2, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowDown, ArrowUp, Edit2, Info, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -21,7 +22,7 @@ import { useBrands } from '@/api/brands'
 import { useRevenueGroups } from '@/api/useFinance'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
@@ -102,6 +103,25 @@ function MarginRulesPlaceholder({ loading }: { loading: boolean }) {
       {loading ? <Loader2 className="mr-2 inline h-5 w-5 animate-spin" /> : null}
       {loading ? t('marginRules.loading') : t('marginRules.empty')}
     </p>
+  )
+}
+
+function EvaluationRuleInfo({ ariaLabel, description }: { ariaLabel: string; description: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={ariaLabel}
+        >
+          <Info className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 text-xs">
+        {description}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -266,9 +286,6 @@ export function MarginRulesTab() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">{t('marginRules.title')}</h2>
-          <p className="text-sm text-slate-500">
-            {t('marginRules.description')}
-          </p>
         </div>
         <Button onClick={openCreateDialog} className="self-start sm:self-auto">
           <Plus className="mr-2 h-4 w-4" />
@@ -279,9 +296,6 @@ export function MarginRulesTab() {
       <Card>
         <CardHeader>
           <CardTitle as="h3" className="text-base font-medium">{t('marginRules.priceJump.title')}</CardTitle>
-          <CardDescription>
-            {t('marginRules.priceJump.description')}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end max-w-md">
@@ -313,10 +327,13 @@ export function MarginRulesTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle as="h3" className="text-base font-medium">{t('marginRules.activeRules.title')}</CardTitle>
-          <CardDescription>
-            {t('marginRules.activeRules.description')}
-          </CardDescription>
+          <div className="flex items-center gap-1.5">
+            <CardTitle as="h3" className="text-base font-medium">{t('marginRules.activeRules.title')}</CardTitle>
+            <EvaluationRuleInfo
+              ariaLabel={t('marginRules.activeRules.infoAria')}
+              description={t('marginRules.activeRules.description')}
+            />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoadingRules || sortedRules.length === 0 ? (

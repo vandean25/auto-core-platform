@@ -109,9 +109,6 @@ export function ImportSourcesPanel() {
         <h3 id="import-sources-heading" className="text-base font-medium">
           {t('dataImport.sources.title')}
         </h3>
-        <p className="text-sm text-muted-foreground max-w-2xl">
-          {t('dataImport.sources.description')}
-        </p>
       </div>
 
       <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
@@ -149,9 +146,6 @@ export function ImportSourcesPanel() {
             {t('dataImport.sources.add')}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground md:col-span-3">
-          {t('dataImport.sources.keyHint')}
-        </p>
       </form>
 
       {sourcesQuery.isError ? (

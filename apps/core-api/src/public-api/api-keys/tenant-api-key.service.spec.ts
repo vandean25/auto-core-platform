@@ -335,7 +335,15 @@ function productionClientResponse(error: unknown) {
   const json = jest.fn();
   const status = jest.fn().mockReturnValue({ json });
   const host = {
-    switchToHttp: () => ({ getRequest: () => ({}), getResponse: () => ({ status }) }),
+    switchToHttp: () => ({
+      getRequest: () => ({}),
+      getResponse: () => ({
+        status,
+        getHeader: () => undefined,
+        setHeader: jest.fn(),
+        headersSent: false,
+      }),
+    }),
   } as unknown as ArgumentsHost;
   const filter = new GlobalExceptionFilter();
   jest.spyOn((filter as any).logger, 'error').mockImplementation();

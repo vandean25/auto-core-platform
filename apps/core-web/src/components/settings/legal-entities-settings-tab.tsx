@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { TFunction } from 'i18next'
-import { Loader2 } from 'lucide-react'
+import { Info, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -24,6 +24,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -444,9 +445,6 @@ export function LegalEntityAccountingProfileForm({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="font-medium">{t('legalEntities.profile.title')}</h3>
-          <p className="text-sm text-slate-500">
-            {t('legalEntities.profile.description', { name: entity.name })}
-          </p>
         </div>
         <DocumentSaveIndicator status={saveStatus} />
       </div>
@@ -837,11 +835,22 @@ function LegalEntitySellerForm({
   return (
     <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex items-center gap-1.5">
           <h3 className="font-medium">{entity.name}</h3>
-          <p className="text-sm text-slate-500">
-            {t('legalEntities.seller.description', { country: entity.country_iso })}
-          </p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t('legalEntities.seller.countryInfoAria')}
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 text-xs">
+              {t('legalEntities.seller.countryInfo')}
+            </PopoverContent>
+          </Popover>
         </div>
         <DocumentSaveIndicator status={saveStatus} />
       </div>
@@ -1115,9 +1124,6 @@ export function LegalEntitiesSettingsTab() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-medium">{t('legalEntities.title')}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t('legalEntities.description')}
-        </p>
       </div>
 
       <div className="rounded-lg border bg-white p-6 shadow-sm">
@@ -1132,7 +1138,23 @@ export function LegalEntitiesSettingsTab() {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="legal-entity-country">{t('legalEntities.create.countryLabel')}</Label>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="legal-entity-country">{t('legalEntities.create.countryLabel')}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={t('legalEntities.create.countryInfoAria')}
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 text-xs">
+                  {t('legalEntities.create.countryInfo')}
+                </PopoverContent>
+              </Popover>
+            </div>
             <Select value={countryIso} onValueChange={(value) => setCountryIso(value as 'AT' | 'DE')}>
               <SelectTrigger id="legal-entity-country">
                 <SelectValue />

@@ -12,6 +12,7 @@ import type { CatalogProviderSettings } from '@/api/types'
 import { BrandMultiSelect } from '@/components/BrandMultiSelect'
 import {
   commitSettingsTabMutation,
+  SettingsLoadFailedState,
   SettingsSubmitRow,
   SettingsTabLoadingState,
   SettingsTabPanel,
@@ -85,6 +86,7 @@ export function VehicleDataSettingsPanel() {
     data: settings,
     isLoading: isLoadingSettings,
     isError: isSettingsError,
+    refetch: refetchSettings,
   } = useCatalogProviderSettings({ enabled: canManage })
   const { data: laborCategoriesData, isLoading: isLoadingLaborCategories } = useLaborCategories()
   const updateMutation = useUpdateCatalogProviderSettings()
@@ -159,9 +161,10 @@ export function VehicleDataSettingsPanel() {
 
   if (isSettingsError) {
     return (
-      <p className='text-sm text-destructive'>
-        {t('vehicleData.loadFailed')}
-      </p>
+      <SettingsLoadFailedState
+        message={t('vehicleData.loadFailed')}
+        onRetry={() => void refetchSettings()}
+      />
     )
   }
 
@@ -175,7 +178,6 @@ export function VehicleDataSettingsPanel() {
     <form onSubmit={handleSave} className='space-y-8'>
       <SettingsTabPanel
         title={t('vehicleData.catalog.title')}
-        description={t('vehicleData.catalog.description')}
       >
         <div className='grid gap-4 md:grid-cols-2'>
           <VehicleDataAdapterSelect
@@ -282,7 +284,6 @@ export function VehicleDataSettingsPanel() {
 
       <SettingsTabPanel
         title={t('vehicleData.oemConcerns.title')}
-        description={t('vehicleData.oemConcerns.description')}
       >
         <div className='space-y-6'>
           {OEM_CONCERN_CODES.map((code) => {
