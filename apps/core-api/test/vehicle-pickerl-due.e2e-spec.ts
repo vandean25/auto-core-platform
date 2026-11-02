@@ -311,9 +311,22 @@ describe('Pickerl Due (e2e)', () => {
       .expect(401);
   });
 
-  it('GET /vehicles/pickerl-due returns 403 for TECH role', async () => {
+  const someVehicleId = '00000000-0000-4000-8000-000000000001';
+  it.each([
+    ['post', '/api/vehicles/nova/calculate'],
+    ['get', '/api/vehicles/pickerl-due'],
+    ['get', '/api/vehicles/pickerl-due/export'],
+    ['get', `/api/vehicles/${someVehicleId}/pickerl-open-order`],
+    ['get', '/api/vehicles'],
+    ['post', '/api/vehicles'],
+    ['post', `/api/vehicles/${someVehicleId}/resolve-identity`],
+    ['get', `/api/vehicles/${someVehicleId}/valuations`],
+    ['post', `/api/vehicles/${someVehicleId}/valuations`],
+    ['get', `/api/vehicles/${someVehicleId}`],
+    ['patch', `/api/vehicles/${someVehicleId}`],
+  ] as const)('%s %s returns 403 for TECH role', async (method, path) => {
     await request(app.getHttpServer())
-      .get('/api/vehicles/pickerl-due')
+      [method](path)
       .set('Authorization', `Bearer ${techToken}`)
       .expect(403);
   });

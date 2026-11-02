@@ -342,19 +342,148 @@ describe('VehicleSaleService characterization', () => {
     });
   });
 
+  describe('create', () => {
+    it('stores a DRAFT sale for the active site with the next VS number and hides archive internals', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue(vehicleFixture());
+      prisma.customer.findFirst.mockResolvedValue(customerFixture());
+      prisma.workshopOrder.count.mockResolvedValue(0);
+      prisma.vehicleSale.create.mockImplementation(async ({ data }) => ({
+        id: saleId,
+        status: VehicleSaleStatus.DRAFT,
+        kaufvertrag_snapshot: { schema_version: 1 },
+        kaufvertrag_archive_key: 'internal-key',
+        ...data,
+      }));
+
+      const created = await service.create(createDto());
+
+      expect(prisma.vehicleSale.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: tenantId,
+          site_id: 'site-1',
+          sale_number: `VS-${year}-0001`,
+          vehicle_id: vehicleId,
+          customer_id: customerId,
+          sale_price: new Prisma.Decimal(10000),
+        }),
+      });
+      expect(prisma.financeSettings.update).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId },
+        data: { next_vehicle_sale_number: { increment: 1 } },
+        select: { next_vehicle_sale_number: true },
+      });
+      expect(created).toMatchObject({
+        id: saleId,
+        status: VehicleSaleStatus.DRAFT,
+        sale_number: `VS-${year}-0001`,
+      });
+      expect(created).not.toHaveProperty('kaufvertrag_snapshot');
+      expect(created).not.toHaveProperty('kaufvertrag_archive_key');
+    });
+  });
+
+  describe('findOne', () => {
+    it('refuses a sale outside the authorized sites', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue(null);
+      const error = await rejectionOf(service.findOne(saleId));
+      expect(error).toBeInstanceOf(NotFoundException);
+      expect(error).toMatchObject({
+        message: `Vehicle sale ${saleId} not found`,
+      });
+      expect(prisma.vehicleSale.findFirst.mock.calls[0][0].where).toMatchObject({
+        id: saleId,
+        tenant_id: tenantId,
+        site_id: { in: ['site-1'] },
+      });
+    });
+
+    it('adds the cost basis, margin VAT and amount due previews, netting an attached trade-in', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        ...saleFixture({ trade_in_purchase_id: 'purchase-1' }),
+        invoice: null,
+      });
+      prisma.vehiclePurchase.findFirst.mockResolvedValue(tradeInFixture());
+      ledger.listForVehicle.mockResolvedValue([]);
+
+      const detail = await service.findOne(saleId);
+
+      expect(detail).toMatchObject({
+        id: saleId,
+        invoice: null,
+        trade_in_purchase: { id: 'purchase-1' },
+      });
+      expect(detail.cost_basis_preview.toFixed(2)).toBe('0.00');
+      expect(detail.amount_due_preview.toFixed(2)).toBe('8000.00');
+      expect(ledger.listForVehicle).toHaveBeenCalledWith(vehicleId);
+    });
+  });
+
   describe('draft and correction guards', () => {
-    it('refuses to update a sale that is no longer a draft', async () => {
-      prisma.vehicleSale.findFirst.mockResolvedValue(
-        saleFixture({ status: VehicleSaleStatus.INVOICED }),
-      );
+    it.each([VehicleSaleStatus.INVOICED, VehicleSaleStatus.CANCELLED])(
+      'refuses to update a %s sale',
+      async (status) => {
+        prisma.vehicleSale.findFirst.mockResolvedValue(saleFixture({ status }));
+        const error = await rejectionOf(
+          service.updateDraft(saleId, {
+            sale_price: 1,
+          }),
+        );
+        expect(error).toBeInstanceOf(UnprocessableEntityException);
+        expect(error).toMatchObject({
+          message: 'Only DRAFT sales can be updated',
+        });
+        expect(prisma.vehicleSale.updateMany).not.toHaveBeenCalled();
+      },
+    );
+
+    it('writes a draft update guarded by the DRAFT status and returns the refreshed sale', async () => {
+      const sale = { ...saleFixture(), invoice: null };
+      prisma.vehicleSale.findFirst.mockResolvedValue(sale);
+      prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
+
+      const detail = await service.updateDraft(saleId, { sale_price: 12000 });
+
+      expect(prisma.vehicleSale.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: saleId,
+          tenant_id: tenantId,
+          status: VehicleSaleStatus.DRAFT,
+        },
+        data: expect.objectContaining({
+          sale_price: new Prisma.Decimal(12000),
+        }),
+      });
+      expect(detail).toMatchObject({ id: saleId });
+    });
+
+    it('conflicts when the guarded draft update matches no row', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue(saleFixture());
+      prisma.vehicleSale.updateMany.mockResolvedValue({ count: 0 });
       const error = await rejectionOf(
-        service.updateDraft(saleId, {
-          sale_price: 1,
+        service.updateDraft(saleId, { sale_price: 12000 }),
+      );
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(error).toMatchObject({
+        message:
+          'Vehicle sale state or site changed concurrently. Please refresh.',
+      });
+    });
+
+    it('only corrects the Gewaehrleistung snapshot of an invoiced sale in the caller scope', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue(null);
+      const error = await rejectionOf(
+        service.correctGewaehrleistungSnapshot(saleId, {
+          reason: 'Datum korrigiert',
+          buyer_is_consumer: true,
+          gewaehrleistung_shortened_negotiated: false,
         }),
       );
-      expect(error).toBeInstanceOf(UnprocessableEntityException);
-      expect(error).toMatchObject({
-        message: 'Only DRAFT sales can be updated',
+      expect(error).toBeInstanceOf(NotFoundException);
+      expect(prisma.vehicleSale.findFirst.mock.calls[0][0].where).toMatchObject({
+        id: saleId,
+        tenant_id: tenantId,
+        site_id: { in: ['site-1'] },
+        status: VehicleSaleStatus.INVOICED,
       });
     });
 
@@ -418,18 +547,29 @@ describe('VehicleSaleService characterization', () => {
       });
     });
 
-    it('refuses to finalize when the draft changed between the two reads', async () => {
-      prisma.vehicleSale.findFirst
-        .mockResolvedValueOnce(saleFixture())
-        .mockResolvedValueOnce(null);
-      const error = await rejectionOf(service.finalize(saleId));
-      expect(error).toBeInstanceOf(ConflictException);
-      expect(error).toMatchObject({
-        message:
-          'Vehicle sale state or site changed concurrently. Please refresh.',
-      });
-      expect(prisma.invoice.create).not.toHaveBeenCalled();
-    });
+    it.each([
+      ['vanished', null],
+      ['was already invoiced', VehicleSaleStatus.INVOICED],
+      ['was cancelled', VehicleSaleStatus.CANCELLED],
+    ])(
+      'refuses to finalize when the draft %s between the two reads',
+      async (_label, status) => {
+        // The first read has no status filter. The locked re-read only matches a DRAFT, so it finds nothing.
+        prisma.vehicleSale.findFirst
+          .mockResolvedValueOnce(saleFixture(status ? { status } : {}))
+          .mockResolvedValueOnce(null);
+        const error = await rejectionOf(service.finalize(saleId));
+        expect(error).toBeInstanceOf(ConflictException);
+        expect(error).toMatchObject({
+          message:
+            'Vehicle sale state or site changed concurrently. Please refresh.',
+        });
+        expect(prisma.vehicleSale.findFirst.mock.calls[1][0].where).toMatchObject(
+          { status: VehicleSaleStatus.DRAFT },
+        );
+        expect(prisma.invoice.create).not.toHaveBeenCalled();
+      },
+    );
 
     it('deactivates marketplace listing channels when finalizing', async () => {
       const sale = saleFixture();

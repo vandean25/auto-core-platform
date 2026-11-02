@@ -1,5 +1,7 @@
 import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { extractVisibleTextFromHtml } from '../../common/pdf/pdf-html-text.js';
+import { buildKaufvertragHtmlDocument } from './kaufvertrag-pdf.layout.js';
 import { VehicleSaleKaufvertragPdfService } from './kaufvertrag-pdf.service.js';
 import {
   buildKaufvertragArchiveIdentity,
@@ -442,6 +444,46 @@ describe('VehicleSaleKaufvertragPdfService', () => {
         base_ends_on: null,
         presumption_ends_on: null,
       });
+    });
+  });
+
+  describe('contract content', () => {
+    const CONSUMER_TEXT =
+      'Kaufvertrag über ein gebrauchtes Kraftfahrzeug Vertragsnummer VS-2026-0001 · Vertragsdatum 02.10.2026 · Übergabe 08.10.2026 Verkäufer Demo Autohaus GmbH Musterweg 1 1010 Wien UID: ATU12345678 Steuernummer: 123/4567 Firmenbuchnummer: FN 123456a Firmenbuchgericht: Handelsgericht Wien Vertreten durch: Max Mustermann Käufer Erika Musterfrau Beispielgasse 2 4020 Linz Verbraucher Fahrzeug Marke / Modell Demo Compact 1.0 Fahrgestellnummer (FIN) DEMOVIN0000000001 HSN / TSN 1234 / ABC Erstzulassung 08.10.2020 Kilometerstand 84.500 km Farbe Grau Kaufpreis (brutto) 18.500,00 € Gewährleistung (gesetzlich) Verbrauchergeschäft: Es gilt die gesetzliche Gewährleistungsfrist: zwei Jahre ab Übergabe. Das Ende der Gewährleistungsfrist ist der 08.10.2028. Hinweis zur Vermutungsfrist (Rechercheangabe, keine Rechtsberatung): Zeigt sich innerhalb eines Jahres ab Übergabe ein Mangel, wird vermutet, dass er bereits bei Übergabe vorlag. Vermutungsfrist bis 08.10.2027. Freiwillige Garantie Zusätzliche freiwillige Zusage des Verkäufers, nicht Teil der gesetzlichen Gewährleistung. Dauer: 12 Monate ab Übergabe Motor und Getriebe Verkäufer Käufer';
+    const B2B_TEXT =
+      'Kaufvertrag über ein gebrauchtes Kraftfahrzeug Vertragsnummer VS-2026-0001 · Vertragsdatum 02.10.2026 · Übergabe 08.10.2026 Verkäufer Demo Autohaus GmbH Musterweg 1 1010 Wien UID: ATU12345678 Steuernummer: 123/4567 Firmenbuchnummer: FN 123456a Firmenbuchgericht: Handelsgericht Wien Vertreten durch: Max Mustermann Käufer Beispiel GmbH Beispielgasse 2 4020 Linz Unternehmer Fahrzeug Marke / Modell Demo Compact 1.0 Fahrgestellnummer (FIN) DEMOVIN0000000001 HSN / TSN 1234 / ABC Erstzulassung 08.10.2020 Kilometerstand 84.500 km Farbe Grau Kaufpreis (brutto) 18.500,00 € Gewährleistung Unternehmergeschäft: Die Gewährleistung richtet sich nach dem Vertrag. Verkäufer Käufer';
+
+    it.each([
+      [
+        'a consumer sale with a voluntary Garantie',
+        { garantie_months: 12, garantie_terms: ' Motor und Getriebe ' },
+        CONSUMER_TEXT,
+      ],
+      [
+        'a B2B sale per contract',
+        {
+          buyer_is_consumer: false,
+          gewaehrleistung_ends_on: null,
+          presumption_ends_on: null,
+          customer: {
+            ...loadedSale().customer,
+            type: 'COMPANY' as const,
+            company_name: 'Beispiel GmbH',
+          },
+        },
+        B2B_TEXT,
+      ],
+    ])('renders the same contract text for %s', async (_label, overrides, expectedText) => {
+      const harness = createHarness(loadedSale(overrides));
+
+      await harness.service.generateNow(SALE_ID);
+
+      const snapshot = harness.renderer.render.mock.calls[0][0];
+      expect(
+        extractVisibleTextFromHtml(
+          buildKaufvertragHtmlDocument(snapshot, { fontFaceCss: '' }),
+        ),
+      ).toBe(expectedText);
     });
   });
 
