@@ -77,3 +77,53 @@ jobs:
             apps/core-web/test-results
           retention-days: 14
           if-no-files-found: warn
+
+  # AUT-899: the 5,000-row supplier-price-list benchmark runs here nightly instead of
+  # the PR e2e shards. Exceeding the < 10 s threshold fails the Jest assertion, the
+  # step exits non-zero, and this job (and the run) turns red.
+  backend-e2e-benchmark:
+    name: Backend E2E Benchmark (nightly / manual)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    services:
+      postgres:
+        # Docker Hub mirror: avoids the anonymous Docker Hub pull rate limit on shared runners
+        image: mirror.gcr.io/library/postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: auto_core_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm exec --workspace=core-api -- prisma generate
+
+      - name: Run backend E2E benchmark suites
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
+          CI: true
+        run: |
+          npm exec --workspace=core-api -- prisma migrate deploy
+          npm run test:e2e:benchmark --workspace=core-api

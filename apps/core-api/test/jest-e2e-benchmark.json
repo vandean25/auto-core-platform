@@ -1,0 +1,24 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": "test/.*\\.benchmark\\.e2e-spec\\.ts$",
+  "setupFiles": ["dotenv/config"],
+  "setupFilesAfterEnv": [
+    "<rootDir>/test/jest-esm-setup.ts",
+    "<rootDir>/test/mcp-e2e-legacy-env.aut605.ts"
+  ],
+  "transform": {
+    "^.+\\.(t|j)s$": ["ts-jest", { "useESM": true, "tsconfig": "tsconfig.e2e.json" }]
+  },
+  "extensionsToTreatAsEsm": [".ts"],
+  "moduleNameMapper": {
+    "^@nestjs/throttler$": "<rootDir>/test/support/throttler.shim.ts",
+    "^(\\.{1,2}/(?!.*node_modules).*)\\.js$": "$1"
+  },
+  "transformIgnorePatterns": [
+    "node_modules/(?!(jose)/)"
+  ],
+  "testTimeout": 60000,
+  "forceExit": true
+}

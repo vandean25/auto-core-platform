@@ -26,14 +26,6 @@ export const SUPPLIER_CSV_MAPPING = {
   unit: 'Einheit',
 };
 
-export interface CatalogSeedItemData {
-  sku: string;
-  name: string;
-  cost_price: number;
-  retail_price: number;
-  ean: string;
-}
-
 export interface FixtureBreakdownCounts {
   updatesExpected: number;
   unchangedExpected: number;
@@ -43,7 +35,8 @@ export interface FixtureBreakdownCounts {
   totalRows: number;
 }
 
-export const FIXTURE_COUNTS: FixtureBreakdownCounts = {
+/** 5,000-row breakdown for the nightly performance benchmark. */
+export const FIXTURE_COUNTS_LARGE: FixtureBreakdownCounts = {
   updatesExpected: 2500,
   unchangedExpected: 1000,
   unmatchedExpected: 1000,
@@ -52,11 +45,35 @@ export const FIXTURE_COUNTS: FixtureBreakdownCounts = {
   totalRows: 5000,
 };
 
+/** 200-row breakdown with the same shape, used by the PR e2e suite. */
+export const FIXTURE_COUNTS_SMALL: FixtureBreakdownCounts = {
+  updatesExpected: 100,
+  unchangedExpected: 40,
+  unmatchedExpected: 40,
+  priceJumpsExpected: 16,
+  errorsExpected: 4,
+  totalRows: 200,
+};
+
+export function expectedDryRunTotals(counts: FixtureBreakdownCounts) {
+  return {
+    rows: counts.totalRows,
+    update: counts.updatesExpected + counts.priceJumpsExpected,
+    skip: counts.unchangedExpected + counts.unmatchedExpected,
+    create: 0,
+    error: counts.errorsExpected,
+    flagged_jumps: counts.priceJumpsExpected,
+  };
+}
+
 /**
- * Generates the catalog items to seed before running the 5,000-row benchmark.
- * Total seeded: 2,500 (updates) + 1,000 (unchanged) + 400 (price jumps) = 3,900 items.
+ * Generates the catalog items to seed before running an import:
+ * updates + unchanged + price-jump items, each with a known starting price.
  */
-export function generateCatalogSeedItems(tenantId: string): Array<{
+export function generateCatalogSeedItems(
+  tenantId: string,
+  counts: FixtureBreakdownCounts,
+): Array<{
   tenant_id: string;
   sku: string;
   name: string;
@@ -75,8 +92,8 @@ export function generateCatalogSeedItems(tenantId: string): Array<{
     unit: string;
   }> = [];
 
-  // 1. 2,500 items for cost updates (initial cost 10.00, retail 15.00)
-  for (let i = 1; i <= FIXTURE_COUNTS.updatesExpected; i++) {
+  // 1. Items for cost updates (initial cost 10.00, retail 15.00)
+  for (let i = 1; i <= counts.updatesExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     items.push({
       tenant_id: tenantId,
@@ -89,8 +106,8 @@ export function generateCatalogSeedItems(tenantId: string): Array<{
     });
   }
 
-  // 2. 1,000 items for unchanged prices (cost 20.00, retail 30.00)
-  for (let i = 1; i <= FIXTURE_COUNTS.unchangedExpected; i++) {
+  // 2. Items for unchanged prices (cost 20.00, retail 30.00)
+  for (let i = 1; i <= counts.unchangedExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     items.push({
       tenant_id: tenantId,
@@ -103,8 +120,8 @@ export function generateCatalogSeedItems(tenantId: string): Array<{
     });
   }
 
-  // 3. 400 items for price jump tests (initial cost 10.00, retail 15.00)
-  for (let i = 1; i <= FIXTURE_COUNTS.priceJumpsExpected; i++) {
+  // 3. Items for price jump tests (initial cost 10.00, retail 15.00)
+  for (let i = 1; i <= counts.priceJumpsExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     items.push({
       tenant_id: tenantId,
@@ -121,19 +138,20 @@ export function generateCatalogSeedItems(tenantId: string): Array<{
 }
 
 /**
- * Generates 5,000 CSV rows matching the breakdown:
- * - 2,500 rows matching existing catalog items with cost updates (10.00 -> 11.00, +10%)
- * - 1,000 rows matching existing catalog items with unchanged prices (20.00 -> 20.00)
- * - 1,000 rows unmatched (new items, not in catalog)
- * - 400 rows with price jump > 20% (10.00 -> 25.00, +150%)
- * - 100 rows with deliberate formatting errors (50 empty article no, 50 invalid cost)
- * Total: 5,000 rows.
+ * Generates CSV rows matching the breakdown:
+ * - updates rows matching existing catalog items (cost 10.00 -> 11.00, +10%)
+ * - unchanged rows matching existing catalog items (20.00 -> 20.00)
+ * - unmatched rows (new items, not in catalog)
+ * - price jump rows > 20% (cost 10.00 -> 25.00, +150%)
+ * - error rows (half empty article no, half invalid cost)
  */
-export function generateSupplierPriceList5000Rows(): string[][] {
+export function generateSupplierPriceListRows(
+  counts: FixtureBreakdownCounts,
+): string[][] {
   const rows: string[][] = [];
 
-  // Group 1: 2,500 rows matching existing items (cost update 11.00)
-  for (let i = 1; i <= FIXTURE_COUNTS.updatesExpected; i++) {
+  // Group 1: rows matching existing items (cost update 11.00)
+  for (let i = 1; i <= counts.updatesExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     rows.push([
       `ADV-UPD-${pad}`,
@@ -146,8 +164,8 @@ export function generateSupplierPriceList5000Rows(): string[][] {
     ]);
   }
 
-  // Group 2: 1,000 rows matching existing items with unchanged price (20.00)
-  for (let i = 1; i <= FIXTURE_COUNTS.unchangedExpected; i++) {
+  // Group 2: rows matching existing items with unchanged price (20.00)
+  for (let i = 1; i <= counts.unchangedExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     rows.push([
       `ADV-UNCH-${pad}`,
@@ -160,8 +178,8 @@ export function generateSupplierPriceList5000Rows(): string[][] {
     ]);
   }
 
-  // Group 3: 1,000 rows unmatched (new items, e.g. ADV-NEW-XXXXX)
-  for (let i = 1; i <= FIXTURE_COUNTS.unmatchedExpected; i++) {
+  // Group 3: rows unmatched (new items, e.g. ADV-NEW-XXXXX)
+  for (let i = 1; i <= counts.unmatchedExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     rows.push([
       `ADV-NEW-${pad}`,
@@ -174,8 +192,8 @@ export function generateSupplierPriceList5000Rows(): string[][] {
     ]);
   }
 
-  // Group 4: 400 rows with price jump > 20% (cost 10.00 -> 25.00)
-  for (let i = 1; i <= FIXTURE_COUNTS.priceJumpsExpected; i++) {
+  // Group 4: rows with price jump > 20% (cost 10.00 -> 25.00)
+  for (let i = 1; i <= counts.priceJumpsExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     rows.push([
       `ADV-JUMP-${pad}`,
@@ -188,9 +206,10 @@ export function generateSupplierPriceList5000Rows(): string[][] {
     ]);
   }
 
-  // Group 5: 100 rows with deliberate formatting errors
-  // 50 missing supplier article no
-  for (let i = 1; i <= 50; i++) {
+  // Group 5: rows with deliberate formatting errors
+  const emptyIdErrors = Math.ceil(counts.errorsExpected / 2);
+  // missing supplier article no
+  for (let i = 1; i <= emptyIdErrors; i++) {
     const pad = i.toString().padStart(5, '0');
     rows.push([
       '', // empty supplier_article_no
@@ -202,8 +221,8 @@ export function generateSupplierPriceList5000Rows(): string[][] {
       'STK',
     ]);
   }
-  // 50 invalid cost price (non-numeric)
-  for (let i = 51; i <= 100; i++) {
+  // invalid cost price (non-numeric)
+  for (let i = emptyIdErrors + 1; i <= counts.errorsExpected; i++) {
     const pad = i.toString().padStart(5, '0');
     rows.push([
       `ADV-ERR-${pad}`,
@@ -220,12 +239,13 @@ export function generateSupplierPriceList5000Rows(): string[][] {
 }
 
 /**
- * Serializes the 5,000 rows into CSV buffer.
+ * Serializes the generated rows into a CSV buffer.
  */
-export function generateSupplierPriceList5000CsvBuffer(
+export function generateSupplierPriceListCsvBuffer(
+  counts: FixtureBreakdownCounts,
   delimiter: ';' | ',' = ';',
 ): Buffer {
-  const rows = generateSupplierPriceList5000Rows();
+  const rows = generateSupplierPriceListRows(counts);
   const csvString = serializeCsv(SUPPLIER_CSV_HEADERS, rows, delimiter);
   return Buffer.from(csvString, 'utf8');
 }

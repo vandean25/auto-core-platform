@@ -15,11 +15,12 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 import {
   FIXTURE_SUPPLIER_NAME,
-  FIXTURE_COUNTS,
+  FIXTURE_COUNTS_SMALL,
   SUPPLIER_CSV_MAPPING,
+  expectedDryRunTotals,
   generateCatalogSeedItems,
-  generateSupplierPriceList5000CsvBuffer,
-} from './fixtures/supplier-price-list-5000.fixture.js';
+  generateSupplierPriceListCsvBuffer,
+} from './fixtures/supplier-price-list.fixture.js';
 
 describe('Supplier Price List Import (e2e)', () => {
   let app: INestApplication;
@@ -44,8 +45,8 @@ describe('Supplier Price List Import (e2e)', () => {
   let historicalInvoiceItemId: string;
   let historicalWorkshopTaskLineItemId: string;
 
-  let benchmarkJobId: string;
-  let csvBuffer5000: Buffer;
+  let sharedDryRunJobId: string;
+  let csvBufferSmall: Buffer;
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -122,8 +123,11 @@ describe('Supplier Price List Import (e2e)', () => {
         select: { id: true, name: true },
       });
 
-      // Seed 3,900 catalog items for Tenant A
-      const seedCatalogData = generateCatalogSeedItems(tenantA.tenantId);
+      // Seed the small-fixture catalog items (updates + unchanged + jumps) for Tenant A
+      const seedCatalogData = generateCatalogSeedItems(
+        tenantA.tenantId,
+        FIXTURE_COUNTS_SMALL,
+      );
       await tenantPrismaA.catalogItem.createMany({
         data: seedCatalogData,
       });
@@ -268,8 +272,25 @@ describe('Supplier Price List Import (e2e)', () => {
       });
     });
 
-    // 4. Generate 5,000-row CSV fixture buffer
-    csvBuffer5000 = generateSupplierPriceList5000CsvBuffer(';');
+    // 4. Generate the small-fixture CSV buffer and one shared dry-run job
+    //    that the apply/idempotency/isolation tests reuse.
+    csvBufferSmall = generateSupplierPriceListCsvBuffer(
+      FIXTURE_COUNTS_SMALL,
+      ';',
+    );
+
+    const dryRunRes = await request(app.getHttpServer())
+      .post('/api/imports')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .field('entityType', 'SUPPLIER_PRICE_LIST')
+      .field('sourceSystem', 'supplier')
+      .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
+      .field('options', JSON.stringify({ vendor_id: vendorA.id }))
+      .attach('file', csvBufferSmall, 'supplier-prices-200.csv')
+      .expect(201);
+
+    expect(dryRunRes.body.status).toBe('DRY_RUN_DONE');
+    sharedDryRunJobId = dryRunRes.body.id;
   }, 120000);
 
   afterAll(async () => {
@@ -366,7 +387,7 @@ describe('Supplier Price List Import (e2e)', () => {
     expect(Array.isArray(ownerListRes.body)).toBe(true);
     expect(ownerListRes.body.length).toBeGreaterThanOrEqual(1);
 
-    // Clean up created margin rule for cleanly isolated benchmark test
+    // Clean up created margin rule so later tests see the default threshold state
     await runWithTenantContext(tenantA.tenantId, async () => {
       await tenantPrismaA.marginRule.delete({
         where: { id: adminMarginRes.body.id },
@@ -375,59 +396,12 @@ describe('Supplier Price List Import (e2e)', () => {
   });
 
   // --------------------------------------------------------------------------
-  // Test 2: 5,000-row dry-run performance benchmark and count verification
-  // --------------------------------------------------------------------------
-  it('executes 5,000-row dry-run benchmark within reasonable time (< 10s) with exact counts', async () => {
-    const startTime = Date.now();
-
-    const res = await request(app.getHttpServer())
-      .post('/api/imports')
-      .set('Authorization', `Bearer ${adminTokenA}`)
-      .field('entityType', 'SUPPLIER_PRICE_LIST')
-      .field('sourceSystem', 'supplier')
-      .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
-      .field('options', JSON.stringify({ vendor_id: vendorA.id }))
-      .attach('file', csvBuffer5000, 'supplier-prices-5000.csv')
-      .expect(201);
-
-    const elapsedMs = Date.now() - startTime;
-
-    // Verify benchmark execution time
-    expect(elapsedMs).toBeLessThan(10000);
-
-    benchmarkJobId = res.body.id;
-    expect(benchmarkJobId).toBeDefined();
-
-    // Verify job structure and counts
-    expect(res.body.status).toBe('DRY_RUN_DONE');
-    expect(res.body.totals).toEqual({
-      rows: FIXTURE_COUNTS.totalRows, // 5,000
-      update:
-        FIXTURE_COUNTS.updatesExpected + FIXTURE_COUNTS.priceJumpsExpected, // 2,500 + 400 = 2,900
-      skip:
-        FIXTURE_COUNTS.unchangedExpected + FIXTURE_COUNTS.unmatchedExpected, // 1,000 + 1,000 = 2,000
-      create: 0,
-      error: FIXTURE_COUNTS.errorsExpected, // 100
-      flagged_jumps: FIXTURE_COUNTS.priceJumpsExpected, // 400
-    });
-
-    // Verify rows endpoint returns rows
-    const rowsRes = await request(app.getHttpServer())
-      .get(`/api/imports/${benchmarkJobId}/rows?limit=5`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
-      .expect(200);
-    expect(rowsRes.body.data.length).toBe(5);
-  });
-
-  // --------------------------------------------------------------------------
-  // Test 3: Price jump rejection without acceptance; success with acceptance
+  // Test 2: Price jump rejection without acceptance; success with acceptance
   // --------------------------------------------------------------------------
   it('blocks apply when price jump > 20% is unaccepted, then succeeds when accepted', async () => {
-    expect(benchmarkJobId).toBeDefined();
-
     // 1. Applying without accepting price jumps fails with 400
     const rejectRes = await request(app.getHttpServer())
-      .post(`/api/imports/${benchmarkJobId}/apply`)
+      .post(`/api/imports/${sharedDryRunJobId}/apply`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({})
       .expect(400);
@@ -435,28 +409,31 @@ describe('Supplier Price List Import (e2e)', () => {
     const errCode = rejectRes.body.code ?? rejectRes.body.message;
     expect(JSON.stringify(errCode)).toContain('PRICE_JUMP_REQUIRES_ACCEPTANCE');
 
-    // Job remains in DRY_RUN_DONE status
+    // Job remains in DRY_RUN_DONE status with the expected dry-run totals
     const jobCheck = await request(app.getHttpServer())
-      .get(`/api/imports/${benchmarkJobId}`)
+      .get(`/api/imports/${sharedDryRunJobId}`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .expect(200);
     expect(jobCheck.body.status).toBe('DRY_RUN_DONE');
+    expect(jobCheck.body.totals).toEqual(
+      expectedDryRunTotals(FIXTURE_COUNTS_SMALL),
+    );
 
     // 2. Applying with accept_all_price_jumps: true succeeds with 200
     const applyRes = await request(app.getHttpServer())
-      .post(`/api/imports/${benchmarkJobId}/apply`)
+      .post(`/api/imports/${sharedDryRunJobId}/apply`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ accept_all_price_jumps: true })
       .expect(202);
 
     expect(applyRes.body.status).toBe('APPLIED');
-    expect(applyRes.body.totals.update).toBe(2900);
-    expect(applyRes.body.totals.skip).toBe(2000);
-    expect(applyRes.body.totals.error).toBe(100);
+    expect(applyRes.body.totals.update).toBe(116); // 100 updates + 16 jumps
+    expect(applyRes.body.totals.skip).toBe(80); // 40 unchanged + 40 unmatched
+    expect(applyRes.body.totals.error).toBe(4);
   }, 120000);
 
   // --------------------------------------------------------------------------
-  // Test 4: Apply execution: verifies VendorArticle upsert and CatalogPriceHistory
+  // Test 3: Apply execution: verifies VendorArticle upsert and CatalogPriceHistory
   // --------------------------------------------------------------------------
   it('creates VendorArticle and CatalogPriceHistory records for applied items', async () => {
     await runWithTenantContext(tenantA.tenantId, async () => {
@@ -478,7 +455,7 @@ describe('Supplier Price List Import (e2e)', () => {
         where: {
           tenant_id: tenantA.tenantId,
           catalog_item_id: targetCatalogItemId,
-          import_job_id: benchmarkJobId,
+          import_job_id: sharedDryRunJobId,
         },
       });
       expect(priceHistories.length).toBe(1);
@@ -492,15 +469,15 @@ describe('Supplier Price List Import (e2e)', () => {
         await tenantPrismaA.catalogPriceHistory.count({
           where: {
             tenant_id: tenantA.tenantId,
-            import_job_id: benchmarkJobId,
+            import_job_id: sharedDryRunJobId,
           },
         });
-      expect(totalPriceHistories).toBe(2900);
+      expect(totalPriceHistories).toBe(116);
     });
   });
 
   // --------------------------------------------------------------------------
-  // Test 5: Re-running identical CSV file is a no-op (idempotent)
+  // Test 4: Re-running identical CSV file is a no-op (idempotent)
   // --------------------------------------------------------------------------
   it('is idempotent: re-running identical CSV file produces 0 new updates and 0 new price histories', async () => {
     // Re-run dry-run with the exact same CSV
@@ -511,15 +488,15 @@ describe('Supplier Price List Import (e2e)', () => {
       .field('sourceSystem', 'supplier')
       .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
       .field('options', JSON.stringify({ vendor_id: vendorA.id }))
-      .attach('file', csvBuffer5000, 'supplier-prices-5000.csv')
+      .attach('file', csvBufferSmall, 'supplier-prices-200.csv')
       .expect(201);
 
     expect(rerunDryRun.body.status).toBe('DRY_RUN_DONE');
-    // All 2,900 previously updated items are now unchanged in cost -> converted to SKIP!
+    // All 116 previously updated items are now unchanged in cost -> converted to SKIP!
     expect(rerunDryRun.body.totals.update).toBe(0);
-    expect(rerunDryRun.body.totals.skip).toBe(4900); // 2,500 + 400 + 1,000 unchanged + 1,000 unmatched
+    expect(rerunDryRun.body.totals.skip).toBe(196); // 100 + 16 + 40 unchanged + 40 unmatched
     expect(rerunDryRun.body.totals.create).toBe(0);
-    expect(rerunDryRun.body.totals.error).toBe(100);
+    expect(rerunDryRun.body.totals.error).toBe(4);
 
     // Apply the second job
     const rerunApply = await request(app.getHttpServer())
@@ -530,7 +507,7 @@ describe('Supplier Price List Import (e2e)', () => {
 
     expect(rerunApply.body.status).toBe('APPLIED');
     expect(rerunApply.body.totals.update).toBe(0);
-    expect(rerunApply.body.totals.skip).toBe(4900);
+    expect(rerunApply.body.totals.skip).toBe(196);
 
     // Exactly 0 new CatalogPriceHistory records created for the re-run job
     await runWithTenantContext(tenantA.tenantId, async () => {
@@ -545,7 +522,7 @@ describe('Supplier Price List Import (e2e)', () => {
   }, 120000);
 
   // --------------------------------------------------------------------------
-  // Test 6: Historical immutability of documents
+  // Test 5: Historical immutability of documents
   // --------------------------------------------------------------------------
   it('preserves historical document prices: InvoiceItem, SalesOrderItem, WorkshopTaskLineItem retain old unit_price', async () => {
     await runWithTenantContext(tenantA.tenantId, async () => {
@@ -591,26 +568,24 @@ describe('Supplier Price List Import (e2e)', () => {
   });
 
   // --------------------------------------------------------------------------
-  // Test 7: Multi-tenant isolation
+  // Test 6: Multi-tenant isolation
   // --------------------------------------------------------------------------
   it('enforces multi-tenant isolation: Tenant B cannot access Tenant A import job, vendor articles, or price history', async () => {
-    expect(benchmarkJobId).toBeDefined();
-
     // 1. Tenant B cannot get Tenant A's import job (404)
     await request(app.getHttpServer())
-      .get(`/api/imports/${benchmarkJobId}`)
+      .get(`/api/imports/${sharedDryRunJobId}`)
       .set('Authorization', `Bearer ${adminTokenB}`)
       .expect(404);
 
     // 2. Tenant B cannot get Tenant A's import job rows (404)
     await request(app.getHttpServer())
-      .get(`/api/imports/${benchmarkJobId}/rows`)
+      .get(`/api/imports/${sharedDryRunJobId}/rows`)
       .set('Authorization', `Bearer ${adminTokenB}`)
       .expect(404);
 
     // 3. Tenant B cannot apply Tenant A's import job (404)
     await request(app.getHttpServer())
-      .post(`/api/imports/${benchmarkJobId}/apply`)
+      .post(`/api/imports/${sharedDryRunJobId}/apply`)
       .set('Authorization', `Bearer ${adminTokenB}`)
       .send({ accept_all_price_jumps: true })
       .expect(404);
