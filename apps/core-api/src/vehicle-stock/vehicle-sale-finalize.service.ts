@@ -50,6 +50,16 @@ import {
 import { findAuditActorId } from './vehicle-sale.audit.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
 
+type LockedSale = {
+  sale: FinalizeSale;
+  persistedSiteId: string;
+  commitmentContext: Awaited<
+    ReturnType<InvoiceSnapshotCommitService['lockCommitmentContext']>
+  >;
+  invoiceDate: Date;
+  figures: ReturnType<typeof buildFinalizeFigures>;
+};
+
 /** Completes a draft sale: writes the margin invoice, retires the vehicle from stock and posts the SALE ledger row. */
 @Injectable()
 export class VehicleSaleFinalizeService {
@@ -90,178 +100,233 @@ export class VehicleSaleFinalizeService {
   async finalize(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    let dmsSaleContext: {
-      vehicleId: string;
-      stockPurchaseId: string;
-    } | null = null;
-    const response = await this.prisma.$transaction(async (tx) => {
-      const draft = await findSaleForFinalize(tx, id, tenantId, siteId);
-      const persistedSiteId = assertPersistedSiteId(
-        draft.site_id,
-        'Vehicle sale site ownership is required',
-      );
-      const invoiceDate = new Date();
-      const dueDate = new Date(invoiceDate);
-      dueDate.setDate(dueDate.getDate() + 14);
-      const commitmentContext = await this.snapshotCommit.lockCommitmentContext(
-        tx,
-        tenantId,
-        {
-          sales_order_id: null,
-          workshop_order_id: null,
-          vehicle_sale_id: draft.id,
-          site_id: persistedSiteId,
-        },
-        invoiceDate,
-      );
+    const { response, dmsSaleContext } = await this.prisma.$transaction((tx) =>
+      this.finalizeInTransaction(tx, id, tenantId, siteId),
+    );
 
-      const sale = await findLockedDraftForFinalize(
-        tx,
-        id,
-        tenantId,
-        commitmentContext.ownership.siteId,
-      );
-      await this.sales.assertSellable(
-        tenantId,
-        sale.vehicle_id,
-        sale.customer_id,
-        tx,
-      );
-
-      const warrantySnapshot = computeSaleWarrantySnapshot(
-        finalizeWarrantyInput(sale),
-        sale.vehicle.first_registration_date,
-      );
-      const entries = await findFinalizeLedgerEntries(
-        tx,
-        tenantId,
-        sale,
-        persistedSiteId,
-      );
-      const figures = buildFinalizeFigures(sale, entries);
-
-      await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
-        id,
-        tenantId,
-        from: VehicleSaleStatus.DRAFT,
-        to: VehicleSaleStatus.INVOICED,
-        extraWhere: { site_id: persistedSiteId },
-        extraData: warrantySnapshot,
-        conflictMessage: SALE_STATE_CHANGED_MESSAGE,
-      });
-
-      // Read after the guarded status update. The site row lock from lockCommitmentContext is held here, and a
-      // trade-in save takes the same lock first, so no save can change the link before the invoice is written.
-      const tradeIn = await loadFinalizableTradeIn(
-        tx,
-        tenantId,
-        sale,
-        persistedSiteId,
-      );
-      const posted = await findSaleForFinalize(tx, id, tenantId, siteId);
-
-      const amountDue = netAmountDue(
-        sale.sale_price,
-        tradeIn?.purchase_price ?? null,
-      );
-      const invoice = await tx.invoice.create({
-        data: buildMarginInvoiceData({
-          tenantId,
-          posted,
-          ownership: commitmentContext.ownership,
-          invoiceDate,
-          dueDate,
-          figures,
-          salePrice: sale.sale_price,
-          amountDue,
-          tradeIn,
-        }),
-        include: { items: true, customer: true, vehicle: true },
-      });
-
-      await this.snapshotCommit.lockInvoiceRow(tx, tenantId, invoice.id);
-      const prepared = await this.snapshotCommit.prepareV2Snapshot({
-        tx,
-        tenantId,
-        invoice,
-        margin: figures.margin,
-        commitmentContext,
-        lockInvoiceRow: false,
-        inKindCredit: tradeIn?.purchase_price,
-      });
-      const invoiceNumber = await assignInvoiceNumber(tx, tenantId, invoice.id);
-      await this.snapshotCommit.persistV2Snapshot(
-        tx,
-        tenantId,
-        invoice.id,
-        prepared,
-      );
-      if (tradeIn) {
-        await this.recordTradeInNettedAudit(tx, tenantId, posted.id, {
-          invoiceId: invoice.id,
-          invoiceNumber,
-          tradeInPurchaseId: tradeIn.id,
-          allowance: tradeIn.purchase_price,
-          salePrice: sale.sale_price,
-          amountDue,
-        });
-      }
-
-      await tx.vehicleSale.update({
-        where: { id: posted.id },
-        data: {
-          cost_basis_snapshot: figures.basis,
-          margin_vat_snapshot: figures.vat,
-          days_to_sell_snapshot: daysInStock(
-            sale.vehicle.stock_received_at,
-            invoiceDate,
-          ),
-        },
-      });
-
-      await deactivateVehicleListingsOnSale(tx, {
-        tenantId,
-        siteId: persistedSiteId,
-        vehicleId: posted.vehicle_id,
-      });
-      const stockPurchaseId = await findReceivedStockPurchaseIdForActiveSite(
-        tx,
-        tenantId,
-        posted.vehicle_id,
-        persistedSiteId,
-      );
-      if (stockPurchaseId) {
-        dmsSaleContext = {
-          vehicleId: posted.vehicle_id,
-          stockPurchaseId,
-        };
-      }
-
-      await this.releaseStockAndPostLedger(tx, tenantId, posted, {
-        persistedSiteId,
-        firstRegistrationDate: sale.vehicle.first_registration_date,
-      });
-
-      return buildFinalizeResponse(
-        posted,
-        { ...invoice, invoice_number: invoiceNumber },
-        prepared.snapshot,
-      );
-    });
-
-    if (dmsSaleContext !== null) {
-      const { vehicleId: saleVehicleId, stockPurchaseId } = dmsSaleContext;
+    if (dmsSaleContext) {
       await this.autoscout24DmsPush
         .deactivateAfterVehicleSale({
           tenantId,
           siteId,
-          vehicleId: saleVehicleId,
-          stockPurchaseId,
+          vehicleId: dmsSaleContext.vehicleId,
+          stockPurchaseId: dmsSaleContext.stockPurchaseId,
         })
         .catch(() => undefined);
     }
 
     return response;
+  }
+
+  private async finalizeInTransaction(
+    tx: Prisma.TransactionClient,
+    id: string,
+    tenantId: string,
+    siteId: string,
+  ) {
+    const locked = await this.lockAndMarkInvoiced(tx, id, tenantId, siteId);
+    const written = await this.writeMarginInvoice(
+      tx,
+      id,
+      tenantId,
+      siteId,
+      locked,
+    );
+    const dmsSaleContext = await this.closeOutVehicle(
+      tx,
+      tenantId,
+      locked,
+      written.posted,
+    );
+    return {
+      response: buildFinalizeResponse(
+        written.posted,
+        { ...written.invoice, invoice_number: written.invoiceNumber },
+        written.prepared.snapshot,
+      ),
+      dmsSaleContext,
+    };
+  }
+
+  /** Locks the site, re-checks the draft and the vehicle, then flips the sale from DRAFT to INVOICED. */
+  private async lockAndMarkInvoiced(
+    tx: Prisma.TransactionClient,
+    id: string,
+    tenantId: string,
+    siteId: string,
+  ): Promise<LockedSale> {
+    const draft = await findSaleForFinalize(tx, id, tenantId, siteId);
+    const persistedSiteId = assertPersistedSiteId(
+      draft.site_id,
+      'Vehicle sale site ownership is required',
+    );
+    const invoiceDate = new Date();
+    const commitmentContext = await this.snapshotCommit.lockCommitmentContext(
+      tx,
+      tenantId,
+      {
+        sales_order_id: null,
+        workshop_order_id: null,
+        vehicle_sale_id: draft.id,
+        site_id: persistedSiteId,
+      },
+      invoiceDate,
+    );
+
+    const sale = await findLockedDraftForFinalize(
+      tx,
+      id,
+      tenantId,
+      commitmentContext.ownership.siteId,
+    );
+    await this.sales.assertSellable(
+      tenantId,
+      sale.vehicle_id,
+      sale.customer_id,
+      tx,
+    );
+
+    const warrantySnapshot = computeSaleWarrantySnapshot(
+      finalizeWarrantyInput(sale),
+      sale.vehicle.first_registration_date,
+    );
+    const entries = await findFinalizeLedgerEntries(
+      tx,
+      tenantId,
+      sale,
+      persistedSiteId,
+    );
+    const figures = buildFinalizeFigures(sale, entries);
+
+    await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
+      id,
+      tenantId,
+      from: VehicleSaleStatus.DRAFT,
+      to: VehicleSaleStatus.INVOICED,
+      extraWhere: { site_id: persistedSiteId },
+      extraData: warrantySnapshot,
+      conflictMessage: SALE_STATE_CHANGED_MESSAGE,
+    });
+
+    return { sale, persistedSiteId, commitmentContext, invoiceDate, figures };
+  }
+
+  /** Writes the margin invoice with its snapshot and number, netting an attached trade-in. */
+  private async writeMarginInvoice(
+    tx: Prisma.TransactionClient,
+    id: string,
+    tenantId: string,
+    siteId: string,
+    locked: LockedSale,
+  ) {
+    const { sale, persistedSiteId, commitmentContext, invoiceDate, figures } =
+      locked;
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + 14);
+
+    // Read after the guarded status update. The site row lock from lockCommitmentContext is held here, and a
+    // trade-in save takes the same lock first, so no save can change the link before the invoice is written.
+    const tradeIn = await loadFinalizableTradeIn(
+      tx,
+      tenantId,
+      sale,
+      persistedSiteId,
+    );
+    const posted = await findSaleForFinalize(tx, id, tenantId, siteId);
+
+    const amountDue = netAmountDue(
+      sale.sale_price,
+      tradeIn?.purchase_price ?? null,
+    );
+    const invoice = await tx.invoice.create({
+      data: buildMarginInvoiceData({
+        tenantId,
+        posted,
+        ownership: commitmentContext.ownership,
+        invoiceDate,
+        dueDate,
+        figures,
+        salePrice: sale.sale_price,
+        amountDue,
+        tradeIn,
+      }),
+      include: { items: true, customer: true, vehicle: true },
+    });
+
+    await this.snapshotCommit.lockInvoiceRow(tx, tenantId, invoice.id);
+    const prepared = await this.snapshotCommit.prepareV2Snapshot({
+      tx,
+      tenantId,
+      invoice,
+      margin: figures.margin,
+      commitmentContext,
+      lockInvoiceRow: false,
+      inKindCredit: tradeIn?.purchase_price,
+    });
+    const invoiceNumber = await assignInvoiceNumber(tx, tenantId, invoice.id);
+    await this.snapshotCommit.persistV2Snapshot(
+      tx,
+      tenantId,
+      invoice.id,
+      prepared,
+    );
+    if (tradeIn) {
+      await this.recordTradeInNettedAudit(tx, tenantId, posted.id, {
+        invoiceId: invoice.id,
+        invoiceNumber,
+        tradeInPurchaseId: tradeIn.id,
+        allowance: tradeIn.purchase_price,
+        salePrice: sale.sale_price,
+        amountDue,
+      });
+    }
+
+    return { posted, invoice, invoiceNumber, prepared };
+  }
+
+  /**
+   * Records the sale figures, takes the listings down and retires the vehicle from stock.
+   * Returns the stock cycle the marketplace push must deactivate after the transaction commits.
+   */
+  private async closeOutVehicle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    locked: LockedSale,
+    posted: FinalizeSale,
+  ): Promise<{ vehicleId: string; stockPurchaseId: string } | null> {
+    const { sale, persistedSiteId, invoiceDate, figures } = locked;
+    await tx.vehicleSale.update({
+      where: { id: posted.id },
+      data: {
+        cost_basis_snapshot: figures.basis,
+        margin_vat_snapshot: figures.vat,
+        days_to_sell_snapshot: daysInStock(
+          sale.vehicle.stock_received_at,
+          invoiceDate,
+        ),
+      },
+    });
+
+    await deactivateVehicleListingsOnSale(tx, {
+      tenantId,
+      siteId: persistedSiteId,
+      vehicleId: posted.vehicle_id,
+    });
+    const stockPurchaseId = await findReceivedStockPurchaseIdForActiveSite(
+      tx,
+      tenantId,
+      posted.vehicle_id,
+      persistedSiteId,
+    );
+
+    await this.releaseStockAndPostLedger(tx, tenantId, posted, {
+      persistedSiteId,
+      firstRegistrationDate: sale.vehicle.first_registration_date,
+    });
+
+    return stockPurchaseId
+      ? { vehicleId: posted.vehicle_id, stockPurchaseId }
+      : null;
   }
 
   private async recordTradeInNettedAudit(

@@ -51,6 +51,53 @@ function buyerSnapshot(
   };
 }
 
+type SnapshotParts = {
+  vin: string;
+  seller: Parameters<typeof buildSellerSnapshot>[0];
+  warranty: ReturnType<typeof resolveKaufvertragGewaehrleistung>;
+  branding: KaufvertragSnapshotBranding;
+  documentLocale: KaufvertragSnapshot['document_locale'];
+};
+
+/** Puts the guarded facts of a sale into the frozen snapshot shape the PDF is rendered from. */
+function assembleSnapshot(
+  sale: LoadedSale,
+  parts: SnapshotParts,
+): KaufvertragSnapshot {
+  const { vin, seller, warranty, branding, documentLocale } = parts;
+  return buildKaufvertragSnapshot({
+    sale: {
+      id: sale.id,
+      sale_number: sale.sale_number,
+      sale_price_eur: sale.sale_price.toFixed(2),
+      contract_concluded_at: warranty.contractConcludedAt,
+      handed_over_at: warranty.handedOverAt,
+    },
+    seller: buildSellerSnapshot(seller),
+    buyer: buyerSnapshot(sale.customer),
+    vehicle: {
+      make: sale.vehicle.make,
+      model: sale.vehicle.model,
+      vin,
+      hsn: sale.vehicle.hsn,
+      tsn: sale.vehicle.tsn,
+      color: sale.vehicle.color,
+      mileage: sale.vehicle.mileage,
+      first_registration_date: sale.vehicle.first_registration_date,
+    },
+    warranty,
+    garantie:
+      sale.garantie_months !== null
+        ? {
+            months: sale.garantie_months,
+            terms: sale.garantie_terms?.trim() || null,
+          }
+        : null,
+    branding,
+    documentLocale,
+  });
+}
+
 /** The archive a sale already points to for these exact facts, or null when a new one is needed. */
 export function resolveCachedArchive(
   sale: LoadedSale,
@@ -157,34 +204,10 @@ export class KaufvertragPdfSnapshotService {
       sale.customer,
       tenantDefaultLocale,
     );
-    const snapshot = buildKaufvertragSnapshot({
-      sale: {
-        id: sale.id,
-        sale_number: sale.sale_number,
-        sale_price_eur: sale.sale_price.toFixed(2),
-        contract_concluded_at: warranty.contractConcludedAt,
-        handed_over_at: warranty.handedOverAt,
-      },
-      seller: buildSellerSnapshot(seller),
-      buyer: buyerSnapshot(sale.customer),
-      vehicle: {
-        make: sale.vehicle.make,
-        model: sale.vehicle.model,
-        vin,
-        hsn: sale.vehicle.hsn,
-        tsn: sale.vehicle.tsn,
-        color: sale.vehicle.color,
-        mileage: sale.vehicle.mileage,
-        first_registration_date: sale.vehicle.first_registration_date,
-      },
+    const snapshot = assembleSnapshot(sale, {
+      vin,
+      seller,
       warranty,
-      garantie:
-        sale.garantie_months !== null
-          ? {
-              months: sale.garantie_months,
-              terms: sale.garantie_terms?.trim() || null,
-            }
-          : null,
       branding,
       documentLocale,
     });
