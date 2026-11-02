@@ -162,8 +162,11 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
     return Number(stock?.quantity_on_hand ?? 0);
   }
 
-  /** Creates `count` catalog items, each with 5 on hand in the MAIN bin. */
-  async function seedStockedItems(count: number): Promise<string[]> {
+  /** Creates `count` catalog items, each with `onHand` (default 5) in the MAIN bin. */
+  async function seedStockedItems(
+    count: number,
+    onHand = 5,
+  ): Promise<string[]> {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const items = await Promise.all(
       Array.from({ length: count }, (_, index) =>
@@ -185,18 +188,28 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
         site_id: mainSiteId,
         catalog_item_id: item.id,
         location_id: mainBinId,
-        quantity_on_hand: 5,
+        quantity_on_hand: onHand,
       })),
     });
     return items.map((item) => item.id);
   }
 
-  /** Drives a MAIN -> GRZ transfer of `lineCount` lines up to `action` and counts that request's SQL statements. */
+  /**
+   * Drives a MAIN -> GRZ transfer of `lineCount` lines up to `action` and counts that request's SQL
+   * statements. Every line requests (and receives) quantity 2 unless `lineQuantities` gives one
+   * distinct quantity per line.
+   */
   async function statementsForAction(
     action: 'create' | 'approve' | 'ship' | 'receive',
     lineCount: number,
+    lineQuantities?: number[],
   ) {
-    const itemIds = await seedStockedItems(lineCount);
+    const quantities =
+      lineQuantities ?? Array.from({ length: lineCount }, () => 2);
+    const itemIds = await seedStockedItems(
+      quantities.length,
+      Math.max(...quantities),
+    );
     const statements = (send: () => Promise<{ status: number }>) =>
       countDbStatements(async () => {
         expect((await send()).status).toBeLessThan(300);
@@ -206,9 +219,9 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       postTransfer({
         fromSiteId: mainSiteId,
         toSiteId: grzSiteId,
-        lines: itemIds.map((itemId) => ({
+        lines: itemIds.map((itemId, index) => ({
           catalogItemId: itemId,
-          requestedQty: 2,
+          requestedQty: quantities[index],
           sourceLocationId: mainBinId,
         })),
       });
@@ -240,10 +253,10 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
     return statements(() =>
       postAction(created.body.id, 'receive', {
         expectedVersion: 3,
-        idempotencyKey: `aut861-${lineCount}`,
-        lines: lineIds.map((id) => ({
+        idempotencyKey: `aut861-${lineCount}-${lineQuantities ? 'distinct' : 'equal'}`,
+        lines: lineIds.map((id, index) => ({
           id,
-          receiveQty: 2,
+          receiveQty: quantities[index],
           destLocationId: grzBinId,
         })),
       }),
@@ -421,6 +434,43 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       const tenLines = await statementsForAction(action, 10);
 
       expect(tenLines).toBe(twoLines);
+    },
+  );
+
+  // The SE accepted writes grouped by delta (AUT-861): one updateMany per
+  // distinct quantity, so statements grow with the number of distinct
+  // quantities, not the number of lines. EQUAL_QUANTITY_STATEMENTS is the
+  // equal-quantity cost of the action (10 lines sharing one quantity -> a
+  // single group everywhere); it is pinned and re-asserted so a changed
+  // fixed cost fails loudly instead of silently loosening the bound. Each
+  // further distinct quantity opens one more grouped line update, plus for
+  // ship/receive one more grouped stock-level increment: bound = C +
+  // (lines - 1) * groups. A per-line fallback (stock update + read-back +
+  // line update per line) pays three statements per line against the one or
+  // two this bound allows and fails; deriving C live from the same run
+  // would not, because the fallback inflates the equal-quantity baseline
+  // too. For approve, per-line and grouped writes coincide when every
+  // quantity is distinct - its existing 2-vs-10 S1 case is the guard there.
+  const DISTINCT_QUANTITY_BOUND = {
+    approve: { equalQuantityStatements: 23, groupsPerExtraQuantity: 1 },
+    ship: { equalQuantityStatements: 36, groupsPerExtraQuantity: 2 },
+    receive: { equalQuantityStatements: 37, groupsPerExtraQuantity: 2 },
+  } as const;
+
+  it.each(['approve', 'ship', 'receive'] as const)(
+    'AUT-861 S1: transfer %s with 10 distinct quantities pays grouped writes, not per-line writes',
+    async (action) => {
+      const equal = await statementsForAction(action, 10);
+      expect(equal).toBe(DISTINCT_QUANTITY_BOUND[action].equalQuantityStatements);
+
+      const quantities = Array.from({ length: 10 }, (_, index) => index + 2);
+      const distinct = await statementsForAction(action, 10, quantities);
+
+      expect(distinct).toBeLessThanOrEqual(
+        DISTINCT_QUANTITY_BOUND[action].equalQuantityStatements +
+          DISTINCT_QUANTITY_BOUND[action].groupsPerExtraQuantity *
+            (quantities.length - 1),
+      );
     },
   );
 
