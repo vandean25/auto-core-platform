@@ -354,7 +354,7 @@ jobs:
             node_modules
             apps/core-api/node_modules
             apps/core-web/node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json', 'apps/core-api/package.json', 'apps/core-web/package.json', '.nvmrc') }}
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'package.json', 'apps/core-api/package.json', 'apps/core-web/package.json', '.nvmrc') }}
 
       - name: Install workspace dependencies
         if: steps.node-modules.outputs.cache-hit != 'true'
