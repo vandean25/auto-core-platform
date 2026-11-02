@@ -1,6 +1,6 @@
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { syncWorkshopEstimateOverrunAfterWrite } from './workshop-estimate-overrun-sync.js';
-import { assertWorkshopTaskWriteRole } from './workshop-task-scope.js';
+import { assertBackOfficeRole } from './workshop-estimate-scope.js';
 import {
   ConflictException,
   Injectable,
@@ -78,7 +78,7 @@ export class WorkshopCatalogLineService {
     taskId: string,
     dto: AddWorkshopTaskLineFromCatalogDto,
   ) {
-    assertWorkshopTaskWriteRole(
+    assertBackOfficeRole(
       this.tenantContext,
       'Adding task line items from catalog',
     );

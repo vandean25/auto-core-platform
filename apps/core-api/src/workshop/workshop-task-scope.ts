@@ -4,17 +4,8 @@ import type { TenantContextService } from '../common/services/tenant-context.ser
 export const WORKSHOP_ROLE_FORBIDDEN_CODE = 'WORKSHOP_ROLE_FORBIDDEN';
 
 /**
- * Roles allowed to perform administrative task writes: create tasks, delete tasks,
- * modify line items, add lines from catalog, and stage/pick parts.
- */
-export const WORKSHOP_TASK_WRITE_ROLES: ReadonlySet<string> = new Set([
-  'OWNER',
-  'ADMIN',
-  'SALES',
-]);
-
-/**
  * Roles allowed to execute or update tasks and inspection checklists (including mechanics / technicians).
+ * Back-office task writes use `assertBackOfficeRole` from workshop-estimate-scope.ts instead.
  */
 export const WORKSHOP_TASK_EXECUTION_ROLES: ReadonlySet<string> = new Set([
   'OWNER',
@@ -22,19 +13,6 @@ export const WORKSHOP_TASK_EXECUTION_ROLES: ReadonlySet<string> = new Set([
   'SALES',
   'TECH',
 ]);
-
-export function assertWorkshopTaskWriteRole(
-  tenantContext: TenantContextService,
-  action: string,
-): void {
-  const user = tenantContext.getAuthenticatedUser();
-  if (!user?.role || !WORKSHOP_TASK_WRITE_ROLES.has(user.role)) {
-    throw new ForbiddenException({
-      code: WORKSHOP_ROLE_FORBIDDEN_CODE,
-      message: `${action} requires the owner, admin or sales role.`,
-    });
-  }
-}
 
 export function assertWorkshopTaskExecutionRole(
   tenantContext: TenantContextService,

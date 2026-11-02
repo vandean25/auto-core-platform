@@ -867,6 +867,25 @@ describe("WorkshopOrderDetails Characterization", () => {
     });
   });
 
+  describe("demo session task writes", () => {
+    it("disables task add and checkboxes, and hides the fitment search on an editable order", () => {
+      asMock(authSessionApi.useAuthSession).mockReturnValue({
+        data: { activeRole: "DEMO" },
+      });
+
+      renderComponent();
+
+      const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
+      inputs.forEach((input) => expect(input).toBeDisabled());
+      const addButtons = screen.getAllByRole("button", { name: taskListCopy.addTask });
+      addButtons.forEach((button) => expect(button).toBeDisabled());
+      screen.getAllByRole("checkbox").forEach((cb) => expect(cb).toBeDisabled());
+
+      fireEvent.click(screen.getByText("Oil Change"));
+      expect(screen.queryByTestId("open-fitment-search-button")).not.toBeInTheDocument();
+    });
+  });
+
   // =====================================================================
   // P0: Mutation Handler Tests
   // =====================================================================

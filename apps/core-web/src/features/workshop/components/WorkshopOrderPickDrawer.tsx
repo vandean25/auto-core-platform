@@ -5,8 +5,10 @@ import { Check, ChevronsUpDown, Loader2, MapPin, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocations } from '@/api/locations'
 import { usePickWorkshopParts, useWorkshopOrder, workshopKeys } from '@/api/workshop'
+import { useAuthSession } from '@/api/auth-session'
 import type { StorageLocation } from '@/api/locations'
 import type { WorkshopOrder, WorkshopPickLineItemPayload } from '@/api/types'
+import { canManageWorkshopTasks } from '@/features/actions/action-role-predicates'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -458,9 +460,12 @@ export function WorkshopOrderPickDrawer({
 }: WorkshopOrderPickDrawerProps) {
   const { data: order, isLoading: isOrderLoading } = useWorkshopOrder(orderId ?? '')
   const { data: locations, isLoading: areLocationsLoading } = useLocations({ enabled: open })
+  const activeRole = useAuthSession()?.data?.activeRole
   const drawerStateKey = open
     ? `${orderId ?? 'no-order'}:${order?.id ?? 'loading'}`
     : `closed:${orderId ?? 'no-order'}`
+
+  if (!canManageWorkshopTasks(activeRole)) return null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

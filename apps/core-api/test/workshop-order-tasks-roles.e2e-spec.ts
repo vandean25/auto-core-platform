@@ -3,6 +3,10 @@ import { INestApplication } from '@nestjs/common';
 import type { TenantMemberRole } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
+import {
+  signCatalogHitPayload,
+  type CatalogHitPayloadClaims,
+} from '../src/catalog/catalog-hit-payload.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
@@ -181,7 +185,10 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
     if (app) await teardownTestApp(app);
   });
 
-  async function createTestOrder(): Promise<string> {
+  async function createTestOrder(): Promise<{
+    orderId: string;
+    vehicleId: string;
+  }> {
     const vehicle = await prisma.vehicle.create({
       data: {
         tenant_id: tenantId,
@@ -203,33 +210,127 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         notes: 'Role check test order',
       })
       .expect(201);
-    return res.body.id as string;
+    return { orderId: res.body.id as string, vehicleId: vehicle.id };
   }
 
   async function createTestOrderAndTask(
     title = 'Test Task',
-  ): Promise<{ orderId: string; taskId: string }> {
-    const orderId = await createTestOrder();
+    ownerToken = adminToken,
+  ): Promise<{ orderId: string; taskId: string; vehicleId: string }> {
+    const { orderId, vehicleId } = await createTestOrder();
     const taskRes = await api()
       .post(`/api/workshop/orders/${orderId}/tasks`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({ title })
       .expect(201);
-    return { orderId, taskId: taskRes.body.id as string };
+    return { orderId, taskId: taskRes.body.id as string, vehicleId };
+  }
+
+  const backOfficeTokens: Array<[string, () => string]> = [
+    ['OWNER', () => ownerToken],
+    ['ADMIN', () => adminToken],
+    ['SALES', () => salesToken],
+  ];
+
+  function createPartHitToken(params: {
+    orderId: string;
+    taskId: string;
+    vehicleId: string;
+    articleNumber: string;
+  }): string {
+    const claims: Omit<CatalogHitPayloadClaims, 'jti' | 'exp'> = {
+      tenantId,
+      workshopOrderId: params.orderId,
+      vehicleId: params.vehicleId,
+      taskId: params.taskId,
+      concern: 'PARTS',
+      sourceSystem: 'test-catalog',
+      externalId: `ext-${params.articleNumber}`,
+      name: 'Test brake pad',
+      articleNumber: params.articleNumber,
+      unitPrice: 25,
+    };
+    return signCatalogHitPayload(claims);
+  }
+
+  async function createPickFixture() {
+    const { orderId, taskId } = await createTestOrderAndTask();
+    const stamp = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const bin = await prisma.storageLocation.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        code: `ROLE-BIN-${stamp}`,
+        name: 'Role check bin',
+        type: 'bin',
+      },
+    });
+    const tote = await prisma.storageLocation.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        code: `ROLE-TOTE-${stamp}`,
+        name: 'Role check tote',
+        type: 'staging_tote',
+      },
+    });
+    const catalogItem = await prisma.catalogItem.create({
+      data: {
+        tenant_id: tenantId,
+        sku: `ROLE-SKU-${stamp}`,
+        name: 'Brake pad',
+        cost_price: 10,
+        retail_price: 20,
+      },
+    });
+    const line = await prisma.workshopTaskLineItem.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_task_id: taskId,
+        type: 'PART',
+        part_execution_status: 'PENDING_PICK',
+        item_no: catalogItem.sku,
+        description: catalogItem.name,
+        quantity: 1,
+        unit_price: 20,
+        catalog_item_id: catalogItem.id,
+      },
+    });
+    await prisma.partsReservation.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_task_line_item_id: line.id,
+        location_id: bin.id,
+        kind: 'ON_HAND',
+        quantity: 1,
+      },
+    });
+    await prisma.inventoryStock.create({
+      data: {
+        tenant_id: tenantId,
+        catalog_item_id: catalogItem.id,
+        site_id: siteId,
+        location_id: bin.id,
+        quantity_on_hand: 1,
+        quantity_reserved: 1,
+      },
+    });
+    return { orderId, lineId: line.id, toteId: tote.id, catalogItemId: catalogItem.id };
   }
 
   describe('POST /api/workshop/orders/:id/tasks (createTask)', () => {
     it('refuses DEMO viewer role with 403', async () => {
-      const orderId = await createTestOrder();
-      await api()
+      const { orderId } = await createTestOrder();
+      const res = await api()
         .post(`/api/workshop/orders/${orderId}/tasks`)
         .set('Authorization', `Bearer ${demoToken}`)
         .send({ title: 'Unauthorized Task' })
         .expect(403);
+      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
     });
 
     it('refuses TECH session with 403', async () => {
-      const orderId = await createTestOrder();
+      const { orderId } = await createTestOrder();
       await api()
         .post(`/api/workshop/orders/${orderId}/tasks`)
         .set('Authorization', `Bearer ${techToken}`)
@@ -237,34 +338,33 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .expect(403);
     });
 
-    it.each([
-      ['OWNER', () => ownerToken],
-      ['ADMIN', () => adminToken],
-      ['SALES', () => salesToken],
-    ])('allows %s to create a task', async (_role, getToken) => {
-      const orderId = await createTestOrder();
-      const res = await api()
-        .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${getToken()}`)
-        .send({ title: `Task for ${_role}` })
-        .expect(201);
+    it.each(backOfficeTokens)(
+      'allows %s to create a task',
+      async (_role, getToken) => {
+        const { orderId } = await createTestOrder();
+        const res = await api()
+          .post(`/api/workshop/orders/${orderId}/tasks`)
+          .set('Authorization', `Bearer ${getToken()}`)
+          .send({ title: `Task for ${_role}` })
+          .expect(201);
 
-      expect(res.body.id).toBeDefined();
-      expect(res.body.title).toBe(`Task for ${_role}`);
-      expect(res.body.workshop_order_id).toBe(orderId);
-    });
+        expect(res.body.title).toBe(`Task for ${_role}`);
+        expect(res.body.workshop_order_id).toBe(orderId);
+      },
+    );
   });
 
   describe('POST /api/workshop/orders/:id/tasks/:taskId/lines/from-catalog', () => {
     it('refuses DEMO viewer role with 403', async () => {
       const { orderId, taskId } = await createTestOrderAndTask('Catalog Task');
-      await api()
+      const res = await api()
         .post(
           `/api/workshop/orders/${orderId}/tasks/${taskId}/lines/from-catalog`,
         )
         .set('Authorization', `Bearer ${demoToken}`)
         .send({ hitToken: 'invalid' })
         .expect(403);
+      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
     });
 
     it('refuses TECH with 403', async () => {
@@ -277,12 +377,42 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .send({ hitToken: 'invalid' })
         .expect(403);
     });
+
+    it.each(backOfficeTokens)(
+      'allows %s to add a catalog part line',
+      async (role, getToken) => {
+        const { orderId, taskId, vehicleId } =
+          await createTestOrderAndTask('Catalog Task');
+        const articleNumber = `PAD-${role}`;
+        const hitToken = createPartHitToken({
+          orderId,
+          taskId,
+          vehicleId,
+          articleNumber,
+        });
+
+        const res = await api()
+          .post(
+            `/api/workshop/orders/${orderId}/tasks/${taskId}/lines/from-catalog`,
+          )
+          .set('Authorization', `Bearer ${getToken()}`)
+          .send({ hitToken })
+          .expect(200);
+
+        expect(res.body.line).toMatchObject({
+          type: 'PART',
+          itemNo: expect.stringContaining(articleNumber),
+          partExecutionStatus: 'PENDING_PICK',
+        });
+        expect(res.body.lineItemsVersion).toBe(1);
+      },
+    );
   });
 
   describe('POST /api/workshop/orders/:id/pick-parts', () => {
     it('refuses DEMO viewer role with 403', async () => {
-      const orderId = await createTestOrder();
-      await api()
+      const { orderId } = await createTestOrder();
+      const res = await api()
         .post(`/api/workshop/orders/${orderId}/pick-parts`)
         .set('Authorization', `Bearer ${demoToken}`)
         .send({
@@ -295,10 +425,11 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
           ],
         })
         .expect(403);
+      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
     });
 
     it('refuses TECH with 403', async () => {
-      const orderId = await createTestOrder();
+      const { orderId } = await createTestOrder();
       await api()
         .post(`/api/workshop/orders/${orderId}/pick-parts`)
         .set('Authorization', `Bearer ${techToken}`)
@@ -313,6 +444,41 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         })
         .expect(403);
     });
+
+    it.each(backOfficeTokens)(
+      'allows %s to pick a reserved part line',
+      async (_role, getToken) => {
+        const fixture = await createPickFixture();
+
+        const res = await api()
+          .post(`/api/workshop/orders/${fixture.orderId}/pick-parts`)
+          .set('Authorization', `Bearer ${getToken()}`)
+          .send({
+            destinationLocationId: fixture.toteId,
+            items: [{ workshopTaskLineItemId: fixture.lineId, quantity: 1 }],
+          })
+          .expect(201);
+
+        expect(res.body).toMatchObject({
+          id: fixture.orderId,
+          stagingLocationId: fixture.toteId,
+          movedLines: [
+            {
+              workshopTaskLineItemId: fixture.lineId,
+              movedQuantity: 1,
+            },
+          ],
+        });
+        const stock = await prisma.inventoryStock.findFirst({
+          where: {
+            tenant_id: tenantId,
+            catalog_item_id: fixture.catalogItemId,
+            location_id: fixture.toteId,
+          },
+        });
+        expect(stock?.quantity_on_hand).toBe(1);
+      },
+    );
   });
 
   describe('PATCH /api/workshop/orders/:orderId/tasks/:taskId/line-items (replaceTaskLineItems)', () => {
@@ -320,7 +486,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Line Items Task');
 
-      await api()
+      const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
         .set('Authorization', `Bearer ${demoToken}`)
         .send({
@@ -336,6 +502,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
           ],
         })
         .expect(403);
+      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
     });
 
     it('refuses TECH with 403', async () => {
@@ -360,11 +527,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .expect(403);
     });
 
-    it.each([
-      ['OWNER', () => ownerToken],
-      ['ADMIN', () => adminToken],
-      ['SALES', () => salesToken],
-    ])('allows %s to replace task line items', async (_role, getToken) => {
+    it.each(backOfficeTokens)('allows %s to replace task line items', async (_role, getToken) => {
       const { orderId, taskId } = await createTestOrderAndTask(
         `Line Task for ${_role}`,
       );
@@ -411,11 +574,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .expect(403);
     });
 
-    it.each([
-      ['OWNER', () => ownerToken],
-      ['ADMIN', () => adminToken],
-      ['SALES', () => salesToken],
-    ])('allows %s to update task', async (_role, getToken) => {
+    it.each(backOfficeTokens)('allows %s to update task', async (_role, getToken) => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Original Title');
 
@@ -452,11 +611,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .expect(403);
     });
 
-    it.each([
-      ['OWNER', () => ownerToken],
-      ['ADMIN', () => adminToken],
-      ['SALES', () => salesToken],
-    ])('allows %s to delete a task', async (_role, getToken) => {
+    it.each(backOfficeTokens)('allows %s to delete a task', async (_role, getToken) => {
       const { orderId, taskId } = await createTestOrderAndTask(
         `Delete by ${_role}`,
       );
@@ -477,7 +632,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       const { orderId, taskId } =
         await createTestOrderAndTask('Checklist Task');
 
-      await api()
+      const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/checklist`)
         .set('Authorization', `Bearer ${demoToken}`)
         .send({
@@ -489,6 +644,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
           ],
         })
         .expect(403);
+      expect(res.body.code).toBe('WORKSHOP_ROLE_FORBIDDEN');
     });
 
     it('refuses TECH with 403 on back-office task checklist update', async () => {
@@ -506,6 +662,66 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
             },
           ],
         })
+        .expect(403);
+    });
+
+    it.each(backOfficeTokens)(
+      'allows %s to update the task checklist on the back-office route',
+      async (_role, getToken) => {
+        const { orderId, taskId } =
+          await createTestOrderAndTask('Checklist Task');
+        const inspection = await prisma.workshopInspection.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+            workshop_task_id: taskId,
+            title: 'Back-office Inspection',
+          },
+        });
+        const item = await prisma.workshopInspectionItem.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_inspection_id: inspection.id,
+            label_snapshot: 'Test Item',
+          },
+        });
+
+        const res = await api()
+          .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/checklist`)
+          .set('Authorization', `Bearer ${getToken()}`)
+          .send({ items: [{ id: item.id, passed: true }] })
+          .expect(200);
+
+        expect(res.body.id).toBe(inspection.id);
+        expect(
+          res.body.items.find((candidate: { id: string }) => candidate.id === item.id),
+        ).toMatchObject({ passed: true });
+      },
+    );
+
+    it('refuses a back-office role with 403 on the mechanic checklist route', async () => {
+      const { orderId, taskId } = await createTestOrderAndTask('Mechanic Task');
+      const item = await prisma.workshopInspectionItem.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_inspection_id: (
+            await prisma.workshopInspection.create({
+              data: {
+                tenant_id: tenantId,
+                workshop_order_id: orderId,
+                workshop_task_id: taskId,
+                title: 'Mechanic Inspection',
+              },
+            })
+          ).id,
+          label_snapshot: 'Test Item',
+        },
+      });
+
+      await api()
+        .patch(`/api/mechanic/tasks/${taskId}/checklist`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ items: [{ id: item.id, passed: true }] })
         .expect(403);
     });
 

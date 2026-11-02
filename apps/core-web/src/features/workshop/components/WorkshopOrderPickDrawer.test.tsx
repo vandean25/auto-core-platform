@@ -9,9 +9,11 @@ const qtyLabel = deWorkshop.pick.drawer.qtyAria
   .replace('{{itemNo}}', 'PART-001')
 import * as locationsApi from '@/api/locations'
 import * as workshopApi from '@/api/workshop'
+import * as authSessionApi from '@/api/auth-session'
 
 vi.mock('@/api/locations')
 vi.mock('@/api/workshop')
+vi.mock('@/api/auth-session')
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -65,6 +67,10 @@ describe('WorkshopOrderPickDrawer', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+
+    ;(authSessionApi.useAuthSession as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { activeRole: 'SALES' },
+    })
 
     ;(locationsApi.useLocations as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [
