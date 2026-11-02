@@ -33,6 +33,32 @@ the sign-in form, so it runs in the `chromium-dev-server` project against the Vi
 
 ---
 
+## Visual regression (AUT-657, advisory)
+
+`e2e/visual/*.visual.spec.ts` compare the core pages (login, dashboard, customer list and detail, workshop order,
+vehicle, inventory, settings) and the sidebar (expanded, collapsed, mobile sheet) with committed screenshots in
+`e2e/visual/__screenshots__/`. They run in their own Playwright project, `visual`: `npm run test:e2e` selects only the
+three smoke projects, so the smoke shards never see them.
+
+```bash
+npm run test:visual          # compare with the baselines
+npm run test:visual:update   # rewrite the baselines (only on purpose, see below)
+```
+
+- **Deterministic by setup:** 1440x900 (390x844 for the mobile sheet), `de-AT`, Europe/Vienna, reduced motion, fixed
+  clock, fonts awaited, animations off, timestamps/avatars/version banner masked, unmocked API calls answer 404.
+  Tolerance is `maxDiffPixelRatio` 0.01 (anti-aliasing noise only).
+- **Baselines come from Linux Chromium in the CI image** (`mcr.microsoft.com/playwright:v1.64.1-noble`). A baseline
+  written on macOS or Windows differs in text rendering and fails in CI. On a laptop run the update inside that image:
+  `docker run --rm --ipc=host -v "$PWD:/work" -w /work mcr.microsoft.com/playwright:v1.64.1-noble npm run test:visual:update --workspace=core-web`.
+- **Update baselines only deliberately.** A diff you did not intend is a bug: fix the page. When the change is intended,
+  run `test:visual:update`, look at every changed PNG, and put the before/after screenshot in the PR description.
+- **CI:** the advisory job `UI Visual Regression (advisory)` (`.github/workflows/ui-visual.yaml`) runs on changes under
+  `apps/core-web/**` or `locales/**`. It never blocks a merge. On a diff it uploads expected, actual and diff images as
+  the `ui-visual-diff` artifact and links it in the job summary.
+
+---
+
 ## Test Suites
 
 | File | Lane | Purpose |

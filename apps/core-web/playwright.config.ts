@@ -19,6 +19,8 @@ export default defineConfig({
   workers: isCI ? 2 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: isCI ? [['list'], ['html', { open: 'never' }]] : 'html',
+  /* Only the visual project calls toHaveScreenshot. 1% pixel tolerance absorbs anti-aliasing noise, not layout changes. */
+  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled', caret: 'hide' } },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -35,7 +37,7 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
       // login.spec.ts and landing-demo-email-link.spec.ts rewrite dev-server modules; they run on the dev server below.
-      testIgnore: /login\.spec\.ts$|landing-demo-email-link\.spec\.ts$|i18n-en-login\.spec\.ts$|pwa-shell\.spec\.ts$/,
+      testIgnore: /login\.spec\.ts$|landing-demo-email-link\.spec\.ts$|i18n-en-login\.spec\.ts$|pwa-shell\.spec\.ts$|\.visual\.spec\.ts$/,
     },
     {
       name: 'chromium-dev-server',
@@ -47,6 +49,24 @@ export default defineConfig({
       name: 'chromium-pwa',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5176' },
       testMatch: /pwa-shell\.spec\.ts$/,
+    },
+    {
+      // AUT-657: advisory screenshot suite. Run it with `npm run test:visual`; `test:e2e` selects the three projects above.
+      // Baselines come from Linux Chromium in the CI image (mcr.microsoft.com/playwright), see e2e/README.md.
+      name: 'visual',
+      testDir: './e2e/visual',
+      testMatch: /\.visual\.spec\.ts$/,
+      // A retry would hide a flaky screenshot, so this project never retries.
+      retries: 0,
+      snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+        locale: 'de-AT',
+        timezoneId: 'Europe/Vienna',
+        colorScheme: 'light',
+        reducedMotion: 'reduce',
+      },
     },
   ],
 
