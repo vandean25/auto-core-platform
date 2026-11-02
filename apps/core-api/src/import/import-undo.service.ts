@@ -284,34 +284,53 @@ export class ImportUndoService {
       throw importJobBusy();
     }
     assertImportJobRowsAvailable(job.options_json);
-    // One purge rule for every path: staged rows gone although totals report
-    // applied rows means the rows_purged-flagged or the unflagged ancient purge
-    // deleted the undo basis. FAILED jobs without applied rows stay NOT_UNDOABLE.
-    if (
-      job.status !== ImportJobStatus.FAILED &&
-      getAppliedRowsCount(job.totals_json as ImportJobTotals | null) > 0 &&
-      !(await hasStagedImportJobRows(this.prisma, tenantId, job.id))
-    ) {
-      throw importJobPurged();
-    }
+    await this.assertUndoBasisStaged(tenantId, job);
     if (isDocOrFinancialImport(job.entity_type)) {
       throw importJobNotUndoable();
     }
-    const undoable =
-      UNDOABLE_STATUSES.has(job.status) ||
-      job.status === ImportJobStatus.FAILED;
-    if (!undoable) {
+    this.assertUndoableStatus(job.status);
+    await this.assertHasUndoableRows(tenantId, job);
+  }
+
+  /**
+   * One purge rule for every path: staged rows gone although totals report
+   * applied rows means the rows_purged-flagged or the unflagged ancient purge
+   * deleted the undo basis. FAILED jobs without applied rows stay NOT_UNDOABLE.
+   */
+  private async assertUndoBasisStaged(
+    tenantId: string,
+    job: ImportJob,
+  ): Promise<void> {
+    if (job.status === ImportJobStatus.FAILED) {
+      return;
+    }
+    if (getAppliedRowsCount(job.totals_json as ImportJobTotals | null) === 0) {
+      return;
+    }
+    if (!(await hasStagedImportJobRows(this.prisma, tenantId, job.id))) {
+      throw importJobPurged();
+    }
+  }
+
+  private assertUndoableStatus(status: ImportJobStatus): void {
+    if (!UNDOABLE_STATUSES.has(status) && status !== ImportJobStatus.FAILED) {
       throw importJobNotUndoable();
     }
-    const hasRows = await hasUndoableRows(this.prisma, tenantId, job);
-    if (!hasRows) {
-      throw importJobNotUndoable({
-        reason:
-          job.entity_type === SUPPLIER_PRICE_LIST_ENTITY_TYPE
-            ? UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT
-            : UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
-      });
+  }
+
+  private async assertHasUndoableRows(
+    tenantId: string,
+    job: ImportJob,
+  ): Promise<void> {
+    if (await hasUndoableRows(this.prisma, tenantId, job)) {
+      return;
     }
+    throw importJobNotUndoable({
+      reason:
+        job.entity_type === SUPPLIER_PRICE_LIST_ENTITY_TYPE
+          ? UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT
+          : UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    });
   }
 
   private async buildUndoWorkerState(

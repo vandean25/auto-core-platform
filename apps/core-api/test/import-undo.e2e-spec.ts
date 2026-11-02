@@ -176,6 +176,18 @@ describe('Import Undo (e2e)', () => {
     expect(response.body.code).toBe(expectedCode);
   }
 
+  async function expectUndoSucceeded(
+    jobId: string,
+    expectedStatus: string,
+  ): Promise<request.Response> {
+    const response = await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(200);
+    expect(response.body.status).toBe(expectedStatus);
+    return response;
+  }
+
   beforeAll(async () => {
     app = await createE2eApp(undefined, { productionErrorFilter: true });
 
@@ -493,12 +505,7 @@ describe('Import Undo (e2e)', () => {
     expect(previewRes.body.counts.blocked).toBe(0);
 
     // 4. Execute undo
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${dryRun.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('UNDONE');
+    await expectUndoSucceeded(dryRun.id, 'UNDONE');
 
     // 5. Verify DB equals pre-import state
     // - Created customer removed
@@ -655,12 +662,7 @@ describe('Import Undo (e2e)', () => {
     expect(previewRes.body.counts.toRestore).toBe(1);
 
     // 4. Execute undo
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${dryRun.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('UNDONE');
+    await expectUndoSucceeded(dryRun.id, 'UNDONE');
 
     // 5. Verify DB state restored
     const remainingNewVeh = await tenantPrisma.vehicle.findFirst({
@@ -974,12 +976,7 @@ describe('Import Undo (e2e)', () => {
     );
 
     // Attempting undo must NOT touch the customer or invoice
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${dryRun.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('APPLIED');
+    const undoRes = await expectUndoSucceeded(dryRun.id, 'APPLIED');
     expect(undoRes.body.options?.undo?.blocked).toBe(1);
     expect(undoRes.body.options?.undo?.deleted).toBe(0);
     expect(undoRes.body.options?.undo?.restored).toBe(0);
@@ -1061,12 +1058,7 @@ describe('Import Undo (e2e)', () => {
       },
     });
 
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('APPLIED');
+    const undoRes = await expectUndoSucceeded(job.id, 'APPLIED');
     expect(undoRes.body.options?.undo).toMatchObject({
       deleted: 0,
       restored: 0,
@@ -1778,12 +1770,7 @@ describe('Import Undo (e2e)', () => {
     // A small batch size exercises the chunked commit path without importing hundreds of rows.
     process.env.IMPORT_UNDO_BATCH_SIZE = '20';
     try {
-      const undoRes = await request(app.getHttpServer())
-        .post(`/api/imports/${job.id}/undo`)
-        .set('Authorization', adminHeader)
-        .expect(200);
-
-      expect(undoRes.body.status).toBe('UNDONE');
+      const undoRes = await expectUndoSucceeded(job.id, 'UNDONE');
       expect(undoRes.body.options.undo).toMatchObject({
         deleted: 60,
         blocked: 0,
@@ -2036,12 +2023,7 @@ describe('Import Undo (e2e)', () => {
       data: { status: ImportJobStatus.FAILED },
     });
 
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(200);
-
-    expect(undoRes.body.status).toBe('UNDONE');
+    const undoRes = await expectUndoSucceeded(job.id, 'UNDONE');
     expect(undoRes.body.options.undo).toMatchObject({
       deleted: 1,
       blocked: 0,
@@ -2341,11 +2323,7 @@ describe('Import Undo (e2e)', () => {
       expect(previewRes.body.canUndo).toBe(true);
       expect(previewRes.body.counts.toDelete).toBe(1);
 
-      const undoRes = await request(app.getHttpServer())
-        .post(`/api/imports/${job.id}/undo`)
-        .set('Authorization', adminHeader)
-        .expect(200);
-      expect(undoRes.body.status).toBe(ImportJobStatus.UNDONE);
+      await expectUndoSucceeded(job.id, ImportJobStatus.UNDONE);
     });
 
     it('eligibility: GET /api/imports returns correct undoable flag per job across mixed job states', async () => {
