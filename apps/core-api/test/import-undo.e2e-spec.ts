@@ -9,7 +9,9 @@ import request from 'supertest';
 import {
   AuditActorType,
   AuditLogAction,
+  ImportEntityType,
   ImportJobStatus,
+  Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
@@ -2144,19 +2146,20 @@ describe('Import Undo (e2e)', () => {
 
   describe('AUT-846 Undo Eligibility', () => {
     function seedTestImportJob(
-      tenantPrisma: any,
+      db: PrismaService,
       attrs: {
         status: ImportJobStatus;
+        entityType?: ImportEntityType;
         totals?: { total: number; create: number; update: number; skip: number; error: number };
-        options?: Record<string, unknown>;
+        options?: Prisma.InputJsonObject;
       },
     ) {
       const stamp = Date.now();
-      return tenantPrisma.importJob.create({
+      return db.importJob.create({
         data: {
           tenant_id: tenant.tenantId,
           source_system: 'legacy-dms',
-          entity_type: 'CUSTOMER',
+          entity_type: attrs.entityType ?? ImportEntityType.CUSTOMER,
           file_name: `test-${stamp}.csv`,
           file_sha256: `sha-${stamp}`,
           mapping_json: {},
@@ -2168,32 +2171,42 @@ describe('Import Undo (e2e)', () => {
       });
     }
 
-    it('eligibility: FAILED dry-run job with planned totals and no entity_ids gives 409 IMPORT_JOB_NOT_UNDOABLE on preview and on undo, status unchanged', async () => {
-      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
-      const failedDryRun = await seedTestImportJob(tenantPrisma, {
-        status: ImportJobStatus.FAILED,
-        totals: { total: 10, create: 10, update: 0, skip: 0, error: 0 },
-      });
+    it.each([
+      ImportEntityType.CUSTOMER,
+      ImportEntityType.LEGACY_INVOICE,
+      ImportEntityType.LEGACY_SERVICE_ORDER,
+      ImportEntityType.STOCK_OPENING_BALANCE,
+      ImportEntityType.OPEN_WORKSHOP_ORDER,
+    ])(
+      'eligibility: FAILED dry-run %s job with planned totals and no applied rows gives 409 IMPORT_JOB_NOT_UNDOABLE on preview and on undo, status unchanged',
+      async (entityType) => {
+        const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+        const failedDryRun = await seedTestImportJob(tenantPrisma, {
+          status: ImportJobStatus.FAILED,
+          entityType,
+          totals: { total: 10, create: 10, update: 0, skip: 0, error: 0 },
+        });
 
-      const previewRes = await request(app.getHttpServer())
-        .post(`/api/imports/${failedDryRun.id}/undo/preview`)
-        .set('Authorization', adminHeader)
-        .expect(409);
-      expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
+        const previewRes = await request(app.getHttpServer())
+          .post(`/api/imports/${failedDryRun.id}/undo/preview`)
+          .set('Authorization', adminHeader)
+          .expect(409);
+        expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
 
-      const undoRes = await request(app.getHttpServer())
-        .post(`/api/imports/${failedDryRun.id}/undo`)
-        .set('Authorization', adminHeader)
-        .expect(409);
-      expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
+        const undoRes = await request(app.getHttpServer())
+          .post(`/api/imports/${failedDryRun.id}/undo`)
+          .set('Authorization', adminHeader)
+          .expect(409);
+        expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_NOT_UNDOABLE);
 
-      const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
-        where: { id: failedDryRun.id },
-      });
-      expect(checkJob.status).toBe(ImportJobStatus.FAILED);
-    });
+        const checkJob = await tenantPrisma.importJob.findFirstOrThrow({
+          where: { id: failedDryRun.id },
+        });
+        expect(checkJob.status).toBe(ImportJobStatus.FAILED);
+      },
+    );
 
-    it('eligibility: FAILED job with at least one applied row stays undoable (preview 200, undo 202/200)', async () => {
+    it('eligibility: FAILED job with at least one applied row stays undoable (preview 200, undo 200)', async () => {
       const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
       const stamp = Date.now();
       const email = `failed-partial-${stamp}@example.com`;
@@ -2216,8 +2229,9 @@ describe('Import Undo (e2e)', () => {
 
       const undoRes = await request(app.getHttpServer())
         .post(`/api/imports/${job.id}/undo`)
-        .set('Authorization', adminHeader);
-      expect([200, 202]).toContain(undoRes.status);
+        .set('Authorization', adminHeader)
+        .expect(200);
+      expect(undoRes.body.status).toBe(ImportJobStatus.UNDONE);
     });
 
     it('eligibility: GET /api/imports returns correct undoable flag per job across mixed job states', async () => {

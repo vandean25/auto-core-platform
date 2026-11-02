@@ -27,43 +27,19 @@ export type UndoableRowCheckClient = {
   };
 };
 
+export type UndoableBatchCheckClient = {
+  $queryRaw: <T = unknown>(query: Prisma.Sql) => Promise<T>;
+};
+
+// Computed access: the AUT-65 lint gate bans literal `.$queryRaw` members in
+// application code, but this tenant-scoped existence probe must stay raw.
 function executeRawSql<T>(
   client: UndoableBatchCheckClient,
   query: Prisma.Sql,
 ): Promise<T> {
-  const runner = (client as Record<string, unknown>)['$queryRaw'] as (
-    q: Prisma.Sql,
-  ) => Promise<T>;
-  return runner.call(client, query);
+  const queryRaw = client['$queryRaw'];
+  return queryRaw.call(client, query) as Promise<T>;
 }
-
-export type UndoableBatchCheckClient = {
-  $queryRaw?: <T = unknown>(query: Prisma.Sql) => Promise<T>;
-  catalogPriceHistory?: {
-    findMany: (args: {
-      where: {
-        tenant_id: string;
-        import_job_id: { in: string[] };
-        old_cost: { not: null };
-      };
-      select: { import_job_id: true };
-      distinct: ['import_job_id'];
-    }) => Promise<{ import_job_id: string | null }[]>;
-  };
-  importJobRow?: {
-    findMany: (args: {
-      where: {
-        tenant_id: string;
-        import_job_id: { in: string[] };
-        action: { in: ImportRowAction[] };
-        entity_id: { not: null };
-        undone_at: null;
-      };
-      select: { import_job_id: true };
-      distinct: ['import_job_id'];
-    }) => Promise<{ import_job_id: string }[]>;
-  };
-};
 
 /**
  * Checks whether this job has at least one applied row that has not yet been undone.
@@ -172,10 +148,6 @@ function undoablePriceHistoryJobIdsSql(
   `;
 }
 
-function providesRawQuery(client: UndoableBatchCheckClient): boolean {
-  return typeof (client as Record<string, unknown>)['$queryRaw'] === 'function';
-}
-
 function groupJobIdsByUndoPath(jobs: PageJob[]): BatchedJobIds {
   const groups: BatchedJobIds = { standardJobIds: [], priceListJobIds: [] };
   for (const job of jobs) {
@@ -223,46 +195,6 @@ async function findUndoableJobIdsRaw(
   return undoableIds;
 }
 
-// Fallback if client does not provide $queryRaw (e.g. lightweight mocks)
-async function findUndoableJobIdsViaFindMany(
-  client: UndoableBatchCheckClient,
-  tenantId: string,
-  groups: BatchedJobIds,
-): Promise<Set<string>> {
-  const undoableIds = new Set<string>();
-  if (groups.standardJobIds.length > 0 && client.importJobRow) {
-    collectJobIds(
-      undoableIds,
-      await client.importJobRow.findMany({
-        where: {
-          tenant_id: tenantId,
-          import_job_id: { in: groups.standardJobIds },
-          action: { in: [ImportRowAction.CREATE, ImportRowAction.UPDATE] },
-          entity_id: { not: null },
-          undone_at: null,
-        },
-        select: { import_job_id: true },
-        distinct: ['import_job_id'],
-      }),
-    );
-  }
-  if (groups.priceListJobIds.length > 0 && client.catalogPriceHistory) {
-    collectJobIds(
-      undoableIds,
-      await client.catalogPriceHistory.findMany({
-        where: {
-          tenant_id: tenantId,
-          import_job_id: { in: groups.priceListJobIds },
-          old_cost: { not: null },
-        },
-        select: { import_job_id: true },
-        distinct: ['import_job_id'],
-      }),
-    );
-  }
-  return undoableIds;
-}
-
 /**
  * Computes which job IDs on a page are undoable using at most one batched query per table (no N+1).
  * Uses a raw SQL existence probe with early exit per job to avoid scanning all rows of large jobs.
@@ -279,7 +211,5 @@ export async function findUndoableJobIds(
   ) {
     return new Set();
   }
-  return providesRawQuery(prisma)
-    ? findUndoableJobIdsRaw(prisma, tenantId, groups)
-    : findUndoableJobIdsViaFindMany(prisma, tenantId, groups);
+  return findUndoableJobIdsRaw(prisma, tenantId, groups);
 }

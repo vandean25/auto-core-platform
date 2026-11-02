@@ -240,7 +240,7 @@ function UndoConflictsSection({
   onToggle: (entityId: string) => void;
 }) {
   const { t } = useTranslation("settings");
-  if (totalCount === 0 && conflicts.length === 0) return null;
+  if (totalCount <= 0 || conflicts.length === 0) return null;
 
   const isCapped = conflicts.length < totalCount;
 
@@ -275,7 +275,7 @@ function UndoConflictsSection({
               key={`conflict-${row.rowNumber}-${entityIdStr || row.rowNumber}`}
               className="p-2 hover:bg-muted/40"
             >
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer min-h-11 py-2 px-1">
                 <Checkbox
                   checked={isChecked}
                   onCheckedChange={() => entityIdStr && onToggle(entityIdStr)}

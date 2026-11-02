@@ -16,78 +16,78 @@ describe('Import Undo Eligibility (AUT-846)', () => {
   const tenantId = 'tenant-test-123';
 
   describe('isCandidateUndoableJob', () => {
-    it('returns true for APPLIED, PARTIALLY_UNDONE, and FAILED non-financial imports', () => {
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.APPLIED,
-          entity_type: ImportEntityType.CUSTOMER,
-        }),
-      ).toBe(true);
-
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.PARTIALLY_UNDONE,
-          entity_type: ImportEntityType.VEHICLE,
-        }),
-      ).toBe(true);
-
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.FAILED,
-          entity_type: ImportEntityType.CUSTOMER,
-        }),
-      ).toBe(true);
-    });
-
-    it('returns false for financial / document imports', () => {
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.APPLIED,
-          entity_type: ImportEntityType.LEGACY_INVOICE,
-        }),
-      ).toBe(false);
-    });
-
-    it('returns false for other statuses like DRY_RUN_DONE, UNDONE, APPLYING', () => {
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.DRY_RUN_DONE,
-          entity_type: ImportEntityType.CUSTOMER,
-        }),
-      ).toBe(false);
-
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.UNDONE,
-          entity_type: ImportEntityType.CUSTOMER,
-        }),
-      ).toBe(false);
-
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.APPLYING,
-          entity_type: ImportEntityType.CUSTOMER,
-        }),
-      ).toBe(false);
-    });
-
-    it('returns false when rows_purged is true or cancel_reason is expired', () => {
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.APPLIED,
-          entity_type: ImportEntityType.CUSTOMER,
-          options_json: { rows_purged: true },
-        }),
-      ).toBe(false);
-
-      expect(
-        isCandidateUndoableJob({
-          status: ImportJobStatus.FAILED,
-          entity_type: ImportEntityType.CUSTOMER,
-          options_json: { cancel_reason: 'expired' },
-        }),
-      ).toBe(false);
-    });
+    it.each([
+      {
+        label: 'APPLIED non-financial import',
+        status: ImportJobStatus.APPLIED,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: undefined,
+        expected: true,
+      },
+      {
+        label: 'PARTIALLY_UNDONE non-financial import',
+        status: ImportJobStatus.PARTIALLY_UNDONE,
+        entity_type: ImportEntityType.VEHICLE,
+        options_json: undefined,
+        expected: true,
+      },
+      {
+        label: 'FAILED non-financial import',
+        status: ImportJobStatus.FAILED,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: undefined,
+        expected: true,
+      },
+      {
+        label: 'APPLIED financial import',
+        status: ImportJobStatus.APPLIED,
+        entity_type: ImportEntityType.LEGACY_INVOICE,
+        options_json: undefined,
+        expected: false,
+      },
+      {
+        label: 'DRY_RUN_DONE import',
+        status: ImportJobStatus.DRY_RUN_DONE,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: undefined,
+        expected: false,
+      },
+      {
+        label: 'UNDONE import',
+        status: ImportJobStatus.UNDONE,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: undefined,
+        expected: false,
+      },
+      {
+        label: 'APPLYING import',
+        status: ImportJobStatus.APPLYING,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: undefined,
+        expected: false,
+      },
+      {
+        label: 'purged rows',
+        status: ImportJobStatus.APPLIED,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: { rows_purged: true },
+        expected: false,
+      },
+      {
+        label: 'expired cancel',
+        status: ImportJobStatus.FAILED,
+        entity_type: ImportEntityType.CUSTOMER,
+        options_json: { cancel_reason: 'expired' },
+        expected: false,
+      },
+    ])(
+      '$label is candidate: $expected',
+      ({ status, entity_type, options_json, expected }) => {
+        expect(
+          isCandidateUndoableJob({ status, entity_type, options_json }),
+        ).toBe(expected);
+      },
+    );
   });
 
   describe('hasUndoableRows', () => {
@@ -282,7 +282,7 @@ describe('Import Undo Eligibility (AUT-846)', () => {
       expect(undoableIds.has('job-purged')).toBe(false);
     });
 
-    it('skips database queries entirely when page has no candidate jobs ($queryRaw path)', async () => {
+    it('skips database queries entirely when page has no candidate jobs', async () => {
       const mockQueryRaw = jest.fn();
       const client: UndoableBatchCheckClient = {
         $queryRaw: mockQueryRaw,
@@ -316,7 +316,7 @@ describe('Import Undo Eligibility (AUT-846)', () => {
       expect(mockQueryRaw).not.toHaveBeenCalled();
     });
 
-    it('marks price-list job as NOT undoable when all history rows have null old_cost ($queryRaw path)', async () => {
+    it('marks price-list job as NOT undoable when all history rows have null old_cost', async () => {
       const mockQueryRaw = jest.fn().mockResolvedValueOnce([]); // no rows with old_cost not null
       const client: UndoableBatchCheckClient = {
         $queryRaw: mockQueryRaw,
@@ -335,111 +335,6 @@ describe('Import Undo Eligibility (AUT-846)', () => {
       expect(mockQueryRaw).toHaveBeenCalledTimes(1);
       expect(undoableIds.has('job-spl-first-ever')).toBe(false);
       expect(undoableIds.size).toBe(0);
-    });
-
-    it('supports Prisma findMany fallback and includes old_cost not null for price list jobs', async () => {
-      const importJobRowFindMany = jest.fn().mockResolvedValue([
-        { import_job_id: 'job-applied' },
-      ]);
-      const catalogPriceHistoryFindMany = jest.fn().mockResolvedValue([
-        { import_job_id: 'job-spl' },
-      ]);
-
-      const client: UndoableBatchCheckClient = {
-        importJobRow: { findMany: importJobRowFindMany },
-        catalogPriceHistory: { findMany: catalogPriceHistoryFindMany },
-      };
-
-      const pageJobs = [
-        {
-          id: 'job-applied',
-          status: ImportJobStatus.APPLIED,
-          entity_type: ImportEntityType.CUSTOMER,
-        },
-        {
-          id: 'job-spl',
-          status: ImportJobStatus.APPLIED,
-          entity_type: SUPPLIER_PRICE_LIST_ENTITY_TYPE,
-        },
-      ];
-
-      const undoableIds = await findUndoableJobIds(client, tenantId, pageJobs);
-
-      expect(importJobRowFindMany).toHaveBeenCalledTimes(1);
-      expect(catalogPriceHistoryFindMany).toHaveBeenCalledTimes(1);
-
-      expect(catalogPriceHistoryFindMany).toHaveBeenCalledWith({
-        where: {
-          tenant_id: tenantId,
-          import_job_id: { in: ['job-spl'] },
-          old_cost: { not: null },
-        },
-        select: { import_job_id: true },
-        distinct: ['import_job_id'],
-      });
-
-      expect(undoableIds.has('job-applied')).toBe(true);
-      expect(undoableIds.has('job-spl')).toBe(true);
-    });
-
-    it('marks price-list job as NOT undoable when findMany returns no rows due to null old_cost', async () => {
-      const catalogPriceHistoryFindMany = jest.fn().mockResolvedValue([]);
-
-      const client: UndoableBatchCheckClient = {
-        catalogPriceHistory: { findMany: catalogPriceHistoryFindMany },
-      };
-
-      const pageJobs = [
-        {
-          id: 'job-spl-null-costs',
-          status: ImportJobStatus.APPLIED,
-          entity_type: SUPPLIER_PRICE_LIST_ENTITY_TYPE,
-        },
-      ];
-
-      const undoableIds = await findUndoableJobIds(client, tenantId, pageJobs);
-
-      expect(catalogPriceHistoryFindMany).toHaveBeenCalledTimes(1);
-      expect(undoableIds.has('job-spl-null-costs')).toBe(false);
-      expect(undoableIds.size).toBe(0);
-    });
-
-    it('skips database queries entirely when page has no candidate jobs', async () => {
-      const importJobRowFindMany = jest.fn();
-      const catalogPriceHistoryFindMany = jest.fn();
-
-      const client: UndoableBatchCheckClient = {
-        importJobRow: { findMany: importJobRowFindMany },
-        catalogPriceHistory: { findMany: catalogPriceHistoryFindMany },
-      };
-
-      const nonCandidateJobs = [
-        {
-          id: 'job-undone',
-          status: ImportJobStatus.UNDONE,
-          entity_type: ImportEntityType.CUSTOMER,
-        },
-        {
-          id: 'job-dry-run',
-          status: ImportJobStatus.DRY_RUN_DONE,
-          entity_type: ImportEntityType.CUSTOMER,
-        },
-        {
-          id: 'job-financial',
-          status: ImportJobStatus.APPLIED,
-          entity_type: ImportEntityType.LEGACY_INVOICE,
-        },
-      ];
-
-      const undoableIds = await findUndoableJobIds(
-        client,
-        tenantId,
-        nonCandidateJobs,
-      );
-
-      expect(undoableIds.size).toBe(0);
-      expect(importJobRowFindMany).not.toHaveBeenCalled();
-      expect(catalogPriceHistoryFindMany).not.toHaveBeenCalled();
     });
   });
 });

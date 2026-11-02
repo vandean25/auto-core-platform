@@ -242,11 +242,6 @@ export class ImportUndoPreviewService {
     });
 
     const appliedRowsCount = validateJobForPreview(job);
-    const earlyBlocked = checkBlockedJobPreview(job!, appliedRowsCount);
-    if (earlyBlocked) {
-      return earlyBlocked;
-    }
-
     const isEligibleStatus =
       job!.status === ImportJobStatus.APPLIED ||
       job!.status === ImportJobStatus.PARTIALLY_UNDONE ||
@@ -256,6 +251,18 @@ export class ImportUndoPreviewService {
     }
 
     const hasRows = await hasUndoableRows(this.prisma, tenantId, job!);
+    // A FAILED job that never applied rows is not undoable: reject it here so
+    // preview agrees with POST /undo (409) for doc/financial dry-run jobs too,
+    // instead of short-circuiting into a blocked preview below.
+    if (job!.status === ImportJobStatus.FAILED && !hasRows) {
+      throw importJobNotUndoable();
+    }
+
+    const earlyBlocked = checkBlockedJobPreview(job!, appliedRowsCount);
+    if (earlyBlocked) {
+      return earlyBlocked;
+    }
+
     if (!hasRows) {
       throw importJobNotUndoable();
     }

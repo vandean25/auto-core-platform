@@ -143,6 +143,29 @@ describe('ImportUndoPreviewService', () => {
     });
   });
 
+  it.each([
+    { entityType: ImportEntityType.CUSTOMER },
+    { entityType: ImportEntityType.LEGACY_INVOICE },
+  ])(
+    'rejects FAILED dry-run $entityType job that never applied rows with IMPORT_JOB_NOT_UNDOABLE, matching POST /undo',
+    async ({ entityType }) => {
+      // Catches the regression where the blocked-preview short-circuit ran
+      // before the status gate and returned 200 for these jobs.
+      mockPrisma.importJob.findFirst.mockResolvedValue({
+        id: jobId,
+        tenant_id: tenantId,
+        entity_type: entityType,
+        status: ImportJobStatus.FAILED,
+        totals_json: { create: 10, update: 0 },
+      });
+      mockPrisma.importJobRow.findFirst.mockResolvedValue(null);
+
+      await expect(service.previewUndo(jobId)).rejects.toMatchObject({
+        response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
+      });
+    },
+  );
+
   it('generates preview for APPLIED customer job with clean create and update rows', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
       id: jobId,
