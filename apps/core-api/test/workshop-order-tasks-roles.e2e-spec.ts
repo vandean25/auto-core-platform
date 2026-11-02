@@ -39,7 +39,6 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   let demoAccessRequestId: string | undefined;
 
   let customerId: string;
-  let vehicleId: string;
 
   const api = () => request(app.getHttpServer());
 
@@ -162,18 +161,6 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       },
     });
     customerId = customer.id;
-
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        tenant_id: tenantId,
-        vin: `VIN-${randomUUID()}`,
-        make: 'VW',
-        model: 'Golf',
-        year: 2022,
-        customer_id: customerId,
-      },
-    });
-    vehicleId = vehicle.id;
   });
 
   afterAll(async () => {
@@ -195,12 +182,22 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   async function createTestOrder(): Promise<string> {
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        vin: `VIN-${randomUUID()}`,
+        make: 'VW',
+        model: 'Golf',
+        year: 2022,
+        customer_id: customerId,
+      },
+    });
     const res = await api()
       .post('/api/workshop/orders')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         customerId,
-        vehicleId,
+        vehicleId: vehicle.id,
         odometer: 50000,
         fuelLevel: 80,
         notes: 'Role check test order',
