@@ -53,110 +53,75 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     foreignPrisma = createTenantAwarePrisma(basePrisma, foreignTenantId);
 
-    // Seed Owner
-    const ownerUid = `task-owner-${tenantId}`;
-    const owner = await prisma.user.create({
-      data: {
-        firebaseUid: ownerUid,
-        email: `owner-${tenantId}@test.local`,
-        active_tenant_id: tenantId,
-        active_site_id: siteId,
-      },
+    // Admin from createTestTenant already has active_tenant_id, active_site_id, and SiteMembership
+    adminToken = auth.createTestToken({
+      sub: tenant.firebaseUid,
+      email: tenant.email,
+      tenantId,
+      role: 'ADMIN',
     });
-    await seedTestTenantMember(basePrisma, { tenantId, userId: owner.id, role: 'OWNER' });
-    await prisma.siteMembership.create({
-      data: { tenant_id: tenantId, user_id: owner.id, site_id: siteId, is_active: true },
-    });
-    ownerToken = auth.createTestToken({ sub: ownerUid, email: owner.email, tenantId, role: 'OWNER' });
 
-    // Seed Admin
-    const adminUid = `task-admin-${tenantId}`;
-    const admin = await prisma.user.create({
-      data: {
-        firebaseUid: adminUid,
-        email: `admin-${tenantId}@test.local`,
-        active_tenant_id: tenantId,
-        active_site_id: siteId,
-      },
-    });
-    await seedTestTenantMember(basePrisma, { tenantId, userId: admin.id, role: 'ADMIN' });
-    await prisma.siteMembership.create({
-      data: { tenant_id: tenantId, user_id: admin.id, site_id: siteId, is_active: true },
-    });
-    adminToken = auth.createTestToken({ sub: adminUid, email: admin.email, tenantId, role: 'ADMIN' });
+    const seedScopedUser = async (role: TenantMemberRole) => {
+      const uid = `task-${role.toLowerCase()}-${tenantId}`;
+      const user = await prisma.user.create({
+        data: {
+          firebaseUid: uid,
+          email: `${role.toLowerCase()}-${tenantId}@test.local`,
+          active_tenant_id: tenantId,
+        },
+      });
+      await seedTestTenantMember(basePrisma, {
+        tenantId,
+        userId: user.id,
+        role,
+      });
+      await prisma.siteMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: user.id,
+          site_id: siteId,
+          is_active: true,
+        },
+      });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { active_site_id: siteId },
+      });
+      const token = auth.createTestToken({
+        sub: uid,
+        email: user.email,
+        tenantId,
+        role,
+      });
+      return { user, token };
+    };
+
+    // Seed Owner
+    const ownerSetup = await seedScopedUser('OWNER');
+    ownerToken = ownerSetup.token;
 
     // Seed Sales
-    const salesUid = `task-sales-${tenantId}`;
-    const sales = await prisma.user.create({
-      data: {
-        firebaseUid: salesUid,
-        email: `sales-${tenantId}@test.local`,
-        active_tenant_id: tenantId,
-        active_site_id: siteId,
-      },
-    });
-    await seedTestTenantMember(basePrisma, { tenantId, userId: sales.id, role: 'SALES' });
-    await prisma.siteMembership.create({
-      data: { tenant_id: tenantId, user_id: sales.id, site_id: siteId, is_active: true },
-    });
-    salesToken = auth.createTestToken({ sub: salesUid, email: sales.email, tenantId, role: 'SALES' });
+    const salesSetup = await seedScopedUser('SALES');
+    salesToken = salesSetup.token;
 
     // Seed Tech (linked to MECHANIC employee for mechanic routes)
-    const techUid = `task-tech-${tenantId}`;
-    const techUser = await prisma.user.create({
-      data: {
-        firebaseUid: techUid,
-        email: `tech-${tenantId}@test.local`,
-        active_tenant_id: tenantId,
-        active_site_id: siteId,
-      },
-    });
-    await seedTestTenantMember(basePrisma, { tenantId, userId: techUser.id, role: 'TECH' });
-    await prisma.siteMembership.create({
-      data: { tenant_id: tenantId, user_id: techUser.id, site_id: siteId, is_active: true },
-    });
+    const techSetup = await seedScopedUser('TECH');
+    techToken = techSetup.token;
     await seedTestEmployee(prisma, {
       tenantId,
       name: 'Test Mechanic',
       role: 'MECHANIC',
-      userId: techUser.id,
+      userId: techSetup.user.id,
     });
-    techToken = auth.createTestToken({ sub: techUid, email: techUser.email, tenantId, role: 'TECH' });
 
     // Seed Accountant (unrelated role with token claims)
-    const accountantUid = `task-accountant-${tenantId}`;
-    const accountantUser = await prisma.user.create({
-      data: {
-        firebaseUid: accountantUid,
-        email: `accountant-${tenantId}@test.local`,
-        active_tenant_id: tenantId,
-        active_site_id: siteId,
-      },
-    });
-    accountantToken = auth.createTestToken({
-      sub: accountantUid,
-      email: accountantUser.email,
-      tenantId,
-      role: 'ACCOUNTANT',
-    });
+    const accountantSetup = await seedScopedUser('ACCOUNTANT');
+    accountantToken = accountantSetup.token;
 
-    // Seed Foreign Admin in Tenant B
-    const foreignAdminUid = `task-admin-${foreignTenantId}`;
-    const foreignAdmin = await foreignPrisma.user.create({
-      data: {
-        firebaseUid: foreignAdminUid,
-        email: `foreign-admin-${foreignTenantId}@test.local`,
-        active_tenant_id: foreignTenantId,
-        active_site_id: foreignSiteId,
-      },
-    });
-    await seedTestTenantMember(basePrisma, { tenantId: foreignTenantId, userId: foreignAdmin.id, role: 'ADMIN' });
-    await foreignPrisma.siteMembership.create({
-      data: { tenant_id: foreignTenantId, user_id: foreignAdmin.id, site_id: foreignSiteId, is_active: true },
-    });
+    // Foreign Admin from createTestTenant already has active_tenant_id, active_site_id, and SiteMembership
     foreignAdminToken = auth.createTestToken({
-      sub: foreignAdminUid,
-      email: foreignAdmin.email,
+      sub: foreignTenant.firebaseUid,
+      email: foreignTenant.email,
       tenantId: foreignTenantId,
       role: 'ADMIN',
     });
@@ -186,8 +151,10 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (basePrisma && tenantId) await cleanupTestTenantGraph(basePrisma, tenantId);
-    if (basePrisma && foreignTenantId) await cleanupTestTenantGraph(basePrisma, foreignTenantId);
+    if (basePrisma && tenantId)
+      await cleanupTestTenantGraph(basePrisma, tenantId);
+    if (basePrisma && foreignTenantId)
+      await cleanupTestTenantGraph(basePrisma, foreignTenantId);
     if (app) await teardownTestApp(app);
   });
 
@@ -206,7 +173,9 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
     return res.body.id as string;
   }
 
-  async function createTestOrderAndTask(title = 'Test Task'): Promise<{ orderId: string; taskId: string }> {
+  async function createTestOrderAndTask(
+    title = 'Test Task',
+  ): Promise<{ orderId: string; taskId: string }> {
     const orderId = await createTestOrder();
     const taskRes = await api()
       .post(`/api/workshop/orders/${orderId}/tasks`)
@@ -258,14 +227,23 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
 
   describe('PATCH /api/workshop/orders/:orderId/tasks/:taskId/line-items (replaceTaskLineItems)', () => {
     it('refuses ACCOUNTANT with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
-      const { orderId, taskId } = await createTestOrderAndTask('Line Items Task');
+      const { orderId, taskId } =
+        await createTestOrderAndTask('Line Items Task');
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
         .set('Authorization', `Bearer ${accountantToken}`)
         .send({
           expectedLineItemsVersion: 0,
-          items: [{ type: 'LABOR', itemNo: 'LAB-1', description: 'Labor', qty: 1, unitPrice: 50 }],
+          items: [
+            {
+              type: 'LABOR',
+              itemNo: 'LAB-1',
+              description: 'Labor',
+              qty: 1,
+              unitPrice: 50,
+            },
+          ],
         })
         .expect(403);
 
@@ -275,14 +253,23 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
     });
 
     it('refuses TECH with 403', async () => {
-      const { orderId, taskId } = await createTestOrderAndTask('Line Items Task');
+      const { orderId, taskId } =
+        await createTestOrderAndTask('Line Items Task');
 
       await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
         .set('Authorization', `Bearer ${techToken}`)
         .send({
           expectedLineItemsVersion: 0,
-          items: [{ type: 'LABOR', itemNo: 'LAB-1', description: 'Labor', qty: 1, unitPrice: 50 }],
+          items: [
+            {
+              type: 'LABOR',
+              itemNo: 'LAB-1',
+              description: 'Labor',
+              qty: 1,
+              unitPrice: 50,
+            },
+          ],
         })
         .expect(403);
     });
@@ -292,14 +279,24 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       ['ADMIN', () => adminToken],
       ['SALES', () => salesToken],
     ])('allows %s to replace task line items', async (_role, getToken) => {
-      const { orderId, taskId } = await createTestOrderAndTask(`Line Task for ${_role}`);
+      const { orderId, taskId } = await createTestOrderAndTask(
+        `Line Task for ${_role}`,
+      );
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
         .set('Authorization', `Bearer ${getToken()}`)
         .send({
           expectedLineItemsVersion: 0,
-          items: [{ type: 'LABOR', itemNo: `LAB-${_role}`, description: 'Work', qty: 1, unitPrice: 75 }],
+          items: [
+            {
+              type: 'LABOR',
+              itemNo: `LAB-${_role}`,
+              description: 'Work',
+              qty: 1,
+              unitPrice: 75,
+            },
+          ],
         })
         .expect(200);
 
@@ -327,7 +324,8 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       ['ADMIN', () => adminToken],
       ['SALES', () => salesToken],
     ])('allows %s to update task', async (_role, getToken) => {
-      const { orderId, taskId } = await createTestOrderAndTask('Original Title');
+      const { orderId, taskId } =
+        await createTestOrderAndTask('Original Title');
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
@@ -335,13 +333,16 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .send({ title: `Updated by ${_role}` })
         .expect(200);
 
-      expect(res.body.tasks.find((t: { id: string }) => t.id === taskId)?.title).toBe(`Updated by ${_role}`);
+      expect(
+        res.body.tasks.find((t: { id: string }) => t.id === taskId)?.title,
+      ).toBe(`Updated by ${_role}`);
     });
   });
 
   describe('DELETE /api/workshop/orders/:orderId/tasks/:taskId (deleteTask)', () => {
     it('refuses ACCOUNTANT with 403 and WORKSHOP_ROLE_FORBIDDEN', async () => {
-      const { orderId, taskId } = await createTestOrderAndTask('Task to Delete');
+      const { orderId, taskId } =
+        await createTestOrderAndTask('Task to Delete');
 
       const res = await api()
         .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
@@ -354,7 +355,8 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
     });
 
     it('refuses TECH with 403', async () => {
-      const { orderId, taskId } = await createTestOrderAndTask('Task to Delete');
+      const { orderId, taskId } =
+        await createTestOrderAndTask('Task to Delete');
 
       await api()
         .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
@@ -367,20 +369,25 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
       ['ADMIN', () => adminToken],
       ['SALES', () => salesToken],
     ])('allows %s to delete a task', async (_role, getToken) => {
-      const { orderId, taskId } = await createTestOrderAndTask(`Delete by ${_role}`);
+      const { orderId, taskId } = await createTestOrderAndTask(
+        `Delete by ${_role}`,
+      );
 
       const res = await api()
         .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
         .set('Authorization', `Bearer ${getToken()}`)
         .expect(200);
 
-      expect(res.body.tasks.find((t: { id: string }) => t.id === taskId)).toBeUndefined();
+      expect(
+        res.body.tasks.find((t: { id: string }) => t.id === taskId),
+      ).toBeUndefined();
     });
   });
 
   describe('Checklist updates and Mechanic execution', () => {
     it('refuses ACCOUNTANT with 403 on task checklist update', async () => {
-      const { orderId, taskId } = await createTestOrderAndTask('Checklist Task');
+      const { orderId, taskId } =
+        await createTestOrderAndTask('Checklist Task');
 
       const res = await api()
         .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/checklist`)
