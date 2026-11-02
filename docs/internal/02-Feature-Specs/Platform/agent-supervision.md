@@ -82,7 +82,7 @@ Authorization: Accessible to `OWNER`, `ADMIN`, and `ADVISOR`. Forbidden for `SAL
 Accessible in `apps/core-web` under route `/agent/supervision`, gated by runtime flag `VITE_FEATURE_AGENT_SUPERVISION`.
 
 ### Key UI Features:
-- **Persistent Safety Banner**: Prominently warns that agent supervision is active and that `HUMAN_ONLY` operations must be conducted manually.
+- **Safety Notice (behind info icon)**: The header subtitle's compact line is paired with an accessible 44px info icon (button with `aria-label`, DE and EN) that reveals the safety text: agent supervision is active and `HUMAN_ONLY` operations must be conducted manually. (AUT-844 replaced the persistent banner with this compact pattern.)
 - **Approvals Tab**:
   - Displays pending proposal cards with formatted actions, agent names, creation times, target entity references, and EUR currency amounts. The agent name is the one the agent registered (for example `mcp:<client>`), the same name the matching Activity row shows. It falls back to the agent ID in the payload, then to the generic word `agent`.
   - Decided proposals (visible under "Show all statuses") show `Decided by` with the person's name or email.
@@ -103,7 +103,7 @@ Accessible in `apps/core-web` under route `/agent/supervision`, gated by runtime
   - Meets WCAG 2 AA minimum contrast ratios (e.g. amber-800 on white, emerald-700 on white).
   - Verified clean axe accessibility scan (`expectNoCriticalA11yViolations`).
 - **Bilingual DE/EN Support**:
-  - Language toggle switches all banner copy, table headers, status badges, buttons, and dialogs between German and English.
+  - Language toggle switches all copy, including the safety notice behind the header info icon, table headers, status badges, buttons, and dialogs between German and English.
 
 ## Confidentiality Note
 

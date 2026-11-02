@@ -248,6 +248,25 @@ Then update status, or cancel the phase if the product dropped it.
 | Grant refresh tokens | A 12 hour grant matches one shift. A refresh token is a long-lived secret on the watch | Mechanics regularly lose a recording because the grant expired mid-shift and re-pairing is not acceptable |
 | Play production release | Internal testing is enough for the named devices | The device pass on Pixel Watch 4 and Galaxy Watch Ultra (2025) is written up and a release owner asks for a production track |
 
+### Infinite-list follow-ons (ADR-0035)
+
+**Status:** Deferred follow-ons — 2026-11-02; [ADR-0035](../01-ADR/2026-11-02-cursor-based-infinite-lists.md) accepted by Dejan Dosenovic. Owner: Product Owner with the relevant list-module owner.
+
+| Deferred capability | Reason / cost of waiting | Re-entry trigger |
+|---|---|---|
+| Filter-wide bulk selection and new server-side full exports | Scrolling retains explicit loaded-ID selection and existing export scopes; selecting all matches needs a separate execution/authorization contract | Approved follow-up defines selection versus execution time, exclusions, confirmation, renewed authorization, concurrency, partial failures and execution limits |
+| Replacing offset for relation, calculated or relevance sorts | Existing sorts remain usable; denormalization and relevance truncation are not part of the pilot | Equivalent replacement approved per endpoint/sort, supported by query plans and consumer/test migration |
+
+### Frontend interaction follow-ons (ADR-0036)
+
+**Status:** Deferred follow-ons — 2026-11-02; [ADR-0036](../01-ADR/2026-11-02-frontend-interaction-rules.md) accepted by Dejan Dosenovic. Owner: Product Owner with frontend and affected API-module owners. These capabilities remain outside the accepted implementation scope until their re-entry triggers are met.
+
+| Deferred capability | Reason / cost of waiting | Re-entry trigger |
+|---|---|---|
+| General entity-version/event protocol | Existing invalidation signals do not need ordered row payloads; individual Undo endpoints still need atomic versions | An approved consumer needs direct ordered event application and defines revisions for writes, responses, deletes and reconnect |
+| Broader delete restoration | Entity-specific deletion/retention rules remain usable; no global soft-delete migration | An approved entity lifecycle change defines restore authorization, conflicts, retention and deletion-policy amendments |
+| Durable multi-step or cross-device Undo history | One in-memory eligible action plus ordinary inverse registry actions meets the initial scope | Observed workflows require retained history and a reviewed contract defines storage, expiry, privacy and concurrency |
+
 ## Metrics
 
 Reset 2026-08-18. Counts below are **product deferrals only**. Twenty-two framework-meta items were archived that day and are not in these numbers.

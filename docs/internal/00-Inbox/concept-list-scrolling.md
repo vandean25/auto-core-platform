@@ -1,7 +1,7 @@
 ---
 title: "Konzept: Listen ohne Seiten"
 date: "2026-11-02"
-status: draft
+status: accepted
 tags:
   - concept
   - platform
@@ -10,7 +10,7 @@ tags:
 
 # Konzept: Listen ohne Seiten (Infinite Scroll + Virtualisierung)
 
-Stand 2026-11-02. Überarbeiteter Entwurf; die Änderungen benötigen eine erneute fachliche Freigabe vor der Implementierung.
+Stand 2026-11-02. Architekturentscheidung durch Dejan Dosenovic als [ADR-0035](../01-ADR/2026-11-02-cursor-based-infinite-lists.md) akzeptiert. Dieses Begleitkonzept beschreibt die Details und die noch ausstehende Pilot-Abnahme.
 
 **Ziel:** Listen fühlen sich wie Linear an: kein Blättern, kein Leerflackern, flüssiges Scrollen. Keine lokale Sync-Engine; der Teilekatalog kann Millionen Zeilen enthalten.
 
@@ -85,13 +85,13 @@ Pro Cursor-Sortierung genau ein freigegebenes Sortfeld plus eindeutige `id` als 
 
 Frontend-Plattform und die jeweiligen Listenmodule tragen die Migration gemeinsam. Sie betrifft mehrere Domänen und wird daher in Wellen umgesetzt. Additive Index-Migrationen sind je freigegebener Sortierung nötig; neue Entitäten oder Änderungen an Löschregeln, Geschäftsstatus, Nummerierung, Ledger oder Fiskalregeln sind nicht vorgesehen. Denormalisierte Spalten wären eine gesonderte Entscheidung.
 
-Vor Implementierung entsteht ein kurzer ADR mit Cursor-/Fehlerformat, Scope-Bindung, Sortier-Whitelist und Indexregel, Zählervertrag, Realtime-Verhalten, Auswahlgrenze und Expand/Contract-Plan. Dieser Entwurf ist noch kein akzeptierter ADR. Bezug: [OpenAPI / ADR-0010](../01-ADR/2026-04-12-openapi-contract-first.md), [Standort-Scope / ADR-0022](../01-ADR/2026-08-31-site-operational-scope.md), [Realtime](../01-ADR/2026-04-12-prisma-extends-realtime-sync.md).
+[ADR-0035](../01-ADR/2026-11-02-cursor-based-infinite-lists.md) hält Cursor-/Fehlervertrag, Scope-Bindung, Sortier-Whitelist und Indexregel, Zählervertrag, Realtime-Verhalten, Auswahlgrenze und Expand/Contract-Plan als akzeptierte Architekturentscheidung fest. Dieses Konzept ergänzt die Details und Abnahmekriterien. Bezug: [OpenAPI / ADR-0010](../01-ADR/2026-04-12-openapi-contract-first.md), [Standort-Scope / ADR-0022](../01-ADR/2026-08-31-site-operational-scope.md), [Realtime](../01-ADR/2026-04-12-prisma-extends-realtime-sync.md).
 
 API-Änderungen werden additiv eingeführt: vorhandene Offset-Verträge bleiben erhalten. Bei jeder späteren DTO-/Controller-Änderung müssen `apps/core-api/openapi/openapi.json` und `apps/core-web/src/api/generated/openapi.ts` regeneriert und gemeinsam committed werden (`npm --prefix apps/core-api run openapi:generate`, danach `npm --prefix apps/core-web run api:types:generate`). Dieser Dokument-PR ändert keine API-Artefakte.
 
 ## 7. Rollout und Abnahme
 
-1. ADR und Inventar der betroffenen Endpunkte/Views: je unterstütztem Sortierfeld und Richtung Cursor oder Offset festlegen; API-Verbraucher, Suchfelder, Exporte und Realtime-Invalidierungen erfassen.
+1. Auf Basis von ADR-0035 das Inventar der betroffenen Endpunkte/Views erstellen: je unterstütztem Sortierfeld und Richtung Cursor oder Offset festlegen; API-Verbraucher, Suchfelder, Exporte und Realtime-Invalidierungen erfassen.
 2. Keyset-Helper, additive Index-Migrationen und Zählervertrag; erwartete Query-Pläne anhand repräsentativer Katalogdaten belegen.
 3. Optionalen DataTable-Infinite-Modus einschließlich Auswahl, URL-/Zurück-Navigation, a11y und gezielter Invalidierung ergänzen.
 4. Pilot: Fahrzeuge sowie Teile/Lager mit dokumentierten Cursor-Sorts; übrige Sortierungen bleiben über ihren vorhandenen Modus erreichbar. Pilot-Abnahme vor weiteren Wellen.

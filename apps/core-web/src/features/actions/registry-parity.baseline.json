@@ -49,7 +49,7 @@
   "pages/customers/CustomerList.tsx::Button::handleCreate",
   "pages/customers/CustomerList.tsx::Button::handleCreate",
   "pages/customers/CustomerStartService.tsx::Button::handleCreateWorkshopOrder",
-  "pages/finance/AccountingExportReadinessPage.tsx::Button::navigate(APP_ROUTE_PATHS.settings)",
+  "pages/finance/AccountingExportReadinessPage.tsx::Button::navigate(`${APP_ROUTE_PATHS.settings}?tab=finance&subtab=acc",
   "pages/finance/CreditNotesPage.tsx::Button::navigate(APP_ROUTE_PATHS.salesInvoices)",
   "pages/finance/credit-note-detail-page-content.tsx::Button::setFinalizeOpen(true)",
   "pages/finance/credit-note-detail-page-content.tsx::Button::setVoidOpen(true)",

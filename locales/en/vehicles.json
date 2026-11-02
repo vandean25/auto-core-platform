@@ -237,7 +237,8 @@
     "empty": "No inspection recorded yet.",
     "sourceEbv": "EBV imported",
     "sourceManual": "Manual",
-    "sourceLegacy": "Legacy import"
+    "sourceLegacy": "Legacy import",
+    "warningsInfoAria": "Show §57a calculation hints"
   },
   "recordPickerlDialog": {
     "title": "Record Pickerl",
@@ -273,7 +274,8 @@
     "b2b": "B2B — warranty per contract",
     "dataUnknown": "Warranty data unknown.",
     "noSale": "No completed vehicle sale warranty on file.",
-    "repairsNote": "Extensions from repairs are not tracked."
+    "repairsNote": "Extensions from repairs are not tracked.",
+    "repairsNoteAria": "Show extension note"
   },
   "gewaehrleistungFristen": {
     "basisfrist": "Base period until {{date}}",

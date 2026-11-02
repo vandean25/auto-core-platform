@@ -256,7 +256,10 @@ export default function AccountingExportReadinessPage() {
           </h1>
           <p className="text-slate-500">{t('accountingExportReadiness.subtitle')}</p>
         </div>
-        <Button variant="outline" onClick={() => navigate(APP_ROUTE_PATHS.settings)}>
+        <Button
+          variant="outline"
+          onClick={() => navigate(`${APP_ROUTE_PATHS.settings}?tab=finance&subtab=accounting-export`)}
+        >
           {t('actions.openSettings')}
         </Button>
       </div>
