@@ -63,11 +63,6 @@
     {
       "file": "apps/core-api/src/dashboard-realtime/dashboard.gateway.spec.ts",
       "rule": "private-access",
-      "key": "lines"
-    },
-    {
-      "file": "apps/core-api/src/dashboard-realtime/dashboard.gateway.spec.ts",
-      "rule": "private-access",
       "key": "logger"
     },
     {
@@ -79,11 +74,6 @@
       "file": "apps/core-api/src/dry-run/prisma-dry-run-integration.spec.ts",
       "rule": "private-access",
       "key": "customer"
-    },
-    {
-      "file": "apps/core-api/src/dry-run/prisma-dry-run-integration.spec.ts",
-      "rule": "private-access",
-      "key": "findMany"
     },
     {
       "file": "apps/core-api/src/finance/fiscal-lock.helpers.spec.ts",
@@ -217,11 +207,6 @@
     },
     {
       "file": "apps/core-api/src/mcp/mcp-read-tool.availability-reads.spec.ts",
-      "rule": "thin-large-spec",
-      "key": "*"
-    },
-    {
-      "file": "apps/core-api/src/mcp/mcp-read-tool.report-reads.spec.ts",
       "rule": "thin-large-spec",
       "key": "*"
     },
@@ -516,11 +501,6 @@
       "key": "*"
     },
     {
-      "file": "apps/core-api/test/vehicle-gewaehrleistung-due.e2e-spec.ts",
-      "rule": "thin-large-spec",
-      "key": "*"
-    },
-    {
       "file": "apps/core-api/test/vehicle-listing-sale-finalize.e2e-spec.ts",
       "rule": "thin-large-spec",
       "key": "*"
@@ -601,17 +581,7 @@
       "key": "accepts empty payload for partial save (no notes change)"
     },
     {
-      "file": "apps/core-web/src/api/tyre-measurements-site-scope.test.tsx",
-      "rule": "thin-large-spec",
-      "key": "*"
-    },
-    {
       "file": "apps/core-web/src/App.session-refresh.test.tsx",
-      "rule": "thin-large-spec",
-      "key": "*"
-    },
-    {
-      "file": "apps/core-web/src/components/global-search/build-palette-context-section.test.ts",
       "rule": "thin-large-spec",
       "key": "*"
     },
