@@ -256,97 +256,109 @@ export function DocumentBrandingSettings({
     [],
   );
 
-  const reloadLatestBranding = React.useCallback(async () => {
-    const requestId = ++recoveryRequestRef.current;
-    const entityId = entity.id;
-    setReapplyingConflict(true);
-    clearPendingSave();
-    abortInFlightSave();
-    try {
-      const result = await refetchProfile();
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      if (!result.isSuccess || !result.data) {
-        const message = getErrorMessage(
-          result.error,
-          t("documentBranding.toast.loadLatestFallback"),
-        );
-        setDraftError(message);
-        toast.error(t("documentBranding.toast.reloadFailed"), {
-          description: message,
-        });
-        return;
+  /**
+   * Shared prologue of both recovery paths: cancel the pending save, read the newest profile and
+   * hand it to the caller, dropping the result once the entity changed or a newer recovery started.
+   */
+  const recoverLatestProfile = React.useCallback(
+    async (
+      onProfileUnavailable: (error: unknown) => void,
+      onLatestProfile: (
+        latest: NonNullable<typeof profile>,
+        entityId: string,
+        isCurrent: () => boolean,
+      ) => Promise<void>,
+    ) => {
+      const requestId = ++recoveryRequestRef.current;
+      const entityId = entity.id;
+      const isCurrent = () => recoveryStillCurrent(requestId, entityId);
+      setReapplyingConflict(true);
+      clearPendingSave();
+      abortInFlightSave();
+      try {
+        const result = await refetchProfile();
+        if (!isCurrent()) return;
+        if (!result.isSuccess || !result.data) {
+          onProfileUnavailable(result.error);
+          return;
+        }
+        await onLatestProfile(result.data, entityId, isCurrent);
+      } finally {
+        if (isCurrent()) {
+          setReapplyingConflict(false);
+        }
       }
-      applyProfileTheme(result.data);
-      markIdle();
-      toast.message(t("documentBranding.toast.reloaded"));
-    } finally {
-      if (recoveryStillCurrent(requestId, entityId)) {
-        setReapplyingConflict(false);
-      }
-    }
-  }, [
-    abortInFlightSave,
-    applyProfileTheme,
-    clearPendingSave,
-    entity.id,
-    markIdle,
-    recoveryStillCurrent,
-    refetchProfile,
-    t,
-  ]);
+    },
+    [
+      abortInFlightSave,
+      clearPendingSave,
+      entity.id,
+      recoveryStillCurrent,
+      refetchProfile,
+    ],
+  );
+
+  const reloadLatestBranding = React.useCallback(
+    () =>
+      recoverLatestProfile(
+        (error) => {
+          const message = getErrorMessage(
+            error,
+            t("documentBranding.toast.loadLatestFallback"),
+          );
+          setDraftError(message);
+          toast.error(t("documentBranding.toast.reloadFailed"), {
+            description: message,
+          });
+        },
+        async (latestProfile) => {
+          applyProfileTheme(latestProfile);
+          markIdle();
+          toast.message(t("documentBranding.toast.reloaded"));
+        },
+      ),
+    [applyProfileTheme, markIdle, recoverLatestProfile, t],
+  );
 
   const reapplyEditsOnLatestRevision = React.useCallback(async () => {
     const themeToSave = themeRef.current;
     if (!themeToSave) return;
-    const requestId = ++recoveryRequestRef.current;
-    const entityId = entity.id;
-    setReapplyingConflict(true);
-    clearPendingSave();
-    abortInFlightSave();
-    try {
-      const result = await refetchProfile();
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      if (!result.isSuccess || !result.data) {
+    await recoverLatestProfile(
+      (error) =>
         reportDraftFailure(
-          result.error,
+          error,
           t("documentBranding.toast.loadLatestFallback"),
-        );
-        return;
-      }
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      revisionRef.current = result.data.revision;
-      const updated = await saveDraft.mutateAsync({
-        legalEntityId: entityId,
-        expectedRevision: revisionRef.current,
-        theme: themeRef.current ?? themeToSave,
-      });
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      revisionRef.current = updated.revision;
-      const persistedTheme = updated.draftTheme ?? themeRef.current ?? themeToSave;
-      setSavedTheme(persistedTheme);
-      setDraftError(null);
-      setRevisionConflict(false);
-      setNeedsPostConflictAutosave(true);
-      markSaved();
-      toast.success(t("documentBranding.toast.reapplied"));
-    } catch (reapplyError) {
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      reportDraftFailure(
-        reapplyError,
-        t("documentBranding.toast.reapplyFallback"),
-      );
-    } finally {
-      if (recoveryStillCurrent(requestId, entityId)) {
-        setReapplyingConflict(false);
-      }
-    }
+        ),
+      async (latestProfile, entityId, isCurrent) => {
+        revisionRef.current = latestProfile.revision;
+        try {
+          const updated = await saveDraft.mutateAsync({
+            legalEntityId: entityId,
+            expectedRevision: latestProfile.revision,
+            theme: themeRef.current ?? themeToSave,
+          });
+          if (!isCurrent()) return;
+          revisionRef.current = updated.revision;
+          setSavedTheme(
+            updated.draftTheme ?? themeRef.current ?? themeToSave,
+          );
+          setDraftError(null);
+          setRevisionConflict(false);
+          setNeedsPostConflictAutosave(true);
+          markSaved();
+          toast.success(t("documentBranding.toast.reapplied"));
+        } catch (reapplyError) {
+          if (!isCurrent()) return;
+          reportDraftFailure(
+            reapplyError,
+            t("documentBranding.toast.reapplyFallback"),
+          );
+        }
+      },
+    );
   }, [
-    abortInFlightSave,
-    clearPendingSave,
-    entity.id,
     markSaved,
-    recoveryStillCurrent,
-    refetchProfile,
+    recoverLatestProfile,
     reportDraftFailure,
     saveDraft,
     t,

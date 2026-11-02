@@ -177,7 +177,14 @@ export function useConfirmDocumentBranding(action: "confirm" | "reset") {
   });
 }
 
-export function useDiscardDocumentBrandDraft() {
+/**
+ * Removes a draft sub-resource. Both endpoints delete with `expectedRevision` in the query and
+ * answer with the refreshed profile.
+ */
+function useDeleteDocumentBrandDraftResource(
+  resource: "draft" | "draft/source",
+  fallbackMessage: string,
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: {
@@ -185,14 +192,11 @@ export function useDiscardDocumentBrandDraft() {
       expectedRevision: number;
     }) => {
       const response = await fetchWithAuth(
-        `/api/legal-entities/${payload.legalEntityId}/document-branding/draft?expectedRevision=${payload.expectedRevision}`,
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/${resource}?expectedRevision=${payload.expectedRevision}`,
         { method: "DELETE" },
       );
       if (!response.ok) {
-        await throwHttpError(
-          response,
-          "Failed to discard document branding draft",
-        );
+        await throwHttpError(response, fallbackMessage);
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -203,6 +207,13 @@ export function useDiscardDocumentBrandDraft() {
       );
     },
   });
+}
+
+export function useDiscardDocumentBrandDraft() {
+  return useDeleteDocumentBrandDraftResource(
+    "draft",
+    "Failed to discard document branding draft",
+  );
 }
 
 export function usePreviewDocumentBranding() {
@@ -323,28 +334,10 @@ export function useAttachDocumentBrandDraftSource() {
 }
 
 export function useRemoveDocumentBrandDraftSource() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload: {
-      legalEntityId: string;
-      expectedRevision: number;
-    }) => {
-      const response = await fetchWithAuth(
-        `/api/legal-entities/${payload.legalEntityId}/document-branding/draft/source?expectedRevision=${payload.expectedRevision}`,
-        { method: "DELETE" },
-      );
-      if (!response.ok) {
-        await throwHttpError(response, "Failed to remove letterhead source");
-      }
-      return response.json() as Promise<DocumentBrandProfile>;
-    },
-    onSuccess: (profile, payload) => {
-      queryClient.setQueryData(
-        documentBrandingKeys.profile(payload.legalEntityId),
-        profile,
-      );
-    },
-  });
+  return useDeleteDocumentBrandDraftResource(
+    "draft/source",
+    "Failed to remove letterhead source",
+  );
 }
 
 export function useUploadDocumentBrandAsset() {
