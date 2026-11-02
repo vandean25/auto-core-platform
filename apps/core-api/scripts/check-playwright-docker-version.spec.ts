@@ -47,7 +47,7 @@ function readPlaywrightVersionFromLockfile(): string {
 function readPlaywrightDockerTag(): string {
   const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
   const match = dockerfile.match(
-    /^FROM mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble AS worker$/m,
+    /^FROM mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble(@sha256:[a-f0-9]{64})? AS worker$/m,
   );
   if (!match) {
     throw new Error(
