@@ -38,44 +38,6 @@ import { SerializedStockTransfer } from './stock-transfer-serializer.js';
 
 import Decimal = Prisma.Decimal;
 
-type TransferLineChange = {
-  lineId: string;
-  guard: Prisma.StockTransferLineWhereInput;
-  data: Prisma.StockTransferLineUncheckedUpdateManyInput;
-};
-
-/**
- * Applies guarded line updates with one updateMany per distinct guard and data, so lines with equal values share a
- * statement. A stale count names the first line of its group; the whole transaction rolls back either way.
- */
-async function updateTransferLines(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  transferId: string,
-  changes: TransferLineChange[],
-  staleMessage: (lineId: string) => string,
-): Promise<void> {
-  const groups = new Map<string, TransferLineChange[]>();
-  for (const change of changes) {
-    const key = JSON.stringify([change.guard, change.data]);
-    groups.set(key, [...(groups.get(key) ?? []), change]);
-  }
-  for (const group of groups.values()) {
-    const result = await tx.stockTransferLine.updateMany({
-      where: {
-        tenant_id: tenantId,
-        transfer_id: transferId,
-        id: { in: group.map((change) => change.lineId) },
-        ...group[0].guard,
-      },
-      data: group[0].data,
-    });
-    if (result.count !== group.length) {
-      throw new ConflictException(staleMessage(group[0].lineId));
-    }
-  }
-}
-
 @Injectable()
 export class StockTransferMutationService {
   constructor(
@@ -225,31 +187,7 @@ export class StockTransferMutationService {
         sourceLocationIds,
       );
 
-      for (const update of updates) {
-        const line = linesById.get(update.id);
-        if (!line) {
-          throw new UnprocessableEntityException(
-            `Line ${update.id} does not belong to this transfer.`,
-          );
-        }
-        const approvedQty = new Decimal(
-          update.approvedQty ?? line.requested_qty.toNumber(),
-        );
-        if (approvedQty.lt(0) || approvedQty.gt(line.requested_qty)) {
-          throw new UnprocessableEntityException(
-            `approvedQty must be between 0 and requestedQty for line ${line.id}.`,
-          );
-        }
-        if (
-          update.sourceLocationId &&
-          line.source_location_id &&
-          line.source_location_id !== update.sourceLocationId
-        ) {
-          throw new UnprocessableEntityException(
-            `Source bin for line ${line.id} is already set and cannot be changed.`,
-          );
-        }
-      }
+      assertApprovalLines(updates, linesById);
 
       await updateTransferLines(
         tx,
@@ -413,60 +351,9 @@ export class StockTransferMutationService {
       );
 
       const linesById = new Map(transfer.lines.map((line) => [line.id, line]));
-      const bodyById = new Map(dto.lines.map((line) => [line.id, line]));
+      const frozenSourceByLine = resolveShipSources(transfer.lines, dto.lines);
+      const sourceLocationIds = [...frozenSourceByLine.values()];
 
-      const positiveLines = transfer.lines.filter((line) =>
-        line.approved_qty.gt(0),
-      );
-      if (positiveLines.length === 0) {
-        throw new UnprocessableEntityException(
-          'At least one line must have approved_qty > 0 to ship.',
-        );
-      }
-      for (const line of positiveLines) {
-        if (!bodyById.has(line.id)) {
-          throw new UnprocessableEntityException(
-            `Line ${line.id} has approved qty and must be included in the ship request.`,
-          );
-        }
-      }
-
-      const sourceLocationIds: string[] = [];
-      const frozenSourceByLine = new Map<string, string>();
-      for (const [lineId, update] of bodyById) {
-        const line = linesById.get(lineId);
-        if (!line) {
-          throw new UnprocessableEntityException(
-            `Line ${lineId} does not belong to this transfer.`,
-          );
-        }
-        if (line.approved_qty.eq(0)) {
-          if (update.sourceLocationId) {
-            throw new UnprocessableEntityException(
-              `Line ${lineId} has no approved qty; a source bin cannot be set.`,
-            );
-          }
-          continue;
-        }
-        const sourceLocationId =
-          update.sourceLocationId ?? line.source_location_id;
-        if (!sourceLocationId) {
-          throw new UnprocessableEntityException(
-            `Line ${lineId} requires sourceLocationId to ship.`,
-          );
-        }
-        if (
-          line.source_location_id &&
-          update.sourceLocationId &&
-          line.source_location_id !== update.sourceLocationId
-        ) {
-          throw new UnprocessableEntityException(
-            `Source bin for line ${lineId} is frozen and cannot be changed.`,
-          );
-        }
-        frozenSourceByLine.set(lineId, sourceLocationId);
-        sourceLocationIds.push(sourceLocationId);
-      }
       await assertSourceBinsValid(
         tx,
         access.tenantId,
@@ -880,4 +767,157 @@ export class StockTransferMutationService {
       throw new ConflictException(conflictMessage);
     }
   }
+}
+
+type TransferLineChange = {
+  lineId: string;
+  guard: Prisma.StockTransferLineWhereInput;
+  data: Prisma.StockTransferLineUncheckedUpdateManyInput;
+};
+
+/**
+ * Applies guarded line updates with one updateMany per distinct guard and data, so lines with equal values share a
+ * statement. A stale count names the first line of its group; the whole transaction rolls back either way.
+ */
+async function updateTransferLines(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  transferId: string,
+  changes: TransferLineChange[],
+  staleMessage: (lineId: string) => string,
+): Promise<void> {
+  const groups = new Map<string, TransferLineChange[]>();
+  for (const change of changes) {
+    const key = JSON.stringify([change.guard, change.data]);
+    groups.set(key, [...(groups.get(key) ?? []), change]);
+  }
+  for (const group of groups.values()) {
+    const result = await tx.stockTransferLine.updateMany({
+      where: {
+        tenant_id: tenantId,
+        transfer_id: transferId,
+        id: { in: group.map((change) => change.lineId) },
+        ...group[0].guard,
+      },
+      data: group[0].data,
+    });
+    if (result.count !== group.length) {
+      throw new ConflictException(staleMessage(group[0].lineId));
+    }
+  }
+}
+
+function assertApprovalLines(
+  updates: ApproveStockTransferLineDto[],
+  linesById: ReadonlyMap<
+    string,
+    { id: string; requested_qty: Decimal; source_location_id: string | null }
+  >,
+): void {
+  for (const update of updates) {
+    const line = linesById.get(update.id);
+    if (!line) {
+      throw new UnprocessableEntityException(
+        `Line ${update.id} does not belong to this transfer.`,
+      );
+    }
+    const approvedQty = new Decimal(
+      update.approvedQty ?? line.requested_qty.toNumber(),
+    );
+    if (approvedQty.lt(0) || approvedQty.gt(line.requested_qty)) {
+      throw new UnprocessableEntityException(
+        `approvedQty must be between 0 and requestedQty for line ${line.id}.`,
+      );
+    }
+    if (
+      update.sourceLocationId &&
+      line.source_location_id &&
+      line.source_location_id !== update.sourceLocationId
+    ) {
+      throw new UnprocessableEntityException(
+        `Source bin for line ${line.id} is already set and cannot be changed.`,
+      );
+    }
+  }
+}
+
+/** Validates the ship request against the transfer lines and returns the frozen source bin per shipped line. */
+function resolveShipSources(
+  lines: ShipSourceLine[],
+  shipLines: ReadonlyArray<{ id: string; sourceLocationId?: string }>,
+): Map<string, string> {
+  const bodyById = new Map(shipLines.map((line) => [line.id, line]));
+  assertShipCoversApprovedLines(lines, bodyById);
+
+  const linesById = new Map(lines.map((line) => [line.id, line]));
+  const frozenSourceByLine = new Map<string, string>();
+  for (const [lineId, update] of bodyById) {
+    const line = linesById.get(lineId);
+    if (!line) {
+      throw new UnprocessableEntityException(
+        `Line ${lineId} does not belong to this transfer.`,
+      );
+    }
+    const sourceLocationId = resolveShipSource(line, update.sourceLocationId);
+    if (sourceLocationId) {
+      frozenSourceByLine.set(lineId, sourceLocationId);
+    }
+  }
+  return frozenSourceByLine;
+}
+
+type ShipSourceLine = {
+  id: string;
+  approved_qty: Decimal;
+  source_location_id: string | null;
+};
+
+function assertShipCoversApprovedLines(
+  lines: ShipSourceLine[],
+  bodyById: ReadonlyMap<string, unknown>,
+): void {
+  const positiveLines = lines.filter((line) => line.approved_qty.gt(0));
+  if (positiveLines.length === 0) {
+    throw new UnprocessableEntityException(
+      'At least one line must have approved_qty > 0 to ship.',
+    );
+  }
+  for (const line of positiveLines) {
+    if (!bodyById.has(line.id)) {
+      throw new UnprocessableEntityException(
+        `Line ${line.id} has approved qty and must be included in the ship request.`,
+      );
+    }
+  }
+}
+
+/** Returns the source bin a line ships from, or null for a line with no approved qty. */
+function resolveShipSource(
+  line: ShipSourceLine,
+  requestedSourceLocationId: string | undefined,
+): string | null {
+  if (line.approved_qty.eq(0)) {
+    if (requestedSourceLocationId) {
+      throw new UnprocessableEntityException(
+        `Line ${line.id} has no approved qty; a source bin cannot be set.`,
+      );
+    }
+    return null;
+  }
+  const sourceLocationId = requestedSourceLocationId ?? line.source_location_id;
+  if (!sourceLocationId) {
+    throw new UnprocessableEntityException(
+      `Line ${line.id} requires sourceLocationId to ship.`,
+    );
+  }
+  if (
+    line.source_location_id &&
+    requestedSourceLocationId &&
+    line.source_location_id !== requestedSourceLocationId
+  ) {
+    throw new UnprocessableEntityException(
+      `Source bin for line ${line.id} is frozen and cannot be changed.`,
+    );
+  }
+  return sourceLocationId;
 }

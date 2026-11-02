@@ -46,6 +46,42 @@ interface AggregatedStockDelta {
 
 type LocationSiteIds = ReadonlyMap<string, string>;
 
+function stockKey(delta: AggregatedStockDelta): string {
+  return `${delta.itemId}-${delta.locationId}`;
+}
+
+function stocksByKey<
+  T extends { catalog_item_id: string; location_id: string },
+>(stocks: T[]): Map<string, T> {
+  return new Map(
+    stocks.map((stock) => [
+      `${stock.catalog_item_id}-${stock.location_id}`,
+      stock,
+    ]),
+  );
+}
+
+function assertStocksSettled(
+  deltas: AggregatedStockDelta[],
+  existing: ReadonlyMap<string, { id: string }>,
+  refreshed: ReadonlyMap<string, { quantity_on_hand: Decimal }>,
+): void {
+  for (const delta of deltas) {
+    const key = stockKey(delta);
+    const stock = refreshed.get(key);
+    if (!stock) {
+      throw new BadRequestException(
+        `Inventory stock ${existing.get(key)?.id ?? key} not found after update`,
+      );
+    }
+    if (new Decimal(stock.quantity_on_hand).lt(0)) {
+      throw new BadRequestException(
+        `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand.toString()}) for item ${delta.itemId} at location ${delta.locationId}`,
+      );
+    }
+  }
+}
+
 @Injectable()
 export class LedgerService {
   constructor(
@@ -216,7 +252,8 @@ export class LedgerService {
   }
 
   /**
-   * Updates cached stock balances concurrently and guards against negative inventory on hand.
+   * Updates cached stock balances and guards against negative inventory on hand.
+   * New stocks go in one createMany; existing stocks that change by the same quantity share one update.
    */
   private async applyStockUpdates(
     tx: Prisma.TransactionClient,
@@ -224,30 +261,20 @@ export class LedgerService {
     deltas: AggregatedStockDelta[],
     locationSiteIds: LocationSiteIds,
   ): Promise<void> {
-    const existingStocks = await tx.inventoryStock.findMany({
-      where: {
-        tenant_id: tenantId,
-        OR: deltas.map((d) => ({
-          catalog_item_id: d.itemId,
-          location_id: d.locationId,
-          site_id: locationSiteIds.get(d.locationId),
-        })),
-      },
-    });
+    const where = {
+      tenant_id: tenantId,
+      OR: deltas.map((delta) => ({
+        catalog_item_id: delta.itemId,
+        location_id: delta.locationId,
+        site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
+      })),
+    };
+    const existing = stocksByKey(await tx.inventoryStock.findMany({ where }));
 
-    const existingStocksMap = new Map(
-      existingStocks.map((stock) => [
-        `${stock.catalog_item_id}-${stock.location_id}`,
-        stock,
-      ]),
-    );
-
-    const missingDeltas = deltas.filter(
-      (delta) => !existingStocksMap.has(`${delta.itemId}-${delta.locationId}`),
-    );
-    if (missingDeltas.length > 0) {
+    const missing = deltas.filter((delta) => !existing.has(stockKey(delta)));
+    if (missing.length > 0) {
       await tx.inventoryStock.createMany({
-        data: missingDeltas.map((delta) => ({
+        data: missing.map((delta) => ({
           tenant_id: tenantId,
           site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
           catalog_item_id: delta.itemId,
@@ -257,18 +284,26 @@ export class LedgerService {
         })),
       });
     }
+    await this.incrementExistingStocks(tx, tenantId, deltas, existing);
 
-    // Stocks that change by the same quantity share one update; the order of the statements does not matter inside the transaction.
+    const refreshed = stocksByKey(await tx.inventoryStock.findMany({ where }));
+    assertStocksSettled(deltas, existing, refreshed);
+  }
+
+  private async incrementExistingStocks(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    deltas: AggregatedStockDelta[],
+    existing: ReadonlyMap<string, { id: string }>,
+  ): Promise<void> {
     const stockIdsByQuantity = new Map<string, string[]>();
     for (const delta of deltas) {
-      const existingStock = existingStocksMap.get(
-        `${delta.itemId}-${delta.locationId}`,
-      );
-      if (existingStock) {
-        const key = delta.quantity.toString();
-        stockIdsByQuantity.set(key, [
-          ...(stockIdsByQuantity.get(key) ?? []),
-          existingStock.id,
+      const stock = existing.get(stockKey(delta));
+      if (stock) {
+        const quantity = delta.quantity.toString();
+        stockIdsByQuantity.set(quantity, [
+          ...(stockIdsByQuantity.get(quantity) ?? []),
+          stock.id,
         ]);
       }
     }
@@ -280,38 +315,6 @@ export class LedgerService {
       if (result.count !== stockIds.length) {
         throw new BadRequestException(
           `Inventory stock ${stockIds[0]} not found for current tenant`,
-        );
-      }
-    }
-
-    const refreshedStocks = await tx.inventoryStock.findMany({
-      where: {
-        tenant_id: tenantId,
-        OR: deltas.map((delta) => ({
-          catalog_item_id: delta.itemId,
-          location_id: delta.locationId,
-          site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
-        })),
-      },
-    });
-    const refreshedByKey = new Map(
-      refreshedStocks.map((stock) => [
-        `${stock.catalog_item_id}-${stock.location_id}`,
-        stock,
-      ]),
-    );
-
-    for (const delta of deltas) {
-      const stockKey = `${delta.itemId}-${delta.locationId}`;
-      const stock = refreshedByKey.get(stockKey);
-      if (!stock) {
-        throw new BadRequestException(
-          `Inventory stock ${existingStocksMap.get(stockKey)?.id ?? stockKey} not found after update`,
-        );
-      }
-      if (new Decimal(stock.quantity_on_hand).lt(0)) {
-        throw new BadRequestException(
-          `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand.toString()}) for item ${delta.itemId} at location ${delta.locationId}`,
         );
       }
     }
