@@ -249,8 +249,9 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .send({ title: `Task for ${_role}` })
         .expect(201);
 
+      expect(res.body.id).toBeDefined();
       expect(res.body.title).toBe(`Task for ${_role}`);
-      expect(res.body.workshopOrderId).toBe(orderId);
+      expect(res.body.workshop_order_id).toBe(orderId);
     });
   });
 
