@@ -165,6 +165,17 @@ describe('Import Undo (e2e)', () => {
     });
   }
 
+  async function expectUndoRejected(
+    jobId: string,
+    expectedCode: string,
+  ): Promise<void> {
+    const response = await request(app.getHttpServer())
+      .post(`/api/imports/${jobId}/undo`)
+      .set('Authorization', adminHeader)
+      .expect(409);
+    expect(response.body.code).toBe(expectedCode);
+  }
+
   beforeAll(async () => {
     app = await createE2eApp(undefined, { productionErrorFilter: true });
 
@@ -1512,11 +1523,7 @@ describe('Import Undo (e2e)', () => {
         .expect(409);
       expect(previewRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
 
-      const undoRes = await request(app.getHttpServer())
-        .post(`/api/imports/${job.id}/undo`)
-        .set('Authorization', adminHeader)
-        .expect(409);
-      expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_PURGED);
+      await expectUndoRejected(job.id, IMPORT_ERROR_CODES.JOB_PURGED);
 
       const listRes = await request(app.getHttpServer())
         .get('/api/imports?limit=50')
@@ -1552,11 +1559,7 @@ describe('Import Undo (e2e)', () => {
       },
     });
 
-    const undoRes = await request(app.getHttpServer())
-      .post(`/api/imports/${job.id}/undo`)
-      .set('Authorization', adminHeader)
-      .expect(409);
-    expect(undoRes.body.code).toBe(IMPORT_ERROR_CODES.JOB_EXPIRED);
+    await expectUndoRejected(job.id, IMPORT_ERROR_CODES.JOB_EXPIRED);
 
     const untouched = await tenantPrisma.importJob.findFirstOrThrow({
       where: { id: job.id },
