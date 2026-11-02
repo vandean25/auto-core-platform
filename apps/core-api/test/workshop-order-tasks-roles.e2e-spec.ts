@@ -287,7 +287,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${demoToken}`)
         .send({
           destinationLocationId: '00000000-0000-0000-0000-000000000000',
-          lines: [
+          items: [
             {
               workshopTaskLineItemId: '00000000-0000-0000-0000-000000000000',
               quantity: 1,
@@ -304,7 +304,7 @@ describe('Workshop Order Tasks Role Authorization (e2e)', () => {
         .set('Authorization', `Bearer ${techToken}`)
         .send({
           destinationLocationId: '00000000-0000-0000-0000-000000000000',
-          lines: [
+          items: [
             {
               workshopTaskLineItemId: '00000000-0000-0000-0000-000000000000',
               quantity: 1,
