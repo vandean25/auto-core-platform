@@ -28,12 +28,9 @@ export function WorkshopTaskInspectionChecklist({
         taskId,
         items: [{ id: itemId, ...values }],
       });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("inspection.checklist.saveError"),
-      );
+    } catch {
+      // The API answers a refusal with English validation text, so the toast stays on the translated fallback.
+      toast.error(t("inspection.checklist.saveError"));
     }
   }
 

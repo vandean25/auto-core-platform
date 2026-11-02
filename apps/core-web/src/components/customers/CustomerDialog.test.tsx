@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import { CustomerDialog } from './CustomerDialog'
 import * as customersApi from '@/api/customers'
+import { CUSTOMER_FIELD_MAX_LENGTH } from '@/constants/field-limits'
 import { deCustomers } from '@/test/de-customers'
 
 const mockNavigate = vi.fn()
@@ -324,5 +325,55 @@ describe('CustomerDialog optional e-mail and refused fields (AUT-800)', () => {
     fireEvent.click(screen.getByRole('button', { name: deCustomers.dialog.createCustomer }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(deCustomers.dialog.saveFailed))
+  })
+})
+
+describe('CustomerDialog field caps (AUT-732)', () => {
+  const CAPPED_LABELS: ReadonlyArray<readonly [field: keyof typeof CUSTOMER_FIELD_MAX_LENGTH, label: string]> = [
+    ['company_name', deCustomers.dialog.companyName],
+    ['vat_id', deCustomers.dialog.vatId],
+    ['first_name', deCustomers.dialog.firstName],
+    ['last_name', deCustomers.dialog.lastName],
+    ['email', deCustomers.dialog.email],
+    ['phone', deCustomers.dialog.phone],
+    ['address_street', deCustomers.dialog.street],
+    ['address_city', deCustomers.dialog.city],
+    ['address_zip', deCustomers.dialog.zip],
+    ['address_country', deCustomers.dialog.country],
+  ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(customersApi.useCreateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useCreateCustomer>)
+    vi.mocked(customersApi.useUpdateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useUpdateCustomer>)
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('caps every field at the length the API refuses beyond', () => {
+    render(
+      <MemoryRouter>
+        <CustomerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          customer={{ id: 'cust-1', type: 'COMPANY' } as never}
+        />
+      </MemoryRouter>,
+    )
+
+    for (const [field, label] of CAPPED_LABELS) {
+      expect(screen.getByLabelText(label)).toHaveAttribute(
+        'maxLength',
+        String(CUSTOMER_FIELD_MAX_LENGTH[field]),
+      )
+    }
   })
 })

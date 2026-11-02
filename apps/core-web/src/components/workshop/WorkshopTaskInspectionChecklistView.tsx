@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { INSPECTION_NOTES_MAX_LENGTH } from "@/constants/field-limits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -36,6 +37,76 @@ type Props = {
     values: { passed?: boolean; notes?: string },
   ) => Promise<void>;
 };
+
+type InspectionItem = InspectionChecklistData['items'][number];
+
+type InspectionItemRowProps = {
+  item: InspectionItem;
+  draftNotes: string;
+  labels: InspectionChecklistViewLabels;
+  readOnly: boolean;
+  saving: boolean;
+  touchFriendly: boolean;
+  onNotesChange: (notes: string) => void;
+  onSave: (values: { passed?: boolean; notes?: string }) => Promise<void>;
+};
+
+function InspectionItemRow({
+  item,
+  draftNotes,
+  labels,
+  readOnly,
+  saving,
+  touchFriendly,
+  onNotesChange,
+  onSave,
+}: InspectionItemRowProps) {
+  const disabled = readOnly || saving;
+  const buttonProps = touchFriendly
+    ? { size: "default" as const, className: "min-h-11" }
+    : { size: "sm" as const, className: undefined };
+  const savedNotes = item.notes ?? "";
+
+  return (
+    <li className="grid gap-2 rounded border p-2 sm:grid-cols-[1fr_auto] sm:items-center">
+      <span className="text-sm">{item.label_snapshot}</span>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          {...buttonProps}
+          variant={item.passed === true ? "default" : "outline"}
+          aria-label={labels.passAriaLabel(item.label_snapshot)}
+          disabled={disabled}
+          onClick={() => void onSave({ passed: true })}
+        >
+          {labels.passButton}
+        </Button>
+        <Button
+          type="button"
+          {...buttonProps}
+          variant={item.passed === false ? "destructive" : "outline"}
+          aria-label={labels.failAriaLabel(item.label_snapshot)}
+          disabled={disabled}
+          onClick={() => void onSave({ passed: false })}
+        >
+          {labels.failButton}
+        </Button>
+      </div>
+      <Input
+        className={touchFriendly ? "sm:col-span-2 min-h-11" : "sm:col-span-2"}
+        aria-label={labels.noteAriaLabel(item.label_snapshot)}
+        placeholder={labels.notePlaceholder}
+        maxLength={INSPECTION_NOTES_MAX_LENGTH}
+        value={draftNotes}
+        disabled={disabled}
+        onChange={(event) => onNotesChange(event.target.value)}
+        onBlur={() => {
+          if (draftNotes !== savedNotes) void onSave({ notes: draftNotes });
+        }}
+      />
+    </li>
+  );
+}
 
 export function WorkshopTaskInspectionChecklistView({
   checklist,
@@ -77,58 +148,21 @@ export function WorkshopTaskInspectionChecklistView({
         <p className="text-xs text-muted-foreground">{resolvedLabels.description}</p>
       </div>
       <ul className="space-y-2">
-        {checklist.items.map((item) => {
-          const itemNotes = notesByItem[item.id] ?? item.notes ?? "";
-          return (
-            <li
-              key={item.id}
-              className="grid gap-2 rounded border p-2 sm:grid-cols-[1fr_auto] sm:items-center"
-            >
-              <span className="text-sm">{item.label_snapshot}</span>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size={touchFriendly ? "default" : "sm"}
-                  className={touchFriendly ? "min-h-11" : undefined}
-                  variant={item.passed === true ? "default" : "outline"}
-                  aria-label={resolvedLabels.passAriaLabel(item.label_snapshot)}
-                  disabled={readOnly || saving}
-                  onClick={() => void onSave(item.id, { passed: true })}
-                >
-                  {resolvedLabels.passButton}
-                </Button>
-                <Button
-                  type="button"
-                  size={touchFriendly ? "default" : "sm"}
-                  className={touchFriendly ? "min-h-11" : undefined}
-                  variant={item.passed === false ? "destructive" : "outline"}
-                  aria-label={resolvedLabels.failAriaLabel(item.label_snapshot)}
-                  disabled={readOnly || saving}
-                  onClick={() => void onSave(item.id, { passed: false })}
-                >
-                  {resolvedLabels.failButton}
-                </Button>
-              </div>
-              <Input
-                className={touchFriendly ? "sm:col-span-2 min-h-11" : "sm:col-span-2"}
-                aria-label={resolvedLabels.noteAriaLabel(item.label_snapshot)}
-                placeholder={resolvedLabels.notePlaceholder}
-                value={itemNotes}
-                disabled={readOnly || saving}
-                onChange={(event) =>
-                  setNotesByItem((current) => ({
-                    ...current,
-                    [item.id]: event.target.value,
-                  }))
-                }
-                onBlur={() => {
-                  if (itemNotes !== (item.notes ?? ""))
-                    void onSave(item.id, { notes: itemNotes });
-                }}
-              />
-            </li>
-          );
-        })}
+        {checklist.items.map((item) => (
+          <InspectionItemRow
+            key={item.id}
+            item={item}
+            draftNotes={notesByItem[item.id] ?? item.notes ?? ""}
+            labels={resolvedLabels}
+            readOnly={readOnly}
+            saving={saving}
+            touchFriendly={touchFriendly}
+            onNotesChange={(notes) =>
+              setNotesByItem((current) => ({ ...current, [item.id]: notes }))
+            }
+            onSave={(values) => onSave(item.id, values)}
+          />
+        ))}
       </ul>
     </section>
   );
