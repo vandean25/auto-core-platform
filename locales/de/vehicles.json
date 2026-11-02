@@ -237,7 +237,8 @@
     "empty": "Noch keine Begutachtung erfasst.",
     "sourceEbv": "EBV importiert",
     "sourceManual": "Manuell",
-    "sourceLegacy": "Altdaten-Import"
+    "sourceLegacy": "Altdaten-Import",
+    "warningsInfoAria": "Hinweise zur §57a-Berechnung anzeigen"
   },
   "recordPickerlDialog": {
     "title": "Pickerl erfasst",
@@ -273,7 +274,8 @@
     "b2b": "B2B – Gewährleistung laut Vertrag",
     "dataUnknown": "Gewährleistungsdaten unbekannt.",
     "noSale": "Keine abgeschlossene Fahrzeugverkaufs-Gewährleistung vorhanden.",
-    "repairsNote": "Verlängerungen durch Reparaturen werden nicht erfasst."
+    "repairsNote": "Verlängerungen durch Reparaturen werden nicht erfasst.",
+    "repairsNoteAria": "Hinweis zu Verlängerungen anzeigen"
   },
   "gewaehrleistungFristen": {
     "basisfrist": "Basisfrist bis {{date}}",

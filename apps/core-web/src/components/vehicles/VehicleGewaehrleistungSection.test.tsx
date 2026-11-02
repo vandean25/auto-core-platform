@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import deEnums from '../../../../../locales/de/enums.json'
 import { VehicleGewaehrleistungSection } from './VehicleGewaehrleistungSection'
@@ -32,7 +32,8 @@ describe('VehicleGewaehrleistungSection', () => {
     })]} />)
     expect(screen.getByText('Basisfrist bis 08.10.2028')).toBeInTheDocument()
     expect(screen.getByText('Vermutungsfrist bis 08.10.2027')).toBeInTheDocument()
-    expect(screen.getAllByText('Verlängerungen durch Reparaturen werden nicht erfasst.')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Hinweis zu Verlängerungen anzeigen' }))
+    expect(screen.getByText('Verlängerungen durch Reparaturen werden nicht erfasst.')).toBeInTheDocument()
   })
 
   it('shows the Aktiv badge for a Basisfrist that is still running', () => {
