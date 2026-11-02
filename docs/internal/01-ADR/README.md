@@ -40,5 +40,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0032 | Collective Workshop Invoices Have Immutable Allocation Sources         | Accepted | 2026-10-19                      | [2026-10-19-collective-workshop-invoice-sources.md](2026-10-19-collective-workshop-invoice-sources.md)             |
 | ADR-0033 | Web Push for Staff Through the Notification Outbox (FCM)               | Proposed | 2026-10-28                      | [2026-10-28-web-push-for-staff.md](2026-10-28-web-push-for-staff.md)                                               |
 | ADR-0034 | Custom Tenant Roles and Permission Catalogue                          | Proposed | 2026-11-02                      | [2026-11-02-custom-tenant-roles.md](2026-11-02-custom-tenant-roles.md)                                           |
+| ADR-0035 | Cursor-Based Infinite Lists With Explicit Refresh                      | Accepted | 2026-11-02                      | [2026-11-02-cursor-based-infinite-lists.md](2026-11-02-cursor-based-infinite-lists.md)                             |
 
-Next free number: **ADR-0035**.
+Next free number: **ADR-0036**.
