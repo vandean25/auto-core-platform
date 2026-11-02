@@ -1,7 +1,9 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
+import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants'
 import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
+import enSettings from '../../../locales/en/settings.json' with { type: 'json' }
 
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const list = { data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } }
@@ -238,5 +240,73 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     await expect(page.getByText('Unveränderliches, nur ergänzbares Audit-Protokoll')).toBeHidden()
 
     await expectNoPageScroll(page)
+  })
+})
+
+/** Width the credentials placeholder needs (its text plus the field padding) against the width the field offers it. */
+async function credentialPlaceholderFit(page: Page): Promise<{ placeholder: string; clientWidth: number; needed: number }> {
+  return page.evaluate(() => {
+    const field = document.querySelector<HTMLTextAreaElement>('#voice-google-credential')!
+    const style = getComputedStyle(field)
+    const canvas = document.createElement('canvas').getContext('2d')!
+    canvas.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+    const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+    return { placeholder: field.placeholder, clientWidth: field.clientWidth, needed: canvas.measureText(field.placeholder).width + padding }
+  })
+}
+
+async function openVoiceTranslationTab(page: Page, width: number, language: 'de' | 'en') {
+  await page.setViewportSize({ width, height: 812 })
+  await mockCommonSettingsApi(page)
+  await page.route(AutoCorePage.apiRouteMatcher('/api/voice-translation/settings'), (route) => {
+    route.fulfill(json({ targetLanguageCode: 'de', googleProjectId: '', googleLocation: 'global', hasGoogleCredential: false }))
+  })
+  await page.addInitScript((args) => {
+    window.localStorage.setItem(args.key, args.language)
+  }, { key: UI_LANGUAGE_STORAGE_KEY, language })
+  await new AutoCorePage(page, '').navigate('/settings?tab=voice-translation')
+  await expect(page.locator('#voice-google-credential')).toBeVisible()
+  // The canvas measures with the font the page has loaded by now, not a fallback.
+  await page.evaluate(() => document.fonts.ready)
+}
+
+async function credentialPlaceholder(page: Page, language: 'de' | 'en') {
+  const expected = (language === 'de' ? deSettings : enSettings).voiceTranslation.credentialPlaceholder
+  const fit = await credentialPlaceholderFit(page)
+  expect(fit.placeholder, 'rendered placeholder').toBe(expected)
+  expect(fit.clientWidth, `placeholder needs ${Math.ceil(fit.needed)}px`).toBeGreaterThanOrEqual(fit.needed)
+  return fit
+}
+
+test.describe('Credentials placeholder fits the phone width (AUT-902)', () => {
+  test('the credentials placeholder is fully visible at 375px in DE and EN', async ({ page }) => {
+    for (const language of ['de', 'en'] as const) {
+      await openVoiceTranslationTab(page, PHONE_WIDTHS[0], language)
+      await credentialPlaceholder(page, language)
+      await expectNoPageScroll(page)
+    }
+  })
+
+  test('the credentials placeholder is fully visible at 390px in DE and EN', async ({ page }) => {
+    for (const language of ['de', 'en'] as const) {
+      await openVoiceTranslationTab(page, PHONE_WIDTHS[1], language)
+      await credentialPlaceholder(page, language)
+      await expectNoPageScroll(page)
+    }
+  })
+
+  test('desktop: the credentials field keeps its full-column textarea layout and the placeholder fits', async ({ page }) => {
+    for (const language of ['de', 'en'] as const) {
+      await openVoiceTranslationTab(page, 1440, language)
+      await credentialPlaceholder(page, language)
+      const layout = await page.evaluate(() => {
+        const field = document.querySelector('#voice-google-credential')!
+        const box = field.getBoundingClientRect()
+        return { tagName: field.tagName, width: box.width, height: box.height, columnWidth: field.parentElement!.getBoundingClientRect().width }
+      })
+      expect(layout.tagName, 'still the multiline textarea').toBe('TEXTAREA')
+      expect(layout.height, 'keeps its min height').toBeGreaterThanOrEqual(160)
+      expect(Math.abs(layout.width - layout.columnWidth), 'keeps filling its column').toBeLessThan(1)
+    }
   })
 })

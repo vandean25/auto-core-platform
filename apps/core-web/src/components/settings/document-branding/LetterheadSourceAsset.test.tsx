@@ -9,7 +9,9 @@ import {
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DocumentBrandAsset } from "@/api/document-branding";
+import { changeUiLanguage } from "@/lib/i18n";
 import deSettings from "../../../../../../locales/de/settings.json";
+import enSettings from "../../../../../../locales/en/settings.json";
 import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
 
 const sourceCopy = deSettings.documentBranding.letterheadSource;
@@ -274,4 +276,48 @@ describe("LetterheadSourceAsset", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent(/Datei wird geprüft/i);
   });
+
+  it("keeps one short hint line under the letterhead upload with the details behind the info icon", () => {
+    renderSource();
+
+    expect(deSettings.documentBranding.letterheadSource.hint.length).toBeLessThanOrEqual(60);
+    expect(enSettings.documentBranding.letterheadSource.hint.length).toBeLessThanOrEqual(60);
+    expect(screen.getByText(sourceCopy.hint)).toBeInTheDocument();
+    expect(screen.queryByText(sourceCopy.info)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: sourceCopy.infoAria }),
+    ).toBeInTheDocument();
+  });
+
+  // A touch sequence ends in the same activation event a mouse click sends (jsdom does not synthesize
+  // keyboard activation of a native button; the browser handles that natively).
+  const activations: ReadonlyArray<readonly [string, (trigger: HTMLElement) => void]> = [
+    ["click", (trigger) => fireEvent.click(trigger)],
+    [
+      "touch",
+      (trigger) => {
+        fireEvent.touchStart(trigger);
+        fireEvent.touchEnd(trigger, { bubbles: true, cancelable: true });
+        fireEvent.click(trigger);
+      },
+    ],
+  ];
+
+  for (const language of ["de", "en"] as const) {
+    it.each(activations)(
+      `AUT-901: activates the letterhead info icon by %s in ${language} and shows the moved guidance`,
+      async (_label, activate) => {
+        await changeUiLanguage(language);
+        const copy =
+          language === "de"
+            ? deSettings.documentBranding.letterheadSource
+            : enSettings.documentBranding.letterheadSource;
+        renderSource();
+
+        expect(screen.queryByText(copy.info)).not.toBeInTheDocument();
+        activate(screen.getByRole("button", { name: copy.infoAria }));
+        expect(screen.getByText(copy.info)).toBeInTheDocument();
+      },
+    );
+  }
 });

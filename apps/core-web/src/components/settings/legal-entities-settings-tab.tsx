@@ -690,11 +690,22 @@ export function LegalEntityAccountingProfileForm({
       )}
 
       <div className="space-y-3">
-        <div>
+        <div className="flex items-center gap-1.5">
           <h4 className="font-medium">{t('legalEntities.profile.mappings.title')}</h4>
-          <p className="text-sm text-slate-500">
-            {t('legalEntities.profile.mappings.description')}
-          </p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center h-11 w-11 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t('legalEntities.profile.mappings.infoAria')}
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 text-xs">
+              {t('legalEntities.profile.mappings.description')}
+            </PopoverContent>
+          </Popover>
         </div>
         <Table>
           <TableHeader>

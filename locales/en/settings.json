@@ -641,7 +641,7 @@
     "location": "Google Location",
     "locationPlaceholder": "global",
     "credential": "Google Service Account JSON",
-    "credentialPlaceholder": "{\"type\":\"service_account\",...}",
+    "credentialPlaceholder": "service_account JSON",
     "credentialInfo": "Leave empty to keep current value. Credentials are stored encrypted and never returned.",
     "credentialInfoAria": "Show credential info",
     "credentialNotConfigured": "Not configured",
@@ -893,6 +893,7 @@
       "mappings": {
         "title": "Source category mappings",
         "description": "Map each billable source category to a revenue account. Suggested accounts from revenue groups are prefilled only in the editor.",
+        "infoAria": "Show mapping info",
         "category": "Category",
         "tax": "Tax",
         "revenueAccount": "Revenue account",
@@ -1390,7 +1391,9 @@
     },
     "letterheadSource": {
       "label": "Letterhead source (PDF or PNG, up to 10 MiB)",
-      "hint": "Upload a PDF or PNG letterhead to keep it with your branding draft.",
+      "hint": "PDF or PNG, saved with your branding draft.",
+      "info": "Upload a PDF or PNG letterhead to keep it with your branding draft.",
+      "infoAria": "Show letterhead info",
       "download": "Download",
       "replace": "Replace",
       "remove": "Remove",

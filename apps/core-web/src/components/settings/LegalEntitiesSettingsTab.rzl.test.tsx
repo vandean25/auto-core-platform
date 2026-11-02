@@ -128,4 +128,15 @@ describe('LegalEntityAccountingProfileForm (RZL)', () => {
     expect(screen.getByText(rzl.released)).toBeInTheDocument()
     expect(screen.queryByText(/Für den Export fehlt/)).not.toBeInTheDocument()
   })
+
+  it('AUT-901: shows no multi-sentence help paragraph under the mappings section, the guidance opens behind the info icon', () => {
+    const mappings = deSettings.legalEntities.profile.mappings
+    render(<LegalEntityAccountingProfileForm entity={atEntity} />)
+
+    expect(screen.getByText(mappings.title)).toBeInTheDocument()
+    expect(screen.queryByText(mappings.description)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: mappings.infoAria }))
+    expect(screen.getByText(mappings.description)).toBeInTheDocument()
+  })
 })

@@ -641,7 +641,7 @@
     "location": "Google-Standort",
     "locationPlaceholder": "global",
     "credential": "Google-Dienstkonto-JSON",
-    "credentialPlaceholder": "{\"type\":\"service_account\",...}",
+    "credentialPlaceholder": "service_account-JSON",
     "credentialInfo": "Leer lassen, um aktuellen Wert zu behalten. Zugangsdaten werden verschlüsselt gespeichert und nie zurückgegeben.",
     "credentialInfoAria": "Hinweis zu Zugangsdaten anzeigen",
     "credentialNotConfigured": "Nicht konfiguriert",
@@ -893,6 +893,7 @@
       "mappings": {
         "title": "Zuordnungen der Quellkategorien",
         "description": "Ordnen Sie jeder verrechenbaren Quellkategorie ein Erlöskonto zu. Vorgeschlagene Konten aus den Erlösgruppen werden nur im Editor vorbefüllt.",
+        "infoAria": "Hinweis zur Zuordnung anzeigen",
         "category": "Kategorie",
         "tax": "Steuer",
         "revenueAccount": "Erlöskonto",
@@ -1390,7 +1391,9 @@
     },
     "letterheadSource": {
       "label": "Briefkopf-Vorlage (PDF oder PNG, bis zu 10 MiB)",
-      "hint": "Laden Sie einen PDF- oder PNG-Briefkopf hoch, um ihn mit Ihrem Branding-Entwurf aufzubewahren.",
+      "hint": "PDF oder PNG, wird im Branding-Entwurf gespeichert.",
+      "info": "Laden Sie einen PDF- oder PNG-Briefkopf hoch, um ihn mit Ihrem Branding-Entwurf aufzubewahren.",
+      "infoAria": "Hinweis zum Briefkopf anzeigen",
       "download": "Herunterladen",
       "replace": "Ersetzen",
       "remove": "Entfernen",
