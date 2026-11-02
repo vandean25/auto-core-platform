@@ -259,7 +259,7 @@ Then update status, or cancel the phase if the product dropped it.
 
 ### Frontend interaction follow-ons (ADR-0036)
 
-**Status:** Proposed deferrals — 2026-11-02; [ADR-0036](../01-ADR/2026-11-02-frontend-interaction-rules.md) awaits acceptance. Owner: Product Owner with frontend and affected API-module owners. These entries do not approve implementation.
+**Status:** Deferred follow-ons — 2026-11-02; [ADR-0036](../01-ADR/2026-11-02-frontend-interaction-rules.md) accepted by Dejan Dosenovic. Owner: Product Owner with frontend and affected API-module owners. These capabilities remain outside the accepted implementation scope until their re-entry triggers are met.
 
 | Deferred capability | Reason / cost of waiting | Re-entry trigger |
 |---|---|---|
