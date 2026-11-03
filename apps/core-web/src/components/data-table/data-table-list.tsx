@@ -144,6 +144,7 @@ function DataTableListRow<TData extends object>({ row, slots, rowBehaviour }: Da
 
   // Display-column buttons (id "actions") have no registry action behind them, so they stay reachable next to the "..." menu.
   const actionsCell = slot('actions')
+  const detailsCell = slot(slots.details)
 
   return (
     <li data-table-row="true" data-row-id={getTableRowId(record)} className="flex flex-wrap items-center">
@@ -153,12 +154,14 @@ function DataTableListRow<TData extends object>({ row, slots, rowBehaviour }: Da
       {actionsCell ? (
         <div className="ml-auto max-w-full shrink-0 px-3 [&_button]:min-h-11 [&_button]:min-w-11">{actionsCell}</div>
       ) : null}
+      {/* Wide content (controls, notes) needs its own line: inside the slots it would be truncated or squeeze the row. */}
+      {detailsCell ? <div className="w-full px-3 pb-2">{detailsCell}</div> : null}
       <DataTableRowActions row={record} rowBehaviour={rowBehaviour} />
     </li>
   )
 }
 
-/** Phone list mode of {@link DataTable}: two-line rows (title, subtitle, status, trailing) with a "..." row actions menu. */
+/** Phone list mode of {@link DataTable}: two-line rows (title, subtitle, status, trailing), an optional full-width details line and a "..." row actions menu. */
 export function DataTableList<TData extends object>({ columns, rows, rowBehaviour }: DataTableListProps<TData>) {
   const slots = getDataTableMobileSlots(columns)
 

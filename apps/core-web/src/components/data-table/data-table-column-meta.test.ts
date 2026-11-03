@@ -15,8 +15,15 @@ describe('getDataTableMobileSlots', () => {
       col('vehicle', 'subtitle'),
       col('opened', 'hidden'),
       col('status', 'status'),
+      col('note', 'details'),
     ])
-    expect(slots).toEqual({ title: 'customer', subtitle: 'vehicle', status: 'status', trailing: 'orderNo' })
+    expect(slots).toEqual({
+      title: 'customer',
+      subtitle: 'vehicle',
+      status: 'status',
+      trailing: 'orderNo',
+      details: 'note',
+    })
   })
 
   it('keeps the first column per role', () => {

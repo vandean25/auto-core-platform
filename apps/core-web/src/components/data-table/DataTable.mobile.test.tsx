@@ -28,6 +28,12 @@ const baseColumns: ColumnDef<Row>[] = [
 
 const actionsColumn: ColumnDef<Row> = { id: 'actions', cell: () => <button type="button">Quittieren</button> }
 
+const detailsColumn: ColumnDef<Row> = {
+  id: 'details',
+  cell: () => <span>Lieferbar 3</span>,
+  meta: { mobile: 'details' },
+}
+
 function Harness({
   rowBehaviour,
   data = rows,
@@ -168,6 +174,18 @@ describe('DataTable list mode', () => {
     // Wide cells wrap below the title instead of overflowing; their buttons get 44px targets.
     expect(row).toHaveClass('flex-wrap')
     expect(within(row).getByRole('button', { name: 'Quittieren' }).parentElement).toHaveClass('[&_button]:min-h-11')
+  })
+
+  it('renders a details column below the row, out of the tap target and its truncating slots', () => {
+    const onRowClick = vi.fn()
+    render(<Harness columns={[...baseColumns, detailsColumn]} rowBehaviour={{ onRowClick }} />)
+
+    const row = screen.getAllByRole('listitem')[0]
+    const tap = within(row).getByRole('button', { name: /Pilot Customer 1/ })
+    expect(within(tap).queryByText('Lieferbar 3')).not.toBeInTheDocument()
+
+    const details = within(row).getByText('Lieferbar 3')
+    expect(details.parentElement).toHaveClass('w-full')
   })
 
   it('shows a skeleton table while loading', () => {
