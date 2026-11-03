@@ -8,6 +8,7 @@ import {
   IMPORT_APPLY_BATCH_SIZE,
   IMPORT_WORKER_BATCH_SIZE,
 } from './import.constants.js';
+import type { ImportApplyRow } from './import-type-handler.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import type { ImportJobTotals } from './import.types.js';
@@ -22,7 +23,11 @@ function emptyTotals(rows: number): ImportJobTotals {
   return { rows, create: 0, update: 0, skip: 0, error: 0 };
 }
 
-function makeRows(count: number, action: ImportRowAction, startRowNo = 1) {
+function makeRows(
+  count: number,
+  action: ImportRowAction,
+  startRowNo = 1,
+): ImportApplyRow[] {
   return Array.from({ length: count }, (_, index) => ({
     row_no: startRowNo + index,
     action,
@@ -50,7 +55,7 @@ function createRunner(prisma: unknown) {
 }
 
 function applyInput(
-  rows: unknown[],
+  rows: ImportApplyRow[],
   overrides: { totalsJson?: ImportJobTotals; optionsJson?: unknown } = {},
 ) {
   return {

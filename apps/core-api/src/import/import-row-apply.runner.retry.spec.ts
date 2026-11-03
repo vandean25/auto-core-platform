@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import { ConflictException } from '@nestjs/common';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import type { ImportApplyRow } from './import-type-handler.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
@@ -248,7 +249,7 @@ function sequencePrisma(worker: ImportJobWorkerState) {
 
 function sequenceInput(
   worker: ImportJobWorkerState,
-  rows: unknown[],
+  rows: ImportApplyRow[],
   totalRows = 1,
 ) {
   return {

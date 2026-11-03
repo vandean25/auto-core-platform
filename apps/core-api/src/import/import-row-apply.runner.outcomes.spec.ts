@@ -93,7 +93,7 @@ async function writeRowWithApplyOverlap(_tx: unknown, row: ImportApplyRow) {
   }
 }
 
-function conflictApplyInput(rows: unknown[], optionsJson: unknown) {
+function conflictApplyInput(rows: ImportApplyRow[], optionsJson: Prisma.JsonValue) {
   return {
     tenantId: 'tenant-1',
     job: {
@@ -450,7 +450,7 @@ function createSyncApplyPrisma(rowUpdates: RowUpdate[]) {
   };
 }
 
-function parityInput(rows: unknown[], optionsJson: unknown) {
+function parityInput(rows: ImportApplyRow[], optionsJson: Prisma.JsonValue) {
   return {
     tenantId: 'tenant-1',
     job: {
