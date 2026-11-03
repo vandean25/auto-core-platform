@@ -143,6 +143,7 @@
       "creditedLines": "Credited lines",
       "draftEditHint": "Only owners or administrators can edit or void this draft credit note.",
       "finalizedHint": "Finalized credits cannot be changed here. Contact support and your accountant for external corrective handling if this document was issued in error.",
+      "pdfNotGeneratedHint": "PDF not generated yet – contact accounting.",
       "finalizeDialog": {
         "title": "Finalize credit note?",
         "description": "This assigns a permanent CN number and freezes the correction snapshot. No stock will be returned and no refund will be issued. The original invoice remains unchanged.",

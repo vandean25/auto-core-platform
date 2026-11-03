@@ -18,6 +18,12 @@ let mockCreditContext:
   | import('@/api/useCreditNotes').InvoiceCreditContextResponseDto
   | undefined
 
+// Mirrors the real hook's `enabled: Boolean(invoiceId)` + '' gating so a
+// regression that passes '' for a read-capable role yields no data.
+const mockUseInvoiceCreditContext = vi.fn((invoiceId: string) => ({
+  data: invoiceId ? mockCreditContext : undefined,
+}))
+
 vi.mock('@/hooks/usePdfDownload', () => ({
   usePdfDownload: (config?: UsePdfDownloadConfig) => {
     capturedPdfConfig = config
@@ -37,7 +43,8 @@ vi.mock('@/api/useCreditNotes', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/useCreditNotes')>()
   return {
     ...actual,
-    useInvoiceCreditContext: () => ({ data: mockCreditContext }),
+    useInvoiceCreditContext: (invoiceId: string) =>
+      mockUseInvoiceCreditContext(invoiceId),
     useCreateCreditNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
   }
 })
@@ -236,12 +243,11 @@ describe('InvoiceDetailPage download action', () => {
   })
 })
 
-describe('InvoiceDetailPage credit notes for SALES (AUT-911)', () => {
+describe('InvoiceDetailPage credit notes read scope (AUT-911)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsLoading = false
     capturedPdfConfig = undefined
-    mockActiveRole = 'SALES'
     mockCreditContext = makeCreditContext([makeCreditNote()])
   })
 
@@ -251,15 +257,39 @@ describe('InvoiceDetailPage credit notes for SALES (AUT-911)', () => {
     mockCreditContext = undefined
   })
 
-  it('lists the invoice credit notes but offers no create action', () => {
-    renderPage(makeInvoice({ status: 'FINALIZED' }))
+  it.each([
+    { role: 'SALES', listShown: true, createShown: false },
+    { role: 'OWNER', listShown: true, createShown: true },
+    { role: 'ADMIN', listShown: true, createShown: true },
+    { role: 'TECH', listShown: false, createShown: false },
+  ])(
+    'fetches the credit context with the invoice id for $role only when read-scoped',
+    ({ role, listShown, createShown }) => {
+      mockActiveRole = role
+      renderPage(makeInvoice({ status: 'FINALIZED' }))
 
-    expect(
-      screen.getByText(deSales.invoices.detail.relatedCreditNotes),
-    ).toBeInTheDocument()
-    expect(screen.getByText('CN-2026-0001')).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: deSales.invoices.detail.creditNote }),
-    ).not.toBeInTheDocument()
-  })
+      expect(mockUseInvoiceCreditContext).toHaveBeenCalledWith(
+        listShown ? 'inv-1' : '',
+      )
+
+      const heading = screen.queryByText(
+        deSales.invoices.detail.relatedCreditNotes,
+      )
+      if (listShown) {
+        expect(heading).toBeInTheDocument()
+        expect(screen.getByText('CN-2026-0001')).toBeInTheDocument()
+      } else {
+        expect(heading).not.toBeInTheDocument()
+      }
+
+      const createButton = screen.queryByRole('button', {
+        name: deSales.invoices.detail.creditNote,
+      })
+      if (createShown) {
+        expect(createButton).toBeInTheDocument()
+      } else {
+        expect(createButton).not.toBeInTheDocument()
+      }
+    },
+  )
 })
