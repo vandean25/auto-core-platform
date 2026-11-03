@@ -15,6 +15,7 @@ import {
 } from '@/features/actions/work-order-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 import { useRegistryRowShortcuts } from '@/features/shortcuts/use-registry-row-shortcuts'
+import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 
 export function useWorkshopOrderListRowBehaviour(
   t: TFunction<'workshop'>,
@@ -28,9 +29,10 @@ export function useWorkshopOrderListRowBehaviour(
 
   const prefetchOrderDetail = useCallback(
     (row: WorkshopOrderListRow) => {
-      void queryClient.prefetchQuery(workshopOrderDetailQueryOptions(row.id))
+      if (!canOpenWorkshopOrder(role)) return
+      scheduleDetailPrefetch(queryClient, workshopOrderDetailQueryOptions(row.id))
     },
-    [queryClient],
+    [queryClient, role],
   )
 
   const workOrderActionDefinitions = useMemo(() => createWorkshopOrderRowActions(t), [t])

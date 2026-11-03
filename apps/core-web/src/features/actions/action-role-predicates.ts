@@ -48,6 +48,11 @@ export function canOpenWorkshopOrder(role: string | null | undefined): boolean {
   return role !== ''
 }
 
+/** Mechanics (TECH) stay on the mechanic shell; back-office roles can open invoices, vehicle stock, and inventory details (consistent with canOpenCustomer/Vehicle/WorkshopOrder). */
+export function canOpenBackOfficeDetail(role: string | null | undefined): boolean {
+  return role !== '' && role !== 'TECH'
+}
+
 export function canCheckInWorkshopOrder(role: string | null | undefined): boolean {
   return role !== ''
 }

@@ -1,17 +1,21 @@
 import { useEffect, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Plus } from 'lucide-react'
-import { useInvoices } from '@/api/sales'
+import { invoiceDetailQueryOptions, useInvoices } from '@/api/sales'
 import type { Invoice } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { canOpenBackOfficeDetail } from '@/features/actions/action-role-predicates'
+import { useAuthRole } from '@/features/actions/use-auth-role'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateShort } from '@/lib/format'
+import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 import { formatCurrency } from '@/lib/utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
@@ -43,6 +47,8 @@ export default function InvoiceListPage() {
     void ensureNamespaceLoaded('sales')
   }, [])
   const navigate = useNavigate()
+  const role = useAuthRole()
+  const queryClient = useQueryClient()
   const { queryParams, ...tableState } = useDataTableQuery({
     defaultPageSize: 10,
     initialSorting: [{ id: 'date', desc: true }],
@@ -169,6 +175,10 @@ export default function InvoiceListPage() {
                 ? APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', row.id)
                 : APP_ROUTE_PATHS.salesInvoiceDetail.replace(':id', row.id)
             navigate(path)
+          },
+          onRowPrefetch: (row) => {
+            if (!canOpenBackOfficeDetail(role)) return
+            scheduleDetailPrefetch(queryClient, invoiceDetailQueryOptions(row.id))
           },
         }}
         {...tableState}

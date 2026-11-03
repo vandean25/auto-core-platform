@@ -1,4 +1,10 @@
+import { useEffect } from 'react'
 import { formatDateShort } from '@/lib/format'
+import {
+  cancelIntentPrefetch,
+  scheduleIntentPrefetch,
+  startImmediateIntentPrefetch,
+} from '@/lib/intent-prefetch'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -16,15 +22,39 @@ function formatVehicle(item: MechanicQueueItem) {
 
 export function MechanicQueueCard({ item, onPrefetch }: MechanicQueueCardProps) {
   const { t } = useTranslation('workshop')
+  const hoverIntentKey = `mechanic-task-hover:${item.taskId}`
+  const focusIntentKey = `mechanic-task-focus:${item.taskId}`
+
+  useEffect(() => {
+    return () => {
+      cancelIntentPrefetch(hoverIntentKey)
+      cancelIntentPrefetch(focusIntentKey)
+    }
+  }, [focusIntentKey, hoverIntentKey])
+
   return (
     <Link
       to={`/mechanic/tasks/${item.taskId}`}
       className="block min-h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       onPointerEnter={(event) => {
-        if (event.pointerType === 'touch') return
-        onPrefetch?.()
+        if (event.pointerType === 'touch' || !onPrefetch) return
+        scheduleIntentPrefetch(hoverIntentKey, onPrefetch)
       }}
-      onFocus={onPrefetch}
+      onPointerLeave={() => {
+        cancelIntentPrefetch(hoverIntentKey)
+      }}
+      onPointerDown={(event) => {
+        if (event.pointerType === 'touch' || !onPrefetch) return
+        cancelIntentPrefetch(focusIntentKey)
+        startImmediateIntentPrefetch(hoverIntentKey, onPrefetch)
+      }}
+      onFocus={() => {
+        if (!onPrefetch) return
+        scheduleIntentPrefetch(focusIntentKey, onPrefetch)
+      }}
+      onBlur={() => {
+        cancelIntentPrefetch(focusIntentKey)
+      }}
     >
       <Card className="min-h-[72px] p-4 transition-colors hover:bg-slate-50">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
