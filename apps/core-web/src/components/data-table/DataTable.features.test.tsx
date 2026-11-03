@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
+import { DataTableDensity } from './data-table-density-toggle'
 import deCommon from '../../../../../locales/de/common.json'
 
 type Row = { id: string; name: string; status: string; amount: number }
@@ -198,14 +199,20 @@ describe('DataTable layout options', () => {
     expect(container.querySelector('thead')).toHaveClass('sticky', 'top-0')
   })
 
+  // Scenario 5 (AUT-881): WHEN the density toggle is set to compact THEN row height uses the compact token.
   it('toggles compact density', () => {
     const { container } = render(<Harness />)
+    const grid = container.querySelector('[data-density]')
 
-    expect(container.querySelector('[data-density]')).toHaveAttribute('data-density', 'normal')
+    expect(grid).toHaveAttribute('data-density', 'comfortable')
+    expect(grid?.className).toContain(DataTableDensity.comfortableRowClass)
     fireEvent.keyDown(screen.getByRole('button', { name: dt.columns }), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: dt.density.compact }))
 
-    expect(container.querySelector('[data-density]')).toHaveAttribute('data-density', 'compact')
+    const compactGrid = container.querySelector('[data-density]')
+    expect(compactGrid).toHaveAttribute('data-density', 'compact')
+    expect(compactGrid?.className).toContain(DataTableDensity.compactRowClass)
+    expect(compactGrid?.className).toContain(DataTableDensity.compactHeaderClass)
   })
 })
 

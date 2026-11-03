@@ -5,6 +5,7 @@ import { useRef } from 'react'
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TableSkeleton } from '@/components/ui/skeleton-presets'
 import { cn } from '@/lib/utils'
+import { DataTableDensity as densityTokens } from '@/lib/motion-tokens'
 import { getDataTableHeadClassName } from './data-table-column-meta'
 import type { DataTableDensity } from './data-table-density-toggle'
 import { DataTableEmptyRow, type DataTableEmptyState } from './data-table-states'
@@ -69,9 +70,12 @@ export function DataTableGrid<TData extends object>({
     <div
       className={cn(
         'max-w-full overflow-x-auto rounded-md border [&>div]:max-h-[70vh]',
-        'data-[density=compact]:[&_td]:py-1.5 data-[density=compact]:[&_th]:h-9',
+        densityTokens.compactRowClass,
+        densityTokens.compactHeaderClass,
+        densityTokens.comfortableRowClass,
+        densityTokens.comfortableHeaderClass,
       )}
-      data-density={density}
+      data-density={density === 'compact' ? 'compact' : 'comfortable'}
     >
       <Table aria-busy={isLoading}>
         <TableHeader className={cn('sticky top-0 z-10 bg-background', hideHeader && 'hidden')}>

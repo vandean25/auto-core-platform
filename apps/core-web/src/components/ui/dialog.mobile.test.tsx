@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './dialog'
+import { Progress } from './progress'
 
 afterEach(cleanup)
 
@@ -158,5 +159,25 @@ describe('DialogContent mobile foundations', () => {
     expect(className).toContain('max-sm:rounded-none')
     expect(className).toContain('safe-area-inset-bottom')
     expect(className).toContain('sm:w-full')
+  })
+
+  // Scenario 3 (AUT-881 / ADR-0036 R6): WHEN prefers-reduced-motion: reduce is set
+  // THEN dialogs open without animation and progress feedback is static.
+  it('opens without animation and keeps progress static under prefers-reduced-motion', () => {
+    render(
+      <Dialog open>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>Reduced motion</DialogTitle>
+          <Progress value={40} />
+        </DialogContent>
+      </Dialog>,
+    )
+
+    const content = screen.getByRole('dialog')
+    expect(content).toHaveClass('motion-reduce:animate-none')
+    expect(content).toHaveClass('motion-reduce:duration-0')
+    expect(within(content).getByRole('progressbar').firstElementChild).toHaveClass(
+      'motion-reduce:transition-none',
+    )
   })
 })

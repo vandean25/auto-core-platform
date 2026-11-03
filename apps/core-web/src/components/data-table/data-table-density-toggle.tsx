@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next'
 
 import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
 
+export { DataTableDensity } from '@/lib/motion-tokens'
+
+/** Row-density mode of a DataTable; the row-height classes live in the {@link DataTableDensity} tokens. */
 export type DataTableDensity = 'normal' | 'compact'
 
 type DensityContextValue = { density: DataTableDensity; setDensity: (density: DataTableDensity) => void }
