@@ -7,6 +7,10 @@ import { CloudTasksService, PdfStorage } from '../common/index.js';
 import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch.js';
 import { renderAndUploadPdf } from '../common/pdf/pdf-render-upload.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import {
+  assertSiteReadAccess,
+  assertTenantAdmin,
+} from '../site/site.authorization.js';
 import { toRenderableCreditNoteSnapshot } from './credit-note-snapshot-render.adapter.js';
 import {
   assertCreditNotePdfGenerationAllowed,
@@ -47,6 +51,7 @@ export class CreditNotePdfService {
       select: {
         id: true,
         status: true,
+        site_id: true,
         credit_number: true,
         pdf_storage_bucket: true,
         pdf_storage_key: true,
@@ -57,6 +62,17 @@ export class CreditNotePdfService {
     if (!creditNote) {
       throw new NotFoundException('Credit note not found');
     }
+
+    // Generating the PDF is a back-office write action, so it stays OWNER/ADMIN on a
+    // site the caller can see. Gate before the cache and status checks: a read-only
+    // role must be refused with 403 even on a FINALIZED note that already has a PDF.
+    assertTenantAdmin(this.tenantContext);
+    await assertSiteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      creditNote.site_id,
+    );
 
     const cachedPdf = await this.resolveVerifiedCachedPdfMetadata(
       creditNoteId,

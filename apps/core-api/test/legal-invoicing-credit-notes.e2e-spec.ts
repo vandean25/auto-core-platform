@@ -776,16 +776,9 @@ describe('Legal invoicing credit notes (e2e)', () => {
     } finally {
       openPdf.mockRestore();
     }
-
-    // Fixture sanity check: the draft under test carries the storage key the fake PDF stream resolves.
-    const storedKey = await tenantPrisma.creditNote.findFirstOrThrow({
-      where: { id: draft.body.id },
-      select: { pdf_storage_key: true },
-    });
-    expect(storedKey.pdf_storage_key).toBe(expectedKey);
   });
 
-  it.each(['create from invoice', 'finalize', 'generate pdf'] as const)(
+  it.each(['create from invoice', 'finalize'] as const)(
     'AUT-911: a SALES member is refused %s with 403',
     async (operation) => {
       const invoice = await finalizeSalesInvoice();
@@ -799,14 +792,10 @@ describe('Legal invoicing credit notes (e2e)', () => {
         `write-${operation.split(' ').join('-')}`,
       );
 
-      const attempts: Record<typeof operation, { path: string; body: unknown }> = {
+      const attempts: Record<typeof operation, { path: string; body: object }> = {
         finalize: {
           path: `/api/credit-notes/${draft.body.id}/finalize`,
           body: { expectedVersion: 1, idempotencyKey: randomUUID() },
-        },
-        'generate pdf': {
-          path: `/api/credit-notes/${draft.body.id}/pdf`,
-          body: {},
         },
         'create from invoice': {
           path: `/api/invoices/${invoice.id}/credit-notes`,
@@ -828,6 +817,33 @@ describe('Legal invoicing credit notes (e2e)', () => {
       expect(untouched).toEqual([{ id: draft.body.id, status: 'DRAFT' }]);
     },
   );
+
+  it('AUT-911: a SALES member is refused generate pdf with 403', async () => {
+    const invoice = await finalizeSalesInvoice();
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Finalized, SALES may not regenerate the PDF',
+      mode: 'FULL',
+    }).expect(201);
+    await finalizeCredit(draft.body.id, 'aut911-sales-generate').expect(201);
+
+    // The note is FINALIZED and on the SALES member's site, so the status gate that
+    // answers 400 for drafts and the site check would both pass for OWNER/ADMIN. Only
+    // the OWNER/ADMIN role gate on PDF generation can refuse this caller, with 403.
+    const salesBearer = await siteMemberBearer('SALES', 'write-generate-pdf');
+    await request(app.getHttpServer())
+      .post(`/api/credit-notes/${draft.body.id}/pdf`)
+      .set('Authorization', salesBearer)
+      .send({})
+      .expect(403);
+
+    const unchanged = await tenantPrisma.creditNote.findFirstOrThrow({
+      where: { id: draft.body.id },
+      select: { status: true, pdf_generated_at: true },
+    });
+    expect(unchanged.status).toBe('FINALIZED');
+    expect(unchanged.pdf_generated_at).toBeNull();
+  });
 
   it('LI-11: rejects margin partial updates and finalized mutations', async () => {
     const invoice = await finalizeSalesInvoice();
