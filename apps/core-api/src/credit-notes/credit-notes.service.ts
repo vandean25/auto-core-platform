@@ -277,14 +277,26 @@ export class CreditNotesService {
     return this.serializeCreditNote(creditNote, snapshot, priorCredits);
   }
 
-  async updateDraft(id: string, dto: UpdateCreditNoteDto) {
+  private async loadWritableDraftCreditNote(
+    id: string,
+    notDraftMessage: string,
+  ) {
     const tenantId = await this.tenantContext.getTenantId();
     const creditNote = await this.loadCreditNote(tenantId, id);
     await this.assertCreditWriteAccess(tenantId, creditNote.site_id);
 
     if (creditNote.status !== CreditNoteStatus.DRAFT) {
-      throw new ConflictException('Only draft credit notes can be updated.');
+      throw new ConflictException(notDraftMessage);
     }
+
+    return { tenantId, creditNote };
+  }
+
+  async updateDraft(id: string, dto: UpdateCreditNoteDto) {
+    const { tenantId, creditNote } = await this.loadWritableDraftCreditNote(
+      id,
+      'Only draft credit notes can be updated.',
+    );
     if (creditNote.version !== dto.expectedVersion) {
       throw new ConflictException('Credit note version is stale.');
     }
@@ -551,13 +563,10 @@ export class CreditNotesService {
   }
 
   async void(id: string, dto: VoidCreditNoteDto) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const creditNote = await this.loadCreditNote(tenantId, id);
-    await this.assertCreditWriteAccess(tenantId, creditNote.site_id);
-
-    if (creditNote.status !== CreditNoteStatus.DRAFT) {
-      throw new ConflictException('Only draft credit notes can be voided.');
-    }
+    const { tenantId, creditNote } = await this.loadWritableDraftCreditNote(
+      id,
+      'Only draft credit notes can be voided.',
+    );
     if (creditNote.version !== dto.expectedVersion) {
       throw new ConflictException('Credit note version is stale.');
     }
