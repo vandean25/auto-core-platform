@@ -175,7 +175,9 @@
     },
     "BRAND_LOGO_TOO_LARGE": {
       "public": true,
-      "params": []
+      "params": [
+        "maxMiB"
+      ]
     },
     "BRAND_PDF_ACTIONS": {
       "public": true,

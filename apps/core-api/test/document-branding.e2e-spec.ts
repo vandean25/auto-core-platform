@@ -548,7 +548,8 @@ describe('Document branding persistence (e2e)', () => {
       )
       .expect(413);
     expect(oversizedLogo.body).toMatchObject({
-      code: 'BRAND_UPLOAD_TOO_LARGE',
+      code: 'BRAND_LOGO_TOO_LARGE',
+      maxMiB: '2',
     });
   });
 });

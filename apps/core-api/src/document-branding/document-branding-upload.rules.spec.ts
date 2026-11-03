@@ -3,7 +3,12 @@ import {
   PayloadTooLargeException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import { DOCUMENT_BRAND_LOGO_MAX_BYTES } from './document-branding-limits.js';
+import {
+  DOCUMENT_BRAND_LOGO_MAX_BYTES,
+  DOCUMENT_BRAND_PAYLOAD_SIZE_LIMIT_MIB,
+  DOCUMENT_BRAND_SOURCE_MAX_BYTES,
+  formatLogoUploadRequirement,
+} from './document-branding-limits.js';
 import {
   assertPurposeSupportsMime,
   buildContentDisposition,
@@ -48,6 +53,44 @@ describe('document branding upload rules', () => {
       PayloadTooLargeException,
     );
   });
+
+  it.each([
+    {
+      purpose: 'LOGO' as const,
+      maxBytes: DOCUMENT_BRAND_LOGO_MAX_BYTES,
+      code: 'BRAND_LOGO_TOO_LARGE',
+      responseExtras: {
+        message: formatLogoUploadRequirement(),
+        maxMiB: DOCUMENT_BRAND_PAYLOAD_SIZE_LIMIT_MIB,
+      },
+    },
+    {
+      purpose: 'SOURCE' as const,
+      maxBytes: DOCUMENT_BRAND_SOURCE_MAX_BYTES,
+      code: 'BRAND_UPLOAD_TOO_LARGE',
+      responseExtras: {},
+    },
+  ])(
+    'names the purpose-specific code and the $purpose byte limit for an oversized upload',
+    ({ purpose, maxBytes, code, responseExtras }) => {
+      const oversized = {
+        buffer: Buffer.alloc(1),
+        size: maxBytes + 1,
+      } as unknown as Express.Multer.File;
+      let thrown: PayloadTooLargeException | undefined;
+      try {
+        requireUpload(oversized, purpose);
+      } catch (error) {
+        thrown = error as PayloadTooLargeException;
+      }
+      expect(thrown).toBeInstanceOf(PayloadTooLargeException);
+      const response = thrown?.getResponse() as Record<string, unknown>;
+      expect(response).toMatchObject({ code, ...responseExtras });
+      if (!responseExtras.maxMiB) {
+        expect(response.maxMiB).toBeUndefined();
+      }
+    },
+  );
 
   it('accepts only PNG logos and PNG or PDF sources', () => {
     expect(() =>

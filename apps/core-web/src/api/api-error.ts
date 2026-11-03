@@ -29,6 +29,8 @@ export type ApiErrorBody = {
   eventId?: string
   requestId?: string
   field_issues?: ApiErrorViolation[]
+  /** Server-forwarded, allowlisted interpolation values for the wire code. */
+  [extra: string]: unknown
 }
 
 type ApiErrorCarrier = {
@@ -45,6 +47,16 @@ type ApiErrorCarrier = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function dropUndefined(
+  values: Record<string, string | undefined> | undefined,
+): Record<string, string> {
+  const kept: Record<string, string> = {}
+  for (const [key, value] of Object.entries(values ?? {})) {
+    if (value !== undefined) kept[key] = value
+  }
+  return kept
 }
 
 export function getApiErrorBody(error: unknown): ApiErrorBody | undefined {
@@ -154,6 +166,7 @@ function appendSupportReference(
 export function translateApiError(
   error: unknown,
   fallbackKey: 'errors:generic.unexpected' = 'errors:generic.unexpected',
+  interpolate?: Record<string, string | undefined>,
 ): string {
   const normalized = normalizeApiError(error)
   if (!normalized) {
@@ -165,6 +178,7 @@ export function translateApiError(
     const translated = i18n.t(key, {
       defaultValue: '',
       ...normalized.params,
+      ...dropUndefined(interpolate),
     })
     if (translated) {
       return appendSupportReference(translated, normalized)

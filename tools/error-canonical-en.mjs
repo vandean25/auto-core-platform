@@ -200,7 +200,7 @@ export const CANONICAL_EN_MESSAGES = {
   BRAND_ASSET_QUARANTINE_MISSING:
     'The uploaded file is no longer available. Please upload it again.',
   BRAND_LOGO_TOO_LARGE:
-    'The logo file is too large. Please choose a smaller PNG file.',
+    'The logo is too large. Maximum size: {{maxMiB}} MiB.',
   BRAND_PNG_DIMENSIONS_INVALID:
     'The PNG image size is not supported. Please choose another PNG file.',
   BRAND_PNG_INVALID:

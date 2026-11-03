@@ -12,6 +12,8 @@ import type { DocumentBrandAsset } from "@/api/document-branding";
 import { changeUiLanguage } from "@/lib/i18n";
 import { createHttpError } from "@/lib/error-utils";
 import { DEFAULT_UI_LANGUAGE } from "@/lib/i18n/constants";
+import { toast } from "sonner";
+import deErrors from "../../../../../../locales/de/errors.json";
 import deSettings from "../../../../../../locales/de/settings.json";
 import enSettings from "../../../../../../locales/en/settings.json";
 import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
@@ -125,6 +127,7 @@ const quarantinedAsset: DocumentBrandAsset = {
 afterEach(async () => {
   cleanup();
   await changeUiLanguage(DEFAULT_UI_LANGUAGE);
+  vi.mocked(toast.error).mockReset();
   mocks.upload.mockReset();
   mocks.attach.mockReset();
   mocks.remove.mockReset();
@@ -137,6 +140,27 @@ afterEach(async () => {
 });
 
 describe("LetterheadSourceAsset", () => {
+  it("keeps showing the letterhead copy when an oversized source upload is refused", async () => {
+    mocks.upload.mockRejectedValue(
+      createHttpError("Upload rejected", 413, {
+        code: "BRAND_UPLOAD_TOO_LARGE",
+      }),
+    );
+    renderSource();
+
+    const input = document.getElementById("brand-source") as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["png"], "letterhead.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        sourceCopy.toast.uploadFailed,
+        { description: deErrors.codes.BRAND_UPLOAD_TOO_LARGE },
+      ),
+    );
+  });
+
   it("attaches with the latest revision when autosave bumps revision during upload", async () => {
     let revision = 4;
     const profile = {

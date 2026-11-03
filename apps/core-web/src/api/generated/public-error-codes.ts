@@ -352,6 +352,7 @@ export const PUBLIC_API_ERROR_CODES = [
 ] as const
 export type PublicApiErrorCode = (typeof PUBLIC_API_ERROR_CODES)[number]
 export const PUBLIC_API_ERROR_CODE_PARAMS: Partial<Record<PublicApiErrorCode, readonly string[]>> = {
+  BRAND_LOGO_TOO_LARGE: ["maxMiB"],
   IMPORT_APPLY_IN_PROGRESS: ["leaseExpiresAt"],
   IMPORT_JOB_NOT_UNDOABLE: ["reason"],
   TYRE_DOT_FUTURE_DATE: ["position"],
