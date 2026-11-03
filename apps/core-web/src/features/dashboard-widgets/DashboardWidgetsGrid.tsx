@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
+import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { Info, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -105,6 +106,8 @@ function DashboardWidgetCard({
 export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps) {
   const { t } = useTranslation('common')
   const { widgets, removeWidget } = useDashboardWidgets()
+  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
+  const visibleWidgets = widgets.filter((widget) => widget.sourceKey !== PICKERL_DUE_SOURCE_KEY || capabilities?.pickerl57a === true)
 
   if (widgets.length === 0) {
     return (
@@ -136,7 +139,7 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 dashboard-widgets-grid">
-      {widgets.map((widget) => {
+      {visibleWidgets.map((widget) => {
         const source = sourcesByKey[widget.sourceKey]
         if (!source) {
           return (

@@ -15,6 +15,7 @@ import {
   NovaCalculationErrorResponseDto,
 } from './dto/nova-calculate.dto.js';
 import { NovaCalculationService } from './nova-calculation.service.js';
+import { RequireCapability } from '../common/country-pack/effective-capabilities.guard.js';
 
 /**
  * NoVA preview. Tag and operation id keep the `Vehicle` names the OpenAPI contract and
@@ -28,6 +29,7 @@ export class VehicleNovaController {
   ) {}
 
   @Post('nova/calculate')
+  @RequireCapability('nova')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'VehicleController_calculateNova',

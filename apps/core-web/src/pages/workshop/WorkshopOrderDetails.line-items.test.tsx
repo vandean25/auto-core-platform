@@ -121,6 +121,8 @@ describe('WorkshopOrderDetails line-item persistence', () => {
 
     vi.clearAllMocks()
 
+    vi.mocked(authSessionApi.selectEffectiveCapabilities).mockReturnValue({ nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true })
+
     ;(authSessionApi.useAuthSession as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { activeRole: 'ADMIN' },
     })

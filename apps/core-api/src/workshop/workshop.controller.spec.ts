@@ -25,6 +25,7 @@ import { FindAllWorkshopOrdersQueryDto } from './dto/find-all-workshop-orders-qu
 import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto.js';
 import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto.js';
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
+import { EffectiveCapabilitiesService } from '../common/country-pack/effective-capabilities.guard.js';
 
 describe('WorkshopOrdersController', () => {
   let controller: WorkshopOrdersController;
@@ -39,6 +40,7 @@ describe('WorkshopOrdersController', () => {
       providers: [
         { provide: WorkshopIntakeService, useValue: mockIntakeService },
         { provide: WorkshopInvoiceService, useValue: {} },
+        { provide: EffectiveCapabilitiesService, useValue: {} },
       ],
     }).compile();
 

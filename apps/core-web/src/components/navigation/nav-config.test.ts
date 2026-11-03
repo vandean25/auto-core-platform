@@ -164,12 +164,23 @@ describe('nav config: no route lost', () => {
 })
 
 describe('nav config: visibility per role (ticket table)', () => {
+  it.each([false, null])('hides the Pickerl entry when capability is %s', (enabled) => {
+    const context = {
+      activeRole: 'OWNER' as const,
+      platformRole: null,
+      capabilities: enabled === null ? null : { nova: true, pickerl57a: enabled, kaufvertragAt: true, willhabenExport: true },
+    }
+
+    expect(visibleRoutes(context)).not.toContain('/vehicles/pickerl-due')
+  })
+
   it.each(ROLE_CASES)('$name sees exactly the entries of the former sidebar', (roleCase) => {
     vi.stubEnv('VITE_FEATURE_AGENT_SUPERVISION', roleCase.agentFlag ? 'true' : 'false')
 
     const visible = visibleRoutes({
       activeRole: roleCase.activeRole as NavAccessContext['activeRole'],
       platformRole: roleCase.platformRole,
+      capabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
     })
 
     expect([...visible].sort()).toEqual([...UNGATED_ROUTES, ...roleCase.gated].sort())

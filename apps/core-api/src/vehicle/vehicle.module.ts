@@ -24,9 +24,14 @@ import { VehiclePickerlBarrierService } from './vehicle-pickerl-barrier.service.
 import { VehicleWriteService } from './vehicle-write.service.js';
 import { NovaCalculationService } from './nova-calculation.service.js';
 import { InspectionExchangeModule } from '../inspection-exchange/inspection-exchange.module.js';
+import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-capabilities.module.js';
 
 @Module({
-  imports: [PrismaModule, InspectionExchangeModule],
+  imports: [
+    PrismaModule,
+    InspectionExchangeModule,
+    EffectiveCapabilitiesModule,
+  ],
   controllers: [
     // Literal paths (nova/calculate, pickerl-due) must register before VehicleController's GET :id.
     // This order also keeps the path order of the generated OpenAPI file.

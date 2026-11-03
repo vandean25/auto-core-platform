@@ -14,8 +14,13 @@ registerGermanUiForTests()
 const mocks = vi.hoisted(() => ({
   fetchWithAuth: vi.fn(),
   widgets: [] as DashboardWidget[],
+  capabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true } as { nova: boolean, pickerl57a: boolean, kaufvertragAt: boolean, willhabenExport: boolean } | null,
 }))
 
+vi.mock('@/api/auth-session', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/api/auth-session')>(),
+  useAuthSession: () => ({ data: { effectiveCapabilities: mocks.capabilities } }),
+}))
 vi.mock('@/api/client', () => ({ fetchWithAuth: mocks.fetchWithAuth }))
 vi.mock('./DashboardWidgetsProvider', () => ({
   useDashboardWidgets: () => ({ widgets: mocks.widgets, removeWidget: vi.fn() }),
@@ -56,6 +61,7 @@ function requestedUrls() {
 }
 
 beforeEach(() => {
+  mocks.capabilities = { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true }
   mocks.fetchWithAuth.mockImplementation(async () => new Response(JSON.stringify({ data: VEHICLES })))
 })
 
@@ -65,6 +71,16 @@ afterEach(() => {
 })
 
 describe('DashboardWidgetsGrid data fetching (AUT-776)', () => {
+  it.each([false, null])('hides the Pickerl widget and sends no request when capability is %s', (enabled) => {
+    mocks.capabilities = enabled === null ? null : { nova: true, pickerl57a: enabled, kaufvertragAt: true, willhabenExport: true }
+    mocks.widgets = [widget('pickerl', '/vehicles/pickerl-due', { sourceKey: 'pickerl-due' })]
+
+    renderGrid()
+
+    expect(screen.queryByText('Widget pickerl')).not.toBeInTheDocument()
+    expect(requestedUrls()).toEqual([])
+  })
+
   it('makes one request for widgets that need the same API URL', async () => {
     mocks.widgets = ['a', 'b', 'c', 'd', 'e'].map((id) => widget(id, '/vehicles'))
 

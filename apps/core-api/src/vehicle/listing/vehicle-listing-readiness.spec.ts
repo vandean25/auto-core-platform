@@ -88,4 +88,15 @@ describe('assertListingChannelActiveReadiness', () => {
       ),
     ).not.toThrow();
   });
+
+  it('allows an active listing without NoVA confirmation when NoVA is unavailable', () => {
+    expect(() =>
+      assertListingChannelActiveReadiness(
+        VehicleListingDesiredState.ACTIVE,
+        { ...readyListing, nova_included_confirmed: false },
+        readyVehicle,
+        { nova: false },
+      ),
+    ).not.toThrow();
+  });
 });

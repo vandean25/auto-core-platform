@@ -9,6 +9,7 @@ import {
   type VehicleSaleTradeInHandle,
 } from '@/components/vehicle-stock/VehicleSaleTradeInSection'
 import { useVehicleSale, useVehicleStockDetail } from '@/api/vehicle-stock'
+import { CapabilityGate } from '@/components/CapabilityGate'
 import type { Customer } from '@/api/types'
 import { useVehicleSaleForm } from './useVehicleSaleForm'
 import { useVehicleSaleAutosave } from './useVehicleSaleAutosave'
@@ -104,7 +105,9 @@ export default function VehicleSalePage() {
             shorteningSaveError={draft.shorteningSaveError}
             clearShorteningSaveError={() => draft.setShorteningSaveError(null)}
           />
-          <VehicleSaleNovaPreview vehicle={vehicle} />
+          <CapabilityGate capability="nova">
+            <VehicleSaleNovaPreview vehicle={vehicle} />
+          </CapabilityGate>
         </div>
       </div>
 

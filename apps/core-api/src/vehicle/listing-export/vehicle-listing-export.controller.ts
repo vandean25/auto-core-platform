@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { VehicleListingExportService } from './vehicle-listing-export.service.js';
 import { VehicleListingExportValidationResponseDto } from './dto/vehicle-listing-export-validation.dto.js';
+import { RequireCapability } from '../../common/country-pack/effective-capabilities.guard.js';
 
 @ApiTags('vehicle-stock')
 @Controller('vehicle-stock/:vehicleId/listing/export')
@@ -35,6 +36,7 @@ export class VehicleListingExportController {
   }
 
   @Get('download')
+  @RequireCapability('willhabenExport', { profile: 'WILLHABEN_GENERIC_V1' })
   @ApiOperation({
     summary:
       'Download a reference listing export package (CSV + images ZIP) for the active stock cycle',

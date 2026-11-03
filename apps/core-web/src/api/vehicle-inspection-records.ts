@@ -12,7 +12,7 @@ export const vehicleInspectionKeys = {
   all: (vehicleId: string) => ['vehicle-inspection-records', vehicleId] as const,
 }
 
-export function useVehicleInspectionRecords(vehicleId: string) {
+export function useVehicleInspectionRecords(vehicleId: string, enabled = true) {
   return useQuery<VehicleInspectionRecord[]>({
     queryKey: vehicleInspectionKeys.all(vehicleId),
     queryFn: async () => {
@@ -24,7 +24,7 @@ export function useVehicleInspectionRecords(vehicleId: string) {
       }
       return response.json()
     },
-    enabled: Boolean(vehicleId),
+    enabled: Boolean(vehicleId) && enabled,
   })
 }
 

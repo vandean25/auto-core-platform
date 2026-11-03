@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
+import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import type { MeSite } from '@/api/sites'
 import {
   Sidebar,
@@ -58,7 +59,8 @@ export function AppSidebar({
   onSignOut,
 }: AppSidebarProps) {
   const { t } = useTranslation('nav')
-  const groups = getVisibleNavGroups({ platformRole, activeRole })
+  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
+  const groups = getVisibleNavGroups({ platformRole, activeRole, capabilities })
   const { isMobile } = useSidebar()
   const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent)
 
@@ -109,7 +111,7 @@ export function AppSidebar({
             </Fragment>
           ))}
           <SidebarSeparator />
-          <AppSidebarFavorites />
+          <AppSidebarFavorites showPickerl={capabilities?.pickerl57a === true} />
         </nav>
 
         <ShellGlossaryHints />

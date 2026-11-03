@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -74,14 +75,17 @@ describe('HR navigation visibility', () => {
   }
 
   function renderSidebar(path: string, activeRole: 'ADMIN' | 'TECH') {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     return render(
-      <SavedViewsProvider userKey={`test-user-${activeRole}`}>
-        <MemoryRouter initialEntries={[path]}>
-          <SidebarProvider>
-            <AppSidebar {...sidebarProps} activeRole={activeRole} />
-          </SidebarProvider>
-        </MemoryRouter>
-      </SavedViewsProvider>,
+      <QueryClientProvider client={queryClient}>
+        <SavedViewsProvider userKey={`test-user-${activeRole}`}>
+          <MemoryRouter initialEntries={[path]}>
+            <SidebarProvider>
+              <AppSidebar {...sidebarProps} activeRole={activeRole} />
+            </SidebarProvider>
+          </MemoryRouter>
+        </SavedViewsProvider>
+      </QueryClientProvider>,
     )
   }
 

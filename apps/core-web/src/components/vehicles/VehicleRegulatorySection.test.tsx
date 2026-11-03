@@ -8,6 +8,12 @@ import { changeUiLanguage } from '@/lib/i18n'
 import { registerGermanUiForTests } from '@/test/german-ui'
 import { VEHICLE_REGULATORY_FIELDS } from './vehicle-regulatory-copy'
 
+const capabilities = vi.hoisted(() => ({ nova: true }))
+vi.mock('@/api/auth-session', async (original) => ({
+  ...await original<typeof import('@/api/auth-session')>(),
+  useAuthSession: () => ({ data: { effectiveCapabilities: { ...capabilities } } }),
+}))
+
 registerGermanUiForTests()
 
 const german = (copy: { de: string }) => copy.de
@@ -22,6 +28,12 @@ const emptyValues: VehicleRegulatoryValues = {
 }
 
 describe('VehicleRegulatorySection', () => {
+  it('hides NoVA class when the capability is disabled', () => {
+    capabilities.nova = false
+    render(<VehicleRegulatorySection mode="form" values={emptyValues} onChange={vi.fn()} />)
+    expect(screen.queryByText(german(VEHICLE_REGULATORY_FIELDS.novaClass))).not.toBeInTheDocument()
+    capabilities.nova = true
+  })
   it('shows the first registration as TT.MM.JJJJ in a text field, whatever the browser locale', () => {
     render(
       <VehicleRegulatorySection

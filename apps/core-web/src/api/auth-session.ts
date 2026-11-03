@@ -32,13 +32,13 @@ const e2eAuthSession: AuthSession = {
     slug: 'e2e-tenant',
   },
   activeRole: 'ADMIN',
-  activeSiteId: null,
+  activeSiteId: 'e2e-site-id',
   memberships: [],
   locale: null,
   effectiveLocale: 'de',
   defaultLocale: 'de',
   formatLocale: 'de-AT',
-  effectiveCapabilities: null,
+  effectiveCapabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
 }
 
 function getE2EAuthSession(pathname = window.location.pathname): AuthSession {

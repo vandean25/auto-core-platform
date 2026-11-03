@@ -73,6 +73,7 @@
     "BRAND_UPLOAD_TOO_LARGE": "Document branding upload exceeds its size limit.",
     "CANCELLATION_ALREADY_OPEN": "Cancellation already open.",
     "CANCELLED_DOCUMENT": "Document was cancelled.",
+    "CAPABILITY_UNAVAILABLE": "This feature is unavailable for the active legal entity.",
     "CHECK_IN_COMPLETED": "This check-in is already completed.",
     "CHECK_IN_CONFLICT": "This check-in was changed elsewhere. Reload and try again.",
     "CHECK_IN_DAMAGE_TYPE_INVALID": "This damage type is not valid for a check-in marker.",

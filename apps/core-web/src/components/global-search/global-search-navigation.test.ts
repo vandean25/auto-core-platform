@@ -13,6 +13,12 @@ const hrefs = (section: { items: { href: string }[] }) => section.items.map((ite
 describe('global search navigation targets', () => {
   beforeAll(() => ensureNamespaceLoaded('settings'))
 
+  it.each([true, false, null])('matches Pickerl navigation to the capability %s', (enabled) => {
+    const capabilities = enabled === null ? null : { nova: true, pickerl57a: enabled, kaufvertragAt: true, willhabenExport: true }
+    const links = hrefs(getNavigationSection({ ...context('ADMIN'), capabilities }))
+    expect(links.includes('/vehicles/pickerl-due')).toBe(enabled === true)
+  })
+
   it('offers the sidebar entries with the sidebar role filter', () => {
     const admin = hrefs(getNavigationSection(context('ADMIN')))
     const sales = hrefs(getNavigationSection(context('SALES')))

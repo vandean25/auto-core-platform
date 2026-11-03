@@ -73,6 +73,7 @@
     "BRAND_UPLOAD_TOO_LARGE": "Die Briefpapier-Datei ist zu groß.",
     "CANCELLATION_ALREADY_OPEN": "Eine Stornierung ist bereits offen.",
     "CANCELLED_DOCUMENT": "Der Beleg wurde storniert.",
+    "CAPABILITY_UNAVAILABLE": "Diese Funktion ist für die aktive Rechtseinheit nicht verfügbar.",
     "CHECK_IN_COMPLETED": "Diese Annahme ist bereits abgeschlossen.",
     "CHECK_IN_CONFLICT": "Die Annahme wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu und versuchen Sie es erneut.",
     "CHECK_IN_DAMAGE_TYPE_INVALID": "Diese Schadensart ist für eine Schadensmarkierung nicht zulässig.",

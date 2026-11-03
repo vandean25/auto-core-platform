@@ -7,10 +7,11 @@ import { NavGroupShell, SidebarNavItem } from './NavGroupMenu'
 import { normalizePathWithQuery } from './app-sidebar-path'
 
 /** Saved table views, kept in a group of their own below the navigation. */
-export function AppSidebarFavorites() {
+export function AppSidebarFavorites({ showPickerl }: { showPickerl: boolean }) {
   const { t } = useTranslation('nav')
   const location = useLocation()
-  const { savedViews, removeSavedView } = useSavedViews()
+  const { savedViews: allSavedViews, removeSavedView } = useSavedViews()
+  const savedViews = allSavedViews.filter((view) => showPickerl || !view.href.startsWith('/vehicles/pickerl-due'))
   const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
 
   return (

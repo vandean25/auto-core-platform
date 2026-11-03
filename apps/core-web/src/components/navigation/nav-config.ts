@@ -31,6 +31,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
+import type { EffectiveCapabilities } from '@/api/auth-session'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import type nav from '../../../../../locales/de/nav.json'
@@ -41,6 +42,7 @@ type NavGroupLabelKey = `groups.${keyof typeof nav.groups}`
 export type NavAccessContext = {
   platformRole: string | null
   activeRole: components['schemas']['TenantMemberRole'] | null
+  capabilities?: EffectiveCapabilities | null
 }
 
 export type NavItem = {
@@ -227,7 +229,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         labelKey: 'modules.pickerlDue',
         to: APP_ROUTE_PATHS.vehiclePickerlDue,
         icon: BadgeCheck,
-        isVisible: alwaysVisible,
+        isVisible: (context) => context.capabilities?.pickerl57a === true,
         isActive: prefixMatch('/vehicles/pickerl-due'),
       },
       {

@@ -38,6 +38,20 @@ describe('Workshop Intake Module (e2e)', () => {
   let advisorId: string;
   let fixtureOrderId: string;
 
+  it('rejects Pickerl order creation when Pickerl is unavailable', async () => {
+    await prisma.legalEntity.updateMany({ where: { tenant_id: tenantId }, data: { country_iso: 'DE' } });
+    try {
+      const res = await request(app.getHttpServer())
+        .post('/api/workshop/orders')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ customerId, vehicleId: pickerlVehicleId, odometer: 18000, fuelLevel: 50, createPickerlTask: true });
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('CAPABILITY_UNAVAILABLE');
+    } finally {
+      await prisma.legalEntity.updateMany({ where: { tenant_id: tenantId }, data: { country_iso: 'AT' } });
+    }
+  });
+
   beforeAll(async () => {
     app = await createE2eApp();
 

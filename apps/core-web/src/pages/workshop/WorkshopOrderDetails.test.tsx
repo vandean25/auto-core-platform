@@ -321,6 +321,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       defaultOptions: { queries: { retry: false } },
     });
     vi.clearAllMocks();
+    asMock(authSessionApi.selectEffectiveCapabilities).mockReturnValue({ nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true });
     asMock(
       vehicleInspectionApi.useCreateVehicleInspectionRecord,
     ).mockReturnValue({

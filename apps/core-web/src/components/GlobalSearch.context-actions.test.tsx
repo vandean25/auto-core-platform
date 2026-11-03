@@ -21,7 +21,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('@/hooks/useGlobalSearch')
-vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
+vi.mock('@/api/auth-session', async (original) => ({ ...await original<typeof import('@/api/auth-session')>(), useAuthSession: vi.fn() }))
 vi.mock('@/api/sites', () => ({
   useMySites: () => ({ data: [{ id: 'site-1', code: 'W', name: 'Wien', legalEntityId: 'le-1' }] }),
 }))
