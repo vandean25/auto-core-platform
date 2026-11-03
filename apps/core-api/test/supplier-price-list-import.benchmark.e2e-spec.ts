@@ -9,16 +9,14 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
-  runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import {
-  FIXTURE_SUPPLIER_NAME,
   FIXTURE_COUNTS_LARGE,
-  SUPPLIER_CSV_MAPPING,
   expectedDryRunTotals,
-  generateCatalogSeedItems,
   generateSupplierPriceListCsvBuffer,
+  seedSupplierImportTenant,
+  uploadSupplierDryRun,
 } from './fixtures/supplier-price-list.fixture.js';
 
 // Nightly performance benchmark, excluded from the PR e2e run by
@@ -46,31 +44,12 @@ describe('Supplier Price List Import benchmark (e2e)', () => {
     tenantPrismaA = createTenantAwarePrisma(prisma, tenantA.tenantId);
     adminTokenA = createTestAuthToken(authService, tenantA);
 
-    await runWithTenantContext(tenantA.tenantId, async () => {
-      await tenantPrismaA.importSource.create({
-        data: { tenant_id: tenantA.tenantId, key: 'supplier', label: 'Supplier' },
-      });
-
-      // Fictitious supplier name strictly used
-      vendorA = await tenantPrismaA.vendor.create({
-        data: {
-          tenant_id: tenantA.tenantId,
-          name: FIXTURE_SUPPLIER_NAME, // "Autoteile Direktvertrieb GmbH"
-          email: 'bestellung@autoteile-direktvertrieb.de',
-          account_number: 'VEND-ADV-001',
-        },
-        select: { id: true, name: true },
-      });
-
-      // Seed 3,900 catalog items for the 5,000-row benchmark
-      const seedCatalogData = generateCatalogSeedItems(
-        tenantA.tenantId,
-        FIXTURE_COUNTS_LARGE,
-      );
-      await tenantPrismaA.catalogItem.createMany({
-        data: seedCatalogData,
-      });
-    });
+    // Seeds 3,900 catalog items for the 5,000-row benchmark
+    vendorA = await seedSupplierImportTenant(
+      tenantPrismaA,
+      tenantA.tenantId,
+      FIXTURE_COUNTS_LARGE,
+    );
   }, 120000);
 
   afterAll(async () => {
@@ -89,23 +68,18 @@ describe('Supplier Price List Import benchmark (e2e)', () => {
 
     const startTime = Date.now();
 
-    const res = await request(app.getHttpServer())
-      .post('/api/imports')
-      .set('Authorization', `Bearer ${adminTokenA}`)
-      .field('entityType', 'SUPPLIER_PRICE_LIST')
-      .field('sourceSystem', 'supplier')
-      .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
-      .field('options', JSON.stringify({ vendor_id: vendorA.id }))
-      .attach('file', csvBuffer5000, 'supplier-prices-5000.csv')
-      .expect(201);
+    const res = await uploadSupplierDryRun(
+      app,
+      adminTokenA,
+      vendorA.id,
+      csvBuffer5000,
+      'supplier-prices-5000.csv',
+    );
 
     const elapsedMs = Date.now() - startTime;
 
     // Verify benchmark execution time
     expect(elapsedMs).toBeLessThan(10000);
-
-    const benchmarkJobId = res.body.id;
-    expect(benchmarkJobId).toBeDefined();
 
     // Verify job structure and counts
     expect(res.body.status).toBe('DRY_RUN_DONE');
@@ -113,7 +87,7 @@ describe('Supplier Price List Import benchmark (e2e)', () => {
 
     // Verify rows endpoint returns rows
     const rowsRes = await request(app.getHttpServer())
-      .get(`/api/imports/${benchmarkJobId}/rows?limit=5`)
+      .get(`/api/imports/${res.body.id}/rows?limit=5`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .expect(200);
     expect(rowsRes.body.data.length).toBe(5);

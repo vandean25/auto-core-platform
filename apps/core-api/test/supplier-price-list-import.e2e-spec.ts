@@ -14,12 +14,12 @@ import {
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import {
-  FIXTURE_SUPPLIER_NAME,
   FIXTURE_COUNTS_SMALL,
   SUPPLIER_CSV_MAPPING,
   expectedDryRunTotals,
-  generateCatalogSeedItems,
   generateSupplierPriceListCsvBuffer,
+  seedSupplierImportTenant,
+  uploadSupplierDryRun,
 } from './fixtures/supplier-price-list.fixture.js';
 
 describe('Supplier Price List Import (e2e)', () => {
@@ -106,32 +106,14 @@ describe('Supplier Price List Import (e2e)', () => {
     // Admin token for Tenant B
     adminTokenB = createTestAuthToken(authService, tenantB);
 
-    // 2. Setup Tenant A data inside tenant context
+    // 2. Setup Tenant A data: import source, vendor and the small-fixture
+    //    catalog items (updates + unchanged + jumps)
+    vendorA = await seedSupplierImportTenant(
+      tenantPrismaA,
+      tenantA.tenantId,
+      FIXTURE_COUNTS_SMALL,
+    );
     await runWithTenantContext(tenantA.tenantId, async () => {
-      await tenantPrismaA.importSource.create({
-        data: { tenant_id: tenantA.tenantId, key: 'supplier', label: 'Supplier' },
-      });
-
-      // Create Vendor A (fictitious supplier name strictly used)
-      vendorA = await tenantPrismaA.vendor.create({
-        data: {
-          tenant_id: tenantA.tenantId,
-          name: FIXTURE_SUPPLIER_NAME, // "Autoteile Direktvertrieb GmbH"
-          email: 'bestellung@autoteile-direktvertrieb.de',
-          account_number: 'VEND-ADV-001',
-        },
-        select: { id: true, name: true },
-      });
-
-      // Seed the small-fixture catalog items (updates + unchanged + jumps) for Tenant A
-      const seedCatalogData = generateCatalogSeedItems(
-        tenantA.tenantId,
-        FIXTURE_COUNTS_SMALL,
-      );
-      await tenantPrismaA.catalogItem.createMany({
-        data: seedCatalogData,
-      });
-
       // Target item that will be updated in the import (ADV-UPD-00001)
       const targetItem = await tenantPrismaA.catalogItem.findFirstOrThrow({
         where: {
@@ -279,15 +261,13 @@ describe('Supplier Price List Import (e2e)', () => {
       ';',
     );
 
-    const dryRunRes = await request(app.getHttpServer())
-      .post('/api/imports')
-      .set('Authorization', `Bearer ${adminTokenA}`)
-      .field('entityType', 'SUPPLIER_PRICE_LIST')
-      .field('sourceSystem', 'supplier')
-      .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
-      .field('options', JSON.stringify({ vendor_id: vendorA.id }))
-      .attach('file', csvBufferSmall, 'supplier-prices-200.csv')
-      .expect(201);
+    const dryRunRes = await uploadSupplierDryRun(
+      app,
+      adminTokenA,
+      vendorA.id,
+      csvBufferSmall,
+      'supplier-prices-200.csv',
+    );
 
     expect(dryRunRes.body.status).toBe('DRY_RUN_DONE');
     sharedDryRunJobId = dryRunRes.body.id;
@@ -481,15 +461,13 @@ describe('Supplier Price List Import (e2e)', () => {
   // --------------------------------------------------------------------------
   it('is idempotent: re-running identical CSV file produces 0 new updates and 0 new price histories', async () => {
     // Re-run dry-run with the exact same CSV
-    const rerunDryRun = await request(app.getHttpServer())
-      .post('/api/imports')
-      .set('Authorization', `Bearer ${adminTokenA}`)
-      .field('entityType', 'SUPPLIER_PRICE_LIST')
-      .field('sourceSystem', 'supplier')
-      .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
-      .field('options', JSON.stringify({ vendor_id: vendorA.id }))
-      .attach('file', csvBufferSmall, 'supplier-prices-200.csv')
-      .expect(201);
+    const rerunDryRun = await uploadSupplierDryRun(
+      app,
+      adminTokenA,
+      vendorA.id,
+      csvBufferSmall,
+      'supplier-prices-200.csv',
+    );
 
     expect(rerunDryRun.body.status).toBe('DRY_RUN_DONE');
     // All 116 previously updated items are now unchanged in cost -> converted to SKIP!

@@ -1,4 +1,8 @@
+import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { serializeCsv } from '../../src/import/csv-parse.util.js';
+import type { PrismaService } from '../../src/prisma/prisma.service.js';
+import { runWithTenantContext } from '../tenant-test-utils.js';
 
 /**
  * Fictitious supplier name strictly for tests and benchmarks.
@@ -137,6 +141,18 @@ export function generateCatalogSeedItems(
   return items;
 }
 
+interface RowGroupSpec {
+  from: number;
+  to: number;
+  /** Empty string yields a missing supplier article number. */
+  skuPrefix: string;
+  eanPrefix: string;
+  name: string;
+  brand: string;
+  cost: string;
+  rrp: string;
+}
+
 /**
  * Generates CSV rows matching the breakdown:
  * - updates rows matching existing catalog items (cost 10.00 -> 11.00, +10%)
@@ -148,93 +164,85 @@ export function generateCatalogSeedItems(
 export function generateSupplierPriceListRows(
   counts: FixtureBreakdownCounts,
 ): string[][] {
-  const rows: string[][] = [];
-
-  // Group 1: rows matching existing items (cost update 11.00)
-  for (let i = 1; i <= counts.updatesExpected; i++) {
-    const pad = i.toString().padStart(5, '0');
-    rows.push([
-      `ADV-UPD-${pad}`,
-      `4012345${pad}`,
-      `Bremsbelagsatz Standard ${pad}`,
-      'Bosch',
-      '11,00',
-      '16,50',
-      'STK',
-    ]);
-  }
-
-  // Group 2: rows matching existing items with unchanged price (20.00)
-  for (let i = 1; i <= counts.unchangedExpected; i++) {
-    const pad = i.toString().padStart(5, '0');
-    rows.push([
-      `ADV-UNCH-${pad}`,
-      `4023456${pad}`,
-      `Oelfilter Premium ${pad}`,
-      'Mann',
-      '20,00',
-      '30,00',
-      'STK',
-    ]);
-  }
-
-  // Group 3: rows unmatched (new items, e.g. ADV-NEW-XXXXX)
-  for (let i = 1; i <= counts.unmatchedExpected; i++) {
-    const pad = i.toString().padStart(5, '0');
-    rows.push([
-      `ADV-NEW-${pad}`,
-      `4034567${pad}`,
-      `Luftfilter Neu ${pad}`,
-      'Mahle',
-      '12,50',
-      '18,75',
-      'STK',
-    ]);
-  }
-
-  // Group 4: rows with price jump > 20% (cost 10.00 -> 25.00)
-  for (let i = 1; i <= counts.priceJumpsExpected; i++) {
-    const pad = i.toString().padStart(5, '0');
-    rows.push([
-      `ADV-JUMP-${pad}`,
-      `4045678${pad}`,
-      `Zahnriemensatz ${pad}`,
-      'Gates',
-      '25,00',
-      '35,00',
-      'STK',
-    ]);
-  }
-
-  // Group 5: rows with deliberate formatting errors
   const emptyIdErrors = Math.ceil(counts.errorsExpected / 2);
-  // missing supplier article no
-  for (let i = 1; i <= emptyIdErrors; i++) {
-    const pad = i.toString().padStart(5, '0');
-    rows.push([
-      '', // empty supplier_article_no
-      `4056789${pad}`,
-      `Fehlerhafter Artikel Leer-Nummer ${pad}`,
-      'Ate',
-      '10,00',
-      '15,00',
-      'STK',
-    ]);
-  }
-  // invalid cost price (non-numeric)
-  for (let i = emptyIdErrors + 1; i <= counts.errorsExpected; i++) {
-    const pad = i.toString().padStart(5, '0');
-    rows.push([
-      `ADV-ERR-${pad}`,
-      `4067890${pad}`,
-      `Fehlerhafter Artikel Ungueltiger-Preis ${pad}`,
-      'Ate',
-      'INVALID_PRICE', // invalid cost price
-      '15,00',
-      'STK',
-    ]);
-  }
+  const groups: RowGroupSpec[] = [
+    {
+      from: 1,
+      to: counts.updatesExpected,
+      skuPrefix: 'ADV-UPD-',
+      eanPrefix: '4012345',
+      name: 'Bremsbelagsatz Standard',
+      brand: 'Bosch',
+      cost: '11,00',
+      rrp: '16,50',
+    },
+    {
+      from: 1,
+      to: counts.unchangedExpected,
+      skuPrefix: 'ADV-UNCH-',
+      eanPrefix: '4023456',
+      name: 'Oelfilter Premium',
+      brand: 'Mann',
+      cost: '20,00',
+      rrp: '30,00',
+    },
+    {
+      from: 1,
+      to: counts.unmatchedExpected,
+      skuPrefix: 'ADV-NEW-',
+      eanPrefix: '4034567',
+      name: 'Luftfilter Neu',
+      brand: 'Mahle',
+      cost: '12,50',
+      rrp: '18,75',
+    },
+    {
+      from: 1,
+      to: counts.priceJumpsExpected,
+      skuPrefix: 'ADV-JUMP-',
+      eanPrefix: '4045678',
+      name: 'Zahnriemensatz',
+      brand: 'Gates',
+      cost: '25,00',
+      rrp: '35,00',
+    },
+    {
+      from: 1,
+      to: emptyIdErrors,
+      skuPrefix: '',
+      eanPrefix: '4056789',
+      name: 'Fehlerhafter Artikel Leer-Nummer',
+      brand: 'Ate',
+      cost: '10,00',
+      rrp: '15,00',
+    },
+    {
+      from: emptyIdErrors + 1,
+      to: counts.errorsExpected,
+      skuPrefix: 'ADV-ERR-',
+      eanPrefix: '4067890',
+      name: 'Fehlerhafter Artikel Ungueltiger-Preis',
+      brand: 'Ate',
+      cost: 'INVALID_PRICE',
+      rrp: '15,00',
+    },
+  ];
 
+  const rows: string[][] = [];
+  for (const g of groups) {
+    for (let i = g.from; i <= g.to; i++) {
+      const pad = i.toString().padStart(5, '0');
+      rows.push([
+        g.skuPrefix && `${g.skuPrefix}${pad}`,
+        `${g.eanPrefix}${pad}`,
+        `${g.name} ${pad}`,
+        g.brand,
+        g.cost,
+        g.rrp,
+        'STK',
+      ]);
+    }
+  }
   return rows;
 }
 
@@ -248,4 +256,52 @@ export function generateSupplierPriceListCsvBuffer(
   const rows = generateSupplierPriceListRows(counts);
   const csvString = serializeCsv(SUPPLIER_CSV_HEADERS, rows, delimiter);
   return Buffer.from(csvString, 'utf8');
+}
+
+/**
+ * Seeds the supplier import source, the fictitious vendor and the catalog
+ * items a dry-run of the given breakdown matches against.
+ */
+export async function seedSupplierImportTenant(
+  tenantPrisma: PrismaService,
+  tenantId: string,
+  counts: FixtureBreakdownCounts,
+): Promise<{ id: string; name: string }> {
+  return runWithTenantContext(tenantId, async () => {
+    await tenantPrisma.importSource.create({
+      data: { tenant_id: tenantId, key: 'supplier', label: 'Supplier' },
+    });
+    const vendor = await tenantPrisma.vendor.create({
+      data: {
+        tenant_id: tenantId,
+        name: FIXTURE_SUPPLIER_NAME,
+        email: 'bestellung@autoteile-direktvertrieb.de',
+        account_number: 'VEND-ADV-001',
+      },
+      select: { id: true, name: true },
+    });
+    await tenantPrisma.catalogItem.createMany({
+      data: generateCatalogSeedItems(tenantId, counts),
+    });
+    return vendor;
+  });
+}
+
+/** POSTs a supplier price list CSV to /api/imports and expects a 201 dry-run. */
+export function uploadSupplierDryRun(
+  app: INestApplication,
+  token: string,
+  vendorId: string,
+  buffer: Buffer,
+  filename: string,
+) {
+  return request(app.getHttpServer())
+    .post('/api/imports')
+    .set('Authorization', `Bearer ${token}`)
+    .field('entityType', 'SUPPLIER_PRICE_LIST')
+    .field('sourceSystem', 'supplier')
+    .field('mapping', JSON.stringify(SUPPLIER_CSV_MAPPING))
+    .field('options', JSON.stringify({ vendor_id: vendorId }))
+    .attach('file', buffer, filename)
+    .expect(201);
 }
