@@ -32,7 +32,11 @@ describe('Import worker background P2034 handling', () => {
       .jobStore;
     jest
       .spyOn(
-        h.service as unknown as { workerFlowForJob: () => unknown },
+        (
+          h.service as unknown as {
+            orchestration: { workerFlowForJob: () => unknown };
+          }
+        ).orchestration,
         'workerFlowForJob',
       )
       .mockReturnValue({
@@ -73,14 +77,17 @@ describe('Import worker background P2034 handling', () => {
       options_json: { worker },
     } as never);
 
-    await (
+    const orchestration = (
       h.service as unknown as {
-        failImportWorkerAttemptUnlessContention: (
-          params: { tenantId: string; jobId: string; phase: 'apply' },
-          error: unknown,
-        ) => Promise<void>;
+        orchestration: {
+          failWorkerAttemptUnlessContention: (
+            params: { tenantId: string; jobId: string; phase: 'apply' },
+            error: unknown,
+          ) => Promise<void>;
+        };
       }
-    ).failImportWorkerAttemptUnlessContention(
+    ).orchestration;
+    await orchestration.failWorkerAttemptUnlessContention(
       { tenantId: 'tenant-1', jobId: 'job-1', phase: 'apply' },
       p2034(),
     );
