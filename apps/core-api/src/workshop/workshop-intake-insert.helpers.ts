@@ -9,6 +9,7 @@ import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js'
 import type { WorkshopScheduleService } from './workshop-schedule.service.js';
 import type { WorkshopOrderWithRelations } from './workshop-order.helpers.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
+import { assertAssignableBoardResources } from './workshop-board-assign.helpers.js';
 import {
   findLiveOrderForVehicle,
   ORDER_WITH_RELATIONS,
@@ -162,13 +163,18 @@ export async function reserveStockPrepVehicle(
 }
 
 /**
- * An unbooked order starts at intake without a bay, mechanic or slot; a booked one is scheduled into the slot.
+ * An unbooked order starts at intake; a provided mechanic or bay is stored right away, a booked one is scheduled into the slot.
  */
 function resolveOrderScheduleFields(
   booked: InsertWorkshopOrderParams['booked'],
+  dto: CreateWorkshopOrderDto,
 ) {
   if (!booked) {
-    return { status: WorkshopOrderStatus.INTAKE };
+    return {
+      status: WorkshopOrderStatus.INTAKE,
+      ...(dto.mechanicId != null && { mechanic_id: dto.mechanicId }),
+      ...(dto.bayId != null && { bay_id: dto.bayId }),
+    };
   }
   return {
     status: WorkshopOrderStatus.SCHEDULED,
@@ -198,7 +204,7 @@ export async function insertWorkshopOrder(
       fuel_level: dto.fuelLevel ?? 0,
       reported_issue: dto.reportedIssue,
       notes: dto.notes,
-      ...resolveOrderScheduleFields(booked),
+      ...resolveOrderScheduleFields(booked, dto),
     },
     include: ORDER_WITH_RELATIONS,
   });
@@ -246,6 +252,13 @@ export async function executeCreateOrder(
   await lockSitesAndAssertActive(tx, tenantId, [siteId]);
 
   if (!isScheduled) {
+    await assertAssignableBoardResources({
+      tx,
+      tenantId,
+      siteId,
+      mechanicId: dto.mechanicId,
+      bayId: dto.bayId,
+    });
     const promoted = await tryPromoteScheduledOrder(tx, tenantId, siteId, dto);
     if (promoted) {
       if (afterPromoteScheduledOrder) {

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { WorkshopOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
+import { assertAssignableBoardResources } from './workshop-board-assign.helpers.js';
 
 const ACTIVE_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.SCHEDULED,
@@ -244,41 +245,13 @@ export class WorkshopBoardService {
       );
     }
 
-    if (dto.mechanicId !== undefined && dto.mechanicId !== null) {
-      const mechanic = await this.prisma.employee.findFirst({
-        where: { id: dto.mechanicId, tenant_id: tenantId },
-        select: { id: true, role: true, is_active: true },
-      });
-
-      if (!mechanic) {
-        throw new NotFoundException(`Employee ${dto.mechanicId} not found`);
-      }
-
-      if (mechanic.role !== 'MECHANIC') {
-        throw new UnprocessableEntityException(
-          `Employee ${dto.mechanicId} is not a MECHANIC (role: ${mechanic.role})`,
-        );
-      }
-
-      if (!mechanic.is_active) {
-        throw new NotFoundException(`Employee ${dto.mechanicId} is inactive`);
-      }
-    }
-
-    if (dto.bayId !== undefined && dto.bayId !== null) {
-      const bay = await this.prisma.bay.findFirst({
-        where: { id: dto.bayId, tenant_id: tenantId, site_id: siteId },
-        select: { id: true, is_active: true },
-      });
-
-      if (!bay) {
-        throw new NotFoundException(`Bay ${dto.bayId} not found`);
-      }
-
-      if (!bay.is_active) {
-        throw new NotFoundException(`Bay ${dto.bayId} is inactive`);
-      }
-    }
+    await assertAssignableBoardResources({
+      tx: this.prisma,
+      tenantId,
+      siteId,
+      mechanicId: dto.mechanicId,
+      bayId: dto.bayId,
+    });
 
     // Single-row update — last-write-wins (per ADR-0013)
     const updateResult = await this.prisma.workshopOrder.updateMany({

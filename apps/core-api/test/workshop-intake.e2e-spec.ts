@@ -29,6 +29,14 @@ describe('Workshop Intake Module (e2e)', () => {
   let tenantId: string;
   let pickerlVehicleId: string;
   let techEmployeeId: string;
+  let siteId: string;
+  let bayId: string;
+  let inactiveBayId: string;
+  let foreignBayId: string;
+  let foreignTenantId: string;
+  let inactiveMechanicId: string;
+  let advisorId: string;
+  let fixtureOrderId: string;
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -45,7 +53,7 @@ describe('Workshop Intake Module (e2e)', () => {
       role: 'TECH' as const,
     };
     techAuthToken = createTestAuthToken(app.get(AuthService), techIdentity);
-    const siteId = await resolveTestMainSiteId(basePrisma, tenantId);
+    siteId = await resolveTestMainSiteId(basePrisma, tenantId);
     const techUser = await prisma.user.create({
       data: {
         firebaseUid: techIdentity.firebaseUid,
@@ -74,6 +82,64 @@ describe('Workshop Intake Module (e2e)', () => {
     });
     techEmployeeId = techEmployee.id;
 
+    const bay = await prisma.bay.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        name: `Intake Bay ${Date.now()}`,
+        is_active: true,
+        sort_order: 1,
+      },
+    });
+    bayId = bay.id;
+    const retiredBay = await prisma.bay.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        name: `Retired Bay ${Date.now()}`,
+        is_active: false,
+        sort_order: 2,
+      },
+    });
+    inactiveBayId = retiredBay.id;
+    inactiveMechanicId = (
+      await seedTestEmployee(prisma, {
+        tenantId,
+        name: 'Off-duty Mechanic',
+        role: 'MECHANIC',
+        isActive: false,
+      })
+    ).id;
+    advisorId = (
+      await seedTestEmployee(prisma, {
+        tenantId,
+        name: 'Service Advisor',
+        role: 'SERVICE_ADVISOR',
+      })
+    ).id;
+
+    const foreignTenant = await createTestTenant(
+      basePrisma,
+      'workshop-intake-foreign',
+    );
+    foreignTenantId = foreignTenant.tenantId;
+    const foreignPrisma = createTenantAwarePrisma(basePrisma, foreignTenantId);
+    const foreignSiteId = await resolveTestMainSiteId(
+      basePrisma,
+      foreignTenantId,
+    );
+    foreignBayId = (
+      await foreignPrisma.bay.create({
+        data: {
+          tenant_id: foreignTenantId,
+          site_id: foreignSiteId,
+          name: 'Foreign Bay',
+          is_active: true,
+          sort_order: 1,
+        },
+      })
+    ).id;
+
     const customer = await prisma.customer.create({
       data: {
         tenant_id: tenantId,
@@ -85,6 +151,31 @@ describe('Workshop Intake Module (e2e)', () => {
       },
     });
     customerId = customer.id;
+
+    const fixtureVehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        make: 'Skoda',
+        model: 'Fabia',
+        year: 2018,
+        vin: `VIN-ASSIGN-FIX-${Date.now()}`,
+      },
+    });
+    fixtureOrderId = (
+      await prisma.workshopOrder.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          order_number: `WO-E2E-ASSIGN-${Date.now()}`,
+          customer_id: customerId,
+          vehicle_id: fixtureVehicle.id,
+          odometer: 100,
+          fuel_level: 10,
+          status: 'INTAKE',
+        },
+      })
+    ).id;
 
     const vehicle = await prisma.vehicle.create({
       data: {
@@ -115,11 +206,29 @@ describe('Workshop Intake Module (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (foreignTenantId) {
+      await cleanupTestTenantGraph(basePrisma, foreignTenantId);
+    }
     if (tenantId) {
       await cleanupTestTenantGraph(basePrisma, tenantId);
     }
     await teardownTestApp(app, basePrisma);
   });
+
+  async function createSpareVehicle(label: string): Promise<string> {
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        make: 'Skoda',
+        model: 'Fabia',
+        year: 2018,
+        vin: `VIN-ASSIGN-${label}-${Date.now()}`,
+      },
+      select: { id: true },
+    });
+    return vehicle.id;
+  }
 
   it('/api/workshop/search (GET) - should find vehicle by VIN', async () => {
     const res = await request(app.getHttpServer())
@@ -164,6 +273,99 @@ describe('Workshop Intake Module (e2e)', () => {
       })
       .expect(400);
   });
+
+  it('stores the mechanic on an INTAKE order created with mechanicId', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId: await createSpareVehicle('mechanic'),
+        odometer: 42000,
+        fuelLevel: 60,
+        mechanicId: techEmployeeId,
+      })
+      .expect(201);
+
+    expect(res.body.mechanic_id).toBe(techEmployeeId);
+  });
+
+  it('stores the bay on an INTAKE order created with bayId', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId: await createSpareVehicle('bay'),
+        odometer: 42000,
+        fuelLevel: 60,
+        bayId,
+      })
+      .expect(201);
+
+    expect(res.body.bay_id).toBe(bayId);
+  });
+
+  const rejectedCreateResources = [
+    {
+      label: 'inactive mechanic',
+      field: 'mechanicId',
+      expected: 404,
+      resourceId: () => inactiveMechanicId,
+    },
+    {
+      label: 'non-mechanic employee',
+      field: 'mechanicId',
+      expected: 422,
+      resourceId: () => advisorId,
+    },
+    {
+      label: 'foreign bay',
+      field: 'bayId',
+      expected: 404,
+      resourceId: () => foreignBayId,
+    },
+    {
+      label: 'inactive bay',
+      field: 'bayId',
+      expected: 404,
+      resourceId: () => inactiveBayId,
+    },
+  ] as const;
+
+  it.each(rejectedCreateResources)(
+    'rejects an INTAKE create with the $label by the same status as board assign and creates no order',
+    async ({
+      field,
+      expected,
+      resourceId,
+    }: (typeof rejectedCreateResources)[number]) => {
+      const id = resourceId();
+      const assign = await request(app.getHttpServer())
+        .patch('/api/workshop/board/assign')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ orderId: fixtureOrderId, [field]: id });
+      expect(assign.status).toBe(expected);
+
+      const spareVehicleId = await createSpareVehicle(field);
+      const create = await request(app.getHttpServer())
+        .post('/api/workshop/orders')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          customerId,
+          vehicleId: spareVehicleId,
+          odometer: 30000,
+          fuelLevel: 20,
+          [field]: id,
+        });
+      expect(create.status).toBe(assign.status);
+      expect(
+        await prisma.workshopOrder.count({
+          where: { tenant_id: tenantId, vehicle_id: spareVehicleId },
+        }),
+      ).toBe(0);
+    },
+  );
 
   it('creates one §57a order, exposes its checklist, and records Pickerl after completion', async () => {
     await request(app.getHttpServer())
