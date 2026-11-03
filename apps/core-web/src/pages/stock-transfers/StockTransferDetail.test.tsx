@@ -172,8 +172,16 @@ function pickOption(trigger: HTMLElement, optionName: string) {
   fireEvent.click(screen.getByRole('option', { name: optionName }))
 }
 
+const originalInnerWidth = window.innerWidth
+
+/** useIsMobile reads window.innerWidth on mount, so list mode needs a phone width before the render. */
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+}
+
 afterEach(() => {
   cleanup()
+  setViewportWidth(originalInnerWidth)
   vi.clearAllMocks()
 })
 
@@ -893,6 +901,59 @@ describe('StockTransferDetail', () => {
         idempotencyKey: 'idem-key-1',
         lines: [{ id: 'line-1', returnQty: 2 }],
       })
+    })
+  })
+
+  describe('phone list mode', () => {
+    const summary = detail.summary
+
+    beforeEach(() => setViewportWidth(390))
+
+    it('AUT-909: shows the approved quantity and puts the ship selector outside the compact slots', () => {
+      setup({
+        transfer: { status: 'APPROVED' },
+        lines: [{ ...baseLine, approvedQty: '4.000', sourceLocationId: 'bin-1' }],
+      })
+      renderPage()
+
+      const row = screen.getByRole('listitem')
+      expect(
+        within(row).getByText(summary.approved.replace('{{qty}}', formatNumber(4))),
+      ).toBeInTheDocument()
+
+      const trigger = within(row).getByRole('combobox')
+      expect(trigger.closest('.truncate, .shrink-0')).toBeNull()
+      expect(trigger).toHaveClass('h-11')
+    })
+
+    it('AUT-909: shows the outstanding quantity and puts the receive and return controls outside the compact slots', () => {
+      setup({
+        transfer: { status: 'SHIPPED' },
+        activeSiteId: TO_SITE,
+        lines: [
+          { ...baseLine, shippedQty: '4.000', receivedQty: '1.000', destLocationId: 'bin-2' },
+        ],
+      })
+      renderPage()
+
+      const row = screen.getByRole('listitem')
+      expect(
+        within(row).getByText(
+          summary.shippedOutstanding
+            .replace('{{shipped}}', formatNumber(4))
+            .replace('{{outstanding}}', formatNumber(3)),
+        ),
+      ).toBeInTheDocument()
+
+      const controls = [
+        within(row).getByRole('combobox'),
+        ...within(row).getAllByRole('spinbutton'),
+      ]
+      expect(controls).toHaveLength(3)
+      for (const control of controls) {
+        expect(control.closest('.truncate, .shrink-0')).toBeNull()
+        expect(control).toHaveClass('h-11')
+      }
     })
   })
 })

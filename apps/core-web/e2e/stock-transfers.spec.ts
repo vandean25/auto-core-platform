@@ -1,7 +1,8 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import { DE_STATUS } from './helpers/de-enums'
 import { DE_COMMON_ACTIONS, DE_INVENTORY } from './helpers/de-inventory'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { contentClippedByAncestor, controlsShorterThan44, expectNoPageScroll } from './utils/phone-layout'
 import {
   createMockInventoryItem,
   createMockListResponse,
@@ -480,7 +481,65 @@ function completedTransferWithBins() {
   })
 }
 
-async function routeBinDetail(page: Page) {
+/** The fulfilment line of a transfer, sized for the phone list row tests below. */
+function binTransfer(
+  status: 'APPROVED' | 'SHIPPED',
+  quantities: { approved: string; shipped: string; received: string },
+) {
+  return createMockStockTransfer({
+    id: BIN_DETAIL_ID,
+    transferNumber: 'TR-2026-0001',
+    fromSiteId: MAIN_SITE_ID,
+    fromSiteName: 'Vienna Workshop',
+    toSiteId: GRZ_SITE_ID,
+    toSiteName: 'Graz Workshop',
+    status,
+    version: status === 'APPROVED' ? 2 : 3,
+    requestedByUserId: 'e2e-test-user',
+    lines: [
+      {
+        id: 'line-1',
+        catalogItemId: CATALOG_ITEM_ID,
+        requestedQty: quantities.approved,
+        approvedQty: quantities.approved,
+        shippedQty: quantities.shipped,
+        receivedQty: quantities.received,
+        returnedQty: '0.000',
+        sourceLocationId: SOURCE_BIN_UUID,
+        destLocationId: DEST_BIN_UUID,
+        fromBinCode: SOURCE_BIN.code,
+        fromBinName: SOURCE_BIN.name,
+        toBinCode: DEST_BIN.code,
+        toBinName: DEST_BIN.name,
+      },
+    ],
+  })
+}
+
+/** Bins the ship and receive selectors pick from; the line already points at both. */
+const QA_BINS = [
+  {
+    id: SOURCE_BIN_UUID,
+    code: SOURCE_BIN.code,
+    name: SOURCE_BIN.name,
+    type: 'bin',
+    siteId: MAIN_SITE_ID,
+  },
+  { id: DEST_BIN_UUID, code: DEST_BIN.code, name: DEST_BIN.name, type: 'bin', siteId: GRZ_SITE_ID },
+]
+
+async function routeTransferDetail(
+  page: Page,
+  transfer: ReturnType<typeof createMockStockTransfer>,
+  options: { locations?: unknown[]; activeSiteId?: string } = {},
+) {
+  if (options.activeSiteId) {
+    await page.addInitScript(
+      (siteId) => window.localStorage.setItem('e2e-active-site-id', siteId),
+      options.activeSiteId,
+    )
+  }
+
   await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
     await route.fulfill({
       status: 200,
@@ -503,14 +562,18 @@ async function routeBinDetail(page: Page) {
   })
 
   await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(options.locations ?? []),
+    })
   })
 
   await page.route(AutoCorePage.apiRouteMatcher(`/api/stock-transfers/${BIN_DETAIL_ID}`), async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(completedTransferWithBins()),
+      body: JSON.stringify(transfer),
     })
   })
 
@@ -519,6 +582,10 @@ async function routeBinDetail(page: Page) {
   await expect(
     page.getByRole('heading', { name: 'TR-2026-0001', exact: false }).first(),
   ).toBeVisible()
+}
+
+async function routeBinDetail(page: Page) {
+  await routeTransferDetail(page, completedTransferWithBins())
 }
 
 test.describe('Stock Transfer detail on a phone (AUT-909)', () => {
@@ -548,6 +615,73 @@ test.describe('Stock Transfer detail on a phone (AUT-909)', () => {
     await page.setViewportSize({ width: 375, height: 812 })
     await expectListModeWithoutPageScroll(page)
   })
+})
+
+const detailCopy = DE_INVENTORY.stockTransfers.detail
+
+/** The two phone sizes of the ticket: a large and a small phone. */
+const PHONE_SIZES = [
+  { width: 390, height: 900 },
+  { width: 375, height: 812 },
+] as const
+
+/**
+ * AUT-909 review round 2: the ship, receive and return controls of a phone list row must be reachable —
+ * they used to sit inside the truncating subtitle and the shrinking status slot, which clipped them.
+ */
+test.describe('Stock Transfer fulfilment controls on a phone (AUT-909)', () => {
+  async function expectRowControlsUsable(page: Page, row: Locator) {
+    expect(await controlsShorterThan44(row), 'controls shorter than 44px').toEqual([])
+    expect(await contentClippedByAncestor(row), 'controls clipped by an ancestor').toEqual([])
+    for (const control of await row.locator('input, [role="combobox"]').all()) {
+      await control.scrollIntoViewIfNeeded()
+      await expect(control).toBeInViewport()
+    }
+    await expectNoPageScroll(page)
+  }
+
+  for (const { width, height } of PHONE_SIZES) {
+    test(`ships an approved transfer at ${width}x${height}`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await routeTransferDetail(
+        page,
+        binTransfer('APPROVED', { approved: '4.000', shipped: '0.000', received: '0.000' }),
+        { locations: QA_BINS, activeSiteId: MAIN_SITE_ID },
+      )
+
+      const row = page.locator('[data-table-row="true"]')
+      await expect(row).toHaveCount(1)
+      await expect(row.getByRole('combobox')).toBeVisible()
+      await expect(
+        row.getByText(detailCopy.summary.approved.replace('{{qty}}', '4')),
+      ).toBeVisible()
+      await expectRowControlsUsable(page, row)
+      await expect(page.locator('body')).not.toContainText(SOURCE_BIN_UUID)
+    })
+
+    test(`receives and returns a shipped transfer at ${width}x${height}`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await routeTransferDetail(
+        page,
+        binTransfer('SHIPPED', { approved: '4.000', shipped: '4.000', received: '1.000' }),
+        { locations: QA_BINS, activeSiteId: GRZ_SITE_ID },
+      )
+
+      const row = page.locator('[data-table-row="true"]')
+      await expect(row).toHaveCount(1)
+      await expect(row.getByPlaceholder(detailCopy.receiveQtyPlaceholder)).toBeVisible()
+      await expect(row.getByPlaceholder(detailCopy.returnQtyPlaceholder)).toBeVisible()
+      await expect(row.getByRole('combobox')).toBeVisible()
+      await expect(
+        row.getByText(
+          detailCopy.summary.shippedOutstanding
+            .replace('{{shipped}}', '4')
+            .replace('{{outstanding}}', '3'),
+        ),
+      ).toBeVisible()
+      await expectRowControlsUsable(page, row)
+    })
+  }
 })
 
 test.describe('Stock Transfer detail at desktop width (AUT-909)', () => {

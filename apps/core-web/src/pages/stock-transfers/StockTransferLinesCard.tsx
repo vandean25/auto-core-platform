@@ -11,6 +11,7 @@ import type { StorageLocation } from '@/api/locations'
 import type { StockTransfer } from '@/api/stock-transfers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/data-table/DataTable'
+import { DataTablePaginationHidden } from '@/components/data-table/data-table-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatNumber } from '@/lib/format'
+import { useIsMobile } from '@/hooks/use-mobile'
 import type { TransferAccess } from './stock-transfer-detail-logic'
 import { shouldShowSourceBinDetails } from './stock-transfer-permissions'
 import type { TransferLineInputs, useTransferLabels } from './use-stock-transfer-detail'
@@ -44,6 +46,20 @@ interface LineProps {
 function formatQty(value: string) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? formatNumber(parsed) : value
+}
+
+function outstandingQty(line: TransferLine) {
+  return Number(line.shippedQty) - Number(line.receivedQty) - Number(line.returnedQty)
+}
+
+/** The controls a line gets; desktop and phone render exactly this set. */
+function lineActionsFor(line: TransferLine, access: TransferAccess) {
+  const hasOutstanding = outstandingQty(line) > 0
+  return {
+    ship: access.showShipControls && Number(line.approvedQty) > 0,
+    receive: access.showReceiveControls && hasOutstanding,
+    returnQty: access.canReturn && hasOutstanding,
+  }
 }
 
 /** Server-resolved bin label ("CODE — Name"); null when the API sent no code. */
@@ -74,102 +90,100 @@ function binText({
   )
 }
 
-function SourceBinContent({ line, ctx }: LineProps) {
+function SourceBinText({ line, ctx }: LineProps) {
   const { t } = useTranslation(['inventory'])
-  const emDash = t('inventory:shared.emDash')
-  const { transfer, access, memberSiteIds, labels, bins, inputs } = ctx
-  const showSourceBin = shouldShowSourceBinDetails(
+  const { transfer, memberSiteIds, labels } = ctx
+  const visible = shouldShowSourceBinDetails(
     transfer.fromSiteId,
     memberSiteIds,
     line.sourceLocationId,
   )
-  const content = binText({
-    t,
-    code: line.fromBinCode,
-    name: line.fromBinName,
-    locationId: line.sourceLocationId,
-    labels,
-  })
-
+  if (!visible) return <>{t('inventory:shared.emDash')}</>
   return (
     <>
-      {showSourceBin ? content : emDash}
-      {access.showShipControls && Number(line.approvedQty) > 0 ? (
-        <Select
-          value={inputs.sourceLocationByLine[line.id] ?? line.sourceLocationId ?? undefined}
-          onValueChange={(value) => inputs.setSourceLocation(line.id, value)}
-        >
-          <SelectTrigger className="mt-2 h-8">
-            <SelectValue placeholder={t('inventory:stockTransfers.detail.confirmSourceBin')} />
-          </SelectTrigger>
-          <SelectContent>
-            {bins.map((location) => (
-              <SelectItem key={location.id} value={location.id}>
-                {t('inventory:shared.locationCodeName', {
-                  code: location.code,
-                  name: location.name,
-                })}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : null}
+      {binText({
+        t,
+        code: line.fromBinCode,
+        name: line.fromBinName,
+        locationId: line.sourceLocationId,
+        labels,
+      })}
     </>
   )
 }
 
-function ReceiveControls({ line, ctx }: LineProps) {
+function DestBinText({ line, ctx }: LineProps) {
+  const { t } = useTranslation(['inventory'])
+  return (
+    <>
+      {binText({
+        t,
+        code: line.toBinCode,
+        name: line.toBinName,
+        locationId: line.destLocationId,
+        labels: ctx.labels,
+      })}
+    </>
+  )
+}
+
+function binOptions(t: InventoryT, bins: StorageLocation[]) {
+  return bins.map((location) => (
+    <SelectItem key={location.id} value={location.id}>
+      {t('shared.locationCodeName', { code: location.code, name: location.name })}
+    </SelectItem>
+  ))
+}
+
+function ShipSourceSelect({ line, ctx }: LineProps) {
   const { t } = useTranslation(['inventory'])
   const { bins, inputs } = ctx
 
   return (
-    <div className="mt-2 space-y-2">
-      <Input
-        type="number"
-        min="0.001"
-        step="0.001"
-        placeholder={t('inventory:stockTransfers.detail.receiveQtyPlaceholder')}
-        value={inputs.receiveQtyByLine[line.id] ?? ''}
-        onChange={(event) => inputs.setReceiveQty(line.id, event.target.value)}
-      />
-      <Select
-        value={inputs.destLocationByLine[line.id] ?? line.destLocationId ?? undefined}
-        onValueChange={(value) => inputs.setDestLocation(line.id, value)}
-      >
-        <SelectTrigger className="h-8">
-          <SelectValue placeholder={t('inventory:stockTransfers.detail.destinationBin')} />
-        </SelectTrigger>
-        <SelectContent>
-          {bins.map((location) => (
-            <SelectItem key={location.id} value={location.id}>
-              {location.code} — {location.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select
+      value={inputs.sourceLocationByLine[line.id] ?? line.sourceLocationId ?? undefined}
+      onValueChange={(value) => inputs.setSourceLocation(line.id, value)}
+    >
+      <SelectTrigger className="h-11 w-full md:h-8">
+        <SelectValue placeholder={t('inventory:stockTransfers.detail.confirmSourceBin')} />
+      </SelectTrigger>
+      <SelectContent>{binOptions(t, bins)}</SelectContent>
+    </Select>
   )
 }
 
-function DestBinContent({ line, ctx, outstanding }: LineProps & { outstanding: number }) {
+function ReceiveReturnControls({ line, ctx }: LineProps) {
   const { t } = useTranslation(['inventory'])
-  const { access, labels, inputs } = ctx
-  const hasOutstanding = outstanding > 0
-  const content = binText({
-    t,
-    code: line.toBinCode,
-    name: line.toBinName,
-    locationId: line.destLocationId,
-    labels,
-  })
+  const { access, bins, inputs } = ctx
+  const actions = lineActionsFor(line, access)
 
   return (
     <>
-      {content}
-      {access.showReceiveControls && hasOutstanding ? <ReceiveControls line={line} ctx={ctx} /> : null}
-      {access.canReturn && hasOutstanding ? (
+      {actions.receive ? (
+        <div className="space-y-2">
+          <Input
+            className="h-11 md:h-9"
+            type="number"
+            min="0.001"
+            step="0.001"
+            placeholder={t('inventory:stockTransfers.detail.receiveQtyPlaceholder')}
+            value={inputs.receiveQtyByLine[line.id] ?? ''}
+            onChange={(event) => inputs.setReceiveQty(line.id, event.target.value)}
+          />
+          <Select
+            value={inputs.destLocationByLine[line.id] ?? line.destLocationId ?? undefined}
+            onValueChange={(value) => inputs.setDestLocation(line.id, value)}
+          >
+            <SelectTrigger className="h-11 w-full md:h-8">
+              <SelectValue placeholder={t('inventory:stockTransfers.detail.destinationBin')} />
+            </SelectTrigger>
+            <SelectContent>{binOptions(t, bins)}</SelectContent>
+          </Select>
+        </div>
+      ) : null}
+      {actions.returnQty ? (
         <Input
-          className="mt-2"
+          className="h-11 md:h-9"
           type="number"
           min="0.001"
           step="0.001"
@@ -179,6 +193,61 @@ function DestBinContent({ line, ctx, outstanding }: LineProps & { outstanding: n
         />
       ) : null}
     </>
+  )
+}
+
+function SourceBinContent({ line, ctx }: LineProps) {
+  const actions = lineActionsFor(line, ctx.access)
+
+  return (
+    <>
+      <SourceBinText line={line} ctx={ctx} />
+      {actions.ship ? (
+        <div className="mt-2">
+          <ShipSourceSelect line={line} ctx={ctx} />
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+function DestBinContent({ line, ctx }: LineProps) {
+  const actions = lineActionsFor(line, ctx.access)
+
+  return (
+    <>
+      <DestBinText line={line} ctx={ctx} />
+      {actions.receive || actions.returnQty ? (
+        <div className="mt-2">
+          <ReceiveReturnControls line={line} ctx={ctx} />
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * Phone line for the per-line controls and the quantities they act on: the compact slots truncate and squeeze
+ * the row, so controls plus approved (ship) or shipped and outstanding (receive/return) get their own line.
+ */
+function LinePhoneDetails({ line, ctx }: LineProps) {
+  const { t } = useTranslation(['inventory'])
+  const actions = lineActionsFor(line, ctx.access)
+  if (!actions.ship && !actions.receive && !actions.returnQty) return null
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-slate-500">
+        {actions.ship
+          ? t('inventory:stockTransfers.detail.summary.approved', { qty: formatQty(line.approvedQty) })
+          : t('inventory:stockTransfers.detail.summary.shippedOutstanding', {
+              shipped: formatQty(line.shippedQty),
+              outstanding: formatNumber(outstandingQty(line)),
+            })}
+      </p>
+      {actions.ship ? <ShipSourceSelect line={line} ctx={ctx} /> : null}
+      {actions.receive || actions.returnQty ? <ReceiveReturnControls line={line} ctx={ctx} /> : null}
+    </div>
   )
 }
 
@@ -216,7 +285,11 @@ function lineSearchText(line: TransferLine, labels: LinesContext['labels']): str
     .toLowerCase()
 }
 
-function buildLineColumns(t: InventoryT, ctx: LinesContext): ColumnDef<TransferLine>[] {
+function buildLineColumns(
+  t: InventoryT,
+  ctx: LinesContext,
+  isPhone: boolean,
+): ColumnDef<TransferLine>[] {
   const quantityColumns: ColumnDef<TransferLine>[] = qtyColumns.map((column) => ({
     id: column.key,
     header: t(`stockTransfers.detail.columns.${column.key}`),
@@ -227,7 +300,7 @@ function buildLineColumns(t: InventoryT, ctx: LinesContext): ColumnDef<TransferL
         : { numeric: true },
   }))
 
-  return [
+  const columns: ColumnDef<TransferLine>[] = [
     {
       id: 'part',
       header: t('stockTransfers.detail.columns.part'),
@@ -238,21 +311,42 @@ function buildLineColumns(t: InventoryT, ctx: LinesContext): ColumnDef<TransferL
     {
       id: 'sourceBin',
       header: t('stockTransfers.detail.columns.sourceBin'),
-      cell: ({ row }) => <SourceBinContent line={row.original} ctx={ctx} />,
+      cell: ({ row }) =>
+        isPhone ? (
+          <SourceBinText line={row.original} ctx={ctx} />
+        ) : (
+          <SourceBinContent line={row.original} ctx={ctx} />
+        ),
       meta: { mobile: 'subtitle' as const },
     },
     {
       id: 'destBin',
       header: t('stockTransfers.detail.columns.destBin'),
-      cell: ({ row }) => {
-        const line = row.original
-        const outstanding =
-          Number(line.shippedQty) - Number(line.receivedQty) - Number(line.returnedQty)
-        return <DestBinContent line={line} ctx={ctx} outstanding={outstanding} />
-      },
+      cell: ({ row }) =>
+        isPhone ? (
+          <DestBinText line={row.original} ctx={ctx} />
+        ) : (
+          <DestBinContent line={row.original} ctx={ctx} />
+        ),
       meta: { mobile: 'status' as const },
     },
   ]
+
+  // On a phone the controls go below the row instead of into a column; the grid keeps the desktop cells.
+  const hasLineActions = ctx.transfer.lines.some((line) => {
+    const actions = lineActionsFor(line, ctx.access)
+    return actions.ship || actions.receive || actions.returnQty
+  })
+  if (isPhone && hasLineActions) {
+    columns.push({
+      id: 'lineActions',
+      header: '',
+      cell: ({ row }) => <LinePhoneDetails line={row.original} ctx={ctx} />,
+      meta: { mobile: 'details' as const },
+    })
+  }
+
+  return columns
 }
 
 interface StockTransferLinesCardProps extends Omit<LinesContext, 'bins'> {
@@ -261,8 +355,9 @@ interface StockTransferLinesCardProps extends Omit<LinesContext, 'bins'> {
 
 export function StockTransferLinesCard({ locations, ...rest }: StockTransferLinesCardProps) {
   const { t } = useTranslation(['inventory'])
+  const isPhone = useIsMobile()
   const ctx = { ...rest, bins: locations.filter((location) => location.type === 'bin') }
-  const columns = buildLineColumns(t, ctx)
+  const columns = buildLineColumns(t, ctx, isPhone)
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
@@ -281,20 +376,22 @@ export function StockTransferLinesCard({ locations, ...rest }: StockTransferLine
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <DataTable
-          columns={columns}
-          data={visibleLines}
-          pageCount={1}
-          pageSizeOptions={[]}
-          columnFilters={columnFilters}
-          setColumnFilters={setColumnFilters}
-          globalFilter={globalFilter}
-          setGlobalFilter={setGlobalFilter}
-          sorting={sorting}
-          setSorting={setSorting}
-          pagination={pagination}
-          setPagination={setPagination}
-        />
+        <DataTablePaginationHidden>
+          <DataTable
+            columns={columns}
+            data={visibleLines}
+            pageCount={1}
+            pageSizeOptions={[]}
+            columnFilters={columnFilters}
+            setColumnFilters={setColumnFilters}
+            globalFilter={globalFilter}
+            setGlobalFilter={setGlobalFilter}
+            sorting={sorting}
+            setSorting={setSorting}
+            pagination={pagination}
+            setPagination={setPagination}
+          />
+        </DataTablePaginationHidden>
       </CardContent>
     </Card>
   )
