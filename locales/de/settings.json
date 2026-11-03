@@ -1242,6 +1242,7 @@
       "dialogDescription": "Übernommene Datensätze dieses Imports zurücksetzen.",
       "loadingPreview": "Rückgängig-Vorschau wird berechnet…",
       "loadPreviewFailed": "Die Vorschau konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "previewRefused": "Dieser Import kann nicht rückgängig gemacht werden.",
       "shownOfTotal": "{{shown}} von {{total}} angezeigt",
       "summary": {
         "toDelete": "Werden gelöscht",
