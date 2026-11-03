@@ -71,14 +71,6 @@ function statusRetriesTechnicalRows(status: ImportJobStatus): boolean {
 export class ImportApplyDispatcher {
   constructor(private readonly deps: ImportApplyDispatcherDeps) {}
 
-  async applyJob(
-    jobId: string,
-    applyOptions?: ImportJobOptions,
-  ): Promise<SerializedImportJob> {
-    const outcome = await this.applyJobHttp(jobId, applyOptions);
-    return outcome.job;
-  }
-
   async applyJobHttp(
     jobId: string,
     applyOptions?: ImportJobOptions,

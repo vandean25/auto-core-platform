@@ -379,30 +379,6 @@ export class ImportJobStore {
     });
   }
 
-  findApplyRows(tenantId: string, jobId: string) {
-    return this.prisma.importJobRow.findMany({
-      where: { tenant_id: tenantId, import_job_id: jobId },
-      orderBy: { row_no: 'asc' },
-    });
-  }
-
-  findApplyRowsAfter(
-    tenantId: string,
-    jobId: string,
-    afterRowNo: number,
-    take?: number,
-  ) {
-    return this.prisma.importJobRow.findMany({
-      where: {
-        tenant_id: tenantId,
-        import_job_id: jobId,
-        row_no: { gt: afterRowNo },
-      },
-      orderBy: { row_no: 'asc' },
-      ...(take === undefined ? {} : { take }),
-    });
-  }
-
   findPriceJumpRows(tenantId: string, jobId: string) {
     return this.prisma.importJobRow.findMany({
       where: {

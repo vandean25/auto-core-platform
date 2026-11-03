@@ -64,6 +64,27 @@ export type ImportUploadFlowDeps = {
 export class ImportUploadFlow {
   constructor(private readonly deps: ImportUploadFlowDeps) {}
 
+  /** Admin + active-user check and option normalization shared by both dry-run entry points. */
+  private async authorizeDryRunRequest(optionsJson: ImportJobOptions) {
+    const { tenantContext, prisma } = this.deps;
+    assertTenantAdmin(tenantContext);
+    const tenantId = await tenantContext.getTenantId();
+    const currentUser = await requireActiveCurrentUser(
+      prisma,
+      tenantContext,
+      tenantId,
+    );
+    const migrationManifest =
+      parseMigrationManifestFromDryRunOptions(optionsJson);
+    const options: ImportJobOptions = {
+      ...normalizeImportOptions(optionsJson),
+      ...(migrationManifest
+        ? { cutover_date: migrationManifest.cutover_date }
+        : {}),
+    };
+    return { tenantId, userId: currentUser.id, migrationManifest, options };
+  }
+
   async createDryRunFromUpload(params: {
     uploadRequest?: object;
     file: Express.Multer.File;
@@ -72,25 +93,10 @@ export class ImportUploadFlow {
     mappingJson: Record<string, string>;
     optionsJson: ImportJobOptions;
   }) {
-    const { tenantContext, prisma, handlers, audit, serialize } = this.deps;
-    assertTenantAdmin(tenantContext);
+    const { prisma, handlers, audit, serialize } = this.deps;
     assertImplementedImportEntityType(params.entityType);
-    const tenantId = await tenantContext.getTenantId();
-    const currentUser = await requireActiveCurrentUser(
-      prisma,
-      tenantContext,
-      tenantId,
-    );
-
-    const migrationManifest = parseMigrationManifestFromDryRunOptions(
-      params.optionsJson,
-    );
-    const options: ImportJobOptions = {
-      ...normalizeImportOptions(params.optionsJson),
-      ...(migrationManifest
-        ? { cutover_date: migrationManifest.cutover_date }
-        : {}),
-    };
+    const { tenantId, userId, migrationManifest, options } =
+      await this.authorizeDryRunRequest(params.optionsJson);
     const stagingRequest =
       params.uploadRequest && getImportStagingKey(params.uploadRequest)
         ? params.uploadRequest
@@ -108,7 +114,7 @@ export class ImportUploadFlow {
     if (assessed.useBackground) {
       return this.createBackgroundDryRunFromUpload({
         tenantId,
-        actorUserId: currentUser.id,
+        actorUserId: userId,
         file: params.file,
         entityType: params.entityType,
         sourceSystem: params.sourceSystem,
@@ -148,7 +154,7 @@ export class ImportUploadFlow {
         mapping: params.mappingJson,
         options,
         totals,
-        actorUserId: currentUser.id,
+        actorUserId: userId,
         rows: dryRunRows,
       },
       assessed.content ?? readMulterUploadContent(params.file),
@@ -156,7 +162,7 @@ export class ImportUploadFlow {
     await audit.writeImportJobAudit(
       prisma,
       tenantId,
-      currentUser.id,
+      userId,
       job.id,
       'created',
     );
@@ -187,24 +193,10 @@ export class ImportUploadFlow {
     fileSha256: string;
     rowCount: number;
   }) {
-    const { tenantContext, prisma, handlers } = this.deps;
-    assertTenantAdmin(tenantContext);
+    const { handlers } = this.deps;
     assertImplementedImportEntityType(params.entityType);
-    const tenantId = await tenantContext.getTenantId();
-    const currentUser = await requireActiveCurrentUser(
-      prisma,
-      tenantContext,
-      tenantId,
-    );
-    const migrationManifest = parseMigrationManifestFromDryRunOptions(
-      params.optionsJson,
-    );
-    const options: ImportJobOptions = {
-      ...normalizeImportOptions(params.optionsJson),
-      ...(migrationManifest
-        ? { cutover_date: migrationManifest.cutover_date }
-        : {}),
-    };
+    const { tenantId, userId, migrationManifest, options } =
+      await this.authorizeDryRunRequest(params.optionsJson);
     if (migrationManifest) {
       assertCanonicalMigrationUploadAllowed(
         { originalname: params.fileName },
@@ -216,7 +208,7 @@ export class ImportUploadFlow {
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
     return this.startBackgroundDryRunJob({
       tenantId,
-      actorUserId: currentUser.id,
+      actorUserId: userId,
       entityType: params.entityType,
       sourceSystem: params.sourceSystem,
       fileName: params.fileName,

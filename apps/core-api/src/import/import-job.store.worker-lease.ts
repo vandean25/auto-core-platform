@@ -311,11 +311,13 @@ export async function claimWorkerLease(
   return null;
 }
 
-export async function releaseWorkerLeaseForRetry(
+async function setLeaseUntilUnderToken(
   prisma: PrismaService,
   tenantId: string,
   jobId: string,
   leaseToken: string,
+  leaseUntil: string,
+  extraData: Record<string, unknown>,
 ): Promise<boolean> {
   const job = await prisma.importJob.findFirst({
     where: { tenant_id: tenantId, id: jobId },
@@ -327,83 +329,6 @@ export async function releaseWorkerLeaseForRetry(
   if (options.worker?.lease_token !== leaseToken) {
     return false;
   }
-  const worker = {
-    ...options.worker,
-    lease_until: new Date(0).toISOString(),
-  };
-  const updated = await prisma.importJob.updateMany({
-    where: {
-      tenant_id: tenantId,
-      id: jobId,
-      status: ImportJobStatus.APPLYING,
-      options_json: {
-        path: ['worker', 'lease_token'],
-        equals: leaseToken,
-      },
-    },
-    data: { options_json: { ...options, worker } },
-  });
-  return updated.count > 0;
-}
-
-export async function releaseWorkerLeaseForHandoff(
-  prisma: PrismaService,
-  tenantId: string,
-  jobId: string,
-  leaseToken: string,
-): Promise<boolean> {
-  const job = await prisma.importJob.findFirst({
-    where: { tenant_id: tenantId, id: jobId },
-  });
-  if (!job) {
-    return false;
-  }
-  const options = job.options_json as ImportJobOptionsWithWorker;
-  if (options.worker?.lease_token !== leaseToken) {
-    return false;
-  }
-  const worker = {
-    ...options.worker,
-    lease_until: new Date(0).toISOString(),
-  };
-  const updated = await prisma.importJob.updateMany({
-    where: {
-      tenant_id: tenantId,
-      id: jobId,
-      status: ImportJobStatus.APPLYING,
-      options_json: {
-        path: ['worker', 'lease_token'],
-        equals: leaseToken,
-      },
-    },
-    data: {
-      options_json: { ...options, worker },
-      worker_handoff_at: new Date(),
-      updatedAt: new Date(),
-    },
-  });
-  return updated.count > 0;
-}
-
-export async function extendWorkerLease(
-  prisma: PrismaService,
-  tenantId: string,
-  jobId: string,
-  leaseToken: string,
-): Promise<boolean> {
-  const job = await prisma.importJob.findFirst({
-    where: { tenant_id: tenantId, id: jobId },
-  });
-  if (!job) {
-    return false;
-  }
-  const options = job.options_json as ImportJobOptionsWithWorker;
-  if (options.worker?.lease_token !== leaseToken) {
-    return false;
-  }
-  const leaseUntil = new Date(
-    Date.now() + IMPORT_WORKER_LEASE_MS,
-  ).toISOString();
   const worker = { ...options.worker, lease_until: leaseUntil };
   const updated = await prisma.importJob.updateMany({
     where: {
@@ -415,9 +340,57 @@ export async function extendWorkerLease(
         equals: leaseToken,
       },
     },
-    data: { options_json: { ...options, worker } },
+    data: { options_json: { ...options, worker }, ...extraData },
   });
   return updated.count > 0;
+}
+
+export function releaseWorkerLeaseForRetry(
+  prisma: PrismaService,
+  tenantId: string,
+  jobId: string,
+  leaseToken: string,
+): Promise<boolean> {
+  return setLeaseUntilUnderToken(
+    prisma,
+    tenantId,
+    jobId,
+    leaseToken,
+    new Date(0).toISOString(),
+    {},
+  );
+}
+
+export function releaseWorkerLeaseForHandoff(
+  prisma: PrismaService,
+  tenantId: string,
+  jobId: string,
+  leaseToken: string,
+): Promise<boolean> {
+  return setLeaseUntilUnderToken(
+    prisma,
+    tenantId,
+    jobId,
+    leaseToken,
+    new Date(0).toISOString(),
+    { worker_handoff_at: new Date(), updatedAt: new Date() },
+  );
+}
+
+export function extendWorkerLease(
+  prisma: PrismaService,
+  tenantId: string,
+  jobId: string,
+  leaseToken: string,
+): Promise<boolean> {
+  return setLeaseUntilUnderToken(
+    prisma,
+    tenantId,
+    jobId,
+    leaseToken,
+    new Date(Date.now() + IMPORT_WORKER_LEASE_MS).toISOString(),
+    {},
+  );
 }
 
 export function touchWorkerHandoff(
