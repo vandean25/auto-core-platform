@@ -93,6 +93,22 @@ describe('Country pack session capabilities', () => {
     expect(res.body.effectiveCapabilities).toEqual(deCapabilities);
   });
 
+  it.each([
+    ['NoVA', 'post', '/api/vehicles/nova/calculate'],
+    ['Pickerl list', 'get', '/api/vehicles/pickerl-due'],
+    ['Pickerl CSV', 'get', '/api/vehicles/pickerl-due/export'],
+    ['Pickerl order', 'get', '/api/vehicles/00000000-0000-4000-8000-000000000000/pickerl-open-order'],
+    ['willhaben export', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=WILLHABEN_GENERIC_V1'],
+  ] as const)('rejects %s when its capability is unavailable', async (_feature, method, path) => {
+    const response = await request(app.getHttpServer())
+      [method](path)
+      .set('Authorization', `Bearer ${createTestAuthToken(app.get(AuthService), tenantB)}`)
+      .send({});
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe('CAPABILITY_UNAVAILABLE');
+  });
+
   it('uses server-side tenant membership rather than token tenant claims', async () => {
     const res = await session(tenantA, tenantB.tenantId);
     expect(res.status).toBe(200);

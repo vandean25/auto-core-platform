@@ -19,6 +19,7 @@ const {
   resetNova,
   downloadKaufvertrag,
   usePdfDownloadMock,
+  sessionCapabilities,
 } = vi.hoisted(() => ({
   createSale: vi.fn(),
   updateSale: vi.fn(),
@@ -29,8 +30,13 @@ const {
   resetNova: vi.fn(),
   downloadKaufvertrag: vi.fn(),
   usePdfDownloadMock: vi.fn(),
+  sessionCapabilities: { value: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true } as { nova: boolean, pickerl57a: boolean, kaufvertragAt: boolean, willhabenExport: boolean } | null },
 }))
 
+vi.mock('@/api/auth-session', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/api/auth-session')>(),
+  useAuthSession: () => ({ data: { effectiveCapabilities: sessionCapabilities.value } }),
+}))
 vi.mock('@/api/vehicle-stock')
 vi.mock('@/api/nova', () => ({
   useNovaCalculate: () => ({ mutate: calculateNova, reset: resetNova, data: undefined, error: null, isPending: false }),
@@ -85,6 +91,7 @@ function asMock(fn: unknown) {
 describe('VehicleSalePage NoVA preview boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionCapabilities.value = { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true }
     vi.useFakeTimers()
     asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: existingSale })
     asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({ data: stockVehicle })
@@ -93,6 +100,18 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     asMock(vehicleStockApi.useFinalizeVehicleSale).mockReturnValue({ mutateAsync: finalizeSale })
     asMock(vehicleStockApi.useUpsertVehicleSaleTradeIn).mockReturnValue({ mutateAsync: upsertTradeIn })
     asMock(vehicleStockApi.useRemoveVehicleSaleTradeIn).mockReturnValue({ mutateAsync: removeTradeIn })
+  })
+
+  it.each([false, null])('does not render or request NoVA when the capability is %s', (enabled) => {
+    sessionCapabilities.value = enabled === null ? null : { nova: enabled, pickerl57a: true, kaufvertragAt: true, willhabenExport: true }
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes><Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} /></Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByLabelText('NoVA-Netto-Preis')).not.toBeInTheDocument()
+    expect(calculateNova).not.toHaveBeenCalled()
   })
 
   afterEach(() => {
