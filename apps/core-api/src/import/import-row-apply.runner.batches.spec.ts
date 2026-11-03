@@ -13,15 +13,15 @@ import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import type { ImportJobTotals } from './import.types.js';
 import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
-import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
+import {
+  createApplyWorker as createWorker,
+  emptyTotals,
+  makeRowRunner as createRunner,
+} from './import-runner.spec.support.js';
 
 const CUSTOMER = ImportEntityType.CUSTOMER;
 const noWrite = async () => undefined;
-
-function emptyTotals(rows: number): ImportJobTotals {
-  return { rows, create: 0, update: 0, skip: 0, error: 0 };
-}
 
 function makeRows(
   count: number,
@@ -39,19 +39,6 @@ function makeRows(
 
 function makeSkipRows(count: number, startRowNo = 1) {
   return makeRows(count, ImportRowAction.SKIP, startRowNo);
-}
-
-function createRunner(prisma: unknown) {
-  return new RowByRowApplyRunner(
-    prisma as never,
-    { writeImportJobAudit: jest.fn() } as never,
-    (job, totals) =>
-      ({
-        ...job,
-        totals,
-        status: job.status,
-      }) as unknown as SerializedImportJob,
-  );
 }
 
 function applyInput(
@@ -78,17 +65,6 @@ function batchOptions(
   hasMoreRowsAfterBatch: boolean,
 ) {
   return { resumeAfterApplySeq, stopAfterBatch: true, hasMoreRowsAfterBatch };
-}
-
-function createWorker(leaseToken: string): ImportJobWorkerState {
-  return {
-    phase: 'apply',
-    lease_token: leaseToken,
-    lease_until: new Date(0).toISOString(),
-    processed_rows: 0,
-    last_committed_apply_seq: 0,
-    started_at: new Date().toISOString(),
-  };
 }
 
 /**

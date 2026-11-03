@@ -5,61 +5,21 @@ import {
   Prisma,
 } from '@prisma/client';
 import { ConflictException } from '@nestjs/common';
-import type { SerializedImportJob } from './import-job.serializer.js';
 import type { ImportApplyRow } from './import-type-handler.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
-import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { VEHICLE_PARTY_RULE_CODES } from '../vehicle/vehicle-party.rules.js';
 import { IMPORT_ROW_TX_MAX_ATTEMPTS } from './import.constants.js';
 import { assignVehiclePartyApplySeqs } from './import-apply-sequence.test-util.js';
 import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
-
-function p2034(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('write conflict', {
-    code: 'P2034',
-    clientVersion: 'test',
-  });
-}
-
-function p2028(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('Transaction API error', {
-    code: 'P2028',
-    clientVersion: 'test',
-  });
-}
-
-function driverAdapterWriteConflict(): Error {
-  const error = new Error('write conflict');
-  error.name = 'DriverAdapterError';
-  Object.assign(error, { cause: { kind: 'TransactionWriteConflict' } });
-  return error;
-}
-
-/** The serializer only reports what the job state actually reached. */
-function makeRunner(prisma: unknown) {
-  return new RowByRowApplyRunner(
-    prisma as never,
-    { writeImportJobAudit: jest.fn() } as never,
-    (job, totals) =>
-      ({
-        ...job,
-        totals,
-        status: job.status,
-      }) as unknown as SerializedImportJob,
-  );
-}
-
-function createWorker(leaseToken = 'lease-retry'): ImportJobWorkerState {
-  return {
-    phase: 'apply',
-    lease_token: leaseToken,
-    lease_until: new Date(0).toISOString(),
-    processed_rows: 0,
-    last_committed_apply_seq: 0,
-    started_at: new Date().toISOString(),
-  };
-}
+import {
+  createApplyWorker as createWorker,
+  driverAdapterWriteConflict,
+  emptyTotals,
+  makeRowRunner as makeRunner,
+  p2028,
+  p2034,
+} from './import-runner.spec.support.js';
 
 function vehiclePartyRow(rowNo: number, validFrom: string) {
   return {
@@ -87,10 +47,6 @@ function createRow(rowNo = 1) {
     external_id: `ext-${rowNo}`,
     normalized_json: { external_id: `ext-${rowNo}` },
   };
-}
-
-function emptyTotals(rows: number) {
-  return { rows, create: 0, update: 0, skip: 0, error: 0 };
 }
 
 function syncPrisma(writeRowImpl: (tx: unknown, row: unknown) => Promise<void>) {

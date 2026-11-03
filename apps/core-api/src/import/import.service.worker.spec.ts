@@ -1,18 +1,14 @@
 import { Logger } from '@nestjs/common';
 import { jest } from '@jest/globals';
-import { setupImportHarness } from './import.service.spec.support.js';
-import { ImportJobStatus, Prisma } from '@prisma/client';
+import {
+  setupImportCollaborators,
+  setupImportHarness,
+} from './import.service.spec.support.js';
+import { ImportJobStatus } from '@prisma/client';
 import {
   IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS,
 } from './import-worker-handoff.constants.js';
-import { ImportJobStore } from './import-job.store.js';
-
-function p2034(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('write conflict', {
-    code: 'P2034',
-    clientVersion: 'test',
-  });
-}
+import { p2034 } from './import-runner.spec.support.js';
 
 describe('ImportService.recoverStaleImportJobs', () => {
   const h = setupImportHarness();
@@ -93,8 +89,28 @@ describe('ImportService.recoverStaleImportJobs', () => {
   it('enqueues recovery tasks per tenant and never runs the worker inline', async () => {
     await h.service.recoverStaleImportJobs();
 
-    expect(h.cloudTasks.enqueueImportWorker).toHaveBeenCalled();
-    expect(h.service.runImportWorkerAttempt).not.toHaveBeenCalled();
+    expect(h.cloudTasks.enqueueImportWorker).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-a',
+        jobId: 'job-a',
+        phase: 'dry_run',
+        taskIdentity: expect.objectContaining({
+          jobId: 'job-a',
+          claimSeq: 3,
+          recoverySeq: 2,
+        }),
+      }),
+    );
+    expect(h.requestContext.runAsWorker).toHaveBeenCalledWith(
+      'tenant-a',
+      expect.any(Function),
+      expect.anything(),
+    );
+    expect(h.requestContext.runAsWorker).toHaveBeenCalledWith(
+      'tenant-b',
+      expect.any(Function),
+      expect.anything(),
+    );
     expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ worker_recovery_seq: 2 }),
@@ -105,6 +121,7 @@ describe('ImportService.recoverStaleImportJobs', () => {
 
 describe('ImportService worker retryable apply errors', () => {
   const h = setupImportHarness();
+  const c = setupImportCollaborators(h);
   const worker = {
     phase: 'apply' as const,
     lease_token: 'lease-requeue',
@@ -118,24 +135,6 @@ describe('ImportService worker retryable apply errors', () => {
     process.env.CLOUD_TASKS_TARGET_BASE_URL = 'http://127.0.0.1:3000/api/';
     h.cloudTasks.enqueueImportWorker.mockResolvedValue(undefined);
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
-    const jobStore = (
-      h.service as unknown as { jobStore: typeof h.prisma }
-    ).jobStore;
-    jest
-      .spyOn(
-        (
-          h.service as unknown as {
-            orchestration: { workerFlowForJob: () => unknown };
-          }
-        ).orchestration,
-        'workerFlowForJob',
-      )
-      .mockReturnValue({
-        jobStore,
-        cloudTasks: h.cloudTasks,
-        targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
-        runInline: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      });
     h.prisma.importJob.findFirst = jest.fn(async () => ({
       id: 'job-1',
       tenant_id: 'tenant-1',
@@ -146,21 +145,8 @@ describe('ImportService worker retryable apply errors', () => {
       options_json: { worker },
     }));
     jest
-      .spyOn(
-        (
-          h.service as unknown as {
-            jobStore: {
-              releaseWorkerLeaseForRetry: (
-                tenantId: string,
-                jobId: string,
-                leaseToken: string,
-              ) => Promise<void>;
-            };
-          }
-        ).jobStore,
-        'releaseWorkerLeaseForRetry',
-      )
-      .mockImplementation(() => Promise.resolve());
+      .spyOn(c.jobStore, 'releaseWorkerLeaseForRetry')
+      .mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -169,17 +155,7 @@ describe('ImportService worker retryable apply errors', () => {
   });
 
   it('warn-logs and requeues when a retryable error hits an APPLYING job', async () => {
-    const orchestration = (
-      h.service as unknown as {
-        orchestration: {
-          failWorkerAttemptUnlessContention: (
-            params: { tenantId: string; jobId: string; phase: 'apply' },
-            error: unknown,
-          ) => Promise<void>;
-        };
-      }
-    ).orchestration;
-    await orchestration.failWorkerAttemptUnlessContention(
+    await c.orchestration.failWorkerAttemptUnlessContention(
       { tenantId: 'tenant-1', jobId: 'job-1', phase: 'apply' },
       p2034(),
     );
@@ -195,6 +171,7 @@ describe('ImportService worker retryable apply errors', () => {
 
 describe('Import worker background P2034 handling', () => {
   const h = setupImportHarness();
+  const c = setupImportCollaborators(h);
   const worker = {
     phase: 'apply' as const,
     lease_token: 'lease-bg',
@@ -209,28 +186,11 @@ describe('Import worker background P2034 handling', () => {
     h.cloudTasks.isEnabled.mockReturnValue(true);
     h.cloudTasks.enqueueImportWorker.mockResolvedValue(undefined);
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
-    const jobStore = (h.service as unknown as { jobStore: ImportJobStore })
-      .jobStore;
     jest
-      .spyOn(
-        (
-          h.service as unknown as {
-            orchestration: { workerFlowForJob: () => unknown };
-          }
-        ).orchestration,
-        'workerFlowForJob',
-      )
-      .mockReturnValue({
-        jobStore,
-        cloudTasks: h.cloudTasks,
-        targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
-        runInline: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      });
-    jest
-      .spyOn(jobStore, 'releaseWorkerLeaseForRetry')
+      .spyOn(c.jobStore, 'releaseWorkerLeaseForRetry')
       .mockImplementation(() => Promise.resolve(true));
     jest
-      .spyOn(jobStore, 'touchWorkerHandoff')
+      .spyOn(c.jobStore, 'touchWorkerHandoff')
       .mockResolvedValue({ count: 1 });
     process.env.GOOGLE_CLOUD_PROJECT = 'test-project';
     process.env.CLOUD_TASKS_INVOKER_SA = 'sa@test';
@@ -244,11 +204,9 @@ describe('Import worker background P2034 handling', () => {
     delete process.env.CLOUD_TASKS_TARGET_BASE_URL;
   });
 
-  it('keeps APPLYING and enqueues a continuation with retry delay', async () => {
+  it('keeps the lease released for retry and enqueues a continuation with retry delay', async () => {
     const attempts = 2;
-    const jobStore = (h.service as unknown as { jobStore: ImportJobStore })
-      .jobStore;
-    jest.spyOn(jobStore, 'findJob').mockResolvedValue({
+    jest.spyOn(c.jobStore, 'findJob').mockResolvedValue({
       id: 'job-1',
       tenant_id: 'tenant-1',
       status: ImportJobStatus.APPLYING,
@@ -258,22 +216,16 @@ describe('Import worker background P2034 handling', () => {
       options_json: { worker },
     } as never);
 
-    const orchestration = (
-      h.service as unknown as {
-        orchestration: {
-          failWorkerAttemptUnlessContention: (
-            params: { tenantId: string; jobId: string; phase: 'apply' },
-            error: unknown,
-          ) => Promise<void>;
-        };
-      }
-    ).orchestration;
-    await orchestration.failWorkerAttemptUnlessContention(
+    await c.orchestration.failWorkerAttemptUnlessContention(
       { tenantId: 'tenant-1', jobId: 'job-1', phase: 'apply' },
       p2034(),
     );
 
-    expect(h.cloudTasks.enqueueImportWorker).toHaveBeenCalled();
+    expect(c.jobStore.releaseWorkerLeaseForRetry).toHaveBeenCalledWith(
+      'tenant-1',
+      'job-1',
+      'lease-bg',
+    );
     const delaySeconds = (
       h.cloudTasks.enqueueImportWorker.mock.calls[0]?.[0] as {
         delaySeconds?: number;
@@ -282,13 +234,12 @@ describe('Import worker background P2034 handling', () => {
     const baseDelay = Math.min(60, 2 ** attempts);
     expect(delaySeconds).toBeGreaterThanOrEqual(baseDelay);
     expect(delaySeconds).toBeLessThanOrEqual(baseDelay + 2);
-    const job = await jobStore.findJob('tenant-1', 'job-1');
-    expect(job?.status).toBe(ImportJobStatus.APPLYING);
   });
 });
 
-describe('ImportService import.job.failed logging', () => {
+describe('Import worker import.job.failed logging', () => {
   const h = setupImportHarness();
+  const c = setupImportCollaborators(h);
 
   beforeEach(() => {
     process.env.CLOUD_TASKS_TARGET_BASE_URL = 'http://127.0.0.1:3000/api/';
@@ -300,8 +251,6 @@ describe('ImportService import.job.failed logging', () => {
     const errorLog = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => {});
-    const jobStore = (h.service as unknown as { jobStore: ImportJobStore })
-      .jobStore;
     const job = {
       id: 'job-poison-log',
       tenant_id: 'tenant-1',
@@ -323,10 +272,10 @@ describe('ImportService import.job.failed logging', () => {
         },
       },
     };
-    jest.spyOn(jobStore, 'claimWorkerLease').mockResolvedValue(null);
-    jest.spyOn(jobStore, 'findJob').mockResolvedValue(job as never);
+    jest.spyOn(c.jobStore, 'claimWorkerLease').mockResolvedValue(null);
+    jest.spyOn(c.jobStore, 'findJob').mockResolvedValue(job as never);
 
-    await h.service.runImportWorkerAttempt({
+    await c.orchestration.runWorkerAttempt({
       tenantId: 'tenant-1',
       jobId: 'job-poison-log',
       phase: 'dry_run',

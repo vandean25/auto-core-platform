@@ -13,38 +13,15 @@ import type { ImportApplyRow } from './import-type-handler.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
-import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { VEHICLE_PARTY_RULE_CODES } from '../vehicle/vehicle-party.rules.js';
+import {
+  createApplyWorker,
+  makeAppliedRowRunner as createAppliedRunner,
+  p2002,
+  p2034,
+} from './import-runner.spec.support.js';
 
 type RowUpdate = { row_no: number; data: unknown };
-
-function p2034(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('write conflict', {
-    code: 'P2034',
-    clientVersion: 'test',
-  });
-}
-
-function p2002(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('unique', {
-    code: 'P2002',
-    clientVersion: 'test',
-  });
-}
-
-/** The runner reports the job as applied; these specs assert on rows and totals. */
-function createAppliedRunner(prisma: unknown) {
-  return new RowByRowApplyRunner(
-    prisma as never,
-    { writeImportJobAudit: jest.fn() } as never,
-    (job, totals) =>
-      ({
-        ...job,
-        totals,
-        status: ImportJobStatus.APPLIED,
-      }) as unknown as SerializedImportJob,
-  );
-}
 
 function customerRow(rowNo: number, externalId: string): ImportApplyRow {
   return {
@@ -176,14 +153,7 @@ describe('RowByRowApplyRunner row outcomes', () => {
   });
 
   it('records ERROR on the conflict row and APPLIES on sequence background apply', async () => {
-    const worker: ImportJobWorkerState = {
-      phase: 'apply',
-      lease_token: 'lease-409',
-      lease_until: new Date(0).toISOString(),
-      processed_rows: 0,
-      last_committed_apply_seq: 0,
-      started_at: new Date().toISOString(),
-    };
+    const worker = createApplyWorker('lease-409');
     const rows = assignVehiclePartyApplySeqs(buildConflictRows());
     const rowUpdates: unknown[] = [];
     const tx = withApplyPersistedTotalsTransactionClient(
@@ -493,14 +463,7 @@ describe('RowByRowApplyRunner sync and background parity', () => {
   }
 
   async function runBackground(p2034Attempts: Map<number, number>) {
-    const worker: ImportJobWorkerState = {
-      phase: 'apply',
-      lease_token: 'lease-parity',
-      lease_until: new Date(0).toISOString(),
-      processed_rows: 0,
-      last_committed_apply_seq: 0,
-      started_at: new Date().toISOString(),
-    };
+    const worker = createApplyWorker('lease-parity');
     const rows = assignVehiclePartyApplySeqs(buildParityRows());
     const rowUpdates: RowUpdate[] = [];
     const prisma = createBackgroundApplyPrisma(rowUpdates, worker, rows);

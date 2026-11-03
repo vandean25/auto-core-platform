@@ -64,10 +64,14 @@ export type ImportUploadFlowDeps = {
 export class ImportUploadFlow {
   constructor(private readonly deps: ImportUploadFlowDeps) {}
 
-  /** Admin + active-user check and option normalization shared by both dry-run entry points. */
-  private async authorizeDryRunRequest(optionsJson: ImportJobOptions) {
+  /** Admin + entity-type + active-user check and option normalization shared by both dry-run entry points. */
+  private async authorizeDryRunRequest(
+    entityType: ImportEntityType,
+    optionsJson: ImportJobOptions,
+  ) {
     const { tenantContext, prisma } = this.deps;
     assertTenantAdmin(tenantContext);
+    assertImplementedImportEntityType(entityType);
     const tenantId = await tenantContext.getTenantId();
     const currentUser = await requireActiveCurrentUser(
       prisma,
@@ -82,7 +86,15 @@ export class ImportUploadFlow {
         ? { cutover_date: migrationManifest.cutover_date }
         : {}),
     };
-    return { tenantId, userId: currentUser.id, migrationManifest, options };
+    return {
+      tenantId,
+      userId: currentUser.id,
+      migrationManifest,
+      options,
+      // Narrowed by the entity-type assertion above, so callers can index the
+      // handler registry with it.
+      entityType,
+    };
   }
 
   async createDryRunFromUpload(params: {
@@ -94,9 +106,8 @@ export class ImportUploadFlow {
     optionsJson: ImportJobOptions;
   }) {
     const { prisma, handlers, audit, serialize } = this.deps;
-    assertImplementedImportEntityType(params.entityType);
-    const { tenantId, userId, migrationManifest, options } =
-      await this.authorizeDryRunRequest(params.optionsJson);
+    const { tenantId, userId, migrationManifest, options, entityType } =
+      await this.authorizeDryRunRequest(params.entityType, params.optionsJson);
     const stagingRequest =
       params.uploadRequest && getImportStagingKey(params.uploadRequest)
         ? params.uploadRequest
@@ -108,7 +119,7 @@ export class ImportUploadFlow {
         dataRowCount: assessed.rowCount,
       });
     }
-    const handler = handlers[params.entityType];
+    const handler = handlers[entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
 
     if (assessed.useBackground) {
@@ -116,7 +127,7 @@ export class ImportUploadFlow {
         tenantId,
         actorUserId: userId,
         file: params.file,
-        entityType: params.entityType,
+        entityType,
         sourceSystem: params.sourceSystem,
         mappingJson: params.mappingJson,
         options,
@@ -129,8 +140,8 @@ export class ImportUploadFlow {
     if (!syncParsed) {
       throw new Error('Sync import path requires a parsed CSV buffer');
     }
-    const parsed = traceImportParse(params.entityType, () => syncParsed);
-    const dryRunRows = await traceImportValidate(params.entityType, () =>
+    const parsed = traceImportParse(entityType, () => syncParsed);
+    const dryRunRows = await traceImportValidate(entityType, () =>
       handler.planDryRun(
         {
           tenantId,
@@ -147,7 +158,7 @@ export class ImportUploadFlow {
       {
         tenantId,
         jobId: cryptoRandomUuid(),
-        entityType: params.entityType,
+        entityType,
         sourceSystem: params.sourceSystem,
         fileName: params.file.originalname,
         fileSha256: parsed.sha256,
@@ -194,9 +205,8 @@ export class ImportUploadFlow {
     rowCount: number;
   }) {
     const { handlers } = this.deps;
-    assertImplementedImportEntityType(params.entityType);
-    const { tenantId, userId, migrationManifest, options } =
-      await this.authorizeDryRunRequest(params.optionsJson);
+    const { tenantId, userId, migrationManifest, options, entityType } =
+      await this.authorizeDryRunRequest(params.entityType, params.optionsJson);
     if (migrationManifest) {
       assertCanonicalMigrationUploadAllowed(
         { originalname: params.fileName },
@@ -204,12 +214,12 @@ export class ImportUploadFlow {
         { sha256: params.fileSha256, dataRowCount: params.rowCount },
       );
     }
-    const handler = handlers[params.entityType];
+    const handler = handlers[entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
     return this.startBackgroundDryRunJob({
       tenantId,
       actorUserId: userId,
-      entityType: params.entityType,
+      entityType,
       sourceSystem: params.sourceSystem,
       fileName: params.fileName,
       fileSha256: params.fileSha256,

@@ -51,8 +51,6 @@ import {
   type SequenceApplyRowContext,
 } from './import-row-apply.sequence-row.js';
 
-export type { ImportRowWriter } from './import-row-apply.legacy-row.js';
-
 function isPastApplyUnitDeadline(deadlineMs: number | undefined): boolean {
   return deadlineMs !== undefined && Date.now() > deadlineMs;
 }

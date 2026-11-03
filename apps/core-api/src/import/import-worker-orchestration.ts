@@ -72,7 +72,7 @@ export type ImportWorkerOrchestrationDeps = {
 export class ImportWorkerOrchestration {
   constructor(private readonly deps: ImportWorkerOrchestrationDeps) {}
 
-  /** Test seam: the facade replaces this to run attempts in-process. */
+  /** Runs an inline worker attempt for the job that currently holds the lease. */
   runWorkerInlineForJob(tenantId: string, jobId: string) {
     return (phase: ImportWorkerPhase) =>
       this.runWorkerAttempt({ tenantId, jobId, phase });

@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import {
   AuditActorType,
@@ -62,6 +63,22 @@ describe('ImportService job lifecycle — createDryRunFromUpload request guards'
       ).rejects.toThrow('Tenant admin access is required.');
 
       expect(h.prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(h.prisma.importJob.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-admin with an unimplemented entity type as 403, not 400', async () => {
+      h.tenantContext.getAuthenticatedUser.mockReturnValue({
+        userId: ACTOR_AUTH_UID,
+        role: 'TECH',
+        email: ACTOR_EMAIL,
+      });
+
+      await expect(
+        h.service.createDryRunFromUpload(
+          dryRunParams(ImportEntityType.PART, CUSTOMER_CSV),
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
       expect(h.prisma.importJob.create).not.toHaveBeenCalled();
     });
 

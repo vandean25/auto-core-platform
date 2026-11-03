@@ -1,4 +1,4 @@
-import { ImportJobStatus, ImportRowAction, Prisma } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import {
   IMPORT_APPLY_BATCH_SIZE,
   IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS,
@@ -14,30 +14,14 @@ import type {
   ImportApplyJob,
   ImportApplyRow,
 } from './import-type-handler.js';
-import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
+import {
+  createApplyWorker as backgroundWorker,
+  makeSupplierRunner as makeRunner,
+  p2034,
+} from './import-runner.spec.support.js';
 
 const vendor = { id: 'vendor-1', name: 'Vendor' };
-
-function p2034(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('write conflict', {
-    code: 'P2034',
-    clientVersion: 'test',
-  });
-}
-
-function makeRunner(prisma: unknown) {
-  return new SupplierChunkedApplyRunner(
-    prisma as never,
-    { writeImportJobAudit: jest.fn() } as never,
-    (job, totals) =>
-      ({
-        ...job,
-        totals,
-        status: job.status,
-      }) as unknown as SerializedImportJob,
-  );
-}
 
 function skipRowRow(rowNo: number) {
   return {
@@ -79,17 +63,6 @@ function supplierInput(
     effectiveOptions: { vendor_id: 'vendor-1' },
     preparation: { vendor },
     batchOptions: overrides.batchOptions,
-  };
-}
-
-function backgroundWorker(leaseToken: string): ImportJobWorkerState {
-  return {
-    phase: 'apply',
-    lease_token: leaseToken,
-    lease_until: new Date(0).toISOString(),
-    processed_rows: 0,
-    last_committed_apply_seq: 0,
-    started_at: new Date().toISOString(),
   };
 }
 

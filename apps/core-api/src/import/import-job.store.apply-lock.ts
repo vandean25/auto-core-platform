@@ -13,8 +13,6 @@ import { fillImportJobApplySequences } from './import-apply-sequence-fill.js';
 import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.js';
 import type { ImportJobTotals } from './import.types.js';
 
-/** Moves a job into APPLYING under an optimistic lock and prepares its apply sequences. */
-
 type LockTxClient = {
   importJob: Pick<Prisma.TransactionClient['importJob'], 'findFirst'>;
 };

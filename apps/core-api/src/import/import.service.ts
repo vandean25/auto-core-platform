@@ -41,7 +41,6 @@ import {
 } from './import-entity-type.registry.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
-import type { ImportWorkerFlowDeps } from './import-worker.flow.js';
 import type {
   ImportJobOptionsWithWorker,
   ImportWorkerPhase,
@@ -334,21 +333,6 @@ export class ImportService {
     options: ImportJobOptionsWithWorker,
   ): Promise<void> {
     await deleteImportJobUpload(this.fileStorage, options);
-  }
-
-  private workerFlowForJob(
-    tenantId: string,
-    jobId: string,
-  ): ImportWorkerFlowDeps {
-    return this.orchestration.workerFlowForJob(tenantId, jobId);
-  }
-
-  private async enqueueInitialImportWorker(
-    tenantId: string,
-    jobId: string,
-    phase: ImportWorkerPhase,
-  ): Promise<void> {
-    await this.orchestration.enqueueInitialWorker(tenantId, jobId, phase);
   }
 
   async runImportWorkerAttempt(params: {
