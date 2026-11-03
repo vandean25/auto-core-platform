@@ -207,7 +207,7 @@ test.describe("Blueprint: API keys settings", () => {
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
     await corePage.navigate("/settings");
 
-    await expect(page.getByRole("tab", { name: DE_SETTINGS.tabs.auditLogs })).toBeVisible();
+    await expect(page.getByRole("tab", { name: DE_SETTINGS.tabs.auditLogs })).toHaveCount(0);
     await expect(page.getByRole("tab", { name: DE_SETTINGS.tabs.apiKeys })).toHaveCount(0);
     await expect(page.getByRole("tab", { name: DE_SETTINGS.tabs.team })).toHaveCount(0);
   });
