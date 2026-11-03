@@ -317,6 +317,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     context: ErrorRequestContext,
   ): ResolvedError {
     if (exception instanceof HttpException) {
+      const cause = exception.cause;
+      const parserError =
+        resolveBodyParserHttpError(cause, context, this.logger) ??
+        resolveBodyDecompressionError(cause, context, this.logger);
+      if (parserError && parserError.status === exception.getStatus()) {
+        return parserError;
+      }
       return this.handleHttpException(exception, context);
     }
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
