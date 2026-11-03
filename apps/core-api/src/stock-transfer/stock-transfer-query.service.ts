@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TRANSFER_INCLUDE } from './stock-transfer-include.js';
+import { attachLineBins } from './stock-transfer-bins.js';
 import {
   serializeStockTransfer,
   SerializedStockTransfer,
@@ -35,6 +36,7 @@ export class StockTransferQueryService {
       orderBy: { createdAt: 'desc' },
     });
 
+    await attachLineBins(this.prisma, access.tenantId, transfers);
     return transfers.map((transfer) =>
       serializeStockTransfer(transfer, {
         includeSourceBin: access.accessBySite.has(transfer.from_site_id),
@@ -65,7 +67,20 @@ export class StockTransferQueryService {
     if (!transfer || !hasAnyAccess) {
       throw new NotFoundException('Stock transfer not found');
     }
+    await attachLineBins(this.prisma, access.tenantId, [transfer]);
     return serializeStockTransfer(transfer, { includeSourceBin });
+  }
+
+  /** Response reads resolve line bins in one extra query (AUT-909). */
+  async loadTransferWithLineBins(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    id: string,
+    siteIds: string[],
+  ): Promise<StockTransferWithSitesAndLines> {
+    const transfer = await this.loadTransfer(tx, tenantId, id, siteIds);
+    await attachLineBins(tx, tenantId, [transfer]);
+    return transfer;
   }
 
   loadTransfer(

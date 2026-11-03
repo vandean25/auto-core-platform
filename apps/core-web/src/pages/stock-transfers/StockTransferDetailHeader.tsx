@@ -166,7 +166,7 @@ export function StockTransferDetailHeader(props: TransferActionButtonsProps) {
   const { transfer } = props
 
   return (
-    <div className="mb-8 flex items-center justify-between">
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link to="/stock-transfers" aria-label={t('inventory:stockTransfers.detail.backAriaLabel')}>

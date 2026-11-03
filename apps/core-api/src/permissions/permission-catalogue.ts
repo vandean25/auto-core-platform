@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 1;
+export const PERMISSION_CATALOGUE_VERSION = 2;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -61,6 +61,7 @@ const DEFINITIONS = [
   ['api_key.create', 'API-Schlüssel erstellen', 'Create API key'],
   ['api_key.read', 'API-Schlüssel ansehen', 'View API keys'],
   ['api_key.revoke', 'API-Schlüssel widerrufen', 'Revoke API key'],
+  ['audit.history.read', 'Änderungsverlauf ansehen', 'View change history'],
   ['audit.read', 'Änderungsprotokoll ansehen', 'View audit log'],
   ['bay.create', 'Hebebühne anlegen', 'Create bay'],
   ['bay.delete', 'Hebebühne löschen', 'Delete bay'],
@@ -83,6 +84,11 @@ const DEFINITIONS = [
     'credit_note.pdf.generate',
     'Gutschrift-PDF erzeugen',
     'Generate credit note PDF',
+  ],
+  [
+    'credit_note.document.read',
+    'Gutschrift-Dokumente ansehen',
+    'View credit note documents',
   ],
   ['credit_note.read', 'Gutschriften ansehen', 'View credit notes'],
   ['credit_note.void', 'Gutschrift stornieren', 'Void credit note'],
@@ -311,6 +317,11 @@ const DEFINITIONS = [
   ['legal_entity.create', 'Rechtsträger anlegen', 'Create legal entity'],
   ['legal_entity.delete', 'Rechtsträger löschen', 'Delete legal entity'],
   ['legal_entity.read', 'Rechtsträger ansehen', 'View legal entities'],
+  [
+    'legal_entity.summary.read',
+    'Rechtsträger-Übersicht ansehen',
+    'View legal entity summary',
+  ],
   ['legal_entity.update', 'Rechtsträger ändern', 'Edit legal entity'],
   [
     'loaner.booking.cancel',
@@ -325,10 +336,20 @@ const DEFINITIONS = [
   ['loaner.booking.hand_over', 'Leihwagen übergeben', 'Hand over loaner'],
   ['loaner.booking.no_show', 'Nichterscheinen erfassen', 'Mark loaner no-show'],
   ['loaner.booking.read', 'Leihwagenbuchungen ansehen', 'View loaner bookings'],
+  [
+    'loaner.booking.summary.read',
+    'Leihwagenbuchungen auflisten',
+    'List loaner bookings',
+  ],
   ['loaner.booking.return', 'Leihwagen zurücknehmen', 'Return loaner'],
   ['loaner.booking.update', 'Leihwagenbuchung ändern', 'Edit loaner booking'],
   ['loaner.vehicle.create', 'Leihwagen anlegen', 'Create loaner vehicle'],
   ['loaner.vehicle.delete', 'Leihwagen löschen', 'Delete loaner vehicle'],
+  [
+    'loaner.vehicle.availability.read',
+    'Freie Leihwagen ansehen',
+    'View available loaners',
+  ],
   ['loaner.vehicle.read', 'Leihwagen ansehen', 'View loaner vehicles'],
   ['loaner.vehicle.update', 'Leihwagen ändern', 'Edit loaner vehicle'],
   ['margin_rule.create', 'Margenregel anlegen', 'Create margin rule'],
@@ -539,6 +560,7 @@ const DEFINITIONS = [
   ['tyre.set.export', 'Reifensätze exportieren', 'Export tyre sets'],
   ['tyre.set.inspect', 'Reifensatz prüfen', 'Inspect tyre set'],
   ['tyre.set.move', 'Reifensatz umlagern', 'Move tyre set'],
+  ['tyre.set.detail.read', 'Reifensatz ansehen', 'View tyre set'],
   ['tyre.set.read', 'Reifensätze ansehen', 'View tyre sets'],
   ['tyre.set.update', 'Reifensatz ändern', 'Edit tyre set'],
   ['tyre.settings.read', 'Reifeneinstellungen ansehen', 'View tyre settings'],

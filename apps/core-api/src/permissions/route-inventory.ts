@@ -32,6 +32,10 @@ export type RegisteredRoute = {
   /** Full path including the global prefix, for reports and for the demo restriction. */
   path: string;
   guards: readonly string[];
+  /** Controller and handler the route was read from, and the route guards in the order Nest runs them. */
+  controller: Type<unknown>;
+  handler: object;
+  guardTypes: readonly Type<unknown>[];
   isPublic: boolean;
   mechanicAccessible: boolean;
   allowPlatformAdmin: boolean;
@@ -111,11 +115,12 @@ function readMetadata<T>(
   return metadata<T>(key, handler) ?? metadata<T>(key, controller);
 }
 
-function guardNames(handler: object, controller: Type<unknown>): string[] {
-  return [controller, handler].flatMap((target) =>
-    (metadata<{ name: string }[]>(GUARDS_METADATA, target) ?? []).map(
-      (guard) => guard.name,
-    ),
+function guardTypes(
+  handler: object,
+  controller: Type<unknown>,
+): Type<unknown>[] {
+  return [controller, handler].flatMap(
+    (target) => metadata<Type<unknown>[]>(GUARDS_METADATA, target) ?? [],
   );
 }
 
@@ -141,7 +146,10 @@ export function listRegisteredRoutes(root: ModuleRef): RegisteredRoute[] {
           id: `${controller.name}.${name}`,
           method: RequestMethod[method],
           path: joinPath(GLOBAL_PREFIX, prefix, subPath),
-          guards: guardNames(handler, controller),
+          guards: guardTypes(handler, controller).map((guard) => guard.name),
+          controller,
+          handler,
+          guardTypes: guardTypes(handler, controller),
           isPublic:
             readMetadata<boolean>(IS_PUBLIC_KEY, handler, controller) ?? false,
           mechanicAccessible:

@@ -74,6 +74,7 @@ const FIXTURE_NON_TENANT_ENTRIES = {
     policy: 'fixture',
     apiKeyScope: 'customers:read',
     permissions: ['customer.read'],
+    legacy: ['OWNER'],
   },
 } as const satisfies Record<string, OperationEntry>;
 

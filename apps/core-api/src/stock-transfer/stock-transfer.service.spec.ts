@@ -11,6 +11,7 @@ import { LocationType, Prisma, StockTransferStatus } from '@prisma/client';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { StockTransferService } from './stock-transfer.service.js';
+import { attachLineBins, type LineBinsHost } from './stock-transfer-bins.js';
 import {
   hashCommandRequest,
   redactStoredCommandResponse,
@@ -1672,22 +1673,38 @@ describe('StockTransferService', () => {
     });
 
     it('redactStoredCommandResponse nulls source bins for dest-only callers', () => {
-      const stored = serializeStockTransfer(buildTransfer(), {
-        includeSourceBin: true,
-      });
-      const withSource = {
-        ...stored,
-        lines: [{ ...stored.lines[0], sourceLocationId: sourceBinId }],
-      };
+      const stored = serializeStockTransfer(
+        buildTransfer({
+          lines: [
+            buildLine({
+              source_location_id: sourceBinId,
+              source_location: { code: 'A-1', name: 'Regal 1' },
+              dest_location_id: destBinId,
+              dest_location: { code: 'B-1', name: 'Regal 2' },
+            }),
+          ],
+        }),
+        { includeSourceBin: true },
+      );
+      expect(stored.lines[0].fromBinCode).toBe('A-1');
+      expect(stored.lines[0].toBinCode).toBe('B-1');
 
-      const redacted = redactStoredCommandResponse(withSource, false);
+      const redacted = redactStoredCommandResponse(stored, false);
 
       expect(redacted.lines[0].sourceLocationId).toBeNull();
+      expect(redacted.lines[0].fromBinCode).toBeNull();
+      expect(redacted.lines[0].fromBinName).toBeNull();
+      expect(redacted.lines[0].toBinCode).toBe('B-1');
     });
 
     it('serializeStockTransfer nulls the source bin without from-site access', () => {
       const transfer = buildTransfer({
-        lines: [buildLine({ source_location_id: sourceBinId })],
+        lines: [
+          buildLine({
+            source_location_id: sourceBinId,
+            source_location: { code: 'A-1', name: 'Regal 1' },
+          }),
+        ],
       });
 
       const result = serializeStockTransfer(transfer, {
@@ -1695,7 +1712,150 @@ describe('StockTransferService', () => {
       });
 
       expect(result.lines[0].sourceLocationId).toBeNull();
+      expect(result.lines[0].fromBinCode).toBeNull();
       expect(result.fromSiteName).toBe('Wien');
+    });
+
+    it.each([
+      {
+        name: 'shows code and name for a visible source bin',
+        includeSourceBin: true,
+        line: {
+          source_location_id: sourceBinId,
+          source_location: { code: 'A-1', name: 'Regal 1' },
+        },
+        expected: {
+          sourceLocationId: sourceBinId,
+          fromBinCode: 'A-1',
+          fromBinName: 'Regal 1',
+        },
+      },
+      {
+        name: 'hides source bin id, code and name without from-site access',
+        includeSourceBin: false,
+        line: {
+          source_location_id: sourceBinId,
+          source_location: { code: 'A-1', name: 'Regal 1' },
+        },
+        expected: {
+          sourceLocationId: null,
+          fromBinCode: null,
+          fromBinName: null,
+        },
+      },
+      {
+        name: 'keeps the destination bin visible for both callers',
+        includeSourceBin: false,
+        line: {
+          dest_location_id: destBinId,
+          dest_location: { code: 'B-1', name: 'Regal 2' },
+        },
+        expected: {
+          destLocationId: destBinId,
+          toBinCode: 'B-1',
+          toBinName: 'Regal 2',
+        },
+      },
+      {
+        name: 'nulls code and name when the bin row is missing',
+        includeSourceBin: true,
+        line: { source_location_id: sourceBinId, dest_location_id: destBinId },
+        expected: {
+          sourceLocationId: sourceBinId,
+          fromBinCode: null,
+          fromBinName: null,
+          destLocationId: destBinId,
+          toBinCode: null,
+          toBinName: null,
+        },
+      },
+      {
+        name: 'nulls both sides when a line has no bin',
+        includeSourceBin: true,
+        line: {},
+        expected: {
+          sourceLocationId: null,
+          fromBinCode: null,
+          fromBinName: null,
+          destLocationId: null,
+          toBinCode: null,
+          toBinName: null,
+        },
+      },
+    ])(
+      'serializeStockTransfer bins: $name',
+      ({ includeSourceBin, line, expected }) => {
+        const result = serializeStockTransfer(
+          buildTransfer({ lines: [buildLine(line)] }),
+          { includeSourceBin },
+        );
+
+        expect(result.lines[0]).toMatchObject(expected);
+      },
+    );
+  });
+
+  describe('attachLineBins (AUT-909)', () => {
+    const binRows = [
+      { id: sourceBinId, code: 'A-1', name: 'Regal 1' },
+      { id: destBinId, code: 'B-1', name: 'Regal 2' },
+    ];
+
+    function fakeClient(rows: unknown[] = binRows) {
+      const findMany = jest.fn().mockResolvedValue(rows);
+      const client = {
+        storageLocation: { findMany },
+      } as unknown as Prisma.TransactionClient;
+      return { client, findMany };
+    }
+
+    it('resolves all line bins of several transfers in one tenant-filtered query', async () => {
+      const first: LineBinsHost = buildTransfer({
+        lines: [
+          buildLine({ source_location_id: sourceBinId }),
+          buildLine({
+            id: 'line-2',
+            source_location_id: sourceBinId,
+            dest_location_id: destBinId,
+          }),
+        ],
+      });
+      const second: LineBinsHost = buildTransfer({
+        id: 'transfer-2',
+        lines: [buildLine({ dest_location_id: destBinId })],
+      });
+      const { client, findMany } = fakeClient();
+
+      await attachLineBins(client, tenantId, [first, second]);
+
+      expect(findMany).toHaveBeenCalledTimes(1);
+      expect(findMany).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, id: { in: [sourceBinId, destBinId] } },
+        select: { id: true, code: true, name: true },
+      });
+      expect(first.lines[0].source_location).toEqual(binRows[0]);
+      expect(first.lines[1].dest_location).toEqual(binRows[1]);
+      expect(second.lines[0].dest_location).toEqual(binRows[1]);
+    });
+
+    it('nulls a side whose bin row no longer exists', async () => {
+      const transfer: LineBinsHost = buildTransfer({
+        lines: [buildLine({ source_location_id: sourceBinId })],
+      });
+      const { client } = fakeClient([]);
+
+      await attachLineBins(client, tenantId, [transfer]);
+
+      expect(transfer.lines[0].source_location).toBeNull();
+    });
+
+    it('does not query when no line references a bin', async () => {
+      const transfer = buildTransfer();
+      const { client, findMany } = fakeClient();
+
+      await attachLineBins(client, tenantId, [transfer]);
+
+      expect(findMany).not.toHaveBeenCalled();
     });
   });
 });

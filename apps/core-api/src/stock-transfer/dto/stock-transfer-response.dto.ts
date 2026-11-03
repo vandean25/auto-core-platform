@@ -28,6 +28,18 @@ export class StockTransferLineResponseDto {
 
   @ApiProperty({ type: String, nullable: true })
   destLocationId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'QA-BIN-MAIN-01' })
+  fromBinCode!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  fromBinName!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'QA-BIN-GRZ-01' })
+  toBinCode!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  toBinName!: string | null;
 }
 
 export class StockTransferResponseDto {

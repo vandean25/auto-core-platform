@@ -39,6 +39,8 @@ export type ClassifiedOperation = {
   policy: string;
   /** Legacy effective access, recorded for session routes whose roles the global restrictions decide. */
   legacy?: readonly LegacyRole[];
+  /** A session route a member without a domain role may still call (own session or context selection). */
+  withoutRole?: true;
 };
 
 /** A route a tenant API key may call. The scope is the public-API allow-list; permissions are catalogue mapping only. */
@@ -47,6 +49,8 @@ export type ApiKeyOperation = {
   policy: string;
   apiKeyScope: PublicApiScope;
   permissions: readonly PermissionId[];
+  /** Roles of a signed-in member who calls the route with a session instead of a key (the global restrictions decide). */
+  legacy: readonly LegacyRole[];
 };
 
 export type OperationEntry =
