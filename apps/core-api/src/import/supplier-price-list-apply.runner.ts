@@ -1,75 +1,41 @@
 import { Logger } from '@nestjs/common';
-import { ImportJobStatus, ImportRowAction, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
   describeImportApplyCause,
   ImportApplyRetryExhaustedError,
-  isRowLevelApplyError,
-  toRowApplyError,
   type ImportApplyFailureReason,
 } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
-import {
-  commitApplyWorkerRowInTransaction,
-} from './import-job.store.worker-lease.js';
-import { markImportRowFailed } from './import-job.store.js';
-import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type {
   ImportJobView,
   SerializedImportJob,
   SerializeImportJobFn,
 } from './import-job.serializer.js';
-import { applySeqForRow } from './import-apply-sequence.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
+import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import {
-  IMPORT_LOGGER_CONTEXT,
-  IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS,
-} from './import.constants.js';
-import {
-  delayMs,
   isImportSyncLegacyApplyPath,
-  retryableTransactionDelayMs,
   withImportSyncApplyIoRetry,
 } from './import-transaction-retry.util.js';
 import {
   createApplyTotals,
   createResumedApplyTotals,
-  tallyWrittenRow,
 } from './import-totals.util.js';
 import type {
   ImportApplyBatchOptions,
   ImportApplyInput,
-  ImportApplyRow,
   VendorRef,
 } from './import-type-handler.js';
 import type { ImportJobTotals } from './import.types.js';
+import type { SupplierApplyContext } from './supplier-price-list-import.apply.js';
+import { applySupplierChunks } from './supplier-price-list-apply.chunks.js';
 import {
-  applySupplierImportRow,
-  type SupplierApplyContext,
-} from './supplier-price-list-import.apply.js';
-import { mergeImportJobApplyFailureReason } from './import-apply-failure.util.js';
-import {
-  readImportJobExpectedRowCount,
-  tallyImportApplyTotalsFromRows,
-} from './import-apply-persisted-totals.js';
-import { logImportJobFailed } from './import-job-failed-log.util.js';
-
-/** Rows per transaction. A failing chunk is retried row by row. */
-const CHUNK_SIZE = 50;
-const CHUNK_TRANSACTION_OPTIONS = { timeout: 30000, maxWait: 10000 };
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function addCounts(totals: ImportJobTotals, counts: ImportJobTotals): void {
-  totals.create += counts.create;
-  totals.update += counts.update;
-  totals.skip += counts.skip;
-  totals.error += counts.error;
-}
+  markSupplierJobApplied,
+  markSupplierJobFailed,
+  type SupplierJobStateContext,
+} from './supplier-price-list-apply.job-state.js';
 
 /**
  * Applies a supplier price list in chunks of rows, one transaction per chunk. A failing chunk
@@ -93,17 +59,24 @@ export class SupplierChunkedApplyRunner {
     const plan = planImportApplyBatch(input.rows, batchOptions);
     const totals = this.buildTotals(input, batchOptions);
     const guardedWrite = Boolean(batchOptions?.stopAfterBatch);
-    const ctx = this.buildContext(input, vendor);
+    const supplierCtx = this.buildContext(input, vendor);
+    const ctx: SupplierJobStateContext = {
+      logger: this.logger,
+      prisma: this.prisma,
+      audit: this.audit,
+    };
     let jobApplied = false;
     try {
-      const stoppedEarly = await this.applyPlannedChunks(
-        input,
+      const stoppedEarly = await applySupplierChunks(
         ctx,
+        input,
+        supplierCtx,
         plan.batchRows,
         totals,
         batchOptions,
       );
       const finishedJob = await this.finishApplyRun(
+        ctx,
         input,
         totals,
         guardedWrite,
@@ -124,13 +97,13 @@ export class SupplierChunkedApplyRunner {
           ? 'retry_exhausted'
           : 'apply_error';
       if (!jobApplied) {
-        await this.markFailed(
-          input.job.id,
+        await markSupplierJobFailed(ctx, {
+          jobId: input.job.id,
           totals,
           failureReason,
-          describeImportApplyCause(error),
+          cause: describeImportApplyCause(error),
           batchOptions,
-        );
+        });
       }
       throw error;
     }
@@ -161,33 +134,8 @@ export class SupplierChunkedApplyRunner {
     };
   }
 
-  private async applyPlannedChunks(
-    input: ImportApplyInput,
-    ctx: SupplierApplyContext,
-    batchRows: ImportApplyRow[],
-    totals: ImportJobTotals,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<boolean> {
-    for (let offset = 0; offset < batchRows.length; offset += CHUNK_SIZE) {
-      if (
-        batchOptions?.chunkDeadlineMs !== undefined &&
-        Date.now() > batchOptions.chunkDeadlineMs
-      ) {
-        return true;
-      }
-      await this.applyChunk(
-        input,
-        ctx,
-        batchRows.slice(offset, offset + CHUNK_SIZE),
-        offset,
-        totals,
-        batchOptions,
-      );
-    }
-    return false;
-  }
-
   private async finishApplyRun(
+    ctx: SupplierJobStateContext,
     input: ImportApplyInput,
     totals: ImportJobTotals,
     guardedWrite: boolean,
@@ -205,337 +153,8 @@ export class SupplierChunkedApplyRunner {
     }
     const syncPath = isImportSyncLegacyApplyPath(batchOptions);
     const updatedJob = await withImportSyncApplyIoRetry(syncPath, () =>
-      this.markApplied(input, totals, guardedWrite),
+      markSupplierJobApplied(ctx, input, { totals, guardedWrite }),
     );
     return { job: updatedJob, applied: true };
-  }
-
-  private async applyChunk(
-    input: ImportApplyInput,
-    ctx: SupplierApplyContext,
-    chunk: ImportApplyRow[],
-    offset: number,
-    totals: ImportJobTotals,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
-    try {
-      const counts = await this.prisma.$transaction(
-        (tx) => this.applyChunkRows(tx, ctx, chunk, input, batchOptions),
-        CHUNK_TRANSACTION_OPTIONS,
-      );
-      addCounts(totals, counts);
-    } catch (chunkError) {
-      if (chunkError instanceof ImportWorkerLeaseLostError) {
-        throw chunkError;
-      }
-      this.logger.warn(
-        `Supplier price list chunk failed at offset ${offset}, falling back to row-by-row: ${describeError(chunkError)}`,
-      );
-      for (const row of chunk) {
-        await this.applyRowAlone(input, ctx, row, totals, batchOptions);
-      }
-    }
-  }
-
-  private async commitWorkerRow(
-    tx: Prisma.TransactionClient,
-    input: ImportApplyInput,
-    row: ImportApplyRow,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
-    if (!batchOptions?.leaseToken) {
-      return;
-    }
-    await commitApplyWorkerRowInTransaction(
-      tx,
-      input.tenantId,
-      input.job.id,
-      batchOptions.leaseToken,
-      applySeqForRow(row),
-      row.row_no,
-    );
-  }
-
-  private async advanceWorkerCursor(
-    input: ImportApplyInput,
-    row: ImportApplyRow,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
-    if (!batchOptions?.leaseToken) {
-      return;
-    }
-    await this.prisma.$transaction(async (tx) => {
-      await this.commitWorkerRow(tx, input, row, batchOptions);
-    });
-  }
-
-  private async applyChunkRows(
-    tx: Prisma.TransactionClient,
-    ctx: SupplierApplyContext,
-    chunk: ImportApplyRow[],
-    input: ImportApplyInput,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<ImportJobTotals> {
-    const counts = createApplyTotals(0);
-    for (const row of chunk) {
-      if (row.action === ImportRowAction.ERROR) {
-        counts.error += 1;
-        await this.commitWorkerRow(tx, input, row, batchOptions);
-      } else if (row.action === ImportRowAction.SKIP) {
-        counts.skip += 1;
-        await this.commitWorkerRow(tx, input, row, batchOptions);
-      } else {
-        const result = await applySupplierImportRow(tx, ctx, row);
-        tallyWrittenRow(counts, result.action);
-        await this.commitWorkerRow(tx, input, row, batchOptions);
-      }
-    }
-    return counts;
-  }
-
-  /** Fallback for one row after its chunk failed. Only row-level failures are kept as ERROR. */
-  private async applyRowAlone(
-    input: ImportApplyInput,
-    ctx: SupplierApplyContext,
-    row: ImportApplyRow,
-    totals: ImportJobTotals,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
-    if (row.action === ImportRowAction.ERROR) {
-      totals.error += 1;
-      await this.advanceWorkerCursor(input, row, batchOptions);
-      return;
-    }
-    if (row.action === ImportRowAction.SKIP) {
-      totals.skip += 1;
-      await this.advanceWorkerCursor(input, row, batchOptions);
-      return;
-    }
-
-    if (isImportSyncLegacyApplyPath(batchOptions)) {
-      await this.applyRowAloneWithSyncRetry(
-        input,
-        ctx,
-        row,
-        totals,
-        batchOptions,
-      );
-      return;
-    }
-    await this.applyRowAloneOnce(input, ctx, row, totals, batchOptions);
-  }
-
-  private async applyRowAloneWithSyncRetry(
-    input: ImportApplyInput,
-    ctx: SupplierApplyContext,
-    row: ImportApplyRow,
-    totals: ImportJobTotals,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
-    for (
-      let attempt = 0;
-      attempt < IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS;
-      attempt++
-    ) {
-      try {
-        await this.applyRowAloneOnce(input, ctx, row, totals, batchOptions);
-        return;
-      } catch (rowError) {
-        const handled = await this.handleSyncRowAloneAttemptFailure(
-          input,
-          ctx,
-          row,
-          totals,
-          batchOptions,
-          rowError,
-          attempt,
-        );
-        if (handled) {
-          return;
-        }
-      }
-    }
-  }
-
-  private async handleSyncRowAloneAttemptFailure(
-    input: ImportApplyInput,
-    ctx: SupplierApplyContext,
-    row: ImportApplyRow,
-    totals: ImportJobTotals,
-    batchOptions: ImportApplyBatchOptions | undefined,
-    error: unknown,
-    attempt: number,
-  ): Promise<boolean> {
-    if (error instanceof ImportWorkerLeaseLostError) {
-      throw error;
-    }
-    if (isRowLevelApplyError(error)) {
-      await markImportRowFailed(
-        this.prisma,
-        input.tenantId,
-        ctx.jobId,
-        row.row_no,
-        toRowApplyError(error),
-      );
-      totals.error += 1;
-      await this.advanceWorkerCursor(input, row, batchOptions);
-      return true;
-    }
-    const kind = classifyImportApplyError(error);
-    if (kind === 'retryable' && attempt < IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS - 1) {
-      await delayMs(retryableTransactionDelayMs(attempt));
-      return false;
-    }
-    if (kind === 'retryable') {
-      throw new ImportApplyRetryExhaustedError(error);
-    }
-    throw error;
-  }
-
-  private async applyRowAloneOnce(
-    input: ImportApplyInput,
-    ctx: SupplierApplyContext,
-    row: ImportApplyRow,
-    totals: ImportJobTotals,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
-    try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        const applied = await applySupplierImportRow(tx, ctx, row);
-        await this.commitWorkerRow(tx, input, row, batchOptions);
-        return applied;
-      });
-      tallyWrittenRow(totals, result.action);
-    } catch (rowError) {
-      if (rowError instanceof ImportWorkerLeaseLostError) {
-        throw rowError;
-      }
-      if (!isRowLevelApplyError(rowError)) {
-        throw rowError;
-      }
-      await markImportRowFailed(
-        this.prisma,
-        input.tenantId,
-        ctx.jobId,
-        row.row_no,
-        toRowApplyError(rowError),
-      );
-      totals.error += 1;
-      await this.advanceWorkerCursor(input, row, batchOptions);
-    }
-  }
-
-  /** The APPLIED transition and its audit entry commit together or not at all. */
-  private async markApplied(
-    input: ImportApplyInput,
-    totals: ImportJobTotals,
-    guardedWrite: boolean,
-  ) {
-    const { tenantId, job, actorUserId, effectiveOptions } = input;
-    return this.prisma.$transaction(async (tx) => {
-      const { expectedRows, flaggedJumps } =
-        await readImportJobExpectedRowCount(tx, tenantId, job.id);
-      const persistedTotals = await tallyImportApplyTotalsFromRows(
-        tx,
-        tenantId,
-        job.id,
-        expectedRows || totals.rows,
-        flaggedJumps,
-      );
-      const appliedAt = new Date();
-      const data = {
-        status: ImportJobStatus.APPLIED,
-        appliedAt,
-        totals_json: persistedTotals,
-        options_json: effectiveOptions,
-      };
-      if (guardedWrite) {
-        await tx.importJob.updateMany({
-          where: { id: job.id, status: ImportJobStatus.APPLYING },
-          data,
-        });
-        const updatedJob = await tx.importJob.findFirst({
-          where: { id: job.id },
-        });
-        await this.audit.writeImportJobAudit(
-          tx,
-          tenantId,
-          actorUserId,
-          job.id,
-          'applied',
-          persistedTotals,
-        );
-        return updatedJob!;
-      }
-      const applied = await tx.importJob.update({
-        where: { id: job.id },
-        data,
-      });
-      await this.audit.writeImportJobAudit(
-        tx,
-        tenantId,
-        actorUserId,
-        job.id,
-        'applied',
-        persistedTotals,
-      );
-      return applied;
-    });
-  }
-
-  /**
-   * Chunks that already committed stay applied. The job ends FAILED with the totals of that
-   * committed work. The status guard keeps this from overwriting an applied job.
-   */
-  private async markFailed(
-    jobId: string,
-    totals: ImportJobTotals,
-    failureReason: ImportApplyFailureReason,
-    cause: string,
-    batchOptions?: ImportApplyBatchOptions,
-  ): Promise<void> {
-    try {
-      const persist = async () => {
-        const failurePatch = await mergeImportJobApplyFailureReason(
-          this.prisma,
-          jobId,
-          failureReason,
-        );
-        const updated = await this.prisma.importJob.updateMany({
-          where: { id: jobId, status: ImportJobStatus.APPLYING },
-          data: {
-            status: ImportJobStatus.FAILED,
-            failed_at: new Date(),
-            totals_json: totals,
-            ...failurePatch,
-          },
-        });
-        if (updated.count > 0) {
-          const job = await this.prisma.importJob.findFirst({
-            where: { id: jobId },
-            select: { attempts_without_progress: true },
-          });
-          logImportJobFailed(this.logger, {
-            jobId,
-            phase: 'apply',
-            attempt: job?.attempts_without_progress ?? 0,
-            reason: failureReason,
-            cause,
-          });
-        }
-      };
-      if (
-        failureReason === 'retry_exhausted' &&
-        isImportSyncLegacyApplyPath(batchOptions)
-      ) {
-        await withImportSyncApplyIoRetry(true, persist);
-        return;
-      }
-      await persist();
-    } catch (markError) {
-      this.logger.error(
-        `Could not mark import job ${jobId} as FAILED: ${describeError(markError)}`,
-      );
-    }
   }
 }
