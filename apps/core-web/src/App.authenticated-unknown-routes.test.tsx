@@ -17,7 +17,8 @@ vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => mockUseAuth(),
 }))
 
-vi.mock('@/api/auth-session', () => ({
+vi.mock('@/api/auth-session', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/auth-session')>()),
   useAuthSession: (...args: unknown[]) => mockUseAuthSession(...args),
   useSwitchTenant: () => mockUseSwitchTenant(),
 }))
@@ -91,6 +92,13 @@ describe('App authenticated unknown routes (AUT-222)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Seite nicht gefunden' }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText('ACP')).toBeInTheDocument()
+  })
+
+  // Regression guard: with pickerl57a off the Pickerl route rendered a blank shell instead of the shared 404.
+  it('shows the shared 404 for the Pickerl due list when pickerl57a is unavailable', async () => {
+    renderAtPath(APP_ROUTE_PATHS.vehiclePickerlDue)
+
+    expect(await screen.findByRole('heading', { name: 'Seite nicht gefunden' }, { timeout: 5000 })).toBeInTheDocument()
   })
 
   it('redirects /invoices to the sales invoices list (AUT-311)', async () => {

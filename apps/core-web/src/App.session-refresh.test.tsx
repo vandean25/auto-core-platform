@@ -51,7 +51,8 @@ vi.mock('@/components/shell/AuthSessionRevokedRedirect', () => ({
   },
 }))
 
-vi.mock('@/api/auth-session', () => ({
+vi.mock('@/api/auth-session', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/auth-session')>()),
   useAuthSession: (...args: unknown[]) => mockUseAuthSession(...args),
   useSwitchTenant: () => mockUseSwitchTenant(),
 }))
