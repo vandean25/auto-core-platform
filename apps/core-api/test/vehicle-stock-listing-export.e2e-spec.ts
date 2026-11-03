@@ -49,6 +49,19 @@ describe('Vehicle listing export download (e2e)', () => {
   }
 
   async function prepareActiveListing(vehicleId: string, stockPurchaseId: string) {
+    await prepareListing(vehicleId, stockPurchaseId, true);
+    await request(suite.app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}/listing/channels/MOBILE_DE`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({ expected_revision: 2, desired_state: 'ACTIVE' })
+      .expect(200);
+  }
+
+  async function prepareListing(
+    vehicleId: string,
+    stockPurchaseId: string,
+    novaIncludedConfirmed: boolean,
+  ) {
     const listingId = randomUUID();
     await request(suite.app.getHttpServer())
       .post(`/api/vehicle-stock/${vehicleId}/listing`)
@@ -87,17 +100,11 @@ describe('Vehicle listing export download (e2e)', () => {
         description: 'Synthetic export listing.',
         price_gross_eur: 11990,
         vat_display: 'STANDARD',
-        nova_included_confirmed: true,
+        nova_included_confirmed: novaIncludedConfirmed,
         mandatory_fees_included_confirmed: true,
         photo_ids: [photo.body.id],
         ...exportReadyListingPatch,
       })
-      .expect(200);
-
-    await request(suite.app.getHttpServer())
-      .patch(`/api/vehicle-stock/${vehicleId}/listing/channels/MOBILE_DE`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({ expected_revision: 2, desired_state: 'ACTIVE' })
       .expect(200);
   }
 
@@ -154,6 +161,33 @@ describe('Vehicle listing export download (e2e)', () => {
     expect((download.body as Buffer).subarray(0, 2).toString('ascii')).toBe(
       'PK',
     );
+  });
+
+  // Regression guard: the readiness check ignored the nova capability, so a DE listing could not go ACTIVE without NoVA confirmation.
+  it('lets a DE listing go ACTIVE without NoVA confirmation and refuses the same request under AT', async () => {
+    const created = await suite.createAndReceive({ vin: vin('LST-NOVA'), sellerType: 'VENDOR' });
+    const vehicleId = created.received.vehicle_id;
+    await prepareListing(vehicleId, created.received.id, false);
+    const activateMobile = () => request(suite.app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}/listing/channels/MOBILE_DE`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({ expected_revision: 2, desired_state: 'ACTIVE' });
+
+    const refused = await activateMobile().expect(422);
+    expect(refused.body.field_issues.map((issue: { code: string }) => issue.code)).toContain('LISTING_NOVA_CONFIRMATION_REQUIRED');
+
+    await suite.prisma.legalEntity.updateMany({ where: { tenant_id: suite.tenantId }, data: { country_iso: 'DE' } });
+    try {
+      await activateMobile().expect(200);
+      const validation = await request(suite.app.getHttpServer())
+        .get(`/api/vehicle-stock/${vehicleId}/listing/export/validate`)
+        .set('Authorization', `Bearer ${suite.authToken}`)
+        .expect(200);
+      const codes = validation.body.channels.flatMap((row: { issues: { code?: string }[] }) => row.issues.map((issue) => issue.code));
+      expect(codes).not.toContain('LISTING_NOVA_CONFIRMATION_REQUIRED');
+    } finally {
+      await suite.prisma.legalEntity.updateMany({ where: { tenant_id: suite.tenantId }, data: { country_iso: 'AT' } });
+    }
   });
 
   it('denies only willhaben while disabled and restores the saved active channel when re-enabled', async () => {
