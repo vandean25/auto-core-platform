@@ -115,7 +115,7 @@ test.describe('Blueprint: Workshop Loaner Vehicles', () => {
 
     const row = page.locator('[data-table-row="true"]').first()
     await expect(row.getByText('Golf Ersatz', { exact: true })).toBeVisible()
-    await expect(row.getByText('2021 VW Golf', { exact: true })).toBeVisible()
+    await expect(row.getByText('2021 VW Golf · W-LOAN 1', { exact: true })).toBeVisible()
     await expect(row.getByText('Verfügbar', { exact: true })).toBeVisible()
   })
 
