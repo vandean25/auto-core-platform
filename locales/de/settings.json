@@ -1289,7 +1289,8 @@
       "conflictsSection": {
         "title": "Geänderte Datensätze überschreiben ({{count}})",
         "description": "Nach dem Import geändert. Überschreiben auswählen.",
-        "overwriteCheckbox": "Trotz nachträglicher Änderung auf Vor-Import-Stand zurücksetzen"
+        "overwriteCheckbox": "Überschreiben",
+        "overwriteAriaLabel": "Überschreiben: {{name}}"
       },
       "confirmation": {
         "label": "Geben Sie zur Bestätigung „{{keyword}}“ ein:",
