@@ -53,6 +53,7 @@ const privilegedTabs = [
   [tabNames.dataImport, 'data-import', 'Data import tab content'],
   [tabNames.team, 'team', 'Team tab content'],
   [tabNames.apiKeys, 'api-keys', 'API keys tab content'],
+  [tabNames.auditLogs, 'audit-logs', 'Audit logs tab content'],
 ] as const
 
 const openTabs = [
@@ -63,7 +64,6 @@ const openTabs = [
   [tabNames.bays, 'bays', 'Bays tab content'],
   [tabNames.hours, 'hours', 'Hours tab content'],
   [tabNames.labor, 'labor', 'Labor tab content'],
-  [tabNames.auditLogs, 'audit-logs', 'Audit logs tab content'],
   [tabNames.notifications, 'notifications', 'Notifications tab content'],
 ] as const
 
@@ -157,7 +157,6 @@ describe('SettingsPage characterization: tab visibility by role', () => {
       tabNames.bays,
       tabNames.hours,
       tabNames.labor,
-      tabNames.auditLogs,
       tabNames.notifications,
     ])
   })
