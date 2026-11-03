@@ -7,6 +7,7 @@ export type GlobalSearchRecordRef =
   | { entity: 'customer'; id: string }
   | { entity: 'vehicle'; id: string }
   | { entity: 'tyre_set'; id: string }
+  | { entity: 'credit_note'; id: string }
   /** An estimate version of the estimates list, known only while its row has focus. */
   | { entity: 'estimate'; id: string }
 
@@ -43,6 +44,11 @@ export function parseGlobalSearchRecordRef(
   const vehicleId = vehicle?.params.id
   if (vehicleId && !RESERVED_VEHICLE_DETAIL_SEGMENTS.has(vehicleId)) {
     return { entity: 'vehicle', id: vehicleId }
+  }
+
+  const creditNote = matchPath({ path: APP_ROUTE_PATHS.creditNoteDetail, end: true }, pathname)
+  if (creditNote?.params.id) {
+    return { entity: 'credit_note', id: creditNote.params.id }
   }
 
   return null

@@ -4,6 +4,7 @@
  */
 
 import { canManageWorkshopEstimates } from '@/features/workshop/workshop-estimate-permissions'
+import { canReadCreditNotes } from '@/lib/credit-note-quantity'
 
 /** Work order and appointment creation (Cmd+K, phone Create button). Mechanics (TECH) stay in the mechanic shell. */
 export function canCreateWorkshopEntry(role: string | null | undefined): boolean {
@@ -94,4 +95,13 @@ export function isWorkshopOrderLockedStatus(status: string | null | undefined): 
 /** Import history and job actions mirror the tenant-admin gate on GET /api/imports (OWNER/ADMIN only). */
 export function canManageImportJobs(role: string | null | undefined): boolean {
   return role === 'OWNER' || role === 'ADMIN'
+}
+
+/**
+ * Credit-note read scope mirrors the backend BACK_OFFICE gate on `credit_note.read`
+ * (OWNER/ADMIN/SALES). Read roles may fetch an already-generated PDF over GET only;
+ * generating one over POST stays OWNER/ADMIN (`canManageCreditNotes`).
+ */
+export function canPrintCreditNote(role: string | null | undefined): boolean {
+  return canReadCreditNotes(role)
 }

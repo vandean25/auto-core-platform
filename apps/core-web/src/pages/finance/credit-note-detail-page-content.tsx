@@ -1,12 +1,10 @@
 import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Printer, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useInvoice } from '@/api/sales'
 import {
-  downloadCreditNotePdf,
-  fetchCreditNotePdfGenerationError,
   useCreditNote,
   useFinalizeCreditNote,
   useUpdateCreditNoteDraft,
@@ -42,6 +40,12 @@ import {
 } from '@/components/ui/table'
 import { useAuthSession } from '@/api/auth-session'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
+import { RegistryActionButton } from '@/features/actions/RegistryActionButton'
+import {
+  createCreditNotePrintAction,
+  creditNoteToActionRecord,
+  type CreditNoteRowActionContext,
+} from '@/features/actions/credit-note-row-actions'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
   canManageCreditNotes,
@@ -53,19 +57,8 @@ import { getErrorMessage } from '@/lib/error-utils'
 import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { generateId } from '@/lib/id'
-import { triggerBlobDownload } from '@/lib/download'
-
-const CREDIT_NOTES_API = '/api/credit-notes'
 
 const formatDate = (value: string) => formatDateShort(value)
-
-const creditNotePdfFilename = (creditNote: {
-  id: string
-  creditNumber?: string | null
-}) =>
-  `credit-note-${creditNote.creditNumber ?? creditNote.id}`
-    .replace(/[^a-z0-9]/gi, '_')
-    .toLowerCase() + '.pdf'
 
 type DraftLineState = {
   originalItemId: string
@@ -73,31 +66,31 @@ type DraftLineState = {
 }
 
 /**
- * Print action for a finalized credit note. OWNER/ADMIN generate on demand
- * (POST then GET); read-only roles (SALES) may only fetch an already-generated
- * PDF over GET and never trigger the OWNER/ADMIN-only generation route.
+ * Print action for a finalized credit note, rendered through the shared registry
+ * button so it stays reachable via Cmd+K with identical role gating. OWNER/ADMIN
+ * generate on demand (POST then GET); read-only roles (SALES) may only fetch an
+ * already-generated PDF over GET and see a short hint when none exists yet.
  */
 function CreditNotePrintButton({
   creditNote,
-  canManageCreditNote,
+  role,
 }: {
   creditNote: CreditNoteResponseDto
-  canManageCreditNote: boolean
+  role: string | undefined
 }) {
   const { t } = useTranslation('finance')
-  const [isFetchingPdf, setIsFetchingPdf] = React.useState(false)
-  const { download: handlePrint, isLoading: isPrinting } = usePdfDownload({
-    postUrl: () => `${CREDIT_NOTES_API}/${creditNote.id}/pdf`,
-    getUrl: () => `${CREDIT_NOTES_API}/${creditNote.id}/pdf`,
-    filename: () => creditNotePdfFilename(creditNote),
-    checkGenerationFailed: () => fetchCreditNotePdfGenerationError(creditNote.id),
-    messages: {
-      success: t('creditNotes.detail.toast.pdfSuccess'),
-      errorFallback: t('creditNotes.detail.toast.pdfFailed'),
-    },
-  })
+  const pdfDownload = usePdfDownload()
+  const action = React.useMemo(() => createCreditNotePrintAction(t), [t])
+  const record = React.useMemo(
+    () => creditNoteToActionRecord(creditNote, role),
+    [creditNote, role],
+  )
+  const runContext = React.useMemo<CreditNoteRowActionContext>(
+    () => ({ t, generateAndDownload: pdfDownload.download }),
+    [t, pdfDownload.download],
+  )
 
-  if (!canManageCreditNote && !creditNote.pdfGeneratedAt) {
+  if (!canManageCreditNotes(role) && !creditNote.pdfGeneratedAt) {
     return (
       <p className="text-xs text-slate-500">
         {t('creditNotes.detail.pdfNotGeneratedHint')}
@@ -105,36 +98,15 @@ function CreditNotePrintButton({
     )
   }
 
-  const downloadExistingPdf = async () => {
-    setIsFetchingPdf(true)
-    try {
-      const blob = await downloadCreditNotePdf(creditNote.id, { poll: false })
-      triggerBlobDownload(blob, creditNotePdfFilename(creditNote))
-      toast.success(t('creditNotes.detail.toast.pdfSuccess'))
-    } catch (pdfError: unknown) {
-      toast.error(
-        getErrorMessage(pdfError, t('creditNotes.detail.toast.pdfFailed')),
-      )
-    } finally {
-      setIsFetchingPdf(false)
-    }
-  }
-
-  const getOnly = !canManageCreditNote
-  const isBusy = getOnly ? isFetchingPdf : isPrinting
-
   return (
-    <Button
-      onClick={() => void (getOnly ? downloadExistingPdf() : handlePrint())}
-      disabled={isBusy}
-    >
-      {isBusy ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      ) : (
-        <Printer className="mr-2 h-4 w-4" />
-      )}
-      {!getOnly && isPrinting ? t('shared.generating') : t('actions.print')}
-    </Button>
+    <RegistryActionButton
+      action={action}
+      record={record}
+      runContext={runContext}
+      role={role}
+      variant="default"
+      className="min-h-11"
+    />
   )
 }
 
@@ -393,7 +365,7 @@ export default function CreditNoteDetailPage() {
           {isFinalized ? (
             <CreditNotePrintButton
               creditNote={creditNote}
-              canManageCreditNote={canManageCreditNote}
+              role={sessionQuery.data?.activeRole}
             />
           ) : null}
         </div>
