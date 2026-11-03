@@ -215,7 +215,10 @@ describe('Workshop Intake Module (e2e)', () => {
     await teardownTestApp(app, basePrisma);
   });
 
+  let spareVehicleSeq = 0;
+
   async function createSpareVehicle(label: string): Promise<string> {
+    spareVehicleSeq += 1;
     const vehicle = await prisma.vehicle.create({
       data: {
         tenant_id: tenantId,
@@ -223,7 +226,7 @@ describe('Workshop Intake Module (e2e)', () => {
         make: 'Skoda',
         model: 'Fabia',
         year: 2018,
-        vin: `VIN-ASSIGN-${label}-${Date.now()}`,
+        vin: `VIN-ASSIGN-${label}-${Date.now()}-${spareVehicleSeq}`,
       },
       select: { id: true },
     });
