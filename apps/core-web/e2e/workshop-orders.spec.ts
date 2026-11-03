@@ -76,7 +76,10 @@ test.describe('Workshop Orders list', () => {
 
     await page.waitForURL(`/workshop/orders/${order.id}`)
     await page.waitForLoadState('networkidle')
+    await expect(page.getByTestId('entity-peek-sheet')).not.toBeAttached()
     await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
+    await expect(page.locator('.lg\\:col-span-1')).toHaveCSS('opacity', '1')
+    await expect(page.locator('.lg\\:col-span-2')).toHaveCSS('opacity', '1')
     await expectNoCriticalA11yViolations(page);
   })
 
