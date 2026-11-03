@@ -1,15 +1,15 @@
 import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Printer, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useInvoice } from '@/api/sales'
 import {
-  fetchCreditNotePdfGenerationError,
   useCreditNote,
   useFinalizeCreditNote,
   useUpdateCreditNoteDraft,
   useVoidCreditNote,
+  type CreditNoteResponseDto,
 } from '@/api/useCreditNotes'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -40,6 +40,12 @@ import {
 } from '@/components/ui/table'
 import { useAuthSession } from '@/api/auth-session'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
+import { RegistryActionButton } from '@/features/actions/RegistryActionButton'
+import {
+  createCreditNotePrintAction,
+  creditNoteToActionRecord,
+  type CreditNoteRowActionContext,
+} from '@/features/actions/credit-note-row-actions'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
   canManageCreditNotes,
@@ -52,13 +58,58 @@ import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { generateId } from '@/lib/id'
 
-const CREDIT_NOTES_API = '/api/credit-notes'
-
 const formatDate = (value: string) => formatDateShort(value)
 
 type DraftLineState = {
   originalItemId: string
   quantity: string
+}
+
+/**
+ * Print action for a finalized credit note, rendered through the shared registry
+ * button so it stays reachable via Cmd+K with identical role gating. OWNER/ADMIN
+ * generate on demand (POST then GET); read-only roles (SALES) may only fetch an
+ * already-generated PDF over GET and see a short hint when none exists yet.
+ */
+function CreditNotePrintButton({
+  creditNote,
+  role,
+}: {
+  creditNote: CreditNoteResponseDto
+  role: string | undefined
+}) {
+  const { t } = useTranslation('finance')
+  const pdfDownload = usePdfDownload()
+  const action = React.useMemo(() => createCreditNotePrintAction(t), [t])
+  const record = React.useMemo(
+    () => creditNoteToActionRecord(creditNote, role),
+    [creditNote, role],
+  )
+  const runContext = React.useMemo<CreditNoteRowActionContext>(
+    () => ({ t, generateAndDownload: pdfDownload.download }),
+    [t, pdfDownload.download],
+  )
+
+  if (!canManageCreditNotes(role) && !creditNote.pdfGeneratedAt) {
+    return (
+      <p className="text-xs text-slate-500">
+        {t('creditNotes.detail.pdfNotGeneratedHint')}
+      </p>
+    )
+  }
+
+  return (
+    <RegistryActionButton
+      action={action}
+      record={record}
+      runContext={runContext}
+      role={role}
+      variant="default"
+      className="min-h-11"
+      loading={pdfDownload.isLoading}
+      label={pdfDownload.isLoading ? t('shared.generating') : undefined}
+    />
+  )
 }
 
 export default function CreditNoteDetailPage() {
@@ -83,20 +134,6 @@ export default function CreditNoteDetailPage() {
   const [version, setVersion] = React.useState(1)
   const [finalizeOpen, setFinalizeOpen] = React.useState(false)
   const [voidOpen, setVoidOpen] = React.useState(false)
-  const { download: handlePrint, isLoading: isPrinting } = usePdfDownload({
-    postUrl: () => `${CREDIT_NOTES_API}/${creditNote?.id}/pdf`,
-    getUrl: () => `${CREDIT_NOTES_API}/${creditNote?.id}/pdf`,
-    filename: () =>
-      `credit-note-${creditNote?.creditNumber ?? creditNote?.id}`
-        .replace(/[^a-z0-9]/gi, '_')
-        .toLowerCase() + '.pdf',
-    checkGenerationFailed: () =>
-      creditNote ? fetchCreditNotePdfGenerationError(creditNote.id) : Promise.resolve(null),
-    messages: {
-      success: t('creditNotes.detail.toast.pdfSuccess'),
-      errorFallback: t('creditNotes.detail.toast.pdfFailed'),
-    },
-  })
   const lastSavedRef = React.useRef<string | null>(null)
   const creditNoteId = creditNote?.id
   const creditNoteStatus = creditNote?.status
@@ -328,14 +365,10 @@ export default function CreditNoteDetailPage() {
             </>
           ) : null}
           {isFinalized ? (
-            <Button onClick={() => void handlePrint()} disabled={isPrinting}>
-              {isPrinting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Printer className="mr-2 h-4 w-4" />
-              )}
-              {isPrinting ? t('shared.generating') : t('actions.print')}
-            </Button>
+            <CreditNotePrintButton
+              creditNote={creditNote}
+              role={sessionQuery.data?.activeRole}
+            />
           ) : null}
         </div>
       </div>

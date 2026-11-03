@@ -33,6 +33,14 @@ describe('parseGlobalSearchRecordRef', () => {
     expect(parseGlobalSearchRecordRef('/workshop/orders', 'ver-1')).toBeNull()
   })
 
+  it('reads the credit note detail route but not the list', () => {
+    expect(parseGlobalSearchRecordRef('/finance/credit-notes/cn-1')).toEqual({
+      entity: 'credit_note',
+      id: 'cn-1',
+    })
+    expect(parseGlobalSearchRecordRef('/finance/credit-notes')).toBeNull()
+  })
+
   it('ignores list routes and nested workshop paths', () => {
     expect(parseGlobalSearchRecordRef('/workshop/orders')).toBeNull()
     expect(parseGlobalSearchRecordRef('/workshop/orders/order-1/check-in')).toBeNull()

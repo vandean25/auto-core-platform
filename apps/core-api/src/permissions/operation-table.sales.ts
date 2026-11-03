@@ -62,13 +62,13 @@ export const SALES_OPERATIONS: OperationTable = {
     'site',
     ['business_state'],
   ),
-  'CreditNotesController.list': op('credit_note.read', ADMINS, 'site', [
+  'CreditNotesController.list': op('credit_note.read', BACK_OFFICE, 'site', [
     'site_membership',
   ]),
-  'CreditNotesController.getPdf': op('credit_note.read', ADMINS, 'site', [
+  'CreditNotesController.getPdf': op('credit_note.read', BACK_OFFICE, 'site', [
     'document_site',
   ]),
-  'CreditNotesController.findOne': op('credit_note.read', ADMINS, 'site', [
+  'CreditNotesController.findOne': op('credit_note.read', BACK_OFFICE, 'site', [
     'document_site',
   ]),
   'CreditNotesController.updateDraft': op('credit_note.edit', ADMINS, 'site', [
@@ -93,7 +93,7 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'InvoiceCreditNotesController.listForInvoice': op(
     'credit_note.read',
-    ADMINS,
+    BACK_OFFICE,
     'site',
     ['document_site'],
   ),

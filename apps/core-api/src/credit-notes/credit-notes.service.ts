@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -24,7 +23,10 @@ import { isInvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.validation.
 import type { InvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
-import { assertSiteReadAccess } from '../site/site.authorization.js';
+import {
+  assertSiteReadAccess,
+  assertTenantAdmin,
+} from '../site/site.authorization.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import {
   allocateCreditLineAmounts,
@@ -34,6 +36,7 @@ import {
   type OriginalLineSnapshot,
   type PriorCreditLine,
 } from './credit-note-allocation.js';
+import { assertCreditNoteReadAccess } from './credit-note-read-access.js';
 import { generateCreditNoteNumber } from './credit-note-number.helpers.js';
 import { hashCreditNoteFinalizeRequest } from './credit-note-request-hash.js';
 import {
@@ -89,7 +92,7 @@ export class CreditNotesService {
   async createFromInvoice(invoiceId: string, dto: CreateCreditNoteDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const invoice = await this.loadOriginalInvoice(tenantId, invoiceId);
-    await this.assertCreditAccess(tenantId, invoice.site_id!);
+    await this.assertCreditWriteAccess(tenantId, invoice.site_id!);
 
     const originalSnapshot = this.requireV2Snapshot(invoice);
     this.assertEligibleOriginal(invoice, originalSnapshot);
@@ -153,7 +156,12 @@ export class CreditNotesService {
   async listForInvoice(invoiceId: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const invoice = await this.loadOriginalInvoice(tenantId, invoiceId);
-    await this.assertCreditAccess(tenantId, invoice.site_id!);
+    await assertCreditNoteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      invoice.site_id!,
+    );
 
     const originalSnapshot = this.tryV2Snapshot(invoice);
     const priorCredits = await this.loadPriorCredits(tenantId, invoice.id);
@@ -188,7 +196,12 @@ export class CreditNotesService {
   async list(query: CreditNoteListQueryDto = {}) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    await this.assertCreditAccess(tenantId, siteId);
+    await assertCreditNoteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      siteId,
+    );
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
     const search = query.search?.trim();
@@ -253,7 +266,12 @@ export class CreditNotesService {
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const creditNote = await this.loadCreditNote(tenantId, id);
-    await this.assertCreditAccess(tenantId, creditNote.site_id);
+    await assertCreditNoteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      creditNote.site_id,
+    );
 
     const invoice = await this.loadOriginalInvoice(
       tenantId,
@@ -268,14 +286,26 @@ export class CreditNotesService {
     return this.serializeCreditNote(creditNote, snapshot, priorCredits);
   }
 
-  async updateDraft(id: string, dto: UpdateCreditNoteDto) {
+  private async loadWritableDraftCreditNote(
+    id: string,
+    notDraftMessage: string,
+  ) {
     const tenantId = await this.tenantContext.getTenantId();
     const creditNote = await this.loadCreditNote(tenantId, id);
-    await this.assertCreditAccess(tenantId, creditNote.site_id);
+    await this.assertCreditWriteAccess(tenantId, creditNote.site_id);
 
     if (creditNote.status !== CreditNoteStatus.DRAFT) {
-      throw new ConflictException('Only draft credit notes can be updated.');
+      throw new ConflictException(notDraftMessage);
     }
+
+    return { tenantId, creditNote };
+  }
+
+  async updateDraft(id: string, dto: UpdateCreditNoteDto) {
+    const { tenantId, creditNote } = await this.loadWritableDraftCreditNote(
+      id,
+      'Only draft credit notes can be updated.',
+    );
     if (creditNote.version !== dto.expectedVersion) {
       throw new ConflictException('Credit note version is stale.');
     }
@@ -400,7 +430,7 @@ export class CreditNotesService {
     }
 
     const creditNote = await this.loadCreditNote(tenantId, id);
-    await this.assertCreditAccess(tenantId, creditNote.site_id);
+    await this.assertCreditWriteAccess(tenantId, creditNote.site_id);
 
     if (creditNote.status !== CreditNoteStatus.DRAFT) {
       throw new ConflictException('Only draft credit notes can be finalized.');
@@ -542,13 +572,10 @@ export class CreditNotesService {
   }
 
   async void(id: string, dto: VoidCreditNoteDto) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const creditNote = await this.loadCreditNote(tenantId, id);
-    await this.assertCreditAccess(tenantId, creditNote.site_id);
-
-    if (creditNote.status !== CreditNoteStatus.DRAFT) {
-      throw new ConflictException('Only draft credit notes can be voided.');
-    }
+    const { tenantId, creditNote } = await this.loadWritableDraftCreditNote(
+      id,
+      'Only draft credit notes can be voided.',
+    );
     if (creditNote.version !== dto.expectedVersion) {
       throw new ConflictException('Credit note version is stale.');
     }
@@ -611,11 +638,8 @@ export class CreditNotesService {
     return creditNote;
   }
 
-  private async assertCreditAccess(tenantId: string, siteId: string) {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user || (user.role !== 'OWNER' && user.role !== 'ADMIN')) {
-      throw new ForbiddenException('Tenant admin access is required.');
-    }
+  private async assertCreditWriteAccess(tenantId: string, siteId: string) {
+    assertTenantAdmin(this.tenantContext);
     await assertSiteReadAccess(
       this.prisma,
       this.tenantContext,

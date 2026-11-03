@@ -15,7 +15,7 @@ import { getErrorStatus } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { translateSalesApiError } from '@/features/sales/sales-api-error-i18n'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { canManageCreditNotes } from '@/lib/credit-note-quantity'
+import { canManageCreditNotes, canReadCreditNotes } from '@/lib/credit-note-quantity'
 import { fetchInvoicePdfGenerationError } from '@/api/invoices'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import type { UsePdfDownloadResult } from '@/hooks/usePdfDownload'
@@ -66,7 +66,8 @@ function useInvoiceCreditNotes(invoiceId: string) {
   const navigate = useNavigate()
   const sessionQuery = useAuthSession()
   const canManage = canManageCreditNotes(sessionQuery.data?.activeRole)
-  const { data: context } = useInvoiceCreditContext(canManage ? invoiceId : '')
+  const canRead = canReadCreditNotes(sessionQuery.data?.activeRole)
+  const { data: context } = useInvoiceCreditContext(canRead ? invoiceId : '')
   const [dialogOpen, setDialogOpen] = useState(false)
 
   return {

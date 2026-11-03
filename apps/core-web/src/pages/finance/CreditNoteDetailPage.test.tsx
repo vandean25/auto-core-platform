@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -8,15 +8,23 @@ import type { CreditNoteResponseDto } from '@/api/useCreditNotes'
 import type { Invoice } from '@/api/types'
 import * as creditNotesApi from '@/api/useCreditNotes'
 import * as salesApi from '@/api/sales'
+import { triggerBlobDownload } from '@/lib/download'
 import deFinance from '../../../../../locales/de/finance.json'
+
+const mockPostPdfDownload = vi.fn()
+let mockActiveRole = 'OWNER'
+
 vi.mock('@/api/useCreditNotes')
 vi.mock('@/api/sales')
+vi.mock('@/lib/download', () => ({
+  triggerBlobDownload: vi.fn(),
+}))
 vi.mock('@/api/auth-session', () => ({
-  useAuthSession: () => ({ data: { activeRole: 'OWNER' } }),
+  useAuthSession: () => ({ data: { activeRole: mockActiveRole } }),
 }))
 vi.mock('@/hooks/usePdfDownload', () => ({
   usePdfDownload: () => ({
-    download: vi.fn(),
+    download: mockPostPdfDownload,
     isLoading: false,
     isDownloading: false,
   }),
@@ -36,7 +44,9 @@ const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
 const lineItemId = 'inv-line-1'
 const lineDescription = 'Brake pads front'
 
-function makeCreditNote(): CreditNoteResponseDto {
+function makeCreditNote(
+  overrides: Partial<CreditNoteResponseDto> = {},
+): CreditNoteResponseDto {
   return {
     id: 'cn-1',
     originalInvoiceId: 'inv-1',
@@ -65,6 +75,7 @@ function makeCreditNote(): CreditNoteResponseDto {
         remainingGross: '119.00',
       },
     ],
+    ...overrides,
   }
 }
 
@@ -98,9 +109,9 @@ function makeInvoice(): Invoice {
   }
 }
 
-function renderPage() {
+function renderPage(creditNote: CreditNoteResponseDto = makeCreditNote()) {
   asMock(creditNotesApi.useCreditNote).mockReturnValue({
-    data: makeCreditNote(),
+    data: creditNote,
     isLoading: false,
     isError: false,
     error: null,
@@ -151,5 +162,92 @@ describe('CreditNoteDetailPage', () => {
       deFinance.creditNotes.quantityInputAria.replace('{{description}}', lineDescription),
     )
     expect(quantityInput).toHaveAttribute('id', `credit-line-quantity-${lineItemId}`)
+  })
+})
+
+describe('CreditNoteDetailPage PDF for SALES (AUT-911)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockActiveRole = 'SALES'
+    asMock(salesApi.useInvoice).mockReturnValue({
+      data: makeInvoice(),
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
+    asMock(creditNotesApi.useUpdateCreditNoteDraft).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+    asMock(creditNotesApi.useFinalizeCreditNote).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+    asMock(creditNotesApi.useVoidCreditNote).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+  })
+
+  afterEach(() => {
+    cleanup()
+    mockActiveRole = 'OWNER'
+  })
+
+  it('downloads an already-generated PDF over GET only and never POSTs', async () => {
+    const blob = new Blob(['pdf'], { type: 'application/pdf' })
+    asMock(creditNotesApi.downloadCreditNotePdf).mockResolvedValue(blob)
+    renderPage(
+      makeCreditNote({
+        status: 'FINALIZED',
+        creditNumber: 'CN-2026-0001',
+        pdfGeneratedAt: '2026-03-02T00:00:00.000Z',
+      }),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: deFinance.actions.print }))
+
+    await waitFor(() =>
+      expect(creditNotesApi.downloadCreditNotePdf).toHaveBeenCalledWith('cn-1', {
+        poll: false,
+      }),
+    )
+    expect(triggerBlobDownload).toHaveBeenCalledWith(
+      blob,
+      'credit_note_cn_2026_0001.pdf',
+    )
+    expect(mockPostPdfDownload).not.toHaveBeenCalled()
+  })
+
+  it('hides Print and shows a short hint when no PDF was generated yet', () => {
+    renderPage(
+      makeCreditNote({
+        status: 'FINALIZED',
+        creditNumber: 'CN-2026-0001',
+        pdfGeneratedAt: null,
+      }),
+    )
+
+    expect(
+      screen.queryByRole('button', { name: deFinance.actions.print }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(deFinance.creditNotes.detail.pdfNotGeneratedHint),
+    ).toBeInTheDocument()
+    expect(mockPostPdfDownload).not.toHaveBeenCalled()
+  })
+
+  it('shows no write actions and the read-only draft hint on a draft', () => {
+    renderPage(makeCreditNote({ status: 'DRAFT' }))
+
+    expect(
+      screen.queryByRole('button', { name: deFinance.actions.finalize }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: deFinance.actions.void }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(deFinance.creditNotes.detail.draftEditHint),
+    ).toBeInTheDocument()
   })
 })

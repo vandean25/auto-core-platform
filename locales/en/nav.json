@@ -128,7 +128,8 @@
       "customer": "Actions for this customer",
       "vehicle": "Actions for {{vehicle}}",
       "workOrder": "Actions for {{orderNo}}",
-      "estimate": "Actions for estimate {{number}} v{{version}}"
+      "estimate": "Actions for estimate {{number}} v{{version}}",
+      "creditNote": "Actions for credit note {{number}}"
     },
     "quickActions": {
       "navigate": "Navigate",

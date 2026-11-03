@@ -48,6 +48,10 @@ vi.mock('@/api/workshop-estimates', () => ({
 vi.mock('@/api/tyre-storage', () => ({
   useTyreSet: () => ({ data: undefined, isLoading: false }),
 }))
+vi.mock('@/api/useCreditNotes', async () => {
+  const actual = await vi.importActual<typeof import('@/api/useCreditNotes')>('@/api/useCreditNotes')
+  return { ...actual, useCreditNote: () => ({ data: undefined, isLoading: false }) }
+})
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => vi.fn(),
 }))
@@ -218,7 +222,8 @@ describe('GlobalSearch', () => {
     mockSession('SALES')
     renderPalette()
 
-    expect(screen.queryByText('Credit Notes')).not.toBeInTheDocument()
+    expect(screen.queryByText('Export Readiness')).not.toBeInTheDocument()
+    expect(screen.getByText('Credit Notes')).toBeInTheDocument()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
   })
 

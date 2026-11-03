@@ -1,7 +1,3 @@
-import type { components } from '@/api/generated/openapi'
-
-type TenantMemberRole = components['schemas']['TenantMemberRole']
-
 export type CreditQuantityValidation =
   | { key: 'creditNotes.validation.invalidQuantity' }
   | { key: 'creditNotes.validation.exceedsRemaining'; params: { remaining: string } }
@@ -39,7 +35,15 @@ export function validateCreditQuantity(
 }
 
 export function canManageCreditNotes(
-  activeRole?: TenantMemberRole | null,
+  activeRole?: string | null,
 ): boolean {
   return activeRole === 'OWNER' || activeRole === 'ADMIN'
+}
+
+export function canReadCreditNotes(
+  activeRole?: string | null,
+): boolean {
+  return (
+    activeRole === 'OWNER' || activeRole === 'ADMIN' || activeRole === 'SALES'
+  )
 }

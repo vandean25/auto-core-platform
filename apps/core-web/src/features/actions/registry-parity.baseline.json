@@ -53,7 +53,6 @@
   "pages/finance/CreditNotesPage.tsx::Button::navigate(APP_ROUTE_PATHS.salesInvoices)",
   "pages/finance/credit-note-detail-page-content.tsx::Button::setFinalizeOpen(true)",
   "pages/finance/credit-note-detail-page-content.tsx::Button::setVoidOpen(true)",
-  "pages/finance/credit-note-detail-page-content.tsx::Button::void handlePrint()",
   "pages/hr/HrEmployeesPage.tsx::Button::setCreateOpen(true)",
   "pages/hr/HrLeavePage.tsx::Button::openCreateSheet()",
   "pages/hr/HrLeavePage.tsx::Button::setMonth((current) => shiftMonth(current, -1))",

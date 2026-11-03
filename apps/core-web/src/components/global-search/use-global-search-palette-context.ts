@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 
 import { useAuthSession } from '@/api/auth-session'
@@ -10,12 +9,10 @@ import { parseGlobalSearchRecordRef } from './global-search-record-route'
 import { parseSearchInput } from './global-search-types'
 import { useGlobalSearchRecordData } from './use-global-search-record-data'
 import { usePaletteContextRunContexts } from './use-palette-context-run-contexts'
+import { usePaletteContextTranslations } from './use-palette-context-translations'
 
 export function useGlobalSearchPaletteContext(open: boolean, query: string) {
-  const { t: tNav } = useTranslation('nav')
-  const { t: tWorkshop } = useTranslation('workshop')
-  const { t: tCustomers } = useTranslation('customers')
-  const { t: tVehicles } = useTranslation('vehicles')
+  const translations = usePaletteContextTranslations()
   const role = useAuthSession().data?.activeRole
   const location = useLocation()
   const runContexts = usePaletteContextRunContexts()
@@ -40,21 +37,10 @@ export function useGlobalSearchPaletteContext(open: boolean, query: string) {
       role,
       query,
       recordData,
-      { nav: tNav, workshop: tWorkshop, customers: tCustomers, vehicles: tVehicles },
+      translations,
       runContexts,
     )
-  }, [
-    enabled,
-    query,
-    recordData,
-    recordRef,
-    role,
-    runContexts,
-    tCustomers,
-    tNav,
-    tVehicles,
-    tWorkshop,
-  ])
+  }, [enabled, query, recordData, recordRef, role, runContexts, translations])
 
   const intakePrefill = useMemo(() => {
     if (!recordRef || entityPrefixFilter) return null
