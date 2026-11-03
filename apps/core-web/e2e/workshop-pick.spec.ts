@@ -192,6 +192,21 @@ test.describe('Parts pick queue — Entry From Workshop Orders (mocked)', () => 
 });
 
 test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
+  test('renders pick queue rows as cards at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await mockPickQueueBaseRoutes(page)
+    await page.goto('/workshop/pick-list')
+
+    await expect(page.locator('[data-table-list="true"]')).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+
+    const row = page.locator('[data-table-row="true"]').first()
+    await expect(row.getByText('John Doe', { exact: true })).toBeVisible()
+    await expect(row.getByText('2020 Skoda Octavia', { exact: true })).toBeVisible()
+    await expect(row.getByText('Annahme', { exact: true })).toBeVisible()
+    await expect(row.getByText('WO-2026-0099', { exact: true })).toBeVisible()
+  })
+
   test('should prefill required quantities and restore defaults via Pick All', async ({ page }) => {
     const { mockedOrder } = await mockPickQueueBaseRoutes(page);
 
