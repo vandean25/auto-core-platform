@@ -4,8 +4,8 @@ import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { densityTokens } from '@/lib/density-tokens'
 import { DataTable } from './DataTable'
-import { DataTableDensity } from './data-table-density-toggle'
 import deCommon from '../../../../../locales/de/common.json'
 
 type Row = { id: string; name: string; status: string; amount: number }
@@ -204,15 +204,30 @@ describe('DataTable layout options', () => {
     const { container } = render(<Harness />)
     const grid = container.querySelector('[data-density]')
 
+    // Comfortable is the base Table metric, so the default mode applies no density rule at all.
     expect(grid).toHaveAttribute('data-density', 'comfortable')
-    expect(grid?.className).toContain(DataTableDensity.comfortableRowClass)
+    expect(grid?.className).not.toContain(densityTokens.compactRowClass)
+    expect(grid?.className).not.toContain(densityTokens.compactHeaderClass)
+
     fireEvent.keyDown(screen.getByRole('button', { name: dt.columns }), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: dt.density.compact }))
 
     const compactGrid = container.querySelector('[data-density]')
     expect(compactGrid).toHaveAttribute('data-density', 'compact')
-    expect(compactGrid?.className).toContain(DataTableDensity.compactRowClass)
-    expect(compactGrid?.className).toContain(DataTableDensity.compactHeaderClass)
+    expect(compactGrid?.className).toContain(densityTokens.compactRowClass)
+    expect(compactGrid?.className).toContain(densityTokens.compactHeaderClass)
+  })
+
+  // Regression: naming the density tokens must not re-pad the empty-state cell in the default mode.
+  it('keeps the empty-state cell padding-free in the default density', () => {
+    const { container } = render(<Harness data={[]} />)
+    const grid = container.querySelector('[data-density]')
+    const cell = screen.getByText(dt.noResults).closest('td')
+
+    expect(grid).toHaveAttribute('data-density', 'comfortable')
+    expect(grid?.className).not.toContain(densityTokens.compactRowClass)
+    expect(cell).toHaveClass('p-0')
+    expect(cell?.className).not.toMatch(/\bp-3\b/)
   })
 })
 

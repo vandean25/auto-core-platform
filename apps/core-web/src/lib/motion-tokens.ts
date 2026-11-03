@@ -24,10 +24,14 @@ export const motionDurationMs = {
   overlay: 200,
 } as const
 
-/** Tailwind duration class names carrying the token values, so a lint can resolve them. */
+/**
+ * Tailwind duration class names carrying the token values. Tailwind only emits
+ * classes it finds as complete literals in scanned source, and the duration lint
+ * (AUT-893) resolves them statically, so these must never be built by interpolation.
+ */
 export const motionDurationClass = {
-  ui: `duration-${motionDurationMs.ui}`,
-  overlay: `duration-${motionDurationMs.overlay}`,
+  ui: 'duration-150',
+  overlay: 'duration-200',
 } as const
 
 const motionKindByName: Record<MotionTokenName, MotionKind> = {
@@ -44,15 +48,3 @@ const motionKindByName: Record<MotionTokenName, MotionKind> = {
 export function motionKindOf(name: MotionTokenName): MotionKind {
   return motionKindByName[name]
 }
-
-/**
- * Row-height density tokens for the DataTable (compact/comfortable), consumed by
- * the density toggle and the table grid instead of inline literals. The comfortable
- * values mirror the base Table cell/header metrics, so naming them changes no visuals.
- */
-export const DataTableDensity = {
-  compactRowClass: 'data-[density=compact]:[&_td]:py-1.5',
-  compactHeaderClass: 'data-[density=compact]:[&_th]:h-9',
-  comfortableRowClass: 'data-[density=comfortable]:[&_td]:p-3',
-  comfortableHeaderClass: 'data-[density=comfortable]:[&_th]:h-11',
-} as const

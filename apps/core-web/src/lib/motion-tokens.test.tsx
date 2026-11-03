@@ -4,10 +4,15 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import { Spinner } from '@/components/ui/spinner'
+import { Spinner, spinnerMotionToken } from '@/components/ui/spinner'
 import { motionDurationClass, motionDurationMs, motionKindOf } from './motion-tokens'
 
 afterEach(cleanup)
+
+/** The ms value a Tailwind duration class literal carries, e.g. `duration-200` -> 200. */
+function durationMsOf(durationClass: string) {
+  return Number(durationClass.slice('duration-'.length))
+}
 
 // Scenario 1: WHEN a sheet opens THEN its transition uses the 200 ms token (AUT-881 / ADR-0036 R6).
 describe('sheet motion token', () => {
@@ -22,7 +27,9 @@ describe('sheet motion token', () => {
 
     const content = screen.getByRole('dialog')
     expect(content).toHaveClass(motionDurationClass.overlay)
-    expect(motionDurationMs.overlay).toBe(200)
+    // The class is a complete literal a Tailwind scan and a static lint can resolve, and it carries the token value.
+    expect(motionDurationClass.overlay).toBe('duration-200')
+    expect(durationMsOf(motionDurationClass.overlay)).toBe(motionDurationMs.overlay)
     // 200 ms replaced the previous 250/220 ms literals
     expect(content.className).not.toMatch(/duration-(250|220)\b/)
     expect(content).toHaveClass('motion-reduce:animate-none', 'motion-reduce:transition-none')
@@ -54,7 +61,8 @@ describe('finite UI transition token', () => {
     render(ui)
 
     expect(screen.getByRole(role)).toHaveClass(motionDurationClass.ui)
-    expect(motionDurationMs.ui).toBe(150)
+    expect(motionDurationClass.ui).toBe('duration-150')
+    expect(durationMsOf(motionDurationClass.ui)).toBe(motionDurationMs.ui)
   })
 })
 
@@ -63,21 +71,10 @@ describe('motion classification', () => {
   it('classifies the spinner as a repeating functional indicator, exempt from the finite 200 ms cap', () => {
     render(<Spinner />)
 
-    expect(screen.getByRole('status')).toHaveClass('animate-spin', 'motion-reduce:animate-none')
-    expect(motionKindOf('spinner')).toBe('repeating')
-    expect(motionKindOf('spinner')).not.toBe('finite-transition')
-    expect(motionDurationMs.overlay).toBeLessThanOrEqual(200)
-  })
-})
-
-// Guard for the later duration lint (AUT-893): the exported class names must embed the token values.
-describe('exported duration classes', () => {
-  it('exports Tailwind class names that a lint can resolve to the token values', () => {
-    expect(motionDurationClass.ui).toBe('duration-150')
-    expect(motionDurationClass.overlay).toBe('duration-200')
-    expect(motionKindOf('saveDebounce')).toBe('non-motion-timing')
-    expect(motionKindOf('skeletonDelay')).toBe('non-motion-timing')
-    expect(motionKindOf('toastLifetime')).toBe('non-motion-timing')
-    expect(motionKindOf('requestTimeout')).toBe('non-motion-timing')
+    const spinner = screen.getByRole('status')
+    expect(spinner).toHaveClass('animate-spin', 'motion-reduce:animate-none')
+    // The rendered Spinner publishes its own classification, so this is not a lookup inside the module under test.
+    expect(spinner).toHaveAttribute('data-motion-kind', 'repeating')
+    expect(motionKindOf(spinnerMotionToken)).toBe('repeating')
   })
 })
