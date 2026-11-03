@@ -44,7 +44,7 @@ export function WorkshopKpiDashboardWidget() {
       </CardHeader>
       <CardContent>
         {current.isLoading ? (
-          <div role="status" aria-busy="true" className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <span className="sr-only">{t('kpi.loading')}</span>
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />

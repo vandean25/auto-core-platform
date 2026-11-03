@@ -17,7 +17,7 @@ import {
   getRequiredPartLines,
   getTotalRequiredQuantity,
 } from '@/features/workshop/pick-utils'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 interface WorkshopPickQueueRow {
   id: string
@@ -119,23 +119,22 @@ export default function WorkshopPickList() {
 
   return (
     <div className='space-y-6'>
-      <PageHeader
-        className='mb-0'
-        title={t('pick.queue.title')}
-        description={t('pick.queue.description')}
-        actions={
-          <>
-            <Button variant='outline' className='max-sm:min-h-11' onClick={() => navigate('/workshop/orders')}>
-              <ListChecks className='h-4 w-4 mr-2' />
-              {t('pick.queue.workshopOrders')}
-            </Button>
-            <Button variant='outline' className='max-sm:min-h-11' onClick={() => navigate('/workshop/intake')}>
-              {t('pick.queue.intake')}
-              <ArrowRight className='h-4 w-4 ml-2' />
-            </Button>
-          </>
-        }
-      />
+      <div className={PAGE_HEADER_ROW}>
+        <div className='min-w-0 max-sm:w-full'>
+          <h1 className='text-2xl font-semibold tracking-tight'>{t('pick.queue.title')}</h1>
+          <p className='text-muted-foreground'>{t('pick.queue.description')}</p>
+        </div>
+        <div className='flex items-center gap-2 max-sm:flex-wrap'>
+          <Button variant='outline' onClick={() => navigate('/workshop/orders')}>
+            <ListChecks className='h-4 w-4 mr-2' />
+            {t('pick.queue.workshopOrders')}
+          </Button>
+          <Button variant='outline' onClick={() => navigate('/workshop/intake')}>
+            {t('pick.queue.intake')}
+            <ArrowRight className='h-4 w-4 ml-2' />
+          </Button>
+        </div>
+      </div>
 
       <DataTable
         columns={columns}

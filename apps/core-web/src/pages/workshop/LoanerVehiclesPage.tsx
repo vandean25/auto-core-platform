@@ -46,7 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 type FleetRow = {
@@ -328,26 +328,23 @@ export default function LoanerVehiclesPage() {
 
   return (
     <div className='space-y-6'>
-      <PageHeader
-        className='mb-0'
-        title={t('loaner.title')}
-        description={
-          <span className='flex flex-wrap items-center gap-2'>
-            {t('loaner.description')}
+      <div className={PAGE_HEADER_ROW}>
+        <div className='min-w-0 max-sm:w-full'>
+          <div className='flex items-center gap-3'>
+            <h1 className='text-2xl font-semibold tracking-tight'>{t('loaner.title')}</h1>
             {overdueCount > 0 ? (
               <Badge variant='destructive' className='tabular-nums'>
                 {t('loaner.overdueBadge', { count: overdueCount })}
               </Badge>
             ) : null}
-          </span>
-        }
-        actions={
-          <Button className='max-sm:min-h-11' onClick={() => setAddVehicleOpen(true)}>
-            <Plus className='mr-2 h-4 w-4' />
-            {t('loaner.addVehicle')}
-          </Button>
-        }
-      />
+          </div>
+          <p className='text-muted-foreground'>{t('loaner.description')}</p>
+        </div>
+        <Button onClick={() => setAddVehicleOpen(true)}>
+          <Plus className='mr-2 h-4 w-4' />
+          {t('loaner.addVehicle')}
+        </Button>
+      </div>
 
       <DataTable
         columns={columns}

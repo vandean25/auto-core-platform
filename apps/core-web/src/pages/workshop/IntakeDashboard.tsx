@@ -8,7 +8,7 @@ import { useWorkshopSearch } from '@/api/workshop'
 import { QuickRegisterDialog } from '@/components/workshop/QuickRegisterDialog'
 import { StartServiceDialog } from '@/components/workshop/StartServiceDialog'
 import { Plus, Wrench } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PAGE_HEADER_ROW } from '@/lib/page-header'
 import { Empty, EmptyContent, EmptyDescription } from '@/components/ui/empty'
 
 export function IntakeDashboard() {
@@ -29,15 +29,14 @@ export function IntakeDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        className="mb-0"
-        title={t('intakeDashboard.title')}
-        actions={
-          <Button className="max-sm:min-h-11" onClick={() => setIsRegisterOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> {t('intakeDashboard.quickRegister')}
-          </Button>
-        }
-      />
+      <div className={PAGE_HEADER_ROW}>
+        <div className="min-w-0 max-sm:w-full">
+          <h1 className="text-2xl font-semibold tracking-tight">{t('intakeDashboard.title')}</h1>
+        </div>
+        <Button onClick={() => setIsRegisterOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> {t('intakeDashboard.quickRegister')}
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
