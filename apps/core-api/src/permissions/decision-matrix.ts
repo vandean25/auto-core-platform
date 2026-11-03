@@ -15,7 +15,11 @@ import {
 import { MCP_TOOL_TABLE, OPERATION_TABLE } from './operation-table.js';
 import type { LegacyRole } from './operation-types.js';
 import { PermissionGuard } from './permission.guard.js';
-import { PermissionResolver, isMcpToolAllowed } from './permission-resolver.js';
+import {
+  PermissionResolver,
+  isMcpToolAllowed,
+  type EffectiveAccess,
+} from './permission-resolver.js';
 import type { RegisteredRoute } from './route-inventory.js';
 
 export type Decision = 'allow' | 'deny';
@@ -313,6 +317,29 @@ async function routeRows(
   return rows;
 }
 
+function toolRow(
+  tool: string,
+  principal: MatrixPrincipal,
+  access: EffectiveAccess | null,
+): MatrixRow {
+  const legacy: Outcome =
+    principal === 'EMPTY_ROLE'
+      ? { decision: 'deny', error: 'ForbiddenException' }
+      : legacyMcpDecision(tool, memberUser(principal));
+  return {
+    target: 'mcp',
+    operation: tool,
+    kind: MCP_TOOL_TABLE[tool]?.kind ?? 'unmapped',
+    principal,
+    mechanicAccessible: false,
+    basis: principal === 'EMPTY_ROLE' ? 'product_rule' : 'guards',
+    legacy: legacy.decision,
+    legacyError: legacy.error,
+    resolver: isMcpToolAllowed(tool, access) ? 'allow' : 'deny',
+    resolverError: null,
+  };
+}
+
 async function toolRows(tools: readonly string[]): Promise<MatrixRow[]> {
   const { resolver, setRole } = buildResolver();
   const rows: MatrixRow[] = [];
@@ -326,22 +353,7 @@ async function toolRows(tools: readonly string[]): Promise<MatrixRow[]> {
               {},
               { userId: MEMBER_UID, tenantId: TENANT_ID },
             );
-      const legacy =
-        principal === 'EMPTY_ROLE'
-          ? ({ decision: 'deny', error: 'ForbiddenException' } as const)
-          : legacyMcpDecision(tool, memberUser(principal));
-      rows.push({
-        target: 'mcp',
-        operation: tool,
-        kind: MCP_TOOL_TABLE[tool]?.kind ?? 'unmapped',
-        principal,
-        mechanicAccessible: false,
-        basis: principal === 'EMPTY_ROLE' ? 'product_rule' : 'guards',
-        legacy: legacy.decision,
-        legacyError: legacy.error,
-        resolver: isMcpToolAllowed(tool, access) ? 'allow' : 'deny',
-        resolverError: null,
-      });
+      rows.push(toolRow(tool, principal, access));
     }
   }
   return rows;

@@ -15,9 +15,17 @@ import {
   PermissionResolver,
   isMemberAllowed,
   type EffectiveAccess,
+  type OperationRequest,
 } from './permission-resolver.js';
 
 type MemberRequest = Request & { user?: AuthenticatedUser };
+
+function requestOf(request: MemberRequest): OperationRequest {
+  return {
+    method: request.method,
+    path: request.path ?? request.url?.split('?')[0] ?? '',
+  };
+}
 
 /** Kinds a tenant principal is authorized for here; every other kind is left to its own guard. */
 const MEMBER_ROUTE_KINDS: ReadonlySet<OperationEntry['kind']> = new Set([
@@ -46,25 +54,37 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException('This operation is not classified.');
     }
     const request = context.switchToHttp().getRequest<MemberRequest>();
-    const user = request.user;
-    if (this.isLeftToOwnGuard(operation, user)) {
-      return true;
-    }
-    const tenantId = user?.tenantId;
-    if (!user || !tenantId || !MEMBER_ROUTE_KINDS.has(operation.kind)) {
+    return this.isLeftToOwnGuard(operation, request.user)
+      ? true
+      : this.authorizeTenantPrincipal(operation, request);
+  }
+
+  private async authorizeTenantPrincipal(
+    operation: OperationEntry,
+    request: MemberRequest,
+  ): Promise<boolean> {
+    const { user } = request;
+    if (!user?.tenantId || !MEMBER_ROUTE_KINDS.has(operation.kind)) {
       throw new ForbiddenException('Missing permission for this operation.');
     }
     if (isApiKeyPrincipal(user)) {
-      // The key's scope was checked by the API key guard; on every other route it is not a member.
-      if (operation.kind === 'api_key') {
-        return true;
-      }
-      throw new ForbiddenException('A tenant member session is required.');
+      return this.admitApiKey(operation);
     }
-    const access = await this.resolveMember(request, user.userId, tenantId);
-    const path = request.path ?? request.url?.split('?')[0] ?? '';
-    if (!isMemberAllowed(operation, access, { method: request.method, path })) {
+    const access = await this.resolveMember(
+      request,
+      user.userId,
+      user.tenantId,
+    );
+    if (!isMemberAllowed(operation, access, requestOf(request))) {
       throw new ForbiddenException('Missing permission for this operation.');
+    }
+    return true;
+  }
+
+  /** The key's scope was checked by the API key guard; on every other route the key is not a member. */
+  private admitApiKey(operation: OperationEntry): true {
+    if (operation.kind !== 'api_key') {
+      throw new ForbiddenException('A tenant member session is required.');
     }
     return true;
   }
