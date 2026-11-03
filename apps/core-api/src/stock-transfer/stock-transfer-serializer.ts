@@ -11,6 +11,10 @@ export interface SerializedTransferLine {
   returnedQty: string;
   sourceLocationId: string | null;
   destLocationId: string | null;
+  fromBinCode: string | null;
+  fromBinName: string | null;
+  toBinCode: string | null;
+  toBinName: string | null;
 }
 
 export interface SerializedStockTransfer {
@@ -31,6 +35,54 @@ export interface SerializedStockTransfer {
   createdAt: Date;
   updatedAt: Date;
   lines: SerializedTransferLine[];
+}
+
+type TransferLineRow = StockTransferWithSitesAndLines['lines'][number];
+type BinLocation = NonNullable<TransferLineRow['source_location']>;
+type BinFields = {
+  id: string | null;
+  code: string | null;
+  name: string | null;
+};
+
+const HIDDEN_BIN: BinFields = { id: null, code: null, name: null };
+
+function binFields(
+  locationId: string | null,
+  location: BinLocation | null | undefined,
+): BinFields {
+  return {
+    id: locationId ?? null,
+    code: location?.code ?? null,
+    name: location?.name ?? null,
+  };
+}
+
+/** One bin side per call: `from` (source) and `to` (destination). */
+function serializeBins(
+  line: TransferLineRow,
+  includeSourceBin: boolean,
+): Pick<
+  SerializedTransferLine,
+  | 'sourceLocationId'
+  | 'destLocationId'
+  | 'fromBinCode'
+  | 'fromBinName'
+  | 'toBinCode'
+  | 'toBinName'
+> {
+  const from = includeSourceBin
+    ? binFields(line.source_location_id, line.source_location)
+    : HIDDEN_BIN;
+  const to = binFields(line.dest_location_id, line.dest_location);
+  return {
+    sourceLocationId: from.id,
+    fromBinCode: from.code,
+    fromBinName: from.name,
+    destLocationId: to.id,
+    toBinCode: to.code,
+    toBinName: to.name,
+  };
 }
 
 /**
@@ -67,8 +119,7 @@ export function serializeStockTransfer(
       shippedQty: line.shipped_qty.toString(),
       receivedQty: line.received_qty.toString(),
       returnedQty: line.returned_qty.toString(),
-      sourceLocationId: includeSourceBin ? line.source_location_id : null,
-      destLocationId: line.dest_location_id,
+      ...serializeBins(line, includeSourceBin),
     })),
   };
 }
@@ -94,7 +145,9 @@ type TransferRow = {
     id: string;
     catalog_item_id: string;
     source_location_id: string | null;
+    source_location?: { code: string; name: string } | null;
     dest_location_id: string | null;
+    dest_location?: { code: string; name: string } | null;
     requested_qty: Prisma.Decimal;
     approved_qty: Prisma.Decimal;
     shipped_qty: Prisma.Decimal;
@@ -122,6 +175,8 @@ export function redactStoredCommandResponse<T extends SerializedStockTransfer>(
     lines: stored.lines.map((line) => ({
       ...line,
       sourceLocationId: null,
+      fromBinCode: null,
+      fromBinName: null,
     })),
   };
 }

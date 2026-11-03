@@ -65,6 +65,10 @@ const baseLine: TransferLine = {
   returnedQty: '0.000',
   sourceLocationId: null,
   destLocationId: null,
+  fromBinCode: null,
+  fromBinName: null,
+  toBinCode: null,
+  toBinName: null,
 }
 
 const baseTransfer: StockTransfer = {
@@ -168,8 +172,16 @@ function pickOption(trigger: HTMLElement, optionName: string) {
   fireEvent.click(screen.getByRole('option', { name: optionName }))
 }
 
+const originalInnerWidth = window.innerWidth
+
+/** useIsMobile reads window.innerWidth on mount, so list mode needs a phone width before the render. */
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+}
+
 afterEach(() => {
   cleanup()
+  setViewportWidth(originalInnerWidth)
   vi.clearAllMocks()
 })
 
@@ -338,6 +350,29 @@ describe('StockTransferDetail', () => {
       expect(cells[7]).toHaveTextContent('bin-unknown')
     })
 
+    it('AUT-909: shows the API bin codes for source and destination instead of raw ids', () => {
+      setup({
+        lines: [
+          {
+            ...baseLine,
+            sourceLocationId: '5814c62c-0000-4000-8000-000000000001',
+            fromBinCode: 'QA-BIN-MAIN-01',
+            fromBinName: 'Main Bin',
+            destLocationId: '5814c62c-0000-4000-8000-000000000002',
+            toBinCode: 'QA-BIN-GRZ-01',
+            toBinName: 'Graz Bin',
+          },
+        ],
+      })
+      renderPage()
+
+      const cells = within(lineRow()).getAllByRole('cell')
+      expect(cells[6]).toHaveTextContent('QA-BIN-MAIN-01 — Main Bin')
+      expect(cells[6]).not.toHaveTextContent('5814c62c')
+      expect(cells[7]).toHaveTextContent('QA-BIN-GRZ-01 — Graz Bin')
+      expect(cells[7]).not.toHaveTextContent('5814c62c')
+    })
+
     it('shows the raw source bin id while locations are not loaded', () => {
       setup({ lines: [{ ...baseLine, sourceLocationId: 'bin-1' }] })
       apiMocks.useLocations.mockReturnValue({ data: undefined })
@@ -387,7 +422,9 @@ describe('StockTransferDetail', () => {
       setup({ role: 'SALES' })
       renderPage()
 
-      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.approve })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.reject })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument()
     })
 
     it('offers ship but not approve on an approved transfer at the active source site', () => {
@@ -420,7 +457,10 @@ describe('StockTransferDetail', () => {
       setup({ transfer: { status: 'COMPLETED' } })
       renderPage()
 
-      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.ship })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.receiveStock })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.returnUnreceived })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument()
     })
 
     it('uses the firebase uid as current user when the session has no user id', () => {
@@ -861,6 +901,59 @@ describe('StockTransferDetail', () => {
         idempotencyKey: 'idem-key-1',
         lines: [{ id: 'line-1', returnQty: 2 }],
       })
+    })
+  })
+
+  describe('phone list mode', () => {
+    const summary = detail.summary
+
+    beforeEach(() => setViewportWidth(390))
+
+    it('AUT-909: shows the approved quantity and puts the ship selector outside the compact slots', () => {
+      setup({
+        transfer: { status: 'APPROVED' },
+        lines: [{ ...baseLine, approvedQty: '4.000', sourceLocationId: 'bin-1' }],
+      })
+      renderPage()
+
+      const row = screen.getByRole('listitem')
+      expect(
+        within(row).getByText(summary.approved.replace('{{qty}}', formatNumber(4))),
+      ).toBeInTheDocument()
+
+      const trigger = within(row).getByRole('combobox')
+      expect(trigger.closest('.truncate, .shrink-0')).toBeNull()
+      expect(trigger).toHaveClass('h-11')
+    })
+
+    it('AUT-909: shows the outstanding quantity and puts the receive and return controls outside the compact slots', () => {
+      setup({
+        transfer: { status: 'SHIPPED' },
+        activeSiteId: TO_SITE,
+        lines: [
+          { ...baseLine, shippedQty: '4.000', receivedQty: '1.000', destLocationId: 'bin-2' },
+        ],
+      })
+      renderPage()
+
+      const row = screen.getByRole('listitem')
+      expect(
+        within(row).getByText(
+          summary.shippedOutstanding
+            .replace('{{shipped}}', formatNumber(4))
+            .replace('{{outstanding}}', formatNumber(3)),
+        ),
+      ).toBeInTheDocument()
+
+      const controls = [
+        within(row).getByRole('combobox'),
+        ...within(row).getAllByRole('spinbutton'),
+      ]
+      expect(controls).toHaveLength(3)
+      for (const control of controls) {
+        expect(control.closest('.truncate, .shrink-0')).toBeNull()
+        expect(control).toHaveClass('h-11')
+      }
     })
   })
 })

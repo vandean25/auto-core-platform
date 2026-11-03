@@ -11059,6 +11059,12 @@ export interface components {
             returnedQty: string;
             sourceLocationId: string | null;
             destLocationId: string | null;
+            /** @example QA-BIN-MAIN-01 */
+            fromBinCode: string | null;
+            fromBinName: string | null;
+            /** @example QA-BIN-GRZ-01 */
+            toBinCode: string | null;
+            toBinName: string | null;
         };
         StockTransferResponseDto: {
             id: string;

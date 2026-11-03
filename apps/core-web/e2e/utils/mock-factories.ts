@@ -9,6 +9,8 @@
  * the relevant factory here so that mock data never drifts from the real API shape.
  */
 
+import type { StockTransfer } from '../../src/api/stock-transfers';
+
 // ---------------------------------------------------------------------------
 // Shared sub-entities
 // ---------------------------------------------------------------------------
@@ -639,34 +641,10 @@ export const createMockLaborCategory = (
  * Some endpoints expose pagination as `pageCount` while others use
  * `totalPages`, so mocks include both keys.
  */
-type MockStockTransfer = {
-  id: string;
-  transferNumber: string;
-  fromSiteId: string;
-  fromSiteName: string | null;
-  toSiteId: string;
-  toSiteName: string | null;
-  status: string;
-  version: number;
-  requestedByUserId: string;
-  approvedByUserId: string | null;
-  shippedByUserId: string | null;
-  receivedByUserId: string | null;
-  rejectReason: string | null;
-  cancelReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-  lines: Array<{
-    id: string;
-    catalogItemId: string;
-    requestedQty: string;
-    approvedQty: string;
-    shippedQty: string;
-    receivedQty: string;
-    returnedQty: string;
-    sourceLocationId: string | null;
-    destLocationId: string | null;
-  }>;
+// Reuse the hosted contract (src/api/stock-transfers) so the mock can never
+// drift from the real response shape; only line overrides stay partial.
+type MockStockTransfer = Omit<StockTransfer, 'lines'> & {
+  lines: Array<Partial<StockTransfer['lines'][number]>>;
 };
 
 export const createMockStockTransfer = (

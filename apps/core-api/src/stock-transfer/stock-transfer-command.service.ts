@@ -64,9 +64,12 @@ export class StockTransferCommandService {
         data: { status: StockTransferStatus.COMPLETED },
       });
     }
-    return this.queryService.loadTransfer(tx, tenantId, transferId, [
-      ...siteIds,
-    ]);
+    return this.queryService.loadTransferWithLineBins(
+      tx,
+      tenantId,
+      transferId,
+      [...siteIds],
+    );
   }
 
   async settleAndStoreCommand(
