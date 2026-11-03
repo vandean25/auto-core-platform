@@ -131,11 +131,7 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   get_check_in: mcpTool('workshop.check_in.read', BACK_OFFICE, 'site', [
     'document_site',
   ]),
-  get_staff_availability: mcpTool(
-    'hr.availability.read',
-    BACK_OFFICE,
-    'tenant',
-  ),
+  get_staff_availability: mcpTool('hr.availability.read', ADMINS, 'tenant'),
   draft_workshop_order: mcpTool('workshop.order.create', BACK_OFFICE, 'site', [
     'agent_policy',
   ]),
