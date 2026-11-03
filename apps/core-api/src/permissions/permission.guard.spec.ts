@@ -71,8 +71,16 @@ describe('permission guard', () => {
       .fn<(args: object) => Promise<object | null>>()
       .mockResolvedValue(null);
     const prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }) },
-      tenantMember: { findFirst: jest.fn().mockResolvedValue({ id: 'm-1' }) },
+      user: {
+        findUnique: jest
+          .fn<(args: object) => Promise<object | null>>()
+          .mockResolvedValue({ id: 'user-1' }),
+      },
+      tenantMember: {
+        findFirst: jest
+          .fn<(args: object) => Promise<object | null>>()
+          .mockResolvedValue({ id: 'm-1' }),
+      },
       siteMembership: { findFirst: siteMembership },
     };
     const tenantContext = {
