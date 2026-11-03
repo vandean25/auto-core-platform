@@ -533,5 +533,22 @@ describe('Document branding persistence (e2e)', () => {
       code: 'BRAND_FILE_TYPE_UNSUPPORTED',
       message: 'Logo must be PNG (max 2 MiB).',
     });
+
+    const oversizedLogo = await request(app.getHttpServer())
+      .post(`${baseUrl}/assets`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('purpose', 'LOGO')
+      .attach(
+        'file',
+        Buffer.concat([
+          Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+          Buffer.alloc(2 * 1024 * 1024),
+        ]),
+        'oversized.png',
+      )
+      .expect(413);
+    expect(oversizedLogo.body).toMatchObject({
+      code: 'BRAND_UPLOAD_TOO_LARGE',
+    });
   });
 });

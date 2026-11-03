@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   DEFAULT_DOCUMENT_BRAND_THEME,
-  documentBrandAssetUploadErrorMessage,
   useConfirmDocumentBranding,
   useDiscardDocumentBrandDraft,
   useDocumentBrandProfile,
@@ -18,7 +17,9 @@ import {
   hasDocumentBrandThemeFieldErrors,
   validateDocumentBrandThemeFields,
 } from "@/api/document-branding-theme-validation";
-import { getErrorStatus } from "@/lib/error-utils";
+import { getErrorMessage, getErrorStatus } from "@/lib/error-utils";
+import { translateEnumWithGenericFallback } from "@/lib/i18n/enum-labels";
+import { describeBrandAssetFailure } from "./letterhead-source-messages";
 import { LetterheadImport } from "./LetterheadImport";
 import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
@@ -35,6 +36,29 @@ import {
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { generateId } from "@/lib/id";
 import type { LegalEntityRecord } from "@/api/site-admin";
+
+const MIME_SHORT_LABELS: Record<string, string> = {
+  "image/png": "PNG",
+  "application/pdf": "PDF",
+};
+
+function uploadTypeLabels(mimeTypes: string[]): string {
+  const labels = [
+    ...new Set(
+      mimeTypes.map((mime) => MIME_SHORT_LABELS[mime] ?? mime.split("/")[1] ?? mime),
+    ),
+  ];
+  return labels.join(" / ");
+}
+
+function uploadMaxMiB(maxBytes: number): string {
+  const mib = maxBytes / (1024 * 1024);
+  return Number.isInteger(mib) ? String(mib) : mib.toFixed(1);
+}
+
+function previewWarningLabel(warning: string): string {
+  return translateEnumWithGenericFallback("documentBrandPreviewWarning", warning);
+}
 
 export function DocumentBrandingSettings({
   entity,
@@ -129,6 +153,17 @@ export function DocumentBrandingSettings({
   const hasThemeValidationErrors = hasDocumentBrandThemeFieldErrors(
     themeFieldErrors,
   );
+  const reportDraftFailure = React.useCallback(
+    (failure: unknown, fallback: string) => {
+      const message = getErrorMessage(failure, fallback);
+      setDraftError(message);
+      toast.error(t("documentBranding.toast.saveFailed"), {
+        description: message,
+      });
+    },
+    [t],
+  );
+
   const {
     saveStatus,
     triggerAutoSave,
@@ -154,18 +189,13 @@ export function DocumentBrandingSettings({
         return JSON.stringify(snapshot) !== JSON.stringify(savedTheme);
       },
       onError: (saveError) => {
-        const status = getErrorStatus(saveError);
-        if (status === 409) {
+        if (getErrorStatus(saveError) === 409) {
           setRevisionConflict(true);
         }
-        const message =
-          saveError instanceof Error
-            ? saveError.message
-            : t("documentBranding.toast.draftValidationFallback");
-        setDraftError(message);
-        toast.error(t("documentBranding.toast.saveFailed"), {
-          description: message,
-        });
+        reportDraftFailure(
+          saveError,
+          t("documentBranding.toast.draftValidationFallback"),
+        );
       },
     });
 
@@ -226,101 +256,110 @@ export function DocumentBrandingSettings({
     [],
   );
 
-  const reloadLatestBranding = React.useCallback(async () => {
-    const requestId = ++recoveryRequestRef.current;
-    const entityId = entity.id;
-    setReapplyingConflict(true);
-    clearPendingSave();
-    abortInFlightSave();
-    try {
-      const result = await refetchProfile();
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      if (!result.isSuccess || !result.data) {
-        const message =
-          result.error instanceof Error
-            ? result.error.message
-            : t("documentBranding.toast.loadLatestFallback");
-        setDraftError(message);
-        toast.error(t("documentBranding.toast.reloadFailed"), {
-          description: message,
-        });
-        return;
+  /**
+   * Shared prologue of both recovery paths: cancel the pending save, read the newest profile and
+   * hand it to the caller, dropping the result once the entity changed or a newer recovery started.
+   */
+  const recoverLatestProfile = React.useCallback(
+    async (
+      onProfileUnavailable: (error: unknown) => void,
+      onLatestProfile: (
+        latest: NonNullable<typeof profile>,
+        entityId: string,
+        isCurrent: () => boolean,
+      ) => Promise<void>,
+    ) => {
+      const requestId = ++recoveryRequestRef.current;
+      const entityId = entity.id;
+      const isCurrent = () => recoveryStillCurrent(requestId, entityId);
+      setReapplyingConflict(true);
+      clearPendingSave();
+      abortInFlightSave();
+      try {
+        const result = await refetchProfile();
+        if (!isCurrent()) return;
+        if (!result.isSuccess || !result.data) {
+          onProfileUnavailable(result.error);
+          return;
+        }
+        await onLatestProfile(result.data, entityId, isCurrent);
+      } finally {
+        if (isCurrent()) {
+          setReapplyingConflict(false);
+        }
       }
-      applyProfileTheme(result.data);
-      markIdle();
-      toast.message(t("documentBranding.toast.reloaded"));
-    } finally {
-      if (recoveryStillCurrent(requestId, entityId)) {
-        setReapplyingConflict(false);
-      }
-    }
-  }, [
-    abortInFlightSave,
-    applyProfileTheme,
-    clearPendingSave,
-    entity.id,
-    markIdle,
-    recoveryStillCurrent,
-    refetchProfile,
-    t,
-  ]);
+    },
+    [
+      abortInFlightSave,
+      clearPendingSave,
+      entity.id,
+      recoveryStillCurrent,
+      refetchProfile,
+    ],
+  );
+
+  const reloadLatestBranding = React.useCallback(
+    () =>
+      recoverLatestProfile(
+        (error) => {
+          const message = getErrorMessage(
+            error,
+            t("documentBranding.toast.loadLatestFallback"),
+          );
+          setDraftError(message);
+          toast.error(t("documentBranding.toast.reloadFailed"), {
+            description: message,
+          });
+        },
+        async (latestProfile) => {
+          applyProfileTheme(latestProfile);
+          markIdle();
+          toast.message(t("documentBranding.toast.reloaded"));
+        },
+      ),
+    [applyProfileTheme, markIdle, recoverLatestProfile, t],
+  );
 
   const reapplyEditsOnLatestRevision = React.useCallback(async () => {
     const themeToSave = themeRef.current;
     if (!themeToSave) return;
-    const requestId = ++recoveryRequestRef.current;
-    const entityId = entity.id;
-    setReapplyingConflict(true);
-    clearPendingSave();
-    abortInFlightSave();
-    try {
-      const result = await refetchProfile();
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      if (!result.isSuccess || !result.data) {
-        throw new Error(
-          result.error instanceof Error
-            ? result.error.message
-            : t("documentBranding.toast.loadLatestFallback"),
-        );
-      }
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      revisionRef.current = result.data.revision;
-      const updated = await saveDraft.mutateAsync({
-        legalEntityId: entityId,
-        expectedRevision: revisionRef.current,
-        theme: themeRef.current ?? themeToSave,
-      });
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      revisionRef.current = updated.revision;
-      const persistedTheme = updated.draftTheme ?? themeRef.current ?? themeToSave;
-      setSavedTheme(persistedTheme);
-      setDraftError(null);
-      setRevisionConflict(false);
-      setNeedsPostConflictAutosave(true);
-      markSaved();
-      toast.success(t("documentBranding.toast.reapplied"));
-    } catch (reapplyError) {
-      if (!recoveryStillCurrent(requestId, entityId)) return;
-      const message =
-        reapplyError instanceof Error
-          ? reapplyError.message
-          : t("documentBranding.toast.reapplyFallback");
-      setDraftError(message);
-      toast.error(t("documentBranding.toast.saveFailed"), {
-        description: message,
-      });
-    } finally {
-      if (recoveryStillCurrent(requestId, entityId)) {
-        setReapplyingConflict(false);
-      }
-    }
+    await recoverLatestProfile(
+      (error) =>
+        reportDraftFailure(
+          error,
+          t("documentBranding.toast.loadLatestFallback"),
+        ),
+      async (latestProfile, entityId, isCurrent) => {
+        revisionRef.current = latestProfile.revision;
+        try {
+          const updated = await saveDraft.mutateAsync({
+            legalEntityId: entityId,
+            expectedRevision: latestProfile.revision,
+            theme: themeRef.current ?? themeToSave,
+          });
+          if (!isCurrent()) return;
+          revisionRef.current = updated.revision;
+          setSavedTheme(
+            updated.draftTheme ?? themeRef.current ?? themeToSave,
+          );
+          setDraftError(null);
+          setRevisionConflict(false);
+          setNeedsPostConflictAutosave(true);
+          markSaved();
+          toast.success(t("documentBranding.toast.reapplied"));
+        } catch (reapplyError) {
+          if (!isCurrent()) return;
+          reportDraftFailure(
+            reapplyError,
+            t("documentBranding.toast.reapplyFallback"),
+          );
+        }
+      },
+    );
   }, [
-    abortInFlightSave,
-    clearPendingSave,
-    entity.id,
     markSaved,
-    recoveryStillCurrent,
-    refetchProfile,
+    recoverLatestProfile,
+    reportDraftFailure,
     saveDraft,
     t,
   ]);
@@ -345,7 +384,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.logoValidated"));
     } else if (logoAsset.data.state === "REJECTED") {
       toast.error(t("documentBranding.toast.logoRejected"), {
-        description: logoAsset.data.failureCode ?? undefined,
+        description: describeBrandAssetFailure(
+          logoAsset.data.failureCode,
+          t("documentBranding.errors.logoRejected"),
+        ),
       });
     }
     setPendingLogoId(null);
@@ -375,10 +417,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.confirmed"));
     } catch (confirmError) {
       toast.error(t("documentBranding.toast.confirmFailed"), {
-        description:
-          confirmError instanceof Error
-            ? confirmError.message
-            : t("documentBranding.toast.reviewDraftFallback"),
+        description: getErrorMessage(
+          confirmError,
+          t("documentBranding.toast.reviewDraftFallback"),
+        ),
       });
     }
   };
@@ -404,10 +446,10 @@ export function DocumentBrandingSettings({
       });
     } catch (applyError) {
       toast.error(t("documentBranding.toast.proposalFailed"), {
-        description:
-          applyError instanceof Error
-            ? applyError.message
-            : t("documentBranding.toast.proposalFallback"),
+        description: getErrorMessage(
+          applyError,
+          t("documentBranding.toast.proposalFallback"),
+        ),
       });
     }
   };
@@ -430,10 +472,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.defaultsConfirmed"));
     } catch (resetError) {
       toast.error(t("documentBranding.toast.defaultsFailed"), {
-        description:
-          resetError instanceof Error
-            ? resetError.message
-            : t("documentBranding.toast.reviewRevisionFallback"),
+        description: getErrorMessage(
+          resetError,
+          t("documentBranding.toast.reviewRevisionFallback"),
+        ),
       });
     }
   };
@@ -457,10 +499,10 @@ export function DocumentBrandingSettings({
       toast.success(t("documentBranding.toast.draftDiscarded"));
     } catch (discardError) {
       toast.error(t("documentBranding.toast.discardFailed"), {
-        description:
-          discardError instanceof Error
-            ? discardError.message
-            : t("documentBranding.toast.reviewRevisionFallback"),
+        description: getErrorMessage(
+          discardError,
+          t("documentBranding.toast.reviewRevisionFallback"),
+        ),
       });
     }
   };
@@ -475,10 +517,10 @@ export function DocumentBrandingSettings({
       });
     } catch (previewError) {
       toast.error(t("documentBranding.toast.previewFailed"), {
-        description:
-          previewError instanceof Error
-            ? previewError.message
-            : t("documentBranding.toast.tryAgain"),
+        description: getErrorMessage(
+          previewError,
+          t("documentBranding.toast.tryAgain"),
+        ),
       });
     }
   };
@@ -501,19 +543,14 @@ export function DocumentBrandingSettings({
           : t("documentBranding.toast.sourceUploaded"),
       );
     } catch (uploadError) {
-      const constraints =
-        purpose === "LOGO"
-          ? uploadCapabilities?.logo
-          : uploadCapabilities?.source;
       toast.error(
         purpose === "LOGO"
           ? t("documentBranding.toast.logoUploadFailed")
           : t("documentBranding.toast.sourceUploadFailed"),
         {
-          description: documentBrandAssetUploadErrorMessage(
-            purpose,
+          description: getErrorMessage(
             uploadError,
-            constraints,
+            t("documentBranding.errors.uploadFailed"),
           ),
         },
       );
@@ -527,7 +564,7 @@ export function DocumentBrandingSettings({
   if (error)
     return (
       <p role="alert" className="text-sm text-red-700">
-        {t("documentBranding.loadFailed", { message: error.message })}
+        {getErrorMessage(error, t("documentBranding.loadFailed"))}
       </p>
     );
   if (!theme) return null;
@@ -571,9 +608,12 @@ export function DocumentBrandingSettings({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="brand-logo">{t("documentBranding.logo.label")}</Label>
-          {uploadCapabilities?.logo.requirementLabel ? (
+          {uploadCapabilities ? (
             <p className="text-xs text-slate-500">
-              {uploadCapabilities.logo.requirementLabel}
+              {t("documentBranding.logo.hint", {
+                types: uploadTypeLabels(uploadCapabilities.logo.mimeTypes),
+                maxMiB: uploadMaxMiB(uploadCapabilities.logo.maxBytes),
+              })}
             </p>
           ) : null}
           <Input
@@ -841,7 +881,7 @@ export function DocumentBrandingSettings({
       ) : null}
       {draftError && !revisionConflict ? (
         <p role="alert" className="text-sm text-red-700">
-          {t("documentBranding.draftFailed", { message: draftError })}
+          {t("documentBranding.draftFailed")}
         </p>
       ) : null}
       <p role="status" className="text-sm text-slate-600">
@@ -907,9 +947,7 @@ export function DocumentBrandingSettings({
               className="list-disc px-8 py-3 text-sm text-amber-800"
             >
               {preview.data.warnings.map((warning) => (
-                <li key={warning}>
-                  {warning.replaceAll("_", " ").toLowerCase()}
-                </li>
+                <li key={warning}>{previewWarningLabel(warning)}</li>
               ))}
             </ul>
           ) : null}

@@ -13,6 +13,7 @@ import {
   type DocumentBrandProfile,
 } from "@/api/document-branding";
 import { fetchWithAuth } from "@/api/client";
+import { getErrorCode, getErrorMessage } from "@/lib/error-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,12 +29,7 @@ import {
 } from "./letterhead-source-messages";
 
 function isRevisionConflict(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const message = error.message.toLowerCase();
-  return (
-    message.includes("revision conflict") ||
-    message.includes("brand_revision_conflict")
-  );
+  return getErrorCode(error) === "BRAND_REVISION_CONFLICT";
 }
 
 export function LetterheadSourceAsset({
@@ -123,10 +119,10 @@ export function LetterheadSourceAsset({
     } catch (error) {
       setPendingAssetId(null);
       toast.error(t("documentBranding.letterheadSource.toast.uploadFailed"), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t("documentBranding.letterheadSource.toast.uploadFallback"),
+        description: getErrorMessage(
+          error,
+          t("documentBranding.letterheadSource.toast.uploadFallback"),
+        ),
       });
     }
   };
@@ -154,19 +150,19 @@ export function LetterheadSourceAsset({
           return;
         } catch (retryError) {
           toast.error(t("documentBranding.letterheadSource.toast.removeFailed"), {
-            description:
-              retryError instanceof Error
-                ? retryError.message
-                : t("documentBranding.letterheadSource.toast.removeFallback"),
+            description: getErrorMessage(
+              retryError,
+              t("documentBranding.letterheadSource.toast.removeFallback"),
+            ),
           });
           return;
         }
       }
       toast.error(t("documentBranding.letterheadSource.toast.removeFailed"), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t("documentBranding.letterheadSource.toast.removeFallback"),
+        description: getErrorMessage(
+          error,
+          t("documentBranding.letterheadSource.toast.removeFallback"),
+        ),
       });
     }
   };

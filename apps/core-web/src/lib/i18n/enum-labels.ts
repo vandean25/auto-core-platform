@@ -23,6 +23,16 @@ export function translateEnumOptions(parts: string[], options?: TOptions): strin
   return enumsT()(parts.join('.'), options)
 }
 
+/**
+ * Label for a wire value under `enums:<namespace>.<VALUE>`. Values without their own key — a code the
+ * locale files do not know yet — fall back to `enums:<namespace>.generic` instead of showing the code.
+ */
+export function translateEnumWithGenericFallback(namespace: string, value: string): string {
+  return enumsT()(`${namespace}.${value}`, {
+    defaultValue: translateEnum(namespace, 'generic'),
+  })
+}
+
 /** Localized label for a shared status wire value (`enums:status.<VALUE>`). */
 export function formatStatusLabel(status: string): string {
   return translateEnum('status', status)

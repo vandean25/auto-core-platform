@@ -10,6 +10,7 @@ import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DocumentBrandAsset } from "@/api/document-branding";
 import { changeUiLanguage } from "@/lib/i18n";
+import { createHttpError } from "@/lib/error-utils";
 import { DEFAULT_UI_LANGUAGE } from "@/lib/i18n/constants";
 import deSettings from "../../../../../../locales/de/settings.json";
 import enSettings from "../../../../../../locales/en/settings.json";
@@ -202,7 +203,9 @@ describe("LetterheadSourceAsset", () => {
       expiresAt: null,
     });
     mocks.attach
-      .mockRejectedValueOnce(new Error("Branding revision conflict: expected 4, current 5."))
+      .mockRejectedValueOnce(
+        createHttpError("Konflikt", 409, { code: "BRAND_REVISION_CONFLICT" }),
+      )
       .mockResolvedValueOnce(refreshedProfile);
     mocks.fetchWithAuth.mockResolvedValue({
       ok: true,

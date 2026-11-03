@@ -215,6 +215,17 @@
     "VALIDATION_RETRIES_EXHAUSTED": "Validation retries exhausted",
     "BRAND_SOURCE_EXPIRED": "Source expired"
   },
+  "documentBrandExtractionWarning": {
+    "PDF_ADDITIONAL_PAGES_IGNORED": "Additional PDF pages were not used.",
+    "UNSUPPORTED_FONT_IGNORED": "An unsupported font was replaced with the default font.",
+    "UNSUPPORTED_LAYOUT_IGNORED": "The letterhead layout is not supported. The standard template was used.",
+    "generic": "Part of the letterhead could not be used."
+  },
+  "documentBrandPreviewWarning": {
+    "HEADER_TEXT_MAY_BE_CLIPPED": "The header text may be clipped in the document.",
+    "FOOTER_TEXT_MAY_BE_CLIPPED": "The footer text may be clipped in the document.",
+    "generic": "The layout may differ in the printed document."
+  },
   "letterheadSource": {
     "message": {
       "pollTimedOut": "Validation is taking longer than expected. Refresh the status or try again later.",
@@ -224,7 +235,6 @@
       "removed": "This file was removed and is no longer available.",
       "processing": "Processing upload…",
       "rejectedGeneric": "This file was rejected. Choose another PDF or PNG letterhead.",
-      "rejectedWithCode": "This file was rejected ({{code}}).",
       "rejectedUnsupportedType": "This file type is not supported. Upload a PDF or PNG letterhead.",
       "rejectedTooLarge": "This file is too large. Letterhead sources must be 10 MiB or smaller.",
       "rejectedRetries": "We could not validate this file after several attempts. Try another copy or format.",
