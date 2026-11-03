@@ -7,7 +7,7 @@ import * as searchHook from '@/hooks/useGlobalSearch'
 import * as authSession from '@/api/auth-session'
 
 vi.mock('@/hooks/useGlobalSearch')
-vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
+vi.mock('@/api/auth-session', async (original) => ({ ...await original<typeof import('@/api/auth-session')>(), useAuthSession: vi.fn() }))
 vi.mock('@/api/sites', () => ({ useMySites: () => ({ data: [] }) }))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),

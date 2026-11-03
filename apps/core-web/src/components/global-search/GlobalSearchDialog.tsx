@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MessageSquareText } from 'lucide-react'
 
-import { useAuthSession } from '@/api/auth-session'
+import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -49,7 +49,7 @@ function getSessionSearchMeta(session: ReturnType<typeof useAuthSession>['data']
   if (!session) return { recentKey: null, roleInfo: null, activeSiteId: null }
   return {
     recentKey: recentItemsKey(session.userId, session.activeTenant.id),
-    roleInfo: { platformRole: session.platformRole ?? null, activeRole: session.activeRole },
+    roleInfo: { platformRole: session.platformRole ?? null, activeRole: session.activeRole, capabilities: selectEffectiveCapabilities(session) },
     activeSiteId: session.activeSiteId ?? null,
   }
 }

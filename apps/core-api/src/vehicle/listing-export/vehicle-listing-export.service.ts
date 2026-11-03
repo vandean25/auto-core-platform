@@ -10,6 +10,7 @@ import { VehicleListingDesiredState } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
+import { EffectiveCapabilitiesService } from '../../common/country-pack/effective-capabilities.guard.js';
 import { resolveCurrentReceivedStockPurchaseId } from '../equipment/vehicle-equipment-stock-cycle.js';
 import {
   assertListingChannelActiveReadiness,
@@ -70,6 +71,7 @@ export class VehicleListingExportService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly capabilities: EffectiveCapabilitiesService,
     @Inject(VEHICLE_MEDIA_STORAGE)
     private readonly mediaStorage: VehicleMediaStorage,
   ) {}
@@ -171,13 +173,16 @@ export class VehicleListingExportService {
       mandatory_fees_included_confirmed:
         listing.mandatory_fees_included_confirmed,
     };
+    const capabilities = await this.capabilities.resolve();
 
     const channels: VehicleListingChannelValidationDto[] = [];
 
     for (const channel of listing.channels) {
       const issues: VehicleListingChannelValidationDto['issues'] = [];
 
-      issues.push(...listListingOfferFieldReadinessIssues(readinessListing));
+      issues.push(
+        ...listListingOfferFieldReadinessIssues(readinessListing, capabilities),
+      );
       issues.push(...listListingVehicleActivationReadinessIssues(vehicle));
 
       const profileCode =
@@ -295,6 +300,7 @@ export class VehicleListingExportService {
           listing.mandatory_fees_included_confirmed,
       },
       vehicle,
+      await this.capabilities.resolve(),
     );
 
     const sortedPhotos = listing.photos

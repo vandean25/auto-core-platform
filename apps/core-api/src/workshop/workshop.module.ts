@@ -73,11 +73,13 @@ import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
 import { McpWorkshopOrderDetailReadService } from '../mcp/mcp-workshop-order-detail.read.service.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
 import { InspectionMeasurementModule } from '../inspection-measurement/inspection-measurement.module.js';
+import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-capabilities.module.js';
 @Module({
   imports: [
     PrismaModule,
     InspectionCatalogModule,
     InspectionMeasurementModule,
+    EffectiveCapabilitiesModule,
     LoanerVehiclesModule,
     NotificationsModule,
     PushModule,

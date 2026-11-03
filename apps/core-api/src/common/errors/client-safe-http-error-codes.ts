@@ -10,6 +10,7 @@ import { IMPORT_ERROR_CODES } from '../../import/import.constants.js';
  * with WARRANTY_CLAIM_ERROR_CODES in warranty-claim.rules.ts.
  */
 export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
+  'CAPABILITY_UNAVAILABLE',
   // Workshop command operational codes
   'AUDIO_EMPTY',
   'AUDIO_TOO_LARGE',

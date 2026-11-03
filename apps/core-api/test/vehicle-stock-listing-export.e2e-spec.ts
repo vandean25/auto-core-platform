@@ -156,6 +156,31 @@ describe('Vehicle listing export download (e2e)', () => {
     );
   });
 
+  it('denies only willhaben while disabled and restores the saved active channel when re-enabled', async () => {
+    const created = await suite.createAndReceive({ vin: vin('LST-CAP'), sellerType: 'VENDOR' });
+    const vehicleId = created.received.vehicle_id;
+    await prepareActiveListing(vehicleId, created.received.id);
+    await request(suite.app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}/listing/channels/WILLHABEN`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({ expected_revision: 3, desired_state: 'ACTIVE' })
+      .expect(200);
+    const download = (profile: string) => request(suite.app.getHttpServer())
+      .get(`/api/vehicle-stock/${vehicleId}/listing/export/download?profile=${profile}`)
+      .set('Authorization', `Bearer ${suite.authToken}`);
+    await download('WILLHABEN_GENERIC_V1').expect(200);
+    await download('MOBILE_DE_REFERENCE_V1').expect(200);
+    await suite.prisma.legalEntity.updateMany({ where: { tenant_id: suite.tenantId }, data: { country_iso: 'DE' } });
+    try {
+      const denied = await download('WILLHABEN_GENERIC_V1').expect(403);
+      expect(denied.body.code).toBe('CAPABILITY_UNAVAILABLE');
+      await download('MOBILE_DE_REFERENCE_V1').expect(200);
+    } finally {
+      await suite.prisma.legalEntity.updateMany({ where: { tenant_id: suite.tenantId }, data: { country_iso: 'AT' } });
+    }
+    await download('WILLHABEN_GENERIC_V1').expect(200);
+  });
+
   it('returns 422 for unsupported serializer profile', async () => {
     const created = await suite.createAndReceive({
       vin: vin('LST-BAD'),

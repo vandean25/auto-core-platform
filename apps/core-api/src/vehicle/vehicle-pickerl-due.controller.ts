@@ -14,6 +14,7 @@ import {
 } from './dto/pickerl-due-list.dto.js';
 import { OpenPickerlOrderDto } from './dto/vehicle-response.dto.js';
 import { VehicleService } from './vehicle.service.js';
+import { RequireCapability } from '../common/country-pack/effective-capabilities.guard.js';
 
 /**
  * Pickerl (periodic inspection) due list and open order lookup. Tag and operation ids keep the
@@ -22,6 +23,7 @@ import { VehicleService } from './vehicle.service.js';
  */
 @ApiTags('Vehicle')
 @Controller('vehicles')
+@RequireCapability('pickerl57a')
 export class VehiclePickerlDueController {
   constructor(private readonly vehicleService: VehicleService) {}
 

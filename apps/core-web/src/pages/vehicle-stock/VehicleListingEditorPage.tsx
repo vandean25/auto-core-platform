@@ -24,6 +24,7 @@ import { formatCurrency } from '@/lib/format'
 import { getErrorCode, getErrorStatus } from '@/lib/error-utils'
 import { generateId } from '@/lib/id'
 import { useVehicleStockDetail } from '@/api/vehicle-stock'
+import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import {
   useCreateVehicleListing,
   usePatchVehicleListing,
@@ -135,6 +136,7 @@ function listingToastDescription(
 }
 
 export default function VehicleListingEditorPage() {
+  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
   const { vehicleId = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -432,6 +434,9 @@ export default function VehicleListingEditorPage() {
   }
 
   const listing = listingQuery.data
+  const visibleChannels = listing.channels.filter(
+    (channel) => channel.platform !== 'WILLHABEN' || capabilities?.willhabenExport === true,
+  )
   const hasUnsavedDraftEdits =
     savedDraft !== null && draft !== null && !draftsEqual(draft, savedDraft)
   const displaySaveStatus =
@@ -549,6 +554,7 @@ export default function VehicleListingEditorPage() {
               <ListingFieldErrors issues={mobileIssues} field="vat_display" />
             </div>
             <div className="flex flex-col gap-2">
+              {capabilities?.nova === true ? <>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={draft.nova_included_confirmed}
@@ -559,6 +565,7 @@ export default function VehicleListingEditorPage() {
                 {t('listing.fields.novaIncluded')}
               </label>
               <ListingFieldErrors issues={mobileIssues} field="nova_included_confirmed" />
+              </> : null}
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={draft.mandatory_fees_included_confirmed}
@@ -819,15 +826,15 @@ export default function VehicleListingEditorPage() {
                 </Button>
               </div>
             ) : null}
-            <Tabs defaultValue={listing.channels[0]?.platform ?? 'MOBILE_DE'}>
+            <Tabs defaultValue={visibleChannels[0]?.platform ?? 'MOBILE_DE'}>
               <TabsList>
-                {listing.channels.map((channel) => (
+                {visibleChannels.map((channel) => (
                   <TabsTrigger key={channel.platform} value={channel.platform}>
                     {channel.platform.replace('_', '.')}
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {listing.channels.map((channel) => {
+              {visibleChannels.map((channel) => {
                 const channelIssues = mergeChannelValidationIssues(
                   validationChannels,
                   channel.platform,

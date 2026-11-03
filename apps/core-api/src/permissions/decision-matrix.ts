@@ -15,6 +15,7 @@ import {
 import { MCP_TOOL_TABLE, OPERATION_TABLE } from './operation-table.js';
 import type { LegacyRole } from './operation-types.js';
 import { PermissionGuard } from './permission.guard.js';
+import { EffectiveCapabilitiesService } from '../common/country-pack/effective-capabilities.guard.js';
 import {
   PermissionResolver,
   isMcpToolAllowed,
@@ -180,6 +181,18 @@ async function buildLegacyGuards(routes: readonly RegisteredRoute[]) {
       ...routeGuardTypes,
       { provide: Reflector, useValue: reflector },
       { provide: TenantContextService, useValue: tenantContext },
+      {
+        provide: EffectiveCapabilitiesService,
+        useValue: {
+          resolve: () =>
+            Promise.resolve({
+              nova: true,
+              pickerl57a: true,
+              kaufvertragAt: true,
+              willhabenExport: true,
+            }),
+        },
+      },
     ],
   })
     .useMocker(() => ({}))
@@ -191,6 +204,8 @@ async function buildLegacyGuards(routes: readonly RegisteredRoute[]) {
       method: route.method,
       path: samplePath(route),
       url: samplePath(route),
+      query: {},
+      body: {},
       headers: {
         authorization:
           principal === 'API_KEY'

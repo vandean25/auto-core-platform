@@ -29,6 +29,7 @@ export type ListingReadinessFieldIssue = {
 
 export function listListingOfferFieldReadinessIssues(
   listing: ListingActiveReadinessListing,
+  capabilities: { nova: boolean } | null = null,
 ): ListingReadinessFieldIssue[] {
   const issues: ListingReadinessFieldIssue[] = [];
 
@@ -46,7 +47,7 @@ export function listListingOfferFieldReadinessIssues(
       message: 'VAT display (STANDARD or MARGIN) must be confirmed.',
     });
   }
-  if (!listing.nova_included_confirmed) {
+  if (capabilities?.nova !== false && !listing.nova_included_confirmed) {
     issues.push({
       field: 'nova_included_confirmed',
       code: 'LISTING_NOVA_CONFIRMATION_REQUIRED',
@@ -93,6 +94,7 @@ export function listListingActiveReadinessIssues(
   desiredState: VehicleListingDesiredState,
   listing: ListingActiveReadinessListing,
   vehicle: ListingActiveReadinessVehicle,
+  capabilities: { nova: boolean } | null = null,
 ): ListingReadinessFieldIssue[] {
   if (desiredState !== VehicleListingDesiredState.ACTIVE) {
     return [];
@@ -100,7 +102,7 @@ export function listListingActiveReadinessIssues(
 
   return [
     ...listListingVehicleActivationReadinessIssues(vehicle),
-    ...listListingOfferFieldReadinessIssues(listing),
+    ...listListingOfferFieldReadinessIssues(listing, capabilities),
   ];
 }
 
@@ -108,11 +110,13 @@ export function assertListingChannelActiveReadiness(
   desiredState: VehicleListingDesiredState,
   listing: ListingActiveReadinessListing,
   vehicle: ListingActiveReadinessVehicle,
+  capabilities: { nova: boolean } | null = null,
 ): void {
   const fieldIssues = listListingActiveReadinessIssues(
     desiredState,
     listing,
     vehicle,
+    capabilities,
   );
   if (fieldIssues.length > 0) {
     throw new UnprocessableEntityException({

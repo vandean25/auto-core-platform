@@ -10,6 +10,7 @@ import {
   createTestTenant,
   runWithTenantContext,
   seedTestTenantMember,
+  resolveTestMainSiteId,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { computePickerlDue } from '../src/vehicle/pickerl/compute-pickerl-due.js';
@@ -41,6 +42,21 @@ describe('Vehicle Pickerl (e2e)', () => {
 
     await runWithTenantContext(tenantId, async () => {
       const authService = app.get(AuthService);
+      const siteId = await resolveTestMainSiteId(basePrisma, tenantId);
+      const grantSite = async (userId: string) => {
+        await prisma.siteMembership.create({
+          data: {
+            tenant_id: tenantId,
+            user_id: userId,
+            site_id: siteId,
+            is_active: true,
+          },
+        });
+        await prisma.user.update({
+          where: { id: userId },
+          data: { active_site_id: siteId },
+        });
+      };
       const techFirebaseUid = `e2e-tech-pickerl-${Date.now()}`;
       const techUser = await prisma.user.create({
         data: {
@@ -53,6 +69,7 @@ describe('Vehicle Pickerl (e2e)', () => {
         userId: techUser.id,
         role: 'TECH',
       });
+      await grantSite(techUser.id);
       techToken = authService.createTestToken({
         sub: techFirebaseUid,
         email: techUser.email,
@@ -72,6 +89,7 @@ describe('Vehicle Pickerl (e2e)', () => {
         userId: salesUser.id,
         role: 'SALES',
       });
+      await grantSite(salesUser.id);
       salesToken = authService.createTestToken({
         sub: salesFirebaseUid,
         email: salesUser.email,

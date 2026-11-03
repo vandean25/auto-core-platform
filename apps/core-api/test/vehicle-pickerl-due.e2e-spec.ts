@@ -49,26 +49,8 @@ describe('Pickerl Due (e2e)', () => {
     const testTenant = await createTestTenant(basePrisma, 'aut-380-fix');
     tenantId = testTenant.tenantId;
 
-    const adminFirebaseUid = `uid-${Date.now()}`;
-    const testUser = await basePrisma.user.create({
-      data: {
-        email: `admin-${Date.now()}@pickerl.test`,
-        firebaseUid: adminFirebaseUid,
-      },
-    });
-
-    await seedTestTenantMember(basePrisma, {
-      tenantId,
-      userId: testUser.id,
-      role: 'ADMIN',
-    });
-
     const authService = app.get(AuthService);
-    adminToken = createTestAuthToken(authService, testTenant, {
-      sub: adminFirebaseUid,
-      email: testUser.email,
-      role: 'ADMIN',
-    });
+    adminToken = createTestAuthToken(authService, testTenant);
 
     await runWithTenantContext(tenantId, async () => {
       const techFirebaseUid = `e2e-tech-pickerl-due-${Date.now()}`;

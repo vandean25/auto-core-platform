@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
+import { RequireCapability } from '../common/country-pack/effective-capabilities.guard.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
 import {
   CreateWorkshopOrderDto,
@@ -36,6 +37,7 @@ export class WorkshopOrdersController {
   ) {}
 
   @Post('orders')
+  @RequireCapability('pickerl57a', { bodyFlag: 'createPickerlTask' })
   @ApiOperation({ operationId: 'WorkshopController_create' })
   @DryRunSupported()
   @ApiWorkshopOrderCreatedResponse()

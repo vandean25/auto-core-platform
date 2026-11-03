@@ -6,9 +6,11 @@ import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { PageLoader } from '@/components/ui/PageLoader'
 import * as Lazy from './lazy-app-pages'
 import { WorkshopNamespaceLayout } from '@/features/workshop/WorkshopNamespaceLayout'
+import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 
 export function AppRoutes() {
   const location = useLocation()
+  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
 
   return (
     <LayoutGroup id="app-routes">
@@ -38,7 +40,7 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.customers} element={<Lazy.CustomerList />} />
               <Route path={APP_ROUTE_PATHS.customerDetail} element={<Lazy.CustomerDetail />} />
               <Route path={APP_ROUTE_PATHS.vehicles} element={<Lazy.VehicleList />} />
-              <Route path={APP_ROUTE_PATHS.vehiclePickerlDue} element={<React.Suspense fallback={<PageLoader />}><Lazy.PickerlDueList /></React.Suspense>} />
+              <Route path={APP_ROUTE_PATHS.vehiclePickerlDue} element={capabilities?.pickerl57a === true ? <React.Suspense fallback={<PageLoader />}><Lazy.PickerlDueList /></React.Suspense> : null} />
               <Route path={APP_ROUTE_PATHS.vehicleGewaehrleistungDue} element={<React.Suspense fallback={<PageLoader />}><Lazy.GewaehrleistungDueList /></React.Suspense>} />
               <Route
                 path={APP_ROUTE_PATHS.vehicleStockAlias}

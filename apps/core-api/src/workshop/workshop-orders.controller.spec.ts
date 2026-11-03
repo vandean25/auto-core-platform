@@ -3,6 +3,7 @@ import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopInvoiceService } from './workshop-invoice.service.js';
 import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
+import { EffectiveCapabilitiesService } from '../common/country-pack/effective-capabilities.guard.js';
 
 describe('WorkshopOrdersController', () => {
   it('delegates create to intake service', async () => {
@@ -12,6 +13,7 @@ describe('WorkshopOrdersController', () => {
       providers: [
         { provide: WorkshopIntakeService, useValue: intakeService },
         { provide: WorkshopInvoiceService, useValue: {} },
+        { provide: EffectiveCapabilitiesService, useValue: {} },
       ],
     }).compile();
 

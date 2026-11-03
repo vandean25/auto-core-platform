@@ -180,6 +180,7 @@ describe('nav config: visibility per role (ticket table)', () => {
     const visible = visibleRoutes({
       activeRole: roleCase.activeRole as NavAccessContext['activeRole'],
       platformRole: roleCase.platformRole,
+      capabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
     })
 
     expect([...visible].sort()).toEqual([...UNGATED_ROUTES, ...roleCase.gated].sort())
