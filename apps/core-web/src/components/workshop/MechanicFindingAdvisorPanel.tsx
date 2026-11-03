@@ -49,24 +49,24 @@ export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorP
     <Card data-testid='mechanic-finding-advisor-panel'>
       <CardHeader className='pb-3'>
         <CardTitle className='text-base'>{t('mechanicFinding.title')}</CardTitle>
-        <p className='text-sm text-slate-500'>{t('mechanicFinding.description')}</p>
+        <p className='text-sm text-muted-foreground'>{t('mechanicFinding.description')}</p>
       </CardHeader>
       <CardContent className='space-y-4'>
         {findings.map((finding) => (
           <article
             key={finding.proposal_id}
-            className='rounded-md border border-slate-200 p-4 space-y-2'
+            className='rounded-md border border-border p-4 space-y-2'
             data-testid={`mechanic-finding-${finding.proposal_id}`}
           >
             <div className='flex flex-wrap items-center gap-2'>
               <StatusBadge status={finding.status} />
               {finding.summary && (
-                <span className='text-sm font-medium text-slate-800'>{finding.summary}</span>
+                <span className='text-sm font-medium text-foreground'>{finding.summary}</span>
               )}
             </div>
-            <p className='text-sm whitespace-pre-wrap text-slate-700'>{finding.finding_text}</p>
+            <p className='text-sm whitespace-pre-wrap text-foreground'>{finding.finding_text}</p>
             {finding.media.length > 0 && (
-              <ul className='text-xs text-slate-500 list-disc pl-4 space-y-1'>
+              <ul className='text-xs text-muted-foreground list-disc pl-4 space-y-1'>
                 {finding.media.map((item) => (
                   <li key={item.id}>
                     {item.read_url ? (
@@ -74,7 +74,7 @@ export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorP
                         href={item.read_url}
                         target='_blank'
                         rel='noreferrer'
-                        className='text-blue-700 underline'
+                        className='text-info underline'
                       >
                         {t('mechanicFinding.openMedia', { mimeType: item.mime_type })}
                       </a>

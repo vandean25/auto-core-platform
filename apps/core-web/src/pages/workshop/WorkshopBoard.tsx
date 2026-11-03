@@ -9,7 +9,9 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { HorizontalScrollArea } from '@/components/ui/horizontal-scroll-area'
+import { CardSkeleton } from '@/components/ui/skeleton-presets'
 import { WorkshopOrderCardOverlay } from '@/components/workshop/WorkshopOrderCard'
 import { BoardViewToggle } from '@/components/workshop/BoardViewToggle'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
@@ -84,17 +86,19 @@ export default function WorkshopBoard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">{t('board.title')}</h1>
-          <p className="text-slate-500">{t('board.description')}</p>
-        </div>
-        <BoardViewToggle value={viewMode} onChange={setViewMode} />
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={t('board.title')}
+        description={t('board.description')}
+        actions={<BoardViewToggle value={viewMode} onChange={setViewMode} />}
+      />
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
-          {t('board.loading')}
+        <div role="status" aria-busy="true" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <span className="sr-only">{t('board.loading')}</span>
+          {Array.from({ length: 4 }, (_, index) => (
+            <CardSkeleton key={index} lines={4} />
+          ))}
         </div>
       ) : (
         <>

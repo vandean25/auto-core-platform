@@ -53,7 +53,7 @@ function OrderTopBarLoanerBadge({ order }: { order: WorkshopOrder }) {
   return (
     <Link
       to={`${APP_ROUTE_PATHS.workshopLoanerVehicles}?vehicle=${loaner.loanerVehicleId}`}
-      className='inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
+      className='inline-flex items-center gap-2 rounded-md border border-info/30 bg-info/10 px-2.5 py-1 text-xs font-medium text-info hover:bg-info/15'
     >
       <span>
         {t('orderHeader.loanerUntil', {
@@ -152,10 +152,10 @@ export function OrderTopBar({
                 <h1 className='text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
                 <StatusBadge status={order.status} />
               </div>
-              <p className='text-sm text-slate-500'>
+              <p className='text-sm text-muted-foreground'>
                 {customerName} · {vehicleLabel} · {plate}
               </p>
-              <p className='text-sm text-slate-500'>
+              <p className='text-sm text-muted-foreground'>
                 {t('orderHeader.promisedMeta', {
                   promised: notSet,
                   tech: assignedTechName ?? unassigned,
@@ -206,7 +206,7 @@ function AssignedTechField({
   if (!onAssignedTechChange) {
     return (
       <div className='font-medium flex items-center'>
-        <User className='w-4 h-4 mr-1.5 text-slate-500' />
+        <User className='w-4 h-4 mr-1.5 text-muted-foreground' />
         {assignedTechName ?? unassignedLabel}
       </div>
     )
@@ -224,7 +224,7 @@ function AssignedTechField({
         aria-label={ariaLabel}
       >
         <div className='flex items-center'>
-          <User className='w-4 h-4 mr-1.5 text-slate-500' />
+          <User className='w-4 h-4 mr-1.5 text-muted-foreground' />
           <SelectValue placeholder={unassignedLabel} />
         </div>
       </SelectTrigger>
@@ -290,21 +290,21 @@ export function CustomerVehicleInfo({
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.bayLocation')}</div>
               <div className='font-medium flex items-center'>
-                <MapPin className='w-4 h-4 mr-1.5 text-slate-500' />
+                <MapPin className='w-4 h-4 mr-1.5 text-muted-foreground' />
                 {bayName ?? unassigned}
               </div>
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.promisedTime')}</div>
               <div className='font-medium flex items-center'>
-                <Clock className='w-4 h-4 mr-1.5 text-slate-500' />
+                <Clock className='w-4 h-4 mr-1.5 text-muted-foreground' />
                 {notSet}
               </div>
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.keyTag')}</div>
               <div className='font-medium flex items-center'>
-                <Key className='w-4 h-4 mr-1.5 text-slate-500' />
+                <Key className='w-4 h-4 mr-1.5 text-muted-foreground' />
                 {notSet}
               </div>
             </div>

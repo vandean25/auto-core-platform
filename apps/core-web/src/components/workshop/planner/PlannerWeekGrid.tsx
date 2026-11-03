@@ -51,12 +51,12 @@ function WeekDayCell({
     <div
       ref={setNodeRef}
       data-testid={droppableId}
-      className={`relative min-h-24 border-r border-b border-slate-200 p-1 transition-colors ${
-        isOver ? 'bg-slate-100' : hours.isClosed ? 'bg-slate-50' : 'bg-white hover:bg-slate-50'
+      className={`relative min-h-24 border-r border-b border-border p-1 transition-colors ${
+        isOver ? 'bg-muted' : hours.isClosed ? 'bg-muted/50' : 'bg-card hover:bg-muted/50'
       }`}
     >
       {hours.isClosed && (
-        <p className="text-[10px] text-slate-400 px-1">
+        <p className="text-xs text-muted-foreground px-1">
           {hours.holidayName
             ? t('planner.grid.closedWithHoliday', { name: hours.holidayName })
             : t('planner.grid.closed')}
@@ -107,18 +107,18 @@ export function PlannerWeekGrid({
   }, [dates, openings, holidays])
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
       <div
         className="grid min-w-max"
         style={{ gridTemplateColumns: `140px repeat(${dates.length}, minmax(120px, 1fr))` }}
       >
-        <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+        <div className="border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
           {t('planner.grid.bay')}
         </div>
         {dates.map((date) => (
           <div
             key={date}
-            className="border-b border-l border-slate-200 bg-slate-50 px-2 py-2 text-center text-xs font-medium text-slate-600"
+            className="border-b border-l border-border bg-muted/50 px-2 py-2 text-center text-xs font-medium text-muted-foreground"
           >
             {formatDateLabel(date, timezone)}
           </div>
@@ -126,7 +126,7 @@ export function PlannerWeekGrid({
 
         {bays.map((bay) => (
           <React.Fragment key={bay.id}>
-            <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+            <div className="border-b border-border px-3 py-2 text-sm font-semibold text-foreground">
               {bay.name}
             </div>
             {dates.map((date) => {

@@ -40,7 +40,7 @@ export default function LoanerBookingPrintPage() {
           <Button onClick={() => window.print()}>{t('loanerPrint.print')}</Button>
         </div>
 
-        <header className='space-y-2 border-b border-slate-300 pb-4'>
+        <header className='space-y-2 border-b border-border pb-4'>
           <h1 className='text-2xl font-semibold'>{t('loanerPrint.title')}</h1>
           <p className='text-sm text-muted-foreground'>
             {t('loanerPrint.bookingMeta', { id: booking.id })}
@@ -69,7 +69,7 @@ export default function LoanerBookingPrintPage() {
         </section>
 
         <section className='grid gap-6 sm:grid-cols-2'>
-          <div className='space-y-3 rounded-lg border border-slate-200 p-4'>
+          <div className='space-y-3 rounded-lg border border-border p-4'>
             <h2 className='text-lg font-medium'>{t('loanerPrint.handover')}</h2>
             <dl className='space-y-2 text-sm'>
               <div className='flex justify-between gap-4'>
@@ -97,13 +97,13 @@ export default function LoanerBookingPrintPage() {
                 <dd className='mt-1 whitespace-pre-wrap'>{booking.damageNotesOut || emDash}</dd>
               </div>
             </dl>
-            <div className='mt-8 border-t border-dashed border-slate-300 pt-4'>
+            <div className='mt-8 border-t border-dashed border-border pt-4'>
               <p className='text-sm text-muted-foreground'>{t('loanerPrint.signatureHandover')}</p>
-              <div className='mt-10 h-10 border-b border-slate-400' />
+              <div className='mt-10 h-10 border-b border-muted-foreground/60' />
             </div>
           </div>
 
-          <div className='space-y-3 rounded-lg border border-slate-200 p-4'>
+          <div className='space-y-3 rounded-lg border border-border p-4'>
             <h2 className='text-lg font-medium'>{t('loanerPrint.return')}</h2>
             <dl className='space-y-2 text-sm'>
               <div className='flex justify-between gap-4'>
@@ -125,9 +125,9 @@ export default function LoanerBookingPrintPage() {
                 <dd className='mt-1 whitespace-pre-wrap'>{booking.damageNotesIn || emDash}</dd>
               </div>
             </dl>
-            <div className='mt-8 border-t border-dashed border-slate-300 pt-4'>
+            <div className='mt-8 border-t border-dashed border-border pt-4'>
               <p className='text-sm text-muted-foreground'>{t('loanerPrint.signatureReturn')}</p>
-              <div className='mt-10 h-10 border-b border-slate-400' />
+              <div className='mt-10 h-10 border-b border-muted-foreground/60' />
             </div>
           </div>
         </section>

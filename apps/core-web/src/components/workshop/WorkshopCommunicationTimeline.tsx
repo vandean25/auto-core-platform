@@ -1,10 +1,12 @@
-import { AlertTriangle, CheckCircle2, Loader2, Mail, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Mail, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useWorkshopOrderCommunications } from '@/api/workshop-communications'
 import type { WorkshopOrderCommunication } from '@/api/workshop-communications'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/format'
 import { i18n } from '@/lib/i18n'
 import type { TFunction } from 'i18next'
@@ -119,10 +121,10 @@ function TimelineIcon({ entry }: { entry: WorkshopOrderCommunication }) {
     return <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
   }
   if (entry.kind === 'OVERRUN_DETECTED' || entry.kind === 'OVERRUN_NOTIFICATION') {
-    return <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+    return <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
   }
   return entry.decision === 'APPROVED' ? (
-    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
   ) : (
     <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
   )
@@ -140,10 +142,12 @@ export function WorkshopCommunicationTimeline({ orderId }: { orderId: string }) 
       </CardHeader>
       <CardContent>
         {query.isPending ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            {t('communicationTimeline.loading')}
-          </p>
+          <div role="status" aria-busy="true" className="space-y-3">
+            <span className="sr-only">{t('communicationTimeline.loading')}</span>
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton key={index} className="h-10 w-full" />
+            ))}
+          </div>
         ) : query.isError ? (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -155,7 +159,9 @@ export function WorkshopCommunicationTimeline({ orderId }: { orderId: string }) 
             </AlertDescription>
           </Alert>
         ) : query.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('communicationTimeline.empty')}</p>
+          <Empty className="p-6 md:p-6">
+            <EmptyDescription>{t('communicationTimeline.empty')}</EmptyDescription>
+          </Empty>
         ) : (
           <ol className="space-y-3">
             {query.data.map((entry) => (

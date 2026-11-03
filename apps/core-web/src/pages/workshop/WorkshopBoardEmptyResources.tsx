@@ -15,8 +15,8 @@ export function WorkshopBoardEmptyResources({ mode }: { mode: BoardViewMode }) {
   return (
     <Card className="max-w-sm mx-auto mt-8">
       <CardHeader className="items-center pb-2">
-        <div className="rounded-full bg-slate-100 p-3 mb-2">
-          <Wrench className="h-6 w-6 text-slate-400" />
+        <div className="rounded-full bg-muted p-3 mb-2">
+          <Wrench className="h-6 w-6 text-muted-foreground" />
         </div>
         <CardTitle className="text-base text-center">{t('board.emptyResources.title', { resource })}</CardTitle>
         <CardDescription className="text-center">

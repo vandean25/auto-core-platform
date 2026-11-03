@@ -42,8 +42,8 @@ export function PlannerBookingBlock({
         isDragging ? 'opacity-60 z-20' : 'z-10'
       } ${
         booking.occupancyKind === 'UNSCHEDULED_ON_FLOOR'
-          ? 'border-amber-300 bg-amber-50 text-amber-900'
-          : 'border-slate-300 bg-white text-slate-800'
+          ? 'border-warning/40 bg-warning/10 text-warning'
+          : 'border-border bg-card text-foreground'
       } ${isDraggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
       onClick={openOrder}
       {...(isDraggable ? { ...listeners, ...attributes } : {})}
@@ -52,9 +52,9 @@ export function PlannerBookingBlock({
         <StatusBadge status={booking.status} />
         <span className="font-medium truncate">{booking.orderNumber}</span>
       </div>
-      <p className="truncate text-slate-600">{plate}</p>
+      <p className="truncate text-muted-foreground">{plate}</p>
       {booking.mechanicName && (
-        <p className="truncate text-slate-500">{booking.mechanicName}</p>
+        <p className="truncate text-muted-foreground">{booking.mechanicName}</p>
       )}
     </button>
   )

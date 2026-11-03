@@ -123,7 +123,7 @@ describe('WorkshopCommunicationTimeline', () => {
     const items = screen.getAllByRole('listitem')
     expect(within(items[0]).getByText('Der Kunde wurde über den Mehrbedarf gegenüber dem Kostenvoranschlag (Version 1) informiert (Telefon)')).toBeInTheDocument()
     expect(within(items[1]).getByText('Mehrbedarf gegenüber dem Kostenvoranschlag (Version 1) festgestellt')).toBeInTheDocument()
-    expect(container.querySelectorAll('.text-amber-600')).toHaveLength(2)
+    expect(container.querySelectorAll('.text-warning')).toHaveLength(2)
   })
 })
 

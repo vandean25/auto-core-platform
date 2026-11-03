@@ -30,10 +30,10 @@ interface WorkshopOrderCardContentProps {
 }
 
 const partsStatusBorder: Record<PartsStatus, string> = {
-  READY: 'border-l-emerald-500',
-  SHORTAGE: 'border-l-rose-500',
-  WAITING: 'border-l-amber-500',
-  NO_PARTS: 'border-l-slate-300',
+  READY: 'border-l-success',
+  SHORTAGE: 'border-l-destructive',
+  WAITING: 'border-l-warning',
+  NO_PARTS: 'border-l-border',
 }
 
 function getCustomerName(order: BoardOrder, dealerStockLabel: string): string {
@@ -68,9 +68,9 @@ export function WorkshopOrderCardContent({
       ref={setNodeRef}
       data-testid={`workshop-order-card-${order.id}`}
       className={cn(
-        'relative rounded-md border bg-white shadow-sm border-l-4 p-3 cursor-grab active:cursor-grabbing select-none transition-shadow',
+        'relative rounded-md border bg-card shadow-sm border-l-4 p-3 cursor-grab active:cursor-grabbing select-none transition-shadow',
         borderColor,
-        isDragging && 'shadow-lg ring-2 ring-slate-300',
+        isDragging && 'shadow-lg ring-2 ring-muted-foreground/30',
       )}
       {...dragListeners}
     >
@@ -80,30 +80,30 @@ export function WorkshopOrderCardContent({
           ref={setActivatorNodeRef}
           type="button"
           aria-label={t('orderCard.move', { orderNumber: order.orderNumber })}
-          className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-slate-400 cursor-grab hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-muted-foreground cursor-grab hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           {...dragAttributes}
         >
           <GripVertical className="h-4 w-4" aria-hidden="true" />
         </button>
       ) : (
-        <div className="absolute top-2 right-2 text-slate-300 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-2 right-2 text-muted-foreground/60 pointer-events-none" aria-hidden="true">
           <GripVertical className="h-4 w-4" />
         </div>
       )}
 
       {/* Order number */}
-      <p className="text-xs font-mono text-slate-500 mb-1">{order.orderNumber}</p>
+      <p className="text-xs font-mono text-muted-foreground mb-1">{order.orderNumber}</p>
 
       {/* Customer */}
-      <p className="text-sm font-semibold text-slate-900 pr-12 leading-snug break-words">
+      <p className="text-sm font-semibold text-foreground pr-12 leading-snug break-words">
         {getCustomerName(order, t('orderCard.dealerStock'))}
       </p>
 
       {/* Vehicle */}
-      <p className="text-xs text-slate-500 break-words mt-0.5">
+      <p className="text-xs text-muted-foreground break-words mt-0.5">
         {order.vehicle.year} {order.vehicle.make} {order.vehicle.model}
         {order.vehicle.plate && (
-          <span className="ml-1 font-medium text-slate-600">· {order.vehicle.plate}</span>
+          <span className="ml-1 font-medium text-muted-foreground">· {order.vehicle.plate}</span>
         )}
       </p>
 

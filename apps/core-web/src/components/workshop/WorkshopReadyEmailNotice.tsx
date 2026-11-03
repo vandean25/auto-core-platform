@@ -76,7 +76,7 @@ export function WorkshopReadyEmailNotice({
           </p>
         ) : null}
         {notice.code === 'SENT' ? (
-          <p className="flex items-center gap-2 text-xs text-emerald-700">
+          <p className="flex items-center gap-2 text-xs text-success">
             <AlertTriangle className="h-3 w-3 opacity-0" aria-hidden="true" />
             {t('readyEmail.sent')}
           </p>

@@ -11,23 +11,25 @@ import { inventoryHrI18nEslintConfig } from './eslint-inventory-hr-i18n.config.j
 import { salesDomainI18nEslintConfig } from './eslint-sales-domain-i18n.config.js'
 import { settingsI18nEslintConfig } from './eslint-settings-i18n.config.js'
 import { workshopI18nEslintConfig } from './eslint-workshop-i18n.config.js'
+import { tokenRatchetFiles, tokenRatchetRestrictedSyntax } from './eslint-tokens-ratchet.config.js'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
+const intlRestrictedSyntax = [
+  {
+    selector: "MemberExpression[object.name='Intl']",
+    message: 'Use @/lib/format instead of Intl (AUT-577).',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(toLocaleString|toLocaleDateString|toLocaleTimeString|toLocaleLowerCase)$/]",
+    message: 'Use @/lib/format instead of locale-specific string methods (AUT-577).',
+  },
+]
+
 const intlRestrictionRules = {
-  'no-restricted-syntax': [
-    'error',
-    {
-      selector: "MemberExpression[object.name='Intl']",
-      message: 'Use @/lib/format instead of Intl (AUT-577).',
-    },
-    {
-      selector:
-        "CallExpression[callee.property.name=/^(toLocaleString|toLocaleDateString|toLocaleTimeString|toLocaleLowerCase)$/]",
-      message: 'Use @/lib/format instead of locale-specific string methods (AUT-577).',
-    },
-  ],
+  'no-restricted-syntax': ['error', ...intlRestrictedSyntax],
 }
 
 export default defineConfig([
@@ -75,6 +77,14 @@ export default defineConfig([
     files: ['src/lib/format/**/*.ts'],
     rules: {
       'no-restricted-syntax': 'off',
+    },
+  },
+  // AUT-659: token ratchet. A later no-restricted-syntax replaces the earlier one, so the Intl selectors are repeated.
+  {
+    files: tokenRatchetFiles,
+    ignores: ['**/*.{test,spec}.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': ['error', ...intlRestrictedSyntax, ...tokenRatchetRestrictedSyntax],
     },
   },
   // AUT-578 / AUT-584: error on hard-coded UI strings everywhere (strict domain overrides below).

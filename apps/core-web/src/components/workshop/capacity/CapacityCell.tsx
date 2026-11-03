@@ -20,16 +20,16 @@ export function CapacityCell({ cell, bayName, timezone }: CapacityCellProps) {
       className={cn(
         'flex h-full min-h-28 flex-col gap-2 rounded-md border p-1.5',
         cell.isOverbooked
-          ? 'border-red-300 bg-red-50'
+          ? 'border-destructive/40 bg-destructive/10'
           : isClosed
-            ? 'border-slate-200 bg-slate-50'
-            : 'border-slate-200 bg-white',
+            ? 'border-border bg-muted/50'
+            : 'border-border bg-card',
       )}
     >
       <p
         className={cn(
           'text-xs font-medium',
-          cell.isOverbooked ? 'text-red-700' : 'text-slate-600',
+          cell.isOverbooked ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
         {describeCellHours(cell)}
@@ -42,10 +42,10 @@ export function CapacityCell({ cell, bayName, timezone }: CapacityCellProps) {
           aria-valuemax={cell.capacityHours}
           aria-valuenow={cell.bookedHours}
           aria-valuetext={`${formatHours(cell.bookedHours)} of ${formatHours(cell.capacityHours)}`}
-          className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"
+          className="h-1.5 w-full overflow-hidden rounded-full bg-border"
         >
           <div
-            className={cn('h-full rounded-full', cell.isOverbooked ? 'bg-red-500' : 'bg-emerald-500')}
+            className={cn('h-full rounded-full', cell.isOverbooked ? 'bg-destructive' : 'bg-success')}
             style={{ width: `${fillPercent}%` }}
           />
         </div>

@@ -35,10 +35,10 @@ export function ResumeWaitingTasksPanel({ orderId, waitingCount, orderStatus }: 
 
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 p-4"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-info/30 bg-info/10 p-4"
       data-testid="resume-waiting-tasks-panel"
     >
-      <p className="text-sm text-sky-900">
+      <p className="text-sm text-info">
         {t('resumeWaitingTasks.description', { count: waitingCount })}
       </p>
       <Button size="sm" onClick={() => void handleResume()} disabled={resume.isPending}>

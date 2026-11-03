@@ -167,7 +167,7 @@ function EstimateHeader({ estimate, latest, canCreate, canRevise, busy, onCreate
     <CardHeader className='flex flex-row items-start justify-between gap-3 space-y-0 pb-3'>
       <div className='min-w-0'>
         <CardTitle className='text-base font-semibold'>{t('estimateCard.title')}</CardTitle>
-        {estimate && <p className='text-xs text-slate-500'>{estimate.estimate_number}</p>}
+        {estimate && <p className='text-xs text-muted-foreground'>{estimate.estimate_number}</p>}
         {latest && (
           <span data-testid='estimate-derived-badge' className='mt-1 inline-block'>
             <StatusBadge status={estimateStatusTone(latest.status)} label={estimateBadgeLabel(latest.status)} />
@@ -202,7 +202,7 @@ interface EstimateLoadStateProps {
 function EstimateLoadState({ isLoading, isError, error, hasEstimate, canEdit }: EstimateLoadStateProps) {
   const { t } = useTranslation('workshop')
   if (isLoading) {
-    return <p className='text-sm text-slate-500'>{t('estimateCard.loading')}</p>
+    return <p className='text-sm text-muted-foreground'>{t('estimateCard.loading')}</p>
   }
   if (isError) {
     return (
@@ -216,7 +216,7 @@ function EstimateLoadState({ isLoading, isError, error, hasEstimate, canEdit }: 
     return null
   }
   return (
-    <p className='text-sm text-slate-500'>
+    <p className='text-sm text-muted-foreground'>
       {canEdit ? t('estimateCard.emptyEditable') : t('estimateCard.emptyReadonly')}
     </p>
   )
@@ -264,7 +264,7 @@ function EstimateOverrunBanner({
     return null
   }
   return (
-    <Alert className='border-amber-300 bg-amber-50 text-amber-900 [&>svg]:text-amber-700' data-testid='estimate-overrun-banner'>
+    <Alert className='border-warning/40 bg-warning/10 text-warning [&>svg]:text-warning' data-testid='estimate-overrun-banner'>
       <AlertTriangle className='h-4 w-4' />
       <AlertTitle as='h3'>{t('estimateCard.overrunBannerTitle')}</AlertTitle>
       <AlertDescription>
@@ -316,7 +316,7 @@ function VersionTotal({ version, liveDraftTotal }: { version: WorkshopEstimateVe
   return (
     <span className='text-sm tabular-nums'>
       {t('estimateCard.gross', { amount: formatEstimateMoney(liveDraftTotal) })}
-      <span className='ml-1 text-xs text-slate-500'>{t('estimateCard.preview')}</span>
+      <span className='ml-1 text-xs text-muted-foreground'>{t('estimateCard.preview')}</span>
     </span>
   )
 }
@@ -408,9 +408,9 @@ function VersionRow({
           <span className='text-sm font-medium'>{t('estimateCard.versionLabel', { version: version.version })}</span>
           <StatusBadge status={estimateStatusTone(version.status)} label={statusLabel(version.status, t)} />
         </div>
-        <p className='text-xs text-slate-500'>{versionSubline(version, t)}</p>
+        <p className='text-xs text-muted-foreground'>{versionSubline(version, t)}</p>
         {version.approval && (
-          <p className='text-xs text-slate-600' data-testid={`estimate-approval-${version.version}`}>
+          <p className='text-xs text-muted-foreground' data-testid={`estimate-approval-${version.version}`}>
             {describeApproval(version.approval)}
             {version.approval.note ? t('estimateCard.approvalNote', { note: version.approval.note }) : ''}
           </p>
@@ -478,27 +478,27 @@ function EstimateVersions({
     <>
       {latestIsDraft && !sendFeatureEnabled && (
         <div className='flex items-center gap-1.5'>
-          <p className='text-sm text-slate-600'>{t('estimateCard.sendDisabledLegal')}</p>
+          <p className='text-sm text-muted-foreground'>{t('estimateCard.sendDisabledLegal')}</p>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 type='button'
                 variant='ghost'
                 size='icon'
-                className='h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700'
+                className='h-11 w-11 sm:h-5 sm:w-5 text-muted-foreground hover:text-foreground'
                 aria-label={t('estimateCard.sendDisabledLegalInfoAria')}
               >
                 <Info className='h-3.5 w-3.5' />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className='w-80 text-xs text-slate-600' aria-label={t('estimateCard.sendDisabledLegalInfoAria')}>
+            <PopoverContent className='w-80 text-xs text-muted-foreground' aria-label={t('estimateCard.sendDisabledLegalInfoAria')}>
               {t('estimateCard.sendDisabledLegalReason')}
             </PopoverContent>
           </Popover>
         </div>
       )}
       {latestIsDraft && sendFeatureEnabled && customerSendBlockerCount > 0 && (
-        <p className='text-sm text-amber-800' data-testid='estimate-customer-send-blockers'>
+        <p className='text-sm text-warning' data-testid='estimate-customer-send-blockers'>
           {t('estimateCard.sendBlocked', { count: customerSendBlockerCount })}
         </p>
       )}

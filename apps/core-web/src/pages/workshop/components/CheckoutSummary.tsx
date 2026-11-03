@@ -195,7 +195,7 @@ export function CheckoutSummary({
                       <TableCell>
                         <div className='flex justify-end'>
                           <div className='flex items-center gap-2'>
-                            <span className='text-[11px] text-muted-foreground whitespace-nowrap'>
+                            <span className='text-xs text-muted-foreground whitespace-nowrap'>
                               {t('checkoutSummary.taskDiscount')}
                             </span>
                             <Input

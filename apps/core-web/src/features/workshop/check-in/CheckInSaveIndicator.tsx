@@ -36,13 +36,13 @@ export function CheckInSaveIndicator({ status, offlineStatus }: Props) {
       )}
       {effectiveStatus === 'saved' && (
         <>
-          <CloudCheck className="h-4 w-4 text-green-600" aria-hidden />
+          <CloudCheck className="h-4 w-4 text-success" aria-hidden />
           <span>{t('checkIn.save.saved')}</span>
         </>
       )}
       {effectiveStatus === 'savedLocally' && (
         <>
-          <CloudCheck className="h-4 w-4 text-amber-600" aria-hidden />
+          <CloudCheck className="h-4 w-4 text-warning" aria-hidden />
           <span>{t('checkIn.save.savedLocally')}</span>
         </>
       )}

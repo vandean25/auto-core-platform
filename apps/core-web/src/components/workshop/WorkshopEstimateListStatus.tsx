@@ -28,7 +28,7 @@ export function EstimateListLoadMore({
   const { t } = useTranslation('workshop')
   return (
     <div className="flex flex-col items-center gap-2">
-      {isPartialView ? <p className="text-center text-sm text-slate-500">{t('estimateList.partialHint')}</p> : null}
+      {isPartialView ? <p className="text-center text-sm text-muted-foreground">{t('estimateList.partialHint')}</p> : null}
       <Button variant="outline" disabled={isLoading} onClick={onLoadMore}>
         {isLoading ? t('estimateList.loadingMore') : t('estimateList.loadMore')}
       </Button>
