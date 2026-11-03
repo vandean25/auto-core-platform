@@ -7,9 +7,7 @@ import {
   isRowLevelApplyError,
   toRowApplyError,
 } from './import-apply.errors.js';
-import {
-  commitApplyWorkerRowInTransaction,
-} from './import-job.store.worker-lease.js';
+import { commitApplyWorkerRowInTransaction } from './import-job.store.worker-lease.js';
 import { markImportRowFailed } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import { applySeqForRow } from './import-apply-sequence.js';
@@ -150,11 +148,7 @@ async function applyRowAloneWithSyncRetry(
   totals: ImportJobTotals,
   batchOptions?: ImportApplyBatchOptions,
 ): Promise<void> {
-  for (
-    let attempt = 0;
-    attempt < IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS;
-    attempt++
-  ) {
+  for (let attempt = 0; attempt < IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS; attempt++) {
     try {
       await applyRowAloneOnce(
         ctx,
@@ -276,14 +270,7 @@ async function applyChunk(
       `Supplier price list chunk failed at offset ${offset}, falling back to row-by-row: ${describeError(chunkError)}`,
     );
     for (const row of chunk) {
-      await applyRowAlone(
-        ctx,
-        input,
-        supplierCtx,
-        row,
-        totals,
-        batchOptions,
-      );
+      await applyRowAlone(ctx, input, supplierCtx, row, totals, batchOptions);
     }
   }
 }

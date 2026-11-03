@@ -1,10 +1,6 @@
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
-import {
-  ImportEntityType,
-  ImportJobStatus,
-  Prisma,
-} from '@prisma/client';
+import { ImportEntityType, ImportJobStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
@@ -17,7 +13,10 @@ import { applySeqForRow } from './import-apply-sequence.js';
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import { commitApplyWorkerRowInTransaction } from './import-job.store.worker-lease.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
-import { IMPORT_LOGGER_CONTEXT, IMPORT_SERIALIZABLE_TX } from './import.constants.js';
+import {
+  IMPORT_LOGGER_CONTEXT,
+  IMPORT_SERIALIZABLE_TX,
+} from './import.constants.js';
 import {
   isImportSyncLegacyApplyPath,
   withImportSyncApplyIoRetry,
@@ -184,11 +183,7 @@ export class RowByRowApplyRunner {
       const appliedTotals =
         (refreshed?.totals_json as ImportJobTotals) ?? totals;
       if (refreshed?.status === ImportJobStatus.APPLIED) {
-        return this.serializeSequenceAppliedJob(
-          input,
-          totals,
-          refreshed,
-        );
+        return this.serializeSequenceAppliedJob(input, totals, refreshed);
       }
       // Row commits already persist totals_json; do not overwrite with batch-local totals.
       return this.serialize(refreshed!, appliedTotals);

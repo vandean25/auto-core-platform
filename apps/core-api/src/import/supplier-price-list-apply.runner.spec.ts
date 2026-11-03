@@ -71,7 +71,7 @@ function supplierInput(
           update: 0,
           skip: 0,
           error: 0,
-        } as ImportJobTotals),
+        }),
       ...overrides.job,
     },
     rows,

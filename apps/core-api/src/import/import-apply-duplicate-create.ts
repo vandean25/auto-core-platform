@@ -1,6 +1,9 @@
 import { ImportEntityType, ImportRowAction, Prisma } from '@prisma/client';
 import { resolveImportExternalId } from './import-apply.errors.js';
-import type { ImportApplyInput, ImportApplyRow } from './import-type-handler.js';
+import type {
+  ImportApplyInput,
+  ImportApplyRow,
+} from './import-type-handler.js';
 
 import type { PrismaService } from '../prisma/prisma.service.js';
 

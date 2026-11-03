@@ -1,9 +1,5 @@
 import { Logger } from '@nestjs/common';
-import {
-  ImportEntityType,
-  ImportRowAction,
-  Prisma,
-} from '@prisma/client';
+import { ImportEntityType, ImportRowAction, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
@@ -17,18 +13,19 @@ import {
   isDuplicateCreateAfterAnotherRowCommitted,
 } from './import-apply-duplicate-create.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
-import { applySeqForRow } from './import-apply-sequence.js';
 import {
   assertApplyWorkerLease,
   commitBackgroundApplyRowInTransaction,
 } from './import-background-apply.commit.js';
-import { IMPORT_LOGGER_CONTEXT, IMPORT_ROW_TX_MAX_ATTEMPTS, IMPORT_SERIALIZABLE_TX } from './import.constants.js';
+import {
+  IMPORT_ROW_TX_MAX_ATTEMPTS,
+  IMPORT_SERIALIZABLE_TX,
+} from './import.constants.js';
 import {
   delayMs,
   retryableTransactionDelayMs,
 } from './import-transaction-retry.util.js';
 import { importTotalsAfterApplyRowTally } from './import-totals.util.js';
-import type { ImportApplyRowTally } from './import-totals.util.js';
 import type {
   ImportApplyBatchOptions,
   ImportApplyInput,
@@ -171,7 +168,11 @@ async function markImportSequenceRowFailed(
   ctx.logger.warn(
     `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeImportApplyCause(error)}`,
   );
-  const nextTotals = importTotalsAfterApplyRowTally(totals, row.action, 'error');
+  const nextTotals = importTotalsAfterApplyRowTally(
+    totals,
+    row.action,
+    'error',
+  );
   await ctx.prisma.$transaction(async (tx) => {
     await tx.importJobRow.update({
       where: {

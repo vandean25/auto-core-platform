@@ -1,9 +1,5 @@
 import { Logger } from '@nestjs/common';
-import {
-  ImportEntityType,
-  ImportRowAction,
-  Prisma,
-} from '@prisma/client';
+import { ImportEntityType, ImportRowAction, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
@@ -16,9 +12,7 @@ import {
 import { resolveDuplicateCommittedCreateLegacy } from './import-apply-duplicate-create.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { applySeqForRow } from './import-apply-sequence.js';
-import {
-  commitApplyWorkerRowInTransaction,
-} from './import-job.store.worker-lease.js';
+import { commitApplyWorkerRowInTransaction } from './import-job.store.worker-lease.js';
 import { markImportRowFailed } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
@@ -118,7 +112,8 @@ async function applyLegacyPreflightRow(
   }
   const committedCreate = await withImportSyncApplyIoRetry(
     isImportSyncLegacyApplyPath(options),
-    () => resolveDuplicateCommittedCreateLegacy(ctx.prisma, input, entityType, row),
+    () =>
+      resolveDuplicateCommittedCreateLegacy(ctx.prisma, input, entityType, row),
   );
   if (committedCreate === 'noop') {
     tallyWrittenRow(totals, row.action);

@@ -49,7 +49,10 @@ export type ImportUploadFlowDeps = {
   fileStorage: ImportFileStorageService;
   handlers: Record<ImplementedImportEntityType, ImportTypeHandler>;
   audit: ImportAuditWriter;
-  serialize: (job: ImportJobView, totals: ImportJobTotals) => SerializedImportJob;
+  serialize: (
+    job: ImportJobView,
+    totals: ImportJobTotals,
+  ) => SerializedImportJob;
   orchestration: ImportWorkerOrchestration;
 };
 

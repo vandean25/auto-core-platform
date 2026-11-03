@@ -144,7 +144,7 @@ export class ImportWorkerOrchestration {
     jobId: string;
     phase: ImportWorkerPhase;
   }): Promise<void> {
-    const { jobStore, logger, prisma } = this.deps;
+    const { jobStore, logger } = this.deps;
     const claimed = await jobStore.claimWorkerLease(
       params.tenantId,
       params.jobId,
@@ -208,8 +208,7 @@ export class ImportWorkerOrchestration {
   }
 
   async recoverStaleImportJobs(): Promise<boolean> {
-    const { systemPrisma, requestContext, prisma, logger, jobStore } =
-      this.deps;
+    const { systemPrisma, requestContext, prisma, logger } = this.deps;
     return systemPrisma.withCronJobLock(
       'import-job-worker-recovery',
       async () => {
@@ -274,7 +273,7 @@ export class ImportWorkerOrchestration {
     tenantId: string,
     jobId: string,
   ): Promise<void> {
-    const { jobStore, prisma, fileStorage, handlers, logger } = this.deps;
+    const { jobStore, prisma, fileStorage, handlers } = this.deps;
     const job = await jobStore.findJob(tenantId, jobId);
     if (!job) {
       return;
@@ -285,8 +284,7 @@ export class ImportWorkerOrchestration {
     if (!worker || !upload) {
       return;
     }
-    const handler =
-      handlers[job.entity_type as ImplementedImportEntityType];
+    const handler = handlers[job.entity_type as ImplementedImportEntityType];
     const mapping = job.mapping_json as Record<string, string>;
     const totals = job.totals_json as ImportJobTotals;
     if (worker.dry_run_reconcile_active) {

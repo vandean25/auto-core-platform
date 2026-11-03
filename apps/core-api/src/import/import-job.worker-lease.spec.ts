@@ -91,7 +91,12 @@ describe('ImportJobStore worker lease', () => {
       expect(await store.claimWorkerLease('tenant-1', 'job-1', 'apply')).toBeNull();
       expect(updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: ImportJobStatus.FAILED }),
+          data: expect.objectContaining({
+            status: ImportJobStatus.FAILED,
+            options_json: expect.objectContaining({
+              apply_failure_reason: 'poison_cap',
+            }),
+          }),
         }),
       );
     });

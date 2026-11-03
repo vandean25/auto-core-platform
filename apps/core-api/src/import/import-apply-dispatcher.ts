@@ -22,20 +22,18 @@ import {
   planTechnicalRetry,
   technicalRetryRowNos,
 } from './import-technical-retry.js';
-import type { ImportJobView, SerializedImportJob } from './import-job.serializer.js';
+import type {
+  ImportJobView,
+  SerializedImportJob,
+} from './import-job.serializer.js';
 import type { ImportJobStore } from './import-job.store.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
-import {
-  mergeApplyOptions,
-} from './import-options.util.js';
+import { mergeApplyOptions } from './import-options.util.js';
 import { assertImplementedImportEntityType } from './import-entity-type.guard.js';
 import { IMPORT_ENTITY_TYPE_REGISTRY } from './import-entity-type.registry.js';
 import type { ImplementedImportEntityType } from './import-entity-type.registry.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
-import {
-  readUploadRef,
-  readWorkerState,
-} from './import-job.worker-state.js';
+import { readUploadRef, readWorkerState } from './import-job.worker-state.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportWorkerOrchestration } from './import-worker-orchestration.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
@@ -52,7 +50,10 @@ export type ImportApplyDispatcherDeps = {
   jobStore: ImportJobStore;
   handlers: Record<ImplementedImportEntityType, ImportTypeHandler>;
   audit: ImportAuditWriter;
-  serialize: (job: ImportJobView, totals: ImportJobTotals) => SerializedImportJob;
+  serialize: (
+    job: ImportJobView,
+    totals: ImportJobTotals,
+  ) => SerializedImportJob;
   orchestration: ImportWorkerOrchestration;
 };
 
@@ -101,10 +102,7 @@ export class ImportApplyDispatcher {
         httpStatus: prepared.httpStatus,
         job: await this.annotateTechnicalErrors(
           tenantId,
-          serialize(
-            prepared.job,
-            prepared.job.totals_json as ImportJobTotals,
-          ),
+          serialize(prepared.job, prepared.job.totals_json as ImportJobTotals),
         ),
       };
     }
@@ -140,10 +138,8 @@ export class ImportApplyDispatcher {
     if (job.status !== ImportJobStatus.APPLIED) {
       return job;
     }
-    const technical_error_rows = await this.deps.jobStore.countTechnicalErrorRows(
-      tenantId,
-      job.id,
-    );
+    const technical_error_rows =
+      await this.deps.jobStore.countTechnicalErrorRows(tenantId, job.id);
     return {
       ...job,
       options: { ...job.options, technical_error_rows },
@@ -298,11 +294,7 @@ export class ImportApplyDispatcher {
     if (!isStaleApplyingImportJob(job, Date.now())) {
       return 'busy';
     }
-    const taken = await jobStore.claimWorkerLease(
-      tenantId,
-      job.id,
-      'apply',
-    );
+    const taken = await jobStore.claimWorkerLease(tenantId, job.id, 'apply');
     return taken ? 'taken' : 'busy';
   }
 
