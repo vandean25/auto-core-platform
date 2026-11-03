@@ -4,7 +4,11 @@ import { isDemoMutationAllowed } from '../landing-demo-access/demo-role-restrict
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { PermissionId } from './permission-catalogue.js';
 import { MCP_TOOL_TABLE, OPERATION_TABLE } from './operation-table.js';
-import type { LegacyRole, ProtectedOperation } from './operation-types.js';
+import type {
+  ClassifiedOperation,
+  LegacyRole,
+  ProtectedOperation,
+} from './operation-types.js';
 
 /** A tenant member's effective access. `role` is null for a member who holds no domain role. */
 export type EffectiveAccess = {
@@ -68,6 +72,25 @@ export function isOperationAllowed(
   return operation.selectedByInput
     ? operation.permissions.some(holds)
     : operation.permissions.every(holds);
+}
+
+/** A session route is open to every member the global TECH/DEMO restrictions let through, even without a domain role. */
+export function isMemberAllowed(
+  operation: ProtectedOperation | ClassifiedOperation,
+  access: EffectiveAccess,
+  request: OperationRequest,
+): boolean {
+  if (operation.kind === 'protected') {
+    return (
+      operation.principals.includes('USER') &&
+      isOperationAllowed(operation, access, request)
+    );
+  }
+  return (
+    access.role === null ||
+    !operation.legacy ||
+    operation.legacy.includes(access.role)
+  );
 }
 
 export type MemberPrincipal = { userId: string; tenantId: string };

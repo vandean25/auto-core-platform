@@ -10,10 +10,7 @@ import {
   type AuthenticatedUser,
 } from '../auth/types/authenticated-user.js';
 import { OPERATION_TABLE } from './operation-table.js';
-import {
-  PermissionResolver,
-  isOperationAllowed,
-} from './permission-resolver.js';
+import { PermissionResolver, isMemberAllowed } from './permission-resolver.js';
 
 /**
  * Authorizes a tenant member from the 1a operation table. Not registered anywhere yet (AUT-865/866 switch consumers).
@@ -50,17 +47,10 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException('Active tenant membership is required.');
     }
 
-    // A session route is open to every member the global TECH/DEMO restrictions let through, even without a domain role.
-    const allowed =
-      operation.kind === 'protected'
-        ? operation.principals.includes('USER') &&
-          isOperationAllowed(operation, access, {
-            method: request.method,
-            path: request.path ?? request.url?.split('?')[0] ?? '',
-          })
-        : access.role === null ||
-          !operation.legacy ||
-          operation.legacy.includes(access.role);
+    const allowed = isMemberAllowed(operation, access, {
+      method: request.method,
+      path: request.path ?? request.url?.split('?')[0] ?? '',
+    });
     if (!allowed) {
       throw new ForbiddenException('Missing permission for this operation.');
     }
