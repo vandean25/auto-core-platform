@@ -45,6 +45,10 @@ const baseTransfer: StockTransfer = {
       returnedQty: '0.000',
       sourceLocationId: null,
       destLocationId: null,
+      fromBinCode: null,
+      fromBinName: null,
+      toBinCode: null,
+      toBinName: null,
     },
   ],
 }

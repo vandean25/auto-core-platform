@@ -65,6 +65,10 @@ const baseLine: TransferLine = {
   returnedQty: '0.000',
   sourceLocationId: null,
   destLocationId: null,
+  fromBinCode: null,
+  fromBinName: null,
+  toBinCode: null,
+  toBinName: null,
 }
 
 const baseTransfer: StockTransfer = {
@@ -338,6 +342,29 @@ describe('StockTransferDetail', () => {
       expect(cells[7]).toHaveTextContent('bin-unknown')
     })
 
+    it('AUT-909: shows the API bin codes for source and destination instead of raw ids', () => {
+      setup({
+        lines: [
+          {
+            ...baseLine,
+            sourceLocationId: '5814c62c-0000-4000-8000-000000000001',
+            fromBinCode: 'QA-BIN-MAIN-01',
+            fromBinName: 'Main Bin',
+            destLocationId: '5814c62c-0000-4000-8000-000000000002',
+            toBinCode: 'QA-BIN-GRZ-01',
+            toBinName: 'Graz Bin',
+          },
+        ],
+      })
+      renderPage()
+
+      const cells = within(lineRow()).getAllByRole('cell')
+      expect(cells[6]).toHaveTextContent('QA-BIN-MAIN-01 — Main Bin')
+      expect(cells[6]).not.toHaveTextContent('5814c62c')
+      expect(cells[7]).toHaveTextContent('QA-BIN-GRZ-01 — Graz Bin')
+      expect(cells[7]).not.toHaveTextContent('5814c62c')
+    })
+
     it('shows the raw source bin id while locations are not loaded', () => {
       setup({ lines: [{ ...baseLine, sourceLocationId: 'bin-1' }] })
       apiMocks.useLocations.mockReturnValue({ data: undefined })
@@ -387,7 +414,9 @@ describe('StockTransferDetail', () => {
       setup({ role: 'SALES' })
       renderPage()
 
-      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.approve })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.reject })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument()
     })
 
     it('offers ship but not approve on an approved transfer at the active source site', () => {
@@ -420,7 +449,10 @@ describe('StockTransferDetail', () => {
       setup({ transfer: { status: 'COMPLETED' } })
       renderPage()
 
-      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.ship })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.receiveStock })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: actions.returnUnreceived })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument()
     })
 
     it('uses the firebase uid as current user when the session has no user id', () => {

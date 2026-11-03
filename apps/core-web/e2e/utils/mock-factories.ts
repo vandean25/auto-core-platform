@@ -666,6 +666,10 @@ type MockStockTransfer = {
     returnedQty: string;
     sourceLocationId: string | null;
     destLocationId: string | null;
+    fromBinCode?: string | null;
+    fromBinName?: string | null;
+    toBinCode?: string | null;
+    toBinName?: string | null;
   }>;
 };
 

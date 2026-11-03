@@ -422,3 +422,162 @@ test.describe('Stock Transfers — MAIN <-> GRZ (AUT-466)', () => {
     ])
   })
 })
+
+const BIN_DETAIL_ID = 'transfer-bins-1'
+const SOURCE_BIN_UUID = '5814c62c-1111-4000-8000-000000000001'
+const DEST_BIN_UUID = '5814c62c-2222-4000-8000-000000000002'
+const SOURCE_BIN = { code: 'QA-BIN-MAIN-01', name: 'Main Bin' }
+const DEST_BIN = { code: 'QA-BIN-GRZ-01', name: 'Graz Bin' }
+
+/**
+ * AUT-909: the detail response carries the bin codes, and `/api/inventory/locations`
+ * is deliberately empty — the other site's bins are not in the caller's own list, so
+ * only the server-resolved codes can keep the table free of raw UUIDs.
+ */
+function completedTransferWithBins() {
+  return createMockStockTransfer({
+    id: BIN_DETAIL_ID,
+    transferNumber: 'TR-2026-0001',
+    fromSiteId: MAIN_SITE_ID,
+    fromSiteName: 'Vienna Workshop',
+    toSiteId: GRZ_SITE_ID,
+    toSiteName: 'Graz Workshop',
+    status: 'COMPLETED',
+    version: 4,
+    requestedByUserId: 'e2e-test-user',
+    lines: [
+      {
+        id: 'line-1',
+        catalogItemId: CATALOG_ITEM_ID,
+        requestedQty: '2.000',
+        approvedQty: '2.000',
+        shippedQty: '2.000',
+        receivedQty: '2.000',
+        returnedQty: '0.000',
+        sourceLocationId: SOURCE_BIN_UUID,
+        destLocationId: DEST_BIN_UUID,
+        fromBinCode: SOURCE_BIN.code,
+        fromBinName: SOURCE_BIN.name,
+        toBinCode: DEST_BIN.code,
+        toBinName: DEST_BIN.name,
+      },
+      {
+        id: 'line-2',
+        catalogItemId: 'catalog-2',
+        requestedQty: '1.000',
+        approvedQty: '1.000',
+        shippedQty: '1.000',
+        receivedQty: '1.000',
+        returnedQty: '0.000',
+        sourceLocationId: SOURCE_BIN_UUID,
+        destLocationId: DEST_BIN_UUID,
+        fromBinCode: SOURCE_BIN.code,
+        fromBinName: SOURCE_BIN.name,
+        toBinCode: DEST_BIN.code,
+        toBinName: DEST_BIN.name,
+      },
+    ],
+  })
+}
+
+async function routeBinDetail(page: Page) {
+  await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MAIN_GRZ_SITES),
+    })
+  })
+
+  await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(
+        createMockListResponse([
+          createMockInventoryItem({ id: CATALOG_ITEM_ID, sku: 'FILTER-01', name: 'Oil Filter' }),
+          createMockInventoryItem({ id: 'catalog-2', sku: 'BRAKE-02', name: 'Brake Pad' }),
+        ]),
+      ),
+    })
+  })
+
+  await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/stock-transfers/${BIN_DETAIL_ID}`), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(completedTransferWithBins()),
+    })
+  })
+
+  const corePage = new AutoCorePage(page, '')
+  await corePage.navigate(`/stock-transfers/${BIN_DETAIL_ID}`)
+  await expect(
+    page.getByRole('heading', { name: 'TR-2026-0001', exact: false }).first(),
+  ).toBeVisible()
+}
+
+test.describe('Stock Transfer detail on a phone (AUT-909)', () => {
+  test.use({ viewport: { width: 390, height: 900 } })
+
+  async function expectListModeWithoutPageScroll(page: Page) {
+    await expect(page.locator('[data-table-list="true"]')).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(0)
+  }
+
+  test('positions use list mode, show bin codes and the page never scrolls sideways', async ({
+    page,
+  }) => {
+    await routeBinDetail(page)
+
+    await expectListModeWithoutPageScroll(page)
+    await expect(page.getByText(SOURCE_BIN.code).first()).toBeVisible()
+    await expect(page.getByText(DEST_BIN.code).first()).toBeVisible()
+    await expect(page.locator('body')).not.toContainText(SOURCE_BIN_UUID)
+    await expect(page.locator('body')).not.toContainText(DEST_BIN_UUID)
+
+    // The narrowest phone width the layout must still fit.
+    await page.setViewportSize({ width: 375, height: 812 })
+    await expectListModeWithoutPageScroll(page)
+  })
+})
+
+test.describe('Stock Transfer detail at desktop width (AUT-909)', () => {
+  test.use({ viewport: { width: 1400, height: 900 } })
+
+  test('the positions table shows every column without cutting any off', async ({ page }) => {
+    await routeBinDetail(page)
+
+    await expect(page.locator('[data-table-list="true"]')).toHaveCount(0)
+    const columns = DE_INVENTORY.stockTransfers.detail.columns
+    const headers = page.getByRole('columnheader')
+    await expect(headers).toHaveCount(8)
+
+    const boxes = await headers.evaluateAll((cells) =>
+      cells.map((cell) => {
+        const box = cell.getBoundingClientRect()
+        return { text: cell.textContent ?? '', left: box.left, right: box.right }
+      }),
+    )
+    for (const box of boxes) {
+      expect(box.left, box.text).toBeGreaterThanOrEqual(0)
+      expect(box.right, box.text).toBeLessThanOrEqual(1400)
+    }
+    const labels = boxes.map((box) => box.text)
+    for (const label of Object.values(columns)) {
+      expect(labels.some((text) => text.includes(label))).toBe(true)
+    }
+
+    await expect(page.locator('body')).not.toContainText(SOURCE_BIN_UUID)
+    await expect(page.getByText(`${SOURCE_BIN.code} — ${SOURCE_BIN.name}`).first()).toBeVisible()
+    await expect(page.getByText(`${DEST_BIN.code} — ${DEST_BIN.name}`).first()).toBeVisible()
+  })
+})
