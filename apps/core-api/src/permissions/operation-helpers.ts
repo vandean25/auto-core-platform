@@ -63,8 +63,22 @@ export function classified(
   kind: ClassifiedOperation['kind'],
   policy: string,
   legacy?: readonly LegacyRole[],
+  withoutRole = false,
 ): ClassifiedOperation {
-  return legacy ? { kind, policy, legacy } : { kind, policy };
+  return {
+    kind,
+    policy,
+    ...(legacy ? { legacy } : {}),
+    ...(withoutRole ? { withoutRole: true as const } : {}),
+  };
+}
+
+/** A session route a member without a domain role may still call: own session or context selection. */
+export function ownSession(
+  policy: string,
+  legacy: readonly LegacyRole[],
+): ClassifiedOperation {
+  return classified('session', policy, legacy, true);
 }
 
 export function apiKey(
@@ -72,5 +86,11 @@ export function apiKey(
   permission: PermissionId,
   policy: string,
 ): ApiKeyOperation {
-  return { kind: 'api_key', policy, apiKeyScope, permissions: [permission] };
+  return {
+    kind: 'api_key',
+    policy,
+    apiKeyScope,
+    permissions: [permission],
+    legacy: BACK_OFFICE_DEMO,
+  };
 }

@@ -4,14 +4,17 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { LogLevelService } from '../src/common/logging/log-level.service.js';
 import {
+  createMemberBearer,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   cleanupTestTenantGraph,
   resolveTestMainSiteId,
+  type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { AuditLogAction } from '@prisma/client';
@@ -24,10 +27,38 @@ describe('Audit Tracing and Governance (e2e)', () => {
 
   let tenantA: string;
   let tenantB: string;
+  let tenantARef: TestTenantResult;
   let authHeaderA: string;
   let authHeaderB: string;
   let prismaA: PrismaService;
   let prismaB: PrismaService;
+  let systemPrisma: SystemPrismaService;
+  let demoAccessRequestId: string | undefined;
+
+  /** A DEMO session needs a landing demo sign-in grant to authenticate at all. */
+  async function grantDemoSignIn(): Promise<void> {
+    const demoUser = await systemPrisma.user.findFirstOrThrow({
+      where: { memberships: { some: { tenant_id: tenantA, role: 'DEMO' } } },
+      select: { id: true, email: true },
+    });
+    const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
+      data: {
+        email: demoUser.email,
+        name: 'Audit Demo Viewer',
+        betrieb: 'E2E',
+        consent_recorded_at: new Date(),
+      },
+      select: { id: true },
+    });
+    demoAccessRequestId = accessRequest.id;
+    await systemPrisma.landingDemoSignInGrant.create({
+      data: {
+        access_request_id: accessRequest.id,
+        user_id: demoUser.id,
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+  }
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -39,6 +70,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+    systemPrisma = app.get(SystemPrismaService);
     authService = app.get<AuthService>(AuthService);
     logLevelService = app.get<LogLevelService>(LogLevelService);
 
@@ -47,6 +79,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
 
     tenantA = tenantResA.tenantId;
     tenantB = tenantResB.tenantId;
+    tenantARef = tenantResA;
 
     prismaA = createTenantAwarePrisma(prisma, tenantA);
     prismaB = createTenantAwarePrisma(prisma, tenantB);
@@ -56,6 +89,14 @@ describe('Audit Tracing and Governance (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (demoAccessRequestId) {
+      await systemPrisma.landingDemoSignInGrant.deleteMany({
+        where: { access_request_id: demoAccessRequestId },
+      });
+      await systemPrisma.landingDemoAccessRequest.deleteMany({
+        where: { id: demoAccessRequestId },
+      });
+    }
     await cleanupTestTenantGraph(prisma, tenantA);
     await cleanupTestTenantGraph(prisma, tenantB);
     await teardownTestApp(app, prisma);
@@ -315,5 +356,84 @@ describe('Audit Tracing and Governance (e2e)', () => {
     // Revert log level
     logLevelService.resetLogLevel();
   });
+
+  // AUT-910: GET /api/audit-logs is restricted to OWNER/ADMIN, aligned with the MCP audit tools.
+  // Test 9 and the DEMO row of test 10 fail against code without the restriction.
+  it('7. ADMIN reads GET /api/audit-logs with 200 and the tenant entries', async () => {
+    const customer = await prismaA.customer.create({
+      data: {
+        tenant_id: tenantA,
+        first_name: 'AdminReader',
+        last_name: 'RoleMatrix',
+        email: `admin-reader-${Date.now()}@example.com`,
+      },
+    });
+    await request(app.getHttpServer())
+      .patch(`/customers/${customer.id}`)
+      .set('Authorization', authHeaderA)
+      .send({ first_name: 'AdminReaderUpdated' })
+      .expect(200);
+
+    const res = await request(app.getHttpServer())
+      .get('/audit-logs')
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    const entityIds = res.body.data.map(
+      (entry: { entityId: string }) => entry.entityId,
+    );
+    expect(entityIds).toContain(customer.id);
+  });
+
+  it('8. OWNER reads GET /api/audit-logs with 200', async () => {
+    const ownerBearer = await createMemberBearer(
+      prisma,
+      authService,
+      tenantARef,
+      'OWNER',
+    );
+
+    await request(app.getHttpServer())
+      .get('/audit-logs')
+      .set('Authorization', ownerBearer)
+      .expect(200);
+  });
+
+  it('9. SALES member is refused GET /api/audit-logs with 403', async () => {
+    const salesBearer = await createMemberBearer(
+      prisma,
+      authService,
+      tenantARef,
+      'SALES',
+    );
+
+    await request(app.getHttpServer())
+      .get('/audit-logs')
+      .set('Authorization', salesBearer)
+      .expect(403);
+  });
+
+  it.each(['DEMO', 'TECH'] as const)(
+    '10. %s member is refused GET /api/audit-logs with 403',
+    async (role) => {
+      const bearer = await createMemberBearer(
+        prisma,
+        authService,
+        tenantARef,
+        role,
+      );
+
+      // Without a sign-in grant a DEMO session is rejected at authentication (401)
+      // and never reaches the role check under test.
+      if (role === 'DEMO') {
+        await grantDemoSignIn();
+      }
+
+      await request(app.getHttpServer())
+        .get('/audit-logs')
+        .set('Authorization', bearer)
+        .expect(403);
+    },
+  );
 });
 

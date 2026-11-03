@@ -51,13 +51,13 @@ function TransferRouteCard({ transfer }: { transfer: StockTransfer }) {
   const { t } = useTranslation(['inventory'])
 
   return (
-    <Card className="lg:col-span-1">
+    <Card>
       <CardHeader>
         <CardTitle className="text-base font-semibold">
           {t('inventory:stockTransfers.detail.routeTitle')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="space-y-3 text-sm sm:grid sm:grid-cols-2 sm:gap-6 sm:space-y-0">
         <div>
           <p className="text-slate-500">{t('inventory:stockTransfers.detail.from')}</p>
           <p className="font-medium">{transfer.fromSiteName ?? transfer.fromSiteId}</p>
@@ -120,7 +120,7 @@ export default function StockTransferDetail() {
         fulfilmentActions={fulfilmentActions}
       />
       <SiteSwitchHints transfer={transfer} access={access} />
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="space-y-6">
         <TransferRouteCard transfer={transfer} />
         <StockTransferLinesCard
           transfer={transfer}

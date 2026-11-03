@@ -4,6 +4,7 @@ import {
   EVERY_ROLE,
   apiKey,
   classified,
+  ownSession,
 } from './operation-helpers.js';
 import type { OperationTable } from './operation-types.js';
 
@@ -22,33 +23,27 @@ export const CLASSIFIED_OPERATIONS: OperationTable = {
     'public',
     'Unauthenticated liveness probe.',
   ),
-  'AuthController.getMe': classified(
-    'session',
+  'AuthController.getMe': ownSession(
     'Own session. Resolves the memberships and active tenant. Mechanic-accessible.',
     EVERY_ROLE,
   ),
-  'AuthController.switchTenant': classified(
-    'session',
+  'AuthController.switchTenant': ownSession(
     'Authorized context selection among the own memberships.',
     BACK_OFFICE_DEMO,
   ),
-  'AuthLocalePreferencesController.getPreferences': classified(
-    'session',
+  'AuthLocalePreferencesController.getPreferences': ownSession(
     'Own locale preferences. Interactive user only, also for platform admins.',
     EVERY_ROLE,
   ),
-  'AuthLocalePreferencesController.patchPreferences': classified(
-    'session',
+  'AuthLocalePreferencesController.patchPreferences': ownSession(
     'Own locale preferences. Interactive user only, also for platform admins.',
     EVERY_ROLE,
   ),
-  'MeSiteController.listMySites': classified(
-    'session',
+  'MeSiteController.listMySites': ownSession(
     'Own site memberships. Mechanic-accessible.',
     EVERY_ROLE,
   ),
-  'MeSiteController.setActiveSite': classified(
-    'session',
+  'MeSiteController.setActiveSite': ownSession(
     'Authorized context selection among the own site memberships.',
     EVERY_ROLE,
   ),
@@ -57,13 +52,11 @@ export const CLASSIFIED_OPERATIONS: OperationTable = {
     'Own push devices of the signed-in user.',
     BACK_OFFICE_DEMO,
   ),
-  'PushController.registerDevice': classified(
-    'session',
+  'PushController.registerDevice': ownSession(
     'Own push devices of the signed-in user.',
     BACK_OFFICE,
   ),
-  'PushController.revokeDevice': classified(
-    'session',
+  'PushController.revokeDevice': ownSession(
     'Own push devices of the signed-in user.',
     BACK_OFFICE,
   ),

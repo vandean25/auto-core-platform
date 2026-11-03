@@ -37006,6 +37006,24 @@
           "destLocationId": {
             "type": "string",
             "nullable": true
+          },
+          "fromBinCode": {
+            "type": "string",
+            "nullable": true,
+            "example": "QA-BIN-MAIN-01"
+          },
+          "fromBinName": {
+            "type": "string",
+            "nullable": true
+          },
+          "toBinCode": {
+            "type": "string",
+            "nullable": true,
+            "example": "QA-BIN-GRZ-01"
+          },
+          "toBinName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -37017,7 +37035,11 @@
           "receivedQty",
           "returnedQty",
           "sourceLocationId",
-          "destLocationId"
+          "destLocationId",
+          "fromBinCode",
+          "fromBinName",
+          "toBinCode",
+          "toBinName"
         ]
       },
       "StockTransferResponseDto": {
