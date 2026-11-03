@@ -39,17 +39,23 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   list_bins: mcpTool('stock.location.read', BACK_OFFICE, 'site'),
   list_workshop_tasks: mcpTool('workshop.order.read', BACK_OFFICE, 'site'),
   list_workshop_slots: mcpTool('workshop.planner.read', BACK_OFFICE, 'site'),
-  list_available_loaners: mcpTool('loaner.vehicle.read', BACK_OFFICE, 'site'),
+  list_available_loaners: mcpTool(
+    'loaner.vehicle.availability.read',
+    BACK_OFFICE,
+    'site',
+  ),
   whoami: classified(
     'session',
     'Own identity and active context of the delegating member. No tenant data.',
+    BACK_OFFICE,
   ),
   get_capabilities: classified(
     'session',
     'Tool catalogue filtered by the delegating member role and the agent policy.',
+    BACK_OFFICE,
   ),
-  list_audit_events: mcpTool('audit.read', ADMINS, 'tenant'),
-  get_entity_history: mcpTool('audit.read', ADMINS, 'tenant'),
+  list_audit_events: mcpTool('audit.history.read', ADMINS, 'tenant'),
+  get_entity_history: mcpTool('audit.history.read', ADMINS, 'tenant'),
   get_agent_action: mcpTool('agent.action.read', ADMINS, 'tenant'),
   list_agent_actions: mcpTool('agent.action.read', ADMINS, 'tenant'),
   get_vehicle_history: mcpTool('vehicle.read', BACK_OFFICE, 'tenant'),
@@ -57,7 +63,7 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   list_documents: mcpTool(
     [
       'invoice.read',
-      'credit_note.read',
+      'credit_note.document.read',
       'workshop.order.read',
       'vehicle_sale.read',
     ],
@@ -69,7 +75,7 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   get_document_pdf: mcpTool(
     [
       'invoice.read',
-      'credit_note.read',
+      'credit_note.document.read',
       'workshop.order.read',
       'vehicle_sale.read',
     ],
@@ -80,7 +86,7 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   ),
   get_tenant_settings: mcpTool('finance.settings.read', BACK_OFFICE, 'tenant'),
   list_sites: mcpTool('site.read', BACK_OFFICE, 'tenant', ['site_membership']),
-  get_legal_entity: mcpTool('legal_entity.read', BACK_OFFICE, 'tenant'),
+  get_legal_entity: mcpTool('legal_entity.summary.read', BACK_OFFICE, 'tenant'),
   list_purchase_orders: mcpTool('purchase.order.read', BACK_OFFICE, 'site'),
   get_purchase_order: mcpTool('purchase.order.read', BACK_OFFICE, 'site', [
     'document_site',
@@ -110,7 +116,11 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   ),
   list_tyre_sets: mcpTool('tyre.set.read', BACK_OFFICE, 'site'),
   list_warranty_claims: mcpTool('warranty_claim.read', BACK_OFFICE, 'site'),
-  list_loaner_bookings: mcpTool('loaner.booking.read', BACK_OFFICE, 'site'),
+  list_loaner_bookings: mcpTool(
+    'loaner.booking.summary.read',
+    BACK_OFFICE,
+    'site',
+  ),
   list_estimates: mcpTool('workshop.estimate.read', BACK_OFFICE, 'site'),
   list_order_communications: mcpTool(
     'workshop.communication.read',
@@ -121,7 +131,11 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   get_check_in: mcpTool('workshop.check_in.read', BACK_OFFICE, 'site', [
     'document_site',
   ]),
-  get_staff_availability: mcpTool('hr.availability.read', ADMINS, 'tenant'),
+  get_staff_availability: mcpTool(
+    'hr.availability.read',
+    BACK_OFFICE,
+    'tenant',
+  ),
   draft_workshop_order: mcpTool('workshop.order.create', BACK_OFFICE, 'site', [
     'agent_policy',
   ]),
