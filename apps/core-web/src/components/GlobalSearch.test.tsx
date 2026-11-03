@@ -218,7 +218,8 @@ describe('GlobalSearch', () => {
     mockSession('SALES')
     renderPalette()
 
-    expect(screen.queryByText('Credit Notes')).not.toBeInTheDocument()
+    expect(screen.queryByText('Export Readiness')).not.toBeInTheDocument()
+    expect(screen.getByText('Credit Notes')).toBeInTheDocument()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
   })
 

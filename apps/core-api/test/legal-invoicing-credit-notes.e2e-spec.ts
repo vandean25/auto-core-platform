@@ -8,6 +8,7 @@ import { TenantMemberRole } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import {
   createTestAuthToken,
   createTestTenant,
@@ -24,6 +25,7 @@ import { teardownTestApp } from './test-lifecycle.js';
 describe('Legal invoicing credit notes (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let systemPrisma: SystemPrismaService;
   let tenantPrisma: PrismaService;
   let authService: AuthService;
   let tenant: TestTenantResult;
@@ -32,11 +34,13 @@ describe('Legal invoicing credit notes (e2e)', () => {
   let customerId: string;
   let catalogItemId: string;
   const createdMemberIds: string[] = [];
+  const createdDemoAccessRequestIds: string[] = [];
 
   beforeAll(async () => {
     app = await createE2eApp();
 
     prisma = app.get<PrismaService>(PrismaService);
+    systemPrisma = app.get(SystemPrismaService);
     authService = app.get<AuthService>(AuthService);
 
     tenant = await createTestTenant(prisma, 'aut302');
@@ -95,9 +99,16 @@ describe('Legal invoicing credit notes (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.landingDemoSignInGrant.deleteMany({
-      where: { user_id: { in: createdMemberIds } },
-    });
+    if (createdMemberIds.length > 0) {
+      await systemPrisma.landingDemoSignInGrant.deleteMany({
+        where: { user_id: { in: createdMemberIds } },
+      });
+    }
+    if (createdDemoAccessRequestIds.length > 0) {
+      await systemPrisma.landingDemoAccessRequest.deleteMany({
+        where: { id: { in: createdDemoAccessRequestIds } },
+      });
+    }
     await tenantPrisma.creditNoteItem.deleteMany();
     await tenantPrisma.creditNote.deleteMany();
     await tenantPrisma.creditNoteSequence.deleteMany();
@@ -206,7 +217,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
 
     // A DEMO session needs a sign-in grant to reach authorization (403) instead of failing authentication (401).
     if (role === 'DEMO') {
-      const accessRequest = await prisma.landingDemoAccessRequest.create({
+      const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
         data: {
           email,
           name: 'AUT-911 Demo Viewer',
@@ -215,7 +226,8 @@ describe('Legal invoicing credit notes (e2e)', () => {
         },
         select: { id: true },
       });
-      await prisma.landingDemoSignInGrant.create({
+      createdDemoAccessRequestIds.push(accessRequest.id);
+      await systemPrisma.landingDemoSignInGrant.create({
         data: {
           access_request_id: accessRequest.id,
           user_id: member.id,
@@ -701,6 +713,20 @@ describe('Legal invoicing credit notes (e2e)', () => {
     expect(listRes.body.meta).toEqual(
       expect.objectContaining({ page: 1, pageSize: 25 }),
     );
+
+    const detailRes = await request(app.getHttpServer())
+      .get(`/api/credit-notes/${draft.body.id}`)
+      .set('Authorization', salesBearer)
+      .expect(200);
+    expect(detailRes.body.id).toBe(draft.body.id);
+
+    const invoiceContextRes = await request(app.getHttpServer())
+      .get(`/api/invoices/${invoice.id}/credit-notes`)
+      .set('Authorization', salesBearer)
+      .expect(200);
+    expect(
+      invoiceContextRes.body.creditNotes.map((row: { id: string }) => row.id),
+    ).toContain(draft.body.id);
   });
 
   it.each(['TECH', 'DEMO'] as const)(
@@ -745,13 +771,13 @@ describe('Legal invoicing credit notes (e2e)', () => {
 
       expect(pdfRes.headers['content-type']).toContain('application/pdf');
       expect(pdfRes.body).toEqual(pdfBytes);
+      expect(openPdf).toHaveBeenCalledWith(
+        expect.objectContaining({ key: expectedKey }),
+      );
     } finally {
       openPdf.mockRestore();
     }
 
-    expect(openPdf).toHaveBeenCalledWith(
-      expect.objectContaining({ key: expectedKey }),
-    );
     const storedKey = await tenantPrisma.creditNote.findFirstOrThrow({
       where: { id: draft.body.id },
       select: { pdf_storage_key: true },
