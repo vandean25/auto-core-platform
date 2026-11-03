@@ -1672,22 +1672,38 @@ describe('StockTransferService', () => {
     });
 
     it('redactStoredCommandResponse nulls source bins for dest-only callers', () => {
-      const stored = serializeStockTransfer(buildTransfer(), {
-        includeSourceBin: true,
-      });
-      const withSource = {
-        ...stored,
-        lines: [{ ...stored.lines[0], sourceLocationId: sourceBinId }],
-      };
+      const stored = serializeStockTransfer(
+        buildTransfer({
+          lines: [
+            buildLine({
+              source_location_id: sourceBinId,
+              source_location: { code: 'A-1', name: 'Regal 1' },
+              dest_location_id: destBinId,
+              dest_location: { code: 'B-1', name: 'Regal 2' },
+            }),
+          ],
+        }),
+        { includeSourceBin: true },
+      );
+      expect(stored.lines[0].fromBinCode).toBe('A-1');
+      expect(stored.lines[0].toBinCode).toBe('B-1');
 
-      const redacted = redactStoredCommandResponse(withSource, false);
+      const redacted = redactStoredCommandResponse(stored, false);
 
       expect(redacted.lines[0].sourceLocationId).toBeNull();
+      expect(redacted.lines[0].fromBinCode).toBeNull();
+      expect(redacted.lines[0].fromBinName).toBeNull();
+      expect(redacted.lines[0].toBinCode).toBe('B-1');
     });
 
     it('serializeStockTransfer nulls the source bin without from-site access', () => {
       const transfer = buildTransfer({
-        lines: [buildLine({ source_location_id: sourceBinId })],
+        lines: [
+          buildLine({
+            source_location_id: sourceBinId,
+            source_location: { code: 'A-1', name: 'Regal 1' },
+          }),
+        ],
       });
 
       const result = serializeStockTransfer(transfer, {
@@ -1695,6 +1711,7 @@ describe('StockTransferService', () => {
       });
 
       expect(result.lines[0].sourceLocationId).toBeNull();
+      expect(result.lines[0].fromBinCode).toBeNull();
       expect(result.fromSiteName).toBe('Wien');
     });
   });

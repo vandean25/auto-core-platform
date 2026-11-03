@@ -427,6 +427,108 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
     });
   });
 
+  function getDetail(transferId: string) {
+    return request(app.getHttpServer())
+      .get(`/api/stock-transfers/${transferId}`)
+      .set('Authorization', `Bearer ${token()}`);
+  }
+
+  async function createRequestedTransfer(
+    lineCount: number,
+    sourceBinIds: string[],
+  ): Promise<string> {
+    const itemIds = await seedStockedItems(lineCount);
+    const created = await postTransfer({
+      fromSiteId: mainSiteId,
+      toSiteId: grzSiteId,
+      lines: itemIds.map((itemId, index) => ({
+        catalogItemId: itemId,
+        requestedQty: 2,
+        sourceLocationId: sourceBinIds[index % sourceBinIds.length],
+      })),
+    }).expect(201);
+    return created.body.id as string;
+  }
+
+  describe('detail (GET /api/stock-transfers/:id, AUT-909)', () => {
+    it('AUT-909 S1: detail returns bin codes for source and destination, not just UUIDs', async () => {
+      await seedBinStock(mainSiteId, mainBinId, 5);
+
+      const created = await postTransfer({
+        fromSiteId: mainSiteId,
+        toSiteId: grzSiteId,
+        lines: [
+          { catalogItemId, requestedQty: 2, sourceLocationId: mainBinId },
+        ],
+      }).expect(201);
+      const transferId = created.body.id;
+      const lineId = created.body.lines[0].id;
+
+      await postAction(transferId, 'approve', { expectedVersion: 1 }).expect(
+        201,
+      );
+      await postAction(transferId, 'ship', {
+        expectedVersion: 2,
+        lines: [{ id: lineId }],
+      }).expect(201);
+      await postAction(transferId, 'receive', {
+        expectedVersion: 3,
+        idempotencyKey: 'aut909-detail-bins-1',
+        lines: [{ id: lineId, receiveQty: 2, destLocationId: grzBinId }],
+      }).expect(200);
+
+      const detail = await getDetail(transferId).expect(200);
+
+      const line = detail.body.lines[0];
+      expect(line.fromBinCode).toBe('BIN-A1');
+      expect(line.toBinCode).toBe('BIN-G1');
+      // existing fields keep their contract
+      expect(line.sourceLocationId).toBe(mainBinId);
+      expect(line.destLocationId).toBe(grzBinId);
+    });
+
+    it('AUT-909 S2: detail resolves all line bins with a constant number of SQL statements (2 vs 10 lines)', async () => {
+      const secondBin = await createTenantAwarePrisma(
+        prisma,
+        tenant.tenantId,
+      ).storageLocation.create({
+        data: {
+          tenant_id: tenant.tenantId,
+          site_id: mainSiteId,
+          code: 'BIN-A2',
+          name: 'Bin A2',
+          type: 'bin',
+        },
+        select: { id: true },
+      });
+      const sourceBins = [mainBinId, secondBin.id];
+
+      const detailRun = async (lineCount: number) => {
+        const transferId = await createRequestedTransfer(lineCount, sourceBins);
+        let lines: Array<{ fromBinCode: string }> = [];
+        const statements = await countDbStatements(async () => {
+          const res = await getDetail(transferId).expect(200);
+          lines = res.body.lines;
+        });
+        return { statements, lines };
+      };
+
+      const twoLines = await detailRun(2);
+      const tenLines = await detailRun(10);
+
+      expect(tenLines.statements).toBe(twoLines.statements);
+      expect(twoLines.lines.map((line) => line.fromBinCode)).toEqual([
+        'BIN-A1',
+        'BIN-A2',
+      ]);
+      expect(tenLines.lines.map((line) => line.fromBinCode)).toEqual(
+        Array.from({ length: 10 }, (_, index) =>
+          index % 2 === 0 ? 'BIN-A1' : 'BIN-A2',
+        ),
+      );
+    });
+  });
+
   it.each(['create', 'approve', 'ship', 'receive'] as const)(
     'AUT-861 S1: transfer %s sends the same number of SQL statements for 2 and 10 lines',
     async (action) => {
@@ -647,6 +749,35 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       expect(returned.body.status).toBe('COMPLETED');
       expect(await onHandAt(mainBinId)).toBe(5);
       expect(await onHandAt(grzBinId)).toBe(0);
+    });
+
+    it('AUT-909: hides the source bin code from a to-site-only caller and keeps the destination bin code visible', async () => {
+      const grzOnlyToken = await createGrzOnlyToken();
+      const { transferId, lineId } = await shipMainToGrz(2);
+
+      await postAction(
+        transferId,
+        'receive',
+        {
+          expectedVersion: 3,
+          idempotencyKey: 'aut909-grz-only-receive',
+          lines: [{ id: lineId, receiveQty: 2, destLocationId: grzBinId }],
+        },
+        grzOnlyToken,
+      ).expect(200);
+
+      const detail = await request(app.getHttpServer())
+        .get(`/api/stock-transfers/${transferId}`)
+        .set('Authorization', `Bearer ${grzOnlyToken}`)
+        .expect(200);
+
+      expect(detail.body.lines[0]).toMatchObject({
+        sourceLocationId: null,
+        fromBinCode: null,
+        fromBinName: null,
+        toBinCode: 'BIN-G1',
+        toBinName: 'Bin G1',
+      });
     });
   });
 });

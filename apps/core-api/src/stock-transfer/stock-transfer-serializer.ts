@@ -11,6 +11,10 @@ export interface SerializedTransferLine {
   returnedQty: string;
   sourceLocationId: string | null;
   destLocationId: string | null;
+  fromBinCode: string | null;
+  fromBinName: string | null;
+  toBinCode: string | null;
+  toBinName: string | null;
 }
 
 export interface SerializedStockTransfer {
@@ -31,6 +35,31 @@ export interface SerializedStockTransfer {
   createdAt: Date;
   updatedAt: Date;
   lines: SerializedTransferLine[];
+}
+
+type TransferLineRow = StockTransferWithSitesAndLines['lines'][number];
+
+/** Line bins with the source side nulled for callers without from-site access. */
+function serializeBins(
+  line: TransferLineRow,
+  includeSourceBin: boolean,
+): Pick<
+  SerializedTransferLine,
+  | 'sourceLocationId'
+  | 'destLocationId'
+  | 'fromBinCode'
+  | 'fromBinName'
+  | 'toBinCode'
+  | 'toBinName'
+> {
+  return {
+    sourceLocationId: includeSourceBin ? line.source_location_id : null,
+    fromBinCode: includeSourceBin ? (line.source_location?.code ?? null) : null,
+    fromBinName: includeSourceBin ? (line.source_location?.name ?? null) : null,
+    destLocationId: line.dest_location_id,
+    toBinCode: line.dest_location?.code ?? null,
+    toBinName: line.dest_location?.name ?? null,
+  };
 }
 
 /**
@@ -67,8 +96,7 @@ export function serializeStockTransfer(
       shippedQty: line.shipped_qty.toString(),
       receivedQty: line.received_qty.toString(),
       returnedQty: line.returned_qty.toString(),
-      sourceLocationId: includeSourceBin ? line.source_location_id : null,
-      destLocationId: line.dest_location_id,
+      ...serializeBins(line, includeSourceBin),
     })),
   };
 }
@@ -94,7 +122,9 @@ type TransferRow = {
     id: string;
     catalog_item_id: string;
     source_location_id: string | null;
+    source_location?: { code: string; name: string } | null;
     dest_location_id: string | null;
+    dest_location?: { code: string; name: string } | null;
     requested_qty: Prisma.Decimal;
     approved_qty: Prisma.Decimal;
     shipped_qty: Prisma.Decimal;
@@ -122,6 +152,8 @@ export function redactStoredCommandResponse<T extends SerializedStockTransfer>(
     lines: stored.lines.map((line) => ({
       ...line,
       sourceLocationId: null,
+      fromBinCode: null,
+      fromBinName: null,
     })),
   };
 }
