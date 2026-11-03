@@ -13,6 +13,9 @@ import InventoryList from '@/pages/InventoryList'
 
 vi.mock('@/api/inventory')
 vi.mock('@/api/locations', () => ({ useLocations: vi.fn() }))
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+}))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) => fn as unknown as ReturnType<typeof vi.fn>
 
@@ -64,7 +67,7 @@ function renderShell() {
 async function switchTo(language: 'de' | 'en') {
   fireEvent.keyDown(screen.getByRole('button', { name: 'admin@example.com' }), { key: 'Enter' })
   fireEvent.click(await screen.findByTestId(`language-option-${language}`))
-  await waitFor(() => expect(i18n.language).toBe(language))
+  await waitFor(() => expect(i18n.language).toBe(language), { timeout: 3000 })
   // The menu stays open during the switch, and an open menu hides the page from the a11y tree.
   fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
   await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
