@@ -3,6 +3,10 @@
   "rootDir": "..",
   "testEnvironment": "node",
   "testRegex": "test/.*\\.e2e-spec\\.ts$",
+  "testPathIgnorePatterns": [
+    "node_modules",
+    "\\.benchmark\\.e2e-spec\\.ts$"
+  ],
   "setupFiles": ["dotenv/config"],
   "setupFilesAfterEnv": [
     "<rootDir>/test/jest-esm-setup.ts",

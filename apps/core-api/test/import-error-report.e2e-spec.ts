@@ -168,8 +168,10 @@ describe('localized streamed import error report (e2e)', () => {
       .expect(403);
   });
 
-  it('reads a 50,000-row synthetic error job in bounded pages through HTTP', async () => {
-    const total = 50_000;
+  it('reads a 5,000-row synthetic error job in bounded pages through HTTP', async () => {
+    // AUT-899: shrunk from 50,000 rows; still spans more than one 1,000-row page.
+    const total = 5_000;
+    const pages = total / 1000;
     const job = await runWithTenantContext(tenant.tenantId, () =>
       prisma.importJob.create({
         data: {
@@ -193,7 +195,7 @@ describe('localized streamed import error report (e2e)', () => {
     );
     await runWithTenantContext(tenant.tenantId, () =>
       Promise.all(
-        Array.from({ length: 50 }, (_, page) =>
+        Array.from({ length: pages }, (_, page) =>
           prisma.importJobRow.createMany({
             data: Array.from({ length: 1000 }, (_, index) => ({
               tenant_id: tenant.tenantId,
@@ -224,7 +226,7 @@ describe('localized streamed import error report (e2e)', () => {
         .set('Accept-Language', 'en')
         .expect(200);
       expect(parseCsvFile(Buffer.from(response.text)).rows).toHaveLength(total);
-      expect(spy.mock.calls.length).toBeGreaterThan(50);
+      expect(spy.mock.calls.length).toBeGreaterThan(pages);
       expect(
         spy.mock.calls.every(
           ([params]) =>

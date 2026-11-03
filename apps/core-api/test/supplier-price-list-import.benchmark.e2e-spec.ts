@@ -1,0 +1,95 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
+import { INestApplication } from '@nestjs/common';
+
+import request from 'supertest';
+import { AuthService } from '../src/auth/auth.service.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import {
+  cleanupTestTenantGraph,
+  createTenantAwarePrisma,
+  createTestAuthToken,
+  createTestTenant,
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
+import {
+  FIXTURE_COUNTS_LARGE,
+  expectedDryRunTotals,
+  generateSupplierPriceListCsvBuffer,
+  seedSupplierImportTenant,
+  uploadSupplierDryRun,
+} from './fixtures/supplier-price-list.fixture.js';
+
+// Nightly performance benchmark, excluded from the PR e2e run by
+// testPathIgnorePatterns in test/jest-e2e.json. Run it with
+// `npm run test:e2e:benchmark --workspace=core-api` (GitHub workflow
+// "Backend E2E Benchmark (nightly)"). A dry-run of the 5,000-row fixture
+// exceeding the < 10 s threshold fails the assertion, Jest exits non-zero,
+// and the nightly run turns red.
+describe('Supplier Price List Import benchmark (e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+
+  let tenantA: Awaited<ReturnType<typeof createTestTenant>>;
+  let tenantPrismaA: PrismaService;
+  let adminTokenA: string;
+  let vendorA: { id: string; name: string };
+
+  beforeAll(async () => {
+    app = await createE2eApp();
+
+    prisma = app.get(PrismaService);
+    const authService = app.get(AuthService);
+
+    tenantA = await createTestTenant(prisma, 'spl-bench-a');
+    tenantPrismaA = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    adminTokenA = createTestAuthToken(authService, tenantA);
+
+    // Seeds 3,900 catalog items for the 5,000-row benchmark
+    vendorA = await seedSupplierImportTenant(
+      tenantPrismaA,
+      tenantA.tenantId,
+      FIXTURE_COUNTS_LARGE,
+    );
+  }, 120000);
+
+  afterAll(async () => {
+    await cleanupTestTenantGraph(prisma, tenantA.tenantId);
+    await teardownTestApp(app, prisma);
+  });
+
+  // --------------------------------------------------------------------------
+  // 5,000-row dry-run performance benchmark and count verification
+  // --------------------------------------------------------------------------
+  it('executes 5,000-row dry-run benchmark within reasonable time (< 10s) with exact counts', async () => {
+    const csvBuffer5000 = generateSupplierPriceListCsvBuffer(
+      FIXTURE_COUNTS_LARGE,
+      ';',
+    );
+
+    const startTime = Date.now();
+
+    const res = await uploadSupplierDryRun(
+      app,
+      adminTokenA,
+      vendorA.id,
+      csvBuffer5000,
+      'supplier-prices-5000.csv',
+    );
+
+    const elapsedMs = Date.now() - startTime;
+
+    // Verify benchmark execution time
+    expect(elapsedMs).toBeLessThan(10000);
+
+    // Verify job structure and counts
+    expect(res.body.status).toBe('DRY_RUN_DONE');
+    expect(res.body.totals).toEqual(expectedDryRunTotals(FIXTURE_COUNTS_LARGE));
+
+    // Verify rows endpoint returns rows
+    const rowsRes = await request(app.getHttpServer())
+      .get(`/api/imports/${res.body.id}/rows?limit=5`)
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .expect(200);
+    expect(rowsRes.body.data.length).toBe(5);
+  }, 120000);
+});
