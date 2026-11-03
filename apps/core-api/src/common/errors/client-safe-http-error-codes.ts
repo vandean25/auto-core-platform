@@ -425,6 +425,8 @@ export const CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS: Partial<
   TYRE_EVALUATION_DATE_INVALID: ['position'],
   TYRE_THRESHOLDS_INVALID: ['position'],
   TYRE_TREAD_INVALID: ['position'],
+  // The branding logo gate names its MiB limit so the client copy can show it.
+  BRAND_LOGO_TOO_LARGE: ['maxMiB'],
 };
 
 /** Allowlisted fields that may also report an explicit null, meaning there is nothing to report. */

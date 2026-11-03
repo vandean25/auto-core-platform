@@ -46,7 +46,7 @@
     "BRAND_IMAGE_MEMORY_LIMIT": "The image in the letterhead is too large to process.",
     "BRAND_IMAGE_PIXELS_INVALID": "The image in the letterhead has an unsupported resolution.",
     "BRAND_IMAGE_PROCESS_TIMEOUT": "The image in the letterhead took too long to process. Please try again.",
-    "BRAND_LOGO_TOO_LARGE": "The logo file is too large. Please choose a smaller PNG file.",
+    "BRAND_LOGO_TOO_LARGE": "The logo is too large. Maximum size: {{maxMiB}} MiB.",
     "BRAND_PDF_ACTIONS": "The PDF contains actions that are not supported.",
     "BRAND_PDF_EMBEDDED_FILE": "The PDF contains embedded files. Please use a letterhead without attachments.",
     "BRAND_PDF_ENCRYPTED": "The PDF is password protected. Please remove the protection and upload it again.",

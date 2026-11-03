@@ -212,4 +212,66 @@ test.describe('Page content on a phone (AUT-752)', () => {
     await page.addStyleTag({ content: 'table td:nth-child(2) { min-width: 900px }' })
     await expectNoPageScroll(page)
   })
+
+  // AUT-907: the 18-section tab bar must never widen the page; it scrolls within itself and the active section stays visible.
+  test.describe('Settings page (AUT-907)', () => {
+    // Registered after AutoCorePage.navigate's session stub (last-registered route wins) to get the admin-only tabs.
+    async function openSettingsAsAdmin(page: Page, query: string) {
+      await new AutoCorePage(page, '').navigate(`/settings${query}`)
+      await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), (route) =>
+        route.fulfill(
+          json({
+            userId: 'user-1',
+            email: 'admin@example.invalid',
+            activeTenant: { id: 'tenant-1', name: 'Test Workshop', slug: 'test-workshop' },
+            activeRole: 'ADMIN',
+            activeSiteId: null,
+            memberships: [],
+            locale: 'de',
+            effectiveLocale: 'de',
+            defaultLocale: 'de',
+            formatLocale: 'de-AT',
+            effectiveCapabilities: null,
+          }),
+        ),
+      )
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+    }
+
+    test('settings at 1400px has no horizontal page scroll', async ({ page }) => {
+      await page.setViewportSize({ width: 1400, height: 900 })
+      await mockApi(page)
+      await openSettingsAsAdmin(page, '?tab=data-import')
+      await expectNoPageScroll(page)
+    })
+
+    test('settings at 1024px has no horizontal page scroll and all tabs stay reachable', async ({ page }) => {
+      await page.setViewportSize({ width: 1024, height: 900 })
+      await mockApi(page)
+      await openSettingsAsAdmin(page, '')
+      await expectNoPageScroll(page)
+
+      const strip = page.getByTestId('settings-tab-strip')
+      const lastTab = strip.getByRole('tab').last()
+      await strip.evaluate((node) => node.scrollTo({ left: node.scrollWidth }))
+      const reachable = await lastTab.evaluate((node) => {
+        const tabBox = node.getBoundingClientRect()
+        const listBox = node.parentElement!.getBoundingClientRect()
+        return tabBox.left >= listBox.left - 1 && tabBox.right <= listBox.right + 1
+      })
+      expect(reachable, 'last tab is inside the tab list after scrolling it').toBe(true)
+    })
+
+    test('settings at 375px has no horizontal page scroll and the active tab is visible', async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 812 })
+      await mockApi(page)
+      await openSettingsAsAdmin(page, '?tab=data-import')
+      await expectNoPageScroll(page)
+
+      const section = page.getByTestId('settings-section-select')
+      await expect(section).toContainText('Datenimport')
+      expect((await section.boundingBox())!.height, 'section select is a 44px touch target').toBeGreaterThanOrEqual(44)
+    })
+  })
 })
