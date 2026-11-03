@@ -130,12 +130,12 @@ Routes below are proposed; existing routes keep their spelling. Dates are `YYYY-
 | Method | Route | Request Body | Response | Auth |
 |---|---|---|---|---|
 | POST | `/api/invoices/:id/credit-notes` | `{date,reason,mode:"FULL"}` or `{date,reason,mode:"PARTIAL",lines:[{originalItemId,quantity}]}`; FULL expands remaining lines server-side; PARTIAL requires nonempty distinct lines | Draft credit with remaining balances/version | OWNER/ADMIN + original site membership |
-| GET | `/api/credit-notes` | Query page, limit, search, sort | `{data,meta}` scoped to active site | OWNER/ADMIN + site membership |
-| GET | `/api/credit-notes/:id` | — | Credit detail and original reference | Same |
-| PATCH | `/api/credit-notes/:id` | `{expectedVersion,date?,reason?,lines?}`; present lines replace draft set | Updated draft/version | Same |
-| POST | `/api/credit-notes/:id/finalize` | `{expectedVersion,idempotencyKey}` | Immutable numbered credit; replay returns same result | Same |
-| POST | `/api/credit-notes/:id/void` | `{expectedVersion}` | VOID unnumbered draft | Same |
-| POST / GET | `/api/credit-notes/:id/pdf` | Existing PDF request pattern / none | Existing async status / PDF binary | Same |
+| GET | `/api/credit-notes` | Query page, limit, search, sort | `{data,meta}` scoped to active site | OWNER/ADMIN/SALES (read) + site membership |
+| GET | `/api/credit-notes/:id` | — | Credit detail and original reference | OWNER/ADMIN/SALES (read) + site membership |
+| PATCH | `/api/credit-notes/:id` | `{expectedVersion,date?,reason?,lines?}`; present lines replace draft set | Updated draft/version | OWNER/ADMIN (write) + site membership |
+| POST | `/api/credit-notes/:id/finalize` | `{expectedVersion,idempotencyKey}` | Immutable numbered credit; replay returns same result | OWNER/ADMIN (write) + site membership |
+| POST | `/api/credit-notes/:id/void` | `{expectedVersion}` | VOID unnumbered draft | OWNER/ADMIN (write) + site membership |
+| POST / GET | `/api/credit-notes/:id/pdf` | Existing PDF request pattern / none | Existing async status / PDF binary | POST (generate) OWNER/ADMIN; GET (read) OWNER/ADMIN/SALES + site membership |
 
 Credit PDF work plugs into the existing authenticated task, retry, storage and download infrastructure using the appropriate credit document lookup. It adds document support; it does not replace queue/worker transport or change Invoice worker URLs.
 

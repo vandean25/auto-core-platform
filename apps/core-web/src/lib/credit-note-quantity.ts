@@ -43,3 +43,11 @@ export function canManageCreditNotes(
 ): boolean {
   return activeRole === 'OWNER' || activeRole === 'ADMIN'
 }
+
+export function canReadCreditNotes(
+  activeRole?: TenantMemberRole | null,
+): boolean {
+  return (
+    activeRole === 'OWNER' || activeRole === 'ADMIN' || activeRole === 'SALES'
+  )
+}

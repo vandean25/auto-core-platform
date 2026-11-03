@@ -15,10 +15,12 @@ describe('global search navigation targets', () => {
 
   it('offers the sidebar entries with the sidebar role filter', () => {
     const admin = hrefs(getNavigationSection(context('ADMIN')))
+    const sales = hrefs(getNavigationSection(context('SALES')))
     const tech = hrefs(getNavigationSection(context('TECH')))
 
     expect(admin).toContain('/finance/credit-notes')
     expect(admin).toContain('/hr/employees')
+    expect(sales).toContain('/finance/credit-notes')
     expect(tech).not.toContain('/finance/credit-notes')
     expect(tech).not.toContain('/hr/employees')
     expect(tech).toContain('/dashboard')

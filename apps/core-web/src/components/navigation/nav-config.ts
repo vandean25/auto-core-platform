@@ -313,7 +313,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         labelKey: 'modules.creditNotes',
         to: APP_ROUTE_PATHS.creditNotes,
         icon: ReceiptEuro,
-        isVisible: (context) => hasRole(context, ['OWNER', 'ADMIN']),
+        isVisible: (context) => hasRole(context, ['OWNER', 'ADMIN', 'SALES']),
         isActive: prefixMatch('/finance/credit-notes'),
       },
       {

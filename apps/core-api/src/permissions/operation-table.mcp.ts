@@ -63,7 +63,7 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   list_documents: mcpTool(
     [
       'invoice.read',
-      'credit_note.document.read',
+      'credit_note.read',
       'workshop.order.read',
       'vehicle_sale.read',
     ],
@@ -75,7 +75,7 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   get_document_pdf: mcpTool(
     [
       'invoice.read',
-      'credit_note.document.read',
+      'credit_note.read',
       'workshop.order.read',
       'vehicle_sale.read',
     ],

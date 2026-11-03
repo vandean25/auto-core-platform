@@ -13,6 +13,10 @@ import type { UsePdfDownloadConfig } from '@/hooks/usePdfDownload'
 const mockDownload = vi.fn().mockResolvedValue(true)
 let mockIsLoading = false
 let capturedPdfConfig: UsePdfDownloadConfig | undefined
+let mockActiveRole = 'OWNER'
+let mockCreditContext:
+  | import('@/api/useCreditNotes').InvoiceCreditContextResponseDto
+  | undefined
 
 vi.mock('@/hooks/usePdfDownload', () => ({
   usePdfDownload: (config?: UsePdfDownloadConfig) => {
@@ -27,13 +31,13 @@ vi.mock('@/hooks/usePdfDownload', () => ({
 
 vi.mock('@/api/sales')
 vi.mock('@/api/auth-session', () => ({
-  useAuthSession: () => ({ data: { activeRole: 'OWNER' } }),
+  useAuthSession: () => ({ data: { activeRole: mockActiveRole } }),
 }))
 vi.mock('@/api/useCreditNotes', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/useCreditNotes')>()
   return {
     ...actual,
-    useInvoiceCreditContext: () => ({ data: undefined }),
+    useInvoiceCreditContext: () => ({ data: mockCreditContext }),
     useCreateCreditNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
   }
 })
@@ -79,6 +83,34 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
   }
 }
 
+function makeCreditContext(
+  creditNotes: import('@/api/useCreditNotes').InvoiceCreditContextResponseDto['creditNotes'],
+): import('@/api/useCreditNotes').InvoiceCreditContextResponseDto {
+  return { creditNotes, remainingLines: [], coverageStatus: 'NONE' }
+}
+
+function makeCreditNote(
+  overrides: Partial<
+    import('@/api/useCreditNotes').InvoiceCreditContextResponseDto['creditNotes'][number]
+  > = {},
+) {
+  return {
+    id: 'cn-1',
+    originalInvoiceId: 'inv-1',
+    status: 'FINALIZED' as const,
+    creditNumber: 'CN-2026-0001',
+    date: '2026-01-20T00:00:00.000Z',
+    reason: 'Returned part',
+    version: 1,
+    totalNet: '10.00',
+    totalTax: '1.90',
+    totalGross: '11.90',
+    items: [],
+    remainingLines: [],
+    ...overrides,
+  }
+}
+
 function renderPage(invoice: Invoice) {
   asMock(salesApi.useInvoice).mockReturnValue({
     data: invoice,
@@ -102,6 +134,8 @@ function renderPage(invoice: Invoice) {
 describe('InvoiceDetailPage draft routing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockActiveRole = 'OWNER'
+    mockCreditContext = undefined
   })
 
   afterEach(() => {
@@ -199,5 +233,33 @@ describe('InvoiceDetailPage download action', () => {
     })
     expect(generatingButton).toBeInTheDocument()
     expect(generatingButton).toBeDisabled()
+  })
+})
+
+describe('InvoiceDetailPage credit notes for SALES (AUT-911)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsLoading = false
+    capturedPdfConfig = undefined
+    mockActiveRole = 'SALES'
+    mockCreditContext = makeCreditContext([makeCreditNote()])
+  })
+
+  afterEach(() => {
+    cleanup()
+    mockActiveRole = 'OWNER'
+    mockCreditContext = undefined
+  })
+
+  it('lists the invoice credit notes but offers no create action', () => {
+    renderPage(makeInvoice({ status: 'FINALIZED' }))
+
+    expect(
+      screen.getByText(deSales.invoices.detail.relatedCreditNotes),
+    ).toBeInTheDocument()
+    expect(screen.getByText('CN-2026-0001')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: deSales.invoices.detail.creditNote }),
+    ).not.toBeInTheDocument()
   })
 })

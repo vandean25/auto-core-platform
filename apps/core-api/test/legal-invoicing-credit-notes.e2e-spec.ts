@@ -1,16 +1,18 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { countDbStatements } from './helpers/db-statement-counter.js';
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { TenantMemberRole } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service.js';
+import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
-  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  createTenantAwarePrisma,
   resolveTestMainSiteId,
-  runWithTenantContext,
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import {
@@ -29,6 +31,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
   let siteId: string;
   let customerId: string;
   let catalogItemId: string;
+  const createdMemberIds: string[] = [];
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -92,6 +95,9 @@ describe('Legal invoicing credit notes (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.landingDemoSignInGrant.deleteMany({
+      where: { user_id: { in: createdMemberIds } },
+    });
     await tenantPrisma.creditNoteItem.deleteMany();
     await tenantPrisma.creditNote.deleteMany();
     await tenantPrisma.creditNoteSequence.deleteMany();
@@ -144,18 +150,93 @@ describe('Legal invoicing credit notes (e2e)', () => {
     return finalized.body;
   }
 
-  function createDraftCredit(invoiceId: string, body: Record<string, unknown>) {
+  function createDraftCredit(
+    invoiceId: string,
+    body: Record<string, unknown>,
+    bearer = `Bearer ${authToken}`,
+  ) {
     return request(app.getHttpServer())
       .post(`/api/invoices/${invoiceId}/credit-notes`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', bearer)
       .send(body);
   }
 
-  function finalizeCredit(creditNoteId: string, idempotencyKey: string) {
+  function finalizeCredit(
+    creditNoteId: string,
+    idempotencyKey: string,
+    bearer = `Bearer ${authToken}`,
+  ) {
     return request(app.getHttpServer())
       .post(`/api/credit-notes/${creditNoteId}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', bearer)
       .send({ expectedVersion: 1, idempotencyKey });
+  }
+
+  /**
+   * A member of the fixture tenant with `role`, an active MAIN-site membership and that site selected.
+   * Site membership is part of the credit-note read scope, so a non-admin caller needs it to reach the
+   * role check. `tag` keeps one row per role when several tests need the same role.
+   */
+  async function siteMemberBearer(
+    role: TenantMemberRole,
+    tag: string,
+  ): Promise<string> {
+    const firebaseUid = `aut911-${tag}-${tenant.tenantId}`;
+    const email = `aut911-${tag}@example.com`;
+    const member = await prisma.user.create({
+      data: {
+        firebaseUid,
+        email,
+        active_tenant_id: tenant.tenantId,
+        memberships: {
+          create: { tenant_id: tenant.tenantId, role, is_active: true },
+        },
+      },
+      select: { id: true },
+    });
+    createdMemberIds.push(member.id);
+    await tenantPrisma.siteMembership.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        user_id: member.id,
+        site_id: siteId,
+        is_active: true,
+      },
+    });
+
+    // A DEMO session needs a sign-in grant to reach authorization (403) instead of failing authentication (401).
+    if (role === 'DEMO') {
+      const accessRequest = await prisma.landingDemoAccessRequest.create({
+        data: {
+          email,
+          name: 'AUT-911 Demo Viewer',
+          betrieb: 'E2E',
+          consent_recorded_at: new Date(),
+        },
+        select: { id: true },
+      });
+      await prisma.landingDemoSignInGrant.create({
+        data: {
+          access_request_id: accessRequest.id,
+          user_id: member.id,
+          expires_at: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
+    }
+
+    const bearer = `Bearer ${createTestAuthToken(authService, {
+      ...tenant,
+      firebaseUid,
+      email,
+      role,
+    })}`;
+    await request(app.getHttpServer())
+      .patch('/api/me/active-site')
+      .set('Authorization', bearer)
+      .send({ siteId })
+      .expect(200);
+
+    return bearer;
   }
 
   afterEach(async () => {
@@ -599,36 +680,123 @@ describe('Legal invoicing credit notes (e2e)', () => {
     );
   });
 
-  it('LI-10: rejects non-admin list access', async () => {
-    const salesTenant = await createTestTenant(prisma, 'aut302-sales');
-    const salesTenantPrisma = createTenantAwarePrisma(prisma, salesTenant.tenantId);
-    const salesSiteId = await resolveTestMainSiteId(prisma, salesTenant.tenantId);
-    await runWithTenantContext(salesTenant.tenantId, async () => {
-      await salesTenantPrisma.tenantMember.updateMany({
-        where: {
-          tenant_id: salesTenant.tenantId,
-          user: { firebaseUid: salesTenant.firebaseUid },
-        },
-        data: { role: 'SALES' },
-      });
-    });
+  it('AUT-911: a SALES member with site membership reads the credit-note list', async () => {
+    const invoice = await finalizeSalesInvoice();
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'SALES reads the list',
+      mode: 'FULL',
+    }).expect(201);
 
-    const salesToken = createTestAuthToken(authService, {
-      ...salesTenant,
-      role: 'SALES',
-    });
-
-    await request(app.getHttpServer())
-      .patch('/api/me/active-site')
-      .set('Authorization', `Bearer ${salesToken}`)
-      .send({ siteId: salesSiteId })
+    const salesBearer = await siteMemberBearer('SALES', 'list');
+    const listRes = await request(app.getHttpServer())
+      .get('/api/credit-notes')
+      .set('Authorization', salesBearer)
       .expect(200);
 
-    await request(app.getHttpServer())
-      .get('/api/credit-notes')
-      .set('Authorization', `Bearer ${salesToken}`)
-      .expect(403);
+    const listedIds: string[] = listRes.body.data.map(
+      (row: { id: string }) => row.id,
+    );
+    expect(listedIds).toContain(draft.body.id);
+    expect(listRes.body.meta).toEqual(
+      expect.objectContaining({ page: 1, pageSize: 25 }),
+    );
   });
+
+  it.each(['TECH', 'DEMO'] as const)(
+    'AUT-911: a %s member is refused GET /api/credit-notes with 403',
+    async (role) => {
+      const bearer = await siteMemberBearer(role, role.toLowerCase());
+
+      await request(app.getHttpServer())
+        .get('/api/credit-notes')
+        .set('Authorization', bearer)
+        .expect(403);
+    },
+  );
+
+  it('AUT-911: a SALES member reads a credit note PDF with 200', async () => {
+    const invoice = await finalizeSalesInvoice();
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'SALES reads the PDF',
+      mode: 'FULL',
+    }).expect(201);
+    await finalizeCredit(draft.body.id, 'aut911-sales-pdf').expect(201);
+
+    const pdfBytes = Buffer.from('%PDF-1.4 credit note read fixture\n%%EOF');
+    const expectedKey = `credit-notes/${draft.body.id}.pdf`;
+    const openPdf = jest
+      .spyOn(app.get(PdfStorage), 'getPdfStream')
+      .mockImplementation(async () => ({
+        bucket: 'e2e-credit-note-pdf',
+        key: expectedKey,
+        stream: Readable.from(pdfBytes),
+        contentType: 'application/pdf',
+        contentLength: pdfBytes.byteLength,
+      }));
+
+    const salesBearer = await siteMemberBearer('SALES', 'pdf');
+    try {
+      const pdfRes = await request(app.getHttpServer())
+        .get(`/api/credit-notes/${draft.body.id}/pdf`)
+        .set('Authorization', salesBearer)
+        .expect(200);
+
+      expect(pdfRes.headers['content-type']).toContain('application/pdf');
+      expect(pdfRes.body).toEqual(pdfBytes);
+    } finally {
+      openPdf.mockRestore();
+    }
+
+    expect(openPdf).toHaveBeenCalledWith(
+      expect.objectContaining({ key: expectedKey }),
+    );
+    const storedKey = await tenantPrisma.creditNote.findFirstOrThrow({
+      where: { id: draft.body.id },
+      select: { pdf_storage_key: true },
+    });
+    expect(storedKey.pdf_storage_key).toBe(expectedKey);
+  });
+
+  it.each(['create from invoice', 'finalize'] as const)(
+    'AUT-911: a SALES member is refused %s with 403',
+    async (operation) => {
+      const invoice = await finalizeSalesInvoice();
+      const draft = await createDraftCredit(invoice.id, {
+        date: '2026-09-22',
+        reason: 'Admin draft, SALES may not change it',
+        mode: 'FULL',
+      }).expect(201);
+      const salesBearer = await siteMemberBearer(
+        'SALES',
+        `write-${operation.split(' ').join('-')}`,
+      );
+
+      const attempt =
+        operation === 'finalize'
+          ? {
+              path: `/api/credit-notes/${draft.body.id}/finalize`,
+              body: { expectedVersion: 1, idempotencyKey: randomUUID() },
+            }
+          : {
+              path: `/api/invoices/${invoice.id}/credit-notes`,
+              body: { date: '2026-09-23', reason: 'SALES attempt', mode: 'FULL' },
+            };
+
+      await request(app.getHttpServer())
+        .post(attempt.path)
+        .set('Authorization', salesBearer)
+        .send(attempt.body)
+        .expect(403);
+
+      const untouched = await tenantPrisma.creditNote.findMany({
+        where: { original_invoice_id: invoice.id },
+        select: { id: true, status: true },
+      });
+      expect(untouched).toEqual([{ id: draft.body.id, status: 'DRAFT' }]);
+    },
+  );
 
   it('LI-11: rejects margin partial updates and finalized mutations', async () => {
     const invoice = await finalizeSalesInvoice();

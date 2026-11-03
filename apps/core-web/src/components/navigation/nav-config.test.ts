@@ -114,8 +114,8 @@ const ROLE_CASES: RoleCase[] = [
   // ADVISOR is not in the generated TenantMemberRole enum, but the former rule lists it, so it stays.
   { name: 'ADVISOR, agent flag on', activeRole: 'ADVISOR', platformRole: null, agentFlag: true, gated: [AGENT, HR] },
   { name: 'ADVISOR, agent flag off', activeRole: 'ADVISOR', platformRole: null, agentFlag: false, gated: [HR] },
-  { name: 'SALES, agent flag on', activeRole: 'SALES', platformRole: null, agentFlag: true, gated: [KPI, ESTIMATES, HR] },
-  { name: 'SALES, agent flag off', activeRole: 'SALES', platformRole: null, agentFlag: false, gated: [KPI, ESTIMATES, HR] },
+  { name: 'SALES, agent flag on', activeRole: 'SALES', platformRole: null, agentFlag: true, gated: [KPI, ESTIMATES, HR, CREDIT_NOTES] },
+  { name: 'SALES, agent flag off', activeRole: 'SALES', platformRole: null, agentFlag: false, gated: [KPI, ESTIMATES, HR, CREDIT_NOTES] },
   { name: 'TECH, agent flag on', activeRole: 'TECH', platformRole: null, agentFlag: true, gated: [] },
   { name: 'TECH, agent flag off', activeRole: 'TECH', platformRole: null, agentFlag: false, gated: [] },
   {
