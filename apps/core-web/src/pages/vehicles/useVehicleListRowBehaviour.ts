@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
 import type { NavigateFunction } from 'react-router-dom'
 
@@ -11,7 +12,7 @@ import {
 } from '@/features/actions/vehicle-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 import { useRegistryRowShortcuts } from '@/features/shortcuts/use-registry-row-shortcuts'
-import { scheduleDetailPrefetch, useOptionalQueryClient } from '@/lib/intent-prefetch'
+import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 
 export function useVehicleListRowBehaviour(
   t: TFunction<'vehicles'>,
@@ -20,13 +21,15 @@ export function useVehicleListRowBehaviour(
   records: VehicleListRow[],
 ) {
   const role = useAuthRole()
-  const queryClient = useOptionalQueryClient()
+  const queryClient = useQueryClient()
   const vehicleActionDefinitions = useMemo(() => createVehicleRowActions(t), [t])
 
   const prefetchVehicleDetail = useCallback(
     (row: VehicleListRow) => {
       if (!canOpenVehicle(role)) return
-      scheduleDetailPrefetch(queryClient, vehicleDetailQueryOptions(row.id))
+      scheduleDetailPrefetch(queryClient, vehicleDetailQueryOptions(row.id), {
+        immediate: true,
+      })
     },
     [queryClient, role],
   )

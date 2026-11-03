@@ -31,7 +31,6 @@ vi.mock('@/api/vehicles', async (importOriginal) => {
     ...actual,
     useVehicles: vi.fn(),
     useVehicle: vi.fn(),
-    vehicleDetailQueryOptions: vi.fn(),
   }
 })
 vi.mock('@/api/customers', async (importOriginal) => {
@@ -41,7 +40,6 @@ vi.mock('@/api/customers', async (importOriginal) => {
     useCustomers: vi.fn(),
     useCustomer: vi.fn(),
     useDeleteCustomer: vi.fn(),
-    customerDetailQueryOptions: vi.fn(),
   }
 })
 vi.mock('@/api/sales', async (importOriginal) => {
@@ -49,7 +47,6 @@ vi.mock('@/api/sales', async (importOriginal) => {
   return {
     ...actual,
     useInvoices: vi.fn(),
-    invoiceDetailQueryOptions: vi.fn(),
   }
 })
 vi.mock('@/api/vehicle-stock', async (importOriginal) => {
@@ -58,7 +55,6 @@ vi.mock('@/api/vehicle-stock', async (importOriginal) => {
     ...actual,
     useVehicleStock: vi.fn(),
     useDeleteVehiclePurchase: vi.fn(),
-    vehicleStockDetailQueryOptions: vi.fn(),
   }
 })
 vi.mock('@/api/inventory', async (importOriginal) => {
@@ -66,7 +62,6 @@ vi.mock('@/api/inventory', async (importOriginal) => {
   return {
     ...actual,
     useInventory: vi.fn(),
-    inventoryItemDetailQueryOptions: vi.fn(),
   }
 })
 vi.mock('@/api/locations', () => ({
@@ -145,11 +140,6 @@ describe('VehicleList peek sheet', () => {
       data: id === 'veh-1' ? vehicle : undefined,
       isLoading: false,
     }))
-    asMock(vehiclesApi.vehicleDetailQueryOptions).mockImplementation((id: string) => ({
-      queryKey: vehicleKeys.detail(id),
-      queryFn: vi.fn().mockResolvedValue(vehicle),
-      staleTime: 30_000,
-    }))
     asMock(customersApi.useCustomers).mockReturnValue({
       data: {
         data: [
@@ -171,11 +161,6 @@ describe('VehicleList peek sheet', () => {
     })
     asMock(customersApi.useCustomer).mockReturnValue({ data: undefined, isLoading: false })
     asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync: vi.fn() })
-    asMock(customersApi.customerDetailQueryOptions).mockImplementation((id: string) => ({
-      queryKey: customerKeys.detail(id),
-      queryFn: vi.fn().mockResolvedValue({ id }),
-      staleTime: 30_000,
-    }))
     asMock(salesApi.useInvoices).mockReturnValue({
       data: [
         {
@@ -194,11 +179,6 @@ describe('VehicleList peek sheet', () => {
       ],
       isLoading: false,
     })
-    asMock(salesApi.invoiceDetailQueryOptions).mockImplementation((id: string) => ({
-      queryKey: invoiceKeys.detail(id),
-      queryFn: vi.fn().mockResolvedValue({ id }),
-      staleTime: 30_000,
-    }))
     asMock(vehicleStockApi.useVehicleStock).mockReturnValue({
       data: {
         data: [
@@ -220,11 +200,6 @@ describe('VehicleList peek sheet', () => {
       isLoading: false,
     })
     asMock(vehicleStockApi.useDeleteVehiclePurchase).mockReturnValue({ mutateAsync: vi.fn() })
-    asMock(vehicleStockApi.vehicleStockDetailQueryOptions).mockImplementation((id: string) => ({
-      queryKey: vehicleStockKeys.detail(id),
-      queryFn: vi.fn().mockResolvedValue({ id }),
-      staleTime: 30_000,
-    }))
     asMock(inventoryApi.useInventory).mockReturnValue({
       data: {
         data: [
@@ -243,11 +218,6 @@ describe('VehicleList peek sheet', () => {
       },
       isLoading: false,
     })
-    asMock(inventoryApi.inventoryItemDetailQueryOptions).mockImplementation((id: string) => ({
-      queryKey: inventoryKeys.detail(id),
-      queryFn: vi.fn().mockResolvedValue({ id }),
-      staleTime: 30_000,
-    }))
     asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
   })
 
@@ -288,63 +258,6 @@ describe('VehicleList peek sheet', () => {
     expect(await screen.findByRole('heading', { name: 'Full vehicle page' })).toBeInTheDocument()
   })
 
-  it('shows no skeleton when opening a prefetched customer detail page', async () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    queryClient.setQueryData(customerKeys.detail('cust-1'), {
-      id: 'cust-1',
-      type: 'PRIVATE',
-      first_name: 'Max',
-      last_name: 'Mustermann',
-      email: 'max@example.test',
-      phone: '+43 1 111',
-      address_city: 'Wien',
-      address_country: 'AT',
-      vehicles: [],
-      sales_orders: [],
-      workshop_orders: [],
-      invoices: [],
-    })
-    asMock(customersApi.useCustomer).mockImplementation((id: string) => ({
-      data: queryClient.getQueryData(customerKeys.detail(id)),
-      isLoading: false,
-      error: null,
-    }))
-
-    const { default: CustomerDetail } = await import('@/pages/customers/CustomerDetail')
-    render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/customers/cust-1']}>
-          <Routes>
-            <Route path="/customers/:id" element={<CustomerDetail />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    )
-
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Max Mustermann' })).toBeInTheDocument()
-  })
-
-  it('WHEN the user hovers a vehicle row for 100 ms THEN the detail query is prefetched once', () => {
-    vi.useFakeTimers()
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
-
-    const { container } = renderList('/vehicles', queryClient)
-    const row = container.querySelector('tbody tr[data-table-row="true"]')
-    expect(row).not.toBeNull()
-
-    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
-    vi.advanceTimersByTime(99)
-    expect(prefetchSpy).toHaveBeenCalledTimes(0)
-
-    vi.advanceTimersByTime(1)
-    expect(prefetchSpy).toHaveBeenCalledTimes(1)
-    expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
-      queryKey: vehicleKeys.detail('veh-1'),
-    })
-  })
-
   it.each([
     {
       name: 'vehicles',
@@ -372,11 +285,11 @@ describe('VehicleList peek sheet', () => {
       expectedKey: inventoryKeys.detail('item-1'),
     },
   ])(
-    'prefetches detail query after 100 ms hover on $name list',
+    'WHEN the user hovers a $name row for 100 ms THEN the detail query is prefetched once',
     ({ Component, expectedKey }) => {
       vi.useFakeTimers()
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
+      const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery').mockResolvedValue(undefined)
 
       const { container } = render(
         <QueryClientProvider client={queryClient}>
@@ -394,8 +307,10 @@ describe('VehicleList peek sheet', () => {
       expect(row).not.toBeNull()
 
       fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
-      vi.advanceTimersByTime(100)
+      vi.advanceTimersByTime(99)
+      expect(prefetchSpy).toHaveBeenCalledTimes(0)
 
+      vi.advanceTimersByTime(1)
       expect(prefetchSpy).toHaveBeenCalledTimes(1)
       expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
         queryKey: expectedKey,

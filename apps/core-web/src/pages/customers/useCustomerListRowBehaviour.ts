@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
@@ -13,7 +14,7 @@ import {
 } from '@/features/actions/customer-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 import { useRegistryRowShortcuts } from '@/features/shortcuts/use-registry-row-shortcuts'
-import { scheduleDetailPrefetch, useOptionalQueryClient } from '@/lib/intent-prefetch'
+import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 
 export function useCustomerListRowBehaviour(
   openPeek: (id: string) => void,
@@ -22,7 +23,7 @@ export function useCustomerListRowBehaviour(
   const { t } = useTranslation('customers')
   const navigate = useNavigate()
   const role = useAuthRole()
-  const queryClient = useOptionalQueryClient()
+  const queryClient = useQueryClient()
   const handleDelete = useCustomerDeleteHandler()
 
   const customerActionDefinitions = useMemo(() => createCustomerRowActions(t), [t])
@@ -30,7 +31,9 @@ export function useCustomerListRowBehaviour(
   const prefetchCustomerDetail = useCallback(
     (row: CustomerListRow) => {
       if (!canOpenCustomer(role)) return
-      scheduleDetailPrefetch(queryClient, customerDetailQueryOptions(row.id))
+      scheduleDetailPrefetch(queryClient, customerDetailQueryOptions(row.id), {
+        immediate: true,
+      })
     },
     [queryClient, role],
   )

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -15,12 +16,12 @@ import {
   vehicleStockDetailQueryOptions,
   type VehicleStockRow,
 } from '@/api/vehicle-stock'
-import { canOpenVehicleStock } from '@/features/actions/action-role-predicates'
+import { canOpenBackOfficeDetail } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { scheduleDetailPrefetch, useOptionalQueryClient } from '@/lib/intent-prefetch'
+import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 function stockRowPath(row: VehicleStockRow) {
@@ -36,7 +37,7 @@ export default function VehicleStockList() {
   }, [])
   const navigate = useNavigate()
   const role = useAuthRole()
-  const queryClient = useOptionalQueryClient()
+  const queryClient = useQueryClient()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useVehicleStock(queryParams)
   const deletePurchase = useDeleteVehiclePurchase()
@@ -153,20 +154,20 @@ export default function VehicleStockList() {
         isLoading={isLoading}
         searchPlaceholder={t('stockList.searchPlaceholder')}
         rowBehaviour={{
-          onRowClick: (row) => {
-            if (!canOpenVehicleStock(role)) return
-            navigate(stockRowPath(row))
-          },
+          onRowClick: (row) => navigate(stockRowPath(row)),
           onRowPrefetch: (row) => {
-            if (!canOpenVehicleStock(role)) return
+            if (!canOpenBackOfficeDetail(role)) return
             if (row.draft_purchase_id) {
               scheduleDetailPrefetch(
                 queryClient,
                 vehiclePurchaseDetailQueryOptions(row.draft_purchase_id),
+                { immediate: true },
               )
               return
             }
-            scheduleDetailPrefetch(queryClient, vehicleStockDetailQueryOptions(row.id))
+            scheduleDetailPrefetch(queryClient, vehicleStockDetailQueryOptions(row.id), {
+              immediate: true,
+            })
           },
           getRowContextActions: (row) => {
             const draftPurchaseId = row.draft_purchase_id

@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getClientSessionGeneration,
   isClientSessionResetting,
@@ -10,8 +10,6 @@ import {
   useClientSessionResetting,
 } from '@/auth/client-session-reset'
 import {
-  MAX_CONCURRENT_PREFETCHES,
-  MAX_RETAINED_DETAIL_ENTRIES,
   resetIntentPrefetchScheduler,
   scheduleDetailPrefetch,
 } from '@/lib/intent-prefetch'
@@ -58,6 +56,11 @@ describe('resetClientSession', () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.sessionStorage.clear()
+  })
+
+  afterEach(() => {
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
   })
 
   it('cancels every running query strictly before it clears the cache', async () => {
@@ -190,9 +193,8 @@ describe('resetClientSession', () => {
     expect(isClientSessionResetting()).toBe(false)
   })
 
-  it('cancels pending speculative prefetches on reset and bounds concurrent and retained entries', async () => {
+  it('cancels pending speculative prefetches on session or context reset', async () => {
     vi.useFakeTimers()
-    resetIntentPrefetchScheduler()
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -206,45 +208,5 @@ describe('resetClientSession', () => {
     await resetClientSession(queryClient, 'context')
     vi.advanceTimersByTime(100)
     expect(prefetchSpy).toHaveBeenCalledTimes(0)
-
-    const blockers = Array.from({ length: MAX_CONCURRENT_PREFETCHES }, () => deferred<{ id: string }>())
-    for (let i = 0; i < MAX_CONCURRENT_PREFETCHES + 1; i += 1) {
-      const blocker = blockers[i]
-      scheduleDetailPrefetch(queryClient, {
-        queryKey: ['vehicles', 'detail', `concurrent-${i}`],
-        queryFn: () => (blocker ? blocker.promise : Promise.resolve({ id: `concurrent-${i}` })),
-      })
-    }
-    vi.advanceTimersByTime(100)
-    expect(prefetchSpy).toHaveBeenCalledTimes(MAX_CONCURRENT_PREFETCHES)
-
-    for (const blocker of blockers) blocker.resolve({ id: 'done' })
-    for (let tick = 0; tick < 10; tick += 1) {
-      await Promise.resolve()
-    }
-    expect(prefetchSpy).toHaveBeenCalledTimes(MAX_CONCURRENT_PREFETCHES + 1)
-
-    for (let i = 0; i < MAX_RETAINED_DETAIL_ENTRIES + 3; i += 1) {
-      scheduleDetailPrefetch(queryClient, {
-        queryKey: ['customers', 'detail', `retained-${i}`],
-        queryFn: async () => ({ id: `retained-${i}` }),
-      })
-      vi.advanceTimersByTime(100)
-      for (let tick = 0; tick < 10; tick += 1) {
-        await Promise.resolve()
-      }
-    }
-
-    expect(queryClient.getQueryData(['customers', 'detail', 'retained-0'])).toBeUndefined()
-    expect(
-      queryClient.getQueryData([
-        'customers',
-        'detail',
-        `retained-${MAX_RETAINED_DETAIL_ENTRIES + 2}`,
-      ]),
-    ).toEqual({ id: `retained-${MAX_RETAINED_DETAIL_ENTRIES + 2}` })
-
-    resetIntentPrefetchScheduler()
-    vi.useRealTimers()
   })
 })

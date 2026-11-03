@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
@@ -13,11 +14,11 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import { canOpenInventoryItem } from '@/features/actions/action-role-predicates'
+import { canOpenBackOfficeDetail } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/sources'
 import { formatCurrency } from '@/lib/format'
-import { scheduleDetailPrefetch, useOptionalQueryClient } from '@/lib/intent-prefetch'
+import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
@@ -28,7 +29,7 @@ export default function InventoryList() {
     }, [])
     const navigate = useNavigate()
     const role = useAuthRole()
-    const queryClient = useOptionalQueryClient()
+    const queryClient = useQueryClient()
     const { queryParams, columnFilters, setColumnFilters, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 
     const searchFromNameFilter = queryParams.filters.find((f) => f.field === 'name')?.value
@@ -151,15 +152,15 @@ export default function InventoryList() {
                 columnFilters={columnFilters}
                 setColumnFilters={setColumnFilters}
                 rowBehaviour={{
-                  onRowClick: (item) => {
-                    if (!canOpenInventoryItem(role)) return
+                  onRowClick: (item) =>
                     navigate(`/inventory/${item.id}/ledger?sku=${encodeURIComponent(item.sku)}`, {
                       state: { item },
-                    })
-                  },
+                    }),
                   onRowPrefetch: (item) => {
-                    if (!canOpenInventoryItem(role)) return
-                    scheduleDetailPrefetch(queryClient, inventoryItemDetailQueryOptions(item.id))
+                    if (!canOpenBackOfficeDetail(role)) return
+                    scheduleDetailPrefetch(queryClient, inventoryItemDetailQueryOptions(item.id), {
+                      immediate: true,
+                    })
                   },
                 }}
                 {...tableState}

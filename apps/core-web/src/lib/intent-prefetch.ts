@@ -1,7 +1,5 @@
-import { useContext } from 'react'
 import {
   hashKey,
-  QueryClientContext,
   type FetchQueryOptions,
   type QueryClient,
   type QueryKey,
@@ -33,9 +31,9 @@ import {
  * | Mechanic queue | `MechanicQueuePage` / `MechanicQueueCard` | Eligible (wired) | `mechanicQueueKeys.taskDetail(taskId)` via `mechanicTaskDetailQueryOptions` |
  * | Vehicles | `VehicleList` / `useVehicleListRowBehaviour` | Eligible (wired) | `vehicleKeys.detail(id)` via `vehicleDetailQueryOptions` (`canOpenVehicle`) |
  * | Customers | `CustomerList` / `useCustomerListRowBehaviour` | Eligible (wired) | `customerKeys.detail(id)` via `customerDetailQueryOptions` (`canOpenCustomer`) |
- * | Invoices | `InvoiceListPage` | Eligible (wired) | `invoiceKeys.detail(id)` via `invoiceDetailQueryOptions` (`canOpenInvoice`) |
- * | Stock vehicles | `VehicleStockList` | Eligible (wired) | `vehicleStockKeys.detail(id)` or `vehicleStockKeys.purchase(draft_purchase_id)` (`canOpenVehicleStock`) |
- * | Parts (Inventory) | `InventoryList` | Eligible (wired) | `inventoryKeys.detail(id)` via `inventoryItemDetailQueryOptions` (`canOpenInventoryItem`) |
+ * | Invoices | `InvoiceListPage` | Eligible (wired) | `invoiceKeys.detail(id)` via `invoiceDetailQueryOptions` (`canOpenBackOfficeDetail`) |
+ * | Stock vehicles | `VehicleStockList` | Eligible (wired) | `vehicleStockKeys.detail(id)` or `vehicleStockKeys.purchase(draft_purchase_id)` (`canOpenBackOfficeDetail`) |
+ * | Parts (Inventory) | `InventoryList` | Eligible (wired) | `inventoryKeys.detail(id)` via `inventoryItemDetailQueryOptions` (`canOpenBackOfficeDetail`) |
  * | Sales orders | `SalesOrderList` / `useSalesOrderListRowBehaviour` | Deferred (out of scope for AUT-875) | Navigable to `/sales-orders/:id`; deferred to module migration slice |
  * | Workshop estimates | `WorkshopEstimateListPage` | Deferred (out of scope for AUT-875) | Navigable to `/workshop/estimates/:id`; deferred to module migration slice |
  * | Purchase orders | `PurchaseOrderList` | Deferred (out of scope for AUT-875) | Navigable to `/purchase-orders/:id`; deferred to module migration slice |
@@ -80,8 +78,6 @@ const inFlightKeys = new Set<string>()
 const queuedPrefetches = new Map<string, QueuedPrefetch>()
 const retainedDetailEntries = new Map<string, RetainedEntry>()
 
-let immediateExecutionDepth = 0
-
 subscribeClientSessionState(() => {
   if (isClientSessionResetting()) {
     resetIntentPrefetchScheduler()
@@ -91,19 +87,6 @@ subscribeClientSessionState(() => {
 export function isSaveDataEnabled(): boolean {
   if (typeof navigator === 'undefined') return false
   return Boolean((navigator as NavigatorWithConnection).connection?.saveData)
-}
-
-export function useOptionalQueryClient(): QueryClient | null {
-  return useContext(QueryClientContext) ?? null
-}
-
-function runWithImmediateExecution(callback: () => void): void {
-  immediateExecutionDepth += 1
-  try {
-    callback()
-  } finally {
-    immediateExecutionDepth -= 1
-  }
 }
 
 /**
@@ -134,7 +117,7 @@ export function scheduleIntentPrefetch(
     ) {
       return
     }
-    runWithImmediateExecution(callback)
+    callback()
   }, delayMs)
 
   pendingTimers.set(intentKey, timer)
@@ -154,7 +137,7 @@ export function startImmediateIntentPrefetch(
   if (isSaveDataEnabled() || isClientSessionResetting()) {
     return
   }
-  runWithImmediateExecution(callback)
+  callback()
 }
 
 /**
@@ -341,8 +324,8 @@ function executeDetailPrefetch<
 
 /**
  * Prefetches a detail query through the shared scheduler.
- * - When called from a fired row/card intent timer or immediate `pointerdown`, executes immediately.
- * - When called directly (e.g. from a custom `onRowPrefetch` invocation), schedules the 100 ms intent timer.
+ * - When `scheduleOptions.immediate` is `true` (e.g. from a fired row/card intent timer or `pointerdown`), executes immediately.
+ * - When `scheduleOptions.immediate` is omitted or `false`, schedules the 100 ms intent timer.
  */
 export function scheduleDetailPrefetch<
   TQueryFnData = unknown,
@@ -350,10 +333,11 @@ export function scheduleDetailPrefetch<
   TData = TQueryFnData,
   TQueryKey extends QueryKey = QueryKey,
 >(
-  queryClient: QueryClient | null | undefined,
+  queryClient: QueryClient,
   options: FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>,
+  scheduleOptions?: { immediate?: boolean },
 ): void {
-  if (!queryClient || isSaveDataEnabled() || isClientSessionResetting()) {
+  if (isSaveDataEnabled() || isClientSessionResetting()) {
     return
   }
 
@@ -364,7 +348,7 @@ export function scheduleDetailPrefetch<
     return
   }
 
-  if (immediateExecutionDepth > 0) {
+  if (scheduleOptions?.immediate) {
     executeDetailPrefetch(queryClient, options, keyHash)
     return
   }

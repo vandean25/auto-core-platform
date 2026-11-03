@@ -30,7 +30,9 @@ export function useWorkshopOrderListRowBehaviour(
   const prefetchOrderDetail = useCallback(
     (row: WorkshopOrderListRow) => {
       if (!canOpenWorkshopOrder(role)) return
-      scheduleDetailPrefetch(queryClient, workshopOrderDetailQueryOptions(row.id))
+      scheduleDetailPrefetch(queryClient, workshopOrderDetailQueryOptions(row.id), {
+        immediate: true,
+      })
     },
     [queryClient, role],
   )

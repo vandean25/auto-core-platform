@@ -43,7 +43,9 @@ export default function MechanicQueuePage() {
 
   const prefetchTaskDetail = useCallback(
     (taskId: string) => {
-      scheduleDetailPrefetch(queryClient, mechanicTaskDetailQueryOptions(taskId))
+      scheduleDetailPrefetch(queryClient, mechanicTaskDetailQueryOptions(taskId), {
+        immediate: true,
+      })
     },
     [queryClient],
   )

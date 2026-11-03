@@ -6,7 +6,11 @@ import WorkshopOrderList from './WorkshopOrderList'
 import * as workshopApi from '@/api/workshop'
 import { workshopKeys } from '@/api/workshop'
 import { fetchWithAuth } from '@/api/client'
-import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
+import {
+  cancelIntentPrefetch,
+  resetIntentPrefetchScheduler,
+  scheduleIntentPrefetch,
+} from '@/lib/intent-prefetch'
 
 vi.mock('@/api/workshop', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/workshop')>()
@@ -27,7 +31,15 @@ vi.mock('@/components/data-table/DataTable', () => ({
     data: Array<{ id: string }>
     rowBehaviour?: { onRowPrefetch?: (row: { id: string }) => void }
   }) => (
-    <button type="button" onPointerEnter={() => rowBehaviour?.onRowPrefetch?.(data[0])}>
+    <button
+      type="button"
+      onPointerEnter={() =>
+        scheduleIntentPrefetch(`row-hover:${data[0]?.id ?? '0'}`, () =>
+          rowBehaviour?.onRowPrefetch?.(data[0]),
+        )
+      }
+      onPointerLeave={() => cancelIntentPrefetch(`row-hover:${data[0]?.id ?? '0'}`)}
+    >
       hover-row
     </button>
   ),

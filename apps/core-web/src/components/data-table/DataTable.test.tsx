@@ -77,7 +77,7 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).toHaveBeenCalledWith({ name: 'Test Item' })
   })
 
-  it('prefetches after 100 ms on mouse pointerenter or focus and skips touch pointerenter', () => {
+  it('prefetches after 100 ms on mouse pointerenter or focus, keeps focus timer when pointer leaves, and cancels focus timer on blur', () => {
     vi.useFakeTimers()
     const onRowPrefetch = vi.fn()
     const { container } = render(
@@ -87,10 +87,6 @@ describe('DataTable Characterization', () => {
     const row = container.querySelector('tbody tr[data-table-row="true"]')
     expect(row).not.toBeNull()
 
-    fireEvent.pointerEnter(row!, { pointerType: 'touch' })
-    vi.advanceTimersByTime(100)
-    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
-
     fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
     vi.advanceTimersByTime(99)
     expect(onRowPrefetch).toHaveBeenCalledTimes(0)
@@ -99,6 +95,15 @@ describe('DataTable Characterization', () => {
     expect(onRowPrefetch).toHaveBeenCalledWith({ name: 'Test Item' })
 
     fireEvent.focus(row!)
+    vi.advanceTimersByTime(50)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(1)
+    fireEvent.pointerLeave(row!)
+    vi.advanceTimersByTime(50)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(2)
+
+    fireEvent.focus(row!)
+    vi.advanceTimersByTime(50)
+    fireEvent.blur(row!)
     vi.advanceTimersByTime(100)
     expect(onRowPrefetch).toHaveBeenCalledTimes(2)
   })
@@ -130,11 +135,18 @@ describe('DataTable Characterization', () => {
 
     const row = container.querySelector('tbody tr[data-table-row="true"]')
     expect(row).not.toBeNull()
+    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
 
     fireEvent.pointerEnter(row!, { pointerType: 'touch' })
     fireEvent.pointerDown(row!, { pointerType: 'touch' })
     fireEvent.scroll(row!)
     fireEvent.pointerLeave(row!, { pointerType: 'touch' })
+    vi.advanceTimersByTime(500)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
+
+    fireEvent.focus(row!)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
+    fireEvent.blur(row!)
     vi.advanceTimersByTime(500)
 
     expect(onRowPrefetch).toHaveBeenCalledTimes(0)

@@ -232,16 +232,19 @@ export function DataTableBodyRow<TData extends object>({
 }: DataTableBodyRowProps<TData>) {
   const rowData = row.original
   const rowId = getTableRowId(rowData)
-  const intentKey = `row:${rowId ?? row.id}`
+  const targetId = rowId ?? row.id
+  const hoverIntentKey = `row-hover:${targetId}`
+  const focusIntentKey = `row-focus:${targetId}`
   const onRowClick = rowBehaviour?.onRowClick
   const onRowPrefetch = rowBehaviour?.onRowPrefetch
   const showClickableStyles = Boolean(onRowClick)
 
   useEffect(() => {
     return () => {
-      cancelIntentPrefetch(intentKey)
+      cancelIntentPrefetch(hoverIntentKey)
+      cancelIntentPrefetch(focusIntentKey)
     }
-  }, [intentKey])
+  }, [focusIntentKey, hoverIntentKey])
 
   return (
     <TableRow
@@ -252,10 +255,10 @@ export function DataTableBodyRow<TData extends object>({
       onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
       onPointerEnter={(event) => {
         if (event.pointerType === 'touch' || !onRowPrefetch) return
-        scheduleIntentPrefetch(intentKey, () => onRowPrefetch(rowData))
+        scheduleIntentPrefetch(hoverIntentKey, () => onRowPrefetch(rowData))
       }}
       onPointerLeave={() => {
-        cancelIntentPrefetch(intentKey)
+        cancelIntentPrefetch(hoverIntentKey)
       }}
       onPointerDown={(event) => {
         if (
@@ -265,19 +268,20 @@ export function DataTableBodyRow<TData extends object>({
         ) {
           return
         }
-        startImmediateIntentPrefetch(intentKey, () => onRowPrefetch(rowData))
+        cancelIntentPrefetch(focusIntentKey)
+        startImmediateIntentPrefetch(hoverIntentKey, () => onRowPrefetch(rowData))
       }}
       onFocus={(event) => {
         if (event.target === event.currentTarget) {
           onRowFocus()
           if (onRowPrefetch) {
-            scheduleIntentPrefetch(intentKey, () => onRowPrefetch(rowData))
+            scheduleIntentPrefetch(focusIntentKey, () => onRowPrefetch(rowData))
           }
         }
       }}
       onBlur={(event) => {
         if (event.target === event.currentTarget) {
-          cancelIntentPrefetch(intentKey)
+          cancelIntentPrefetch(focusIntentKey)
         }
       }}
       onContextMenu={(event) => {

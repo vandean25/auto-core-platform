@@ -22,13 +22,15 @@ function formatVehicle(item: MechanicQueueItem) {
 
 export function MechanicQueueCard({ item, onPrefetch }: MechanicQueueCardProps) {
   const { t } = useTranslation('workshop')
-  const intentKey = `mechanic-task:${item.taskId}`
+  const hoverIntentKey = `mechanic-task-hover:${item.taskId}`
+  const focusIntentKey = `mechanic-task-focus:${item.taskId}`
 
   useEffect(() => {
     return () => {
-      cancelIntentPrefetch(intentKey)
+      cancelIntentPrefetch(hoverIntentKey)
+      cancelIntentPrefetch(focusIntentKey)
     }
-  }, [intentKey])
+  }, [focusIntentKey, hoverIntentKey])
 
   return (
     <Link
@@ -36,21 +38,22 @@ export function MechanicQueueCard({ item, onPrefetch }: MechanicQueueCardProps) 
       className="block min-h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       onPointerEnter={(event) => {
         if (event.pointerType === 'touch' || !onPrefetch) return
-        scheduleIntentPrefetch(intentKey, onPrefetch)
+        scheduleIntentPrefetch(hoverIntentKey, onPrefetch)
       }}
       onPointerLeave={() => {
-        cancelIntentPrefetch(intentKey)
+        cancelIntentPrefetch(hoverIntentKey)
       }}
       onPointerDown={(event) => {
         if (event.pointerType === 'touch' || !onPrefetch) return
-        startImmediateIntentPrefetch(intentKey, onPrefetch)
+        cancelIntentPrefetch(focusIntentKey)
+        startImmediateIntentPrefetch(hoverIntentKey, onPrefetch)
       }}
       onFocus={() => {
         if (!onPrefetch) return
-        scheduleIntentPrefetch(intentKey, onPrefetch)
+        scheduleIntentPrefetch(focusIntentKey, onPrefetch)
       }}
       onBlur={() => {
-        cancelIntentPrefetch(intentKey)
+        cancelIntentPrefetch(focusIntentKey)
       }}
     >
       <Card className="min-h-[72px] p-4 transition-colors hover:bg-slate-50">
