@@ -11,7 +11,7 @@ export type DemoUserDefinition = {
   firebaseUid?: string | null;
   platformRole?: PlatformAdminRole;
   tenantRole: TenantMemberRole;
-  mechanicEmployeeName?: string;
+  linkedEmployee?: { name: string; role: EmployeeRole };
   locale?: DisplayLanguage;
 };
 
@@ -26,12 +26,16 @@ export const DEMO_USERS: DemoUserDefinition[] = [
     email: 'grok-bot@auto.core.at',
     firebaseUid: 'pBTLzBLmwhUthUETFmkQUkFNS9j2',
     tenantRole: TenantMemberRole.ADMIN,
+    linkedEmployee: {
+      name: 'Grok Bot QA',
+      role: EmployeeRole.SERVICE_ADVISOR,
+    },
   },
   {
     email: 'grok-bot-tech@auto.core.at',
     firebaseUid: 'Jt5Dd8PCV9Xrhd2GjU31CsGCQCL2',
     tenantRole: TenantMemberRole.TECH,
-    mechanicEmployeeName: 'Grok Bot',
+    linkedEmployee: { name: 'Grok Bot', role: EmployeeRole.MECHANIC },
   },
   {
     email: 'tablet-mechanic@auto.core.at',
@@ -189,12 +193,12 @@ export async function seedDemoUsers(
       });
     }
 
-    // 5. Mechanic Employee link if requested
-    if (def.mechanicEmployeeName) {
+    // 5. Linked employee if requested
+    if (def.linkedEmployee) {
       const existingEmployee = await prisma.employee.findFirst({
         where: {
           tenant_id: tenantId,
-          name: def.mechanicEmployeeName,
+          name: def.linkedEmployee.name,
         },
       });
 
@@ -207,8 +211,8 @@ export async function seedDemoUsers(
         await prisma.employee.create({
           data: {
             tenant_id: tenantId,
-            name: def.mechanicEmployeeName,
-            role: EmployeeRole.MECHANIC,
+            name: def.linkedEmployee.name,
+            role: def.linkedEmployee.role,
             user_id: user.id,
             is_active: true,
           },
