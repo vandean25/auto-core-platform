@@ -303,7 +303,7 @@ export const ADMIN_OPERATIONS: OperationTable = {
     ADMINS,
     'tenant',
   ),
-  'AuditController.findAll': op('audit.read', BACK_OFFICE_DEMO, 'tenant'),
+  'AuditController.findAll': op('audit.read', ADMINS, 'tenant'),
   'NotificationOutboxReplayController.replayFailed': op(
     'notification.outbox.replay',
     ADMINS,
