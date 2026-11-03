@@ -1,6 +1,8 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditController } from './audit.controller.js';
 import { AuditService } from './audit.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { AuditActorType, AuditLogAction } from '@prisma/client';
 import { QueryAuditLogsDto } from './dto/index.js';
 
@@ -8,6 +10,9 @@ describe('AuditController', () => {
   let controller: AuditController;
   let service: {
     findAll: jest.Mock;
+  };
+  let tenantContext: {
+    getAuthenticatedUser: jest.Mock;
   };
 
   const sampleResponse = {
@@ -46,10 +51,16 @@ describe('AuditController', () => {
     service = {
       findAll: jest.fn().mockResolvedValue(sampleResponse),
     };
+    tenantContext = {
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'ADMIN' }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuditController],
-      providers: [{ provide: AuditService, useValue: service }],
+      providers: [
+        { provide: AuditService, useValue: service },
+        { provide: TenantContextService, useValue: tenantContext },
+      ],
     }).compile();
 
     controller = module.get<AuditController>(AuditController);
@@ -65,5 +76,15 @@ describe('AuditController', () => {
 
     expect(service.findAll).toHaveBeenCalledWith(query);
     expect(result).toEqual(sampleResponse);
+  });
+
+  // Catches a missing role check on GET /audit-logs: fails against a controller that reads without one.
+  it('refuses a member outside OWNER/ADMIN with 403 before reading any log', () => {
+    tenantContext.getAuthenticatedUser.mockReturnValue({ role: 'SALES' });
+
+    expect(() => controller.findAll({ page: 1, limit: 20 })).toThrow(
+      ForbiddenException,
+    );
+    expect(service.findAll).not.toHaveBeenCalled();
   });
 });

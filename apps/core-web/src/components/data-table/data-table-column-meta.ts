@@ -9,7 +9,7 @@ export type DataTableFilterMeta =
     }
   | { type: 'dateRange'; title: string }
 
-export type DataTableMobileRole = 'title' | 'subtitle' | 'status' | 'trailing' | 'hidden'
+export type DataTableMobileRole = 'title' | 'subtitle' | 'status' | 'trailing' | 'details' | 'hidden'
 
 export type DataTableMobileSlots = Partial<Record<Exclude<DataTableMobileRole, 'hidden'>, string>>
 

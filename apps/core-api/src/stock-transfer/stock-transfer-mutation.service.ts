@@ -33,6 +33,7 @@ import {
 } from './stock-transfer-line-validation.helpers.js';
 import { StockTransferQueryService } from './stock-transfer-query.service.js';
 import { StockTransferSiteLockService } from './stock-transfer-site-lock.service.js';
+import { attachLineBins } from './stock-transfer-bins.js';
 import { TRANSFER_INCLUDE } from './stock-transfer-include.js';
 import { SerializedStockTransfer } from './stock-transfer-serializer.js';
 
@@ -138,6 +139,7 @@ export class StockTransferMutationService {
         include: TRANSFER_INCLUDE,
       });
 
+      await attachLineBins(tx, access.tenantId, [transfer]);
       return transfer;
     });
   }
@@ -230,7 +232,7 @@ export class StockTransferMutationService {
         'Transfer changed during approval. Refresh and retry.',
       );
 
-      return this.loadTransfer(tx, access, id);
+      return this.loadTransferForResponse(tx, access, id);
     });
   }
 
@@ -270,7 +272,7 @@ export class StockTransferMutationService {
         'Transfer changed during rejection. Refresh and retry.',
       );
 
-      return this.loadTransfer(tx, access, id);
+      return this.loadTransferForResponse(tx, access, id);
     });
   }
 
@@ -322,7 +324,7 @@ export class StockTransferMutationService {
         'Transfer changed during cancellation. Refresh and retry.',
       );
 
-      return this.loadTransfer(tx, access, id);
+      return this.loadTransferForResponse(tx, access, id);
     });
   }
 
@@ -418,7 +420,7 @@ export class StockTransferMutationService {
         },
       );
 
-      return this.loadTransfer(tx, access, id);
+      return this.loadTransferForResponse(tx, access, id);
     });
   }
 
@@ -744,6 +746,17 @@ export class StockTransferMutationService {
     id: string,
   ) {
     return this.queryService.loadTransfer(tx, access.tenantId, id, [
+      ...access.accessBySite.keys(),
+    ]);
+  }
+
+  /** The read whose result becomes the response; bin codes resolve here only. */
+  private loadTransferForResponse(
+    tx: Prisma.TransactionClient,
+    access: CallerAccess,
+    id: string,
+  ) {
+    return this.queryService.loadTransferWithLineBins(tx, access.tenantId, id, [
       ...access.accessBySite.keys(),
     ]);
   }
