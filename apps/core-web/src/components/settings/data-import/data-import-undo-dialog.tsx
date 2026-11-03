@@ -33,7 +33,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getErrorMessage } from "@/lib/error-utils";
+import {
+  getErrorMessage,
+  getErrorStatus,
+} from "@/lib/error-utils";
 import { formatNumber } from "@/lib/format";
 
 const BLOCKED_REASON_KEY_MAP = {
@@ -325,6 +328,35 @@ function readUndoBlockedCount(job: ImportJob): number {
   return options?.undo?.blocked ?? 0;
 }
 
+function UndoPreviewErrorAlert({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation("settings");
+  const { t: commonT } = useTranslation("common");
+  // A 409 is the server refusing the undo, so a retry cannot change the outcome.
+  const refusalLine =
+    getErrorStatus(error) === 409
+      ? getErrorMessage(error, t("dataImport.undo.previewRefused"))
+      : null;
+
+  return (
+    <Alert variant="destructive">
+      <AlertDescription className="flex items-center justify-between gap-2">
+        <span>{refusalLine ?? t("dataImport.undo.loadPreviewFailed")}</span>
+        {refusalLine ? null : (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            {commonT("actions.retry", { defaultValue: "Erneut versuchen" })}
+          </Button>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function DataImportUndoDialog({
   jobId,
   open,
@@ -332,11 +364,11 @@ export function DataImportUndoDialog({
   onSuccess,
 }: DataImportUndoDialogProps) {
   const { t } = useTranslation("settings");
-  const { t: commonT } = useTranslation("common");
   const {
     data: preview,
     isLoading,
     isError,
+    error: previewError,
     refetch,
   } = useImportUndoPreview(jobId, open);
   const undoMutation = useUndoImportJob();
@@ -409,20 +441,10 @@ export function DataImportUndoDialog({
               </div>
             </div>
           ) : isError ? (
-            <Alert variant="destructive">
-              <AlertDescription className="flex items-center justify-between">
-                <span>{t("dataImport.undo.loadPreviewFailed")}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void refetch()}
-                >
-                  {commonT("actions.retry", {
-                    defaultValue: "Erneut versuchen",
-                  })}
-                </Button>
-              </AlertDescription>
-            </Alert>
+            <UndoPreviewErrorAlert
+              error={previewError}
+              onRetry={() => void refetch()}
+            />
           ) : preview ? (
             <div className="space-y-4">
               <UndoSummaryCards counts={preview.counts} />
