@@ -71,7 +71,7 @@ export function WorkshopKpiDashboardWidget() {
             </div>
           </div>
         ) : (
-          <Empty className="p-4 md:p-4">
+          <Empty className="gap-2 p-2 md:p-2">
             <EmptyDescription>{t('kpi.empty')}</EmptyDescription>
           </Empty>
         )}

@@ -80,7 +80,7 @@ export function WorkshopOrderMeasurementsSection({
       </CardHeader>
       <CardContent className='space-y-2'>
         {(measurementsQuery.data?.data ?? []).length === 0 ? (
-          <Empty className='p-6 md:p-6'>
+          <Empty className='gap-2 p-2 md:p-2'>
             <EmptyDescription>{t('measurementsSection.empty')}</EmptyDescription>
           </Empty>
         ) : (

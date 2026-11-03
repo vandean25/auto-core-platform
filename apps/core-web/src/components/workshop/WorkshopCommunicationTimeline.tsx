@@ -159,7 +159,7 @@ export function WorkshopCommunicationTimeline({ orderId }: { orderId: string }) 
             </AlertDescription>
           </Alert>
         ) : query.data.length === 0 ? (
-          <Empty className="p-6 md:p-6">
+          <Empty className="gap-2 p-2 md:p-2">
             <EmptyDescription>{t('communicationTimeline.empty')}</EmptyDescription>
           </Empty>
         ) : (
