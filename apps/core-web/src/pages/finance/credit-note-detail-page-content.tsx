@@ -106,6 +106,8 @@ function CreditNotePrintButton({
       role={role}
       variant="default"
       className="min-h-11"
+      loading={pdfDownload.isLoading}
+      label={pdfDownload.isLoading ? t('shared.generating') : undefined}
     />
   )
 }

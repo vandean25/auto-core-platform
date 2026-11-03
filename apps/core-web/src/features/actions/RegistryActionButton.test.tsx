@@ -59,6 +59,47 @@ describe('RegistryActionButton', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
+  it('shows a spinner and disables the button while loading', () => {
+    const adminRole = 'ADMIN'
+    const run = vi.fn()
+    const action: EntityActionDefinition<Item, Record<string, never>> = {
+      id: 'creditNote.print',
+      kind: 'run',
+      label: 'Drucken',
+      isAllowedForRole: () => true,
+      isEnabled: () => true,
+      run,
+    }
+
+    const { rerender } = render(
+      <RegistryActionButton
+        action={action}
+        role={adminRole}
+        record={{ id: 'cn-1', enabled: true }}
+        runContext={{}}
+      />,
+    )
+    const idle = screen.getByRole('button', { name: 'Drucken' })
+    expect(idle).toBeEnabled()
+    expect(idle.querySelector('.animate-spin')).toBeNull()
+
+    rerender(
+      <RegistryActionButton
+        action={action}
+        role={adminRole}
+        record={{ id: 'cn-1', enabled: true }}
+        runContext={{}}
+        loading
+        label="Wird erstellt…"
+      />,
+    )
+    const loading = screen.getByRole('button', { name: 'Wird erstellt…' })
+    expect(loading).toBeDisabled()
+    expect(loading.querySelector('.animate-spin')).not.toBeNull()
+    fireEvent.click(loading)
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('routes destructive button clicks through the shared confirm host', () => {
     const adminRole = 'ADMIN'
     const run = vi.fn()
