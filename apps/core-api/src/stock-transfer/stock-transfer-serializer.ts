@@ -38,8 +38,27 @@ export interface SerializedStockTransfer {
 }
 
 type TransferLineRow = StockTransferWithSitesAndLines['lines'][number];
+type BinLocation = NonNullable<TransferLineRow['source_location']>;
+type BinFields = {
+  id: string | null;
+  code: string | null;
+  name: string | null;
+};
 
-/** Line bins with the source side nulled for callers without from-site access. */
+const HIDDEN_BIN: BinFields = { id: null, code: null, name: null };
+
+function binFields(
+  locationId: string | null,
+  location: BinLocation | null | undefined,
+): BinFields {
+  return {
+    id: locationId ?? null,
+    code: location?.code ?? null,
+    name: location?.name ?? null,
+  };
+}
+
+/** One bin side per call: `from` (source) and `to` (destination). */
 function serializeBins(
   line: TransferLineRow,
   includeSourceBin: boolean,
@@ -52,13 +71,17 @@ function serializeBins(
   | 'toBinCode'
   | 'toBinName'
 > {
+  const from = includeSourceBin
+    ? binFields(line.source_location_id, line.source_location)
+    : HIDDEN_BIN;
+  const to = binFields(line.dest_location_id, line.dest_location);
   return {
-    sourceLocationId: includeSourceBin ? line.source_location_id : null,
-    fromBinCode: includeSourceBin ? (line.source_location?.code ?? null) : null,
-    fromBinName: includeSourceBin ? (line.source_location?.name ?? null) : null,
-    destLocationId: line.dest_location_id,
-    toBinCode: line.dest_location?.code ?? null,
-    toBinName: line.dest_location?.name ?? null,
+    sourceLocationId: from.id,
+    fromBinCode: from.code,
+    fromBinName: from.name,
+    destLocationId: to.id,
+    toBinCode: to.code,
+    toBinName: to.name,
   };
 }
 

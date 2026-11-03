@@ -367,29 +367,14 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
 
   describe('lifecycle (approve -> ship -> receive)', () => {
     it('MAIN -> GRZ: ships from the MAIN bin and receives into the GRZ bin', async () => {
-      await seedBinStock(mainSiteId, mainBinId, 5);
+      const { transferId, lineId } = await shipMainToGrz(2);
 
-      const created = await postTransfer({
-        fromSiteId: mainSiteId,
-        toSiteId: grzSiteId,
-        lines: [
-          { catalogItemId, requestedQty: 2, sourceLocationId: mainBinId },
-        ],
-      }).expect(201);
-      const transferId = created.body.id;
-      const lineId = created.body.lines[0].id;
-
-      await postAction(transferId, 'approve', { expectedVersion: 1 }).expect(
-        201,
-      );
-      await postAction(transferId, 'ship', {
-        expectedVersion: 2,
-        lines: [{ id: lineId }],
-      }).expect(201);
-      const received = await postAction(transferId, 'receive', {
-        expectedVersion: 3,
+      const received = await receiveLine({
+        transferId,
+        lineId,
+        destLocationId: grzBinId,
+        qty: 2,
         idempotencyKey: 'aut466-main-grz-1',
-        lines: [{ id: lineId, receiveQty: 2, destLocationId: grzBinId }],
       }).expect(200);
 
       expect(received.body.status).toBe('COMPLETED');
@@ -399,26 +384,19 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
 
     it('GRZ -> MAIN: source bin chosen at ship time, received into the MAIN bin', async () => {
       await seedBinStock(grzSiteId, grzBinId, 4);
-
-      const created = await postTransfer({
+      const { transferId, lineId } = await shipOneLineTransfer({
         fromSiteId: grzSiteId,
         toSiteId: mainSiteId,
-        lines: [{ catalogItemId, requestedQty: 3 }],
-      }).expect(201);
-      const transferId = created.body.id;
-      const lineId = created.body.lines[0].id;
+        requestedQty: 3,
+        shipSourceLocationId: grzBinId,
+      });
 
-      await postAction(transferId, 'approve', { expectedVersion: 1 }).expect(
-        201,
-      );
-      await postAction(transferId, 'ship', {
-        expectedVersion: 2,
-        lines: [{ id: lineId, sourceLocationId: grzBinId }],
-      }).expect(201);
-      const received = await postAction(transferId, 'receive', {
-        expectedVersion: 3,
+      const received = await receiveLine({
+        transferId,
+        lineId,
+        destLocationId: mainBinId,
+        qty: 3,
         idempotencyKey: 'aut466-grz-main-1',
-        lines: [{ id: lineId, receiveQty: 3, destLocationId: mainBinId }],
       }).expect(200);
 
       expect(received.body.status).toBe('COMPLETED');
@@ -427,10 +405,87 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
     });
   });
 
-  function getDetail(transferId: string) {
+  function getDetail(transferId: string, authToken: string = token()) {
     return request(app.getHttpServer())
       .get(`/api/stock-transfers/${transferId}`)
-      .set('Authorization', `Bearer ${token()}`);
+      .set('Authorization', `Bearer ${authToken}`);
+  }
+
+  /** Requests, approves and ships a one-line transfer, returning its ids. */
+  async function shipOneLineTransfer(transfer: {
+    fromSiteId: string;
+    toSiteId: string;
+    requestedQty: number;
+    /** Bin set on the request line; omit to choose it at ship time instead. */
+    sourceLocationId?: string;
+    shipSourceLocationId?: string;
+  }) {
+    const created = await postTransfer({
+      fromSiteId: transfer.fromSiteId,
+      toSiteId: transfer.toSiteId,
+      lines: [
+        {
+          catalogItemId,
+          requestedQty: transfer.requestedQty,
+          ...(transfer.sourceLocationId
+            ? { sourceLocationId: transfer.sourceLocationId }
+            : {}),
+        },
+      ],
+    }).expect(201);
+    const transferId: string = created.body.id;
+    const lineId: string = created.body.lines[0].id;
+
+    await postAction(transferId, 'approve', { expectedVersion: 1 }).expect(201);
+    await postAction(transferId, 'ship', {
+      expectedVersion: 2,
+      lines: [
+        {
+          id: lineId,
+          ...(transfer.shipSourceLocationId
+            ? { sourceLocationId: transfer.shipSourceLocationId }
+            : {}),
+        },
+      ],
+    }).expect(201);
+    return { transferId, lineId };
+  }
+
+  /** Ships a stocked MAIN -> GRZ transfer of `qty`. */
+  async function shipMainToGrz(qty: number) {
+    await seedBinStock(mainSiteId, mainBinId, 5);
+    return shipOneLineTransfer({
+      fromSiteId: mainSiteId,
+      toSiteId: grzSiteId,
+      requestedQty: qty,
+      sourceLocationId: mainBinId,
+    });
+  }
+
+  function receiveLine(line: {
+    transferId: string;
+    lineId: string;
+    destLocationId: string;
+    qty: number;
+    idempotencyKey: string;
+    authToken?: string;
+  }) {
+    return postAction(
+      line.transferId,
+      'receive',
+      {
+        expectedVersion: 3,
+        idempotencyKey: line.idempotencyKey,
+        lines: [
+          {
+            id: line.lineId,
+            receiveQty: line.qty,
+            destLocationId: line.destLocationId,
+          },
+        ],
+      },
+      line.authToken ?? token(),
+    );
   }
 
   async function createRequestedTransfer(
@@ -452,39 +507,26 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
 
   describe('detail (GET /api/stock-transfers/:id, AUT-909)', () => {
     it('AUT-909 S1: detail returns bin codes for source and destination, not just UUIDs', async () => {
-      await seedBinStock(mainSiteId, mainBinId, 5);
-
-      const created = await postTransfer({
-        fromSiteId: mainSiteId,
-        toSiteId: grzSiteId,
-        lines: [
-          { catalogItemId, requestedQty: 2, sourceLocationId: mainBinId },
-        ],
-      }).expect(201);
-      const transferId = created.body.id;
-      const lineId = created.body.lines[0].id;
-
-      await postAction(transferId, 'approve', { expectedVersion: 1 }).expect(
-        201,
-      );
-      await postAction(transferId, 'ship', {
-        expectedVersion: 2,
-        lines: [{ id: lineId }],
-      }).expect(201);
-      await postAction(transferId, 'receive', {
-        expectedVersion: 3,
+      const { transferId, lineId } = await shipMainToGrz(2);
+      await receiveLine({
+        transferId,
+        lineId,
+        destLocationId: grzBinId,
+        qty: 2,
         idempotencyKey: 'aut909-detail-bins-1',
-        lines: [{ id: lineId, receiveQty: 2, destLocationId: grzBinId }],
       }).expect(200);
 
       const detail = await getDetail(transferId).expect(200);
 
-      const line = detail.body.lines[0];
-      expect(line.fromBinCode).toBe('BIN-A1');
-      expect(line.toBinCode).toBe('BIN-G1');
-      // existing fields keep their contract
-      expect(line.sourceLocationId).toBe(mainBinId);
-      expect(line.destLocationId).toBe(grzBinId);
+      expect(detail.body.lines[0]).toMatchObject({
+        fromBinCode: 'BIN-A1',
+        fromBinName: 'Bin A1',
+        toBinCode: 'BIN-G1',
+        toBinName: 'Bin G1',
+        // existing fields keep their contract
+        sourceLocationId: mainBinId,
+        destLocationId: grzBinId,
+      });
     });
 
     it('AUT-909 S2: detail resolves all line bins with a constant number of SQL statements (2 vs 10 lines)', async () => {
@@ -553,10 +595,12 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
   // would not, because the fallback inflates the equal-quantity baseline
   // too. For approve, per-line and grouped writes coincide when every
   // quantity is distinct - its existing 2-vs-10 S1 case is the guard there.
+  // AUT-909 adds exactly one constant statement per action: the response read
+  // resolves line bins in a single StorageLocation query (write-path reads stay bin-free).
   const DISTINCT_QUANTITY_BOUND = {
-    approve: { equalQuantityStatements: 23, groupsPerExtraQuantity: 1 },
-    ship: { equalQuantityStatements: 36, groupsPerExtraQuantity: 2 },
-    receive: { equalQuantityStatements: 37, groupsPerExtraQuantity: 2 },
+    approve: { equalQuantityStatements: 24, groupsPerExtraQuantity: 1 },
+    ship: { equalQuantityStatements: 37, groupsPerExtraQuantity: 2 },
+    receive: { equalQuantityStatements: 38, groupsPerExtraQuantity: 2 },
   } as const;
 
   it.each(['approve', 'ship', 'receive'] as const)(
@@ -689,42 +733,18 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       });
     }
 
-    async function shipMainToGrz(qty: number) {
-      await seedBinStock(mainSiteId, mainBinId, 5);
-      const created = await postTransfer({
-        fromSiteId: mainSiteId,
-        toSiteId: grzSiteId,
-        lines: [
-          { catalogItemId, requestedQty: qty, sourceLocationId: mainBinId },
-        ],
-      }).expect(201);
-      const transferId: string = created.body.id;
-      const lineId: string = created.body.lines[0].id;
-
-      await postAction(transferId, 'approve', { expectedVersion: 1 }).expect(
-        201,
-      );
-      await postAction(transferId, 'ship', {
-        expectedVersion: 2,
-        lines: [{ id: lineId }],
-      }).expect(201);
-      return { transferId, lineId };
-    }
-
     it('receives a MAIN -> GRZ shipment without from-site membership (200, not 400)', async () => {
       const grzOnlyToken = await createGrzOnlyToken();
       const { transferId, lineId } = await shipMainToGrz(2);
 
-      const received = await postAction(
+      const received = await receiveLine({
         transferId,
-        'receive',
-        {
-          expectedVersion: 3,
-          idempotencyKey: 'aut466-grz-only-receive',
-          lines: [{ id: lineId, receiveQty: 2, destLocationId: grzBinId }],
-        },
-        grzOnlyToken,
-      ).expect(200);
+        lineId,
+        destLocationId: grzBinId,
+        qty: 2,
+        idempotencyKey: 'aut466-grz-only-receive',
+        authToken: grzOnlyToken,
+      }).expect(200);
 
       expect(received.body.status).toBe('COMPLETED');
       expect(await onHandAt(grzBinId)).toBe(2);
@@ -754,22 +774,16 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
     it('AUT-909: hides the source bin code from a to-site-only caller and keeps the destination bin code visible', async () => {
       const grzOnlyToken = await createGrzOnlyToken();
       const { transferId, lineId } = await shipMainToGrz(2);
-
-      await postAction(
+      await receiveLine({
         transferId,
-        'receive',
-        {
-          expectedVersion: 3,
-          idempotencyKey: 'aut909-grz-only-receive',
-          lines: [{ id: lineId, receiveQty: 2, destLocationId: grzBinId }],
-        },
-        grzOnlyToken,
-      ).expect(200);
+        lineId,
+        destLocationId: grzBinId,
+        qty: 2,
+        idempotencyKey: 'aut909-grz-only-receive',
+        authToken: grzOnlyToken,
+      }).expect(200);
 
-      const detail = await request(app.getHttpServer())
-        .get(`/api/stock-transfers/${transferId}`)
-        .set('Authorization', `Bearer ${grzOnlyToken}`)
-        .expect(200);
+      const detail = await getDetail(transferId, grzOnlyToken).expect(200);
 
       expect(detail.body.lines[0]).toMatchObject({
         sourceLocationId: null,
