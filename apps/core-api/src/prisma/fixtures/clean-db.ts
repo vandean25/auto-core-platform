@@ -331,17 +331,22 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.vehicleLedgerEntry.deleteMany({
         where: { vehicle_id: { in: vehicles.map(({ id }) => id) } },
       });
+      await p.vehicleLedgerEntry.deleteMany();
     },
   },
   {
+    // ON DELETE RESTRICT on trade_in_purchase_id, vehicle_id and customer_id:
+    // every sale has to go before its purchase, vehicle and customer.
     table: 'vehicle_sales',
-    clean: (p) =>
-      p.vehicleSale.deleteMany({
+    clean: async (p) => {
+      await p.vehicleSale.deleteMany({
         where: {
           tenant: { is: { slug: 'default-workshop' } },
           sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] },
         },
-      }),
+      });
+      await p.vehicleSale.deleteMany();
+    },
   },
   {
     table: 'vehicle_listing_channel_dms_syncs',
@@ -386,13 +391,15 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   { table: 'vehicle_media', clean: (p) => p.vehicleMedia.deleteMany() },
   {
     table: 'vehicle_purchases',
-    clean: (p) =>
-      p.vehiclePurchase.deleteMany({
+    clean: async (p) => {
+      await p.vehiclePurchase.deleteMany({
         where: {
           tenant: { is: { slug: 'default-workshop' } },
           purchase_number: { in: [...DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS] },
         },
-      }),
+      });
+      await p.vehiclePurchase.deleteMany();
+    },
   },
   {
     table: 'inspection_source_connections',

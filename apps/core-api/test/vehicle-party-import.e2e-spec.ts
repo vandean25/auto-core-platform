@@ -467,6 +467,63 @@ describe('Vehicle party and due date import (e2e)', () => {
       }
     });
 
+    it('cleanDb removes a vehicle sale with its trade-in purchase', async () => {
+      const vehicleId = await idOf('VEHICLE', 'VEHICLE-001');
+      const customerId = await idOf('CUSTOMER', 'CUSTOMER-A');
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const raw = new PrismaClient({ adapter: new PrismaPg(pool) });
+      try {
+        await expect(
+          raw.$transaction(
+            async (tx) => {
+              const tradeIn = await tx.vehiclePurchase.create({
+                data: {
+                  tenant_id: tenant.tenantId,
+                  purchase_number: 'AUT712-TRADE-IN',
+                  seller_type: 'CUSTOMER',
+                  acquisition_kind: 'TRADE_IN',
+                  make: 'Synthetic',
+                  model: 'Trade-in',
+                  year: 2016,
+                  purchase_price: 5000,
+                },
+              });
+              await tx.vehicleSale.create({
+                data: {
+                  tenant_id: tenant.tenantId,
+                  sale_number: 'AUT712-SALE',
+                  vehicle_id: vehicleId,
+                  customer_id: customerId,
+                  sale_price: 12000,
+                  trade_in_purchase_id: tradeIn.id,
+                },
+              });
+              await tx.vehicleLedgerEntry.create({
+                data: {
+                  tenant_id: tenant.tenantId,
+                  vehicle_id: vehicleId,
+                  entry_type: 'PURCHASE',
+                  amount: 8000,
+                  posting_date: new Date('2026-08-01T00:00:00.000Z'),
+                },
+              });
+
+              await enableLegacyMigrationPurgeFlag(tx);
+              await cleanDb(tx as unknown as PrismaClient);
+              expect(await tx.vehicleSale.count()).toBe(0);
+              expect(await tx.vehiclePurchase.count()).toBe(0);
+              expect(await tx.vehicleLedgerEntry.count()).toBe(0);
+              throw rollback;
+            },
+            { timeout: 120_000, maxWait: 10_000 },
+          ),
+        ).rejects.toBe(rollback);
+      } finally {
+        await raw.$disconnect();
+        await pool.end();
+      }
+    });
+
     it('the tenant purge SQL succeeds while parties and notices reference vehicles and customers', async () => {
       const victim = await createTestTenant(basePrisma, 'aut641-purge');
       const victimPrisma = createTenantAwarePrisma(basePrisma, victim.tenantId);

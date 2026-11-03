@@ -242,7 +242,7 @@ describe('cleanDb', () => {
     ]);
   });
 
-  it('orders AUT-408 demo cleaners by sale, trade-in purchase and vehicle foreign keys', async () => {
+  it('cleans every vehicle sale before its trade-in purchase, not only the demo numbers', async () => {
     const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
     const saleIndex = tables.indexOf('vehicle_sales');
     const vehicleIndex = tables.indexOf('vehicles');
@@ -277,8 +277,8 @@ describe('cleanDb', () => {
       expect(index).toBeLessThan(saleIndex);
       expect(index).toBeLessThan(vehicleIndex);
     }
-    // vehicle_sales.trade_in_purchase_id references vehicle_purchases with
-    // ON DELETE RESTRICT, so a trade-in sale is cleaned before its purchase.
+    // vehicle_sales RESTRICT-references its trade-in purchase, its vehicle and
+    // its customer, so every sale is cleaned before its purchase, vehicle and customer.
     const purchaseIndex = tables.indexOf('vehicle_purchases');
     expect(purchaseIndex).toBeGreaterThan(saleIndex);
     expect(purchaseIndex).toBeLessThan(vehicleIndex);
@@ -308,6 +308,7 @@ describe('cleanDb', () => {
     expect(vehicleLedgerEntry.deleteMany).toHaveBeenCalledWith({
       where: { vehicle_id: { in: ['demo-v1'] } },
     });
+    expect(vehicleLedgerEntry.deleteMany).toHaveBeenNthCalledWith(2);
     await purchaseCleaner.clean({ vehiclePurchase } as any);
     expect(vehiclePurchase.deleteMany).toHaveBeenCalledWith({
       where: {
@@ -321,6 +322,7 @@ describe('cleanDb', () => {
         },
       },
     });
+    expect(vehiclePurchase.deleteMany).toHaveBeenNthCalledWith(2);
 
     await demoSaleCleaner.clean({ vehicleSale } as any);
 
@@ -330,6 +332,7 @@ describe('cleanDb', () => {
         sale_number: { in: ['DEMO-GW-2Y', 'DEMO-GW-1Y', 'DEMO-GW-B2B'] },
       },
     });
+    expect(vehicleSale.deleteMany).toHaveBeenNthCalledWith(2);
     await customerCleaner.clean({ customer } as any);
     expect(customer.deleteMany).toHaveBeenNthCalledWith(1, {
       where: {
