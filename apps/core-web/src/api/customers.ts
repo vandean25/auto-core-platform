@@ -8,6 +8,7 @@ import type {
 import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 export const customerKeys = {
     all: ['customers'] as const,
@@ -88,8 +89,10 @@ export function useCustomers(queryParams?: DataTableQueryParams, options?: { ena
     })
 }
 
-export function useCustomer<TCustomer = NormalizedCustomer>(id: string) {
-    return useQuery<TCustomer>({
+export const CUSTOMER_DETAIL_STALE_MS = DETAIL_PREFETCH_STALE_MS
+
+export function customerDetailQueryOptions<TCustomer = NormalizedCustomer>(id: string) {
+    return {
         queryKey: customerKeys.detail(id),
         queryFn: async () => {
             const response = await fetchWithAuth(`/api/customers/${id}`)
@@ -100,6 +103,14 @@ export function useCustomer<TCustomer = NormalizedCustomer>(id: string) {
                 workshop_orders: normalizeWorkshopOrders(json.workshop_orders),
             } as TCustomer
         },
+        staleTime: CUSTOMER_DETAIL_STALE_MS,
+        gcTime: DETAIL_PREFETCH_GC_MS,
+    }
+}
+
+export function useCustomer<TCustomer = NormalizedCustomer>(id: string) {
+    return useQuery<TCustomer>({
+        ...customerDetailQueryOptions<TCustomer>(id),
         enabled: !!id,
     })
 }

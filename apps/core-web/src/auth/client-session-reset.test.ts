@@ -9,6 +9,12 @@ import {
   useClientSessionGeneration,
   useClientSessionResetting,
 } from '@/auth/client-session-reset'
+import {
+  MAX_CONCURRENT_PREFETCHES,
+  MAX_RETAINED_DETAIL_ENTRIES,
+  resetIntentPrefetchScheduler,
+  scheduleDetailPrefetch,
+} from '@/lib/intent-prefetch'
 
 const SESSION_LOCAL_STORAGE_KEYS = [
   'acp:onboarding-checklist:dismissed:user-1',
@@ -182,5 +188,63 @@ describe('resetClientSession', () => {
 
     expect(result.current).toBe(false)
     expect(isClientSessionResetting()).toBe(false)
+  })
+
+  it('cancels pending speculative prefetches on reset and bounds concurrent and retained entries', async () => {
+    vi.useFakeTimers()
+    resetIntentPrefetchScheduler()
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
+
+    scheduleDetailPrefetch(queryClient, {
+      queryKey: ['vehicles', 'detail', 'pending-on-reset'],
+      queryFn: async () => ({ id: 'pending-on-reset' }),
+    })
+
+    await resetClientSession(queryClient, 'context')
+    vi.advanceTimersByTime(100)
+    expect(prefetchSpy).toHaveBeenCalledTimes(0)
+
+    const blockers = Array.from({ length: MAX_CONCURRENT_PREFETCHES }, () => deferred<{ id: string }>())
+    for (let i = 0; i < MAX_CONCURRENT_PREFETCHES + 1; i += 1) {
+      const blocker = blockers[i]
+      scheduleDetailPrefetch(queryClient, {
+        queryKey: ['vehicles', 'detail', `concurrent-${i}`],
+        queryFn: () => (blocker ? blocker.promise : Promise.resolve({ id: `concurrent-${i}` })),
+      })
+    }
+    vi.advanceTimersByTime(100)
+    expect(prefetchSpy).toHaveBeenCalledTimes(MAX_CONCURRENT_PREFETCHES)
+
+    for (const blocker of blockers) blocker.resolve({ id: 'done' })
+    for (let tick = 0; tick < 10; tick += 1) {
+      await Promise.resolve()
+    }
+    expect(prefetchSpy).toHaveBeenCalledTimes(MAX_CONCURRENT_PREFETCHES + 1)
+
+    for (let i = 0; i < MAX_RETAINED_DETAIL_ENTRIES + 3; i += 1) {
+      scheduleDetailPrefetch(queryClient, {
+        queryKey: ['customers', 'detail', `retained-${i}`],
+        queryFn: async () => ({ id: `retained-${i}` }),
+      })
+      vi.advanceTimersByTime(100)
+      for (let tick = 0; tick < 10; tick += 1) {
+        await Promise.resolve()
+      }
+    }
+
+    expect(queryClient.getQueryData(['customers', 'detail', 'retained-0'])).toBeUndefined()
+    expect(
+      queryClient.getQueryData([
+        'customers',
+        'detail',
+        `retained-${MAX_RETAINED_DETAIL_ENTRIES + 2}`,
+      ]),
+    ).toEqual({ id: `retained-${MAX_RETAINED_DETAIL_ENTRIES + 2}` })
+
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
   })
 })

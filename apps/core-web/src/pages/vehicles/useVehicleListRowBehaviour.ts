@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { TFunction } from 'i18next'
 import type { NavigateFunction } from 'react-router-dom'
 
+import { vehicleDetailQueryOptions } from '@/api/vehicles'
 import { canOpenVehicle } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/features/actions/vehicle-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 import { useRegistryRowShortcuts } from '@/features/shortcuts/use-registry-row-shortcuts'
+import { scheduleDetailPrefetch, useOptionalQueryClient } from '@/lib/intent-prefetch'
 
 export function useVehicleListRowBehaviour(
   t: TFunction<'vehicles'>,
@@ -18,7 +20,16 @@ export function useVehicleListRowBehaviour(
   records: VehicleListRow[],
 ) {
   const role = useAuthRole()
+  const queryClient = useOptionalQueryClient()
   const vehicleActionDefinitions = useMemo(() => createVehicleRowActions(t), [t])
+
+  const prefetchVehicleDetail = useCallback(
+    (row: VehicleListRow) => {
+      if (!canOpenVehicle(role)) return
+      scheduleDetailPrefetch(queryClient, vehicleDetailQueryOptions(row.id))
+    },
+    [queryClient, role],
+  )
 
   const tableRowBehaviour = useMemo(
     () => ({
@@ -28,8 +39,9 @@ export function useVehicleListRowBehaviour(
       onRowClick: (row: VehicleListRow) => {
         if (canOpenVehicle(role)) openPeek(row.id)
       },
+      onRowPrefetch: prefetchVehicleDetail,
     }),
-    [openPeek, role, t],
+    [openPeek, prefetchVehicleDetail, role, t],
   )
 
   const runContext = useMemo(() => ({ navigate, t }), [navigate, t])

@@ -10,7 +10,10 @@ import {
   canGenerateWorkshopJobCardPdf,
   canOpenCustomer,
   canOpenEstimate,
+  canOpenInventoryItem,
+  canOpenInvoice,
   canOpenVehicle,
+  canOpenVehicleStock,
   canOpenWorkshopOrder,
   canRecordTyreMeasurement,
   canUseWorkshopCommand,
@@ -36,6 +39,12 @@ describe('action-role-predicates', () => {
     expect(canCheckInWorkshopOrder('')).toBe(false)
     expect(canGenerateWorkshopJobCardPdf('')).toBe(false)
     expect(canAssignWorkshopOrderMechanic('')).toBe(false)
+    expect(canOpenInvoice('ADMIN')).toBe(true)
+    expect(canOpenVehicleStock('SALES')).toBe(true)
+    expect(canOpenInventoryItem('OWNER')).toBe(true)
+    expect(canOpenInvoice('TECH')).toBe(false)
+    expect(canOpenVehicleStock('MECHANIC')).toBe(false)
+    expect(canOpenInventoryItem('')).toBe(false)
   })
 
   it.each([

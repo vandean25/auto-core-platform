@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { useInventory } from '@/api/inventory'
+import { inventoryItemDetailQueryOptions, useInventory } from '@/api/inventory'
 import { useLocations } from '@/api/locations'
 import type { InventoryItem } from '@/api/types'
 import { AddItemDialog } from '@/components/AddItemDialog'
@@ -13,8 +13,11 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { canOpenInventoryItem } from '@/features/actions/action-role-predicates'
+import { useAuthRole } from '@/features/actions/use-auth-role'
 import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/sources'
 import { formatCurrency } from '@/lib/format'
+import { scheduleDetailPrefetch, useOptionalQueryClient } from '@/lib/intent-prefetch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
@@ -24,6 +27,8 @@ export default function InventoryList() {
         void ensureNamespaceLoaded('inventory')
     }, [])
     const navigate = useNavigate()
+    const role = useAuthRole()
+    const queryClient = useOptionalQueryClient()
     const { queryParams, columnFilters, setColumnFilters, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 
     const searchFromNameFilter = queryParams.filters.find((f) => f.field === 'name')?.value
@@ -146,10 +151,16 @@ export default function InventoryList() {
                 columnFilters={columnFilters}
                 setColumnFilters={setColumnFilters}
                 rowBehaviour={{
-                  onRowClick: (item) =>
+                  onRowClick: (item) => {
+                    if (!canOpenInventoryItem(role)) return
                     navigate(`/inventory/${item.id}/ledger?sku=${encodeURIComponent(item.sku)}`, {
                       state: { item },
-                    }),
+                    })
+                  },
+                  onRowPrefetch: (item) => {
+                    if (!canOpenInventoryItem(role)) return
+                    scheduleDetailPrefetch(queryClient, inventoryItemDetailQueryOptions(item.id))
+                  },
                 }}
                 {...tableState}
             />

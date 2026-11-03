@@ -53,6 +53,10 @@ function subscribe(listener: Listener): () => void {
   }
 }
 
+export function subscribeClientSessionState(listener: Listener): () => void {
+  return subscribe(listener)
+}
+
 export function getClientSessionGeneration(): number {
   return generation
 }

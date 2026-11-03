@@ -1,27 +1,23 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import WorkshopOrderList from './WorkshopOrderList'
 import * as workshopApi from '@/api/workshop'
 import { workshopKeys } from '@/api/workshop'
 import { fetchWithAuth } from '@/api/client'
+import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 
 vi.mock('@/api/workshop', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/workshop')>()
-  return {
-    ...actual,
-    useWorkshopOrders: vi.fn(),
-  }
+  return { ...actual, useWorkshopOrders: vi.fn() }
 })
 
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
 }))
 
-vi.mock('@/api/client', () => ({
-  fetchWithAuth: vi.fn(),
-}))
+vi.mock('@/api/client', () => ({ fetchWithAuth: vi.fn() }))
 
 vi.mock('@/components/data-table/DataTable', () => ({
   DataTable: ({
@@ -52,6 +48,7 @@ function orderDetailRequests() {
 describe('WorkshopOrderList row prefetch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetIntentPrefetchScheduler()
     asMock(workshopApi.useWorkshopOrders).mockReturnValue({
       data: {
         data: [
@@ -68,21 +65,25 @@ describe('WorkshopOrderList row prefetch', () => {
       },
       isLoading: false,
     })
-    vi.mocked(fetchWithAuth).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        id: 'order-1',
-        order_number: 'WO-1',
-        status: 'INTAKE',
-        tasks: [],
-      }),
-    } as Response)
   })
 
-  it('prefetches order detail on row hover with staleTime and dedupes within stale window', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    })
+  afterEach(() => {
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
+  })
+
+  it('WHEN the same row is hovered again while the request is in flight or fresh THEN no second request is sent', async () => {
+    vi.useFakeTimers()
+    let resolveInFlight!: (value: Response) => void
+    vi.mocked(fetchWithAuth).mockImplementation((url) =>
+      String(url).includes('/api/workshop/orders/order-1')
+        ? new Promise<Response>((resolve) => {
+            resolveInFlight = resolve
+          })
+        : Promise.resolve({ ok: true, json: async () => ({}) } as Response),
+    )
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
 
     render(
@@ -93,14 +94,33 @@ describe('WorkshopOrderList row prefetch', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.pointerEnter(screen.getByRole('button', { name: 'hover-row' }))
-    await waitFor(() => expect(orderDetailRequests()).toHaveLength(1))
+    const row = screen.getByRole('button', { name: 'hover-row' })
+
+    fireEvent.pointerEnter(row)
+    vi.advanceTimersByTime(100)
+    expect(prefetchSpy).toHaveBeenCalledTimes(1)
     expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
       queryKey: workshopKeys.detail('order-1'),
       staleTime: workshopApi.WORKSHOP_ORDER_DETAIL_STALE_MS,
     })
+    expect(orderDetailRequests()).toHaveLength(1)
 
-    fireEvent.pointerEnter(screen.getByRole('button', { name: 'hover-row' }))
-    await waitFor(() => expect(orderDetailRequests()).toHaveLength(1))
+    fireEvent.pointerEnter(row)
+    vi.advanceTimersByTime(100)
+    expect(prefetchSpy).toHaveBeenCalledTimes(1)
+    expect(orderDetailRequests()).toHaveLength(1)
+
+    resolveInFlight({
+      ok: true,
+      json: async () => ({ id: 'order-1', order_number: 'WO-1', status: 'INTAKE', tasks: [] }),
+    } as Response)
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    fireEvent.pointerEnter(row)
+    vi.advanceTimersByTime(100)
+    expect(prefetchSpy).toHaveBeenCalledTimes(1)
+    expect(orderDetailRequests()).toHaveLength(1)
   })
 })

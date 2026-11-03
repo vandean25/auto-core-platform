@@ -48,6 +48,19 @@ export function canOpenWorkshopOrder(role: string | null | undefined): boolean {
   return role !== ''
 }
 
+/** Mechanics stay on the mechanic shell; back-office roles (or default unmocked test context) can open invoices, vehicle stock, and inventory details. */
+export function canOpenInvoice(role: string | null | undefined): boolean {
+  return role !== '' && role !== 'TECH' && role !== 'MECHANIC'
+}
+
+export function canOpenVehicleStock(role: string | null | undefined): boolean {
+  return role !== '' && role !== 'TECH' && role !== 'MECHANIC'
+}
+
+export function canOpenInventoryItem(role: string | null | undefined): boolean {
+  return role !== '' && role !== 'TECH' && role !== 'MECHANIC'
+}
+
 export function canCheckInWorkshopOrder(role: string | null | undefined): boolean {
   return role !== ''
 }

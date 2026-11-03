@@ -1,21 +1,88 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleList from './VehicleList'
 import * as vehiclesApi from '@/api/vehicles'
+import { vehicleKeys } from '@/api/vehicles'
+import * as customersApi from '@/api/customers'
+import { customerKeys } from '@/api/customers'
+import * as salesApi from '@/api/sales'
+import { invoiceKeys } from '@/api/sales'
+import * as vehicleStockApi from '@/api/vehicle-stock'
+import { vehicleStockKeys } from '@/api/vehicle-stock'
+import * as inventoryApi from '@/api/inventory'
+import { inventoryKeys } from '@/api/inventory'
+import * as locationsApi from '@/api/locations'
+import CustomerList from '@/pages/customers/CustomerList'
+import InvoiceListPage from '@/pages/sales/InvoiceListPage'
+import VehicleStockList from '@/pages/vehicle-stock/VehicleStockList'
+import InventoryList from '@/pages/InventoryList'
+import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deCommon from '../../../../../locales/de/common.json'
 import deVehicles from '../../../../../locales/de/vehicles.json'
 import { PEEK_SEARCH_PARAM } from '@/features/peek/peek-search-param'
 
-vi.mock('@/api/vehicles')
+vi.mock('@/api/vehicles', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/vehicles')>()
+  return {
+    ...actual,
+    useVehicles: vi.fn(),
+    useVehicle: vi.fn(),
+    vehicleDetailQueryOptions: vi.fn(),
+  }
+})
+vi.mock('@/api/customers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/customers')>()
+  return {
+    ...actual,
+    useCustomers: vi.fn(),
+    useCustomer: vi.fn(),
+    useDeleteCustomer: vi.fn(),
+    customerDetailQueryOptions: vi.fn(),
+  }
+})
+vi.mock('@/api/sales', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/sales')>()
+  return {
+    ...actual,
+    useInvoices: vi.fn(),
+    invoiceDetailQueryOptions: vi.fn(),
+  }
+})
+vi.mock('@/api/vehicle-stock', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/vehicle-stock')>()
+  return {
+    ...actual,
+    useVehicleStock: vi.fn(),
+    useDeleteVehiclePurchase: vi.fn(),
+    vehicleStockDetailQueryOptions: vi.fn(),
+  }
+})
+vi.mock('@/api/inventory', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/inventory')>()
+  return {
+    ...actual,
+    useInventory: vi.fn(),
+    inventoryItemDetailQueryOptions: vi.fn(),
+  }
+})
+vi.mock('@/api/locations', () => ({
+  useLocations: vi.fn(() => ({ data: [], isLoading: false })),
+}))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
 }))
 vi.mock('@/components/vehicles/VehicleDialog', () => ({
   VehicleDialog: () => null,
+}))
+vi.mock('@/components/customers/CustomerDialog', () => ({
+  CustomerDialog: () => null,
+}))
+vi.mock('@/components/AddItemDialog', () => ({
+  AddItemDialog: () => null,
 }))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
@@ -40,10 +107,10 @@ function UrlSearchProbe() {
   return <span data-testid="url-search">{location.search}</span>
 }
 
-function renderList(initialEntry = '/vehicles?search=golf') {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderList(initialEntry = '/vehicles?search=golf', queryClient?: QueryClient) {
+  const client = queryClient ?? new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={client}>
       <SavedViewsProvider userKey="test-user">
         <DashboardWidgetsProvider userKey="test-user">
           <MemoryRouter initialEntries={[initialEntry]}>
@@ -69,6 +136,7 @@ function renderList(initialEntry = '/vehicles?search=golf') {
 describe('VehicleList peek sheet', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetIntentPrefetchScheduler()
     asMock(vehiclesApi.useVehicles).mockReturnValue({
       data: { data: [vehicle], meta: { pageCount: 1 } },
       isLoading: false,
@@ -77,6 +145,115 @@ describe('VehicleList peek sheet', () => {
       data: id === 'veh-1' ? vehicle : undefined,
       isLoading: false,
     }))
+    asMock(vehiclesApi.vehicleDetailQueryOptions).mockImplementation((id: string) => ({
+      queryKey: vehicleKeys.detail(id),
+      queryFn: vi.fn().mockResolvedValue(vehicle),
+      staleTime: 30_000,
+    }))
+    asMock(customersApi.useCustomers).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'cust-1',
+            type: 'PRIVATE',
+            first_name: 'Max',
+            last_name: 'Mustermann',
+            email: 'max@example.test',
+            phone: '+43 1 111',
+            address_city: 'Wien',
+            address_country: 'AT',
+          },
+        ],
+        meta: { pageCount: 1 },
+      },
+      isLoading: false,
+      isError: false,
+    })
+    asMock(customersApi.useCustomer).mockReturnValue({ data: undefined, isLoading: false })
+    asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(customersApi.customerDetailQueryOptions).mockImplementation((id: string) => ({
+      queryKey: customerKeys.detail(id),
+      queryFn: vi.fn().mockResolvedValue({ id }),
+      staleTime: 30_000,
+    }))
+    asMock(salesApi.useInvoices).mockReturnValue({
+      data: [
+        {
+          id: 'inv-1',
+          status: 'FINALIZED',
+          customer_id: 'cust-1',
+          customer: { id: 'cust-1', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann' },
+          date: '2026-01-15T00:00:00.000Z',
+          due_date: '2026-01-29T00:00:00.000Z',
+          total_net: '100.00',
+          total_tax: '20.00',
+          total_gross: '120.00',
+          items: [],
+          invoice_number: 'RE-2026-0001',
+        },
+      ],
+      isLoading: false,
+    })
+    asMock(salesApi.invoiceDetailQueryOptions).mockImplementation((id: string) => ({
+      queryKey: invoiceKeys.detail(id),
+      queryFn: vi.fn().mockResolvedValue({ id }),
+      staleTime: 30_000,
+    }))
+    asMock(vehicleStockApi.useVehicleStock).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'stock-1',
+            make: 'Audi',
+            model: 'A4',
+            year: 2023,
+            vin: 'WAUZZZ123',
+            plate: 'W-99999',
+            color: 'Black',
+            stock_status: 'IN_STOCK',
+            inventory_role: 'DEALER_STOCK',
+            mileage: 12000,
+          },
+        ],
+        meta: { pageCount: 1, total: 1, page: 1, pageSize: 10 },
+      },
+      isLoading: false,
+    })
+    asMock(vehicleStockApi.useDeleteVehiclePurchase).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(vehicleStockApi.vehicleStockDetailQueryOptions).mockImplementation((id: string) => ({
+      queryKey: vehicleStockKeys.detail(id),
+      queryFn: vi.fn().mockResolvedValue({ id }),
+      staleTime: 30_000,
+    }))
+    asMock(inventoryApi.useInventory).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'item-1',
+            sku: 'BRK-001',
+            name: 'Brake Pad',
+            brand: 'Bosch',
+            price: 49.9,
+            status: 'IN_STOCK',
+            quantity_available: 4,
+            warehouse_location: 'A-1',
+          },
+        ],
+        meta: { pageCount: 1, total: 1, page: 1, limit: 10 },
+      },
+      isLoading: false,
+    })
+    asMock(inventoryApi.inventoryItemDetailQueryOptions).mockImplementation((id: string) => ({
+      queryKey: inventoryKeys.detail(id),
+      queryFn: vi.fn().mockResolvedValue({ id }),
+      staleTime: 30_000,
+    }))
+    asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
+  })
+
+  afterEach(() => {
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
   })
 
   it('opens peek on row click and keeps search param', async () => {
@@ -110,4 +287,119 @@ describe('VehicleList peek sheet', () => {
     act(() => within(sheet).getByRole('link', { name: deCommon.peek.openInFull }).click())
     expect(await screen.findByRole('heading', { name: 'Full vehicle page' })).toBeInTheDocument()
   })
+
+  it('shows no skeleton when opening a prefetched customer detail page', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(customerKeys.detail('cust-1'), {
+      id: 'cust-1',
+      type: 'PRIVATE',
+      first_name: 'Max',
+      last_name: 'Mustermann',
+      email: 'max@example.test',
+      phone: '+43 1 111',
+      address_city: 'Wien',
+      address_country: 'AT',
+      vehicles: [],
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+    })
+    asMock(customersApi.useCustomer).mockImplementation((id: string) => ({
+      data: queryClient.getQueryData(customerKeys.detail(id)),
+      isLoading: false,
+      error: null,
+    }))
+
+    const { default: CustomerDetail } = await import('@/pages/customers/CustomerDetail')
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/customers/cust-1']}>
+          <Routes>
+            <Route path="/customers/:id" element={<CustomerDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Max Mustermann' })).toBeInTheDocument()
+  })
+
+  it('WHEN the user hovers a vehicle row for 100 ms THEN the detail query is prefetched once', () => {
+    vi.useFakeTimers()
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
+
+    const { container } = renderList('/vehicles', queryClient)
+    const row = container.querySelector('tbody tr[data-table-row="true"]')
+    expect(row).not.toBeNull()
+
+    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
+    vi.advanceTimersByTime(99)
+    expect(prefetchSpy).toHaveBeenCalledTimes(0)
+
+    vi.advanceTimersByTime(1)
+    expect(prefetchSpy).toHaveBeenCalledTimes(1)
+    expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
+      queryKey: vehicleKeys.detail('veh-1'),
+    })
+  })
+
+  it.each([
+    {
+      name: 'vehicles',
+      Component: VehicleList,
+      expectedKey: vehicleKeys.detail('veh-1'),
+    },
+    {
+      name: 'customers',
+      Component: CustomerList,
+      expectedKey: customerKeys.detail('cust-1'),
+    },
+    {
+      name: 'invoices',
+      Component: InvoiceListPage,
+      expectedKey: invoiceKeys.detail('inv-1'),
+    },
+    {
+      name: 'stock vehicles',
+      Component: VehicleStockList,
+      expectedKey: vehicleStockKeys.detail('stock-1'),
+    },
+    {
+      name: 'parts',
+      Component: InventoryList,
+      expectedKey: inventoryKeys.detail('item-1'),
+    },
+  ])(
+    'prefetches detail query after 100 ms hover on $name list',
+    ({ Component, expectedKey }) => {
+      vi.useFakeTimers()
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
+
+      const { container } = render(
+        <QueryClientProvider client={queryClient}>
+          <SavedViewsProvider userKey="test-user">
+            <DashboardWidgetsProvider userKey="test-user">
+              <MemoryRouter>
+                <Component />
+              </MemoryRouter>
+            </DashboardWidgetsProvider>
+          </SavedViewsProvider>
+        </QueryClientProvider>,
+      )
+
+      const row = container.querySelector('tbody tr[data-table-row="true"]')
+      expect(row).not.toBeNull()
+
+      fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
+      vi.advanceTimersByTime(100)
+
+      expect(prefetchSpy).toHaveBeenCalledTimes(1)
+      expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
+        queryKey: expectedKey,
+      })
+    },
+  )
 })

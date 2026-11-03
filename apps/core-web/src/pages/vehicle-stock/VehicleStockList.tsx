@@ -11,11 +11,16 @@ import { Button } from '@/components/ui/button'
 import {
   useDeleteVehiclePurchase,
   useVehicleStock,
+  vehiclePurchaseDetailQueryOptions,
+  vehicleStockDetailQueryOptions,
   type VehicleStockRow,
 } from '@/api/vehicle-stock'
+import { canOpenVehicleStock } from '@/features/actions/action-role-predicates'
+import { useAuthRole } from '@/features/actions/use-auth-role'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { scheduleDetailPrefetch, useOptionalQueryClient } from '@/lib/intent-prefetch'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 function stockRowPath(row: VehicleStockRow) {
@@ -30,6 +35,8 @@ export default function VehicleStockList() {
     void ensureNamespaceLoaded('vehicleStock')
   }, [])
   const navigate = useNavigate()
+  const role = useAuthRole()
+  const queryClient = useOptionalQueryClient()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useVehicleStock(queryParams)
   const deletePurchase = useDeleteVehiclePurchase()
@@ -146,7 +153,21 @@ export default function VehicleStockList() {
         isLoading={isLoading}
         searchPlaceholder={t('stockList.searchPlaceholder')}
         rowBehaviour={{
-          onRowClick: (row) => navigate(stockRowPath(row)),
+          onRowClick: (row) => {
+            if (!canOpenVehicleStock(role)) return
+            navigate(stockRowPath(row))
+          },
+          onRowPrefetch: (row) => {
+            if (!canOpenVehicleStock(role)) return
+            if (row.draft_purchase_id) {
+              scheduleDetailPrefetch(
+                queryClient,
+                vehiclePurchaseDetailQueryOptions(row.draft_purchase_id),
+              )
+              return
+            }
+            scheduleDetailPrefetch(queryClient, vehicleStockDetailQueryOptions(row.id))
+          },
           getRowContextActions: (row) => {
             const draftPurchaseId = row.draft_purchase_id
             if (!draftPurchaseId) return []

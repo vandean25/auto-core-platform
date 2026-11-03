@@ -6,6 +6,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 import { DataTableColumnHeader } from './data-table-column-header'
+import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { triggerBlobDownload } from '@/lib/download'
 import deCommon from '../../../../../locales/de/common.json'
 
@@ -16,6 +17,8 @@ vi.mock('@/lib/download', () => ({ triggerBlobDownload: vi.fn() }))
 
 afterEach(() => {
   cleanup()
+  resetIntentPrefetchScheduler()
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 
@@ -74,20 +77,67 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).toHaveBeenCalledWith({ name: 'Test Item' })
   })
 
-  it('prefetches on mouse pointerenter and skips touch pointerenter', () => {
+  it('prefetches after 100 ms on mouse pointerenter or focus and skips touch pointerenter', () => {
+    vi.useFakeTimers()
     const onRowPrefetch = vi.fn()
     const { container } = render(
-      <DataTable {...defaultProps} rowBehaviour={{ onRowPrefetch }} />,
+      <DataTable {...defaultProps} rowBehaviour={{ onRowClick: vi.fn(), onRowPrefetch }} />,
     )
 
     const row = container.querySelector('tbody tr[data-table-row="true"]')
     expect(row).not.toBeNull()
 
     fireEvent.pointerEnter(row!, { pointerType: 'touch' })
-    expect(onRowPrefetch).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(100)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
 
     fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
+    vi.advanceTimersByTime(99)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
+    vi.advanceTimersByTime(1)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(1)
     expect(onRowPrefetch).toHaveBeenCalledWith({ name: 'Test Item' })
+
+    fireEvent.focus(row!)
+    vi.advanceTimersByTime(100)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('WHEN the pointer leaves before 100 ms THEN the timer is cancelled and no request is sent', () => {
+    vi.useFakeTimers()
+    const onRowPrefetch = vi.fn()
+    const { container } = render(
+      <DataTable {...defaultProps} rowBehaviour={{ onRowClick: vi.fn(), onRowPrefetch }} />,
+    )
+
+    const row = container.querySelector('tbody tr[data-table-row="true"]')
+    expect(row).not.toBeNull()
+
+    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
+    vi.advanceTimersByTime(50)
+    fireEvent.pointerLeave(row!)
+    vi.advanceTimersByTime(100)
+
+    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
+  })
+
+  it('WHEN rows render or are touch-scrolled THEN no detail request is sent', () => {
+    vi.useFakeTimers()
+    const onRowPrefetch = vi.fn()
+    const { container } = render(
+      <DataTable {...defaultProps} rowBehaviour={{ onRowClick: vi.fn(), onRowPrefetch }} />,
+    )
+
+    const row = container.querySelector('tbody tr[data-table-row="true"]')
+    expect(row).not.toBeNull()
+
+    fireEvent.pointerEnter(row!, { pointerType: 'touch' })
+    fireEvent.pointerDown(row!, { pointerType: 'touch' })
+    fireEvent.scroll(row!)
+    fireEvent.pointerLeave(row!, { pointerType: 'touch' })
+    vi.advanceTimersByTime(500)
+
+    expect(onRowPrefetch).toHaveBeenCalledTimes(0)
   })
 
   it('does not call onRowClick when clicking an interactive child in a cell', () => {

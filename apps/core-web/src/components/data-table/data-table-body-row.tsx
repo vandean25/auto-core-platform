@@ -1,6 +1,15 @@
-import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from 'react'
+import {
+  useEffect,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { flexRender } from '@tanstack/react-table'
+import {
+  cancelIntentPrefetch,
+  scheduleIntentPrefetch,
+  startImmediateIntentPrefetch,
+} from '@/lib/intent-prefetch'
 import { getDataTableCellClassName } from './data-table-column-meta'
 import { DataTableRowDetailLink, isDataTableRowLinkColumn } from './data-table-row-link'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
@@ -223,8 +232,16 @@ export function DataTableBodyRow<TData extends object>({
 }: DataTableBodyRowProps<TData>) {
   const rowData = row.original
   const rowId = getTableRowId(rowData)
+  const intentKey = `row:${rowId ?? row.id}`
   const onRowClick = rowBehaviour?.onRowClick
+  const onRowPrefetch = rowBehaviour?.onRowPrefetch
   const showClickableStyles = Boolean(onRowClick)
+
+  useEffect(() => {
+    return () => {
+      cancelIntentPrefetch(intentKey)
+    }
+  }, [intentKey])
 
   return (
     <TableRow
@@ -234,14 +251,34 @@ export function DataTableBodyRow<TData extends object>({
       data-state={row.getIsSelected() && 'selected'}
       onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
       onPointerEnter={(event) => {
-        if (event.pointerType === 'touch') return
-        rowBehaviour?.onRowPrefetch?.(rowData)
+        if (event.pointerType === 'touch' || !onRowPrefetch) return
+        scheduleIntentPrefetch(intentKey, () => onRowPrefetch(rowData))
+      }}
+      onPointerLeave={() => {
+        cancelIntentPrefetch(intentKey)
+      }}
+      onPointerDown={(event) => {
+        if (
+          event.pointerType === 'touch' ||
+          !onRowPrefetch ||
+          isInteractiveTarget(event.target)
+        ) {
+          return
+        }
+        startImmediateIntentPrefetch(intentKey, () => onRowPrefetch(rowData))
       }}
       onFocus={(event) => {
         if (event.target === event.currentTarget) {
           onRowFocus()
+          if (onRowPrefetch) {
+            scheduleIntentPrefetch(intentKey, () => onRowPrefetch(rowData))
+          }
         }
-        rowBehaviour?.onRowPrefetch?.(rowData)
+      }}
+      onBlur={(event) => {
+        if (event.target === event.currentTarget) {
+          cancelIntentPrefetch(intentKey)
+        }
       }}
       onContextMenu={(event) => {
         event.preventDefault()
