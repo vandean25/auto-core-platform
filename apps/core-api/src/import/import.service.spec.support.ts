@@ -1,4 +1,5 @@
 import { Test, type TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import {
   ImportEntityType,
   ImportJobStatus,
@@ -14,6 +15,16 @@ import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { ImportFileStorageService } from './import-file.storage.js';
 import { withApplyPersistedTotalsTransactionClient } from './import-apply-persisted-totals.test-util.js';
 import { ImportService } from './import.service.js';
+import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
+import { serializeImportJob } from './import-job.serializer.js';
+import { ImportJobStore } from './import-job.store.js';
+import { ImportAuditWriter } from './import-audit.writer.js';
+import { RowByRowApplyRunner } from './import-row-apply.runner.js';
+import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
+import { createImportHandlers } from './import-entity-type.registry.js';
+import { ImportUploadFlow } from './import-upload-flow.js';
+import { ImportApplyDispatcher } from './import-apply-dispatcher.js';
+import { ImportWorkerOrchestration } from './import-worker-orchestration.js';
 
 export const TENANT_ID = 'tenant-1';
 export const JOB_ID = 'job-1';
@@ -252,6 +263,87 @@ export function setupImportHarness(): ImportHarness {
   });
 
   return harness;
+}
+
+export interface ImportCollaborators {
+  uploadFlow: ImportUploadFlow;
+  dispatcher: ImportApplyDispatcher;
+  jobStore: ImportJobStore;
+  orchestration: ImportWorkerOrchestration;
+}
+
+/**
+ * Registers a beforeEach that builds the split-out collaborators over the same
+ * mocks as the facade harness, so a spec can drive one collaborator directly
+ * instead of reaching into ImportService private members. Call it after
+ * setupImportHarness so the harness defaults are applied first.
+ */
+export function setupImportCollaborators(
+  harness: ImportHarness,
+): ImportCollaborators {
+  const collaborators: ImportCollaborators = {
+    uploadFlow: undefined as unknown as ImportUploadFlow,
+    dispatcher: undefined as unknown as ImportApplyDispatcher,
+    jobStore: undefined as unknown as ImportJobStore,
+    orchestration: undefined as unknown as ImportWorkerOrchestration,
+  };
+
+  beforeEach(() => {
+    const prisma = harness.prisma as never;
+    const logger = new Logger(IMPORT_LOGGER_CONTEXT);
+    const audit = new ImportAuditWriter(harness.tenantContext as never);
+    const jobStore = new ImportJobStore(prisma);
+    const rowRunner = new RowByRowApplyRunner(prisma, audit, serializeImportJob);
+    const supplierRunner = new SupplierChunkedApplyRunner(
+      prisma,
+      audit,
+      serializeImportJob,
+    );
+    const handlers = createImportHandlers({
+      prisma,
+      audit,
+      rowRunner,
+      supplierRunner,
+      decisionHooks: harness.decisionHooks as never,
+      decisionLive: harness.decisionLive as never,
+      requestContext: harness.requestContext as never,
+    });
+    const orchestration = new ImportWorkerOrchestration({
+      logger,
+      prisma,
+      systemPrisma: harness.systemPrisma as never,
+      requestContext: harness.requestContext as never,
+      jobStore,
+      fileStorage: harness.fileStorage as never,
+      cloudTasks: harness.cloudTasks as never,
+      audit,
+      handlers,
+    });
+    collaborators.jobStore = jobStore;
+    collaborators.orchestration = orchestration;
+    collaborators.uploadFlow = new ImportUploadFlow({
+      prisma,
+      tenantContext: harness.tenantContext as never,
+      jobStore,
+      fileStorage: harness.fileStorage as never,
+      handlers,
+      audit,
+      serialize: serializeImportJob,
+      orchestration,
+    });
+    collaborators.dispatcher = new ImportApplyDispatcher({
+      logger,
+      prisma,
+      tenantContext: harness.tenantContext as never,
+      jobStore,
+      handlers,
+      audit,
+      serialize: serializeImportJob,
+      orchestration,
+    });
+  });
+
+  return collaborators;
 }
 
 /** Multer-like upload. Omit `originalname` to exercise the default file name. */

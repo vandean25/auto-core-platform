@@ -1,30 +1,28 @@
+import {
+  isMcpToolAllowed,
+  legacyAccessOfRole,
+} from '../permissions/permission-resolver.js';
 import type { McpCapability } from './mcp-capabilities.service.js';
-import { isMcpSupervisorRole } from './mcp.authorization.js';
 import { MCP_WAVE2_READ_TOOL_NAMES } from './mcp-read-wave2-catalog.js';
 import { MCP_WAVE2_READ_TOOL_DESCRIPTIONS } from './mcp-read-wave2-descriptions.js';
 
-const STAFF_AVAILABILITY_TOOL = 'get_staff_availability' as const;
-
+/** The permission entry of each tool decides the listing, so the catalog matches what a call accepts. */
 export function appendWave2ReadCapabilities(
   tools: McpCapability[],
   role: string | null | undefined,
 ): McpCapability[] {
-  const isSupervisor = isMcpSupervisorRole(role);
+  const access = legacyAccessOfRole(role);
   const wave2Tools: McpCapability[] = MCP_WAVE2_READ_TOOL_NAMES.map((tool) => {
-    const entry = {
+    const entry: McpCapability = {
       tool,
       description: MCP_WAVE2_READ_TOOL_DESCRIPTIONS[tool],
-      tier: 'AUTO' as const,
-      access: 'read' as const,
+      tier: 'AUTO',
+      access: 'read',
+      enabled: isMcpToolAllowed(tool, access),
     };
-    if (tool === STAFF_AVAILABILITY_TOOL && !isSupervisor) {
-      return {
-        ...entry,
-        enabled: false,
-        disabled_reason: 'role_not_permitted',
-      };
-    }
-    return { ...entry, enabled: true };
+    return entry.enabled
+      ? entry
+      : { ...entry, disabled_reason: 'role_not_permitted' };
   });
   return [...tools, ...wave2Tools];
 }

@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { ImportJobStore } from './import-job.store.js';
-import { commitApplyWorkerRowInTransaction } from './import-job.store.js';
+import { commitApplyWorkerRowInTransaction } from './import-job.store.worker-lease.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 
 describe('import worker contention', () => {

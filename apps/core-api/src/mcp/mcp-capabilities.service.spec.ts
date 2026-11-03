@@ -1,110 +1,25 @@
 import { ForbiddenException } from '@nestjs/common';
-import { AgentPolicyTier } from '@prisma/client';
-import type { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import type { ResolvedAgentPolicyRule } from '../agent-policy/agent-policy.types.js';
-import type { SiteContextService } from '../common/services/site-context.service.js';
-import type { TenantContextService } from '../common/services/tenant-context.service.js';
-import type { DecisionLiveApplyService } from '../decision/decision-live-apply.service.js';
-import type { PrismaService } from '../prisma/prisma.service.js';
-import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
-import {
-  MCP_NEVER_EXPOSED_ACTIONS,
-  MCP_READ_TOOL_NAMES,
-} from './mcp.constants.js';
+import { MCP_NEVER_EXPOSED_ACTIONS, MCP_READ_TOOL_NAMES } from './mcp.constants.js';
 import {
   McpCapabilitiesService,
   type McpCapabilitiesPage,
   type McpCapability,
 } from './mcp-capabilities.service.js';
-import type { McpUserLocaleService } from './mcp-user-locale.service.js';
 import { decodeMcpCursor } from './mcp-output.util.js';
-import { policyRule, TENANT_A_RULES } from './mcp-capabilities.service.spec.support.js';
-
-const TENANT_A = { id: 'tenant-a', name: 'Tenant Alpha' };
-const TENANT_B = { id: 'tenant-b', name: 'Tenant Beta' };
-const FIREBASE_UID = 'firebase-uid-1';
-const SESSION_EMAIL = 'session-user@example.invalid';
-
-type SessionUser = {
-  userId: string;
-  email: string;
-  tenantId?: string;
-  role?: string;
-  activeSiteId?: string | null;
-};
-
-const AGENT_USER: SessionUser = {
-  userId: FIREBASE_UID,
-  email: SESSION_EMAIL,
-  tenantId: TENANT_A.id,
-  role: 'ADMIN',
-  activeSiteId: 'site-a1',
-};
+import {
+  AGENT_USER,
+  createService,
+  FIREBASE_UID,
+  policyRule,
+  SESSION_EMAIL,
+  TENANT_A,
+  TENANT_A_RULES,
+  TENANT_B,
+} from './mcp-capabilities.service.spec.support.js';
 
 // Visible tools: every read tool plus 14 write tools (release_reservation is HUMAN_ONLY).
 const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 14;
-
-function createService() {
-  const authenticated: { user?: SessionUser } = { user: AGENT_USER };
-  const tenants: Record<string, { id: string; name: string }> = {
-    [TENANT_A.id]: TENANT_A,
-    [TENANT_B.id]: TENANT_B,
-  };
-  const tenantContext = {
-    getAuthenticatedUser: jest.fn(() => authenticated.user),
-  };
-  const siteContext = {
-    findSiteId: jest.fn().mockResolvedValue('site-a1'),
-  };
-  const decisionLiveApply = {
-    resolveEffectiveMode: jest.fn().mockResolvedValue('shadow'),
-  };
-  const prisma = {
-    tenant: {
-      findUnique: jest.fn(
-        async (args: { where: { id: string } }) =>
-          tenants[args.where.id] ?? null,
-      ),
-    },
-    site: {
-      findFirst: jest
-        .fn()
-        .mockResolvedValue({ id: 'site-a1', name: 'Main site' }),
-    },
-  };
-  const systemPrisma = {
-    user: {
-      findUnique: jest.fn().mockResolvedValue(null),
-    },
-  };
-  const agentPolicy = {
-    getEffectiveRule: jest.fn(
-      async (actionType: string) => TENANT_A_RULES[actionType] ?? null,
-    ),
-  };
-  const mcpUserLocale = {
-    resolveEffectiveLocaleForSession: jest.fn().mockResolvedValue('de'),
-  };
-  const service = new McpCapabilitiesService(
-    agentPolicy as unknown as AgentPolicyService,
-    decisionLiveApply as unknown as DecisionLiveApplyService,
-    prisma as unknown as PrismaService,
-    siteContext as unknown as SiteContextService,
-    systemPrisma as unknown as SystemPrismaService,
-    tenantContext as unknown as TenantContextService,
-    mcpUserLocale as unknown as McpUserLocaleService,
-  );
-  return {
-    service,
-    authenticated,
-    agentPolicy,
-    decisionLiveApply,
-    prisma,
-    siteContext,
-    systemPrisma,
-    mcpUserLocale,
-  };
-}
 
 function byTool(data: McpCapability[]): Map<string, McpCapability> {
   return new Map(data.map((entry) => [entry.tool, entry]));

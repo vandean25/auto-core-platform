@@ -13,6 +13,9 @@ import InventoryList from '@/pages/InventoryList'
 
 vi.mock('@/api/inventory')
 vi.mock('@/api/locations', () => ({ useLocations: vi.fn() }))
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+}))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) => fn as unknown as ReturnType<typeof vi.fn>
 

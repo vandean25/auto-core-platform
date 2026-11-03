@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getClientSessionGeneration,
   isClientSessionResetting,
@@ -9,6 +9,11 @@ import {
   useClientSessionGeneration,
   useClientSessionResetting,
 } from '@/auth/client-session-reset'
+import {
+  resetIntentPrefetchScheduler,
+  scheduleDetailPrefetch,
+  scheduleIntentPrefetch,
+} from '@/lib/intent-prefetch'
 
 const SESSION_LOCAL_STORAGE_KEYS = [
   'acp:onboarding-checklist:dismissed:user-1',
@@ -52,6 +57,11 @@ describe('resetClientSession', () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.sessionStorage.clear()
+  })
+
+  afterEach(() => {
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
   })
 
   it('cancels every running query strictly before it clears the cache', async () => {
@@ -182,5 +192,24 @@ describe('resetClientSession', () => {
 
     expect(result.current).toBe(false)
     expect(isClientSessionResetting()).toBe(false)
+  })
+
+  it('cancels pending speculative prefetches on session or context reset', async () => {
+    vi.useFakeTimers()
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
+
+    scheduleIntentPrefetch('row-hover:pending-on-reset', () => {
+      scheduleDetailPrefetch(queryClient, {
+        queryKey: ['vehicles', 'detail', 'pending-on-reset'],
+        queryFn: async () => ({ id: 'pending-on-reset' }),
+      })
+    })
+
+    await resetClientSession(queryClient, 'context')
+    vi.advanceTimersByTime(100)
+    expect(prefetchSpy).toHaveBeenCalledTimes(0)
   })
 })

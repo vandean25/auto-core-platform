@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { InventoryItem, InventoryResponse, InventoryTransaction } from './types'
 import { fetchWithAuth } from './client'
+import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 type InventoryApiResponse = {
     data: InventoryItem[]
@@ -92,16 +93,26 @@ async function parseApiError(response: Response, fallback: string): Promise<Erro
     }
 }
 
-export function useInventoryItem(itemId: string) {
-    return useQuery<InventoryItemDetail>({
+export const INVENTORY_ITEM_DETAIL_STALE_MS = DETAIL_PREFETCH_STALE_MS
+
+export function inventoryItemDetailQueryOptions(itemId: string) {
+    return {
         queryKey: inventoryKeys.detail(itemId),
         queryFn: async () => {
             const response = await fetchWithAuth(`/api/inventory/${itemId}`)
             if (!response.ok) {
                 throw await parseApiError(response, 'Failed to fetch inventory item')
             }
-            return response.json()
+            return response.json() as Promise<InventoryItemDetail>
         },
+        staleTime: INVENTORY_ITEM_DETAIL_STALE_MS,
+        gcTime: DETAIL_PREFETCH_GC_MS,
+    }
+}
+
+export function useInventoryItem(itemId: string) {
+    return useQuery<InventoryItemDetail>({
+        ...inventoryItemDetailQueryOptions(itemId),
         enabled: !!itemId,
     })
 }

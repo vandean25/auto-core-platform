@@ -56,6 +56,15 @@ export function legacyAccess(role: LegacyRole | null): EffectiveAccess {
   };
 }
 
+/** Access of a session role as it arrives from the request. A role outside ADR-0013 holds nothing. */
+export function legacyAccessOfRole(
+  role: string | null | undefined,
+): EffectiveAccess {
+  return legacyAccess(
+    LEGACY_ROLES.includes(role as LegacyRole) ? (role as LegacyRole) : null,
+  );
+}
+
 /** The decision for one operation. The DEMO mask wins over every granted permission. */
 export function isOperationAllowed(
   operation: ProtectedOperation,

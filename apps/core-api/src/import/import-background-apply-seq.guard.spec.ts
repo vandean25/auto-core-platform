@@ -1,6 +1,10 @@
+import { Logger } from '@nestjs/common';
 import { ImportEntityType, ImportJobStatus } from '@prisma/client';
-import { ImportJobStore } from './import-job.store.js';
-import { ImportService } from './import.service.js';
+import type { ImportJobStore } from './import-job.store.js';
+import {
+  ImportWorkerOrchestration,
+  type ImportWorkerOrchestrationDeps,
+} from './import-worker-orchestration.js';
 
 describe('background apply missing apply_seq guard', () => {
   it('marks the job failed when rows exist but apply_seq was never filled', async () => {
@@ -30,19 +34,15 @@ describe('background apply missing apply_seq guard', () => {
       markFailedIfApplying,
       findApplyRowsAfterApplySeq: jest.fn(async () => []),
     } as unknown as ImportJobStore;
-    const service = Object.create(ImportService.prototype) as ImportService;
-    Object.assign(service, {
+    const orchestration = new ImportWorkerOrchestration({
+      logger: new Logger('test'),
       jobStore,
-      logger: { error: jest.fn(), warn: jest.fn(), log: jest.fn() },
-    });
-    const context = await (
-      service as unknown as {
-        loadBackgroundApplyContext: (
-          tenantId: string,
-          jobId: string,
-        ) => Promise<unknown>;
-      }
-    ).loadBackgroundApplyContext('tenant-1', 'job-1');
+      handlers: {},
+    } as unknown as ImportWorkerOrchestrationDeps);
+    const context = await orchestration.loadBackgroundApplyContext(
+      'tenant-1',
+      'job-1',
+    );
     expect(context).toBeNull();
     expect(markFailedIfApplying).toHaveBeenCalledWith(
       'tenant-1',

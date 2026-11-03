@@ -333,7 +333,7 @@ test.describe('Data import settings wizard', () => {
     await captureDocScreenshot(page, 'aut-827-import-expired-375.png', { fullPage: true })
   })
 
-  test('undo dialog at 375px viewport has no horizontal overflow and toggle is at least 44px high', async ({ page }) => {
+  test('undo dialog at 375px viewport has no horizontal overflow and toggle and conflict rows are at least 44px high', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await installSettingsShellMocks(page)
     await installImportMocks(page, {})
@@ -375,10 +375,10 @@ test.describe('Data import settings wizard', () => {
             status: 'CONFLICT',
             canUndo: true,
             counts: {
-              total: 3,
+              total: 4,
               toDelete: 1,
               toRestore: 1,
-              conflicts: 0,
+              conflicts: 1,
               blocked: 1,
             },
             deletions: [
@@ -401,7 +401,17 @@ test.describe('Data import settings wizard', () => {
                 displayName: 'Pilot Customer 2',
               },
             ],
-            conflicts: [],
+            conflicts: [
+              {
+                rowNumber: 4,
+                entityType: 'CUSTOMER',
+                entityId: 'cust-4',
+                action: 'UPDATE',
+                status: 'CONFLICT',
+                displayName: 'Pilot Customer 4',
+                reason: 'MODIFIED_SINCE_IMPORT',
+              },
+            ],
             blocked: [
               {
                 rowNumber: 3,
@@ -450,6 +460,12 @@ test.describe('Data import settings wizard', () => {
     const box = await toggle.boundingBox()
     expect(box).not.toBeNull()
     expect(box!.height).toBeGreaterThanOrEqual(44)
+
+    const conflictRows = page.getByTestId('undo-conflict-row-label')
+    await expect(conflictRows).toHaveCount(1)
+    const conflictBox = await conflictRows.first().boundingBox()
+    expect(conflictBox).not.toBeNull()
+    expect(conflictBox!.height).toBeGreaterThanOrEqual(44)
 
     await page.screenshot({
       path: 'test-results/aut-846-undo-dialog-375.png',
