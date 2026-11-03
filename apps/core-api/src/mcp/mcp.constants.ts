@@ -80,6 +80,7 @@ export const MCP_SUPERVISOR_READ_TOOL_NAMES = [
   'get_entity_history',
   'get_agent_action',
   'list_agent_actions',
+  'get_staff_availability',
 ] as const;
 
 export const MCP_WRITE_TOOL_NAMES = [
