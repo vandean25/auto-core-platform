@@ -75,6 +75,9 @@ export function DocumentBrandingSettings({
   const decorativeTextMaxCodePoints =
     profile?.capabilities.theme.decorativeTextMaxCodePoints ?? 120;
   const uploadCapabilities = profile?.capabilities.uploads;
+  const logoMaxMiB = uploadCapabilities
+    ? uploadMaxMiB(uploadCapabilities.logo.maxBytes)
+    : undefined;
   const saveDraft = useSaveDocumentBrandDraft();
   const confirm = useConfirmDocumentBranding("confirm");
   const reset = useConfirmDocumentBranding("reset");
@@ -387,11 +390,12 @@ export function DocumentBrandingSettings({
         description: describeBrandAssetFailure(
           logoAsset.data.failureCode,
           t("documentBranding.errors.logoRejected"),
+          { maxMiB: logoMaxMiB },
         ),
       });
     }
     setPendingLogoId(null);
-  }, [logoAsset.data, t, updateTheme]);
+  }, [logoAsset.data, logoMaxMiB, t, updateTheme]);
 
   const confirmDraft = async () => {
     if (!profile || !theme) return;
@@ -551,6 +555,7 @@ export function DocumentBrandingSettings({
           description: getErrorMessage(
             uploadError,
             t("documentBranding.errors.uploadFailed"),
+            purpose === "LOGO" ? { maxMiB: logoMaxMiB } : undefined,
           ),
         },
       );

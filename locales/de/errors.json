@@ -46,7 +46,7 @@
     "BRAND_IMAGE_MEMORY_LIMIT": "Das Bild im Briefpapier ist zu groß für die weitere Verarbeitung.",
     "BRAND_IMAGE_PIXELS_INVALID": "Das Bild im Briefpapier hat eine nicht unterstützte Auflösung.",
     "BRAND_IMAGE_PROCESS_TIMEOUT": "Das Bild im Briefpapier konnte nicht schnell genug verarbeitet werden. Bitte versuchen Sie es erneut.",
-    "BRAND_LOGO_TOO_LARGE": "Das Logo ist zu groß. Bitte wählen Sie eine kleinere PNG-Datei aus.",
+    "BRAND_LOGO_TOO_LARGE": "Das Logo ist zu groß. Maximale Größe: {{maxMiB}} MiB.",
     "BRAND_PDF_ACTIONS": "Dieses PDF enthält Aktionen, die nicht unterstützt werden.",
     "BRAND_PDF_EMBEDDED_FILE": "Dieses PDF enthält eingebettete Dateien. Bitte verwenden Sie ein Briefpapier ohne Anhänge.",
     "BRAND_PDF_ENCRYPTED": "Dieses PDF ist passwortgeschützt. Bitte entfernen Sie den Schutz und laden Sie die Datei erneut hoch.",

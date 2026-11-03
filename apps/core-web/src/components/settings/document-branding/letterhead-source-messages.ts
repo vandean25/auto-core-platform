@@ -60,10 +60,12 @@ function describeRejection(failureCode: string | null): string {
 export function describeBrandAssetFailure(
   failureCode: string | null,
   fallback: string,
+  interpolate?: Record<string, string | undefined>,
 ): string {
   return getErrorMessage(
     { response: { data: failureCode ? { code: failureCode } : undefined } },
     fallback,
+    interpolate,
   );
 }
 

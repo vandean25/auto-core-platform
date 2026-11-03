@@ -3,6 +3,11 @@ export const DOCUMENT_BRAND_DECORATIVE_TEXT_MAX_CODE_POINTS = 120;
 export const DOCUMENT_BRAND_LOGO_MAX_BYTES = 2 * 1024 * 1024;
 export const DOCUMENT_BRAND_SOURCE_MAX_BYTES = 10 * 1024 * 1024;
 
+/** Logo limit in MiB, sent with upload errors so client copy can name it. */
+export const DOCUMENT_BRAND_PAYLOAD_SIZE_LIMIT_MIB = formatMaxMegabytes(
+  DOCUMENT_BRAND_LOGO_MAX_BYTES,
+);
+
 export const DOCUMENT_BRAND_LOGO_MIME_TYPES = ['image/png'] as const;
 export const DOCUMENT_BRAND_SOURCE_MIME_TYPES = [
   'image/png',
