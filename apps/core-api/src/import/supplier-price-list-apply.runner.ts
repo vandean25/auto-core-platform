@@ -13,8 +13,8 @@ import type { ImportAuditWriter } from './import-audit.writer.js';
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import {
   commitApplyWorkerRowInTransaction,
-  markImportRowFailed,
-} from './import-job.store.js';
+} from './import-job.store.worker-lease.js';
+import { markImportRowFailed } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type {
   ImportJobView,

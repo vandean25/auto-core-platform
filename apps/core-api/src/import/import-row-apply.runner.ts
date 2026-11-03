@@ -27,8 +27,8 @@ import {
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import {
   commitApplyWorkerRowInTransaction,
-  markImportRowFailed,
-} from './import-job.store.js';
+} from './import-job.store.worker-lease.js';
+import { markImportRowFailed } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
 import {
