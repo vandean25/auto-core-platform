@@ -527,7 +527,7 @@ export const WORKSHOP_OPERATIONS: OperationTable = {
   'TyreStorageController.byVehicle': op('tyre.set.read', BACK_OFFICE, 'site'),
   'TyreStorageController.list': op('tyre.set.read', BACK_OFFICE, 'site'),
   'TyreStorageController.findOne': op(
-    'tyre.set.read',
+    'tyre.set.detail.read',
     BACK_OFFICE_TECH,
     'site',
   ),

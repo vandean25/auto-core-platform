@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { PermissionId } from './permission-catalogue.js';
 import { MCP_TOOL_TABLE, OPERATION_TABLE } from './operation-table.js';
 import type {
+  ApiKeyOperation,
   ClassifiedOperation,
   LegacyRole,
   ProtectedOperation,
@@ -74,9 +75,35 @@ export function isOperationAllowed(
     : operation.permissions.every(holds);
 }
 
-/** A session route is open to every member the global TECH/DEMO restrictions let through, even without a domain role. */
+/** The request an MCP tool call arrives as. The DEMO mask blocks it, so DEMO members never reach a tool. */
+const MCP_REQUEST: OperationRequest = { method: 'POST', path: '/api/mcp' };
+
+/**
+ * Whether a member may call an MCP tool through their agent. A tool that is not in the MCP table, or a
+ * caller that is not a tenant member (an API key), is refused.
+ */
+export function isMcpToolAllowed(
+  tool: string,
+  access: EffectiveAccess | null,
+): boolean {
+  const entry = Object.hasOwn(MCP_TOOL_TABLE, tool)
+    ? MCP_TOOL_TABLE[tool]
+    : undefined;
+  if (!access || !entry) {
+    return false;
+  }
+  return entry.kind === 'protected'
+    ? isOperationAllowed(entry, access, MCP_REQUEST)
+    : isMemberAllowed(entry, access, MCP_REQUEST);
+}
+
+/**
+ * Whether a tenant member may call a route of the operation table. Protected operations follow the
+ * permissions. Session and API-key routes (called with a session) follow the recorded role set under the
+ * DEMO mask; a member without a domain role reaches only the session routes flagged `withoutRole`.
+ */
 export function isMemberAllowed(
-  operation: ProtectedOperation | ClassifiedOperation,
+  operation: ProtectedOperation | ClassifiedOperation | ApiKeyOperation,
   access: EffectiveAccess,
   request: OperationRequest,
 ): boolean {
@@ -86,11 +113,19 @@ export function isMemberAllowed(
       isOperationAllowed(operation, access, request)
     );
   }
-  return (
-    access.role === null ||
-    !operation.legacy ||
-    operation.legacy.includes(access.role)
-  );
+  if (operation.kind !== 'session' && operation.kind !== 'api_key') {
+    return false;
+  }
+  if (access.role === null) {
+    return operation.kind === 'session' && operation.withoutRole === true;
+  }
+  if (
+    access.role === 'DEMO' &&
+    !isDemoMutationAllowed(request.method, request.path)
+  ) {
+    return false;
+  }
+  return !operation.legacy || operation.legacy.includes(access.role);
 }
 
 export type MemberPrincipal = { userId: string; tenantId: string };

@@ -32,12 +32,12 @@ describe('permission resolver (legacy adapter)', () => {
     expect(legacyAccess('DEMO').permissions.has('stock.location.manage')).toBe(
       true,
     );
-    expect(isOperationAllowed(removeLocation, legacyAccess('ADMIN'), request)).toBe(
-      true,
-    );
-    expect(isOperationAllowed(removeLocation, legacyAccess('DEMO'), request)).toBe(
-      false,
-    );
+    expect(
+      isOperationAllowed(removeLocation, legacyAccess('ADMIN'), request),
+    ).toBe(true);
+    expect(
+      isOperationAllowed(removeLocation, legacyAccess('DEMO'), request),
+    ).toBe(false);
   });
 
   // Request-local snapshot: one membership query per request, none shared across requests.
@@ -86,13 +86,28 @@ describe('permission resolver (legacy adapter)', () => {
 
   // Fail closed: nothing grants a permission outside the catalogue, and an unknown MCP tool is never allowed.
   it.each([
-    ['an unknown permission identifier', () => isOperationAllowed(
-      { ...(OPERATION_TABLE['CustomerController.findAll'] as ProtectedOperation), permissions: ['customer.reed' as never] },
-      legacyAccess('OWNER'),
-      { method: 'GET', path: '/api/customers' },
-    )],
-    ['an unknown MCP tool name', () => isMcpToolAllowed('drop_all_tables', legacyAccess('OWNER'))],
-    ['an MCP tool without a member', () => isMcpToolAllowed('search_customers', null)],
+    [
+      'an unknown permission identifier',
+      () =>
+        isOperationAllowed(
+          {
+            ...(OPERATION_TABLE[
+              'CustomerController.findAll'
+            ] as ProtectedOperation),
+            permissions: ['customer.reed' as never],
+          },
+          legacyAccess('OWNER'),
+          { method: 'GET', path: '/api/customers' },
+        ),
+    ],
+    [
+      'an unknown MCP tool name',
+      () => isMcpToolAllowed('drop_all_tables', legacyAccess('OWNER')),
+    ],
+    [
+      'an MCP tool without a member',
+      () => isMcpToolAllowed('search_customers', null),
+    ],
   ])('denies %s', (_label, decide) => {
     expect(decide()).toBe(false);
   });
@@ -100,21 +115,30 @@ describe('permission resolver (legacy adapter)', () => {
   const PROTECTED_ENTRIES = [
     ...Object.entries(OPERATION_TABLE),
     ...Object.entries(MCP_TOOL_TABLE),
-  ].flatMap(([id, entry]) => (entry.kind === 'protected' ? [[id, entry] as const] : []));
+  ].flatMap(([id, entry]) =>
+    entry.kind === 'protected' ? [[id, entry] as const] : [],
+  );
 
   // One permission, one legacy role set: otherwise the role->permission union widens the narrower operation.
   // DEMO is left out: it is a baseline whose requests the mask decides.
   it('maps every permission to exactly one legacy role set', () => {
     const sets = new Map<string, Set<string>>();
     for (const [, entry] of PROTECTED_ENTRIES) {
-      const roles = entry.legacy.filter((role) => role !== 'DEMO').sort().join(',');
+      const roles = entry.legacy
+        .filter((role) => role !== 'DEMO')
+        .sort()
+        .join(',');
       for (const permission of entry.permissions) {
         sets.set(permission, (sets.get(permission) ?? new Set()).add(roles));
       }
     }
 
     expect(
-      [...sets].filter(([, roles]) => roles.size > 1).map(([permission, roles]) => `${permission}: ${[...roles].join(' | ')}`),
+      [...sets]
+        .filter(([, roles]) => roles.size > 1)
+        .map(
+          ([permission, roles]) => `${permission}: ${[...roles].join(' | ')}`,
+        ),
     ).toEqual([]);
   });
 
@@ -122,11 +146,15 @@ describe('permission resolver (legacy adapter)', () => {
   it('grants each role exactly the protected operations whose recorded legacy role set lists it', () => {
     const roles: LegacyRole[] = ['OWNER', 'ADMIN', 'TECH', 'SALES'];
     const mismatches = PROTECTED_ENTRIES.flatMap(([id, entry]) =>
-      roles.filter(
-        (role) =>
-          isOperationAllowed(entry, legacyAccess(role), { method: 'GET', path: '/api/x' }) !==
-          entry.legacy.includes(role),
-      ).map((role) => `${role} on ${id}`),
+      roles
+        .filter(
+          (role) =>
+            isOperationAllowed(entry, legacyAccess(role), {
+              method: 'GET',
+              path: '/api/x',
+            }) !== entry.legacy.includes(role),
+        )
+        .map((role) => `${role} on ${id}`),
     );
 
     expect(mismatches).toEqual([]);

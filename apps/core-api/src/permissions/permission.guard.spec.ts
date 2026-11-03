@@ -115,7 +115,9 @@ describe('permission guard', () => {
       'a stale ADMIN claim while the database says SALES',
       sales,
       receiveStock,
-      { user: { userId: 'firebase-uid-1', tenantId: 'tenant-1', role: 'ADMIN' } },
+      {
+        user: { userId: 'firebase-uid-1', tenantId: 'tenant-1', role: 'ADMIN' },
+      },
       false,
     ],
     [

@@ -37,10 +37,7 @@ describe('legacy/new decision matrix', () => {
   let result: MatrixResult;
 
   beforeAll(async () => {
-    result = await runDecisionMatrix(
-      routes,
-      await listRegisteredMcpTools(),
-    );
+    result = await runDecisionMatrix(routes, await listRegisteredMcpTools());
   });
 
   // Scenario 1
@@ -94,7 +91,9 @@ describe('legacy/new decision matrix', () => {
         { provide: AppService, useValue: { getHello: () => 'Hello World!' } },
         {
           provide: PushService,
-          useValue: { registerDevice: () => Promise.resolve({ id: 'device-1' }) },
+          useValue: {
+            registerDevice: () => Promise.resolve({ id: 'device-1' }),
+          },
         },
         {
           provide: CustomerService,
@@ -107,7 +106,9 @@ describe('legacy/new decision matrix', () => {
     }).compile();
     const app: INestApplication = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.use((req: Request, _res: Response, next: NextFunction) => {
       Object.assign(req, {
         user: { userId: 'firebase-uid-1', tenantId: 'tenant-1', role: '' },
