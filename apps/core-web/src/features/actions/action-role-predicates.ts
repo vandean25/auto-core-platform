@@ -48,9 +48,9 @@ export function canOpenWorkshopOrder(role: string | null | undefined): boolean {
   return role !== ''
 }
 
-/** Mechanics (TECH) stay on the mechanic shell; back-office roles can open invoices, vehicle stock, and inventory details. */
+/** Mechanics (TECH) stay on the mechanic shell; signed-in back-office roles can open invoices, vehicle stock, and inventory details. */
 export function canOpenBackOfficeDetail(role: string | null | undefined): boolean {
-  return role !== '' && role !== 'TECH'
+  return Boolean(role) && role !== 'TECH'
 }
 
 export function canCheckInWorkshopOrder(role: string | null | undefined): boolean {

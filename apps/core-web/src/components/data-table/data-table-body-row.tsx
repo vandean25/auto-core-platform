@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
@@ -230,9 +231,10 @@ export function DataTableBodyRow<TData extends object>({
   onArrowFocus,
   onRowFocus,
 }: DataTableBodyRowProps<TData>) {
+  const fallbackRowId = useId()
   const rowData = row.original
   const rowId = getTableRowId(rowData)
-  const targetId = rowId ?? row.id
+  const targetId = rowId ?? `${fallbackRowId}:${row.id}`
   const hoverIntentKey = `row-hover:${targetId}`
   const focusIntentKey = `row-focus:${targetId}`
   const onRowClick = rowBehaviour?.onRowClick

@@ -12,6 +12,7 @@ import {
 import {
   resetIntentPrefetchScheduler,
   scheduleDetailPrefetch,
+  scheduleIntentPrefetch,
 } from '@/lib/intent-prefetch'
 
 const SESSION_LOCAL_STORAGE_KEYS = [
@@ -200,9 +201,11 @@ describe('resetClientSession', () => {
     })
     const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
 
-    scheduleDetailPrefetch(queryClient, {
-      queryKey: ['vehicles', 'detail', 'pending-on-reset'],
-      queryFn: async () => ({ id: 'pending-on-reset' }),
+    scheduleIntentPrefetch('row-hover:pending-on-reset', () => {
+      scheduleDetailPrefetch(queryClient, {
+        queryKey: ['vehicles', 'detail', 'pending-on-reset'],
+        queryFn: async () => ({ id: 'pending-on-reset' }),
+      })
     })
 
     await resetClientSession(queryClient, 'context')

@@ -46,15 +46,11 @@ function emit(): void {
   for (const listener of listeners) listener()
 }
 
-function subscribe(listener: Listener): () => void {
+export function subscribeClientSessionState(listener: Listener): () => void {
   listeners.add(listener)
   return () => {
     listeners.delete(listener)
   }
-}
-
-export function subscribeClientSessionState(listener: Listener): () => void {
-  return subscribe(listener)
 }
 
 export function getClientSessionGeneration(): number {
@@ -67,7 +63,7 @@ export function isClientSessionResetting(): boolean {
 
 export function useClientSessionGeneration(): number {
   return React.useSyncExternalStore(
-    subscribe,
+    subscribeClientSessionState,
     getClientSessionGeneration,
     getClientSessionGeneration,
   )
@@ -75,7 +71,7 @@ export function useClientSessionGeneration(): number {
 
 export function useClientSessionResetting(): boolean {
   return React.useSyncExternalStore(
-    subscribe,
+    subscribeClientSessionState,
     isClientSessionResetting,
     isClientSessionResetting,
   )

@@ -27,9 +27,7 @@ export function useVehicleListRowBehaviour(
   const prefetchVehicleDetail = useCallback(
     (row: VehicleListRow) => {
       if (!canOpenVehicle(role)) return
-      scheduleDetailPrefetch(queryClient, vehicleDetailQueryOptions(row.id), {
-        immediate: true,
-      })
+      scheduleDetailPrefetch(queryClient, vehicleDetailQueryOptions(row.id))
     },
     [queryClient, role],
   )

@@ -33,7 +33,7 @@ import {
  * | Customers | `CustomerList` / `useCustomerListRowBehaviour` | Eligible (wired) | `customerKeys.detail(id)` via `customerDetailQueryOptions` (`canOpenCustomer`) |
  * | Invoices | `InvoiceListPage` | Eligible (wired) | `invoiceKeys.detail(id)` via `invoiceDetailQueryOptions` (`canOpenBackOfficeDetail`) |
  * | Stock vehicles | `VehicleStockList` | Eligible (wired) | `vehicleStockKeys.detail(id)` or `vehicleStockKeys.purchase(draft_purchase_id)` (`canOpenBackOfficeDetail`) |
- * | Parts (Inventory) | `InventoryList` | Eligible (wired) | `inventoryKeys.detail(id)` via `inventoryItemDetailQueryOptions` (`canOpenBackOfficeDetail`) |
+ * | Parts (Inventory) | `InventoryList` | Eligible (wired) | `inventoryKeys.detail(id)` via `inventoryItemDetailQueryOptions` (`canOpenBackOfficeDetail`); prefetches item detail only (`useInventoryHistory` loads on ledger mount) |
  * | Sales orders | `SalesOrderList` / `useSalesOrderListRowBehaviour` | Deferred (out of scope for AUT-875) | Navigable to `/sales-orders/:id`; deferred to module migration slice |
  * | Workshop estimates | `WorkshopEstimateListPage` | Deferred (out of scope for AUT-875) | Navigable to `/workshop/estimates/:id`; deferred to module migration slice |
  * | Purchase orders | `PurchaseOrderList` | Deferred (out of scope for AUT-875) | Navigable to `/purchase-orders/:id`; deferred to module migration slice |
@@ -141,7 +141,7 @@ export function startImmediateIntentPrefetch(
 }
 
 /**
- * Cancels a pending intent timer (and any queued prefetch) for `intentKey`, or all pending timers
+ * Cancels a pending intent timer for `intentKey`, or all pending timers and queued prefetches
  * when `intentKey` is omitted.
  */
 export function cancelIntentPrefetch(intentKey?: string): void {
@@ -151,7 +151,6 @@ export function cancelIntentPrefetch(intentKey?: string): void {
       clearTimeout(timer)
       pendingTimers.delete(intentKey)
     }
-    queuedPrefetches.delete(intentKey)
     return
   }
 
@@ -323,9 +322,10 @@ function executeDetailPrefetch<
 }
 
 /**
- * Prefetches a detail query through the shared scheduler.
- * - When `scheduleOptions.immediate` is `true` (e.g. from a fired row/card intent timer or `pointerdown`), executes immediately.
- * - When `scheduleOptions.immediate` is omitted or `false`, schedules the 100 ms intent timer.
+ * Executes a detail query prefetch through the shared scheduler's deduplication, bounded
+ * concurrency queue, and bounded LRU cache retention.
+ * Called by list `onRowPrefetch` / card `onPrefetch` callbacks after `scheduleIntentPrefetch`
+ * (100 ms hover/focus) or `startImmediateIntentPrefetch` (`pointerdown`) fires.
  */
 export function scheduleDetailPrefetch<
   TQueryFnData = unknown,
@@ -335,27 +335,9 @@ export function scheduleDetailPrefetch<
 >(
   queryClient: QueryClient,
   options: FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>,
-  scheduleOptions?: { immediate?: boolean },
 ): void {
-  if (isSaveDataEnabled() || isClientSessionResetting()) {
-    return
-  }
-
-  const staleTime = resolveStaleTimeMs(options.staleTime)
   const keyHash = hashKey(options.queryKey)
-
-  if (isQueryFreshOrInFlight(queryClient, options.queryKey, keyHash, staleTime)) {
-    return
-  }
-
-  if (scheduleOptions?.immediate) {
-    executeDetailPrefetch(queryClient, options, keyHash)
-    return
-  }
-
-  scheduleIntentPrefetch(keyHash, () => {
-    executeDetailPrefetch(queryClient, options, keyHash)
-  })
+  executeDetailPrefetch(queryClient, options, keyHash)
 }
 
 /**

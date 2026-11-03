@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -6,11 +6,9 @@ import WorkshopOrderList from './WorkshopOrderList'
 import * as workshopApi from '@/api/workshop'
 import { workshopKeys } from '@/api/workshop'
 import { fetchWithAuth } from '@/api/client'
-import {
-  cancelIntentPrefetch,
-  resetIntentPrefetchScheduler,
-  scheduleIntentPrefetch,
-} from '@/lib/intent-prefetch'
+import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
+import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 
 vi.mock('@/api/workshop', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/workshop')>()
@@ -22,28 +20,6 @@ vi.mock('@/auth/AuthProvider', () => ({
 }))
 
 vi.mock('@/api/client', () => ({ fetchWithAuth: vi.fn() }))
-
-vi.mock('@/components/data-table/DataTable', () => ({
-  DataTable: ({
-    data,
-    rowBehaviour,
-  }: {
-    data: Array<{ id: string }>
-    rowBehaviour?: { onRowPrefetch?: (row: { id: string }) => void }
-  }) => (
-    <button
-      type="button"
-      onPointerEnter={() =>
-        scheduleIntentPrefetch(`row-hover:${data[0]?.id ?? '0'}`, () =>
-          rowBehaviour?.onRowPrefetch?.(data[0]),
-        )
-      }
-      onPointerLeave={() => cancelIntentPrefetch(`row-hover:${data[0]?.id ?? '0'}`)}
-    >
-      hover-row
-    </button>
-  ),
-}))
 
 vi.mock('@/components/workshop/WorkshopOrderIntakeDialog', () => ({
   WorkshopOrderIntakeDialog: () => null,
@@ -98,17 +74,22 @@ describe('WorkshopOrderList row prefetch', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery')
 
-    render(
+    const { container } = render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <WorkshopOrderList />
-        </MemoryRouter>
+        <SavedViewsProvider userKey="test-user">
+          <DashboardWidgetsProvider userKey="test-user">
+            <MemoryRouter>
+              <WorkshopOrderList />
+            </MemoryRouter>
+          </DashboardWidgetsProvider>
+        </SavedViewsProvider>
       </QueryClientProvider>,
     )
 
-    const row = screen.getByRole('button', { name: 'hover-row' })
+    const row = container.querySelector('tbody tr[data-table-row="true"]')
+    expect(row).not.toBeNull()
 
-    fireEvent.pointerEnter(row)
+    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
     vi.advanceTimersByTime(100)
     expect(prefetchSpy).toHaveBeenCalledTimes(1)
     expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
@@ -117,7 +98,7 @@ describe('WorkshopOrderList row prefetch', () => {
     })
     expect(orderDetailRequests()).toHaveLength(1)
 
-    fireEvent.pointerEnter(row)
+    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
     vi.advanceTimersByTime(100)
     expect(prefetchSpy).toHaveBeenCalledTimes(1)
     expect(orderDetailRequests()).toHaveLength(1)
@@ -126,11 +107,12 @@ describe('WorkshopOrderList row prefetch', () => {
       ok: true,
       json: async () => ({ id: 'order-1', order_number: 'WO-1', status: 'INTAKE', tasks: [] }),
     } as Response)
-    await Promise.resolve()
-    await Promise.resolve()
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(queryClient.getQueryData(workshopKeys.detail('order-1'))).toMatchObject({
+      id: 'order-1',
+    })
 
-    fireEvent.pointerEnter(row)
+    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
     vi.advanceTimersByTime(100)
     expect(prefetchSpy).toHaveBeenCalledTimes(1)
     expect(orderDetailRequests()).toHaveLength(1)

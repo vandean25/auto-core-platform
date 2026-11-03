@@ -140,85 +140,6 @@ describe('VehicleList peek sheet', () => {
       data: id === 'veh-1' ? vehicle : undefined,
       isLoading: false,
     }))
-    asMock(customersApi.useCustomers).mockReturnValue({
-      data: {
-        data: [
-          {
-            id: 'cust-1',
-            type: 'PRIVATE',
-            first_name: 'Max',
-            last_name: 'Mustermann',
-            email: 'max@example.test',
-            phone: '+43 1 111',
-            address_city: 'Wien',
-            address_country: 'AT',
-          },
-        ],
-        meta: { pageCount: 1 },
-      },
-      isLoading: false,
-      isError: false,
-    })
-    asMock(customersApi.useCustomer).mockReturnValue({ data: undefined, isLoading: false })
-    asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync: vi.fn() })
-    asMock(salesApi.useInvoices).mockReturnValue({
-      data: [
-        {
-          id: 'inv-1',
-          status: 'FINALIZED',
-          customer_id: 'cust-1',
-          customer: { id: 'cust-1', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann' },
-          date: '2026-01-15T00:00:00.000Z',
-          due_date: '2026-01-29T00:00:00.000Z',
-          total_net: '100.00',
-          total_tax: '20.00',
-          total_gross: '120.00',
-          items: [],
-          invoice_number: 'RE-2026-0001',
-        },
-      ],
-      isLoading: false,
-    })
-    asMock(vehicleStockApi.useVehicleStock).mockReturnValue({
-      data: {
-        data: [
-          {
-            id: 'stock-1',
-            make: 'Audi',
-            model: 'A4',
-            year: 2023,
-            vin: 'WAUZZZ123',
-            plate: 'W-99999',
-            color: 'Black',
-            stock_status: 'IN_STOCK',
-            inventory_role: 'DEALER_STOCK',
-            mileage: 12000,
-          },
-        ],
-        meta: { pageCount: 1, total: 1, page: 1, pageSize: 10 },
-      },
-      isLoading: false,
-    })
-    asMock(vehicleStockApi.useDeleteVehiclePurchase).mockReturnValue({ mutateAsync: vi.fn() })
-    asMock(inventoryApi.useInventory).mockReturnValue({
-      data: {
-        data: [
-          {
-            id: 'item-1',
-            sku: 'BRK-001',
-            name: 'Brake Pad',
-            brand: 'Bosch',
-            price: 49.9,
-            status: 'IN_STOCK',
-            quantity_available: 4,
-            warehouse_location: 'A-1',
-          },
-        ],
-        meta: { pageCount: 1, total: 1, page: 1, limit: 10 },
-      },
-      isLoading: false,
-    })
-    asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
   })
 
   afterEach(() => {
@@ -258,6 +179,49 @@ describe('VehicleList peek sheet', () => {
     expect(await screen.findByRole('heading', { name: 'Full vehicle page' })).toBeInTheDocument()
   })
 
+  function mockMainListsForPrefetch(): void {
+    asMock(customersApi.useCustomers).mockReturnValue({
+      data: {
+        data: [{ id: 'cust-1', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann' }],
+        meta: { pageCount: 1 },
+      },
+      isLoading: false,
+      isError: false,
+    })
+    asMock(customersApi.useCustomer).mockReturnValue({ data: undefined, isLoading: false })
+    asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(salesApi.useInvoices).mockReturnValue({
+      data: [
+        {
+          id: 'inv-1',
+          status: 'FINALIZED',
+          customer_id: 'cust-1',
+          customer: { id: 'cust-1', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann' },
+          date: '2026-01-15T00:00:00.000Z',
+          total_gross: '120.00',
+          invoice_number: 'RE-2026-0001',
+        },
+      ],
+      isLoading: false,
+    })
+    asMock(vehicleStockApi.useVehicleStock).mockReturnValue({
+      data: {
+        data: [{ id: 'stock-1', make: 'Audi', model: 'A4', year: 2023, stock_status: 'IN_STOCK' }],
+        meta: { pageCount: 1, total: 1, page: 1, pageSize: 10 },
+      },
+      isLoading: false,
+    })
+    asMock(vehicleStockApi.useDeleteVehiclePurchase).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(inventoryApi.useInventory).mockReturnValue({
+      data: {
+        data: [{ id: 'item-1', sku: 'BRK-001', name: 'Brake Pad', price: 49.9, status: 'IN_STOCK' }],
+        meta: { pageCount: 1, total: 1, page: 1, limit: 10 },
+      },
+      isLoading: false,
+    })
+    asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
+  }
+
   it.each([
     {
       name: 'vehicles',
@@ -288,6 +252,7 @@ describe('VehicleList peek sheet', () => {
     'WHEN the user hovers a $name row for 100 ms THEN the detail query is prefetched once',
     ({ Component, expectedKey }) => {
       vi.useFakeTimers()
+      mockMainListsForPrefetch()
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
       const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery').mockResolvedValue(undefined)
 

@@ -161,13 +161,10 @@ export default function VehicleStockList() {
               scheduleDetailPrefetch(
                 queryClient,
                 vehiclePurchaseDetailQueryOptions(row.draft_purchase_id),
-                { immediate: true },
               )
               return
             }
-            scheduleDetailPrefetch(queryClient, vehicleStockDetailQueryOptions(row.id), {
-              immediate: true,
-            })
+            scheduleDetailPrefetch(queryClient, vehicleStockDetailQueryOptions(row.id))
           },
           getRowContextActions: (row) => {
             const draftPurchaseId = row.draft_purchase_id

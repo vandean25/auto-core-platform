@@ -42,6 +42,8 @@ describe('action-role-predicates', () => {
     expect(canOpenBackOfficeDetail('OWNER')).toBe(true)
     expect(canOpenBackOfficeDetail('TECH')).toBe(false)
     expect(canOpenBackOfficeDetail('')).toBe(false)
+    expect(canOpenBackOfficeDetail(undefined)).toBe(false)
+    expect(canOpenBackOfficeDetail(null)).toBe(false)
   })
 
   it.each([

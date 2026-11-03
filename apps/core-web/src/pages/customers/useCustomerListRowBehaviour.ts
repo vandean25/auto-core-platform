@@ -31,9 +31,7 @@ export function useCustomerListRowBehaviour(
   const prefetchCustomerDetail = useCallback(
     (row: CustomerListRow) => {
       if (!canOpenCustomer(role)) return
-      scheduleDetailPrefetch(queryClient, customerDetailQueryOptions(row.id), {
-        immediate: true,
-      })
+      scheduleDetailPrefetch(queryClient, customerDetailQueryOptions(row.id))
     },
     [queryClient, role],
   )

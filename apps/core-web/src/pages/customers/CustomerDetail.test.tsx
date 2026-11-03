@@ -7,7 +7,11 @@ import { toast } from 'sonner'
 import { fetchWithAuth } from '@/api/client'
 import * as customersApi from '@/api/customers'
 import { formatDate } from '@/lib/format'
-import { resetIntentPrefetchScheduler, scheduleDetailPrefetch } from '@/lib/intent-prefetch'
+import {
+  resetIntentPrefetchScheduler,
+  scheduleDetailPrefetch,
+  scheduleIntentPrefetch,
+} from '@/lib/intent-prefetch'
 import { formatCurrency as formatCurrencyRaw } from '@/lib/utils'
 import { deCustomers } from '@/test/de-customers'
 import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
@@ -158,10 +162,12 @@ describe('CustomerDetail', () => {
       defaultOptions: { queries: { retry: false } },
     })
 
-    scheduleDetailPrefetch(
-      queryClient,
-      actualCustomersApi.customerDetailQueryOptions('cust-100'),
-    )
+    scheduleIntentPrefetch('row-hover:cust-100', () => {
+      scheduleDetailPrefetch(
+        queryClient,
+        actualCustomersApi.customerDetailQueryOptions('cust-100'),
+      )
+    })
     await vi.advanceTimersByTimeAsync(100)
 
     expect(fetchWithAuth).toHaveBeenCalledTimes(1)

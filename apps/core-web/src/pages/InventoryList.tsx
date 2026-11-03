@@ -158,9 +158,7 @@ export default function InventoryList() {
                     }),
                   onRowPrefetch: (item) => {
                     if (!canOpenBackOfficeDetail(role)) return
-                    scheduleDetailPrefetch(queryClient, inventoryItemDetailQueryOptions(item.id), {
-                      immediate: true,
-                    })
+                    scheduleDetailPrefetch(queryClient, inventoryItemDetailQueryOptions(item.id))
                   },
                 }}
                 {...tableState}

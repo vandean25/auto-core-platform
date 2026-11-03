@@ -178,9 +178,7 @@ export default function InvoiceListPage() {
           },
           onRowPrefetch: (row) => {
             if (!canOpenBackOfficeDetail(role)) return
-            scheduleDetailPrefetch(queryClient, invoiceDetailQueryOptions(row.id), {
-              immediate: true,
-            })
+            scheduleDetailPrefetch(queryClient, invoiceDetailQueryOptions(row.id))
           },
         }}
         {...tableState}
