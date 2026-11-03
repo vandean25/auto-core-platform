@@ -51,17 +51,20 @@ function runWithContext<T>(
 
 describe('Prisma Audit Extension', () => {
   let mockAuditLogCreate: jest.Mock;
+  let mockAuditLogCreateMany: jest.Mock;
   let mockModelFindFirst: jest.Mock;
   let mockModelFindMany: jest.Mock;
   let mockContext: Record<string, unknown>;
 
   beforeEach(() => {
     mockAuditLogCreate = jest.fn().mockResolvedValue({ id: 'audit-log-1' });
+    mockAuditLogCreateMany = jest.fn().mockResolvedValue({ count: 2 });
     mockModelFindFirst = jest.fn();
     mockModelFindMany = jest.fn();
     mockContext = {
       auditLog: {
         create: mockAuditLogCreate,
+        createMany: mockAuditLogCreateMany,
       },
       customer: {
         findFirst: mockModelFindFirst,
@@ -595,33 +598,36 @@ describe('Prisma Audit Extension', () => {
         where: { id: { in: ['so-1'] } },
       });
 
-      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
-      expect(mockAuditLogCreate).toHaveBeenCalledWith({
-        data: {
-          tenant_id: TENANT_ID,
-          entity_type: 'SalesOrder',
-          entity_id: 'so-1',
-          action: 'UPDATE',
-          actor_user_id: 'user-1',
-          actor_email: 'user@example.com',
-          actor_role: 'MANAGER',
-          actor_type: 'USER',
-          request_id: 'req-guard-1',
-          source: 'API',
-          ip_address: '127.0.0.1',
-          user_agent: 'Mozilla/5.0 TestBrowser',
-          before: beforeRow,
-          after: afterRow,
-          diff: {
-            status: { before: 'CONFIRMED', after: 'IN_PROGRESS' },
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          {
+            tenant_id: TENANT_ID,
+            entity_type: 'SalesOrder',
+            entity_id: 'so-1',
+            action: 'UPDATE',
+            actor_user_id: 'user-1',
+            actor_email: 'user@example.com',
+            actor_role: 'MANAGER',
+            actor_type: 'USER',
+            request_id: 'req-guard-1',
+            source: 'API',
+            ip_address: '127.0.0.1',
+            user_agent: 'Mozilla/5.0 TestBrowser',
+            before: beforeRow,
+            after: afterRow,
+            diff: {
+              status: { before: 'CONFIRMED', after: 'IN_PROGRESS' },
+            },
+            changed_fields: ['status'],
+            redacted_fields: [],
           },
-          changed_fields: ['status'],
-          redacted_fields: [],
-        },
+        ],
       });
     });
 
-    it('writes individual AuditLog records for each row affected in multi-row updateMany (never an aggregate record)', async () => {
+    it('AUT-905: multi-row updateMany writes one createMany whose entries equal the former per-row audit records, in row order', async () => {
       const beforeRows = [
         { id: 'poi-1', quantity: 2, unitPrice: 10 },
         { id: 'poi-2', quantity: 5, unitPrice: 20 },
@@ -651,28 +657,53 @@ describe('Prisma Audit Extension', () => {
       );
 
       expect(result).toEqual({ count: 2 });
-      expect(mockAuditLogCreate).toHaveBeenCalledTimes(2);
-      expect(mockAuditLogCreate).toHaveBeenNthCalledWith(1, {
-        data: expect.objectContaining({
-          entity_type: 'PurchaseOrderItem',
-          entity_id: 'poi-1',
-          action: 'UPDATE',
-          diff: {
-            quantity: { before: 2, after: 3 },
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          {
+            tenant_id: TENANT_ID,
+            entity_type: 'PurchaseOrderItem',
+            entity_id: 'poi-1',
+            action: 'UPDATE',
+            actor_user_id: 'user-1',
+            actor_email: 'admin@example.com',
+            actor_role: 'ADMIN',
+            actor_type: 'USER',
+            request_id: 'req-123',
+            source: 'API',
+            ip_address: '127.0.0.1',
+            user_agent: 'Mozilla/5.0 TestBrowser',
+            before: { id: 'poi-1', quantity: 2, unitPrice: 10 },
+            after: { id: 'poi-1', quantity: 3, unitPrice: 10 },
+            diff: {
+              quantity: { before: 2, after: 3 },
+            },
+            changed_fields: ['quantity'],
+            redacted_fields: [],
           },
-          changed_fields: ['quantity'],
-        }),
-      });
-      expect(mockAuditLogCreate).toHaveBeenNthCalledWith(2, {
-        data: expect.objectContaining({
-          entity_type: 'PurchaseOrderItem',
-          entity_id: 'poi-2',
-          action: 'UPDATE',
-          diff: {
-            quantity: { before: 5, after: 6 },
+          {
+            tenant_id: TENANT_ID,
+            entity_type: 'PurchaseOrderItem',
+            entity_id: 'poi-2',
+            action: 'UPDATE',
+            actor_user_id: 'user-1',
+            actor_email: 'admin@example.com',
+            actor_role: 'ADMIN',
+            actor_type: 'USER',
+            request_id: 'req-123',
+            source: 'API',
+            ip_address: '127.0.0.1',
+            user_agent: 'Mozilla/5.0 TestBrowser',
+            before: { id: 'poi-2', quantity: 5, unitPrice: 20 },
+            after: { id: 'poi-2', quantity: 6, unitPrice: 20 },
+            diff: {
+              quantity: { before: 5, after: 6 },
+            },
+            changed_fields: ['quantity'],
+            redacted_fields: [],
           },
-          changed_fields: ['quantity'],
-        }),
+        ],
       });
     });
 
@@ -771,13 +802,15 @@ describe('Prisma Audit Extension', () => {
         ),
       );
 
-      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
-      expect(mockAuditLogCreate).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          entity_type: 'WorkshopTask',
-          entity_id: 'task-1',
-          action: 'UPDATE',
-        }),
+      expect(mockAuditLogCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            entity_type: 'WorkshopTask',
+            entity_id: 'task-1',
+            action: 'UPDATE',
+          }),
+        ],
       });
     });
 
@@ -812,6 +845,7 @@ describe('Prisma Audit Extension', () => {
           provisional: false,
         },
       ]);
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('still audits a WorkshopEstimateVersion write that sets version', async () => {
@@ -877,6 +911,7 @@ describe('Prisma Audit Extension', () => {
       );
 
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('records no dry-run change for a party-write lock', async () => {
@@ -911,6 +946,7 @@ describe('Prisma Audit Extension', () => {
 
       expect(collector.getChanges()).toEqual([]);
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('writes no Vehicle UPDATE audit row when a business-field write leaves the row unchanged', async () => {
@@ -942,6 +978,7 @@ describe('Prisma Audit Extension', () => {
       );
 
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('reads snapshots from the active transaction so an in-transaction Vehicle change is audited', async () => {
@@ -962,12 +999,12 @@ describe('Prisma Audit Extension', () => {
         .fn()
         .mockResolvedValueOnce([beforeRow])
         .mockResolvedValueOnce([afterRow]);
-      const txAuditLogCreate = jest
+      const txAuditLogCreateMany = jest
         .fn()
-        .mockResolvedValue({ id: 'tx-audit-1' });
+        .mockResolvedValue({ count: 1 });
       const txClient = {
         vehicle: { findFirst: jest.fn(), findMany: txFindMany },
-        auditLog: { create: txAuditLogCreate },
+        auditLog: { createMany: txAuditLogCreateMany },
       };
 
       await runWithContext(undefined, undefined, () =>
@@ -993,14 +1030,17 @@ describe('Prisma Audit Extension', () => {
       });
       expect(mockModelFindMany).not.toHaveBeenCalled();
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
-      expect(txAuditLogCreate).toHaveBeenCalledTimes(1);
-      expect(txAuditLogCreate).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          entity_type: 'Vehicle',
-          entity_id: 'veh-1',
-          action: 'UPDATE',
-          changed_fields: ['customer_id', 'updatedAt'],
-        }),
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
+      expect(txAuditLogCreateMany).toHaveBeenCalledTimes(1);
+      expect(txAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            entity_type: 'Vehicle',
+            entity_id: 'veh-1',
+            action: 'UPDATE',
+            changed_fields: ['customer_id', 'updatedAt'],
+          }),
+        ],
       });
     });
 
@@ -1086,6 +1126,7 @@ describe('Prisma Audit Extension', () => {
       );
 
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
       expect(collector.getChanges()).toEqual([
         { entity: 'Vehicle', id: 'veh-1', op: 'update', provisional: false },
       ]);
@@ -1110,6 +1151,7 @@ describe('Prisma Audit Extension', () => {
 
       expect(result).toEqual({ count: 0 });
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('redacts secrets in multi-row updateMany snapshots', async () => {
@@ -1138,20 +1180,28 @@ describe('Prisma Audit Extension', () => {
         ),
       );
 
-      expect(mockAuditLogCreate).toHaveBeenCalledTimes(2);
-      expect(mockAuditLogCreate).toHaveBeenNthCalledWith(1, {
-        data: expect.objectContaining({
-          before: { id: 'vend-1', apiKey: REDACTED_VALUE, name: 'Vendor 1' },
-          after: { id: 'vend-1', apiKey: REDACTED_VALUE, name: 'Vendor 1 Updated' },
-          redacted_fields: ['apiKey'],
-        }),
-      });
-      expect(mockAuditLogCreate).toHaveBeenNthCalledWith(2, {
-        data: expect.objectContaining({
-          before: { id: 'vend-2', apiKey: REDACTED_VALUE, name: 'Vendor 2' },
-          after: { id: 'vend-2', apiKey: REDACTED_VALUE, name: 'Vendor 2 Updated' },
-          redacted_fields: ['apiKey'],
-        }),
+      expect(mockAuditLogCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            before: { id: 'vend-1', apiKey: REDACTED_VALUE, name: 'Vendor 1' },
+            after: {
+              id: 'vend-1',
+              apiKey: REDACTED_VALUE,
+              name: 'Vendor 1 Updated',
+            },
+            redacted_fields: ['apiKey'],
+          }),
+          expect.objectContaining({
+            before: { id: 'vend-2', apiKey: REDACTED_VALUE, name: 'Vendor 2' },
+            after: {
+              id: 'vend-2',
+              apiKey: REDACTED_VALUE,
+              name: 'Vendor 2 Updated',
+            },
+            redacted_fields: ['apiKey'],
+          }),
+        ],
       });
     });
 
@@ -1170,6 +1220,7 @@ describe('Prisma Audit Extension', () => {
 
       expect(result).toEqual({ count: 5 });
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('throws InternalServerErrorException when tenant context is missing on updateMany', async () => {
@@ -1187,11 +1238,12 @@ describe('Prisma Audit Extension', () => {
 
       expect(queryFn).not.toHaveBeenCalled();
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
   });
 
   describe('applyAuditDeleteMany', () => {
-    it('writes individual DELETE audit log records for each deleted row', async () => {
+    it('AUT-905: deleteMany writes one createMany with a DELETE audit record per deleted row, in row order (never an aggregate record)', async () => {
       const beforeRows = [
         { id: 'poi-1', quantity: 2, item_name: 'Filter' },
         { id: 'poi-2', quantity: 4, item_name: 'Gasket' },
@@ -1214,48 +1266,49 @@ describe('Prisma Audit Extension', () => {
       );
 
       expect(result).toEqual({ count: 2 });
-      expect(mockAuditLogCreate).toHaveBeenCalledTimes(2);
-      expect(mockAuditLogCreate).toHaveBeenNthCalledWith(1, {
-        data: {
-          tenant_id: TENANT_ID,
-          entity_type: 'PurchaseOrderItem',
-          entity_id: 'poi-1',
-          action: 'DELETE',
-          actor_user_id: 'user-del',
-          actor_email: 'del@acme.com',
-          actor_role: 'ADMIN',
-          actor_type: 'USER',
-          request_id: 'req-del-many',
-          source: 'API',
-          ip_address: '127.0.0.1',
-          user_agent: 'Mozilla/5.0 TestBrowser',
-          before: beforeRows[0],
-          after: null,
-          diff: null,
-          changed_fields: [],
-          redacted_fields: [],
-        },
-      });
-      expect(mockAuditLogCreate).toHaveBeenNthCalledWith(2, {
-        data: {
-          tenant_id: TENANT_ID,
-          entity_type: 'PurchaseOrderItem',
-          entity_id: 'poi-2',
-          action: 'DELETE',
-          actor_user_id: 'user-del',
-          actor_email: 'del@acme.com',
-          actor_role: 'ADMIN',
-          actor_type: 'USER',
-          request_id: 'req-del-many',
-          source: 'API',
-          ip_address: '127.0.0.1',
-          user_agent: 'Mozilla/5.0 TestBrowser',
-          before: beforeRows[1],
-          after: null,
-          diff: null,
-          changed_fields: [],
-          redacted_fields: [],
-        },
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          {
+            tenant_id: TENANT_ID,
+            entity_type: 'PurchaseOrderItem',
+            entity_id: 'poi-1',
+            action: 'DELETE',
+            actor_user_id: 'user-del',
+            actor_email: 'del@acme.com',
+            actor_role: 'ADMIN',
+            actor_type: 'USER',
+            request_id: 'req-del-many',
+            source: 'API',
+            ip_address: '127.0.0.1',
+            user_agent: 'Mozilla/5.0 TestBrowser',
+            before: beforeRows[0],
+            after: null,
+            diff: null,
+            changed_fields: [],
+            redacted_fields: [],
+          },
+          {
+            tenant_id: TENANT_ID,
+            entity_type: 'PurchaseOrderItem',
+            entity_id: 'poi-2',
+            action: 'DELETE',
+            actor_user_id: 'user-del',
+            actor_email: 'del@acme.com',
+            actor_role: 'ADMIN',
+            actor_type: 'USER',
+            request_id: 'req-del-many',
+            source: 'API',
+            ip_address: '127.0.0.1',
+            user_agent: 'Mozilla/5.0 TestBrowser',
+            before: beforeRows[1],
+            after: null,
+            diff: null,
+            changed_fields: [],
+            redacted_fields: [],
+          },
+        ],
       });
     });
 
@@ -1275,6 +1328,7 @@ describe('Prisma Audit Extension', () => {
 
       expect(result).toEqual({ count: 0 });
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('redacts secrets in deleteMany before snapshots', async () => {
@@ -1294,15 +1348,15 @@ describe('Prisma Audit Extension', () => {
         ),
       );
 
-      expect(mockAuditLogCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
+      expect(mockAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
             action: 'DELETE',
             before: { id: 'vend-1', apiKey: REDACTED_VALUE, name: 'Vendor 1' },
             redacted_fields: ['apiKey'],
           }),
-        }),
-      );
+        ],
+      });
     });
 
     it('bypasses non-audited models on deleteMany without writing audit logs', async () => {
@@ -1320,6 +1374,7 @@ describe('Prisma Audit Extension', () => {
 
       expect(result).toEqual({ count: 3 });
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
 
     it('throws InternalServerErrorException when tenant context is missing on deleteMany', async () => {
@@ -1337,6 +1392,7 @@ describe('Prisma Audit Extension', () => {
 
       expect(queryFn).not.toHaveBeenCalled();
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
     });
   });
 

@@ -13,6 +13,7 @@ import {
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 import { resolvePrismaModelDelegate } from './prisma-delegate.js';
 import { PrismaTransactionContext } from './prisma-transaction-context.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 
@@ -28,7 +29,8 @@ export type PrismaQueryArgs = {
 export type PrismaQueryFn = (args: PrismaQueryArgs) => Promise<unknown>;
 
 export type AuditLogDelegate = {
-  create: (args: { data: Record<string, unknown> }) => Promise<unknown>;
+  create?: (args: { data: Record<string, unknown> }) => Promise<unknown>;
+  createMany?: (args: { data: Record<string, unknown>[] }) => Promise<unknown>;
 };
 
 export interface AuditInterceptorContext {
@@ -86,7 +88,11 @@ function isAuditLogDelegate(value: unknown): value is AuditLogDelegate {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  return typeof (value as AuditLogDelegate).create === 'function';
+  const delegate = value as AuditLogDelegate;
+  return (
+    typeof delegate.create === 'function' ||
+    typeof delegate.createMany === 'function'
+  );
 }
 
 /**
@@ -485,28 +491,35 @@ function hasMeaningfulChanges(changedFields: string[]): boolean {
   return changedFields.some((field) => !BOOKKEEPING_FIELDS.has(field));
 }
 
+function isMeaningfulAuditRecord(payload: AuditRecordPayload): boolean {
+  return (
+    payload.action !== 'UPDATE' || hasMeaningfulChanges(payload.changedFields)
+  );
+}
+
+function recordDryRunChange(payload: AuditRecordPayload): void {
+  const collector = DryRunStorage.getCollector();
+  if (collector && payload.entityId) {
+    const op = payload.action === 'DELETE' ? 'delete' : 'update';
+    collector.recordChange({
+      entity: payload.model,
+      id: payload.entityId,
+      op,
+    });
+  }
+}
+
 async function writeAuditLog(
   delegate: AuditLogDelegate | undefined,
   actor: AuditActorContext,
   payload: AuditRecordPayload,
 ): Promise<void> {
-  if (
-    payload.action === 'UPDATE' &&
-    !hasMeaningfulChanges(payload.changedFields)
-  ) {
+  if (!isMeaningfulAuditRecord(payload)) {
     return;
   }
 
   if (SideEffectGuard.isDryRun()) {
-    const collector = DryRunStorage.getCollector();
-    if (collector && payload.entityId) {
-      const op = payload.action === 'DELETE' ? 'delete' : 'update';
-      collector.recordChange({
-        entity: payload.model,
-        id: payload.entityId,
-        op,
-      });
-    }
+    recordDryRunChange(payload);
     return;
   }
 
@@ -515,6 +528,43 @@ async function writeAuditLog(
       data: buildAuditLogData(actor, payload),
     });
   }
+}
+
+// Keeps one multi-row INSERT below the PostgreSQL 65k bind-parameter limit
+// (audit rows carry several JSON columns).
+const AUDIT_LOG_INSERT_CHUNK_SIZE = 500;
+
+async function writeAuditLogBatch(
+  delegate: AuditLogDelegate | undefined,
+  actor: AuditActorContext,
+  payloads: AuditRecordPayload[],
+): Promise<void> {
+  const meaningful = payloads.filter(isMeaningfulAuditRecord);
+
+  if (SideEffectGuard.isDryRun()) {
+    for (const payload of meaningful) {
+      recordDryRunChange(payload);
+    }
+    return;
+  }
+
+  const createMany = delegate?.createMany;
+  if (typeof createMany !== 'function') {
+    return;
+  }
+
+  const entries = meaningful.map((payload) =>
+    buildAuditLogData(actor, payload),
+  );
+  if (entries.length === 0) {
+    return;
+  }
+
+  const chunks: Record<string, unknown>[][] = [];
+  for (let i = 0; i < entries.length; i += AUDIT_LOG_INSERT_CHUNK_SIZE) {
+    chunks.push(entries.slice(i, i + AUDIT_LOG_INSERT_CHUNK_SIZE));
+  }
+  await chunkedPromiseAll(chunks, (chunk) => createMany({ data: chunk }));
 }
 
 function createUpdateRecord(
@@ -609,42 +659,22 @@ async function createUpdateManyAuditRecords(
   beforeRows: unknown[],
   afterMap: Map<string, unknown>,
 ): Promise<void> {
-  if (
-    !SideEffectGuard.isDryRun() &&
-    typeof batchCtx.auditLogDelegate?.create !== 'function'
-  ) {
-    return;
-  }
-
-  for (const beforeRow of beforeRows) {
+  const payloads = beforeRows.map((beforeRow) => {
     const entityId = extractEntityId(beforeRow) ?? '';
     const afterRow = afterMap.get(entityId) ?? beforeRow;
-    const payload = createUpdateRecord(
-      batchCtx.model,
-      entityId,
-      beforeRow,
-      afterRow,
-    );
-    await writeAuditLog(batchCtx.auditLogDelegate, batchCtx.actor, payload);
-  }
+    return createUpdateRecord(batchCtx.model, entityId, beforeRow, afterRow);
+  });
+  await writeAuditLogBatch(batchCtx.auditLogDelegate, batchCtx.actor, payloads);
 }
 
 async function createDeleteManyAuditRecords(
   batchCtx: AuditBatchContext,
   beforeRows: unknown[],
 ): Promise<void> {
-  if (
-    !SideEffectGuard.isDryRun() &&
-    typeof batchCtx.auditLogDelegate?.create !== 'function'
-  ) {
-    return;
-  }
-
-  for (const row of beforeRows) {
-    const entityId = extractEntityId(row) ?? '';
-    const payload = createDeleteRecord(batchCtx.model, entityId, row);
-    await writeAuditLog(batchCtx.auditLogDelegate, batchCtx.actor, payload);
-  }
+  const payloads = beforeRows.map((row) =>
+    createDeleteRecord(batchCtx.model, extractEntityId(row) ?? '', row),
+  );
+  await writeAuditLogBatch(batchCtx.auditLogDelegate, batchCtx.actor, payloads);
 }
 
 async function prepareSingleOperation(
