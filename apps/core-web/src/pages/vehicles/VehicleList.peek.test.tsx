@@ -242,17 +242,41 @@ describe('VehicleList peek sheet', () => {
       name: 'stock vehicles',
       Component: VehicleStockList,
       expectedKey: vehicleStockKeys.detail('stock-1'),
+      stockRow: { id: 'stock-1', make: 'Audi', model: 'A4', year: 2023, stock_status: 'IN_STOCK' },
+    },
+    {
+      name: 'stock vehicle draft purchases',
+      Component: VehicleStockList,
+      expectedKey: vehicleStockKeys.purchase('purch-1'),
+      stockRow: {
+        id: 'stock-draft-1',
+        draft_purchase_id: 'purch-1',
+        make: 'BMW',
+        model: '320d',
+        year: 2024,
+        stock_status: 'IN_PREPARATION',
+      },
     },
     {
       name: 'parts',
       Component: InventoryList,
       expectedKey: inventoryKeys.detail('item-1'),
+      stockRow: undefined,
     },
   ])(
     'WHEN the user hovers a $name row for 100 ms THEN the detail query is prefetched once',
-    ({ Component, expectedKey }) => {
+    ({ Component, expectedKey, stockRow }) => {
       vi.useFakeTimers()
       mockMainListsForPrefetch()
+      if (stockRow) {
+        asMock(vehicleStockApi.useVehicleStock).mockReturnValue({
+          data: {
+            data: [stockRow],
+            meta: { pageCount: 1, total: 1, page: 1, pageSize: 10 },
+          },
+          isLoading: false,
+        })
+      }
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
       const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery').mockResolvedValue(undefined)
 

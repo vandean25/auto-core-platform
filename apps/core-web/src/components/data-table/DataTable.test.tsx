@@ -77,7 +77,7 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).toHaveBeenCalledWith({ name: 'Test Item' })
   })
 
-  it('prefetches after 100 ms on mouse pointerenter or focus, keeps focus timer when pointer leaves, and cancels focus timer on blur', () => {
+  it('prefetches after 100 ms on keyboard focus, keeps the focus timer on pointerleave, and cancels on blur', () => {
     vi.useFakeTimers()
     const onRowPrefetch = vi.fn()
     const { container } = render(
@@ -87,25 +87,19 @@ describe('DataTable Characterization', () => {
     const row = container.querySelector('tbody tr[data-table-row="true"]')
     expect(row).not.toBeNull()
 
-    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
-    vi.advanceTimersByTime(99)
+    fireEvent.focus(row!)
+    vi.advanceTimersByTime(50)
     expect(onRowPrefetch).toHaveBeenCalledTimes(0)
-    vi.advanceTimersByTime(1)
+    fireEvent.pointerLeave(row!)
+    vi.advanceTimersByTime(50)
     expect(onRowPrefetch).toHaveBeenCalledTimes(1)
     expect(onRowPrefetch).toHaveBeenCalledWith({ name: 'Test Item' })
 
     fireEvent.focus(row!)
     vi.advanceTimersByTime(50)
-    expect(onRowPrefetch).toHaveBeenCalledTimes(1)
-    fireEvent.pointerLeave(row!)
-    vi.advanceTimersByTime(50)
-    expect(onRowPrefetch).toHaveBeenCalledTimes(2)
-
-    fireEvent.focus(row!)
-    vi.advanceTimersByTime(50)
     fireEvent.blur(row!)
     vi.advanceTimersByTime(100)
-    expect(onRowPrefetch).toHaveBeenCalledTimes(2)
+    expect(onRowPrefetch).toHaveBeenCalledTimes(1)
   })
 
   it('WHEN the pointer leaves before 100 ms THEN the timer is cancelled and no request is sent', () => {

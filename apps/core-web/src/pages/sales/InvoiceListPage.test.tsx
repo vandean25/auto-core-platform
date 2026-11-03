@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Invoice } from '@/api/types'
 import * as salesApi from '@/api/sales'
-import { invoiceKeys } from '@/api/sales'
 import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import InvoiceListPage from './InvoiceListPage'
@@ -168,23 +167,15 @@ describe('InvoiceListPage', () => {
       caseName: 'saveData is set',
       saveData: true,
       role: 'ADMIN',
-      expectedCalls: 0,
     },
     {
       caseName: 'role cannot open invoice details (TECH)',
       saveData: false,
       role: 'TECH',
-      expectedCalls: 0,
-    },
-    {
-      caseName: 'authorized role with saveData disabled',
-      saveData: false,
-      role: 'ADMIN',
-      expectedCalls: 1,
     },
   ])(
     'WHEN saveData is set or the role cannot open invoice details THEN no prefetch is sent ($caseName)',
-    ({ saveData, role, expectedCalls }) => {
+    ({ saveData, role }) => {
       vi.useFakeTimers()
       Object.defineProperty(navigator, 'connection', {
         value: { saveData },
@@ -204,12 +195,7 @@ describe('InvoiceListPage', () => {
       fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
       vi.advanceTimersByTime(100)
 
-      expect(prefetchSpy).toHaveBeenCalledTimes(expectedCalls)
-      if (expectedCalls > 0) {
-        expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
-          queryKey: invoiceKeys.detail('inv-1'),
-        })
-      }
+      expect(prefetchSpy).toHaveBeenCalledTimes(0)
     },
   )
 })

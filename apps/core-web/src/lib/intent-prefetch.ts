@@ -192,23 +192,24 @@ function isQueryFreshOrInFlight(
   return false
 }
 
-function touchRetainedDetailEntry(
+function shouldTrackSpeculativeEntry(
   keyHash: string,
   queryClient: QueryClient,
   queryKey: QueryKey,
-): void {
-  retainedDetailEntries.delete(keyHash)
-  retainedDetailEntries.set(keyHash, { queryClient, queryKey })
-
-  if (retainedDetailEntries.size <= MAX_RETAINED_DETAIL_ENTRIES) {
-    return
+): boolean {
+  if (retainedDetailEntries.has(keyHash)) {
+    return true
   }
+  const existingState = queryClient.getQueryState(queryKey)
+  return !existingState || existingState.dataUpdatedAt === 0
+}
 
+function evictOverflowRetainedEntries(activeKeyHash: string): void {
   for (const [candidateHash, entry] of retainedDetailEntries.entries()) {
     if (retainedDetailEntries.size <= MAX_RETAINED_DETAIL_ENTRIES) {
       break
     }
-    if (candidateHash === keyHash || inFlightKeys.has(candidateHash)) {
+    if (candidateHash === activeKeyHash || inFlightKeys.has(candidateHash)) {
       continue
     }
     const query = entry.queryClient.getQueryCache().find({
@@ -220,6 +221,22 @@ function touchRetainedDetailEntry(
     }
     retainedDetailEntries.delete(candidateHash)
     entry.queryClient.removeQueries({ queryKey: entry.queryKey, exact: true })
+  }
+}
+
+function touchRetainedDetailEntry(
+  keyHash: string,
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+): void {
+  if (!shouldTrackSpeculativeEntry(keyHash, queryClient, queryKey)) {
+    return
+  }
+  retainedDetailEntries.delete(keyHash)
+  retainedDetailEntries.set(keyHash, { queryClient, queryKey })
+
+  if (retainedDetailEntries.size > MAX_RETAINED_DETAIL_ENTRIES) {
+    evictOverflowRetainedEntries(keyHash)
   }
 }
 
