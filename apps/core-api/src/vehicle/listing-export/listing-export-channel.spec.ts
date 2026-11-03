@@ -1,5 +1,9 @@
 import { HttpException } from '@nestjs/common';
-import { VehicleListingDesiredState } from '@prisma/client';
+import {
+  Prisma,
+  VehicleListingDesiredState,
+  VehicleListingVatDisplay,
+} from '@prisma/client';
 import {
   findDownloadableChannel,
   toOfferReadinessListing,
@@ -51,9 +55,10 @@ describe('findDownloadableChannel', () => {
 
 describe('toOfferReadinessListing', () => {
   it('keeps only the offer fields that readiness checks read', () => {
+    const price = new Prisma.Decimal('12990.00');
     const listing = {
-      price_gross_eur: '12990.00',
-      vat_display: 'MARGIN',
+      price_gross_eur: price,
+      vat_display: VehicleListingVatDisplay.MARGIN,
       nova_included_confirmed: false,
       mandatory_fees_included_confirmed: true,
       channels: [channel()],
@@ -61,8 +66,8 @@ describe('toOfferReadinessListing', () => {
     };
 
     expect(toOfferReadinessListing(listing)).toEqual({
-      price_gross_eur: '12990.00',
-      vat_display: 'MARGIN',
+      price_gross_eur: price,
+      vat_display: VehicleListingVatDisplay.MARGIN,
       nova_included_confirmed: false,
       mandatory_fees_included_confirmed: true,
     });
