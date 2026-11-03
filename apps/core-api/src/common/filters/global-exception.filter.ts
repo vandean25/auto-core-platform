@@ -249,6 +249,25 @@ function resolveBodyParserHttpError(
   };
 }
 
+function resolveParserError(
+  exception: unknown,
+  context: ErrorRequestContext,
+  logger: Logger,
+): ResolvedError | undefined {
+  const cause =
+    exception instanceof HttpException ? exception.cause : exception;
+  const result =
+    resolveBodyParserHttpError(cause, context, logger) ??
+    resolveBodyDecompressionError(cause, context, logger);
+  if (
+    exception instanceof HttpException &&
+    result?.status !== exception.getStatus()
+  ) {
+    return undefined;
+  }
+  return result;
+}
+
 /** The allowlisted extras a client may see for an operational error. Empty for any other body. */
 function pickClientSafeFields(
   safeBody: Record<string, unknown> | undefined,
@@ -317,14 +336,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     context: ErrorRequestContext,
   ): ResolvedError {
     if (exception instanceof HttpException) {
-      const cause = exception.cause;
-      const parserError =
-        resolveBodyParserHttpError(cause, context, this.logger) ??
-        resolveBodyDecompressionError(cause, context, this.logger);
-      if (parserError && parserError.status === exception.getStatus()) {
-        return parserError;
-      }
-      return this.handleHttpException(exception, context);
+      return (
+        resolveParserError(exception, context, this.logger) ??
+        this.handleHttpException(exception, context)
+      );
     }
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       return this.handlePrismaError(exception, context);
@@ -332,21 +347,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof ApplicationError) {
       return this.handleApplicationError(exception);
     }
-    const bodyParserError = resolveBodyParserHttpError(
-      exception,
-      context,
-      this.logger,
-    );
-    if (bodyParserError) {
-      return bodyParserError;
-    }
-    const decompressionError = resolveBodyDecompressionError(
-      exception,
-      context,
-      this.logger,
-    );
-    if (decompressionError) {
-      return decompressionError;
+    const parserError = resolveParserError(exception, context, this.logger);
+    if (parserError) {
+      return parserError;
     }
     if (exception instanceof Error) {
       return this.handleGenericError(exception, context);
