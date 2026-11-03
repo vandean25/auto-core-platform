@@ -1,6 +1,35 @@
-import type { DocumentBrandAsset } from "@/api/document-branding";
+import type { DocumentBrandAsset, DocumentBrandProfile } from "@/api/document-branding";
 import { getErrorMessage } from "@/lib/error-utils";
 import { translateEnum } from "@/lib/i18n/enum-labels";
+
+type BrandUploadCapabilities = DocumentBrandProfile["capabilities"]["uploads"];
+
+/** Byte limit rendered as a whole or one-decimal MiB figure for error and hint copy. */
+export function uploadMaxMiB(maxBytes: number): string {
+  const mib = maxBytes / (1024 * 1024);
+  return Number.isInteger(mib) ? String(mib) : mib.toFixed(1);
+}
+
+/**
+ * Interpolation values that let the oversized-logo error name the logo's own size limit.
+ * Empty when the profile has not reported upload capabilities yet.
+ */
+export function logoInterpolationParams(
+  uploads: BrandUploadCapabilities | undefined,
+): Record<string, string | undefined> {
+  return uploads ? { maxMiB: uploadMaxMiB(uploads.logo.maxBytes) } : {};
+}
+
+/**
+ * Interpolation values for a failed branding upload. Only the logo carries its size
+ * limit so the letterhead source keeps its own copy.
+ */
+export function uploadInterpolationParams(
+  uploads: BrandUploadCapabilities | undefined,
+  purpose: "SOURCE" | "LOGO",
+): Record<string, string | undefined> {
+  return purpose === "LOGO" ? logoInterpolationParams(uploads) : {};
+}
 
 export function formatDocumentBrandFileSize(byteLength: number): string {
   if (byteLength < 1024) return `${byteLength} B`;
