@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import { toast } from 'sonner'
 
 import * as importsApi from '@/api/imports'
+import { changeUiLanguage } from '@/lib/i18n'
 import deErrors from '../../../../../../locales/de/errors.json'
 import deSettings from '../../../../../../locales/de/settings.json'
+import enErrors from '../../../../../../locales/en/errors.json'
 import { DataImportUndoDialog } from './data-import-undo-dialog'
 
 const di = deSettings.dataImport.undo
@@ -143,14 +145,45 @@ describe('DataImportUndoDialog', () => {
     expect(screen.getByText(di.loadingPreview)).toBeInTheDocument()
   })
 
-  it('renders error state and retry button when preview fails', () => {
-    const mockRefetch = vi.fn()
+  function mockPreviewFailure(error: unknown, refetch = vi.fn()) {
     ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,
-      refetch: mockRefetch,
+      error,
+      refetch,
     })
+    return refetch
+  }
+
+  it.each([
+    ['IMPORT_JOB_NOT_UNDOABLE', deErrors.codes.IMPORT_JOB_NOT_UNDOABLE],
+    ['NOT_A_PUBLIC_CODE', di.previewRefused],
+  ] as const)(
+    'shows the refusal reason and no retry when the undo preview is refused with %s',
+    (code, refusalLine) => {
+      // Catches the regression where a refused preview read as a load failure, offering a retry
+      // that can never succeed instead of the reason the server gave.
+      mockPreviewFailure({
+        response: { status: 409, data: { code, message: 'Import job is not in an undoable state' } },
+      })
+
+      renderDialog({})
+
+      expect(screen.getByText(refusalLine)).toBeInTheDocument()
+      expect(screen.queryByText(di.loadPreviewFailed)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /erneut versuchen/i })).not.toBeInTheDocument()
+    },
+  )
+
+  it.each([
+    ['a network failure', new Error('Failed to fetch')],
+    [
+      'a service outage',
+      { response: { status: 503, data: { code: 'IMPORT_JOB_BUSY' } } },
+    ],
+  ])('keeps the generic preview error and retry for %s', (_kind, error) => {
+    const mockRefetch = mockPreviewFailure(error)
 
     renderDialog({})
     expect(screen.getByText(di.loadPreviewFailed)).toBeInTheDocument()
@@ -158,6 +191,19 @@ describe('DataImportUndoDialog', () => {
     const retryBtn = screen.getByRole('button', { name: /erneut versuchen/i })
     fireEvent.click(retryBtn)
     expect(mockRefetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the refusal reason in English when the UI language is English', async () => {
+    await changeUiLanguage('en')
+    mockPreviewFailure({
+      response: { status: 409, data: { code: 'IMPORT_JOB_NOT_UNDOABLE' } },
+    })
+
+    renderDialog({})
+
+    expect(screen.getByText(enErrors.codes.IMPORT_JOB_NOT_UNDOABLE)).toBeInTheDocument()
+    expect(screen.queryByText(deErrors.codes.IMPORT_JOB_NOT_UNDOABLE)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument()
   })
 
   it('renders summary counts and sections when preview is loaded', () => {
