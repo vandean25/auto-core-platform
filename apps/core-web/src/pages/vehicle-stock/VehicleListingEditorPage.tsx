@@ -25,6 +25,8 @@ import { getErrorCode, getErrorStatus } from '@/lib/error-utils'
 import { generateId } from '@/lib/id'
 import { useVehicleStockDetail } from '@/api/vehicle-stock'
 import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
+import { CapabilityGate } from '@/components/CapabilityGate'
+import { visibleListingChannels } from './listing-channel-visibility'
 import {
   useCreateVehicleListing,
   usePatchVehicleListing,
@@ -434,9 +436,7 @@ export default function VehicleListingEditorPage() {
   }
 
   const listing = listingQuery.data
-  const visibleChannels = listing.channels.filter(
-    (channel) => channel.platform !== 'WILLHABEN' || capabilities?.willhabenExport === true,
-  )
+  const visibleChannels = visibleListingChannels(listing.channels, capabilities)
   const hasUnsavedDraftEdits =
     savedDraft !== null && draft !== null && !draftsEqual(draft, savedDraft)
   const displaySaveStatus =
@@ -554,18 +554,18 @@ export default function VehicleListingEditorPage() {
               <ListingFieldErrors issues={mobileIssues} field="vat_display" />
             </div>
             <div className="flex flex-col gap-2">
-              {capabilities?.nova === true ? <>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={draft.nova_included_confirmed}
-                  onCheckedChange={(checked) =>
-                    updateDraft({ nova_included_confirmed: checked === true })
-                  }
-                />
-                {t('listing.fields.novaIncluded')}
-              </label>
-              <ListingFieldErrors issues={mobileIssues} field="nova_included_confirmed" />
-              </> : null}
+              <CapabilityGate capability="nova">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={draft.nova_included_confirmed}
+                    onCheckedChange={(checked) =>
+                      updateDraft({ nova_included_confirmed: checked === true })
+                    }
+                  />
+                  {t('listing.fields.novaIncluded')}
+                </label>
+                <ListingFieldErrors issues={mobileIssues} field="nova_included_confirmed" />
+              </CapabilityGate>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={draft.mandatory_fees_included_confirmed}

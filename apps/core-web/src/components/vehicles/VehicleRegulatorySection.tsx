@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import type { components } from '@/api/generated/openapi'
-import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
+import { CapabilityGate } from '@/components/CapabilityGate'
 import { DateField } from '@/components/ui/date-field'
 import { Input } from '@/components/ui/input'
 import {
@@ -120,7 +120,6 @@ export function VehicleRegulatorySection({
   mode,
   renderInlineField,
 }: VehicleRegulatorySectionProps) {
-  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
   const localized = useLocalizedCopy()
   const sectionTitle = localized(VEHICLE_REGULATORY_SECTION)
 
@@ -160,17 +159,19 @@ export function VehicleRegulatorySection({
             async (next) => onChange({ emission_class: next || null }),
           )}
         </div>
-        {capabilities?.nova === true ? <div>
-          <div className="text-muted-foreground text-xs mb-1">
-            {localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
+        <CapabilityGate capability="nova">
+          <div>
+            <div className="text-muted-foreground text-xs mb-1">
+              {localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
+            </div>
+            <NovaClassSelect
+              value={values.nova_class}
+              onChange={(nova_class) => onChange({ nova_class })}
+              className="h-9"
+              ariaLabel={localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
+            />
           </div>
-          <NovaClassSelect
-            value={values.nova_class}
-            onChange={(nova_class) => onChange({ nova_class })}
-            className="h-9"
-            ariaLabel={localized(VEHICLE_REGULATORY_FIELDS.novaClass)}
-          />
-        </div> : null}
+        </CapabilityGate>
       </div>
     )
   }
@@ -233,13 +234,15 @@ export function VehicleRegulatorySection({
             onChange={(event) => onChange({ typenschein_no: event.target.value || null })}
           />
         </label>
-        {capabilities?.nova === true ? <label className="space-y-1 text-sm">
-          <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.novaClass)}</span>
-          <NovaClassSelect
-            value={values.nova_class}
-            onChange={(nova_class) => onChange({ nova_class })}
-          />
-        </label> : null}
+        <CapabilityGate capability="nova">
+          <label className="space-y-1 text-sm">
+            <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.novaClass)}</span>
+            <NovaClassSelect
+              value={values.nova_class}
+              onChange={(nova_class) => onChange({ nova_class })}
+            />
+          </label>
+        </CapabilityGate>
         <label className="space-y-1 text-sm sm:col-span-2">
           <span className="text-slate-600">
             {localized(VEHICLE_REGULATORY_FIELDS.emissionClass)}

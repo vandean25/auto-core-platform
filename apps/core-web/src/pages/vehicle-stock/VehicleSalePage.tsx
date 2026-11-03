@@ -9,7 +9,7 @@ import {
   type VehicleSaleTradeInHandle,
 } from '@/components/vehicle-stock/VehicleSaleTradeInSection'
 import { useVehicleSale, useVehicleStockDetail } from '@/api/vehicle-stock'
-import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
+import { CapabilityGate } from '@/components/CapabilityGate'
 import type { Customer } from '@/api/types'
 import { useVehicleSaleForm } from './useVehicleSaleForm'
 import { useVehicleSaleAutosave } from './useVehicleSaleAutosave'
@@ -34,7 +34,6 @@ function useVehicleSaleRecord() {
 }
 
 export default function VehicleSalePage() {
-  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
   const { t } = useTranslation('vehicleStock')
   useEffect(() => {
     void ensureNamespaceLoaded('vehicleStock')
@@ -106,7 +105,9 @@ export default function VehicleSalePage() {
             shorteningSaveError={draft.shorteningSaveError}
             clearShorteningSaveError={() => draft.setShorteningSaveError(null)}
           />
-          {capabilities?.nova === true ? <VehicleSaleNovaPreview vehicle={vehicle} /> : null}
+          <CapabilityGate capability="nova">
+            <VehicleSaleNovaPreview vehicle={vehicle} />
+          </CapabilityGate>
         </div>
       </div>
 

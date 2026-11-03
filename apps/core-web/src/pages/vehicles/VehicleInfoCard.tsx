@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LegacyNumbers } from '@/components/LegacyNumbers'
 import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
-import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
+import { CapabilityGate } from '@/components/CapabilityGate'
 import { VehicleGewaehrleistungSection } from '@/components/vehicles/VehicleGewaehrleistungSection'
 import { VehiclePickerlSection } from '@/components/vehicles/VehiclePickerlSection'
 import { VehicleRegulatorySection } from '@/components/vehicles/VehicleRegulatorySection'
@@ -34,7 +34,6 @@ type EditableFieldConfig = {
 }
 
 export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardProps) {
-  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
   const { t } = useTranslation('vehicles')
   const { saveRegulatoryField, saveVehicleField } = useVehicleFieldSaves(vehicle.id)
   const firstRegistrationDate = getFirstRegistrationDate(vehicle)
@@ -117,7 +116,9 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
           ))}
         </div>
 
-        {capabilities?.pickerl57a === true ? <VehiclePickerlSection vehicleId={vehicle.id} pickerlDue={vehicle.pickerl_due} /> : null}
+        <CapabilityGate capability="pickerl57a">
+          <VehiclePickerlSection vehicleId={vehicle.id} pickerlDue={vehicle.pickerl_due} />
+        </CapabilityGate>
 
         <VehicleGewaehrleistungSection sales={vehicle.sales ?? []} />
 
@@ -140,14 +141,16 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
           )}
         />
 
-        {capabilities?.nova === true ? <NovaPreviewPanel
-          vehicleId={vehicle.id}
-          firstRegistrationDate={firstRegistrationDate}
-          co2Wltp={vehicle.co2_wltp_g_km ?? null}
-          co2Nedc={vehicle.co2_nedc_g_km ?? null}
-          typenscheinNo={vehicle.typenschein_no ?? null}
-          novaClass={vehicle.nova_class ?? null}
-        /> : null}
+        <CapabilityGate capability="nova">
+          <NovaPreviewPanel
+            vehicleId={vehicle.id}
+            firstRegistrationDate={firstRegistrationDate}
+            co2Wltp={vehicle.co2_wltp_g_km ?? null}
+            co2Nedc={vehicle.co2_nedc_g_km ?? null}
+            typenscheinNo={vehicle.typenschein_no ?? null}
+            novaClass={vehicle.nova_class ?? null}
+          />
+        </CapabilityGate>
 
         <div className='pt-3 border-t'>
           <div className='flex items-center justify-between gap-2 mb-1'>
