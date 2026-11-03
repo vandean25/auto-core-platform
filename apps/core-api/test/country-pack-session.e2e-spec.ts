@@ -93,17 +93,24 @@ describe('Country pack session capabilities', () => {
     expect(res.body.effectiveCapabilities).toEqual(deCapabilities);
   });
 
+  // Each row must be refused while its capability is off. The padded and
+  // repeated profile rows guard against a bypass of the willhaben gate; the
+  // inspection-records and Pickerl workshop-order rows guard their decorators.
   it.each([
-    ['NoVA', 'post', '/api/vehicles/nova/calculate'],
-    ['Pickerl list', 'get', '/api/vehicles/pickerl-due'],
-    ['Pickerl CSV', 'get', '/api/vehicles/pickerl-due/export'],
-    ['Pickerl order', 'get', '/api/vehicles/00000000-0000-4000-8000-000000000000/pickerl-open-order'],
-    ['willhaben export', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=WILLHABEN_GENERIC_V1'],
-  ] as const)('rejects %s when its capability is unavailable', async (_feature, method, path) => {
+    ['NoVA', 'post', '/api/vehicles/nova/calculate', {}],
+    ['Pickerl list', 'get', '/api/vehicles/pickerl-due', undefined],
+    ['Pickerl CSV', 'get', '/api/vehicles/pickerl-due/export', undefined],
+    ['Pickerl order', 'get', '/api/vehicles/00000000-0000-4000-8000-000000000000/pickerl-open-order', undefined],
+    ['inspection records', 'get', '/api/vehicles/00000000-0000-4000-8000-000000000000/inspection-records', undefined],
+    ['Pickerl workshop order', 'post', '/api/workshop/orders', { createPickerlTask: true }],
+    ['willhaben export', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=WILLHABEN_GENERIC_V1', undefined],
+    ['willhaben export with padded profile', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=%20WILLHABEN_GENERIC_V1', undefined],
+    ['willhaben export with repeated profile', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=WILLHABEN_GENERIC_V1&profile=OTHER', undefined],
+  ] as const)('rejects %s when its capability is unavailable', async (_feature, method, path, body) => {
     const response = await request(app.getHttpServer())
       [method](path)
       .set('Authorization', `Bearer ${createTestAuthToken(app.get(AuthService), tenantB)}`)
-      .send({});
+      .send(body ?? {});
 
     expect(response.status).toBe(403);
     expect(response.body.code).toBe('CAPABILITY_UNAVAILABLE');

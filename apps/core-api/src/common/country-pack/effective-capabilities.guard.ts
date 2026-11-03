@@ -19,6 +19,16 @@ type CapabilityRule = {
   bodyFlag?: string;
 };
 
+/**
+ * Mirrors `resolveListingSerializer`, which trims the profile before lookup,
+ * so a padded value such as `%20WILLHABEN_GENERIC_V1` cannot skip the gate.
+ * A repeated query key (array) fails closed and is treated as a match.
+ */
+function profileMatches(raw: unknown, expected: string): boolean {
+  if (Array.isArray(raw)) return true;
+  return typeof raw === 'string' && raw.trim() === expected;
+}
+
 @Injectable()
 export class EffectiveCapabilitiesService {
   constructor(
@@ -48,10 +58,11 @@ export class CapabilityGuard implements CanActivate {
     );
     if (!rule) return true;
     const request = context.switchToHttp().getRequest<{
-      query: { profile?: string };
+      query: { profile?: unknown };
       body?: Record<string, unknown>;
     }>();
-    if (rule.profile && request.query.profile !== rule.profile) return true;
+    if (rule.profile && !profileMatches(request.query.profile, rule.profile))
+      return true;
     if (rule.bodyFlag && request.body?.[rule.bodyFlag] !== true) return true;
     if ((await this.capabilities.resolve())?.[rule.capability] === true)
       return true;
