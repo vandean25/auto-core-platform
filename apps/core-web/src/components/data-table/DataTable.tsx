@@ -14,7 +14,8 @@ import { useTranslation } from 'react-i18next'
 
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
-import { DataTableDensityContext, type DataTableDensity } from './data-table-density-toggle'
+import type { DataTableDensity } from '@/lib/density-tokens'
+import { DataTableDensityContext } from './data-table-density-toggle'
 import { DataTableGrid } from './data-table-grid'
 import { DataTableList } from './data-table-list'
 import { useDataTableContextMenu } from './data-table-context-menu'
@@ -81,7 +82,7 @@ export function DataTable<TData extends object>({
   const { t } = useTranslation('common')
   const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const [density, setDensity] = useState<DataTableDensity>('normal')
+  const [density, setDensity] = useState<DataTableDensity>('comfortable')
   const isMobile = useIsMobile()
   const hasBulkActions = Boolean(bulkActions)
   const { rowSelection, setRowSelection, withSelectColumn } = useDataTableSelection<TData>(

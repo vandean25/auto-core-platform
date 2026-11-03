@@ -2,8 +2,7 @@ import { createContext, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
-
-export type DataTableDensity = 'normal' | 'compact'
+import type { DataTableDensity } from '@/lib/density-tokens'
 
 type DensityContextValue = { density: DataTableDensity; setDensity: (density: DataTableDensity) => void }
 
@@ -19,7 +18,7 @@ export function DataTableDensityMenuItem() {
   return (
     <DropdownMenuCheckboxItem
       checked={context.density === 'compact'}
-      onCheckedChange={(checked) => context.setDensity(checked ? 'compact' : 'normal')}
+      onCheckedChange={(checked) => context.setDensity(checked ? 'compact' : 'comfortable')}
       onSelect={(event) => event.preventDefault()}
     >
       {t('dataTable.density.compact')}
