@@ -197,4 +197,52 @@ export const CANONICAL_EN_MESSAGES = {
     'The recommended retail price is missing for the price calculation. Enter it or set a markup.',
   LISTING_SERIALIZER_UNSUPPORTED:
     'No listing export format is available for this portal.',
+  BRAND_ASSET_QUARANTINE_MISSING:
+    'The uploaded file is no longer available. Please upload it again.',
+  BRAND_LOGO_TOO_LARGE:
+    'The logo file is too large. Please choose a smaller PNG file.',
+  BRAND_PNG_DIMENSIONS_INVALID:
+    'The PNG image size is not supported. Please choose another PNG file.',
+  BRAND_PNG_INVALID:
+    'The PNG file could not be read. Please choose another PNG file.',
+  BRAND_ASSET_INVALID:
+    'The letterhead file is invalid. Please choose another PDF or PNG letterhead.',
+  BRAND_DERIVED_LOGO_TOO_LARGE:
+    'The detected logo is too large. Please extract the letterhead again.',
+  BRAND_EXTRACTION_CROP_INVALID:
+    'The logo could not be cropped from the letterhead.',
+  BRAND_EXTRACTION_LOW_CONFIDENCE:
+    'The letterhead was too unclear to read. Please use a sharper template.',
+  BRAND_EXTRACTION_RETRIES_EXHAUSTED:
+    'The letterhead could not be read after several attempts. Please try again later.',
+  BRAND_IMAGE_DIMENSIONS_INVALID:
+    'The image in the letterhead has an unsupported size.',
+  BRAND_IMAGE_MEMORY_LIMIT:
+    'The image in the letterhead is too large to process.',
+  BRAND_IMAGE_PIXELS_INVALID:
+    'The image in the letterhead has an unsupported resolution.',
+  BRAND_IMAGE_PROCESS_TIMEOUT:
+    'The image in the letterhead took too long to process. Please try again.',
+  BRAND_PDF_ACTIONS:
+    'The PDF contains actions that are not supported.',
+  BRAND_PDF_EMBEDDED_FILE:
+    'The PDF contains embedded files. Please use a letterhead without attachments.',
+  BRAND_PDF_ENCRYPTED:
+    'The PDF is password protected. Please remove the protection and upload it again.',
+  BRAND_PDF_INVALID:
+    'The PDF could not be read. Please use another letterhead.',
+  BRAND_PDF_MEMORY_LIMIT:
+    'The PDF is too large to read. Please use a smaller file.',
+  BRAND_PDF_PAGE_LIMIT:
+    'The PDF has too many pages. Please use a letterhead with fewer pages.',
+  BRAND_PDF_PROCESS_TIMEOUT:
+    'Reading the PDF took too long. Please try again.',
+  BRAND_PDF_RASTER_TOO_LARGE:
+    'The PDF page could not be prepared as an image. Please use another letterhead.',
+  BRAND_PROVIDER_REJECTED:
+    'The letterhead was refused while reading. Please try another template.',
+  BRAND_REQUESTER_REVOKED:
+    'The person who requested the extraction is no longer a member of this entity.',
+  BRAND_REQUESTER_UNAVAILABLE:
+    'The person who requested the extraction is no longer available.',
 }

@@ -14,10 +14,20 @@ import { toast } from "sonner";
 import type { UseDebouncedAutoSaveOptions } from "@/hooks/useDebouncedAutoSave";
 import type { DocumentBrandTheme } from "@/api/document-branding";
 import deCommon from "../../../../../../locales/de/common.json";
+import deEnums from "../../../../../../locales/de/enums.json";
+import deErrors from "../../../../../../locales/de/errors.json";
 import deSettings from "../../../../../../locales/de/settings.json";
+import enSettings from "../../../../../../locales/en/settings.json";
+import { changeUiLanguage } from "@/lib/i18n";
 import { DocumentBrandingSettings } from "./DocumentBrandingSettings";
 
 const branding = deSettings.documentBranding;
+const logoHint = branding.logo.hint
+  .replaceAll("{{types}}", "PNG")
+  .replaceAll("{{maxMiB}}", "2");
+const logoHintEn = enSettings.documentBranding.logo.hint
+  .replaceAll("{{types}}", "PNG")
+  .replaceAll("{{maxMiB}}", "2");
 const footerTextLabel = new RegExp(branding.fields.footerText.split(" (")[0]);
 
 const fixtures = vi.hoisted(() => ({
@@ -49,14 +59,11 @@ const fixtures = vi.hoisted(() => ({
           maxBytes: 2 * 1024 * 1024,
           mimeTypes: ["image/png"],
           accept: "image/png,.png",
-          requirementLabel: "Logo must be PNG (max 2 MiB).",
         },
         source: {
           maxBytes: 10 * 1024 * 1024,
           mimeTypes: ["image/png", "application/pdf"],
           accept: "application/pdf,image/png,.pdf,.png",
-          requirementLabel:
-            "Letterhead source must be PNG or PDF (max 10 MiB).",
         },
       },
     },
@@ -64,6 +71,8 @@ const fixtures = vi.hoisted(() => ({
     draftSourceAsset: null as DocumentBrandAsset | null,
   },
   previewHtml: "<!doctype html><p>SAMPLE — NOT AN INVOICE</p>",
+  previewWarnings: [] as string[],
+  profileError: null as unknown,
   assetStatus: {
     data: null as null | { id: string; state: string; failureCode?: string },
     pollTimedOut: false,
@@ -100,7 +109,7 @@ vi.mock("@/api/document-branding", async (importOriginal) => {
     useDocumentBrandProfile: () => ({
       data: fixtures.profile,
       isLoading: false,
-      error: null,
+      error: fixtures.profileError,
       refetch: fixtures.refetchProfile,
     }),
     useDocumentBrandAsset: (_legalEntityId: string, assetId: string | null) =>
@@ -124,7 +133,7 @@ vi.mock("@/api/document-branding", async (importOriginal) => {
       isPending: false,
       data: {
         html: fixtures.previewHtml,
-        warnings: [],
+        warnings: fixtures.previewWarnings,
         themeHash: "a".repeat(64),
       },
       reset: vi.fn(),
@@ -187,6 +196,8 @@ afterEach(() => {
   fixtures.profile.capabilities.extractionAvailable = false;
   fixtures.assetStatus.data = null;
   fixtures.sourceAssetStatus.data = null;
+  fixtures.previewWarnings = [];
+  fixtures.profileError = null;
   fixtures.upload.mockReset();
   fixtures.refetchProfile.mockReset();
   fixtures.saveDraft.mockReset();
@@ -248,13 +259,104 @@ describe("DocumentBrandingSettings", () => {
     expect(preview.getAttribute("srcdoc")).toContain("SAMPLE — NOT AN INVOICE");
   });
 
-  it("keeps the bounded PNG logo upload control from backend capabilities", () => {
+  it("shows the bounded PNG logo upload control with a German hint", () => {
     render(<DocumentBrandingSettings entity={entity} />);
     expect(screen.getByLabelText(branding.logo.label)).toHaveProperty(
       "accept",
       "image/png,.png",
     );
-    expect(screen.getByText("Logo must be PNG (max 2 MiB).")).toBeTruthy();
+    expect(screen.getByText(logoHint)).toBeTruthy();
+  });
+
+  it("shows the logo upload hint in English when the UI language is English", async () => {
+    await changeUiLanguage("en");
+    render(<DocumentBrandingSettings entity={entity} />);
+    expect(screen.getByText(logoHintEn).textContent).toBe(logoHintEn);
+    expect(screen.queryByText(logoHint)).toBeNull();
+  });
+
+  it.each([
+    "BRAND_LOGO_TOO_LARGE",
+    "BRAND_PNG_INVALID",
+    "BRAND_PNG_DIMENSIONS_INVALID",
+    "BRAND_ASSET_QUARANTINE_MISSING",
+  ] as const)(
+    "reports an asynchronously rejected logo in German for %s",
+    async (failureCode) => {
+      fixtures.upload.mockImplementation(async () => {
+        fixtures.assetStatus.data = {
+          id: "asset-1",
+          state: "REJECTED",
+          failureCode,
+        };
+        return { id: "asset-1" };
+      });
+      render(<DocumentBrandingSettings entity={entity} />);
+
+      fireEvent.change(screen.getByLabelText(branding.logo.label), {
+        target: { files: [new File(["x"], "logo.png", { type: "image/png" })] },
+      });
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(branding.toast.logoRejected, {
+          description: deErrors.codes[failureCode],
+        }),
+      );
+    },
+  );
+
+  it("reports an unknown logo rejection with generic German copy", async () => {
+    fixtures.upload.mockImplementation(async () => {
+      fixtures.assetStatus.data = {
+        id: "asset-1",
+        state: "REJECTED",
+        failureCode: "BRAND_FUTURE_FAILURE",
+      };
+      return { id: "asset-1" };
+    });
+    render(<DocumentBrandingSettings entity={entity} />);
+
+    fireEvent.change(screen.getByLabelText(branding.logo.label), {
+      target: { files: [new File(["x"], "logo.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(branding.toast.logoRejected, {
+        description: branding.errors.logoRejected,
+      }),
+    );
+  });
+
+  it("translates preview warnings instead of showing the code", () => {
+    fixtures.previewWarnings = [
+      "HEADER_TEXT_MAY_BE_CLIPPED",
+      "FOOTER_TEXT_MAY_BE_CLIPPED",
+      "SOME_FUTURE_WARNING",
+    ];
+    render(<DocumentBrandingSettings entity={entity} />);
+
+    const warnings = screen.getByRole("list", {
+      name: branding.preview.warningsAria,
+    });
+    expect(warnings.textContent).toContain(
+      deEnums.documentBrandPreviewWarning.HEADER_TEXT_MAY_BE_CLIPPED,
+    );
+    expect(warnings.textContent).toContain(
+      deEnums.documentBrandPreviewWarning.FOOTER_TEXT_MAY_BE_CLIPPED,
+    );
+    expect(warnings.textContent).toContain(
+      deEnums.documentBrandPreviewWarning.generic,
+    );
+    expect(warnings.textContent).not.toMatch(/may be clipped/i);
+  });
+
+  it("shows translated copy when the branding profile cannot be loaded", () => {
+    fixtures.profileError = createHttpError("Legal entity not found", 404);
+    render(<DocumentBrandingSettings entity={entity} />);
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      deErrors.codes.HTTP_404,
+    );
   });
 
   it("enables extraction when the draft letterhead source is validated", async () => {

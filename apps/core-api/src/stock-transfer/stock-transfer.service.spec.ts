@@ -218,7 +218,11 @@ describe('StockTransferService', () => {
       { id: itemId, cost_price: decimal('12.50') },
     ]);
     tx.inventoryTransaction.findMany.mockResolvedValue([]);
-    tx.stockTransferLine.updateMany.mockResolvedValue({ count: 1 });
+    // Every requested line matches, however many lines share one statement.
+    tx.stockTransferLine.updateMany.mockImplementation(
+      ({ where }: { where: { id: { in: string[] } } }) =>
+        Promise.resolve({ count: where.id.in.length }),
+    );
     tx.stockTransfer.updateMany.mockResolvedValue({ count: 1 });
 
     (ledgerService.recordTransactions as jest.Mock).mockResolvedValue(
@@ -680,26 +684,18 @@ describe('StockTransferService', () => {
       },
     );
 
-    it.each(['ship', 'receive', 'return'] as const)(
-      '%s dispatches independent guarded line writes together',
-      async (action) => {
-        const invoke = prepareMovement(action);
-        let pending = 0;
-        let peakPending = 0;
-        tx.stockTransferLine.updateMany.mockImplementation(() => {
-          pending += 1;
-          peakPending = Math.max(peakPending, pending);
-          return new Promise((resolve) =>
-            setImmediate(() => {
-              pending -= 1;
-              resolve({ count: 1 });
-            }),
-          );
-        });
+    it.each([
+      ['ship', 3],
+      ['receive', 1],
+      ['return', 1],
+    ] as const)(
+      '%s writes lines with equal values in one statement (%i statements for 3 lines)',
+      async (action, statements) => {
+        await prepareMovement(action)();
 
-        await invoke();
-
-        expect(peakPending).toBe(3);
+        expect(tx.stockTransferLine.updateMany).toHaveBeenCalledTimes(
+          statements,
+        );
       },
     );
 
@@ -1117,7 +1113,7 @@ describe('StockTransferService', () => {
       });
       expect(tx.stockTransferLine.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ id: 'line-zero-approved' }),
+          where: expect.objectContaining({ id: { in: ['line-zero-approved'] } }),
           data: expect.objectContaining({
             shipped_qty: decimal('0'),
             source_location_id: null,

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleController } from './vehicle.controller.js';
+import { VehiclePickerlDueController } from './vehicle-pickerl-due.controller.js';
+import { VehicleNovaController } from './vehicle-nova.controller.js';
 import { VehicleInspectionRecordController } from './vehicle-inspection-record.controller.js';
 import { VehiclePartyController } from './vehicle-party.controller.js';
 import { VehiclePartyService } from './vehicle-party.service.js';
@@ -26,6 +28,10 @@ import { InspectionExchangeModule } from '../inspection-exchange/inspection-exch
 @Module({
   imports: [PrismaModule, InspectionExchangeModule],
   controllers: [
+    // Literal paths (nova/calculate, pickerl-due) must register before VehicleController's GET :id.
+    // This order also keeps the path order of the generated OpenAPI file.
+    VehicleNovaController,
+    VehiclePickerlDueController,
     VehicleController,
     VehicleInspectionRecordController,
     VehiclePartyController,

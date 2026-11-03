@@ -1277,6 +1277,7 @@
           "MODIFIED_SINCE_IMPORT": "Modified after import",
           "MISSING_BEFORE_SNAPSHOT": "No previous state saved",
           "ENTITY_NOT_FOUND": "Record no longer exists",
+          "LEGACY_JOB_NO_ENTITY_LINK": "Imported before undo support",
           "UNSUPPORTED_ENTITY_TYPE": "Entity type not supported",
           "FINANCIAL_IMPORT_CANNOT_BE_UNDONE": "Financial imports cannot be undone",
           "UNKNOWN": "Cannot be undone",
@@ -1312,13 +1313,18 @@
     "subtitle": "These settings apply to future invoices after you confirm them.",
     "inactiveEntity": "Reactivate this legal entity to edit its document branding.",
     "loading": "Loading document branding…",
-    "loadFailed": "Document branding could not be loaded: {{message}}",
+    "loadFailed": "Document branding could not be loaded.",
     "logo": {
       "label": "Logo",
+      "hint": "{{types}} · max {{maxMiB}} MiB.",
       "selected": "Selected logo asset: {{id}}",
       "remove": "Remove logo",
       "uploading": "Uploading and validating logo…",
       "refreshStatus": "Refresh validation status"
+    },
+    "errors": {
+      "logoRejected": "This file cannot be used as a logo. Please choose another PNG file.",
+      "uploadFailed": "The file could not be uploaded. Please try again."
     },
     "fields": {
       "primaryColor": "Primary color",
@@ -1337,7 +1343,7 @@
       "keep": "Keep my edits",
       "reapplying": "Re-applying…"
     },
-    "draftFailed": "Draft save failed. Fix validation issues or try again. {{message}}",
+    "draftFailed": "Draft save failed. Fix validation issues or try again.",
     "status": {
       "activeRevision": "Active appearance · revision {{revision}}",
       "activeDefaults": "Active appearance · ACP defaults",

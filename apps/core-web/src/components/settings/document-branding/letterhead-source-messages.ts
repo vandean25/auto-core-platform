@@ -1,5 +1,6 @@
 import type { DocumentBrandAsset } from "@/api/document-branding";
-import { translateEnum, translateEnumOptions } from "@/lib/i18n/enum-labels";
+import { getErrorMessage } from "@/lib/error-utils";
+import { translateEnum } from "@/lib/i18n/enum-labels";
 
 export function formatDocumentBrandFileSize(byteLength: number): string {
   if (byteLength < 1024) return `${byteLength} B`;
@@ -45,13 +46,25 @@ function describeRejection(failureCode: string | null): string {
     case "BRAND_SOURCE_EXPIRED":
       return translateEnum("letterheadSource", "message", "rejectedExpired");
     default:
-      return failureCode
-        ? translateEnumOptions(
-            ["letterheadSource", "message", "rejectedWithCode"],
-            { code: failureCode.replaceAll("_", " ").toLowerCase() },
-          )
-        : translateEnum("letterheadSource", "message", "rejectedGeneric");
+      return describeBrandAssetFailure(
+        failureCode,
+        translateEnum("letterheadSource", "message", "rejectedGeneric"),
+      );
   }
+}
+
+/**
+ * Translated reason for an asset failure code. Codes registered in `errors:codes` win;
+ * anything else shows the caller's own translated text, never the raw code.
+ */
+export function describeBrandAssetFailure(
+  failureCode: string | null,
+  fallback: string,
+): string {
+  return getErrorMessage(
+    { response: { data: failureCode ? { code: failureCode } : undefined } },
+    fallback,
+  );
 }
 
 export function letterheadSourceDisplayName(asset: DocumentBrandAsset): string {

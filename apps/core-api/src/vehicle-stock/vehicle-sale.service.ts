@@ -5,97 +5,43 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
-  AuditLogAction,
   Prisma,
-  VehicleInventoryRole,
-  VehicleLedgerEntryType,
-  VehicleRecordSource,
-  VehicleSaleStatus,
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
   type VehiclePurchase,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-import {
-  partyWriteContext,
-  setOwnerInTx,
-} from '../vehicle/vehicle-party.writer.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
-import {
-  assertActiveTargetSiteMembership,
-  assertPersistedSiteId,
-  lockSitesAndAssertActive,
-} from '../site/document-retarget.helpers.js';
-import {
-  bindStatusUpdateMany,
-  guardedStatusUpdate,
-} from '../common/utils/status-transition.js';
-import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
+import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { omitInvoiceSnapshot } from '../invoices/invoice-response.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
 import { netAmountDue } from './vehicle-trade-in.js';
-import { daysInStock } from './vehicle-stock-reports.math.js';
-import { AuditService } from '../audit/audit.service.js';
-import { RequestContextService } from '../common/services/request-context.service.js';
 import { resolveGarantieFacts } from './kaufvertrag/kaufvertrag-garantie.js';
 import { omitKaufvertragArchiveInternals } from './kaufvertrag/kaufvertrag-sale-response.js';
-import type { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
-import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
+import { assertVehicleIsSellable } from './vehicle-sale.guards.js';
 import {
-  SALE_STATE_CHANGED_MESSAGE,
-  SELLABLE_STATUSES,
-  assertDraftTradeInCompatible,
-  assertExpectedSaleSite,
-  assertVehicleIsSellable,
-  buildDraftUpdateData,
-  buildDraftUpdateWhere,
-} from './vehicle-sale.guards.js';
-import {
-  buildCorrectedWarrantyFacts,
-  buildCorrectionAudit,
-  buildCorrectionGuardWhere,
   buildCreateWarrantyFacts,
-  buildDraftWarrantyFacts,
   computeSaleWarrantySnapshot,
-  finalizeWarrantyInput,
-  resolveDraftGarantie,
   toGewaehrleistungReadFields,
 } from './vehicle-sale.warranty.js';
 import { viennaIsoDay } from './gewaehrleistung/gewaehrleistung-status.js';
-import { findReceivedStockPurchaseIdForActiveSite } from '../vehicle/equipment/vehicle-equipment-stock-cycle.js';
-import { deactivateVehicleListingsOnSale } from '../vehicle/listing/vehicle-listing-sale-deactivate.js';
-import { Autoscout24DmsListingPushService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-listing-push.service.js';
-import {
-  DEFAULT_VAT_RATE,
-  assignInvoiceNumber,
-  buildFinalizeFigures,
-  buildFinalizeResponse,
-  buildMarginInvoiceData,
-  findFinalizeLedgerEntries,
-  findLockedDraftForFinalize,
-  findSaleForFinalize,
-  loadFinalizableTradeIn,
-  type FinalizeSale,
-} from './vehicle-sale.finalize.js';
+import { DEFAULT_VAT_RATE } from './vehicle-sale.finalize.js';
 
-type DraftSaleForUpdate = Prisma.VehicleSaleGetPayload<{
-  include: { vehicle: { include: { location: true } } };
-}>;
-
+/**
+ * Creates and reads vehicle sales and decides whether a vehicle can be sold at all.
+ * Draft updates and corrections live in VehicleSaleTransitionService, finalizing in
+ * VehicleSaleFinalizeService; both call back here for the sellability check.
+ */
 @Injectable()
 export class VehicleSaleService {
   private readonly prisma: PrismaService;
   private readonly tenantContext: TenantContextService;
   private readonly siteContext: SiteContextService;
   private readonly ledger: VehicleLedgerService;
-  private readonly snapshotCommit: InvoiceSnapshotCommitService;
-  private readonly auditService: AuditService;
-  private readonly requestContext: RequestContextService;
-  private readonly autoscout24DmsPush: Autoscout24DmsListingPushService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -104,19 +50,11 @@ export class VehicleSaleService {
     tenantContext: TenantContextService,
     siteContext: SiteContextService,
     ledger: VehicleLedgerService,
-    snapshotCommit: InvoiceSnapshotCommitService,
-    auditService: AuditService,
-    requestContext: RequestContextService,
-    autoscout24DmsPush: Autoscout24DmsListingPushService,
   ) {
     this.prisma = prisma;
     this.tenantContext = tenantContext;
     this.siteContext = siteContext;
     this.ledger = ledger;
-    this.snapshotCommit = snapshotCommit;
-    this.auditService = auditService;
-    this.requestContext = requestContext;
-    this.autoscout24DmsPush = autoscout24DmsPush;
   }
 
   async create(dto: CreateVehicleSaleDto) {
@@ -214,328 +152,6 @@ export class VehicleSaleService {
     };
   }
 
-  async updateDraft(id: string, dto: PatchVehicleSaleDto) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
-    const sale = await this.findDraftSaleForUpdate(
-      id,
-      tenantId,
-      authorizedSiteIds,
-    );
-    const tradeIn = await this.findTradeInPurchase(
-      sale.trade_in_purchase_id,
-      tenantId,
-      authorizedSiteIds,
-    );
-    assertDraftTradeInCompatible(sale, dto, tradeIn);
-    assertExpectedSaleSite(sale, dto);
-
-    const targetSiteId = dto.siteId ?? dto.site_id;
-    const isRetargeting =
-      targetSiteId !== undefined && targetSiteId !== sale.site_id;
-    if (isRetargeting) {
-      await this.assertRetargetAllowed(tenantId, sale, tradeIn, targetSiteId);
-    }
-    if (dto.customer_id) {
-      await this.assertSellable(tenantId, sale.vehicle_id, dto.customer_id);
-    }
-
-    const warrantyFacts = buildDraftWarrantyFacts(sale, dto);
-    const warrantySnapshot = computeSaleWarrantySnapshot(
-      warrantyFacts,
-      sale.vehicle?.first_registration_date ?? null,
-    );
-    const warrantyFields = {
-      ...resolveDraftGarantie(sale, dto),
-      ...warrantyFacts,
-      ...warrantySnapshot,
-    };
-    // A retarget locks both sites: the trade-in-free sale must not move while another request writes it.
-    const lockSiteIds = isRetargeting
-      ? [sale.site_id, targetSiteId].filter((s): s is string => Boolean(s))
-      : null;
-    await this.persistDraftUpdate(
-      tenantId,
-      lockSiteIds,
-      buildDraftUpdateWhere({ id, tenantId }, sale, dto, isRetargeting),
-      buildDraftUpdateData(dto, warrantyFields, targetSiteId, isRetargeting),
-    );
-
-    return this.findOne(id);
-  }
-
-  async correctGewaehrleistungSnapshot(
-    id: string,
-    dto: CorrectGewaehrleistungSnapshotDto,
-  ) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
-    await this.prisma.$transaction((tx) =>
-      this.applyGewaehrleistungCorrection(tx, id, dto, {
-        tenantId,
-        authorizedSiteIds,
-      }),
-    );
-    return this.findOne(id);
-  }
-
-  /** Only an invoiced sale in the caller's site scope can have its warranty snapshot corrected. */
-  private async findInvoicedSaleForCorrection(
-    tx: Prisma.TransactionClient,
-    id: string,
-    scope: { tenantId: string; authorizedSiteIds: string[] },
-  ) {
-    const sale = await tx.vehicleSale.findFirst({
-      where: {
-        id,
-        tenant_id: scope.tenantId,
-        site_id: { in: scope.authorizedSiteIds },
-        status: VehicleSaleStatus.INVOICED,
-        vehicle: {
-          is: {
-            tenant_id: scope.tenantId,
-            site_id: { in: scope.authorizedSiteIds },
-          },
-        },
-      },
-      include: { vehicle: true },
-    });
-    if (!sale) {
-      throw new NotFoundException(`Vehicle sale ${id} not found`);
-    }
-    return sale;
-  }
-
-  private async applyGewaehrleistungCorrection(
-    tx: Prisma.TransactionClient,
-    id: string,
-    dto: CorrectGewaehrleistungSnapshotDto,
-    scope: { tenantId: string; authorizedSiteIds: string[] },
-  ): Promise<void> {
-    const sale = await this.findInvoicedSaleForCorrection(tx, id, scope);
-
-    const warrantyFacts = buildCorrectedWarrantyFacts(sale, dto);
-    const warrantySnapshot = computeSaleWarrantySnapshot(
-      warrantyFacts,
-      sale.vehicle.first_registration_date,
-    );
-    const { before, after } = buildCorrectionAudit(
-      sale,
-      warrantyFacts,
-      warrantySnapshot,
-      dto.reason,
-    );
-    if (!after.reason) {
-      throw new UnprocessableEntityException(
-        'Ein Korrekturgrund ist erforderlich.',
-      );
-    }
-
-    const updated = await tx.vehicleSale.updateMany({
-      where: buildCorrectionGuardWhere(
-        id,
-        scope.tenantId,
-        scope.authorizedSiteIds,
-        sale,
-      ),
-      data: { ...warrantyFacts, ...warrantySnapshot },
-    });
-    if (updated.count !== 1) {
-      throw new ConflictException(SALE_STATE_CHANGED_MESSAGE);
-    }
-
-    await this.auditService.recordTenantMutation(
-      {
-        entityType: 'VehicleSale',
-        entityId: sale.id,
-        action: AuditLogAction.UPDATE,
-        actorUserId: await this.findAuditActorId(tx, scope.tenantId),
-        source: this.requestContext.getSource() ?? 'API',
-        before,
-        after,
-        diff: { reason: after.reason },
-      },
-      tx,
-    );
-  }
-
-  async finalize(id: string) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
-    let dmsSaleContext: {
-      vehicleId: string;
-      stockPurchaseId: string;
-    } | null = null;
-    const response = await this.prisma.$transaction(async (tx) => {
-      const draft = await findSaleForFinalize(tx, id, tenantId, siteId);
-      const persistedSiteId = assertPersistedSiteId(
-        draft.site_id,
-        'Vehicle sale site ownership is required',
-      );
-      const invoiceDate = new Date();
-      const dueDate = new Date(invoiceDate);
-      dueDate.setDate(dueDate.getDate() + 14);
-      const commitmentContext = await this.snapshotCommit.lockCommitmentContext(
-        tx,
-        tenantId,
-        {
-          sales_order_id: null,
-          workshop_order_id: null,
-          vehicle_sale_id: draft.id,
-          site_id: persistedSiteId,
-        },
-        invoiceDate,
-      );
-
-      const sale = await findLockedDraftForFinalize(
-        tx,
-        id,
-        tenantId,
-        commitmentContext.ownership.siteId,
-      );
-      await this.assertSellable(
-        tenantId,
-        sale.vehicle_id,
-        sale.customer_id,
-        tx,
-      );
-
-      const warrantySnapshot = computeSaleWarrantySnapshot(
-        finalizeWarrantyInput(sale),
-        sale.vehicle.first_registration_date,
-      );
-      const entries = await findFinalizeLedgerEntries(
-        tx,
-        tenantId,
-        sale,
-        persistedSiteId,
-      );
-      const figures = buildFinalizeFigures(sale, entries);
-
-      await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
-        id,
-        tenantId,
-        from: VehicleSaleStatus.DRAFT,
-        to: VehicleSaleStatus.INVOICED,
-        extraWhere: { site_id: persistedSiteId },
-        extraData: warrantySnapshot,
-        conflictMessage: SALE_STATE_CHANGED_MESSAGE,
-      });
-
-      // Read after the guarded status update. The site row lock from lockCommitmentContext is held here, and a
-      // trade-in save takes the same lock first, so no save can change the link before the invoice is written.
-      const tradeIn = await loadFinalizableTradeIn(
-        tx,
-        tenantId,
-        sale,
-        persistedSiteId,
-      );
-      const posted = await findSaleForFinalize(tx, id, tenantId, siteId);
-
-      const amountDue = netAmountDue(
-        sale.sale_price,
-        tradeIn?.purchase_price ?? null,
-      );
-      const invoice = await tx.invoice.create({
-        data: buildMarginInvoiceData({
-          tenantId,
-          posted,
-          ownership: commitmentContext.ownership,
-          invoiceDate,
-          dueDate,
-          figures,
-          salePrice: sale.sale_price,
-          amountDue,
-          tradeIn,
-        }),
-        include: { items: true, customer: true, vehicle: true },
-      });
-
-      await this.snapshotCommit.lockInvoiceRow(tx, tenantId, invoice.id);
-      const prepared = await this.snapshotCommit.prepareV2Snapshot({
-        tx,
-        tenantId,
-        invoice,
-        margin: figures.margin,
-        commitmentContext,
-        lockInvoiceRow: false,
-        inKindCredit: tradeIn?.purchase_price,
-      });
-      const invoiceNumber = await assignInvoiceNumber(tx, tenantId, invoice.id);
-      await this.snapshotCommit.persistV2Snapshot(
-        tx,
-        tenantId,
-        invoice.id,
-        prepared,
-      );
-      if (tradeIn) {
-        await this.recordTradeInNettedAudit(tx, tenantId, posted.id, {
-          invoiceId: invoice.id,
-          invoiceNumber,
-          tradeInPurchaseId: tradeIn.id,
-          allowance: tradeIn.purchase_price,
-          salePrice: sale.sale_price,
-          amountDue,
-        });
-      }
-
-      await tx.vehicleSale.update({
-        where: { id: posted.id },
-        data: {
-          cost_basis_snapshot: figures.basis,
-          margin_vat_snapshot: figures.vat,
-          days_to_sell_snapshot: daysInStock(
-            sale.vehicle.stock_received_at,
-            invoiceDate,
-          ),
-        },
-      });
-
-      await deactivateVehicleListingsOnSale(tx, {
-        tenantId,
-        siteId: persistedSiteId,
-        vehicleId: posted.vehicle_id,
-      });
-      const stockPurchaseId = await findReceivedStockPurchaseIdForActiveSite(
-        tx,
-        tenantId,
-        posted.vehicle_id,
-        persistedSiteId,
-      );
-      if (stockPurchaseId) {
-        dmsSaleContext = {
-          vehicleId: posted.vehicle_id,
-          stockPurchaseId,
-        };
-      }
-
-      await this.releaseStockAndPostLedger(tx, tenantId, posted, {
-        persistedSiteId,
-        firstRegistrationDate: sale.vehicle.first_registration_date,
-      });
-
-      return buildFinalizeResponse(
-        posted,
-        { ...invoice, invoice_number: invoiceNumber },
-        prepared.snapshot,
-      );
-    });
-
-    if (dmsSaleContext !== null) {
-      const { vehicleId: saleVehicleId, stockPurchaseId } = dmsSaleContext;
-      await this.autoscout24DmsPush
-        .deactivateAfterVehicleSale({
-          tenantId,
-          siteId,
-          vehicleId: saleVehicleId,
-          stockPurchaseId,
-        })
-        .catch(() => undefined);
-    }
-
-    return response;
-  }
-
   async hasOpenStockPrep(
     vehicleId: string,
     tx?: Prisma.TransactionClient,
@@ -558,7 +174,7 @@ export class VehicleSaleService {
   }
 
   /** Trade-in purchase of a sale, read through the authorized sites: never a tenant-only include. */
-  private async findTradeInPurchase(
+  async findTradeInPurchase(
     tradeInPurchaseId: string | null,
     tenantId: string,
     authorizedSiteIds: string[],
@@ -575,180 +191,7 @@ export class VehicleSaleService {
     });
   }
 
-  private async findDraftSaleForUpdate(
-    id: string,
-    tenantId: string,
-    authorizedSiteIds: string[],
-  ): Promise<DraftSaleForUpdate> {
-    const sale = await this.prisma.vehicleSale.findFirst({
-      where: {
-        id,
-        tenant_id: tenantId,
-        site_id: { in: authorizedSiteIds },
-        vehicle: {
-          is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
-        },
-      },
-      include: { vehicle: { include: { location: true } } },
-    });
-    if (!sale) {
-      throw new NotFoundException(`Vehicle sale ${id} not found`);
-    }
-    if (sale.status !== VehicleSaleStatus.DRAFT) {
-      throw new UnprocessableEntityException('Only DRAFT sales can be updated');
-    }
-    return sale;
-  }
-
-  /** A sale with a trade-in cannot move sites, and the vehicle must already sit on a lot of the target site. */
-  private async assertRetargetAllowed(
-    tenantId: string,
-    sale: DraftSaleForUpdate,
-    tradeIn: VehiclePurchase | null,
-    targetSiteId: string,
-  ): Promise<void> {
-    // The trade-in purchase is site-owned and stays at the sale's site; moving the sale would strand it.
-    if (tradeIn) {
-      throw new UnprocessableEntityException(
-        'Remove the trade-in before moving this sale to another site',
-      );
-    }
-    await assertActiveTargetSiteMembership(
-      this.prisma,
-      this.tenantContext,
-      tenantId,
-      targetSiteId,
-    );
-
-    // Ruling 18: Parked vehicle's lot must already belong to target site; 422 otherwise
-    if (
-      !sale.vehicle?.location ||
-      sale.vehicle.location.site_id !== targetSiteId
-    ) {
-      throw new UnprocessableEntityException(
-        'Vehicle is parked on another site; move the vehicle before retargeting sale',
-      );
-    }
-  }
-
-  private async persistDraftUpdate(
-    tenantId: string,
-    lockSiteIds: string[] | null,
-    where: Prisma.VehicleSaleWhereInput,
-    data: Prisma.VehicleSaleUncheckedUpdateManyInput,
-  ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      if (lockSiteIds) {
-        await lockSitesAndAssertActive(tx, tenantId, lockSiteIds);
-      }
-
-      const updated = await tx.vehicleSale.updateMany({ where, data });
-      if (updated.count === 0) {
-        throw new ConflictException(SALE_STATE_CHANGED_MESSAGE);
-      }
-    });
-  }
-
-  private async findAuditActorId(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-  ): Promise<string | undefined> {
-    const authUser = this.tenantContext.getAuthenticatedUser();
-    const actor = authUser?.userId
-      ? await tx.user.findFirst({
-          where: {
-            firebaseUid: authUser.userId,
-            active_tenant_id: tenantId,
-          },
-          select: { id: true },
-        })
-      : null;
-    return actor?.id;
-  }
-
-  private async recordTradeInNettedAudit(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    saleId: string,
-    netted: {
-      invoiceId: string;
-      invoiceNumber: string;
-      tradeInPurchaseId: string;
-      allowance: Prisma.Decimal;
-      salePrice: Prisma.Decimal;
-      amountDue: Prisma.Decimal;
-    },
-  ) {
-    await this.auditService.recordTenantMutation(
-      {
-        entityType: 'VehicleSale',
-        entityId: saleId,
-        action: AuditLogAction.UPDATE,
-        actorUserId: await this.findAuditActorId(tx, tenantId),
-        source: this.requestContext.getSource() ?? 'API',
-        before: null,
-        after: {
-          invoice_id: netted.invoiceId,
-          invoice_number: netted.invoiceNumber,
-          trade_in_purchase_id: netted.tradeInPurchaseId,
-          sale_price: netted.salePrice.toFixed(2),
-          trade_in_allowance: netted.allowance.toFixed(2),
-          amount_due: netted.amountDue.toFixed(2),
-        },
-        diff: { status: VehicleSaleStatus.INVOICED },
-      },
-      tx,
-    );
-  }
-
-  /** Takes the vehicle out of stock for its buyer and posts the SALE ledger row, guarded by the stock state. */
-  private async releaseStockAndPostLedger(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    posted: FinalizeSale,
-    guard: { persistedSiteId: string; firstRegistrationDate: Date | null },
-  ): Promise<void> {
-    const stockGuard = await tx.vehicle.updateMany({
-      where: {
-        id: posted.vehicle_id,
-        tenant_id: tenantId,
-        site_id: guard.persistedSiteId,
-        inventory_role: VehicleInventoryRole.USED,
-        stock_status: { in: SELLABLE_STATUSES },
-        first_registration_date: guard.firstRegistrationDate,
-      },
-      data: {
-        stock_status: null,
-        stock_received_at: null,
-        stock_cost_basis: null,
-        inventory_role: VehicleInventoryRole.CUSTOMER,
-        reserved_for_customer_id: null,
-      },
-    });
-    if (stockGuard.count === 0) {
-      throw new ConflictException('Vehicle is no longer sellable');
-    }
-    // The buyer becomes the OWNER. BILL_TO and LEASING parties stay as they are.
-    await setOwnerInTx(
-      tx,
-      partyWriteContext(tenantId),
-      posted.vehicle_id,
-      posted.customer_id,
-      VehicleRecordSource.MANUAL,
-    );
-
-    await this.ledger.append(
-      {
-        vehicleId: posted.vehicle_id,
-        entryType: VehicleLedgerEntryType.SALE,
-        amount: posted.sale_price.negated(),
-        vehicleSaleId: posted.id,
-      },
-      tx,
-    );
-  }
-
-  private async assertSellable(
+  async assertSellable(
     tenantId: string,
     vehicleId: string,
     buyerId: string,

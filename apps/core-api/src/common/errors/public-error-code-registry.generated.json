@@ -65,6 +65,10 @@
       "public": false,
       "params": []
     },
+    "BRAND_ASSET_INVALID": {
+      "public": true,
+      "params": []
+    },
     "BRAND_ASSET_NOT_ATTACHABLE": {
       "public": true,
       "params": []
@@ -77,7 +81,15 @@
       "public": true,
       "params": []
     },
+    "BRAND_ASSET_QUARANTINE_MISSING": {
+      "public": true,
+      "params": []
+    },
     "BRAND_COLOR_CONTRAST": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_DERIVED_LOGO_TOO_LARGE": {
       "public": true,
       "params": []
     },
@@ -97,7 +109,15 @@
       "public": true,
       "params": []
     },
+    "BRAND_EXTRACTION_CROP_INVALID": {
+      "public": true,
+      "params": []
+    },
     "BRAND_EXTRACTION_FAILED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_LOW_CONFIDENCE": {
       "public": true,
       "params": []
     },
@@ -110,6 +130,10 @@
       "params": []
     },
     "BRAND_EXTRACTION_QUOTA_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_RETRIES_EXHAUSTED": {
       "public": true,
       "params": []
     },
@@ -133,6 +157,66 @@
       "public": true,
       "params": []
     },
+    "BRAND_IMAGE_DIMENSIONS_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_IMAGE_MEMORY_LIMIT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_IMAGE_PIXELS_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_IMAGE_PROCESS_TIMEOUT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_LOGO_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_ACTIONS": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_EMBEDDED_FILE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_ENCRYPTED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_MEMORY_LIMIT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_PAGE_LIMIT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_PROCESS_TIMEOUT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PDF_RASTER_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PNG_DIMENSIONS_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PNG_INVALID": {
+      "public": true,
+      "params": []
+    },
     "BRAND_PREVIEW_ASSET_UNAVAILABLE": {
       "public": true,
       "params": []
@@ -145,7 +229,19 @@
       "public": true,
       "params": []
     },
+    "BRAND_PROVIDER_REJECTED": {
+      "public": true,
+      "params": []
+    },
     "BRAND_RENDER_INPUT_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_REQUESTER_REVOKED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_REQUESTER_UNAVAILABLE": {
       "public": true,
       "params": []
     },
@@ -785,7 +881,9 @@
     },
     "IMPORT_JOB_NOT_UNDOABLE": {
       "public": true,
-      "params": []
+      "params": [
+        "reason"
+      ]
     },
     "IMPORT_JOB_PURGED": {
       "public": true,

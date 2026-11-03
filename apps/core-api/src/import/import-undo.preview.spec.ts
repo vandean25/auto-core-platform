@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -144,13 +143,24 @@ describe('ImportUndoPreviewService', () => {
   });
 
   it.each([
-    { entityType: ImportEntityType.CUSTOMER },
-    { entityType: ImportEntityType.LEGACY_INVOICE },
+    {
+      entityType: ImportEntityType.CUSTOMER,
+      reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    },
+    {
+      entityType: ImportEntityType.LEGACY_INVOICE,
+      reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    },
+    {
+      entityType: ImportEntityType.SUPPLIER_PRICE_LIST,
+      reason: UNDO_BLOCKED_REASONS.MISSING_BEFORE_SNAPSHOT,
+    },
   ])(
-    'rejects FAILED dry-run $entityType job that never applied rows with IMPORT_JOB_NOT_UNDOABLE, matching POST /undo',
-    async ({ entityType }) => {
+    'rejects FAILED dry-run $entityType job that never applied rows with IMPORT_JOB_NOT_UNDOABLE and reason $reason, matching POST /undo',
+    async ({ entityType, reason }) => {
       // Catches the regression where the blocked-preview short-circuit ran
-      // before the status gate and returned 200 for these jobs.
+      // before the status gate and returned 200 for these jobs, and where
+      // the no-undoable-rows refusal reached preview without a reason.
       mockPrisma.importJob.findFirst.mockResolvedValue({
         id: jobId,
         tenant_id: tenantId,
@@ -159,12 +169,38 @@ describe('ImportUndoPreviewService', () => {
         totals_json: { create: 0, update: 0 },
       });
       mockPrisma.importJobRow.findFirst.mockResolvedValue(null);
+      mockPrisma.catalogPriceHistory.findFirst.mockResolvedValue(null);
 
       await expect(service.previewUndo(jobId)).rejects.toMatchObject({
-        response: { code: 'IMPORT_JOB_NOT_UNDOABLE' },
+        response: { code: 'IMPORT_JOB_NOT_UNDOABLE', reason },
       });
     },
   );
+
+  it('refuses an APPLIED job whose staged rows all lack entity_id with the same reason as POST /undo', async () => {
+    // Catches the divergence where POST /undo sent a reason for the
+    // no-undoable-rows refusal while preview sent only the code.
+    mockPrisma.importJob.findFirst.mockResolvedValue({
+      id: jobId,
+      tenant_id: tenantId,
+      entity_type: ImportEntityType.CUSTOMER,
+      status: ImportJobStatus.APPLIED,
+      appliedAt,
+      totals_json: { create: 1, update: 0 },
+    });
+    mockPrisma.importJobRow.findFirst.mockImplementation(
+      async ({ where }: { where: { entity_id?: unknown } }) =>
+        // Undoable-row probe filters entity_id not null: none. Staged-row probe does not: present.
+        where.entity_id ? null : { row_no: 1 },
+    );
+
+    await expect(service.previewUndo(jobId)).rejects.toMatchObject({
+      response: {
+        code: 'IMPORT_JOB_NOT_UNDOABLE',
+        reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+      },
+    });
+  });
 
   it('generates preview for APPLIED customer job with clean create and update rows', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue({
@@ -337,4 +373,45 @@ describe('ImportUndoPreviewService', () => {
       response: { code: 'IMPORT_JOB_EXPIRED' },
     });
   });
+
+  it.each([
+    {
+      entity_id: null,
+      first_name: 'Legacy',
+      reason: UNDO_BLOCKED_REASONS.LEGACY_JOB_NO_ENTITY_LINK,
+    },
+    {
+      entity_id: 'cust-unknown',
+      first_name: 'Unknown',
+      reason: UNDO_BLOCKED_REASONS.ENTITY_NOT_FOUND,
+    },
+  ])(
+    'marks a row with entity_id $entity_id as $reason instead of UNKNOWN',
+    async ({ entity_id, first_name, reason }) => {
+      mockPrisma.importJob.findFirst.mockResolvedValue({
+        id: jobId,
+        tenant_id: tenantId,
+        entity_type: ImportEntityType.CUSTOMER,
+        status: ImportJobStatus.APPLIED,
+        appliedAt,
+        totals_json: { create: 1, update: 0 },
+      });
+      mockPrisma.importJobRow.findMany
+        .mockResolvedValueOnce([
+          {
+            row_no: 1,
+            action: ImportRowAction.CREATE,
+            entity_id,
+            normalized_json: { first_name },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const preview = await service.previewUndo(jobId);
+
+      expect(preview.canUndo).toBe(false);
+      expect(preview.counts.blocked).toBe(1);
+      expect(preview.blocked[0].reason).toBe(reason);
+    },
+  );
 });
