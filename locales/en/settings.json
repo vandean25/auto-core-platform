@@ -1242,6 +1242,7 @@
       "dialogDescription": "Revert the applied records of this import.",
       "loadingPreview": "Calculating undo preview…",
       "loadPreviewFailed": "Failed to load undo preview. Please try again.",
+      "previewRefused": "This import cannot be undone.",
       "shownOfTotal": "Showing {{shown}} of {{total}}",
       "summary": {
         "toDelete": "Will be deleted",

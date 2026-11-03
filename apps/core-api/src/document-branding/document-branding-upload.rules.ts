@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   DOCUMENT_BRAND_LOGO_MAX_BYTES,
+  DOCUMENT_BRAND_PAYLOAD_SIZE_LIMIT_MIB,
   DOCUMENT_BRAND_SOURCE_MAX_BYTES,
   formatLogoUploadRequirement,
   formatSourceUploadRequirement,
@@ -33,6 +34,13 @@ export function requireUpload(
       ? DOCUMENT_BRAND_LOGO_MAX_BYTES
       : DOCUMENT_BRAND_SOURCE_MAX_BYTES;
   if (file.size > limit || file.buffer.byteLength > limit) {
+    if (purpose === 'LOGO') {
+      throw new PayloadTooLargeException({
+        code: 'BRAND_LOGO_TOO_LARGE',
+        message: formatLogoUploadRequirement(),
+        maxMiB: DOCUMENT_BRAND_PAYLOAD_SIZE_LIMIT_MIB,
+      });
+    }
     throw new PayloadTooLargeException({
       code: 'BRAND_UPLOAD_TOO_LARGE',
       message: 'Document branding upload exceeds its size limit.',

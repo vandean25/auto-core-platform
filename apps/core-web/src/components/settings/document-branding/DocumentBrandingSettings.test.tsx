@@ -17,9 +17,26 @@ import deCommon from "../../../../../../locales/de/common.json";
 import deEnums from "../../../../../../locales/de/enums.json";
 import deErrors from "../../../../../../locales/de/errors.json";
 import deSettings from "../../../../../../locales/de/settings.json";
+import enErrors from "../../../../../../locales/en/errors.json";
 import enSettings from "../../../../../../locales/en/settings.json";
 import { changeUiLanguage } from "@/lib/i18n";
 import { DocumentBrandingSettings } from "./DocumentBrandingSettings";
+
+function maxMiBLabel(maxBytes: number): string {
+  const mib = maxBytes / (1024 * 1024);
+  return Number.isInteger(mib) ? String(mib) : mib.toFixed(1);
+}
+
+function logoTooLargeCopy(codes: Record<string, string>): string {
+  return codes.BRAND_LOGO_TOO_LARGE.replaceAll(
+    "{{maxMiB}}",
+    maxMiBLabel(fixtures.profile.capabilities.uploads.logo.maxBytes),
+  );
+}
+
+function uploadTooLargeError(code: string) {
+  return createHttpError("Upload rejected", 413, { code, maxMiB: "2" });
+}
 
 const branding = deSettings.documentBranding;
 const logoHint = branding.logo.hint
@@ -297,13 +314,57 @@ describe("DocumentBrandingSettings", () => {
         target: { files: [new File(["x"], "logo.png", { type: "image/png" })] },
       });
 
+      const expectedDescription =
+        failureCode === "BRAND_LOGO_TOO_LARGE"
+          ? logoTooLargeCopy(deErrors.codes)
+          : deErrors.codes[failureCode];
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith(branding.toast.logoRejected, {
-          description: deErrors.codes[failureCode],
+          description: expectedDescription,
         }),
       );
     },
   );
+
+  it("shows the logo limit in German when an oversized logo upload is refused", async () => {
+    fixtures.upload.mockRejectedValue(
+      uploadTooLargeError("BRAND_LOGO_TOO_LARGE"),
+    );
+    render(<DocumentBrandingSettings entity={entity} />);
+
+    fireEvent.change(screen.getByLabelText(branding.logo.label), {
+      target: { files: [new File(["x"], "logo.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        branding.toast.logoUploadFailed,
+        { description: logoTooLargeCopy(deErrors.codes) },
+      ),
+    );
+    const [, options] = vi.mocked(toast.error).mock.lastCall ?? [];
+    expect(options?.description).toContain("2 MiB");
+    expect(options?.description).not.toContain("Briefpapier");
+  });
+
+  it("shows the logo limit in English when an oversized logo upload is refused", async () => {
+    await changeUiLanguage("en");
+    fixtures.upload.mockRejectedValue(
+      uploadTooLargeError("BRAND_LOGO_TOO_LARGE"),
+    );
+    render(<DocumentBrandingSettings entity={entity} />);
+
+    fireEvent.change(screen.getByLabelText(branding.logo.label), {
+      target: { files: [new File(["x"], "logo.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        enSettings.documentBranding.toast.logoUploadFailed,
+        { description: logoTooLargeCopy(enErrors.codes) },
+      ),
+    );
+  });
 
   it("reports an unknown logo rejection with generic German copy", async () => {
     fixtures.upload.mockImplementation(async () => {

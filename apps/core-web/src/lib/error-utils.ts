@@ -89,7 +89,11 @@ function hasWireCodeCopy(code: string): boolean {
   return i18n.exists(`errors:codes.${code}`)
 }
 
-export function getErrorMessage(error: unknown, fallbackMessage: string): string {
+export function getErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+  interpolate?: Record<string, string | undefined>,
+): string {
   if (!isObjectLike(error)) {
     return fallbackMessage
   }
@@ -101,6 +105,7 @@ export function getErrorMessage(error: unknown, fallbackMessage: string): string
       ? translateApiError(
           syntheticErrorForTranslation(error, wireCode),
           'errors:generic.unexpected',
+          interpolate,
         )
       : fallbackMessage
 
