@@ -19,6 +19,7 @@ import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import type { ApiErrorBody } from './api-error'
 import { buildDataTableUrl } from './data-table-query'
 import { laborKeys } from './labor'
+import { DETAIL_PREFETCH_GC_MS } from '@/lib/intent-prefetch'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import {
   getWorkshopCustomerDisplayName,
@@ -529,6 +530,7 @@ export function workshopOrderDetailQueryOptions(id: string) {
       return normalizeOrder(json)
     },
     staleTime: WORKSHOP_ORDER_DETAIL_STALE_MS,
+    gcTime: DETAIL_PREFETCH_GC_MS,
   }
 }
 

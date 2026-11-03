@@ -714,6 +714,21 @@ describe('GlobalExceptionFilter', () => {
       mockCaptureException.mockReset();
     });
 
+    it('preserves the safe decompression message when Nest wraps a parser error', () => {
+      const cause = createBodyDecompressionHttpError({
+        code: 'Z_DATA_ERROR',
+        message: 'incorrect header check',
+      });
+      filter.catch(new HttpException(cause.message, 400, { cause }), mockHost);
+
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 400,
+          message: 'Invalid request body encoding',
+        }),
+      );
+    });
+
     it('maps a wrapped Z_DATA_ERROR to 400 with a generic message without Sentry capture', () => {
       const exception = createBodyDecompressionHttpError({
         code: 'Z_DATA_ERROR',

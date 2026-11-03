@@ -4,14 +4,27 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Invoice } from '@/api/types'
 import * as salesApi from '@/api/sales'
+import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import InvoiceListPage from './InvoiceListPage'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { deSales } from '@/test/de-sales'
 
 const mockNavigate = vi.fn()
+const mockUseAuth = vi.fn((): { claims: { role?: string } | null } => ({
+  claims: { role: 'ADMIN' },
+}))
 
-vi.mock('@/api/sales')
+vi.mock('@/api/sales', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/sales')>()
+  return {
+    ...actual,
+    useInvoices: vi.fn(),
+  }
+})
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => mockUseAuth(),
+}))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return {
@@ -47,13 +60,15 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
   }
 }
 
-function renderPage(initialPath = '/sales/invoices') {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
+function renderPage(initialPath = '/sales/invoices', queryClient?: QueryClient) {
+  const client =
+    queryClient ??
+    new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
 
   return render(
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={client}>
       <SavedViewsProvider userKey="test-user">
         <MemoryRouter initialEntries={[initialPath]}>
           <InvoiceListPage />
@@ -66,6 +81,8 @@ function renderPage(initialPath = '/sales/invoices') {
 describe('InvoiceListPage', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
+    mockUseAuth.mockReturnValue({ claims: { role: 'ADMIN' } })
+    resetIntentPrefetchScheduler()
     asMock(salesApi.useInvoices).mockReturnValue({
       data: [makeInvoice()],
       isLoading: false,
@@ -74,6 +91,9 @@ describe('InvoiceListPage', () => {
 
   afterEach(() => {
     cleanup()
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
+    Reflect.deleteProperty(navigator, 'connection')
     vi.clearAllMocks()
   })
 
@@ -141,4 +161,41 @@ describe('InvoiceListPage', () => {
     expect(bodyRows[0]).toHaveTextContent('RE-2026-0001')
     expect(bodyRows[1]).toHaveTextContent('RE-2026-0002')
   })
+
+  it.each([
+    {
+      caseName: 'saveData is set',
+      saveData: true,
+      role: 'ADMIN',
+    },
+    {
+      caseName: 'role cannot open invoice details (TECH)',
+      saveData: false,
+      role: 'TECH',
+    },
+  ])(
+    'WHEN saveData is set or the role cannot open invoice details THEN no prefetch is sent ($caseName)',
+    ({ saveData, role }) => {
+      vi.useFakeTimers()
+      Object.defineProperty(navigator, 'connection', {
+        value: { saveData },
+        configurable: true,
+      })
+      mockUseAuth.mockReturnValue({ claims: { role } })
+
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      const prefetchSpy = vi.spyOn(queryClient, 'prefetchQuery').mockResolvedValue(undefined)
+
+      const { container } = renderPage('/sales/invoices', queryClient)
+      const row = container.querySelector('tbody tr[data-table-row="true"]')
+      expect(row).not.toBeNull()
+
+      fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
+      vi.advanceTimersByTime(100)
+
+      expect(prefetchSpy).toHaveBeenCalledTimes(0)
+    },
+  )
 })

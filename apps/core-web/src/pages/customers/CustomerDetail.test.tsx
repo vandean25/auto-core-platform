@@ -4,15 +4,31 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CustomerDetail from './CustomerDetail'
 import { toast } from 'sonner'
+import { fetchWithAuth } from '@/api/client'
 import * as customersApi from '@/api/customers'
 import { formatDate } from '@/lib/format'
+import {
+  resetIntentPrefetchScheduler,
+  scheduleDetailPrefetch,
+  scheduleIntentPrefetch,
+} from '@/lib/intent-prefetch'
 import { formatCurrency as formatCurrencyRaw } from '@/lib/utils'
 import { deCustomers } from '@/test/de-customers'
 import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 
 const mockNavigate = vi.fn()
 
-vi.mock('@/api/customers')
+vi.mock('@/api/client', () => ({
+  fetchWithAuth: vi.fn(),
+}))
+vi.mock('@/api/customers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/customers')>()
+  return {
+    ...actual,
+    useCustomer: vi.fn(),
+    useUpdateCustomer: vi.fn(),
+  }
+})
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return {
@@ -118,14 +134,59 @@ const mockCustomer = {
 describe('CustomerDetail', () => {
   afterEach(() => {
     cleanup()
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
   })
 
   beforeEach(() => {
     vi.clearAllMocks()
+    resetIntentPrefetchScheduler()
     asMock(customersApi.useUpdateCustomer).mockReturnValue({
       mutateAsync: vi.fn(),
       isPending: false,
     })
+  })
+
+  it('shows no loading skeleton when opening a customer detail prefetched via the intent scheduler', async () => {
+    vi.useFakeTimers()
+    const actualCustomersApi = await vi.importActual<typeof import('@/api/customers')>(
+      '@/api/customers',
+    )
+    asMock(customersApi.useCustomer).mockImplementation(actualCustomersApi.useCustomer)
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: true,
+      json: async () => mockCustomer,
+    } as Response)
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    scheduleIntentPrefetch('row-hover:cust-100', () => {
+      scheduleDetailPrefetch(
+        queryClient,
+        actualCustomersApi.customerDetailQueryOptions('cust-100'),
+      )
+    })
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(fetchWithAuth).toHaveBeenCalledTimes(1)
+    expect(fetchWithAuth).toHaveBeenCalledWith('/api/customers/cust-100')
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/customers/cust-100']}>
+          <Routes>
+            <Route path="/customers/:id" element={<CustomerDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText(deCustomers.detail.loading)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'John Doe' })).toBeInTheDocument()
+    expect(fetchWithAuth).toHaveBeenCalledTimes(1)
   })
 
   it('renders loading state when fetching customer', async () => {

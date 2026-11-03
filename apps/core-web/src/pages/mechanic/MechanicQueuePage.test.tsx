@@ -9,6 +9,7 @@ import * as hrApi from '@/api/hr'
 import { toast } from 'sonner'
 import MechanicQueuePage from './MechanicQueuePage'
 import { changeUiLanguage } from '@/lib/i18n'
+import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { findSmallTouchTargets } from '@/test/touch-targets'
 
 vi.mock('@/api/mechanic')
@@ -108,6 +109,8 @@ describe('MechanicQueuePage', () => {
 
   afterEach(() => {
     cleanup()
+    resetIntentPrefetchScheduler()
+    vi.useRealTimers()
   })
 
   // ─── Queue visibility ────────────────────────────────────────────────────────
@@ -429,7 +432,8 @@ describe('MechanicQueuePage', () => {
       })
     })
 
-    it('prefetches task detail on mouse pointerenter and skips touch pointerenter', () => {
+    it('prefetches task detail after 100 ms on mouse pointerenter and skips touch pointerenter', () => {
+      vi.useFakeTimers()
       setupDefaultMocks()
       asMock(mechanicApi.mechanicTaskDetailQueryOptions).mockImplementation((taskId: string) => ({
         queryKey: ['mechanic', 'task', taskId],
@@ -441,10 +445,21 @@ describe('MechanicQueuePage', () => {
 
       const link = screen.getByRole('link', { name: /Oil Change/ })
       fireEvent.pointerEnter(link, { pointerType: 'touch' })
-      expect(prefetchSpy).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(100)
+      expect(prefetchSpy).toHaveBeenCalledTimes(0)
 
       fireEvent.pointerEnter(link, { pointerType: 'mouse' })
+      vi.advanceTimersByTime(50)
+      fireEvent.pointerLeave(link)
+      vi.advanceTimersByTime(100)
+      expect(prefetchSpy).toHaveBeenCalledTimes(0)
+
+      fireEvent.pointerEnter(link, { pointerType: 'mouse' })
+      vi.advanceTimersByTime(100)
       expect(prefetchSpy).toHaveBeenCalledTimes(1)
+      expect(prefetchSpy.mock.calls[0]?.[0]).toMatchObject({
+        queryKey: ['mechanic', 'task', baseItem.taskId],
+      })
       prefetchSpy.mockRestore()
     })
   })

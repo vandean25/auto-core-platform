@@ -1,5 +1,6 @@
 import { i18n } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DETAIL_PREFETCH_GC_MS } from "@/lib/intent-prefetch";
 import { optimisticMutationOptions } from "@/lib/optimistic-mutation";
 import type { components } from "./generated/openapi";
 import { fetchWithAuth } from "./client";
@@ -211,6 +212,7 @@ export function mechanicTaskDetailQueryOptions(taskId: string) {
       return response.json() as Promise<MechanicTaskDetail>;
     },
     staleTime: MECHANIC_TASK_DETAIL_STALE_MS,
+    gcTime: DETAIL_PREFETCH_GC_MS,
   };
 }
 
