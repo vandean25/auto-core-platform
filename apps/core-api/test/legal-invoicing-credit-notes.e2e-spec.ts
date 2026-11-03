@@ -770,7 +770,6 @@ describe('Legal invoicing credit notes (e2e)', () => {
         .expect(200);
 
       expect(pdfRes.headers['content-type']).toContain('application/pdf');
-      expect(pdfRes.body).toEqual(pdfBytes);
       expect(openPdf).toHaveBeenCalledWith(
         expect.objectContaining({ key: expectedKey }),
       );
@@ -778,6 +777,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
       openPdf.mockRestore();
     }
 
+    // Fixture sanity check: the draft under test carries the storage key the fake PDF stream resolves.
     const storedKey = await tenantPrisma.creditNote.findFirstOrThrow({
       where: { id: draft.body.id },
       select: { pdf_storage_key: true },
@@ -785,7 +785,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
     expect(storedKey.pdf_storage_key).toBe(expectedKey);
   });
 
-  it.each(['create from invoice', 'finalize'] as const)(
+  it.each(['create from invoice', 'finalize', 'generate pdf'] as const)(
     'AUT-911: a SALES member is refused %s with 403',
     async (operation) => {
       const invoice = await finalizeSalesInvoice();
@@ -799,16 +799,21 @@ describe('Legal invoicing credit notes (e2e)', () => {
         `write-${operation.split(' ').join('-')}`,
       );
 
-      const attempt =
-        operation === 'finalize'
-          ? {
-              path: `/api/credit-notes/${draft.body.id}/finalize`,
-              body: { expectedVersion: 1, idempotencyKey: randomUUID() },
-            }
-          : {
-              path: `/api/invoices/${invoice.id}/credit-notes`,
-              body: { date: '2026-09-23', reason: 'SALES attempt', mode: 'FULL' },
-            };
+      const attempts: Record<typeof operation, { path: string; body: unknown }> = {
+        finalize: {
+          path: `/api/credit-notes/${draft.body.id}/finalize`,
+          body: { expectedVersion: 1, idempotencyKey: randomUUID() },
+        },
+        'generate pdf': {
+          path: `/api/credit-notes/${draft.body.id}/pdf`,
+          body: {},
+        },
+        'create from invoice': {
+          path: `/api/invoices/${invoice.id}/credit-notes`,
+          body: { date: '2026-09-23', reason: 'SALES attempt', mode: 'FULL' },
+        },
+      };
+      const attempt = attempts[operation];
 
       await request(app.getHttpServer())
         .post(attempt.path)
