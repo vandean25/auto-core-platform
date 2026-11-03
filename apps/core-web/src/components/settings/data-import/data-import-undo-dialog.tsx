@@ -275,22 +275,31 @@ function UndoConflictsSection({
           const isChecked = entityIdStr
             ? confirmedEntityIds.has(entityIdStr)
             : false;
+          const recordName =
+            row.displayName || `${row.entityType} #${row.rowNumber}`;
           return (
             <li
               key={`conflict-${row.rowNumber}-${entityIdStr || row.rowNumber}`}
               className="p-2 hover:bg-muted/40"
             >
-              <label className="flex items-center gap-2 cursor-pointer min-h-11 py-2 px-1">
+              <label
+                data-testid="undo-conflict-row-label"
+                className="flex items-center gap-2 cursor-pointer min-h-11 py-2 px-1"
+              >
                 <Checkbox
                   checked={isChecked}
                   onCheckedChange={() => entityIdStr && onToggle(entityIdStr)}
                   disabled={!entityIdStr}
-                  aria-label={
-                    row.displayName || `${row.entityType} #${row.rowNumber}`
-                  }
+                  aria-label={t(
+                    "dataImport.undo.conflictsSection.overwriteAriaLabel",
+                    { name: recordName },
+                  )}
                 />
                 <span className="text-xs truncate flex-1 font-medium">
-                  {row.displayName || `${row.entityType} #${row.rowNumber}`}
+                  {recordName}
+                </span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {t("dataImport.undo.conflictsSection.overwriteCheckbox")}
                 </span>
               </label>
             </li>
