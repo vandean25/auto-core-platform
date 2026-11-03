@@ -1,5 +1,82 @@
 import { seedDemoUsers } from './demo-users.fixture.js';
 
+function createDemoFoundation(): any {
+  return {
+    defaultTenant: { id: 'tenant-1' },
+    mainSite: { id: 'site-main', code: 'MAIN' },
+    grzSite: { id: 'site-grz', code: 'GRZ' },
+  };
+}
+
+// Mirrors the seed-relevant employee/user semantics of Prisma, including the
+// (tenant_id, user_id) unique constraint, so the fixture's create-vs-update
+// idempotency logic is what the tests exercise.
+function createSeedStatePrisma(): {
+  prisma: any;
+  users: any[];
+  employees: any[];
+} {
+  const users: any[] = [];
+  const employees: any[] = [];
+  let nextId = 0;
+  const nextRowId = (prefix: string) => `${prefix}-${++nextId}`;
+
+  const prisma = {
+    user: {
+      findUnique: jest.fn(({ where }: any) => {
+        const found =
+          'firebaseUid' in where
+            ? users.find((u) => u.firebaseUid === where.firebaseUid)
+            : users.find((u) => u.email === where.email);
+        return Promise.resolve(found ?? null);
+      }),
+      create: jest.fn(({ data }: any) => {
+        const row = { id: nextRowId('user'), ...data };
+        users.push(row);
+        return Promise.resolve(row);
+      }),
+      update: jest.fn(({ where, data }: any) => {
+        const row = users.find((u) => u.id === where.id);
+        Object.assign(row, data);
+        return Promise.resolve(row);
+      }),
+    },
+    platformAdmin: { upsert: jest.fn().mockResolvedValue({}) },
+    tenantMember: { upsert: jest.fn().mockResolvedValue({}) },
+    siteMembership: { upsert: jest.fn().mockResolvedValue({}) },
+    employee: {
+      findFirst: jest.fn(({ where }: any) => {
+        const found = employees.find(
+          (e) => e.tenant_id === where.tenant_id && e.name === where.name,
+        );
+        return Promise.resolve(found ?? null);
+      }),
+      create: jest.fn(({ data }: any) => {
+        if (
+          employees.some(
+            (e) =>
+              e.tenant_id === data.tenant_id && e.user_id === data.user_id,
+          )
+        ) {
+          throw new Error(
+            'Unique constraint failed on employees (tenant_id, user_id)',
+          );
+        }
+        const row = { id: nextRowId('employee'), ...data };
+        employees.push(row);
+        return Promise.resolve(row);
+      }),
+      update: jest.fn(({ where, data }: any) => {
+        const row = employees.find((e) => e.id === where.id);
+        Object.assign(row, data);
+        return Promise.resolve(row);
+      }),
+    },
+  };
+
+  return { prisma, users, employees };
+}
+
 describe('seedDemoUsers', () => {
   function createMockPrisma(): any {
     return {
@@ -212,5 +289,59 @@ describe('seedDemoUsers', () => {
 
     // The remaining demo users should be created (not found)
     expect(mockPrisma.user.create).toHaveBeenCalledTimes(4);
+  });
+
+  // Catches the AUT-725 regression: the admin demo user had no linked
+  // employee after a re-seed, so check-in completion failed with
+  // 422 CHECK_IN_MEDIA_UPLOADER_REQUIRED.
+  it.each([
+    {
+      email: 'grok-bot@auto.core.at',
+      employeeName: 'Grok Bot QA',
+      role: 'SERVICE_ADVISOR',
+    },
+    {
+      email: 'grok-bot-tech@auto.core.at',
+      employeeName: 'Grok Bot',
+      role: 'MECHANIC',
+    },
+  ])(
+    'seeds exactly one active $role employee $employeeName linked to $email in the demo tenant',
+    async ({ email, employeeName, role }) => {
+      const { prisma, users, employees } = createSeedStatePrisma();
+
+      await seedDemoUsers(prisma, createDemoFoundation());
+
+      const userIds = users
+        .filter((u) => u.email === email)
+        .map((u) => u.id);
+      expect(userIds).toHaveLength(1);
+
+      const linked = employees.filter((e) => userIds.includes(e.user_id));
+      expect(linked).toHaveLength(1);
+      expect(linked[0]).toMatchObject({
+        name: employeeName,
+        role,
+        is_active: true,
+        tenant_id: 'tenant-1',
+      });
+    },
+  );
+
+  it('re-running the seed keeps exactly one linked employee per demo user', async () => {
+    const { prisma, users, employees } = createSeedStatePrisma();
+    const foundation = createDemoFoundation();
+
+    await seedDemoUsers(prisma, foundation);
+    await seedDemoUsers(prisma, foundation);
+
+    expect(employees).toHaveLength(2);
+    for (const email of [
+      'grok-bot@auto.core.at',
+      'grok-bot-tech@auto.core.at',
+    ]) {
+      const userId = users.find((u) => u.email === email)!.id;
+      expect(employees.filter((e) => e.user_id === userId)).toHaveLength(1);
+    }
   });
 });
