@@ -1,3 +1,7 @@
+vi.mock('@/api/auth-session', async (original) => ({
+  ...await original<typeof import('@/api/auth-session')>(),
+  useAuthSession: () => ({ data: { effectiveCapabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true } } }),
+}))
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

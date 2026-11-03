@@ -15,6 +15,7 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator.js';
+import { RequireCapability } from '../common/country-pack/effective-capabilities.guard.js';
 import { VehicleInspectionRecordService } from './vehicle-inspection-record.service.js';
 import {
   CreateVehicleInspectionRecordDto,
@@ -23,6 +24,7 @@ import {
 } from './dto/vehicle-inspection-record.dto.js';
 
 @Controller('vehicles/:vehicleId/inspection-records')
+@RequireCapability('pickerl57a')
 export class VehicleInspectionRecordController {
   constructor(
     private readonly inspectionRecordService: VehicleInspectionRecordService,

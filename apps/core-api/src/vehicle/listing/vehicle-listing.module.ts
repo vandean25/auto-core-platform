@@ -7,6 +7,7 @@ import { VehicleListingExportController } from '../listing-export/vehicle-listin
 import { VehicleListingExportService } from '../listing-export/vehicle-listing-export.service.js';
 import { VehicleListingController } from './vehicle-listing.controller.js';
 import { VehicleListingService } from './vehicle-listing.service.js';
+import { EffectiveCapabilitiesModule } from '../../common/country-pack/effective-capabilities.module.js';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { VehicleListingService } from './vehicle-listing.service.js';
     CommonModule,
     VehicleStockModule,
     Autoscout24DmsModule,
+    EffectiveCapabilitiesModule,
   ],
   controllers: [VehicleListingController, VehicleListingExportController],
   providers: [VehicleListingService, VehicleListingExportService],

@@ -17,6 +17,7 @@ import Decimal = Prisma.Decimal;
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
+import { EffectiveCapabilitiesService } from '../../common/country-pack/effective-capabilities.guard.js';
 import { resolveCurrentReceivedStockPurchaseId } from '../equipment/vehicle-equipment-stock-cycle.js';
 import { getEquipmentPortalProfileConfig } from '../equipment/vehicle-equipment-portal-map.registry.js';
 import type { EquipmentListingSerializerProfile } from '../equipment/vehicle-equipment-portal-map.types.js';
@@ -46,6 +47,7 @@ export class VehicleListingService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly capabilities: EffectiveCapabilitiesService,
   ) {}
 
   async getListing(vehicleId: string): Promise<VehicleListingDto> {
@@ -469,6 +471,7 @@ export class VehicleListingService {
       dto.desired_state,
       mergedListing,
       vehicle,
+      await this.capabilities.resolve(),
     );
 
     const updated = await this.prisma.$transaction(async (tx) => {

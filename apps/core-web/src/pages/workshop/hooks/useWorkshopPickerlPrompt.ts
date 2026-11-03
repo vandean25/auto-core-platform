@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useAuthSession } from '@/api/auth-session'
+import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { useVehicleInspectionRecords } from '@/api/vehicle-inspection-records'
 import type { WorkshopOrder, WorkshopTask } from '@/api/types'
 import { formatLocalDateInput } from '@/components/vehicles/RecordPickerlDialog'
@@ -12,17 +12,19 @@ import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
  */
 export function useWorkshopPickerlPrompt(order: WorkshopOrder, tasks: WorkshopTask[]) {
   const sessionQuery = useAuthSession()
-  const inspectionRecordsQuery = useVehicleInspectionRecords(order.vehicle.id)
+  const pickerlAvailable = selectEffectiveCapabilities(sessionQuery.data)?.pickerl57a === true
+  const inspectionRecordsQuery = useVehicleInspectionRecords(order.vehicle.id, pickerlAvailable)
   const [open, setOpen] = useState(false)
   const [inspectedOn, setInspectedOn] = useState<string>()
   const promptedTaskIds = useRef(new Set<string>())
 
-  const canManagePickerl = canRecordVehicleInspection(sessionQuery.data?.activeRole)
+  const canManagePickerl = pickerlAvailable && canRecordVehicleInspection(sessionQuery.data?.activeRole)
   const completedPickerlTask = tasks.find(
     (task) => task.title === PICKERL_TASK_TITLE && task.status === 'DONE',
   )
 
   const offerRecording = () => {
+    if (!canManagePickerl) return
     setInspectedOn(formatLocalDateInput(new Date()))
     setOpen(true)
   }
@@ -57,6 +59,6 @@ export function useWorkshopPickerlPrompt(order: WorkshopOrder, tasks: WorkshopTa
   return {
     canManagePickerl,
     offerRecording,
-    dialogProps: { open, initialInspectedOn: inspectedOn, onOpenChange: setOpen },
+    dialogProps: { open: open && canManagePickerl, initialInspectedOn: inspectedOn, onOpenChange: setOpen },
   }
 }

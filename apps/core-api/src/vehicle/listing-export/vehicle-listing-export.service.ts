@@ -10,6 +10,7 @@ import { VehicleListingDesiredState } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
+import { EffectiveCapabilitiesService } from '../../common/country-pack/effective-capabilities.guard.js';
 import { resolveCurrentReceivedStockPurchaseId } from '../equipment/vehicle-equipment-stock-cycle.js';
 import {
   assertListingChannelActiveReadiness,
@@ -27,6 +28,10 @@ import type { VehicleMediaVariantMap } from '../../vehicle-stock/vehicle-media/v
 import { buildListingSerializerInput } from './listing-export-snapshot.builder.js';
 import { formatListingExportValidationMessage } from './listing-export-validation.util.js';
 import { resolveListingSerializer } from './listing-serializer.registry.js';
+import {
+  findDownloadableChannel,
+  toOfferReadinessListing,
+} from './listing-export-channel.js';
 import { commitListingChannelGeneratedExport } from './vehicle-listing-export-channel-commit.js';
 
 const listingInclude = {
@@ -70,6 +75,7 @@ export class VehicleListingExportService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly capabilities: EffectiveCapabilitiesService,
     @Inject(VEHICLE_MEDIA_STORAGE)
     private readonly mediaStorage: VehicleMediaStorage,
   ) {}
@@ -164,20 +170,17 @@ export class VehicleListingExportService {
     }));
     const equipmentFreeTextLines = freeTextItems.map((row) => row.text);
 
-    const readinessListing = {
-      price_gross_eur: listing.price_gross_eur,
-      vat_display: listing.vat_display,
-      nova_included_confirmed: listing.nova_included_confirmed,
-      mandatory_fees_included_confirmed:
-        listing.mandatory_fees_included_confirmed,
-    };
+    const readinessListing = toOfferReadinessListing(listing);
+    const capabilities = await this.capabilities.resolve();
 
     const channels: VehicleListingChannelValidationDto[] = [];
 
     for (const channel of listing.channels) {
       const issues: VehicleListingChannelValidationDto['issues'] = [];
 
-      issues.push(...listListingOfferFieldReadinessIssues(readinessListing));
+      issues.push(
+        ...listListingOfferFieldReadinessIssues(readinessListing, capabilities),
+      );
       issues.push(...listListingVehicleActivationReadinessIssues(vehicle));
 
       const profileCode =
@@ -262,39 +265,13 @@ export class VehicleListingExportService {
       });
     }
 
-    const channel = listing.channels.find(
-      (row) => row.platform === serializer.platform,
-    );
-    if (!channel) {
-      throw new NotFoundException({
-        code: 'VEHICLE_LISTING_CHANNEL_NOT_FOUND',
-        message: `No listing channel exists for ${serializer.platform}.`,
-      });
-    }
-    if (channel.serializer_profile !== serializer.profileCode) {
-      throw new UnprocessableEntityException({
-        code: 'LISTING_SERIALIZER_PROFILE_MISMATCH',
-        message: `Channel profile ${channel.serializer_profile} does not match ${serializer.profileCode}.`,
-      });
-    }
-    if (channel.desired_state !== VehicleListingDesiredState.ACTIVE) {
-      throw new UnprocessableEntityException({
-        code: 'VEHICLE_LISTING_NOT_READY',
-        message:
-          'Listing channel must be ACTIVE before downloading an export package.',
-      });
-    }
+    const channel = findDownloadableChannel(listing.channels, serializer);
 
     assertListingChannelActiveReadiness(
       VehicleListingDesiredState.ACTIVE,
-      {
-        price_gross_eur: listing.price_gross_eur,
-        vat_display: listing.vat_display,
-        nova_included_confirmed: listing.nova_included_confirmed,
-        mandatory_fees_included_confirmed:
-          listing.mandatory_fees_included_confirmed,
-      },
+      toOfferReadinessListing(listing),
       vehicle,
+      await this.capabilities.resolve(),
     );
 
     const sortedPhotos = listing.photos

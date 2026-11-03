@@ -7,7 +7,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -15,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
@@ -24,6 +22,8 @@ import { formatCurrency } from '@/lib/format'
 import { getErrorCode, getErrorStatus } from '@/lib/error-utils'
 import { generateId } from '@/lib/id'
 import { useVehicleStockDetail } from '@/api/vehicle-stock'
+import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
+import { visibleListingChannels } from './listing-channel-visibility'
 import {
   useCreateVehicleListing,
   usePatchVehicleListing,
@@ -48,6 +48,8 @@ import {
 } from '@/features/vehicle-stock/listing/listing-draft'
 import { ListingFieldErrors } from '@/features/vehicle-stock/listing/ListingFieldErrors'
 import { mergeChannelValidationIssues } from '@/features/vehicle-stock/listing/listing-field-issues'
+import { ListingChannelTabs } from '@/features/vehicle-stock/listing/ListingChannelTabs'
+import { ListingPriceConfirmations } from '@/features/vehicle-stock/listing/ListingPriceConfirmations'
 import { parseListingGrossPrice } from '@/features/vehicle-stock/listing/listing-price'
 import {
   getListingFieldIssuesFromError,
@@ -135,6 +137,7 @@ function listingToastDescription(
 }
 
 export default function VehicleListingEditorPage() {
+  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
   const { vehicleId = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -432,6 +435,7 @@ export default function VehicleListingEditorPage() {
   }
 
   const listing = listingQuery.data
+  const visibleChannels = visibleListingChannels(listing.channels, capabilities)
   const hasUnsavedDraftEdits =
     savedDraft !== null && draft !== null && !draftsEqual(draft, savedDraft)
   const displaySaveStatus =
@@ -548,31 +552,11 @@ export default function VehicleListingEditorPage() {
               </Select>
               <ListingFieldErrors issues={mobileIssues} field="vat_display" />
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={draft.nova_included_confirmed}
-                  onCheckedChange={(checked) =>
-                    updateDraft({ nova_included_confirmed: checked === true })
-                  }
-                />
-                {t('listing.fields.novaIncluded')}
-              </label>
-              <ListingFieldErrors issues={mobileIssues} field="nova_included_confirmed" />
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={draft.mandatory_fees_included_confirmed}
-                  onCheckedChange={(checked) =>
-                    updateDraft({ mandatory_fees_included_confirmed: checked === true })
-                  }
-                />
-                {t('listing.fields.mandatoryFeesIncluded')}
-              </label>
-              <ListingFieldErrors
-                issues={mobileIssues}
-                field="mandatory_fees_included_confirmed"
-              />
-            </div>
+            <ListingPriceConfirmations
+              values={draft}
+              issues={mobileIssues}
+              onChange={updateDraft}
+            />
             {typeof listing.price_display?.consumer_hint_de === 'string' &&
             listing.price_display.consumer_hint_de ? (
               <p className="text-xs text-slate-500">
@@ -819,58 +803,12 @@ export default function VehicleListingEditorPage() {
                 </Button>
               </div>
             ) : null}
-            <Tabs defaultValue={listing.channels[0]?.platform ?? 'MOBILE_DE'}>
-              <TabsList>
-                {listing.channels.map((channel) => (
-                  <TabsTrigger key={channel.platform} value={channel.platform}>
-                    {channel.platform.replace('_', '.')}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {listing.channels.map((channel) => {
-                const channelIssues = mergeChannelValidationIssues(
-                  validationChannels,
-                  channel.platform,
-                )
-                const validationRow = validationChannels.find(
-                  (row) => row.platform === channel.platform,
-                )
-                const isActive = channel.desired_state === 'ACTIVE'
-                return (
-                  <TabsContent key={channel.platform} value={channel.platform} className="space-y-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <Label htmlFor={`channel-${channel.platform}`}>
-                        {t('listing.portals.desiredActive')}
-                      </Label>
-                      <Checkbox
-                        id={`channel-${channel.platform}`}
-                        checked={isActive}
-                        onCheckedChange={(checked) =>
-                          void toggleChannelActive(channel.platform, checked === true)
-                        }
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500">{t('listing.portals.validationTitle')}</p>
-                    {validationRow && !validationRow.serializer_supported ? (
-                      <p className="text-sm text-slate-600">
-                        {t('listing.portals.serializerUnsupported')}
-                      </p>
-                    ) : null}
-                    {validationQuery.isError ? null : channelIssues.length === 0 ? (
-                      <p className="text-sm text-slate-600">{t('listing.portals.noIssues')}</p>
-                    ) : (
-                      <ul className="space-y-1 text-sm text-destructive">
-                        {channelIssues.map((issue) => (
-                          <li key={`${issue.field}-${issue.code ?? 'message'}`}>
-                            {translateListingIssue(t, issue)}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </TabsContent>
-                )
-              })}
-            </Tabs>
+            <ListingChannelTabs
+              channels={visibleChannels}
+              validationChannels={validationChannels}
+              validationFailed={validationQuery.isError}
+              onToggleActive={(platform, active) => void toggleChannelActive(platform, active)}
+            />
           </section>
 
           <section className="rounded-lg border p-4 space-y-2">

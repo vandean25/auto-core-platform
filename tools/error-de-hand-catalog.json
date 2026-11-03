@@ -273,6 +273,7 @@
   "LEGACY_SNAPSHOT_UNAVAILABLE": "Für diese gebuchte Rechnung ist keine Druckansicht vorhanden. Bitte wenden Sie sich an den Support.",
   "LEGAL_ENTITY_INACTIVE": "Das Briefpapier kann für einen inaktiven Betrieb nicht ausgelesen werden.",
   "LISTING_EXPORT_ASSERTION_REQUIRED": "Bestätigung für Inserat-Export erforderlich.",
+  "CAPABILITY_UNAVAILABLE": "Diese Funktion ist für die aktive Rechtseinheit nicht verfügbar.",
   "LISTING_EXPORT_DEMO_DENIED": "Demo-Konten können keine Inserat-Exportpakete herunterladen.",
   "LISTING_EXPORT_TOO_LARGE": "Das Inserat-Exportpaket überschreitet die erlaubte Größe.",
   "LISTING_EXPORT_VALIDATION_FAILED": "Validierung des Inserat-Exportpakets fehlgeschlagen.",

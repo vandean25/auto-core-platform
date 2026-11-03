@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import axe from 'axe-core'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
@@ -9,9 +9,16 @@ import { changeUiLanguage } from '@/lib/i18n'
 import { registerGermanUiForTests } from '@/test/german-ui'
 import { AppSidebar } from './AppSidebar'
 
+const capabilities = vi.hoisted(() => ({ pickerl57a: true }))
+vi.mock('@/api/auth-session', async (original) => ({
+  ...await original<typeof import('@/api/auth-session')>(),
+  useAuthSession: () => ({ data: { effectiveCapabilities: capabilities } }),
+}))
+
 registerGermanUiForTests()
 
 beforeEach(() => {
+  capabilities.pickerl57a = true
   window.localStorage.clear()
 })
 
@@ -55,6 +62,14 @@ function openAccountMenu() {
 }
 
 describe('AppSidebar navigation', () => {
+  it('hides saved Pickerl views when the capability is unavailable', () => {
+    capabilities.pickerl57a = false
+    window.localStorage.setItem('acp:saved-views:test-user', JSON.stringify([
+      { id: 'p', name: 'Saved Pickerl view', href: '/vehicles/pickerl-due?status=OVERDUE', createdAt: '2026-01-01' },
+    ]))
+    renderSidebar()
+    expect(screen.queryByRole('link', { name: 'Saved Pickerl view' })).not.toBeInTheDocument()
+  })
   it('groups the entries under labelled sections that start open', () => {
     renderSidebar()
 

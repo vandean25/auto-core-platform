@@ -283,6 +283,10 @@
       "public": false,
       "params": []
     },
+    "CAPABILITY_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
     "CHECK_IN_COMPLETED": {
       "public": true,
       "params": []
