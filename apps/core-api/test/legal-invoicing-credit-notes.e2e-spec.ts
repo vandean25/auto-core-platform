@@ -187,10 +187,13 @@ describe('Legal invoicing credit notes (e2e)', () => {
    * A member of the fixture tenant with `role`, an active MAIN-site membership and that site selected.
    * Site membership is part of the credit-note read scope, so a non-admin caller needs it to reach the
    * role check. `tag` keeps one row per role when several tests need the same role.
+   * `withSiteMembership: false` yields a member with no site membership and no active site, for the
+   * site-scope refusal.
    */
   async function siteMemberBearer(
     role: TenantMemberRole,
     tag: string,
+    { withSiteMembership = true }: { withSiteMembership?: boolean } = {},
   ): Promise<string> {
     const firebaseUid = `aut911-${tag}-${tenant.tenantId}`;
     const email = `aut911-${tag}@example.com`;
@@ -206,14 +209,16 @@ describe('Legal invoicing credit notes (e2e)', () => {
       select: { id: true },
     });
     createdMemberIds.push(member.id);
-    await tenantPrisma.siteMembership.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        user_id: member.id,
-        site_id: siteId,
-        is_active: true,
-      },
-    });
+    if (withSiteMembership) {
+      await tenantPrisma.siteMembership.create({
+        data: {
+          tenant_id: tenant.tenantId,
+          user_id: member.id,
+          site_id: siteId,
+          is_active: true,
+        },
+      });
+    }
 
     // A DEMO session needs a sign-in grant to reach authorization (403) instead of failing authentication (401).
     if (role === 'DEMO') {
@@ -242,11 +247,13 @@ describe('Legal invoicing credit notes (e2e)', () => {
       email,
       role,
     })}`;
-    await request(app.getHttpServer())
-      .patch('/api/me/active-site')
-      .set('Authorization', bearer)
-      .send({ siteId })
-      .expect(200);
+    if (withSiteMembership) {
+      await request(app.getHttpServer())
+        .patch('/api/me/active-site')
+        .set('Authorization', bearer)
+        .send({ siteId })
+        .expect(200);
+    }
 
     return bearer;
   }
@@ -730,12 +737,27 @@ describe('Legal invoicing credit notes (e2e)', () => {
   });
 
   it.each(['TECH', 'DEMO'] as const)(
-    'AUT-911: a %s member is refused GET /api/credit-notes with 403',
+    'AUT-911: a %s member is refused credit-note list, detail and PDF reads with 403',
     async (role) => {
+      const invoice = await finalizeSalesInvoice();
+      const draft = await createDraftCredit(invoice.id, {
+        date: '2026-09-22',
+        reason: `${role} reads are refused`,
+        mode: 'FULL',
+      }).expect(201);
+
       const bearer = await siteMemberBearer(role, role.toLowerCase());
 
       await request(app.getHttpServer())
         .get('/api/credit-notes')
+        .set('Authorization', bearer)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(`/api/credit-notes/${draft.body.id}`)
+        .set('Authorization', bearer)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(`/api/credit-notes/${draft.body.id}/pdf`)
         .set('Authorization', bearer)
         .expect(403);
     },
@@ -773,6 +795,42 @@ describe('Legal invoicing credit notes (e2e)', () => {
       expect(openPdf).toHaveBeenCalledWith(
         expect.objectContaining({ key: expectedKey }),
       );
+    } finally {
+      openPdf.mockRestore();
+    }
+  });
+
+  it('AUT-911: a SALES member without site membership is refused the credit note PDF with 403', async () => {
+    const invoice = await finalizeSalesInvoice();
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'SALES without site reads the PDF',
+      mode: 'FULL',
+    }).expect(201);
+    await finalizeCredit(draft.body.id, 'aut911-sales-pdf-no-site').expect(201);
+
+    const pdfBytes = Buffer.from('%PDF-1.4 credit note read fixture\n%%EOF');
+    const openPdf = jest
+      .spyOn(app.get(PdfStorage), 'getPdfStream')
+      .mockImplementation(async () => ({
+        bucket: 'e2e-credit-note-pdf',
+        key: `credit-notes/${draft.body.id}.pdf`,
+        stream: Readable.from(pdfBytes),
+        contentType: 'application/pdf',
+        contentLength: pdfBytes.byteLength,
+      }));
+
+    const outsiderBearer = await siteMemberBearer('SALES', 'pdf-no-site', {
+      withSiteMembership: false,
+    });
+    try {
+      const pdfRes = await request(app.getHttpServer())
+        .get(`/api/credit-notes/${draft.body.id}/pdf`)
+        .set('Authorization', outsiderBearer)
+        .expect(403);
+
+      expect(pdfRes.body.message).toContain('active site membership');
+      expect(openPdf).not.toHaveBeenCalled();
     } finally {
       openPdf.mockRestore();
     }

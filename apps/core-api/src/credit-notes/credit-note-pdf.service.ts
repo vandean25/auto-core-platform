@@ -11,6 +11,7 @@ import {
   assertSiteReadAccess,
   assertTenantAdmin,
 } from '../site/site.authorization.js';
+import { assertCreditNoteReadAccess } from './credit-note-read-access.js';
 import { toRenderableCreditNoteSnapshot } from './credit-note-snapshot-render.adapter.js';
 import {
   assertCreditNotePdfGenerationAllowed,
@@ -238,6 +239,7 @@ export class CreditNotePdfService {
       where: { id: creditNoteId, tenant_id: tenantId },
       select: {
         id: true,
+        site_id: true,
         credit_number: true,
         pdf_storage_bucket: true,
         pdf_storage_key: true,
@@ -248,6 +250,15 @@ export class CreditNotePdfService {
     if (!creditNote) {
       throw new NotFoundException('Credit note not found');
     }
+
+    // Same read gate as the list and detail routes, so a TECH/DEMO caller or a SALES
+    // caller without membership on the note's site is refused before the file is opened.
+    await assertCreditNoteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      creditNote.site_id,
+    );
 
     const opened = await this.openCreditNotePdfStream(creditNoteId, creditNote);
     if (!opened) {

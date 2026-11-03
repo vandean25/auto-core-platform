@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -37,6 +36,7 @@ import {
   type OriginalLineSnapshot,
   type PriorCreditLine,
 } from './credit-note-allocation.js';
+import { assertCreditNoteReadAccess } from './credit-note-read-access.js';
 import { generateCreditNoteNumber } from './credit-note-number.helpers.js';
 import { hashCreditNoteFinalizeRequest } from './credit-note-request-hash.js';
 import {
@@ -59,12 +59,6 @@ type DraftLineInput = {
   originalItemId: string;
   quantity: Prisma.Decimal;
 };
-
-const CREDIT_NOTE_READ_ROLES: ReadonlySet<string> = new Set([
-  'OWNER',
-  'ADMIN',
-  'SALES',
-]);
 
 const ELIGIBLE_INVOICE_STATUSES: InvoiceStatus[] = [
   InvoiceStatus.FINALIZED,
@@ -162,7 +156,12 @@ export class CreditNotesService {
   async listForInvoice(invoiceId: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const invoice = await this.loadOriginalInvoice(tenantId, invoiceId);
-    await this.assertCreditReadAccess(tenantId, invoice.site_id!);
+    await assertCreditNoteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      invoice.site_id!,
+    );
 
     const originalSnapshot = this.tryV2Snapshot(invoice);
     const priorCredits = await this.loadPriorCredits(tenantId, invoice.id);
@@ -197,7 +196,12 @@ export class CreditNotesService {
   async list(query: CreditNoteListQueryDto = {}) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    await this.assertCreditReadAccess(tenantId, siteId);
+    await assertCreditNoteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      siteId,
+    );
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
     const search = query.search?.trim();
@@ -262,7 +266,12 @@ export class CreditNotesService {
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const creditNote = await this.loadCreditNote(tenantId, id);
-    await this.assertCreditReadAccess(tenantId, creditNote.site_id);
+    await assertCreditNoteReadAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      creditNote.site_id,
+    );
 
     const invoice = await this.loadOriginalInvoice(
       tenantId,
@@ -627,24 +636,6 @@ export class CreditNotesService {
       throw new NotFoundException('Credit note not found');
     }
     return creditNote;
-  }
-
-  private async assertCreditReadAccess(tenantId: string, siteId: string) {
-    if (
-      !CREDIT_NOTE_READ_ROLES.has(
-        this.tenantContext.getAuthenticatedUser()?.role ?? '',
-      )
-    ) {
-      throw new ForbiddenException(
-        'Tenant credit note read access is required.',
-      );
-    }
-    await assertSiteReadAccess(
-      this.prisma,
-      this.tenantContext,
-      tenantId,
-      siteId,
-    );
   }
 
   private async assertCreditWriteAccess(tenantId: string, siteId: string) {

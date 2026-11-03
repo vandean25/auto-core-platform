@@ -17,6 +17,7 @@ describe('CreditNotePdfService.getPdf', () => {
 
   let service: CreditNotePdfService;
   let storage: jest.Mocked<Pick<PdfStorage, 'getPdfStream'>>;
+  let getAuthenticatedUser: jest.Mock;
   let prisma: {
     client: {
       creditNote: {
@@ -27,6 +28,9 @@ describe('CreditNotePdfService.getPdf', () => {
   };
 
   beforeEach(() => {
+    // Reads are gated by the shared credit-note read check; OWNER passes the role check and
+    // skips the site lookup, so these fixtures do not need site membership rows.
+    getAuthenticatedUser = jest.fn().mockReturnValue({ role: 'OWNER' });
     storage = {
       getPdfStream: jest.fn().mockResolvedValue({
         bucket: 'bucket',
@@ -52,8 +56,27 @@ describe('CreditNotePdfService.getPdf', () => {
       {} as CloudTasksService,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
+        getAuthenticatedUser,
       } as unknown as TenantContextService,
     );
+  });
+
+  // Regression: getPdf had no role gate, so a TECH caller streamed any PDF in the tenant.
+  it('refuses a TECH caller with 403 before opening the PDF', async () => {
+    getAuthenticatedUser.mockReturnValue({ role: 'TECH' });
+    prisma.client.creditNote.findFirst.mockResolvedValue({
+      id: creditNoteId,
+      site_id: 'site-1',
+      credit_number: 'CN-2026-0001',
+      pdf_storage_bucket: 'bucket',
+      pdf_storage_key: 'credit-notes/credit-note-1.pdf',
+      pdf_generated_at: new Date('2026-04-01T00:00:00.000Z'),
+    });
+
+    await expect(service.getPdf(creditNoteId)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(storage.getPdfStream).not.toHaveBeenCalled();
   });
 
   it('streams from cached metadata when pdf_storage fields are set', async () => {
