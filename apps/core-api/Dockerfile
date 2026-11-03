@@ -25,7 +25,7 @@ RUN test -d dist/locales
 RUN test -f dist/locales/de/seedMaster.json
 
 # Pinned by digest: the v1.64.1-noble tag was re-published with Node 26; this digest is the Node 24 build, verified by the Node guard below at build time.
-FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea AS worker
+FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f AS worker
 
 RUN apt-get update && apt-get install -y --only-upgrade nodejs && rm -rf /var/lib/apt/lists/*
 
