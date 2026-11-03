@@ -109,6 +109,19 @@ describe('Legal invoicing credit notes (e2e)', () => {
         where: { id: { in: createdDemoAccessRequestIds } },
       });
     }
+    // siteMemberBearer leaves users with memberships and an active site. Remove them so later
+    // specs in the same DB do not inherit a user whose active site has no membership (FK fails).
+    if (createdMemberIds.length > 0) {
+      await tenantPrisma.siteMembership.deleteMany({
+        where: { user_id: { in: createdMemberIds } },
+      });
+      await tenantPrisma.tenantMember.deleteMany({
+        where: { user_id: { in: createdMemberIds } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: createdMemberIds } },
+      });
+    }
     await tenantPrisma.creditNoteItem.deleteMany();
     await tenantPrisma.creditNote.deleteMany();
     await tenantPrisma.creditNoteSequence.deleteMany();
