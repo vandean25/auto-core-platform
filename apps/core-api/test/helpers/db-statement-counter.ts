@@ -5,13 +5,6 @@ import { Client } from 'pg';
 const AUDIT_LOG_INSERT =
   /^\s*INSERT\s+INTO\s+(?:"?[A-Za-z0-9_$]+"?\s*\.\s*)?"?audit_logs"?\s/i;
 
-export type DbStatementCounts = {
-  /** Statements that must stay constant when the line count grows. */
-  counted: number;
-  /** INSERTs into the audit log table, reported so they cannot hide other growth. */
-  auditLogInserts: number;
-};
-
 function statementSql(call: unknown[]): string {
   const target = call[0];
   if (typeof target === 'string') {
@@ -44,17 +37,41 @@ export async function countDbStatements(
   return (await collectStatements(action)).length;
 }
 
-/**
- * Same count as `countDbStatements`, with INSERTs into the audit log table separated out so a caller can
- * exclude the one audited write per line from the compared total while still asserting how many there were.
- */
-export async function countDbStatementsWithoutAuditLogInserts(
-  action: () => Promise<unknown>,
-): Promise<DbStatementCounts> {
-  const statements = await collectStatements(action);
-  const auditLogInserts = statements.filter((sql) =>
-    AUDIT_LOG_INSERT.test(sql),
-  ).length;
+export type FailedAuditInsertRun<T> = {
+  outcome: T;
+  /** How many audit_logs INSERTs the action attempted; each one failed at the database. */
+  failedAuditInserts: number;
+};
 
-  return { counted: statements.length - auditLogInserts, auditLogInserts };
+/**
+ * Runs `action` while every INSERT into the audit log table is replaced by a SQL statement the database
+ * rejects, so an audit write fails the way a real INSERT error fails: the driver reports it, the enclosing
+ * transaction aborts, and the business change rolls back.
+ */
+export async function runWithFailingAuditLogInserts<T>(
+  action: () => Promise<T>,
+): Promise<FailedAuditInsertRun<T>> {
+  const clientPrototype = Client.prototype as unknown as {
+    query: (...call: unknown[]) => unknown;
+  };
+  const originalQuery = clientPrototype.query;
+  let failedAuditInserts = 0;
+
+  clientPrototype.query = function (this: Client, ...call: unknown[]) {
+    if (!AUDIT_LOG_INSERT.test(statementSql(call))) {
+      return originalQuery.apply(this, call);
+    }
+    failedAuditInserts += 1;
+    const [, ...rest] = call;
+    return originalQuery.apply(this, [
+      { text: 'SELECT force_audit_log_insert_failure()', values: [] },
+      ...rest,
+    ]);
+  };
+
+  try {
+    return { outcome: await action(), failedAuditInserts };
+  } finally {
+    clientPrototype.query = originalQuery;
+  }
 }
