@@ -5,6 +5,7 @@ import { fetchWithAuth } from './client'
 import { customerKeys } from './customers'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { hasUtcDayChanged } from '@/lib/date-utils'
+import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 import { MAX_VEHICLE_LIST_PAGE_SIZE, clampPageSize } from '@/lib/list-page-size'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
@@ -134,14 +135,24 @@ export function useVehicles(queryParams?: DataTableQueryParams) {
   })
 }
 
-export function useVehicle<TVehicle = Vehicle>(id: string) {
-  return useQuery<TVehicle>({
+export const VEHICLE_DETAIL_STALE_MS = DETAIL_PREFETCH_STALE_MS
+
+export function vehicleDetailQueryOptions<TVehicle = Vehicle>(id: string) {
+  return {
     queryKey: vehicleKeys.detail(id),
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/vehicles/${id}`)
       if (!response.ok) throw new Error('Failed to fetch vehicle')
-      return response.json()
+      return response.json() as Promise<TVehicle>
     },
+    staleTime: VEHICLE_DETAIL_STALE_MS,
+    gcTime: DETAIL_PREFETCH_GC_MS,
+  }
+}
+
+export function useVehicle<TVehicle = Vehicle>(id: string) {
+  return useQuery<TVehicle>({
+    ...vehicleDetailQueryOptions<TVehicle>(id),
     enabled: !!id,
   })
 }

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CustomerList from './CustomerList'
@@ -48,26 +49,31 @@ function UrlSearchProbe() {
 }
 
 function renderList(initialEntry = '/customers?page=2') {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   return render(
-    <SavedViewsProvider userKey="test-user">
-      <DashboardWidgetsProvider userKey="test-user">
-        <MemoryRouter initialEntries={[initialEntry]}>
-          <Routes>
-            <Route
-              path="/customers"
-              element={
-                <>
-                  <UrlSearchProbe />
-                  <CustomerList />
-                  <EntityActionConfirmHost />
-                </>
-              }
-            />
-            <Route path="/customers/:id" element={<h1>Full customer page</h1>} />
-          </Routes>
-        </MemoryRouter>
-      </DashboardWidgetsProvider>
-    </SavedViewsProvider>,
+    <QueryClientProvider client={queryClient}>
+      <SavedViewsProvider userKey="test-user">
+        <DashboardWidgetsProvider userKey="test-user">
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <Routes>
+              <Route
+                path="/customers"
+                element={
+                  <>
+                    <UrlSearchProbe />
+                    <CustomerList />
+                    <EntityActionConfirmHost />
+                  </>
+                }
+              />
+              <Route path="/customers/:id" element={<h1>Full customer page</h1>} />
+            </Routes>
+          </MemoryRouter>
+        </DashboardWidgetsProvider>
+      </SavedViewsProvider>
+    </QueryClientProvider>,
   )
 }
 

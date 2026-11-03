@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
 import { throwIfSalesResponseNotOk } from './sales-api-errors'
+import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 export const invoiceKeys = {
     all: ['invoices'] as const,
@@ -78,8 +79,10 @@ export function useInvoices() {
     })
 }
 
-export function useInvoice(id: string) {
-    return useQuery<Invoice>({
+export const INVOICE_DETAIL_STALE_MS = DETAIL_PREFETCH_STALE_MS
+
+export function invoiceDetailQueryOptions(id: string) {
+    return {
         queryKey: invoiceKeys.detail(id),
         queryFn: async () => {
              const response = await fetchWithAuth(`/api/sales/invoices/${id}`)
@@ -93,8 +96,16 @@ export function useInvoice(id: string) {
                 error.response = { status: response.status, data: payload }
                 throw error
              }
-             return response.json()
+             return response.json() as Promise<Invoice>
         },
+        staleTime: INVOICE_DETAIL_STALE_MS,
+        gcTime: DETAIL_PREFETCH_GC_MS,
+    }
+}
+
+export function useInvoice(id: string) {
+    return useQuery<Invoice>({
+        ...invoiceDetailQueryOptions(id),
         enabled: !!id,
     })
 }

@@ -1,6 +1,8 @@
-import { ImportJobStatus, ImportRowAction } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction, Prisma } from '@prisma/client';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { ImportJobStore } from './import-job.store.js';
 import { IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS } from './import-worker-handoff.constants.js';
+import { ImportApplyRetryExhaustedError } from './import-apply.errors.js';
 import type { ImportJobOptionsWithWorker } from './import-job.worker-state.js';
 import type { ImportJobTotals } from './import.types.js';
 
@@ -229,5 +231,90 @@ describe('reconcile poison progress', () => {
     expect(job.attempts_without_progress).toBe(
       IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS,
     );
+  });
+
+  it('retries a P2028 transaction once then fails the job with retry_exhausted', async () => {
+    const job: InMemoryJob = {
+      id: 'job-1',
+      tenant_id: 'tenant-1',
+      status: ImportJobStatus.APPLYING,
+      worker_claim_seq: 1,
+      attempts_without_progress: 0,
+      totals_json: { rows: 2, create: 0, update: 0, skip: 0, error: 0 },
+      options_json: {
+        worker: {
+          phase: 'dry_run',
+          lease_token: 'lease-1',
+          lease_until: new Date().toISOString(),
+          processed_rows: 0,
+          claimed_processed_rows: 0,
+          started_at: new Date().toISOString(),
+          dry_run_reconcile_active: true,
+          dry_run_reconcile_cursor: 0,
+        },
+      },
+    };
+    let transactionAttempts = 0;
+    let failureOptionsJson: Record<string, unknown> | undefined;
+    const prisma = {
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+        transactionAttempts += 1;
+        if (transactionAttempts <= 2) {
+          throw new Prisma.PrismaClientKnownRequestError('transaction expired', {
+            code: 'P2028',
+            clientVersion: 'test',
+          });
+        }
+        return fn({
+          importJob: {
+            updateMany: async (args: {
+              data: { options_json: Record<string, unknown> };
+            }) => {
+              failureOptionsJson = args.data.options_json;
+              return { count: 1 };
+            },
+            update: async () => job,
+            findFirst: async () => job,
+          },
+          importJobRow: {
+            updateMany: async () => ({ count: 1 }),
+          },
+        });
+      },
+      importJob: {
+        findFirst: async () => job,
+      },
+    };
+    const store = new ImportJobStore(prisma as never);
+    await TenantContextStorage.run(async () => {
+      TenantContextStorage.setUser({
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        email: 'admin@example.com',
+        role: 'ADMIN',
+      });
+      await expect(
+        store.persistDryRunReconcileChunk(
+          'tenant-1',
+          'job-1',
+          [
+            {
+              row_no: 1,
+              action: ImportRowAction.CREATE,
+              external_id: 'a',
+              entity_id: null,
+              errors: [],
+              warnings: [],
+              normalized: null,
+            },
+          ],
+          { dry_run_reconcile_cursor: 1 },
+          job.options_json,
+          'lease-1',
+        ),
+      ).rejects.toBeInstanceOf(ImportApplyRetryExhaustedError);
+    });
+    expect(transactionAttempts).toBe(3);
+    expect(failureOptionsJson?.apply_failure_reason).toBe('retry_exhausted');
   });
 });

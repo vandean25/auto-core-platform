@@ -4,6 +4,7 @@ import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
 import { vehicleKeys } from './vehicles'
+import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 import type { GewaehrleistungStatus } from '@/lib/vehicle-sale-warranty'
 
 export const vehicleStockKeys = {
@@ -302,14 +303,24 @@ export function useVehicleStock(queryParams?: DataTableQueryParams) {
   })
 }
 
-export function useVehicleStockDetail(vehicleId: string) {
-  return useQuery<VehicleStockDetail>({
+export const VEHICLE_STOCK_DETAIL_STALE_MS = DETAIL_PREFETCH_STALE_MS
+
+export function vehicleStockDetailQueryOptions(vehicleId: string) {
+  return {
     queryKey: vehicleStockKeys.detail(vehicleId),
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/vehicle-stock/${vehicleId}`)
       if (!response.ok) throw new Error('Failed to fetch vehicle stock')
-      return response.json()
+      return response.json() as Promise<VehicleStockDetail>
     },
+    staleTime: VEHICLE_STOCK_DETAIL_STALE_MS,
+    gcTime: DETAIL_PREFETCH_GC_MS,
+  }
+}
+
+export function useVehicleStockDetail(vehicleId: string) {
+  return useQuery<VehicleStockDetail>({
+    ...vehicleStockDetailQueryOptions(vehicleId),
     enabled: !!vehicleId,
   })
 }
@@ -332,14 +343,22 @@ export function usePatchVehicleStock(vehicleId: string) {
   })
 }
 
-export function useVehiclePurchase(id: string) {
-  return useQuery<VehiclePurchase>({
+export function vehiclePurchaseDetailQueryOptions(id: string) {
+  return {
     queryKey: vehicleStockKeys.purchase(id),
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/vehicle-purchases/${id}`)
       if (!response.ok) throw new Error('Failed to fetch vehicle purchase')
-      return response.json()
+      return response.json() as Promise<VehiclePurchase>
     },
+    staleTime: VEHICLE_STOCK_DETAIL_STALE_MS,
+    gcTime: DETAIL_PREFETCH_GC_MS,
+  }
+}
+
+export function useVehiclePurchase(id: string) {
+  return useQuery<VehiclePurchase>({
+    ...vehiclePurchaseDetailQueryOptions(id),
     enabled: !!id && id !== 'new',
   })
 }

@@ -9,6 +9,7 @@ import { changeUiLanguage } from '@/lib/i18n'
 import deErrors from '../../../../../../locales/de/errors.json'
 import deSettings from '../../../../../../locales/de/settings.json'
 import enErrors from '../../../../../../locales/en/errors.json'
+import enSettings from '../../../../../../locales/en/settings.json'
 import { DataImportUndoDialog } from './data-import-undo-dialog'
 
 const di = deSettings.dataImport.undo
@@ -88,6 +89,45 @@ const mockPreview: importsApi.ImportUndoPreviewResponse = {
       references: ['wo-1'],
     },
   ],
+}
+
+const conflictRows: importsApi.ImportUndoPreviewResponse['conflicts'] = [
+  {
+    rowNumber: 4,
+    entityType: 'CUSTOMER',
+    entityId: 'cust-3' as unknown as Record<string, never>,
+    action: 'UPDATE',
+    status: 'CONFLICT',
+    displayName: 'Pilot Customer 3',
+    reason: 'MODIFIED_SINCE_IMPORT',
+  },
+  {
+    rowNumber: 8,
+    entityType: 'CUSTOMER',
+    entityId: 'cust-8' as unknown as Record<string, never>,
+    action: 'UPDATE',
+    status: 'CONFLICT',
+    displayName: 'Pilot Customer 8',
+    reason: 'MODIFIED_SINCE_IMPORT',
+  },
+]
+
+const conflictSectionCopy = [
+  { language: 'de' as const, copy: deSettings.dataImport.undo.conflictsSection },
+  { language: 'en' as const, copy: enSettings.dataImport.undo.conflictsSection },
+]
+
+function mockPreviewWith(conflicts: typeof conflictRows) {
+  ;(importsApi.useImportUndoPreview as Mock).mockReturnValue({
+    data: {
+      ...mockPreview,
+      counts: { ...mockPreview.counts, conflicts: conflicts.length },
+      conflicts,
+    },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  })
 }
 
 function renderDialog(props: {
@@ -233,6 +273,41 @@ describe('DataImportUndoDialog', () => {
     expect(screen.getByText('Pilot Customer 3')).toBeInTheDocument()
   })
 
+  it.each(conflictSectionCopy)(
+    'shows the visible overwrite label on every conflict row in the $language UI',
+    async ({ language, copy }) => {
+      // Catches the regression where a conflict row was a bare checkbox, so nothing on the
+      // screen said what ticking it does.
+      await changeUiLanguage(language)
+      mockPreviewWith(conflictRows)
+
+      renderDialog({})
+
+      expect(screen.getAllByText(copy.overwriteCheckbox)).toHaveLength(conflictRows.length)
+      for (const checkbox of screen.getAllByRole('checkbox')) {
+        expect(checkbox.closest('label')).toHaveTextContent(copy.overwriteCheckbox)
+      }
+    },
+  )
+
+  it.each(conflictSectionCopy)(
+    'names each conflict checkbox after the overwrite action and the record in the $language UI',
+    async ({ language, copy }) => {
+      await changeUiLanguage(language)
+      mockPreviewWith(conflictRows)
+
+      renderDialog({})
+
+      for (const row of conflictRows) {
+        expect(
+          screen.getByRole('checkbox', {
+            name: copy.overwriteAriaLabel.replace('{{name}}', String(row.displayName)),
+          }),
+        ).toBeInTheDocument()
+      }
+    },
+  )
+
   it('renders localized reasons for various blocked reason codes', () => {
     const multiBlockedPreview: importsApi.ImportUndoPreviewResponse = {
       ...mockPreview,
@@ -373,7 +448,9 @@ describe('DataImportUndoDialog', () => {
     const confirmInput = screen.getByTestId('undo-confirm-input')
 
     // Select the conflict row to overwrite
-    const conflictCheckbox = screen.getByRole('checkbox', { name: 'Pilot Customer 3' })
+    const conflictCheckbox = screen.getByRole('checkbox', {
+      name: di.conflictsSection.overwriteAriaLabel.replace('{{name}}', 'Pilot Customer 3'),
+    })
     expect(conflictCheckbox).not.toBeChecked()
     fireEvent.click(conflictCheckbox)
     expect(conflictCheckbox).toBeChecked()

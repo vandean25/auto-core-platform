@@ -16,6 +16,9 @@ vi.mock('@/api/inventory')
 vi.mock('@/api/locations', () => ({
   useLocations: vi.fn(),
 }))
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+}))
 vi.mock('@/components/AddItemDialog', () => ({
   AddItemDialog: () => <button type="button">+ Item</button>,
 }))

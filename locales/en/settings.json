@@ -1289,7 +1289,8 @@
       "conflictsSection": {
         "title": "Overwrite modified records ({{count}})",
         "description": "Edited after the import. Select which to overwrite.",
-        "overwriteCheckbox": "Restore to pre-import state despite subsequent edit"
+        "overwriteCheckbox": "Overwrite",
+        "overwriteAriaLabel": "Overwrite: {{name}}"
       },
       "confirmation": {
         "label": "Type “{{keyword}}” to confirm:",

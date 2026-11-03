@@ -9,6 +9,7 @@ import { mechanicTaskDetailQueryOptions, useMechanicQueue } from '@/api/mechanic
 import { useHrMeClock, usePunchClock } from '@/api/hr'
 import type { PunchClockPayload } from '@/api/hr'
 import { getErrorMessage } from '@/lib/error-utils'
+import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 import { filterMechanicQueue, getMechanicQueueView } from './mechanic-queue-view'
 import { MechanicQueuePunch } from './MechanicQueuePunch'
 import { MechanicQueueStatus } from './MechanicQueueStatus'
@@ -42,7 +43,7 @@ export default function MechanicQueuePage() {
 
   const prefetchTaskDetail = useCallback(
     (taskId: string) => {
-      void queryClient.prefetchQuery(mechanicTaskDetailQueryOptions(taskId))
+      scheduleDetailPrefetch(queryClient, mechanicTaskDetailQueryOptions(taskId))
     },
     [queryClient],
   )

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -11,9 +12,13 @@ vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
 }))
 
-vi.mock('@/api/customers', () => ({
-  useDeleteCustomer: () => ({ mutateAsync: vi.fn() }),
-}))
+vi.mock('@/api/customers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/customers')>()
+  return {
+    ...actual,
+    useDeleteCustomer: () => ({ mutateAsync: vi.fn() }),
+  }
+})
 
 const customer: Customer = {
   id: 'cust-1',
@@ -29,8 +34,15 @@ const customer: Customer = {
 
 function renderCustomerRowBehaviour() {
   const openPeek = vi.fn()
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   const rowBehaviour = renderHook(() => useCustomerListRowBehaviour(openPeek, [customer]), {
-    wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>{children}</MemoryRouter>
+      </QueryClientProvider>
+    ),
   }).result.current
   return { rowBehaviour, openPeek }
 }

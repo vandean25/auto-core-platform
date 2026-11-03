@@ -5,13 +5,7 @@ import {
   isImportSyncLegacyApplyPath,
   withImportSyncApplyIoRetry,
 } from './import-transaction-retry.util.js';
-
-function p2034(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('write conflict', {
-    code: 'P2034',
-    clientVersion: 'test',
-  });
-}
+import { p2034 } from './import-runner.spec.support.js';
 
 describe('withImportSyncApplyIoRetry', () => {
   it('rethrows immediately when not on the sync legacy path', async () => {
