@@ -221,10 +221,12 @@ describe('VehicleDetail', () => {
       expect(vehiclesApi.useVehicle).toHaveBeenCalledWith('veh-12345678-abcd')
     })
 
-    it('shows the loading text', () => {
+    // Regression: the loading state was a bare text block instead of a skeleton.
+    it('WHEN the vehicle detail is loading THEN a Skeleton is shown instead of the loading text', async () => {
       mockVehicleQuery({ isLoading: true })
-      renderPage()
-      expect(screen.getByText(d.loading)).toBeInTheDocument()
+      const { container } = renderPage()
+      expect(await screen.findByRole('status')).toHaveTextContent(d.loading)
+      expect(container.querySelector('.animate-pulse')).not.toBeNull()
     })
 
     it('shows the error message of the failed request', () => {

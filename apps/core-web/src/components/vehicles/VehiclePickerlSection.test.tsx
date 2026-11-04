@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { VehiclePickerlSection } from './VehiclePickerlSection'
@@ -23,20 +23,32 @@ vi.mock('@/api/vehicle-inspection-imports', () => ({
   }),
 }))
 
-const { mockRecords } = vi.hoisted(() => ({ mockRecords: [] as Array<Record<string, unknown>> }))
+const { mockRecords, mockQuery } = vi.hoisted(() => ({
+  mockRecords: [] as Array<Record<string, unknown>>,
+  mockQuery: { isLoading: false },
+}))
 
 vi.mock('@/api/vehicle-inspection-records', () => ({
-  useVehicleInspectionRecords: () => ({ data: mockRecords, isLoading: false }),
+  useVehicleInspectionRecords: () => ({ data: mockRecords, isLoading: mockQuery.isLoading }),
   useCreateVehicleInspectionRecord: () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
 }))
 
+const unknownDue = {
+  due_month: null,
+  status: 'UNKNOWN' as const,
+  rule_id: 'm1-legacy-pre-2027',
+  warnings: [],
+  last_inspected_on: null,
+}
+
 describe('VehiclePickerlSection', () => {
   afterEach(() => {
     cleanup()
     mockRecords.length = 0
+    mockQuery.isLoading = false
   })
 
   it('shows unknown copy when pickerl status is UNKNOWN', () => {
@@ -125,5 +137,25 @@ describe('VehiclePickerlSection', () => {
 
     expect(screen.getByText('Altdaten-Import')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /bearbeiten|löschen/i })).not.toBeInTheDocument()
+  })
+
+  // Regression: the records table showed a text row while loading instead of skeleton rows.
+  it('WHEN the inspection records are loading THEN skeleton rows are shown instead of the text row', async () => {
+    mockQuery.isLoading = true
+    const { container } = render(
+      <MemoryRouter><VehiclePickerlSection vehicleId='vehicle-1' pickerlDue={unknownDue} /></MemoryRouter>,
+    )
+
+    await waitFor(() => expect(container.querySelectorAll('tbody .animate-pulse').length).toBeGreaterThan(0))
+    expect(screen.queryByText('Noch keine Begutachtung erfasst.')).toBeNull()
+  })
+
+  // Regression: the empty records row was a plain muted text cell, not the shared Empty.
+  it('WHEN there are no inspection records THEN the shared Empty is shown with the German text', () => {
+    const { container } = render(
+      <MemoryRouter><VehiclePickerlSection vehicleId='vehicle-1' pickerlDue={unknownDue} /></MemoryRouter>,
+    )
+
+    expect(container.querySelector('tbody [data-slot="empty"]')).toHaveTextContent('Noch keine Begutachtung erfasst.')
   })
 })

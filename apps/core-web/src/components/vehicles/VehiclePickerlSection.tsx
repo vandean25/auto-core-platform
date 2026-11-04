@@ -18,6 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { TableSkeleton } from '@/components/ui/skeleton-presets'
 import { RecordPickerlDialog } from './RecordPickerlDialog'
 import { InspectionImportDialog } from './InspectionImportDialog'
 import { useInspectionSourceConnections } from '@/api/vehicle-inspection-imports'
@@ -58,14 +60,14 @@ function PickerlWarningsInfo({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-11 w-11 sm:h-5 sm:w-5 text-amber-700 hover:text-amber-800"
+          className="h-11 w-11 sm:h-5 sm:w-5 text-warning hover:text-warning"
           aria-label={t('pickerlSection.warningsInfoAria')}
         >
           <Info className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 text-xs" aria-label={t('pickerlSection.warningsInfoAria')}>
-        <ul className="text-amber-700 list-disc pl-4 space-y-1">
+        <ul className="text-warning list-disc pl-4 space-y-1">
           {warnings.map((warning) => (
             <li key={warning.code}>{formatWarning(warning)}</li>
           ))}
@@ -190,15 +192,13 @@ export function VehiclePickerlSection({
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={4} className='text-muted-foreground'>
-                {t('pickerlSection.loading')}
-              </TableCell>
-            </TableRow>
+            <TableSkeleton cols={4} rows={3} />
           ) : records.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className='text-muted-foreground'>
-                {t('pickerlSection.empty')}
+              <TableCell colSpan={4}>
+                <Empty className='p-0 md:p-0'>
+                  <EmptyDescription>{t('pickerlSection.empty')}</EmptyDescription>
+                </Empty>
               </TableCell>
             </TableRow>
           ) : (

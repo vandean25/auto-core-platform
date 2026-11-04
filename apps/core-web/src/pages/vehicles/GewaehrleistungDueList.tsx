@@ -9,6 +9,7 @@ import { useGewaehrleistungDueList } from '@/api/vehicle-stock'
 import type { VehicleGewaehrleistungDueRow } from '@/api/vehicle-stock'
 import { formatDateUtcMedium, localeCompareDisplay, normalizeForSearch } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 const WINDOWS = [30, 60, 90] as const
 
@@ -151,10 +152,7 @@ export default function GewaehrleistungDueList() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t('gewaehrleistungDue.title')}</h1>
-        <p className="text-slate-500">{t('gewaehrleistungDue.description')}</p>
-      </div>
+      <PageHeader className="mb-0" title={t('gewaehrleistungDue.title')} description={t('gewaehrleistungDue.description')} />
       <label className="block max-w-xs space-y-1 text-sm">
         <span>{t('gewaehrleistungDue.windowLabel')}</span>
         <select

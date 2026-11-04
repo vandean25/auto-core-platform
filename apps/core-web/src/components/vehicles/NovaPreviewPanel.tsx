@@ -85,10 +85,10 @@ export function NovaPreviewPanel({
   return (
     <section className="space-y-3 rounded-lg border p-4" aria-labelledby="nova-preview-title">
       <div>
-        <h3 id="nova-preview-title" className="text-sm font-semibold text-slate-700">
+        <h3 id="nova-preview-title" className="text-sm font-semibold text-foreground">
           {t('novaPreview.title')}
         </h3>
-        <div className="mt-2 grid gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-2">
+        <div className="mt-2 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
           <div>{t('novaPreview.firstRegistration', { value: display(firstRegistrationDate) })}</div>
           <div>{t('novaPreview.co2Wltp', { value: display(co2Wltp) })}</div>
           <div>{t('novaPreview.co2Nedc', { value: display(co2Nedc) })}</div>
@@ -98,7 +98,7 @@ export function NovaPreviewPanel({
       </div>
 
       <fieldset className="space-y-2 text-sm">
-        <legend className="text-slate-600">{t('novaPreview.previewMode')}</legend>
+        <legend className="text-muted-foreground">{t('novaPreview.previewMode')}</legend>
         <label className="flex items-center gap-2">
           <input
             type="radio"
@@ -130,14 +130,14 @@ export function NovaPreviewPanel({
       </fieldset>
 
       {previewMode === 'eu_used_m1_2024' ? (
-        <p className="text-xs text-slate-600" role="note">
+        <p className="text-xs text-muted-foreground" role="note">
           {euSliceLegalBasis}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-48 space-y-1 text-sm">
-          <span className="text-slate-600">{t('novaPreview.netPrice')}</span>
+          <span className="text-muted-foreground">{t('novaPreview.netPrice')}</span>
           <Input
             aria-label={t('novaPreview.netPriceAria')}
             type="number"
@@ -154,7 +154,7 @@ export function NovaPreviewPanel({
         {previewMode === 'eu_used_m1_2024' ? (
           <>
             <label className="min-w-48 space-y-1 text-sm">
-              <span className="text-slate-600">{t('novaPreview.taxableEventDate')}</span>
+              <span className="text-muted-foreground">{t('novaPreview.taxableEventDate')}</span>
               <Input
                 aria-label={t('novaPreview.taxableEventAria')}
                 type="date"
@@ -167,7 +167,7 @@ export function NovaPreviewPanel({
               />
             </label>
             <label className="min-w-48 space-y-1 text-sm">
-              <span className="text-slate-600">{t('novaPreview.valueDevelopment')}</span>
+              <span className="text-muted-foreground">{t('novaPreview.valueDevelopment')}</span>
               <select
                 aria-label={t('novaPreview.valueDevelopmentAria')}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm md:text-sm"
@@ -184,7 +184,7 @@ export function NovaPreviewPanel({
             </label>
             {valueBasis === 'known_new_net' ? (
               <label className="min-w-48 space-y-1 text-sm">
-                <span className="text-slate-600">{t('novaPreview.originalNewNet')}</span>
+                <span className="text-muted-foreground">{t('novaPreview.originalNewNet')}</span>
                 <Input
                   aria-label={t('novaPreview.originalNewNetAria')}
                   type="number"
@@ -235,12 +235,12 @@ export function NovaPreviewPanel({
       </div>
 
       {calculationError?.code === 'MISSING_CO2' ? (
-        <p className="text-sm text-amber-700" role="status">
+        <p className="text-sm text-warning" role="status">
           {t('novaPreview.missingCo2')}
         </p>
       ) : null}
       {calculationError && calculationError.code !== 'MISSING_CO2' ? (
-        <p className="text-sm text-rose-700" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {calculationError.message}
         </p>
       ) : null}
@@ -248,14 +248,14 @@ export function NovaPreviewPanel({
       {data && hasCurrentCalculation ? (
         <div className="space-y-2 border-t pt-3 text-sm">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-slate-600">{t('novaPreview.calculatedNova')}</span>
+            <span className="text-muted-foreground">{t('novaPreview.calculatedNova')}</span>
             <strong>{formatCurrency(data.novaAmountEuro)}</strong>
           </div>
-          <div className="text-xs text-slate-600">
+          <div className="text-xs text-muted-foreground">
             {t('novaPreview.tariffVersion', { id: data.tariffVersionId })}
           </div>
           {data.tariffSelectionBasis ? (
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-muted-foreground">
               {t('novaPreview.tariffSelection', {
                 basis: data.tariffSelectionBasis,
                 dateSuffix: data.tariffSelectionDate
@@ -265,7 +265,7 @@ export function NovaPreviewPanel({
             </div>
           ) : null}
           {data.intermediates ? (
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-muted-foreground">
               {t('novaPreview.valueDevelopmentDetail', {
                 basis: data.intermediates.valueBasis,
                 numerator: data.intermediates.valueDevelopmentFactor.numerator,
@@ -274,30 +274,30 @@ export function NovaPreviewPanel({
               })}
             </div>
           ) : null}
-          <div className="text-xs text-slate-600">
+          <div className="text-xs text-muted-foreground">
             {t('novaPreview.appliedRules', {
               rules: data.appliedRuleIds.length ? data.appliedRuleIds.join(', ') : emDash,
             })}
           </div>
           {data.warnings.length ? (
-            <ul className="list-disc space-y-1 pl-4 text-xs text-slate-600">
+            <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
               {data.warnings.map((warning) => (
                 <li key={warning}>{formatNovaPreviewWarning(warning)}</li>
               ))}
             </ul>
           ) : null}
           {data.hasScopeLimitations ? (
-            <p className="text-sm font-medium text-amber-800" role="status">
+            <p className="text-sm font-medium text-warning" role="status">
               {t('novaPreview.scopeLimited')}
             </p>
           ) : null}
           {data.hasUnverifiedRules ? (
-            <p className="text-sm font-medium text-amber-800">
+            <p className="text-sm font-medium text-warning">
               {t('novaPreview.unverifiedRules')}
             </p>
           ) : null}
           {previewMode === 'eu_used_m1_2024' ? (
-            <p className="text-xs text-slate-600" role="status">
+            <p className="text-xs text-muted-foreground" role="status">
               {euSliceLegalBasis}
             </p>
           ) : null}

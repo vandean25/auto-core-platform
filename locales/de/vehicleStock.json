@@ -190,8 +190,6 @@
     "inventoryRolePlaceholder": "Bestandsrolle",
     "stockStatusPlaceholder": "Bestandsstatus",
     "ageFilterAria": "Standzeitfilter",
-    "loadingRow": "Lädt …",
-    "loadingSr": "Bericht wird geladen",
     "empty": "Keine Fahrzeuge für diese Auswahl.",
     "paginationPrev": "Zurück",
     "paginationNext": "Weiter",

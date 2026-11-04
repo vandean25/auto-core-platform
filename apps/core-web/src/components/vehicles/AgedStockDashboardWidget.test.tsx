@@ -33,4 +33,20 @@ describe('AgedStockDashboardWidget', () => {
     fireEvent.click(card!)
     expect(screen.getByTestId('location')).toHaveTextContent('/vehicle-stock/reports?bucket=over_90')
   })
+
+  // Regression: the count was replaced by a rotating spinner while loading.
+  it('WHEN the aged stock count is loading THEN a Skeleton is shown instead of a spinner', () => {
+    vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter><AgedStockDashboardWidget /></MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+    expect(container.querySelector('.animate-spin')).toBeNull()
+  })
 })

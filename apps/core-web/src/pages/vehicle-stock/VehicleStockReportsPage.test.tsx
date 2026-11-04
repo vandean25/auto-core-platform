@@ -81,6 +81,41 @@ describe('VehicleStockReportsPage', () => {
     })
   })
 
+  // Regression: the report grid was a hand-built raw <table>, with a text row as loading state.
+  it('WHEN the reports page renders THEN no raw table remains and all rows are still shown', () => {
+    const { container } = renderPage()
+
+    const region = screen.getByRole('region', { name: 'Scrollbare Tabelle' })
+    expect(container.querySelectorAll('table')).toHaveLength(1)
+    expect(region.contains(container.querySelector('table'))).toBe(true)
+    expect(within(region).getByText('Audi A4 (2020)')).toBeInTheDocument()
+    expect(within(region).getByText('Halle 1')).toBeInTheDocument()
+  })
+
+  it('WHEN the report is loading THEN skeleton rows are shown', async () => {
+    vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
+    const { container } = renderPage()
+
+    expect(await screen.findByRole('status')).toBeInTheDocument()
+    expect(container.querySelectorAll('tbody .animate-pulse').length).toBeGreaterThan(0)
+  })
+
+  it('WHEN the report has no rows THEN the shared Empty is shown with the German text', () => {
+    vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
+      data: {
+        data: [], meta: { total: 0, page: 1, limit: 25, pageSize: 25, totalPages: 0, pageCount: 0 },
+        summary: { over_90_count: 0, over_90_cost_basis: '0.00', bucket_counts: {} },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
+    const { container } = renderPage()
+
+    expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent('Keine Fahrzeuge für diese Auswahl.')
+  })
+
   it('shows a missing amount as the dash', () => {
     vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
       data: {

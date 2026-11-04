@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageHeader } from '@/components/layout/PageHeader'
 
 type PickerlDueRow = {
   id: string;
@@ -291,14 +292,11 @@ export default function PickerlDueList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("pickerlDue.title")}
-          </h1>
-          <p className="text-slate-500">{t("pickerlDue.description")}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        className="mb-0"
+        title={t("pickerlDue.title")}
+        description={t("pickerlDue.description")}
+        actions={
           <Button
             variant="outline"
             size="lg"
@@ -308,8 +306,8 @@ export default function PickerlDueList() {
             <Download className="mr-2 h-4 w-4" />
             {t("pickerlDue.exportCsv")}
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="flex flex-wrap gap-3">
         <Select

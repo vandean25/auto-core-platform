@@ -233,7 +233,6 @@
       "source": "Source",
       "station": "Test station"
     },
-    "loading": "Loading…",
     "empty": "No inspection recorded yet.",
     "sourceEbv": "EBV imported",
     "sourceManual": "Manual",

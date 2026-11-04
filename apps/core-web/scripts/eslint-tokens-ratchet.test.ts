@@ -43,8 +43,21 @@ describe('design-token ratchet (AUT-659)', () => {
     expect(await restrictedMessages(`export const x = new Intl.NumberFormat('de-AT').format(1)`)).not.toEqual([])
   })
 
+  // AUT-659 scenario: WHEN lint runs on the migrated vehicle folders THEN any palette class or text-[Npx] is an error.
+  it.each([
+    'src/pages/vehicles/Example.tsx',
+    'src/components/vehicles/Example.tsx',
+    'src/pages/vehicle-stock/Example.tsx',
+    'src/components/vehicle-stock/Example.tsx',
+    'src/features/vehicle-stock/listing/Example.tsx',
+  ])('WHEN lint runs on the migrated vehicle folder %s THEN a palette class and text-[Npx] are errors', async (file) => {
+    const filePath = path.join(webRoot, file)
+    expect(await restrictedMessages(`export const A = () => <p className="text-slate-500">x</p>`, filePath)).not.toEqual([])
+    expect(await restrictedMessages(`export const A = () => <p className="text-[11px]">x</p>`, filePath)).not.toEqual([])
+  })
+
   it('leaves folders that are not migrated yet alone', async () => {
     const code = `export const A = () => <p className="text-slate-500">x</p>`
-    expect(await restrictedMessages(code, path.join(webRoot, 'src/pages/vehicles/Example.tsx'))).toEqual([])
+    expect(await restrictedMessages(code, path.join(webRoot, 'src/pages/customers/Example.tsx'))).toEqual([])
   })
 })

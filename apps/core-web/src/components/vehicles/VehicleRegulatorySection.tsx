@@ -126,7 +126,7 @@ export function VehicleRegulatorySection({
   if (mode === 'inline' && renderInlineField) {
     return (
       <div className="space-y-3 pt-3 border-t">
-        <h3 className="text-sm font-semibold text-slate-700">{sectionTitle}</h3>
+        <h3 className="text-sm font-semibold text-foreground">{sectionTitle}</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
           {renderInlineField(
             'first_registration_date',
@@ -178,10 +178,10 @@ export function VehicleRegulatorySection({
 
   return (
     <div className="space-y-4 rounded-lg border p-4">
-      <h3 className="text-sm font-semibold text-slate-700">{sectionTitle}</h3>
+      <h3 className="text-sm font-semibold text-foreground">{sectionTitle}</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1 text-sm">
-          <span className="text-slate-600">
+          <span className="text-muted-foreground">
             {localized(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
           </span>
           <DateField
@@ -191,7 +191,7 @@ export function VehicleRegulatorySection({
           />
         </div>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.co2Wltp)}</span>
+          <span className="text-muted-foreground">{localized(VEHICLE_REGULATORY_FIELDS.co2Wltp)}</span>
           <Input
             type="number"
             min={0}
@@ -208,7 +208,7 @@ export function VehicleRegulatorySection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.co2Nedc)}</span>
+          <span className="text-muted-foreground">{localized(VEHICLE_REGULATORY_FIELDS.co2Nedc)}</span>
           <Input
             type="number"
             min={0}
@@ -225,7 +225,7 @@ export function VehicleRegulatorySection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-600">
+          <span className="text-muted-foreground">
             {localized(VEHICLE_REGULATORY_FIELDS.typenscheinNo)}
           </span>
           <Input
@@ -236,7 +236,7 @@ export function VehicleRegulatorySection({
         </label>
         <CapabilityGate capability="nova">
           <label className="space-y-1 text-sm">
-            <span className="text-slate-600">{localized(VEHICLE_REGULATORY_FIELDS.novaClass)}</span>
+            <span className="text-muted-foreground">{localized(VEHICLE_REGULATORY_FIELDS.novaClass)}</span>
             <NovaClassSelect
               value={values.nova_class}
               onChange={(nova_class) => onChange({ nova_class })}
@@ -244,7 +244,7 @@ export function VehicleRegulatorySection({
           </label>
         </CapabilityGate>
         <label className="space-y-1 text-sm sm:col-span-2">
-          <span className="text-slate-600">
+          <span className="text-muted-foreground">
             {localized(VEHICLE_REGULATORY_FIELDS.emissionClass)}
           </span>
           <Input

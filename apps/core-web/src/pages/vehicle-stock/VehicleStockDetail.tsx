@@ -6,6 +6,10 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
@@ -40,10 +44,10 @@ function RegistrationCertificateField({
 
   return (
     <div>
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-muted-foreground">
         {localized(VEHICLE_REGULATORY_FIELDS.registrationCertificate)}
       </div>
-      <p className="text-xs text-slate-400 mb-1">{localized(REGISTRATION_CERTIFICATE_HELP)}</p>
+      <p className="text-xs text-muted-foreground mb-1">{localized(REGISTRATION_CERTIFICATE_HELP)}</p>
       <InlineEdit
         value={value}
         placeholder={t('stockDetail.certificatePlaceholder')}
@@ -66,7 +70,7 @@ export default function VehicleStockDetail() {
   const createPrep = useCreateWorkshopOrder()
 
   if (isLoading || !vehicle) {
-    return <p className="text-slate-500">{t('stockDetail.loading')}</p>
+    return <DetailSkeleton label={t('stockDetail.loading')} />
   }
 
   const canSell =
@@ -113,49 +117,55 @@ export default function VehicleStockDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" aria-label={t('stockDetail.backAria')} onClick={() => navigate('/vehicle-stock')}>
+      <PageHeader
+        className="mb-0"
+        leading={
+          <Button variant="ghost" size="icon" className="max-sm:min-h-11 max-sm:min-w-11" aria-label={t('stockDetail.backAria')} onClick={() => navigate('/vehicle-stock')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {vehicle.year} {vehicle.make} {vehicle.model}
-            </h1>
-            <p className="text-slate-500">{vehicle.vin || t('stockDetail.noVin')}</p>
-          </div>
-          {vehicle.stock_status ? <StatusBadge status={vehicle.stock_status} /> : null}
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              navigate(APP_ROUTE_PATHS.vehicleStockListing.replace(':vehicleId', vehicleId))
-            }
-          >
-            {t('listing.title')}
-          </Button>
-          <Button variant="outline" disabled={!canPrep} onClick={() => void startPrep()}>
-            {t('stockDetail.stockPrep')}
-          </Button>
-          <Button
-            disabled={!canSell}
-            onClick={() => navigate(`/vehicle-stock/sales/new?vehicleId=${vehicleId}`)}
-          >
-            {t('stockDetail.sell')}
-          </Button>
-        </div>
-      </div>
+        }
+        title={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            {/* text-base keeps the VIN at its former size; PageHeader descriptions default to text-sm. */}
+            <span className="text-base">{vehicle.vin || t('stockDetail.noVin')}</span>
+            {vehicle.stock_status ? <StatusBadge status={vehicle.stock_status} /> : null}
+          </span>
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="max-sm:min-h-11"
+              onClick={() =>
+                navigate(APP_ROUTE_PATHS.vehicleStockListing.replace(':vehicleId', vehicleId))
+              }
+            >
+              {t('listing.title')}
+            </Button>
+            <Button variant="outline" className="max-sm:min-h-11" disabled={!canPrep} onClick={() => void startPrep()}>
+              {t('stockDetail.stockPrep')}
+            </Button>
+            <Button
+              className="max-sm:min-h-11"
+              disabled={!canSell}
+              onClick={() => navigate(`/vehicle-stock/sales/new?vehicleId=${vehicleId}`)}
+            >
+              {t('stockDetail.sell')}
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-lg border p-4 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('stockDetail.details')}</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('stockDetail.details')}</h2>
           <div>
-            <div className="text-xs text-slate-500">{t('stockDetail.costBasis')}</div>
+            <div className="text-xs text-muted-foreground">{t('stockDetail.costBasis')}</div>
             <div className="font-medium">{formatCurrency(vehicle.cost_basis)}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">{t('stockDetail.mileage')}</div>
+            <div className="text-xs text-muted-foreground">{t('stockDetail.mileage')}</div>
             <InlineEdit
               value={vehicle.mileage != null ? String(vehicle.mileage) : ''}
               placeholder={t('stockDetail.mileage')}
@@ -163,7 +173,7 @@ export default function VehicleStockDetail() {
             />
           </div>
           <div>
-            <div className="text-xs text-slate-500">{t('stockDetail.color')}</div>
+            <div className="text-xs text-muted-foreground">{t('stockDetail.color')}</div>
             <InlineEdit
               value={vehicle.color}
               placeholder={t('stockDetail.color')}
@@ -171,7 +181,7 @@ export default function VehicleStockDetail() {
             />
           </div>
           <div>
-            <div className="text-xs text-slate-500">{t('stockDetail.keyNumber')}</div>
+            <div className="text-xs text-muted-foreground">{t('stockDetail.keyNumber')}</div>
             <InlineEdit
               value={vehicle.key_number}
               placeholder={t('stockDetail.keyNumber')}
@@ -198,13 +208,13 @@ export default function VehicleStockDetail() {
             onChange={(patch) => void saveRegulatory(patch)}
             renderInlineField={(field, label, value, onSave) => (
               <div key={field}>
-                <div className="text-xs text-slate-500">{label}</div>
+                <div className="text-xs text-muted-foreground">{label}</div>
                 <InlineEdit value={value} onSave={onSave} ariaLabel={label} />
               </div>
             )}
           />
           <div>
-            <div className="text-xs text-slate-500 mb-1">{t('stockDetail.reservedFor')}</div>
+            <div className="text-xs text-muted-foreground mb-1">{t('stockDetail.reservedFor')}</div>
             <CustomerSearch
               value={reservedCustomer}
               onChange={(customer) => {
@@ -215,26 +225,28 @@ export default function VehicleStockDetail() {
         </div>
 
         <div className="rounded-lg border p-4 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('stockDetail.ledger')}</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('stockDetail.ledger')}</h2>
           {vehicle.ledger_entries.length === 0 ? (
-            <p className="text-slate-500 text-sm">{t('stockDetail.noLedger')}</p>
+            <Empty className="p-6 md:p-6">
+              <EmptyDescription>{t('stockDetail.noLedger')}</EmptyDescription>
+            </Empty>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-1">{t('stockDetail.ledgerType')}</th>
-                  <th className="py-1 text-right">{t('stockDetail.ledgerAmount')}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('stockDetail.ledgerType')}</TableHead>
+                  <TableHead className="text-right">{t('stockDetail.ledgerAmount')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {vehicle.ledger_entries.map((entry) => (
-                  <tr key={entry.id} className="border-t">
-                    <td className="py-2">{entry.entry_type}</td>
-                    <td className="py-2 text-right">{formatCurrency(entry.amount)}</td>
-                  </tr>
+                  <TableRow key={entry.id}>
+                    <TableCell>{entry.entry_type}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(entry.amount)}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
       </div>

@@ -4,7 +4,7 @@ import { formatCurrency } from '@/lib/format'
 import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useVehicleStockAgeReport } from '@/api/vehicle-stock'
-import { Loader2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 function AgedStockDashboardWidgetContent() {
   const { t } = useTranslation('vehicles')
@@ -13,7 +13,7 @@ function AgedStockDashboardWidgetContent() {
 
   return (
     <Card
-      className="cursor-pointer transition-colors hover:bg-slate-50"
+      className="cursor-pointer transition-colors hover:bg-muted/50"
       onClick={() => navigate('/vehicle-stock/reports?bucket=over_90')}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') navigate('/vehicle-stock/reports?bucket=over_90')
@@ -22,13 +22,13 @@ function AgedStockDashboardWidgetContent() {
       tabIndex={0}
     >
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-slate-500">{t('dashboardWidgets.agedStockTitle')}</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboardWidgets.agedStockTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold">
-          {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-slate-400" /> : data?.summary.over_90_count ?? 0}
+          {isLoading ? <Skeleton className="h-9 w-12" /> : data?.summary.over_90_count ?? 0}
         </div>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           {t('dashboardWidgets.agedStockCostBasis', { amount: formatCurrency(data?.summary.over_90_cost_basis ?? '0.00') })}
         </p>
       </CardContent>

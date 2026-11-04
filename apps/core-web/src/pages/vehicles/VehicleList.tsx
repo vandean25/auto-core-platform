@@ -123,7 +123,7 @@ export default function VehicleList() {
       <div className={PAGE_HEADER_ROW}>
         <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('list.title')}</h1>
-          <p className="text-slate-500">{t('list.description')}</p>
+          <p className="text-muted-foreground">{t('list.description')}</p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> {t('list.addVehicle')}
