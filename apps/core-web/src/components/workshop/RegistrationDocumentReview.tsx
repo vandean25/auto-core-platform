@@ -229,7 +229,7 @@ export function RegistrationDocumentReview({
                 ? `${value.normalized?.firstName ?? ''} ${value.normalized?.lastName ?? ''}`
                 : String(value.normalized ?? '—')}
               {value.uncertainty != null && value.uncertainty > LOW_CONFIDENCE && (
-                <span className="text-amber-600">{t('registrationReview.lowConfidence')}</span>
+                <span className="text-warning">{t('registrationReview.lowConfidence')}</span>
               )}
             </dd>
           </div>

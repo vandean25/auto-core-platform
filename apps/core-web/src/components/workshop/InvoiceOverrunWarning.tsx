@@ -36,7 +36,7 @@ function OverrunWarningAlert({ orderId }: { orderId: string }) {
   return (
     <Alert
       role="alert"
-      className="border-amber-400 bg-amber-50 text-amber-900 [&>svg]:text-amber-700"
+      className="border-warning/50 bg-warning/10 text-warning [&>svg]:text-warning"
       data-testid="invoice-overrun-warning"
     >
       <AlertTriangle className="h-4 w-4" />

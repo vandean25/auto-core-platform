@@ -6,6 +6,7 @@ import { useResolveVehicleIdentity, useVehicle } from '@/api/vehicles'
 import type { Vehicle } from '@/api/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   findOemConcernForMakeBrandId,
   formatIdentityKeys,
@@ -50,9 +51,10 @@ export function VehicleIdentityBanner({
 
   if (isVehicleLoading) {
     return (
-      <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-        <Loader2 className='h-4 w-4 animate-spin' />
-        {t('vehicleIdentity.loading')}
+      <div role='status' aria-busy='true' className='space-y-2'>
+        <span className='sr-only'>{t('vehicleIdentity.loading')}</span>
+        <Skeleton className='h-5 w-1/3' />
+        <Skeleton className='h-4 w-1/2' />
       </div>
     )
   }
@@ -95,7 +97,7 @@ export function VehicleIdentityBanner({
             </p>
           )}
           {!vehicle.vin && (
-            <p className='text-xs text-amber-700'>{t('vehicleIdentity.vinRequired')}</p>
+            <p className='text-xs text-warning'>{t('vehicleIdentity.vinRequired')}</p>
           )}
         </div>
 

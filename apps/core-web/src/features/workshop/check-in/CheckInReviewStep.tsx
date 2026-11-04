@@ -54,7 +54,7 @@ export function CheckInReviewStep({
         <h2 id="check-in-review-heading" className="text-xl font-semibold">
           {t('checkIn.steps.review.title')}
         </h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {t('checkIn.steps.review.subtitle', { orderNumber, vehicle: vehicleLabel })}
         </p>
         <dl className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -124,7 +124,7 @@ export function CheckInReviewStep({
           </ul>
         )}
         {record.status === 'COMPLETED' && record.completed_at && (
-          <p className="mt-4 text-sm text-green-700" data-testid="check-in-completed-banner">
+          <p className="mt-4 text-sm text-success" data-testid="check-in-completed-banner">
             {t('checkIn.review.completedAt', {
               date: formatDateTime(record.completed_at),
             })}

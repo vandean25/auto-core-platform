@@ -19,8 +19,9 @@ import {
   useWorkshopSettings,
   workshopKeys,
 } from '@/api/workshop'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   buildSlots,
@@ -60,53 +61,31 @@ function readViewMode(): PlannerViewMode {
   return 'day'
 }
 
-function ClosedStateCard({
+function PlannerEmptyState({
+  icon,
   title,
   description,
   onGoToSettings,
 }: {
+  icon: React.ReactNode
   title: string
   description: string
   onGoToSettings: () => void
 }) {
   const { t } = useTranslation('workshop')
   return (
-    <Card className="max-w-sm mx-auto my-6">
-      <CardHeader className="items-center pb-2">
-        <div className="rounded-full bg-slate-100 p-3 mb-2">
-          <Calendar className="h-6 w-6 text-slate-400" />
-        </div>
-        <CardTitle className="text-base text-center">{title}</CardTitle>
-        <CardDescription className="text-center">{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex justify-center pt-0">
-        <Button variant="outline" size="sm" onClick={onGoToSettings}>
+    <Empty className="mx-auto my-6 max-w-sm border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">{icon}</EmptyMedia>
+        <EmptyTitle className="text-base">{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button variant="outline" size="sm" className="max-md:min-h-11" onClick={onGoToSettings}>
           {t('planner.page.goToSettings')}
         </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-function NoBaysCard({ onGoToSettings }: { onGoToSettings: () => void }) {
-  const { t } = useTranslation('workshop')
-  return (
-    <Card className="max-w-sm mx-auto mt-8">
-      <CardHeader className="items-center pb-2">
-        <div className="rounded-full bg-slate-100 p-3 mb-2">
-          <Wrench className="h-6 w-6 text-slate-400" />
-        </div>
-        <CardTitle className="text-base text-center">{t('planner.page.noBaysTitle')}</CardTitle>
-        <CardDescription className="text-center">
-          {t('planner.page.noBaysDescription')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex justify-center pt-0">
-        <Button variant="outline" size="sm" onClick={onGoToSettings}>
-          {t('planner.page.goToSettings')}
-        </Button>
-      </CardContent>
-    </Card>
+      </EmptyContent>
+    </Empty>
   )
 }
 
@@ -331,39 +310,43 @@ export default function WorkshopPlannerPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('planner.page.title')}</h1>
-          <p className="text-slate-500">{subtitle}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => shiftAnchor(viewMode === 'day' ? -1 : -7)}
-            aria-label={t('planner.page.previous')}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => shiftAnchor(viewMode === 'day' ? 1 : 7)}
-            aria-label={t('planner.page.next')}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <PlannerViewToggle value={viewMode} onChange={setViewMode} />
-          <Button
-            onClick={() => {
-              setCreatePrefill(null)
-              setCreateOpen(true)
-            }}
-          >
-            {t('planner.page.createOrder')}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={t('planner.page.title')}
+        description={subtitle}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              className="max-md:size-11"
+              onClick={() => shiftAnchor(viewMode === 'day' ? -1 : -7)}
+              aria-label={t('planner.page.previous')}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="max-md:size-11"
+              onClick={() => shiftAnchor(viewMode === 'day' ? 1 : 7)}
+              aria-label={t('planner.page.next')}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <PlannerViewToggle value={viewMode} onChange={setViewMode} />
+            <Button
+              className="max-md:min-h-11"
+              onClick={() => {
+                setCreatePrefill(null)
+                setCreateOpen(true)
+              }}
+            >
+              {t('planner.page.createOrder')}
+            </Button>
+          </>
+        }
+      />
 
       {isLoading ? (
         <div className="space-y-3">
@@ -371,7 +354,12 @@ export default function WorkshopPlannerPage() {
           <Skeleton className="h-48 w-full" />
         </div>
       ) : bays.length === 0 ? (
-        <NoBaysCard onGoToSettings={() => navigate('/settings?tab=bays')} />
+        <PlannerEmptyState
+          icon={<Wrench aria-hidden />}
+          title={t('planner.page.noBaysTitle')}
+          description={t('planner.page.noBaysDescription')}
+          onGoToSettings={() => navigate('/settings?tab=bays')}
+        />
       ) : (
         <DndContext
           sensors={sensors}
@@ -379,7 +367,8 @@ export default function WorkshopPlannerPage() {
           onDragEnd={handleDragEnd}
         >
           {showClosedDay && (
-            <ClosedStateCard
+            <PlannerEmptyState
+              icon={<Calendar aria-hidden />}
               title={
                 dayHours?.holidayName
                   ? t('planner.grid.closedWithHoliday', { name: dayHours.holidayName })

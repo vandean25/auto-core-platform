@@ -39,8 +39,8 @@ function DroppableSlot({
       type="button"
       ref={setNodeRef}
       data-testid={droppableId}
-      className={`h-full min-h-10 border-r border-slate-100 transition-colors ${
-        isOver ? 'bg-slate-200' : 'bg-white hover:bg-slate-50'
+      className={`h-full min-h-10 border-r border-border transition-colors ${
+        isOver ? 'bg-border' : 'bg-card hover:bg-muted/50'
       }`}
       onClick={() => onSlotClick(bayId, startIso)}
       aria-label={t('planner.grid.bookSlot', { label: slot.label })}
@@ -78,9 +78,9 @@ export function PlannerDayGrid({
         {bays.map((bay) => {
           const bayBookings = bookingsByBay.get(bay.id) ?? []
           return (
-            <div key={bay.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-sm font-semibold text-slate-700 mb-2">{bay.name}</p>
-              <div className="relative h-16 rounded-md bg-white border border-dashed border-slate-200">
+            <div key={bay.id} className="rounded-lg border border-border bg-muted/50 p-3">
+              <p className="text-sm font-semibold text-foreground mb-2">{bay.name}</p>
+              <div className="relative h-16 rounded-md bg-card border border-dashed border-border">
                 {bayBookings.map((booking) => {
                   const start = new Date(booking.scheduledStartAt)
                   const end = new Date(booking.scheduledEndAt)
@@ -106,18 +106,18 @@ export function PlannerDayGrid({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
       <div
         className="grid min-w-max"
         style={{ gridTemplateColumns: `140px repeat(${slots.length}, minmax(48px, 1fr))` }}
       >
-        <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+        <div className="border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
           {t('planner.grid.bay')}
         </div>
         {slots.map((slot) => (
           <div
             key={slot.start.toISOString()}
-            className="border-b border-l border-slate-200 bg-slate-50 px-1 py-2 text-center text-xs font-medium text-slate-500"
+            className="border-b border-l border-border bg-muted/50 px-1 py-2 text-center text-xs font-medium text-muted-foreground"
           >
             {slot.label}
           </div>
@@ -127,11 +127,11 @@ export function PlannerDayGrid({
           const bayBookings = bookingsByBay.get(bay.id) ?? []
           return (
             <React.Fragment key={bay.id}>
-              <div className="border-b border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+              <div className="border-b border-border px-3 py-2 text-sm font-semibold text-foreground">
                 {bay.name}
               </div>
               <div
-                className="relative border-b border-slate-200"
+                className="relative border-b border-border"
                 style={{
                   gridColumn: `2 / span ${slots.length}`,
                   display: 'grid',

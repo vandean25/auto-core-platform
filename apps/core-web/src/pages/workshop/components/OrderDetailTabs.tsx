@@ -15,7 +15,7 @@ export function OrderDetailTabs({ orderId }: OrderDetailTabsProps) {
   ]
 
   return (
-    <nav aria-label={t('orderDetail.tabsNavAria')} className="flex gap-1 border-b border-slate-200">
+    <nav aria-label={t('orderDetail.tabsNavAria')} className="flex gap-1 border-b border-border">
       {tabs.map((tab) => (
         <NavLink
           key={tab.to}
@@ -25,8 +25,8 @@ export function OrderDetailTabs({ orderId }: OrderDetailTabsProps) {
             cn(
               '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
               isActive
-                ? 'border-slate-900 text-slate-900'
-                : 'border-transparent text-slate-500 hover:text-slate-800',
+                ? 'border-foreground text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
             )
           }
         >

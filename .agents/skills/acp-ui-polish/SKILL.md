@@ -44,18 +44,64 @@ Semantic classes resolve to the ACP colors defined in `apps/core-web/src/index.c
 <section className="rounded-md border border-gray-200 bg-white p-4">...</section>
 ```
 
-- No `slate-*`, `gray-*` or `amber-*` classes (or any other palette scale) in new code. At least 186 files under `apps/core-web/src` use them today; do not add to that count. Do not copy the palette from `apps/core-web/src/components/ui/PageLoader.tsx`.
-- **Target (T2, AUT-655):** status colors (success, warning, info) and the sidebar and chart tokens. Until they exist, show state with text and an icon, and use `text-destructive` for errors.
-- No arbitrary font sizes such as `text-[11px]`. Use the scale (`text-xs`, `text-sm`). 21 files still use `text-[Npx]`.
+- No `slate-*`, `gray-*` or `amber-*` classes (or any other palette scale) in new code. Many files outside the migrated folders still use them; do not add to that count. Do not copy the palette from `apps/core-web/src/components/ui/PageLoader.tsx`.
+- **Today (T2, AUT-655):** status tokens `success`, `warning`, `info` and `destructive` exist (`text-warning`, `bg-success/15`, `border-info/30`, …). Pair color with text or an icon.
+- No arbitrary font sizes such as `text-[11px]`. Use the scale (`text-xs`, `text-sm`).
 - Spacing comes from the scale (`gap-4`, `p-6`). An arbitrary value needs a one-line comment that says why.
 - Merge class names with `cn()` from `@/lib/utils`, as `apps/core-web/src/components/layout/PageContainer.tsx` does.
+
+### Palette → token mapping (T6, AUT-659)
+
+Use this table when migrating a folder. Neutral palette (`slate`, `gray`, `zinc`, `neutral`, `stone`):
+
+| Palette class | Token |
+| --- | --- |
+| `text-*-700/800/900` | `text-foreground` |
+| `text-*-400/500/600` | `text-muted-foreground` |
+| `text-*-300` | `text-muted-foreground/60` |
+| `hover:text-*` | `hover:text-foreground` |
+| `bg-white` | `bg-card` |
+| `bg-*-50` (also `hover:`) | `bg-muted/50` |
+| `bg-*-100` | `bg-muted` |
+| `bg-*-200` | `bg-border` |
+| `border-*-100/200/300` (incl. `border-l-`) | `border-border` |
+| `border-*-400` | `border-muted-foreground/60` |
+| `hover:border-*-300` | `hover:border-muted-foreground/40` |
+| `border-*-900` | `border-foreground` |
+| `bg-*-900 text-white` (selected toggle) | `bg-foreground text-background` |
+| `ring-*-300` | `ring-muted-foreground/30` |
+| focus `ring-*-400` | `ring-ring` |
+| `border-white` | `border-card` |
+
+Status palette:
+
+| Status | Palette | Token |
+| --- | --- | --- |
+| warning | `amber-50` / `amber-100` bg | `bg-warning/10` / `bg-warning/15` |
+| | `border-amber-200/300/400` | `border-warning/30` / `/40` / `/50` |
+| | `text-amber-600…950` | `text-warning` |
+| destructive | `text-red-*`, `text-rose-*` | `text-destructive` |
+| | `bg-red-50`, `bg-rose-50` / `bg-rose-100` | `bg-destructive/10` (`/5`) / `bg-destructive/15` |
+| | `border-red-200`, `border-rose-200` / `border-red-300` | `border-destructive/30` / `/40` |
+| | `bg-red-500` | `bg-destructive` |
+| success | `text-emerald/green-600/700` | `text-success` |
+| | `bg-emerald-100` / `bg-emerald-500` | `bg-success/15` / `bg-success` |
+| | `border-emerald-200` | `border-success/30` |
+| info | `text-sky-800/900`, `text-blue-700` | `text-info` |
+| | `bg-sky-50`, `bg-blue-50` / `hover:bg-sky-100` | `bg-info/10` / `hover:bg-info/15` |
+| | `border-sky-200`, `ring-sky-200` | `border-info/30`, `ring-info/30` |
+| | `bg-sky-500` | `bg-info` |
+
+Accent bars follow the same status (`border-l-amber-500` → `border-l-warning`). `text-[10px]` and `text-[11px]` become `text-xs`.
+
+**Ratchet:** migrated folders are listed in `apps/core-web/eslint-tokens-ratchet.config.js` (`tokenRatchetFiles`). ESLint fails on any palette class or `text-[Npx]` there. Add a folder after migrating it; never remove one. Details: `apps/core-web/docs/i18n-ci-and-eslint-ratchet.md`.
 
 ## 3. States: loading, empty, error
 
 Every list and detail page renders all three states. Build them before the happy path.
 
 - **Loading:** a `Skeleton` (`apps/core-web/src/components/ui/skeleton.tsx`) shaped like the final content: blocks for cards, rows for lists. No spinner stands in for content. Show the skeleton after a 150–300 ms delay, so a fast response does not flash. Today `DataTable` shows one text row (`dataTable.loading`, "Laden…") while `isLoading` is set; skeleton rows inside `DataTable` are a target. `PageLoader` (`apps/core-web/src/components/ui/PageLoader.tsx`) is the route-level fallback used in `apps/core-web/src/App.tsx` and `apps/core-web/src/app/AppRouteTree.tsx`. It is not a content loader.
-- **Empty:** say what is missing and offer one action, such as "Kunde anlegen". A table passes `emptyStateMessage` to `DataTable`; the default is `dataTable.noResults` ("Keine Ergebnisse."). A page-level empty state uses a shadcn Empty block (**target:** add it with `npx shadcn add` when the first page needs it). Until then, use a `Card` with one sentence and one `Button`.
+- **Empty:** say what is missing and offer one action, such as "Kunde anlegen". A table passes `emptyStateMessage` to `DataTable`; the default is `dataTable.noResults` ("Keine Ergebnisse."). A page-level empty state uses `Empty` (`apps/core-web/src/components/ui/empty.tsx`) with `EmptyTitle`/`EmptyDescription` and one action in `EmptyContent`. Loading presets (`TableSkeleton`, `DetailSkeleton`, `CardSkeleton`) live in `apps/core-web/src/components/ui/skeleton-presets.tsx`.
 - **Error:** one German sentence in Sie-form that says what happened and what to do, plus a Retry button that refetches. Never render raw API text. The backend sends codes, and the client maps them to the `errors` namespace (see `.agents/skills/acp-i18n/SKILL.md`).
 
 ```tsx
@@ -111,7 +157,7 @@ cell: ({ row }) => <TableCell>{row.original.total.toFixed(2)} €</TableCell>,
 
 - **Today:** the app shell wraps every routed page in `PageContainerWithBreadcrumbs` (`apps/core-web/src/App.tsx`, defined in `apps/core-web/src/components/layout/PageBreadcrumbs.tsx`). That renders `PageContainer` (`apps/core-web/src/components/layout/PageContainer.tsx`), which adds `p-6`, takes the page width from the `--container-page` token, and shows the published breadcrumbs. Pages do not wrap themselves.
 - **Detail pages** publish their trail with `usePageBreadcrumbs({ listPath, currentLabel })` (`apps/core-web/src/hooks/usePageBreadcrumbs.ts`). Four pages use it today, for example `apps/core-web/src/pages/customers/CustomerDetail.tsx`.
-- **Target (T5):** `PageHeader`. Until it exists, build the header inline in the page as a flex row with `gap-4`, one `h1` with `text-2xl font-semibold tracking-tight`, and actions on the right. `apps/core-web/src/features/purchase-bills/components/PurchaseBillPageHeader.tsx` shows the markup.
+- **Today (T5):** `PageHeader` (`apps/core-web/src/components/layout/PageHeader.tsx`) with `title`, `description`, `breadcrumbs`, `actions`. Inside a `space-y-6` root pass `className="mb-0"`. It does not size touch targets: give header buttons `max-sm:min-h-11` (or `max-md:`) yourself.
 - **Spacing:** sections on a page use `gap-6`. Cards and form groups inside a section use `gap-4`.
 - **Dense B2B look, not a marketing look.** Default controls are `h-9` (`apps/core-web/src/components/ui/button.tsx`), tables are compact, and work screens have no hero blocks, gradients or decorative illustrations.
 

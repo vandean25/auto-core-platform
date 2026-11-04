@@ -800,7 +800,9 @@
       "closed": "Geschlossen",
       "overbooked": "Überbucht um {{hours}}",
       "fullyBooked": "Voll belegt",
-      "free": "{{hours}} frei"
+      "free": "{{hours}} frei",
+      "meterLabel": "{{bay}} gebuchte Stunden",
+      "meterValue": "{{booked}} von {{capacity}}"
     },
     "chip": {
       "starts": "Beginnt {{time}}",

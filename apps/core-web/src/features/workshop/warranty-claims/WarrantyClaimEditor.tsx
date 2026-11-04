@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -246,7 +247,7 @@ export function WarrantyClaimEditor({
             </h2>
             <StatusBadge status={claim.status} />
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {t("warranty.editor.orderMeta", { orderNumber })}
             {claim.submittedAt
               ? t("warranty.editor.submitted", { date: formatDate(claim.submittedAt) })
@@ -292,7 +293,7 @@ export function WarrantyClaimEditor({
         </div>
       </div>
 
-      {statusNotice && <p className="rounded-md bg-slate-50 px-4 py-3 text-sm text-slate-600">{statusNotice}</p>}
+      {statusNotice && <p className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground">{statusNotice}</p>}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-5">
@@ -366,7 +367,7 @@ export function WarrantyClaimEditor({
               </Button>
             </div>
             {!amount.valid && (
-              <p id="warranty-claim-amount-error" role="alert" className="text-sm text-red-600">
+              <p id="warranty-claim-amount-error" role="alert" className="text-sm text-destructive">
                 {t("warranty.editor.amountInvalid")}
               </p>
             )}
@@ -377,9 +378,9 @@ export function WarrantyClaimEditor({
           <fieldset className="space-y-1.5">
             <legend className="text-sm font-medium leading-none">{t("warranty.editor.affectedLines")}</legend>
             {rows.length === 0 ? (
-              <p className="rounded-md border border-dashed p-4 text-sm text-slate-500">
-                {t("warranty.editor.noLines")}
-              </p>
+              <Empty className="border p-4 md:p-4">
+                <EmptyDescription>{t("warranty.editor.noLines")}</EmptyDescription>
+              </Empty>
             ) : (
               <ul className="max-h-72 divide-y overflow-y-auto rounded-md border">
                 {rows.map((row) => {
@@ -397,10 +398,10 @@ export function WarrantyClaimEditor({
                         onCheckedChange={(value) => toggleLine(row.id, value === true)}
                       />
                       <label htmlFor={`warranty-line-${row.id}`} className="flex-1 space-y-0.5 text-sm">
-                        <span className="block font-medium text-slate-900">
+                        <span className="block font-medium text-foreground">
                           {row.itemNo} · {row.description}
                         </span>
-                        <span className="block text-slate-500">
+                        <span className="block text-muted-foreground">
                           {row.type === "LABOR"
                             ? t("warranty.editor.lineTypeLabor")
                             : t("warranty.editor.lineTypePart")}
@@ -408,12 +409,12 @@ export function WarrantyClaimEditor({
                           {formatEur(row.unitPrice)} = {formatEur(row.netCents / 100)}
                         </span>
                         {row.cancelledOnOrder && (
-                          <span className="block text-xs text-red-700">
+                          <span className="block text-xs text-destructive">
                             {t("warranty.editor.cancelledOnOrder")}
                           </span>
                         )}
                         {claimedBy && !checked && (
-                          <span className="block text-xs text-amber-700">
+                          <span className="block text-xs text-warning">
                             {t("warranty.editor.alreadyOn", { claim: claimedBy })}
                           </span>
                         )}
@@ -423,7 +424,7 @@ export function WarrantyClaimEditor({
                 })}
               </ul>
             )}
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               {t("warranty.editor.selectedLinesNet")}{" "}
               <span className="font-medium tabular-nums">{formatEur(selectedCents / 100)}</span>
             </p>

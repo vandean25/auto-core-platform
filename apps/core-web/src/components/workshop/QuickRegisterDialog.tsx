@@ -56,7 +56,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                                 aria-describedby={errors.vin ? 'vin-error' : undefined}
                                 {...register('vin', { required: true })}
                             />
-                            {errors.vin && <span id="vin-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
+                            {errors.vin && <span id="vin-error" className="text-destructive text-xs">{t('quickRegister.required')}</span>}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="plate">{t('quickRegister.plate')}</Label>
@@ -66,7 +66,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                                 aria-describedby={errors.plate ? 'plate-error' : undefined}
                                 {...register('plate', { required: true })}
                             />
-                            {errors.plate && <span id="plate-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
+                            {errors.plate && <span id="plate-error" className="text-destructive text-xs">{t('quickRegister.required')}</span>}
                         </div>
                     </div>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -78,7 +78,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                                 aria-describedby={errors.make ? 'make-error' : undefined}
                                 {...register('make', { required: true })}
                             />
-                            {errors.make && <span id="make-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
+                            {errors.make && <span id="make-error" className="text-destructive text-xs">{t('quickRegister.required')}</span>}
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="model">{t('quickRegister.model')}</Label>
@@ -88,7 +88,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                                 aria-describedby={errors.model ? 'model-error' : undefined}
                                 {...register('model', { required: true })}
                             />
-                            {errors.model && <span id="model-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
+                            {errors.model && <span id="model-error" className="text-destructive text-xs">{t('quickRegister.required')}</span>}
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -100,7 +100,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                             aria-describedby={errors.year ? 'year-error' : undefined}
                             {...register('year', { required: true, min: 1900 })}
                         />
-                        {errors.year && <span id="year-error" className="text-red-500 text-xs">{t('quickRegister.yearInvalid')}</span>}
+                        {errors.year && <span id="year-error" className="text-destructive text-xs">{t('quickRegister.yearInvalid')}</span>}
                     </div>
 
                     <div className="pt-2 border-t">
@@ -114,7 +114,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                                     aria-describedby={errors.firstName ? 'firstName-error' : undefined}
                                     {...register('firstName', { required: true })}
                                 />
-                                {errors.firstName && <span id="firstName-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
+                                {errors.firstName && <span id="firstName-error" className="text-destructive text-xs">{t('quickRegister.required')}</span>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="lastName">{t('quickRegister.lastName')}</Label>
@@ -124,7 +124,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                                     aria-describedby={errors.lastName ? 'lastName-error' : undefined}
                                     {...register('lastName', { required: true })}
                                 />
-                                {errors.lastName && <span id="lastName-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
+                                {errors.lastName && <span id="lastName-error" className="text-destructive text-xs">{t('quickRegister.required')}</span>}
                             </div>
                         </div>
                          <div className="space-y-2 mt-2">

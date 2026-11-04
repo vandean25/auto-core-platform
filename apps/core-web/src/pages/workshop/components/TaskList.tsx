@@ -1,6 +1,7 @@
 import { Plus, Search, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -93,7 +94,9 @@ function RepairTasksCard({
       </CardHeader>
       <CardContent className='space-y-2'>
         {tasks.length === 0 && (
-          <div className='text-sm text-muted-foreground'>{t('taskList.noTasks')}</div>
+          <Empty className='p-6 md:p-6'>
+            <EmptyDescription>{t('taskList.noTasks')}</EmptyDescription>
+          </Empty>
         )}
         {tasks.map((task) => (
           <TaskAccordionRow
@@ -165,7 +168,7 @@ function ReportedIssueCard({ order, isLocked, onSave }: ReportedIssueCardProps) 
         <div className='flex items-center justify-between'>
           <CardTitle className='text-base font-semibold'>{t('taskList.reportedIssue')}</CardTitle>
           {order.status !== 'COMPLETED' && (
-            <Badge className='border-rose-200 bg-rose-100 text-rose-800 hover:bg-rose-100'>
+            <Badge className='border-destructive/30 bg-destructive/15 text-destructive hover:bg-destructive/15'>
               {t('taskList.highPriority')}
             </Badge>
           )}

@@ -72,7 +72,7 @@ export function StartServiceDialog({
                             aria-describedby={errors.odometer ? 'odometer-error' : undefined}
                             {...register('odometer', { required: true, min: 0 })}
                         />
-                        {errors.odometer && <span id="odometer-error" className="text-red-500 text-xs">{t('startService.required')}</span>}
+                        {errors.odometer && <span id="odometer-error" className="text-destructive text-xs">{t('startService.required')}</span>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="fuelLevel">{t('startService.fuelLevel')}</Label>
@@ -83,7 +83,7 @@ export function StartServiceDialog({
                             aria-describedby={errors.fuelLevel ? 'fuelLevel-error' : undefined}
                             {...register('fuelLevel', { required: true, min: 0, max: 100 })}
                         />
-                        {errors.fuelLevel && <span id="fuelLevel-error" className="text-red-500 text-xs">{t('startService.fuelRange')}</span>}
+                        {errors.fuelLevel && <span id="fuelLevel-error" className="text-destructive text-xs">{t('startService.fuelRange')}</span>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="notes">{t('startService.notes')}</Label>

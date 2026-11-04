@@ -241,15 +241,15 @@ export function PlannerCreateSheet({
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('planner.createSheet.searchPlaceholder')}
             />
-            {searchLoading && <p className="text-xs text-slate-500">{t('planner.createSheet.searching')}</p>}
+            {searchLoading && <p className="text-xs text-muted-foreground">{t('planner.createSheet.searching')}</p>}
             {vehicles.length > 0 && (
-              <ul className="rounded-md border border-slate-200 divide-y max-h-40 overflow-y-auto">
+              <ul className="rounded-md border border-border divide-y max-h-40 overflow-y-auto">
                 {vehicles.map((vehicle) => (
                   <li key={vehicle.id}>
                     <button
                       type="button"
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                        selectedVehicle?.id === vehicle.id ? 'bg-slate-100' : ''
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-muted/50 ${
+                        selectedVehicle?.id === vehicle.id ? 'bg-muted' : ''
                       }`}
                       onClick={() => setSelectedVehicle(vehicle as ExistingVehicle)}
                     >
@@ -257,10 +257,10 @@ export function PlannerCreateSheet({
                         {vehicle.year} {vehicle.make} {vehicle.model}
                       </span>
                       {vehicle.plate && (
-                        <span className="text-slate-500"> · {vehicle.plate}</span>
+                        <span className="text-muted-foreground"> · {vehicle.plate}</span>
                       )}
                       {vehicle.customer && (
-                        <span className="block text-xs text-slate-500">
+                        <span className="block text-xs text-muted-foreground">
                           {vehicle.customer.first_name} {vehicle.customer.last_name}
                         </span>
                       )}
@@ -342,7 +342,7 @@ export function PlannerCreateSheet({
           </div>
 
           {outsideHours && (
-            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+            <Alert className="border-warning/30 bg-warning/10 text-warning">
               <AlertTitle>{t('planner.createSheet.outsideHoursTitle')}</AlertTitle>
               <AlertDescription>{t('planner.createSheet.outsideHoursDescription')}</AlertDescription>
             </Alert>
@@ -354,7 +354,7 @@ export function PlannerCreateSheet({
           />
 
           {mechanicOverlap && (
-            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+            <Alert className="border-warning/30 bg-warning/10 text-warning">
               <AlertTitle>{t('planner.createSheet.mechanicDoubleBookedTitle')}</AlertTitle>
               <AlertDescription>
                 {t('planner.createSheet.mechanicDoubleBookedDescription', {

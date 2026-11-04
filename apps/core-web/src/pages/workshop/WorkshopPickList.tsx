@@ -66,6 +66,7 @@ export default function WorkshopPickList() {
   const columns: ColumnDef<WorkshopPickQueueRow>[] = [
     {
       accessorKey: 'orderNo',
+      meta: { mobile: 'trailing' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('pick.queue.columns.orderNo')} />
       ),
@@ -73,12 +74,14 @@ export default function WorkshopPickList() {
     },
     {
       accessorKey: 'customer',
+      meta: { mobile: 'title' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('pick.queue.columns.customer')} />
       ),
     },
     {
       accessorKey: 'vehicle',
+      meta: { mobile: 'subtitle' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('pick.queue.columns.vehicle')} />
       ),
@@ -106,6 +109,7 @@ export default function WorkshopPickList() {
     },
     {
       accessorKey: 'status',
+      meta: { mobile: 'status' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('pick.queue.columns.status')} />
       ),
@@ -118,7 +122,7 @@ export default function WorkshopPickList() {
       <div className={PAGE_HEADER_ROW}>
         <div className='min-w-0 max-sm:w-full'>
           <h1 className='text-2xl font-semibold tracking-tight'>{t('pick.queue.title')}</h1>
-          <p className='text-slate-500'>{t('pick.queue.description')}</p>
+          <p className='text-muted-foreground'>{t('pick.queue.description')}</p>
         </div>
         <div className='flex items-center gap-2 max-sm:flex-wrap'>
           <Button variant='outline' onClick={() => navigate('/workshop/orders')}>
