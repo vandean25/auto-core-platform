@@ -37,6 +37,14 @@ export class ImportJobListItemDto {
   @ApiProperty({ type: String, nullable: true })
   created_by!: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Display name of the importing user; null when the user no longer exists.',
+  })
+  created_by_name!: string | null;
+
   @ApiProperty()
   created_at!: string;
 
