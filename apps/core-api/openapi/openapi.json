@@ -38629,6 +38629,11 @@
             "type": "string",
             "nullable": true
           },
+          "created_by_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Display name of the importing user; null when the user no longer exists."
+          },
           "created_at": {
             "type": "string"
           },
@@ -38654,6 +38659,7 @@
           "file_name",
           "totals",
           "created_by",
+          "created_by_name",
           "created_at",
           "applied_at",
           "cancellable",

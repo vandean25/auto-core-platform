@@ -11596,6 +11596,8 @@ export interface components {
             file_name: string;
             totals: components["schemas"]["ImportJobListTotalsDto"];
             created_by: string | null;
+            /** @description Display name of the importing user; null when the user no longer exists. */
+            created_by_name: string | null;
             created_at: string;
             applied_at: string | null;
             cancellable: boolean;
