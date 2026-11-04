@@ -63,7 +63,7 @@ function ShorteningFields({
         <p
           id="shortening-block-reason"
           role={saveError ? 'alert' : undefined}
-          className="text-xs text-rose-600"
+          className="text-xs text-destructive"
         >
           {message}
         </p>
@@ -79,7 +79,7 @@ function GarantieFields({ form, locked }: { form: VehicleSaleForm; locked: boole
     <div className="space-y-2 border-t pt-3">
       <h3 className="text-sm font-medium">{t('sale.warranty.optionalTitle')}</h3>
       <label className="block space-y-1 text-sm">
-        <span className="text-slate-500">{t('sale.warranty.months')}</span>
+        <span className="text-muted-foreground">{t('sale.warranty.months')}</span>
         <Input
           aria-label={t('sale.warranty.monthsAria')}
           type="number"
@@ -94,10 +94,10 @@ function GarantieFields({ form, locked }: { form: VehicleSaleForm; locked: boole
         />
       </label>
       {form.garantie.valid ? null : (
-        <p id="garantie-months-error" role="alert" className="text-xs text-rose-600">{t('sale.warranty.monthsError')}</p>
+        <p id="garantie-months-error" role="alert" className="text-xs text-destructive">{t('sale.warranty.monthsError')}</p>
       )}
       <label className="block space-y-1 text-sm">
-        <span className="text-slate-500">{t('sale.warranty.terms')}</span>
+        <span className="text-muted-foreground">{t('sale.warranty.terms')}</span>
         <textarea
           aria-label={t('sale.warranty.terms')}
           maxLength={2000}
@@ -107,7 +107,7 @@ function GarantieFields({ form, locked }: { form: VehicleSaleForm; locked: boole
           onChange={(event) => form.setGarantieTerms(event.target.value)}
         />
       </label>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         {t('sale.warranty.termsHint')}
       </p>
     </div>
@@ -150,13 +150,13 @@ export function VehicleSaleWarrantySection({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
+                className="h-11 w-11 sm:h-5 sm:w-5 text-muted-foreground hover:text-foreground"
                 aria-label={t('sale.warranty.repairsNoteAria')}
               >
                 <Info className="h-3.5 w-3.5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 text-xs text-slate-600" aria-label={t('sale.warranty.repairsNoteAria')}>
+            <PopoverContent className="w-72 text-xs text-muted-foreground" aria-label={t('sale.warranty.repairsNoteAria')}>
               {t('sale.warranty.repairsNote')}
             </PopoverContent>
           </Popover>
@@ -165,7 +165,7 @@ export function VehicleSaleWarrantySection({
       </div>
       {sale?.gewaehrleistung_ends_on ? <GewaehrleistungFristen sale={sale} /> : null}
       <label className="block space-y-1 text-sm">
-        <span className="text-slate-500">{t('sale.contractDate')}</span>
+        <span className="text-muted-foreground">{t('sale.contractDate')}</span>
         <Input
           aria-label={t('sale.contractDate')}
           type="date"
@@ -175,7 +175,7 @@ export function VehicleSaleWarrantySection({
         />
       </label>
       <label className="block space-y-1 text-sm">
-        <span className="text-slate-500">{t('sale.handoverDate')}</span>
+        <span className="text-muted-foreground">{t('sale.handoverDate')}</span>
         <Input
           aria-label={t('sale.handoverDate')}
           type="date"
@@ -193,7 +193,7 @@ export function VehicleSaleWarrantySection({
         clearSaveError={clearShorteningSaveError}
       />
       <label className="block space-y-1 text-sm">
-        <span className="text-slate-500">{t('sale.warranty.note')}</span>
+        <span className="text-muted-foreground">{t('sale.warranty.note')}</span>
         <textarea
           aria-label={t('sale.warranty.note')}
           disabled={locked}

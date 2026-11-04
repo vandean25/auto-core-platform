@@ -16,13 +16,13 @@ function GewaehrleistungRepairsInfo() {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
+          className="h-11 w-11 sm:h-5 sm:w-5 text-muted-foreground hover:text-foreground"
           aria-label={t('gewaehrleistungSection.repairsNoteAria')}
         >
           <Info className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 text-xs text-slate-600" aria-label={t('gewaehrleistungSection.repairsNoteAria')}>
+      <PopoverContent className="w-72 text-xs text-muted-foreground" aria-label={t('gewaehrleistungSection.repairsNoteAria')}>
         {t('gewaehrleistungSection.repairsNote')}
       </PopoverContent>
     </Popover>
@@ -58,7 +58,7 @@ export function VehicleGewaehrleistungSection({ sales }: VehicleGewaehrleistungS
         ) : hasCompleteConsumerSnapshot ? (
           <GewaehrleistungFristen sale={sale} />
         ) : <p className="text-sm">{t('gewaehrleistungSection.dataUnknown')}</p>
-      ) : <p className="text-sm text-slate-500">{t('gewaehrleistungSection.noSale')}</p>}
+      ) : <p className="text-sm text-muted-foreground">{t('gewaehrleistungSection.noSale')}</p>}
     </section>
   )
 }

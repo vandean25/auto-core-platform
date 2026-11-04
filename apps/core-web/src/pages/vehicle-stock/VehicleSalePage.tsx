@@ -76,7 +76,7 @@ export default function VehicleSalePage() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-4">
           <div className="space-y-1 text-sm">
-            <span className="text-slate-500">{t('sale.buyer')}</span>
+            <span className="text-muted-foreground">{t('sale.buyer')}</span>
             <CustomerSearch value={form.customer} onChange={handleCustomerChange} />
           </div>
           <VehicleSaleTradeInSection
@@ -89,7 +89,7 @@ export default function VehicleSalePage() {
         </div>
         <div className="space-y-4">
           <label className="space-y-1 text-sm">
-            <span className="text-slate-500">{t('sale.salePriceGross')}</span>
+            <span className="text-muted-foreground">{t('sale.salePriceGross')}</span>
             <Input
               disabled={locked}
               type="number"

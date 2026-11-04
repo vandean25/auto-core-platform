@@ -8,6 +8,11 @@ export const tokenRatchetFiles = [
   'src/pages/workshop/**/*.{ts,tsx}',
   'src/components/workshop/**/*.{ts,tsx}',
   'src/features/workshop/**/*.{ts,tsx}',
+  'src/pages/vehicles/**/*.{ts,tsx}',
+  'src/components/vehicles/**/*.{ts,tsx}',
+  'src/pages/vehicle-stock/**/*.{ts,tsx}',
+  'src/components/vehicle-stock/**/*.{ts,tsx}',
+  'src/features/vehicle-stock/**/*.{ts,tsx}',
 ]
 
 const utility =

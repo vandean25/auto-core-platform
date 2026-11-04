@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePickerlDueList } from '@/api/vehicles'
-import { Loader2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 function PickerlDueDashboardWidgetContent({ window }: { window: 30 | 60 | 90 }) {
   const { t } = useTranslation('vehicles')
@@ -12,18 +12,18 @@ function PickerlDueDashboardWidgetContent({ window }: { window: 30 | 60 | 90 }) 
 
   return (
     <Card
-      className="cursor-pointer transition-colors hover:bg-slate-50"
+      className="cursor-pointer transition-colors hover:bg-muted/50"
       onClick={() => navigate(`/vehicles/pickerl-due?filter_window=${window}`)}
     >
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-slate-500">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
           {t('dashboardWidgets.pickerlDueTitle', { count: window })}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold">
           {isLoading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            <Skeleton className="h-9 w-12" />
           ) : (
             data?.meta?.total ?? 0
           )}

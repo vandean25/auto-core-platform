@@ -8,9 +8,9 @@ import type { VehicleSale, VehicleStockDetail } from '@/api/vehicle-stock'
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 const SAVE_STATUS_CLASS: Record<Exclude<SaveStatus, 'idle'>, string> = {
-  saving: 'text-slate-500',
-  saved: 'text-emerald-600',
-  error: 'text-rose-600',
+  saving: 'text-muted-foreground',
+  saved: 'text-success',
+  error: 'text-destructive',
 }
 
 /** Top-left context: back link, title, vehicle, status and the invoice of the sale. */
@@ -37,7 +37,7 @@ export function VehicleSaleTitle({
       </Button>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('sale.title')}</h1>
-        <p className="text-slate-500">
+        <p className="text-muted-foreground">
           {vehicle
             ? t('sale.vehicleSummary', {
                 year: vehicle.year,
@@ -52,7 +52,7 @@ export function VehicleSaleTitle({
       {sale?.invoice ? (
         <Link
           to={`/sales/invoices/${sale.invoice.id}`}
-          className="text-sm font-medium text-slate-700 underline-offset-4 hover:underline"
+          className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
         >
           {sale.invoice.invoice_number
             ? t('sale.invoiceLink', { number: sale.invoice.invoice_number })

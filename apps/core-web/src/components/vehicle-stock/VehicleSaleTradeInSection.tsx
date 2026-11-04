@@ -192,17 +192,17 @@ export function VehicleSaleTradeInSection({
       <div className="flex items-center justify-between">
         <h2 id="trade-in-form-title" className="font-medium">{t('sale.tradeIn.title')}</h2>
         <div role="status" aria-live="polite" className="text-sm">
-          {saveStatus === 'saving' && <span className="text-slate-500">{t('sale.tradeIn.saveStatus.saving')}</span>}
-          {saveStatus === 'saved' && <span className="text-emerald-600">{t('sale.tradeIn.saveStatus.saved')}</span>}
-          {saveStatus === 'error' && <span className="text-rose-600">{t('sale.tradeIn.saveStatus.error')}</span>}
+          {saveStatus === 'saving' && <span className="text-muted-foreground">{t('sale.tradeIn.saveStatus.saving')}</span>}
+          {saveStatus === 'saved' && <span className="text-success">{t('sale.tradeIn.saveStatus.saved')}</span>}
+          {saveStatus === 'error' && <span className="text-destructive">{t('sale.tradeIn.saveStatus.error')}</span>}
         </div>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         {saleId ? t('sale.tradeIn.hintWithSale') : t('sale.tradeIn.hintSaveFirst')}
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.allowanceLabel')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.allowanceLabel')}</span>
           <Input
             type="number"
             min={0}
@@ -214,23 +214,23 @@ export function VehicleSaleTradeInSection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.vin')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.vin')}</span>
           <Input maxLength={17} disabled={!canEdit} {...fieldErrorProps('vin')} value={draft.vin} onChange={handleFieldChange('vin')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.make')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.make')}</span>
           <Input disabled={!canEdit} {...fieldErrorProps('make')} value={draft.make} onChange={handleFieldChange('make')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.model')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.model')}</span>
           <Input disabled={!canEdit} {...fieldErrorProps('model')} value={draft.model} onChange={handleFieldChange('model')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.year')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.year')}</span>
           <Input type="number" disabled={!canEdit} {...fieldErrorProps('year')} value={draft.year} onChange={handleFieldChange('year')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.mileage')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.mileage')}</span>
           <Input
             type="number"
             min={0}
@@ -241,7 +241,7 @@ export function VehicleSaleTradeInSection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.firstRegistration')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.firstRegistration')}</span>
           <Input
             type="date"
             disabled={!canEdit}
@@ -251,11 +251,11 @@ export function VehicleSaleTradeInSection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">{t('sale.tradeIn.plateOptional')}</span>
+          <span className="text-muted-foreground">{t('sale.tradeIn.plateOptional')}</span>
           <Input disabled={!canEdit} value={draft.plate} onChange={handleFieldChange('plate')} />
         </label>
       </div>
-      <p id={VALIDATION_MESSAGE_ID} aria-live="polite" className="text-xs text-rose-600">
+      <p id={VALIDATION_MESSAGE_ID} aria-live="polite" className="text-xs text-destructive">
         {validationMessage}
       </p>
       {amountDue ? (

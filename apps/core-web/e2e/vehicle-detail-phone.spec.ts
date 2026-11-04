@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import deVehicles from '../../../locales/de/vehicles.json' with { type: 'json' }
-import { createMockCustomer, createMockVehicleListItem } from './utils/mock-factories'
+import deVehicleStock from '../../../locales/de/vehicleStock.json' with { type: 'json' }
+import { createMockCustomer, createMockVehicleListItem, createMockVehicleStockRow } from './utils/mock-factories'
 import { controlsOutsideTheirCard, controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 
 /** AUT-792: the vehicle detail header stacks on a phone, the Pickerl actions wrap inside the card and the tabs fit. */
@@ -100,5 +101,33 @@ test.describe('Vehicle detail on a phone (AUT-792)', () => {
     const edit = (await page.getByRole('button', { name: deVehicles.detail.editVehicle }).boundingBox())!
     expect(edit.x).toBeGreaterThan(title.x + title.width)
     expect(Math.abs(edit.y - title.y)).toBeLessThan(60)
+  })
+
+  // AUT-659 scenario 5: the vehicle stock detail (token and PageHeader migration) keeps the phone layout.
+  test('WHEN the vehicle stock detail opens at 375px THEN there is no horizontal scroll and targets are at least 44px', async ({ page }) => {
+    const stock = createMockVehicleStockRow({ id: 'stock-phone-1' })
+    await mockJson(page, `/api/vehicle-stock/${stock.id}`, {
+      ...stock,
+      cost_basis: '12345.60',
+      key_number: null,
+      registration_certificate_no: null,
+      reserved_for_customer_id: null,
+      reserved_for_customer: null,
+      location_id: null,
+      ledger_entries: [{ id: 'l1', entry_type: 'PURCHASE', amount: '12345.60' }],
+      purchases: [],
+      sales: [],
+      workshop_orders: [],
+    })
+    await page.setViewportSize({ width: 375, height: 844 })
+    await page.goto(`/vehicle-stock/${stock.id}`)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
+    for (const name of [deVehicleStock.stockDetail.backAria, deVehicleStock.listing.title, deVehicleStock.stockDetail.stockPrep, deVehicleStock.stockDetail.sell]) {
+      const box = (await page.getByRole('button', { name }).first().boundingBox())!
+      expect(box.x + box.width, name).toBeLessThanOrEqual(375)
+      expect(box.height, name).toBeGreaterThanOrEqual(44)
+    }
+    await expectNoPageScroll(page)
   })
 })

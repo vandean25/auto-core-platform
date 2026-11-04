@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/layout/PageHeader'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -151,10 +152,7 @@ export default function GewaehrleistungDueList() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t('gewaehrleistungDue.title')}</h1>
-        <p className="text-slate-500">{t('gewaehrleistungDue.description')}</p>
-      </div>
+      <PageHeader className="mb-0" title={t('gewaehrleistungDue.title')} description={t('gewaehrleistungDue.description')} />
       <label className="block max-w-xs space-y-1 text-sm">
         <span>{t('gewaehrleistungDue.windowLabel')}</span>
         <select

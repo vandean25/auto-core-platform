@@ -5,6 +5,9 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { TableSkeleton } from '@/components/ui/skeleton-presets'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useVehicleStockAgeReport, useVehicleStockMarginReport, type VehicleStockAgeBucket, type VehicleStockAgeReportRow, type VehicleStockMarginReportRow } from '@/api/vehicle-stock'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
@@ -173,7 +176,7 @@ export default function VehicleStockReportsPage() {
       <div className="flex items-center justify-between max-sm:flex-wrap max-sm:gap-4 max-sm:[&_a]:min-h-11 max-sm:[&_button]:min-h-11">
         <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('reports.title')}</h1>
-          <p className="text-slate-500">{t('reports.description')}</p>
+          <p className="text-muted-foreground">{t('reports.description')}</p>
         </div>
         <div className="flex gap-2 max-sm:flex-wrap">
           <Button variant="outline" onClick={() => navigate('/vehicle-stock')}>{t('reports.stock')}</Button>
@@ -224,7 +227,6 @@ export default function VehicleStockReportsPage() {
           </div>
           <ReportTable
             loading={isLoading}
-            loadingLabel={t('reports.loadingRow')}
             headers={ageHeaders}
             rows={stockAgeTableRows.map((row) => [
               `${row.make} ${row.model} (${row.year})`, row.vin ?? emDash, row.plate ?? emDash,
@@ -234,7 +236,7 @@ export default function VehicleStockReportsPage() {
             ])}
             onRowClick={(index) => navigate(`/vehicle-stock/${stockAgeTableRows[index].id}`)}
           />
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {t('reports.over90Summary', {
               count: ageReport.data?.summary.over_90_count ?? 0,
               cost: formatMoney(ageReport.data?.summary.over_90_cost_basis ?? '0.00'),
@@ -257,7 +259,6 @@ export default function VehicleStockReportsPage() {
           </CardContent></Card>
           <ReportTable
             loading={isLoading}
-            loadingLabel={t('reports.loadingRow')}
             headers={marginHeaders}
             rows={marginTableRows.map((row) => [
               formatDate(row.invoice_date), row.sale_number,
@@ -277,8 +278,11 @@ export default function VehicleStockReportsPage() {
           <Button variant="outline" disabled={page >= (pageCount ?? 0)} onClick={() => setPage((current) => current + 1)}>{t('reports.paginationNext')}</Button>
         </div>
       </div>
-      {isLoading ? <span className="sr-only">{t('reports.loadingSr')}</span> : null}
-      {activeRows.length === 0 && !isLoading ? <p className="text-center text-sm text-slate-500">{t('reports.empty')}</p> : null}
+      {activeRows.length === 0 && !isLoading ? (
+        <Empty className="p-6 md:p-6">
+          <EmptyDescription>{t('reports.empty')}</EmptyDescription>
+        </Empty>
+      ) : null}
     </div>
   )
 }
@@ -287,27 +291,27 @@ function ReportTable({
   headers,
   rows,
   loading,
-  loadingLabel,
   onRowClick,
 }: {
   headers: string[]
   rows: string[][]
   loading: boolean
-  loadingLabel: string
   onRowClick?: (index: number) => void
 }) {
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-slate-50"><tr>{headers.map((header) => <th key={header} className="px-3 py-2 font-medium">{header}</th>)}</tr></thead>
-        <tbody>
-          {loading ? <tr><td className="px-3 py-6 text-center" colSpan={headers.length}>{loadingLabel}</td></tr> : rows.map((row, index) => (
-            <tr key={`${row[0]}-${index}`} className="border-t hover:bg-slate-50" onClick={() => onRowClick?.(index)}>
-              {row.map((cell, cellIndex) => <td key={`${headers[cellIndex]}-${index}`} className="whitespace-nowrap px-3 py-2">{cell}</td>)}
-            </tr>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>{headers.map((header) => <TableHead key={header}>{header}</TableHead>)}</TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading ? <TableSkeleton cols={headers.length} /> : rows.map((row, index) => (
+            <TableRow key={`${row[0]}-${index}`} className={onRowClick ? 'cursor-pointer' : undefined} onClick={() => onRowClick?.(index)}>
+              {row.map((cell, cellIndex) => <TableCell key={`${headers[cellIndex]}-${index}`} className="whitespace-nowrap">{cell}</TableCell>)}
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }

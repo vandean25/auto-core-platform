@@ -1,3 +1,6 @@
+import { PageHeader } from '@/components/layout/PageHeader'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -396,7 +399,7 @@ export default function VehicleListingEditorPage() {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm space-y-3">
         <h2 className="font-medium text-base">{t('listing.loadError.title')}</h2>
-        <p className="text-slate-700">{t('listing.loadError.description')}</p>
+        <p className="text-foreground">{t('listing.loadError.description')}</p>
         <Button size="sm" onClick={() => void listingQuery.refetch()}>
           {t('listing.loadError.retry')}
         </Button>
@@ -408,7 +411,7 @@ export default function VehicleListingEditorPage() {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm space-y-3">
         <h2 className="font-medium text-base">{t('listing.createError.title')}</h2>
-        <p className="text-slate-700">{t('listing.createError.description')}</p>
+        <p className="text-foreground">{t('listing.createError.description')}</p>
         <Button
           size="sm"
           onClick={() => {
@@ -423,15 +426,19 @@ export default function VehicleListingEditorPage() {
   }
 
   if (vehicleLoading || listingQuery.isLoading || creatingListing) {
-    return <p className="text-slate-500">{t('listing.loading')}</p>
+    return <DetailSkeleton label={t('listing.loading')} />
   }
 
   if (!stockPurchaseId) {
-    return <p className="text-slate-500">{t('listing.noStockCycle')}</p>
+    return (
+      <Empty>
+        <EmptyDescription>{t('listing.noStockCycle')}</EmptyDescription>
+      </Empty>
+    )
   }
 
   if (!vehicle || !draft || !listingQuery.data) {
-    return <p className="text-slate-500">{t('listing.creating')}</p>
+    return <DetailSkeleton label={t('listing.creating')} />
   }
 
   const listing = listingQuery.data
@@ -449,30 +456,28 @@ export default function VehicleListingEditorPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <PageHeader
+        className="mb-0"
+        leading={
           <Button
             variant="ghost"
             size="icon"
+            className="max-sm:min-h-11 max-sm:min-w-11"
             aria-label={t('listing.backToStock')}
             onClick={() => navigate(APP_ROUTE_PATHS.vehicleStockDetail.replace(':vehicleId', vehicleId))}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t('listing.title')}</h1>
-            <p className="text-slate-500">
-              {vehicle.year} {vehicle.make} {vehicle.model}
-            </p>
-          </div>
-        </div>
-        <DocumentSaveIndicator status={displaySaveStatus} />
-      </div>
+        }
+        title={t('listing.title')}
+        description={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+        actions={<DocumentSaveIndicator status={displaySaveStatus} />}
+      />
 
       {revisionConflict ? (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm">
           <p className="font-medium">{t('listing.revisionConflict.title')}</p>
-          <p className="mt-1 text-slate-700">{t('listing.revisionConflict.description')}</p>
+          <p className="mt-1 text-foreground">{t('listing.revisionConflict.description')}</p>
           <Button className="mt-3" size="sm" onClick={() => void refreshFromServer()}>
             {t('listing.revisionConflict.refresh')}
           </Button>
@@ -482,7 +487,7 @@ export default function VehicleListingEditorPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
           <section className="rounded-lg border p-4 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {t('listing.sections.content')}
             </h2>
             <div>
@@ -559,7 +564,7 @@ export default function VehicleListingEditorPage() {
             />
             {typeof listing.price_display?.consumer_hint_de === 'string' &&
             listing.price_display.consumer_hint_de ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 {t('listing.fields.consumerHint')}: {listing.price_display.consumer_hint_de}
               </p>
             ) : null}
@@ -588,7 +593,7 @@ export default function VehicleListingEditorPage() {
           </section>
 
           <section className="rounded-lg border p-4 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {t('listing.sections.exportAssertions')}
             </h2>
             <TriStateAssertion
@@ -654,13 +659,15 @@ export default function VehicleListingEditorPage() {
           </section>
 
           <section className="rounded-lg border p-4 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {t('listing.sections.photos')}
             </h2>
-            <p className="text-xs text-slate-500">{t('listing.sections.photosHint')}</p>
+            <p className="text-xs text-muted-foreground">{t('listing.sections.photosHint')}</p>
             <ListingFieldErrors issues={mobileIssues} field="images" />
             {photos.length === 0 ? (
-              <p className="text-sm text-slate-500">{t('listing.photos.empty')}</p>
+              <Empty className="p-4 md:p-4">
+                <EmptyDescription>{t('listing.photos.empty')}</EmptyDescription>
+              </Empty>
             ) : (
               <ul className="space-y-2">
                 {orderedListingPhotos.map((photo, index) => (
@@ -670,7 +677,7 @@ export default function VehicleListingEditorPage() {
                   >
                     <div className="text-sm">
                       <span className="font-medium">#{index + 1}</span>
-                      <span className="text-slate-500">
+                      <span className="text-muted-foreground">
                         {' '}
                         · {photo.width}×{photo.height}
                       </span>
@@ -713,7 +720,7 @@ export default function VehicleListingEditorPage() {
                     key={photo.id}
                     className="flex flex-wrap items-center justify-between gap-2 rounded border border-dashed p-2 opacity-80"
                   >
-                    <div className="text-sm text-slate-500">
+                    <div className="text-sm text-muted-foreground">
                       <span className="font-medium">—</span>
                       <span>
                         {' '}
@@ -736,10 +743,10 @@ export default function VehicleListingEditorPage() {
           </section>
 
           <section className="rounded-lg border p-4 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {t('listing.sections.equipment')}
             </h2>
-            <p className="text-xs text-slate-500">{t('listing.sections.equipmentHint')}</p>
+            <p className="text-xs text-muted-foreground">{t('listing.sections.equipmentHint')}</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {equipmentOptions.map((option) => {
                 const assertion = equipmentSelectionMap.get(option.id) ?? null
@@ -787,7 +794,7 @@ export default function VehicleListingEditorPage() {
           </section>
 
           <section className="rounded-lg border p-4 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {t('listing.sections.portals')}
             </h2>
             {validationQuery.isError ? (
@@ -812,7 +819,7 @@ export default function VehicleListingEditorPage() {
           </section>
 
           <section className="rounded-lg border p-4 space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {t('listing.sections.vehicleFields')}
             </h2>
             <ListingFieldErrors issues={mobileIssues} field="vehicle.mileage_km" />
@@ -820,7 +827,7 @@ export default function VehicleListingEditorPage() {
             <ListingFieldErrors issues={mobileIssues} field="vehicle.make_model" />
             <ListingFieldErrors issues={mobileIssues} field="vehicle.stock_status" />
             <ListingFieldErrors issues={mobileIssues} field="vehicle.inventory_role" />
-            <p className="text-xs text-slate-500">{t('listing.vehicleFieldHint')}</p>
+            <p className="text-xs text-muted-foreground">{t('listing.vehicleFieldHint')}</p>
             <Link
               className="text-sm text-primary underline"
               to={APP_ROUTE_PATHS.vehicleStockDetail.replace(':vehicleId', vehicleId)}
@@ -831,10 +838,10 @@ export default function VehicleListingEditorPage() {
         </div>
 
         <aside className="rounded-lg border p-4 space-y-3 h-fit">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {t('listing.sections.preview')}
           </h2>
-          <p className="text-xs text-slate-500">{t('listing.fields.listingRef')}</p>
+          <p className="text-xs text-muted-foreground">{t('listing.fields.listingRef')}</p>
           <p className="font-mono text-sm">{listing.listing_ref}</p>
           <p className="text-lg font-semibold">
             {pricePreview ?? t('listing.preview.untitled')}
@@ -842,7 +849,7 @@ export default function VehicleListingEditorPage() {
           <p className="text-sm whitespace-pre-wrap">
             {draft.description.trim() || t('listing.preview.noDescription')}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             {t('listing.preview.photoCount', { count: orderedListingPhotos.length })}
           </p>
         </aside>

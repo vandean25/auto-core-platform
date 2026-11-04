@@ -91,7 +91,7 @@ export function InspectionImportDialog({
               <StatusBadge status={preview.state} label={stateLabel(preview.state)} />
             </div>
             {preview.reviewed_fields.display_unconfirmed ? (
-              <p className='text-amber-700'>
+              <p className='text-warning'>
                 {String(preview.reviewed_fields.display_unconfirmed)}
               </p>
             ) : null}

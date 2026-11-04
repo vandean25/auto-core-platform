@@ -18,19 +18,19 @@ export function VehicleSaleTaxPreview({
   return (
     <div className="rounded-lg border p-4 grid gap-3 md:grid-cols-3">
       <div>
-        <div className="text-xs text-slate-500">{t('sale.preview.costBasis')}</div>
+        <div className="text-xs text-muted-foreground">{t('sale.preview.costBasis')}</div>
         <div className="font-medium">
           {costPreview != null ? formatCurrency(costPreview) : emDash}
         </div>
       </div>
       <div>
-        <div className="text-xs text-slate-500">{t('sale.preview.marginVat')}</div>
+        <div className="text-xs text-muted-foreground">{t('sale.preview.marginVat')}</div>
         <div className="font-medium">
           {vatPreview != null ? formatCurrency(vatPreview) : emDash}
         </div>
       </div>
       <div>
-        <div className="text-xs text-slate-500">{t('sale.preview.taxMode')}</div>
+        <div className="text-xs text-muted-foreground">{t('sale.preview.taxMode')}</div>
         <div className="font-medium">{t('sale.preview.taxModeMarginScheme')}</div>
       </div>
     </div>
@@ -45,17 +45,17 @@ export function VehicleSaleTradeInSummary({ sale }: { sale: VehicleSale | undefi
   return (
     <div className="rounded-lg border p-4 grid gap-3 md:grid-cols-3">
       <div>
-        <div className="text-xs text-slate-500">{t('sale.tradeIn.vehicle')}</div>
+        <div className="text-xs text-muted-foreground">{t('sale.tradeIn.vehicle')}</div>
         <div className="font-medium">
           {`${tradeIn.year} ${tradeIn.make} ${tradeIn.model}`}
         </div>
       </div>
       <div>
-        <div className="text-xs text-slate-500">{t('sale.tradeIn.allowance')}</div>
+        <div className="text-xs text-muted-foreground">{t('sale.tradeIn.allowance')}</div>
         <div className="font-medium">{formatCurrency(tradeIn.purchase_price)}</div>
       </div>
       <div>
-        <div className="text-xs text-slate-500">{t('sale.tradeIn.amountDue')}</div>
+        <div className="text-xs text-muted-foreground">{t('sale.tradeIn.amountDue')}</div>
         <div className="font-medium">
           {sale.amount_due_preview != null ? formatCurrency(sale.amount_due_preview) : t('shared.emDash')}
         </div>

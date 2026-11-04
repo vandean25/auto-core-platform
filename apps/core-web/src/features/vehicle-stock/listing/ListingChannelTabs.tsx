@@ -50,12 +50,12 @@ export function ListingChannelTabs({
                 onCheckedChange={(checked) => onToggleActive(channel.platform, checked === true)}
               />
             </div>
-            <p className="text-xs text-slate-500">{t('listing.portals.validationTitle')}</p>
+            <p className="text-xs text-muted-foreground">{t('listing.portals.validationTitle')}</p>
             {validationRow && !validationRow.serializer_supported ? (
-              <p className="text-sm text-slate-600">{t('listing.portals.serializerUnsupported')}</p>
+              <p className="text-sm text-muted-foreground">{t('listing.portals.serializerUnsupported')}</p>
             ) : null}
             {validationFailed ? null : channelIssues.length === 0 ? (
-              <p className="text-sm text-slate-600">{t('listing.portals.noIssues')}</p>
+              <p className="text-sm text-muted-foreground">{t('listing.portals.noIssues')}</p>
             ) : (
               <ul className="space-y-1 text-sm text-destructive">
                 {channelIssues.map((issue) => (

@@ -190,8 +190,6 @@
     "inventoryRolePlaceholder": "Inventory role",
     "stockStatusPlaceholder": "Stock status",
     "ageFilterAria": "Stock age filters",
-    "loadingRow": "Loading…",
-    "loadingSr": "Loading report",
     "empty": "No vehicles for this selection.",
     "paginationPrev": "Previous",
     "paginationNext": "Next",

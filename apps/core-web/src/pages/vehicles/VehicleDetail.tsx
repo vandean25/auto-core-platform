@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
 import { cn } from '@/lib/utils'
 import { ChangeCustomerDialog } from './ChangeCustomerDialog'
@@ -52,7 +54,7 @@ function VehicleDetailContent({ vehicle }: { vehicle: VehicleDetailResponse }) {
             <h1 className='break-words text-xl font-semibold tracking-tight sm:text-2xl'>
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h1>
-            <div className='flex flex-wrap items-center gap-2 text-slate-500 text-sm'>
+            <div className='flex flex-wrap items-center gap-2 text-muted-foreground text-sm'>
               <span>{t('detail.idLabel', { id: vehicle.id.substring(0, 8) })}</span>
               {vehicle.plate && <Badge variant='outline'>{vehicle.plate}</Badge>}
             </div>
@@ -111,7 +113,7 @@ export default function VehicleDetail() {
   const { data: vehicle, isLoading, isError, error } = useVehicle<VehicleDetailResponse>(id)
 
   if (isLoading) {
-    return <div className='p-8 text-center'>{t('detail.loading')}</div>
+    return <DetailSkeleton label={t('detail.loading')} />
   }
 
   if (isError) {
@@ -125,7 +127,11 @@ export default function VehicleDetail() {
   }
 
   if (!vehicle) {
-    return <div className='p-8 text-center'>{t('detail.notFound')}</div>
+    return (
+      <Empty>
+        <EmptyDescription>{t('detail.notFound')}</EmptyDescription>
+      </Empty>
+    )
   }
 
   return <VehicleDetailContent vehicle={vehicle} />
