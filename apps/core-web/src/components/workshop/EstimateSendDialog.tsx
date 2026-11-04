@@ -88,11 +88,11 @@ function EstimateSendDialogBody({ version, customer, isSending, onSend, onClose 
       <div className='space-y-4 text-sm'>
         <dl className='space-y-1'>
           <div className='flex gap-2'>
-            <dt className='text-slate-500'>{t('estimateSend.recipient')}</dt>
+            <dt className='text-muted-foreground'>{t('estimateSend.recipient')}</dt>
             <dd className='min-w-0 break-words font-medium'>{hasEmail ? email : '—'}</dd>
           </div>
           <div className='flex gap-2'>
-            <dt className='text-slate-500'>{t('estimateSend.validity')}</dt>
+            <dt className='text-muted-foreground'>{t('estimateSend.validity')}</dt>
             <dd className='font-medium'>{t('estimateSend.validityValue')}</dd>
           </div>
         </dl>
@@ -109,8 +109,8 @@ function EstimateSendDialogBody({ version, customer, isSending, onSend, onClose 
           </Label>
         </div>
 
-        {!hasEmail && <p className='text-slate-600'>{t('estimateSend.emailMissing')}</p>}
-        {!notify && <p className='text-slate-600'>{t('estimateSend.recordOnly')}</p>}
+        {!hasEmail && <p className='text-muted-foreground'>{t('estimateSend.emailMissing')}</p>}
+        {!notify && <p className='text-muted-foreground'>{t('estimateSend.recordOnly')}</p>}
 
         {needsConfirmation && (
           <div className='flex items-start gap-2'>

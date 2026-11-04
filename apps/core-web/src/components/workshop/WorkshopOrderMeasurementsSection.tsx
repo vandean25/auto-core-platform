@@ -15,6 +15,7 @@ import {
 } from '@/api/measurement-labels'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 import {
   Dialog,
   DialogContent,
@@ -79,9 +80,9 @@ export function WorkshopOrderMeasurementsSection({
       </CardHeader>
       <CardContent className='space-y-2'>
         {(measurementsQuery.data?.data ?? []).length === 0 ? (
-          <p className='text-sm text-muted-foreground'>
-            {t('measurementsSection.empty')}
-          </p>
+          <Empty className='gap-2 p-2 md:p-2'>
+            <EmptyDescription>{t('measurementsSection.empty')}</EmptyDescription>
+          </Empty>
         ) : (
           <ul className='space-y-2 text-sm'>
             {(measurementsQuery.data?.data ?? []).map((row) => (
@@ -100,7 +101,7 @@ export function WorkshopOrderMeasurementsSection({
                     {row.native_measurement_reference}
                   </span>
                   {row.quarantine_reason ? (
-                    <span className='text-amber-700'>
+                    <span className='text-warning'>
                       {MEASUREMENT_QUARANTINE_LABELS[row.quarantine_reason] ??
                         row.quarantine_reason}
                     </span>
@@ -225,7 +226,7 @@ export function WorkshopOrderMeasurementsSection({
                 })}
               </p>
               {preview.reviewed_fields.quarantine_reason ? (
-                <p className='text-amber-700'>
+                <p className='text-warning'>
                   {MEASUREMENT_QUARANTINE_LABELS[
                     preview.reviewed_fields.quarantine_reason
                   ] ?? preview.reviewed_fields.quarantine_reason}

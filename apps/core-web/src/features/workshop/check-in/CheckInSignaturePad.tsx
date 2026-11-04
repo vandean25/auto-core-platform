@@ -182,7 +182,7 @@ export function CheckInSignaturePad({
         {t('checkIn.review.signatureSimpleEsignNotice')}
       </p>
       <p
-        className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+        className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning"
         data-testid="check-in-signature-legal-placeholder"
       >
         {t('checkIn.review.signatureAcknowledgementLegal')}
@@ -235,12 +235,12 @@ export function CheckInSignaturePad({
           <img
             src={signaturePreviewUrl}
             alt={t('checkIn.review.signatureImageAlt')}
-            className="h-40 w-full rounded-md border border-muted bg-white object-contain"
+            className="h-40 w-full rounded-md border border-muted bg-card object-contain"
           />
         ) : (
           <canvas
             ref={canvasRef}
-            className="h-40 w-full touch-none rounded-md border border-muted bg-white"
+            className="h-40 w-full touch-none rounded-md border border-muted bg-card"
             aria-label={t('checkIn.review.signatureCanvasAria')}
             data-testid="check-in-signature-canvas"
             onPointerDown={startStroke}

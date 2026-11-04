@@ -35,7 +35,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Empty, EmptyContent, EmptyDescription } from '@/components/ui/empty'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency } from '@/lib/utils'
 import {
@@ -298,12 +300,12 @@ export function FitmentSearchModal({
           </DialogHeader>
 
           {(isIdentityStale || identityConflict) && (
-            <div className='border-b bg-amber-50 px-6 py-3 text-sm text-amber-900'>
+            <div className='border-b bg-warning/10 px-6 py-3 text-sm text-warning'>
               {t('catalog.fitmentModal.identityStale')}
               <Button
                 type='button'
                 variant='link'
-                className='h-auto px-2 text-amber-900'
+                className='h-auto px-2 text-warning'
                 onClick={onRequestResolveIdentity}
               >
                 {t('catalog.fitmentModal.reResolve')}
@@ -464,21 +466,25 @@ function FitmentSearchPanel({
         <ScrollArea className='flex-1'>
           <div className='space-y-2 p-4'>
             {isSearching && (
-              <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-                <Loader2 className='h-4 w-4 animate-spin' />
-                {t('catalog.fitmentModal.searching')}
+              <div role='status' aria-busy='true' className='space-y-2'>
+                <span className='sr-only'>{t('catalog.fitmentModal.searching')}</span>
+                {Array.from({ length: 3 }, (_, index) => (
+                  <Skeleton key={index} className='h-14 w-full rounded-lg' />
+                ))}
               </div>
             )}
 
             {!isSearching && result && result.items.length === 0 && (
-              <div className='flex flex-wrap items-center gap-3'>
-                <p className='text-sm text-muted-foreground'>{t('catalog.fitmentModal.noResults')}</p>
+              <Empty className='p-6 md:p-6'>
+                <EmptyDescription>{t('catalog.fitmentModal.noResults')}</EmptyDescription>
                 {onClearSearch && (
-                  <Button type='button' variant='outline' size='sm' onClick={onClearSearch}>
-                    {t('catalog.fitmentModal.clearSearch')}
-                  </Button>
+                  <EmptyContent>
+                    <Button type='button' variant='outline' size='sm' className='max-md:min-h-11' onClick={onClearSearch}>
+                      {t('catalog.fitmentModal.clearSearch')}
+                    </Button>
+                  </EmptyContent>
                 )}
-              </div>
+              </Empty>
             )}
 
             {!isSearching &&

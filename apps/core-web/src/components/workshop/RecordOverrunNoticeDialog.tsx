@@ -157,7 +157,7 @@ function NoticeForm({
           onChange={(event) => setAmount(event.target.value)}
           aria-invalid={amount !== '' && !amountMatches}
         />
-        <p className="text-xs text-slate-500">{t('estimateDecision.overrun.amountHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('estimateDecision.overrun.amountHint')}</p>
       </div>
 
       <div className="space-y-2">

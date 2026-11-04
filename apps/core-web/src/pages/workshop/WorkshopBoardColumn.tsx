@@ -30,12 +30,12 @@ export function WorkshopBoardColumn({
       ref={setNodeRef}
       data-testid={`board-column-${id === WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID ? 'unassigned' : id}`}
       className={`${workshopBoardColumnClassName} ${
-        isOver ? 'border-slate-400 bg-slate-100' : 'border-slate-200'
+        isOver ? 'border-muted-foreground/60 bg-muted' : 'border-border'
       }`}
     >
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200">
-        <span className="text-sm font-semibold text-slate-700">{label}</span>
-        <span className="text-xs font-medium rounded-full bg-slate-200 text-slate-600 px-2 py-0.5 tabular-nums">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
+        <span className="text-sm font-semibold text-foreground">{label}</span>
+        <span className="text-xs font-medium rounded-full bg-border text-muted-foreground px-2 py-0.5 tabular-nums">
           {visibleOrders.length}
         </span>
       </div>
@@ -50,7 +50,7 @@ export function WorkshopBoardColumn({
           />
         ))}
         {visibleOrders.length === 0 && (
-          <p className="text-xs text-slate-500 text-center mt-4">{t('board.emptyColumn')}</p>
+          <p className="text-xs text-muted-foreground text-center mt-4">{t('board.emptyColumn')}</p>
         )}
       </div>
     </div>

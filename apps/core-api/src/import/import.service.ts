@@ -197,10 +197,22 @@ export class ImportService {
       ...(query.source ? { source_system: query.source } : {}),
     };
     const [jobs, total] = await this.jobStore.findJobsPage(where, skip, limit);
-    const undoableIds = await findUndoableJobIds(this.prisma, tenantId, jobs);
+    const creatorIds = [
+      ...new Set(
+        jobs.flatMap((job) => (job.created_by ? [job.created_by] : [])),
+      ),
+    ];
+    const [undoableIds, creatorNames] = await Promise.all([
+      findUndoableJobIds(this.prisma, tenantId, jobs),
+      this.jobStore.findUserDisplayNames(tenantId, creatorIds),
+    ]);
     return {
       data: jobs.map((job) =>
-        serializeImportJobListItem(job, undoableIds.has(job.id)),
+        serializeImportJobListItem(job, undoableIds.has(job.id), {
+          createdByName: job.created_by
+            ? (creatorNames.get(job.created_by) ?? null)
+            : null,
+        }),
       ),
       meta: { total, page, limit },
     };

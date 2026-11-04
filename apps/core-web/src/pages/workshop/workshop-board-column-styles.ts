@@ -1,6 +1,6 @@
 /** Shared Tailwind classes for workshop board swimlane columns (tablet + desktop). */
 export const workshopBoardColumnClassName = [
-  'flex flex-col rounded-lg border bg-slate-50 transition-colors',
+  'flex flex-col rounded-lg border bg-muted/50 transition-colors',
   // Tablet (768–1023px): stack full-width columns — no clipped horizontal overflow.
   'w-full min-w-0 max-w-full flex-shrink-0',
   // Desktop board: fixed-width lanes in a horizontal scroller with scroll snap.

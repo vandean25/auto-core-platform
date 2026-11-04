@@ -105,6 +105,20 @@ test.describe('Blueprint: Workshop Loaner Vehicles', () => {
     await expect(page.getByText('Golf Ersatz')).toBeVisible()
   })
 
+  test('renders fleet rows as cards at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await setupLoanerRoutes(page)
+    await page.goto('/workshop/loaner-vehicles')
+
+    await expect(page.locator('[data-table-list="true"]')).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+
+    const row = page.locator('[data-table-row="true"]').first()
+    await expect(row.getByText('Golf Ersatz', { exact: true })).toBeVisible()
+    await expect(row.getByText('2021 VW Golf · W-LOAN 1', { exact: true })).toBeVisible()
+    await expect(row.getByText('Verfügbar', { exact: true })).toBeVisible()
+  })
+
   test('preselects fleet vehicle from query parameter', async ({ page }) => {
     await setupLoanerRoutes(page)
     await page.goto('/workshop/loaner-vehicles?vehicle=loaner-1')

@@ -56,6 +56,7 @@
     "columnOptions": "{{title}} — Spaltenoptionen",
     "selectAll": "Alle Zeilen auf dieser Seite auswählen",
     "selectRow": "Zeile auswählen",
+    "scrollRegion": "Scrollbare Tabelle",
     "actionBar": {
       "label": "Aktionen für ausgewählte Zeilen",
       "selected_one": "{{count}} ausgewählt",

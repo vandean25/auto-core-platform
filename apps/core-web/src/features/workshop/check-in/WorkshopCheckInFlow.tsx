@@ -3,7 +3,9 @@ import type { CheckInSignaturePadHandle } from './CheckInSignaturePad'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { generateId } from '@/lib/id'
 import { useWorkshopOrder } from '@/api/workshop'
@@ -532,9 +534,9 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
 
   if (orderQuery.isLoading || checkInQuery.isLoading) {
     return (
-      <p className="text-sm text-muted-foreground" data-testid="check-in-loading">
-        {t('checkIn.loading')}
-      </p>
+      <div data-testid="check-in-loading">
+        <DetailSkeleton label={t('checkIn.loading')} />
+      </div>
     )
   }
 
@@ -577,9 +579,9 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
       )
     }
     return (
-      <p className="text-sm text-muted-foreground" data-testid="check-in-loading">
-        {t('checkIn.initializing')}
-      </p>
+      <div data-testid="check-in-loading">
+        <DetailSkeleton label={t('checkIn.initializing')} />
+      </div>
     )
   }
 
@@ -646,23 +648,22 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pb-10 pt-2">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm text-slate-500">{t('checkIn.flowLabel')}</p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {orderQuery.data.order_number}
-          </h1>
-          <p className="text-sm text-slate-500">{vehicleLabel}</p>
-        </div>
-        <CheckInSaveIndicator
-          status={saveStatus}
-          offlineStatus={offline.localSaveStatus}
-        />
-      </header>
+      <PageHeader
+        className="mb-0 gap-1"
+        breadcrumbs={<p className="text-sm text-muted-foreground">{t('checkIn.flowLabel')}</p>}
+        title={orderQuery.data.order_number}
+        description={vehicleLabel}
+        actions={
+          <CheckInSaveIndicator
+            status={saveStatus}
+            offlineStatus={offline.localSaveStatus}
+          />
+        }
+      />
 
       {readOnly && (
         <p
-          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning"
           role="status"
         >
           {t('checkIn.completedBanner')}
@@ -675,7 +676,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
 
       {offline.draftExpiryWarning && (
         <p
-          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning"
           role="status"
           data-testid="check-in-draft-expiry-warning"
         >

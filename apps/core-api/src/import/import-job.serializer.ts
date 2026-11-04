@@ -109,6 +109,7 @@ export type ImportJobListItemView = {
 export function serializeImportJobListItem(
   job: ImportJobListItemView,
   undoable = false,
+  extras: { createdByName?: string | null } = {},
 ) {
   const totals = (job.totals_json ?? {}) as Partial<ImportJobTotals>;
   const options = (job.options_json ?? {}) as ImportJobOptionsWithWorker & {
@@ -135,6 +136,7 @@ export function serializeImportJobListItem(
       error: totals.error ?? 0,
     },
     created_by: job.created_by,
+    created_by_name: extras.createdByName ?? null,
     created_at: job.createdAt.toISOString(),
     applied_at: job.appliedAt?.toISOString() ?? null,
     cancellable,

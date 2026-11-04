@@ -165,7 +165,7 @@ function DecisionForm({
             onChange={(event) => setAmount(event.target.value)}
             aria-invalid={amount !== '' && !amountMatches}
           />
-          <p className="text-xs text-slate-500">{t('estimateDecision.record.amountHint')}</p>
+          <p className="text-xs text-muted-foreground">{t('estimateDecision.record.amountHint')}</p>
         </div>
 
         <div className="space-y-2">
@@ -193,7 +193,7 @@ function DecisionForm({
           value={decidedAt}
           onChange={(event) => setDecidedAt(event.target.value)}
         />
-        <p className="text-xs text-slate-500">{t('estimateDecision.record.decidedAtHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('estimateDecision.record.decidedAtHint')}</p>
       </div>
 
       <div className="space-y-2">

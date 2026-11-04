@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthSession } from '@/api/auth-session'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport } from '@/api/workshop-kpi-reports'
 import { formatPercent } from '@/lib/format'
@@ -42,30 +44,36 @@ export function WorkshopKpiDashboardWidget() {
       </CardHeader>
       <CardContent>
         {current.isLoading ? (
-          <p className="text-sm text-slate-500">{t('kpi.loading')}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <span className="sr-only">{t('kpi.loading')}</span>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         ) : current.data ? (
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-slate-500">{t('kpi.utilisation')}</p>
+              <p className="text-muted-foreground">{t('kpi.utilisation')}</p>
               <p className="font-semibold">
                 {percentage(current.data.totals.utilisation_percent)}{' '}
-                <span className="text-xs font-normal text-slate-500">
+                <span className="text-xs font-normal text-muted-foreground">
                   {t('kpi.previousMonth', { value: percentage(previous.data?.totals.utilisation_percent) })}
                 </span>
               </p>
             </div>
             <div>
-              <p className="text-slate-500">{t('kpi.productivity')}</p>
+              <p className="text-muted-foreground">{t('kpi.productivity')}</p>
               <p className="font-semibold">
                 {percentage(current.data.totals.productivity_percent)}{' '}
-                <span className="text-xs font-normal text-slate-500">
+                <span className="text-xs font-normal text-muted-foreground">
                   {t('kpi.previousMonth', { value: percentage(previous.data?.totals.productivity_percent) })}
                 </span>
               </p>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">{t('kpi.empty')}</p>
+          <Empty className="gap-2 p-2 md:p-2">
+            <EmptyDescription>{t('kpi.empty')}</EmptyDescription>
+          </Empty>
         )}
         <Link
           to="/workshop/reports/kpis"

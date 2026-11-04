@@ -5,7 +5,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuthSession } from '@/api/auth-session'
 import { useWorkshopCapacityWeek } from '@/api/workshop'
 import { useMySites, useSetActiveSite } from '@/api/sites'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyContent, EmptyDescription } from '@/components/ui/empty'
 import {
   Select,
   SelectContent,
@@ -38,32 +40,33 @@ export default function WorkshopCapacityPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('capacity.page.title')}</h1>
-          <p className="text-slate-500">{t('capacity.page.description')}</p>
-        </div>
-        {siteList.length > 1 ? (
-          <Select
-            value={activeSiteId ?? undefined}
-            onValueChange={(siteId) => switchSite.mutate(siteId)}
-            disabled={switchSite.isPending}
-          >
-            <SelectTrigger aria-label={t('capacity.page.switchSite')} className="w-56">
-              <SelectValue placeholder={t('capacity.page.selectSite')} />
-            </SelectTrigger>
-            <SelectContent>
-              {siteList.map((site) => (
-                <SelectItem key={site.id} value={site.id}>
-                  {site.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : activeSite ? (
-          <p className="text-sm font-medium text-slate-700">{activeSite.name}</p>
-        ) : null}
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={t('capacity.page.title')}
+        description={t('capacity.page.description')}
+        actions={
+          siteList.length > 1 ? (
+            <Select
+              value={activeSiteId ?? undefined}
+              onValueChange={(siteId) => switchSite.mutate(siteId)}
+              disabled={switchSite.isPending}
+            >
+              <SelectTrigger aria-label={t('capacity.page.switchSite')} className="w-56 max-md:min-h-11">
+                <SelectValue placeholder={t('capacity.page.selectSite')} />
+              </SelectTrigger>
+              <SelectContent>
+                {siteList.map((site) => (
+                  <SelectItem key={site.id} value={site.id}>
+                    {site.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : activeSite ? (
+            <p className="text-sm font-medium text-foreground">{activeSite.name}</p>
+          ) : null
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -89,17 +92,17 @@ export default function WorkshopCapacityPage() {
             <ChevronRight />
           </Button>
           {week ? (
-            <p className="ml-2 text-sm font-medium text-slate-700">
+            <p className="ml-2 text-sm font-medium text-foreground">
               {formatDateLabel(week.weekStart, week.timezone)} –{' '}
               {formatDateLabel(addLocalDays(week.weekStart, 5), week.timezone)}
             </p>
           ) : null}
         </div>
-        <p className="text-xs text-slate-500">{t('capacity.page.overbookedHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('capacity.page.overbookedHint')}</p>
       </div>
 
       {capacity.isError && !week ? (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
+        <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
           <p>{t('capacity.page.loadError')}</p>
           <Button variant="outline" size="sm" className="mt-3" onClick={() => capacity.refetch()}>
             {t('capacity.page.tryAgain')}
@@ -108,12 +111,14 @@ export default function WorkshopCapacityPage() {
       ) : !week ? (
         <Skeleton className="h-96 w-full rounded-xl" />
       ) : week.bays.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">
-          <p>{t('capacity.page.noBays')}</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate('/settings?tab=bays')}>
-            {t('capacity.page.openBaySettings')}
-          </Button>
-        </div>
+        <Empty className="rounded-xl border">
+          <EmptyDescription>{t('capacity.page.noBays')}</EmptyDescription>
+          <EmptyContent>
+            <Button variant="outline" size="sm" className="max-md:min-h-11" onClick={() => navigate('/settings?tab=bays')}>
+              {t('capacity.page.openBaySettings')}
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : (
         <div
           aria-busy={capacity.isPlaceholderData}

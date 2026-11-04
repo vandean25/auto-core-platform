@@ -89,9 +89,9 @@ function calculateEfficiencyRatio(
 
 function getEfficiencyBadgeClass(ratio: number) {
   if (ratio >= 1) {
-    return 'border-emerald-200 bg-emerald-100 text-emerald-700'
+    return 'border-success/30 bg-success/15 text-success'
   }
-  return 'border-amber-200 bg-amber-100 text-amber-700'
+  return 'border-warning/30 bg-warning/15 text-warning'
 }
 
 export function TaskLineItemEditor({
@@ -466,10 +466,10 @@ export function TaskLineItemEditor({
             </Button>
           </div>
           {isStagedLaborMetadataLoading && (
-            <p className='mt-1 text-[11px] text-muted-foreground'>{tw('taskLineEditor.loadingLaborMeta')}</p>
+            <p className='mt-1 text-xs text-muted-foreground'>{tw('taskLineEditor.loadingLaborMeta')}</p>
           )}
           {stagedLineItem && (
-            <p className='mt-1 truncate text-[11px] text-muted-foreground'>
+            <p className='mt-1 truncate text-xs text-muted-foreground'>
               {stagedLineItem.label}
             </p>
           )}
@@ -511,7 +511,7 @@ export function TaskLineItemEditor({
                     key={item.id}
                     className={`transition-colors duration-500 ${
                       highlightedRowId === item.id
-                        ? 'bg-blue-50/80 dark:bg-blue-500/20'
+                        ? 'bg-info/10'
                         : ''
                     }`}
                   >
@@ -528,16 +528,16 @@ export function TaskLineItemEditor({
                         <div className='text-muted-foreground'>{item.description}</div>
                         {item.type === 'LABOR' && (
                           <div className='flex flex-wrap items-center gap-2'>
-                            <Badge variant='outline' className='text-[10px]'>
+                            <Badge variant='outline' className='text-xs'>
                               {tw('taskLineEditor.standardAw', { hours: formatHours(item.standardAw) })}
                             </Badge>
                             {readOnly ? (
-                              <Badge variant='outline' className='text-[10px]'>
+                              <Badge variant='outline' className='text-xs'>
                                 {tw('taskLineEditor.actualHours')} {formatHours(item.actualHours)}
                               </Badge>
                             ) : (
                               <div className='flex items-center gap-1'>
-                                <span className='text-[10px] text-muted-foreground'>
+                                <span className='text-xs text-muted-foreground'>
                                   {tw('taskLineEditor.actualHours')}
                                 </span>
                                 <Input
@@ -576,7 +576,7 @@ export function TaskLineItemEditor({
                             {efficiencyRatio != null && (
                               <Badge
                                 variant='outline'
-                                className={`text-[10px] ${getEfficiencyBadgeClass(efficiencyRatio)}`}
+                                className={`text-xs ${getEfficiencyBadgeClass(efficiencyRatio)}`}
                               >
                                 {tw('taskLineEditor.efficiency', {
                                   ratio: formatNumber(efficiencyRatio, {
@@ -678,28 +678,28 @@ export function TaskLineItemEditor({
 
       <div className='grid grid-cols-2 gap-2 md:grid-cols-4'>
         <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-          <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+          <div className='flex items-center gap-1.5 text-xs text-muted-foreground'>
             <Package className='h-3.5 w-3.5' />
             <span>{t('workshopTaskLine.partsSubtotal.short')}</span>
           </div>
           <div className='mt-1 text-sm font-medium'>{formatCurrency(partsSubtotal)}</div>
         </div>
         <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-          <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+          <div className='flex items-center gap-1.5 text-xs text-muted-foreground'>
             <Clock3 className='h-3.5 w-3.5' />
             <span>{t('workshopTaskLine.laborSubtotal.short')}</span>
           </div>
           <div className='mt-1 text-sm font-medium'>{formatCurrency(laborSubtotal)}</div>
         </div>
         <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-          <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+          <div className='flex items-center gap-1.5 text-xs text-muted-foreground'>
             <Receipt className='h-3.5 w-3.5' />
             <span>{t('workshopTaskLine.feesSubtotal.short')}</span>
           </div>
           <div className='mt-1 text-sm font-medium'>{formatCurrency(feesSubtotal)}</div>
         </div>
         <div className='rounded-xl border border-primary/20 bg-primary/10 px-3 py-2'>
-          <div className='flex items-center gap-1.5 text-[11px] text-primary/80'>
+          <div className='flex items-center gap-1.5 text-xs text-primary/80'>
             <CircleDollarSign className='h-3.5 w-3.5' />
             <span>{t('workshopTaskLine.taskTotal.short')}</span>
           </div>

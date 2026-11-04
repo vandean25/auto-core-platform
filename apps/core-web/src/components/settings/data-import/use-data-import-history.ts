@@ -10,7 +10,6 @@ import {
   useImportJobs,
   type ImportJobListItem,
 } from '@/api/imports'
-import { useTenantMembers } from '@/api/tenant-members'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 import {
@@ -41,7 +40,6 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
   })
-  const membersQuery = useTenantMembers({ includeInactive: true, limit: 200 })
 
   const refetchJobs = jobsQuery.refetch
   const hasRunningJob = React.useMemo(
@@ -57,21 +55,6 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
     const timer = setInterval(() => void refetchJobs(), HISTORY_POLL_MS)
     return () => clearInterval(timer)
   }, [hasRunningJob, refetchJobs])
-
-  const userNames = React.useMemo(() => {
-    const names = new Map<string, string>()
-    for (const member of membersQuery.data?.data ?? []) {
-      const fullName = [member.firstName, member.lastName].filter(Boolean).join(' ')
-      names.set(member.userId, fullName || member.email)
-    }
-    return names
-  }, [membersQuery.data])
-
-  const resolveUser = React.useCallback(
-    (userId: string | null) =>
-      (userId && userNames.get(userId)) || t('dataImport.history.anonymousUser'),
-    [userNames, t],
-  )
 
   const { mutate: cancelImportJob } = useCancelImportJob()
 
@@ -112,8 +95,8 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
 
   const rowBehaviour = useRegistryRowBehaviour({ role, definitions, runContext, tableBehaviour })
   const columns = React.useMemo(
-    () => createImportHistoryColumns(t, { resolveUser }),
-    [t, resolveUser],
+    () => createImportHistoryColumns(t),
+    [t],
   )
 
   const rows = jobsQuery.data?.data ?? []

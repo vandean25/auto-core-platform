@@ -206,6 +206,16 @@ describe('WorkshopCapacityPage', () => {
     )
   })
 
+  // Regression: the meter label and value text were hard-coded English on the German page.
+  it('announces the booked hours of a cell in German', () => {
+    renderPage()
+
+    const meters = screen.getAllByRole('meter', { name: 'Bay 1 gebuchte Stunden' })
+    expect(meters.map((meter) => meter.getAttribute('aria-valuetext'))).toContain(
+      `${formattedHours(6.5)} von ${formattedHours(9.5)}`,
+    )
+  })
+
   it('moves one week at a time from the shown week and returns to the current week', () => {
     renderPage()
 

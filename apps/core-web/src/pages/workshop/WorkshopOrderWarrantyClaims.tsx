@@ -6,8 +6,10 @@ import { toast } from "sonner";
 import type { WarrantyClaimStatus } from "@/api/types";
 import { useCreateWarrantyClaim, useWarrantyClaim, useWarrantyClaims } from "@/api/warranty-claims";
 import { useWorkshopOrder } from "@/api/workshop";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { CardSkeleton, DetailSkeleton } from "@/components/ui/skeleton-presets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WarrantyClaimEditor } from "@/features/workshop/warranty-claims/WarrantyClaimEditor";
 import { WarrantyClaimList } from "@/features/workshop/warranty-claims/WarrantyClaimList";
@@ -83,22 +85,22 @@ export function WorkshopOrderWarrantyClaims() {
   };
 
   if (orderQuery.isLoading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">{t("orderDetail.loading")}</div>;
+    return <DetailSkeleton label={t("orderDetail.loading")} />;
   }
 
   if (!order) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">{t("orderDetail.notFoundTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">{t("orderDetail.notFoundDescription")}</p>
-          <Button asChild>
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyTitle>{t("orderDetail.notFoundTitle")}</EmptyTitle>
+          <EmptyDescription>{t("orderDetail.notFoundDescription")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button asChild className="max-md:min-h-11">
             <Link to="/workshop/orders">{t("orderDetail.backToOrders")}</Link>
           </Button>
-        </CardContent>
-      </Card>
+        </EmptyContent>
+      </Empty>
     );
   }
 
@@ -106,30 +108,29 @@ export function WorkshopOrderWarrantyClaims() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
+      <PageHeader
+        className="mb-0"
+        breadcrumbs={
           <Link
             to={`/workshop/orders/${id}`}
-            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
+            className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground md:min-h-0"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
             {t("warrantyClaimsPage.backToOrder")}
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("warrantyClaimsPage.title")}</h1>
-          <p className="text-slate-500">
-            {t("warrantyClaimsPage.orderMeta", {
-              orderNumber: order.order_number,
-              vehicle: vehicleName ? ` · ${vehicleName}` : "",
-            })}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => void handleCreate()} disabled={createClaim.isPending}>
+        }
+        title={t("warrantyClaimsPage.title")}
+        description={t("warrantyClaimsPage.orderMeta", {
+          orderNumber: order.order_number,
+          vehicle: vehicleName ? ` · ${vehicleName}` : "",
+        })}
+        actions={
+          <Button className="max-md:min-h-11" onClick={() => void handleCreate()} disabled={createClaim.isPending}>
             <Plus className="h-4 w-4" aria-hidden />
             {t("warrantyClaimsPage.create")}
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-1">
@@ -155,11 +156,14 @@ export function WorkshopOrderWarrantyClaims() {
           </Select>
 
           {claimsQuery.isError ? (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-destructive">
               {getErrorMessage(claimsQuery.error, t("warrantyClaimsPage.loadError"))}
             </p>
           ) : claimsQuery.isLoading ? (
-            <p className="text-sm text-slate-500">{t("warrantyClaimsPage.loading")}</p>
+            <div role="status" aria-busy="true">
+              <span className="sr-only">{t("warrantyClaimsPage.loading")}</span>
+              <CardSkeleton />
+            </div>
           ) : (
             <WarrantyClaimList
               claims={visibleClaims}
@@ -180,15 +184,13 @@ export function WorkshopOrderWarrantyClaims() {
               lineClaimedElsewhere={lineClaimedElsewhere}
             />
           ) : activeClaimQuery.isError ? (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-destructive">
               {getErrorMessage(activeClaimQuery.error, t("warrantyClaimsPage.claimLoadError"))}
             </p>
           ) : (
-            <Card>
-              <CardContent className="p-6 text-sm text-slate-500">
-                {t("warrantyClaimsPage.selectOrCreate")}
-              </CardContent>
-            </Card>
+            <Empty className="border">
+              <EmptyDescription>{t("warrantyClaimsPage.selectOrCreate")}</EmptyDescription>
+            </Empty>
           )}
         </div>
       </div>

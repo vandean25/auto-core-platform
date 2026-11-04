@@ -800,7 +800,9 @@
       "closed": "Closed",
       "overbooked": "Overbooked by {{hours}}",
       "fullyBooked": "Fully booked",
-      "free": "{{hours}} free"
+      "free": "{{hours}} free",
+      "meterLabel": "{{bay}} booked hours",
+      "meterValue": "{{booked}} of {{capacity}}"
     },
     "chip": {
       "starts": "Starts {{time}}",

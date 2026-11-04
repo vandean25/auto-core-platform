@@ -7,14 +7,9 @@ import { formatDateTime, formatNumber } from '@/lib/format'
 import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
 import type { ImplementedImportEntityType } from '@/lib/i18n/enum-registry'
 
-export type ImportHistoryColumnsDeps = {
-  resolveUser: (userId: string | null) => string
-}
-
 /** Columns of the import history table; on a phone the shared list mode shows file, entity, status and date. */
 export function createImportHistoryColumns(
   t: TFunction<'settings'>,
-  deps: ImportHistoryColumnsDeps,
 ): ColumnDef<ImportJobListItem>[] {
   return [
     {
@@ -56,10 +51,10 @@ export function createImportHistoryColumns(
       },
     },
     {
-      accessorKey: 'created_by',
+      accessorKey: 'created_by_name',
       meta: { label: t('dataImport.history.columns.createdBy') },
       header: t('dataImport.history.columns.createdBy'),
-      cell: ({ row }) => deps.resolveUser(row.original.created_by),
+      cell: ({ row }) => row.original.created_by_name ?? t('dataImport.history.anonymousUser'),
     },
     {
       accessorKey: 'created_at',

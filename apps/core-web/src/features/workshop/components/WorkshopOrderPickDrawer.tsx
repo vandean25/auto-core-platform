@@ -11,6 +11,8 @@ import type { WorkshopOrder, WorkshopPickLineItemPayload } from '@/api/types'
 import { canManageWorkshopTasks } from '@/features/actions/action-role-predicates'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Command,
   CommandEmpty,
@@ -292,8 +294,8 @@ function WorkshopOrderPickDrawerBody({
           </div>
           {areLocationsLoading && stagingTotes.length === 0 ? (
             <div className='space-y-2'>
-              <div className='h-9 w-full rounded-md bg-slate-100 animate-pulse' />
-              <div className='h-4 w-64 rounded bg-slate-100 animate-pulse' />
+              <Skeleton className='h-9 w-full rounded-md' />
+              <Skeleton className='h-4 w-64 rounded' />
             </div>
           ) : (
             <Popover open={isTotePopoverOpen} onOpenChange={setIsTotePopoverOpen}>
@@ -380,13 +382,13 @@ function WorkshopOrderPickDrawerBody({
           {isOrderLoading ? (
             <div className='space-y-2'>
               {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className='h-11 rounded-md bg-slate-100 animate-pulse' />
+                <Skeleton key={index} className='h-11 rounded-md' />
               ))}
             </div>
           ) : requiredPartLines.length === 0 ? (
-            <div className='rounded-md border border-dashed p-6 text-sm text-muted-foreground'>
-              {t('pick.drawer.noParts')}
-            </div>
+            <Empty className='border p-6 md:p-6'>
+              <EmptyDescription>{t('pick.drawer.noParts')}</EmptyDescription>
+            </Empty>
           ) : (
             <Table>
               <TableHeader>
@@ -437,7 +439,7 @@ function WorkshopOrderPickDrawerBody({
         </ScrollArea>
 
         {!isPickEligible ? (
-          <div className='rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-start gap-2'>
+          <div className='rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning flex items-start gap-2'>
             <MapPin className='h-4 w-4 mt-0.5 shrink-0' />
             {t('pick.drawer.notEligible')}
           </div>

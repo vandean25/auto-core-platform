@@ -24,6 +24,13 @@ function renderTable(scrollCue?: boolean) {
 describe('Table scroll cue', () => {
   afterEach(cleanup)
 
+  // Regression: the scroll region's accessible name was hard-coded English.
+  it('names the focusable scroll region in German', () => {
+    const region = renderTable()
+
+    expect(region).toHaveAccessibleName('Scrollbare Tabelle')
+  })
+
   it('shows an edge fade only on the side that still hides columns', () => {
     const region = renderTable(true)
 

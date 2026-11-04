@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/select'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 type FleetRow = {
   id: string
@@ -177,14 +178,17 @@ export default function LoanerVehiclesPage() {
   const columns: ColumnDef<FleetRow>[] = [
     {
       accessorKey: 'displayName',
+      meta: { mobile: 'title' },
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('loaner.columns.name')} />,
     },
     {
       accessorKey: 'vehicleLabel',
+      meta: { mobile: 'subtitle' },
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('loaner.columns.vehicle')} />,
     },
     {
       accessorKey: 'status',
+      meta: { mobile: 'status' },
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('loaner.columns.status')} />,
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
@@ -334,7 +338,7 @@ export default function LoanerVehiclesPage() {
               </Badge>
             ) : null}
           </div>
-          <p className='text-slate-500'>{t('loaner.description')}</p>
+          <p className='text-muted-foreground'>{t('loaner.description')}</p>
         </div>
         <Button onClick={() => setAddVehicleOpen(true)}>
           <Plus className='mr-2 h-4 w-4' />
@@ -371,13 +375,15 @@ export default function LoanerVehiclesPage() {
           </CardHeader>
           <CardContent>
             {vehicleBookings.length === 0 ? (
-              <p className='text-sm text-muted-foreground'>{t('loaner.noBookings')}</p>
+              <Empty className='p-6 md:p-6'>
+                <EmptyDescription>{t('loaner.noBookings')}</EmptyDescription>
+              </Empty>
             ) : (
-              <ol className='relative space-y-6 border-l border-slate-200 pl-6'>
+              <ol className='relative space-y-6 border-l border-border pl-6'>
                 {vehicleBookings.map((booking) => (
                   <li key={booking.id} className='relative'>
-                    <span className='absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-white bg-sky-500 ring-1 ring-sky-200' />
-                    <div className='flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-start sm:justify-between'>
+                    <span className='absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-card bg-info ring-1 ring-info/30' />
+                    <div className='flex flex-col gap-2 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between'>
                       <div className='space-y-1'>
                         <div className='flex flex-wrap items-center gap-2'>
                           <StatusBadge status={booking.status} />
@@ -449,15 +455,15 @@ export default function LoanerVehiclesPage() {
       ) : null}
 
       {overdueCount > 0 ? (
-        <Card className='border-rose-200 bg-rose-50/40'>
+        <Card className='border-destructive/30 bg-destructive/5'>
           <CardHeader>
-            <CardTitle className='text-rose-900'>{t('loaner.overdueTitle')}</CardTitle>
+            <CardTitle className='text-destructive'>{t('loaner.overdueTitle')}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-2'>
             {(overdueData?.data ?? []).map((booking) => (
               <div
                 key={booking.id}
-                className='flex flex-wrap items-center justify-between gap-2 rounded-md border border-rose-100 bg-white px-3 py-2 text-base md:text-sm'
+                className='flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/20 bg-card px-3 py-2 text-base md:text-sm'
               >
                 <span>
                   {t('loaner.overdueUntil', {
@@ -489,12 +495,12 @@ export default function LoanerVehiclesPage() {
                 placeholder={t('loaner.searchVehiclePlaceholder')}
               />
               {vehicleSearchResults.length > 0 ? (
-                <ul className='max-h-40 overflow-y-auto rounded-md border border-slate-200 text-sm'>
+                <ul className='max-h-40 overflow-y-auto rounded-md border border-border text-sm'>
                   {vehicleSearchResults.map((vehicle) => (
                     <li key={vehicle.id}>
                       <button
                         type='button'
-                        className='flex w-full px-3 py-2 text-left hover:bg-slate-50'
+                        className='flex w-full px-3 py-2 text-left hover:bg-muted/50'
                         onClick={() => {
                           setSelectedPoolVehicle(vehicle)
                           setNewDisplayName(

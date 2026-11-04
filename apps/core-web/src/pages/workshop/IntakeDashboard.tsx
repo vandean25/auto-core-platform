@@ -9,6 +9,7 @@ import { QuickRegisterDialog } from '@/components/workshop/QuickRegisterDialog'
 import { StartServiceDialog } from '@/components/workshop/StartServiceDialog'
 import { Plus, Wrench } from 'lucide-react'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import { Empty, EmptyContent, EmptyDescription } from '@/components/ui/empty'
 
 export function IntakeDashboard() {
   const { t } = useTranslation('workshop')
@@ -60,7 +61,7 @@ export function IntakeDashboard() {
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">{t('intakeDashboard.vehicles')}</h2>
               {data.data.vehicles.map(vehicle => (
-                <Card key={vehicle.id} className="hover:bg-slate-50 transition-colors">
+                <Card key={vehicle.id} className="hover:bg-muted/50 transition-colors">
                   <CardContent className="p-4 flex justify-between items-center">
                     <div>
                       <div className="font-bold">{vehicle.year} {vehicle.make} {vehicle.model}</div>
@@ -94,7 +95,7 @@ export function IntakeDashboard() {
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">{t('intakeDashboard.customers')}</h2>
               {data.data.customers.map(customer => (
-                <Card key={customer.id} className="hover:bg-slate-50 transition-colors">
+                <Card key={customer.id} className="hover:bg-muted/50 transition-colors">
                   <CardContent className="p-4">
                     <div className="font-bold">{customer.first_name} {customer.last_name}</div>
                     <div className="text-sm text-muted-foreground">{customer.email}</div>
@@ -102,7 +103,7 @@ export function IntakeDashboard() {
                       <div className="mt-2 pl-2 border-l-2 space-y-2">
                         <div className="text-sm font-medium">{t('intakeDashboard.vehiclesLabel')}</div>
                         {customer.vehicles.map(v => (
-                          <div key={v.id} className="text-sm flex justify-between items-center bg-white p-2 rounded border">
+                          <div key={v.id} className="text-sm flex justify-between items-center bg-card p-2 rounded border">
                             <span>{v.make} {v.model} ({v.plate})</span>
                             <Button
                               size="sm"
@@ -129,10 +130,12 @@ export function IntakeDashboard() {
       )}
 
       {data && debouncedSearch.length >= 2 && data.data.vehicles.length === 0 && data.data.customers.length === 0 && !isLoading && (
-        <div className="text-center p-8 border border-dashed rounded-lg text-muted-foreground">
-          <p className="mb-2">{t('intakeDashboard.noResults')}</p>
-          <Button variant="outline" onClick={() => setIsRegisterOpen(true)}>{t('intakeDashboard.registerNew')}</Button>
-        </div>
+        <Empty className="border">
+          <EmptyDescription>{t('intakeDashboard.noResults')}</EmptyDescription>
+          <EmptyContent>
+            <Button variant="outline" className="max-md:min-h-11" onClick={() => setIsRegisterOpen(true)}>{t('intakeDashboard.registerNew')}</Button>
+          </EmptyContent>
+        </Empty>
       )}
 
       <QuickRegisterDialog

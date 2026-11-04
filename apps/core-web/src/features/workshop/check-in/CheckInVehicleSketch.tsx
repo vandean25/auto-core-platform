@@ -96,7 +96,7 @@ export function CheckInVehicleSketch({
       <p className="text-sm text-muted-foreground">{t('checkIn.sketch.hint')}</p>
       <div
         ref={sketchRef}
-        className="check-in-vehicle-sketch relative mx-auto min-w-80 max-w-sm rounded-md border bg-white p-2"
+        className="check-in-vehicle-sketch relative mx-auto min-w-80 max-w-sm rounded-md border bg-card p-2"
         data-testid="check-in-vehicle-sketch"
         role="group"
         aria-label={t('checkIn.sketch.aria')}
