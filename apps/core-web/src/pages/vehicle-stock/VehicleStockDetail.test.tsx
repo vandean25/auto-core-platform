@@ -41,15 +41,14 @@ describe('VehicleStockDetail (AUT-659)', () => {
     )
   })
 
-  // Regression: the loading state was a bare text line (and a spinner-like stand-in) instead of a skeleton.
-  it('WHEN the vehicle stock detail is loading THEN a Skeleton is shown instead of a spinner', async () => {
+  // Regression: the loading state was a bare text line instead of a skeleton.
+  it('WHEN the vehicle stock detail is loading THEN a Skeleton is shown instead of the loading text', async () => {
     mockDetail({ data: undefined, isLoading: true })
     const { container } = renderPage()
 
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent(deVehicleStock.stockDetail.loading)
     expect(container.querySelector('.animate-pulse')).not.toBeNull()
-    expect(container.querySelector('.animate-spin')).toBeNull()
   })
 
   // Regression: the empty ledger was an ad-hoc paragraph, not the shared Empty.

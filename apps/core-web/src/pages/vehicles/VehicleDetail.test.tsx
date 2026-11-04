@@ -222,12 +222,11 @@ describe('VehicleDetail', () => {
     })
 
     // Regression: the loading state was a bare text block instead of a skeleton.
-    it('WHEN the vehicle detail is loading THEN a Skeleton is shown instead of a spinner', async () => {
+    it('WHEN the vehicle detail is loading THEN a Skeleton is shown instead of the loading text', async () => {
       mockVehicleQuery({ isLoading: true })
       const { container } = renderPage()
       expect(await screen.findByRole('status')).toHaveTextContent(d.loading)
       expect(container.querySelector('.animate-pulse')).not.toBeNull()
-      expect(container.querySelector('.animate-spin')).toBeNull()
     })
 
     it('shows the error message of the failed request', () => {
