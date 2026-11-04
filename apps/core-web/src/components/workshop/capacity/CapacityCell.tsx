@@ -1,5 +1,6 @@
 import type { WorkshopCapacityCell } from '@/api/workshop'
 import { cn } from '@/lib/utils'
+import { i18n } from '@/lib/i18n'
 import { describeCellHours, formatHours } from '@/features/workshop/capacity/capacity-format'
 import { CapacityOrderChip } from './CapacityOrderChip'
 
@@ -37,11 +38,15 @@ export function CapacityCell({ cell, bayName, timezone }: CapacityCellProps) {
       {cell.capacityHours > 0 ? (
         <div
           role="meter"
-          aria-label={`${bayName} booked hours`}
+          aria-label={i18n.t('capacity.cell.meterLabel', { ns: 'workshop', bay: bayName })}
           aria-valuemin={0}
           aria-valuemax={cell.capacityHours}
           aria-valuenow={cell.bookedHours}
-          aria-valuetext={`${formatHours(cell.bookedHours)} of ${formatHours(cell.capacityHours)}`}
+          aria-valuetext={i18n.t('capacity.cell.meterValue', {
+            ns: 'workshop',
+            booked: formatHours(cell.bookedHours),
+            capacity: formatHours(cell.capacityHours),
+          })}
           className="h-1.5 w-full overflow-hidden rounded-full bg-border"
         >
           <div

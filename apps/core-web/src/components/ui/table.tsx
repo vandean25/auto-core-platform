@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 
@@ -41,6 +42,7 @@ const Table = React.forwardRef<
     scrollCue?: boolean
   }
 >(({ className, fixed = false, scrollCue = false, ...props }, ref) => {
+  const { t } = useTranslation("common")
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const edges = useScrollEdges(scrollRef, scrollCue)
 
@@ -50,7 +52,7 @@ const Table = React.forwardRef<
       role="region"
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scroll container must be focusable
       tabIndex={0}
-      aria-label="Scrollable table"
+      aria-label={t("dataTable.scrollRegion")}
       className={cn(
         "relative w-full overflow-auto",
         scrollCue &&
