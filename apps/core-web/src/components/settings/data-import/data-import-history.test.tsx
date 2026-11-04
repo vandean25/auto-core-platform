@@ -6,11 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 
 import type { ImportJobListItem } from '@/api/imports'
 import * as importsApi from '@/api/imports'
-import * as tenantMembersApi from '@/api/tenant-members'
+import { useTenantMembers } from '@/api/tenant-members'
 import * as authRole from '@/features/actions/use-auth-role'
 
 import deEnums from '../../../../../../locales/de/enums.json'
 import deSettings from '../../../../../../locales/de/settings.json'
+import enSettings from '../../../../../../locales/en/settings.json'
 
 import { DataImportHistoryView } from './data-import-history-view'
 
@@ -39,6 +40,7 @@ const jobs: ImportJobListItem[] = [
     file_name: 'vehicles.csv',
     totals: { create: 2, update: 0, skip: 1, error: 0 },
     created_by: null,
+    created_by_name: null,
     created_at: '2026-01-02T00:00:00.000Z',
     applied_at: null,
     undoable: false,
@@ -52,6 +54,7 @@ const jobs: ImportJobListItem[] = [
     file_name: 'customers.csv',
     totals: { create: 1, update: 0, skip: 0, error: 0 },
     created_by: 'user-1',
+    created_by_name: 'Anna Huber',
     created_at: '2026-01-01T00:00:00.000Z',
     applied_at: '2026-01-01T01:00:00.000Z',
     undoable: true,
@@ -67,25 +70,6 @@ function renderHistory(role = 'ADMIN') {
     isError: false,
   })
   ;(importsApi.useCancelImportJob as Mock).mockReturnValue({ mutate: vi.fn() })
-  ;(tenantMembersApi.useTenantMembers as Mock).mockReturnValue({
-    data: {
-      data: [
-        {
-          id: 'member-1',
-          tenantId: 'tenant-1',
-          userId: 'user-1',
-          email: 'anna.huber@example.com',
-          firstName: 'Anna',
-          lastName: 'Huber',
-          role: 'ADMIN',
-          isActive: true,
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-      meta: { total: 1, page: 1, limit: 200 },
-    },
-  })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     React.createElement(
@@ -118,7 +102,7 @@ describe('DataImportHistoryView', () => {
     expect(screen.queryByText('VEHICLE')).toBeNull()
   })
 
-  it('shows the file name, totals and the resolved user', async () => {
+  it('WHEN an import run by a known user is listed THEN the user column shows that user name', async () => {
     renderHistory()
 
     expect(await screen.findByText('customers.csv')).toBeInTheDocument()
@@ -133,6 +117,29 @@ describe('DataImportHistoryView', () => {
       ),
     ).toBeInTheDocument()
     expect(screen.getByText('Anna Huber')).toBeInTheDocument()
-    expect(screen.getByText(di.history.anonymousUser)).toBeInTheDocument()
+  })
+
+  it('WHEN the tenant has more than 100 members THEN names come from the history response and no member list is requested', async () => {
+    renderHistory()
+
+    expect(await screen.findByText('Anna Huber')).toBeInTheDocument()
+    expect(vi.mocked(useTenantMembers)).not.toHaveBeenCalled()
+  })
+
+  it('WHEN the importing user was deleted THEN the column shows Unbekannt (DE) / Unknown (EN)', async () => {
+    renderHistory()
+
+    expect(await screen.findByText('Unbekannt')).toBeInTheDocument()
+    expect(di.history.anonymousUser).toBe('Unbekannt')
+    expect(enSettings.dataImport.history.anonymousUser).toBe('Unknown')
+  })
+
+  it('WHEN the Verlauf page loads THEN there is no console error', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderHistory()
+
+    expect(await screen.findByText('customers.csv')).toBeInTheDocument()
+    expect(consoleError).not.toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 })

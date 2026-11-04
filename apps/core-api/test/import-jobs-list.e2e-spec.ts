@@ -327,3 +327,100 @@ describe('GET /api/imports (job list, e2e)', () => {
     });
   });
 });
+
+describe('GET /api/imports (importing user name, e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let tenant: TestTenantResult;
+  let adminBearer: string;
+
+  const MEMBER_COUNT = 105;
+  const memberId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const DELETED_USER_ID = '00000000-0000-4000-8000-ffffffffffff';
+
+  async function seedJobBy(createdBy: string | null, fileName: string, day: number) {
+    await createTenantAwarePrisma(prisma, tenant.tenantId).importJob.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        entity_type: ImportEntityType.CUSTOMER,
+        source_system: 'synthetic_dms',
+        file_name: fileName,
+        file_sha256: 'sha-synthetic',
+        status: ImportJobStatus.DRY_RUN_DONE,
+        mapping_json: {},
+        options_json: {},
+        totals_json: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+        created_by: createdBy,
+        createdAt: new Date(Date.UTC(2026, 0, day)),
+      },
+    });
+  }
+
+  async function listByFile(): Promise<Record<string, string | null>> {
+    const response = await request(app.getHttpServer())
+      .get('/api/imports?limit=100')
+      .set('Authorization', adminBearer)
+      .expect(200);
+    return Object.fromEntries(
+      response.body.data.map((job: { file_name: string; created_by_name: string | null }) => [
+        job.file_name,
+        job.created_by_name,
+      ]),
+    );
+  }
+
+  beforeAll(async () => {
+    app = await createE2eApp();
+    prisma = app.get(PrismaService);
+    const authService = app.get(AuthService);
+    tenant = await createTestTenant(prisma, 'import-list-names');
+    adminBearer = `Bearer ${createTestAuthToken(authService, tenant)}`;
+
+    await prisma.user.createMany({
+      data: Array.from({ length: MEMBER_COUNT }, (_, i) => ({
+        id: memberId(i + 1),
+        email: `import-names-${tenant.tenantId}-${i + 1}@example.com`,
+        firstName: i === 0 ? 'Anna' : i + 1 === MEMBER_COUNT ? 'Zora' : null,
+        lastName: i === 0 ? 'Huber' : i + 1 === MEMBER_COUNT ? 'Zeller' : null,
+      })),
+    });
+    await createTenantAwarePrisma(prisma, tenant.tenantId).tenantMember.createMany({
+      data: Array.from({ length: MEMBER_COUNT }, (_, i) => ({
+        tenant_id: tenant.tenantId,
+        user_id: memberId(i + 1),
+        role: 'SALES' as const,
+        is_active: true,
+      })),
+    });
+    await seedJobBy(memberId(1), 'first.csv', 1);
+    await seedJobBy(memberId(MEMBER_COUNT), 'last.csv', 2);
+    await seedJobBy(memberId(2), 'no-name.csv', 3);
+    await seedJobBy(DELETED_USER_ID, 'deleted.csv', 4);
+    await seedJobBy(null, 'system.csv', 5);
+  });
+
+  afterAll(async () => {
+    await cleanupTestTenantGraph(prisma, tenant.tenantId);
+    await prisma.user.deleteMany({
+      where: { id: { in: Array.from({ length: MEMBER_COUNT }, (_, i) => memberId(i + 1)) } },
+    });
+    await teardownTestApp(app, prisma);
+  });
+
+  it('WHEN an import run by a known user is listed THEN the user column shows that user name', async () => {
+    const names = await listByFile();
+    expect(names['first.csv']).toBe('Anna Huber');
+    expect(names['no-name.csv']).toBe(`import-names-${tenant.tenantId}-2@example.com`);
+  });
+
+  it('WHEN the tenant has more than 100 members THEN names still resolve and no request returns 400', async () => {
+    const names = await listByFile();
+    expect(names['last.csv']).toBe('Zora Zeller');
+  });
+
+  it('WHEN the importing user was deleted THEN created_by_name is null so the UI shows Unbekannt/Unknown', async () => {
+    const names = await listByFile();
+    expect(names['deleted.csv']).toBeNull();
+    expect(names['system.csv']).toBeNull();
+  });
+});

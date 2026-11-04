@@ -96,6 +96,34 @@ export class ImportJobStore {
     ]);
   }
 
+  /**
+   * Display names for the given user ids, one query for the whole page. Only
+   * users who are members of the tenant resolve; a deleted user is absent.
+   */
+  async findUserDisplayNames(
+    tenantId: string,
+    userIds: string[],
+  ): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    if (userIds.length === 0) {
+      return names;
+    }
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        memberships: { some: { tenant_id: tenantId } },
+      },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    for (const user of users) {
+      const fullName = [user.firstName, user.lastName]
+        .filter(Boolean)
+        .join(' ');
+      names.set(user.id, fullName || user.email);
+    }
+    return names;
+  }
+
   createDryRunJob(input: CreateDryRunJobInput) {
     return this.prisma.importJob.create({
       data: {
