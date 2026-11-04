@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
+import deNav from '../../../locales/de/nav.json' with { type: 'json' }
 import { DE_STATUS } from './helpers/de-enums'
 import { DE_COMMON_ACTIONS, DE_INVENTORY } from './helpers/de-inventory'
 import { AutoCorePage } from './pom/AutoCorePage'
@@ -531,7 +532,7 @@ const QA_BINS = [
 async function routeTransferDetail(
   page: Page,
   transfer: ReturnType<typeof createMockStockTransfer>,
-  options: { locations?: unknown[]; activeSiteId?: string } = {},
+  options: { locations?: unknown[]; activeSiteId?: string; items?: unknown[] } = {},
 ) {
   if (options.activeSiteId) {
     await page.addInitScript(
@@ -553,10 +554,12 @@ async function routeTransferDetail(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(
-        createMockListResponse([
-          createMockInventoryItem({ id: CATALOG_ITEM_ID, sku: 'FILTER-01', name: 'Oil Filter' }),
-          createMockInventoryItem({ id: 'catalog-2', sku: 'BRAKE-02', name: 'Brake Pad' }),
-        ]),
+        createMockListResponse(
+          options.items ?? [
+            createMockInventoryItem({ id: CATALOG_ITEM_ID, sku: 'FILTER-01', name: 'Oil Filter' }),
+            createMockInventoryItem({ id: 'catalog-2', sku: 'BRAKE-02', name: 'Brake Pad' }),
+          ],
+        ),
       ),
     })
   })
@@ -617,6 +620,7 @@ test.describe('Stock Transfer detail on a phone (AUT-909)', () => {
   })
 })
 
+const DE_NAV = deNav
 const detailCopy = DE_INVENTORY.stockTransfers.detail
 
 /** The two phone sizes of the ticket: a large and a small phone. */
@@ -713,5 +717,84 @@ test.describe('Stock Transfer detail at desktop width (AUT-909)', () => {
     await expect(page.locator('body')).not.toContainText(SOURCE_BIN_UUID)
     await expect(page.getByText(`${SOURCE_BIN.code} — ${SOURCE_BIN.name}`).first()).toBeVisible()
     await expect(page.getByText(`${DEST_BIN.code} — ${DEST_BIN.name}`).first()).toBeVisible()
+  })
+})
+
+const LONG_PART_NAME = 'Bremsscheibe vorne belüftet Octavia III Kombi 288 mm Satz'
+const LONG_BIN = { code: 'A-01-12-W-N3-HALLE-NORD', name: 'Fach 12 Winterreifen Kundenlager Halle Nord' }
+
+/** A shipped transfer with `count` lines whose part and bin labels are long, as in the QA screenshot. */
+function longLabelTransfer(count: number) {
+  const base = binTransfer('SHIPPED', { approved: '4.000', shipped: '4.000', received: '1.000' })
+  return {
+    ...base,
+    lines: Array.from({ length: count }, (_, index) => ({
+      ...base.lines[0],
+      id: `line-${index}`,
+      catalogItemId: `long-${index}`,
+      fromBinCode: LONG_BIN.code,
+      fromBinName: LONG_BIN.name,
+      toBinCode: LONG_BIN.code,
+      toBinName: LONG_BIN.name,
+    })),
+  }
+}
+
+const longItems = (count: number) =>
+  Array.from({ length: count }, (_, index) =>
+    createMockInventoryItem({ id: `long-${index}`, sku: `BRK-${index}`, name: LONG_PART_NAME }),
+  )
+
+/** AUT-914: long part and bin labels used to widen the phone page to 495px and push the bottom nav off screen. */
+test.describe('Stock Transfer detail with long labels (AUT-914)', () => {
+  async function openLongTransfer(page: Page, size: { width: number; height: number }, count = 1) {
+    await page.setViewportSize(size)
+    await routeTransferDetail(page, longLabelTransfer(count), {
+      locations: QA_BINS,
+      activeSiteId: GRZ_SITE_ID,
+      items: longItems(count),
+    })
+  }
+
+  for (const { width, height } of PHONE_SIZES) {
+    test(`WHEN the detail page opens at ${width}px THEN the page width equals the viewport`, async ({ page }) => {
+      await openLongTransfer(page, { width, height })
+      await expect(page.locator('[data-table-row="true"]')).toHaveCount(1)
+      await expectNoPageScroll(page)
+    })
+  }
+
+  test('WHEN a position has a long part name THEN it wraps by words, not one letter per line', async ({ page }) => {
+    await openLongTransfer(page, PHONE_SIZES[0])
+    const name = page.locator('[data-table-row="true"]').getByText(LONG_PART_NAME)
+    await expect(name).toBeVisible()
+    const { height, lineHeight } = await name.evaluate((node) => ({
+      height: node.getBoundingClientRect().height,
+      lineHeight: parseFloat(getComputedStyle(node).lineHeight),
+    }))
+    // 59 characters at one letter per line would be ~59 lines; by words it stays within a few.
+    expect(height / lineHeight).toBeLessThanOrEqual(4)
+  })
+
+  test('WHEN the page is open at 390px THEN the bottom nav stays visible', async ({ page }) => {
+    await openLongTransfer(page, PHONE_SIZES[0])
+    const nav = page.getByRole('navigation', { name: DE_NAV.phoneNav.aria })
+    await expect(nav).toBeVisible()
+    await expect(nav).toBeInViewport({ ratio: 1 })
+  })
+
+  test('WHEN the page opens at 1400px THEN all position columns are visible', async ({ page }) => {
+    await openLongTransfer(page, { width: 1400, height: 900 })
+    const headers = page.getByRole('columnheader')
+    await expect(headers).toHaveCount(8)
+    const rights = await headers.evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().right))
+    for (const right of rights) expect(right).toBeLessThanOrEqual(1400)
+    await expectNoPageScroll(page)
+  })
+
+  test('WHEN a transfer has many positions THEN every position renders without widening the page', async ({ page }) => {
+    await openLongTransfer(page, PHONE_SIZES[1], 25)
+    await expect(page.locator('[data-table-row="true"]')).toHaveCount(25)
+    await expectNoPageScroll(page)
   })
 })
