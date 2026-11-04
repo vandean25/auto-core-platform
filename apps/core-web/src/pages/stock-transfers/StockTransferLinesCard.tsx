@@ -227,24 +227,36 @@ function DestBinContent({ line, ctx }: LineProps) {
 }
 
 /**
- * Phone line for the per-line controls and the quantities they act on: the compact slots truncate and squeeze
- * the row, so controls plus approved (ship) or shipped and outstanding (receive/return) get their own line.
+ * Phone card body: both bins (labelled, wrapping by words so long labels never widen the page) and, below them,
+ * the per-line controls with the quantities they act on.
  */
 function LinePhoneDetails({ line, ctx }: LineProps) {
   const { t } = useTranslation(['inventory'])
   const actions = lineActionsFor(line, ctx.access)
-  if (!actions.ship && !actions.receive && !actions.returnQty) return null
+  const hasControls = actions.ship || actions.receive || actions.returnQty
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-slate-500">
-        {actions.ship
-          ? t('inventory:stockTransfers.detail.summary.approved', { qty: formatQty(line.approvedQty) })
-          : t('inventory:stockTransfers.detail.summary.shippedOutstanding', {
-              shipped: formatQty(line.shippedQty),
-              outstanding: formatNumber(outstandingQty(line)),
-            })}
-      </p>
+      <dl className="space-y-1 text-sm">
+        {(['sourceBin', 'destBin'] as const).map((key) => (
+          <div key={key}>
+            <dt className="text-xs text-slate-500">{t(`inventory:stockTransfers.detail.columns.${key}`)}</dt>
+            <dd className="break-words">
+              {key === 'sourceBin' ? <SourceBinText line={line} ctx={ctx} /> : <DestBinText line={line} ctx={ctx} />}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {hasControls ? (
+        <p className="text-sm text-slate-500">
+          {actions.ship
+            ? t('inventory:stockTransfers.detail.summary.approved', { qty: formatQty(line.approvedQty) })
+            : t('inventory:stockTransfers.detail.summary.shippedOutstanding', {
+                shipped: formatQty(line.shippedQty),
+                outstanding: formatNumber(outstandingQty(line)),
+              })}
+        </p>
+      ) : null}
       {actions.ship ? <ShipSourceSelect line={line} ctx={ctx} /> : null}
       {actions.receive || actions.returnQty ? <ReceiveReturnControls line={line} ctx={ctx} /> : null}
     </div>
@@ -256,8 +268,8 @@ function PartCell({ line, ctx }: LineProps) {
 
   return (
     <div className="min-w-0">
-      <div className="font-medium">{catalog?.sku ?? line.catalogItemId}</div>
-      {catalog?.name ? <div className="text-xs text-slate-500">{catalog.name}</div> : null}
+      <div className="break-words font-medium">{catalog?.sku ?? line.catalogItemId}</div>
+      {catalog?.name ? <div className="break-words text-xs text-slate-500">{catalog.name}</div> : null}
     </div>
   )
 }
@@ -311,35 +323,21 @@ function buildLineColumns(
     {
       id: 'sourceBin',
       header: t('stockTransfers.detail.columns.sourceBin'),
-      cell: ({ row }) =>
-        isPhone ? (
-          <SourceBinText line={row.original} ctx={ctx} />
-        ) : (
-          <SourceBinContent line={row.original} ctx={ctx} />
-        ),
-      meta: { mobile: 'subtitle' as const },
+      cell: ({ row }) => <SourceBinContent line={row.original} ctx={ctx} />,
+      meta: { mobile: 'hidden' as const },
     },
     {
       id: 'destBin',
       header: t('stockTransfers.detail.columns.destBin'),
-      cell: ({ row }) =>
-        isPhone ? (
-          <DestBinText line={row.original} ctx={ctx} />
-        ) : (
-          <DestBinContent line={row.original} ctx={ctx} />
-        ),
-      meta: { mobile: 'status' as const },
+      cell: ({ row }) => <DestBinContent line={row.original} ctx={ctx} />,
+      meta: { mobile: 'hidden' as const },
     },
   ]
 
-  // On a phone the controls go below the row instead of into a column; the grid keeps the desktop cells.
-  const hasLineActions = ctx.transfer.lines.some((line) => {
-    const actions = lineActionsFor(line, ctx.access)
-    return actions.ship || actions.receive || actions.returnQty
-  })
-  if (isPhone && hasLineActions) {
+  // On a phone each position is a stacked card: bins and controls go below the title instead of into columns.
+  if (isPhone) {
     columns.push({
-      id: 'lineActions',
+      id: 'lineDetails',
       header: '',
       cell: ({ row }) => <LinePhoneDetails line={row.original} ctx={ctx} />,
       meta: { mobile: 'details' as const },
