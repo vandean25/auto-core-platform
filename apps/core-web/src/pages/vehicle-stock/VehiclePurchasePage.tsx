@@ -179,6 +179,7 @@ export default function VehiclePurchasePage() {
         title={t('purchase.title')}
         description={
           <span className="flex flex-wrap items-center gap-2">
+            {/* text-base keeps the subtitle at its former size; PageHeader descriptions default to text-sm. */}
             <span className="text-base">{t('purchase.description')}</span>
             {existing ? <StatusBadge status={existing.status} /> : null}
           </span>

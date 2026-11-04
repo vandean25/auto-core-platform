@@ -127,6 +127,7 @@ export default function VehicleStockDetail() {
         title={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
         description={
           <span className="flex flex-wrap items-center gap-2">
+            {/* text-base keeps the VIN at its former size; PageHeader descriptions default to text-sm. */}
             <span className="text-base">{vehicle.vin || t('stockDetail.noVin')}</span>
             {vehicle.stock_status ? <StatusBadge status={vehicle.stock_status} /> : null}
           </span>
