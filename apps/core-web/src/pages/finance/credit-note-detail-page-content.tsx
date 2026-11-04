@@ -57,6 +57,9 @@ import { getErrorMessage } from '@/lib/error-utils'
 import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { generateId } from '@/lib/id'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 const formatDate = (value: string) => formatDateShort(value)
 
@@ -92,7 +95,7 @@ function CreditNotePrintButton({
 
   if (!canManageCreditNotes(role) && !creditNote.pdfGeneratedAt) {
     return (
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         {t('creditNotes.detail.pdfNotGeneratedHint')}
       </p>
     )
@@ -314,14 +317,14 @@ export default function CreditNoteDetailPage() {
   }
 
   if (isLoading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">{t('creditNotes.detail.loading')}</div>
+    return <DetailSkeleton label={t('creditNotes.detail.loading')} />
   }
 
   if (isError || !creditNote) {
     return (
-      <div className="p-8 text-center text-sm text-muted-foreground">
-        {getErrorMessage(error, t('creditNotes.detail.notFound'))}
-      </div>
+      <Empty>
+        <EmptyDescription>{getErrorMessage(error, t('creditNotes.detail.notFound'))}</EmptyDescription>
+      </Empty>
     )
   }
 
@@ -335,23 +338,26 @@ export default function CreditNoteDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
+      <PageHeader
+        className="mb-0"
+        title={
+          <span className="flex items-center gap-3">
             {creditNote.creditNumber ??
               t('shared.creditNoteTitle', { id: creditNote.id.slice(0, 8) })}
-          </h1>
-          <StatusBadge status={creditNote.status} />
-        </div>
-        <div className="flex items-center gap-3">
+            <StatusBadge status={creditNote.status} />
+          </span>
+        }
+        actions={
+          <>
           {canEditDraft ? <DocumentSaveIndicator status={saveStatus} /> : null}
           {canEditDraft ? (
             <>
-              <Button variant="outline" onClick={() => setVoidOpen(true)}>
+              <Button variant="outline" className="max-sm:min-h-11" onClick={() => setVoidOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t('actions.void')}
               </Button>
               <Button
+                className="max-sm:min-h-11"
                 onClick={() => setFinalizeOpen(true)}
                 disabled={
                   saveStatus === 'saving' ||
@@ -370,8 +376,9 @@ export default function CreditNoteDetailPage() {
               role={sessionQuery.data?.activeRole}
             />
           ) : null}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="space-y-6 lg:col-span-1">
@@ -424,12 +431,12 @@ export default function CreditNoteDetailPage() {
                 )}
               </div>
               {isDraft && !canManageCreditNote ? (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {t('creditNotes.detail.draftEditHint')}
                 </p>
               ) : null}
               {creditNote.status === 'FINALIZED' ? (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {t('creditNotes.detail.finalizedHint')}
                 </p>
               ) : null}

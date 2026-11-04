@@ -27,6 +27,8 @@ import {
   useCustomerCommunicationPreferences,
   useRecordCommunicationEvent,
 } from '@/api/customer-consent'
+import { CardSkeleton } from '@/components/ui/skeleton-presets'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const MARKETING_PURPOSES = new Set([
   'PICKERL_REMINDER',
@@ -114,7 +116,7 @@ export function CustomerConsentPanel({
   }
 
   if (!namespaceReady || prefsLoading) {
-    return <div className='text-sm text-muted-foreground'>…</div>
+    return <CardSkeleton lines={2} />
   }
 
   const marketingRows =
@@ -186,7 +188,7 @@ export function CustomerConsentPanel({
         </CardHeader>
         <CardContent>
           {historyLoading ? (
-            <div className='text-sm text-muted-foreground'>…</div>
+            <Skeleton className='h-4 w-full max-w-40' />
           ) : history && history.length > 0 ? (
             <Table>
               <TableHeader>

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { Customer, InventoryItem } from '@/api/types'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 interface SalesOrderItemForm {
   catalog_item_id?: string
@@ -182,20 +183,19 @@ export default function SalesOrderCreate() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+      <PageHeader
+        className="mb-0"
+        leading={
+          <Button variant="ghost" size="icon" className="max-sm:min-h-11 max-sm:min-w-11" asChild>
             <button aria-label={t('orders.create.backAria')} onClick={() => navigate(-1)}>
               <ArrowLeft className="h-4 w-4" />
             </button>
           </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t('orders.create.title')}</h1>
-            <p className="text-slate-500">{t('orders.create.description')}</p>
-          </div>
-        </div>
-        <DocumentSaveIndicator status={saveStatus} />
-      </div>
+        }
+        title={t('orders.create.title')}
+        description={t('orders.create.description')}
+        actions={<DocumentSaveIndicator status={saveStatus} />}
+      />
 
       <Form {...form}>
         <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
@@ -341,7 +341,7 @@ export default function SalesOrderCreate() {
                   )}
                 </TableBody>
               </Table>
-              <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
+              <div className="p-4 flex justify-end items-center gap-4 border-t bg-muted/50">
                 <span className="text-muted-foreground font-medium">{t('orders.create.totalAmount')}</span>
                 <span className="text-2xl font-bold">{formatCurrency(currentTotal)}</span>
               </div>

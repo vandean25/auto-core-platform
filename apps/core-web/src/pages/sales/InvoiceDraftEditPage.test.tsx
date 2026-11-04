@@ -523,7 +523,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       expect(screen.getByText(deSales.invoices.draft.notFound)).toBeInTheDocument()
     })
 
-    it('shows the loading notice while the invoice is loading', () => {
+    it('shows a skeleton with the loading label while the invoice is loading', async () => {
       asMock(salesApi.useInvoice).mockImplementation(() => ({
         data: undefined,
         isLoading: true,
@@ -532,7 +532,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
       renderPage()
 
-      expect(screen.getByText(deSales.invoices.draft.loading)).toBeInTheDocument()
+      expect(await screen.findByRole('status')).toHaveTextContent(deSales.invoices.draft.loading)
     })
 
     it('shows the load failure when the invoice query errors', () => {

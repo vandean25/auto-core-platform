@@ -5,6 +5,8 @@ import type { Invoice } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { translateSalesApiError } from "@/features/sales/sales-api-error-i18n"
 import type { InvoiceDraftView } from "./invoice-draft-view"
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 interface InvoiceDraftStatusProps {
   view: Exclude<InvoiceDraftView["view"], "editable">
@@ -17,16 +19,20 @@ export function InvoiceDraftStatus({ view, invoice, error }: InvoiceDraftStatusP
   const { t } = useTranslation("sales")
 
   if (view === "notFound") {
-    return <div className="p-8 text-center">{t("invoices.draft.notFound")}</div>
+    return (
+      <Empty>
+        <EmptyDescription>{t("invoices.draft.notFound")}</EmptyDescription>
+      </Empty>
+    )
   }
   if (view === "loading") {
-    return <div className="p-8 text-center">{t("invoices.draft.loading")}</div>
+    return <DetailSkeleton label={t("invoices.draft.loading")} />
   }
   if (view === "loadFailed") {
     return (
-      <div className="p-8 text-center text-muted-foreground">
-        {translateSalesApiError(t, error, "errors.loadFailed")}
-      </div>
+      <Empty>
+        <EmptyDescription>{translateSalesApiError(t, error, "errors.loadFailed")}</EmptyDescription>
+      </Empty>
     )
   }
 
@@ -36,7 +42,7 @@ export function InvoiceDraftStatus({ view, invoice, error }: InvoiceDraftStatusP
       <h1 className="text-2xl font-semibold tracking-tight">
         {isUnsupported ? t("invoices.draft.unsupportedTitle") : t("invoices.draft.notEditableTitle")}
       </h1>
-      <p className="text-slate-500">
+      <p className="text-muted-foreground">
         {isUnsupported
           ? t("invoices.draft.unsupportedDescription")
           : t("invoices.draft.notEditableDescription")}

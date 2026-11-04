@@ -95,7 +95,7 @@ export default function CreditNotesPage() {
       <div className={PAGE_HEADER_ROW}>
         <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('creditNotes.list.title')}</h1>
-          <p className="text-slate-500">{t('creditNotes.list.subtitle')}</p>
+          <p className="text-muted-foreground">{t('creditNotes.list.subtitle')}</p>
         </div>
         <Button
           variant="outline"

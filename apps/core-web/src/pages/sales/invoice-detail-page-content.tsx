@@ -26,6 +26,8 @@ import { InvoiceDetailHeader } from './InvoiceDetailHeader'
 import { InvoiceLineItemsCard } from './InvoiceLineItemsCard'
 import { RelatedCreditNotesCard } from './RelatedCreditNotesCard'
 import { toNumber } from './invoice-detail-lines'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 const INVOICES_API = '/api/invoices'
 
@@ -35,9 +37,8 @@ const formatDate = (value: string) => formatDateShort(value)
 
 type InvoiceQuery = Pick<ReturnType<typeof useInvoice>, 'data' | 'isLoading' | 'isError' | 'error'>
 
-/** Message shown instead of the invoice while it loads, failed to load or does not exist. */
+/** Message shown instead of the invoice when it failed to load or does not exist. */
 function invoicePlaceholder(t: TFunction<'sales'>, query: InvoiceQuery): string | null {
-  if (query.isLoading) return t('invoices.detail.loading')
   if (query.isError) {
     return getErrorStatus(query.error) === 404
       ? t('invoices.detail.notFound')
@@ -185,9 +186,14 @@ export default function InvoiceDetailPage() {
   const creditNotes = useInvoiceCreditNotes(id)
   const pdf = useInvoicePdfDownload(invoice)
 
+  if (invoiceQuery.isLoading) return <DetailSkeleton label={t('invoices.detail.loading')} />
   const placeholder = invoicePlaceholder(t, invoiceQuery)
   if (placeholder !== null || !invoice) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">{placeholder}</div>
+    return (
+      <Empty>
+        <EmptyDescription>{placeholder}</EmptyDescription>
+      </Empty>
+    )
   }
 
   if (invoice.status === 'DRAFT' && invoice.sales_order_id) {

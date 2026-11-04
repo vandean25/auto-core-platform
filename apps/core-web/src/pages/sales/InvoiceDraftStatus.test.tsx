@@ -15,16 +15,19 @@ const renderStatus = (view: Parameters<typeof InvoiceDraftStatus>[0]['view'], er
   )
 
 describe('InvoiceDraftStatus', () => {
-  it('shows the not-found notice', () => {
-    renderStatus('notFound')
+  // Regression: the not-found notice was a bare text block, not the shared Empty.
+  it('WHEN the invoice draft does not exist THEN the shared Empty is shown with the German text', () => {
+    const { container } = renderStatus('notFound')
 
-    expect(screen.getByText(deSales.invoices.draft.notFound)).toBeInTheDocument()
+    expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent(deSales.invoices.draft.notFound)
   })
 
-  it('shows the loading notice', () => {
-    renderStatus('loading')
+  // Regression: the loading state was a bare text block instead of a skeleton.
+  it('WHEN the invoice draft is loading THEN a Skeleton is shown instead of the loading text', async () => {
+    const { container } = renderStatus('loading')
 
-    expect(screen.getByText(deSales.invoices.draft.loading)).toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent(deSales.invoices.draft.loading)
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
   })
 
   it('shows the load failure text for the error', () => {

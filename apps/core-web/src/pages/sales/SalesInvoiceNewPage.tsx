@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export default function SalesInvoiceNewPage() {
   const { t } = useTranslation('sales')
@@ -16,15 +17,18 @@ export default function SalesInvoiceNewPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-2">
-        <FileText className="h-7 w-7 text-muted-foreground" />
-        <h1 className="text-2xl font-semibold tracking-tight">{t('invoices.newPage.title')}</h1>
-      </div>
-      <p className="text-slate-500">
-        {t('invoices.newPage.descriptionBefore')}{' '}
-        <span className="font-medium text-slate-700">{t('invoices.newPage.createInvoiceAction')}</span>{' '}
-        {t('invoices.newPage.descriptionAfter')}
-      </p>
+      <PageHeader
+        className="mb-0"
+        leading={<FileText className="h-7 w-7 text-muted-foreground" />}
+        title={t('invoices.newPage.title')}
+        description={
+          <>
+            {t('invoices.newPage.descriptionBefore')}{' '}
+            <span className="font-medium text-foreground">{t('invoices.newPage.createInvoiceAction')}</span>{' '}
+            {t('invoices.newPage.descriptionAfter')}
+          </>
+        }
+      />
 
       <Card>
         <CardHeader>
@@ -35,7 +39,7 @@ export default function SalesInvoiceNewPage() {
             <li>{t('invoices.newPage.step1')}</li>
             <li>
               {t('invoices.newPage.step2Before')}{' '}
-              <span className="font-medium text-slate-700">{t('invoices.newPage.step2Action')}</span>{' '}
+              <span className="font-medium text-foreground">{t('invoices.newPage.step2Action')}</span>{' '}
               {t('invoices.newPage.step2After')}
             </li>
             <li>{t('invoices.newPage.step3')}</li>

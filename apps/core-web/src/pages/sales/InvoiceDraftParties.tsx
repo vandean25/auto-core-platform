@@ -21,7 +21,7 @@ export function InvoiceDraftParties({ editor }: { editor: InvoiceEditor }) {
         <CustomerSearch value={editor.customer} onChange={editor.setCustomer} />
 
         {editor.customer && (
-          <div className="text-sm text-gray-600 mt-2 pl-1 border-l-2 border-gray-100">
+          <div className="text-sm text-muted-foreground mt-2 pl-1 border-l-2 border-border">
             <p>{editor.customer.address_street || t("invoices.draft.noStreet")}</p>
             <p>{editor.customer.address_zip} {editor.customer.address_city}</p>
             <p>{editor.customer.address_country}</p>

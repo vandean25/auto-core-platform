@@ -35,6 +35,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export default function SalesOrderDetail() {
   const { t } = useTranslation('sales')
@@ -68,13 +71,17 @@ export default function SalesOrderDetail() {
 
   if (!salesLocaleReady || isLoading) {
     return salesLocaleReady ? (
-      <div className="p-8 text-center">{t('orders.detail.loading')}</div>
+      <DetailSkeleton label={t('orders.detail.loading')} />
     ) : (
       <PageLoader />
     )
   }
   if (!order) {
-    return <div className="p-8 text-center">{t('orders.detail.notFound')}</div>
+    return (
+      <Empty>
+        <EmptyDescription>{t('orders.detail.notFound')}</EmptyDescription>
+      </Empty>
+    )
   }
 
   const isLocked = order.status === 'INVOICED'
@@ -97,28 +104,28 @@ export default function SalesOrderDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+      <PageHeader
+        className="mb-0"
+        leading={
+          <Button variant="ghost" size="icon" className="max-sm:min-h-11 max-sm:min-w-11" asChild>
             <Link to="/sales-orders" aria-label={t('orders.detail.backAria')}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
-              {order.order_number}
-              <StatusBadge status={order.status} />
-            </h1>
-            <p className="text-slate-500">
-              {t('orders.detail.createdOn', { date: formatDate(order.createdAt) })}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        }
+        title={
+          <span className="flex items-center gap-3">
+            {order.order_number}
+            <StatusBadge status={order.status} />
+          </span>
+        }
+        description={t('orders.detail.createdOn', { date: formatDate(order.createdAt) })}
+        actions={
+          <>
           {order.status !== 'INVOICED' && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button size="lg" className="gap-2">
+                <Button size="lg" className="gap-2 max-sm:min-h-11">
                   <FileText className="h-4 w-4" /> {t('orders.detail.createInvoice')}
                 </Button>
               </AlertDialogTrigger>
@@ -141,12 +148,13 @@ export default function SalesOrderDetail() {
             </AlertDialog>
           )}
           {order.status === 'INVOICED' && (
-            <Button variant="outline" size="lg" className="gap-2" disabled>
-              <CheckCircle2 className="h-4 w-4 text-green-500" /> {t('orders.detail.invoiced')}
+            <Button variant="outline" size="lg" className="gap-2 max-sm:min-h-11" disabled>
+              <CheckCircle2 className="h-4 w-4 text-success" /> {t('orders.detail.invoiced')}
             </Button>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="space-y-6 lg:col-span-1">
@@ -252,7 +260,7 @@ export default function SalesOrderDetail() {
                   )}
                 </TableBody>
               </Table>
-              <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
+              <div className="p-4 flex justify-end items-center gap-4 border-t bg-muted/50">
                 <span className="text-muted-foreground font-medium">
                   {t('orders.detail.totalAmount')}
                 </span>
