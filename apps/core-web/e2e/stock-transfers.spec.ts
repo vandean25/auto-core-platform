@@ -620,7 +620,6 @@ test.describe('Stock Transfer detail on a phone (AUT-909)', () => {
   })
 })
 
-const DE_NAV = deNav
 const detailCopy = DE_INVENTORY.stockTransfers.detail
 
 /** The two phone sizes of the ticket: a large and a small phone. */
@@ -778,9 +777,21 @@ test.describe('Stock Transfer detail with long labels (AUT-914)', () => {
 
   test('WHEN the page is open at 390px THEN the bottom nav stays visible', async ({ page }) => {
     await openLongTransfer(page, PHONE_SIZES[0])
-    const nav = page.getByRole('navigation', { name: DE_NAV.phoneNav.aria })
-    await expect(nav).toBeVisible()
+    const nav = page.getByRole('navigation', { name: deNav.phoneNav.aria })
     await expect(nav).toBeInViewport({ ratio: 1 })
+    // The fixed nav spans the screen, so a page wider than the screen (the bug) leaves it shorter than the page and off-centre.
+    const { navLeft, navRight, screen, pageWidth } = await nav.evaluate((node) => {
+      const box = node.getBoundingClientRect()
+      return {
+        navLeft: box.left,
+        navRight: box.right,
+        screen: document.documentElement.clientWidth,
+        pageWidth: document.documentElement.scrollWidth,
+      }
+    })
+    expect(navLeft).toBe(0)
+    expect(navRight).toBe(screen)
+    expect(pageWidth).toBe(screen)
   })
 
   test('WHEN the page opens at 1400px THEN all position columns are visible', async ({ page }) => {
@@ -792,9 +803,10 @@ test.describe('Stock Transfer detail with long labels (AUT-914)', () => {
     await expectNoPageScroll(page)
   })
 
+  // 40 is past the table's page size of 25: the hidden pagination must not cut positions off.
   test('WHEN a transfer has many positions THEN every position renders without widening the page', async ({ page }) => {
-    await openLongTransfer(page, PHONE_SIZES[1], 25)
-    await expect(page.locator('[data-table-row="true"]')).toHaveCount(25)
+    await openLongTransfer(page, PHONE_SIZES[1], 40)
+    await expect(page.locator('[data-table-row="true"]')).toHaveCount(40)
     await expectNoPageScroll(page)
   })
 })
