@@ -1,18 +1,32 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { TFunction } from 'i18next'
 import { createElement } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { TyreSet } from '@/api/tyre-storage'
 import type { WorkshopOrder } from '@/api/types'
-import { canRecordTyreMeasurement } from '@/features/actions/action-role-predicates'
+import { downloadCreditNotePdf, type CreditNoteResponseDto } from '@/api/useCreditNotes'
+import { canPrintCreditNote, canRecordTyreMeasurement } from '@/features/actions/action-role-predicates'
 import { isRegisteredEntityActionId } from '@/features/actions/entity-action'
 import { RegistryActionButton } from '@/features/actions/RegistryActionButton'
+import {
+  createCreditNotePrintAction,
+  creditNoteToActionRecord,
+  type CreditNoteActionRecord,
+  type CreditNoteRowActionContext,
+} from '@/features/actions/credit-note-row-actions'
 import { createTyreSetTyreMeasurementAction, type TyreSetRowActionContext } from '@/features/actions/tyre-set-row-actions'
 import { createWorkshopOrderTyreMeasurementAction, type WorkshopOrderListRow, type WorkshopOrderRowActionContext } from '@/features/actions/work-order-row-actions'
 import { workshopOrderToListRow } from '@/features/peek/WorkshopOrderPeekContent'
+import { triggerBlobDownload } from '@/lib/download'
 import { i18n } from '@/lib/i18n'
 import { buildPaletteContextSection } from './build-palette-context-section'
+
+vi.mock('@/lib/download', () => ({ triggerBlobDownload: vi.fn() }))
+vi.mock('@/api/useCreditNotes', async () => {
+  const actual = await vi.importActual<typeof import('@/api/useCreditNotes')>('@/api/useCreditNotes')
+  return { ...actual, downloadCreditNotePdf: vi.fn() }
+})
 
 const tyreSet: TyreSet = {
   id: 'set-1',
@@ -32,6 +46,7 @@ const translations = {
   workshop: i18n.getFixedT('de', 'workshop') as TFunction<'workshop'>,
   customers: i18n.getFixedT('de', 'customers') as TFunction<'customers'>,
   vehicles: i18n.getFixedT('de', 'vehicles') as TFunction<'vehicles'>,
+  finance: i18n.getFixedT('de', 'finance') as TFunction<'finance'>,
 }
 
 function buildSection(role: string | undefined, record: TyreSet = tyreSet, query = '') {
@@ -48,6 +63,7 @@ function buildSection(role: string | undefined, record: TyreSet = tyreSet, query
       vehicle: { navigate, t: translations.vehicles },
       estimate: { navigate },
       tyreSet: { navigate },
+      creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
     },
   )
   return { section, navigate }
@@ -130,6 +146,7 @@ describe('work order measurement page and palette parity', () => {
           vehicle: { navigate, t: translations.vehicles },
           estimate: { navigate },
           tyreSet: { navigate },
+          creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
         },
       )
       const action = section?.items.find((item) => item.id === 'workOrder.recordTyreMeasurement')
@@ -154,4 +171,108 @@ describe('work order measurement page and palette parity', () => {
       }
     },
   )
+})
+
+describe('credit note print page and palette parity', () => {
+  function makeCreditNote(overrides: Partial<CreditNoteResponseDto> = {}): CreditNoteResponseDto {
+    return {
+      id: 'cn-1',
+      originalInvoiceId: 'inv-1',
+      status: 'FINALIZED',
+      creditNumber: 'CN-2026-0001',
+      date: '2026-03-01',
+      reason: 'Pricing correction',
+      version: 1,
+      totalNet: '50.00',
+      totalTax: '9.50',
+      totalGross: '59.50',
+      items: [],
+      remainingLines: [],
+      pdfGeneratedAt: '2026-03-02T00:00:00.000Z',
+      ...overrides,
+    }
+  }
+
+  function buildCreditNoteSection(role: string | undefined, note: CreditNoteResponseDto) {
+    const navigate = vi.fn()
+    const generateAndDownload = vi.fn().mockResolvedValue(true)
+    const section = buildPaletteContextSection(
+      { entity: 'credit_note', id: note.id },
+      role,
+      '',
+      { creditNote: note },
+      translations,
+      {
+        workshop: { navigate, generatePdf: {} as never, t: translations.workshop },
+        customer: { navigate, onDelete: vi.fn(), t: translations.customers },
+        vehicle: { navigate, t: translations.vehicles },
+        estimate: { navigate },
+        tyreSet: { navigate },
+        creditNote: { t: translations.finance, generateAndDownload },
+      },
+    )
+    return { section, generateAndDownload }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it.each([
+    ['OWNER', '2026-03-02T00:00:00.000Z', true],
+    ['OWNER', null, true],
+    ['ADMIN', null, true],
+    ['SALES', '2026-03-02T00:00:00.000Z', true],
+    ['SALES', null, false],
+    ['TECH', '2026-03-02T00:00:00.000Z', false],
+  ])('offers the same registered print action to %s (pdfGeneratedAt=%s)', (role, pdfGeneratedAt, visible) => {
+    const { section } = buildCreditNoteSection(role, makeCreditNote({ pdfGeneratedAt }))
+    const definition = createCreditNotePrintAction(translations.finance)
+    expect(definition.isAllowedForRole).toBe(canPrintCreditNote)
+    if (!visible) {
+      expect(section).toBeNull()
+      return
+    }
+    const action = section!.items[0]
+    expect(action.id).toBe('creditNote.print')
+    expect(isRegisteredEntityActionId(action.id)).toBe(true)
+    expect(action.label).toBe('Drucken')
+    render(createElement(RegistryActionButton<CreditNoteActionRecord, CreditNoteRowActionContext>, {
+      action: definition,
+      record: creditNoteToActionRecord(makeCreditNote({ pdfGeneratedAt }), role),
+      runContext: { t: translations.finance, generateAndDownload: vi.fn() },
+      role,
+    }))
+    expect(screen.getByRole('button', { name: 'Drucken' })).toHaveAttribute(
+      'data-action-id',
+      'creditNote.print',
+    )
+  })
+
+  it('generates over POST then downloads for OWNER when no PDF exists yet', async () => {
+    const { section, generateAndDownload } = buildCreditNoteSection('OWNER', makeCreditNote({ pdfGeneratedAt: null }))
+    section!.items[0].onSelect()
+    await waitFor(() =>
+      expect(generateAndDownload).toHaveBeenCalledWith(
+        expect.objectContaining({
+          postUrl: '/api/credit-notes/cn-1/pdf',
+          getUrl: '/api/credit-notes/cn-1/pdf',
+        }),
+      ),
+    )
+    expect(downloadCreditNotePdf).not.toHaveBeenCalled()
+  })
+
+  it('downloads an existing PDF over GET only for SALES and never POSTs', async () => {
+    const blob = new Blob(['pdf'], { type: 'application/pdf' })
+    vi.mocked(downloadCreditNotePdf).mockResolvedValue(blob)
+    const { section, generateAndDownload } = buildCreditNoteSection(
+      'SALES',
+      makeCreditNote({ pdfGeneratedAt: '2026-03-02T00:00:00.000Z' }),
+    )
+    section!.items[0].onSelect()
+    await waitFor(() => expect(downloadCreditNotePdf).toHaveBeenCalledWith('cn-1', { poll: false }))
+    expect(triggerBlobDownload).toHaveBeenCalledWith(blob, 'credit_note_cn_2026_0001.pdf')
+    expect(generateAndDownload).not.toHaveBeenCalled()
+  })
 })

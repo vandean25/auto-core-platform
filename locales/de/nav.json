@@ -128,7 +128,8 @@
       "customer": "Aktionen für diesen Kunden",
       "vehicle": "Aktionen für {{vehicle}}",
       "workOrder": "Aktionen für {{orderNo}}",
-      "estimate": "Aktionen für Kostenvoranschlag {{number}} v{{version}}"
+      "estimate": "Aktionen für Kostenvoranschlag {{number}} v{{version}}",
+      "creditNote": "Aktionen für Gutschrift {{number}}"
     },
     "quickActions": {
       "navigate": "Navigation",

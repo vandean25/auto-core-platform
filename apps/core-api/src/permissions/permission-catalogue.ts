@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 3;
+export const PERMISSION_CATALOGUE_VERSION = 4;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -83,11 +83,6 @@ const DEFINITIONS = [
     'credit_note.pdf.generate',
     'Gutschrift-PDF erzeugen',
     'Generate credit note PDF',
-  ],
-  [
-    'credit_note.document.read',
-    'Gutschrift-Dokumente ansehen',
-    'View credit note documents',
   ],
   ['credit_note.read', 'Gutschriften ansehen', 'View credit notes'],
   ['credit_note.void', 'Gutschrift stornieren', 'Void credit note'],

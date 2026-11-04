@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { TFunction } from 'i18next'
 
 import type { WorkshopEstimateVersionDetail } from '@/api/workshop-estimates'
+import type { CreditNoteResponseDto } from '@/api/useCreditNotes'
 import type { Customer } from '@/api/types'
 import type { WorkshopOrder } from '@/api/types'
 import type { Vehicle } from '@/api/types'
@@ -19,6 +20,11 @@ import {
 } from '@/features/actions/estimate-row-actions'
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
 import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-actions'
+import {
+  creditNoteToActionRecord,
+  type CreditNoteActionRecord,
+  type CreditNoteRowActionContext,
+} from '@/features/actions/credit-note-row-actions'
 import { vehicleToListRow } from '@/features/peek/VehiclePeekContent'
 import { workshopOrderToListRow } from '@/features/peek/WorkshopOrderPeekContent'
 import type { GlobalSearchRecordRef } from './global-search-record-route'
@@ -162,6 +168,21 @@ export function buildEstimatePaletteContextActions<TRunContext>(
   const record = estimateVersionToActionRecord(estimate)
   return mapRegistryActionsToPalette(definitions, role, record, runContext, () =>
     t('globalSearch.contextActions.estimate', { number: record.estimate_number, version: record.version }),
+  )
+}
+
+export function buildCreditNotePaletteContextActions(
+  definitions: EntityActionDefinition<CreditNoteActionRecord, CreditNoteRowActionContext>[],
+  role: string | undefined,
+  creditNote: CreditNoteResponseDto,
+  runContext: CreditNoteRowActionContext,
+  t: TFunction<'nav'>,
+): PaletteContextAction[] {
+  const record = creditNoteToActionRecord(creditNote, role)
+  return mapRegistryActionsToPalette(definitions, role, record, runContext, () =>
+    t('globalSearch.contextActions.creditNote', {
+      number: record.creditNumber ?? creditNote.id.slice(0, 8),
+    }),
   )
 }
 

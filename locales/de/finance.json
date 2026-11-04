@@ -143,6 +143,7 @@
       "creditedLines": "Gutgeschriebene Positionen",
       "draftEditHint": "Nur Eigentümer oder Administratoren können diesen Gutschrift-Entwurf bearbeiten oder ungültig stellen.",
       "finalizedHint": "Abgeschlossene Gutschriften können hier nicht geändert werden. Wenden Sie sich an Support und Ihre Buchhaltung, wenn der Beleg irrtümlich ausgestellt wurde.",
+      "pdfNotGeneratedHint": "PDF noch nicht erstellt – Buchhaltung kontaktieren.",
       "finalizeDialog": {
         "title": "Gutschrift abschließen?",
         "description": "Dies vergibt eine permanente Gutschrift-Nummer und friert den Stand der Korrektur ein. Es erfolgt kein Lager-Rücklauf und keine Erstattung. Die Ursprungsrechnung bleibt unverändert.",

@@ -41,6 +41,7 @@ export const ENTITY_ACTION_IDS = {
   workshopCommandChoose: 'workshopCommand.choose',
   workshopCommandOpenOrders: 'workshopCommand.openOrders',
   workshopCommandExit: 'workshopCommand.exit',
+  creditNotePrint: 'creditNote.print',
 } as const
 
 export const REGISTERED_ENTITY_ACTION_IDS: readonly string[] = Object.values(ENTITY_ACTION_IDS)

@@ -1,5 +1,5 @@
-import type { TFunction } from 'i18next'
 import type { TyreSet } from '@/api/tyre-storage'
+import type { CreditNoteResponseDto } from '@/api/useCreditNotes'
 import type { Customer } from '@/api/types'
 import type { Vehicle } from '@/api/types'
 import type { WorkshopEstimateVersionDetail } from '@/api/workshop-estimates'
@@ -13,7 +13,9 @@ import { createVehicleRowActions } from '@/features/actions/vehicle-row-actions'
 import type { WorkshopOrderRowActionContext } from '@/features/actions/work-order-row-actions'
 import { createWorkshopOrderRowActions, createWorkshopOrderTyreMeasurementAction } from '@/features/actions/work-order-row-actions'
 import { createTyreSetTyreMeasurementAction, type TyreSetRowActionContext } from '@/features/actions/tyre-set-row-actions'
+import { createCreditNotePrintAction, type CreditNoteRowActionContext } from '@/features/actions/credit-note-row-actions'
 import {
+  buildCreditNotePaletteContextActions,
   buildCustomerPaletteContextActions,
   buildEstimatePaletteContextActions,
   buildVehiclePaletteContextActions,
@@ -23,13 +25,7 @@ import {
   type PaletteContextActionSection,
 } from './global-search-context-actions'
 import type { GlobalSearchRecordRef } from './global-search-record-route'
-
-type PaletteContextTranslations = {
-  nav: TFunction<'nav'>
-  workshop: TFunction<'workshop'>
-  customers: TFunction<'customers'>
-  vehicles: TFunction<'vehicles'>
-}
+import type { PaletteContextTranslations } from './use-palette-context-translations'
 
 type PaletteContextRunContexts = {
   workshop: WorkshopOrderRowActionContext
@@ -37,6 +33,7 @@ type PaletteContextRunContexts = {
   vehicle: VehicleRowActionContext
   estimate: EstimateRowActionContext
   tyreSet: TyreSetRowActionContext
+  creditNote: CreditNoteRowActionContext
 }
 
 export function buildPaletteContextSection(
@@ -49,11 +46,12 @@ export function buildPaletteContextSection(
     vehicle?: Vehicle
     estimate?: WorkshopEstimateVersionDetail
     tyreSet?: TyreSet
+    creditNote?: CreditNoteResponseDto
   },
   translations: PaletteContextTranslations,
   runContexts: PaletteContextRunContexts,
 ): PaletteContextActionSection | null {
-  const { nav, workshop, customers, vehicles } = translations
+  const { nav, workshop, customers, vehicles, finance } = translations
   let items: PaletteContextActionSection['items'] = []
 
   if (ref.entity === 'workshop_order' && role === 'TECH') {
@@ -107,6 +105,14 @@ export function buildPaletteContextSection(
       tyreSet,
       runContexts.tyreSet,
       () => tyreSet.label,
+    )
+  } else if (ref.entity === 'credit_note' && records.creditNote) {
+    items = buildCreditNotePaletteContextActions(
+      [createCreditNotePrintAction(finance)],
+      role,
+      records.creditNote,
+      runContexts.creditNote,
+      nav,
     )
   }
 

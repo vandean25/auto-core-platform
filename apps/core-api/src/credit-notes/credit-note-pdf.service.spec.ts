@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { CreditNotePdfService } from './credit-note-pdf.service.js';
 import type { CloudTasksService } from '../common/services/cloud-tasks.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -17,6 +17,7 @@ describe('CreditNotePdfService.getPdf', () => {
 
   let service: CreditNotePdfService;
   let storage: jest.Mocked<Pick<PdfStorage, 'getPdfStream'>>;
+  let getAuthenticatedUser: jest.Mock;
   let prisma: {
     client: {
       creditNote: {
@@ -27,6 +28,9 @@ describe('CreditNotePdfService.getPdf', () => {
   };
 
   beforeEach(() => {
+    // Reads are gated by the shared credit-note read check; OWNER passes the role check and
+    // skips the site lookup, so these fixtures do not need site membership rows.
+    getAuthenticatedUser = jest.fn().mockReturnValue({ role: 'OWNER' });
     storage = {
       getPdfStream: jest.fn().mockResolvedValue({
         bucket: 'bucket',
@@ -52,8 +56,27 @@ describe('CreditNotePdfService.getPdf', () => {
       {} as CloudTasksService,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
+        getAuthenticatedUser,
       } as unknown as TenantContextService,
     );
+  });
+
+  // Regression: getPdf had no role gate, so a TECH caller streamed any PDF in the tenant.
+  it('refuses a TECH caller with 403 before opening the PDF', async () => {
+    getAuthenticatedUser.mockReturnValue({ role: 'TECH' });
+    prisma.client.creditNote.findFirst.mockResolvedValue({
+      id: creditNoteId,
+      site_id: 'site-1',
+      credit_number: 'CN-2026-0001',
+      pdf_storage_bucket: 'bucket',
+      pdf_storage_key: 'credit-notes/credit-note-1.pdf',
+      pdf_generated_at: new Date('2026-04-01T00:00:00.000Z'),
+    });
+
+    await expect(service.getPdf(creditNoteId)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(storage.getPdfStream).not.toHaveBeenCalled();
   });
 
   it('streams from cached metadata when pdf_storage fields are set', async () => {
@@ -193,6 +216,7 @@ describe('CreditNotePdfService.requestGeneration', () => {
       asFake<CloudTasksService>({ isEnabled: jest.fn().mockReturnValue(false) }),
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
+        getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
       } as unknown as TenantContextService,
     );
   });
@@ -201,6 +225,7 @@ describe('CreditNotePdfService.requestGeneration', () => {
     prisma.client.creditNote.findFirst.mockResolvedValue({
       id: creditNoteId,
       status: 'FINALIZED',
+      site_id: 'site-1',
       credit_number: 'CN-2026-0001',
       pdf_storage_bucket: 'bucket',
       pdf_storage_key: 'credit-notes/credit-note-1.pdf',
@@ -246,5 +271,36 @@ describe('CreditNotePdfService.requestGeneration', () => {
         pdf_generated_at: null,
       },
     });
+  });
+
+  it('refuses a SALES caller with 403 on a FINALIZED note before generating', async () => {
+    const salesService = new CreditNotePdfService(
+      prisma as unknown as PrismaService,
+      {} as InvoicePdfRenderer,
+      asFake<PdfStorage>(storage),
+      asFake<CloudTasksService>({ isEnabled: jest.fn().mockReturnValue(false) }),
+      {
+        getTenantId: jest.fn().mockResolvedValue(tenantId),
+        getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'SALES' }),
+      } as unknown as TenantContextService,
+    );
+    // FINALIZED with no cached PDF: the status gate would pass for OWNER/ADMIN, so only
+    // the OWNER/ADMIN role gate can refuse this SALES caller, and it must not generate.
+    prisma.client.creditNote.findFirst.mockResolvedValue({
+      id: creditNoteId,
+      status: 'FINALIZED',
+      site_id: 'site-1',
+      credit_number: 'CN-2026-0001',
+      pdf_storage_bucket: null,
+      pdf_storage_key: null,
+      pdf_generated_at: null,
+    });
+
+    await expect(
+      salesService.requestGeneration(creditNoteId, {
+        targetBaseUrl: 'http://localhost:3000/api/',
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.client.creditNote.updateMany).not.toHaveBeenCalled();
   });
 });
