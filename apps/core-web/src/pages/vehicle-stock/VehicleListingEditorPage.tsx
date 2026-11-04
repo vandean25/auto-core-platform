@@ -1,6 +1,3 @@
-import { PageHeader } from '@/components/layout/PageHeader'
-import { DetailSkeleton } from '@/components/ui/skeleton-presets'
-import { Empty, EmptyDescription } from '@/components/ui/empty'
 import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -59,6 +56,9 @@ import {
   translateListingErrorCode,
   translateListingIssue,
 } from '@/features/vehicle-stock/listing/listing-issue-i18n'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 function resolveReceivedPurchaseId(
   purchases: Array<{ id: string; status: string }> | undefined,
