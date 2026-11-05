@@ -5,7 +5,6 @@ import { useLoanerBooking, getLoanerBookingCustomerLabel } from '@/api/loaner-ve
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import { useForceLightTheme } from '@/hooks/useForceLightTheme'
 
 export default function LoanerBookingPrintPage() {
   const { t } = useTranslation('workshop')
@@ -13,8 +12,6 @@ export default function LoanerBookingPrintPage() {
   const { data: booking, isLoading, isError } = useLoanerBooking(id)
 
   useDocumentTitle(booking?.id)
-  // A print view is a document: it stays light while the app is dark.
-  useForceLightTheme()
 
   if (isLoading) {
     return <p className='p-8 text-muted-foreground'>{t('loanerPrint.loading')}</p>
