@@ -31,6 +31,23 @@ export class McpCapabilityGateService {
     });
   }
 
+  /** True when the capability is on; false only for CAPABILITY_UNAVAILABLE denials. */
+  async isAvailable(capability: keyof CountryCapabilities): Promise<boolean> {
+    try {
+      await this.assertAvailable(capability);
+      return true;
+    } catch (error) {
+      if (
+        error instanceof ForbiddenException &&
+        (error.getResponse() as { code?: string }).code ===
+          'CAPABILITY_UNAVAILABLE'
+      ) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   /** Names of the gated tools whose capability is off right now. */
   async hiddenToolNames(): Promise<ReadonlySet<string>> {
     const capabilities = await this.capabilities.resolve();

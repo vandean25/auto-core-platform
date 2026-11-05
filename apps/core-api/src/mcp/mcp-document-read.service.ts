@@ -428,12 +428,12 @@ export class McpDocumentReadService {
   }
 
   private async isKaufvertragAtAvailable(): Promise<boolean> {
-    try {
-      await this.capabilityGate.assertAvailable('kaufvertragAt');
-      return true;
-    } catch {
-      return false;
-    }
+    return this.capabilityGate.isAvailable('kaufvertragAt');
+  }
+
+  /** Shared with vehicle-context document totals so list and count stay aligned. */
+  isKaufvertragAtAvailableForMcp(): Promise<boolean> {
+    return this.isKaufvertragAtAvailable();
   }
 
   /** Resolves one document ID to its stored object, or fails when the PDF does not exist in scope. */

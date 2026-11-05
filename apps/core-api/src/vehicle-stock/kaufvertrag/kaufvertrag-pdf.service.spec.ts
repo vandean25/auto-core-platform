@@ -397,33 +397,57 @@ describe('VehicleSaleKaufvertragPdfService', () => {
       );
     });
 
-    it('refuses generateNow when kaufvertragAt is off, before loading the sale', async () => {
-      const harness = createHarness(loadedSale());
-      harness.effectiveCapabilities.resolve.mockResolvedValue({
-        kaufvertragAt: false,
-        nova: false,
-        pickerl57a: false,
-        willhabenExport: false,
-      });
+    it.each([
+      ['off on session', { kaufvertragAt: false, nova: false, pickerl57a: false, willhabenExport: false }, 0],
+      ['off on worker site', null, 1],
+    ] as const)(
+      'refuses generateNow when kaufvertragAt is %s, before loading the sale',
+      async (_label, capabilities, expectedFindCalls) => {
+        const harness = createHarness(loadedSale());
+        harness.effectiveCapabilities.resolve.mockResolvedValue(capabilities);
+        if (capabilities === null) {
+          harness.vehicleSale.findFirst.mockResolvedValueOnce({
+            site: { legal_entity: { country_iso: 'DE' } },
+          });
+        }
 
-      await expect(harness.service.generateNow(SALE_ID)).rejects.toMatchObject({
-        response: { code: 'CAPABILITY_UNAVAILABLE' },
-      });
-      expect(harness.vehicleSale.findFirst).not.toHaveBeenCalled();
-    });
+        await expect(harness.service.generateNow(SALE_ID)).rejects.toMatchObject({
+          response: { code: 'CAPABILITY_UNAVAILABLE' },
+        });
+        expect(harness.vehicleSale.findFirst).toHaveBeenCalledTimes(
+          expectedFindCalls,
+        );
+      },
+    );
 
-    it('refuses generateNow for a worker when the sale site is not AT-capable', async () => {
-      const harness = createHarness(loadedSale());
-      harness.effectiveCapabilities.resolve.mockResolvedValue(null);
-      harness.vehicleSale.findFirst.mockResolvedValueOnce({
-        site: { legal_entity: { country_iso: 'DE' } },
-      });
+    it.each([
+      ['DE', null, 'DE', false],
+      ['AT', null, 'AT', true],
+    ] as const)(
+      'derive worker kaufvertragAt from the sale site (%s)',
+      async (_label, sessionCaps, countryIso, allowed) => {
+        const harness = createHarness(loadedSale());
+        harness.effectiveCapabilities.resolve.mockResolvedValue(sessionCaps);
+        harness.vehicleSale.findFirst.mockResolvedValueOnce({
+          site: { legal_entity: { country_iso: countryIso } },
+        });
+        if (allowed) {
+          harness.vehicleSale.findFirst.mockResolvedValueOnce(loadedSale());
+        }
 
-      await expect(harness.service.generateNow(SALE_ID)).rejects.toMatchObject({
-        response: { code: 'CAPABILITY_UNAVAILABLE' },
-      });
-      expect(harness.vehicleSale.findFirst).toHaveBeenCalledTimes(1);
-    });
+        const outcome = allowed
+          ? await harness.service.generateNow(SALE_ID)
+          : await harness.service.generateNow(SALE_ID).catch((e) => e);
+
+        if (allowed) {
+          expect(outcome).toMatchObject({ saleId: SALE_ID });
+        } else {
+          expect(outcome).toMatchObject({
+            response: { code: 'CAPABILITY_UNAVAILABLE' },
+          });
+        }
+      },
+    );
 
     it('adopts the existing object when create-only publication loses, after verifying its identity', async () => {
       const harness = createHarness(loadedSale());

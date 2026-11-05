@@ -501,6 +501,8 @@ export class McpVehicleContextReadService {
       },
       { pdf_generated_at: { not: null } },
     ];
+    const includeKaufvertrag =
+      await this.documentReads.isKaufvertragAtAvailableForMcp();
     const [invoices, creditNotes, workshopOrders, sales] = await Promise.all([
       this.prisma.invoice.count({
         where: {
@@ -528,15 +530,17 @@ export class McpVehicleContextReadService {
           pdf_generated_at: { not: null },
         },
       }),
-      this.prisma.vehicleSale.count({
-        where: {
-          tenant_id: tenantId,
-          site_id: siteId,
-          vehicle_id: vehicleId,
-          kaufvertrag_archive_key: { not: null },
-          kaufvertrag_generated_at: { not: null },
-        },
-      }),
+      includeKaufvertrag
+        ? this.prisma.vehicleSale.count({
+            where: {
+              tenant_id: tenantId,
+              site_id: siteId,
+              vehicle_id: vehicleId,
+              kaufvertrag_archive_key: { not: null },
+              kaufvertrag_generated_at: { not: null },
+            },
+          })
+        : Promise.resolve(0),
     ]);
     return invoices + creditNotes + workshopOrders + sales;
   }

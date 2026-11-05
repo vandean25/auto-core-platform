@@ -206,6 +206,7 @@ export class VehicleSaleKaufvertragPdfService {
   }
 
   private async assertKaufvertragCapability(saleId: string): Promise<void> {
+    // Inline generation uses the caller's active-site capabilities; workers use the sale site below.
     const sessionCaps = await this.effectiveCapabilities.resolve();
     if (sessionCaps !== null) {
       if (sessionCaps.kaufvertragAt === true) {

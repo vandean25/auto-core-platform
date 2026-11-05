@@ -63,7 +63,10 @@ describe('McpVehicleContextReadService', () => {
   let invoice: { count: jest.Mock };
   let creditNote: { count: jest.Mock };
   let siteContext: { findSiteId: jest.Mock; getSiteId: jest.Mock };
-  let documentReads: { listDocuments: jest.Mock };
+  let documentReads: {
+    listDocuments: jest.Mock;
+    isKaufvertragAtAvailableForMcp: jest.Mock;
+  };
   let pickerlBarriers: { loadBarrierFlags: jest.Mock };
 
   beforeEach(() => {
@@ -113,6 +116,7 @@ describe('McpVehicleContextReadService', () => {
         meta: { page_size: 10, next_cursor: null },
         truncated: false,
       }),
+      isKaufvertragAtAvailableForMcp: jest.fn().mockResolvedValue(true),
     };
     pickerlBarriers = {
       loadBarrierFlags: jest.fn().mockResolvedValue({}),
@@ -338,6 +342,23 @@ describe('McpVehicleContextReadService', () => {
           },
         }),
       );
+    }
+  });
+
+  it('excludes archived Kaufvertrag sales from document totals when kaufvertragAt is off', async () => {
+    documentReads.isKaufvertragAtAvailableForMcp.mockResolvedValue(false);
+
+    const result = await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['documents'],
+    });
+
+    expect(vehicleSale.count).not.toHaveBeenCalled();
+    const documents = result.sections.documents;
+    expect(documents?.state).toBe('ok');
+    if (documents?.state === 'ok') {
+      expect(documents.meta?.total).toBe(0);
+      expect(documents.data).toEqual([]);
     }
   });
 

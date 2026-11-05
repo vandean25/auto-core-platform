@@ -40,7 +40,7 @@ describe('McpDocumentReadService', () => {
   let workshopOrder: SourceModel;
   let vehicleSale: SourceModel;
   let pdfStorage: { createSignedReadUrl: jest.Mock };
-  let capabilityGate: { assertAvailable: jest.Mock };
+  let capabilityGate: { assertAvailable: jest.Mock; isAvailable: jest.Mock };
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(NOW);
@@ -58,6 +58,7 @@ describe('McpDocumentReadService', () => {
     };
     capabilityGate = {
       assertAvailable: jest.fn().mockResolvedValue(undefined),
+      isAvailable: jest.fn().mockResolvedValue(true),
     };
     service = new McpDocumentReadService(
       {
