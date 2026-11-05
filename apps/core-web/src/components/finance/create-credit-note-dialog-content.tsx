@@ -214,7 +214,7 @@ export function CreateCreditNoteDialog({
               </SelectContent>
             </Select>
             {isMarginScheme && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 {t('creditNotes.createDialog.marginSchemeHint')}
               </p>
             )}

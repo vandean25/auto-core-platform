@@ -103,7 +103,7 @@ export default function InvoiceDraftEditPage() {
         onFinalize={finalize.openDialog}
       />
 
-      <div className="max-w-5xl mx-auto bg-white shadow-sm border rounded-lg p-8">
+      <div className="max-w-5xl mx-auto bg-card shadow-sm border rounded-lg p-8">
         <InvoiceDraftParties editor={editor} />
 
         <InvoiceLineItemsTable

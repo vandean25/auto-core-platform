@@ -1,40 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { formatDateTime } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useCustomerCommunicationHistory, useCustomerCommunicationPreferences } from '@/api/customer-consent'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useCustomerConsentActions } from './useCustomerConsentActions'
+import { CardSkeleton } from '@/components/ui/skeleton-presets'
 import {
-  useCustomerCommunicationHistory,
-  useCustomerCommunicationPreferences,
-  useRecordCommunicationEvent,
-} from '@/api/customer-consent'
-
-const MARKETING_PURPOSES = new Set([
-  'PICKERL_REMINDER',
-  'SERVICE_REMINDER',
-  'REVIEW_REQUEST',
-  'SEASONAL_OFFERS',
-  'NEWSLETTER',
-])
+  ConsentGrantDialog,
+  ConsentHistoryCard,
+  ConsentRevokeDialog,
+  MARKETING_PURPOSES,
+} from './customer-consent-parts'
 
 type CustomerConsentPanelProps = {
   customerId: string
@@ -45,14 +23,9 @@ export function CustomerConsentPanel({
   customerId,
   contactEmail,
 }: CustomerConsentPanelProps) {
-  const { t, i18n } = useTranslation('customers')
+  const { t } = useTranslation('customers')
+  const { t: tCommon } = useTranslation('common')
   const [namespaceReady, setNamespaceReady] = useState(false)
-  const [grantOpen, setGrantOpen] = useState(false)
-  const [revokeOpen, setRevokeOpen] = useState(false)
-  const [purpose, setPurpose] = useState('NEWSLETTER')
-  const [textVersion, setTextVersion] = useState('mkt-v1')
-  const [textSnapshot, setTextSnapshot] = useState('')
-
   useEffect(() => {
     void ensureNamespaceLoaded('customers').then(() => setNamespaceReady(true))
   }, [])
@@ -61,60 +34,29 @@ export function CustomerConsentPanel({
     useCustomerCommunicationPreferences(customerId)
   const { data: history, isLoading: historyLoading } =
     useCustomerCommunicationHistory(customerId)
-  const recordEvent = useRecordCommunicationEvent(customerId)
-
-  const submitGrant = async () => {
-    if (!preferences || !textSnapshot.trim()) {
-      toast.error(t('consent.textRequired'))
-      return
-    }
-    try {
-      await recordEvent.mutateAsync({
-        controller_legal_entity_id: preferences.controller_legal_entity_id,
-        expected_revision: preferences.revision,
-        idempotency_key: `grant-${purpose}-${Date.now()}`,
-        channel: 'EMAIL',
-        purpose,
-        status: 'GRANTED',
-        basis: 'CONSENT',
-        source: 'PROFILE',
-        contact_address: contactEmail ?? undefined,
-        text_version: textVersion,
-        text_language: i18n.language.slice(0, 2),
-        text_snapshot: textSnapshot.trim(),
-      })
-      toast.success(t('consent.saved'))
-      setGrantOpen(false)
-      setTextSnapshot('')
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t('consent.failed'))
-    }
-  }
-
-  const submitRevoke = async () => {
-    if (!preferences) {
-      return
-    }
-    try {
-      await recordEvent.mutateAsync({
-        controller_legal_entity_id: preferences.controller_legal_entity_id,
-        expected_revision: preferences.revision,
-        idempotency_key: `revoke-${purpose}-${Date.now()}`,
-        channel: 'EMAIL',
-        purpose,
-        status: 'REVOKED',
-        source: 'PROFILE',
-        contact_address: contactEmail ?? undefined,
-      })
-      toast.success(t('consent.saved'))
-      setRevokeOpen(false)
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t('consent.failed'))
-    }
-  }
+  const {
+    grantOpen,
+    setGrantOpen,
+    revokeOpen,
+    setRevokeOpen,
+    purpose,
+    setPurpose,
+    textVersion,
+    setTextVersion,
+    textSnapshot,
+    setTextSnapshot,
+    isPending,
+    submitGrant,
+    submitRevoke,
+  } = useCustomerConsentActions(customerId, contactEmail, preferences)
 
   if (!namespaceReady || prefsLoading) {
-    return <div className='text-sm text-muted-foreground'>…</div>
+    return (
+      <div role='status' aria-busy='true'>
+        <span className='sr-only'>{tCommon('shell.loading')}</span>
+        <CardSkeleton lines={2} />
+      </div>
+    )
   }
 
   const marketingRows =
@@ -138,7 +80,7 @@ export function CustomerConsentPanel({
             <Button
               type='button'
               variant='outline'
-              disabled={recordEvent.isPending}
+              disabled={isPending}
               onClick={() => setGrantOpen(true)}
             >
               {t('consent.recordGrant')}
@@ -146,7 +88,7 @@ export function CustomerConsentPanel({
             <Button
               type='button'
               variant='secondary'
-              disabled={recordEvent.isPending}
+              disabled={isPending}
               onClick={() => setRevokeOpen(true)}
             >
               {t('consent.recordRevoke')}
@@ -180,120 +122,29 @@ export function CustomerConsentPanel({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('consent.historyTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {historyLoading ? (
-            <div className='text-sm text-muted-foreground'>…</div>
-          ) : history && history.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('consent.channel')}</TableHead>
-                  <TableHead>{t('consent.purpose')}</TableHead>
-                  <TableHead>{t('consent.status')}</TableHead>
-                  <TableHead>{t('consent.recorded')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell>{event.channel}</TableCell>
-                    <TableCell>{event.purpose}</TableCell>
-                    <TableCell>{event.status}</TableCell>
-                    <TableCell>{formatDateTime(event.recorded_at)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className='text-sm text-muted-foreground'>{t('consent.emptyHistory')}</p>
-          )}
-        </CardContent>
-      </Card>
+      <ConsentHistoryCard history={history} loading={historyLoading} />
 
-      <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('consent.grantDialogTitle')}</DialogTitle>
-          </DialogHeader>
-          <div className='space-y-3'>
-            <div>
-              <Label htmlFor='consent-purpose'>{t('consent.purpose')}</Label>
-              <select
-                id='consent-purpose'
-                className='flex h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm'
-                value={purpose}
-                onChange={(event) => setPurpose(event.target.value)}
-              >
-                {Array.from(MARKETING_PURPOSES).map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor='consent-text-version'>{t('consent.textVersion')}</Label>
-              <Input
-                id='consent-text-version'
-                value={textVersion}
-                onChange={(event) => setTextVersion(event.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor='consent-text'>{t('consent.textShown')}</Label>
-              <textarea
-                id='consent-text'
-                className='flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm'
-                value={textSnapshot}
-                onChange={(event) => setTextSnapshot(event.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type='button' variant='outline' onClick={() => setGrantOpen(false)}>
-              {t('consent.cancel')}
-            </Button>
-            <Button type='button' disabled={recordEvent.isPending} onClick={() => void submitGrant()}>
-              {t('consent.confirmGrant')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConsentGrantDialog
+        open={grantOpen}
+        onOpenChange={setGrantOpen}
+        purpose={purpose}
+        onPurposeChange={setPurpose}
+        textVersion={textVersion}
+        onTextVersionChange={setTextVersion}
+        textSnapshot={textSnapshot}
+        onTextSnapshotChange={setTextSnapshot}
+        pending={isPending}
+        onConfirm={() => void submitGrant()}
+      />
 
-      <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('consent.revokeDialogTitle')}</DialogTitle>
-          </DialogHeader>
-          <div>
-            <Label htmlFor='revoke-purpose'>{t('consent.purpose')}</Label>
-            <select
-              id='revoke-purpose'
-              className='flex h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm'
-              value={purpose}
-              onChange={(event) => setPurpose(event.target.value)}
-            >
-              {Array.from(MARKETING_PURPOSES).map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-          <DialogFooter>
-            <Button type='button' variant='outline' onClick={() => setRevokeOpen(false)}>
-              {t('consent.cancel')}
-            </Button>
-            <Button type='button' disabled={recordEvent.isPending} onClick={() => void submitRevoke()}>
-              {t('consent.confirmRevoke')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConsentRevokeDialog
+        open={revokeOpen}
+        onOpenChange={setRevokeOpen}
+        purpose={purpose}
+        onPurposeChange={setPurpose}
+        pending={isPending}
+        onConfirm={() => void submitRevoke()}
+      />
     </div>
   )
 }

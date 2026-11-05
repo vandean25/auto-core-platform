@@ -179,11 +179,30 @@ afterEach(() => {
   cleanup()
 })
 
+describe('InvoiceDetailPage characterization: tables (AUT-659)', () => {
+  // Regression guard: every table of the invoice detail must come from the ui/table primitives (scroll region).
+  it('WHEN the invoice detail renders THEN no raw table remains and all lines are still shown', () => {
+    const { container } = renderPage(
+      makeInvoice({ items: [makeItem({ id: 'a', description: 'Labour' }), makeItem({ id: 'b', description: 'Oil filter' })] }),
+    )
+
+    const tables = [...container.querySelectorAll('table')]
+    expect(tables.length).toBeGreaterThan(0)
+    for (const table of tables) {
+      expect(table.closest('[role="region"]'), 'table outside the ui/table scroll region').not.toBeNull()
+    }
+    expect(screen.getByText('Labour')).toBeInTheDocument()
+    expect(screen.getByText('Oil filter')).toBeInTheDocument()
+  })
+})
+
 describe('InvoiceDetailPage characterization: load states', () => {
-  it('shows the loading text while the invoice loads', () => {
+  // Regression: the loading state was a bare text block instead of a skeleton.
+  it('WHEN the invoice detail is loading THEN a Skeleton is shown instead of the loading text', async () => {
     setInvoiceQuery({ isLoading: true })
-    renderPage()
-    expect(screen.getByText(detail.loading)).toBeInTheDocument()
+    const { container } = renderPage()
+    expect(await screen.findByRole('status')).toHaveTextContent(detail.loading)
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
     expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 
@@ -401,11 +420,13 @@ describe('InvoiceDetailPage characterization: workshop task groups', () => {
     makeItem({ id: 'd', description: 'Wiper', quantity: '1', unit_price: '15' }),
   ]
 
-  it('asks for the workshop order and shows a loading row while it loads', () => {
+  // Regression: the task-group rows were a text row while the workshop order loaded.
+  it('asks for the workshop order and shows skeleton rows while it loads', async () => {
     mockWorkshop = { data: undefined, isLoading: true, error: null }
-    renderPage(makeInvoice({ workshop_order_id: 'wo-1', items: workshopItems }))
+    const { container } = renderPage(makeInvoice({ workshop_order_id: 'wo-1', items: workshopItems }))
     expect(workshopOrderArgs.every((arg) => arg === 'wo-1')).toBe(true)
-    expect(bodyRows()).toEqual([[detail.loadingTaskGroups]])
+    await screen.findByRole('status')
+    expect(container.querySelectorAll('tbody .animate-pulse').length).toBeGreaterThan(0)
   })
 
   it('shows a failure row and the ungrouped lines when the workshop order fails', () => {

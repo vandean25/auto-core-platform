@@ -109,13 +109,11 @@ function makeInvoice(): Invoice {
   }
 }
 
-function renderPage(creditNote: CreditNoteResponseDto = makeCreditNote()) {
-  asMock(creditNotesApi.useCreditNote).mockReturnValue({
-    data: creditNote,
-    isLoading: false,
-    isError: false,
-    error: null,
-  })
+function renderPage(
+  creditNote: CreditNoteResponseDto = makeCreditNote(),
+  query: Record<string, unknown> = { data: creditNote, isLoading: false, isError: false, error: null },
+) {
+  asMock(creditNotesApi.useCreditNote).mockReturnValue(query)
   asMock(creditNotesApi.useUpdateCreditNoteDraft).mockReturnValue({
     mutateAsync: vi.fn(),
     isPending: false,
@@ -162,6 +160,21 @@ describe('CreditNoteDetailPage', () => {
       deFinance.creditNotes.quantityInputAria.replace('{{description}}', lineDescription),
     )
     expect(quantityInput).toHaveAttribute('id', `credit-line-quantity-${lineItemId}`)
+  })
+
+  // Regression: the loading state was a bare text block instead of a skeleton.
+  it('WHEN the credit note is loading THEN a Skeleton is shown instead of the loading text', async () => {
+    const { container } = renderPage(undefined, { data: undefined, isLoading: true, isError: false, error: null })
+
+    expect(await screen.findByRole('status')).toHaveTextContent(deFinance.creditNotes.detail.loading)
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+  })
+
+  // Regression: the missing credit note was a bare muted text block, not the shared Empty.
+  it('WHEN the credit note does not exist THEN the shared Empty is shown with the German text', () => {
+    const { container } = renderPage(undefined, { data: undefined, isLoading: false, isError: true, error: null })
+
+    expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent(deFinance.creditNotes.detail.notFound)
   })
 })
 

@@ -70,7 +70,6 @@
         "total": "Total"
       },
       "noLineItems": "No line items.",
-      "loadingTaskGroups": "Loading task groups...",
       "taskGroupsFailed": "Failed to load workshop task groups. Showing ungrouped line items.",
       "totals": {
         "net": "Net",

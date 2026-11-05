@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import deSales from '../../../locales/de/sales.json' with { type: 'json' }
 import { controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 
 /** AUT-777: the invoice detail header keeps the number on one line and stacks its actions on a phone. */
@@ -91,5 +92,29 @@ test.describe('Invoice detail header on a phone (AUT-777)', () => {
     const pdf = (await page.getByRole('button', { name: 'PDF herunterladen' }).boundingBox())!
     expect(Math.abs(title.y + title.height / 2 - (pdf.y + pdf.height / 2))).toBeLessThan(60)
     expect(pdf.x).toBeGreaterThan(title.x + title.width)
+  })
+
+  // AUT-659 scenario 5: the sales order detail (PageHeader migration) keeps the phone layout.
+  test('WHEN the sales order detail opens at 375px THEN there is no horizontal scroll and targets are at least 44px', async ({ page }) => {
+    await mockJson(page, '/api/sales-orders/so-phone-1', {
+      id: 'so-phone-1',
+      order_number: 'SO-2026-0042',
+      status: 'DRAFT',
+      createdAt: '2026-09-21T00:00:00.000Z',
+      notes: null,
+      customer: { ...issuedInvoice.customer, address_street: 'Main', address_zip: '1010', address_city: 'Wien', address_country: 'AT' },
+      items: [],
+    })
+    await page.setViewportSize({ width: 375, height: 844 })
+    await page.goto('/sales-orders/so-phone-1')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('SO-2026-0042')
+
+    for (const name of [deSales.orders.detail.backAria, deSales.orders.detail.createInvoice]) {
+      const target = page.getByRole(name === deSales.orders.detail.backAria ? 'link' : 'button', { name }).first()
+      const box = (await target.boundingBox())!
+      expect(box.x + box.width, name).toBeLessThanOrEqual(375)
+      expect(box.height, name).toBeGreaterThanOrEqual(44)
+    }
+    await expectNoPageScroll(page)
   })
 })

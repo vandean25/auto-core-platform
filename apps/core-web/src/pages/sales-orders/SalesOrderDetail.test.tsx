@@ -115,6 +115,46 @@ describe('SalesOrderDetail create invoice', () => {
   })
 })
 
+function renderDetail() {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/sales-orders/so-1']}>
+        <Routes>
+          <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+describe('SalesOrderDetail states (AUT-659)', () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    asMock(salesOrdersApi.useUpdateSalesOrder).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
+    asMock(salesOrdersApi.useCreateInvoiceFromOrder).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
+  })
+
+  // Regression: the loading state was a bare text block instead of a skeleton.
+  it('WHEN the sales order is loading THEN a Skeleton is shown instead of the loading text', async () => {
+    asMock(salesOrdersApi.useSalesOrder).mockReturnValue({ data: undefined, isLoading: true })
+    const { container } = renderDetail()
+
+    expect(await screen.findByRole('status')).toHaveTextContent(deSales.orders.detail.loading)
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+  })
+
+  // Regression: the missing order was a bare text block, not the shared Empty.
+  it('WHEN the sales order does not exist THEN the shared Empty is shown with the German text', async () => {
+    asMock(salesOrdersApi.useSalesOrder).mockReturnValue({ data: undefined, isLoading: false })
+    const { container } = renderDetail()
+
+    await waitFor(() => expect(container.querySelector('[data-slot="empty"]')).not.toBeNull())
+    expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent(deSales.orders.detail.notFound)
+  })
+})
+
 describe('SalesOrderDetail header navigation', () => {
   afterEach(() => {
     cleanup()

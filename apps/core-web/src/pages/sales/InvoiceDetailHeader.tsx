@@ -85,7 +85,7 @@ function InvoiceDetailActions({
   return (
     <div className="flex flex-col items-end gap-2 max-sm:items-stretch">
       {showCreditNoteGuidance ? (
-        <p className="max-w-sm text-right text-xs text-slate-500 max-sm:max-w-none max-sm:text-left">
+        <p className="max-w-sm text-right text-xs text-muted-foreground max-sm:max-w-none max-sm:text-left">
           {t('invoices.detail.creditNoteGuidance')}
         </p>
       ) : null}

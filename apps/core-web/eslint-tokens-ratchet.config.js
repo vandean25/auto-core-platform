@@ -13,6 +13,18 @@ export const tokenRatchetFiles = [
   'src/pages/vehicle-stock/**/*.{ts,tsx}',
   'src/components/vehicle-stock/**/*.{ts,tsx}',
   'src/features/vehicle-stock/**/*.{ts,tsx}',
+  'src/pages/customers/**/*.{ts,tsx}',
+  'src/components/customers/**/*.{ts,tsx}',
+  'src/pages/sales-orders/**/*.{ts,tsx}',
+  'src/pages/sales/**/*.{ts,tsx}',
+  'src/components/sales/**/*.{ts,tsx}',
+  'src/features/sales/**/*.{ts,tsx}',
+  // Credit notes live in the shared finance folders: list them by file.
+  'src/pages/finance/CreditNote*.{ts,tsx}',
+  'src/pages/finance/credit-note-*.{ts,tsx}',
+  'src/pages/finance/useCreditNote*.{ts,tsx}',
+  'src/components/finance/create-credit-note-*.{ts,tsx}',
+  'src/components/finance/credit-note-*.{ts,tsx}',
 ]
 
 const utility =

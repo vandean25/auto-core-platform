@@ -152,7 +152,7 @@ export default function InvoiceListPage() {
       <div className={PAGE_HEADER_ROW}>
         <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('invoices.list.title')}</h1>
-          <p className="text-slate-500">{t('invoices.list.description')}</p>
+          <p className="text-muted-foreground">{t('invoices.list.description')}</p>
         </div>
         <Button asChild>
           <Link to={APP_ROUTE_PATHS.salesInvoiceNew}>

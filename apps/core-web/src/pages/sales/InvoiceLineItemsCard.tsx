@@ -15,6 +15,7 @@ import {
   toNumber,
 } from './invoice-detail-lines'
 import type { InvoiceLineSummary } from './invoice-detail-lines'
+import { TableSkeleton } from '@/components/ui/skeleton-presets'
 
 type RemainingLine = InvoiceCreditContextResponseDto['remainingLines'][number]
 
@@ -101,11 +102,7 @@ function InvoiceLineItemRows({
 
   if (lines.isWorkshopOrderLoading) {
     return (
-      <TableRow>
-        <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
-          {t('invoices.detail.loadingTaskGroups')}
-        </TableCell>
-      </TableRow>
+      <TableSkeleton cols={7} rows={3} />
     )
   }
 
@@ -128,14 +125,14 @@ function InvoiceLineItemRows({
         const taskSubtotal = group.lines.reduce((sum, line) => sum + line.netAfterDiscount, 0)
         return (
           <Fragment key={group.key}>
-            <TableRow className="bg-slate-100/80 hover:bg-slate-100/80">
-              <TableCell colSpan={7} className="font-semibold text-slate-700">
+            <TableRow className="bg-muted hover:bg-muted">
+              <TableCell colSpan={7} className="font-semibold text-foreground">
                 {t('invoices.detail.taskGroupTitle', { title: group.title })}
               </TableCell>
             </TableRow>
             {group.lines.map(renderLine)}
-            <TableRow className="bg-slate-50/60 hover:bg-slate-50/60">
-              <TableCell colSpan={6} className="text-right text-xs uppercase tracking-wide text-slate-500 font-semibold">
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableCell colSpan={6} className="text-right text-xs uppercase tracking-wide text-muted-foreground font-semibold">
                 {t('invoices.detail.taskSubtotal')}
               </TableCell>
               <TableCell className="text-right font-semibold">
@@ -160,7 +157,7 @@ function InvoiceTotals({ invoice, totalSavings }: { invoice: Invoice; totalSavin
           <span>{formatCurrency(Number(invoice.total_gross))}</span>
         </div>
         {invoice.margin_scheme_legal_note ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             {invoice.margin_scheme_legal_note}
           </p>
         ) : null}
@@ -180,8 +177,8 @@ function InvoiceTotals({ invoice, totalSavings }: { invoice: Invoice; totalSavin
       </div>
       {totalSavings > 0 && (
         <div className="flex justify-between">
-          <span className="font-semibold text-emerald-700">{t('invoices.detail.totals.totalSavings')}</span>
-          <span className="font-semibold text-emerald-700">-{formatCurrency(totalSavings)}</span>
+          <span className="font-semibold text-success">{t('invoices.detail.totals.totalSavings')}</span>
+          <span className="font-semibold text-success">-{formatCurrency(totalSavings)}</span>
         </div>
       )}
       <div className="flex justify-between border-t pt-2 font-semibold">

@@ -70,7 +70,6 @@
         "total": "Summe"
       },
       "noLineItems": "Keine Positionen.",
-      "loadingTaskGroups": "Aufgabengruppen werden geladen…",
       "taskGroupsFailed": "Werkstattaufgaben konnten nicht geladen werden. Die Positionen werden ohne Gruppierung angezeigt.",
       "totals": {
         "net": "Netto",
