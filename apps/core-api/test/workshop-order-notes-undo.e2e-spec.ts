@@ -264,11 +264,10 @@ describe('Workshop order notes undo (e2e)', () => {
 
     const order = await createIntakeOrder();
     const updated = await patchNotes(order.id, 'Edited while sales', salesToken);
-    const downgradedToken = authService.createTestToken({
-      sub: salesUid,
-      email: salesUser.email,
-      tenantId,
-      role: 'TECH',
+
+    await basePrisma.tenantMembership.updateMany({
+      where: { tenant_id: tenantId, user_id: salesUser.id },
+      data: { role: 'TECH' },
     });
 
     await undoNotes(
@@ -277,7 +276,7 @@ describe('Workshop order notes undo (e2e)', () => {
         previousNotes: order.notes,
         expectedUpdatedAt: updated.updatedAt,
       },
-      downgradedToken,
+      salesToken,
     ).expect(403);
   });
 
