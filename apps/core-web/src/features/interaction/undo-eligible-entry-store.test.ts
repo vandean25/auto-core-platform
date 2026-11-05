@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import {
@@ -33,16 +33,17 @@ describe('undo eligible entry store', () => {
     expect(getUndoEligibleEntry()).toBeNull()
   })
 
-  it('rejects a second undo while the first is still in flight', async () => {
+  it('ignores a second undo while the first is still in flight', async () => {
     let resolveFirst!: () => void
     const firstWork = new Promise<void>((resolve) => {
       resolveFirst = resolve
     })
-    const pending = runUndoInFlight(() => firstWork)
+    const work = vi.fn().mockReturnValue(firstWork)
+    const pending = runUndoInFlight(() => work())
     expect(isUndoInFlight()).toBe(true)
-    await expect(runUndoInFlight(() => Promise.resolve('skipped'))).rejects.toThrow(
-      'Undo already in progress',
-    )
+    const skipped = await runUndoInFlight(() => Promise.resolve('never runs'))
+    expect(skipped).toBeUndefined()
+    expect(work).toHaveBeenCalledTimes(1)
     resolveFirst()
     await pending
     expect(isUndoInFlight()).toBe(false)

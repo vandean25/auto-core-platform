@@ -8,6 +8,7 @@ import { getErrorMessage, getHttpErrorStatus } from '@/lib/error-utils'
 import {
   clearUndoEligibleEntry,
   getUndoEligibleEntry,
+  isUndoInFlight,
   runUndoInFlight,
 } from '@/features/interaction/undo-eligible-entry-store'
 
@@ -23,17 +24,24 @@ export function useRunWorkshopOrderNotesUndo() {
         return
       }
 
+      if (isUndoInFlight()) {
+        return
+      }
+
       try {
-        await runUndoInFlight(async () => {
-          const restored = await undoMutation.mutateAsync({
+        const restored = await runUndoInFlight(async () =>
+          undoMutation.mutateAsync({
             id: orderId,
             previousNotes: entry.previousNotes,
             expectedUpdatedAt: entry.expectedUpdatedAt,
-          })
-          clearUndoEligibleEntry()
-          queryClient.setQueryData(workshopKeys.order(orderId), restored)
-          toast.success(t('orderDetail.toast.notesUndoSuccess'))
-        })
+          }),
+        )
+        if (!restored) {
+          return
+        }
+        clearUndoEligibleEntry()
+        queryClient.setQueryData(workshopKeys.order(orderId), restored)
+        toast.success(t('orderDetail.toast.notesUndoSuccess'))
       } catch (error: unknown) {
         const status = getHttpErrorStatus(error)
         if (status === 403 || status === 409) {
