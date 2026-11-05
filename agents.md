@@ -411,7 +411,28 @@ Cloud agents ignore this section. On one machine you can run several coding agen
 
 ## Cursor Cloud specific instructions
 
-This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the root `package.json` workspace scripts; only the caveats below are cloud-specific. The startup update script already runs root `npm ci` plus `prisma generate`.
+Cloud Agents for this repository should use the versioned environment in `.cursor/environment.json` (Docker base image + `install`/`start` scripts). After merging, point the Cloud Agents environment at that file (or create a new environment from the repo so `environmentJsonPath` is `.cursor/environment.json`) and run an environment build so agents boot with dependencies preinstalled.
+
+### What the environment provides
+
+| Component | Detail |
+| --- | --- |
+| Node.js | **24.22.2** from `.nvmrc` (nvm in the Docker image; `node`/`npm`/`npx` on `/usr/local/bin`) |
+| Dependencies | Root `npm ci`, then `prisma generate` for `core-api` |
+| PostgreSQL | **17** (PGDG), started on every agent boot via `start` |
+| Dev database | `core_platform` owned by role `acp_cloud` (local-only password in install scripts) |
+| E2E database | `auto_core_test` (CI-parity `postgres` / `postgres` owner) |
+| Shell env | `DATABASE_URL` and `ACP_E2E_DATABASE_URL` exported via `/etc/profile.d/acp-cloud-agent.sh` |
+| Backend `.env` | Generated locally by install into `apps/core-api/.env` (gitignored) with dev-only encryption/HMAC fixtures |
+
+### MCP (Context7)
+
+- **IDE:** `.cursor/mcp.json` defines the Context7 HTTP server with `${env:CONTEXT7_API_KEY}`.
+- **Cloud Agents:** Project `mcp.json` is **not** loaded automatically on the VM. Agents use dashboard MCP configuration plus environment policy. This repo’s `environment.json` includes an `mcpServerAllowlist` entry for `https://mcp.context7.com/mcp`.
+- **Manual dashboard steps (once per team/environment):**
+  1. Add a Team MCP server (Dashboard → Plugins & MCPs) with URL `https://mcp.context7.com/mcp` and header `Context7-API-Key` bound to secret **`CONTEXT7_API_KEY`** (same name as the agent environment variable).
+  2. Ensure the Cloud Agent environment has **`CONTEXT7_API_KEY`** set (environment secrets, not committed).
+  3. Confirm MCP is not blocked by team policy (`disableAllMcpServers` / allowlist). Built-in Cursor MCP servers (GitHub, Linear, etc.) are unaffected.
 
 ### PR comment subscriptions (mandatory)
 Every Cloud Agent with an open PR must subscribe to PR comments and keep listening until the PR is merged or closed. CI-only subscriptions miss review feedback (including `@cursoragent` comments from Cursor PR Review).
@@ -423,34 +444,54 @@ After each push that updates the PR:
 Use `list_subscriptions` before subscribing to reuse active ones; re-subscribe when `expiresAt` passes. Unsubscribe both when the PR is merged or closed. End the turn after subscribing so wake notifications can arrive for CI and review comments.
 
 ### Services
-- **PostgreSQL 15+** on `localhost:5432` (installed via apt as PG 16). Local dev DB is `core_platform`, credentials `postgres` / `postgres`. A separate empty `auto_core_test` DB exists for e2e.
-- **Backend** (`apps/core-api`) — NestJS on port `3000`: `npm run start:dev`. Requires `apps/core-api/.env` (already created, gitignored) with `DATABASE_URL` and a base64 32-byte `SECRET_ENCRYPTION_KEY`; the process throws on startup if `SECRET_ENCRYPTION_KEY` is missing/invalid.
-- **Frontend** (`apps/core-web`) — Vite/React on port `5173`: `npm run dev`. It proxies `/api` and `/socket.io` to `127.0.0.1:3000`.
+- **PostgreSQL 17** on `127.0.0.1:5432`. Dev URL: `DATABASE_URL` → `core_platform` (`acp_cloud`). E2E URL: `ACP_E2E_DATABASE_URL` → `auto_core_test` (`postgres` / `postgres`).
+- **Backend** (`apps/core-api`) — NestJS on port `3000`: `npm run start:dev`. Requires generated `apps/core-api/.env` (install creates it).
+- **Frontend** (`apps/core-web`) — Vite/React on port `5173`: `npm run dev`. Proxies `/api` and `/socket.io` to `127.0.0.1:3000`.
 
-### Postgres is not auto-started on boot
-`systemd`/`invoke-rc.d` is disabled in this VM, so Postgres does not start automatically. Start it before running the backend, tests, or seeds:
-```
-sudo pg_ctlcluster 16 main start
+### Postgres lifecycle
+`start` brings up cluster `17/main` and waits for `pg_isready`. If Postgres was stopped manually:
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
 ```
 
-### Backend e2e tests must use a fresh, unseeded DB, serially
-CI runs e2e against a fresh, unseeded `auto_core_test` DB, applies migrations before the test, and uses `--ci --runInBand` (see `.github/workflows/build.yaml`). The full suite runs only in CI; locally run only a new or changed `.e2e-spec.ts` (see [Local checks before pushing](#local-checks-before-pushing-ci-is-the-source-of-truth)). Running e2e against the **seeded** `core_platform` DB, or in parallel, causes non-deterministic failures (leftover tenants / cross-suite `deleteMany`). Run e2e like CI:
+### Reset dev or test databases
+**Dev (`core_platform`)** — drop and recreate, then migrate:
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS core_platform WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE core_platform OWNER acp_cloud;"
+DATABASE_URL="postgresql://acp_cloud:acp_cloud_local_only@127.0.0.1:5432/core_platform" \
+  npm exec --workspace=core-api -- prisma migrate deploy
 ```
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
-  npm --prefix apps/core-api exec -- prisma migrate deploy
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
-  npm --prefix apps/core-api run test:e2e -- --ci --runInBand
+
+**E2E (`auto_core_test`)** — must stay empty/unseeded for backend e2e (same as CI):
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS auto_core_test WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE auto_core_test OWNER postgres;"
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/auto_core_test" \
+  npm exec --workspace=core-api -- prisma migrate deploy
 ```
-Jest auto-sets `NODE_ENV=test`, which enables locally-signed test JWTs (no Firebase needed for tests). Unit tests (`npm test`) and the frontend Playwright e2e (`npm run test:e2e`, needs `npx playwright install chromium`) do not need a seeded DB.
+
+### Backend checks in Cloud Agent (before pushing)
+```bash
+npm run lint:prisma-tenant --workspace=core-api
+npm run lint --workspace=core-api
+npm run typecheck:spec --workspace=core-api
+```
+There is no root `typecheck` script; CI uses `typecheck:spec` for `core-api`.
+
+Only if you added or changed a backend `.e2e-spec.ts`, run that file once against a fresh `auto_core_test` (see reset above), serially:
+```bash
+DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
+DATABASE_URL="$ACP_E2E_DATABASE_URL" npm run test:e2e --workspace=core-api -- --ci --runInBand test/<your>.e2e-spec.ts
+```
+Example smoke file: `test/app.e2e-spec.ts`. The full backend E2E suite runs only in CI.
+
+Jest sets `NODE_ENV=test` for e2e (local test JWTs; no Firebase required). Unit tests and frontend Playwright e2e do not need a seeded DB.
 
 ### The seed is not idempotent when transactional rows exist
-`prisma db seed` deletes all tenants then recreates `default-workshop` with a **new** id, but its delete order does not cover `sales_orders`, so re-seeding a DB that already has sales orders fails with an FK error. To reset the dev DB cleanly, drop and recreate it:
-```
-sudo -u postgres psql -c "DROP DATABASE core_platform WITH (FORCE);"
-sudo -u postgres psql -c "CREATE DATABASE core_platform;"
-npm --prefix apps/core-api exec -- prisma migrate deploy
-npm --prefix apps/core-api run <or> npx prisma db seed   # from apps/core-api
-```
+`prisma db seed` deletes all tenants then recreates `default-workshop` with a **new** id, but its delete order does not cover `sales_orders`, so re-seeding a DB that already has sales orders fails with an FK error. Prefer the reset commands above instead of re-running seed on a dirty dev DB.
 
 ### Interactive login with real Firebase (works, no service account required)
 All backend routes are behind a global `JwtAuthGuard`, and the frontend login uses Firebase Auth for project `auto-core-platform-vande`. Real interactive login works with these steps (no Google service account needed):
@@ -459,9 +500,9 @@ All backend routes are behind a global `JwtAuthGuard`, and the frontend login us
    `curl https://auto-core-platform-vande.firebaseapp.com/__/firebase/init.json`
    Put `apiKey`, `authDomain`, `projectId`, `appId` into `apps/core-web/.env.local` as `VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_APP_ID`, then restart Vite. (`cloudbuild.yaml` lists all of these except the api key.)
 2. Backend config — set `FIREBASE_PROJECT_ID=auto-core-platform-vande` in `apps/core-api/.env`. `verifyIdToken()` only needs the project id (it fetches Google's public certs); Application Default Credentials are NOT required to *verify* tokens.
-3. Authorize the user in the local DB — the session is resolved from local `User` + `TenantMember` rows, not from token claims. `npm run db:seed:tenant-member` cannot be used here because it calls Firebase Admin (`getUserByEmail`/`setCustomUserClaims`), which needs a service account. Instead insert the rows directly: create a `User` (`firebaseUid` = the sign-in `localId`, matched by email otherwise) with `active_tenant_id` = the `default-workshop` tenant id, and a `TenantMember` (role `ADMIN`, `is_active: true`) for that tenant. The test user `testauto@auto.core.at` is already linked in the current dev DB.
+3. Authorize the user in the local DB — the session is resolved from local `User` + `TenantMember` rows, not from token claims. `npm run db:seed:tenant-member` cannot be used here because it calls Firebase Admin (`getUserByEmail`/`setCustomUserClaims`), which needs a service account. Instead insert the rows directly: create a `User` (`firebaseUid` = the sign-in `localId`, matched by email otherwise) with `active_tenant_id` = the `default-workshop` tenant id, and a `TenantMember` (role `ADMIN`, `is_active: true`) for that tenant.
 
-For a **TECH/mechanic** login (tablet mode at `/mechanic/queue`), the `TenantMember` role must be `TECH` and — in addition — `MechanicService.resolveMechanic()` requires an active `Employee` (role `MECHANIC`, `is_active: true`) whose `user_id` points at that `User`. The queue only shows `WorkshopTask` rows assigned to that employee (`mechanic_id`) with a `scheduled_date` around today. Both `testauto@auto.core.at` (ADMIN) and `tablet-mechanic@auto.core.at` (TECH, with a linked mechanic employee and a demo `WO-DEMO-0001` order) are set up in the current dev DB.
+For a **TECH/mechanic** login (tablet mode at `/mechanic/queue`), the `TenantMember` role must be `TECH` and — in addition — `MechanicService.resolveMechanic()` requires an active `Employee` (role `MECHANIC`, `is_active: true`) whose `user_id` points at that `User`.
 
 Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render the app shell (API calls then 401, no token attached); or run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, iss: 'local-test-fixture' }` that match a seeded `User` + active `TenantMember` (request authorization is resolved from Postgres, not from token `tenantId`/`role` claims).
 
