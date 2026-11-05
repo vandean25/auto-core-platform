@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Download } from 'lucide-react'
+import { CapabilityGate } from '@/components/CapabilityGate'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { VehicleSale, VehicleStockDetail } from '@/api/vehicle-stock'
@@ -94,14 +95,16 @@ export function VehicleSaleActions({
       {saveStatus === 'idle' ? null : (
         <span className={`text-sm ${SAVE_STATUS_CLASS[saveStatus]}`}>{saveStatusLabel[saveStatus]}</span>
       )}
-      <Button
-        variant="outline"
-        disabled={!saleId || isFinalizing || isDownloading || saveStatus === 'saving' || isCancelled}
-        onClick={onDownload}
-      >
-        <Download className="mr-2 h-4 w-4" />
-        {t('sale.downloadKaufvertrag')}
-      </Button>
+      <CapabilityGate capability="kaufvertragAt">
+        <Button
+          variant="outline"
+          disabled={!saleId || isFinalizing || isDownloading || saveStatus === 'saving' || isCancelled}
+          onClick={onDownload}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          {t('sale.downloadKaufvertrag')}
+        </Button>
+      </CapabilityGate>
       <Button
         disabled={!saleId || !isDraft || isFinalizing || saveStatus === 'saving'}
         onClick={onFinalize}

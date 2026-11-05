@@ -106,6 +106,8 @@ describe('Country pack session capabilities', () => {
     ['willhaben export', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=WILLHABEN_GENERIC_V1', undefined],
     ['willhaben export with padded profile', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=%20WILLHABEN_GENERIC_V1', undefined],
     ['willhaben export with repeated profile', 'get', '/api/vehicle-stock/00000000-0000-4000-8000-000000000000/listing/export/download?profile=WILLHABEN_GENERIC_V1&profile=OTHER', undefined],
+    ['Kaufvertrag GET', 'get', '/api/vehicle-sales/00000000-0000-4000-8000-000000000000/kaufvertrag/pdf', undefined],
+    ['Kaufvertrag POST', 'post', '/api/vehicle-sales/00000000-0000-4000-8000-000000000000/kaufvertrag/pdf', {}],
   ] as const)('rejects %s when its capability is unavailable', async (_feature, method, path, body) => {
     const response = await request(app.getHttpServer())
       [method](path)
