@@ -39,6 +39,7 @@ export class EffectiveCapabilitiesService {
   async resolve(): Promise<CountryCapabilities | null> {
     const user = this.tenantContext.getAuthenticatedUser();
     if (!user || ('apiKeyId' in user && user.apiKeyId)) return null;
+    if ('role' in user && user.role === 'worker') return null;
     return (await this.sessions.getSessionForAuthenticatedUser(user))
       .effectiveCapabilities;
   }

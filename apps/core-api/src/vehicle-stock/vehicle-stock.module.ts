@@ -3,6 +3,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { CommonModule } from '../common/index.js';
+import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-capabilities.module.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 import { Autoscout24DmsModule } from '../vehicle/listing-export/autoscout24-dms.module.js';
 import { KaufvertragPdfRenderer } from './kaufvertrag/kaufvertrag-pdf.renderer.js';
@@ -38,6 +39,7 @@ import {
     InvoicesModule,
     AuditModule,
     CommonModule,
+    EffectiveCapabilitiesModule,
     DocumentBrandingModule,
     Autoscout24DmsModule,
   ],

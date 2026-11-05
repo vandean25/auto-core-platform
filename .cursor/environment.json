@@ -1,0 +1,16 @@
+{
+  "name": "auto-core-platform",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "install": "bash .cursor/scripts/cloud-agent-install.sh",
+  "start": "bash .cursor/scripts/cloud-agent-start.sh",
+  "mcpServerAllowlist": [
+    {
+      "name": "context7",
+      "serverUrl": "https://mcp.context7.com/mcp"
+    }
+  ]
+}
