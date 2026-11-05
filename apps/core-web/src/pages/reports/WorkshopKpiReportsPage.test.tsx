@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { useMySites } from '@/api/sites'
 import { useAuthSession } from '@/api/auth-session'
 import { useWorkshopKpiReport, type WorkshopKpiReport, type WorkshopKpiReportRow } from '@/api/workshop-kpi-reports'
 import { i18n } from '@/lib/i18n'
 import deReports from '../../../../../locales/de/reports.json'
-import WorkshopKpiReportsPage, { formatKpiPeriod, serializeWorkshopKpiCsv } from './WorkshopKpiReportsPage'
+import WorkshopKpiReportsPage, { serializeWorkshopKpiCsv } from './WorkshopKpiReportsPage'
+import { formatKpiPeriod } from './workshop-kpi-format'
 
 vi.mock('@/api/sites', () => ({ useMySites: vi.fn() }))
 vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
@@ -83,6 +84,46 @@ describe('WorkshopKpiReportsPage', () => {
 
     expect(csv).toContain('40.00;200.00;0.20;0')
     expect(csv).toContain('FILTER-1;"Filter; Öl";2.000;40.00;120')
+  })
+})
+
+describe('WorkshopKpiReportsPage states (AUT-659)', () => {
+  function mockReport(result: Record<string, unknown>) {
+    vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1' } } as never)
+    vi.mocked(useWorkshopKpiReport).mockReturnValue(result as never)
+  }
+
+  // Regression: the loading state was a text row inside a raw table.
+  it('WHEN the KPI report is loading THEN skeleton rows are shown instead of the loading text', async () => {
+    mockReport({ isLoading: true, isError: false, data: undefined })
+    const { container } = render(<MemoryRouter><WorkshopKpiReportsPage /></MemoryRouter>)
+
+    expect(await screen.findByRole('status')).toBeInTheDocument()
+    expect(container.querySelectorAll('tbody .animate-pulse').length).toBeGreaterThan(0)
+  })
+
+  // Regression: the empty rows were bare muted table cells, not the shared Empty.
+  it('WHEN the KPI report has no rows THEN the shared Empty is shown with the German text', () => {
+    mockReport({ isLoading: false, isError: false, data: undefined })
+    const { container } = render(<MemoryRouter><WorkshopKpiReportsPage /></MemoryRouter>)
+
+    const empties = [...container.querySelectorAll('[data-slot="empty"]')].map((node) => node.textContent)
+    expect(empties).toContain(deReports.workshopKpi.laborPerformance.empty)
+    expect(empties).toContain(deReports.workshopKpi.partsTurnover.slowMoversEmpty)
+  })
+
+  // Regression: both report grids were hand-built raw <table> elements.
+  it('WHEN the KPI report renders THEN no raw table remains and all rows are still shown', () => {
+    mockReport({ isLoading: false, isError: false, data: reportData })
+    const { container } = render(<MemoryRouter><WorkshopKpiReportsPage /></MemoryRouter>)
+
+    const regions = screen.getAllByRole('region', { name: 'Scrollbare Tabelle' })
+    const tables = [...container.querySelectorAll('table')]
+    expect(tables).toHaveLength(2)
+    for (const table of tables) expect(table.closest('[role="region"]')).not.toBeNull()
+    expect(within(regions[0]).getByText('Müller')).toBeInTheDocument()
+    expect(within(regions[1]).getByText(/FILTER-1/)).toBeInTheDocument()
   })
 })
 

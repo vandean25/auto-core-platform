@@ -31,6 +31,9 @@ export const tokenRatchetFiles = [
   'src/components/purchase-invoices/**/*.{ts,tsx}',
   'src/features/inventory/**/*.{ts,tsx}',
   'src/features/purchase-bills/**/*.{ts,tsx}',
+  'src/pages/finance/**/*.{ts,tsx}',
+  'src/components/finance/**/*.{ts,tsx}',
+  'src/pages/reports/**/*.{ts,tsx}',
   // Credit notes live in the shared finance folders: list them by file.
   'src/pages/finance/CreditNote*.{ts,tsx}',
   'src/pages/finance/credit-note-*.{ts,tsx}',

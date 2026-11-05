@@ -11,6 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { CreditQuantityValidation } from '@/lib/credit-note-quantity'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export type CreateCreditNotePartialLine = {
   originalItemId: string
@@ -40,11 +42,14 @@ export function CreateCreditNotePartialLinesTable({
     <div className="space-y-2">
       <Label>{t('creditNotes.createDialog.creditedQuantities')}</Label>
       {isCreditContextLoading ? (
-        <p className="text-sm text-muted-foreground">{t('creditNotes.createDialog.loadingRemaining')}</p>
+        <div role="status" aria-busy="true">
+          <span className="sr-only">{t('creditNotes.createDialog.loadingRemaining')}</span>
+          <Skeleton className="h-4 w-full max-w-40" />
+        </div>
       ) : partialLines.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t('creditNotes.createDialog.noPartialLines')}
-        </p>
+        <Empty className="p-4 md:p-4">
+          <EmptyDescription>{t('creditNotes.createDialog.noPartialLines')}</EmptyDescription>
+        </Empty>
       ) : (
         <Table>
           <TableHeader>

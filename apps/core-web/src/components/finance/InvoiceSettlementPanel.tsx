@@ -30,7 +30,7 @@ function SignedReceiptDetails({
   const rksvDate = formatRksvTimestamp(receipt.timeSignature, timeZone)
 
   return (
-    <div className="space-y-3 rounded-md border p-4 text-sm text-slate-700">
+    <div className="space-y-3 rounded-md border p-4 text-sm text-foreground">
       <p className="font-medium">
         {t('settlement.receiptLabel', {
           number: receipt.receiptNumber ?? receipt.providerReceiptId,
@@ -41,7 +41,7 @@ function SignedReceiptDetails({
         <p>{t('settlement.registerSerial', { serial: receipt.cashRegisterSerialNumber })}</p>
       ) : null}
       {outage ? (
-        <p className="font-medium text-amber-700">{t('settlement.securityOutage')}</p>
+        <p className="font-medium text-warning">{t('settlement.securityOutage')}</p>
       ) : null}
       {receipt.qrCodeData ? <SettlementReceiptQr data={receipt.qrCodeData} /> : null}
     </div>
@@ -101,14 +101,14 @@ export function InvoiceSettlementPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {t('settlement.fullSettlement', { amount: formatCurrency(totalGross) })}
         </p>
         {openReceipt ? (
-          <p className="text-sm text-slate-600">{t('settlement.openReceiptHint')}</p>
+          <p className="text-sm text-muted-foreground">{t('settlement.openReceiptHint')}</p>
         ) : null}
         {rksvMode === 'REQUIRED_EXTERNAL_KASSE' ? (
-          <p className="text-sm text-slate-600">{t('settlement.externalKasseHint')}</p>
+          <p className="text-sm text-muted-foreground">{t('settlement.externalKasseHint')}</p>
         ) : null}
         {signedReceipt ? (
           <SignedReceiptDetails receipt={signedReceipt} timeZone={siteTimezone} />
