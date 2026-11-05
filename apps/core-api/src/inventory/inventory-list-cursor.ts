@@ -37,11 +37,3 @@ export function resolveInventoryCursorSort(
     config,
   };
 }
-
-export function inventoryCursorSortWhitelist(): readonly InventoryCursorSortField[] {
-  return Object.keys(INVENTORY_CURSOR_SORTS) as InventoryCursorSortField[];
-}
-
-export function inventoryCursorSortConfig(field: InventoryCursorSortField) {
-  return INVENTORY_CURSOR_SORTS[field];
-}

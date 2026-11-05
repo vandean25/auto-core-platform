@@ -37,6 +37,7 @@ import { ReceiveInventoryStockDto } from './dto/receive-inventory-stock.dto.js';
 import { AdjustInventoryStockDto } from './dto/adjust-inventory-stock.dto.js';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
 import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
+import { ApiListCursorModeQuery } from '../common/dto/list-cursor-query.decorator.js';
 
 @Controller('inventory')
 export class InventoryController {
@@ -112,12 +113,7 @@ export class InventoryController {
   }
 
   @Get()
-  @ApiQuery({
-    name: 'pagination',
-    required: false,
-    schema: { type: 'string', enum: ['offset', 'cursor'] },
-  })
-  @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string' } })
+  @ApiListCursorModeQuery()
   @ApiQuery({
     name: 'page',
     required: false,

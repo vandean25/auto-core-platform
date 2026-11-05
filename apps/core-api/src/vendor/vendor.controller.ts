@@ -24,6 +24,7 @@ import { UpdateVendorDto } from './dto/update-vendor.dto.js';
 import { VendorResponseDto } from './dto/vendor-response.dto.js';
 import { VendorArticleResponseDto } from './dto/vendor-article-response.dto.js';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import { ApiListOffsetPaginationQueries } from '../common/dto/list-cursor-query.decorator.js';
 
 @Controller('vendors')
 export class VendorController {
@@ -37,22 +38,7 @@ export class VendorController {
 
   @Get()
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'pageSize',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'sortDirection',
-    required: false,
-    schema: { type: 'string', enum: ['asc', 'desc'] },
-  })
+  @ApiListOffsetPaginationQueries()
   @ApiPaginatedResponse(VendorResponseDto)
   async findAll(
     @Query('search') search?: string,

@@ -15,6 +15,7 @@ import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 import { CustomerDetailResponseDto } from './dto/customer-detail-response.dto.js';
 import { CustomerResponseDto } from './dto/customer-response.dto.js';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import { ApiListOffsetPaginationQueries } from '../common/dto/list-cursor-query.decorator.js';
 import {
   QueryBuilder,
   type QueryParams,
@@ -39,22 +40,7 @@ export class CustomerController {
     required: false,
     schema: { type: 'string', enum: ['PRIVATE', 'COMPANY'] },
   })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'pageSize',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'sortDirection',
-    required: false,
-    schema: { type: 'string', enum: ['asc', 'desc'] },
-  })
+  @ApiListOffsetPaginationQueries()
   @ApiPaginatedResponse(CustomerResponseDto)
   async findAll(
     @Query('search') search?: string,

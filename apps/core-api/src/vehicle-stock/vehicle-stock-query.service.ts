@@ -18,17 +18,9 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { QueryBuilder } from '../common/utils/query-builder.js';
 import {
-  andCombineListWhere,
-  buildKeysetAfterClause,
-  buildPrismaNullsLastOrderBy,
   cappedVehicleListCount,
-  deserializeSortValueFromCursor,
-  encodeListCursor,
-  hashListFilterContext,
+  fetchKeysetListPage,
   listCursorInvalidException,
-  parseListCursorParam,
-  serializeSortValueForCursor,
-  sliceKeysetPage,
   VEHICLE_STOCK_LIST_LIMIT_MAX,
 } from '../common/list-cursor/index.js';
 import {
@@ -46,10 +38,8 @@ import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
 import { syncVehicleListingContentHashWhenStockCycleExists } from '../vehicle/listing/vehicle-listing-hash-sync.js';
 import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
-import {
-  gewaehrleistungDueWindow,
-  viennaIsoDay,
-} from './gewaehrleistung/gewaehrleistung-status.js';
+import { GewaehrleistungDueListReadService } from './gewaehrleistung/gewaehrleistung-due-list.read.js';
+import { viennaIsoDay } from './gewaehrleistung/gewaehrleistung-status.js';
 import { toGewaehrleistungReadFields } from './vehicle-sale.warranty.js';
 
 const STOCK_SORT_WHITELIST = [
@@ -364,6 +354,7 @@ export class VehicleStockQueryService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly gewaehrleistungDueList: GewaehrleistungDueListReadService,
   ) {}
 
   async list(params: {
@@ -419,169 +410,72 @@ export class VehicleStockQueryService {
     sortDirection?: 'asc' | 'desc';
     cursor?: string;
   }) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
-    const stockStatus = parseStockStatus(params.stock_status);
-    if (shouldIncludeDrafts(stockStatus)) {
-      throw listCursorInvalidException();
-    }
+    const scope = await this.vehicleStockCursorScope(params);
     const { field, direction, config } = resolveVehicleStockCursorSort(
       params.sortField,
       params.sortDirection,
     );
     const limit = parseVehicleStockCursorLimit(params.limit);
-    const filterHash = hashListFilterContext(
-      vehicleStockListFilterContext(params),
-    );
-    const binding = {
-      endpoint: VEHICLE_STOCK_CURSOR_ENDPOINT,
-      tenantId,
-      siteId,
-      filterHash,
-      sortField: field,
-      sortDirection: direction,
-    };
-    const decoded = parseListCursorParam(params.cursor, binding);
-    const { vehicleWhere } = buildVehicleListWhere(
-      tenantId,
-      siteId,
-      stockStatus,
-      params.search,
-    );
-    let keysetClause: Record<string, unknown> | undefined;
-    if (decoded) {
-      const sortValue = deserializeSortValueFromCursor(
-        decoded.sv,
-        config.valueKind,
-      );
-      keysetClause = buildKeysetAfterClause(
-        config.prismaField,
-        direction,
-        sortValue,
-        decoded.id,
-        { sortIsNullable: config.nullable },
-      );
-    }
-    const where = andCombineListWhere(
-      vehicleWhere,
-      keysetClause,
-    ) as Prisma.VehicleWhereInput;
-    const idDirection = direction;
-    const orderBy = buildPrismaNullsLastOrderBy(
-      config.prismaField,
-      direction,
-      idDirection,
-    ) as Prisma.VehicleOrderByWithRelationInput[];
-    const rows = await this.prisma.vehicle.findMany({
-      where,
-      include: VEHICLE_LIST_INCLUDE,
-      orderBy,
-      take: limit + 1,
-    });
-    const { page, hasNextPage } = sliceKeysetPage(rows, limit);
-    const last = page.at(-1);
-    const nextCursor =
-      hasNextPage && last
-        ? encodeListCursor({
-            v: 1,
-            ep: VEHICLE_STOCK_CURSOR_ENDPOINT,
-            sort: field,
-            dir: direction,
-            fh: filterHash,
-            tid: tenantId,
-            sid: siteId,
-            sv: serializeSortValueForCursor(
-              readVehicleSortValue(last, config.prismaField),
-            ),
-            id: last.id,
-          })
-        : null;
-    return {
-      data: page.map(mapStockVehicle),
-      meta: {
-        nextCursor,
-        hasNextPage,
+    return fetchKeysetListPage(
+      {
+        endpoint: VEHICLE_STOCK_CURSOR_ENDPOINT,
+        tenantId: scope.tenantId,
+        siteId: scope.siteId,
+        filterHashInput: vehicleStockListFilterContext(params),
+        sortField: field,
+        sortDirection: direction,
+        sortConfig: config,
+        cursor: params.cursor,
         limit,
+        baseWhere: scope.vehicleWhere,
       },
-    };
+      {
+        findMany: (where, orderBy, take) =>
+          this.prisma.vehicle.findMany({
+            where: where,
+            include: VEHICLE_LIST_INCLUDE,
+            orderBy: orderBy,
+            take,
+          }),
+        mapRow: mapStockVehicle,
+        readSortValue: readVehicleSortValue,
+      },
+    );
   }
 
   async cappedListCount(params: { search?: string; stock_status?: string }) {
+    const scope = await this.vehicleStockCursorScope(params);
+    return cappedVehicleListCount(
+      this.prisma,
+      scope.vehicleWhere as Prisma.VehicleWhereInput,
+    );
+  }
+
+  private async vehicleStockCursorScope(params: {
+    search?: string;
+    stock_status?: string;
+  }) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     const stockStatus = parseStockStatus(params.stock_status);
     if (shouldIncludeDrafts(stockStatus)) {
       throw listCursorInvalidException();
     }
-    const { vehicleWhere } = buildVehicleListWhere(
+    return {
       tenantId,
       siteId,
       stockStatus,
-      params.search,
-    );
-    return cappedVehicleListCount(this.prisma, vehicleWhere);
+      vehicleWhere: buildVehicleListWhere(
+        tenantId,
+        siteId,
+        stockStatus,
+        params.search,
+      ),
+    };
   }
 
   async listGewaehrleistungDue(query: GewaehrleistungDueListQueryDto) {
-    const [tenantId, siteId] = await Promise.all([
-      this.tenantContext.getTenantId(),
-      this.siteContext.getSiteId(),
-    ]);
-    const { windowStart, windowEnd } = gewaehrleistungDueWindow(
-      viennaIsoDay(new Date()),
-      query.endsWithinDays,
-    );
-
-    const data = await this.prisma.vehicleSale.findMany({
-      where: {
-        tenant_id: tenantId,
-        site_id: siteId,
-        vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
-        customer: { is: { tenant_id: tenantId } },
-        status: 'INVOICED',
-        buyer_is_consumer: true,
-        gewaehrleistung_ends_on: { gte: windowStart, lte: windowEnd },
-      },
-      select: {
-        id: true,
-        sale_number: true,
-        vehicle_id: true,
-        customer_id: true,
-        handed_over_at: true,
-        gewaehrleistung_ends_on: true,
-        presumption_ends_on: true,
-        gewaehrleistung_rule_version: true,
-        vehicle: {
-          select: {
-            id: true,
-            make: true,
-            model: true,
-            year: true,
-            vin: true,
-            plate: true,
-          },
-        },
-        customer: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            company_name: true,
-          },
-        },
-      },
-      orderBy: [{ gewaehrleistung_ends_on: 'asc' }, { id: 'asc' }],
-    });
-
-    return {
-      data,
-      meta: {
-        total: data.length,
-        page: 1,
-        pageSize: data.length,
-        pageCount: data.length === 0 ? 0 : 1,
-      },
-    };
+    return this.gewaehrleistungDueList.list(query);
   }
 
   private async countDrafts(

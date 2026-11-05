@@ -20,6 +20,47 @@ export type ListCursorPayload = {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function isValidSortValue(value: unknown): value is ListCursorPayload['sv'] {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  );
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function hasUuidFields(
+  parsed: ListCursorPayload,
+  keys: readonly ('tid' | 'id')[],
+): boolean {
+  return keys.every(
+    (key) => typeof parsed[key] === 'string' && UUID_PATTERN.test(parsed[key]),
+  );
+}
+
+const listCursorFieldChecks: ((parsed: ListCursorPayload) => boolean)[] = [
+  (parsed) => parsed.v === LIST_CURSOR_VERSION,
+  (parsed) => typeof parsed.ep === 'string',
+  (parsed) => isNonEmptyString(parsed.sort),
+  (parsed) => parsed.dir === 'asc' || parsed.dir === 'desc',
+  (parsed) => isNonEmptyString(parsed.fh),
+  (parsed) => typeof parsed.sid === 'string',
+  (parsed) => hasUuidFields(parsed, ['tid', 'id']),
+  (parsed) => isValidSortValue(parsed.sv),
+];
+
+function isListCursorPayload(value: unknown): value is ListCursorPayload {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const parsed = value as ListCursorPayload;
+  return listCursorFieldChecks.every((check) => check(parsed));
+}
+
 export function encodeListCursor(payload: ListCursorPayload): string {
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 }
@@ -29,32 +70,10 @@ export function decodeListCursor(encoded: string): ListCursorPayload | null {
     return null;
   }
   try {
-    const parsed = JSON.parse(
+    const parsed: unknown = JSON.parse(
       Buffer.from(encoded, 'base64url').toString('utf8'),
-    ) as ListCursorPayload;
-    if (parsed?.v !== LIST_CURSOR_VERSION) return null;
-    if (typeof parsed.ep !== 'string') return null;
-    if (typeof parsed.sort !== 'string' || parsed.sort.length === 0) {
-      return null;
-    }
-    if (parsed.dir !== 'asc' && parsed.dir !== 'desc') return null;
-    if (typeof parsed.fh !== 'string' || parsed.fh.length === 0) return null;
-    if (typeof parsed.tid !== 'string' || !UUID_PATTERN.test(parsed.tid)) {
-      return null;
-    }
-    if (typeof parsed.sid !== 'string') return null;
-    if (
-      parsed.sv !== null &&
-      typeof parsed.sv !== 'string' &&
-      typeof parsed.sv !== 'number' &&
-      typeof parsed.sv !== 'boolean'
-    ) {
-      return null;
-    }
-    if (typeof parsed.id !== 'string' || !UUID_PATTERN.test(parsed.id)) {
-      return null;
-    }
-    return parsed;
+    );
+    return isListCursorPayload(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -69,20 +88,18 @@ export type ListCursorBindingContext = {
   sortDirection: 'asc' | 'desc';
 };
 
-export function assertListCursorMatchesRequest(
+function cursorBindingsMatch(
   decoded: ListCursorPayload,
   context: ListCursorBindingContext,
-): void {
-  if (
-    decoded.ep !== context.endpoint ||
-    decoded.tid !== context.tenantId ||
-    decoded.sid !== context.siteId ||
-    decoded.fh !== context.filterHash ||
-    decoded.sort !== context.sortField ||
-    decoded.dir !== context.sortDirection
-  ) {
-    throw listCursorInvalidException();
-  }
+): boolean {
+  return (
+    decoded.ep === context.endpoint &&
+    decoded.tid === context.tenantId &&
+    decoded.sid === context.siteId &&
+    decoded.fh === context.filterHash &&
+    decoded.sort === context.sortField &&
+    decoded.dir === context.sortDirection
+  );
 }
 
 export function listCursorInvalidException(): BadRequestException {
@@ -100,10 +117,9 @@ export function parseListCursorParam(
     return undefined;
   }
   const decoded = decodeListCursor(cursor);
-  if (!decoded) {
+  if (!decoded || !cursorBindingsMatch(decoded, context)) {
     throw listCursorInvalidException();
   }
-  assertListCursorMatchesRequest(decoded, context);
   return decoded;
 }
 

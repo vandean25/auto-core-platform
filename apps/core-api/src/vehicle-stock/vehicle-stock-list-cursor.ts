@@ -58,15 +58,3 @@ export function resolveVehicleStockCursorSort(
     config,
   };
 }
-
-export function vehicleStockCursorSortWhitelist(): readonly VehicleStockCursorSortField[] {
-  return Object.keys(
-    VEHICLE_STOCK_CURSOR_SORTS,
-  ) as VehicleStockCursorSortField[];
-}
-
-export function vehicleStockCursorSortConfig(
-  field: VehicleStockCursorSortField,
-) {
-  return VEHICLE_STOCK_CURSOR_SORTS[field];
-}

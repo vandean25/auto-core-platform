@@ -7,6 +7,7 @@ import {
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { GewaehrleistungDueListReadService } from './gewaehrleistung/gewaehrleistung-due-list.read.js';
 import {
   buildPatchUpdateData,
   buildVehicleListWhere,
@@ -74,10 +75,14 @@ describe('VehicleStockQueryService', () => {
     };
     tenantContext = { getTenantId: jest.fn().mockResolvedValue(tenantId) };
     siteContext = { getSiteId: jest.fn().mockResolvedValue('site-1') };
+    const gewaehrleistungDueList = {
+      list: jest.fn(),
+    } as unknown as GewaehrleistungDueListReadService;
     service = new VehicleStockQueryService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
+      gewaehrleistungDueList,
     );
   });
 

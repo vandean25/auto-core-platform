@@ -1,11 +1,10 @@
 import {
-  andCombineListWhere,
   decodeListCursor,
   encodeListCursor,
-  hashListFilterContext,
-} from './index.js';
+} from './list-cursor.codec.js';
 import { LIST_CURSOR_ENDPOINT } from './list-cursor.constants.js';
-import { buildKeysetAfterClause } from './list-keyset.js';
+import { hashListFilterContext } from './list-cursor.filter-hash.js';
+import { andCombineListWhere, buildKeysetAfterClause } from './list-keyset.js';
 
 describe('list-keyset', () => {
   it('ASC with equal sort values pages by id without gaps', () => {

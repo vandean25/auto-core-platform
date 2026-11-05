@@ -23,6 +23,7 @@ import {
   QueryBuilder,
   type QueryParams,
 } from '../../common/utils/query-builder.js';
+import { ApiListOffsetPaginationQueries } from '../../common/dto/list-cursor-query.decorator.js';
 
 @Controller('sales-orders')
 export class SalesOrderController {
@@ -44,22 +45,7 @@ export class SalesOrderController {
     },
   })
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'pageSize',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'sortDirection',
-    required: false,
-    schema: { type: 'string', enum: ['asc', 'desc'] },
-  })
+  @ApiListOffsetPaginationQueries()
   @ApiQuery({ name: 'params', required: false, schema: { type: 'string' } })
   @ApiOkResponse({ type: SalesOrderPaginatedResponseDto })
   async findAll(

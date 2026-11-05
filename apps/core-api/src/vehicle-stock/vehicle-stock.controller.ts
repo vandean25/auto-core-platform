@@ -32,6 +32,11 @@ import {
   GewaehrleistungDueListResponseDto,
 } from './dto/gewaehrleistung-due-list.dto.js';
 import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
+import {
+  ApiListCursorModeQuery,
+  ApiListOffsetPaginationQueries,
+} from '../common/dto/list-cursor-query.decorator.js';
+import { dispatchVehicleStockList } from './vehicle-stock-list.route.js';
 
 @ApiTags('vehicle-stock')
 @ApiExtraModels(VehicleStockMarginRoleTotalsDto)
@@ -63,41 +68,8 @@ export class VehicleStockController {
     required: false,
     schema: { type: 'string', enum: Object.values(VehicleStockStatus) },
   })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'pageSize',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'sortDirection',
-    required: false,
-    schema: { type: 'string', enum: ['asc', 'desc'] },
-  })
-  @ApiQuery({
-    name: 'pagination',
-    required: false,
-    description:
-      'Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract.',
-    schema: { type: 'string', enum: ['offset', 'cursor'] },
-  })
-  @ApiQuery({
-    name: 'cursor',
-    required: false,
-    description:
-      'Opaque cursor from meta.nextCursor of the previous cursor page',
-    schema: { type: 'string' },
-  })
+  @ApiListOffsetPaginationQueries({ includeLimit: true })
+  @ApiListCursorModeQuery()
   list(
     @Query('search') search?: string,
     @Query('stock_status') stockStatus?: string,
@@ -109,43 +81,16 @@ export class VehicleStockController {
     @Query('pagination') pagination?: string,
     @Query('cursor') cursor?: string,
   ) {
-    const parsedLimit = limit
-      ? parseInt(limit, 10)
-      : pageSize
-        ? parseInt(pageSize, 10)
-        : undefined;
-    const useCursor = pagination === 'cursor' || Boolean(cursor);
-    if (useCursor) {
-      return this.stock.listWithCursor({
-        search,
-        stock_status: stockStatus,
-        limit: parsedLimit,
-        sortField,
-        sortDirection:
-          sortDirection === 'desc'
-            ? 'desc'
-            : sortDirection === 'asc'
-              ? 'asc'
-              : undefined,
-        cursor,
-      });
-    }
-    return this.stock.list({
+    return dispatchVehicleStockList(this.stock, {
       search,
-      stock_status: stockStatus,
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit
-        ? parseInt(limit, 10)
-        : pageSize
-          ? parseInt(pageSize, 10)
-          : undefined,
+      stockStatus,
+      page,
+      limit,
+      pageSize,
       sortField,
-      sortDirection:
-        sortDirection === 'desc'
-          ? 'desc'
-          : sortDirection === 'asc'
-            ? 'asc'
-            : undefined,
+      sortDirection,
+      pagination,
+      cursor,
     });
   }
 
