@@ -38,8 +38,10 @@ import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
 import { syncVehicleListingContentHashWhenStockCycleExists } from '../vehicle/listing/vehicle-listing-hash-sync.js';
 import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
-import { GewaehrleistungDueListReadService } from './gewaehrleistung/gewaehrleistung-due-list.read.js';
-import { viennaIsoDay } from './gewaehrleistung/gewaehrleistung-status.js';
+import {
+  gewaehrleistungDueWindow,
+  viennaIsoDay,
+} from './gewaehrleistung/gewaehrleistung-status.js';
 import { toGewaehrleistungReadFields } from './vehicle-sale.warranty.js';
 
 const STOCK_SORT_WHITELIST = [
@@ -198,6 +200,7 @@ export function buildVehicleListWhere(
   const searchFilter = searchClause(search);
   const vehicleWhere: Prisma.VehicleWhereInput = {
     tenant_id: tenantId,
+    site_id: siteId,
     location: { site_id: siteId },
     inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
     ...(stockStatus ? { stock_status: stockStatus } : {}),
@@ -354,7 +357,6 @@ export class VehicleStockQueryService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
-    private readonly gewaehrleistungDueList: GewaehrleistungDueListReadService,
   ) {}
 
   async list(params: {
@@ -473,7 +475,65 @@ export class VehicleStockQueryService {
   }
 
   async listGewaehrleistungDue(query: GewaehrleistungDueListQueryDto) {
-    return this.gewaehrleistungDueList.list(query);
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const { windowStart, windowEnd } = gewaehrleistungDueWindow(
+      viennaIsoDay(new Date()),
+      query.endsWithinDays,
+    );
+
+    const data = await this.prisma.vehicleSale.findMany({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
+        customer: { is: { tenant_id: tenantId } },
+        status: 'INVOICED',
+        buyer_is_consumer: true,
+        gewaehrleistung_ends_on: { gte: windowStart, lte: windowEnd },
+      },
+      select: {
+        id: true,
+        sale_number: true,
+        vehicle_id: true,
+        customer_id: true,
+        handed_over_at: true,
+        gewaehrleistung_ends_on: true,
+        presumption_ends_on: true,
+        gewaehrleistung_rule_version: true,
+        vehicle: {
+          select: {
+            id: true,
+            make: true,
+            model: true,
+            year: true,
+            vin: true,
+            plate: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            company_name: true,
+          },
+        },
+      },
+      orderBy: [{ gewaehrleistung_ends_on: 'asc' }, { id: 'asc' }],
+    });
+
+    return {
+      data,
+      meta: {
+        total: data.length,
+        page: 1,
+        pageSize: data.length,
+        pageCount: data.length === 0 ? 0 : 1,
+      },
+    };
   }
 
   private async countDrafts(

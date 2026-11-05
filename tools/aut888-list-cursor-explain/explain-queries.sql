@@ -51,6 +51,7 @@ FROM vehicles v
 INNER JOIN storage_locations sl
   ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
 WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
   AND sl.site_id = :'site_id'
   AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
   AND v.stock_status = 'IN_STOCK'
@@ -64,6 +65,7 @@ FROM vehicles v
 INNER JOIN storage_locations sl
   ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
 WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
   AND sl.site_id = :'site_id'
   AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
   AND v.stock_status = 'IN_STOCK'
@@ -81,6 +83,7 @@ FROM vehicles v
 INNER JOIN storage_locations sl
   ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
 WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
   AND sl.site_id = :'site_id'
   AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
   AND v.stock_status = 'IN_STOCK'
@@ -94,6 +97,7 @@ FROM vehicles v
 INNER JOIN storage_locations sl
   ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
 WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
   AND sl.site_id = :'site_id'
   AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
   AND v.stock_status = 'IN_STOCK'
@@ -106,6 +110,7 @@ FROM vehicles v
 INNER JOIN storage_locations sl
   ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
 WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
   AND sl.site_id = :'site_id'
   AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
   AND v.stock_status = 'IN_STOCK'

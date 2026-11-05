@@ -619,7 +619,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       }
     });
 
-    it('WHEN cursor pages nullable vin DESC THEN order is descending without repeats', async () => {
+    it('WHEN another tenant owns matching stock THEN cursor list and capped-count stay tenant-scoped', async () => {
       const tag = `iso-tenant-${Date.now()}`;
       const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
       await seedReadySellerAndAccountingProfile(otherPrisma, otherTenantId, {

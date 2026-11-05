@@ -63,7 +63,7 @@ tags: [platform, adr-0035, aut-888]
 
 # AUT-888 list cursor EXPLAIN evidence (synthetic)
 
-Captured on a **disposable local PostgreSQL 16** instance in the Cloud Agent VM (\`localhost:5432\`). Database \`${DB_NAME}\` is created by \`tools/aut888-list-cursor-explain/run-local-explain.sh\`, migrated with \`prisma migrate deploy\`, then seeded with **synthetic-only** rows (no QA/prod/customer data).
+Captured on a **disposable local PostgreSQL 16** instance on a **local VM** (\`localhost:5432\`). Database \`${DB_NAME}\` is created by \`tools/aut888-list-cursor-explain/run-local-explain.sh\`, migrated with \`prisma migrate deploy\`, then seeded with **synthetic-only** rows (no QA/prod/customer data).
 
 ## Fixture summary
 
@@ -77,14 +77,14 @@ Pilot indexes under test: migration \`20261105120000_aut888_list_cursor_keyset_i
 ## Method
 
 1. \`run-local-explain.sh\` — drop/create DB, \`prisma migrate deploy\`, \`seed-synthetic.sql\`, \`ANALYZE\`.
-2. \`explain-queries.sql\` — SQL aligned with list services: inventory tenant scope; vehicle **\`INNER JOIN storage_locations\` on \`location_id\`** with \`sl.site_id\` (same as \`buildVehicleListWhere\`), plus dealer-stock role/status filters. Includes first page, continuation, DESC, and capped-count probes.
+2. \`explain-queries.sql\` — SQL aligned with list services: inventory tenant scope; vehicle **\`vehicles.site_id\`** plus **\`INNER JOIN storage_locations\` on \`location_id\`** with matching \`sl.site_id\` (same as \`buildVehicleListWhere\`), plus dealer-stock role/status filters. Includes first page, continuation, DESC, and capped-count probes.
 
 ## Caveats
 
 - **Not CI**: GitHub e2e Postgres volume is smaller; this evidence is from an intentional synthetic bulk load on a throwaway DB.
 - **No search/brand/location filters** in these captures (baseline tenant + site scope only).
-- **Prisma may differ slightly** in join order or parameter typing; shapes match the list \`where\` clauses, not hand-waved \`vehicles.site_id\` alone.
-- **Mid-list continuation** on composite indexes can show sort/keyset predicates as **Filter** with **Rows Removed by Filter** (index walk from the start — cost grows with page depth). First pages often show cleaner index access.
+- **Prisma may differ slightly** in join order or parameter typing; shapes match the list \`where\` clauses (\`vehicles.site_id\` and location join).
+- **Mid-list continuation** on composite indexes can show sort/keyset predicates as **Filter** with **Rows Removed by Filter** (index walk from the start — cost grows with page depth). First pages often show cleaner index access on the pilot \`(tenant_id, site_id, sort_col, id)\` indexes.
 - **VM-local Postgres**: apt-installed PG 16 on Ubuntu 24.04; planner costs differ from Cloud SQL production.
 
 ## Plan summary (honest read)
@@ -94,7 +94,7 @@ Pilot indexes under test: migration \`20261105120000_aut888_list_cursor_keyset_i
 | Inventory first page (\`sku\`, \`name\`, \`retail_price\` ASC/DESC) | Usually **Index Scan** / **Index Only Scan** on the matching \`(tenant_id, sort_col, id)\` index with \`tenant_id\` as **Index Cond**. |
 | Inventory keyset continuation (\`sku\` tie + \`id\`) | Often **Index Scan** with keyset as **Filter**; read **Rows Removed by Filter** in raw output. |
 | Inventory capped-count (\`LIMIT 1001\` ids) | **Seq Scan** + tenant filter at this row count in the capture. |
-| Vehicle first page (join + \`make\` / \`plate\` / \`updatedAt\`) | **Nested Loop** + index on \`vehicles\` sort column; role/status/site via join/filter — see raw plans. |
+| Vehicle first page (join + \`make\` / \`plate\` / \`updatedAt\`) | **Index Scan** on \`vehicles_tenant_id_site_id_<sort>_id_idx\` with \`(tenant_id, site_id)\` as **Index Cond**; role/status as **Filter**; nested loop to \`storage_locations\` for join shape. |
 | Vehicle keyset continuation (\`make\` tie + \`id\`) | Frequently **Index Scan** on \`vehicles_tenant_id_site_id_make_id_idx\` with large **Filter** / **Rows Removed by Filter** (not constant-time seek). |
 | Vehicle capped-count (join shape) | **Seq Scan** or nested loop + filter at this scale in the capture. |
 

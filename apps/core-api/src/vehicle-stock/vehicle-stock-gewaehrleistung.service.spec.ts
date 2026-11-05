@@ -1,8 +1,6 @@
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
-import { SiteContextService as CommonSiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { GewaehrleistungDueListReadService } from './gewaehrleistung/gewaehrleistung-due-list.read.js';
 import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 
 describe('VehicleStockQueryService Gewaehrleistung due list', () => {
@@ -11,7 +9,6 @@ describe('VehicleStockQueryService Gewaehrleistung due list', () => {
   };
   const tenantContext = { getTenantId: jest.fn().mockResolvedValue('tenant-a') };
   const siteContext = { getSiteId: jest.fn().mockResolvedValue('site-a') };
-  let readService: GewaehrleistungDueListReadService;
   let service: VehicleStockQueryService;
 
   beforeEach(() => {
@@ -19,16 +16,10 @@ describe('VehicleStockQueryService Gewaehrleistung due list', () => {
     jest.setSystemTime(new Date('2026-10-08T16:30:00.000Z'));
     jest.clearAllMocks();
     prisma.vehicleSale.findMany.mockResolvedValue([]);
-    readService = new GewaehrleistungDueListReadService(
-      prisma as unknown as PrismaService,
-      tenantContext as unknown as TenantContextService,
-      siteContext as unknown as CommonSiteContextService,
-    );
     service = new VehicleStockQueryService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
-      readService,
     );
   });
 
