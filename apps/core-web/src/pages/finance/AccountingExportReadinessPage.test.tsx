@@ -207,6 +207,20 @@ describe('AccountingExportReadinessPage', () => {
     expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(null)
   })
 
+  // Regression: the "choose a legal entity" hint was a bare muted paragraph, not the shared Empty.
+  it('WHEN no legal entity is available THEN the shared Empty is shown with the German hint', () => {
+    asMock(siteAdminApi.useLegalEntities).mockReturnValue({
+      data: [],
+      isLoading: false,
+    })
+
+    const { container } = renderPage()
+
+    expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent(
+      deFinance.accountingExportReadiness.chooseLegalEntityHint,
+    )
+  })
+
   it('shows only the refusal when the readiness request fails', () => {
     mockReadiness({ error: new Error('Export scope is incomplete for the current user.') })
 

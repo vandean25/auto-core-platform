@@ -61,6 +61,9 @@ describe('design-token ratchet (AUT-659)', () => {
     'src/pages/finance/useCreditNoteExample.tsx',
     'src/components/finance/create-credit-note-example.tsx',
     'src/components/finance/credit-note-example.tsx',
+    'src/pages/finance/Example.tsx',
+    'src/components/finance/Example.tsx',
+    'src/pages/reports/Example.tsx',
     'src/pages/inventory/Example.tsx',
     'src/pages/InventoryListExample.tsx',
     'src/pages/purchase-bills/Example.tsx',
@@ -81,6 +84,6 @@ describe('design-token ratchet (AUT-659)', () => {
 
   it('leaves folders that are not migrated yet alone', async () => {
     const code = `export const A = () => <p className="text-slate-500">x</p>`
-    expect(await restrictedMessages(code, path.join(webRoot, 'src/pages/finance/Example.tsx'))).toEqual([])
+    expect(await restrictedMessages(code, path.join(webRoot, 'src/pages/tyre-storage/Example.tsx'))).toEqual([])
   })
 })

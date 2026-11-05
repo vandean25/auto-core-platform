@@ -124,7 +124,8 @@ test.describe('Page content on a phone (AUT-752)', () => {
       await expect(page.getByText('BRK-0001')).toBeVisible()
 
       for (const table of await page.locator('main table').all()) {
-        const scroller = table.locator('xpath=ancestor::*[contains(@class,"overflow-x-auto")][1]')
+        // ui/table wraps every table in its own focusable scroll region.
+        const scroller = table.locator('xpath=ancestor::*[@role="region"][1]')
         const box = await scroller.evaluate((node) => ({ scroll: node.scrollWidth, client: node.clientWidth }))
         // Wide tables keep their natural width and scroll inside the card; the page itself does not move.
         expect(box.scroll, 'table scrolls inside its container').toBeGreaterThan(box.client)
@@ -192,6 +193,19 @@ test.describe('Page content on a phone (AUT-752)', () => {
     expect((await season.boundingBox())!.y, 'season and status share a row').toBe((await status.boundingBox())!.y)
     const lastFilter = page.locator('label', { hasText: /^Fällig bis$/ })
     expect((await lastFilter.boundingBox())!.y, 'all filters within the first screen').toBeLessThan(812)
+    await expectNoPageScroll(page)
+  })
+
+  // AUT-659 scenario 5: the KPI report (ui/table and PageHeader migration) keeps the phone layout.
+  test('WHEN the workshop KPI report opens at 375px THEN there is no horizontal scroll and targets are at least 44px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await mockApi(page)
+    await new AutoCorePage(page, '').navigate('/workshop/reports/kpis')
+    await expect(page.getByText('BRK-0001')).toBeVisible()
+
+    // The page content only: the sidebar toggle belongs to the app shell.
+    const content = page.getByRole('heading', { level: 1 }).locator('xpath=ancestor::*[contains(@class,"space-y-6")][1]')
+    expect(await controlsShorterThan44(content)).toEqual([])
     await expectNoPageScroll(page)
   })
 

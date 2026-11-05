@@ -29,7 +29,7 @@ export function SettlementReceiptQr({ data, size = 160 }: Props) {
   return (
     <canvas
       ref={canvasRef}
-      className="rounded border bg-white p-1"
+      className="rounded border bg-card p-1"
       aria-label={t('settlement.qrAriaLabel')}
     />
   )

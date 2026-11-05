@@ -1,37 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { DateField } from '@/components/ui/date-field'
+import { useCallback, useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { useAuthSession } from '@/api/auth-session'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport, type WorkshopKpiReport } from '@/api/workshop-kpi-reports'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { formatCurrency, formatDate, formatNumber } from '@/lib/format'
 import { PHONE_TOUCH_CONTROLS } from '@/lib/touch-targets'
 import { cn } from '@/lib/utils'
+import { dateDaysAgo, localIsoDate } from './workshop-kpi-format'
+import { KpiFilters, LaborPerformanceCard, PartsTurnoverCard, type KpiGroupBy } from './workshop-kpi-report-cards'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 type ReportsTranslate = TFunction<'reports'>
-
-function number(value: string | null | undefined, suffix = '', missing = '—'): string {
-  return value == null
-    ? missing
-    : `${formatNumber(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}`
-}
-
-/** The report period arrives as "2026-10-01 – 2026-10-27"; the screen shows it as dd.MM.yyyy (the CSV keeps the raw text). */
-export function formatKpiPeriod(period: string): string {
-  return period.replace(/\d{4}-\d{2}-\d{2}/g, (isoDate) => formatDate(isoDate, { timeZone: 'UTC' }))
-}
-
-/** Euro amount with the German grouping ("€ 23.500,00"), or the placeholder for a missing value. */
-function money(value: string | null | undefined, missing = '—'): string {
-  return value == null ? missing : formatCurrency(value)
-}
 
 export function serializeWorkshopKpiCsv(report: WorkshopKpiReport, t: ReportsTranslate): string {
   const headers = [
@@ -129,16 +112,6 @@ export function serializeWorkshopKpiCsv(report: WorkshopKpiReport, t: ReportsTra
   return serializeCsv([headers, ...workRows, turnoverRow, ...slowMoverRows, reportInfoRow])
 }
 
-function localIsoDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-function dateDaysAgo(days: number): string {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  return localIsoDate(date)
-}
-
 export default function WorkshopKpiReportsPage() {
   const { t } = useTranslation(['reports', 'common'])
   useEffect(() => {
@@ -150,31 +123,10 @@ export default function WorkshopKpiReportsPage() {
   const [siteId, setSiteId] = useState('')
   const [from, setFrom] = useState(() => dateDaysAgo(29))
   const [to, setTo] = useState(() => localIsoDate(new Date()))
-  const [groupBy, setGroupBy] = useState<'mechanic' | 'week' | 'month'>('mechanic')
+  const [groupBy, setGroupBy] = useState<KpiGroupBy>('mechanic')
   const selectedSiteId = siteId || session.data?.activeSiteId || sites.data?.[0]?.id || ''
   const report = useWorkshopKpiReport({ siteId: selectedSiteId, from, to, groupBy })
-  const rows = report.data?.data ?? []
-  const visibleRows = rows
-
   const missingValue = t('common:placeholders.missing')
-
-  const laborColumnHeadings = useMemo(
-    () => [
-      t('workshopKpi.laborPerformance.columns.mechanic'),
-      t('workshopKpi.laborPerformance.columns.period'),
-      t('workshopKpi.laborPerformance.columns.available'),
-      t('workshopKpi.laborPerformance.columns.clocked'),
-      t('workshopKpi.laborPerformance.columns.sold'),
-      t('workshopKpi.laborPerformance.columns.laborNet'),
-      t('workshopKpi.laborPerformance.columns.partsNet'),
-      t('workshopKpi.laborPerformance.columns.utilisation'),
-      t('workshopKpi.laborPerformance.columns.productivity'),
-      t('workshopKpi.laborPerformance.columns.orders'),
-      t('workshopKpi.laborPerformance.columns.avgNetPerOrder'),
-      t('workshopKpi.laborPerformance.columns.openTimes'),
-    ],
-    [t],
-  )
 
   const exportCsv = useCallback(() => {
     if (!report.data) return
@@ -183,155 +135,31 @@ export default function WorkshopKpiReportsPage() {
 
   return (
     <div className={cn('space-y-6', PHONE_TOUCH_CONTROLS)}>
-      <div className="flex items-center justify-between max-sm:flex-wrap max-sm:gap-4">
-        <div className="min-w-0 max-sm:w-full">
-          <h1 className="text-2xl font-semibold tracking-tight">{t('workshopKpi.pageTitle')}</h1>
-          <p className="text-slate-500">{t('workshopKpi.pageDescription')}</p>
-        </div>
-        <Button onClick={exportCsv} disabled={!report.data}>
-          <Download className="mr-2 h-4 w-4" />
-          {t('workshopKpi.exportCsv')}
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1 text-sm">
-          <label htmlFor="workshop-report-site">{t('workshopKpi.site')}</label>
-          <Select value={selectedSiteId} onValueChange={setSiteId}>
-            <SelectTrigger id="workshop-report-site" className="w-52">
-              <SelectValue placeholder={t('workshopKpi.sitePlaceholder')} />
-            </SelectTrigger>
-            <SelectContent>
-              {(sites.data ?? []).map((site) => (
-                <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-1 text-sm">
-          <label htmlFor="workshop-report-from">{t('workshopKpi.from')}</label>
-          <DateField id="workshop-report-from" aria-label={t('workshopKpi.from')} value={from} onChange={setFrom} className="h-10" />
-        </div>
-        <div className="grid gap-1 text-sm">
-          <label htmlFor="workshop-report-to">{t('workshopKpi.to')}</label>
-          <DateField id="workshop-report-to" aria-label={t('workshopKpi.to')} value={to} onChange={setTo} className="h-10" />
-        </div>
-        <div className="grid gap-1 text-sm">
-          <label htmlFor="workshop-report-group">{t('workshopKpi.groupBy')}</label>
-          <Select value={groupBy} onValueChange={(value) => setGroupBy(value as typeof groupBy)}>
-            <SelectTrigger id="workshop-report-group" className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="mechanic">{t('workshopKpi.groupByOptions.mechanic')}</SelectItem>
-              <SelectItem value="week">{t('workshopKpi.groupByOptions.week')}</SelectItem>
-              <SelectItem value="month">{t('workshopKpi.groupByOptions.month')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      {report.isError && <p role="alert" className="text-sm text-red-600">{report.error.message}</p>}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('workshopKpi.laborPerformance.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto [contain:inline-size]">
-          <table className="w-full text-sm max-sm:min-w-max max-sm:whitespace-nowrap">
-            <thead>
-              <tr className="border-b text-left">
-                {laborColumnHeadings.map((heading) => (
-                  <th key={heading} className="p-2">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {report.isLoading ? (
-                <tr>
-                  <td className="p-4" colSpan={12}>{t('workshopKpi.laborPerformance.loading')}</td>
-                </tr>
-              ) : visibleRows.length ? (
-                [...visibleRows, ...(report.data ? [report.data.totals] : [])].map((row) => (
-                  <tr key={row.key} className="border-b">
-                    <td className="p-2">{row.mechanic_name ?? t('workshopKpi.total')}</td>
-                    <td className="p-2">{formatKpiPeriod(row.period)}</td>
-                    <td className="p-2">{number(row.available_hours, '', missingValue)}</td>
-                    <td className="p-2">{number(row.clocked_hours, '', missingValue)}</td>
-                    <td className="p-2">{number(row.sold_hours, '', missingValue)}</td>
-                    <td className="p-2">{money(row.labor_net_revenue, missingValue)}</td>
-                    <td className="p-2">{money(row.parts_net_revenue, missingValue)}</td>
-                    <td className="p-2">{number(row.utilisation_percent, ' %', missingValue)}</td>
-                    <td className="p-2">{number(row.productivity_percent, ' %', missingValue)}</td>
-                    <td className="p-2">{row.closed_orders}</td>
-                    <td className="p-2">{money(row.average_net_revenue_per_order, missingValue)}</td>
-                    <td className="p-2">{row.open_labor_entry_count}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="p-4 text-slate-500" colSpan={12}>{t('workshopKpi.laborPerformance.empty')}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          {report.data && (
-            <p className="mt-3 text-xs text-slate-500">
-              {t('workshopKpi.laborPerformance.metaFooter', {
-                timezone: report.data.meta.timezone,
-                count: report.data.meta.unassigned_mechanic_count,
-              })}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('workshopKpi.partsTurnover.title')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>
-            {t('workshopKpi.partsTurnover.summary', {
-              issuedCost: money(report.data?.parts_turnover.issued_cost, missingValue),
-              averageStock: money(report.data?.parts_turnover.average_stock_value, missingValue),
-              turnover: number(report.data?.parts_turnover.turnover, '×', missingValue),
-            })}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {t('workshopKpi.partsTurnover.unvaluedStock', {
-              count: report.data?.parts_turnover.unvalued_stock_item_count ?? 0,
-            })}
-          </p>
-          <h3 className="mb-2 mt-5 text-sm font-semibold">{t('workshopKpi.partsTurnover.slowMoversTitle')}</h3>
-          <div className="overflow-x-auto [contain:inline-size]">
-            <table className="w-full text-sm max-sm:min-w-max max-sm:whitespace-nowrap">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">{t('workshopKpi.partsTurnover.columns.article')}</th>
-                  <th className="p-2">{t('workshopKpi.partsTurnover.columns.quantity')}</th>
-                  <th className="p-2">{t('workshopKpi.partsTurnover.columns.stockValue')}</th>
-                  <th className="p-2">{t('workshopKpi.partsTurnover.columns.daysSinceIssue')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.data?.parts_turnover.slow_movers.length ? (
-                  report.data.parts_turnover.slow_movers.map((part) => (
-                    <tr key={part.catalog_item_id} className="border-b">
-                      <td className="p-2">{part.sku} · {part.name}</td>
-                      <td className="p-2">
-                        {formatNumber(Number(part.quantity_on_hand), { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
-                      </td>
-                      <td className="p-2">{money(part.stock_value, missingValue)}</td>
-                      <td className="p-2">{part.days_since_last_issue ?? t('workshopKpi.never')}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="p-3 text-slate-500" colSpan={4}>{t('workshopKpi.partsTurnover.slowMoversEmpty')}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <PageHeader
+        className="mb-0"
+        title={t('workshopKpi.pageTitle')}
+        description={t('workshopKpi.pageDescription')}
+        actions={
+          <Button onClick={exportCsv} disabled={!report.data}>
+            <Download className="mr-2 h-4 w-4" />
+            {t('workshopKpi.exportCsv')}
+          </Button>
+        }
+      />
+      <KpiFilters
+        sites={sites.data ?? []}
+        siteId={selectedSiteId}
+        from={from}
+        to={to}
+        groupBy={groupBy}
+        onSiteChange={setSiteId}
+        onFromChange={setFrom}
+        onToChange={setTo}
+        onGroupByChange={setGroupBy}
+      />
+      {report.isError && <p role="alert" className="text-sm text-destructive">{report.error.message}</p>}
+      <LaborPerformanceCard report={report.data} isLoading={report.isLoading} missing={missingValue} />
+      <PartsTurnoverCard report={report.data} missing={missingValue} />
     </div>
   )
 }
