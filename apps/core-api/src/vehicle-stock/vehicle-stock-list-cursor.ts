@@ -39,7 +39,8 @@ export function resolveVehicleStockCursorSort(
   if (!Object.hasOwn(VEHICLE_STOCK_CURSOR_SORTS, field)) {
     throw listCursorSortUnsupportedException();
   }
-  const config = VEHICLE_STOCK_CURSOR_SORTS[field as VehicleStockCursorSortField];
+  const config =
+    VEHICLE_STOCK_CURSOR_SORTS[field as VehicleStockCursorSortField];
   return {
     field: field as VehicleStockCursorSortField,
     direction: sortDirection ?? (field === 'updatedAt' ? 'desc' : 'asc'),
