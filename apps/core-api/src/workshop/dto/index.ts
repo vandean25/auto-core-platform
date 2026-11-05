@@ -8,6 +8,7 @@ export * from './pick-workshop-parts-response.dto.js';
 export * from './register-intake.dto.js';
 export * from './replace-workshop-task-line-items.dto.js';
 export * from './update-workshop-order.dto.js';
+export * from './undo-workshop-order-notes.dto.js';
 export * from './update-workshop-task.dto.js';
 export * from './workshop-catalog-line-response.dto.js';
 export * from './workshop-holiday.dto.js';

@@ -635,9 +635,14 @@
     "cancel": "Abbrechen",
     "deleteTask": "Aufgabe löschen",
     "deleting": "Wird gelöscht…",
+    "undoNotes": {
+      "action": "Rückgängig"
+    },
     "toast": {
       "notesSaved": "Interne Notizen gespeichert",
       "notesSaveFailed": "Notizen konnten nicht gespeichert werden",
+      "notesUndoSuccess": "Interne Notizen zurückgesetzt",
+      "notesUndoFailed": "Rückgängig nicht möglich",
       "reportedIssueSaved": "Gemeldetes Problem gespeichert",
       "reportedIssueSaveFailed": "Gemeldetes Problem konnte nicht gespeichert werden",
       "taskCreated": "Aufgabe erstellt",

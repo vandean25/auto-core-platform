@@ -12,6 +12,7 @@ import type { VehicleRowActionContext } from '@/features/actions/vehicle-row-act
 import { createVehicleRowActions } from '@/features/actions/vehicle-row-actions'
 import type { WorkshopOrderRowActionContext } from '@/features/actions/work-order-row-actions'
 import { createWorkshopOrderRowActions, createWorkshopOrderTyreMeasurementAction } from '@/features/actions/work-order-row-actions'
+import { createWorkshopOrderUndoNotesAction } from '@/features/actions/work-order-undo-notes-action'
 import { createTyreSetTyreMeasurementAction, type TyreSetRowActionContext } from '@/features/actions/tyre-set-row-actions'
 import { createCreditNotePrintAction, type CreditNoteRowActionContext } from '@/features/actions/credit-note-row-actions'
 import {
@@ -63,14 +64,21 @@ export function buildPaletteContextSection(
       () => '',
     )
   } else if (ref.entity === 'workshop_order' && records.order) {
-    const definitions = createWorkshopOrderRowActions(workshop)
-    items = buildWorkshopOrderPaletteContextActions(
-      definitions,
+    const rowActions = buildWorkshopOrderPaletteContextActions(
+      createWorkshopOrderRowActions(workshop),
       role,
       records.order,
       runContexts.workshop,
       nav,
     )
+    const undoItems = mapRegistryActionsToPalette(
+      [createWorkshopOrderUndoNotesAction(workshop)],
+      role,
+      records.order,
+      runContexts.workshop,
+      () => records.order!.order_number ?? records.order!.id,
+    )
+    items = [...rowActions, ...undoItems]
   } else if (ref.entity === 'customer' && records.customer) {
     const definitions = createCustomerRowActions(customers)
     items = buildCustomerPaletteContextActions(

@@ -241,6 +241,12 @@
       "serverConfirmedReason": "Voice-note upload and transcription is an external side effect."
     },
     {
+      "operationId": "workshop.order.notes.undo",
+      "owningHook": "useUndoWorkshopOrderNotes",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Version-checked inverse restore; concurrency and authorization are enforced on the server."
+    },
+    {
       "operationId": "workshop.order.ready-email.resend",
       "owningHook": "WorkshopReadyEmailNotice",
       "classification": "server-confirmed",

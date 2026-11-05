@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -15,6 +17,7 @@ import {
   CreateWorkshopOrderDto,
   FindAllWorkshopOrdersQueryDto,
   UpdateWorkshopOrderDto,
+  UndoWorkshopOrderNotesDto,
 } from './dto/index.js';
 import {
   ApiWorkshopPaginationQueries,
@@ -72,6 +75,17 @@ export class WorkshopOrdersController {
   @ApiWorkshopOrderOkResponse()
   updateOrder(@Param('id') id: string, @Body() dto: UpdateWorkshopOrderDto) {
     return this.intakeService.updateOrder(id, dto);
+  }
+
+  @Post('orders/:id/notes/undo')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ operationId: 'WorkshopController_undoOrderNotes' })
+  @ApiWorkshopOrderOkResponse()
+  undoOrderNotes(
+    @Param('id') id: string,
+    @Body() dto: UndoWorkshopOrderNotesDto,
+  ) {
+    return this.intakeService.undoOrderNotes(id, dto);
   }
 
   @Post('orders/:id/create-invoice')

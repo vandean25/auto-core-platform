@@ -57,6 +57,7 @@ import { MechanicAccessDeniedPage, NotFoundPage } from '@/app/lazy-app-pages'
 import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkCompletionPage'
 import LoginPage from '@/pages/LoginPage'
 import { GlobalShortcutLayer } from '@/features/shortcuts/GlobalShortcutLayer'
+import { UndoEligibleEntrySessionSync } from '@/features/interaction/use-undo-eligible-entry'
 
 function AppMain() {
   return (
@@ -157,6 +158,7 @@ function AppShell({
               <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
               <EntityActionConfirmHost />
               <IosInstallHint />
+              <UndoEligibleEntrySessionSync />
               <GlobalShortcutLayer />
               <AppMain />
               <AdminPhoneNav platformRole={platformRole} activeRole={activeRole} onOpenSearch={() => setSearchOpen(true)} />

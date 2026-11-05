@@ -811,6 +811,11 @@ const DEFINITIONS = [
     'Register vehicle at workshop',
   ],
   ['workshop.order.update', 'Werkstattauftrag ändern', 'Edit workshop order'],
+  [
+    'workshop.order.notes.undo',
+    'Interne Notizen rückgängig machen',
+    'Undo internal notes edit',
+  ],
   ['workshop.overrun.notify', 'Überschreitung melden', 'Notify cost overrun'],
   ['workshop.parts.pick', 'Teile entnehmen', 'Pick parts'],
   ['workshop.planner.read', 'Werkstattplaner ansehen', 'View workshop planner'],
