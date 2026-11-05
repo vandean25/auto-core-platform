@@ -1,5 +1,6 @@
 import {
   LIST_CURSOR_ENDPOINT,
+  listCursorSortUnsupportedException,
   type KeysetSortDirection,
 } from '../common/list-cursor/index.js';
 
@@ -48,9 +49,7 @@ export function resolveVehicleStockCursorSort(
   const field = (sortField ?? 'updatedAt') as VehicleStockCursorSortField;
   const config = VEHICLE_STOCK_CURSOR_SORTS[field];
   if (!config) {
-    throw new Error(
-      `Sort field ${sortField ?? ''} is not cursor-enabled for vehicle stock`,
-    );
+    throw listCursorSortUnsupportedException();
   }
   return {
     field,

@@ -1,9 +1,3 @@
-import {
-  decodeListCursor,
-  encodeListCursor,
-} from './list-cursor.codec.js';
-import { LIST_CURSOR_ENDPOINT } from './list-cursor.constants.js';
-import { hashListFilterContext } from './list-cursor.filter-hash.js';
 import { andCombineListWhere, buildKeysetAfterClause } from './list-keyset.js';
 
 describe('list-keyset', () => {
@@ -39,26 +33,5 @@ describe('list-keyset', () => {
     expect(combined).toEqual({
       AND: [base, { OR: [{ sku: { gt: 'A' } }] }],
     });
-  });
-});
-
-describe('list-cursor codec', () => {
-  it('round-trips a versioned cursor and rejects malformed tokens', () => {
-    const fh = hashListFilterContext({ search: 'x' });
-    const encoded = encodeListCursor({
-      v: 1,
-      ep: LIST_CURSOR_ENDPOINT.inventory,
-      sort: 'sku',
-      dir: 'asc',
-      fh,
-      tid: '11111111-1111-4111-8111-111111111111',
-      sid: '22222222-2222-4222-8222-222222222222',
-      sv: 'SKU-1',
-      id: '33333333-3333-4333-8333-333333333333',
-    });
-    expect(decodeListCursor(encoded)?.id).toBe(
-      '33333333-3333-4333-8333-333333333333',
-    );
-    expect(decodeListCursor('not-valid')).toBeNull();
   });
 });

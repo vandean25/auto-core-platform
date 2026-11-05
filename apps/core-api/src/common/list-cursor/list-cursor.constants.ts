@@ -11,6 +11,10 @@ export type ListCursorEndpointId =
   (typeof LIST_CURSOR_ENDPOINT)[keyof typeof LIST_CURSOR_ENDPOINT];
 
 export const LIST_CURSOR_INVALID_CODE = 'LIST_CURSOR_INVALID' as const;
+export const LIST_CURSOR_SORT_UNSUPPORTED_CODE =
+  'LIST_CURSOR_SORT_UNSUPPORTED' as const;
+export const LIST_CURSOR_STOCK_FILTER_REQUIRED_CODE =
+  'LIST_CURSOR_STOCK_FILTER_REQUIRED' as const;
 
 export const LIST_COUNT_CAP = 1000 as const;
 export const LIST_COUNT_PROBE_TAKE = 1001 as const;

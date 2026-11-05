@@ -653,6 +653,15 @@
             }
           },
           {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
             "name": "location",
             "required": false,
             "in": "query",

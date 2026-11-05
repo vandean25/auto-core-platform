@@ -15,9 +15,23 @@ import {
 import {
   cleanupTestTenantGraph,
   createTestAuthToken,
+  createTestTenant,
+  resolveTestMainSiteId,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+
+function mergePageIdsWithoutOverlap(
+  firstPageIds: string[],
+  secondPage: { id: string }[],
+): Set<string> {
+  const seen = new Set(firstPageIds);
+  for (const row of secondPage) {
+    expect(seen.has(row.id)).toBe(false);
+    seen.add(row.id);
+  }
+  return seen;
+}
 
 describe('List cursor foundation (AUT-888 e2e)', () => {
   describe('vehicle stock pilot', () => {
@@ -86,7 +100,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
 
       expect(first.body.meta.hasNextPage).toBe(true);
       expect(first.body.meta.nextCursor).toEqual(expect.any(String));
-      const seen = new Set(first.body.data.map((row: { id: string }) => row.id));
+      const firstIds = first.body.data.map((row: { id: string }) => row.id);
 
       const second = await listCursor({
         sortField: 'make',
@@ -95,10 +109,10 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         cursor: first.body.meta.nextCursor,
       }).expect(200);
 
-      for (const row of second.body.data as { id: string }[]) {
-        expect(seen.has(row.id)).toBe(false);
-        seen.add(row.id);
-      }
+      const seen = mergePageIdsWithoutOverlap(
+        firstIds,
+        second.body.data as { id: string }[],
+      );
       expect(seen.size).toBeGreaterThanOrEqual(3);
       for (const id of ids) {
         expect(seen.has(id)).toBe(true);
@@ -147,33 +161,164 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       expect(nullRow?.plate).toBeNull();
     });
 
-    it('WHEN a cursor from another tenant is sent THEN the API returns 400 LIST_CURSOR_INVALID', async () => {
-      const foreignCursor = encodeListCursor({
-        v: 1,
-        ep: LIST_CURSOR_ENDPOINT.vehicleStock,
-        sort: 'updatedAt',
-        dir: 'desc',
-        fh: hashListFilterContext({
-          search: '',
-          stock_status: VehicleStockStatus.IN_STOCK,
+    it.each([
+      [
+        'another tenant token',
+        async () => ({
+          token: otherAuthToken,
+          cursor: encodeListCursor({
+            v: 1,
+            ep: LIST_CURSOR_ENDPOINT.vehicleStock,
+            sort: 'updatedAt',
+            dir: 'desc',
+            fh: hashListFilterContext({
+              search: '',
+              stock_status: VehicleStockStatus.IN_STOCK,
+            }),
+            tid: tenantId,
+            sid: (await prisma.site.findFirst({ where: { tenant_id: tenantId } }))!.id,
+            sv: new Date().toISOString(),
+            id: '44444444-4444-4444-8444-444444444444',
+          }),
+          query: {},
         }),
-        tid: tenantId,
-        sid: (await prisma.site.findFirst({ where: { tenant_id: tenantId } }))!.id,
-        sv: new Date().toISOString(),
-        id: '44444444-4444-4444-8444-444444444444',
-      });
+      ],
+      [
+        'filter hash mismatch',
+        async () => {
+          const siteId = (await prisma.site.findFirst({
+            where: { tenant_id: tenantId },
+          }))!.id;
+          return {
+            token: authToken,
+            cursor: encodeListCursor({
+              v: 1,
+              ep: LIST_CURSOR_ENDPOINT.vehicleStock,
+              sort: 'updatedAt',
+              dir: 'desc',
+              fh: hashListFilterContext({
+                search: 'mismatch',
+                stock_status: VehicleStockStatus.IN_STOCK,
+              }),
+              tid: tenantId,
+              sid: siteId,
+              sv: new Date().toISOString(),
+              id: '44444444-4444-4444-8444-444444444444',
+            }),
+            query: { search: '' },
+          };
+        },
+      ],
+      [
+        'endpoint mismatch',
+        async () => {
+          const siteId = (await prisma.site.findFirst({
+            where: { tenant_id: tenantId },
+          }))!.id;
+          return {
+            token: authToken,
+            cursor: encodeListCursor({
+              v: 1,
+              ep: LIST_CURSOR_ENDPOINT.inventory,
+              sort: 'updatedAt',
+              dir: 'desc',
+              fh: hashListFilterContext({
+                search: '',
+                stock_status: VehicleStockStatus.IN_STOCK,
+              }),
+              tid: tenantId,
+              sid: siteId,
+              sv: new Date().toISOString(),
+              id: '44444444-4444-4444-8444-444444444444',
+            }),
+            query: {},
+          };
+        },
+      ],
+      [
+        'sort field mismatch',
+        async () => {
+          const siteId = (await prisma.site.findFirst({
+            where: { tenant_id: tenantId },
+          }))!.id;
+          return {
+            token: authToken,
+            cursor: encodeListCursor({
+              v: 1,
+              ep: LIST_CURSOR_ENDPOINT.vehicleStock,
+              sort: 'make',
+              dir: 'asc',
+              fh: hashListFilterContext({
+                search: '',
+                stock_status: VehicleStockStatus.IN_STOCK,
+              }),
+              tid: tenantId,
+              sid: siteId,
+              sv: 'Audi',
+              id: '44444444-4444-4444-8444-444444444444',
+            }),
+            query: { sortField: 'model', sortDirection: 'asc' },
+          };
+        },
+      ],
+      [
+        'sort direction mismatch',
+        async () => {
+          const siteId = (await prisma.site.findFirst({
+            where: { tenant_id: tenantId },
+          }))!.id;
+          return {
+            token: authToken,
+            cursor: encodeListCursor({
+              v: 1,
+              ep: LIST_CURSOR_ENDPOINT.vehicleStock,
+              sort: 'updatedAt',
+              dir: 'asc',
+              fh: hashListFilterContext({
+                search: '',
+                stock_status: VehicleStockStatus.IN_STOCK,
+              }),
+              tid: tenantId,
+              sid: siteId,
+              sv: new Date().toISOString(),
+              id: '44444444-4444-4444-8444-444444444444',
+            }),
+            query: { sortDirection: 'desc' },
+          };
+        },
+      ],
+    ])(
+      'WHEN cursor binding is wrong (%s) THEN the API returns 400 LIST_CURSOR_INVALID',
+      async (_label, buildCase) => {
+        const { token, cursor, query } = await buildCase();
+        const res = await request(app.getHttpServer())
+          .get('/api/vehicle-stock')
+          .query({
+            pagination: 'cursor',
+            stock_status: VehicleStockStatus.IN_STOCK,
+            cursor,
+            ...query,
+          })
+          .set('Authorization', `Bearer ${token}`)
+          .expect(400);
 
+        expect(res.body.code).toBe('LIST_CURSOR_INVALID');
+      },
+    );
+
+    it('WHEN cursor mode uses an unsupported sort field THEN the API returns 400 LIST_CURSOR_SORT_UNSUPPORTED', async () => {
+      const res = await listCursor({ sortField: 'brand' }).expect(400);
+      expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
+    });
+
+    it('WHEN cursor mode has no stock status filter THEN the API returns 400 LIST_CURSOR_STOCK_FILTER_REQUIRED', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/vehicle-stock')
-        .query({
-          pagination: 'cursor',
-          stock_status: VehicleStockStatus.IN_STOCK,
-          cursor: foreignCursor,
-        })
-        .set('Authorization', `Bearer ${otherAuthToken}`)
+        .query({ pagination: 'cursor', limit: '10' })
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(400);
 
-      expect(res.body.code).toBe('LIST_CURSOR_INVALID');
+      expect(res.body.code).toBe('LIST_CURSOR_STOCK_FILTER_REQUIRED');
     });
 
     it('WHEN a role without vehicle stock list permission uses cursor mode THEN the API returns 403', async () => {
@@ -208,28 +353,221 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     });
   });
 
-  describe('inventory capped count', () => {
+  describe('inventory pilot', () => {
     let app: INestApplication;
     let prisma: PrismaService;
     let tenantId: string;
+    let otherTenantId: string;
     let authToken: string;
+    let otherAuthToken: string;
+    let siteId: string;
 
     beforeEach(async () => {
       app = await createE2eApp(undefined, { productionErrorFilter: true });
       const basePrisma = app.get(PrismaService);
-      const ctx = await createE2eTenant(app, basePrisma, 'list-cursor-count');
+      const ctx = await createE2eTenant(app, basePrisma, 'list-cursor-inv');
       tenantId = ctx.tenantId;
       prisma = ctx.prisma;
       authToken = ctx.authToken;
+      siteId = await resolveTestMainSiteId(basePrisma, tenantId);
+      const otherTenant = await createTestTenant(basePrisma, 'list-cursor-inv-other');
+      otherTenantId = otherTenant.tenantId;
+      otherAuthToken = createTestAuthToken(app.get(AuthService), otherTenant);
     });
 
     afterEach(async () => {
+      if (otherTenantId) {
+        await cleanupTestTenantGraph(prisma, otherTenantId);
+        otherTenantId = '';
+      }
       if (tenantId) {
         await cleanupTestTenantGraph(prisma, tenantId);
         tenantId = '';
       }
       await teardownTestApp(app, prisma);
     });
+
+    function listInventoryCursor(query: Record<string, string>, token = authToken) {
+      return request(app.getHttpServer())
+        .get('/api/inventory')
+        .query({ pagination: 'cursor', ...query })
+        .set('Authorization', `Bearer ${token}`);
+    }
+
+    it('WHEN cursor pages sort by price with tied values THEN rows neither repeat nor skip', async () => {
+      const tag = `price-tie-${Date.now()}`;
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        const item = await prisma.catalogItem.create({
+          data: {
+            tenant_id: tenantId,
+            sku: `${tag}-${i}`,
+            name: `${tag} item ${i}`,
+            retail_price: i < 2 ? 42.5 : 99,
+            cost_price: 1,
+          },
+        });
+        ids.push(item.id);
+      }
+
+      const first = await listInventoryCursor({
+        search: tag,
+        sortField: 'price',
+        sortDirection: 'asc',
+        limit: '2',
+      }).expect(200);
+
+      expect(first.body.meta.hasNextPage).toBe(true);
+      const firstIds = first.body.data.map((row: { id: string }) => row.id);
+
+      const second = await listInventoryCursor({
+        search: tag,
+        sortField: 'price',
+        sortDirection: 'asc',
+        limit: '2',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+
+      const seen = mergePageIdsWithoutOverlap(
+        firstIds,
+        second.body.data as { id: string }[],
+      );
+      for (const id of ids) {
+        expect(seen.has(id)).toBe(true);
+      }
+    });
+
+    it('WHEN cursor mode uses an unsupported inventory sort THEN the API returns 400 LIST_CURSOR_SORT_UNSUPPORTED', async () => {
+      const res = await listInventoryCursor({ sortField: 'status' }).expect(400);
+      expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
+    });
+
+    it.each([
+      [
+        'another tenant token',
+        () => ({
+          token: otherAuthToken,
+          cursor: encodeListCursor({
+            v: 1,
+            ep: LIST_CURSOR_ENDPOINT.inventory,
+            sort: 'sku',
+            dir: 'asc',
+            fh: hashListFilterContext({
+              search: '',
+              location: '',
+              brand: '',
+              brandId: null,
+            }),
+            tid: tenantId,
+            sid: siteId,
+            sv: 'SKU-X',
+            id: '55555555-5555-4555-8555-555555555555',
+          }),
+          query: {},
+        }),
+      ],
+      [
+        'filter hash mismatch',
+        () => ({
+          token: authToken,
+          cursor: encodeListCursor({
+            v: 1,
+            ep: LIST_CURSOR_ENDPOINT.inventory,
+            sort: 'sku',
+            dir: 'asc',
+            fh: hashListFilterContext({
+              search: 'other-filter',
+              location: '',
+              brand: '',
+              brandId: null,
+            }),
+            tid: tenantId,
+            sid: siteId,
+            sv: 'SKU-X',
+            id: '55555555-5555-4555-8555-555555555555',
+          }),
+          query: { search: '' },
+        }),
+      ],
+      [
+        'endpoint mismatch',
+        () => ({
+          token: authToken,
+          cursor: encodeListCursor({
+            v: 1,
+            ep: LIST_CURSOR_ENDPOINT.vehicleStock,
+            sort: 'sku',
+            dir: 'asc',
+            fh: hashListFilterContext({
+              search: '',
+              location: '',
+              brand: '',
+              brandId: null,
+            }),
+            tid: tenantId,
+            sid: siteId,
+            sv: 'SKU-X',
+            id: '55555555-5555-4555-8555-555555555555',
+          }),
+          query: {},
+        }),
+      ],
+      [
+        'sort field mismatch',
+        () => ({
+          token: authToken,
+          cursor: encodeListCursor({
+            v: 1,
+            ep: LIST_CURSOR_ENDPOINT.inventory,
+            sort: 'sku',
+            dir: 'asc',
+            fh: hashListFilterContext({
+              search: '',
+              location: '',
+              brand: '',
+              brandId: null,
+            }),
+            tid: tenantId,
+            sid: siteId,
+            sv: 'SKU-X',
+            id: '55555555-5555-4555-8555-555555555555',
+          }),
+          query: { sortField: 'name' },
+        }),
+      ],
+      [
+        'sort direction mismatch',
+        () => ({
+          token: authToken,
+          cursor: encodeListCursor({
+            v: 1,
+            ep: LIST_CURSOR_ENDPOINT.inventory,
+            sort: 'sku',
+            dir: 'asc',
+            fh: hashListFilterContext({
+              search: '',
+              location: '',
+              brand: '',
+              brandId: null,
+            }),
+            tid: tenantId,
+            sid: siteId,
+            sv: 'SKU-X',
+            id: '55555555-5555-4555-8555-555555555555',
+          }),
+          query: { sortDirection: 'desc' },
+        }),
+      ],
+    ])(
+      'WHEN inventory cursor binding is wrong (%s) THEN the API returns 400 LIST_CURSOR_INVALID',
+      async (_label, buildCase) => {
+        const { token, cursor, query } = buildCase();
+        const res = await listInventoryCursor({ cursor, ...query }, token).expect(
+          400,
+        );
+        expect(res.body.code).toBe('LIST_CURSOR_INVALID');
+      },
+    );
 
     it('WHEN 1,001 or more catalog rows match THEN capped count returns count 1000 and isCapped true', async () => {
       const batch = Array.from({ length: 1001 }, (_, index) => ({

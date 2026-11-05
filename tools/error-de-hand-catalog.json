@@ -259,6 +259,8 @@
   "INVALID_MEASUREMENT_PAYLOAD": "Ungültige Messdaten.",
   "INVALID_PAGINATION": "Ungültige Paginierung.",
   "LIST_CURSOR_INVALID": "Der Listen-Cursor ist ungültig oder passt nicht zu den aktuellen Filtern.",
+  "LIST_CURSOR_SORT_UNSUPPORTED": "Diese Sortierung ist im Cursor-Paging nicht verfügbar.",
+  "LIST_CURSOR_STOCK_FILTER_REQUIRED": "Fahrzeugbestand-Cursor-Paging erfordert einen Bestandsstatus-Filter ohne Entwurfszeilen.",
   "INVOICE_BRANDING_WRITER_DISABLED": "Rechnungen mit Briefpapier sind in dieser Umgebung noch nicht aktiviert. Das Ausstellen ist möglich, sobald die Funktion freigeschaltet ist.",
   "INVOICE_SOURCE_OWNERSHIP_CHANGED": "Die Eigentümerschaft der Rechnungsquelle hat sich während der Buchung geändert.",
   "KEYS_COMPLETE": "Schlüssel vollständig.",

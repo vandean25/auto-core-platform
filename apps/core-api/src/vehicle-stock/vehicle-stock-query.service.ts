@@ -20,7 +20,7 @@ import { QueryBuilder } from '../common/utils/query-builder.js';
 import {
   cappedVehicleListCount,
   fetchKeysetListPage,
-  listCursorInvalidException,
+  listCursorStockFilterRequiredException,
   VEHICLE_STOCK_LIST_LIMIT_MAX,
 } from '../common/list-cursor/index.js';
 import {
@@ -456,7 +456,7 @@ export class VehicleStockQueryService {
     const siteId = await this.siteContext.getSiteId();
     const stockStatus = parseStockStatus(params.stock_status);
     if (shouldIncludeDrafts(stockStatus)) {
-      throw listCursorInvalidException();
+      throw listCursorStockFilterRequiredException();
     }
     const { vehicleWhere } = buildVehicleListWhere(
       tenantId,

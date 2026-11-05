@@ -11,6 +11,8 @@ import { IMPORT_ERROR_CODES } from '../../import/import.constants.js';
  */
 export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'LIST_CURSOR_INVALID',
+  'LIST_CURSOR_SORT_UNSUPPORTED',
+  'LIST_CURSOR_STOCK_FILTER_REQUIRED',
   'CAPABILITY_UNAVAILABLE',
   // Workshop command operational codes
   'AUDIO_EMPTY',

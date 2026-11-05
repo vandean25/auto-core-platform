@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import {
   LIST_CURSOR_INVALID_CODE,
+  LIST_CURSOR_SORT_UNSUPPORTED_CODE,
+  LIST_CURSOR_STOCK_FILTER_REQUIRED_CODE,
   LIST_CURSOR_VERSION,
   type ListCursorEndpointId,
 } from './list-cursor.constants.js';
@@ -109,6 +112,21 @@ export function listCursorInvalidException(): BadRequestException {
   });
 }
 
+export function listCursorSortUnsupportedException(): BadRequestException {
+  return new BadRequestException({
+    code: LIST_CURSOR_SORT_UNSUPPORTED_CODE,
+    message: 'This sort field is not available in cursor pagination mode.',
+  });
+}
+
+export function listCursorStockFilterRequiredException(): BadRequestException {
+  return new BadRequestException({
+    code: LIST_CURSOR_STOCK_FILTER_REQUIRED_CODE,
+    message:
+      'Vehicle stock cursor paging requires a stock status filter that excludes draft merge rows.',
+  });
+}
+
 export function parseListCursorParam(
   cursor: string | undefined,
   context: ListCursorBindingContext,
@@ -139,7 +157,20 @@ export function serializeSortValueForCursor(
   if (value instanceof Date) {
     return value.toISOString();
   }
-  return null;
+  if (Prisma.Decimal.isDecimal(value)) {
+    return value.toString();
+  }
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { toString?: () => string }).toString === 'function'
+  ) {
+    const asString = String(value);
+    if (asString !== '[object Object]') {
+      return asString;
+    }
+  }
+  throw listCursorInvalidException();
 }
 
 export function deserializeSortValueFromCursor(

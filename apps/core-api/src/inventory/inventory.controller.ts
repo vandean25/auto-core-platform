@@ -115,6 +115,11 @@ export class InventoryController {
   @Get()
   @ApiListCursorModeQuery()
   @ApiQuery({
+    name: 'limit',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     schema: { type: 'integer', minimum: 1 },
@@ -136,6 +141,7 @@ export class InventoryController {
   @ApiPaginatedResponse(InventoryItemResponseDto)
   async findAll(
     @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('pageSize') pageSize?: string,
     @Query('search') search?: string,
     @Query('location') location?: string,
@@ -150,7 +156,8 @@ export class InventoryController {
     if (useCursor) {
       return await this.inventoryService.findAllWithCursor({
         page: parsePositiveInt(page, 1),
-        pageSize: parsePositiveInt(pageSize, 10),
+        pageSize: parsePositiveInt(pageSize),
+        limit: parsePositiveInt(limit, 10),
         search,
         location,
         brand,

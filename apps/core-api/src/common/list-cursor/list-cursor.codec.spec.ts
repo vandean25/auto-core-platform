@@ -3,8 +3,10 @@ import {
   decodeListCursor,
   encodeListCursor,
   parseListCursorParam,
+  serializeSortValueForCursor,
   type ListCursorPayload,
 } from './list-cursor.codec.js';
+import { Prisma } from '@prisma/client';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const siteId = '22222222-2222-4222-8222-222222222222';
@@ -47,6 +49,15 @@ describe('list-cursor.codec', () => {
   it('accepts null and boolean sort values', () => {
     expect(decodeListCursor(encodeListCursor({ ...samplePayload(), sv: null }))?.sv).toBeNull();
     expect(decodeListCursor(encodeListCursor({ ...samplePayload(), sv: true }))?.sv).toBe(true);
+  });
+
+  it('serializes Prisma Decimal sort values as strings', () => {
+    expect(serializeSortValueForCursor(new Prisma.Decimal('12.50'))).toBe('12.5');
+    const encoded = encodeListCursor({
+      ...samplePayload(),
+      sv: serializeSortValueForCursor(new Prisma.Decimal('99.99')) as string,
+    });
+    expect(decodeListCursor(encoded)?.sv).toBe('99.99');
   });
 
   it('parseListCursorParam throws when bindings mismatch', () => {

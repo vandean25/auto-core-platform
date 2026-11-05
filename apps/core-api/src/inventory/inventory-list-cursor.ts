@@ -1,5 +1,6 @@
 import {
   LIST_CURSOR_ENDPOINT,
+  listCursorSortUnsupportedException,
   type KeysetSortDirection,
 } from '../common/list-cursor/index.js';
 
@@ -27,9 +28,7 @@ export function resolveInventoryCursorSort(
   const field = (sortField ?? 'sku') as InventoryCursorSortField;
   const config = INVENTORY_CURSOR_SORTS[field];
   if (!config) {
-    throw new Error(
-      `Sort field ${sortField ?? ''} is not cursor-enabled for inventory`,
-    );
+    throw listCursorSortUnsupportedException();
   }
   return {
     field,
