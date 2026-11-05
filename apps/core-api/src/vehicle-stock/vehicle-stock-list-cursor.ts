@@ -34,13 +34,14 @@ export function resolveVehicleStockCursorSort(
   direction: KeysetSortDirection;
   config: (typeof VEHICLE_STOCK_CURSOR_SORTS)[VehicleStockCursorSortField];
 } {
-  const field = (sortField ?? 'updatedAt') as VehicleStockCursorSortField;
-  const config = VEHICLE_STOCK_CURSOR_SORTS[field];
-  if (!config) {
+  const defaultField: VehicleStockCursorSortField = 'updatedAt';
+  const field = sortField ?? defaultField;
+  if (!Object.hasOwn(VEHICLE_STOCK_CURSOR_SORTS, field)) {
     throw listCursorSortUnsupportedException();
   }
+  const config = VEHICLE_STOCK_CURSOR_SORTS[field as VehicleStockCursorSortField];
   return {
-    field,
+    field: field as VehicleStockCursorSortField,
     direction: sortDirection ?? (field === 'updatedAt' ? 'desc' : 'asc'),
     config,
   };

@@ -361,6 +361,14 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
     });
 
+    it.each(['constructor', 'toString'])(
+      'WHEN cursor sortField is inherited property %s THEN the API returns 400 LIST_CURSOR_SORT_UNSUPPORTED',
+      async (sortField) => {
+        const res = await listCursor({ sortField }).expect(400);
+        expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
+      },
+    );
+
     it('WHEN cursor mode has no stock status filter THEN the API returns 400 LIST_CURSOR_STOCK_FILTER_REQUIRED', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/vehicle-stock')
@@ -687,6 +695,14 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       const res = await listInventoryCursor({ sortField: 'status' }).expect(400);
       expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
     });
+
+    it.each(['constructor', 'toString'])(
+      'WHEN inventory cursor sortField is inherited property %s THEN the API returns 400 LIST_CURSOR_SORT_UNSUPPORTED',
+      async (sortField) => {
+        const res = await listInventoryCursor({ sortField }).expect(400);
+        expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
+      },
+    );
 
     it.each([
       [

@@ -25,13 +25,14 @@ export function resolveInventoryCursorSort(
   direction: KeysetSortDirection;
   config: (typeof INVENTORY_CURSOR_SORTS)[InventoryCursorSortField];
 } {
-  const field = (sortField ?? 'sku') as InventoryCursorSortField;
-  const config = INVENTORY_CURSOR_SORTS[field];
-  if (!config) {
+  const defaultField: InventoryCursorSortField = 'sku';
+  const field = sortField ?? defaultField;
+  if (!Object.hasOwn(INVENTORY_CURSOR_SORTS, field)) {
     throw listCursorSortUnsupportedException();
   }
+  const config = INVENTORY_CURSOR_SORTS[field as InventoryCursorSortField];
   return {
-    field,
+    field: field as InventoryCursorSortField,
     direction: sortDirection ?? 'asc',
     config,
   };
