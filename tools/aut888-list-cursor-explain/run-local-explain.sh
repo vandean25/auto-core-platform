@@ -77,13 +77,28 @@ Pilot indexes under test: migration \`20261105120000_aut888_list_cursor_keyset_i
 ## Method
 
 1. \`run-local-explain.sh\` — drop/create DB, \`prisma migrate deploy\`, \`seed-synthetic.sql\`, \`ANALYZE\`.
-2. \`explain-queries.sql\` — SQL shapes aligned with LF 10a pilots (keyset \`ORDER BY sort_col, id\`, capped-count \`LIMIT 1001\` id probe, vehicle filters \`tenant_id\` + \`site_id\` + \`inventory_role IN (USED,NEW,DEMO)\` + \`stock_status = IN_STOCK\`).
+2. \`explain-queries.sql\` — SQL aligned with list services: inventory tenant scope; vehicle **\`INNER JOIN storage_locations\` on \`location_id\`** with \`sl.site_id\` (same as \`buildVehicleListWhere\`), plus dealer-stock role/status filters. Includes first page, continuation, DESC, and capped-count probes.
 
 ## Caveats
 
 - **Not CI**: GitHub e2e Postgres volume is smaller; this evidence is from an intentional synthetic bulk load on a throwaway DB.
-- **Single tenant/site**: no concurrent tenants, no search OR filters, no brand/location inventory filters in these plans (baseline selective tenant scope only).
-- **VM-local Postgres**: apt-installed PG 16 on Ubuntu 24.04; planner costs differ from Cloud SQL production, but index choice and scan type are what we record honestly below.
+- **No search/brand/location filters** in these captures (baseline tenant + site scope only).
+- **Prisma may differ slightly** in join order or parameter typing; shapes match the list \`where\` clauses, not hand-waved \`vehicles.site_id\` alone.
+- **Mid-list continuation** on composite indexes can show sort/keyset predicates as **Filter** with **Rows Removed by Filter** (index walk from the start — cost grows with page depth). First pages often show cleaner index access.
+- **VM-local Postgres**: apt-installed PG 16 on Ubuntu 24.04; planner costs differ from Cloud SQL production.
+
+## Plan summary (honest read)
+
+| Query shape | Notes |
+| --- | --- |
+| Inventory first page (\`sku\`, \`name\`, \`retail_price\` ASC/DESC) | Usually **Index Scan** / **Index Only Scan** on the matching \`(tenant_id, sort_col, id)\` index with \`tenant_id\` as **Index Cond**. |
+| Inventory keyset continuation (\`sku\` tie + \`id\`) | Often **Index Scan** with keyset as **Filter**; read **Rows Removed by Filter** in raw output. |
+| Inventory capped-count (\`LIMIT 1001\` ids) | **Seq Scan** + tenant filter at this row count in the capture. |
+| Vehicle first page (join + \`make\` / \`plate\` / \`updatedAt\`) | **Nested Loop** + index on \`vehicles\` sort column; role/status/site via join/filter — see raw plans. |
+| Vehicle keyset continuation (\`make\` tie + \`id\`) | Frequently **Index Scan** on \`vehicles_tenant_id_site_id_make_id_idx\` with large **Filter** / **Rows Removed by Filter** (not constant-time seek). |
+| Vehicle capped-count (join shape) | **Seq Scan** or nested loop + filter at this scale in the capture. |
+
+Reproduce: \`tools/aut888-list-cursor-explain/run-local-explain.sh\` (requires local PostgreSQL).
 
 ## Raw \`EXPLAIN (ANALYZE, BUFFERS)\` output
 

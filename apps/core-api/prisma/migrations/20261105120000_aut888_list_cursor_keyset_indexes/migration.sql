@@ -29,6 +29,3 @@ CREATE INDEX IF NOT EXISTS "vehicles_tenant_id_site_id_vin_id_idx"
 
 CREATE INDEX IF NOT EXISTS "vehicles_tenant_id_site_id_color_id_idx"
   ON "vehicles" ("tenant_id", "site_id", "color", "id");
-
-CREATE INDEX IF NOT EXISTS "vehicles_tenant_id_site_id_stock_status_id_idx"
-  ON "vehicles" ("tenant_id", "site_id", "stock_status", "id");

@@ -79,20 +79,23 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     }
 
     it('WHEN cursor pages use ASC sort with tied values THEN rows neither repeat nor skip', async () => {
+      const tag = `tie-${Date.now()}`;
+      const tiedMake = `TiedMake-${tag}`;
       const ids: string[] = [];
       for (let i = 0; i < 3; i += 1) {
         const created = await createAndReceive({
-          vin: vin(`TIE${i}`),
+          vin: vin(`TIE${i}${tag}`),
           sellerType: 'VENDOR',
         });
         ids.push(created.received.vehicle_id);
         await prisma.vehicle.update({
           where: { id: created.received.vehicle_id },
-          data: { make: 'TiedMake', stock_status: VehicleStockStatus.IN_STOCK },
+          data: { make: tiedMake, stock_status: VehicleStockStatus.IN_STOCK },
         });
       }
 
       const first = await listCursor({
+        search: tag,
         sortField: 'make',
         sortDirection: 'asc',
         limit: '2',
@@ -103,6 +106,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       const firstIds = first.body.data.map((row: { id: string }) => row.id);
 
       const second = await listCursor({
+        search: tag,
         sortField: 'make',
         sortDirection: 'asc',
         limit: '2',
@@ -118,27 +122,30 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     });
 
     it('WHEN the cursor crosses from non-NULL to NULL plate values THEN NULLS LAST ordering holds', async () => {
+      const tag = `plate-${Date.now()}`;
       const withPlate = await createAndReceive({
-        vin: vin('PLATE1'),
+        vin: vin(`PLATE1${tag}`),
         sellerType: 'VENDOR',
       });
       const nullPlate = await createAndReceive({
-        vin: vin('PLATE2'),
+        vin: vin(`PLATE2${tag}`),
         sellerType: 'VENDOR',
       });
       await prisma.vehicle.update({
         where: { id: withPlate.received.vehicle_id },
         data: {
+          make: tag,
           plate: 'W-100',
           stock_status: VehicleStockStatus.IN_STOCK,
         },
       });
       await prisma.vehicle.update({
         where: { id: nullPlate.received.vehicle_id },
-        data: { plate: null, stock_status: VehicleStockStatus.IN_STOCK },
+        data: { make: tag, plate: null, stock_status: VehicleStockStatus.IN_STOCK },
       });
 
       const first = await listCursor({
+        search: tag,
         sortField: 'plate',
         sortDirection: 'asc',
         limit: '1',
@@ -147,6 +154,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       expect(first.body.data[0].plate).toBe('W-100');
 
       const second = await listCursor({
+        search: tag,
         sortField: 'plate',
         sortDirection: 'asc',
         limit: '5',
@@ -440,77 +448,73 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       }
     });
 
-    it.each([
-      [
-        'DESC updatedAt pages without overlap',
-        async () => {
-          const tag = `desc-${Date.now()}`;
-          const ids: string[] = [];
-          for (let i = 0; i < 3; i += 1) {
-            const created = await createAndReceive({
-              vin: vin(`DSC${i}${tag}`),
-              sellerType: 'VENDOR',
-            });
-            ids.push(created.received.vehicle_id);
-            await prisma.vehicle.update({
-              where: { id: created.received.vehicle_id },
-              data: {
-                make: tag,
-                stock_status: VehicleStockStatus.IN_STOCK,
-              },
-            });
-          }
-          const first = await listCursor({
-            search: tag,
-            sortField: 'updatedAt',
-            sortDirection: 'desc',
-            limit: '2',
-          }).expect(200);
-          const second = await listCursor({
-            search: tag,
-            sortField: 'updatedAt',
-            sortDirection: 'desc',
-            limit: '2',
-            cursor: first.body.meta.nextCursor,
-          }).expect(200);
-          mergePageIdsWithoutOverlap(
-            first.body.data.map((row: { id: string }) => row.id),
-            second.body.data as { id: string }[],
-          );
-          return ids;
-        },
-      ],
-      [
-        'limit clamp at 50',
-        async () => {
-          const res = await listCursor({ limit: '999' }).expect(200);
-          expect(res.body.meta.limit).toBe(50);
-          return [];
-        },
-      ],
-      [
-        'last page hasNextPage false',
-        async () => {
-          const tag = `last-${Date.now()}`;
-          const created = await createAndReceive({
-            vin: vin(`LAST${tag}`),
-            sellerType: 'VENDOR',
-          });
-          await prisma.vehicle.update({
-            where: { id: created.received.vehicle_id },
-            data: { make: tag, stock_status: VehicleStockStatus.IN_STOCK },
-          });
-          const res = await listCursor({
-            search: tag,
-            limit: '50',
-          }).expect(200);
-          expect(res.body.meta.hasNextPage).toBe(false);
-          expect(res.body.meta.nextCursor).toBeNull();
-          return [created.received.vehicle_id];
-        },
-      ],
-    ])('WHEN cursor concept check (%s) THEN expectations hold', async (_label, runCase) => {
-      await runCase();
+    it('WHEN cursor pages DESC by updatedAt THEN order is descending and pages cover all seeded rows', async () => {
+      const tag = `desc-${Date.now()}`;
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        const created = await createAndReceive({
+          vin: vin(`DSC${i}${tag}`),
+          sellerType: 'VENDOR',
+        });
+        ids.push(created.received.vehicle_id);
+        await prisma.vehicle.update({
+          where: { id: created.received.vehicle_id },
+          data: {
+            make: tag,
+            stock_status: VehicleStockStatus.IN_STOCK,
+          },
+        });
+      }
+      const first = await listCursor({
+        search: tag,
+        sortField: 'updatedAt',
+        sortDirection: 'desc',
+        limit: '2',
+      }).expect(200);
+      const second = await listCursor({
+        search: tag,
+        sortField: 'updatedAt',
+        sortDirection: 'desc',
+        limit: '2',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+      const seen = mergePageIdsWithoutOverlap(
+        first.body.data.map((row: { id: string }) => row.id),
+        second.body.data as { id: string }[],
+      );
+      expect(seen.size).toBe(3);
+      expect([...seen].sort()).toEqual([...ids].sort());
+      const combined = [...first.body.data, ...second.body.data] as {
+        updatedAt: string;
+      }[];
+      for (let i = 1; i < combined.length; i += 1) {
+        expect(new Date(combined[i - 1].updatedAt).getTime()).toBeGreaterThanOrEqual(
+          new Date(combined[i].updatedAt).getTime(),
+        );
+      }
+    });
+
+    it('WHEN cursor limit exceeds pilot maximum THEN meta.limit is 50', async () => {
+      const res = await listCursor({ limit: '999' }).expect(200);
+      expect(res.body.meta.limit).toBe(50);
+    });
+
+    it('WHEN a scoped search matches one row THEN hasNextPage is false', async () => {
+      const tag = `last-${Date.now()}`;
+      const created = await createAndReceive({
+        vin: vin(`LAST${tag}`),
+        sellerType: 'VENDOR',
+      });
+      await prisma.vehicle.update({
+        where: { id: created.received.vehicle_id },
+        data: { make: tag, stock_status: VehicleStockStatus.IN_STOCK },
+      });
+      const res = await listCursor({
+        search: tag,
+        limit: '50',
+      }).expect(200);
+      expect(res.body.meta.hasNextPage).toBe(false);
+      expect(res.body.meta.nextCursor).toBeNull();
     });
 
     it('WHEN 1,001 vehicles match capped-count filters THEN count is 1000 and isCapped true', async () => {
@@ -631,6 +635,51 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       );
       for (const id of ids) {
         expect(seen.has(id)).toBe(true);
+      }
+    });
+
+    it('WHEN inventory cursor pages DESC by sku THEN order is descending and pages cover all seeded rows', async () => {
+      const tag = `sku-desc-${Date.now()}`;
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        const item = await prisma.catalogItem.create({
+          data: {
+            tenant_id: tenantId,
+            sku: `${tag}-z-${i}`,
+            name: `${tag} item ${i}`,
+            retail_price: 10 + i,
+            cost_price: 1,
+          },
+        });
+        ids.push(item.id);
+      }
+
+      const first = await listInventoryCursor({
+        search: tag,
+        sortField: 'sku',
+        sortDirection: 'desc',
+        limit: '2',
+      }).expect(200);
+
+      const second = await listInventoryCursor({
+        search: tag,
+        sortField: 'sku',
+        sortDirection: 'desc',
+        limit: '2',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+
+      const seen = mergePageIdsWithoutOverlap(
+        first.body.data.map((row: { id: string }) => row.id),
+        second.body.data as { id: string }[],
+      );
+      expect(seen.size).toBe(3);
+      expect([...seen].sort()).toEqual([...ids].sort());
+      const skus = [...first.body.data, ...second.body.data].map(
+        (row: { sku: string }) => row.sku,
+      );
+      for (let i = 1; i < skus.length; i += 1) {
+        expect(skus[i - 1].localeCompare(skus[i])).toBeGreaterThanOrEqual(0);
       }
     });
 

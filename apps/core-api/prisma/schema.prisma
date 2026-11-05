@@ -1917,7 +1917,6 @@ model Vehicle {
   @@index([tenant_id, site_id, plate, id])
   @@index([tenant_id, site_id, vin, id])
   @@index([tenant_id, site_id, color, id])
-  @@index([tenant_id, site_id, stock_status, id])
   @@index([plate(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_plate_trgm_idx")
   @@index([vin(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_vin_trgm_idx")
   @@map("vehicles")
