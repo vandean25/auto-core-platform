@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -9,7 +9,6 @@ import { Plus } from 'lucide-react'
 import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
-import type { DataTablePendingRowMeta } from '@/components/data-table/data-table-states'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { useWorkshopOrders } from '@/api/workshop'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
@@ -19,8 +18,7 @@ import { WorkshopOrderPeekSheet } from '@/features/peek/WorkshopOrderPeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
 import { useWorkshopOrderListColumns } from './useWorkshopOrderListColumns'
-
-type WorkshopOrderListPendingRow = WorkshopOrderListRow & DataTablePendingRowMeta
+import { useWorkshopOrderListPendingRows } from './useWorkshopOrderListPendingRows'
 
 export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')
@@ -28,8 +26,6 @@ export default function WorkshopOrderList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
-  const [pendingRows, setPendingRows] = useState<WorkshopOrderListPendingRow[]>([])
-  const pendingServerIds = useRef<Map<string, string>>(new Map())
   const presentationLatencyRef = useRef<number | null>(null)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const ordersQuery = useWorkshopOrders(queryParams)
@@ -50,25 +46,18 @@ export default function WorkshopOrderList() {
     }))
   }, [responseData])
 
-  useEffect(() => {
-    if (!responseData?.data) return
-    setPendingRows((previous) =>
-      previous.filter((pending) => {
-        const serverId = pendingServerIds.current.get(pending.id)
-        if (!serverId) return true
-        return !responseData.data.some((order) => order.id === serverId)
-      }),
-    )
-  }, [responseData])
-
-  const rows = useMemo(() => [...pendingRows, ...loadedRows], [loadedRows, pendingRows])
+  const { tableRows, intakePendingProps } = useWorkshopOrderListPendingRows(
+    responseData,
+    loadedRows,
+    queryClient,
+  )
 
   const rowBehaviour = useWorkshopOrderListRowBehaviour(
     t,
     navigate,
     queryClient,
     peek.openPeek,
-    rows,
+    tableRows,
   )
 
   return (
@@ -93,7 +82,7 @@ export default function WorkshopOrderList() {
 
       <DataTable
         columns={columns}
-        data={rows}
+        data={tableRows}
         saveViewTitle={t('orders.list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
         pageCount={responseData?.meta?.pageCount ?? 1}
@@ -125,19 +114,7 @@ export default function WorkshopOrderList() {
       <WorkshopOrderIntakeDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        listPendingMode
-        onPendingOrder={(row, meta) => {
-          pendingServerIds.current.delete(meta.localId)
-          setPendingRows((previous) => [row, ...previous])
-        }}
-        onPendingOrderSettled={(localId, serverOrderId) => {
-          pendingServerIds.current.set(localId, serverOrderId)
-          void queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
-        }}
-        onPendingOrderFailed={(localId) => {
-          pendingServerIds.current.delete(localId)
-          setPendingRows((previous) => previous.filter((row) => row.id !== localId))
-        }}
+        {...intakePendingProps}
       />
       <WorkshopOrderPeekSheet
         t={t}

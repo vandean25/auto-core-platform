@@ -6,7 +6,7 @@ import type { DataTableViewModel } from './use-data-table-view-model'
 import type { DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
 import type { DataTableEmptyState } from './data-table-states'
 
-type DataTableSurfaceProps<TData extends object> = DataTableViewModel<TData> & {
+type DataTableSurfaceExtras = {
   searchColumn?: string
   searchPlaceholder?: string
   saveViewTitle?: string
@@ -17,26 +17,9 @@ type DataTableSurfaceProps<TData extends object> = DataTableViewModel<TData> & {
   onRetry?: () => void
 }
 
+export type DataTableSurfaceProps<TData extends object> = DataTableViewModel<TData> & DataTableSurfaceExtras
+
 export function DataTableSurface<TData extends object>({
-  table,
-  data,
-  rowBehaviour,
-  presentation,
-  isLoading,
-  hasUsableData,
-  isError,
-  resolvedEmptyStateMessage,
-  resolvedFetchErrorMessage,
-  rootRef,
-  density,
-  setDensity,
-  isMobile,
-  openRowContextMenu,
-  contextMenu,
-  bodyRowModels,
-  bodyRowCount,
-  pageSizeOptions,
-  bulkActions,
   searchColumn,
   searchPlaceholder,
   saveViewTitle,
@@ -45,10 +28,13 @@ export function DataTableSurface<TData extends object>({
   csvFileName,
   emptyState,
   onRetry,
+  ...mainProps
 }: DataTableSurfaceProps<TData>) {
+  const { table, presentation, rootRef } = mainProps
+
   return (
     <div className="space-y-4" ref={rootRef}>
-      <DataTableDensityContext.Provider value={{ density, setDensity }}>
+      <DataTableDensityContext.Provider value={{ density: mainProps.density, setDensity: mainProps.setDensity }}>
         <DataTableToolbar
           table={table}
           searchColumn={searchColumn}
@@ -62,27 +48,7 @@ export function DataTableSurface<TData extends object>({
           refreshIndicator={<DataTableRefreshIndicator visible={presentation.showRefreshIndicator} />}
         />
       </DataTableDensityContext.Provider>
-      <DataTableSurfaceMain
-        table={table}
-        data={data}
-        rowBehaviour={rowBehaviour}
-        presentation={presentation}
-        isLoading={isLoading}
-        hasUsableData={hasUsableData}
-        isError={isError}
-        resolvedEmptyStateMessage={resolvedEmptyStateMessage}
-        resolvedFetchErrorMessage={resolvedFetchErrorMessage}
-        isMobile={isMobile}
-        bodyRowModels={bodyRowModels}
-        bodyRowCount={bodyRowCount}
-        density={density}
-        pageSizeOptions={pageSizeOptions}
-        bulkActions={bulkActions}
-        emptyState={emptyState}
-        onRetry={onRetry}
-        openRowContextMenu={openRowContextMenu}
-        contextMenu={contextMenu}
-      />
+      <DataTableSurfaceMain {...mainProps} emptyState={emptyState} onRetry={onRetry} />
     </div>
   )
 }
