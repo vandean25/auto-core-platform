@@ -94,7 +94,7 @@ function LineItemRow({
   return (
     <TableRow
       className={`transition-colors duration-500 ${
-        highlighted ? "bg-blue-50/80 dark:bg-blue-500/20" : ""
+        highlighted ? "bg-info/10" : ""
       }`}
     >
       <TableCell>{sku}</TableCell>
@@ -102,10 +102,10 @@ function LineItemRow({
       <TableCell className="text-right">
         <QuantityCell item={item} popped={popped} editing={editing} />
       </TableCell>
-      <TableCell className="text-right text-green-600 font-medium">
+      <TableCell className="text-right text-success font-medium">
         {item.quantity_received}
       </TableCell>
-      <TableCell className="text-right text-orange-600">
+      <TableCell className="text-right text-warning">
         {item.quantity - item.quantity_received}
       </TableCell>
       <TableCell className="text-right">
@@ -127,7 +127,7 @@ function LineItemRow({
               : t("purchaseOrders.detail.deleteItem")
           }
         >
-          <Trash2 className="h-4 w-4 text-red-500" />
+          <Trash2 className="h-4 w-4 text-destructive" />
         </Button>
       </TableCell>
     </TableRow>

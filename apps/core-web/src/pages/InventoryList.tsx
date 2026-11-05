@@ -79,8 +79,8 @@ export default function InventoryList() {
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.part')} />,
             cell: ({ row }) => (
                 <div className="flex flex-col">
-                    <span className="font-bold text-slate-900">{row.original.sku}</span>
-                    <span className="text-sm text-slate-500">{row.original.brand}</span>
+                    <span className="font-bold text-foreground">{row.original.sku}</span>
+                    <span className="text-sm text-muted-foreground">{row.original.brand}</span>
                 </div>
             ),
         },
@@ -88,7 +88,7 @@ export default function InventoryList() {
             accessorKey: 'name',
             meta: { label: t('partsList.columns.description') },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.description')} />,
-            cell: ({ row }) => <span className="text-slate-700">{row.original.name}</span>,
+            cell: ({ row }) => <span className="text-foreground">{row.original.name}</span>,
         },
         {
             accessorKey: 'warehouse_location',
@@ -96,7 +96,7 @@ export default function InventoryList() {
             meta: { label: t('partsList.columns.storageLocation') },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.storageLocation')} />,
             cell: ({ row }) => (
-                <span className="text-slate-600">{row.original.warehouse_location ?? t('partsList.notAvailable')}</span>
+                <span className="text-muted-foreground">{row.original.warehouse_location ?? t('partsList.notAvailable')}</span>
             ),
         },
         {
@@ -119,7 +119,7 @@ export default function InventoryList() {
             <div className={PAGE_HEADER_ROW}>
                 <div className="min-w-0 max-sm:w-full">
                     <h1 className="text-2xl font-semibold tracking-tight">{t('partsList.title')}</h1>
-                    <p className="text-slate-500">{t('partsList.description')}</p>
+                    <p className="text-muted-foreground">{t('partsList.description')}</p>
                 </div>
                 <AddItemDialog />
             </div>

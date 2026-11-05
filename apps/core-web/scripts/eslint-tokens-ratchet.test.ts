@@ -61,6 +61,18 @@ describe('design-token ratchet (AUT-659)', () => {
     'src/pages/finance/useCreditNoteExample.tsx',
     'src/components/finance/create-credit-note-example.tsx',
     'src/components/finance/credit-note-example.tsx',
+    'src/pages/inventory/Example.tsx',
+    'src/pages/InventoryListExample.tsx',
+    'src/pages/purchase-bills/Example.tsx',
+    'src/pages/purchase-invoices/Example.tsx',
+    'src/pages/purchase-orders/Example.tsx',
+    'src/pages/stock-transfers/Example.tsx',
+    'src/pages/vendors/Example.tsx',
+    'src/components/inventory/Example.tsx',
+    'src/components/purchase-bills/Example.tsx',
+    'src/components/purchase-invoices/Example.tsx',
+    'src/features/inventory/Example.tsx',
+    'src/features/purchase-bills/Example.tsx',
   ])('WHEN lint runs on the migrated folder %s THEN a palette class and text-[Npx] are errors', async (file) => {
     const filePath = path.join(webRoot, file)
     expect(await restrictedMessages(`export const A = () => <p className="text-slate-500">x</p>`, filePath)).not.toEqual([])
@@ -69,6 +81,6 @@ describe('design-token ratchet (AUT-659)', () => {
 
   it('leaves folders that are not migrated yet alone', async () => {
     const code = `export const A = () => <p className="text-slate-500">x</p>`
-    expect(await restrictedMessages(code, path.join(webRoot, 'src/pages/vendors/Example.tsx'))).toEqual([])
+    expect(await restrictedMessages(code, path.join(webRoot, 'src/pages/finance/Example.tsx'))).toEqual([])
   })
 })

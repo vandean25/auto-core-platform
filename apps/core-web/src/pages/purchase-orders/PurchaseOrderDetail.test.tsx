@@ -253,10 +253,20 @@ describe('PurchaseOrderDetail behavior', () => {
   const openEditor = () => fireEvent.click(screen.getByRole('button', { name: '1' }))
 
   describe('load states', () => {
-    it('shows the loading text', () => {
+    // Regression: the loading state was a bare text block instead of a skeleton.
+    it('WHEN the purchase order is loading THEN a Skeleton is shown instead of the loading text', async () => {
       asMock(purchaseOrderApi.usePurchaseOrder).mockReturnValue({ data: undefined, isLoading: true, error: null })
-      renderPage()
-      expect(screen.getByText(deFinance.shared.loading)).toBeInTheDocument()
+      const { container } = renderPage()
+      expect(await screen.findByRole('status')).toHaveTextContent(deFinance.shared.loading)
+      expect(container.querySelector('.animate-pulse')).not.toBeNull()
+    })
+
+    // Regression: the missing order was a bare text block, not the shared Empty.
+    it('WHEN the purchase order does not exist THEN the shared Empty is shown with the German text', () => {
+      asMock(purchaseOrderApi.usePurchaseOrder).mockReturnValue({ data: undefined, isLoading: false, error: null })
+      const { container } = renderPage()
+
+      expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent(deFinance.purchaseOrders.detail.notFound)
     })
 
     it('shows the load error before the not-found text', () => {
@@ -730,10 +740,10 @@ describe('PurchaseOrderDetail behavior', () => {
       expect(addMutate).not.toHaveBeenCalled()
       expect(toast.success).toHaveBeenCalledWith('Menge auf 3 aktualisiert')
       expect(searchInput()).toHaveValue('')
-      expect(rowFor('BRK-001')).toHaveClass('bg-blue-50/80')
+      expect(rowFor('BRK-001')).toHaveClass('bg-info/10')
 
       await advance(500)
-      expect(rowFor('BRK-001')).not.toHaveClass('bg-blue-50/80')
+      expect(rowFor('BRK-001')).not.toHaveClass('bg-info/10')
     })
 
     it('keeps the entry and reports a failed merge', async () => {
@@ -745,7 +755,7 @@ describe('PurchaseOrderDetail behavior', () => {
       fireEvent.click(addButton())
 
       expect(toast.error).toHaveBeenCalledWith(detail.toast.updateItemFailed, { description: 'boom' })
-      expect(rowFor('BRK-001')).not.toHaveClass('bg-blue-50/80')
+      expect(rowFor('BRK-001')).not.toHaveClass('bg-info/10')
     })
 
     it('shows an ellipsis and disables the button while an add is pending', async () => {

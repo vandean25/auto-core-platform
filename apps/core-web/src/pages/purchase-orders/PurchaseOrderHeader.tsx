@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
 import type { DocumentSaveStatus } from "@/hooks/useDebouncedAutoSave";
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function PurchaseOrderHeader({
   po,
@@ -26,20 +27,18 @@ export function PurchaseOrderHeader({
   const navigate = useNavigate();
 
   return (
-    <div className="flex items-center justify-between mb-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {po.order_number}
-        </h1>
-        <p className="text-slate-500">{t("shared.vendorLabel", { name: po.vendor?.name ?? "" })}</p>
-      </div>
-      <div className="flex items-center space-x-4">
+    <PageHeader
+      title={po.order_number}
+      description={t("shared.vendorLabel", { name: po.vendor?.name ?? "" })}
+      actions={
+        <>
         {po.status === "DRAFT" && <DocumentSaveIndicator status={saveStatus} />}
         <StatusBadge status={po.status} />
 
         {po.status === "DRAFT" && (
           <Button
             variant="default"
+            className="max-sm:min-h-11"
             onClick={onMarkAsSent}
             disabled={isMarkingSent}
           >
@@ -49,6 +48,7 @@ export function PurchaseOrderHeader({
 
         <Button
           variant="outline"
+          className="max-sm:min-h-11"
           disabled={unbilledCount === 0}
           onClick={() =>
             navigate(
@@ -61,11 +61,12 @@ export function PurchaseOrderHeader({
         </Button>
 
         {po.status !== "COMPLETED" && (
-          <Button onClick={onReceive}>
+          <Button className="max-sm:min-h-11" onClick={onReceive}>
             {t("actions.receiveGoods")}
           </Button>
         )}
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }

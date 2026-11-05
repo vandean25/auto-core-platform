@@ -38,7 +38,7 @@ export function PurchaseBillPageHeader({ form }: { form: PurchaseBillFormModel }
               ? t('purchaseBills.form.editTitle', { number: initialData?.vendor_invoice_number })
               : t('purchaseBills.form.logNewTitle')}
           </h1>
-          <p className="text-slate-500">
+          <p className="text-muted-foreground">
             {isEdit ? t('purchaseBills.form.editSubtitle') : t('purchaseBills.form.logNewSubtitle')}
           </p>
         </div>
@@ -47,21 +47,21 @@ export function PurchaseBillPageHeader({ form }: { form: PurchaseBillFormModel }
       <div className="flex w-full flex-col gap-3 xl:w-auto xl:items-end">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:min-w-[430px]">
           <div className="rounded-xl border bg-muted/40 px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Package className="h-3.5 w-3.5" />
               <span>{t('purchaseBills.form.summaryItems')}</span>
             </div>
             <div className="mt-1 text-sm font-medium">{formatCurrency(totals.subtotal)}</div>
           </div>
           <div className="rounded-xl border bg-muted/40 px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <ReceiptText className="h-3.5 w-3.5" />
               <span>{t('purchaseBills.form.summaryTax')}</span>
             </div>
             <div className="mt-1 text-sm font-medium">{formatCurrency(totals.taxTotal)}</div>
           </div>
           <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[11px] text-primary/80">
+            <div className="flex items-center gap-1.5 text-xs text-primary/80">
               <CircleDollarSign className="h-3.5 w-3.5" />
               <span>{t('purchaseBills.form.summaryTotal')}</span>
             </div>
@@ -78,7 +78,7 @@ export function PurchaseBillPageHeader({ form }: { form: PurchaseBillFormModel }
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="default" className="bg-blue-600 hover:bg-blue-700" disabled={isPending}>
+                  <Button variant="default" className="bg-info hover:bg-info/90" disabled={isPending}>
                     {isPosting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                     {t('actions.postBill')}
                   </Button>

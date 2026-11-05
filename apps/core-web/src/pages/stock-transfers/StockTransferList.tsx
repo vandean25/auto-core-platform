@@ -121,7 +121,7 @@ export default function StockTransferList() {
       <div className={PAGE_HEADER_ROW}>
         <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('stockTransfers.list.title')}</h1>
-          <p className="text-slate-500">{t('stockTransfers.list.description')}</p>
+          <p className="text-muted-foreground">{t('stockTransfers.list.description')}</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> {t('stockTransfers.list.newTransfer')}

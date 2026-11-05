@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { DE_STATUS } from "./helpers/de-enums";
 import { DE_FINANCE } from "./helpers/de-finance";
 import { AutoCorePage } from "./pom/AutoCorePage";
+import { expectNoPageScroll } from "./utils/phone-layout";
 import {
   createMockPurchaseOrder,
   createMockVendor,
@@ -300,5 +301,37 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     await notesInput.fill("Updated notes");
     await autoSavePromise;
     await expect(notesInput).toHaveValue("Updated notes");
+  });
+
+  // AUT-659 scenario 5: the purchase order header (PageHeader migration) keeps the phone layout.
+  test("WHEN the purchase order detail opens at 375px THEN there is no horizontal scroll and targets are at least 44px", async ({ page }) => {
+    const mockVendor = createMockVendor({ id: VENDOR_ID, name: "Nordstern Ersatzteile GmbH" });
+    const mockPO = createMockPurchaseOrder({
+      id: PO_ID,
+      order_number: "PO-2026-0002",
+      status: "DRAFT",
+      vendor_id: VENDOR_ID,
+      vendor: mockVendor,
+      items: [],
+    });
+    const json = (body: unknown) => async (route: import("@playwright/test").Route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    };
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}`), json(mockPO));
+    await page.route(AutoCorePage.apiRouteMatcher("/api/vendors"), json(createMockListResponse([mockVendor])));
+    await page.route(AutoCorePage.apiRouteMatcher("/api/inventory"), json(createMockListResponse([createMockInventoryItem()])));
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/vendors/${VENDOR_ID}/unbilled-receipts`), json([]));
+
+    await page.setViewportSize({ width: 375, height: 844 });
+    await page.goto(`/purchase-orders/${PO_ID}`);
+    await expect(page.getByRole("heading", { name: "PO-2026-0002", exact: true })).toBeVisible();
+
+    for (const name of [DE_FINANCE.actions.markAsSent, DE_FINANCE.actions.receiveGoods]) {
+      const box = (await page.getByRole("button", { name }).first().boundingBox())!;
+      expect(box.x + box.width, name).toBeLessThanOrEqual(375);
+      expect(box.height, name).toBeGreaterThanOrEqual(44);
+    }
+    await expectNoPageScroll(page);
   });
 });

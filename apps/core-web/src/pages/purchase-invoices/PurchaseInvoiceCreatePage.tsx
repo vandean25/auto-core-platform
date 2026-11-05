@@ -173,7 +173,7 @@ export default function PurchaseInvoiceCreatePage() {
                 </div>
             </div>
 
-            <div className="bg-white shadow-sm border rounded-lg p-8 max-w-5xl mx-auto space-y-8">
+            <div className="bg-card shadow-sm border rounded-lg p-8 max-w-5xl mx-auto space-y-8">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="space-y-2">
                         <Label>{t('purchaseInvoices.create.vendor')}</Label>
@@ -194,8 +194,8 @@ export default function PurchaseInvoiceCreatePage() {
                 </div>
 
                 {vendorId && (
-                    <div className="bg-slate-50 border rounded-md p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <div className="bg-muted/50 border rounded-md p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Package className="h-4 w-4" />
                             <span>{t('purchaseInvoices.create.unbilledAvailable', { count: unbilledItems.length })}</span>
                         </div>

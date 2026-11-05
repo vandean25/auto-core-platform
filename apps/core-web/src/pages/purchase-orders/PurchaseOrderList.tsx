@@ -79,7 +79,7 @@ export default function PurchaseOrderList() {
             <div className={PAGE_HEADER_ROW}>
                 <div className="min-w-0 max-sm:w-full">
                     <h1 className="text-2xl font-semibold tracking-tight">{t('purchaseOrders.list.title')}</h1>
-                    <p className="text-slate-500">{t('purchaseOrders.list.subtitle')}</p>
+                    <p className="text-muted-foreground">{t('purchaseOrders.list.subtitle')}</p>
                 </div>
                 <Button asChild>
                     <Link to="/purchase-orders/new">
