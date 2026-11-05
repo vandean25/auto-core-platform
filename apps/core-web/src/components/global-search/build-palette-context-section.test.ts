@@ -233,6 +233,42 @@ describe('work order notes undo palette context', () => {
     item!.onSelect()
     expect(undoNotes).toHaveBeenCalledWith(openOrder.id)
   })
+
+  it('omits undo from Cmd+K when the order updatedAt no longer matches the eligible entry', () => {
+    setUndoEligibleEntry({
+      actionId: ENTITY_ACTION_IDS.workOrderUndoNotes,
+      orderId: openOrder.id,
+      previousNotes: 'Old notes',
+      expectedUpdatedAt: '2026-11-05T12:00:00.000Z',
+      contextGeneration: 0,
+    })
+    const navigate = vi.fn()
+    const workshop = {
+      navigate,
+      generatePdf: {} as never,
+      t: translations.workshop,
+      undoNotes: vi.fn(),
+    }
+    const staleOrder = { ...openOrder, updatedAt: '2026-11-05T13:00:00.000Z' }
+    const section = buildPaletteContextSection(
+      { entity: 'workshop_order', id: staleOrder.id },
+      'ADMIN',
+      '',
+      { order: staleOrder },
+      translations,
+      {
+        workshop,
+        customer: { navigate, onDelete: vi.fn(), t: translations.customers },
+        vehicle: { navigate, t: translations.vehicles },
+        estimate: { navigate },
+        tyreSet: { navigate },
+        creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+      },
+    )
+    expect(
+      section?.items.find((entry) => entry.id === ENTITY_ACTION_IDS.workOrderUndoNotes),
+    ).toBeUndefined()
+  })
 })
 
 describe('credit note print page and palette parity', () => {

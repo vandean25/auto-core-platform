@@ -277,6 +277,20 @@ describe('Workshop order notes undo (e2e)', () => {
     ).expect(403);
   });
 
+  it('returns 400 when the order is invoiced and no longer editable', async () => {
+    const order = await createIntakeOrder();
+    const updated = await patchNotes(order.id, 'Before lock');
+    await prisma.workshopOrder.updateMany({
+      where: { id: order.id, tenant_id: tenantId },
+      data: { status: 'INVOICED' },
+    });
+
+    await undoNotes(order.id, {
+      previousNotes: order.notes,
+      expectedUpdatedAt: updated.updatedAt,
+    }).expect(400);
+  });
+
   it('returns 404 when the order belongs to another active site', async () => {
     const order = await createIntakeOrder();
     const updated = await patchNotes(order.id, 'Site scoped');
