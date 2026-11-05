@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { TooltipHint } from '@/components/ui/tooltip'
@@ -10,14 +9,8 @@ import { Plus } from 'lucide-react'
 import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import {
-  DataTablePendingIcon,
-  isDataTablePendingRow,
-  type DataTablePendingRowMeta,
-} from '@/components/data-table/data-table-states'
+import type { DataTablePendingRowMeta } from '@/components/data-table/data-table-states'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
-import { StatusBadge } from '@/components/status/StatusBadge'
 import { useWorkshopOrders } from '@/api/workshop'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
@@ -25,6 +18,7 @@ import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-act
 import { WorkshopOrderPeekSheet } from '@/features/peek/WorkshopOrderPeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
+import { useWorkshopOrderListColumns } from './useWorkshopOrderListColumns'
 
 type WorkshopOrderListPendingRow = WorkshopOrderListRow & DataTablePendingRowMeta
 
@@ -42,6 +36,7 @@ export default function WorkshopOrderList() {
   const { data: responseData, isLoading, isFetching, isPlaceholderData, isError, refetch } =
     ordersQuery
   const peek = usePeekSearchParam()
+  const columns = useWorkshopOrderListColumns(t, tCommon)
 
   const loadedRows = useMemo<WorkshopOrderListRow[]>(() => {
     const source = responseData?.data ?? []
@@ -75,56 +70,6 @@ export default function WorkshopOrderList() {
     peek.openPeek,
     rows,
   )
-
-  const columns: ColumnDef<WorkshopOrderListRow>[] = [
-    {
-      accessorKey: 'orderNo',
-      meta: { rowLink: true, mobile: 'trailing', label: t('orders.list.columns.orderNo') },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('orders.list.columns.orderNo')} />
-      ),
-      cell: ({ row }) =>
-        isDataTablePendingRow(row.original) ? (
-          <DataTablePendingIcon label={tCommon('dataTable.loading.pendingRow')} />
-        ) : (
-          row.original.orderNo
-        ),
-    },
-    {
-      accessorKey: 'customer',
-      meta: { mobile: 'title', label: t('orders.list.columns.customer') },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('orders.list.columns.customer')} />
-      ),
-    },
-    {
-      accessorKey: 'vehicle',
-      meta: { mobile: 'subtitle', label: t('orders.list.columns.vehicle') },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('orders.list.columns.vehicle')} />
-      ),
-    },
-    {
-      accessorKey: 'openedAt',
-      meta: { label: t('orders.list.columns.opened') },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('orders.list.columns.opened')} />
-      ),
-      cell: ({ row }) =>
-        isDataTablePendingRow(row.original) ? null : (
-          <span className='text-muted-foreground'>{row.original.openedAt}</span>
-        ),
-    },
-    {
-      accessorKey: 'status',
-      meta: { mobile: 'status', label: t('orders.list.columns.status') },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('orders.list.columns.status')} />
-      ),
-      cell: ({ row }) =>
-        isDataTablePendingRow(row.original) ? null : <StatusBadge status={row.original.status} />,
-    },
-  ]
 
   return (
     <div className='space-y-6'>

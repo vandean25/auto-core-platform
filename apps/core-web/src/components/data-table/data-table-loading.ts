@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, type MutableRefObject } from 'react'
+import type { TFunction } from 'i18next'
 
 import { useDelayedFlag } from '@/hooks/useDelayedFlag'
 import { useFirstLoadSkeletonGate } from '@/hooks/useFirstLoadSkeletonGate'
@@ -30,6 +31,52 @@ export type DataTablePresentationState = {
   staleFetchFailed: boolean
   /** Milliseconds the first-load skeleton added after data was ready (pilot telemetry). */
   presentationLatencyMs: number | null
+}
+
+export function resolveDataTableFetchErrorMessage(
+  t: TFunction<'common'>,
+  fetchErrorMessage: string | undefined,
+  presentation: Pick<DataTablePresentationState, 'staleFetchFailed'>,
+  isError: boolean,
+  hasUsableData: boolean,
+): string | undefined {
+  if (fetchErrorMessage) return fetchErrorMessage
+  if (presentation.staleFetchFailed || (isError && !hasUsableData)) {
+    return t('dataTable.loading.loadFailed')
+  }
+  return undefined
+}
+
+export function usePresentationLatencyRef(
+  presentationLatencyRef: MutableRefObject<number | null> | undefined,
+  presentationLatencyMs: number | null,
+) {
+  useEffect(() => {
+    if (!presentationLatencyRef || presentationLatencyMs === null) return
+    presentationLatencyRef.current = presentationLatencyMs
+  }, [presentationLatencyMs, presentationLatencyRef])
+}
+
+export function shouldShowDataTableFetchError(
+  resolvedFetchErrorMessage: string | undefined,
+  onRetry: (() => void) | undefined,
+  presentation: Pick<DataTablePresentationState, 'staleFetchFailed' | 'showFirstLoadSkeleton'>,
+  isError: boolean,
+) {
+  return Boolean(
+    resolvedFetchErrorMessage &&
+      onRetry &&
+      (presentation.staleFetchFailed || (isError && !presentation.showFirstLoadSkeleton)),
+  )
+}
+
+export function shouldUseMobileDataTableList(
+  isMobile: boolean,
+  isLoading: boolean,
+  isStalePreview: boolean,
+  bodyRowCount: number,
+) {
+  return isMobile && !isLoading && !isStalePreview && bodyRowCount > 0
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {

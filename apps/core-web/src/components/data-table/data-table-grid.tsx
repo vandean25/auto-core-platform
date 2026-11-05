@@ -2,18 +2,16 @@ import type { LegacyReactTable as LegacyTable } from '@tanstack/react-table/lega
 import { flexRender } from '@tanstack/react-table'
 import { useRef } from 'react'
 
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TableSkeleton } from '@/components/ui/skeleton-presets'
+import { Table, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { densityTokens, type DataTableDensity } from '@/lib/density-tokens'
 import { getDataTableHeadClassName } from './data-table-column-meta'
-import { DataTableEmptyRow, type DataTableEmptyState } from './data-table-states'
 import {
-  DataTableBodyRow,
   type DataTableBodyRowModel,
-  getRowInteraction,
 } from './data-table-body-row'
+import { DataTableGridBody } from './data-table-grid-body'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
+import type { DataTableEmptyState } from './data-table-states'
 import { useDataTableRovingFocus } from './use-data-table-roving-focus'
 
 // Only header render functions (the DataTableColumnHeader pattern) expose a sort control.
@@ -58,10 +56,9 @@ export function DataTableGrid<TData extends object>({
   emptyState,
 }: DataTableGridProps<TData>) {
   const tableBodyRef = useRef<HTMLTableSectionElement | null>(null)
-  const { pagination, columnFilters, globalFilter } = table.getState()
+  const { pagination } = table.getState()
   const visibleColumnCount = table.getVisibleLeafColumns().length
-  const bodyRows = table.getRowModel().rows
-  const bodyRowModels = bodyRows.map((row) => row as DataTableBodyRowModel<TData>)
+  const bodyRowModels = table.getRowModel().rows.map((row) => row as DataTableBodyRowModel<TData>)
   const paginationKey = `${pagination.pageIndex}:${pagination.pageSize}`
   const { handleArrowFocus, tabIndexForRow, onRowFocus } = useDataTableRovingFocus(
     bodyRowModels,
@@ -99,43 +96,24 @@ export function DataTableGrid<TData extends object>({
             </TableRow>
           ))}
         </TableHeader>
-        <TableBody ref={tableBodyRef} className={cn(isStalePreview && 'opacity-60')}>
-          {showSkeleton ? (
-            <TableSkeleton
-              rows={Math.min(pagination.pageSize, 8)}
-              cols={hideHeader ? 2 : visibleColumnCount}
-              delayMs={0}
-            />
-          ) : bodyRows.length ? (
-            bodyRows.map((row, visibleRowIndex) => {
-              const bodyRow = row as DataTableBodyRowModel<TData>
-              const interaction = getRowInteraction(bodyRow, rowBehaviour)
-
-              return (
-                <DataTableBodyRow
-                  key={row.id}
-                  row={bodyRow}
-                  data={data}
-                  rowBehaviour={rowBehaviour}
-                  interaction={interaction}
-                  interactionLocked={isStalePreview}
-                  tabIndex={tabIndexForRow(visibleRowIndex, interaction.rowIsRovingFocusable && !isStalePreview)}
-                  openRowContextMenu={openRowContextMenu}
-                  onArrowFocus={(direction) => handleArrowFocus(visibleRowIndex, direction)}
-                  onRowFocus={() => onRowFocus(visibleRowIndex)}
-                />
-              )
-            })
-          ) : suppressEmptyState ? null : (
-            <DataTableEmptyRow
-              colSpan={visibleColumnCount}
-              fallbackMessage={emptyStateMessage}
-              emptyState={emptyState}
-              columnFilters={columnFilters}
-              globalFilter={globalFilter}
-            />
-          )}
-        </TableBody>
+        <DataTableGridBody
+          table={table}
+          data={data}
+          rowBehaviour={rowBehaviour}
+          showSkeleton={showSkeleton}
+          isStalePreview={isStalePreview}
+          suppressEmptyState={suppressEmptyState}
+          hideHeader={hideHeader}
+          visibleColumnCount={visibleColumnCount}
+          pageSize={pagination.pageSize}
+          emptyStateMessage={emptyStateMessage}
+          emptyState={emptyState}
+          tableBodyRef={tableBodyRef}
+          tabIndexForRow={tabIndexForRow}
+          handleArrowFocus={handleArrowFocus}
+          onRowFocus={onRowFocus}
+          openRowContextMenu={openRowContextMenu}
+        />
       </Table>
     </div>
   )

@@ -160,7 +160,6 @@ function DataTableListRow<TData extends object>({
       data-table-row="true"
       data-row-id={getTableRowId(record)}
       className={cn('flex flex-wrap items-center', (interactionLocked || isPending) && 'opacity-60')}
-      aria-disabled={interactionLocked || isPending ? true : undefined}
     >
       <ListRowPrimary
         record={record}

@@ -11,14 +11,15 @@ import {
   scheduleIntentPrefetch,
   startImmediateIntentPrefetch,
 } from '@/lib/intent-prefetch'
-import { cn } from '@/lib/utils'
-import { getDataTableCellClassName } from './data-table-column-meta'
 import { isDataTablePendingRow } from './data-table-states'
+import { getDataTableCellClassName } from './data-table-column-meta'
+import {
+  getBodyRowClassName,
+  resolveLockedRowBehaviour,
+  shouldOpenBodyRowContextMenu,
+} from './data-table-body-row-presentation'
 import { DataTableRowDetailLink, isDataTableRowLinkColumn } from './data-table-row-link'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
-
-export const clickableRowClassName =
-  'cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) {
@@ -247,10 +248,10 @@ export function DataTableBodyRow<TData extends object>({
   const targetId = rowId ?? `${fallbackRowId}:${row.id}`
   const hoverIntentKey = `row-hover:${targetId}`
   const focusIntentKey = `row-focus:${targetId}`
-  const onRowClick = interactionLocked ? undefined : rowBehaviour?.onRowClick
-  const onRowPrefetch = interactionLocked ? undefined : rowBehaviour?.onRowPrefetch
-  const showClickableStyles = Boolean(onRowClick) && !interactionLocked
-  const isPendingRow = isDataTablePendingRow(rowData)
+  const { onRowClick, onRowPrefetch, showClickableStyles } = resolveLockedRowBehaviour(
+    interactionLocked,
+    rowBehaviour,
+  )
 
   useEffect(() => {
     return () => {
@@ -298,7 +299,7 @@ export function DataTableBodyRow<TData extends object>({
         }
       }}
       onContextMenu={(event) => {
-        if (interactionLocked || isPendingRow) return
+        if (!shouldOpenBodyRowContextMenu(interactionLocked, rowData)) return
         event.preventDefault()
         openRowContextMenu(resolveRowFromElement(event.currentTarget, data, rowData), event.clientX, event.clientY)
       }}
@@ -314,8 +315,8 @@ export function DataTableBodyRow<TData extends object>({
         })
       }
       tabIndex={interactionLocked ? -1 : tabIndex}
-      className={cn(isPendingRow && 'bg-muted/40 text-muted-foreground', showClickableStyles ? clickableRowClassName : undefined)}
-      aria-disabled={interactionLocked || isPendingRow ? true : undefined}
+      className={getBodyRowClassName(rowData, showClickableStyles)}
+      aria-disabled={interactionLocked || isDataTablePendingRow(rowData) ? true : undefined}
     >
       {row.getVisibleCells().map((cell) => {
         const cellContent = flexRender(

@@ -1,17 +1,10 @@
-import type { DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
+import { DataTableSurfaceMain } from './data-table-surface-main'
 import { DataTableDensityContext } from './data-table-density-toggle'
-import { DataTableGrid } from './data-table-grid'
-import { DataTableList } from './data-table-list'
-import {
-  DataTableFetchError,
-  DataTableRefreshIndicator,
-  DataTableStaleStatus,
-  type DataTableEmptyState,
-} from './data-table-states'
-import { DataTablePagination } from './data-table-pagination'
-import { DataTableSelectionBar } from './data-table-selection'
+import { DataTableRefreshIndicator } from './data-table-states'
 import { DataTableToolbar } from './data-table-toolbar'
 import type { DataTableViewModel } from './use-data-table-view-model'
+import type { DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
+import type { DataTableEmptyState } from './data-table-states'
 
 type DataTableSurfaceProps<TData extends object> = DataTableViewModel<TData> & {
   searchColumn?: string
@@ -69,36 +62,27 @@ export function DataTableSurface<TData extends object>({
           refreshIndicator={<DataTableRefreshIndicator visible={presentation.showRefreshIndicator} />}
         />
       </DataTableDensityContext.Provider>
-      <DataTableStaleStatus visible={presentation.isStalePreview} />
-      {resolvedFetchErrorMessage && onRetry && (presentation.staleFetchFailed || (isError && !presentation.showFirstLoadSkeleton)) ? (
-        <DataTableFetchError message={resolvedFetchErrorMessage} onRetry={onRetry} />
-      ) : null}
-      {isMobile && !isLoading && !presentation.isStalePreview && bodyRowCount ? (
-        <DataTableList
-          columns={table.getVisibleLeafColumns()}
-          rows={bodyRowModels}
-          rowBehaviour={rowBehaviour}
-          interactionLocked={presentation.isStalePreview}
-        />
-      ) : (
-        <DataTableGrid
-          table={table}
-          data={data}
-          rowBehaviour={rowBehaviour}
-          showSkeleton={presentation.showFirstLoadSkeleton}
-          ariaBusy={presentation.ariaBusy}
-          isStalePreview={presentation.isStalePreview}
-          suppressEmptyState={isLoading && !hasUsableData}
-          density={density}
-          hideHeader={isMobile}
-          openRowContextMenu={openRowContextMenu}
-          emptyStateMessage={resolvedEmptyStateMessage}
-          emptyState={emptyState}
-        />
-      )}
-      <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />
-      <DataTableSelectionBar table={table} bulkActions={bulkActions} disabled={presentation.isStalePreview} />
-      {contextMenu}
+      <DataTableSurfaceMain
+        table={table}
+        data={data}
+        rowBehaviour={rowBehaviour}
+        presentation={presentation}
+        isLoading={isLoading}
+        hasUsableData={hasUsableData}
+        isError={isError}
+        resolvedEmptyStateMessage={resolvedEmptyStateMessage}
+        resolvedFetchErrorMessage={resolvedFetchErrorMessage}
+        isMobile={isMobile}
+        bodyRowModels={bodyRowModels}
+        bodyRowCount={bodyRowCount}
+        density={density}
+        pageSizeOptions={pageSizeOptions}
+        bulkActions={bulkActions}
+        emptyState={emptyState}
+        onRetry={onRetry}
+        openRowContextMenu={openRowContextMenu}
+        contextMenu={contextMenu}
+      />
     </div>
   )
 }

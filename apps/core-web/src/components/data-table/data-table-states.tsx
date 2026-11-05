@@ -12,7 +12,6 @@ import { motionKindOf } from '@/lib/motion-tokens'
 
 export type { DataTablePendingRowMeta } from './data-table-loading'
 export { isDataTablePendingRow, useDataTablePresentation } from './data-table-loading'
-export type { DataTablePresentationInput, DataTablePresentationState } from './data-table-loading'
 
 export type DataTableEmptyState = { message: string; action?: ReactNode }
 
