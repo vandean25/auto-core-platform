@@ -20,6 +20,7 @@ import type { ApiErrorBody } from './api-error'
 import { buildDataTableUrl } from './data-table-query'
 import { laborKeys } from './labor'
 import { DETAIL_PREFETCH_GC_MS } from '@/lib/intent-prefetch'
+import { isWorkshopTaskStatusUpdateOptimisticEligible } from '@/features/interaction/workshop-task-update-eligibility'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import {
   getWorkshopCustomerDisplayName,
@@ -713,7 +714,7 @@ const updateWorkshopTaskOptimistic = optimisticMutationOptions<
   queryKey: (variables) => workshopKeys.detail(variables.orderId),
   mutationKey: [...workshopKeys.all, 'task-status'],
   entityId: ({ taskId }) => taskId,
-  shouldOptimistic: ({ status }) => status !== undefined,
+  shouldOptimistic: isWorkshopTaskStatusUpdateOptimisticEligible,
   apply: (order, { taskId, status }) =>
     status === undefined ? order : patchWorkshopOrderTask(order, taskId, status),
   revert: (order, { taskId }, snapshot) => {

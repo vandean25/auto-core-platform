@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "module": "workshop-orders-and-mechanic-queue",
+  "entries": [
+    {
+      "operationId": "workshop.task.checklist.update",
+      "owningHook": "useUpdateWorkshopTaskChecklist",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "workshop.task.checklist.update",
+      "owningHook": "useUpdateMechanicTaskChecklist",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "workshop.order.create",
+      "owningHook": "useCreateWorkshopOrder",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Workshop order creation assigns authoritative document numbering and lifecycle state; no deduplication contract on the client."
+    },
+    {
+      "operationId": "workshop.order.update",
+      "owningHook": "useUpdateWorkshopOrder",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Patches may change bay, mechanic, or schedule on shared planner resources; availability and conflicts are validated server-side."
+    },
+    {
+      "operationId": "workshop.task.create",
+      "owningHook": "useCreateWorkshopTask",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Task create assigns server identifiers and ordering; default is server-confirmed until a deduplication contract exists."
+    },
+    {
+      "operationId": "workshop.task.update",
+      "owningHook": "useUpdateWorkshopTask",
+      "classification": "conditional",
+      "eligibilityPredicate": "isWorkshopTaskStatusUpdateOptimisticEligible"
+    },
+    {
+      "operationId": "workshop.task.delete",
+      "owningHook": "useDeleteWorkshopTask",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deletion changes lifecycle and line items with server guards; not a predictable reversible patch."
+    },
+    {
+      "operationId": "workshop.task.line-items.replace",
+      "owningHook": "useReplaceWorkshopTaskLineItems",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Line-item replace recalculates prices, tax, and versioned totals authoritatively on the server."
+    },
+    {
+      "operationId": "workshop.pick-parts",
+      "owningHook": "usePickWorkshopParts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Parts pick writes stock reservations and inventory transfers; client cannot safely predict availability."
+    },
+    {
+      "operationId": "workshop.order.create-invoice",
+      "owningHook": "useCreateInvoiceFromWorkshopOrder",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Posting and fiscal finalization from a workshop order; authoritative financial effects."
+    },
+    {
+      "operationId": "workshop.register-intake",
+      "owningHook": "useRegisterIntake",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Registration intake creates or links CRM entities with server validation; not a predictable client patch."
+    },
+    {
+      "operationId": "workshop.order.pdf.generate",
+      "owningHook": "useGenerateWorkshopPdf",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "PDF generation is an external side effect with async job semantics."
+    },
+    {
+      "operationId": "workshop.board.assign",
+      "owningHook": "useAssignBoard",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Planner moves involving shared bays, mechanics, or appointment conflicts; availability can change after the client reads."
+    },
+    {
+      "operationId": "workshop.registration-intake.create",
+      "owningHook": "useCreateRegistrationIntake",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Document import and OCR intake with idempotency headers; irreversible processing steps."
+    },
+    {
+      "operationId": "workshop.registration-intake.apply",
+      "owningHook": "useApplyRegistrationIntake",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Applies imported evidence to CRM entities with server matching rules."
+    },
+    {
+      "operationId": "workshop.registration-intake.order",
+      "owningHook": "useRegistrationIntakeOrder",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Creates a workshop order from intake with authoritative numbering and lifecycle."
+    },
+    {
+      "operationId": "workshop.registration-intake.abort",
+      "owningHook": "useAbortRegistrationIntake",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Aborts an intake workflow with server state guards."
+    },
+    {
+      "operationId": "workshop.registration-intake.delete",
+      "owningHook": "useDeleteRegistrationIntake",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deletes intake artifacts per deletion policy; not an optimistic patch."
+    },
+    {
+      "operationId": "workshop.check-in.create",
+      "owningHook": "useCreateWorkshopCheckIn",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Check-in record creation binds revision and legal capture flow on the server."
+    },
+    {
+      "operationId": "workshop.check-in.draft.update",
+      "owningHook": "useUpdateWorkshopCheckInDraft",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "workshop.check-in.complete",
+      "owningHook": "useCompleteWorkshopCheckIn",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Completing check-in is a signed customer-facing handover with revision checks."
+    },
+    {
+      "operationId": "workshop.check-in.media.upload",
+      "owningHook": "useUploadWorkshopCheckInMedia",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Media upload is an external side effect with revision concurrency."
+    },
+    {
+      "operationId": "workshop.check-in.inspection.update",
+      "owningHook": "useUpdateWorkshopCheckInInspection",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Inspection PATCH uses expected revision and authoritative checklist state."
+    },
+    {
+      "operationId": "workshop.estimate.create",
+      "owningHook": "useCreateWorkshopEstimate",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Estimate creation assigns versioned pricing snapshots on the server."
+    },
+    {
+      "operationId": "workshop.estimate.revise",
+      "owningHook": "useReviseWorkshopEstimate",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Revision creates a new priced version; numbering and totals are authoritative."
+    },
+    {
+      "operationId": "workshop.estimate.send",
+      "owningHook": "useSendWorkshopEstimateVersion",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Sending an estimate triggers customer delivery and external communication."
+    },
+    {
+      "operationId": "workshop.estimate.advisor-decision",
+      "owningHook": "useRecordWorkshopEstimateDecision",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Advisor decision records contractual approval state on the server."
+    },
+    {
+      "operationId": "workshop.estimate.overrun-notify",
+      "owningHook": "useRecordWorkshopOverrunNotice",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Overrun notice is customer delivery with external side effects."
+    },
+    {
+      "operationId": "workshop.measurement.preview",
+      "owningHook": "usePreviewWorkshopMeasurement",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Measurement import preview resolves device catalog and binding revision authoritatively."
+    },
+    {
+      "operationId": "workshop.measurement.apply",
+      "owningHook": "useApplyWorkshopMeasurement",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Applying measurement import mutates inspection findings with version guards."
+    },
+    {
+      "operationId": "workshop.tasks.resume-waiting",
+      "owningHook": "useResumeWaitingTasks",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Batch task resume revalidates order openness and estimate approval on the server."
+    },
+    {
+      "operationId": "mechanic.queue.task.lifecycle",
+      "owningHook": "useStartTask",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "mechanic.queue.task.lifecycle",
+      "owningHook": "useSwitchTask",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "mechanic.queue.task.lifecycle",
+      "owningHook": "usePauseTask",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "mechanic.queue.task.lifecycle",
+      "owningHook": "useCompleteTask",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "mechanic.task.diagnostics.save",
+      "owningHook": "useSaveDiagnostics",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "mechanic.task.finding.submit",
+      "owningHook": "useSubmitMechanicFinding",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Finding submission creates advisor proposals with external processing trace."
+    },
+    {
+      "operationId": "mechanic.task.part.request",
+      "owningHook": "useRequestPart",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Part request reserves or shortages stock; contested allocation is server-authoritative."
+    },
+    {
+      "operationId": "mechanic.task.media.upload-policy",
+      "owningHook": "useCreateMediaUploadPolicy",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Upload policy mints signed external upload credentials."
+    },
+    {
+      "operationId": "mechanic.task.media.save",
+      "owningHook": "useSaveMediaMetadata",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Persisting media metadata is an external artifact commit."
+    },
+    {
+      "operationId": "mechanic.task.voice-note.upload",
+      "owningHook": "useUploadVoiceNote",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Voice-note upload and transcription is an external side effect."
+    },
+    {
+      "operationId": "workshop.order.ready-email.resend",
+      "owningHook": "WorkshopReadyEmailNotice",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Customer delivery resend triggers external email delivery."
+    }
+  ]
+}
