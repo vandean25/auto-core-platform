@@ -5,13 +5,7 @@ import {
 } from '../common/list-cursor/index.js';
 
 export type VehicleStockCursorSortField =
-  | 'make'
-  | 'model'
-  | 'year'
-  | 'vin'
-  | 'plate'
-  | 'color'
-  | 'updatedAt';
+  'make' | 'model' | 'year' | 'vin' | 'plate' | 'color' | 'updatedAt';
 
 const VEHICLE_STOCK_CURSOR_SORTS: Record<
   VehicleStockCursorSortField,

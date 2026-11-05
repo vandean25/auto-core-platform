@@ -288,10 +288,10 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       [
         'site id mismatch',
         async () => {
-          const mainSiteId = (await prisma.site.findFirstOrThrow({
+          const mainSiteId = await prisma.site.findFirstOrThrow({
             where: { tenant_id: tenantId, code: 'MAIN' },
             select: { id: true, legal_entity_id: true },
-          }))!;
+          });
           const foreignSite = await prisma.site.create({
             data: {
               tenant_id: tenantId,
@@ -422,9 +422,9 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
 
     it('WHEN user has no active site THEN vehicle cursor list returns ACTIVE_SITE_REQUIRED', async () => {
       const user = await basePrisma.user.findFirstOrThrow({
-        where: { active_tenant_id: tenantId },
-        select: { id: true, active_site_id: true },
+        where: { firebaseUid: `e2e-user-${tenantId}` },
       });
+      const previousSiteId = user.active_site_id;
       await basePrisma.user.update({
         where: { id: user.id },
         data: { active_site_id: null },
@@ -435,7 +435,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       } finally {
         await basePrisma.user.update({
           where: { id: user.id },
-          data: { active_site_id: user.active_site_id },
+          data: { active_site_id: previousSiteId },
         });
       }
     });
@@ -847,9 +847,9 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     it('WHEN user has no active site THEN inventory cursor list returns ACTIVE_SITE_REQUIRED', async () => {
       const basePrisma = app.get(PrismaService);
       const user = await basePrisma.user.findFirstOrThrow({
-        where: { active_tenant_id: tenantId },
-        select: { id: true, active_site_id: true },
+        where: { firebaseUid: `e2e-user-${tenantId}` },
       });
+      const previousSiteId = user.active_site_id;
       await basePrisma.user.update({
         where: { id: user.id },
         data: { active_site_id: null },
@@ -860,7 +860,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       } finally {
         await basePrisma.user.update({
           where: { id: user.id },
-          data: { active_site_id: user.active_site_id },
+          data: { active_site_id: previousSiteId },
         });
       }
     });
