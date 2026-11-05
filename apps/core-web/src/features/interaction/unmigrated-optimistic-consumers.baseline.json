@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "module": "workshop-orders-and-mechanic-queue",
+  "entries": [
+    {
+      "operationId": "workshop.board.assign",
+      "owningHook": "useAssignBoard",
+      "note": "Inventory target is server-confirmed (ADR R1 planner/bay); hook still spreads optimisticMutationOptions until P4 migration."
+    }
+  ]
+}
