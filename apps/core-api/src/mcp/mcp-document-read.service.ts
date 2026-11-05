@@ -32,6 +32,7 @@ import type {
   getDocumentPdfInputSchema,
   listDocumentsInputSchema,
 } from './mcp-tool-schemas.js';
+import { McpCapabilityGateService } from './mcp-capability-gate.service.js';
 
 type ListDocumentsInput = z.infer<typeof listDocumentsInputSchema>;
 type GetDocumentPdfInput = z.infer<typeof getDocumentPdfInputSchema>;
@@ -91,6 +92,7 @@ export class McpDocumentReadService {
     private readonly siteContext: SiteContextService,
     private readonly tenantContext: TenantContextService,
     private readonly pdfStorage: PdfStorage,
+    private readonly capabilityGate: McpCapabilityGateService,
   ) {}
 
   async listDocuments(input: ListDocumentsInput) {
@@ -110,6 +112,9 @@ export class McpDocumentReadService {
     const types: readonly McpDocumentType[] = input.type
       ? [input.type]
       : MCP_DOCUMENT_TYPES;
+    if (input.type === 'vehicle_sale_contract') {
+      await this.capabilityGate.assertAvailable('kaufvertragAt');
+    }
     // Each source returns its own newest pageSize + 1 rows. The merged top
     // pageSize + 1 is therefore exact, and the page below keeps its cursor.
     const batches = await Promise.all(
@@ -133,6 +138,9 @@ export class McpDocumentReadService {
     const parsed = parseMcpDocumentId(input.id);
     if (!parsed) {
       throw new BadRequestException('id must be <type>:<uuid>');
+    }
+    if (parsed.type === 'vehicle_sale_contract') {
+      await this.capabilityGate.assertAvailable('kaufvertragAt');
     }
     const { tenantId, siteId } = await this.scope();
     const located = await this.locate(parsed, input.id, tenantId, siteId);
@@ -358,6 +366,9 @@ export class McpDocumentReadService {
   private async vehicleSaleCandidates(
     query: DocumentQuery,
   ): Promise<McpDocumentCandidate[]> {
+    if (!(await this.isKaufvertragAtAvailable())) {
+      return [];
+    }
     const owner = query.owner;
     if (
       owner &&
@@ -414,6 +425,15 @@ export class McpDocumentReadService {
           ]
         : [],
     );
+  }
+
+  private async isKaufvertragAtAvailable(): Promise<boolean> {
+    try {
+      await this.capabilityGate.assertAvailable('kaufvertragAt');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Resolves one document ID to its stored object, or fails when the PDF does not exist in scope. */

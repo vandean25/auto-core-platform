@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiOkResponse, ApiProduces, ApiTags } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
+import { RequireCapability } from '../common/country-pack/effective-capabilities.guard.js';
 import { PdfWorker } from '../common/pdf/index.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
 import { VehicleSaleTransitionService } from './vehicle-sale-transition.service.js';
@@ -102,6 +103,7 @@ export class VehicleSaleController {
   }
 
   @Post(':id/kaufvertrag/pdf')
+  @RequireCapability('kaufvertragAt')
   generateKaufvertragPdf(@Param('id') id: string) {
     const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
     return this.kaufvertragPdf.requestGeneration(id, { targetBaseUrl });
@@ -118,6 +120,7 @@ export class VehicleSaleController {
   }
 
   @Get(':id/kaufvertrag/pdf')
+  @RequireCapability('kaufvertragAt')
   @Header('Cache-Control', 'no-store')
   @Header('Pragma', 'no-cache')
   @ApiProduces('application/pdf')

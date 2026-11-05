@@ -162,6 +162,11 @@ function createHarness(sale: unknown, options: { cloudTasks?: boolean } = {}) {
   const siteContext = {
     listAuthorizedSiteIds: jest.fn().mockResolvedValue([SITE_ID]),
   };
+  const effectiveCapabilities = {
+    resolve: jest
+      .fn()
+      .mockResolvedValue({ kaufvertragAt: true, nova: true, pickerl57a: true, willhabenExport: true }),
+  };
 
   const service = new VehicleSaleKaufvertragPdfService(
     new KaufvertragPdfSnapshotService(prisma as never),
@@ -174,9 +179,10 @@ function createHarness(sale: unknown, options: { cloudTasks?: boolean } = {}) {
     cloudTasks as never,
     tenantContext as never,
     siteContext as never,
+    effectiveCapabilities as never,
   );
 
-  return { service, prisma, vehicleSale, renderer, storage, cloudTasks, tenantContext, siteContext };
+  return { service, prisma, vehicleSale, renderer, storage, cloudTasks, tenantContext, siteContext, effectiveCapabilities };
 }
 
 describe('VehicleSaleKaufvertragPdfService', () => {
@@ -389,6 +395,21 @@ describe('VehicleSaleKaufvertragPdfService', () => {
           where: { id: SALE_ID, tenant_id: TENANT_ID },
         }),
       );
+    });
+
+    it('refuses generateNow when kaufvertragAt is off, before loading the sale', async () => {
+      const harness = createHarness(loadedSale());
+      harness.effectiveCapabilities.resolve.mockResolvedValue({
+        kaufvertragAt: false,
+        nova: false,
+        pickerl57a: false,
+        willhabenExport: false,
+      });
+
+      await expect(harness.service.generateNow(SALE_ID)).rejects.toMatchObject({
+        response: { code: 'CAPABILITY_UNAVAILABLE' },
+      });
+      expect(harness.vehicleSale.findFirst).not.toHaveBeenCalled();
     });
 
     it('adopts the existing object when create-only publication loses, after verifying its identity', async () => {

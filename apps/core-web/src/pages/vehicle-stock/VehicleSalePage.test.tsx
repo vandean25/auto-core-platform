@@ -356,6 +356,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    sessionCapabilities.value = { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true }
     asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: existingSale })
     asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({ data: stockVehicle })
     asMock(vehicleStockApi.useCreateVehicleSale).mockReturnValue({ mutateAsync: createSale })
@@ -380,6 +381,15 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
       </MemoryRouter>,
     )
   }
+
+  it('does not render the Kaufvertrag download when kaufvertragAt is off', () => {
+    sessionCapabilities.value = { nova: true, pickerl57a: true, kaufvertragAt: false, willhabenExport: true }
+    renderSalePage()
+
+    expect(
+      screen.queryByRole('button', { name: deVehicleStock.sale.downloadKaufvertrag }),
+    ).not.toBeInTheDocument()
+  })
 
   it('saves the Garantie duration and terms with the sale', async () => {
     renderSalePage()
