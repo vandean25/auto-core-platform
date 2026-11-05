@@ -62,6 +62,7 @@ export const INVENTORY_OPERATIONS: OperationTable = {
   ]),
   'InventoryController.updateItem': op('stock.item.update', ADMINS, 'site'),
   'InventoryController.findAll': op('stock.read', BACK_OFFICE_DEMO, 'site'),
+  'InventoryController.cappedCount': op('stock.read', BACK_OFFICE_DEMO, 'site'),
   'InventoryController.createItem': op(
     'stock.item.create',
     BACK_OFFICE_DEMO,

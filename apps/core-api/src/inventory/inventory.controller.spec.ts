@@ -11,6 +11,7 @@ describe('InventoryController', () => {
   const mockInventoryService = {
     checkAvailability: jest.fn(),
     findAll: jest.fn(),
+    findAllWithCursor: jest.fn(),
     findOne: jest.fn(),
   };
   const mockMutationsService = {

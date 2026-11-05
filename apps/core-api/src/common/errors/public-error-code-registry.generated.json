@@ -1239,6 +1239,18 @@
       "public": true,
       "params": []
     },
+    "LIST_CURSOR_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "LIST_CURSOR_SORT_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "LIST_CURSOR_STOCK_FILTER_REQUIRED": {
+      "public": true,
+      "params": []
+    },
     "LOANER_NOT_PERMITTED": {
       "public": true,
       "params": []

@@ -10,6 +10,15 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AtpService } from './atp.service.js';
 import { buildInventoryOrderBy } from './inventory-list-query.js';
 import {
+  cappedCatalogItemListCount,
+  fetchKeysetListPage,
+  GLOBAL_LIST_LIMIT_MAX,
+} from '../common/list-cursor/index.js';
+import {
+  INVENTORY_CURSOR_ENDPOINT,
+  resolveInventoryCursorSort,
+} from './inventory-list-cursor.js';
+import {
   filterAtpStocks,
   toAtpStockInput,
   transformInventoryDetailItem,
@@ -65,6 +74,8 @@ export interface InventoryQueryParams {
   brandId?: number;
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
+  cursor?: string;
+  pagination?: 'cursor' | 'offset';
 }
 
 interface InventoryContext {
@@ -105,6 +116,24 @@ function buildLegacyInventoryWhere(
     };
   }
   return where;
+}
+
+function inventoryListFilterContext(
+  params: InventoryQueryParams,
+): Record<string, unknown> {
+  return {
+    search: params.search?.trim() ?? '',
+    location: params.location ?? '',
+    brand: params.brand ?? '',
+    brandId: params.brandId ?? null,
+  };
+}
+
+function parseInventoryCursorLimit(params: InventoryQueryParams): number {
+  const pageSize = params.pageSize ? Number(params.pageSize) : undefined;
+  const limit = params.limit ? Number(params.limit) : 10;
+  const raw = pageSize ?? limit;
+  return Math.min(Math.max(1, raw), GLOBAL_LIST_LIMIT_MAX);
 }
 
 function resolveInventoryPagination(params: InventoryQueryParams): {
@@ -217,6 +246,57 @@ export class InventoryService {
         pageCount,
       },
     };
+  }
+
+  async findAllWithCursor(params: InventoryQueryParams) {
+    const context = await this.getInventoryContext();
+    const { field, direction, config } = resolveInventoryCursorSort(
+      params.sortField,
+      params.sortDirection,
+    );
+    const limit = parseInventoryCursorLimit(params);
+    const baseWhere = buildLegacyInventoryWhere(
+      context.tenantId,
+      context.siteId,
+      params,
+    );
+    return fetchKeysetListPage(
+      {
+        endpoint: INVENTORY_CURSOR_ENDPOINT,
+        tenantId: context.tenantId,
+        siteId: context.siteId,
+        filterHashInput: inventoryListFilterContext(params),
+        sortField: field,
+        sortDirection: direction,
+        sortConfig: config,
+        cursor: params.cursor,
+        limit,
+        baseWhere: baseWhere,
+      },
+      {
+        findMany: (where, orderBy, take) =>
+          this.prisma.catalogItem.findMany({
+            where: where,
+            include: buildCatalogItemInclude(context.tenantId, context.siteId),
+            orderBy: orderBy,
+            take,
+          }),
+        mapRow: (item) =>
+          transformInventoryListItem(item, this.atpService, context.siteId),
+        readSortValue: (item, prismaField) =>
+          item[prismaField as keyof typeof item],
+      },
+    );
+  }
+
+  async cappedListCount(params: InventoryQueryParams) {
+    const context = await this.getInventoryContext();
+    const where = buildLegacyInventoryWhere(
+      context.tenantId,
+      context.siteId,
+      params,
+    );
+    return cappedCatalogItemListCount(this.prisma, where);
   }
 
   private async fetchInventoryWithParams(

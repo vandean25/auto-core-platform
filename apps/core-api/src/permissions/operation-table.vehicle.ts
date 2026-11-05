@@ -212,6 +212,11 @@ export const VEHICLE_OPERATIONS: OperationTable = {
     BACK_OFFICE_DEMO,
     'site',
   ),
+  'VehicleStockController.cappedCount': op(
+    'vehicle_stock.read',
+    BACK_OFFICE_DEMO,
+    'site',
+  ),
   'VehicleStockController.stockAgeReport': op(
     'vehicle_stock.report.read',
     BACK_OFFICE_DEMO,

@@ -430,6 +430,7 @@ describe('VehicleStockQueryService', () => {
       );
 
       expect(vehicleWhere.tenant_id).toBe('tenant-1');
+      expect(vehicleWhere.site_id).toBe('site-1');
       expect(vehicleWhere.location).toEqual({ site_id: 'site-1' });
       expect(vehicleWhere.stock_status).toBe(VehicleStockStatus.IN_STOCK);
       expect(vehicleWhere.OR).toBeDefined();

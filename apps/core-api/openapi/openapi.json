@@ -400,6 +400,61 @@
         ]
       }
     },
+    "/api/inventory/capped-count": {
+      "get": {
+        "operationId": "InventoryController_cappedCount",
+        "parameters": [
+          {
+            "name": "brand",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brandId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "location",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CappedListCountResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bounded match count for parts list filters (ADR-0035 pilot)",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
     "/api/inventory/{id}/history": {
       "get": {
         "operationId": "InventoryController_getHistory",
@@ -589,6 +644,24 @@
             }
           },
           {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from meta.nextCursor of the previous cursor page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
             "name": "location",
             "required": false,
             "in": "query",
@@ -612,6 +685,19 @@
             "schema": {
               "type": "integer",
               "minimum": 1
+            }
+          },
+          {
+            "name": "pagination",
+            "required": false,
+            "in": "query",
+            "description": "Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offset",
+                "cursor"
+              ]
             }
           },
           {
@@ -8397,10 +8483,58 @@
         ]
       }
     },
+    "/api/vehicle-stock/capped-count": {
+      "get": {
+        "operationId": "VehicleStockController_cappedCount",
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stock_status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CappedListCountResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bounded match count for dealer stock list filters (ADR-0035 pilot)",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/vehicle-stock": {
       "get": {
         "operationId": "VehicleStockController_list",
         "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from meta.nextCursor of the previous cursor page",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "limit",
             "required": false,
@@ -8426,6 +8560,19 @@
             "schema": {
               "type": "integer",
               "minimum": 1
+            }
+          },
+          {
+            "name": "pagination",
+            "required": false,
+            "in": "query",
+            "description": "Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offset",
+                "cursor"
+              ]
             }
           },
           {
@@ -18477,6 +18624,23 @@
           "quantity_reserved",
           "quantity_available",
           "is_superseded"
+        ]
+      },
+      "CappedListCountResponseDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "isCapped": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "count",
+          "isCapped"
         ]
       },
       "TransactionType": {
