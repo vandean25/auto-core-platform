@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { Label } from '@/components/ui/label'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 type InspectorEvidenceSectionProps = {
   employeeId: string
@@ -53,10 +54,10 @@ export function InspectorEvidenceSection({ employeeId }: InspectorEvidenceSectio
   const assessment = assessmentQuery.data
 
   return (
-    <section className='space-y-3 rounded-lg border border-slate-200 p-4' data-testid='inspector-evidence-section'>
+    <section className='space-y-3 rounded-lg border border-border p-4' data-testid='inspector-evidence-section'>
       <div>
-        <h3 className='text-sm font-semibold text-slate-900'>{t('inspectorEvidence.title')}</h3>
-        <p className='text-xs text-slate-500'>{t('inspectorEvidence.description')}</p>
+        <h3 className='text-sm font-semibold text-foreground'>{t('inspectorEvidence.title')}</h3>
+        <p className='text-xs text-muted-foreground'>{t('inspectorEvidence.description')}</p>
       </div>
 
       {assessment ? (
@@ -78,21 +79,23 @@ export function InspectorEvidenceSection({ employeeId }: InspectorEvidenceSectio
       <div className='space-y-2'>
         <Label>{t('inspectorEvidence.revisions')}</Label>
         {listQuery.isLoading ? (
-          <p className='text-sm text-slate-500'>{t('inspectorEvidence.loading')}</p>
+          <p className='text-sm text-muted-foreground'>{t('inspectorEvidence.loading')}</p>
         ) : listQuery.data?.data.length ? (
           <ul className='space-y-2 text-sm'>
             {listQuery.data.data.map((row) => (
               <li
                 key={row.id}
-                className='flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2'
+                className='flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2'
               >
-                <span className='font-mono text-xs text-slate-600'>{row.source_version}</span>
+                <span className='font-mono text-xs text-muted-foreground'>{row.source_version}</span>
                 <StatusBadge status={row.evidence_review} />
               </li>
             ))}
           </ul>
         ) : (
-          <p className='text-sm text-slate-500'>{t('inspectorEvidence.empty')}</p>
+          <Empty className='p-4 md:p-4'>
+            <EmptyDescription>{t('inspectorEvidence.empty')}</EmptyDescription>
+          </Empty>
         )}
       </div>
 

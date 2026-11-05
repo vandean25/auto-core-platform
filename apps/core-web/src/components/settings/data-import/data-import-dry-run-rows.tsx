@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
 
 import type { ImportJobRow } from '@/api/imports'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +15,7 @@ import { formatNumber } from '@/lib/format'
 
 import type { ImportEntityTypeUi } from './import-field-labels'
 import { isRowPriceJump } from './import-price-jump'
+import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
 
 type DataImportDryRunRowProps = {
   row: ImportJobRow
@@ -48,7 +48,7 @@ function DataImportDryRunRow(props: DataImportDryRunRowProps) {
         <div className="flex items-center gap-1">
           <span>{row.action}</span>
           {isPriceJump ? (
-            <Badge variant="destructive" className="text-[10px]">
+            <Badge variant="destructive" className="text-xs">
               {t('dataImport.dryRun.priceJumps.badge', {
                 percent: formatNumber(props.thresholdPercent),
               })}
@@ -103,10 +103,7 @@ export function DataImportDryRunRows(props: DataImportDryRunRowsProps) {
   return (
     <div className="overflow-x-auto border rounded-md max-h-96">
       {props.isLoading ? (
-        <div className="p-6 flex items-center justify-center text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" />
-          {t('dataImport.dryRun.loadingRows')}
-        </div>
+        <SettingsTabLoadingState className="p-6" label={t('dataImport.dryRun.loadingRows')} />
       ) : (
         <Table>
           <TableHeader>

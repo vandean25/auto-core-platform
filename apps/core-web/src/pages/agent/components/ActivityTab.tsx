@@ -90,12 +90,12 @@ export function ActivityTab({
   return (
     <div className="space-y-6" data-testid="activity-tab">
       {/* Filter toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
         <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           {/* Agent search */}
           <div className="relative w-full sm:w-64">
             <Search
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"
+              className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
@@ -110,7 +110,7 @@ export function ActivityTab({
 
           <div className="relative w-full sm:w-72">
             <Search
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"
+              className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
@@ -127,7 +127,7 @@ export function ActivityTab({
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="activity-status-select"
-              className="text-xs text-slate-500 font-medium"
+              className="text-xs text-muted-foreground font-medium"
             >
               {t('activity.filters.statusLabel')}:
             </label>
@@ -135,7 +135,7 @@ export function ActivityTab({
               id="activity-status-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none sm:w-auto md:text-xs"
+              className="h-9 w-full rounded-md border border-border bg-card px-2.5 py-1 text-base text-foreground shadow-sm focus:border-ring focus:outline-none sm:w-auto md:text-xs"
               data-testid="filter-status-select"
             >
               <option value="ALL">
@@ -151,7 +151,7 @@ export function ActivityTab({
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <label
               htmlFor="activity-tier-select"
-              className="text-xs text-slate-500 font-medium"
+              className="text-xs text-muted-foreground font-medium"
             >
               {t('activity.filters.tierLabel')}:
             </label>
@@ -159,7 +159,7 @@ export function ActivityTab({
               id="activity-tier-select"
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value)}
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none sm:w-auto md:text-xs"
+              className="h-9 w-full rounded-md border border-border bg-card px-2.5 py-1 text-base text-foreground shadow-sm focus:border-ring focus:outline-none sm:w-auto md:text-xs"
               data-testid="filter-tier-select"
             >
               <option value="ALL">
@@ -196,17 +196,17 @@ export function ActivityTab({
       {/* Empty state */}
       {!isLoading && !isError && logs.length === 0 && (
         <div
-          className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center"
+          className="rounded-lg border border-dashed border-border bg-muted/50 p-12 text-center"
           data-testid="activity-empty-state"
         >
           <Inbox
-            className="mx-auto mb-3 h-10 w-10 text-slate-400"
+            className="mx-auto mb-3 h-10 w-10 text-muted-foreground"
             aria-hidden="true"
           />
-          <h3 className="text-base font-semibold text-slate-800">
+          <h3 className="text-base font-semibold text-foreground">
             {t('activity.emptyState')}
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {t('activity.emptyStateDesc')}
           </p>
         </div>
@@ -214,7 +214,7 @@ export function ActivityTab({
 
       {/* Activity Table */}
       {!isLoading && !isError && logs.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
           <Table scrollCue data-testid="activity-table">
             <TableHeader>
               <TableRow>
@@ -234,13 +234,13 @@ export function ActivityTab({
 
                 return (
                   <TableRow key={log.id} data-testid={`activity-row-${log.id}`}>
-                    <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatDateTime(log.createdAt)}
                     </TableCell>
-                    <TableCell className="text-xs font-semibold text-slate-800">
+                    <TableCell className="text-xs font-semibold text-foreground">
                       {agentName}
                     </TableCell>
-                    <TableCell className="text-xs font-mono text-slate-700">
+                    <TableCell className="text-xs font-mono text-foreground">
                       {log.actionType}
                     </TableCell>
                     <TableCell>
@@ -249,13 +249,13 @@ export function ActivityTab({
                     <TableCell>
                       <StatusBadge status={log.status} />
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500">
+                    <TableCell className="text-xs text-muted-foreground">
                       {approverId ? (
                         <div
                           className="space-y-1"
                           data-testid={`activity-decided-by-${log.id}`}
                         >
-                          <div className="text-slate-700">
+                          <div className="text-foreground">
                             {resolveDecidedByLabel(
                               {
                                 name: log.onBehalfOfUserName,
@@ -264,8 +264,8 @@ export function ActivityTab({
                               t('common.unknownUser'),
                             )}
                           </div>
-                          <details className="text-[11px] text-slate-500">
-                            <summary className="cursor-pointer hover:text-slate-600">
+                          <details className="text-xs text-muted-foreground">
+                            <summary className="cursor-pointer hover:text-foreground">
                               {t('activity.showDetails')}
                             </summary>
                             <div className="mt-1 break-all font-mono">
@@ -283,7 +283,7 @@ export function ActivityTab({
                           <button
                             type="button"
                             onClick={() => onSelectTraceId(log.traceId)}
-                            className="inline-flex items-center gap-1 font-mono text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                            className="inline-flex items-center gap-1 font-mono text-xs text-info hover:text-info/80 hover:underline"
                             data-testid={`activity-trace-btn-${log.id}`}
                           >
                             <span>{log.traceId.slice(0, 12)}...</span>
@@ -296,7 +296,7 @@ export function ActivityTab({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-slate-500 hover:text-slate-800 max-sm:min-w-11"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground max-sm:min-w-11"
                             aria-label={t('activity.copyTraceId')}
                             data-testid={`activity-trace-copy-btn-${log.id}`}
                             onClick={() => void copyTraceId(log.traceId)}
@@ -305,7 +305,7 @@ export function ActivityTab({
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-slate-400 text-xs">—</span>
+                        <span className="text-muted-foreground text-xs">—</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -314,7 +314,7 @@ export function ActivityTab({
             </TableBody>
           </Table>
           {hasNextPage && (
-            <div className="flex justify-center border-t border-slate-100 p-3">
+            <div className="flex justify-center border-t border-border p-3">
               <Button
                 type="button"
                 variant="outline"

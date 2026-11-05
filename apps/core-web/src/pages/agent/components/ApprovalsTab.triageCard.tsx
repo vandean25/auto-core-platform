@@ -21,7 +21,7 @@ export function TriageCard({ item }: { item: AgentSupervisionTriageItem }) {
 
   return (
     <article
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+      className="rounded-lg border border-border bg-card p-5 shadow-sm transition hover:border-muted-foreground/40"
       data-testid={`triage-card-${item.kind}-${item.entity_id}`}
       aria-label={reasonLabel}
     >
@@ -33,7 +33,7 @@ export function TriageCard({ item }: { item: AgentSupervisionTriageItem }) {
               label={reasonLabel}
             />
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             <Clock className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
             {formatDateTime(item.created_at)}
             {item.due_at
@@ -43,7 +43,7 @@ export function TriageCard({ item }: { item: AgentSupervisionTriageItem }) {
         </div>
         <Link
           to={item.record_link}
-          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50"
           data-testid={`triage-open-${item.entity_id}`}
         >
           {t('approvals.openRecord')}

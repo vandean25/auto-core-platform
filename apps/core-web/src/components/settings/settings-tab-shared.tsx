@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { SettingsSectionHeading } from '@/components/settings/SettingsSectionHeading'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
 
@@ -49,10 +50,16 @@ export async function persistSettingsUpdate<T>({
   }
 }
 
-export function SettingsTabLoadingState({ className }: { className?: string }) {
+/** Skeleton for a settings tab that is still loading; the label is read out to screen readers. */
+export function SettingsTabLoadingState({ className, label }: { className?: string; label?: string }) {
+  const { t } = useTranslation('common')
+
   return (
-    <div className={cn('flex items-center justify-center py-12', className)}>
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <div role="status" aria-busy="true" className={cn('space-y-3 py-6', className)}>
+      <span className="sr-only">{label ?? t('shell.loading')}</span>
+      <Skeleton className="h-5 w-1/3" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-full" />
     </div>
   )
 }
@@ -108,7 +115,7 @@ export function SettingsTabPanel({
   return (
     <div
       className={cn(
-        'rounded-lg border bg-white p-4 shadow-sm sm:p-6',
+        'rounded-lg border bg-card p-4 shadow-sm sm:p-6',
         density === 'compact' ? 'space-y-4' : 'space-y-6',
         className,
       )}

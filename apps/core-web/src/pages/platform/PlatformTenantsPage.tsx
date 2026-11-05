@@ -39,6 +39,7 @@ import { PageLoader } from '@/components/ui/PageLoader'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded, translateEnum } from '@/lib/i18n'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 type TenantFormState = {
   name: string
@@ -164,7 +165,7 @@ export default function PlatformTenantsPage() {
         cell: ({ row }) => (
           <div>
             <div className='font-medium'>{row.original.name}</div>
-            <div className='text-xs text-slate-500'>{row.original.slug}</div>
+            <div className='text-xs text-muted-foreground'>{row.original.slug}</div>
           </div>
         ),
       },
@@ -231,18 +232,18 @@ export default function PlatformTenantsPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between mb-8'>
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>{t('tenants.pageTitle')}</h1>
-          <p className='text-slate-500'>{t('tenants.pageDescription')}</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          {t('tenants.createButton')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('tenants.pageTitle')}
+        description={t('tenants.pageDescription')}
+        actions={
+          <Button className='max-sm:min-h-11' onClick={() => setCreateOpen(true)}>
+            {t('tenants.createButton')}
+          </Button>
+        }
+      />
 
       {error ? (
-        <div className='rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
+        <div className='rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'>
           <div className='flex items-center justify-between gap-4'>
             <span>{getErrorMessage(error, t('tenants.loadFailed'))}</span>
             <Button variant='outline' size='sm' onClick={() => void refetch()}>
@@ -371,7 +372,7 @@ export default function PlatformTenantsPage() {
                 </Select>
               </div>
 
-              <div className='rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600'>
+              <div className='rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground'>
                 {t('tenants.editSheet.currentMembers', { count: selectedTenant.memberCount })}
               </div>
 

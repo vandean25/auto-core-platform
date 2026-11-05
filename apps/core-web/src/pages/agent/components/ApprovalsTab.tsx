@@ -18,6 +18,7 @@ import {
 import { ProposalCard } from './ApprovalsTab.proposalCard'
 import { TriageCard } from './ApprovalsTab.triageCard'
 import { RejectProposalDialog } from './RejectProposalDialog'
+import { AgentLoadingState } from '@/components/agent/agent-tab-parts'
 
 interface ApprovalsTabProps {
   onSelectTraceId?: (traceId: string) => void
@@ -179,7 +180,7 @@ export function ApprovalsTab({
           variant="ghost"
           size="sm"
           onClick={() => refetch()}
-          className="text-slate-500 hover:text-slate-900"
+          className="text-muted-foreground hover:text-foreground"
           aria-label={t('common.refresh')}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -188,23 +189,15 @@ export function ApprovalsTab({
       </div>
 
       {/* Loading state */}
-      {isLoading && (
-        <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
-          <RefreshCw
-            className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
-            aria-hidden="true"
-          />
-          {t('common.loading')}
-        </div>
-      )}
+      {isLoading && <AgentLoadingState />}
 
       {/* Inbox load error */}
       {isError && (
         <div
-          className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-center"
           data-testid="approvals-error-state"
         >
-          <p className="text-sm font-medium text-rose-800">
+          <p className="text-sm font-medium text-destructive">
             {pendingOnly
               ? t('approvals.triageLoadError')
               : t('common.error')}
@@ -214,7 +207,7 @@ export function ApprovalsTab({
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
+            className="mt-3 border-destructive/40 text-destructive hover:bg-destructive/15"
           >
             {t('common.retry')}
           </Button>
@@ -223,10 +216,10 @@ export function ApprovalsTab({
 
       {pendingOnly && !triageError && triagePageError && (
         <div
-          className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center"
+          className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-center"
           data-testid="approvals-triage-page-error-state"
         >
-          <p className="text-sm font-medium text-amber-900">
+          <p className="text-sm font-medium text-warning">
             {t('approvals.triagePageLoadError')}
           </p>
           <Button
@@ -234,7 +227,7 @@ export function ApprovalsTab({
             variant="outline"
             size="sm"
             onClick={() => retryTriagePagination()}
-            className="mt-3 border-amber-300 text-amber-900 hover:bg-amber-100"
+            className="mt-3 border-warning/40 text-warning hover:bg-warning/15"
           >
             {t('common.retry')}
           </Button>
@@ -243,10 +236,10 @@ export function ApprovalsTab({
 
       {pendingOnly && !triageError && proposalsError && (
         <div
-          className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center"
+          className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-center"
           data-testid="approvals-proposals-error-state"
         >
-          <p className="text-sm font-medium text-amber-900">
+          <p className="text-sm font-medium text-warning">
             {t('approvals.proposalsLoadError')}
           </p>
           <Button
@@ -254,7 +247,7 @@ export function ApprovalsTab({
             variant="outline"
             size="sm"
             onClick={() => refetchProposals()}
-            className="mt-3 border-amber-300 text-amber-900 hover:bg-amber-100"
+            className="mt-3 border-warning/40 text-warning hover:bg-warning/15"
           >
             {t('common.retry')}
           </Button>
@@ -264,17 +257,17 @@ export function ApprovalsTab({
       {/* Empty state */}
       {showEmptyInboxState && (
         <div
-          className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center"
+          className="rounded-lg border border-dashed border-border bg-muted/50 p-12 text-center"
           data-testid="approvals-empty-state"
         >
           <Inbox
-            className="mx-auto mb-3 h-10 w-10 text-slate-400"
+            className="mx-auto mb-3 h-10 w-10 text-muted-foreground"
             aria-hidden="true"
           />
-          <h3 className="text-base font-semibold text-slate-800">
+          <h3 className="text-base font-semibold text-foreground">
             {t('approvals.emptyState')}
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {t('approvals.emptyStateDesc')}
           </p>
         </div>

@@ -561,11 +561,11 @@ export function DocumentBrandingSettings({
 
   if (isLoading)
     return (
-      <p className="text-sm text-slate-500">{t("documentBranding.loading")}</p>
+      <p className="text-sm text-muted-foreground">{t("documentBranding.loading")}</p>
     );
   if (error)
     return (
-      <p role="alert" className="text-sm text-red-700">
+      <p role="alert" className="text-sm text-destructive">
         {getErrorMessage(error, t("documentBranding.loadFailed"))}
       </p>
     );
@@ -584,7 +584,7 @@ export function DocumentBrandingSettings({
 
   return (
     <section
-      className="space-y-4 rounded-lg border bg-white p-6"
+      className="space-y-4 rounded-lg border bg-card p-6"
       aria-labelledby="document-branding-title"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -592,7 +592,7 @@ export function DocumentBrandingSettings({
           <h2 id="document-branding-title" className="text-lg font-medium">
             {t("documentBranding.title")}
           </h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {t("documentBranding.subtitle")}
           </p>
         </div>
@@ -602,7 +602,7 @@ export function DocumentBrandingSettings({
       </div>
 
       {!entity.is_active ? (
-        <p role="status" className="text-sm text-amber-800">
+        <p role="status" className="text-sm text-warning">
           {t("documentBranding.inactiveEntity")}
         </p>
       ) : null}
@@ -611,7 +611,7 @@ export function DocumentBrandingSettings({
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="brand-logo">{t("documentBranding.logo.label")}</Label>
           {uploadCapabilities ? (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {t("documentBranding.logo.hint", {
                 types: uploadTypeLabels(uploadCapabilities.logo.mimeTypes),
                 maxMiB: uploadMaxMiB(uploadCapabilities.logo.maxBytes),
@@ -632,7 +632,7 @@ export function DocumentBrandingSettings({
             }
           />
           {theme.logoAssetId ? (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {t("documentBranding.logo.selected", { id: theme.logoAssetId })}
             </p>
           ) : null}
@@ -648,7 +648,7 @@ export function DocumentBrandingSettings({
             </Button>
           ) : null}
           {assetUpload.isPending || logoAsset.data?.state === "QUARANTINED" ? (
-            <p role="status" className="text-sm text-slate-500">
+            <p role="status" className="text-sm text-muted-foreground">
               {t("documentBranding.logo.uploading")}
             </p>
           ) : null}
@@ -708,7 +708,7 @@ export function DocumentBrandingSettings({
             <p
               id="brand-primary-color-error"
               role="alert"
-              className="text-xs text-red-700"
+              className="text-xs text-destructive"
             >
               {themeFieldErrors.primaryColor}
             </p>
@@ -735,7 +735,7 @@ export function DocumentBrandingSettings({
             <p
               id="brand-secondary-color-error"
               role="alert"
-              className="text-xs text-red-700"
+              className="text-xs text-destructive"
             >
               {themeFieldErrors.secondaryColor}
             </p>
@@ -783,7 +783,7 @@ export function DocumentBrandingSettings({
               })}
             </Label>
             <span
-              className="text-xs text-slate-500"
+              className="text-xs text-muted-foreground"
               aria-live="polite"
               id="brand-header-text-counter"
             >
@@ -806,7 +806,7 @@ export function DocumentBrandingSettings({
             <p
               id="brand-header-text-error"
               role="alert"
-              className="text-xs text-red-700"
+              className="text-xs text-destructive"
             >
               {themeFieldErrors.headerText}
             </p>
@@ -820,7 +820,7 @@ export function DocumentBrandingSettings({
               })}
             </Label>
             <span
-              className="text-xs text-slate-500"
+              className="text-xs text-muted-foreground"
               aria-live="polite"
               id="brand-footer-text-counter"
             >
@@ -841,7 +841,7 @@ export function DocumentBrandingSettings({
             <p
               id="brand-footer-text-error"
               role="alert"
-              className="text-xs text-red-700"
+              className="text-xs text-destructive"
             >
               {themeFieldErrors.footerText}
             </p>
@@ -852,7 +852,7 @@ export function DocumentBrandingSettings({
       {revisionConflict ? (
         <div
           role="alert"
-          className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"
+          className="space-y-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning"
         >
           <p>
             {t("documentBranding.conflict.message")}
@@ -882,11 +882,11 @@ export function DocumentBrandingSettings({
         </div>
       ) : null}
       {draftError && !revisionConflict ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-destructive">
           {t("documentBranding.draftFailed")}
         </p>
       ) : null}
-      <p role="status" className="text-sm text-slate-600">
+      <p role="status" className="text-sm text-muted-foreground">
         {[
           profile?.activeRevision
             ? t("documentBranding.status.activeRevision", {
@@ -946,7 +946,7 @@ export function DocumentBrandingSettings({
           {preview.data.warnings.length > 0 ? (
             <ul
               aria-label={t("documentBranding.preview.warningsAria")}
-              className="list-disc px-8 py-3 text-sm text-amber-800"
+              className="list-disc px-8 py-3 text-sm text-warning"
             >
               {preview.data.warnings.map((warning) => (
                 <li key={warning}>{previewWarningLabel(warning)}</li>

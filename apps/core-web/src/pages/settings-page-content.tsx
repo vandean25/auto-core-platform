@@ -42,6 +42,9 @@ import { Folder, ChevronRight, ChevronDown, Box, Trash2 } from "lucide-react"
 import { FinanceSettingsTab, LockDateAlertDialog, useFinanceSettingsForm } from "./settings-finance-tab"
 import { getVisibleTabs, type SettingsTab } from "./settings-page-tabs"
 import { SettingsTabNav } from "./settings-tab-nav"
+import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 // ─── Location Tree Item (reused from former LocationManagement) ────────────
 const LocationTreeItem = ({
@@ -61,8 +64,8 @@ const LocationTreeItem = ({
         <div className="select-none">
             <div
                 className={cn(
-                    "flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md group",
-                    level > 0 && "ml-4 border-l-2 border-slate-200"
+                    "flex items-center gap-2 p-2 hover:bg-muted rounded-md group",
+                    level > 0 && "ml-4 border-l-2 border-border"
                 )}
             >
                 <button
@@ -71,18 +74,18 @@ const LocationTreeItem = ({
                     onClick={() => setExpanded(!expanded)}
                     aria-expanded={hasChildren ? expanded : undefined}
                 >
-                    <span className="flex items-center gap-1 text-slate-500 w-4">
+                    <span className="flex items-center gap-1 text-muted-foreground w-4">
                         {hasChildren && (
                             expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
                         )}
                     </span>
 
-                    {location.type === 'warehouse' ? <Folder className="h-4 w-4 text-blue-500" /> :
-                        location.type === 'bin' ? <Box className="h-4 w-4 text-green-500" /> :
-                            <span className="h-2 w-2 rounded-full bg-slate-400 mx-1" />}
+                    {location.type === 'warehouse' ? <Folder className="h-4 w-4 text-info" /> :
+                        location.type === 'bin' ? <Box className="h-4 w-4 text-success" /> :
+                            <span className="h-2 w-2 rounded-full bg-muted-foreground/40 mx-1" />}
 
                     <span className="min-w-0 break-words font-medium text-sm">{location.name}</span>
-                    <Badge variant="outline" className="text-xs h-5 ml-2 shrink-0 whitespace-nowrap font-mono text-slate-500 group-hover:text-slate-600 transition-colors">
+                    <Badge variant="outline" className="text-xs h-5 ml-2 shrink-0 whitespace-nowrap font-mono text-muted-foreground group-hover:text-foreground transition-colors">
                         {location.code}
                     </Badge>
                 </button>
@@ -91,7 +94,7 @@ const LocationTreeItem = ({
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="min-h-11 min-w-11 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        className="min-h-11 min-w-11 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                         aria-label={t('storageLocations.deleteAria', { name: location.name, code: location.code })}
                         onClick={(e) => {
                             e.stopPropagation()
@@ -177,13 +180,11 @@ function StorageLocationsTab() {
                 <Card>
                     <CardContent className="p-4">
                         {isLoading ? (
-                            <div className="flex items-center justify-center p-8 text-slate-500">
-                                <Loader2 className="animate-spin h-6 w-6 mr-2" /> {t('storageLocations.loading')}
-                            </div>
+                            <SettingsTabLoadingState className="p-8" label={t('storageLocations.loading')} />
                         ) : tree?.length === 0 ? (
-                            <div className="text-center p-8 text-slate-500">
-                                {t('storageLocations.empty')}
-                            </div>
+                            <Empty>
+                                <EmptyDescription>{t('storageLocations.empty')}</EmptyDescription>
+                            </Empty>
                         ) : (
                             <div className="space-y-1">
                                 {tree?.map(loc => (
@@ -281,7 +282,7 @@ function RevenueGroupsTab({ groups, isLoading }: { groups: RevenueGroup[] | unde
     const { t } = useTranslation(['settings', 'common'])
 
     return (
-        <div className="p-4 sm:p-6 bg-white border rounded-lg shadow-sm">
+        <div className="p-4 sm:p-6 bg-card border rounded-lg shadow-sm">
             <div className="flex items-center justify-between mb-6 max-sm:flex-wrap max-sm:gap-3">
                 <SettingsSectionHeading
                     title={t('revenueGroups.title')}
@@ -290,9 +291,7 @@ function RevenueGroupsTab({ groups, isLoading }: { groups: RevenueGroup[] | unde
                 <AddRevenueGroupDialog />
             </div>
             {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
+                <SettingsTabLoadingState className="py-12" />
             ) : (
                 <RevenueGroupTable groups={groups || []} />
             )}
@@ -306,7 +305,7 @@ function BrandsTab({ brands, isLoading }: { brands: Brand[] | undefined; isLoadi
     const [editingBrand, setEditingBrand] = React.useState<Brand | null>(null)
 
     return (
-        <div className="p-4 sm:p-6 bg-white border rounded-lg shadow-sm">
+        <div className="p-4 sm:p-6 bg-card border rounded-lg shadow-sm">
             <div className="flex items-center justify-between mb-6 max-sm:flex-wrap max-sm:gap-3">
                 <div>
                     <SettingsSectionHeading
@@ -317,9 +316,7 @@ function BrandsTab({ brands, isLoading }: { brands: Brand[] | undefined; isLoadi
                 <AddBrandDialog brand={editingBrand} onClose={() => setEditingBrand(null)} />
             </div>
             {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
+                <SettingsTabLoadingState className="py-12" />
             ) : (
                 <BrandTable brands={brands || []} onEdit={setEditingBrand} />
             )}
@@ -392,7 +389,7 @@ export default function SettingsPage() {
         "team": <TeamSettingsTab />,
         "api-keys": <ApiKeysSettingsTab />,
         "audit-logs": (
-            <div className="p-4 sm:p-6 bg-white border rounded-lg shadow-sm">
+            <div className="p-4 sm:p-6 bg-card border rounded-lg shadow-sm">
                 <AuditLogsTab />
             </div>
         ),
@@ -401,12 +398,7 @@ export default function SettingsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">{t('page.title')}</h1>
-                    <p className="text-slate-500">{t('page.description')}</p>
-                </div>
-            </div>
+            <PageHeader title={t('page.title')} description={t('page.description')} />
 
             <Tabs value={activeTab} onValueChange={(value) => setSearchParams({ tab: value })} className="space-y-6">
                 <SettingsTabNav

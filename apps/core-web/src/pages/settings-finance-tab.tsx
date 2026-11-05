@@ -22,6 +22,7 @@ import {
     AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { AccountingExportSettingsPanel } from "@/components/settings/accounting-export-settings-panel"
+import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
 
 // Finance form state lives in the page (not in the tab) so unsaved edits survive a tab switch.
 export function useFinanceSettingsForm() {
@@ -89,15 +90,13 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
 
     if (form.isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[200px]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <SettingsTabLoadingState className="min-h-[200px]" />
         )
     }
 
     return (
         <form onSubmit={form.handleSaveRequest} className="space-y-8">
-            <div className="grid gap-6 p-6 bg-white border rounded-lg shadow-sm">
+            <div className="grid gap-6 p-6 bg-card border rounded-lg shadow-sm">
                 <div className="space-y-4">
                     <SettingsSectionHeading title={t('finance.fiscal.title')} />
                     <div className="grid gap-2 max-w-sm">
@@ -190,7 +189,7 @@ export function LockDateAlertDialog({ form }: { form: FinanceSettingsForm }) {
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-amber-500" />
+                        <AlertTriangle className="h-5 w-5 text-warning" />
                         {t('finance.lockDialog.title')}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
@@ -199,7 +198,7 @@ export function LockDateAlertDialog({ form }: { form: FinanceSettingsForm }) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
-                    <AlertDialogAction onClick={form.handleSave} className="bg-amber-600 hover:bg-amber-700">
+                    <AlertDialogAction onClick={form.handleSave} className="bg-warning hover:bg-warning/90">
                         {t('finance.lockDialog.confirm')}
                     </AlertDialogAction>
                 </AlertDialogFooter>

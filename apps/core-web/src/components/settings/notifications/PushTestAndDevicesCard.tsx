@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getStoredDeviceId } from '@/features/push/push-device'
 import { getHttpErrorStatus } from '@/lib/error-utils'
 import { formatDateTime } from '@/lib/format'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 /** The test push to my own devices, and the list of my registered devices with removal. */
 export function PushTestAndDevicesCard() {
@@ -61,7 +62,9 @@ export function PushTestAndDevicesCard() {
         </CardHeader>
         <CardContent>
           {devices.length === 0 ? (
-            <p className="text-sm text-slate-500">{t('notifications.devices.empty')}</p>
+            <Empty className="p-4 md:p-4">
+              <EmptyDescription>{t('notifications.devices.empty')}</EmptyDescription>
+            </Empty>
           ) : (
             <ul className="divide-y">
               {devices.map((device) => (
@@ -72,7 +75,7 @@ export function PushTestAndDevicesCard() {
                       {device.browser ? ` · ${device.browser}` : ''}
                       {device.id === currentDeviceId ? ` · ${t('notifications.devices.current')}` : ''}
                     </p>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-muted-foreground">
                       {t('notifications.devices.lastSeen', { date: formatDateTime(device.lastSeenAt) })}
                       {device.installed ? ` · ${t('notifications.devices.installed')}` : ''}
                     </p>

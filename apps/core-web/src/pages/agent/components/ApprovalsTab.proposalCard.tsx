@@ -63,7 +63,7 @@ function TargetLabel({
   return (
     <span>
       {t('approvals.target')}:{' '}
-      <strong className="text-slate-700">
+      <strong className="text-foreground">
         {entityType}
         {entityId ? ` (${entityId.slice(0, 8)})` : ''}
       </strong>
@@ -90,7 +90,7 @@ function MetaField({
     <span>
       {value !== null ? (
         <>
-          {label}: <strong className="text-slate-700">{value}</strong>
+          {label}: <strong className="text-foreground">{value}</strong>
         </>
       ) : (
         missing
@@ -147,27 +147,27 @@ function ProposalSummary({
   return (
     <div className="space-y-1">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-sm font-semibold text-slate-900">
+        <span className="font-mono text-sm font-semibold text-foreground">
           {proposal.action_type}
         </span>
         <StatusBadge status={proposal.tier} />
         <StatusBadge status={proposal.status} />
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span data-testid={`proposal-id-${proposal.id}`}>
           {t('approvals.proposalId')}:{' '}
-          <strong className="font-mono text-slate-700">{proposal.id}</strong>
+          <strong className="font-mono text-foreground">{proposal.id}</strong>
         </span>
         <span>
           {t('approvals.agent')}:{' '}
-          <strong className="text-slate-700">
+          <strong className="text-foreground">
             {resolveProposalAgentName(proposal.created_by_agent, payload)}
           </strong>
         </span>
         {proposal.decided_by ? (
           <span data-testid={`decided-by-${proposal.id}`}>
             {t('approvals.decidedBy')}:{' '}
-            <strong className="text-slate-700">
+            <strong className="text-foreground">
               {resolveDecidedByLabel(
                 {
                   name: proposal.decided_by_name,
@@ -188,7 +188,7 @@ function ProposalSummary({
           {formatDateTime(proposal.created_at)}
         </span>
         {proposal.expires_at && isPending && (
-          <span className="text-amber-800">
+          <span className="text-warning">
             {t('approvals.expiresAt')}:{' '}
             {formatDate(proposal.expires_at)}
           </span>
@@ -201,7 +201,7 @@ function ProposalSummary({
 function ManualHint() {
   const { t } = useTranslation('agent')
   return (
-    <div className="flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
+    <div className="flex items-center gap-1.5 rounded-md border border-info/30 bg-info/10 px-3 py-1.5 text-xs font-semibold text-info">
       <HandMetal className="h-4 w-4" aria-hidden="true" />
       <span>{t('approvals.doManually')}</span>
     </div>
@@ -242,7 +242,7 @@ function ProposalActions({
           size="sm"
           onClick={() => onApprove(proposal)}
           disabled={isActionPending}
-          className="bg-emerald-700 hover:bg-emerald-800 text-white"
+          className="bg-success hover:bg-success/90 text-primary-foreground"
           data-testid={`approve-btn-${proposal.id}`}
         >
           <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -255,7 +255,7 @@ function ProposalActions({
         size="sm"
         onClick={() => onReject(proposal)}
         disabled={isActionPending}
-        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+        className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 border-destructive/30"
         data-testid={`reject-btn-${proposal.id}`}
       >
         <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -276,10 +276,10 @@ function ChangePreview({
   if (changes.length === 0) return null
   return (
     <div className="space-y-1.5" data-testid={`change-preview-${proposal.id}`}>
-      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
         {t('approvals.changePreview')}
       </div>
-      <ul className="list-disc space-y-0.5 pl-4 text-sm text-slate-700">
+      <ul className="list-disc space-y-0.5 pl-4 text-sm text-foreground">
         {changes.map((change, index) => (
           <li key={`${change.entity}-${change.op}-${change.id}-${index}`}>
             {formatSupervisionChangeLabel(proposal.action_type, change)}
@@ -308,15 +308,15 @@ function ProposalFooter({
   const amountEur = resolveAmountEur(proposal, payload)
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
       <div className="flex items-center gap-4">
         {amountEur != null && (
           <span
-            className="font-semibold text-slate-900"
+            className="font-semibold text-foreground"
             data-testid={`proposal-amount-${proposal.id}`}
           >
             {t('approvals.amount')}:{' '}
-            <span className="font-mono text-emerald-700">
+            <span className="font-mono text-success">
               {formatMoney(amountEur, resolveProposalAmountTaxBasis(proposal))}
             </span>
           </span>
@@ -325,7 +325,7 @@ function ProposalFooter({
           <button
             type="button"
             onClick={() => onSelectTraceId(proposal.trace_id)}
-            className="inline-flex items-center gap-1 font-mono text-indigo-600 hover:text-indigo-800 hover:underline"
+            className="inline-flex items-center gap-1 font-mono text-info hover:text-info/80 hover:underline"
             data-testid={`trace-btn-${proposal.id}`}
           >
             <span>{proposal.trace_id}</span>
@@ -340,7 +340,7 @@ function ProposalFooter({
         variant="ghost"
         size="sm"
         onClick={() => onExpandedChange(isExpanded ? null : proposal.id)}
-        className="h-7 text-xs text-slate-500"
+        className="h-7 text-xs text-muted-foreground"
         data-testid={`toggle-preview-${proposal.id}`}
       >
         {isExpanded ? (
@@ -374,12 +374,12 @@ function ProposalDetailsPanel({
 
   return (
     <div
-      className="rounded-md border border-slate-200 bg-slate-900 p-4 text-xs font-mono text-slate-100 overflow-x-auto space-y-2"
+      className="rounded-md border border-border bg-foreground p-4 text-xs font-mono text-background overflow-x-auto space-y-2"
       data-testid={`preview-panel-${proposal.id}`}
     >
       {proposal.decided_by ? (
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
             {t('approvals.decidedById')}:
           </div>
           <div>{proposal.decided_by}</div>
@@ -387,7 +387,7 @@ function ProposalDetailsPanel({
       ) : null}
       {workshopOrderId ? (
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
             {t('approvals.workshopOrderId')}:
           </div>
           <div>{workshopOrderId}</div>
@@ -395,10 +395,10 @@ function ProposalDetailsPanel({
       ) : null}
       {wouldChange.length > 0 ? (
         <div data-testid={`change-preview-details-${proposal.id}`}>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
             {t('approvals.allChangesPreview')}:
           </div>
-          <ul className="mb-3 list-disc space-y-0.5 pl-4 text-slate-200">
+          <ul className="mb-3 list-disc space-y-0.5 pl-4 text-background/80">
             {wouldChange.map((change, index) => (
               <li key={`detail-${change.entity}-${change.op}-${change.id}-${index}`}>
                 {formatDetailSupervisionChangeLabel(change)}
@@ -409,14 +409,14 @@ function ProposalDetailsPanel({
       ) : null}
       {proposal.preview_json ? (
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
             {t('approvals.previewDiff')}:
           </div>
           <pre>{JSON.stringify(proposal.preview_json, null, 2)}</pre>
         </div>
       ) : null}
       <div>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
           {t('approvals.payloadJson')}:
         </div>
         <pre>{JSON.stringify(proposal.payload_json, null, 2)}</pre>
@@ -455,7 +455,7 @@ export function ProposalCard({
 
   return (
     <div
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 space-y-4"
+      className="rounded-lg border border-border bg-card p-5 shadow-sm transition hover:border-muted-foreground/40 space-y-4"
       data-testid={`proposal-card-${proposal.id}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -474,7 +474,7 @@ export function ProposalCard({
 
       {/* Human-only advisory banner */}
       {proposal.tier === 'HUMAN_ONLY' && (
-        <div className="rounded-md border border-purple-200 bg-purple-50/70 p-3 text-xs text-purple-900">
+        <div className="rounded-md border border-info/30 bg-info/10 p-3 text-xs text-info">
           <p className="leading-relaxed">{t('approvals.humanOnlyNotice')}</p>
         </div>
       )}

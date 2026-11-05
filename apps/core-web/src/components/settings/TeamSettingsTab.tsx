@@ -65,7 +65,7 @@ function MemberNameCell({ member }: { member: TenantMember }) {
   return (
     <div className='break-words'>
       <div className='font-medium'>{displayName}</div>
-      {displayName !== member.email ? <div className='text-xs text-slate-500'>{member.email}</div> : null}
+      {displayName !== member.email ? <div className='text-xs text-muted-foreground'>{member.email}</div> : null}
     </div>
   )
 }
@@ -222,7 +222,7 @@ export function TeamSettingsTab() {
       <div className='flex items-center justify-between'>
         <div>
           <h3 className='text-lg font-medium'>{t('team.title')}</h3>
-          <p className='text-sm text-slate-500'>{t('team.description')}</p>
+          <p className='text-sm text-muted-foreground'>{t('team.description')}</p>
         </div>
         <Button onClick={() => setInviteOpen(true)}>
           {t('team.inviteButton')}
@@ -230,7 +230,7 @@ export function TeamSettingsTab() {
       </div>
 
       {error ? (
-        <div className='rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
+        <div className='rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'>
           <div className='flex items-center justify-between gap-4'>
             <span>{getErrorMessage(error, t('team.loadFailed'))}</span>
             <Button variant='outline' size='sm' onClick={() => void refetch()}>
@@ -324,8 +324,8 @@ export function TeamSettingsTab() {
           {selectedMember ? (
             <div className='space-y-6'>
               <div className='space-y-1'>
-                <p className='text-sm font-medium text-slate-900'>{getDisplayName(selectedMember)}</p>
-                <p className='text-sm text-slate-500'>{selectedMember.email}</p>
+                <p className='text-sm font-medium text-foreground'>{getDisplayName(selectedMember)}</p>
+                <p className='text-sm text-muted-foreground'>{selectedMember.email}</p>
               </div>
 
               <div className='space-y-2'>

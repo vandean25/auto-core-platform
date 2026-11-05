@@ -243,6 +243,17 @@ describe('HrClockPage', () => {
     expect(screen.queryByPlaceholderText(deHr.clock.searchPlaceholder)).not.toBeInTheDocument()
   })
 
+  // Regression: the empty timeline was a bare muted paragraph, not the shared Empty.
+  it('WHEN there are no clock events today THEN the shared Empty is shown with the German text', () => {
+    apiMocks.useHrMeClock.mockReturnValue(
+      createQueryResult({ state: 'CLOCKED_OUT', lastEvent: null, todayEvents: [] }),
+    )
+
+    const { container } = renderPage()
+
+    expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent(deHr.clock.noEventsToday)
+  })
+
   it('uses the selected employee current clock state instead of historical attendance events', () => {
     setupMocks('ADMIN')
     apiMocks.useHrEmployeeClock.mockReturnValue(

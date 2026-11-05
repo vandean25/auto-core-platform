@@ -209,6 +209,22 @@ test.describe('Page content on a phone (AUT-752)', () => {
     await expectNoPageScroll(page)
   })
 
+  // AUT-659 scenario 5: the settings page (PageHeader and skeleton migration) keeps the phone layout.
+  test('WHEN the settings page opens at 375px THEN there is no horizontal scroll and targets are at least 44px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await mockApi(page)
+    await new AutoCorePage(page, '').navigate('/settings?tab=hours')
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await page.waitForLoadState('networkidle')
+
+    // The migrated page chrome: header and section picker (a select on a phone). The tab contents keep their own control sizes.
+    expect(await controlsShorterThan44(page.getByRole('heading', { level: 1 }).first().locator('xpath=ancestor::header[1]'))).toEqual([])
+    const picker = (await page.getByTestId('settings-section-select').boundingBox())!
+    expect(picker.height).toBeGreaterThanOrEqual(44)
+    expect(picker.x + picker.width).toBeLessThanOrEqual(375)
+    await expectNoPageScroll(page)
+  })
+
   test('Werkstatt-KPIs do not widen the page on a laptop (1440px)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await mockApi(page)

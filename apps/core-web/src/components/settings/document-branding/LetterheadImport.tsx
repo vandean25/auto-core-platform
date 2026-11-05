@@ -240,7 +240,7 @@ function ExtractionStatusLine({
 }) {
   const { t } = useTranslation("settings");
   return (
-    <p className="text-sm text-slate-600">
+    <p className="text-sm text-muted-foreground">
       {t("documentBranding.letterheadImport.stateLine", {
         state: t(`documentBranding.letterheadImport.states.${state}`),
       })}
@@ -252,7 +252,7 @@ function ExtractionStatusLine({
 function ExtractionWarningList({ warnings }: { warnings: string[] }) {
   if (warnings.length === 0) return null;
   return (
-    <ul className="list-disc pl-5 text-xs text-amber-800">
+    <ul className="list-disc pl-5 text-xs text-warning">
       {warnings.map((warning) => (
         <li key={warning}>{extractionWarningLabel(warning)}</li>
       ))}
@@ -337,7 +337,7 @@ function ExtractionRevisionNotice({ visible }: { visible: boolean }) {
   const { t } = useTranslation("settings");
   if (!visible) return null;
   return (
-    <p role="status" className="text-sm text-amber-800">
+    <p role="status" className="text-sm text-warning">
       {t("documentBranding.letterheadImport.revisionChanged")}
     </p>
   );
@@ -427,7 +427,7 @@ function ExtractionStartControl({
           : t("documentBranding.letterheadImport.extract")}
       </Button>
       {!sourceAssetId ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           {t("documentBranding.letterheadImport.uploadFirst")}
         </p>
       ) : null}
@@ -461,7 +461,7 @@ export function LetterheadImport({
           onStart={flow.start}
         />
       ) : (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {t("documentBranding.letterheadImport.unavailable")}
         </p>
       )}
@@ -476,7 +476,7 @@ export function LetterheadImport({
         />
       ) : null}
       {flow.statusLoadFailed ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-destructive">
           {t("documentBranding.letterheadImport.statusLoadFailed")}
         </p>
       ) : null}

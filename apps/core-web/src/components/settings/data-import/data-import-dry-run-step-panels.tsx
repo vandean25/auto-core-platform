@@ -41,10 +41,10 @@ export function DataImportDryRunTotalsBadges({ job }: { job: ImportJob }) {
       <Badge variant="outline">
         {t('dataImport.dryRun.totals.rows', { value: formatNumber(job.totals.rows) })}
       </Badge>
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+      <Badge className="bg-success/15 text-success hover:bg-success/15">
         {t('dataImport.dryRun.totals.create', { value: formatNumber(job.totals.create) })}
       </Badge>
-      <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+      <Badge className="bg-info/15 text-info hover:bg-info/15">
         {t('dataImport.dryRun.totals.update', { value: formatNumber(job.totals.update) })}
       </Badge>
       <Badge variant="secondary">
@@ -65,7 +65,7 @@ export function DataImportDryRunSupplierPanels(props: SupplierPanelsProps) {
 
   return (
     <>
-      <div className="flex items-center gap-2 p-3 bg-slate-50 border rounded-md text-sm">
+      <div className="flex items-center gap-2 p-3 bg-muted/50 border rounded-md text-sm">
         <Checkbox
           id="step4-opt-create-catalog"
           checked={props.options.create_new_catalog_items}
@@ -77,14 +77,14 @@ export function DataImportDryRunSupplierPanels(props: SupplierPanelsProps) {
           {t('dataImport.mapping.options.createCatalogItems')}
         </Label>
         {props.catalogOptionChanged ? (
-          <span className="text-xs text-amber-600 ml-auto">
+          <span className="text-xs text-warning ml-auto">
             {t('dataImport.dryRun.rerunRequired')}
           </span>
         ) : null}
       </div>
 
       {props.priceJumps.flaggedCount > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-amber-50/70 border border-amber-200 rounded-md text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-warning/10 border border-warning/30 rounded-md text-sm">
           <div className="flex items-center gap-2">
             <Checkbox
               id="step4-accept-price-jumps"

@@ -28,7 +28,7 @@ export function MechanicAwayAlert({ employeeAway, mechanicName }: MechanicAwayAl
   const displayName = mechanicName ?? employeeAway.name
 
   return (
-    <Alert className='border-amber-200 bg-amber-50 text-amber-900 [&>svg]:text-amber-600'>
+    <Alert className='border-warning/30 bg-warning/10 text-warning [&>svg]:text-warning'>
       <AlertTriangle aria-hidden='true' />
       <AlertTitle>{t('mechanicAway.title', { name: displayName })}</AlertTitle>
       <AlertDescription>

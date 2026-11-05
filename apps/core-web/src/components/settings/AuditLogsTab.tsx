@@ -68,13 +68,13 @@ function sortAuditLogs(logs: AuditLog[], sortField?: string, sortDirection?: 'as
 function JsonViewer({ data }: { data: unknown }) {
   const { t } = useTranslation('settings')
   if (data === null || data === undefined) {
-    return <span className="text-xs text-slate-400 italic">{t('auditLogs.jsonNone')}</span>
+    return <span className="text-xs text-muted-foreground italic">{t('auditLogs.jsonNone')}</span>
   }
 
   const formatted = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
 
   return (
-    <pre className="p-3 bg-slate-950 text-slate-100 rounded-md text-xs font-mono overflow-auto max-h-[350px] leading-relaxed select-text">
+    <pre className="p-3 bg-foreground text-background rounded-md text-xs font-mono overflow-auto max-h-[350px] leading-relaxed select-text">
       <code>{formatted}</code>
     </pre>
   )
@@ -132,7 +132,7 @@ export function AuditLogsTab() {
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('auditLogs.columns.timestamp')} />,
         cell: ({ row }) => {
           return (
-            <span className="text-xs font-medium text-slate-800">
+            <span className="text-xs font-medium text-foreground">
               {formatAuditTimestamp(row.original.occurredAt, timezone)}
             </span>
           )
@@ -147,7 +147,7 @@ export function AuditLogsTab() {
         accessorKey: 'entityType',
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('auditLogs.columns.entityType')} />,
         cell: ({ row }) => (
-          <Badge variant="outline" className="font-semibold text-slate-700 bg-slate-50">
+          <Badge variant="outline" className="font-semibold text-foreground bg-muted/50">
             {row.original.entityType}
           </Badge>
         ),
@@ -157,7 +157,7 @@ export function AuditLogsTab() {
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('auditLogs.columns.entityId')} />,
         cell: ({ row }) => (
           <span
-            className="font-mono text-xs text-slate-600 truncate max-w-[130px] block"
+            className="font-mono text-xs text-muted-foreground truncate max-w-[130px] block"
             title={row.original.entityId}
           >
             {row.original.entityId}
@@ -172,13 +172,13 @@ export function AuditLogsTab() {
           const userId = row.original.actorUserId
           const actorType = row.original.actorType
           return (
-            <div className="flex items-center gap-1.5 text-xs text-slate-700">
+            <div className="flex items-center gap-1.5 text-xs text-foreground">
               {actorType === 'USER' ? (
-                <User className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                <User className="h-3.5 w-3.5 text-info shrink-0" />
               ) : actorType === 'SYSTEM' ? (
-                <Server className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                <Server className="h-3.5 w-3.5 text-info shrink-0" />
               ) : (
-                <Terminal className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <Terminal className="h-3.5 w-3.5 text-warning shrink-0" />
               )}
               <span className="truncate max-w-[160px]" title={email ?? userId ?? actorType}>
                 {email || userId || actorType}
@@ -193,17 +193,17 @@ export function AuditLogsTab() {
         cell: ({ row }) => {
           const fields = row.original.changedFields
           if (!fields || fields.length === 0) {
-            return <span className="text-xs text-slate-400">—</span>
+            return <span className="text-xs text-muted-foreground">—</span>
           }
           return (
             <div className="flex flex-wrap gap-1 max-w-[220px]">
               {fields.slice(0, 3).map((field) => (
-                <Badge key={field} variant="secondary" className="text-[10px] px-1.5 py-0">
+                <Badge key={field} variant="secondary" className="text-xs px-1.5 py-0">
                   {field}
                 </Badge>
               ))}
               {fields.length > 3 && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-500">
+                <Badge variant="outline" className="text-xs px-1.5 py-0 text-muted-foreground">
                   +{fields.length - 3}
                 </Badge>
               )}
@@ -216,7 +216,7 @@ export function AuditLogsTab() {
         cell: ({ row }) => (
           <button
             type="button"
-            className="text-slate-400 hover:text-slate-700 p-1 transition-colors"
+            className="text-muted-foreground hover:text-foreground p-1 transition-colors"
             onClick={(e) => {
               e.stopPropagation()
               handleRowClick(row.original)
@@ -244,7 +244,7 @@ export function AuditLogsTab() {
           <h3 className="text-lg font-medium">{t('auditLogs.title')}</h3>
         </div>
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-          <Filter className="h-4 w-4 text-slate-400 max-sm:hidden" />
+          <Filter className="h-4 w-4 text-muted-foreground max-sm:hidden" />
           <Select
             value={actionFilter}
             onValueChange={(val: 'ALL' | 'CREATE' | 'UPDATE' | 'DELETE') => setActionFilter(val)}
@@ -301,42 +301,42 @@ export function AuditLogsTab() {
                   </Badge>
                 </div>
                 <SheetTitle className="text-xl">{t('auditLogs.sheet.title')}</SheetTitle>
-                <SheetDescription className="font-mono text-xs text-slate-500 break-all">
+                <SheetDescription className="font-mono text-xs text-muted-foreground break-all">
                   {t('auditLogs.sheet.targetId', { id: selectedLog.entityId })}
                 </SheetDescription>
               </SheetHeader>
 
               {/* Context Summary Cards */}
-              <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 gap-3 text-xs bg-muted/50 p-4 rounded-lg border border-border">
                 <div>
-                  <span className="text-slate-400 block mb-0.5">{t('auditLogs.sheet.occurredAt')}</span>
-                  <span className="font-medium text-slate-800">
+                  <span className="text-muted-foreground block mb-0.5">{t('auditLogs.sheet.occurredAt')}</span>
+                  <span className="font-medium text-foreground">
                     {formatAuditTimestamp(selectedLog.occurredAt, timezone)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block mb-0.5">{t('auditLogs.sheet.actorType')}</span>
-                  <span className="font-medium text-slate-800">{selectedLog.actorType}</span>
+                  <span className="text-muted-foreground block mb-0.5">{t('auditLogs.sheet.actorType')}</span>
+                  <span className="font-medium text-foreground">{selectedLog.actorType}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block mb-0.5">{t('auditLogs.sheet.actorEmail')}</span>
-                  <span className="font-medium text-slate-800 truncate block" title={selectedLog.actorEmail ?? '—'}>
+                  <span className="text-muted-foreground block mb-0.5">{t('auditLogs.sheet.actorEmail')}</span>
+                  <span className="font-medium text-foreground truncate block" title={selectedLog.actorEmail ?? '—'}>
                     {selectedLog.actorEmail ?? '—'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block mb-0.5">{t('auditLogs.sheet.actorRole')}</span>
-                  <span className="font-medium text-slate-800">{selectedLog.actorRole ?? '—'}</span>
+                  <span className="text-muted-foreground block mb-0.5">{t('auditLogs.sheet.actorRole')}</span>
+                  <span className="font-medium text-foreground">{selectedLog.actorRole ?? '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block mb-0.5">{t('auditLogs.sheet.requestId')}</span>
-                  <span className="font-mono text-[11px] text-slate-700 truncate block" title={selectedLog.requestId ?? '—'}>
+                  <span className="text-muted-foreground block mb-0.5">{t('auditLogs.sheet.requestId')}</span>
+                  <span className="font-mono text-xs text-foreground truncate block" title={selectedLog.requestId ?? '—'}>
                     {selectedLog.requestId ?? '—'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block mb-0.5">{t('auditLogs.sheet.sourceIp')}</span>
-                  <span className="font-mono text-[11px] text-slate-700 truncate block">
+                  <span className="text-muted-foreground block mb-0.5">{t('auditLogs.sheet.sourceIp')}</span>
+                  <span className="font-mono text-xs text-foreground truncate block">
                     {selectedLog.source ?? t('auditLogs.sheet.sourceApi')} {selectedLog.ipAddress ? `(${selectedLog.ipAddress})` : ''}
                   </span>
                 </div>
@@ -344,8 +344,8 @@ export function AuditLogsTab() {
 
               {/* Redacted fields alert */}
               {selectedLog.redactedFields && selectedLog.redactedFields.length > 0 && (
-                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-xs">
-                  <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-md text-warning text-xs">
+                  <ShieldAlert className="h-4 w-4 shrink-0 text-warning mt-0.5" />
                   <div>
                     <span className="font-medium">{t('auditLogs.sheet.redactedTitle')}</span>{' '}
                     {selectedLog.redactedFields.join(', ')}
@@ -356,7 +356,7 @@ export function AuditLogsTab() {
               {/* Changed Fields */}
               {selectedLog.changedFields && selectedLog.changedFields.length > 0 && (
                 <div className="space-y-1.5">
-                  <span className="text-xs font-semibold text-slate-700">{t('auditLogs.sheet.modifiedFields')}</span>
+                  <span className="text-xs font-semibold text-foreground">{t('auditLogs.sheet.modifiedFields')}</span>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedLog.changedFields.map((field) => (
                       <Badge key={field} variant="secondary" className="text-xs">
@@ -369,7 +369,7 @@ export function AuditLogsTab() {
 
               {/* Data Diff Tabs */}
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-700">{t('auditLogs.sheet.statePayloads')}</span>
+                <span className="text-xs font-semibold text-foreground">{t('auditLogs.sheet.statePayloads')}</span>
                 <Tabs defaultValue="diff" className="w-full">
                   <TabsList className="grid grid-cols-3 w-full">
                     <TabsTrigger value="diff">{t('auditLogs.sheet.tabs.diff')}</TabsTrigger>

@@ -39,6 +39,7 @@ import {
 } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { formatAttendanceEventType, formatAttendanceSource } from '@/lib/i18n/enum-labels'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 type AttendanceEventType = components['schemas']['AttendanceEventType']
 type TenantMemberRole = components['schemas']['TenantMemberRole']
@@ -111,20 +112,24 @@ function TodayTimeline({ events, timezone, t }: { events: readonly AttendanceEve
   const orderedEvents = useMemo(() => [...events].sort(compareEvents), [events])
 
   if (orderedEvents.length === 0) {
-    return <p className='text-sm text-slate-500'>{t('clock.noEventsToday')}</p>
+    return (
+      <Empty className='p-4 md:p-4'>
+        <EmptyDescription>{t('clock.noEventsToday')}</EmptyDescription>
+      </Empty>
+    )
   }
 
   return (
     <ol className='space-y-3'>
       {orderedEvents.map((event) => (
-        <li key={event.id} className='flex items-center gap-4 rounded-md border bg-white px-4 py-3'>
-          <time className='w-14 font-mono text-sm text-slate-500' dateTime={event.occurredAt}>
+        <li key={event.id} className='flex items-center gap-4 rounded-md border bg-card px-4 py-3'>
+          <time className='w-14 font-mono text-sm text-muted-foreground' dateTime={event.occurredAt}>
             {formatEventTime(event.occurredAt, timezone)}
           </time>
           <span data-timeline-label>
             <StatusBadge status={event.type} label={formatAttendanceEventType(event.type)} />
           </span>
-          <span className='text-sm text-slate-500'>{formatAttendanceSource(event.source)}</span>
+          <span className='text-sm text-muted-foreground'>{formatAttendanceSource(event.source)}</span>
         </li>
       ))}
     </ol>
@@ -227,7 +232,7 @@ function ManagerAttendanceSection({
         accessorKey: 'note',
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('clock.columns.note')} />,
         cell: ({ row }) => (
-          <span className='text-slate-600'>
+          <span className='text-muted-foreground'>
             {row.original.note || i18n.t('common:placeholders.missing')}
           </span>
         ),
@@ -238,10 +243,10 @@ function ManagerAttendanceSection({
 
   return (
     <section className='space-y-4' aria-labelledby='team-attendance-heading'>
-      <div className='flex flex-col justify-between gap-4 rounded-lg border bg-white p-4 lg:flex-row lg:items-end'>
+      <div className='flex flex-col justify-between gap-4 rounded-lg border bg-card p-4 lg:flex-row lg:items-end'>
         <div>
           <h2 id='team-attendance-heading' className='text-lg font-semibold'>{t('clock.teamAttendance')}</h2>
-          <p className='text-sm text-slate-500'>{t('clock.teamAttendanceHint')}</p>
+          <p className='text-sm text-muted-foreground'>{t('clock.teamAttendanceHint')}</p>
         </div>
       </div>
 
@@ -502,10 +507,10 @@ function ClockHeaderActions({ t, view, canManageAttendance, ownClock, selection,
 
 function TodayTimelineSection({ events, timezone, t }: { events: readonly AttendanceEvent[]; timezone: string; t: TFunction<'hr'> }) {
   return (
-    <section className='space-y-3 rounded-lg border bg-white p-4' aria-labelledby='today-timeline-heading'>
+    <section className='space-y-3 rounded-lg border bg-card p-4' aria-labelledby='today-timeline-heading'>
       <div>
         <h2 id='today-timeline-heading' className='text-lg font-semibold'>{t('clock.todayTimeline')}</h2>
-        <p className='text-sm text-slate-500'>{t('clock.todayTimelineHint')}</p>
+        <p className='text-sm text-muted-foreground'>{t('clock.todayTimelineHint')}</p>
       </div>
       <TodayTimeline events={events} timezone={timezone} t={t} />
     </section>
@@ -573,7 +578,7 @@ export default function HrClockPage() {
       <div className='flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch' data-testid='hr-clock-header'>
         <div>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('clock.pageTitle')}</h2>
-          <p className='text-slate-500'>{t('clock.pageDescription')}</p>
+          <p className='text-muted-foreground'>{t('clock.pageDescription')}</p>
         </div>
         <ClockHeaderActions
           t={t}

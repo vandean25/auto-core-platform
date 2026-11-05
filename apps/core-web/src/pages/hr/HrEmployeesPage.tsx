@@ -21,7 +21,7 @@ export default function HrEmployeesPage() {
       <div className='flex items-center justify-between'>
         <div>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('employees.pageTitle')}</h2>
-          <p className='text-slate-500'>{t('employees.pageDescription')}</p>
+          <p className='text-muted-foreground'>{t('employees.pageDescription')}</p>
         </div>
         <Button type='button' onClick={() => setCreateOpen(true)}>
           {t('employees.createButton')}

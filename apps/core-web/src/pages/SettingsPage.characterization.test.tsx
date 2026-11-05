@@ -239,13 +239,15 @@ describe('SettingsPage characterization: revenue groups and brands tabs', () => 
     expect(screen.getByText('Revenue groups table (2)')).toBeVisible()
   })
 
-  it('shows a spinner instead of the revenue groups table while loading', () => {
+  it('WHEN the revenue groups load THEN a Skeleton is shown instead of the table and a spinner', () => {
     revenueGroupsResult.isLoading = true
     revenueGroupsResult.data = undefined as never
     const { container } = renderSettings('?tab=revenue-groups')
 
     expect(screen.queryByText(/Revenue groups table/)).not.toBeInTheDocument()
-    expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+    expect(container.querySelector('svg.animate-spin')).toBeNull()
   })
 
   it('passes an empty list to the revenue groups table when no data is available', () => {
@@ -264,13 +266,15 @@ describe('SettingsPage characterization: revenue groups and brands tabs', () => 
     expect(screen.getByText('Brands table (1)')).toBeVisible()
   })
 
-  it('shows a spinner instead of the brands table while loading and an empty list without data', () => {
+  it('WHEN the brands load THEN a Skeleton is shown instead of the table, and an empty list without data', () => {
     brandsResult.isLoading = true
     brandsResult.data = undefined as never
     const { container, unmount } = renderSettings('?tab=brands')
 
     expect(screen.queryByText(/Brands table/)).not.toBeInTheDocument()
-    expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+    expect(container.querySelector('svg.animate-spin')).toBeNull()
     unmount()
 
     brandsResult.isLoading = false
@@ -292,13 +296,15 @@ describe('SettingsPage characterization: revenue groups and brands tabs', () => 
 })
 
 describe('SettingsPage characterization: finance tab', () => {
-  it('shows a spinner instead of the form while the finance settings load', () => {
+  it('WHEN the finance settings load THEN a Skeleton is shown instead of the form and a spinner', () => {
     financeSettingsResult.isLoading = true
     financeSettingsResult.data = undefined as never
     const { container } = renderSettings()
 
     expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
-    expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+    expect(container.querySelector('svg.animate-spin')).toBeNull()
   })
 
   it('fills the form from the loaded settings and shows the lock date as TT.MM.JJJJ', () => {

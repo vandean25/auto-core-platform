@@ -47,7 +47,7 @@ export function DataImportMappingTable(props: DataImportMappingTableProps) {
                 <div className="flex items-center gap-2">
                   <span>{formatFieldLabel(props.entityType, field)}</span>
                   {field.required ? (
-                    <Badge variant="destructive" className="text-[10px]">
+                    <Badge variant="destructive" className="text-xs">
                       {t('dataImport.mapping.required')}
                     </Badge>
                   ) : null}

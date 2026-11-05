@@ -44,21 +44,21 @@ export default function AgentSupervisionPage() {
               {t('header.title')}
             </h1>
             <div className="flex items-center gap-1.5">
-              <p className="text-slate-500">{t('header.subtitle')}</p>
+              <p className="text-muted-foreground">{t('header.subtitle')}</p>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-11 w-11 shrink-0 text-slate-500 hover:text-slate-700 sm:h-5 sm:w-5"
+                    className="h-11 w-11 shrink-0 text-muted-foreground hover:text-foreground sm:h-5 sm:w-5"
                     aria-label={t('banner.infoAria')}
                     data-testid="agent-safety-info"
                   >
                     <Info className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('banner.infoAria')}>
+                <PopoverContent className="w-80 text-xs text-muted-foreground" aria-label={t('banner.infoAria')}>
                   {t('banner.description')}
                 </PopoverContent>
               </Popover>
