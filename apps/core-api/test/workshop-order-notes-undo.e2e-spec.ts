@@ -191,13 +191,14 @@ describe('Workshop order notes undo (e2e)', () => {
 
   it('returns 409 when a later edit sets notes back without matching updatedAt', async () => {
     const order = await createIntakeOrder();
-    const originalNotes = order.notes;
+    const originalNotes = 'Original note text';
+    await patchNotes(order.id, originalNotes);
     const edited = await patchNotes(order.id, 'Changed');
     const staleExpectedAt = edited.updatedAt;
 
-    await patchNotes(order.id, originalNotes ?? '');
+    await patchNotes(order.id, originalNotes);
     const conflict = await undoNotes(order.id, {
-      previousNotes: originalNotes,
+      previousNotes: 'Before edit',
       expectedUpdatedAt: staleExpectedAt,
     }).expect(409);
 
