@@ -138,6 +138,34 @@ function invalidateSettledCaches(
   }
 }
 
+function settledMutationContext<TVariables>(
+  queryKey: QueryKeyResolver<TVariables>,
+  variables: TVariables,
+  context: OptimisticContext<unknown> | undefined,
+) {
+  return {
+    resolvedQueryKey: context?.resolvedQueryKey ?? resolveQueryKey(queryKey, variables),
+    extraSnapshots: context?.skipped ? [] : (context?.extraSnapshots ?? []),
+    snapshot: context?.skipped ? undefined : context?.snapshot,
+  }
+}
+
+function runOptimisticMutationSettled<TVariables>(
+  queryKey: QueryKeyResolver<TVariables>,
+  mutationKey: QueryKey,
+  variables: TVariables,
+  context: OptimisticContext<unknown> | undefined,
+  client: MutationFunctionContext['client'],
+) {
+  const { resolvedQueryKey, extraSnapshots, snapshot } = settledMutationContext(
+    queryKey,
+    variables,
+    context,
+  )
+  const settlingMutationId = findSettlingMutationId(client, mutationKey, variables, context)
+  invalidateSettledCaches(client, resolvedQueryKey, extraSnapshots, snapshot, settlingMutationId)
+}
+
 /**
  * Socket-echo-safe optimistic update for `useMutation`. Spread the result next to `mutationFn`:
  *
@@ -247,20 +275,12 @@ export function optimisticMutationOptions<TCache, TVariables>({
       context: OptimisticContext<TCache> | undefined,
       { client }: MutationFunctionContext,
     ) => {
-      const resolvedQueryKey = context?.resolvedQueryKey ?? resolveQueryKey(queryKey, variables)
-      const extraSnapshots = context?.skipped ? [] : (context?.extraSnapshots ?? [])
-      const settlingMutationId = findSettlingMutationId(
-        client,
+      runOptimisticMutationSettled(
+        queryKey,
         mutationKey,
         variables,
         context as OptimisticContext<unknown> | undefined,
-      )
-      invalidateSettledCaches(
         client,
-        resolvedQueryKey,
-        extraSnapshots,
-        context?.skipped ? undefined : context?.snapshot,
-        settlingMutationId,
       )
     },
   }
