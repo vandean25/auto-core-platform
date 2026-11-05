@@ -53,6 +53,25 @@ export class InventoryController {
     return await this.inventoryService.checkAvailability(sku);
   }
 
+  @Get('capped-count')
+  @ApiOperation({
+    summary: 'Bounded match count for parts list filters (ADR-0035 pilot)',
+  })
+  @ApiOkResponse({ type: CappedListCountResponseDto })
+  async cappedCount(
+    @Query('search') search?: string,
+    @Query('location') location?: string,
+    @Query('brand') brand?: string,
+    @Query('brandId') brandId?: string,
+  ) {
+    return await this.inventoryService.cappedListCount({
+      search,
+      location,
+      brand,
+      brandId: parsePositiveInt(brandId),
+    });
+  }
+
   @Get(':id/history')
   @ApiOkResponse({ type: [InventoryTransactionResponseDto] })
   async getHistory(@Param('id', ParseUUIDPipe) id: string) {
@@ -91,25 +110,6 @@ export class InventoryController {
     @Body() dto: UpdateInventoryItemDto,
   ) {
     return await this.inventoryItemMutations.updateItem(id, dto);
-  }
-
-  @Get('capped-count')
-  @ApiOperation({
-    summary: 'Bounded match count for parts list filters (ADR-0035 pilot)',
-  })
-  @ApiOkResponse({ type: CappedListCountResponseDto })
-  async cappedCount(
-    @Query('search') search?: string,
-    @Query('location') location?: string,
-    @Query('brand') brand?: string,
-    @Query('brandId') brandId?: string,
-  ) {
-    return await this.inventoryService.cappedListCount({
-      search,
-      location,
-      brand,
-      brandId: parsePositiveInt(brandId),
-    });
   }
 
   @Get()

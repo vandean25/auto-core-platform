@@ -461,16 +461,17 @@ export class VehicleStockQueryService {
     if (shouldIncludeDrafts(stockStatus)) {
       throw listCursorInvalidException();
     }
+    const { vehicleWhere } = buildVehicleListWhere(
+      tenantId,
+      siteId,
+      stockStatus,
+      params.search,
+    );
     return {
       tenantId,
       siteId,
       stockStatus,
-      vehicleWhere: buildVehicleListWhere(
-        tenantId,
-        siteId,
-        stockStatus,
-        params.search,
-      ),
+      vehicleWhere,
     };
   }
 
