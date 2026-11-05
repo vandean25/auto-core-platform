@@ -162,6 +162,11 @@ function createHarness(sale: unknown, options: { cloudTasks?: boolean } = {}) {
   const siteContext = {
     listAuthorizedSiteIds: jest.fn().mockResolvedValue([SITE_ID]),
   };
+  const effectiveCapabilities = {
+    resolve: jest
+      .fn()
+      .mockResolvedValue({ kaufvertragAt: true, nova: true, pickerl57a: true, willhabenExport: true }),
+  };
 
   const service = new VehicleSaleKaufvertragPdfService(
     new KaufvertragPdfSnapshotService(prisma as never),
@@ -174,9 +179,10 @@ function createHarness(sale: unknown, options: { cloudTasks?: boolean } = {}) {
     cloudTasks as never,
     tenantContext as never,
     siteContext as never,
+    effectiveCapabilities as never,
   );
 
-  return { service, prisma, vehicleSale, renderer, storage, cloudTasks, tenantContext, siteContext };
+  return { service, prisma, vehicleSale, renderer, storage, cloudTasks, tenantContext, siteContext, effectiveCapabilities };
 }
 
 describe('VehicleSaleKaufvertragPdfService', () => {
@@ -390,6 +396,58 @@ describe('VehicleSaleKaufvertragPdfService', () => {
         }),
       );
     });
+
+    it.each([
+      ['off on session', { kaufvertragAt: false, nova: false, pickerl57a: false, willhabenExport: false }, 0],
+      ['off on worker site', null, 1],
+    ] as const)(
+      'refuses generateNow when kaufvertragAt is %s, before loading the sale',
+      async (_label, capabilities, expectedFindCalls) => {
+        const harness = createHarness(loadedSale());
+        harness.effectiveCapabilities.resolve.mockResolvedValue(capabilities);
+        if (capabilities === null) {
+          harness.vehicleSale.findFirst.mockResolvedValueOnce({
+            site: { legal_entity: { country_iso: 'DE' } },
+          });
+        }
+
+        await expect(harness.service.generateNow(SALE_ID)).rejects.toMatchObject({
+          response: { code: 'CAPABILITY_UNAVAILABLE' },
+        });
+        expect(harness.vehicleSale.findFirst).toHaveBeenCalledTimes(
+          expectedFindCalls,
+        );
+      },
+    );
+
+    it.each([
+      ['DE', null, 'DE', false],
+      ['AT', null, 'AT', true],
+    ] as const)(
+      'derive worker kaufvertragAt from the sale site (%s)',
+      async (_label, sessionCaps, countryIso, allowed) => {
+        const harness = createHarness(loadedSale());
+        harness.effectiveCapabilities.resolve.mockResolvedValue(sessionCaps);
+        harness.vehicleSale.findFirst.mockResolvedValueOnce({
+          site: { legal_entity: { country_iso: countryIso } },
+        });
+        if (allowed) {
+          harness.vehicleSale.findFirst.mockResolvedValueOnce(loadedSale());
+        }
+
+        const outcome = allowed
+          ? await harness.service.generateNow(SALE_ID)
+          : await harness.service.generateNow(SALE_ID).catch((e) => e);
+
+        if (allowed) {
+          expect(outcome).toMatchObject({ saleId: SALE_ID });
+        } else {
+          expect(outcome).toMatchObject({
+            response: { code: 'CAPABILITY_UNAVAILABLE' },
+          });
+        }
+      },
+    );
 
     it('adopts the existing object when create-only publication loses, after verifying its identity', async () => {
       const harness = createHarness(loadedSale());

@@ -1,9 +1,10 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 import type { SiteContextService } from '../common/services/site-context.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { McpDocumentReadService } from './mcp-document-read.service.js';
+import type { McpCapabilityGateService } from './mcp-capability-gate.service.js';
 import { encodeMcpKeysetCursor } from './mcp-output.util.js';
 
 const TENANT_ID = 'tenant-a';
@@ -39,6 +40,7 @@ describe('McpDocumentReadService', () => {
   let workshopOrder: SourceModel;
   let vehicleSale: SourceModel;
   let pdfStorage: { createSignedReadUrl: jest.Mock };
+  let capabilityGate: { assertAvailable: jest.Mock; isAvailable: jest.Mock };
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(NOW);
@@ -54,6 +56,10 @@ describe('McpDocumentReadService', () => {
         }),
       ),
     };
+    capabilityGate = {
+      assertAvailable: jest.fn().mockResolvedValue(undefined),
+      isAvailable: jest.fn().mockResolvedValue(true),
+    };
     service = new McpDocumentReadService(
       {
         invoice,
@@ -68,6 +74,7 @@ describe('McpDocumentReadService', () => {
         getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
       } as unknown as TenantContextService,
       pdfStorage as unknown as PdfStorage,
+      capabilityGate as unknown as McpCapabilityGateService,
     );
   });
 
@@ -349,6 +356,21 @@ describe('McpDocumentReadService', () => {
         service.getDocumentPdf({ id: `invoice:${INVOICE_ID}` }),
       ).rejects.toThrow('is not generated yet');
       expect(pdfStorage.createSignedReadUrl).not.toHaveBeenCalled();
+    });
+
+    it('refuses a Kaufvertrag document when kaufvertragAt is off, before loading the sale', async () => {
+      capabilityGate.assertAvailable.mockRejectedValueOnce(
+        new ForbiddenException({
+          code: 'CAPABILITY_UNAVAILABLE',
+          message: 'CAPABILITY_UNAVAILABLE: unavailable',
+        }),
+      );
+
+      await expect(
+        service.getDocumentPdf({ id: `vehicle_sale_contract:${SALE_ID}` }),
+      ).rejects.toMatchObject({ response: { code: 'CAPABILITY_UNAVAILABLE' } });
+      expect(capabilityGate.assertAvailable).toHaveBeenCalledWith('kaufvertragAt');
+      expect(vehicleSale.findFirst).not.toHaveBeenCalled();
     });
 
     it('signs the Kaufvertrag archive for a vehicle sale contract with a safe file name', async () => {
