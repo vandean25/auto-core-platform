@@ -147,7 +147,7 @@ describe('Workshop order notes undo (e2e)', () => {
     const undoRes = await undoNotes(order.id, {
       previousNotes: order.notes,
       expectedUpdatedAt: updated.updatedAt,
-    }).expect(200);
+    }).expect(201);
 
     expect(undoRes.body.notes).toBe(order.notes);
     const row = await prisma.workshopOrder.findUniqueOrThrow({
@@ -165,7 +165,7 @@ describe('Workshop order notes undo (e2e)', () => {
       expectedUpdatedAt: updated.updatedAt,
     };
 
-    await undoNotes(order.id, dto).expect(200);
+    await undoNotes(order.id, dto).expect(201);
     const second = await undoNotes(order.id, dto).expect(409);
     expect(second.body.message).toMatch(/concurrently|Undo is no longer available/i);
   });
