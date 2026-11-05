@@ -6,24 +6,16 @@ cd "${ROOT}"
 
 # shellcheck source=/dev/null
 source "${ROOT}/.cursor/scripts/cloud-agent-export-env.sh"
+# shellcheck source=/dev/null
+source "${ROOT}/.cursor/scripts/cloud-agent-ensure-node.sh"
 
-EXPECTED_NODE="$(tr -d '[:space:]' < .nvmrc)"
-NVM_NODE="${HOME}/.nvm/versions/node/v${EXPECTED_NODE}/bin"
-if [[ -x "${NVM_NODE}/node" ]]; then
-  sudo ln -sf "${NVM_NODE}/node" /usr/local/bin/node
-  sudo ln -sf "${NVM_NODE}/npm" /usr/local/bin/npm
-  sudo ln -sf "${NVM_NODE}/npx" /usr/local/bin/npx
-fi
-
-ACTUAL_NODE="$(node -v | sed 's/^v//')"
-if [[ "${ACTUAL_NODE}" != "${EXPECTED_NODE}" ]]; then
-  echo "node ${ACTUAL_NODE} does not match .nvmrc (${EXPECTED_NODE})" >&2
-  exit 1
-fi
+ensure_node_matches_nvmrc "${ROOT}"
 
 bash "${ROOT}/.cursor/scripts/cloud-agent-start.sh"
 
 npm ci --prefer-offline --no-audit --no-fund
+
+npm exec --workspace=core-web -- playwright install --with-deps chromium
 
 npm exec --workspace=core-api -- prisma generate
 

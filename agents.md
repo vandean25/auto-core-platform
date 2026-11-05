@@ -481,12 +481,11 @@ npm run typecheck:spec --workspace=core-api
 ```
 There is no root `typecheck` script; CI uses `typecheck:spec` for `core-api`.
 
-Only if you added or changed a backend `.e2e-spec.ts`, run that file once against a fresh `auto_core_test` (see reset above), serially:
+The full backend E2E suite runs **only in CI** on every PR; locally run only a new or changed `.e2e-spec.ts` (see [Local checks before pushing](#local-checks-before-pushing-ci-is-the-source-of-truth)). Example smoke file: `test/app.e2e-spec.ts`. When you touch one, run it once against a fresh `auto_core_test` (see reset above), serially:
 ```bash
 DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
 DATABASE_URL="$ACP_E2E_DATABASE_URL" npm run test:e2e --workspace=core-api -- --ci --runInBand test/<your>.e2e-spec.ts
 ```
-Example smoke file: `test/app.e2e-spec.ts`. The full backend E2E suite runs only in CI.
 
 Jest sets `NODE_ENV=test` for e2e (local test JWTs; no Firebase required). Unit tests and frontend Playwright e2e do not need a seeded DB.
 

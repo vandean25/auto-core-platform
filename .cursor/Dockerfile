@@ -33,10 +33,11 @@ RUN curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/ins
   && npm -v
 
 USER root
-RUN ln -sf /home/ubuntu/.nvm/versions/node/v24.22.2/bin/node /usr/local/bin/node \
-  && ln -sf /home/ubuntu/.nvm/versions/node/v24.22.2/bin/npm /usr/local/bin/npm \
-  && ln -sf /home/ubuntu/.nvm/versions/node/v24.22.2/bin/npx /usr/local/bin/npx \
-  && ln -sf /home/ubuntu/.nvm/versions/node/v24.22.2/bin/corepack /usr/local/bin/corepack \
+ARG NODE_VERSION=24.22.2
+RUN ln -sf "/home/ubuntu/.nvm/versions/node/v${NODE_VERSION}/bin/node" /usr/local/bin/node \
+  && ln -sf "/home/ubuntu/.nvm/versions/node/v${NODE_VERSION}/bin/npm" /usr/local/bin/npm \
+  && ln -sf "/home/ubuntu/.nvm/versions/node/v${NODE_VERSION}/bin/npx" /usr/local/bin/npx \
+  && ln -sf "/home/ubuntu/.nvm/versions/node/v${NODE_VERSION}/bin/corepack" /usr/local/bin/corepack \
   && node -v
 
 USER ubuntu
