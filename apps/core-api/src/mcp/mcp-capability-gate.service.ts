@@ -23,7 +23,7 @@ export class McpCapabilityGateService {
   constructor(private readonly capabilities: EffectiveCapabilitiesService) {}
 
   async assertAvailable(capability: keyof CountryCapabilities): Promise<void> {
-    if (await this.capabilities.isAvailable(capability)) return;
+    if ((await this.capabilities.resolve())?.[capability] === true) return;
     // MCP tool errors carry only the message text, so it leads with the code.
     throw new ForbiddenException({
       code: 'CAPABILITY_UNAVAILABLE',
