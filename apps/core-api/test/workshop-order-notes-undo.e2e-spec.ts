@@ -150,7 +150,7 @@ describe('Workshop order notes undo (e2e)', () => {
     }).expect(201);
 
     expect(undoRes.body.notes).toBe(order.notes);
-    const row = await prisma.workshopOrder.findUniqueOrThrow({
+    const row = await prisma.workshopOrder.findFirstOrThrow({
       where: { id: order.id },
       select: { notes: true },
     });
@@ -182,7 +182,7 @@ describe('Workshop order notes undo (e2e)', () => {
     }).expect(409);
 
     expect(conflict.body.message).toMatch(/concurrently|Undo is no longer available/i);
-    const row = await prisma.workshopOrder.findUniqueOrThrow({
+    const row = await prisma.workshopOrder.findFirstOrThrow({
       where: { id: order.id },
       select: { notes: true },
     });
@@ -202,7 +202,7 @@ describe('Workshop order notes undo (e2e)', () => {
     }).expect(409);
 
     expect(conflict.body.message).toMatch(/concurrently|Undo is no longer available/i);
-    const row = await prisma.workshopOrder.findUniqueOrThrow({
+    const row = await prisma.workshopOrder.findFirstOrThrow({
       where: { id: order.id },
       select: { notes: true },
     });
