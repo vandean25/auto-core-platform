@@ -45,7 +45,7 @@ Same pattern as the i18n strict list, for colors and font sizes.
 
 | Scope | Severity | Config |
 | --- | --- | --- |
-| Migrated folders (`src/pages/{workshop,vehicles,vehicle-stock,customers,sales-orders,sales}`, `src/components/{workshop,vehicles,vehicle-stock,customers,sales}`, `src/features/{workshop,vehicle-stock,sales}`, plus the credit-note files in `src/pages/finance` and `src/components/finance` (matched by file name)) | **error** | `apps/core-web/eslint-tokens-ratchet.config.js` → `tokenRatchetFiles` |
+| Migrated folders (`src/pages/{workshop,vehicles,vehicle-stock,customers,sales-orders,sales,inventory,purchase-bills,purchase-invoices,purchase-orders,stock-transfers,vendors}` and `src/pages/InventoryList*`, `src/components/{workshop,vehicles,vehicle-stock,customers,sales,inventory,purchase-bills,purchase-invoices}`, `src/features/{workshop,vehicle-stock,sales,inventory,purchase-bills}`, plus the credit-note files in `src/pages/finance` and `src/components/finance` (matched by file name)) | **error** | `apps/core-web/eslint-tokens-ratchet.config.js` → `tokenRatchetFiles` |
 
 In those folders `no-restricted-syntax` fails on Tailwind palette colors (`text-slate-500`, `bg-amber-50`, `border-white`, …) and arbitrary font sizes (`text-[11px]`) in string literals and template strings. Tests are excluded. The block repeats the global `Intl.*` selectors because a later `no-restricted-syntax` entry replaces an earlier one.
 

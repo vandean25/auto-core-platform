@@ -178,7 +178,7 @@ export function StockTransferDetailHeader(props: TransferActionButtonsProps) {
             {transfer.transferNumber}
             <StatusBadge status={transfer.status} />
           </h1>
-          <p className="text-slate-500">
+          <p className="text-muted-foreground">
             {t('inventory:stockTransfers.detail.requestedAt', {
               date: formatDateTime(transfer.createdAt),
             })}

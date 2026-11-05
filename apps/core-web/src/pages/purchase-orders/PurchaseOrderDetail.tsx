@@ -35,6 +35,8 @@ import { QuickAddBar } from "./PurchaseOrderQuickAdd";
 import { LineItemsTable } from "./PurchaseOrderLineItems";
 import { usePurchaseOrderLineEditing } from "./usePurchaseOrderLineEditing";
 import { useMergeFeedback, usePurchaseOrderQuickAdd } from "./usePurchaseOrderQuickAdd";
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 export default function PurchaseOrderDetail() {
   const { t } = useTranslation("finance");
@@ -62,9 +64,21 @@ export default function PurchaseOrderDetail() {
     (item) => item.purchaseOrderNumber === po?.order_number,
   ).length;
 
-  if (isLoading) return <div>{t("shared.loading")}</div>;
-  if (error) return <div>{t("purchaseOrders.detail.loadError")}</div>;
-  if (!po) return <div>{t("purchaseOrders.detail.notFound")}</div>;
+  if (isLoading) return <DetailSkeleton label={t("shared.loading")} />;
+  if (error) {
+    return (
+      <Empty>
+        <EmptyDescription>{t("purchaseOrders.detail.loadError")}</EmptyDescription>
+      </Empty>
+    );
+  }
+  if (!po) {
+    return (
+      <Empty>
+        <EmptyDescription>{t("purchaseOrders.detail.notFound")}</EmptyDescription>
+      </Empty>
+    );
+  }
 
   const handleMarkAsSent = async () => {
     const pendingSave = lineEditing.flushPendingEdit();

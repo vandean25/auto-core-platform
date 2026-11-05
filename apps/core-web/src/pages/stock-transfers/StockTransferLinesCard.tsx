@@ -240,7 +240,7 @@ function LinePhoneDetails({ line, ctx }: LineProps) {
       <dl className="space-y-1 text-sm">
         {(['sourceBin', 'destBin'] as const).map((key) => (
           <div key={key}>
-            <dt className="text-xs text-slate-500">{t(`inventory:stockTransfers.detail.columns.${key}`)}</dt>
+            <dt className="text-xs text-muted-foreground">{t(`inventory:stockTransfers.detail.columns.${key}`)}</dt>
             <dd className="break-words">
               {key === 'sourceBin' ? <SourceBinText line={line} ctx={ctx} /> : <DestBinText line={line} ctx={ctx} />}
             </dd>
@@ -248,7 +248,7 @@ function LinePhoneDetails({ line, ctx }: LineProps) {
         ))}
       </dl>
       {hasControls ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {actions.ship
             ? t('inventory:stockTransfers.detail.summary.approved', { qty: formatQty(line.approvedQty) })
             : t('inventory:stockTransfers.detail.summary.shippedOutstanding', {
@@ -269,7 +269,7 @@ function PartCell({ line, ctx }: LineProps) {
   return (
     <div className="min-w-0">
       <div className="break-words font-medium">{catalog?.sku ?? line.catalogItemId}</div>
-      {catalog?.name ? <div className="break-words text-xs text-slate-500">{catalog.name}</div> : null}
+      {catalog?.name ? <div className="break-words text-xs text-muted-foreground">{catalog.name}</div> : null}
     </div>
   )
 }

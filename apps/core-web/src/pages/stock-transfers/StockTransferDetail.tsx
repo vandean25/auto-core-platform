@@ -18,6 +18,8 @@ import {
   useTransferLabels,
   useTransferLineInputs,
 } from './use-stock-transfer-detail'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
 
 interface TransferSectionProps {
   transfer: StockTransfer
@@ -30,14 +32,14 @@ function SiteSwitchHints({ transfer, access }: TransferSectionProps) {
   return (
     <>
       {access.needsFromSiteForShip ? (
-        <p className="text-sm text-amber-700">
+        <p className="text-sm text-warning">
           {t('inventory:stockTransfers.detail.switchToSourceSite', {
             site: transfer.fromSiteName ?? t('inventory:stockTransfers.detail.switchToSourceSiteFallback'),
           })}
         </p>
       ) : null}
       {access.needsToSiteForReceive ? (
-        <p className="text-sm text-amber-700">
+        <p className="text-sm text-warning">
           {t('inventory:stockTransfers.detail.switchToDestSite', {
             site: transfer.toSiteName ?? t('inventory:stockTransfers.detail.switchToDestSiteFallback'),
           })}
@@ -59,22 +61,22 @@ function TransferRouteCard({ transfer }: { transfer: StockTransfer }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm sm:grid sm:grid-cols-2 sm:gap-6 sm:space-y-0">
         <div>
-          <p className="text-slate-500">{t('inventory:stockTransfers.detail.from')}</p>
+          <p className="text-muted-foreground">{t('inventory:stockTransfers.detail.from')}</p>
           <p className="font-medium">{transfer.fromSiteName ?? transfer.fromSiteId}</p>
         </div>
         <div>
-          <p className="text-slate-500">{t('inventory:stockTransfers.detail.to')}</p>
+          <p className="text-muted-foreground">{t('inventory:stockTransfers.detail.to')}</p>
           <p className="font-medium">{transfer.toSiteName ?? transfer.toSiteId}</p>
         </div>
         {transfer.rejectReason ? (
           <div>
-            <p className="text-slate-500">{t('inventory:stockTransfers.detail.rejectReason')}</p>
+            <p className="text-muted-foreground">{t('inventory:stockTransfers.detail.rejectReason')}</p>
             <p>{transfer.rejectReason}</p>
           </div>
         ) : null}
         {transfer.cancelReason ? (
           <div>
-            <p className="text-slate-500">{t('inventory:stockTransfers.detail.cancelReason')}</p>
+            <p className="text-muted-foreground">{t('inventory:stockTransfers.detail.cancelReason')}</p>
             <p>{transfer.cancelReason}</p>
           </div>
         ) : null}
@@ -103,11 +105,15 @@ export default function StockTransferDetail() {
   const fulfilmentActions = useFulfilmentActions(id, access, inputs)
 
   if (isLoading) {
-    return <div className="p-8 text-center">{t('inventory:stockTransfers.detail.loading')}</div>
+    return <DetailSkeleton label={t('inventory:stockTransfers.detail.loading')} />
   }
 
   if (error || !transfer) {
-    return <div className="p-8 text-center">{t('inventory:stockTransfers.detail.notFound')}</div>
+    return (
+      <Empty>
+        <EmptyDescription>{t('inventory:stockTransfers.detail.notFound')}</EmptyDescription>
+      </Empty>
+    )
   }
 
   return (

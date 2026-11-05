@@ -191,11 +191,13 @@ describe('StockTransferDetail', () => {
   })
 
   describe('loading, not found and header', () => {
-    it('shows the loading message while the transfer loads', () => {
+    // Regression: the loading state was a bare text block instead of a skeleton.
+    it('WHEN the stock transfer is loading THEN a Skeleton is shown instead of the loading text', async () => {
       apiMocks.useStockTransfer.mockReturnValue({ data: undefined, isLoading: true, error: null })
-      renderPage()
+      const { container } = renderPage()
 
-      expect(screen.getByText(detail.loading)).toBeInTheDocument()
+      expect(await screen.findByRole('status')).toHaveTextContent(detail.loading)
+      expect(container.querySelector('.animate-pulse')).not.toBeNull()
       expect(screen.queryByText(detail.notFound)).not.toBeInTheDocument()
     })
 

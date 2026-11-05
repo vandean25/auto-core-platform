@@ -13,7 +13,7 @@ export function PurchaseBillForm(props: PurchaseBillFormProps) {
   return (
     <div className="space-y-6">
       <PurchaseBillPageHeader form={form} />
-      <div className="bg-white rounded-lg border p-6 space-y-6">
+      <div className="bg-card rounded-lg border p-6 space-y-6">
         <PurchaseBillHeaderFields form={form} />
         <PurchaseBillReceiptPicker form={form} />
         <PurchaseBillLineItemEditor form={form} />

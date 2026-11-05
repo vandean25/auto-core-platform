@@ -16,7 +16,7 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
   if (!form.vendorId) return null
 
   return (
-    <div className="border rounded-lg p-4 space-y-3 bg-slate-50">
+    <div className="border rounded-lg p-4 space-y-3 bg-muted/50">
       <div className="flex items-center gap-2 text-sm font-medium">
         <ReceiptText className="h-4 w-4" />
         {form.receiptSummaries.length > 0
@@ -25,7 +25,7 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
       </div>
 
       {form.isUnbilledLoading && (
-        <p className="text-sm text-slate-500">{t('purchaseBills.form.checkingReceipts')}</p>
+        <p className="text-sm text-muted-foreground">{t('purchaseBills.form.checkingReceipts')}</p>
       )}
 
       {!form.isUnbilledLoading && form.receiptSummaries.length > 0 && (
@@ -41,7 +41,7 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
             return (
               <label
                 key={receipt.id}
-                className="flex items-center justify-between gap-3 rounded-md border bg-white px-3 py-2 cursor-pointer"
+                className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2 cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <Checkbox
@@ -52,7 +52,7 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
                   />
                   <div className="flex flex-col">
                     <span className="font-medium">{receipt.number}</span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-muted-foreground">
                       {t('shared.lineCountPending', {
                         count: receipt.lineCount,
                         qty: receipt.pendingQuantity,

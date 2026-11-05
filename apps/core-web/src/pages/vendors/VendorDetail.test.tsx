@@ -178,4 +178,21 @@ describe('VendorDetail Price List & Articles integration', () => {
     expect(screen.getByText('Bremsbelagsatz')).toBeInTheDocument()
     expect(screen.getByText('(0204114532)')).toBeInTheDocument()
   })
+
+  // Regression: the loading state was a bare text block instead of a skeleton.
+  it('WHEN the vendor is loading THEN a Skeleton is shown instead of the loading text', async () => {
+    ;(vendorsApi.useVendor as ReturnType<typeof vi.fn>).mockReturnValue({ data: undefined, isLoading: true })
+    const { container } = renderComponent()
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Lieferantendetails werden geladen')
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+  })
+
+  // Regression: the missing vendor was a bare text block, not the shared Empty.
+  it('WHEN the vendor does not exist THEN the shared Empty is shown with the German text', () => {
+    ;(vendorsApi.useVendor as ReturnType<typeof vi.fn>).mockReturnValue({ data: undefined, isLoading: false })
+    const { container } = renderComponent()
+
+    expect(container.querySelector('[data-slot="empty"]')).toHaveTextContent('Lieferant nicht gefunden.')
+  })
 })
