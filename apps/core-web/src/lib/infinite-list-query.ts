@@ -34,25 +34,29 @@ export function isInfiniteDataShape(data: unknown): data is InfiniteData<unknown
   )
 }
 
+function rowIdsFromRows(rows: Array<{ id: string }> | undefined): readonly string[] | undefined {
+  if (!rows) return undefined
+  if (!rows.every((row) => typeof row.id === 'string')) return undefined
+  return rows.map((row) => row.id)
+}
+
+function rowIdsFromInfinitePages(pages: unknown[]): readonly string[] | undefined {
+  const ids: string[] = []
+  for (const page of pages) {
+    const pageIds = rowIdsFromRows(extractRowArray(page))
+    if (!pageIds) return undefined
+    ids.push(...pageIds)
+  }
+  return ids
+}
+
 /** Reads stable row ids from infinite pages or offset `{ data: { id }[] }` list caches. */
 export function listRowIdsFromCache(cache: unknown): readonly string[] | undefined {
   if (cache === undefined || cache === null) return undefined
   if (isInfiniteDataShape(cache)) {
-    const ids: string[] = []
-    for (const page of cache.pages) {
-      const rows = extractRowArray(page)
-      if (!rows) return undefined
-      for (const row of rows) {
-        if (typeof row?.id !== 'string') return undefined
-        ids.push(row.id)
-      }
-    }
-    return ids
+    return rowIdsFromInfinitePages(cache.pages)
   }
-  const rows = extractRowArray(cache)
-  if (!rows) return undefined
-  if (!rows.every((row) => typeof row?.id === 'string')) return undefined
-  return rows.map((row) => row.id)
+  return rowIdsFromRows(extractRowArray(cache))
 }
 
 function extractRowArray(value: unknown): Array<{ id: string }> | undefined {
