@@ -17,6 +17,16 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { SiteContextService } from '../site/site-context.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { QueryBuilder } from '../common/utils/query-builder.js';
+import {
+  cappedVehicleListCount,
+  fetchKeysetListPage,
+  listCursorStockFilterRequiredException,
+  VEHICLE_STOCK_LIST_LIMIT_MAX,
+} from '../common/list-cursor/index.js';
+import {
+  resolveVehicleStockCursorSort,
+  VEHICLE_STOCK_CURSOR_ENDPOINT,
+} from './vehicle-stock-list-cursor.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { omitKaufvertragArchiveInternals } from './kaufvertrag/kaufvertrag-sale-response.js';
 import {
@@ -129,6 +139,28 @@ function parsePagination(params: { page?: number; limit?: number }) {
   return { page, limit };
 }
 
+function parseVehicleStockCursorLimit(limit?: number): number {
+  const raw = limit && limit > 0 ? limit : 25;
+  return Math.min(Math.max(1, raw), VEHICLE_STOCK_LIST_LIMIT_MAX);
+}
+
+function vehicleStockListFilterContext(params: {
+  search?: string;
+  stock_status?: string;
+}): Record<string, unknown> {
+  return {
+    search: params.search?.trim() ?? '',
+    stock_status: params.stock_status ?? '',
+  };
+}
+
+function readVehicleSortValue(
+  vehicle: Record<string, unknown>,
+  prismaField: string,
+): unknown {
+  return vehicle[prismaField];
+}
+
 function buildPaginationMeta(total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit);
   return {
@@ -168,6 +200,7 @@ export function buildVehicleListWhere(
   const searchFilter = searchClause(search);
   const vehicleWhere: Prisma.VehicleWhereInput = {
     tenant_id: tenantId,
+    site_id: siteId,
     location: { site_id: siteId },
     inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
     ...(stockStatus ? { stock_status: stockStatus } : {}),
@@ -368,6 +401,76 @@ export class VehicleStockQueryService {
         ...vehicles.map(mapStockVehicle),
       ],
       meta: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  async listWithCursor(params: {
+    search?: string;
+    stock_status?: string;
+    limit?: number;
+    sortField?: string;
+    sortDirection?: 'asc' | 'desc';
+    cursor?: string;
+  }) {
+    const scope = await this.vehicleStockCursorScope(params);
+    const { field, direction, config } = resolveVehicleStockCursorSort(
+      params.sortField,
+      params.sortDirection,
+    );
+    const limit = parseVehicleStockCursorLimit(params.limit);
+    return fetchKeysetListPage(
+      {
+        endpoint: VEHICLE_STOCK_CURSOR_ENDPOINT,
+        tenantId: scope.tenantId,
+        siteId: scope.siteId,
+        filterHashInput: vehicleStockListFilterContext(params),
+        sortField: field,
+        sortDirection: direction,
+        sortConfig: config,
+        cursor: params.cursor,
+        limit,
+        baseWhere: scope.vehicleWhere,
+      },
+      {
+        findMany: (where, orderBy, take) =>
+          this.prisma.vehicle.findMany({
+            where: where,
+            include: VEHICLE_LIST_INCLUDE,
+            orderBy: orderBy,
+            take,
+          }),
+        mapRow: mapStockVehicle,
+        readSortValue: readVehicleSortValue,
+      },
+    );
+  }
+
+  async cappedListCount(params: { search?: string; stock_status?: string }) {
+    const scope = await this.vehicleStockCursorScope(params);
+    return cappedVehicleListCount(this.prisma, scope.vehicleWhere);
+  }
+
+  private async vehicleStockCursorScope(params: {
+    search?: string;
+    stock_status?: string;
+  }) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+    const stockStatus = parseStockStatus(params.stock_status);
+    if (shouldIncludeDrafts(stockStatus)) {
+      throw listCursorStockFilterRequiredException();
+    }
+    const { vehicleWhere } = buildVehicleListWhere(
+      tenantId,
+      siteId,
+      stockStatus,
+      params.search,
+    );
+    return {
+      tenantId,
+      siteId,
+      stockStatus,
+      vehicleWhere,
     };
   }
 

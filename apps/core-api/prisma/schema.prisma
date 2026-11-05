@@ -1142,6 +1142,9 @@ model CatalogItem {
 
   @@unique([tenant_id, sku]) // tenant-scoped
   @@index([tenant_id])
+  @@index([tenant_id, sku, id])
+  @@index([tenant_id, name, id])
+  @@index([tenant_id, retail_price, id])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "catalog_items_name_trgm_idx")
   @@index([sku(ops: raw("gin_trgm_ops"))], type: Gin, map: "catalog_items_sku_trgm_idx")
   @@map("catalog_items")
@@ -1907,6 +1910,13 @@ model Vehicle {
   @@index([make_brand_id])
   @@index([tenant_id, vin])
   @@index([tenant_id, plate_normalized])
+  @@index([tenant_id, site_id, year, id])
+  @@index([tenant_id, site_id, updatedAt, id])
+  @@index([tenant_id, site_id, make, id])
+  @@index([tenant_id, site_id, model, id])
+  @@index([tenant_id, site_id, plate, id])
+  @@index([tenant_id, site_id, vin, id])
+  @@index([tenant_id, site_id, color, id])
   @@index([plate(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_plate_trgm_idx")
   @@index([vin(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_vin_trgm_idx")
   @@map("vehicles")
