@@ -129,7 +129,6 @@ describe('Workshop order notes undo (e2e)', () => {
       },
     });
     customerId = customer.id;
-
   });
 
   afterAll(async () => {
