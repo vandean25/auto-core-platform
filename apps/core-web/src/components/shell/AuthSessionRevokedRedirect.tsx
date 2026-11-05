@@ -29,7 +29,7 @@ export function AuthSessionRevokedRedirect({ signOutUser }: AuthSessionRevokedRe
 
   if (signOutFailed) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 px-4 text-center text-sm text-slate-600">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-muted px-4 text-center text-sm text-muted-foreground">
         <p className="max-w-md">{t('shell.sessionSignOutFailed.description')}</p>
         <Button
           type="button"

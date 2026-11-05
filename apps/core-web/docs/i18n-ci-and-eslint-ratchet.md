@@ -45,9 +45,9 @@ Same pattern as the i18n strict list, for colors and font sizes.
 
 | Scope | Severity | Config |
 | --- | --- | --- |
-| Migrated folders (`src/pages/{workshop,vehicles,vehicle-stock,customers,sales-orders,sales,inventory,purchase-bills,purchase-invoices,purchase-orders,stock-transfers,vendors,finance,reports,agent,hr,platform}` and `src/pages/{InventoryList,SettingsPage,settings-}*`, `src/components/{workshop,vehicles,vehicle-stock,customers,sales,inventory,purchase-bills,purchase-invoices,finance,agent,hr,settings}`, `src/features/{workshop,vehicle-stock,sales,inventory,purchase-bills}`, plus the credit-note files in `src/pages/finance` and `src/components/finance` (matched by file name)) | **error** | `apps/core-web/eslint-tokens-ratchet.config.js` → `tokenRatchetFiles` |
+| All of `src` (every folder is migrated; AUT-659) except `src/components/ui` (shadcn base: scrim `bg-black/80`, rem font sizes), `src/lib/format` (Intl is allowed there) and `src/pages/public` (the customer approval page renders outside the theme provider and stays light) | **error** | `apps/core-web/eslint-tokens-ratchet.config.js` → `tokenRatchetFiles`, exemptions in `eslint.config.js` |
 
-In those folders `no-restricted-syntax` fails on Tailwind palette colors (`text-slate-500`, `bg-amber-50`, `border-white`, …) and arbitrary font sizes (`text-[11px]`) in string literals and template strings. Tests are excluded. The block repeats the global `Intl.*` selectors because a later `no-restricted-syntax` entry replaces an earlier one.
+In those files `no-restricted-syntax` fails on Tailwind palette colors (`text-slate-500`, `bg-amber-50`, `border-white`, …) and arbitrary font sizes (`text-[11px]`) in string literals and template strings. Tests are excluded. The block repeats the global `Intl.*` selectors because a later `no-restricted-syntax` entry replaces an earlier one.
 
 To add a folder:
 
@@ -58,3 +58,12 @@ To add a folder:
 ## Playwright locale smoke
 
 `apps/core-web/e2e/i18n-en-login.spec.ts` sets the persisted UI language to English before load and asserts `document.documentElement.lang` plus login copy from `locales/en/common.json` (resource bundle smoke, not text selectors in DE tests).
+
+## Dark mode (AUT-659)
+
+`next-themes` sets the class `dark` on `<html>` (`AppThemeProvider`, storage key `acp-theme`, default `system`). The account menu (`NavUser`) offers Hell / Dunkel / System. Colours come from the tokens in `src/index.css`; the `.dark` block redefines them, so a component with tokens needs no `dark:` variants.
+
+- **Print and documents stay light:** `useForceLightTheme()` (used by print views such as the loaner booking protocol) and the `beforeprint` / `afterprint` listener of `AppThemeProvider` add `theme-light` to `<html>`; the light tokens are declared after the dark ones, so they win on the same element.
+- **Charts:** Recharts series use `var(--chart-1)` … `var(--chart-5)`; tooltip and legend use the popover and foreground tokens.
+- **Toasts:** `components/ui/sonner.tsx` reads the theme from `next-themes`.
+- **Checks:** `e2e/dark-mode.spec.ts` (switch, reload, system, print, 375px), the dark block of `e2e/a11y-smoke.spec.ts` (axe contrast) and the `*-dark` baselines of `e2e/visual/pages.visual.spec.ts`.

@@ -39,7 +39,7 @@ export function TaskHeader({
             <h1 className="text-2xl font-semibold tracking-tight">{task.taskTitle}</h1>
             <StatusBadge status={task.taskStatus} />
           </div>
-          <p className="text-slate-500 text-sm mt-0.5">
+          <p className="text-muted-foreground text-sm mt-0.5">
             {t('mechanic.taskDetail.header.order', { orderNumber: task.orderNumber })}
           </p>
         </div>

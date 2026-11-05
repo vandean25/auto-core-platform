@@ -31,14 +31,14 @@ export function PartsSection({ partItems, isDone, onRequestPart }: PartsSectionP
       </CardHeader>
       <CardContent>
         {partItems.length === 0 ? (
-          <p className="text-sm text-slate-400">{t('mechanic.taskDetail.parts.empty')}</p>
+          <p className="text-sm text-muted-foreground">{t('mechanic.taskDetail.parts.empty')}</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-border">
             {partItems.map((lineItem) => (
               <li key={lineItem.id} className="flex items-center justify-between py-3">
                 <span className="text-sm font-medium">{lineItem.description}</span>
                 <div className="flex items-center gap-3 ml-4 shrink-0">
-                  <span className="text-sm text-slate-500">
+                  <span className="text-sm text-muted-foreground">
                     {t('mechanic.taskDetail.parts.qty', { qty: lineItem.qty })}
                   </span>
                   {lineItem.partExecutionStatus && (

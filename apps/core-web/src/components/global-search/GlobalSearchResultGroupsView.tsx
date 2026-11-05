@@ -67,7 +67,7 @@ export function SearchResultGroup({
   return (
     <CommandGroup heading={i18n.t(SEARCH_TYPE_REGISTRY[group.type].labelKey)}>
       {group.error ? (
-        <p role="status" className="px-2 py-2 text-xs text-slate-500">
+        <p role="status" className="px-2 py-2 text-xs text-muted-foreground">
           {t('globalSearch.groupUnavailable')}
         </p>
       ) : null}
@@ -103,7 +103,7 @@ export function RecentItemsGroup({
           <button
             type="button"
             aria-label={t('globalSearch.removeRecent', { title: item.title })}
-            className="ml-2 shrink-0 rounded p-1 text-muted-foreground hover:bg-slate-100 hover:text-foreground"
+            className="ml-2 shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             // cmdk selects the highlighted item on Enter, even when the key comes from this button.
             onKeyDown={(event) => {
               if (event.key === 'Enter') event.stopPropagation()
@@ -144,12 +144,12 @@ export function PrefixHelp() {
   const { t } = useTranslation('nav')
 
   return (
-    <div className="px-3 py-2 text-xs text-slate-500">
+    <div className="px-3 py-2 text-xs text-muted-foreground">
       <p className="font-medium">{t('globalSearch.prefixHelp')}</p>
       <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
         {getSearchPrefixes().map(({ prefix, type }) => (
           <li key={prefix}>
-            <code className="rounded bg-slate-100 px-1">{prefix}:</code> {i18n.t(SEARCH_TYPE_REGISTRY[type].labelKey)}
+            <code className="rounded bg-muted px-1">{prefix}:</code> {i18n.t(SEARCH_TYPE_REGISTRY[type].labelKey)}
           </li>
         ))}
       </ul>
@@ -187,7 +187,7 @@ export function SearchResults({
       {isEmpty ? (
         <CommandEmpty>
           <p>{t('globalSearch.emptyNoMatch', { query })}</p>
-          <p className="mt-1 text-xs text-slate-500">{t('globalSearch.emptyHint')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('globalSearch.emptyHint')}</p>
         </CommandEmpty>
       ) : null}
       {error ? <div className="px-2 py-6 text-sm text-destructive">{t('globalSearch.unavailable')}</div> : null}

@@ -134,7 +134,7 @@ export function LoginSignInCard() {
                 onChange={handleFieldChange(setPassword)}
               />
               <Button
-                className="h-auto px-0 text-slate-600"
+                className="h-auto px-0 text-muted-foreground"
                 disabled={googleSubmitting || resetSubmitting || submitting}
                 onClick={() => void handlePasswordReset()}
                 type="button"

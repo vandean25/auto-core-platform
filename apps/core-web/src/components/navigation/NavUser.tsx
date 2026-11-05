@@ -1,10 +1,13 @@
-import { BookOpen, Check, ExternalLink, UserRound } from 'lucide-react'
+import { BookOpen, Check, ExternalLink, Monitor, Moon, Sun, UserRound } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { useTranslation } from 'react-i18next'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -13,6 +16,12 @@ import { InstallAppMenuItem } from '@/components/pwa/InstallAppMenuItem'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
 import { useUiLanguage, type UiLanguage } from '@/lib/i18n'
 import { SidebarDropdownButton } from './SidebarDropdownButton'
+
+const THEME_CHOICES = [
+  { value: 'light', icon: Sun },
+  { value: 'dark', icon: Moon },
+  { value: 'system', icon: Monitor },
+] as const
 
 type NavUserProps = {
   userEmail: string | null
@@ -27,12 +36,13 @@ function initialsFor(email: string | null) {
   return letters.toUpperCase()
 }
 
-/** Account menu in the sidebar footer: UI language, help and sign out. */
+/** Account menu in the sidebar footer: UI language, theme, help and sign out. */
 export function NavUser({ userEmail, onSignOut }: NavUserProps) {
   const { t } = useTranslation('nav')
   const { t: tCommon } = useTranslation('common')
   const { isMobile } = useSidebar()
   const { language, setLanguage, isSwitching, switchError, labels } = useUiLanguage()
+  const { theme = 'system', setTheme } = useTheme()
   const initials = initialsFor(userEmail)
   const accountLabel = userEmail ?? tCommon('profile.menuLabel')
 
@@ -82,6 +92,22 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
                 {labels.error}
               </p>
             ) : null}
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{t('user.theme.section')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+              {THEME_CHOICES.map(({ value, icon: Icon }) => (
+                <DropdownMenuRadioItem
+                  key={value}
+                  value={value}
+                  className="max-sm:min-h-11"
+                  data-testid={`theme-option-${value}`}
+                >
+                  <Icon aria-hidden="true" className="mr-2 h-4 w-4" />
+                  {t(`user.theme.${value}`)}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
 
             <DropdownMenuSeparator />
             <InstallAppMenuItem />

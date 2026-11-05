@@ -9,7 +9,7 @@ import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
 function MechanicAccessDeniedContent() {
   const { t } = useTranslation('workshop')
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-12 sm:px-6">
+    <div className="min-h-[calc(100vh-4rem)] bg-muted/50 px-4 py-12 sm:px-6">
       <Card className="mx-auto w-full max-w-lg text-center">
         <CardHeader>
           <CardTitle>{t('mechanic.accessDenied.title')}</CardTitle>

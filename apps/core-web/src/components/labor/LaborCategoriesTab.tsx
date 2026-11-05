@@ -143,10 +143,10 @@ function InlineRateEditor({
   return (
     <button
       onClick={e => { e.stopPropagation(); setEditing(true) }}
-      className="text-xs text-slate-600 hover:underline cursor-pointer tabular-nums min-w-[64px] text-left"
+      className="text-xs text-muted-foreground hover:underline cursor-pointer tabular-nums min-w-[64px] text-left"
       title={t("labor.categories.tree.rateTitle")}
     >
-      {value != null ? formatCurrency(value) : <span className="text-slate-400">{t("labor.categories.notSet")}</span>}
+      {value != null ? formatCurrency(value) : <span className="text-muted-foreground">{t("labor.categories.notSet")}</span>}
     </button>
   )
 }
@@ -179,8 +179,8 @@ function CategoryActiveBadge({
       className={cn(
         "text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0",
         isActive
-          ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-          : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
+          ? "bg-success/10 border-success/30 text-success hover:bg-success/15"
+          : "bg-muted border-border text-muted-foreground hover:bg-muted-foreground/20",
       )}
       title={title}
     >
@@ -210,7 +210,7 @@ function CategoryRowActions({
     <div className="flex shrink-0 items-center gap-1">
       <button
         onClick={e => { e.stopPropagation(); onEdit(category) }}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-slate-700"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground"
         aria-label={editAria}
         title={editTitle}
       >
@@ -218,7 +218,7 @@ function CategoryRowActions({
       </button>
       <button
         onClick={e => { e.stopPropagation(); onDelete(category) }}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-red-600"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-destructive/80"
         aria-label={deleteAria}
         title={deleteTitle}
       >
@@ -258,8 +258,8 @@ function CategoryTreeRow({
       <div
         className={cn(
           "flex items-center gap-2 p-2 rounded-md group transition-colors max-sm:flex-wrap",
-          level > 0 && "ml-3 border-l-2 border-slate-100 pl-2 sm:ml-6 sm:pl-3",
-          isDragOver ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50",
+          level > 0 && "ml-3 border-l-2 border-border pl-2 sm:ml-6 sm:pl-3",
+          isDragOver ? "bg-info/10 ring-1 ring-info/30" : "hover:bg-muted/50",
         )}
         onContextMenu={e => onContextMenu(e, category)}
         draggable
@@ -269,11 +269,11 @@ function CategoryTreeRow({
         onDragEnd={dragProps.onDragEnd}
       >
         {/* Drag Handle */}
-        <GripVertical className="h-4 w-4 text-slate-300 cursor-grab active:cursor-grabbing shrink-0" />
+        <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing shrink-0" />
 
         {/* Expand / Collapse */}
         <button
-          className="flex items-center justify-center w-4 h-4 text-slate-400 shrink-0"
+          className="flex items-center justify-center w-4 h-4 text-muted-foreground shrink-0"
           onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
           aria-label={expanded ? t("labor.categories.tree.collapse") : t("labor.categories.tree.expand")}
           tabIndex={-1}
@@ -287,7 +287,7 @@ function CategoryTreeRow({
 
         {/* Name – click to edit */}
         <button
-          className="min-w-0 flex-1 break-words text-left text-sm font-medium text-slate-800 hover:text-blue-600 max-sm:min-w-[11rem] sm:truncate"
+          className="min-w-0 flex-1 break-words text-left text-sm font-medium text-foreground hover:text-info max-sm:min-w-[11rem] sm:truncate"
           onClick={() => onEdit(category)}
         >
           {category.name}
@@ -639,11 +639,11 @@ export function LaborCategoriesTab() {
         <Card>
           <CardContent className="p-4">
             {isLoading ? (
-              <div className="flex items-center justify-center p-8 text-slate-500">
+              <div className="flex items-center justify-center p-8 text-muted-foreground">
                 <Loader2 className="animate-spin h-6 w-6 mr-2" /> {t("labor.categories.loading")}
               </div>
             ) : categories.length === 0 ? (
-              <div className="text-center p-8 text-slate-500">
+              <div className="text-center p-8 text-muted-foreground">
                 {t("labor.categories.empty")}
               </div>
             ) : (
@@ -680,7 +680,7 @@ export function LaborCategoriesTab() {
             <form onSubmit={e => void handleAdd(e)} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="add-category-name" className="text-sm font-medium">
-                  {t("labor.categories.addDialog.name")} <span className="text-red-500">*</span>
+                  {t("labor.categories.addDialog.name")} <span className="text-destructive">*</span>
                 </label>
                 <Input
                   id="add-category-name"
@@ -754,8 +754,8 @@ export function LaborCategoriesTab() {
                   className={cn(
                     "text-xs px-3 py-1 rounded-full border font-medium transition-colors",
                     addForm.is_active
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                      : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
+                      ? "bg-success/10 border-success/30 text-success hover:bg-success/15"
+                      : "bg-muted border-border text-muted-foreground hover:bg-muted-foreground/20",
                   )}
                   aria-label={t("labor.categories.addDialog.activeAria", {
                     state: addForm.is_active
@@ -786,12 +786,12 @@ export function LaborCategoriesTab() {
       {/* ── Context Menu ── */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-white border rounded-md shadow-lg py-1 min-w-[130px]"
+          className="fixed z-50 bg-card border rounded-md shadow-lg py-1 min-w-[130px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           <button
             type="button"
-            className="w-full px-3 py-1.5 text-sm text-left text-red-600 hover:bg-red-50 hover:text-red-700"
+            className="w-full px-3 py-1.5 text-sm text-left text-destructive hover:bg-destructive/10 hover:text-destructive/80"
             onClick={handleDeleteClick}
           >
             {t("labor.categories.contextDelete")}
@@ -817,7 +817,7 @@ export function LaborCategoriesTab() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label htmlFor="edit-category-name" className="text-sm font-medium">
-                {t("labor.categories.addDialog.name")} <span className="text-red-500">*</span>
+                {t("labor.categories.addDialog.name")} <span className="text-destructive">*</span>
               </label>
               <Input
                 id="edit-category-name"
@@ -892,8 +892,8 @@ export function LaborCategoriesTab() {
                 className={cn(
                   "text-xs px-3 py-1 rounded-full border font-medium transition-colors",
                   editForm.is_active
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                    : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
+                    ? "bg-success/10 border-success/30 text-success hover:bg-success/15"
+                    : "bg-muted border-border text-muted-foreground hover:bg-muted-foreground/20",
                 )}
                 aria-label={t("labor.categories.addDialog.activeAria", {
                   state: editForm.is_active
@@ -935,7 +935,7 @@ export function LaborCategoriesTab() {
                   />
                 </p>
                 {deleteTarget && deleteTarget.children.length > 0 && (
-                  <p className="mt-2 text-amber-600">
+                  <p className="mt-2 text-warning">
                     {t("labor.categories.deleteDialog.childrenWarning", {
                       count: deleteTarget.children.length,
                     })}
@@ -948,7 +948,7 @@ export function LaborCategoriesTab() {
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleDeleteConfirm()}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}

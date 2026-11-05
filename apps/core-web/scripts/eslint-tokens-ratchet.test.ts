@@ -72,6 +72,10 @@ describe('design-token ratchet (AUT-659)', () => {
     'src/components/agent/Example.tsx',
     'src/components/hr/Example.tsx',
     'src/components/settings/Example.tsx',
+    'src/components/Example.tsx',
+    'src/features/dashboard-widgets/Example.tsx',
+    'src/pages/mechanic/Example.tsx',
+    'src/pages/login/Example.tsx',
     'src/pages/inventory/Example.tsx',
     'src/pages/InventoryListExample.tsx',
     'src/pages/purchase-bills/Example.tsx',
@@ -90,8 +94,12 @@ describe('design-token ratchet (AUT-659)', () => {
     expect(await restrictedMessages(`export const A = () => <p className="text-[11px]">x</p>`, filePath)).not.toEqual([])
   })
 
-  it('leaves folders that are not migrated yet alone', async () => {
-    const code = `export const A = () => <p className="text-slate-500">x</p>`
-    expect(await restrictedMessages(code, path.join(webRoot, 'src/pages/tyre-storage/Example.tsx'))).toEqual([])
+  // The three documented exemptions (see eslint-tokens-ratchet.config.js): base components, Intl helpers, the always-light public page.
+  it.each([
+    ['src/components/ui/Example.tsx', `export const A = () => <div className="bg-black/80 text-[0.8rem]">x</div>`],
+    ['src/pages/public/Example.tsx', `export const A = () => <p className="text-slate-500">x</p>`],
+    ['src/lib/format/example.ts', `export const x = new Intl.NumberFormat('de-AT').format(1)`],
+  ])('leaves the exempt file %s alone', async (file, code) => {
+    expect(await restrictedMessages(code, path.join(webRoot, file))).toEqual([])
   })
 })

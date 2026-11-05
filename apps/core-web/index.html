@@ -12,6 +12,15 @@
     <meta name="apple-mobile-web-app-title" content="Auto Core" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Auto Core</title>
+    <script>
+      // Applies the saved theme before the first paint, so a returning dark user sees no light flash.
+      // Keep in step with AppThemeProvider (key `acp-theme`, default system); the approval link stays light.
+      try {
+        var theme = localStorage.getItem('acp-theme');
+        var dark = theme === 'dark' || ((theme === null || theme === 'system') && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark && location.pathname.toLowerCase().indexOf('/approve/') !== 0) document.documentElement.classList.add('dark');
+      } catch (error) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

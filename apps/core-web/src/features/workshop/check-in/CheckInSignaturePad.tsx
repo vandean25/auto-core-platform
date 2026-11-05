@@ -134,6 +134,7 @@ export function CheckInSignaturePad({
     canvas.setPointerCapture(event.pointerId)
     drawingRef.current = true
     const { x, y } = clientPoint(canvas, event.nativeEvent)
+    // Dark ink on a pad that is always light (`theme-light` on the canvas): the stored image is rendered on white documents.
     ctx.strokeStyle = '#0f172a'
     ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
@@ -235,12 +236,12 @@ export function CheckInSignaturePad({
           <img
             src={signaturePreviewUrl}
             alt={t('checkIn.review.signatureImageAlt')}
-            className="h-40 w-full rounded-md border border-muted bg-card object-contain"
+            className="theme-light h-40 w-full rounded-md border border-muted bg-card object-contain"
           />
         ) : (
           <canvas
             ref={canvasRef}
-            className="h-40 w-full touch-none rounded-md border border-muted bg-card"
+            className="theme-light h-40 w-full touch-none rounded-md border border-muted bg-card"
             aria-label={t('checkIn.review.signatureCanvasAria')}
             data-testid="check-in-signature-canvas"
             onPointerDown={startStroke}

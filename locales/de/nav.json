@@ -85,6 +85,12 @@
     "shortcutMac": "⌘ K"
   },
   "user": {
+    "theme": {
+      "section": "Darstellung",
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System"
+    },
     "helpDocs": "Hilfe / Dokumentation",
     "helpDocsOpensNewTab": "Hilfe / Dokumentation (öffnet in neuem Tab)"
   },

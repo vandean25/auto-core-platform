@@ -14,20 +14,20 @@ function ErrorFallback({ error }: FallbackProps) {
 
   return (
     <div className="flex min-h-[50vh] w-full items-center justify-center p-4">
-      <Card className="w-full max-w-md border-slate-200 shadow-xl">
+      <Card className="w-full max-w-md border-border shadow-xl">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
             <AlertCircle className="h-6 w-6" />
           </div>
-          <CardTitle className="text-xl font-bold tracking-tight text-slate-900">
+          <CardTitle className="text-xl font-bold tracking-tight text-foreground">
             {chunkLoadError ? t('errorBoundary.chunkTitle') : t('errorBoundary.unexpectedTitle')}
           </CardTitle>
-          <CardDescription className="text-slate-500">
+          <CardDescription className="text-muted-foreground">
             {chunkLoadError ? t('errorBoundary.chunkDescription') : t('errorBoundary.unexpectedDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg bg-slate-50 p-3 text-xs font-mono text-slate-600 overflow-auto max-h-32 border border-slate-200">
+          <div className="rounded-lg bg-muted/50 p-3 text-xs font-mono text-muted-foreground overflow-auto max-h-32 border border-border">
             {err?.message || t('errorBoundary.unknownError')}
           </div>
         </CardContent>
@@ -36,7 +36,7 @@ function ErrorFallback({ error }: FallbackProps) {
             onClick={() => {
               window.location.reload()
             }}
-            className="w-full gap-2 bg-slate-950 hover:bg-slate-800"
+            className="w-full gap-2 bg-foreground text-background hover:bg-foreground/90"
           >
             <RefreshCcw className="h-4 w-4" />
             {t('errorBoundary.reload')}

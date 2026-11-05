@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 // Guards the token contract in index.css: `.dark` only swaps variables, so every token must exist in both blocks.
+// The light block is `:root:not(.dark), .theme-light` and comes after `.dark`, so `.theme-light` (print views) wins on the same element.
 const css = readFileSync(path.resolve(import.meta.dirname, 'index.css'), 'utf8')
 
 const colorTokens = [
@@ -52,7 +53,7 @@ function cssBlock(pattern: RegExp) {
   return match[1]
 }
 
-const rootBlock = cssBlock(/^:root \{([\s\S]*?)^\}/m)
+const rootBlock = cssBlock(/^:root:not\(\.dark\),\n\.theme-light \{([\s\S]*?)^\}/m)
 const darkBlock = cssBlock(/^\.dark \{([\s\S]*?)^\}/m)
 const themeBlock = cssBlock(/^@theme inline \{([\s\S]*?)^\}/m)
 
@@ -66,8 +67,13 @@ describe('ACP theme tokens (AUT-655)', () => {
     expect(themeBlock).toContain(`--color-${token}: var(--${token});`)
   })
 
-  it('makes dark variants follow the dark class, not the OS setting', () => {
-    expect(css).toContain('@custom-variant dark (&:is(.dark *));')
+  it('makes dark variants follow the dark class, not the OS setting, and not a forced-light page', () => {
+    expect(css).toContain('@custom-variant dark (&:is(.dark:not(.theme-light) *));')
+  })
+
+  // Regression guard: if the light block moved above `.dark`, a print view would stay dark.
+  it('declares the light tokens after the dark ones', () => {
+    expect(css.indexOf(':root:not(.dark),\n.theme-light {')).toBeGreaterThan(css.indexOf('\n.dark {'))
   })
 
   it.each([400, 500, 600, 700])('loads Inter %i', (weight) => {

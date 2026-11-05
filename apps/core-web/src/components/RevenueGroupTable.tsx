@@ -32,11 +32,11 @@ export function RevenueGroupTable({ groups }: RevenueGroupTableProps) {
                             </p>
                             <p className="text-sm text-muted-foreground">
                                 {t('revenueGroups.table.accountNumber')}:{' '}
-                                <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">{group.account_number}</code>
+                                <code className="rounded bg-muted px-1 py-0.5 text-xs">{group.account_number}</code>
                             </p>
                         </div>
                         {group.is_default ? (
-                            <Badge variant="secondary" className="shrink-0 bg-green-100 text-green-700 hover:bg-green-100">
+                            <Badge variant="secondary" className="shrink-0 bg-success/15 text-success hover:bg-success/15">
                                 {t('revenueGroups.table.defaultBadge')}
                             </Badge>
                         ) : null}
@@ -63,13 +63,13 @@ export function RevenueGroupTable({ groups }: RevenueGroupTableProps) {
                             <TableCell className="font-medium">{group.name}</TableCell>
                             <TableCell>{group.tax_rate}%</TableCell>
                             <TableCell>
-                                <code className="bg-slate-100 px-1 py-0.5 rounded text-xs">
+                                <code className="bg-muted px-1 py-0.5 rounded text-xs">
                                     {group.account_number}
                                 </code>
                             </TableCell>
                             <TableCell className="text-right">
                                 {group.is_default ? (
-                                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
+                                    <Badge variant="secondary" className="bg-success/15 text-success hover:bg-success/15">
                                         {t('revenueGroups.table.defaultBadge')}
                                     </Badge>
                                 ) : (

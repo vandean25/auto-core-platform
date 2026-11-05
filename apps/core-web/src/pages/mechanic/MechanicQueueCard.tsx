@@ -56,26 +56,26 @@ export function MechanicQueueCard({ item, onPrefetch }: MechanicQueueCardProps) 
         cancelIntentPrefetch(focusIntentKey)
       }}
     >
-      <Card className="min-h-[72px] p-4 transition-colors hover:bg-slate-50">
+      <Card className="min-h-[72px] p-4 transition-colors hover:bg-muted/50">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               {item.sequence > 0 ? (
-                <span className="font-mono text-sm font-semibold text-slate-500">
+                <span className="font-mono text-sm font-semibold text-muted-foreground">
                   {t('mechanic.queue.taskSequence', { sequence: item.sequence })}
                 </span>
               ) : null}
-              <h2 className="truncate font-semibold text-slate-900">{item.taskTitle}</h2>
+              <h2 className="truncate font-semibold text-foreground">{item.taskTitle}</h2>
               <StatusBadge status={item.taskStatus} />
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
               <span>{item.orderNumber}</span>
               <span>{item.vehicle.plate ?? t('mechanic.queue.noPlate')}</span>
               <span>{formatVehicle(item)}</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 md:shrink-0 md:justify-end">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground md:shrink-0 md:justify-end">
             {item.bay ? <span>{t('mechanic.queue.bay', { name: item.bay.name })}</span> : null}
             {item.scheduledDate ? (
               <span>

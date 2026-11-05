@@ -14,13 +14,13 @@ export function LaborItemsCard({ laborItems }: { laborItems: LaborLine[] }) {
         <CardTitle className="text-base">{t('mechanic.taskDetail.labor.title')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-border">
           {laborItems.map((lineItem) => (
             <li key={lineItem.id} className="flex items-center justify-between py-3">
               <span className="text-sm font-medium">
                 {lineItem.itemNo ? `${lineItem.itemNo} · ${lineItem.description}` : lineItem.description}
               </span>
-              <span className="text-sm text-slate-500 ml-4 shrink-0">
+              <span className="text-sm text-muted-foreground ml-4 shrink-0">
                 {t('mechanic.taskDetail.labor.hours', { count: lineItem.qty })}
               </span>
             </li>

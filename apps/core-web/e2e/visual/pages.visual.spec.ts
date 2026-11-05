@@ -17,7 +17,11 @@ import {
  * Pages that the a11y smoke suite already mocks reuse those mocks, so both suites see the same data.
  */
 
-type VisualPage = Pick<A11ySmokeRoute, 'path' | 'mock' | 'ready'> & { name: string };
+type VisualPage = Pick<A11ySmokeRoute, 'path' | 'mock' | 'ready'> & {
+  name: string;
+  /** Waits for a state that settles on its own, so the shot never catches it half way. */
+  settle?: (page: Page) => Promise<void>;
+};
 
 /** The a11y route's mocks, plus empty `{ data: [] }` answers for the cards that would otherwise show a load error. */
 function a11yRoute(name: string, emptyPaths: string[] = []): VisualPage {
@@ -128,14 +132,20 @@ const PAGES: VisualPage[] = [
     },
   },
   a11yRoute('customer detail'),
-  a11yRoute('workshop order detail', [
-    '/api/workshop/orders/ws-a11y-1/estimates',
-    '/api/workshop/orders/ws-a11y-1/communications',
-    '/api/workshop-orders/ws-a11y-1/tyre-measurements',
-    '/api/workshop-orders/ws-a11y-1/measurements?limit=50&page=1',
-    '/api/workshop-orders/inspection-device-sources',
-    '/api/tyre-sets/by-vehicle/veh-123',
-  ]),
+  {
+    ...a11yRoute('workshop order detail', [
+      '/api/workshop/orders/ws-a11y-1/estimates',
+      '/api/workshop/orders/ws-a11y-1/communications',
+      '/api/workshop-orders/ws-a11y-1/tyre-measurements',
+      '/api/workshop-orders/ws-a11y-1/measurements?limit=50&page=1',
+      '/api/workshop-orders/inspection-device-sources',
+      '/api/tyre-sets/by-vehicle/veh-123',
+    ]),
+    // The vehicle banner shows a skeleton until its unmocked request fails (404, one retry after 1s); the shot waits for the end state.
+    settle: async (page) => {
+      await expect(page.locator('.animate-pulse')).toHaveCount(0, { timeout: 15_000 });
+    },
+  },
   {
     name: 'vehicle-detail',
     path: `/vehicles/${vehicle.id}`,
@@ -161,7 +171,27 @@ test.describe('core pages', () => {
       await visualPage.mock(page);
       await new AutoCorePage(page, visualPage.name).navigate(visualPage.path);
       await visualPage.ready(page);
+      await visualPage.settle?.(page);
       await expectVisualMatch(page, visualPage.name);
+    });
+  }
+});
+
+/** AUT-659: the same pages in the dark theme (system default, so the emulated colour scheme switches it). */
+const DARK_PAGE_NAMES = ['dashboard', 'customer-detail', 'workshop-order-detail', 'inventory-list'];
+
+test.describe('core pages (dark)', () => {
+  test.use({ colorScheme: 'dark' });
+
+  for (const visualPage of PAGES.filter((candidate) => DARK_PAGE_NAMES.includes(candidate.name))) {
+    test(`${visualPage.name}-dark`, async ({ page }) => {
+      await prepareVisualPage(page);
+      await visualPage.mock(page);
+      await new AutoCorePage(page, visualPage.name).navigate(visualPage.path);
+      await visualPage.ready(page);
+      await visualPage.settle?.(page);
+      await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+      await expectVisualMatch(page, `${visualPage.name}-dark`);
     });
   }
 });

@@ -46,7 +46,7 @@ export function VoiceNoteControls({
 
   return (
     <>
-      <div className="mb-4 rounded-md border border-slate-200 bg-slate-50/70 p-3">
+      <div className="mb-4 rounded-md border border-border bg-muted/50 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -85,7 +85,7 @@ export function VoiceNoteControls({
             </Button>
           )}
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           {voiceNoteState === 'processing' ? (
             <span className="inline-flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -98,14 +98,14 @@ export function VoiceNoteControls({
       </div>
 
       {voiceNoteState === 'draft-ready' && (
-        <div className="mb-4 space-y-2 rounded-md border border-slate-200 p-3">
+        <div className="mb-4 space-y-2 rounded-md border border-border p-3">
           <Label htmlFor="voice-note-draft">{t('mechanic.taskDetail.voiceNote.draftLabel')}</Label>
           <textarea
             id="voice-note-draft"
             value={voiceDraftValue}
             onChange={(event) => onDraftChange(event.target.value)}
             rows={4}
-            className="min-h-11 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-base md:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
+            className="min-h-11 w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-base md:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             disabled={disabled}
           />
           <div className="flex flex-wrap justify-end gap-2">

@@ -80,7 +80,7 @@ function TyreSetHeader({ tyreSet, canWrite, role, inspectionAction, runContext, 
         </Button>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{tyreSet.label}</h1>
-          <p className="text-slate-500">
+          <p className="text-muted-foreground">
             {String(tyreSet.customerName ?? '')} · {tyreSet.vehiclePlate ?? t('shared.noVehicle')}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -165,7 +165,7 @@ function TyreSetStorageDetails({ tyreSet }: { tyreSet: TyreSet }) {
             <div key={event.id} className="rounded-md border p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <StatusBadge status={event.eventType} />
-                <span className="text-slate-500">
+                <span className="text-muted-foreground">
                   {formatDateTime(event.occurredAt)}
                 </span>
               </div>
@@ -265,7 +265,7 @@ export default function TyreSetDetailPage() {
   }
 
   if (isLoading) {
-    return <p className="text-slate-500">{t('tyreStorage.detail.loading')}</p>
+    return <p className="text-muted-foreground">{t('tyreStorage.detail.loading')}</p>
   }
 
   if (isError || !tyreSet) {

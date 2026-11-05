@@ -7,6 +7,7 @@ import { PageLoader } from '@/components/ui/PageLoader'
 import * as Lazy from './lazy-app-pages'
 import { WorkshopNamespaceLayout } from '@/features/workshop/WorkshopNamespaceLayout'
 import { CapabilityGate } from '@/components/CapabilityGate'
+import { LightDocumentRoute } from '@/components/theme/LightDocumentRoute'
 
 export function AppRoutes() {
   const location = useLocation()
@@ -105,7 +106,7 @@ export function AppRoutes() {
                 <Route path={APP_ROUTE_PATHS.workshopPlanner} element={<Lazy.WorkshopPlannerPage />} />
                 <Route path={APP_ROUTE_PATHS.workshopCapacity} element={<Lazy.WorkshopCapacityPage />} />
                 <Route path={APP_ROUTE_PATHS.workshopLoanerVehicles} element={<Lazy.LoanerVehiclesPage />} />
-                <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<Lazy.LoanerBookingPrintPage />} />
+                <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<LightDocumentRoute><Lazy.LoanerBookingPrintPage /></LightDocumentRoute>} />
                 <Route
                   path={APP_ROUTE_PATHS.workshopOrderCheckIn}
                   element={<Lazy.WorkshopCheckInPage />}

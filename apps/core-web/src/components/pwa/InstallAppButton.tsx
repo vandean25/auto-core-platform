@@ -14,7 +14,7 @@ export function InstallAppButton() {
     <button
       type="button"
       onClick={() => void promptInstall()}
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 active:bg-slate-100"
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 active:bg-muted"
     >
       <Download className="h-4 w-4" aria-hidden="true" />
       {t('install.installApp')}
