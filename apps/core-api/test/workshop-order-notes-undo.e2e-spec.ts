@@ -265,7 +265,7 @@ describe('Workshop order notes undo (e2e)', () => {
     const order = await createIntakeOrder();
     const updated = await patchNotes(order.id, 'Edited while sales', salesToken);
 
-    await basePrisma.tenantMembership.updateMany({
+    await prisma.tenantMember.updateMany({
       where: { tenant_id: tenantId, user_id: salesUser.id },
       data: { role: 'TECH' },
     });
