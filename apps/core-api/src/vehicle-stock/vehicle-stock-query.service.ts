@@ -445,10 +445,7 @@ export class VehicleStockQueryService {
 
   async cappedListCount(params: { search?: string; stock_status?: string }) {
     const scope = await this.vehicleStockCursorScope(params);
-    return cappedVehicleListCount(
-      this.prisma,
-      scope.vehicleWhere as Prisma.VehicleWhereInput,
-    );
+    return cappedVehicleListCount(this.prisma, scope.vehicleWhere);
   }
 
   private async vehicleStockCursorScope(params: {

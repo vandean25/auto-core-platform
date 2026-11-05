@@ -61,14 +61,13 @@ export function andCombineListWhere(
 export function buildPrismaNullsLastOrderBy(
   sortField: string,
   direction: KeysetSortDirection,
-  idDirection: KeysetSortDirection = direction,
+  options: { sortIsNullable: boolean; idDirection?: KeysetSortDirection },
 ): Record<string, unknown>[] {
-  return [
-    {
-      [sortField]: { sort: direction, nulls: 'last' },
-    },
-    { id: idDirection },
-  ];
+  const idDirection = options.idDirection ?? direction;
+  const primaryOrder = options.sortIsNullable
+    ? { sort: direction, nulls: 'last' as const }
+    : direction;
+  return [{ [sortField]: primaryOrder }, { id: idDirection }];
 }
 
 export function sliceKeysetPage<T>(

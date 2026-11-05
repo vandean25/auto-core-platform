@@ -101,7 +101,7 @@ export async function fetchKeysetListPage<TRecord extends { id: string }, TRow>(
   const orderBy = buildPrismaNullsLastOrderBy(
     sortConfig.prismaField,
     direction,
-    direction,
+    { sortIsNullable: sortConfig.nullable, idDirection: direction },
   );
   const rows = await deps.findMany(where, orderBy, request.limit + 1);
   const { page, hasNextPage } = sliceKeysetPage(rows, request.limit);
