@@ -195,6 +195,12 @@ export const CANONICAL_EN_MESSAGES = {
     'The price change exceeds the allowed threshold. Check the new price.',
   RRP_MISSING_FOR_MARGIN_RULE:
     'The recommended retail price is missing for the price calculation. Enter it or set a markup.',
+  LIST_CURSOR_INVALID:
+    'This list cursor is invalid or does not match the current filters.',
+  LIST_CURSOR_SORT_UNSUPPORTED:
+    'This sort is not available for cursor pagination. Use offset paging or choose another sort.',
+  LIST_CURSOR_STOCK_FILTER_REQUIRED:
+    'Choose a stock status filter before using cursor pagination on vehicle stock.',
   LISTING_SERIALIZER_UNSUPPORTED:
     'No listing export format is available for this portal.',
   BRAND_ASSET_QUARANTINE_MISSING:

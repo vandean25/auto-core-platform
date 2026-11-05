@@ -11,7 +11,6 @@ export type VehicleStockCursorSortField =
   | 'vin'
   | 'plate'
   | 'color'
-  | 'stock_status'
   | 'updatedAt';
 
 const VEHICLE_STOCK_CURSOR_SORTS: Record<
@@ -28,11 +27,6 @@ const VEHICLE_STOCK_CURSOR_SORTS: Record<
   vin: { prismaField: 'vin', valueKind: 'string', nullable: true },
   plate: { prismaField: 'plate', valueKind: 'string', nullable: true },
   color: { prismaField: 'color', valueKind: 'string', nullable: true },
-  stock_status: {
-    prismaField: 'stock_status',
-    valueKind: 'enum',
-    nullable: true,
-  },
   updatedAt: { prismaField: 'updatedAt', valueKind: 'date', nullable: false },
 };
 

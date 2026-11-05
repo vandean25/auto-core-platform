@@ -13,7 +13,7 @@ Rollout step 1 from [concept-list-scrolling](../00-Inbox/concept-list-scrolling.
 
 | Endpoint | Sort field | ASC cursor | DESC cursor | Default limit cap | Capped count |
 | --- | --- | --- | --- | --- | --- |
-| `GET /api/vehicle-stock` | `make`, `model`, `year`, `vin`, `plate`, `color`, `stock_status`, `updatedAt` | yes | yes | 50 | `GET /api/vehicle-stock/capped-count` |
+| `GET /api/vehicle-stock` | `make`, `model`, `year`, `vin`, `plate`, `color`, `updatedAt` | yes | yes | 50 | `GET /api/vehicle-stock/capped-count` |
 | `GET /api/inventory` | `sku`, `name`, `price` (`retail_price`) | yes | yes | 100 (default page size 10) | `GET /api/inventory/capped-count` |
 
 **Vehicle stock cursor constraints:** merged ON_ORDER / draft rows stay **offset-only**. Cursor and capped count require a `stock_status` filter that excludes draft merge (any value except unset / `ON_ORDER`).
