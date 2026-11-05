@@ -52,6 +52,7 @@
     "filterPlaceholder": "Filter…",
     "exportCsv": "Export CSV",
     "exportCsvTitle": "Exports the visible columns of the rows loaded in this table",
+    "refreshList": "Refresh list",
     "hide": "Hide",
     "columnOptions": "{{title}} column options",
     "selectAll": "Select all rows on this page",

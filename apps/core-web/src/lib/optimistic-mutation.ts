@@ -1,5 +1,6 @@
 import { hashKey } from '@tanstack/react-query'
 import type { Mutation, MutationFunctionContext, QueryKey } from '@tanstack/react-query'
+import { isInfiniteListQuery, settleInfiniteListAfterMutation } from '@/lib/infinite-list-query'
 
 export type QueryKeyResolver<TVariables> = QueryKey | ((variables: TVariables) => QueryKey)
 
@@ -109,14 +110,27 @@ function findSettlingMutationId(
     )?.mutationId
 }
 
+function reconcileSettledPrimaryQuery(
+  client: MutationFunctionContext['client'],
+  resolvedQueryKey: QueryKey,
+  snapshot: unknown,
+) {
+  if (isInfiniteListQuery(client, resolvedQueryKey)) {
+    settleInfiniteListAfterMutation(client, resolvedQueryKey, snapshot)
+    return
+  }
+  void client.invalidateQueries({ queryKey: resolvedQueryKey })
+}
+
 function invalidateSettledCaches(
   client: MutationFunctionContext['client'],
   resolvedQueryKey: QueryKey,
   extraSnapshots: ExtraSnapshot[],
+  snapshot: unknown,
   exceptMutationId?: number,
 ) {
   if (countOtherPendingMutationsForQueryKey(client, resolvedQueryKey, exceptMutationId) === 0) {
-    void client.invalidateQueries({ queryKey: resolvedQueryKey })
+    reconcileSettledPrimaryQuery(client, resolvedQueryKey, snapshot)
   }
   for (const { queryKey: extraKey } of extraSnapshots) {
     if (countOtherPendingMutationsForQueryKey(client, extraKey, exceptMutationId) > 0) continue
@@ -131,7 +145,8 @@ function invalidateSettledCaches(
  *   optimistic state), snapshots the cache and applies `apply`.
  * - `onError`: `revert`s this mutation's change, unless a newer pending mutation of the same entity owns it.
  *   Showing a toast is up to the caller.
- * - `onSettled`: refetches `queryKey`, but only once the last pending mutation under `queryKey` has settled.
+ * - `onSettled`: reconciles `queryKey` once the last pending mutation under `queryKey` has settled. Offset lists
+ *   refetch via invalidation; infinite lists mark stale without refetching retained pages (ADR-0036 R7).
  * - Mutations of one `mutationKey` run one after another (`scope`), so the server sees the user's order.
  *
  * Do not pass your own `onMutate`/`onError`/`onSettled` after the spread (they would replace these), and do not
@@ -240,7 +255,13 @@ export function optimisticMutationOptions<TCache, TVariables>({
         variables,
         context as OptimisticContext<unknown> | undefined,
       )
-      invalidateSettledCaches(client, resolvedQueryKey, extraSnapshots, settlingMutationId)
+      invalidateSettledCaches(
+        client,
+        resolvedQueryKey,
+        extraSnapshots,
+        context?.skipped ? undefined : context?.snapshot,
+        settlingMutationId,
+      )
     },
   }
 }

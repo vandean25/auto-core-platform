@@ -52,6 +52,7 @@
     "filterPlaceholder": "Filtern…",
     "exportCsv": "CSV exportieren",
     "exportCsvTitle": "Exportiert die sichtbaren Spalten der in dieser Tabelle geladenen Zeilen",
+    "refreshList": "Liste aktualisieren",
     "hide": "Ausblenden",
     "columnOptions": "{{title}} — Spaltenoptionen",
     "selectAll": "Alle Zeilen auf dieser Seite auswählen",
