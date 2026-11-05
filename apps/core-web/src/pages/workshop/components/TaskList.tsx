@@ -1,4 +1,5 @@
 import { Plus, Search, Trash2 } from 'lucide-react'
+import type React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
@@ -38,10 +39,11 @@ export interface TaskListProps {
   isDeletingTask: boolean
   onSaveReportedIssue: (value: string) => void
   onSaveNotes: (value: string) => void
+  undoNotesAction?: React.ReactNode
   onOpenFitmentSearch?: (taskId: string) => void
 }
 
-export function TaskList({ onSaveReportedIssue, onSaveNotes, ...sections }: TaskListProps) {
+export function TaskList({ onSaveReportedIssue, onSaveNotes, undoNotesAction, ...sections }: TaskListProps) {
   return (
     <>
       <ReportedIssueCard
@@ -50,7 +52,12 @@ export function TaskList({ onSaveReportedIssue, onSaveNotes, ...sections }: Task
         onSave={onSaveReportedIssue}
       />
       <RepairTasksCard {...sections} />
-      <InternalNotesCard order={sections.order} isLocked={sections.isLocked} onSave={onSaveNotes} />
+      <InternalNotesCard
+        order={sections.order}
+        isLocked={sections.isLocked}
+        onSave={onSaveNotes}
+        undoNotesAction={undoNotesAction}
+      />
     </>
   )
 }
@@ -127,15 +134,19 @@ interface InternalNotesCardProps {
   order: WorkshopOrder
   isLocked: boolean
   onSave: (value: string) => void
+  undoNotesAction?: React.ReactNode
 }
 
-function InternalNotesCard({ order, isLocked, onSave }: InternalNotesCardProps) {
+function InternalNotesCard({ order, isLocked, onSave, undoNotesAction }: InternalNotesCardProps) {
   const { t } = useTranslation('workshop')
 
   return (
     <Card>
       <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>{t('taskList.internalNotes')}</CardTitle>
+        <div className='flex flex-wrap items-center justify-between gap-2'>
+          <CardTitle className='text-base font-semibold'>{t('taskList.internalNotes')}</CardTitle>
+          {undoNotesAction}
+        </div>
       </CardHeader>
       <CardContent>
         <InlineEdit

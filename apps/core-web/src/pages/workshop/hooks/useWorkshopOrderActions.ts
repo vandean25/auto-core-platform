@@ -2,19 +2,42 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useUpdateWorkshopOrder } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
+import { useAuthSession } from '@/api/auth-session'
 import { getErrorMessage } from '@/lib/error-utils'
+import { toastSuccessWithUndo } from '@/lib/toast-actions'
+import { canUndoWorkshopOrderNotes } from '@/features/interaction/can-undo-workshop-order-notes'
+import { registerWorkshopOrderNotesUndo } from '@/features/interaction/workshop-order-notes-undo-registration'
+import { useRunWorkshopOrderNotesUndo } from '@/features/interaction/use-run-workshop-order-notes-undo'
 
 /** Order-level saves (internal notes, reported issue) and the job card PDF. Saves are ignored once the order is invoiced. */
 export function useWorkshopOrderActions(order: WorkshopOrder, isLocked: boolean) {
   const { t } = useTranslation('workshop')
   const updateOrder = useUpdateWorkshopOrder()
+  const activeRole = useAuthSession()?.data?.activeRole
+  const runNotesUndo = useRunWorkshopOrderNotesUndo()
 
   const saveNotes = async (nextNotes: string) => {
     if (isLocked) return
     if (nextNotes === (order.notes ?? '')) return
+    const previousNotes = order.notes ?? null
     try {
-      await updateOrder.mutateAsync({ id: order.id, notes: nextNotes })
-      toast.success(t('orderDetail.toast.notesSaved'))
+      const updated = await updateOrder.mutateAsync({ id: order.id, notes: nextNotes })
+      if (canUndoWorkshopOrderNotes(activeRole)) {
+        registerWorkshopOrderNotesUndo({
+          orderId: order.id,
+          previousNotes,
+          expectedUpdatedAt: updated.updatedAt,
+        })
+        toastSuccessWithUndo(
+          t('orderDetail.toast.notesSaved'),
+          t('orderDetail.undoNotes.action'),
+          () => {
+            void runNotesUndo(order.id)
+          },
+        )
+      } else {
+        toast.success(t('orderDetail.toast.notesSaved'))
+      }
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, t('orderDetail.toast.notesSaveFailed')))
     }
@@ -34,5 +57,5 @@ export function useWorkshopOrderActions(order: WorkshopOrder, isLocked: boolean)
     }
   }
 
-  return { saveNotes, saveReportedIssue }
+  return { saveNotes, saveReportedIssue, runNotesUndo }
 }

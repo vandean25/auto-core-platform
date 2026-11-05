@@ -4,6 +4,7 @@ import { PartsRequisitionService } from '../parts-requisition/parts-requisition.
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
 import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
 import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
+import type { UndoWorkshopOrderNotesDto } from './dto/undo-workshop-order-notes.dto.js';
 import type { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
@@ -21,6 +22,7 @@ import {
   executeRegisterIntake,
   executeSearchWorkshop,
   executeUpdateOrder,
+  executeUndoWorkshopOrderNotes,
   generateNextWorkshopOrderNumber,
   type WorkshopIntakeServices,
 } from './workshop-intake.helpers.js';
@@ -148,6 +150,15 @@ export class WorkshopIntakeService {
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
     const updated = await executeUpdateOrder(this.getServices(), id, dto);
+    return normalizeWorkshopOrder(updated);
+  }
+
+  async undoOrderNotes(id: string, dto: UndoWorkshopOrderNotesDto) {
+    const updated = await executeUndoWorkshopOrderNotes(
+      this.getServices(),
+      id,
+      dto,
+    );
     return normalizeWorkshopOrder(updated);
   }
 

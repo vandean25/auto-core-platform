@@ -635,9 +635,14 @@
     "cancel": "Cancel",
     "deleteTask": "Delete task",
     "deleting": "Deleting...",
+    "undoNotes": {
+      "action": "Undo"
+    },
     "toast": {
       "notesSaved": "Internal notes saved",
       "notesSaveFailed": "Failed to save notes",
+      "notesUndoSuccess": "Internal notes restored",
+      "notesUndoFailed": "Undo unavailable",
       "reportedIssueSaved": "Reported issue saved",
       "reportedIssueSaveFailed": "Failed to save reported issue",
       "taskCreated": "Task created",

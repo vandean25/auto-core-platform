@@ -19,6 +19,7 @@ import { OrderTopBar, CustomerVehicleInfo } from "./components/OrderHeader";
 import { OrderAdvisorPanels } from "./components/OrderAdvisorPanels";
 import { OrderLoading, OrderNotFound } from "./components/OrderLoadStates";
 import { TaskList } from "./components/TaskList";
+import { WorkshopOrderUndoNotesAction } from "./components/WorkshopOrderUndoNotesAction";
 import { CheckoutFooter } from "./components/CheckoutFooter";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { useWorkshopCheckout } from "./hooks/useWorkshopCheckout";
@@ -160,6 +161,12 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
                 void orderActions.saveReportedIssue(value)
               }
               onSaveNotes={(value) => void orderActions.saveNotes(value)}
+              undoNotesAction={
+                <WorkshopOrderUndoNotesAction
+                  order={order}
+                  runNotesUndo={orderActions.runNotesUndo}
+                />
+              }
               onOpenFitmentSearch={
                 taskWriteBlocked ? undefined : fitment.openFitmentSearch
               }

@@ -59,6 +59,7 @@ export type WorkshopOrderRowActionContext = {
     taskId: string,
     status: WorkshopTaskStatus,
   ) => void | Promise<void>
+  undoNotes?: (orderId: string) => void | Promise<void>
 }
 
 function workshopOrderDetailPath(orderId: string) {

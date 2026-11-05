@@ -30,6 +30,7 @@ export const ENTITY_ACTION_IDS = {
   importJobResume: 'importJob.resume',
   importJobOpen: 'importJob.open',
   importJobUndo: 'importJob.undo',
+  workOrderUndoNotes: 'workOrder.undoNotes',
   importJobDownloadErrors: 'importJob.downloadErrors',
   importJobCancel: 'importJob.cancel',
   workshopCommandApply: 'workshopCommand.apply',

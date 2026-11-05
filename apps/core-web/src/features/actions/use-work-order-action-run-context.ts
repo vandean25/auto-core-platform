@@ -14,6 +14,7 @@ import {
   runUpdateWorkshopOrderTaskStatus,
   type WorkshopOrderRowActionContext,
 } from './work-order-row-actions'
+import { useRunWorkshopOrderNotesUndo } from '@/features/interaction/use-run-workshop-order-notes-undo'
 
 /**
  * Everything the work order registry actions need to run: navigation, the PDF job, the active mechanics and the
@@ -25,6 +26,7 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
   const generatePdf = useGenerateWorkshopPdf()
   const assignBoard = useAssignBoard()
   const updateTask = useUpdateWorkshopTask()
+  const runNotesUndo = useRunWorkshopOrderNotesUndo()
   const workshopResourcesQuery = useWorkshopResources()
 
   const mechanics = useMemo(
@@ -50,7 +52,15 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
   )
 
   return useMemo(
-    () => ({ navigate, generatePdf, t, mechanics, assignMechanic, updateTaskStatus }),
-    [assignMechanic, generatePdf, mechanics, navigate, t, updateTaskStatus],
+    () => ({
+      navigate,
+      generatePdf,
+      t,
+      mechanics,
+      assignMechanic,
+      updateTaskStatus,
+      undoNotes: (orderId: string) => runNotesUndo(orderId),
+    }),
+    [assignMechanic, generatePdf, mechanics, navigate, runNotesUndo, t, updateTaskStatus],
   )
 }
