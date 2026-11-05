@@ -243,7 +243,7 @@ export function LetterheadSourceAsset({
       />
       {asset ? (
         <div
-          className="space-y-2 rounded-md border bg-slate-50 p-3"
+          className="space-y-2 rounded-md border bg-muted/50 p-3"
           aria-live="polite"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -251,7 +251,7 @@ export function LetterheadSourceAsset({
               <p className="text-sm font-medium">
                 {letterheadSourceDisplayName(asset)}
               </p>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-muted-foreground">
                 {formatDocumentBrandFileSize(asset.byteLength)}
               </p>
             </div>
@@ -300,7 +300,7 @@ export function LetterheadSourceAsset({
             </div>
           </div>
           {statusMessage ? (
-            <p role="status" className="text-sm text-slate-600">
+            <p role="status" className="text-sm text-muted-foreground">
               {statusMessage}
             </p>
           ) : null}
@@ -310,7 +310,7 @@ export function LetterheadSourceAsset({
               alt={t("documentBranding.letterheadSource.previewAlt", {
                 name: letterheadSourceDisplayName(asset),
               })}
-              className="max-h-48 rounded border bg-white object-contain"
+              className="max-h-48 rounded border bg-card object-contain"
             />
           ) : null}
           {asset.state === "QUARANTINED" && assetQuery.pollTimedOut ? (
@@ -326,7 +326,7 @@ export function LetterheadSourceAsset({
           ) : null}
         </div>
       ) : (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           {t("documentBranding.letterheadSource.hint")}
         </p>
       )}

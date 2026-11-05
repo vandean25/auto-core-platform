@@ -61,6 +61,8 @@ import {
 } from '@/components/ui/table'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency, formatPercent } from '@/lib/format'
+import { Empty, EmptyDescription } from '@/components/ui/empty'
+import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
 
 const ROUNDING_STRATEGIES: readonly MarginRoundingStrategy[] = [
   'NONE',
@@ -98,11 +100,11 @@ const DEFAULT_FORM_DATA: RuleFormData = {
 /** Loading and empty text of the rules card: a block of its own, so it is not centred inside the wide table (off screen on a phone). */
 function MarginRulesPlaceholder({ loading }: { loading: boolean }) {
   const { t } = useTranslation('settings')
+  if (loading) return <SettingsTabLoadingState className="px-4" label={t('marginRules.loading')} />
   return (
-    <p className="px-4 py-6 text-center text-muted-foreground">
-      {loading ? <Loader2 className="mr-2 inline h-5 w-5 animate-spin" /> : null}
-      {loading ? t('marginRules.loading') : t('marginRules.empty')}
-    </p>
+    <Empty className="p-6 md:p-6">
+      <EmptyDescription>{t('marginRules.empty')}</EmptyDescription>
+    </Empty>
   )
 }
 
@@ -346,7 +348,7 @@ export function MarginRulesTab() {
                   <TableHead className="w-20">
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 font-medium hover:text-slate-900 transition-colors"
+                      className="inline-flex items-center gap-1 font-medium hover:text-foreground transition-colors"
                       onClick={() =>
                         setPrioritySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
                       }
@@ -401,7 +403,7 @@ export function MarginRulesTab() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                             onClick={() => setDeleteCandidate(rule)}
                             aria-label={t('marginRules.deleteAria', { name: rule.name })}
                           >
@@ -644,7 +646,7 @@ export function MarginRulesTab() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
+              <AlertCircle className="h-5 w-5 text-destructive" />
               {t('marginRules.delete.title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -654,7 +656,7 @@ export function MarginRulesTab() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
               disabled={deleteRule.isPending}
               onClick={(e) => {
                 e.preventDefault()

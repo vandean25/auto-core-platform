@@ -7,7 +7,6 @@ import {
   Eye,
   FileSpreadsheet,
   Info,
-  Loader2,
   Play,
   Search,
 } from 'lucide-react'
@@ -409,13 +408,13 @@ export function AccountingExportSettingsPanel({
 
   if (!canManageExports) {
     return (
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3 text-slate-700">
-          <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <div className="flex items-start gap-3 text-foreground">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-warning" />
           <SettingsSectionHeading
             title={t('accountingExport.noAccess.title')}
             description={t('accountingExport.noAccess.description')}
-            descriptionClassName="mt-1 text-sm text-slate-600"
+            descriptionClassName="mt-1 text-sm text-muted-foreground"
           />
         </div>
       </div>
@@ -424,7 +423,7 @@ export function AccountingExportSettingsPanel({
 
   if (isLoadingEntities) {
     return (
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
         <SettingsTabLoadingState className="min-h-[240px]" />
       </div>
     )
@@ -432,8 +431,8 @@ export function AccountingExportSettingsPanel({
 
   if (legalEntities.length === 0) {
     return (
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-600">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <p className="text-sm text-muted-foreground">
           {t('accountingExport.noEntities.message')}
         </p>
         <Button
@@ -450,7 +449,7 @@ export function AccountingExportSettingsPanel({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-lg border bg-white p-6 shadow-sm lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-4 rounded-lg border bg-card p-6 shadow-sm lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-1.5">
             <SettingsSectionHeading title={t('accountingExport.header.title')} />
@@ -470,7 +469,7 @@ export function AccountingExportSettingsPanel({
             </Popover>
           </div>
           {selectedEntity ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {periodReady ? (
                 <SafeTrans
                   t={t}
@@ -480,14 +479,14 @@ export function AccountingExportSettingsPanel({
                     from: formatIsoDateOnly(dateFrom),
                     to: formatIsoDateOnly(dateTo),
                   }}
-                  components={{ name: <span className="font-medium text-slate-700" /> }}
+                  components={{ name: <span className="font-medium text-foreground" /> }}
                 />
               ) : (
                 <SafeTrans
                   t={t}
                   i18nKey="accountingExport.header.selected"
                   values={{ name: selectedEntity.name }}
-                  components={{ name: <span className="font-medium text-slate-700" /> }}
+                  components={{ name: <span className="font-medium text-foreground" /> }}
                 />
               )}
             </p>
@@ -525,7 +524,7 @@ export function AccountingExportSettingsPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-lg border bg-white p-6 shadow-sm md:grid-cols-3">
+      <div className="grid gap-4 rounded-lg border bg-card p-6 shadow-sm md:grid-cols-3">
         <div className="grid gap-2 md:col-span-1">
           <Label htmlFor="export-legal-entity">{t('accountingExport.filters.legalEntity')}</Label>
           <Select value={legalEntityId} onValueChange={setLegalEntityId}>
@@ -569,15 +568,15 @@ export function AccountingExportSettingsPanel({
       ) : null}
 
       {previewForbidden ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
           {t('accountingExport.forbidden')}
         </div>
       ) : null}
 
       {preview ? (
-        <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
+        <div className="space-y-4 rounded-lg border bg-card p-6 shadow-sm">
           <div className="flex flex-wrap items-center gap-3">
-            <FileSpreadsheet className="h-5 w-5 text-slate-500" />
+            <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
             <SettingsSubsectionIntro
               title={t('accountingExport.preview.title')}
               description={t('accountingExport.preview.summary', {
@@ -585,7 +584,7 @@ export function AccountingExportSettingsPanel({
                 documents: formatNumber(preview.documentCount),
                 rows: formatNumber(preview.rowCount),
               })}
-              descriptionClassName="text-sm text-slate-500"
+              descriptionClassName="text-sm text-muted-foreground"
             />
             <StatusBadge status={preview.canGenerate ? 'ACTIVE' : 'INACTIVE'} />
           </div>
@@ -593,7 +592,7 @@ export function AccountingExportSettingsPanel({
           {preview.blockers.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium text-slate-700">{t('accountingExport.preview.blockers')}</p>
+                <p className="text-sm font-medium text-foreground">{t('accountingExport.preview.blockers')}</p>
                 <Popover>
                   <PopoverTrigger asChild>
                     <button
@@ -615,7 +614,7 @@ export function AccountingExportSettingsPanel({
                   return (
                     <li
                       key={`${blocker.code}-${blocker.documentId ?? index}`}
-                      className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900"
+                      className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
                     >
                       <p>{blocker.message}</p>
                       {blocker.documentNumber ? (
@@ -625,7 +624,7 @@ export function AccountingExportSettingsPanel({
                         <Button
                           type="button"
                           variant="link"
-                          className="mt-1 h-auto px-0 text-red-900"
+                          className="mt-1 h-auto px-0 text-destructive"
                           onClick={() => openSettingsTab(settingsTab)}
                         >
                           {getBlockerSettingsLabel(settingsTab, t)}
@@ -639,7 +638,7 @@ export function AccountingExportSettingsPanel({
           ) : null}
 
           {preview.documentCount === 0 && preview.blockers.length === 0 ? (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               {t('accountingExport.preview.emptyPeriod')}
             </p>
           ) : null}
@@ -672,7 +671,7 @@ export function AccountingExportSettingsPanel({
           ) : null}
 
           {preview.overlaps.length > 0 ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            <div className="rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
               <p className="font-medium">{t('accountingExport.overlap.title')}</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {preview.overlaps.map((overlap) => (
@@ -706,7 +705,7 @@ export function AccountingExportSettingsPanel({
         </div>
       ) : null}
 
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-1.5">
           <SettingsSubsectionIntro title={t('accountingExport.history.title')} />
           <Popover>
@@ -746,35 +745,33 @@ export function AccountingExportSettingsPanel({
             </SheetDescription>
           </SheetHeader>
           {detailQuery.isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <SettingsTabLoadingState className="py-12" />
           ) : detailQuery.data ? (
             <div className="mt-6 space-y-4 text-sm">
               <div className="grid gap-2">
                 <p>
-                  <span className="text-slate-500">{t('accountingExport.detail.runId')}</span>{' '}
+                  <span className="text-muted-foreground">{t('accountingExport.detail.runId')}</span>{' '}
                   <span className="font-mono text-xs">{detailQuery.data.id}</span>
                 </p>
                 <p>
-                  <span className="text-slate-500">{t('accountingExport.detail.period')}</span>{' '}
+                  <span className="text-muted-foreground">{t('accountingExport.detail.period')}</span>{' '}
                   {formatIsoDateOnly(detailQuery.data.dateFrom)} →{' '}
                   {formatIsoDateOnly(detailQuery.data.dateTo)}
                 </p>
                 <p>
-                  <span className="text-slate-500">{t('accountingExport.detail.documentsRows')}</span>{' '}
+                  <span className="text-muted-foreground">{t('accountingExport.detail.documentsRows')}</span>{' '}
                   {formatNumber(detailQuery.data.documentCount)} / {formatNumber(detailQuery.data.rowCount)}
                 </p>
                 <p>
-                  <span className="text-slate-500">{t('accountingExport.detail.generatedBy')}</span>{' '}
+                  <span className="text-muted-foreground">{t('accountingExport.detail.generatedBy')}</span>{' '}
                   {resolveGeneratedByLabel(detailQuery.data.createdByUserId)}
                 </p>
                 <p>
-                  <span className="text-slate-500">{t('accountingExport.detail.sha256')}</span>{' '}
+                  <span className="text-muted-foreground">{t('accountingExport.detail.sha256')}</span>{' '}
                   <span className="break-all font-mono text-xs">{detailQuery.data.sha256}</span>
                 </p>
                 <p>
-                  <span className="text-slate-500">{t('accountingExport.detail.created')}</span>{' '}
+                  <span className="text-muted-foreground">{t('accountingExport.detail.created')}</span>{' '}
                   {formatDateTime(detailQuery.data.createdAt)}
                 </p>
               </div>
@@ -793,12 +790,12 @@ export function AccountingExportSettingsPanel({
                 <Download className="mr-2 h-4 w-4" />
                 {t('accountingExport.actions.downloadCsv')}
               </Button>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 {t('accountingExport.detail.downloadNote')}
               </p>
             </div>
           ) : (
-            <div className="mt-6 flex items-center gap-2 text-sm text-slate-500">
+            <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
               <Eye className="h-4 w-4" />
               {t('accountingExport.detail.selectRun')}
             </div>

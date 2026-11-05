@@ -5,6 +5,7 @@ import {
   resolveLineAmountTaxBasis,
   type AmountTaxBasis,
 } from '../agent-proposal-tax-basis'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 interface ProposedLine {
   name: string | null
@@ -80,49 +81,37 @@ export function ProposedLinesTable({
 
   return (
     <div className="space-y-2" data-testid={`proposed-lines-${proposal.id}`}>
-      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
         {t('approvals.proposedLines')}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs text-slate-700">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-slate-500">
-              <th className="py-1.5 pr-3 font-medium">
-                {t('approvals.lineName')}
-              </th>
-              <th className="py-1.5 pr-3 font-medium">
-                {t('approvals.lineType')}
-              </th>
-              <th className="py-1.5 pr-3 text-right font-medium">
-                {t('approvals.lineQuantity')}
-              </th>
-              <th className="py-1.5 pr-3 text-right font-medium">
-                {t('approvals.lineUnitPrice')}
-              </th>
-              <th className="py-1.5 text-right font-medium">
-                {t('approvals.amount')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-slate-100 last:border-0">
-              <td className="py-1.5 pr-3 font-medium text-slate-900">
-                {line.name ?? t('approvals.unnamedLine')}
-              </td>
-              <td className="py-1.5 pr-3">{lineTypeLabel}</td>
-              <td className="py-1.5 pr-3 text-right font-mono">
-                {line.quantity === null ? '—' : formatNumber(line.quantity)}
-              </td>
-              <td className="py-1.5 pr-3 text-right font-mono">
-                {formatMoney(line.unitPriceEur, basis)}
-              </td>
-              <td className="py-1.5 text-right font-mono font-semibold text-emerald-700">
-                {formatMoney(line.amountEur, basis)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <Table className="text-xs text-foreground">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="h-8 pr-3">{t('approvals.lineName')}</TableHead>
+            <TableHead className="h-8 pr-3">{t('approvals.lineType')}</TableHead>
+            <TableHead className="h-8 pr-3 text-right">{t('approvals.lineQuantity')}</TableHead>
+            <TableHead className="h-8 pr-3 text-right">{t('approvals.lineUnitPrice')}</TableHead>
+            <TableHead className="h-8 text-right">{t('approvals.amount')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell className="py-1.5 pr-3 font-medium text-foreground">
+              {line.name ?? t('approvals.unnamedLine')}
+            </TableCell>
+            <TableCell className="py-1.5 pr-3">{lineTypeLabel}</TableCell>
+            <TableCell className="py-1.5 pr-3 text-right font-mono">
+              {line.quantity === null ? '—' : formatNumber(line.quantity)}
+            </TableCell>
+            <TableCell className="py-1.5 pr-3 text-right font-mono">
+              {formatMoney(line.unitPriceEur, basis)}
+            </TableCell>
+            <TableCell className="py-1.5 text-right font-mono font-semibold text-success">
+              {formatMoney(line.amountEur, basis)}
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
   )
 }

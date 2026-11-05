@@ -261,6 +261,15 @@ describe('ApprovalsTab characterization', () => {
       expect(screen.queryByTestId('triage-inbox-list')).not.toBeInTheDocument()
     })
 
+    // Regression: the loading state was a spinning icon with text instead of a skeleton.
+    it('WHEN the approvals are loading THEN a Skeleton is shown instead of a spinner', () => {
+      const { container } = renderTab({ proposals: [proposal()], triage: { isLoading: true } })
+
+      expect(screen.getByRole('status')).toHaveTextContent(deAgent.common.loading)
+      expect(container.querySelector('.animate-pulse')).not.toBeNull()
+      expect(container.querySelector('.animate-spin')).toBeNull()
+    })
+
     it('ignores triage loading in all mode and only waits for the proposals', () => {
       renderTab({ proposals: [proposal()], triage: { isLoading: true } })
       showAll()
@@ -656,6 +665,18 @@ describe('ApprovalsTab characterization', () => {
         expect(screen.getByText(deAgent.approvals.proposedLines)).toBeInTheDocument()
       },
     )
+
+    // Regression: the proposed line was a hand-built raw <table>.
+    it('WHEN a proposed line renders THEN no raw table remains and its values are still shown', () => {
+      renderTab({ proposals: [lineProposal({ description: 'Wiper' })] })
+
+      const lines = screen.getByTestId('proposed-lines-line-prop')
+      const region = within(lines).getByRole('region', { name: 'Scrollbare Tabelle' })
+      expect(lines.querySelectorAll('table')).toHaveLength(1)
+      expect(region.contains(lines.querySelector('table'))).toBe(true)
+      expect(within(region).getAllByRole('columnheader')).toHaveLength(5)
+      expect(within(region).getAllByRole('cell').length).toBeGreaterThanOrEqual(5)
+    })
 
     it('reads the nested line_item with cents, quantity and the labor type', () => {
       renderTab({

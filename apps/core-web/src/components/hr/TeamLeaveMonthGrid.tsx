@@ -64,7 +64,7 @@ export function TeamLeaveMonthGrid({
           {t('leave.grid.employee')}
         </div>
         {days.map((date) => (
-          <div key={date} className='border-b px-1 py-2 text-center text-xs font-medium text-slate-500'>
+          <div key={date} className='border-b px-1 py-2 text-center text-xs font-medium text-muted-foreground'>
             {Number(date.slice(-2))}
           </div>
         ))}
@@ -83,7 +83,7 @@ export function TeamLeaveMonthGrid({
                   <div
                     key={date}
                     data-testid={cellTestId}
-                    className='flex min-h-10 items-center justify-center border-b border-r bg-emerald-50 px-1'
+                    className='flex min-h-10 items-center justify-center border-b border-r bg-success/10 px-1'
                     aria-label={t('leave.grid.cellAria', {
                       name: employee.name,
                       date,
@@ -91,14 +91,14 @@ export function TeamLeaveMonthGrid({
                     })}
                     title={booking.note || t('leave.grid.bookedLeave')}
                   >
-                    <StatusBadge status='BOOKED' className='px-1 py-0.5 text-[10px]' />
+                    <StatusBadge status='BOOKED' className='px-1 py-0.5 text-xs' />
                   </div>
                 )
               }
 
               const cellClassName = cn(
                 'min-h-10 border-b border-r px-1 transition-colors',
-                canBook && 'hover:bg-slate-50',
+                canBook && 'hover:bg-muted/50',
               )
 
               if (!canBook) {

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 
@@ -96,6 +96,19 @@ describe('WorkScheduleEditor', () => {
     expect(screen.getByTestId('work-schedule-editor')).toBeInTheDocument()
     expect(screen.getByText(monday)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: deHr.workSchedule.saveCorrection })).not.toBeInTheDocument()
+  })
+
+  // Regression: the schedule grid was a hand-built raw <table>.
+  it('WHEN the work schedule renders THEN no raw table remains and all seven days are still shown', () => {
+    setupEditor(true)
+
+    const { container } = render(<WorkScheduleEditor employeeId='employee-1' canEdit />)
+
+    const region = screen.getByRole('region', { name: 'Scrollbare Tabelle' })
+    expect(container.querySelectorAll('table')).toHaveLength(1)
+    expect(region.contains(container.querySelector('table'))).toBe(true)
+    expect(within(region).getAllByRole('row')).toHaveLength(8)
+    expect(within(region).getByText(monday)).toBeInTheDocument()
   })
 
   it('patches the current schedule version on save correction', async () => {

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { TFunction } from 'i18next'
-import { Info, Loader2 } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/table'
 import { useDebouncedAutoSave, type DocumentSaveStatus } from '@/hooks/useDebouncedAutoSave'
 import { formatPercent } from '@/lib/format'
+import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
 
 type SellerFormState = {
   name: string
@@ -432,16 +433,14 @@ export function LegalEntityAccountingProfileForm({
 
   if (isLoading || !profile || !form) {
     return (
-      <div className="flex min-h-[160px] items-center justify-center rounded-lg border bg-white p-6 shadow-sm">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <SettingsTabLoadingState className="min-h-[160px] rounded-lg border bg-card p-6 shadow-sm" />
     )
   }
 
   const readiness = profile.mapping_readiness
 
   return (
-    <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
+    <div className="space-y-6 rounded-lg border bg-card p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="font-medium">{t('legalEntities.profile.title')}</h3>
@@ -449,17 +448,17 @@ export function LegalEntityAccountingProfileForm({
         <DocumentSaveIndicator status={saveStatus} />
       </div>
 
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="rounded-md border border-border bg-muted/50 p-4">
         <div className="flex items-center gap-3">
           <StatusBadge status={readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-sm font-medium text-foreground">
             {readiness.is_ready
               ? t('legalEntities.profile.ready')
               : t('legalEntities.profile.incomplete')}
           </span>
         </div>
         {!readiness.is_ready ? (
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             {t('legalEntities.missingPrefix', {
               fields: readiness.missing_fields
                 .map((field) => formatProfileMissingField(field, t))
@@ -566,10 +565,10 @@ export function LegalEntityAccountingProfileForm({
       </div>
 
       {form.profileCode === 'ACP-DATEV-DE-EUR-1' && entity.country_iso === 'DE' ? (
-        <div className="flex items-center justify-between rounded-md border border-slate-200 p-4">
+        <div className="flex items-center justify-between rounded-md border border-border p-4">
           <div>
-            <p className="text-sm font-medium text-slate-700">{t('legalEntities.profile.datev.title')}</p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm font-medium text-foreground">{t('legalEntities.profile.datev.title')}</p>
+            <p className="text-sm text-muted-foreground">
               {t('legalEntities.profile.datev.description')}
             </p>
           </div>
@@ -582,11 +581,11 @@ export function LegalEntityAccountingProfileForm({
         </div>
       ) : form.profileCode === RZL_PROFILE_CODE && entity.country_iso === 'AT' ? (
         <div className="space-y-4">
-          <div className="space-y-3 rounded-md border border-slate-200 p-4">
+          <div className="space-y-3 rounded-md border border-border p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-slate-700">{t('legalEntities.profile.rzl.title')}</p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm font-medium text-foreground">{t('legalEntities.profile.rzl.title')}</p>
+                <p className="text-sm text-muted-foreground">
                   {t('legalEntities.profile.rzl.description')}
                 </p>
               </div>
@@ -656,10 +655,10 @@ export function LegalEntityAccountingProfileForm({
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-between rounded-md border border-slate-200 p-4">
+          <div className="flex items-center justify-between rounded-md border border-border p-4">
             <div>
-              <p className="text-sm font-medium text-slate-700">{t('legalEntities.profile.rzl.enabledTitle')}</p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm font-medium text-foreground">{t('legalEntities.profile.rzl.enabledTitle')}</p>
+              <p className="text-sm text-muted-foreground">
                 {profile.serializer_released
                   ? t('legalEntities.profile.rzl.released')
                   : t('legalEntities.profile.rzl.notReleased')}
@@ -674,7 +673,7 @@ export function LegalEntityAccountingProfileForm({
             />
           </div>
           {profile.export_missing_fields.length > 0 ? (
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-warning">
               {t('legalEntities.profile.exportMissingLine', {
                 fields: profile.export_missing_fields
                   .map((field) => formatRzlExportMissingField(field, t))
@@ -684,7 +683,7 @@ export function LegalEntityAccountingProfileForm({
           ) : null}
         </div>
       ) : (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {t('legalEntities.profile.unsupportedSerializer')}
         </p>
       )}
@@ -774,7 +773,7 @@ export function LegalEntityAccountingProfileForm({
         </Table>
       </div>
 
-      <p className="text-xs text-slate-500">{t('legalEntities.profile.version', { version })}</p>
+      <p className="text-xs text-muted-foreground">{t('legalEntities.profile.version', { version })}</p>
     </div>
   )
 }
@@ -844,7 +843,7 @@ function LegalEntitySellerForm({
   const readiness = entity.seller_readiness
 
   return (
-    <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
+    <div className="space-y-6 rounded-lg border bg-card p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-1.5">
           <h3 className="font-medium">{entity.name}</h3>
@@ -866,15 +865,15 @@ function LegalEntitySellerForm({
         <DocumentSaveIndicator status={saveStatus} />
       </div>
 
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="rounded-md border border-border bg-muted/50 p-4">
         <div className="flex items-center gap-3">
           <StatusBadge status={readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-sm font-medium text-foreground">
             {readiness.is_ready ? t('legalEntities.seller.ready') : t('legalEntities.seller.incomplete')}
           </span>
         </div>
         {!readiness.is_ready ? (
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             {t('legalEntities.missingPrefix', {
               fields: readiness.missing_fields
                 .map((field) => formatMissingField(field, entity.country_iso, t))
@@ -1125,9 +1124,7 @@ export function LegalEntitiesSettingsTab() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <SettingsTabLoadingState className="min-h-[200px]" />
     )
   }
 
@@ -1137,7 +1134,7 @@ export function LegalEntitiesSettingsTab() {
         <h2 className="text-lg font-medium">{t('legalEntities.title')}</h2>
       </div>
 
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-[1fr_160px_auto] md:items-end">
           <div className="grid gap-2">
             <Label htmlFor="legal-entity-name">{t('legalEntities.create.nameLabel')}</Label>
@@ -1182,7 +1179,7 @@ export function LegalEntitiesSettingsTab() {
         </form>
       </div>
 
-      <div className="rounded-lg border bg-white shadow-sm">
+      <div className="rounded-lg border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -1198,7 +1195,7 @@ export function LegalEntitiesSettingsTab() {
               <TableRow
                 key={entity.id}
                 data-state={entity.id === selectedEntityId ? 'selected' : undefined}
-                className={entity.id === selectedEntityId ? 'bg-slate-50' : undefined}
+                className={entity.id === selectedEntityId ? 'bg-muted/50' : undefined}
                 onClick={() => setSelectedEntityId(entity.id)}
               >
                 <TableCell className="font-medium">{entity.name}</TableCell>

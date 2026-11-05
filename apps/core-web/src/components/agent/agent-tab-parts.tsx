@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { DateField } from '@/components/ui/date-field'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface AgentDateRangeFieldsProps {
   idPrefix: string
@@ -31,7 +32,7 @@ export function AgentDateRangeFields({
 
   return fields.map((field) => (
     <div key={field.id} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-      <label htmlFor={field.id} className="text-xs text-slate-500 font-medium">
+      <label htmlFor={field.id} className="text-xs text-muted-foreground font-medium">
         {field.label}:
       </label>
       <DateField
@@ -55,7 +56,7 @@ export function AgentRefreshButton({ onRefresh }: { onRefresh: () => void }) {
       variant="ghost"
       size="sm"
       onClick={onRefresh}
-      className="text-slate-500 hover:text-slate-900"
+      className="text-muted-foreground hover:text-foreground"
       aria-label={t('common.refresh')}
     >
       <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -68,9 +69,11 @@ export function AgentLoadingState() {
   const { t } = useTranslation('agent')
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
-      <RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400" aria-hidden="true" />
-      {t('common.loading')}
+    <div role="status" aria-busy="true" className="space-y-3 rounded-lg border border-border bg-card p-6">
+      <span className="sr-only">{t('common.loading')}</span>
+      <Skeleton className="h-5 w-1/3" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-full" />
     </div>
   )
 }
@@ -79,14 +82,14 @@ export function AgentErrorState({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation('agent')
 
   return (
-    <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
-      <p className="text-sm font-medium text-rose-800">{t('common.error')}</p>
+    <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-center">
+      <p className="text-sm font-medium text-destructive">{t('common.error')}</p>
       <Button
         type="button"
         variant="outline"
         size="sm"
         onClick={onRetry}
-        className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
+        className="mt-3 border-destructive/40 text-destructive hover:bg-destructive/15"
       >
         {t('common.retry')}
       </Button>

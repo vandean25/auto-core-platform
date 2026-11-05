@@ -27,7 +27,7 @@ export function DataImportResultStep(props: DataImportResultStepProps) {
   return (
     <section className="space-y-3" aria-labelledby="import-step-result">
       <h4 id="import-step-result" className="font-medium flex items-center gap-2">
-        {finished ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : null}
+        {finished ? <CheckCircle2 className="h-5 w-5 text-success" /> : null}
         {title}
       </h4>
       {failed ? (

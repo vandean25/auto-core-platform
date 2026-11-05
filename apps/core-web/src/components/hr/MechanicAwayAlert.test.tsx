@@ -54,10 +54,10 @@ describe('MechanicAwayAlert', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('einschließlich')
   })
 
-  it('uses the shared amber alert styling', () => {
+  it('uses the shared warning alert styling', () => {
     render(<MechanicAwayAlert employeeAway={awayRecord} />)
 
-    expect(screen.getByRole('alert')).toHaveClass('border-amber-200', 'bg-amber-50', 'text-amber-900')
+    expect(screen.getByRole('alert')).toHaveClass('border-warning/30', 'bg-warning/10', 'text-warning')
   })
 
   it('explains that leave is advisory and bay booking remains allowed', () => {

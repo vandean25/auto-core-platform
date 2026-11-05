@@ -221,7 +221,7 @@ function UndoBlockedSection({
                 <span className="truncate font-medium">
                   {row.displayName || `${row.entityType} #${row.rowNumber}`}
                 </span>
-                <Badge variant="destructive" className="shrink-0 text-[10px]">
+                <Badge variant="destructive" className="shrink-0 text-xs">
                   {resolveReason(row.reason)}
                 </Badge>
               </li>

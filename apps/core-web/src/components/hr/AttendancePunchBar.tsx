@@ -86,7 +86,7 @@ export function AttendancePunchBar({
       <StatusBadge
         status={state}
         label={statusLabel}
-        className={cn(isCompact && 'px-2 py-0.5 text-[11px]')}
+        className={cn(isCompact && 'px-2 py-0.5 text-xs')}
       />
       {attendanceActions.map((action) => {
         const { type, labelKey, Icon } = action

@@ -25,7 +25,7 @@ export function DataImportWizardNav(props: DataImportWizardNavProps) {
         <Badge
           key={wizardStep.id}
           variant={props.step === wizardStep.id ? 'default' : 'outline'}
-          className={cn('text-xs', props.step > wizardStep.id && 'border-green-600 text-green-700')}
+          className={cn('text-xs', props.step > wizardStep.id && 'border-success text-success')}
         >
           {wizardStep.id}. {t(wizardStep.labelKey)}
         </Badge>

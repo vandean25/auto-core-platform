@@ -239,7 +239,7 @@ export default function HrLeavePage() {
       <div className='space-y-6'>
         <div>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('leave.pageTitle')}</h2>
-          <p className='text-slate-500'>{t('leave.pageDescription')}</p>
+          <p className='text-muted-foreground'>{t('leave.pageDescription')}</p>
         </div>
         <MissingEmployeeState t={t} />
       </div>
@@ -251,7 +251,7 @@ export default function HrLeavePage() {
       <div className='flex items-center justify-between max-sm:flex-wrap max-sm:gap-3'>
         <div className='max-sm:w-full'>
           <h2 className='text-2xl font-semibold tracking-tight'>{t('leave.pageTitle')}</h2>
-          <p className='text-slate-500'>{t('leave.pageDescription')}</p>
+          <p className='text-muted-foreground'>{t('leave.pageDescription')}</p>
         </div>
         <div className='flex items-center gap-3 max-sm:flex-wrap max-sm:[&_button]:min-h-11'>
           <RemainingLeaveBadge hrMe={hrMeQuery} myLeave={myLeaveQuery} schedule={meScheduleQuery} />
@@ -264,7 +264,7 @@ export default function HrLeavePage() {
       <section className='space-y-4' aria-labelledby='my-leave-heading'>
         <div>
           <h3 id='my-leave-heading' className='text-lg font-semibold'>{t('leave.myLeave')}</h3>
-          <p className='text-sm text-slate-500'>{t('leave.myLeaveHint')}</p>
+          <p className='text-sm text-muted-foreground'>{t('leave.myLeaveHint')}</p>
         </div>
         <DataTable
           columns={tableColumns}
@@ -308,7 +308,7 @@ export default function HrLeavePage() {
           <div className='flex items-center justify-between max-sm:flex-wrap max-sm:gap-3'>
             <div className='max-sm:w-full'>
               <h3 id='team-leave-heading' className='text-lg font-semibold'>{t('leave.teamLeave')}</h3>
-              <p className='text-sm text-slate-500'>{t('leave.teamLeaveHint')}</p>
+              <p className='text-sm text-muted-foreground'>{t('leave.teamLeaveHint')}</p>
             </div>
             <div className='flex items-center gap-2 max-sm:[&_button]:min-h-11'>
               <Button type='button' variant='outline' size='sm' onClick={() => setMonth((current) => shiftMonth(current, -1))}>

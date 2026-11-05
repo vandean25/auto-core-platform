@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TimeField } from '@/components/ui/time-field'
 import { Label } from '@/components/ui/label'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatIsoDateOnly } from '@/lib/format'
 import {
@@ -47,20 +48,20 @@ function ScheduleDayRow({
   const dayName = weekdayLabel(day.weekday)
   if (!canEdit) {
     return (
-      <tr>
-        <td className='px-3 py-2 text-sm'>{dayName}</td>
-        <td className='px-3 py-2 text-sm'>{day.isWorking ? t('employees.yes') : t('employees.no')}</td>
-        <td className='px-3 py-2 text-sm'>{day.startTime ?? t('employees.notSet')}</td>
-        <td className='px-3 py-2 text-sm'>{day.endTime ?? t('employees.notSet')}</td>
-        <td className='px-3 py-2 text-sm'>{day.breakMinutes}</td>
-      </tr>
+      <TableRow>
+        <TableCell className='text-sm'>{dayName}</TableCell>
+        <TableCell className='text-sm'>{day.isWorking ? t('employees.yes') : t('employees.no')}</TableCell>
+        <TableCell className='text-sm'>{day.startTime ?? t('employees.notSet')}</TableCell>
+        <TableCell className='text-sm'>{day.endTime ?? t('employees.notSet')}</TableCell>
+        <TableCell className='text-sm'>{day.breakMinutes}</TableCell>
+      </TableRow>
     )
   }
 
   return (
-    <tr>
-      <td className='px-3 py-2 text-sm'>{dayName}</td>
-      <td className='px-3 py-2'>
+    <TableRow>
+      <TableCell className='text-sm'>{dayName}</TableCell>
+      <TableCell>
         <input
           type='checkbox'
           aria-label={t('workSchedule.workingAria', { day: dayName })}
@@ -77,8 +78,8 @@ function ScheduleDayRow({
               : DEFAULT_NON_WORKING_DAY)
           }}
         />
-      </td>
-      <td className='px-3 py-2'>
+      </TableCell>
+      <TableCell>
         <TimeField
           aria-label={t('workSchedule.startAria', { day: dayName })}
           value={day.startTime ?? ''}
@@ -86,8 +87,8 @@ function ScheduleDayRow({
           onChange={(time) => onChange(day.weekday, { startTime: time })}
           className='h-8 w-[120px]'
         />
-      </td>
-      <td className='px-3 py-2'>
+      </TableCell>
+      <TableCell>
         <TimeField
           aria-label={t('workSchedule.endAria', { day: dayName })}
           value={day.endTime ?? ''}
@@ -95,8 +96,8 @@ function ScheduleDayRow({
           onChange={(time) => onChange(day.weekday, { endTime: time })}
           className='h-8 w-[120px]'
         />
-      </td>
-      <td className='px-3 py-2'>
+      </TableCell>
+      <TableCell>
         <Input
           type='number'
           min={0}
@@ -108,8 +109,8 @@ function ScheduleDayRow({
             onChange(day.weekday, { breakMinutes: Number(event.target.value) })}
           className='h-8 w-[88px]'
         />
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -125,23 +126,23 @@ function ScheduleDaysTable({
   t: TFunction<'hr'>
 }) {
   return (
-    <div className='overflow-hidden rounded-md border'>
-      <table className='min-w-full divide-y divide-slate-200'>
-        <thead className='bg-slate-50'>
-          <tr>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.day')}</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.working')}</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.start')}</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.end')}</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.breakMin')}</th>
-          </tr>
-        </thead>
-        <tbody className='divide-y divide-slate-200 bg-white'>
+    <div className='rounded-md border'>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className='text-xs uppercase'>{t('workSchedule.table.day')}</TableHead>
+            <TableHead className='text-xs uppercase'>{t('workSchedule.table.working')}</TableHead>
+            <TableHead className='text-xs uppercase'>{t('workSchedule.table.start')}</TableHead>
+            <TableHead className='text-xs uppercase'>{t('workSchedule.table.end')}</TableHead>
+            <TableHead className='text-xs uppercase'>{t('workSchedule.table.breakMin')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {days.map((day) => (
             <ScheduleDayRow key={day.weekday} day={day} canEdit={canEdit} onChange={onChange} t={t} />
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }
@@ -287,12 +288,12 @@ export function WorkScheduleEditor({
   }
 
   if (scheduleQuery.isLoading) {
-    return <p className='text-sm text-slate-500'>{t('workSchedule.loading')}</p>
+    return <p className='text-sm text-muted-foreground'>{t('workSchedule.loading')}</p>
   }
 
   if (scheduleQuery.error) {
     return (
-      <p className='text-sm text-red-600'>
+      <p className='text-sm text-destructive'>
         {getErrorMessage(scheduleQuery.error, t('workSchedule.loadFailed'))}
       </p>
     )
@@ -303,14 +304,14 @@ export function WorkScheduleEditor({
   return (
     <section className='space-y-4' data-testid='work-schedule-editor'>
       <div className='space-y-1'>
-        <h4 className='text-sm font-semibold text-slate-900'>{t('workSchedule.title')}</h4>
-        <p className='text-sm text-slate-500'>{t('workSchedule.description')}</p>
+        <h4 className='text-sm font-semibold text-foreground'>{t('workSchedule.title')}</h4>
+        <p className='text-sm text-muted-foreground'>{t('workSchedule.description')}</p>
         {currentVersion ? (
-          <p className='text-xs text-slate-500'>
+          <p className='text-xs text-muted-foreground'>
             {t('workSchedule.currentFrom', { date: formatIsoDateOnly(currentVersion.effectiveFrom) })}
           </p>
         ) : (
-          <p className='text-xs text-slate-500'>{t('workSchedule.noVersion')}</p>
+          <p className='text-xs text-muted-foreground'>{t('workSchedule.noVersion')}</p>
         )}
       </div>
 
@@ -323,7 +324,7 @@ export function WorkScheduleEditor({
             {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
           </select>
         </div> : (
-          <p className='text-sm text-slate-500'>
+          <p className='text-sm text-muted-foreground'>
             {t('workSchedule.siteLabel', {
               name:
                 sitesQuery.data?.find((site) => site.id === currentVersion.siteId)?.name ??
@@ -428,8 +429,8 @@ export function WorkScheduleEditor({
 
       {history.length > 0 ? (
         <div className='space-y-2'>
-          <p className='text-sm font-medium text-slate-700'>{t('workSchedule.previousVersions')}</p>
-          <ul className='space-y-1 text-sm text-slate-600'>
+          <p className='text-sm font-medium text-foreground'>{t('workSchedule.previousVersions')}</p>
+          <ul className='space-y-1 text-sm text-muted-foreground'>
             {history.map((version) => (
               <li key={version.id}>{t('workSchedule.fromDate', { date: formatIsoDateOnly(version.effectiveFrom) })}</li>
             ))}

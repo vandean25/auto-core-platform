@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 const hrTabKeys = [
   { labelKey: 'layout.tabs.employees', to: 'employees' },
@@ -19,12 +20,9 @@ export default function HrLayout() {
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-2xl font-semibold tracking-tight'>{t('layout.title')}</h1>
-        <p className='text-slate-500'>{t('layout.description')}</p>
-      </div>
+      <PageHeader className='mb-0' title={t('layout.title')} description={t('layout.description')} />
 
-      <nav aria-label={t('layout.sectionsAria')} className='flex gap-1 border-b border-slate-200'>
+      <nav aria-label={t('layout.sectionsAria')} className='flex gap-1 border-b border-border'>
         {hrTabKeys.map((tab) => (
           <NavLink
             key={tab.to}
@@ -34,8 +32,8 @@ export default function HrLayout() {
               cn(
                 'border-b-2 px-3 py-2 text-sm font-medium transition-colors',
                 isActive
-                  ? 'border-slate-900 text-slate-900'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900',
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground',
               )
             }
           >

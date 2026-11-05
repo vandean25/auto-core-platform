@@ -191,7 +191,7 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
           event.stopPropagation()
           setIsEditing(true)
         }}
-        className='group/inline-edit relative -mx-2 w-full rounded-md px-2 py-1 text-left transition-colors hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+        className='group/inline-edit relative -mx-2 w-full rounded-md px-2 py-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
       >
         <span className='block pr-5 text-sm text-muted-foreground italic'>{t('employees.notSet')}</span>
         <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity pointer-coarse:opacity-70 hover-capable:group-hover/inline-edit:opacity-70' />
@@ -742,8 +742,8 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
           {selectedEmployee ? (
             <div className='space-y-6' data-testid='employee-detail-sheet'>
               <div className='space-y-1'>
-                <p className='text-sm font-medium text-slate-900'>{selectedEmployee.name}</p>
-                <p className='text-sm text-slate-500'>{formatRoleLabel(selectedEmployee.role, t)}</p>
+                <p className='text-sm font-medium text-foreground'>{selectedEmployee.name}</p>
+                <p className='text-sm text-muted-foreground'>{formatRoleLabel(selectedEmployee.role, t)}</p>
               </div>
 
               <div className='grid gap-4 sm:grid-cols-2'>
@@ -797,7 +797,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                     value={sheetAllowanceDays}
                     onChange={(event) => setSheetAllowanceDays(event.target.value)}
                   />
-                  <p className='text-xs text-slate-500'>
+                  <p className='text-xs text-muted-foreground'>
                     {t('employees.detailSheet.allowanceHint', { minutes: sheetAvgMinutes })}
                   </p>
                   <Button

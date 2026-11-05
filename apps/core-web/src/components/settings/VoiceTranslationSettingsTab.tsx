@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Info, Loader2 } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TARGET_LANGUAGE_CODES, formatTargetLanguage } from '@/constants/voice-languages'
 import { getErrorMessage } from '@/lib/error-utils'
+import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
 
 type FormState = {
   targetLanguageCode: string
@@ -76,10 +77,7 @@ export function VoiceTranslationSettingsTab() {
 
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center py-12 text-slate-500'>
-        <Loader2 className='mr-2 h-5 w-5 animate-spin' />
-        {t('voiceTranslation.loading')}
-      </div>
+      <SettingsTabLoadingState className='py-12' label={t('voiceTranslation.loading')} />
     )
   }
 
@@ -178,11 +176,11 @@ export function VoiceTranslationSettingsTab() {
               placeholder={t('voiceTranslation.credentialPlaceholder')}
             />
             {!data?.hasGoogleCredential ? (
-              <p className='text-sm text-slate-500'>
+              <p className='text-sm text-muted-foreground'>
                 {t('voiceTranslation.credentialNotConfigured')}
               </p>
             ) : null}
-            <label className='flex items-center gap-2 text-sm text-slate-600'>
+            <label className='flex items-center gap-2 text-sm text-muted-foreground'>
               <input
                 type='checkbox'
                 checked={showCredential}

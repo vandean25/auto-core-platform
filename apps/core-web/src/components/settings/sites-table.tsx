@@ -19,7 +19,7 @@ export function SitesTable({ sites, selectedSiteId, onSelect }: SitesTableProps)
 
   if (isMobile) {
     return (
-      <ul className="divide-y rounded-lg border bg-white shadow-sm">
+      <ul className="divide-y rounded-lg border bg-card shadow-sm">
         {sites.map((site) => (
           <li key={site.id}>
             <button
@@ -28,12 +28,12 @@ export function SitesTable({ sites, selectedSiteId, onSelect }: SitesTableProps)
               onClick={() => onSelect(site.id)}
               className={cn(
                 'flex min-h-11 w-full items-start justify-between gap-3 p-3 text-left',
-                site.id === selectedSiteId && 'bg-slate-50',
+                site.id === selectedSiteId && 'bg-muted/50',
               )}
             >
               <span className="min-w-0 space-y-1">
                 <span className="block break-words font-medium">
-                  <span className="mr-2 font-mono text-sm text-slate-500">{site.code}</span>
+                  <span className="mr-2 font-mono text-sm text-muted-foreground">{site.code}</span>
                   {site.name}
                 </span>
                 <span className="block text-sm text-muted-foreground">
@@ -49,7 +49,7 @@ export function SitesTable({ sites, selectedSiteId, onSelect }: SitesTableProps)
   }
 
   return (
-    <div className="rounded-lg border bg-white shadow-sm">
+    <div className="rounded-lg border bg-card shadow-sm">
       <Table>
         <TableHeader>
           <TableRow>
@@ -65,7 +65,7 @@ export function SitesTable({ sites, selectedSiteId, onSelect }: SitesTableProps)
             <TableRow
               key={site.id}
               data-state={site.id === selectedSiteId ? 'selected' : undefined}
-              className={site.id === selectedSiteId ? 'bg-slate-50' : undefined}
+              className={site.id === selectedSiteId ? 'bg-muted/50' : undefined}
               onClick={() => onSelect(site.id)}
             >
               <TableCell className="font-mono text-sm">{site.code}</TableCell>

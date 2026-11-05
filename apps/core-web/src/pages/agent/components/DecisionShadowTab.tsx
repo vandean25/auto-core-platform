@@ -60,13 +60,13 @@ export function DecisionShadowTab() {
   return (
     <div className="space-y-6" data-testid="decision-shadow-tab">
       {/* Filter toolbar: filters apply on change, so there is no Apply button */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
         <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
             <div className="flex items-center gap-1">
               <label
                 htmlFor="decision-shadow-use-case-select"
-                className="text-xs text-slate-500 font-medium"
+                className="text-xs text-muted-foreground font-medium"
               >
                 {t('decisionShadow.filters.useCaseLabel')}:
               </label>
@@ -76,13 +76,13 @@ export function DecisionShadowTab() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
+                    className="h-11 w-11 sm:h-5 sm:w-5 text-muted-foreground hover:text-foreground"
                     aria-label={t('decisionShadow.infoAria')}
                   >
                     <Info className="h-3.5 w-3.5" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('decisionShadow.infoAria')}>
+                <PopoverContent className="w-80 text-xs text-muted-foreground" aria-label={t('decisionShadow.infoAria')}>
                   {t('decisionShadow.description')}
                 </PopoverContent>
               </Popover>
@@ -93,7 +93,7 @@ export function DecisionShadowTab() {
               onChange={(e) =>
                 setUseCaseFilter(e.target.value as 'ALL' | DecisionShadowUseCase)
               }
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none sm:w-auto md:text-xs"
+              className="h-9 w-full rounded-md border border-border bg-card px-2.5 py-1 text-base text-foreground shadow-sm focus:border-ring focus:outline-none sm:w-auto md:text-xs"
               data-testid="filter-decision-shadow-use-case-select"
             >
               <option value="ALL">
@@ -127,24 +127,24 @@ export function DecisionShadowTab() {
 
       {!isLoading && !isError && rows.length === 0 && (
         <div
-          className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center"
+          className="rounded-lg border border-dashed border-border bg-muted/50 p-12 text-center"
           data-testid="decision-shadow-empty-state"
         >
           <Inbox
-            className="mx-auto mb-3 h-10 w-10 text-slate-400"
+            className="mx-auto mb-3 h-10 w-10 text-muted-foreground"
             aria-hidden="true"
           />
-          <h3 className="text-base font-semibold text-slate-800">
+          <h3 className="text-base font-semibold text-foreground">
             {t('decisionShadow.emptyState')}
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {t('decisionShadow.emptyStateDesc')}
           </p>
         </div>
       )}
 
       {!isLoading && !isError && rows.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <Table data-testid="decision-shadow-table">
               <TableHeader>
@@ -173,7 +173,7 @@ export function DecisionShadowTab() {
             </Table>
           </div>
           {hasNextPage && (
-            <div className="flex justify-center border-t border-slate-100 p-3">
+            <div className="flex justify-center border-t border-border p-3">
               <Button
                 type="button"
                 variant="outline"
@@ -198,27 +198,27 @@ function DecisionShadowRow({ row }: { row: DecisionShadowLog }) {
 
   return (
     <TableRow data-testid={`decision-shadow-row-${row.id}`}>
-      <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
         {formatDateTime(row.createdAt)}
       </TableCell>
-      <TableCell className="text-xs text-slate-700">
+      <TableCell className="text-xs text-foreground">
         {t(`decisionShadow.useCases.${row.useCase}`)}
       </TableCell>
       <TableCell>
         {row.suggestion ? (
           <div className="space-y-0.5">
-            <div className="font-mono text-xs text-slate-800">
+            <div className="font-mono text-xs text-foreground">
               {row.suggestion.choice}
             </div>
             {row.suggestion.confidence !== null && (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-xs text-muted-foreground">
                 {t('decisionShadow.confidence')}:{' '}
                 {row.suggestion.confidence.toFixed(2)}
               </div>
             )}
             {row.suggestion.rationale && (
               <div
-                className="max-w-xs truncate text-[11px] text-slate-500"
+                className="max-w-xs truncate text-xs text-muted-foreground"
                 title={row.suggestion.rationale}
               >
                 {row.suggestion.rationale}
@@ -226,7 +226,7 @@ function DecisionShadowRow({ row }: { row: DecisionShadowLog }) {
             )}
           </div>
         ) : (
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             {t('decisionShadow.noSuggestion')}
           </span>
         )}
@@ -234,54 +234,54 @@ function DecisionShadowRow({ row }: { row: DecisionShadowLog }) {
       <TableCell>
         {row.actualOutcome ? (
           <div className="space-y-0.5">
-            <div className="font-mono text-xs text-slate-800">
+            <div className="font-mono text-xs text-foreground">
               {row.actualOutcome.choice}
             </div>
             {row.actualOutcome.source && (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-xs text-muted-foreground">
                 {row.actualOutcome.source}
               </div>
             )}
           </div>
         ) : (
-          <span className="text-xs text-slate-500">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
       <TableCell>
         {row.match === null ? (
-          <span className="text-xs text-slate-500">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         ) : row.match ? (
           <Badge
             variant="outline"
-            className="border-emerald-200 bg-emerald-50 text-emerald-800"
+            className="border-success/30 bg-success/10 text-success"
           >
             {t('decisionShadow.matchYes')}
           </Badge>
         ) : (
           <Badge
             variant="outline"
-            className="border-amber-200 bg-amber-50 text-amber-800"
+            className="border-warning/30 bg-warning/10 text-warning"
           >
             {t('decisionShadow.matchNo')}
           </Badge>
         )}
       </TableCell>
-      <TableCell className="text-xs text-slate-700 whitespace-nowrap">
+      <TableCell className="text-xs text-foreground whitespace-nowrap">
         {row.latencyMs === null ? '—' : `${row.latencyMs} ms`}
       </TableCell>
-      <TableCell className="text-xs text-slate-500">
+      <TableCell className="text-xs text-muted-foreground">
         {row.model ? `${row.provider} / ${row.model}` : row.provider}
       </TableCell>
       <TableCell className="max-w-xs">
         {row.error ? (
-          <span className="text-xs text-rose-700 break-words">{row.error}</span>
+          <span className="text-xs text-destructive break-words">{row.error}</span>
         ) : (
-          <span className="text-xs text-slate-500">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
       <TableCell>
         <span
-          className="font-mono text-xs text-slate-500"
+          className="font-mono text-xs text-muted-foreground"
           title={row.traceId}
         >
           {row.traceId.slice(0, 12)}...

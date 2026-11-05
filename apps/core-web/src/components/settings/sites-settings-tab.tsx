@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
 
 function memberLabel(member: {
   email: string
@@ -86,9 +87,7 @@ export function SitesSettingsTab() {
 
   if (areSitesLoading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <SettingsTabLoadingState className="min-h-[200px]" />
     )
   }
 
@@ -101,11 +100,11 @@ export function SitesSettingsTab() {
       <SitesTable sites={sites ?? []} selectedSiteId={selectedSiteId} onSelect={setSelectedSiteId} />
 
       {selectedSite ? (
-        <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
+        <div className="space-y-4 rounded-lg border bg-card p-6 shadow-sm">
           <div>
             <h3 className="font-medium">
               {t('sites.memberships.title', { name: selectedSite.name })}
-              <span className="ml-2 font-mono text-sm text-slate-500">{selectedSite.code}</span>
+              <span className="ml-2 font-mono text-sm text-muted-foreground">{selectedSite.code}</span>
             </h3>
           </div>
 

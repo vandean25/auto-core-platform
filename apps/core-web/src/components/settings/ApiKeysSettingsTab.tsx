@@ -139,7 +139,7 @@ export function ApiKeysSettingsTab() {
         cell: ({ row }) => (
           <div>
             <div className='font-medium'>{row.original.name}</div>
-            <div className='text-xs text-slate-500'>{row.original.createdByEmail ?? t('apiKeys.unknownCreator')}</div>
+            <div className='text-xs text-muted-foreground'>{row.original.createdByEmail ?? t('apiKeys.unknownCreator')}</div>
           </div>
         ),
       },
@@ -264,7 +264,7 @@ export function ApiKeysSettingsTab() {
       </div>
 
       {error ? (
-        <div className='rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
+        <div className='rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'>
           <div className='flex items-center justify-between gap-4'>
             <span>{getErrorMessage(error, t('apiKeys.loadFailed'))}</span>
             <Button variant='outline' size='sm' onClick={() => void refetch()}>
@@ -322,7 +322,7 @@ export function ApiKeysSettingsTab() {
                     />
                     <div>
                       <Label htmlFor={checkboxId}>{t(`apiKeys.scopes.${SCOPE_I18N_KEYS[option.value]}.label`)}</Label>
-                      <p className='text-xs text-slate-500'>
+                      <p className='text-xs text-muted-foreground'>
                         {t(`apiKeys.scopes.${SCOPE_I18N_KEYS[option.value]}.description`)} <code>{option.value}</code>
                       </p>
                     </div>
@@ -343,7 +343,7 @@ export function ApiKeysSettingsTab() {
             </div>
 
             {createError ? (
-              <p role='alert' className='text-sm text-rose-600'>
+              <p role='alert' className='text-sm text-destructive'>
                 {createError}
               </p>
             ) : null}

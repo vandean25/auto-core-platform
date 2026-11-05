@@ -94,24 +94,24 @@ function LeaveBookingDetails({ booking, employeeName, t }: { booking: LeaveReque
   return (
     <div className='space-y-5' data-testid='leave-booking-details'>
       <div className='space-y-1'>
-        <p className='text-sm font-medium text-slate-900'>{employeeName}</p>
+        <p className='text-sm font-medium text-foreground'>{employeeName}</p>
         <StatusBadge status={booking.status} />
       </div>
       <dl className='grid gap-4 sm:grid-cols-2'>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.start')}</dt>
+          <dt className='text-sm font-medium text-muted-foreground'>{t('leave.bookingSheet.start')}</dt>
           <dd className='text-sm'>{formatIsoDateOnly(booking.startOn)}</dd>
         </div>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.end')}</dt>
+          <dt className='text-sm font-medium text-muted-foreground'>{t('leave.bookingSheet.end')}</dt>
           <dd className='text-sm'>{formatIsoDateOnly(booking.endOn)}</dd>
         </div>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.chargedMin')}</dt>
+          <dt className='text-sm font-medium text-muted-foreground'>{t('leave.bookingSheet.chargedMin')}</dt>
           <dd className='text-sm'>{booking.minutesCharged}</dd>
         </div>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.note')}</dt>
+          <dt className='text-sm font-medium text-muted-foreground'>{t('leave.bookingSheet.note')}</dt>
           <dd className='text-sm'>{booking.note || i18n.t('common:placeholders.missing')}</dd>
         </div>
       </dl>
