@@ -4,6 +4,7 @@ import { AgentPolicyModule } from '../agent-policy/agent-policy.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { CatalogModule } from '../catalog/catalog.module.js';
 import { CommonModule } from '../common/common.module.js';
+import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-capabilities.module.js';
 import { CustomerConsentModule } from '../customer-consent/customer-consent.module.js';
 import { CustomerModule } from '../customer/customer.module.js';
 import { DryRunModule } from '../dry-run/dry-run.module.js';
@@ -27,6 +28,7 @@ export const MCP_NEST_IMPORTS = [
   AgentProposalModule,
   AgentPolicyModule,
   CommonModule,
+  EffectiveCapabilitiesModule,
   DryRunModule,
   CustomerModule,
   VehicleModule,

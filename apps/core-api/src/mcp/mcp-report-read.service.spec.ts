@@ -5,6 +5,7 @@ import type { NovaCalculationService } from '../vehicle/nova-calculation.service
 import type { VehicleService } from '../vehicle/vehicle.service.js';
 import type { SiteContextService } from '../site/site-context.service.js';
 import type { WorkshopKpiReportsService } from '../workshop/workshop-kpi-reports.service.js';
+import type { McpCapabilityGateService } from './mcp-capability-gate.service.js';
 import { encodeMcpCursor } from './mcp-output.util.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
 
@@ -107,6 +108,9 @@ describe('McpReportReadService', () => {
       vehicles as unknown as VehicleService,
       workshopKpis as unknown as WorkshopKpiReportsService,
       novaCalculation as unknown as NovaCalculationService,
+      {
+        assertAvailable: jest.fn().mockResolvedValue(undefined),
+      } as unknown as McpCapabilityGateService,
     );
   });
 

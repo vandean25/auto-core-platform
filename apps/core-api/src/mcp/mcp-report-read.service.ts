@@ -5,6 +5,7 @@ import { NovaCalculationService } from '../vehicle/nova-calculation.service.js';
 import { VehicleService } from '../vehicle/vehicle.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { WorkshopKpiReportsService } from '../workshop/workshop-kpi-reports.service.js';
+import { McpCapabilityGateService } from './mcp-capability-gate.service.js';
 import { clampMcpPageSize } from './mcp-output.util.js';
 import {
   offsetFromCursor,
@@ -44,6 +45,7 @@ export class McpReportReadService {
     private readonly vehicles: VehicleService,
     private readonly workshopKpis: WorkshopKpiReportsService,
     private readonly novaCalculation: NovaCalculationService,
+    private readonly capabilityGate: McpCapabilityGateService,
   ) {}
 
   async getRevenueReport(input: RevenueReportInput) {
@@ -69,6 +71,7 @@ export class McpReportReadService {
   }
 
   async listPickerlDue(input: PickerlDueInput) {
+    await this.capabilityGate.assertAvailable('pickerl57a');
     const windowDays = input.window ?? DEFAULT_PICKERL_WINDOW_DAYS;
     const scope = {
       offset: offsetFromCursor(input.cursor),
@@ -87,6 +90,7 @@ export class McpReportReadService {
   }
 
   async getNovaPreview(input: NovaPreviewInput) {
+    await this.capabilityGate.assertAvailable('nova');
     const netPriceEur = Number(input.net_price_eur);
     const result = await this.novaCalculation.calculate({
       vehicleId: input.vehicle_id,

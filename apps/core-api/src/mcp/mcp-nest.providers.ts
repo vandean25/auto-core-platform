@@ -1,6 +1,7 @@
 import { McpAuditReadService } from './mcp-audit-read.service.js';
 import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
+import { McpCapabilityGateService } from './mcp-capability-gate.service.js';
 import { McpCatalogReadService } from './mcp-catalog-read.service.js';
 import { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
 import { McpComplianceReadListsService } from './mcp-compliance-read-lists.service.js';
@@ -31,6 +32,7 @@ export const MCP_NEST_PROVIDERS = [
   McpWritePipelineService,
   McpWriteCommandIdempotencyService,
   McpCapabilitiesService,
+  McpCapabilityGateService,
   McpAuditReadService,
   McpDocumentReadService,
   McpInvoiceReadService,
