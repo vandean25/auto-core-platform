@@ -48,6 +48,7 @@ export function CustomerConsentPanel({
   contactEmail,
 }: CustomerConsentPanelProps) {
   const { t, i18n } = useTranslation('customers')
+  const { t: tCommon } = useTranslation('common')
   const [namespaceReady, setNamespaceReady] = useState(false)
   const [grantOpen, setGrantOpen] = useState(false)
   const [revokeOpen, setRevokeOpen] = useState(false)
@@ -116,7 +117,12 @@ export function CustomerConsentPanel({
   }
 
   if (!namespaceReady || prefsLoading) {
-    return <CardSkeleton lines={2} />
+    return (
+      <div role='status' aria-busy='true'>
+        <span className='sr-only'>{tCommon('shell.loading')}</span>
+        <CardSkeleton lines={2} />
+      </div>
+    )
   }
 
   const marketingRows =
@@ -188,7 +194,10 @@ export function CustomerConsentPanel({
         </CardHeader>
         <CardContent>
           {historyLoading ? (
-            <Skeleton className='h-4 w-full max-w-40' />
+            <div role='status' aria-busy='true'>
+              <span className='sr-only'>{tCommon('shell.loading')}</span>
+              <Skeleton className='h-4 w-full max-w-40' />
+            </div>
           ) : history && history.length > 0 ? (
             <Table>
               <TableHeader>
