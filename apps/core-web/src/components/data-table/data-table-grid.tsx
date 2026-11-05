@@ -31,7 +31,10 @@ type DataTableGridProps<TData extends object> = {
   table: LegacyTable<TData>
   data: TData[]
   rowBehaviour?: DataTableRowBehaviour<TData>
-  isLoading: boolean
+  showSkeleton: boolean
+  ariaBusy: boolean
+  isStalePreview: boolean
+  suppressEmptyState: boolean
   density: DataTableDensity
   hideHeader: boolean
   openRowContextMenu: (row: TData, x: number, y: number) => boolean
@@ -44,7 +47,10 @@ export function DataTableGrid<TData extends object>({
   table,
   data,
   rowBehaviour,
-  isLoading,
+  showSkeleton,
+  ariaBusy,
+  isStalePreview,
+  suppressEmptyState,
   density,
   hideHeader,
   openRowContextMenu,
@@ -73,7 +79,7 @@ export function DataTableGrid<TData extends object>({
       )}
       data-density={density}
     >
-      <Table aria-busy={isLoading}>
+      <Table aria-busy={ariaBusy}>
         <TableHeader className={cn('sticky top-0 z-10 bg-background', hideHeader && 'hidden')}>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} data-table-header="true">
@@ -93,9 +99,13 @@ export function DataTableGrid<TData extends object>({
             </TableRow>
           ))}
         </TableHeader>
-        <TableBody ref={tableBodyRef}>
-          {isLoading ? (
-            <TableSkeleton rows={Math.min(pagination.pageSize, 8)} cols={hideHeader ? 2 : visibleColumnCount} />
+        <TableBody ref={tableBodyRef} className={cn(isStalePreview && 'opacity-60')}>
+          {showSkeleton ? (
+            <TableSkeleton
+              rows={Math.min(pagination.pageSize, 8)}
+              cols={hideHeader ? 2 : visibleColumnCount}
+              delayMs={0}
+            />
           ) : bodyRows.length ? (
             bodyRows.map((row, visibleRowIndex) => {
               const bodyRow = row as DataTableBodyRowModel<TData>
@@ -108,14 +118,15 @@ export function DataTableGrid<TData extends object>({
                   data={data}
                   rowBehaviour={rowBehaviour}
                   interaction={interaction}
-                  tabIndex={tabIndexForRow(visibleRowIndex, interaction.rowIsRovingFocusable)}
+                  interactionLocked={isStalePreview}
+                  tabIndex={tabIndexForRow(visibleRowIndex, interaction.rowIsRovingFocusable && !isStalePreview)}
                   openRowContextMenu={openRowContextMenu}
                   onArrowFocus={(direction) => handleArrowFocus(visibleRowIndex, direction)}
                   onRowFocus={() => onRowFocus(visibleRowIndex)}
                 />
               )
             })
-          ) : (
+          ) : suppressEmptyState ? null : (
             <DataTableEmptyRow
               colSpan={visibleColumnCount}
               fallbackMessage={emptyStateMessage}

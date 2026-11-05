@@ -22,6 +22,7 @@ interface DataTableToolbarProps<TData extends object> {
   csvFileName?: string
   getRoot?: () => Element | null
   isLoading?: boolean
+  refreshIndicator?: React.ReactNode
 }
 
 export function DataTableToolbar<TData extends object>({
@@ -34,6 +35,7 @@ export function DataTableToolbar<TData extends object>({
   csvFileName,
   getRoot,
   isLoading = false,
+  refreshIndicator,
 }: DataTableToolbarProps<TData>) {
   const { t } = useTranslation('common')
   const filterPlaceholder = placeholder ?? t('dataTable.filterPlaceholder')
@@ -79,6 +81,7 @@ export function DataTableToolbar<TData extends object>({
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2" data-testid="data-table-toolbar-actions">
+        {refreshIndicator}
         {saveViewTitle ? <SaveCurrentViewButton title={saveViewTitle} /> : null}
         {dashboardSource ? <AddToDashboardButton source={dashboardSource} /> : null}
         {enableCsvExport ? (

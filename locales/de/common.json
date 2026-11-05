@@ -72,6 +72,14 @@
     },
     "density": {
       "compact": "Kompakte Zeilen"
+    },
+    "loading": {
+      "stalePreview": "Ergebnisse werden aktualisiert…",
+      "refreshing": "Aktualisieren…",
+      "retry": "Erneut laden",
+      "dismiss": "Schließen",
+      "loadFailed": "Die Tabelle konnte nicht geladen werden.",
+      "pendingRow": "Eintrag wird angelegt…"
     }
   },
   "dashboard": {

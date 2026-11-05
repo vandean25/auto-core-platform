@@ -11,7 +11,9 @@ import {
   scheduleIntentPrefetch,
   startImmediateIntentPrefetch,
 } from '@/lib/intent-prefetch'
+import { cn } from '@/lib/utils'
 import { getDataTableCellClassName } from './data-table-column-meta'
+import { isDataTablePendingRow } from './data-table-states'
 import { DataTableRowDetailLink, isDataTableRowLinkColumn } from './data-table-row-link'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 
@@ -101,6 +103,12 @@ export function getRowInteraction<TData extends object>(
   const rowData = row.original
   const rowHref = rowBehaviour?.getRowHref?.(rowData)
   const rowAccessibleName = rowBehaviour?.getRowAccessibleName?.(rowData)
+  if (isDataTablePendingRow(rowData)) {
+    return {
+      rowUsesDetailLink: false,
+      rowIsRovingFocusable: false,
+    }
+  }
   const rowUsesDetailLink = Boolean(
     rowHref &&
       rowAccessibleName &&
@@ -219,6 +227,7 @@ type DataTableBodyRowProps<TData extends object> = {
   openRowContextMenu: (row: TData, x: number, y: number) => boolean
   onArrowFocus: (direction: 'up' | 'down') => void
   onRowFocus: () => void
+  interactionLocked?: boolean
 }
 
 export function DataTableBodyRow<TData extends object>({
@@ -230,6 +239,7 @@ export function DataTableBodyRow<TData extends object>({
   openRowContextMenu,
   onArrowFocus,
   onRowFocus,
+  interactionLocked = false,
 }: DataTableBodyRowProps<TData>) {
   const fallbackRowId = useId()
   const rowData = row.original
@@ -237,9 +247,10 @@ export function DataTableBodyRow<TData extends object>({
   const targetId = rowId ?? `${fallbackRowId}:${row.id}`
   const hoverIntentKey = `row-hover:${targetId}`
   const focusIntentKey = `row-focus:${targetId}`
-  const onRowClick = rowBehaviour?.onRowClick
-  const onRowPrefetch = rowBehaviour?.onRowPrefetch
-  const showClickableStyles = Boolean(onRowClick)
+  const onRowClick = interactionLocked ? undefined : rowBehaviour?.onRowClick
+  const onRowPrefetch = interactionLocked ? undefined : rowBehaviour?.onRowPrefetch
+  const showClickableStyles = Boolean(onRowClick) && !interactionLocked
+  const isPendingRow = isDataTablePendingRow(rowData)
 
   useEffect(() => {
     return () => {
@@ -287,6 +298,7 @@ export function DataTableBodyRow<TData extends object>({
         }
       }}
       onContextMenu={(event) => {
+        if (interactionLocked || isPendingRow) return
         event.preventDefault()
         openRowContextMenu(resolveRowFromElement(event.currentTarget, data, rowData), event.clientX, event.clientY)
       }}
@@ -301,8 +313,9 @@ export function DataTableBodyRow<TData extends object>({
           onArrowFocus,
         })
       }
-      tabIndex={tabIndex}
-      className={showClickableStyles ? clickableRowClassName : undefined}
+      tabIndex={interactionLocked ? -1 : tabIndex}
+      className={cn(isPendingRow && 'bg-muted/40 text-muted-foreground', showClickableStyles ? clickableRowClassName : undefined)}
+      aria-disabled={interactionLocked || isPendingRow ? true : undefined}
     >
       {row.getVisibleCells().map((cell) => {
         const cellContent = flexRender(

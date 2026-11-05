@@ -38,7 +38,12 @@ import { getErrorMessage } from '@/lib/error-utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { PageLoader } from '@/components/ui/PageLoader'
+import { SubmitButtonPending } from '@/components/data-table/data-table-states'
 import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep'
+import {
+  createWorkshopOrderFromVehicle,
+  type WorkshopOrderListPendingRow,
+} from './workshop-order-intake-create'
 
 type ExistingVehicle = Vehicle & { customer: Customer | null }
 type ExistingCustomer = Customer & { vehicles: Vehicle[] }
@@ -48,6 +53,10 @@ interface WorkshopOrderIntakeDialogProps {
   onOpenChange: (open: boolean) => void
   initialVehicleId?: string
   pickerlMode?: boolean
+  listPendingMode?: boolean
+  onPendingOrder?: (row: WorkshopOrderListPendingRow, meta: { localId: string }) => void
+  onPendingOrderSettled?: (localId: string, serverOrderId: string) => void
+  onPendingOrderFailed?: (localId: string) => void
 }
 
 export function WorkshopOrderIntakeDialog({
@@ -55,6 +64,10 @@ export function WorkshopOrderIntakeDialog({
   onOpenChange,
   initialVehicleId,
   pickerlMode = false,
+  listPendingMode = false,
+  onPendingOrder,
+  onPendingOrderSettled,
+  onPendingOrderFailed,
 }: WorkshopOrderIntakeDialogProps) {
   const { t } = useTranslation('workshop')
   const [workshopNamespaceReady, setWorkshopNamespaceReady] = useState(() =>
@@ -138,30 +151,42 @@ export function WorkshopOrderIntakeDialog({
     navigate(`/workshop/orders/${orderId}`)
   }
 
+  const pendingCallbacks = {
+    listPendingMode,
+    onPendingOrder,
+    onPendingOrderSettled,
+    closeDialog: () => handleDialogOpenChange(false),
+  }
+
+  const orderPayload = {
+    odometer: Number(odometer),
+    fuelLevel: Number(fuelLevel),
+    reportedIssue: notes || undefined,
+  }
+
   async function handleCreateOrder() {
     setExistingOrderConflict(null)
     attemptRef.current += 1
     const attempt = attemptRef.current
     let orderVehicleId: string | undefined
+    let pendingLocalId: string | undefined
     try {
       if (activeTab === 'existing') {
         if (!selectedVehicle?.customer?.id) {
           toast.error(t('orderIntake.toastSelectVehicle'))
           return
         }
-
         orderVehicleId = selectedVehicle.id
-        const order = await createOrder.mutateAsync({
-          customerId: selectedVehicle.customer.id,
-          vehicleId: selectedVehicle.id,
-          odometer: Number(odometer),
-          fuelLevel: Number(fuelLevel),
-          reportedIssue: notes || undefined,
-          ...(pickerlMode ? { createPickerlTask: true } : {}),
-        })
-        openCreatedOrder(
-          order.id,
+        pendingLocalId = await createWorkshopOrderFromVehicle(
+          selectedVehicle,
+          { ...orderPayload, ...(pickerlMode ? { createPickerlTask: true } : {}) },
+          (payload) => createOrder.mutateAsync(payload),
+          pendingCallbacks,
           pickerlMode ? t('orderIntake.toastPickerlOpened') : t('orderIntake.toastOrderCreated'),
+          {
+            toastSuccess: (message) => toast.success(message),
+            onNavigateCreated: (orderId, message) => openCreatedOrder(orderId, message),
+          },
         )
         return
       }
@@ -178,15 +203,21 @@ export function WorkshopOrderIntakeDialog({
       }
 
       orderVehicleId = vehicle.id
-      const order = await createOrder.mutateAsync({
-        customerId: vehicle.customer.id,
-        vehicleId: vehicle.id,
-        odometer: Number(odometer),
-        fuelLevel: Number(fuelLevel),
-        reportedIssue: notes || undefined,
-      })
-      openCreatedOrder(order.id, t('orderIntake.toastOrderCreated'))
+      pendingLocalId = await createWorkshopOrderFromVehicle(
+        vehicle,
+        orderPayload,
+        (payload) => createOrder.mutateAsync(payload),
+        pendingCallbacks,
+        t('orderIntake.toastOrderCreated'),
+        {
+          toastSuccess: (message) => toast.success(message),
+          onNavigateCreated: (orderId, message) => openCreatedOrder(orderId, message),
+        },
+      )
     } catch (error) {
+      if (pendingLocalId) {
+        onPendingOrderFailed?.(pendingLocalId)
+      }
       const conflict = conflictFromError(error, { vehicleId: orderVehicleId, tab: activeTab, formSignature })
       if (conflict && attempt === attemptRef.current) {
         setExistingOrderConflict(conflict)
@@ -498,22 +529,13 @@ export function WorkshopOrderIntakeDialog({
           <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
             {t('orderIntake.cancel')}
           </Button>
-          <Button
+          <SubmitButtonPending
             type="button"
+            pending={createOrder.isPending || registerIntake.isPending}
+            label={pickerlMode ? t('orderIntake.createPickerl') : t('orderIntake.createOrder')}
+            disabled={!canSubmit || activeTab === 'registration-document'}
             onClick={handleCreateOrder}
-            disabled={
-              createOrder.isPending ||
-              registerIntake.isPending ||
-              !canSubmit ||
-              activeTab === 'registration-document'
-            }
-          >
-            {createOrder.isPending || registerIntake.isPending
-              ? t('orderIntake.creating')
-              : pickerlMode
-                ? t('orderIntake.createPickerl')
-                : t('orderIntake.createOrder')}
-          </Button>
+          />
         </DialogFooter>
           </>
         )}

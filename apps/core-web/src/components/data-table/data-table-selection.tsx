@@ -4,6 +4,7 @@ import type { LegacyColumnDef as ColumnDef, LegacyReactTable as Table } from '@t
 import { useTranslation } from 'react-i18next'
 
 import { Checkbox } from '@/components/ui/checkbox'
+import { isDataTablePendingRow } from './data-table-states'
 import { DataTableActionBar } from './data-table-action-bar'
 
 // Header and cell are components (TanStack renders function renderers as components), so they may call hooks.
@@ -22,6 +23,9 @@ function createSelectColumn<TData extends object>(): ColumnDef<TData> {
     },
     cell: function SelectRowCell({ row }) {
       const { t } = useTranslation('common')
+      if (isDataTablePendingRow(row.original)) {
+        return null
+      }
       return (
         <Checkbox
           aria-label={t('dataTable.selectRow')}
@@ -57,9 +61,15 @@ export function useDataTableSelection<TData extends object>(enabled: boolean, re
 interface DataTableSelectionBarProps<TData extends object> {
   table: Table<TData>
   bulkActions?: (selectedRows: TData[]) => ReactNode
+  disabled?: boolean
 }
 
-export function DataTableSelectionBar<TData extends object>({ table, bulkActions }: DataTableSelectionBarProps<TData>) {
+export function DataTableSelectionBar<TData extends object>({
+  table,
+  bulkActions,
+  disabled = false,
+}: DataTableSelectionBarProps<TData>) {
+  if (disabled) return null
   const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original as TData)
   if (!bulkActions || selectedRows.length === 0) return null
 

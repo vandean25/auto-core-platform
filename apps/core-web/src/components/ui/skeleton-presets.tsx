@@ -11,7 +11,8 @@ const SKELETON_DELAY_MS = 200
 /** Placeholder body rows for a table. Render inside a `TableBody` while loading. */
 export function TableSkeleton({ rows = 5, cols, delayMs = SKELETON_DELAY_MS }: { rows?: number; cols: number; delayMs?: number }) {
   const { t } = useTranslation('common')
-  const visible = useDelayedFlag(true, delayMs)
+  const delayedVisible = useDelayedFlag(delayMs > 0, delayMs)
+  const visible = delayMs === 0 || delayedVisible
   if (!visible) return null
 
   return Array.from({ length: rows }, (_, rowIndex) => (
@@ -46,10 +47,19 @@ export function CardSkeleton({ lines = 3, className }: { lines?: number; classNa
 }
 
 /** Page header block plus a card grid, shaped like a detail page. */
-export function DetailSkeleton({ label, delayMs = SKELETON_DELAY_MS }: { label?: string; delayMs?: number }) {
+export function DetailSkeleton({
+  label,
+  delayMs = SKELETON_DELAY_MS,
+  show = true,
+}: {
+  label?: string
+  delayMs?: number
+  /** Prefetched detail with usable data skips the skeleton entirely. */
+  show?: boolean
+}) {
   const { t } = useTranslation('common')
-  const visible = useDelayedFlag(true, delayMs)
-  if (!visible) return null
+  const visible = useDelayedFlag(show, delayMs)
+  if (!show || !visible) return null
 
   return (
     <div role="status" aria-busy="true" className="space-y-6">

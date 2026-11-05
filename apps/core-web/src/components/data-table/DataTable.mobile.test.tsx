@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
@@ -189,10 +189,17 @@ describe('DataTable list mode', () => {
   })
 
   it('shows a skeleton table while loading', () => {
-    render(<Harness isLoading />)
+    vi.useFakeTimers()
+    render(<Harness isLoading data={[]} hasUsableData={false} />)
 
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'false')
+
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
     expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'true')
+    vi.useRealTimers()
   })
 
   it('hides the CSV export on phone because it reads table cells', () => {

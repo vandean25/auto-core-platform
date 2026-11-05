@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -11,6 +11,11 @@ import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIn
 import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import {
+  DataTablePendingIcon,
+  isDataTablePendingRow,
+  type DataTablePendingRowMeta,
+} from '@/components/data-table/data-table-states'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { useWorkshopOrders } from '@/api/workshop'
@@ -21,16 +26,24 @@ import { WorkshopOrderPeekSheet } from '@/features/peek/WorkshopOrderPeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
 
+type WorkshopOrderListPendingRow = WorkshopOrderListRow & DataTablePendingRowMeta
+
 export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')
+  const { t: tCommon } = useTranslation('common')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
+  const [pendingRows, setPendingRows] = useState<WorkshopOrderListPendingRow[]>([])
+  const pendingServerIds = useRef<Map<string, string>>(new Map())
+  const presentationLatencyRef = useRef<number | null>(null)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
+  const ordersQuery = useWorkshopOrders(queryParams)
+  const { data: responseData, isLoading, isFetching, isPlaceholderData, isError, refetch } =
+    ordersQuery
   const peek = usePeekSearchParam()
 
-  const rows = useMemo<WorkshopOrderListRow[]>(() => {
+  const loadedRows = useMemo<WorkshopOrderListRow[]>(() => {
     const source = responseData?.data ?? []
     return source.map((order) => ({
       id: order.id,
@@ -41,6 +54,19 @@ export default function WorkshopOrderList() {
       status: order.status,
     }))
   }, [responseData])
+
+  useEffect(() => {
+    if (!responseData?.data) return
+    setPendingRows((previous) =>
+      previous.filter((pending) => {
+        const serverId = pendingServerIds.current.get(pending.id)
+        if (!serverId) return true
+        return !responseData.data.some((order) => order.id === serverId)
+      }),
+    )
+  }, [responseData])
+
+  const rows = useMemo(() => [...pendingRows, ...loadedRows], [loadedRows, pendingRows])
 
   const rowBehaviour = useWorkshopOrderListRowBehaviour(
     t,
@@ -57,7 +83,12 @@ export default function WorkshopOrderList() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('orders.list.columns.orderNo')} />
       ),
-      cell: ({ row }) => row.original.orderNo,
+      cell: ({ row }) =>
+        isDataTablePendingRow(row.original) ? (
+          <DataTablePendingIcon label={tCommon('dataTable.loading.pendingRow')} />
+        ) : (
+          row.original.orderNo
+        ),
     },
     {
       accessorKey: 'customer',
@@ -79,7 +110,10 @@ export default function WorkshopOrderList() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('orders.list.columns.opened')} />
       ),
-      cell: ({ row }) => <span className='text-muted-foreground'>{row.original.openedAt}</span>,
+      cell: ({ row }) =>
+        isDataTablePendingRow(row.original) ? null : (
+          <span className='text-muted-foreground'>{row.original.openedAt}</span>
+        ),
     },
     {
       accessorKey: 'status',
@@ -87,7 +121,8 @@ export default function WorkshopOrderList() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('orders.list.columns.status')} />
       ),
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      cell: ({ row }) =>
+        isDataTablePendingRow(row.original) ? null : <StatusBadge status={row.original.status} />,
     },
   ]
 
@@ -118,6 +153,12 @@ export default function WorkshopOrderList() {
         dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
+        isFetching={isFetching}
+        isPlaceholderData={isPlaceholderData}
+        isError={isError}
+        onRetry={() => void refetch()}
+        hasUsableData={responseData !== undefined}
+        presentationLatencyRef={presentationLatencyRef}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
         emptyState={
           isError
@@ -136,7 +177,23 @@ export default function WorkshopOrderList() {
         {...tableState}
       />
 
-      <WorkshopOrderIntakeDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <WorkshopOrderIntakeDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        listPendingMode
+        onPendingOrder={(row, meta) => {
+          pendingServerIds.current.delete(meta.localId)
+          setPendingRows((previous) => [row, ...previous])
+        }}
+        onPendingOrderSettled={(localId, serverOrderId) => {
+          pendingServerIds.current.set(localId, serverOrderId)
+          void queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
+        }}
+        onPendingOrderFailed={(localId) => {
+          pendingServerIds.current.delete(localId)
+          setPendingRows((previous) => previous.filter((row) => row.id !== localId))
+        }}
+      />
       <WorkshopOrderPeekSheet
         t={t}
         peekId={peek.peekId}

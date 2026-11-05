@@ -72,6 +72,14 @@
     },
     "density": {
       "compact": "Compact rows"
+    },
+    "loading": {
+      "stalePreview": "Updating results…",
+      "refreshing": "Refreshing…",
+      "retry": "Try again",
+      "dismiss": "Dismiss",
+      "loadFailed": "The table could not be loaded.",
+      "pendingRow": "Creating entry…"
     }
   },
   "dashboard": {
