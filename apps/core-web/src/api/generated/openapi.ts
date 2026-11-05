@@ -260,6 +260,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/inventory/capped-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bounded match count for parts list filters (ADR-0035 pilot) */
+        get: operations["InventoryController_cappedCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inventory": {
         parameters: {
             query?: never;
@@ -2615,6 +2632,23 @@ export interface paths {
         get: operations["VehicleSaleController_getKaufvertragPdf"];
         put?: never;
         post: operations["VehicleSaleController_generateKaufvertragPdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-stock/capped-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bounded match count for dealer stock list filters (ADR-0035 pilot) */
+        get: operations["VehicleStockController_cappedCount"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5780,6 +5814,10 @@ export interface components {
             unit: string;
             brand_id?: number | null;
             revenue_group_id?: number | null;
+        };
+        CappedListCountResponseDto: {
+            count: number;
+            isCapped: boolean;
         };
         PaginationMetaDto: {
             total: number;
@@ -13127,14 +13165,40 @@ export interface operations {
             };
         };
     };
+    InventoryController_cappedCount: {
+        parameters: {
+            query: {
+                brand: string;
+                brandId: string;
+                location: string;
+                search: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CappedListCountResponseDto"];
+                };
+            };
+        };
+    };
     InventoryController_findAll: {
         parameters: {
             query?: {
                 brand?: string;
                 brandId?: number;
+                cursor?: string;
                 location?: string;
                 page?: number;
                 pageSize?: number;
+                pagination?: "offset" | "cursor";
                 search?: string;
                 sortDirection?: "asc" | "desc";
                 sortField?: "sku" | "name" | "price";
@@ -18045,12 +18109,38 @@ export interface operations {
             };
         };
     };
+    VehicleStockController_cappedCount: {
+        parameters: {
+            query: {
+                search: string;
+                stock_status: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CappedListCountResponseDto"];
+                };
+            };
+        };
+    };
     VehicleStockController_list: {
         parameters: {
             query?: {
+                /** @description Opaque cursor from meta.nextCursor of the previous cursor page */
+                cursor?: string;
                 limit?: number;
                 page?: number;
                 pageSize?: number;
+                /** @description Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract. */
+                pagination?: "offset" | "cursor";
                 search?: string;
                 sortDirection?: "asc" | "desc";
                 sortField?: string;

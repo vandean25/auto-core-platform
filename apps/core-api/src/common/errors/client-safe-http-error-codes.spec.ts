@@ -76,6 +76,10 @@ describe('client-safe HTTP error codes', () => {
     expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('NOT_A_CATALOG_LINE')).toBe(true);
   });
 
+  it('lists LIST_CURSOR_INVALID for ADR-0035 cursor binding failures', () => {
+    expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('LIST_CURSOR_INVALID')).toBe(true);
+  });
+
   it('lists the active-order conflict code and forwards only its order ids', () => {
     expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('VEHICLE_HAS_ACTIVE_ORDER')).toBe(true);
     expect(

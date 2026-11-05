@@ -311,6 +311,7 @@
     "LISTING_VEHICLE_MILEAGE_REQUIRED": "Mileage is required for mobile.de reference export.",
     "LISTING_VEHICLE_NOT_IN_STOCK": "Vehicle stock status must be IN_STOCK to activate a listing offer.",
     "LISTING_VEHICLE_NOT_USED": "Vehicle must be dealer USED stock to activate a listing offer.",
+    "LIST_CURSOR_INVALID": "This list cursor is invalid or does not match the current filters.",
     "LOANER_NOT_PERMITTED": "Your role does not have permission to reserve a loaner vehicle.",
     "LOCALE_UNSUPPORTED": "This locale is not supported for workshop commands.",
     "MANUAL_EXPIRY_AMBIGUITY": "Mehrere manuelle Begutachtungen am selben Tag mit unterschiedlicher Plaketten-Gültigkeit.",

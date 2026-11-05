@@ -10,6 +10,23 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AtpService } from './atp.service.js';
 import { buildInventoryOrderBy } from './inventory-list-query.js';
 import {
+  andCombineListWhere,
+  buildKeysetAfterClause,
+  buildPrismaNullsLastOrderBy,
+  cappedCatalogItemListCount,
+  deserializeSortValueFromCursor,
+  encodeListCursor,
+  hashListFilterContext,
+  parseListCursorParam,
+  serializeSortValueForCursor,
+  sliceKeysetPage,
+  GLOBAL_LIST_LIMIT_MAX,
+} from '../common/list-cursor/index.js';
+import {
+  INVENTORY_CURSOR_ENDPOINT,
+  resolveInventoryCursorSort,
+} from './inventory-list-cursor.js';
+import {
   filterAtpStocks,
   toAtpStockInput,
   transformInventoryDetailItem,
@@ -65,6 +82,8 @@ export interface InventoryQueryParams {
   brandId?: number;
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
+  cursor?: string;
+  pagination?: 'cursor' | 'offset';
 }
 
 interface InventoryContext {
@@ -105,6 +124,24 @@ function buildLegacyInventoryWhere(
     };
   }
   return where;
+}
+
+function inventoryListFilterContext(
+  params: InventoryQueryParams,
+): Record<string, unknown> {
+  return {
+    search: params.search?.trim() ?? '',
+    location: params.location ?? '',
+    brand: params.brand ?? '',
+    brandId: params.brandId ?? null,
+  };
+}
+
+function parseInventoryCursorLimit(params: InventoryQueryParams): number {
+  const pageSize = params.pageSize ? Number(params.pageSize) : undefined;
+  const limit = params.limit ? Number(params.limit) : 10;
+  const raw = pageSize ?? limit;
+  return Math.min(Math.max(1, raw), GLOBAL_LIST_LIMIT_MAX);
 }
 
 function resolveInventoryPagination(params: InventoryQueryParams): {
@@ -217,6 +254,100 @@ export class InventoryService {
         pageCount,
       },
     };
+  }
+
+  async findAllWithCursor(params: InventoryQueryParams) {
+    const context = await this.getInventoryContext();
+    const { field, direction, config } = resolveInventoryCursorSort(
+      params.sortField,
+      params.sortDirection,
+    );
+    const limit = parseInventoryCursorLimit(params);
+    const filterHash = hashListFilterContext(
+      inventoryListFilterContext(params),
+    );
+    const binding = {
+      endpoint: INVENTORY_CURSOR_ENDPOINT,
+      tenantId: context.tenantId,
+      siteId: context.siteId,
+      filterHash,
+      sortField: field,
+      sortDirection: direction,
+    };
+    const decoded = parseListCursorParam(params.cursor, binding);
+    const baseWhere = buildLegacyInventoryWhere(
+      context.tenantId,
+      context.siteId,
+      params,
+    );
+    let keysetClause: Record<string, unknown> | undefined;
+    if (decoded) {
+      const sortValue = deserializeSortValueFromCursor(
+        decoded.sv,
+        config.valueKind,
+      );
+      keysetClause = buildKeysetAfterClause(
+        config.prismaField,
+        direction,
+        sortValue,
+        decoded.id,
+        { sortIsNullable: config.nullable },
+      );
+    }
+    const where = andCombineListWhere(
+      baseWhere,
+      keysetClause,
+    ) as Prisma.CatalogItemWhereInput;
+    const orderBy = buildPrismaNullsLastOrderBy(
+      config.prismaField,
+      direction,
+      direction,
+    ) as Prisma.CatalogItemOrderByWithRelationInput[];
+    const rows = await this.prisma.catalogItem.findMany({
+      where,
+      include: buildCatalogItemInclude(context.tenantId, context.siteId),
+      orderBy,
+      take: limit + 1,
+    });
+    const { page, hasNextPage } = sliceKeysetPage(rows, limit);
+    const last = page.at(-1);
+    const nextCursor =
+      hasNextPage && last
+        ? encodeListCursor({
+            v: 1,
+            ep: INVENTORY_CURSOR_ENDPOINT,
+            sort: field,
+            dir: direction,
+            fh: filterHash,
+            tid: context.tenantId,
+            sid: context.siteId,
+            sv: serializeSortValueForCursor(
+              last[config.prismaField as keyof typeof last],
+            ),
+            id: last.id,
+          })
+        : null;
+    const transformedItems = page.map((item) =>
+      transformInventoryListItem(item, this.atpService, context.siteId),
+    );
+    return {
+      data: transformedItems,
+      meta: {
+        nextCursor,
+        hasNextPage,
+        limit,
+      },
+    };
+  }
+
+  async cappedListCount(params: InventoryQueryParams) {
+    const context = await this.getInventoryContext();
+    const where = buildLegacyInventoryWhere(
+      context.tenantId,
+      context.siteId,
+      params,
+    );
+    return cappedCatalogItemListCount(this.prisma, where);
   }
 
   private async fetchInventoryWithParams(

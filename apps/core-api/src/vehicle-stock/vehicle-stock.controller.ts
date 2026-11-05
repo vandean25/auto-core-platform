@@ -31,6 +31,7 @@ import {
   GewaehrleistungDueListQueryDto,
   GewaehrleistungDueListResponseDto,
 } from './dto/gewaehrleistung-due-list.dto.js';
+import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
 
 @ApiTags('vehicle-stock')
 @ApiExtraModels(VehicleStockMarginRoleTotalsDto)
@@ -41,6 +42,19 @@ export class VehicleStockController {
     private readonly moves: VehicleStockMoveService,
     private readonly reports: VehicleStockReportsService,
   ) {}
+
+  @Get('capped-count')
+  @ApiOperation({
+    summary:
+      'Bounded match count for dealer stock list filters (ADR-0035 pilot)',
+  })
+  @ApiOkResponse({ type: CappedListCountResponseDto })
+  cappedCount(
+    @Query('search') search?: string,
+    @Query('stock_status') stockStatus?: string,
+  ) {
+    return this.stock.cappedListCount({ search, stock_status: stockStatus });
+  }
 
   @Get()
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
@@ -70,6 +84,20 @@ export class VehicleStockController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiQuery({
+    name: 'pagination',
+    required: false,
+    description:
+      'Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract.',
+    schema: { type: 'string', enum: ['offset', 'cursor'] },
+  })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description:
+      'Opaque cursor from meta.nextCursor of the previous cursor page',
+    schema: { type: 'string' },
+  })
   list(
     @Query('search') search?: string,
     @Query('stock_status') stockStatus?: string,
@@ -78,7 +106,30 @@ export class VehicleStockController {
     @Query('pageSize') pageSize?: string,
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
+    @Query('pagination') pagination?: string,
+    @Query('cursor') cursor?: string,
   ) {
+    const parsedLimit = limit
+      ? parseInt(limit, 10)
+      : pageSize
+        ? parseInt(pageSize, 10)
+        : undefined;
+    const useCursor = pagination === 'cursor' || Boolean(cursor);
+    if (useCursor) {
+      return this.stock.listWithCursor({
+        search,
+        stock_status: stockStatus,
+        limit: parsedLimit,
+        sortField,
+        sortDirection:
+          sortDirection === 'desc'
+            ? 'desc'
+            : sortDirection === 'asc'
+              ? 'asc'
+              : undefined,
+        cursor,
+      });
+    }
     return this.stock.list({
       search,
       stock_status: stockStatus,

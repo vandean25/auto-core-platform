@@ -1239,6 +1239,10 @@
       "public": true,
       "params": []
     },
+    "LIST_CURSOR_INVALID": {
+      "public": true,
+      "params": []
+    },
     "LOANER_NOT_PERMITTED": {
       "public": true,
       "params": []

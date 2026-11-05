@@ -258,6 +258,7 @@
   "INVALID_INSPECTION_PAYLOAD": "Ungültige Inspektionsdaten.",
   "INVALID_MEASUREMENT_PAYLOAD": "Ungültige Messdaten.",
   "INVALID_PAGINATION": "Ungültige Paginierung.",
+  "LIST_CURSOR_INVALID": "Der Listen-Cursor ist ungültig oder passt nicht zu den aktuellen Filtern.",
   "INVOICE_BRANDING_WRITER_DISABLED": "Rechnungen mit Briefpapier sind in dieser Umgebung noch nicht aktiviert. Das Ausstellen ist möglich, sobald die Funktion freigeschaltet ist.",
   "INVOICE_SOURCE_OWNERSHIP_CHANGED": "Die Eigentümerschaft der Rechnungsquelle hat sich während der Buchung geändert.",
   "KEYS_COMPLETE": "Schlüssel vollständig.",

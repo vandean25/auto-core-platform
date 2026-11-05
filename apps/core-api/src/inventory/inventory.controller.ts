@@ -10,7 +10,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiQuery,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { InventoryService } from './inventory.service.js';
 import { LedgerService } from './ledger.service.js';
 import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
@@ -31,6 +36,7 @@ import {
 import { ReceiveInventoryStockDto } from './dto/receive-inventory-stock.dto.js';
 import { AdjustInventoryStockDto } from './dto/adjust-inventory-stock.dto.js';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
+import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
 
 @Controller('inventory')
 export class InventoryController {
@@ -86,7 +92,32 @@ export class InventoryController {
     return await this.inventoryItemMutations.updateItem(id, dto);
   }
 
+  @Get('capped-count')
+  @ApiOperation({
+    summary: 'Bounded match count for parts list filters (ADR-0035 pilot)',
+  })
+  @ApiOkResponse({ type: CappedListCountResponseDto })
+  async cappedCount(
+    @Query('search') search?: string,
+    @Query('location') location?: string,
+    @Query('brand') brand?: string,
+    @Query('brandId') brandId?: string,
+  ) {
+    return await this.inventoryService.cappedListCount({
+      search,
+      location,
+      brand,
+      brandId: parsePositiveInt(brandId),
+    });
+  }
+
   @Get()
+  @ApiQuery({
+    name: 'pagination',
+    required: false,
+    schema: { type: 'string', enum: ['offset', 'cursor'] },
+  })
+  @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string' } })
   @ApiQuery({
     name: 'page',
     required: false,
@@ -116,7 +147,23 @@ export class InventoryController {
     @Query('brandId') brandId?: string,
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: string,
+    @Query('pagination') pagination?: string,
+    @Query('cursor') cursor?: string,
   ) {
+    const useCursor = pagination === 'cursor' || Boolean(cursor);
+    if (useCursor) {
+      return await this.inventoryService.findAllWithCursor({
+        page: parsePositiveInt(page, 1),
+        pageSize: parsePositiveInt(pageSize, 10),
+        search,
+        location,
+        brand,
+        brandId: parsePositiveInt(brandId),
+        sortField,
+        sortDirection: parseSortDirection(sortDirection),
+        cursor,
+      });
+    }
     return await this.inventoryService.findAll({
       page: parsePositiveInt(page, 1),
       pageSize: parsePositiveInt(pageSize, 10),

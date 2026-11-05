@@ -34,6 +34,14 @@ export interface PrismaQueryResult<T = Record<string, unknown>> {
   take: number;
 }
 
+export {
+  andCombineListWhere,
+  buildKeysetAfterClause,
+  buildPrismaNullsLastOrderBy,
+  sliceKeysetPage,
+} from '../list-cursor/list-keyset.js';
+export type { KeysetSortDirection } from '../list-cursor/list-keyset.types.js';
+
 export class QueryBuilder {
   static buildWhere(
     filters: FilterParam[] = [],
