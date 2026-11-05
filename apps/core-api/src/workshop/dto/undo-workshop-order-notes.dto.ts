@@ -12,6 +12,7 @@ export class UndoWorkshopOrderNotesDto {
     description:
       'Notes value before the edit being undone. Omit or null to restore an empty field.',
     nullable: true,
+    required: false,
     type: String,
   })
   @ValidateIf((_object, value) => value !== null && value !== undefined)

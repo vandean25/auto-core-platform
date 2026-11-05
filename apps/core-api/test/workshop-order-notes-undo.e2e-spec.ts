@@ -210,23 +210,20 @@ describe('Workshop order notes undo (e2e)', () => {
     expect(row.notes).toBe(originalNotes);
   });
 
-  it.each(['TECH'] as const)(
-    'returns 403 for %s on the undo route',
-    async (role) => {
-      const token = await createMemberToken(role);
-      const order = await createIntakeOrder();
-      const updated = await patchNotes(order.id, 'Advisor edit');
+  it('returns 403 for TECH on the undo route', async () => {
+    const token = await createMemberToken('TECH');
+    const order = await createIntakeOrder();
+    const updated = await patchNotes(order.id, 'Advisor edit');
 
-      await undoNotes(
-        order.id,
-        {
-          previousNotes: order.notes,
-          expectedUpdatedAt: updated.updatedAt,
-        },
-        token,
-      ).expect(403);
-    },
-  );
+    await undoNotes(
+      order.id,
+      {
+        previousNotes: order.notes,
+        expectedUpdatedAt: updated.updatedAt,
+      },
+      token,
+    ).expect(403);
+  });
 
   it('returns 403 when write access is lost after the notes edit', async () => {
     const salesUid = `wo-notes-undo-sales-downgrade-${tenantId}`;

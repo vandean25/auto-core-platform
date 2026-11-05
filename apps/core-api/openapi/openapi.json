@@ -26370,7 +26370,6 @@
           }
         },
         "required": [
-          "previousNotes",
           "expectedUpdatedAt"
         ]
       },

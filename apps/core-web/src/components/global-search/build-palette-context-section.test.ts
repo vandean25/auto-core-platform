@@ -190,6 +190,7 @@ describe('work order notes undo palette context', () => {
     vehicle: { id: 'vehicle-1', make: 'Audi', model: 'A4', year: 2024 },
     tasks: [],
     createdAt: '2026-01-01T12:00:00Z',
+    updatedAt: '2026-11-05T12:00:00.000Z',
   }
 
   afterEach(() => {

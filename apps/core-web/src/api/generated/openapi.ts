@@ -7954,7 +7954,7 @@ export interface components {
         };
         UndoWorkshopOrderNotesDto: {
             /** @description Notes value before the edit being undone. Omit or null to restore an empty field. */
-            previousNotes: string | null;
+            previousNotes?: string | null;
             /** @description ISO timestamp of updatedAt immediately after the committed notes edit. */
             expectedUpdatedAt: string;
         };

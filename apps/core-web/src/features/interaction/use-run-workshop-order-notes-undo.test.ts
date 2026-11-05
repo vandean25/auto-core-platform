@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 
 import * as workshopApi from '@/api/workshop'
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
-import { createHttpError } from '@/lib/error-utils'
+import { createHttpError, getErrorMessage } from '@/lib/error-utils'
 import {
   clearUndoEligibleEntry,
   getUndoEligibleEntry,
@@ -104,7 +104,9 @@ describe('useRunWorkshopOrderNotesUndo', () => {
     })
 
     expect(getUndoEligibleEntry()).toBeNull()
-    expect(toast.error).toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith(
+      getErrorMessage(createHttpError('forbidden', status), 'orderDetail.toast.notesUndoFailed'),
+    )
   })
 
   it('clears the entry, updates cache, and shows success on a matching undo', async () => {

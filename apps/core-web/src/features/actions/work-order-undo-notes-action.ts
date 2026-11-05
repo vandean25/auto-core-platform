@@ -19,7 +19,7 @@ export type WorkshopOrderUndoNotesRunContext = {
   undoNotes?: (orderId: string) => void | Promise<void>
 }
 
-type UndoNotesRecord = Pick<WorkshopOrder, 'id' | 'status'>
+type UndoNotesRecord = Pick<WorkshopOrder, 'id' | 'status' | 'updatedAt'>
 
 export function isWorkshopOrderNotesUndoEligible(
   order: UndoNotesRecord,
@@ -29,6 +29,9 @@ export function isWorkshopOrderNotesUndoEligible(
     return false
   }
   if (entry.orderId !== order.id) {
+    return false
+  }
+  if (!order.updatedAt || entry.expectedUpdatedAt !== order.updatedAt) {
     return false
   }
   if (isWorkshopOrderLockedStatus(order.status)) {
