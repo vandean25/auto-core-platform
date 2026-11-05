@@ -167,7 +167,7 @@ export default function TyreStorageListPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t('tyreStorage.list.title')}</h1>
-          <p className="text-slate-500">{t('tyreStorage.list.description')}</p>
+          <p className="text-muted-foreground">{t('tyreStorage.list.description')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="lg" className="min-h-11" onClick={() => void exportDueCsv()}>

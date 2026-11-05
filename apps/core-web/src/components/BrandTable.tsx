@@ -50,9 +50,9 @@ export function BrandTable({ brands, onEdit }: BrandTableProps) {
                         <TableRow key={brand.id}>
                             <TableCell>
                                 {brand.logoUrl ? (
-                                    <img src={brand.logoUrl} alt={brand.name} className="w-8 h-8 object-contain rounded border bg-white" />
+                                    <img src={brand.logoUrl} alt={brand.name} className="w-8 h-8 object-contain rounded border bg-card" />
                                 ) : (
-                                    <div className="w-8 h-8 rounded border bg-slate-50 flex items-center justify-center text-[10px] text-slate-500 font-bold uppercase">
+                                    <div className="w-8 h-8 rounded border bg-muted/50 flex items-center justify-center text-xs text-muted-foreground font-bold uppercase">
                                         {brand.name.substring(0, 2)}
                                     </div>
                                 )}

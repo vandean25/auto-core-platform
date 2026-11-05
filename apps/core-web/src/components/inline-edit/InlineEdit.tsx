@@ -267,7 +267,7 @@ interface InlineEditorBaseProps {
 }
 
 function InlineEditError({ errorId, message }: { errorId: string; message: string }) {
-  return <p id={errorId} className='mt-1 text-xs text-red-500' role='alert'>{message}</p>
+  return <p id={errorId} className='mt-1 text-xs text-destructive' role='alert'>{message}</p>
 }
 
 type InlineTextInputProps = InlineEditorBaseProps & {
@@ -305,7 +305,7 @@ function InlineTextInput({
         onKeyDown={onKeyDown}
         className={cn(
           'h-9',
-          validationError && 'border-red-500 focus-visible:ring-red-500',
+          validationError && 'border-destructive focus-visible:ring-destructive',
           inputClassName,
         )}
         placeholder={placeholder}
@@ -354,7 +354,7 @@ function InlineTextareaInput({
         className={cn(
           'w-full rounded-md border border-input bg-background px-3 py-2 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
           mobileFieldTextClass,
-          validationError && 'border-red-500 focus-visible:ring-red-500',
+          validationError && 'border-destructive focus-visible:ring-destructive',
           inputClassName,
         )}
         placeholder={placeholder}
@@ -396,7 +396,7 @@ function InlineEditDisplay({
     <div
       className={cn(
         'group/inline-edit relative w-full min-h-11 rounded-md px-2 py-1 -mx-2 text-left transition-colors',
-        !readOnly && 'hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        !readOnly && 'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
     >

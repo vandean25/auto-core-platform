@@ -80,6 +80,31 @@ test.describe('A11y smoke: axe serious, critical and color-contrast (AUT-482)', 
   }
 });
 
+/** AUT-659: pages that carry the most colours (status badges, tables, dialogs, forms), scanned in the dark theme. */
+const DARK_THEME_ROUTES = [
+  'sales order detail',
+  'customer detail',
+  'workshop order detail',
+  'workshop board',
+  'settings: finance tab',
+  'customers list with add customer dialog open',
+  'inventory list',
+  'vehicle stock list',
+];
+
+test.describe('A11y smoke: dark theme contrast (AUT-659)', () => {
+  // The theme is "system" by default, so the emulated colour scheme switches it.
+  test.use({ colorScheme: 'dark' });
+
+  for (const route of A11Y_SMOKE_ROUTES.filter((candidate) => DARK_THEME_ROUTES.includes(candidate.name))) {
+    test(`${route.name} has no serious, critical or contrast violations in dark`, async ({ page }) => {
+      await openRoute(page, route);
+      await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+      await expectNoCriticalA11yViolations(page);
+    });
+  }
+});
+
 test.describe('A11y smoke: reflow at 320px (WCAG 1.4.10)', () => {
   for (const route of A11Y_SMOKE_ROUTES) {
     test(`${route.name} reflow at 320px`, async ({ page }) => {

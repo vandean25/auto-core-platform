@@ -7,7 +7,16 @@ import { getValueByPath, stringifyValue, toNumber } from '@/features/dashboard-w
 import { isTruncated, widgetCount, type WidgetData } from '@/features/dashboard-widgets/widget-totals'
 import { formatCurrency, formatNumber } from '@/lib/format'
 
-const DONUT_COLORS = ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#6366f1']
+/** The five chart tokens of the theme (`--chart-1` … `--chart-5`); they switch with light and dark. */
+const DONUT_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)']
+
+/** Tooltip and legend follow the theme: Recharts paints them white by default. */
+const TOOLTIP_STYLE = {
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+}
 
 type WidgetBodyProps = {
   widget: DashboardWidget
@@ -35,7 +44,7 @@ function WidgetListBody({ widget, source, data }: WidgetBodyProps) {
   return (
     <ul className="space-y-2">
       {data.rows.slice(0, 5).map((row, index) => (
-        <li key={`${widget.id}-row-${index}`} className="text-sm text-slate-700 border-b pb-2 last:border-b-0">
+        <li key={`${widget.id}-row-${index}`} className="text-sm text-foreground border-b pb-2 last:border-b-0">
           {renderListPreviewRow(row, source, t('dashboard.noPreviewData'))}
         </li>
       ))}
@@ -63,14 +72,14 @@ function WidgetMetricBody({ widget, source, data }: WidgetBodyProps) {
   return (
     <button
       type="button"
-      className="w-full rounded-lg border border-transparent py-8 text-center transition hover:border-slate-200"
+      className="w-full rounded-lg border border-transparent py-8 text-center transition hover:border-border"
       onClick={() => navigate(widget.href)}
       title={t('dashboard.openSourceTitle')}
     >
       <div className="text-4xl font-bold tracking-tight">
         {isSum ? formatMetric(widget, value, fieldType) : `${value}${count.isLowerBound ? '+' : ''}`}
       </div>
-      <div className="mt-2 text-xs uppercase tracking-wide text-slate-500">
+      <div className="mt-2 text-xs uppercase tracking-wide text-muted-foreground">
         {widget.metricCalculation === 'sum' ? t('dashboard.summedValue') : t('dashboard.totalItems')}
       </div>
     </button>
@@ -105,11 +114,11 @@ function WidgetDonutBody({ widget, data }: WidgetBodyProps) {
             }}
           >
             {donutData.map((entry, index) => (
-              <Cell key={`${widget.id}-${entry.name}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
+              <Cell key={`${widget.id}-${entry.name}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} stroke="var(--card)" />
             ))}
           </Pie>
-          <Tooltip />
-          <Legend verticalAlign="bottom" align="center" />
+          <Tooltip contentStyle={TOOLTIP_STYLE} itemStyle={{ color: 'var(--popover-foreground)' }} />
+          <Legend verticalAlign="bottom" align="center" formatter={(value) => <span className="text-foreground">{value}</span>} />
         </PieChart>
       </ResponsiveContainer>
     </div>
@@ -121,7 +130,7 @@ export function WidgetEmptyMessage({ data }: { data: WidgetData | undefined }) {
   const { t } = useTranslation('common')
   const isPartial = data ? isTruncated(data) : false
   return (
-    <p className="text-sm text-slate-500" data-testid={isPartial ? 'widget-partial-empty' : undefined}>
+    <p className="text-sm text-muted-foreground" data-testid={isPartial ? 'widget-partial-empty' : undefined}>
       {data && isPartial
         ? t('dashboard.noWidgetDataPartial', { count: data.fetchedCount, total: data.total })
         : t('dashboard.noWidgetData')}

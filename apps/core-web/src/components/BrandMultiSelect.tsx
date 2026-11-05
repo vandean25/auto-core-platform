@@ -92,7 +92,7 @@ export function BrandMultiSelect({
           >
             <div className="flex flex-wrap gap-1.5 flex-1">
               {isLoading ? (
-                <div className="flex items-center gap-2 text-slate-500">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span>{t('brands.multiSelect.loading')}</span>
                 </div>
@@ -101,13 +101,13 @@ export function BrandMultiSelect({
                   <Badge 
                     key={brand.id} 
                     variant="secondary" 
-                    className="bg-slate-100 text-slate-700 hover:bg-slate-200 border-none px-2 py-0.5 flex items-center gap-1 font-medium transition-colors"
+                    className="bg-muted text-foreground hover:bg-muted-foreground/20 border-none px-2 py-0.5 flex items-center gap-1 font-medium transition-colors"
                   >
                     {brand.name}
                     <button
                       type="button"
                       disabled={isDisabled}
-                      className="ml-1 rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover:bg-slate-300 p-0.5 disabled:cursor-not-allowed"
+                      className="ml-1 rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover:bg-muted-foreground/30 p-0.5 disabled:cursor-not-allowed"
                       onClick={(e) => handleRemove(e, brand.id)}
                     >
                       <X className="h-3 w-3" />
@@ -116,12 +116,12 @@ export function BrandMultiSelect({
                   </Badge>
                 ))
               ) : (
-                <span className="text-slate-500">{t('brands.multiSelect.placeholder')}</span>
+                <span className="text-muted-foreground">{t('brands.multiSelect.placeholder')}</span>
               )}
             </div>
             <div className="flex items-center shrink-0 gap-2 ml-2">
-              {isUpdating && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
-              <ChevronsUpDown className="h-4 w-4 opacity-50 text-slate-500" />
+              {isUpdating && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              <ChevronsUpDown className="h-4 w-4 opacity-50 text-muted-foreground" />
             </div>
           </div>
         </PopoverTrigger>

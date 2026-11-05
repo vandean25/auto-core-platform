@@ -16,14 +16,14 @@ export function DocumentSaveIndicator({ status }: { status: DocumentSaveStatus }
       )}
       {status === 'saved' && (
         <>
-          <CloudCheck className="h-3.5 w-3.5 text-green-600" />
+          <CloudCheck className="h-3.5 w-3.5 text-success" />
           <span>{t('documentSave.saved')}</span>
         </>
       )}
       {status === 'error' && (
         <>
-          <AlertCircle className="h-3.5 w-3.5 text-red-600" />
-          <span className="text-red-600 font-medium">{t('documentSave.error')}</span>
+          <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+          <span className="text-destructive font-medium">{t('documentSave.error')}</span>
         </>
       )}
     </div>

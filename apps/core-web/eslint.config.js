@@ -82,7 +82,7 @@ export default defineConfig([
   // AUT-659: token ratchet. A later no-restricted-syntax replaces the earlier one, so the Intl selectors are repeated.
   {
     files: tokenRatchetFiles,
-    ignores: ['**/*.{test,spec}.{ts,tsx}'],
+    ignores: ['**/*.{test,spec}.{ts,tsx}', 'src/components/ui/**', 'src/lib/format/**', 'src/pages/public/**'],
     rules: {
       'no-restricted-syntax': ['error', ...intlRestrictedSyntax, ...tokenRatchetRestrictedSyntax],
     },

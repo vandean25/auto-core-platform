@@ -36,7 +36,7 @@ function OnboardingChecklistCard({ userId }: { userId: string }) {
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
         <div className="space-y-1.5">
           <CardTitle className="text-base font-semibold">{t('onboarding.title')}</CardTitle>
-          <CardDescription className="text-slate-500">{t('onboarding.description')}</CardDescription>
+          <CardDescription className="text-muted-foreground">{t('onboarding.description')}</CardDescription>
         </div>
         <Button
           variant="ghost"
@@ -54,7 +54,7 @@ function OnboardingChecklistCard({ userId }: { userId: string }) {
             <li key={step.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div>
                 <p className="text-sm font-medium">{t(`onboarding.steps.${step.id}.title`)}</p>
-                <p className="text-xs text-slate-500">{t(`onboarding.steps.${step.id}.description`)}</p>
+                <p className="text-xs text-muted-foreground">{t(`onboarding.steps.${step.id}.description`)}</p>
               </div>
               <Button asChild variant="outline" size="sm" className="self-start sm:self-auto">
                 <Link to={step.to}>{t(`onboarding.steps.${step.id}.action`)}</Link>

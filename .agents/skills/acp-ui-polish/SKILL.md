@@ -92,6 +92,8 @@ Status palette:
 | | `border-sky-200`, `ring-sky-200` | `border-info/30`, `ring-info/30` |
 | | `bg-sky-500` | `bg-info` |
 
+Dark mode additions (phases 6 and 7): code and trace blocks `bg-slate-900/950 text-slate-100` → `bg-foreground text-background`; `focus:border-slate-500` → `focus:border-ring`; `divide-slate-*` → `divide-border`; `text-blue/indigo/purple-*` and `bg-blue/purple-50|100` → `text-info`, `bg-info/10|15`; solid buttons `bg-emerald-700`, `bg-red-600`, `bg-amber-600`, `bg-blue-600` → `bg-success`, `bg-destructive`, `bg-warning`, `bg-info` with `hover:…/90`; `from-slate-100` fades → `from-muted`; `bg-white/90` → `bg-card/90`. The scrim `bg-black/80` of dialogs and sheets stays. Never add `dark:` colour variants: the tokens already switch.
+
 Accent bars follow the same status (`border-l-amber-500` → `border-l-warning`). `text-[10px]` and `text-[11px]` become `text-xs`.
 
 **Ratchet:** migrated folders are listed in `apps/core-web/eslint-tokens-ratchet.config.js` (`tokenRatchetFiles`). ESLint fails on any palette class or `text-[Npx]` there. Add a folder after migrating it; never remove one. Details: `apps/core-web/docs/i18n-ci-and-eslint-ratchet.md`.

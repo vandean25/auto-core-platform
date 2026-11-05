@@ -16,7 +16,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t('dashboard.title')}</h1>
-          <p className="text-slate-500">{t('dashboard.description')}</p>
+          <p className="text-muted-foreground">{t('dashboard.description')}</p>
         </div>
       </div>
 

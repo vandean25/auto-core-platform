@@ -66,7 +66,7 @@ export function RequestPartDialog({
               className="mt-1 min-h-[44px]"
             />
           </div>
-          {partFormError && <p className="text-sm text-red-500">{partFormError}</p>}
+          {partFormError && <p className="text-sm text-destructive">{partFormError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
               {t('actions.cancel')}

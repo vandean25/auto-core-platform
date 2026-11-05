@@ -4,61 +4,19 @@
 @import "@fontsource/inter/700.css";
 @import "tailwindcss";
 
-/* Dark mode follows the `dark` class on <html>, not the OS setting. The class is prepared, not toggled yet (AUT-655). */
-@custom-variant dark (&:is(.dark *));
+/* Dark mode follows the `dark` class on <html>, set by next-themes (Hell / Dunkel / System, AUT-659). */
+@custom-variant dark (&:is(.dark:not(.theme-light) *));
 @custom-variant hover-capable (@media (hover: hover));
 
 /*
  * ACP theme (AUT-655): slate neutrals, one blue accent (primary, ring, chart-1) and calm status tones.
  * Written by hand in the tweakcn export shape. Every text pair is checked for WCAG AA on its surface.
  */
+/*
+ * Dark tokens first, then the light set: `.theme-light` (print views, see `useForceLightTheme`) sits after `.dark`,
+ * so on the same element the light tokens win and a document stays light while the app is dark.
+ */
 :root {
-  color-scheme: light;
-
-  --background: oklch(100% 0 0);
-  --foreground: oklch(12.9% 0.042 264.695);
-  --card: oklch(100% 0 0);
-  --card-foreground: oklch(12.9% 0.042 264.695);
-  --popover: oklch(100% 0 0);
-  --popover-foreground: oklch(12.9% 0.042 264.695);
-  --primary: oklch(36% 0.1 262);
-  --primary-foreground: oklch(98.4% 0.003 247.858);
-  --secondary: oklch(96.8% 0.007 247.896);
-  --secondary-foreground: oklch(20.8% 0.042 265.755);
-  --muted: oklch(96.8% 0.007 247.896);
-  /* slate-600 keeps 4.5:1 on muted and card surfaces; the default slate-500 does not */
-  --muted-foreground: oklch(44.6% 0.043 257.281);
-  --accent: oklch(96.8% 0.007 247.896);
-  --accent-foreground: oklch(20.8% 0.042 265.755);
-  --destructive: oklch(50.5% 0.213 27.518);
-  --destructive-foreground: oklch(98.4% 0.003 247.858);
-  --border: oklch(92.9% 0.013 255.508);
-  --input: oklch(92.9% 0.013 255.508);
-  --ring: oklch(55% 0.15 262);
-
-  /* Status tones read as text on their 10% tint, over white and over the muted surface */
-  --success: oklch(43.2% 0.095 166.913);
-  --success-foreground: oklch(100% 0 0);
-  --warning: oklch(47.3% 0.137 46.201);
-  --warning-foreground: oklch(100% 0 0);
-  --info: oklch(44.3% 0.11 240.79);
-  --info-foreground: oklch(100% 0 0);
-
-  --chart-1: oklch(50% 0.14 262);
-  --chart-2: oklch(62% 0.12 184);
-  --chart-3: oklch(66% 0.16 70);
-  --chart-4: oklch(56% 0.05 257);
-  --chart-5: oklch(60% 0.19 16);
-
-  --sidebar: oklch(98.4% 0.003 247.858);
-  --sidebar-foreground: oklch(37.2% 0.044 257.287);
-  --sidebar-primary: oklch(36% 0.1 262);
-  --sidebar-primary-foreground: oklch(98.4% 0.003 247.858);
-  --sidebar-accent: oklch(96.8% 0.007 247.896);
-  --sidebar-accent-foreground: oklch(20.8% 0.042 265.755);
-  --sidebar-border: oklch(92.9% 0.013 255.508);
-  --sidebar-ring: oklch(55% 0.15 262);
-
   --radius: 0.5rem;
 }
 
@@ -106,6 +64,56 @@
   --sidebar-accent-foreground: oklch(98.4% 0.003 247.858);
   --sidebar-border: oklch(27.9% 0.041 260.031);
   --sidebar-ring: oklch(70% 0.13 258);
+}
+
+:root:not(.dark),
+.theme-light {
+  color-scheme: light;
+
+  --background: oklch(100% 0 0);
+  --foreground: oklch(12.9% 0.042 264.695);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(12.9% 0.042 264.695);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(12.9% 0.042 264.695);
+  --primary: oklch(36% 0.1 262);
+  --primary-foreground: oklch(98.4% 0.003 247.858);
+  --secondary: oklch(96.8% 0.007 247.896);
+  --secondary-foreground: oklch(20.8% 0.042 265.755);
+  --muted: oklch(96.8% 0.007 247.896);
+  /* slate-600 keeps 4.5:1 on muted and card surfaces; the default slate-500 does not */
+  --muted-foreground: oklch(44.6% 0.043 257.281);
+  --accent: oklch(96.8% 0.007 247.896);
+  --accent-foreground: oklch(20.8% 0.042 265.755);
+  --destructive: oklch(50.5% 0.213 27.518);
+  --destructive-foreground: oklch(98.4% 0.003 247.858);
+  --border: oklch(92.9% 0.013 255.508);
+  --input: oklch(92.9% 0.013 255.508);
+  --ring: oklch(55% 0.15 262);
+
+  /* Status tones read as text on their 10% tint, over white and over the muted surface */
+  --success: oklch(43.2% 0.095 166.913);
+  --success-foreground: oklch(100% 0 0);
+  --warning: oklch(47.3% 0.137 46.201);
+  --warning-foreground: oklch(100% 0 0);
+  --info: oklch(44.3% 0.11 240.79);
+  --info-foreground: oklch(100% 0 0);
+
+  --chart-1: oklch(50% 0.14 262);
+  --chart-2: oklch(62% 0.12 184);
+  --chart-3: oklch(66% 0.16 70);
+  --chart-4: oklch(56% 0.05 257);
+  --chart-5: oklch(60% 0.19 16);
+
+  --sidebar: oklch(98.4% 0.003 247.858);
+  --sidebar-foreground: oklch(37.2% 0.044 257.287);
+  --sidebar-primary: oklch(36% 0.1 262);
+  --sidebar-primary-foreground: oklch(98.4% 0.003 247.858);
+  --sidebar-accent: oklch(96.8% 0.007 247.896);
+  --sidebar-accent-foreground: oklch(20.8% 0.042 265.755);
+  --sidebar-border: oklch(92.9% 0.013 255.508);
+  --sidebar-ring: oklch(55% 0.15 262);
+
 }
 
 @theme inline {

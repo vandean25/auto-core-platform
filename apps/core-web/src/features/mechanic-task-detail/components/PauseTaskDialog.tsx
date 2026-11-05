@@ -49,8 +49,8 @@ export function PauseTaskDialog({
               onClick={() => onSelectReason(value)}
               className={`flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-sm font-medium text-left transition-colors ${
                 selectedReason === value
-                  ? 'border-slate-800 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white hover:bg-slate-50'
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border bg-card hover:bg-muted/50'
               }`}
             >
               {reasonLabel(value)}
@@ -59,7 +59,7 @@ export function PauseTaskDialog({
         </div>
 
         <div className="flex items-center gap-2 mt-1">
-          <Badge variant="outline" className="text-xs text-slate-500">
+          <Badge variant="outline" className="text-xs text-muted-foreground">
             {t('mechanic.taskDetail.pause.selected', { label: reasonLabel(selectedReason) })}
           </Badge>
         </div>

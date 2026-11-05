@@ -81,20 +81,20 @@ function DashboardWidgetCard({
           >
             <CardTitle className="text-base font-semibold hover:text-primary transition-colors">{widget.name}</CardTitle>
           </button>
-          <p className="text-xs text-slate-500 mt-1">{t(source.labelKey)}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t(source.labelKey)}</p>
         </div>
         <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}>
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? <p className="text-sm text-slate-500">{t('dashboard.loadingWidget')}</p> : null}
+        {isLoading ? <p className="text-sm text-muted-foreground">{t('dashboard.loadingWidget')}</p> : null}
         {error ? <p className="text-sm text-destructive">{t('dashboard.loadWidgetFailed')}</p> : null}
         {!isLoading && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
 
         {hasRows && data ? <WidgetBody widget={widget} source={source} data={data} /> : null}
         {hasRows && data && isPartialResult(widget, data) ? (
-          <p className="mt-2 text-xs text-slate-500" data-testid="widget-partial-hint">
+          <p className="mt-2 text-xs text-muted-foreground" data-testid="widget-partial-hint">
             {t('dashboard.partialResult', { count: data.fetchedCount, total: data.total })}
           </p>
         ) : null}
@@ -114,20 +114,20 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm text-slate-500">{t('dashboard.emptyWidgets')}</p>
+            <p className="text-sm text-muted-foreground">{t('dashboard.emptyWidgets')}</p>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-11 w-11 sm:h-5 sm:w-5 text-slate-500 hover:text-slate-700"
+                  className="h-11 w-11 sm:h-5 sm:w-5 text-muted-foreground hover:text-foreground"
                   aria-label={t('dashboard.emptyWidgetsInfoAria')}
                 >
                   <Info className="h-3.5 w-3.5" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 text-xs text-slate-600" aria-label={t('dashboard.emptyWidgetsInfoAria')}>
+              <PopoverContent className="w-80 text-xs text-muted-foreground" aria-label={t('dashboard.emptyWidgetsInfoAria')}>
                 {t('dashboard.emptyWidgetsHint')}
               </PopoverContent>
             </Popover>
@@ -156,7 +156,7 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
                 </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-500">{t('dashboard.sourceUnavailable')}</p>
+                <p className="text-sm text-muted-foreground">{t('dashboard.sourceUnavailable')}</p>
               </CardContent>
             </Card>
           )

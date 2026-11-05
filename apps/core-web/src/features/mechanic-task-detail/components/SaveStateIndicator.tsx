@@ -9,10 +9,10 @@ export function SaveStateIndicator({ state }: { state: SaveState }) {
     <span
       className={`text-xs font-medium ${
         state === 'saving'
-          ? 'text-slate-400'
+          ? 'text-muted-foreground'
           : state === 'saved'
-            ? 'text-emerald-600'
-            : 'text-red-500'
+            ? 'text-success'
+            : 'text-destructive'
       }`}
     >
       {state === 'saving' && (

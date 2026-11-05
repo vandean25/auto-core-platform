@@ -36,7 +36,7 @@ export function BrandCombobox({ value, onChange, placeholder }: BrandComboboxPro
   return (
     <div className="flex min-w-0 items-center gap-2">
       {selectedBrand?.logoUrl && (
-        <img src={selectedBrand.logoUrl} alt="" className="w-6 h-6 object-contain rounded border bg-white" />
+        <img src={selectedBrand.logoUrl} alt="" className="w-6 h-6 object-contain rounded border bg-card" />
       )}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>

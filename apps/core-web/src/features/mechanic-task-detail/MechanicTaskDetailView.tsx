@@ -158,7 +158,7 @@ export function MechanicTaskDetailView({
         <Button
           variant="ghost"
           onClick={() => void refetch()}
-          className="min-h-11 gap-2 text-slate-500"
+          className="min-h-11 gap-2 text-muted-foreground"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           {t("mechanic.taskDetail.refreshTask")}

@@ -3,8 +3,12 @@
  * (`text-slate-500`, `bg-amber-50`, `border-white`, …) or arbitrary font sizes (`text-[11px]`).
  * Use the semantic tokens from `src/index.css` instead (mapping: `.agents/skills/acp-ui-polish/SKILL.md`).
  * The list is monotonic: add a folder once it is migrated, never remove one.
+ * With the dark mode switch (AUT-659 phase 7) every folder is migrated: the last entry covers all of `src`.
+ * `eslint.config.js` exempts three places: the shadcn base components (`components/ui`: scrim `bg-black/80`, rem font sizes),
+ * `lib/format` (Intl is allowed there) and the public estimate approval page (rendered outside the theme provider, always light).
  */
 export const tokenRatchetFiles = [
+  'src/**/*.{ts,tsx}',
   'src/pages/workshop/**/*.{ts,tsx}',
   'src/components/workshop/**/*.{ts,tsx}',
   'src/features/workshop/**/*.{ts,tsx}',

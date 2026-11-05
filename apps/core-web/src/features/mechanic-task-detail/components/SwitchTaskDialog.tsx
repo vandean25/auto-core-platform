@@ -51,8 +51,8 @@ export function SwitchTaskDialog({
               onClick={() => onSelectReason(value)}
               className={`flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-sm font-medium text-left transition-colors ${
                 selectedReason === value
-                  ? 'border-slate-800 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white hover:bg-slate-50'
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border bg-card hover:bg-muted/50'
               }`}
             >
               {reasonLabel(value)}
@@ -61,7 +61,7 @@ export function SwitchTaskDialog({
         </div>
 
         {retrying && (
-          <p className="text-xs text-slate-500 flex items-center gap-1">
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Loader2 className="h-3 w-3 animate-spin" />
             {t('mechanic.taskDetail.switch.retrying')}
           </p>

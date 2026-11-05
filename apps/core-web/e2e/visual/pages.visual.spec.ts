@@ -166,6 +166,24 @@ test.describe('core pages', () => {
   }
 });
 
+/** AUT-659: the same pages in the dark theme (system default, so the emulated colour scheme switches it). */
+const DARK_PAGE_NAMES = ['dashboard', 'customer-detail', 'workshop-order-detail', 'inventory-list'];
+
+test.describe('core pages (dark)', () => {
+  test.use({ colorScheme: 'dark' });
+
+  for (const visualPage of PAGES.filter((candidate) => DARK_PAGE_NAMES.includes(candidate.name))) {
+    test(`${visualPage.name}-dark`, async ({ page }) => {
+      await prepareVisualPage(page);
+      await visualPage.mock(page);
+      await new AutoCorePage(page, visualPage.name).navigate(visualPage.path);
+      await visualPage.ready(page);
+      await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+      await expectVisualMatch(page, `${visualPage.name}-dark`);
+    });
+  }
+});
+
 test.describe('login page', () => {
   // The e2e bundle skips auth at build time; only the dev server (port 5175) can show the form.
   test.use({ baseURL: 'http://localhost:5175' });

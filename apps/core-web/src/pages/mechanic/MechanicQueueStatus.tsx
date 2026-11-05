@@ -24,19 +24,19 @@ export function MechanicQueueStatus({
 
   switch (view) {
     case 'loading':
-      return <p className="text-slate-500">{t('mechanic.queue.loading')}</p>
+      return <p className="text-muted-foreground">{t('mechanic.queue.loading')}</p>
     case 'identity-error':
       return (
-        <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-8 text-center">
-          <h2 className="text-lg font-semibold text-amber-950">{t('mechanic.queue.identityErrorTitle')}</h2>
-          <p className="mt-1 text-amber-900">{t('mechanic.queue.identityErrorDescription')}</p>
+        <div className="rounded-xl border border-dashed border-warning/30 bg-warning/10 p-8 text-center">
+          <h2 className="text-lg font-semibold text-warning">{t('mechanic.queue.identityErrorTitle')}</h2>
+          <p className="mt-1 text-warning">{t('mechanic.queue.identityErrorDescription')}</p>
         </div>
       )
     case 'load-error':
       return (
-        <div className="rounded-xl border border-dashed border-red-300 bg-red-50 p-8 text-center">
-          <h2 className="text-lg font-semibold text-red-950">{t('mechanic.queue.loadErrorTitle')}</h2>
-          <p className="mt-1 text-red-900">
+        <div className="rounded-xl border border-dashed border-destructive/40 bg-destructive/10 p-8 text-center">
+          <h2 className="text-lg font-semibold text-destructive">{t('mechanic.queue.loadErrorTitle')}</h2>
+          <p className="mt-1 text-destructive">
             {getErrorMessage(queueError, t('mechanic.queue.loadErrorFallback'))}
           </p>
           <Button className="mt-4 min-h-11" variant="outline" onClick={onRetry}>
@@ -47,14 +47,14 @@ export function MechanicQueueStatus({
     case 'no-results':
       return (
         <div className="rounded-xl border border-dashed p-8 text-center">
-          <p className="text-slate-500">{t('mechanic.queue.noResults')}</p>
+          <p className="text-muted-foreground">{t('mechanic.queue.noResults')}</p>
         </div>
       )
     case 'empty':
       return (
         <div className="rounded-xl border border-dashed p-8 text-center">
           <h2 className="text-lg font-semibold">{t('mechanic.queue.emptyTitle')}</h2>
-          <p className="mt-1 text-slate-500">{t('mechanic.queue.emptyDescription')}</p>
+          <p className="mt-1 text-muted-foreground">{t('mechanic.queue.emptyDescription')}</p>
         </div>
       )
     case 'list':

@@ -7,32 +7,32 @@ export function LoginMarketingPanel() {
   const demoHost = isDemoHost()
 
   return (
-    <section className="space-y-6 text-slate-900">
+    <section className="space-y-6 text-foreground">
       <div className="space-y-3">
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{t('login.title')}</h1>
-        <p className="max-w-md text-lg leading-8 text-slate-600">{t('login.tagline')}</p>
+        <p className="max-w-md text-lg leading-8 text-muted-foreground">{t('login.tagline')}</p>
       </div>
 
-      <ul className="space-y-3 text-sm font-medium text-slate-700">
+      <ul className="space-y-3 text-sm font-medium text-foreground">
         {LOGIN_HIGHLIGHT_KEYS.map((key) => (
           <li key={key} className="flex items-center gap-3">
-            <span className="h-2 w-2 rounded-full bg-slate-900" />
+            <span className="h-2 w-2 rounded-full bg-foreground" />
             {t(`login.highlights.${key}`)}
           </li>
         ))}
       </ul>
 
       {demoHost ? (
-        <div className="max-w-md rounded-xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600 shadow-sm">
-          <p className="font-semibold text-slate-900">{t('login.demoWorkshop')}</p>
+        <div className="max-w-md rounded-xl border border-border bg-card/80 p-4 text-sm text-muted-foreground shadow-sm">
+          <p className="font-semibold text-foreground">{t('login.demoWorkshop')}</p>
           <p>{t('login.demoOffice')}</p>
           <p>{t('login.demoMechanic')}</p>
-          <p className="mt-2 text-slate-500">{t('login.demoPasswordHint')}</p>
+          <p className="mt-2 text-muted-foreground">{t('login.demoPasswordHint')}</p>
         </div>
       ) : null}
 
       <a
-        className="inline-flex text-sm font-medium text-slate-600 underline decoration-slate-300 underline-offset-4 hover:text-slate-900"
+        className="inline-flex text-sm font-medium text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 hover:text-foreground"
         href={DOCUMENTATION_URL}
         rel="noreferrer"
         target="_blank"

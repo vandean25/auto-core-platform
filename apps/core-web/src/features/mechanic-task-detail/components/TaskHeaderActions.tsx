@@ -63,7 +63,7 @@ export function TaskHeaderActions({ state, handlers }: TaskHeaderActionsProps) {
           variant="outline"
           onClick={onComplete}
           disabled={completePending}
-          className="min-h-11 gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+          className="min-h-11 gap-2 border-success/30 text-success hover:bg-success/10"
         >
           <CheckCircle className="h-4 w-4" />
           {t('mechanic.taskDetail.header.complete')}

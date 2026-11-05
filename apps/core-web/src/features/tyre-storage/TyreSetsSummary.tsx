@@ -38,13 +38,13 @@ export function TyreSetsSummary({ vehicleId, customerId, readOnly = false, as: H
 
   if (!vehicleId && !customerId) return null
   if (isLoading) {
-    return <p className="text-sm text-slate-500">{t('tyreStorage.summary.loading')}</p>
+    return <p className="text-sm text-muted-foreground">{t('tyreStorage.summary.loading')}</p>
   }
 
   return (
     <div className="space-y-2 border-t pt-4">
       <div className="flex items-center justify-between gap-2">
-        <Heading className="text-sm font-medium text-slate-700">{t('tyreStorage.summary.title')}</Heading>
+        <Heading className="text-sm font-medium text-foreground">{t('tyreStorage.summary.title')}</Heading>
         {resolvedCustomerId && !readOnly ? (
           <Button
             type="button"
@@ -59,7 +59,7 @@ export function TyreSetsSummary({ vehicleId, customerId, readOnly = false, as: H
         ) : null}
       </div>
       {sets.length === 0 ? (
-        <p className="text-sm text-slate-500">{t('tyreStorage.summary.empty')}</p>
+        <p className="text-sm text-muted-foreground">{t('tyreStorage.summary.empty')}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {sets.map((set) => (

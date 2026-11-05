@@ -7,6 +7,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/auth/AuthProvider'
 import { I18nProvider } from '@/lib/i18n'
+import { AppThemeProvider } from '@/components/theme/AppThemeProvider'
 import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
 import { captureInstallPrompt } from '@/pwa/install-prompt'
 import { registerServiceWorker } from '@/pwa/register-service-worker'
@@ -41,11 +42,13 @@ createRoot(document.getElementById('root')!, {
       </I18nProvider>
     ) : (
       <I18nProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </QueryClientProvider>
+        <AppThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </QueryClientProvider>
+        </AppThemeProvider>
       </I18nProvider>
     )}
   </StrictMode>,

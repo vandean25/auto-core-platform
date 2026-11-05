@@ -55,13 +55,13 @@ export function MediaSection({
             )}
           </Button>
           {uploadState === 'done' && (
-            <span className="text-sm text-emerald-600 font-medium">{t('mechanic.taskDetail.media.uploaded')}</span>
+            <span className="text-sm text-success font-medium">{t('mechanic.taskDetail.media.uploaded')}</span>
           )}
           {uploadState === 'error' && (
-            <span className="text-sm text-red-500">{t('mechanic.taskDetail.media.failed')}</span>
+            <span className="text-sm text-destructive">{t('mechanic.taskDetail.media.failed')}</span>
           )}
         </div>
-        <p className="mt-2 text-xs text-slate-400">{t('mechanic.taskDetail.media.acceptedTypes')}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{t('mechanic.taskDetail.media.acceptedTypes')}</p>
         <input
           ref={fileInputRef}
           type="file"

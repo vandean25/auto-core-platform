@@ -32,7 +32,7 @@ function useScrollEdges(ref: React.RefObject<HTMLDivElement | null>, enabled: bo
 }
 
 const edgeFade =
-  "pointer-events-none absolute inset-y-0 z-10 w-8 from-slate-400/40 to-transparent"
+  "pointer-events-none absolute inset-y-0 z-10 w-8 from-muted-foreground/30 to-transparent"
 
 const Table = React.forwardRef<
   HTMLTableElement,
@@ -56,7 +56,7 @@ const Table = React.forwardRef<
       className={cn(
         "relative w-full overflow-auto",
         scrollCue &&
-          "pb-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300"
+          "pb-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
       )}
     >
       <table

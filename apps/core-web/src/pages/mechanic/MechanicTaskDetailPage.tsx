@@ -13,7 +13,7 @@ export default function MechanicTaskDetailPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-slate-500">{t('mechanic.taskDetail.loading')}</p>
+        <p className="text-sm text-muted-foreground">{t('mechanic.taskDetail.loading')}</p>
       </div>
     )
   }
@@ -21,7 +21,7 @@ export default function MechanicTaskDetailPage() {
   if (!task) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <p className="text-slate-500">{t('mechanic.taskDetail.notFound')}</p>
+        <p className="text-muted-foreground">{t('mechanic.taskDetail.notFound')}</p>
         <Button variant="outline" onClick={() => navigate('/mechanic/queue')}>
           {t('mechanic.taskDetail.backToQueue')}
         </Button>
