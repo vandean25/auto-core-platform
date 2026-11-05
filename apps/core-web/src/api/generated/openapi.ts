@@ -13196,6 +13196,7 @@ export interface operations {
                 brandId?: number;
                 /** @description Opaque cursor from meta.nextCursor of the previous cursor page */
                 cursor?: string;
+                limit?: number;
                 location?: string;
                 page?: number;
                 pageSize?: number;
