@@ -1,58 +1,136 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import type { UseFieldArrayReturn, UseFormReturn } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
-import { useCreateSalesOrder, useUpdateSalesOrder } from '@/api/sales-orders'
-import { useInventory } from '@/api/inventory'
 import { useCustomer } from '@/api/customers'
-import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
-import { Trash2, Plus, ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { Customer, InventoryItem } from '@/api/types'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { calculateOrderTotal, type SalesOrderForm } from './sales-order-form'
+import { SalesOrderItemSearch } from './SalesOrderItemSearch'
+import { useSalesOrderDraft } from './useSalesOrderDraft'
 
-interface SalesOrderItemForm {
-  catalog_item_id?: string
-  description: string
-  quantity: number
-  unit_price: number
-  tax_rate: number
+type Lines = UseFieldArrayReturn<SalesOrderForm, 'items'>
+
+function LineRow({
+  form,
+  index,
+  remove,
+}: {
+  form: UseFormReturn<SalesOrderForm>
+  index: number
+  remove: (index: number) => void
+}) {
+  const { t } = useTranslation('sales')
+  const description = String(form.watch(`items.${index}.description`) ?? '').trim()
+  const label = description
+    ? t('orders.create.lineNamed', { description, index: index + 1 })
+    : t('orders.create.lineLabel', { index: index + 1 })
+
+  return (
+    <TableRow>
+      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+      <TableCell>
+        <FormField control={form.control} name={`items.${index}.description`} render={({ field }) => <Input {...field} />} />
+      </TableCell>
+      <TableCell>
+        <FormField
+          control={form.control}
+          name={`items.${index}.quantity`}
+          render={({ field }) => <Input type="number" min="1" {...field} />}
+        />
+      </TableCell>
+      <TableCell>
+        <FormField
+          control={form.control}
+          name={`items.${index}.unit_price`}
+          render={({ field }) => <Input type="number" step="0.01" {...field} />}
+        />
+      </TableCell>
+      <TableCell className="font-medium">
+        {formatCurrency(
+          Number(form.watch(`items.${index}.quantity`)) * Number(form.watch(`items.${index}.unit_price`)),
+        )}
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-destructive"
+          aria-label={t('orders.create.removeLineAria', { label })}
+          onClick={() => remove(index)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
 }
 
-interface SalesOrderForm {
-  customer_id: string
-  notes: string
-  items: SalesOrderItemForm[]
-}
+/** Line items of the new sales order: part search, editable rows and the running total. */
+export function SalesOrderLinesCard({ form, lines }: { form: UseFormReturn<SalesOrderForm>; lines: Lines }) {
+  const { t } = useTranslation('sales')
+  const { fields, append, remove } = lines
+  const currentTotal = calculateOrderTotal(form.watch('items'))
 
-function toSalesOrderPayload(data: SalesOrderForm) {
-  return {
-    customer_id: data.customer_id,
-    notes: data.notes,
-    items: data.items.map((item) => ({
-      ...item,
-      quantity: Number(item.quantity),
-      unit_price: Number(item.unit_price),
-      tax_rate: Number(item.tax_rate),
-    })),
-  }
+  const addItem = (item: InventoryItem) =>
+    append({
+      catalog_item_id: item.id,
+      description: `${item.sku} - ${item.name}`,
+      quantity: 1,
+      unit_price: Number(item.price),
+      tax_rate: 20,
+    })
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>{t('orders.create.lineItems')}</CardTitle>
+        <SalesOrderItemSearch onPick={addItem} />
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">{t('orders.create.rowNumber')}</TableHead>
+              <TableHead className="w-[40%]">{t('orders.create.columns.description')}</TableHead>
+              <TableHead className="w-[15%]">{t('orders.create.columns.qty')}</TableHead>
+              <TableHead className="w-[15%]">{t('orders.create.columns.price')}</TableHead>
+              <TableHead className="w-[15%]">{t('orders.create.columns.total')}</TableHead>
+              <TableHead className="w-[50px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {fields.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  {t('orders.create.noItemsAddItem')}
+                </TableCell>
+              </TableRow>
+            ) : (
+              fields.map((item, index) => (
+                <LineRow key={item.id} form={form} index={index} remove={remove} />
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <div className="p-4 flex justify-end items-center gap-4 border-t bg-muted/50">
+          <span className="text-muted-foreground font-medium">{t('orders.create.totalAmount')}</span>
+          <span className="text-2xl font-bold">{formatCurrency(currentTotal)}</span>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function SalesOrderCreate() {
@@ -64,18 +142,6 @@ export default function SalesOrderCreate() {
   const [searchParams] = useSearchParams()
   const preselectedCustomerId = searchParams.get('customerId')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const createMutation = useCreateSalesOrder()
-  const updateMutation = useUpdateSalesOrder()
-  const orderIdRef = useRef<string | null>(null)
-  const lastSavedRef = useRef<string | null>(null)
-  const createMutationRef = useRef(createMutation)
-  const updateMutationRef = useRef(updateMutation)
-
-  useEffect(() => {
-    createMutationRef.current = createMutation
-    updateMutationRef.current = updateMutation
-  })
-
   const { data: preselectedCustomer } = useCustomer(preselectedCustomerId || '')
 
   const form = useForm<SalesOrderForm>({
@@ -85,47 +151,8 @@ export default function SalesOrderCreate() {
       items: [],
     },
   })
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'items',
-  })
-
-  const customerId = form.watch('customer_id')
-  const notes = form.watch('notes')
-  const items = form.watch('items')
-
-  const saveDraft = useCallback(async (snapshot: SalesOrderForm, signal: AbortSignal) => {
-    const payload = toSalesOrderPayload(snapshot)
-    const serialized = JSON.stringify(payload)
-    if (serialized === lastSavedRef.current) return
-
-    if (orderIdRef.current) {
-      await updateMutationRef.current.mutateAsync({
-        id: orderIdRef.current,
-        data: payload,
-        signal,
-      })
-    } else {
-      const created = await createMutationRef.current.mutateAsync({ ...payload, signal })
-      orderIdRef.current = created.id
-    }
-    lastSavedRef.current = serialized
-  }, [])
-
-  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave<SalesOrderForm>({
-    save: saveDraft,
-    shouldSave: (snapshot) => Boolean(snapshot.customer_id),
-  })
-
-  useEffect(() => {
-    if (!form.formState.isDirty) return
-    triggerAutoSave({
-      customer_id: customerId,
-      notes,
-      items,
-    })
-  }, [customerId, notes, items, form.formState.isDirty, triggerAutoSave])
+  const lines = useFieldArray({ control: form.control, name: 'items' })
+  const { saveStatus, finish: handleDone } = useSalesOrderDraft(form)
 
   useEffect(() => {
     if (preselectedCustomer) {
@@ -133,53 +160,6 @@ export default function SalesOrderCreate() {
       form.setValue('customer_id', preselectedCustomer.id, { shouldDirty: true })
     }
   }, [preselectedCustomer, form])
-
-  const handleDone = async () => {
-    await triggerAutoSave(
-      {
-        customer_id: customerId,
-        notes,
-        items,
-      },
-      { immediate: true },
-    )
-    if (orderIdRef.current) {
-      navigate(`/sales-orders/${orderIdRef.current}`)
-      return
-    }
-    navigate('/sales-orders')
-  }
-
-  const [itemSearchOpen, setItemSearchOpen] = useState(false)
-  const [itemSearchQuery, setItemSearchQuery] = useState('')
-  const { data: inventory } = useInventory({ search: itemSearchQuery, pageSize: 10 })
-
-  const handleAddItem = (item: InventoryItem) => {
-    append({
-      catalog_item_id: item.id,
-      description: `${item.sku} - ${item.name}`,
-      quantity: 1,
-      unit_price: Number(item.price),
-      tax_rate: 20,
-    })
-    setItemSearchOpen(false)
-  }
-
-  const lineName = (index: number) => {
-    const description = String(form.watch(`items.${index}.description`) ?? '').trim()
-    return description
-      ? t('orders.create.lineNamed', { description, index: index + 1 })
-      : t('orders.create.lineLabel', { index: index + 1 })
-  }
-
-  const calculateTotal = (orderItems: SalesOrderItemForm[]) => {
-    return orderItems.reduce(
-      (sum, item) => sum + Number(item.quantity) * Number(item.unit_price),
-      0,
-    )
-  }
-
-  const currentTotal = calculateTotal(form.watch('items'))
 
   return (
     <div className="space-y-6">
@@ -241,112 +221,7 @@ export default function SalesOrderCreate() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{t('orders.create.lineItems')}</CardTitle>
-              <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline">
-                    <Plus className="mr-2 h-4 w-4" /> {t('orders.create.addLine')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="end">
-                  <Command shouldFilter={false}>
-                    <CommandInput
-                      placeholder={t('orders.create.searchPartsBySku')}
-                      value={itemSearchQuery}
-                      onValueChange={setItemSearchQuery}
-                    />
-                    <CommandList>
-                      <CommandEmpty>{t('orders.create.noParts')}</CommandEmpty>
-                      <CommandGroup>
-                        {inventory?.data.map((item) => (
-                          <CommandItem key={item.id} onSelect={() => handleAddItem(item)}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{item.sku}</span>
-                              <span className="text-xs text-muted-foreground">{item.name}</span>
-                            </div>
-                            <div className="ml-auto font-medium">{formatCurrency(item.price)}</div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">{t('orders.create.rowNumber')}</TableHead>
-                    <TableHead className="w-[40%]">{t('orders.create.columns.description')}</TableHead>
-                    <TableHead className="w-[15%]">{t('orders.create.columns.qty')}</TableHead>
-                    <TableHead className="w-[15%]">{t('orders.create.columns.price')}</TableHead>
-                    <TableHead className="w-[15%]">{t('orders.create.columns.total')}</TableHead>
-                    <TableHead className="w-[50px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fields.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        {t('orders.create.noItemsAddItem')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    fields.map((item, index) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                        <TableCell>
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.description`}
-                            render={({ field }) => <Input {...field} />}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.quantity`}
-                            render={({ field }) => <Input type="number" min="1" {...field} />}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.unit_price`}
-                            render={({ field }) => <Input type="number" step="0.01" {...field} />}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {formatCurrency(
-                            Number(form.watch(`items.${index}.quantity`)) *
-                              Number(form.watch(`items.${index}.unit_price`)),
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive"
-                            aria-label={t('orders.create.removeLineAria', { label: lineName(index) })}
-                            onClick={() => remove(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              <div className="p-4 flex justify-end items-center gap-4 border-t bg-muted/50">
-                <span className="text-muted-foreground font-medium">{t('orders.create.totalAmount')}</span>
-                <span className="text-2xl font-bold">{formatCurrency(currentTotal)}</span>
-              </div>
-            </CardContent>
-          </Card>
+          <SalesOrderLinesCard form={form} lines={lines} />
 
           <div className="flex justify-end gap-4">
             <Button type="button" variant="outline" onClick={() => navigate('/sales-orders')}>

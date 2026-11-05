@@ -58,6 +58,7 @@ describe('design-token ratchet (AUT-659)', () => {
     'src/features/sales/Example.tsx',
     'src/pages/finance/CreditNoteExample.tsx',
     'src/pages/finance/credit-note-example.tsx',
+    'src/pages/finance/useCreditNoteExample.ts',
     'src/components/finance/create-credit-note-example.tsx',
     'src/components/finance/credit-note-example.tsx',
   ])('WHEN lint runs on the migrated folder %s THEN a palette class and text-[Npx] are errors', async (file) => {
