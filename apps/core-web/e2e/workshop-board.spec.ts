@@ -609,6 +609,86 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByTestId('board-column-unassigned')).not.toContainText('WO-2026-0002')
   })
 
+  async function setupDragBoard(page: import('@playwright/test').Page, assignStatus: number) {
+    const mechanic2 = createMockEmployee({
+      id: 'emp-mech-002',
+      name: 'Grok Bot',
+      role: 'MECHANIC',
+      isActive: true,
+      sortOrder: 2,
+    })
+    // Alex Novak keeps WO-0001; Grok Bot is empty; WO-0002 is the only card in "Nicht zugeordnet".
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mechanics: [mockMechanic, mechanic2], bays: [mockBay] }),
+      }),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/active'), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockBoardActiveResponse),
+      }),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/assign'), (route) =>
+      route.fulfill({
+        status: assignStatus,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          assignStatus === 200
+            ? { id: ORDER_ID_2, mechanicId: 'emp-mech-002', bayId: null, updatedAt: new Date().toISOString() }
+            : { message: 'Order is in a terminal state' },
+        ),
+      }),
+    )
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('workshop-board-view-mode')
+    })
+    await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
+  }
+
+  async function startDraggingCard(page: import('@playwright/test').Page) {
+    const cardBox = await page.getByTestId('workshop-order-card-ws-board-002').boundingBox()
+    const targetBox = await page.getByTestId('board-column-emp-mech-002').boundingBox()
+    if (!cardBox || !targetBox) throw new Error('Expected card and target column to be visible')
+    await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + cardBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 80, { steps: 12 })
+    return { targetBox }
+  }
+
+  test('WHEN a card is dragged out of a column THEN that column keeps its height and the empty state waits for the drop; WHEN it hovers an empty column THEN a drop slot is shown', async ({ page }) => {
+    await setupDragBoard(page, 200)
+    const source = page.getByTestId('board-column-unassigned')
+    const target = page.getByTestId('board-column-emp-mech-002')
+    const heightBefore = (await source.boundingBox())?.height
+
+    await startDraggingCard(page)
+
+    expect((await source.boundingBox())?.height).toBe(heightBefore)
+    await expect(source).not.toContainText(DE_WORKSHOP.board.emptyColumn)
+    await expect(target.getByTestId('board-drop-slot')).toBeVisible()
+    await expect(target).not.toContainText(DE_WORKSHOP.board.emptyColumn)
+
+    await page.mouse.up()
+    await expect(target.getByTestId('workshop-order-card-ws-board-002')).toBeVisible()
+    await expect(source).toContainText(DE_WORKSHOP.board.emptyColumn)
+  })
+
+  test('WHEN the assign request fails after a drag THEN the card returns to the source column', async ({ page }) => {
+    await setupDragBoard(page, 422)
+    const source = page.getByTestId('board-column-unassigned')
+
+    await startDraggingCard(page)
+    await page.mouse.up()
+
+    await expect(page.getByText(DE_WORKSHOP.board.assignError)).toBeVisible()
+    await expect(source.getByTestId('workshop-order-card-ws-board-002')).toBeVisible()
+    await expect(page.getByTestId('board-column-emp-mech-002')).not.toContainText('WO-2026-0002')
+  })
+
   test('Assign button is a visible target of at least 24px and passes axe target-size', async ({ page }) => {
     const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 

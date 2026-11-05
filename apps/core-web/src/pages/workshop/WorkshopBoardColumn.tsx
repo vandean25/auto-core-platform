@@ -23,8 +23,7 @@ export function WorkshopBoardColumn({
   const { t } = useTranslation('workshop')
   const { isOver, setNodeRef } = useDroppable({ id })
 
-  const visibleOrders = orders.filter((order) => order.id !== activeId)
-
+  const isDragging = activeId !== null
   return (
     <div
       ref={setNodeRef}
@@ -36,20 +35,28 @@ export function WorkshopBoardColumn({
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
         <span className="text-sm font-semibold text-foreground">{label}</span>
         <span className="text-xs font-medium rounded-full bg-border text-muted-foreground px-2 py-0.5 tabular-nums">
-          {visibleOrders.length}
+          {orders.length}
         </span>
       </div>
 
       <div className="flex flex-col gap-2 p-2 min-h-24">
-        {visibleOrders.map((order) => (
+        {orders.map((order) => (
           <WorkshopOrderCard
             key={order.id}
             order={order}
+            isPlaceholder={order.id === activeId}
             quickAssignTargets={quickAssignTargets}
             onQuickAssign={(target) => onQuickAssign(order.id, target)}
           />
         ))}
-        {visibleOrders.length === 0 && (
+        {orders.length === 0 && isDragging && isOver && (
+          <div
+            data-testid="board-drop-slot"
+            aria-hidden="true"
+            className="h-20 rounded-md border-2 border-dashed border-muted-foreground/40"
+          />
+        )}
+        {orders.length === 0 && !(isDragging && isOver) && (
           <p className="text-xs text-muted-foreground text-center mt-4">{t('board.emptyColumn')}</p>
         )}
       </div>

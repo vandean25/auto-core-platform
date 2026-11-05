@@ -109,6 +109,7 @@ export default function WorkshopBoard() {
             accessibility={accessibility}
             onDragStart={dragHandlers.onDragStart}
             onDragEnd={dragHandlers.onDragEnd}
+            onDragCancel={dragHandlers.onDragCancel}
           >
             <HorizontalScrollArea
               layout="workshop-board"
@@ -128,7 +129,7 @@ export default function WorkshopBoard() {
               ))}
             </HorizontalScrollArea>
 
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeOrder ? (
                 <div className="w-[min(17rem,100vw-3rem)]">
                   <WorkshopOrderCardOverlay order={activeOrder} />
