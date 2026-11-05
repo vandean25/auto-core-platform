@@ -20,6 +20,8 @@ import {
   resolveMcpClientNameFromInitializeBody,
 } from './mcp-agent-id.util.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
+import { McpCapabilityGateService } from './mcp-capability-gate.service.js';
+import { connectWithCapabilityFilter } from './mcp-capability-tool-filter.js';
 import { respondMcpSessionNotFound } from './mcp-session.util.js';
 
 const MCP_IDLE_SESSION_MS = 30 * 60 * 1000;
@@ -39,7 +41,10 @@ export class McpSessionService implements OnModuleInit, OnModuleDestroy {
   private readonly sessions = new Map<string, McpSessionRecord>();
   private sweepTimer: ReturnType<typeof setInterval> | undefined;
 
-  constructor(private readonly toolHandler: McpToolHandlerService) {}
+  constructor(
+    private readonly toolHandler: McpToolHandlerService,
+    private readonly capabilityGate: McpCapabilityGateService,
+  ) {}
 
   onModuleInit(): void {
     this.sweepTimer = setInterval(() => {
@@ -111,7 +116,7 @@ export class McpSessionService implements OnModuleInit, OnModuleDestroy {
       };
 
       const server = createMcpServer(this.toolHandler, context);
-      await server.connect(transport);
+      await connectWithCapabilityFilter(server, transport, this.capabilityGate);
       await transport.handleRequest(req, res, body);
       return;
     }

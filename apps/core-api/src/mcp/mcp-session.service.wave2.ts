@@ -18,6 +18,8 @@ import {
   resolveMcpClientNameFromInitializeBody,
 } from './mcp-agent-id.util.js';
 import { McpToolHandlerWave2Wrapper } from './mcp-tool-handler.wave2-wrapper.js';
+import { McpCapabilityGateService } from './mcp-capability-gate.service.js';
+import { connectWithCapabilityFilter } from './mcp-capability-tool-filter.js';
 import { respondMcpSessionNotFound } from './mcp-session.util.js';
 
 const MCP_IDLE_SESSION_MS = 30 * 60 * 1000;
@@ -38,7 +40,10 @@ export class McpSessionServiceWave2 implements OnModuleInit, OnModuleDestroy {
   private readonly sessions = new Map<string, McpSessionRecord>();
   private sweepTimer: ReturnType<typeof setInterval> | undefined;
 
-  constructor(private readonly toolHandler: McpToolHandlerWave2Wrapper) {}
+  constructor(
+    private readonly toolHandler: McpToolHandlerWave2Wrapper,
+    private readonly capabilityGate: McpCapabilityGateService,
+  ) {}
 
   onModuleInit(): void {
     this.sweepTimer = setInterval(() => {
@@ -110,7 +115,7 @@ export class McpSessionServiceWave2 implements OnModuleInit, OnModuleDestroy {
       };
 
       const server = createMcpServerWithWave2Reads(this.toolHandler, context);
-      await server.connect(transport);
+      await connectWithCapabilityFilter(server, transport, this.capabilityGate);
       await transport.handleRequest(req, res, body);
       return;
     }

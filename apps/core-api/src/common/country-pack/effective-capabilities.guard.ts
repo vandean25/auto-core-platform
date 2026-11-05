@@ -42,6 +42,11 @@ export class EffectiveCapabilitiesService {
     return (await this.sessions.getSessionForAuthenticatedUser(user))
       .effectiveCapabilities;
   }
+
+  /** True only when the effective capability is on; unconfigured (`null`) is off. */
+  async isAvailable(capability: keyof CountryCapabilities): Promise<boolean> {
+    return (await this.resolve())?.[capability] === true;
+  }
 }
 
 @Injectable()
@@ -64,8 +69,7 @@ export class CapabilityGuard implements CanActivate {
     if (rule.profile && !profileMatches(request.query.profile, rule.profile))
       return true;
     if (rule.bodyFlag && request.body?.[rule.bodyFlag] !== true) return true;
-    if ((await this.capabilities.resolve())?.[rule.capability] === true)
-      return true;
+    if (await this.capabilities.isAvailable(rule.capability)) return true;
     throw new ForbiddenException({
       code: 'CAPABILITY_UNAVAILABLE',
       message: 'This feature is unavailable for the active legal entity.',
