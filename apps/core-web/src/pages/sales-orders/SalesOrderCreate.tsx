@@ -133,6 +133,19 @@ export function SalesOrderLinesCard({ form, lines }: { form: UseFormReturn<Sales
   )
 }
 
+function toSalesOrderPayload(data: SalesOrderForm) {
+  return {
+    customer_id: data.customer_id,
+    notes: data.notes,
+    items: data.items.map((item) => ({
+      ...item,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      tax_rate: Number(item.tax_rate),
+    })),
+  }
+}
+
 export default function SalesOrderCreate() {
   const { t } = useTranslation('sales')
   useEffect(() => {
@@ -152,7 +165,7 @@ export default function SalesOrderCreate() {
     },
   })
   const lines = useFieldArray({ control: form.control, name: 'items' })
-  const { saveStatus, finish: handleDone } = useSalesOrderDraft(form)
+  const { saveStatus, finish: handleDone } = useSalesOrderDraft(form, toSalesOrderPayload)
 
   useEffect(() => {
     if (preselectedCustomer) {

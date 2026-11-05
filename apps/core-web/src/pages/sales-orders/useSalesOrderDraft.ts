@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import type { UseFormReturn } from 'react-hook-form'
 import { useCreateSalesOrder, useUpdateSalesOrder } from '@/api/sales-orders'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
-import { toSalesOrderPayload, type SalesOrderForm } from './sales-order-form'
+import type { SalesOrderForm, SalesOrderPayload } from './sales-order-form'
 
 /** Debounced draft autosave for the sales order form, plus the "done" navigation. */
-export function useSalesOrderDraft(form: UseFormReturn<SalesOrderForm>) {
+export function useSalesOrderDraft(
+  form: UseFormReturn<SalesOrderForm>,
+  toPayload: (data: SalesOrderForm) => SalesOrderPayload,
+) {
   const navigate = useNavigate()
   const createMutation = useCreateSalesOrder()
   const updateMutation = useUpdateSalesOrder()
@@ -25,7 +28,7 @@ export function useSalesOrderDraft(form: UseFormReturn<SalesOrderForm>) {
   const items = form.watch('items')
 
   const saveDraft = useCallback(async (snapshot: SalesOrderForm, signal: AbortSignal) => {
-    const payload = toSalesOrderPayload(snapshot)
+    const payload = toPayload(snapshot)
     const serialized = JSON.stringify(payload)
     if (serialized === lastSavedRef.current) return
 
@@ -40,7 +43,7 @@ export function useSalesOrderDraft(form: UseFormReturn<SalesOrderForm>) {
       orderIdRef.current = created.id
     }
     lastSavedRef.current = serialized
-  }, [])
+  }, [toPayload])
 
   const { saveStatus, triggerAutoSave } = useDebouncedAutoSave<SalesOrderForm>({
     save: saveDraft,
