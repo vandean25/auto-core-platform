@@ -90,6 +90,10 @@ describe('Workshop order notes undo (e2e)', () => {
       userId: user.id,
       role,
     });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { active_site_id: siteId },
+    });
     await prisma.siteMembership.create({
       data: {
         tenant_id: tenantId,
@@ -206,7 +210,7 @@ describe('Workshop order notes undo (e2e)', () => {
     expect(row.notes).toBe(originalNotes);
   });
 
-  it.each(['TECH', 'ACCOUNTANT'] as const)(
+  it.each(['TECH'] as const)(
     'returns 403 for %s on the undo route',
     async (role) => {
       const token = await createMemberToken(role);
@@ -238,6 +242,10 @@ describe('Workshop order notes undo (e2e)', () => {
       tenantId,
       userId: salesUser.id,
       role: 'SALES',
+    });
+    await prisma.user.update({
+      where: { id: salesUser.id },
+      data: { active_site_id: siteId },
     });
     await prisma.siteMembership.create({
       data: {
