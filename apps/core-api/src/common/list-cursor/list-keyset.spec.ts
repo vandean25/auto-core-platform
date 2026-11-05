@@ -1,4 +1,5 @@
 import { andCombineListWhere, buildKeysetAfterClause } from './list-keyset.js';
+import type { KeysetSortDirection } from './list-keyset.types.js';
 
 describe('list-keyset', () => {
   it('ASC with equal sort values pages by id without gaps', () => {
@@ -65,9 +66,15 @@ describe('list-keyset', () => {
     'buildKeysetAfterClause %s',
     (_label, field, direction, sortValue, id, nullable, expected) => {
       expect(
-        buildKeysetAfterClause(field, direction, sortValue, id, {
-          sortIsNullable: nullable,
-        }),
+        buildKeysetAfterClause(
+          field,
+          direction as KeysetSortDirection,
+          sortValue,
+          id,
+          {
+            sortIsNullable: nullable,
+          },
+        ),
       ).toEqual(expected);
     },
   );
