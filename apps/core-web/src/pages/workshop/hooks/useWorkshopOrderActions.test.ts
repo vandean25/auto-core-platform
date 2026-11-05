@@ -49,7 +49,7 @@ describe('useWorkshopOrderActions notes undo pilot', () => {
         notes: 'After',
         updatedAt: '2026-11-05T12:00:00.000Z',
       }),
-    } as ReturnType<typeof workshopApi.useUpdateWorkshopOrder>)
+    } as unknown as ReturnType<typeof workshopApi.useUpdateWorkshopOrder>)
   })
 
   it('registers undo after server-confirmed notes save and exposes Cmd+K registry action', async () => {

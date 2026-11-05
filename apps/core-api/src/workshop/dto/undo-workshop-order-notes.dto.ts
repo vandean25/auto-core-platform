@@ -1,5 +1,10 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsDateString,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 
 /** Inverse payload for the AUT-876 pilot: restore internal notes with a version guard. */
 export class UndoWorkshopOrderNotesDto {

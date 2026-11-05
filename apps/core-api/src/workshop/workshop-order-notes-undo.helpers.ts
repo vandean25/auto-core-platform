@@ -1,7 +1,4 @@
-import {
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ORDER_WITH_INVOICE_RELATIONS } from './workshop-intake-query.helpers.js';
 import {
   assertActiveSiteMatch,

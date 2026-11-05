@@ -22,11 +22,12 @@ export function useWorkshopOrderActions(order: WorkshopOrder, isLocked: boolean)
     const previousNotes = order.notes ?? null
     try {
       const updated = await updateOrder.mutateAsync({ id: order.id, notes: nextNotes })
-      if (canUndoWorkshopOrderNotes(activeRole)) {
+      const expectedUpdatedAt = updated.updatedAt
+      if (canUndoWorkshopOrderNotes(activeRole) && expectedUpdatedAt) {
         registerWorkshopOrderNotesUndo({
           orderId: order.id,
           previousNotes,
-          expectedUpdatedAt: updated.updatedAt,
+          expectedUpdatedAt,
         })
         toastSuccessWithUndo(
           t('orderDetail.toast.notesSaved'),

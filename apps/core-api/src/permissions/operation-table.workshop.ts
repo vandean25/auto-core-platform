@@ -101,6 +101,12 @@ export const WORKSHOP_OPERATIONS: OperationTable = {
     'site',
     ['document_site', 'business_state'],
   ),
+  'WorkshopOrdersController.undoOrderNotes': op(
+    'workshop.order.notes.undo',
+    BACK_OFFICE_DEMO,
+    'site',
+    ['document_site', 'business_state'],
+  ),
   'WorkshopOrdersController.createInvoiceFromOrder': op(
     'workshop.order.invoice',
     BACK_OFFICE,

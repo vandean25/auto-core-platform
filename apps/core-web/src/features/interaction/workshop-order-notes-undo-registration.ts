@@ -1,7 +1,6 @@
 import { getClientSessionGeneration } from '@/auth/client-session-reset'
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import {
-  clearUndoEligibleEntry,
   setUndoEligibleEntry,
   type UndoEligibleEntry,
 } from './undo-eligible-entry-store'
@@ -24,8 +23,4 @@ export function registerWorkshopOrderNotesUndo(
   }
   setUndoEligibleEntry(entry)
   return entry
-}
-
-export function clearWorkshopOrderNotesUndo(): void {
-  clearUndoEligibleEntry()
 }

@@ -1,12 +1,9 @@
 import { useEffect, useSyncExternalStore } from 'react'
 
-import {
-  useClientSessionGeneration,
-} from '@/auth/client-session-reset'
+import { useClientSessionGeneration } from '@/auth/client-session-reset'
 import {
   clearUndoEligibleEntryForContext,
   getUndoEligibleEntry,
-  isUndoInFlight,
   subscribeUndoEligibleEntry,
   type UndoEligibleEntry,
 } from './undo-eligible-entry-store'
@@ -20,18 +17,11 @@ export function UndoEligibleEntrySessionSync() {
   return null
 }
 
+/** Subscribes to the latest eligible undo entry for record UI and Cmd+K parity. */
 export function useUndoEligibleEntry(): UndoEligibleEntry | null {
   return useSyncExternalStore(
     subscribeUndoEligibleEntry,
     getUndoEligibleEntry,
     getUndoEligibleEntry,
-  )
-}
-
-export function useUndoInFlight(): boolean {
-  return useSyncExternalStore(
-    subscribeUndoEligibleEntry,
-    isUndoInFlight,
-    isUndoInFlight,
   )
 }

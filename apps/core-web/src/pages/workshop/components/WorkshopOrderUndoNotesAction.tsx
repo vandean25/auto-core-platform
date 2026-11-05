@@ -2,12 +2,14 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { WorkshopOrder } from '@/api/types'
+import { useAuthSession } from '@/api/auth-session'
 import { RegistryActionButton } from '@/features/actions/RegistryActionButton'
 import {
   createWorkshopOrderUndoNotesAction,
   type WorkshopOrderUndoNotesRunContext,
 } from '@/features/actions/work-order-undo-notes-action'
 import { setGlobalUndoRunner } from '@/features/interaction/undo-eligible-entry-store'
+import { useUndoEligibleEntry } from '@/features/interaction/use-undo-eligible-entry'
 
 type WorkshopOrderUndoNotesActionProps = {
   order: WorkshopOrder
@@ -20,6 +22,8 @@ export function WorkshopOrderUndoNotesAction({
   runNotesUndo,
 }: WorkshopOrderUndoNotesActionProps) {
   const { t } = useTranslation('workshop')
+  const activeRole = useAuthSession()?.data?.activeRole
+  useUndoEligibleEntry()
   const definition = createWorkshopOrderUndoNotesAction(t)
   const runContext: WorkshopOrderUndoNotesRunContext = {
     undoNotes: (orderId) => runNotesUndo(orderId),
@@ -36,9 +40,10 @@ export function WorkshopOrderUndoNotesAction({
 
   return (
     <RegistryActionButton
-      definition={definition}
+      action={definition}
       record={order}
       runContext={runContext}
+      role={activeRole}
       variant="outline"
       size="sm"
       className="min-h-11"
