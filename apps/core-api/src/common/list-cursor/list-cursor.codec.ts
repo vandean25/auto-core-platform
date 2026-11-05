@@ -160,16 +160,6 @@ export function serializeSortValueForCursor(
   if (Prisma.Decimal.isDecimal(value)) {
     return value.toString();
   }
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { toString?: () => string }).toString === 'function'
-  ) {
-    const asString = String(value);
-    if (asString !== '[object Object]') {
-      return asString;
-    }
-  }
   throw listCursorInvalidException();
 }
 

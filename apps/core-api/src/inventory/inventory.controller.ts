@@ -141,7 +141,6 @@ export class InventoryController {
   @ApiPaginatedResponse(InventoryItemResponseDto)
   async findAll(
     @Query('page') page?: string,
-    @Query('limit') limit?: string,
     @Query('pageSize') pageSize?: string,
     @Query('search') search?: string,
     @Query('location') location?: string,
@@ -149,6 +148,7 @@ export class InventoryController {
     @Query('brandId') brandId?: string,
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: string,
+    @Query('limit') limit?: string,
     @Query('pagination') pagination?: string,
     @Query('cursor') cursor?: string,
   ) {

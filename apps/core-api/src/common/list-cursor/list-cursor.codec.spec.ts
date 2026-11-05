@@ -55,7 +55,7 @@ describe('list-cursor.codec', () => {
     expect(serializeSortValueForCursor(new Prisma.Decimal('12.50'))).toBe('12.5');
     const encoded = encodeListCursor({
       ...samplePayload(),
-      sv: serializeSortValueForCursor(new Prisma.Decimal('99.99')) as string,
+      sv: serializeSortValueForCursor(new Prisma.Decimal('99.99')),
     });
     expect(decodeListCursor(encoded)?.sv).toBe('99.99');
   });
