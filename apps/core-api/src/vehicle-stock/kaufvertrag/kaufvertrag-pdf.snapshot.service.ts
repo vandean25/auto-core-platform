@@ -169,7 +169,9 @@ export class KaufvertragPdfSnapshotService {
   ): Promise<string> {
     const sale = await this.prisma.client.vehicleSale.findFirst({
       where: { id: saleId, tenant_id: tenantId },
-      select: { site: { select: { legal_entity: { select: { country_iso: true } } } } },
+      select: {
+        site: { select: { legal_entity: { select: { country_iso: true } } } },
+      },
     });
     if (!sale?.site?.legal_entity?.country_iso) {
       throw new NotFoundException(`Vehicle sale ${saleId} not found`);
