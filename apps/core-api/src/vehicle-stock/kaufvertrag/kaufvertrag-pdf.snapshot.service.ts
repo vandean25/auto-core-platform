@@ -162,6 +162,21 @@ export class KaufvertragPdfSnapshotService {
     return sale;
   }
 
+  /** Country of the sale site's legal entity; used when PDF workers have no session capabilities. */
+  async findSaleLegalEntityCountryIso(
+    saleId: string,
+    tenantId: string,
+  ): Promise<string> {
+    const sale = await this.prisma.client.vehicleSale.findFirst({
+      where: { id: saleId, tenant_id: tenantId },
+      select: { site: { select: { legal_entity: { select: { country_iso: true } } } } },
+    });
+    if (!sale?.site?.legal_entity?.country_iso) {
+      throw new NotFoundException(`Vehicle sale ${saleId} not found`);
+    }
+    return sale.site.legal_entity.country_iso;
+  }
+
   /**
    * Runs every guard and builds the frozen snapshot. Nothing is written here.
    * Read-only callers pass `lockLogo: false`; generation keeps the logo lock.

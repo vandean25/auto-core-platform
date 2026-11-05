@@ -1,10 +1,16 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { Readable } from 'node:stream';
 import { CloudTasksService } from '../../common/services/cloud-tasks.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
 import { EffectiveCapabilitiesService } from '../../common/country-pack/effective-capabilities.guard.js';
+import { resolveCountryPack } from '../../common/country-pack/country-pack.registry.js';
 import { enqueueOrGeneratePdf } from '../../common/pdf/pdf-generation-dispatch.js';
 import {
   KAUFVERTRAG_PDF_CONTENT_TYPE,
@@ -110,7 +116,7 @@ export class VehicleSaleKaufvertragPdfService {
       { name: 'Generate Kaufvertrag PDF', op: 'pdf.generate' },
       async (span) => {
         span.setAttribute('vehicleSaleId', saleId);
-        await this.assertKaufvertragCapability();
+        await this.assertKaufvertragCapability(saleId);
         const tenantId = await this.tenantContext.getTenantId();
         const sale = await this.snapshots.findSaleForTenant(saleId, tenantId);
 
@@ -199,11 +205,28 @@ export class VehicleSaleKaufvertragPdfService {
     };
   }
 
-  private async assertKaufvertragCapability(): Promise<void> {
-    if ((await this.effectiveCapabilities.resolve())?.kaufvertragAt === true) {
+  private async assertKaufvertragCapability(saleId: string): Promise<void> {
+    const sessionCaps = await this.effectiveCapabilities.resolve();
+    if (sessionCaps !== null) {
+      if (sessionCaps.kaufvertragAt === true) {
+        return;
+      }
+      throw this.kaufvertragCapabilityForbidden();
+    }
+
+    const tenantId = await this.tenantContext.getTenantId();
+    const countryIso = await this.snapshots.findSaleLegalEntityCountryIso(
+      saleId,
+      tenantId,
+    );
+    if (resolveCountryPack(countryIso).capabilities.kaufvertragAt === true) {
       return;
     }
-    throw new ForbiddenException({
+    throw this.kaufvertragCapabilityForbidden();
+  }
+
+  private kaufvertragCapabilityForbidden(): ForbiddenException {
+    return new ForbiddenException({
       code: 'CAPABILITY_UNAVAILABLE',
       message: 'This feature is unavailable for the active legal entity.',
     });

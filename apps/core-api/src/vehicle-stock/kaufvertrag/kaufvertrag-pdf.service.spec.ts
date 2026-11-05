@@ -412,6 +412,19 @@ describe('VehicleSaleKaufvertragPdfService', () => {
       expect(harness.vehicleSale.findFirst).not.toHaveBeenCalled();
     });
 
+    it('refuses generateNow for a worker when the sale site is not AT-capable', async () => {
+      const harness = createHarness(loadedSale());
+      harness.effectiveCapabilities.resolve.mockResolvedValue(null);
+      harness.vehicleSale.findFirst.mockResolvedValueOnce({
+        site: { legal_entity: { country_iso: 'DE' } },
+      });
+
+      await expect(harness.service.generateNow(SALE_ID)).rejects.toMatchObject({
+        response: { code: 'CAPABILITY_UNAVAILABLE' },
+      });
+      expect(harness.vehicleSale.findFirst).toHaveBeenCalledTimes(1);
+    });
+
     it('adopts the existing object when create-only publication loses, after verifying its identity', async () => {
       const harness = createHarness(loadedSale());
       harness.storage.publishImmutableObject.mockRejectedValueOnce(
