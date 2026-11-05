@@ -87,6 +87,8 @@ describe('useWorkshopOrderActions notes undo pilot', () => {
     })
 
     const undoAction = createWorkshopOrderUndoNotesAction(((key: string) => key) as never)
-    expect(undoAction.isEnabled(order)).toBe(true)
+    expect(
+      undoAction.isEnabled({ ...order, updatedAt: '2026-11-05T12:00:00.000Z' }),
+    ).toBe(true)
   })
 })
