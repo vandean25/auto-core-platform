@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { ThemeProvider } from 'next-themes'
-import { FORCE_LIGHT_CLASS } from '@/hooks/useForceLightTheme'
+import { setPrintJobLight } from '@/hooks/useForceLightTheme'
 
 /** localStorage key of the chosen theme (Hell / Dunkel / System). */
 export const THEME_STORAGE_KEY = 'acp-theme'
@@ -8,14 +8,13 @@ export const THEME_STORAGE_KEY = 'acp-theme'
 /** Printing is always light: the page switches to the light tokens for the duration of the print job. */
 function useLightWhilePrinting() {
   useEffect(() => {
-    const root = document.documentElement
-    const addLight = () => root.classList.add(FORCE_LIGHT_CLASS)
-    const removeLight = () => root.classList.remove(FORCE_LIGHT_CLASS)
-    window.addEventListener('beforeprint', addLight)
-    window.addEventListener('afterprint', removeLight)
+    const start = () => setPrintJobLight(true)
+    const end = () => setPrintJobLight(false)
+    window.addEventListener('beforeprint', start)
+    window.addEventListener('afterprint', end)
     return () => {
-      window.removeEventListener('beforeprint', addLight)
-      window.removeEventListener('afterprint', removeLight)
+      window.removeEventListener('beforeprint', start)
+      window.removeEventListener('afterprint', end)
     }
   }, [])
 }
@@ -23,6 +22,7 @@ function useLightWhilePrinting() {
 /**
  * Theme for the whole app: the `dark` class on `<html>`, remembered in localStorage, `system` by default.
  * Transitions are paused while the class flips, so a switch does not animate every colour.
+ * `color-scheme` comes from `index.css` (`.dark`, `.theme-light`), not from an inline style that a forced-light page could not override.
  */
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   useLightWhilePrinting()
@@ -32,6 +32,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       attribute="class"
       defaultTheme="system"
       enableSystem
+      enableColorScheme={false}
       storageKey={THEME_STORAGE_KEY}
       disableTransitionOnChange
     >

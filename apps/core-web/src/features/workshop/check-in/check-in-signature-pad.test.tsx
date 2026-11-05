@@ -35,6 +35,13 @@ describe('CheckInSignaturePad', () => {
     expect(screen.getByTestId('check-in-signature-clear')).toHaveClass('min-h-11')
   })
 
+  // Regression: the pad followed the dark theme while the ink is dark, so the customer saw no ink.
+  it('keeps the signature surface light, whatever the app theme, because the ink is dark', () => {
+    renderPad()
+
+    expect(screen.getByTestId('check-in-signature-canvas')).toHaveClass('theme-light', 'bg-card')
+  })
+
   it('updates signer name on input', () => {
     const { onName } = renderPad()
     fireEvent.change(screen.getByTestId('check-in-signed-by-name'), {

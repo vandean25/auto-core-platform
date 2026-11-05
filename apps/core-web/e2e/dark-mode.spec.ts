@@ -103,6 +103,24 @@ test.describe('Dark mode switch (AUT-659)', () => {
     expect(await backgroundBrightness(page)).toBeGreaterThan(0.9)
     await page.emulateMedia({ media: 'print' })
     expect(await backgroundBrightness(page)).toBeGreaterThan(0.9)
+
+    // A finished print job (the Print button and Ctrl+P fire both events) must not turn the open print view dark again.
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('beforeprint'))
+      window.dispatchEvent(new Event('afterprint'))
+    })
+    await expect(page.locator('html')).toHaveClass(/\btheme-light\b/)
+    expect(await backgroundBrightness(page)).toBeGreaterThan(0.9)
+  })
+
+  test('WHEN a returning dark user opens the app THEN the dark class is set before the app code runs', async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('acp-theme', 'dark'))
+    // Without the app bundle only the inline script in index.html can set the class.
+    await page.route(/\/assets\/.*\.js(\?.*)?$/, (route) => route.abort())
+
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/)
   })
 
   test('WHEN the menu is opened at 375px THEN the theme switch is usable with targets of at least 44px', async ({ page }) => {

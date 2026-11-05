@@ -72,6 +72,22 @@ describe('useForceLightTheme (AUT-659)', () => {
     expect(html()).not.toHaveClass('theme-light')
   })
 
+  // Regression: afterprint removed the class unconditionally, so a print view that is still mounted turned dark again.
+  it('WHEN a print job ends while a print view is still mounted THEN <html> stays light', () => {
+    stubSystemScheme(false)
+    render(<AppThemeProvider>x</AppThemeProvider>)
+    const { unmount } = renderHook(() => useForceLightTheme())
+
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'))
+      window.dispatchEvent(new Event('afterprint'))
+    })
+    expect(html()).toHaveClass('theme-light')
+
+    unmount()
+    expect(html()).not.toHaveClass('theme-light')
+  })
+
   it('WHEN the browser starts a print job THEN <html> is light until it ends', () => {
     stubSystemScheme(false)
     render(<AppThemeProvider>x</AppThemeProvider>)
