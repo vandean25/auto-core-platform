@@ -57,7 +57,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       });
     });
 
-    async function listCursor(query: Record<string, string>) {
+    function listCursor(query: Record<string, string>) {
       return request(app.getHttpServer())
         .get('/api/vehicle-stock')
         .query({ pagination: 'cursor', stock_status: VehicleStockStatus.IN_STOCK, ...query })

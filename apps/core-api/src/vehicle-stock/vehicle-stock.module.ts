@@ -21,6 +21,7 @@ import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 import { VehicleStockController } from './vehicle-stock.controller.js';
 import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
 import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
+import { GewaehrleistungDueListReadService } from './gewaehrleistung/gewaehrleistung-due-list.read.js';
 import {
   GcsVehicleMediaStorage,
   VEHICLE_MEDIA_STORAGE,
@@ -59,6 +60,7 @@ import {
     KaufvertragPdfArchiveService,
     VehicleSaleKaufvertragPdfService,
     VehicleStockQueryService,
+    GewaehrleistungDueListReadService,
     VehicleStockMoveService,
     VehicleStockReportsService,
     GcsVehicleMediaStorage,

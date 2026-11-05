@@ -1,5 +1,6 @@
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { SiteContextService as CommonSiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { GewaehrleistungDueListReadService } from './gewaehrleistung/gewaehrleistung-due-list.read.js';
 import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
@@ -21,7 +22,7 @@ describe('VehicleStockQueryService Gewaehrleistung due list', () => {
     readService = new GewaehrleistungDueListReadService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
-      siteContext as unknown as SiteContextService,
+      siteContext as unknown as CommonSiteContextService,
     );
     service = new VehicleStockQueryService(
       prisma as unknown as PrismaService,
