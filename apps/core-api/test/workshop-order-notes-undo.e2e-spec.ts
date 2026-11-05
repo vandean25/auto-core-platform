@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import type { TenantMemberRole } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -9,7 +10,6 @@ import {
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
-  seedTestEmployee,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
@@ -22,7 +22,7 @@ describe('Workshop order notes undo (e2e)', () => {
   let siteId: string;
   let firebaseUid: string;
   let authToken: string;
-  let techToken: string;
+  let authService: AuthService;
   let customerId: string;
 
   const api = () => request(app.getHttpServer());
@@ -75,6 +75,37 @@ describe('Workshop order notes undo (e2e)', () => {
       .send(body);
   }
 
+  async function createMemberToken(role: TenantMemberRole) {
+    const uid = `wo-notes-undo-${role.toLowerCase()}-${tenantId}-${Date.now()}`;
+    const user = await prisma.user.create({
+      data: {
+        firebaseUid: uid,
+        email: `${uid}@test.local`,
+        active_tenant_id: tenantId,
+        active_site_id: siteId,
+      },
+    });
+    await seedTestTenantMember(basePrisma, {
+      tenantId,
+      userId: user.id,
+      role,
+    });
+    await prisma.siteMembership.create({
+      data: {
+        tenant_id: tenantId,
+        user_id: user.id,
+        site_id: siteId,
+        is_active: true,
+      },
+    });
+    return authService.createTestToken({
+      sub: uid,
+      email: user.email,
+      tenantId,
+      role,
+    });
+  }
+
   beforeAll(async () => {
     app = await createE2eApp(undefined, { productionErrorFilter: true });
     basePrisma = app.get(PrismaService);
@@ -83,42 +114,8 @@ describe('Workshop order notes undo (e2e)', () => {
     firebaseUid = testTenant.firebaseUid;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     siteId = await resolveTestMainSiteId(basePrisma, tenantId);
-    authToken = createTestAuthToken(app.get(AuthService), testTenant);
-
-    const techUid = `wo-notes-undo-tech-${tenantId}`;
-    const techUser = await prisma.user.create({
-      data: {
-        firebaseUid: techUid,
-        email: `${techUid}@test.local`,
-        active_tenant_id: tenantId,
-        active_site_id: siteId,
-      },
-    });
-    await seedTestTenantMember(basePrisma, {
-      tenantId,
-      userId: techUser.id,
-      role: 'TECH',
-    });
-    await prisma.siteMembership.create({
-      data: {
-        tenant_id: tenantId,
-        user_id: techUser.id,
-        site_id: siteId,
-        is_active: true,
-      },
-    });
-    await seedTestEmployee(prisma, {
-      tenantId,
-      name: 'Undo E2E Tech',
-      role: 'MECHANIC',
-      userId: techUser.id,
-    });
-    techToken = app.get(AuthService).createTestToken({
-      sub: techUid,
-      email: techUser.email,
-      tenantId,
-      role: 'TECH',
-    });
+    authService = app.get(AuthService);
+    authToken = createTestAuthToken(authService, testTenant);
 
     const customer = await prisma.customer.create({
       data: {
@@ -146,7 +143,7 @@ describe('Workshop order notes undo (e2e)', () => {
     const undoRes = await undoNotes(order.id, {
       previousNotes: order.notes,
       expectedUpdatedAt: updated.updatedAt,
-    }).expect(201);
+    }).expect(200);
 
     expect(undoRes.body.notes).toBe(order.notes);
     const row = await prisma.workshopOrder.findFirstOrThrow({
@@ -164,7 +161,7 @@ describe('Workshop order notes undo (e2e)', () => {
       expectedUpdatedAt: updated.updatedAt,
     };
 
-    await undoNotes(order.id, dto).expect(201);
+    await undoNotes(order.id, dto).expect(200);
     const second = await undoNotes(order.id, dto).expect(409);
     expect(second.body.message).toMatch(/concurrently|Undo is no longer available/i);
   });
@@ -209,9 +206,62 @@ describe('Workshop order notes undo (e2e)', () => {
     expect(row.notes).toBe(originalNotes);
   });
 
-  it('returns 403 for TECH on the undo route', async () => {
+  it.each(['TECH', 'ACCOUNTANT'] as const)(
+    'returns 403 for %s on the undo route',
+    async (role) => {
+      const token = await createMemberToken(role);
+      const order = await createIntakeOrder();
+      const updated = await patchNotes(order.id, 'Advisor edit');
+
+      await undoNotes(
+        order.id,
+        {
+          previousNotes: order.notes,
+          expectedUpdatedAt: updated.updatedAt,
+        },
+        token,
+      ).expect(403);
+    },
+  );
+
+  it('returns 403 when write access is lost after the notes edit', async () => {
+    const salesUid = `wo-notes-undo-sales-downgrade-${tenantId}`;
+    const salesUser = await prisma.user.create({
+      data: {
+        firebaseUid: salesUid,
+        email: `${salesUid}@test.local`,
+        active_tenant_id: tenantId,
+        active_site_id: siteId,
+      },
+    });
+    await seedTestTenantMember(basePrisma, {
+      tenantId,
+      userId: salesUser.id,
+      role: 'SALES',
+    });
+    await prisma.siteMembership.create({
+      data: {
+        tenant_id: tenantId,
+        user_id: salesUser.id,
+        site_id: siteId,
+        is_active: true,
+      },
+    });
+    const salesToken = authService.createTestToken({
+      sub: salesUid,
+      email: salesUser.email,
+      tenantId,
+      role: 'SALES',
+    });
+
     const order = await createIntakeOrder();
-    const updated = await patchNotes(order.id, 'Advisor edit');
+    const updated = await patchNotes(order.id, 'Edited while sales', salesToken);
+    const downgradedToken = authService.createTestToken({
+      sub: salesUid,
+      email: salesUser.email,
+      tenantId,
+      role: 'TECH',
+    });
 
     await undoNotes(
       order.id,
@@ -219,7 +269,7 @@ describe('Workshop order notes undo (e2e)', () => {
         previousNotes: order.notes,
         expectedUpdatedAt: updated.updatedAt,
       },
-      techToken,
+      downgradedToken,
     ).expect(403);
   });
 

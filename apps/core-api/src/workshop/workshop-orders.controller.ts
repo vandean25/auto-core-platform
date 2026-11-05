@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -76,6 +78,7 @@ export class WorkshopOrdersController {
   }
 
   @Post('orders/:id/notes/undo')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ operationId: 'WorkshopController_undoOrderNotes' })
   @ApiWorkshopOrderOkResponse()
   undoOrderNotes(
