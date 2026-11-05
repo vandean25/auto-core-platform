@@ -57,4 +57,9 @@ See migration `20261105120000_aut888_list_cursor_keyset_indexes`: `(tenant_id, [
 
 ## Query plan evidence
 
-LF 10a adds indexes aligned with keyset `ORDER BY`. Full `EXPLAIN (ANALYZE, BUFFERS)` on catalog-sized rows is **not** reproduced in CI (ephemeral test DB volume). Local/QA verification: run `EXPLAIN` on representative tenant data after applying the migration; expect index scans on the new composite indexes when filters are selective.
+LF 10a adds indexes aligned with keyset `ORDER BY`. CI e2e Postgres does not bulk-load catalog-scale rows, so **synthetic EXPLAIN evidence** is captured separately:
+
+- **Doc:** [aut888-list-cursor-explain-evidence.md](./aut888-list-cursor-explain-evidence.md) — disposable local PG 16, **15 000** synthetic `catalog_items` + **5 000** synthetic dealer-stock `vehicles`, raw `EXPLAIN (ANALYZE, BUFFERS)` for pilot sorts and capped-count probes.
+- **Reproduce:** `tools/aut888-list-cursor-explain/run-local-explain.sh` (synthetic data only; no QA/prod).
+
+At that fixture size, keyset list sorts use the new composite indexes; capped-count id probes may still **seq scan** with a tenant filter (documented in the evidence summary — not hidden).
