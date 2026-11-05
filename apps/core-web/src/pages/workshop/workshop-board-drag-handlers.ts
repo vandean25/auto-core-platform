@@ -12,23 +12,29 @@ export function createWorkshopBoardDragHandlers(
     onDragStart(event: DragStartEvent) {
       setActiveId(String(event.active.id))
     },
-    onDragEnd(event: DragEndEvent) {
+    onDragCancel() {
       setActiveId(null)
+    },
+    onDragEnd(event: DragEndEvent) {
       const { active, over } = event
-      if (!over || active.id === over.id) return
+      if (!over || active.id === over.id) {
+        setActiveId(null)
+        return
+      }
 
       const orderId = String(active.id)
       const targetColumnId = String(over.id)
       if (targetColumnId === WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID) {
         performBoardAssign(orderId, null)
-        return
+      } else {
+        performBoardAssign(orderId, {
+          kind: viewMode === 'mechanic' ? 'mechanic' : 'bay',
+          id: targetColumnId,
+          label: targetColumnId,
+        })
       }
-
-      performBoardAssign(orderId, {
-        kind: viewMode === 'mechanic' ? 'mechanic' : 'bay',
-        id: targetColumnId,
-        label: targetColumnId,
-      })
+      // Clear the drag only after the optimistic move is queued, so the source column never flashes its empty state.
+      setActiveId(null)
     },
   }
 }

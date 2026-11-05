@@ -6,6 +6,7 @@ export const DE_WORKSHOP = {
     title: deWorkshop.board.title,
     viewMode: deWorkshop.board.viewMode,
     unassigned: deWorkshop.board.unassigned,
+    emptyColumn: deWorkshop.board.emptyColumn,
     emptyResources: deWorkshop.board.emptyResources,
     assignError: deWorkshop.board.assignError,
     a11y: deWorkshop.board.a11y,

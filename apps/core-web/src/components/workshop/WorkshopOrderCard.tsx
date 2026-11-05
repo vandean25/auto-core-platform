@@ -21,6 +21,8 @@ import type {
 interface WorkshopOrderCardContentProps {
   order: BoardOrder
   isDragging?: boolean
+  /** The card being dragged keeps its slot in the source column (invisible) so the column height stays stable. */
+  isPlaceholder?: boolean
   quickAssignTargets?: BoardAssignmentTarget[]
   onQuickAssign?: (target: BoardAssignmentTarget) => void
   setNodeRef?: (element: HTMLElement | null) => void
@@ -53,6 +55,7 @@ function stopEventFromStartingDrag(event: SyntheticEvent) {
 export function WorkshopOrderCardContent({
   order,
   isDragging = false,
+  isPlaceholder = false,
   quickAssignTargets = [],
   onQuickAssign,
   setNodeRef,
@@ -71,6 +74,7 @@ export function WorkshopOrderCardContent({
         'relative rounded-md border bg-card shadow-sm border-l-4 p-3 cursor-grab active:cursor-grabbing select-none transition-shadow',
         borderColor,
         isDragging && 'shadow-lg ring-2 ring-muted-foreground/30',
+        isPlaceholder && 'invisible',
       )}
       {...dragListeners}
     >
@@ -154,12 +158,14 @@ export function WorkshopOrderCardContent({
 
 interface WorkshopOrderCardProps {
   order: BoardOrder
+  isPlaceholder?: boolean
   quickAssignTargets?: BoardAssignmentTarget[]
   onQuickAssign?: (target: BoardAssignmentTarget) => void
 }
 
 export function WorkshopOrderCard({
   order,
+  isPlaceholder = false,
   quickAssignTargets = [],
   onQuickAssign,
 }: WorkshopOrderCardProps) {
@@ -168,6 +174,7 @@ export function WorkshopOrderCard({
   return (
     <WorkshopOrderCardContent
       order={order}
+      isPlaceholder={isPlaceholder}
       quickAssignTargets={quickAssignTargets}
       onQuickAssign={onQuickAssign}
       setNodeRef={setNodeRef}

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkshopBoard from './WorkshopBoard'
@@ -28,24 +28,39 @@ type BoardAnnouncements = Record<
 >
 
 let capturedOnDragEnd: ((event: DragEventLike) => void) | null = null
+let capturedOnDragStart: ((event: { active: { id: string } }) => void) | null = null
+let capturedDropAnimation: unknown = 'unset'
+let hoveredColumnIds = new Set<string>()
 let capturedAnnouncements: BoardAnnouncements | null = null
 
 vi.mock('@dnd-kit/core', () => {
   const DndContext = ({
     children,
     onDragEnd,
+    onDragStart,
     accessibility,
   }: {
     children: React.ReactNode
     onDragEnd?: (event: DragEventLike) => void
+    onDragStart?: (event: { active: { id: string } }) => void
     accessibility?: { announcements?: BoardAnnouncements }
   }) => {
     capturedOnDragEnd = onDragEnd ?? null
+    capturedOnDragStart = onDragStart ?? null
     capturedAnnouncements = accessibility?.announcements ?? null
     return <div data-testid="mock-dnd-context">{children}</div>
   }
 
-  const DragOverlay = ({ children }: { children: React.ReactNode }) => <>{children}</>
+  const DragOverlay = ({
+    children,
+    dropAnimation,
+  }: {
+    children: React.ReactNode
+    dropAnimation?: unknown
+  }) => {
+    capturedDropAnimation = dropAnimation
+    return <>{children}</>
+  }
 
   return {
     DndContext,
@@ -55,7 +70,10 @@ vi.mock('@dnd-kit/core', () => {
     KeyboardSensor: function KeyboardSensor() {},
     useSensor: () => ({}),
     useSensors: () => [],
-    useDroppable: () => ({ isOver: false, setNodeRef: () => {} }),
+    useDroppable: ({ id }: { id: string }) => ({
+      isOver: hoveredColumnIds.has(id),
+      setNodeRef: () => {},
+    }),
     useDraggable: () => ({
       attributes: {},
       listeners: {},
@@ -93,6 +111,9 @@ describe('WorkshopBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     capturedOnDragEnd = null
+    capturedOnDragStart = null
+    capturedDropAnimation = 'unset'
+    hoveredColumnIds = new Set()
     capturedAnnouncements = null
 
     ;(workshopApi.useWorkshopResources as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -173,6 +194,65 @@ describe('WorkshopBoard', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Demo Mechanic A' }))
 
     expect(assignMutate).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: 'mech-2' })
+  })
+
+  function renderBoard() {
+    return render(
+      <QueryClientProvider client={createQueryClient()}>
+        <WorkshopBoard />
+      </QueryClientProvider>,
+    )
+  }
+
+  function startDrag() {
+    act(() => {
+      capturedOnDragStart?.({ active: { id: 'order-1' } })
+    })
+  }
+
+  it('WHEN a card is dragged out of a column THEN that column keeps its height (placeholder present)', () => {
+    renderBoard()
+    const column = screen.getByTestId('board-column-unassigned')
+    startDrag()
+
+    const placeholder = within(column).getByTestId('workshop-order-card-order-1')
+    expect(placeholder).toHaveClass('invisible')
+    expect(column).toHaveTextContent('1')
+  })
+
+  it('WHEN a card is dropped on another column THEN no drop animation runs toward the source', () => {
+    renderBoard()
+    startDrag()
+    expect(capturedDropAnimation).toBeNull()
+
+    act(() => {
+      capturedOnDragEnd?.({ active: { id: 'order-1' }, over: { id: 'mech-2' } })
+    })
+
+    expect(assignMutate).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: 'mech-2' })
+    expect(capturedDropAnimation).toBeNull()
+  })
+
+  it('WHEN the last card is dragged out THEN "Keine Aufträge" does not appear until the drop is applied', () => {
+    renderBoard()
+    const emptyText = deWorkshop.board.emptyColumn
+    expect(within(screen.getByTestId('board-column-unassigned')).queryByText(emptyText)).toBeNull()
+
+    startDrag()
+
+    expect(within(screen.getByTestId('board-column-unassigned')).queryByText(emptyText)).toBeNull()
+  })
+
+  it('WHEN a card hovers an empty column THEN a drop slot is shown', () => {
+    renderBoard()
+    const target = screen.getByTestId('board-column-mech-2')
+    expect(within(target).getByText(deWorkshop.board.emptyColumn)).toBeInTheDocument()
+
+    hoveredColumnIds = new Set(['mech-2'])
+    startDrag()
+
+    expect(within(target).getByTestId('board-drop-slot')).toBeInTheDocument()
+    expect(within(target).queryByText(deWorkshop.board.emptyColumn)).toBeNull()
   })
 
   it('keeps the dragged card on the board after drop', () => {
