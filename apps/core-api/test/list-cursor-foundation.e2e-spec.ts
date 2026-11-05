@@ -14,11 +14,13 @@ import {
 } from './helpers/vehicle-stock-suite.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
+import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 function mergePageIdsWithoutOverlap(
@@ -45,6 +47,9 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     let createAndReceive: Awaited<
       ReturnType<typeof createVehicleStockSuite>
     >['createAndReceive'];
+    let createAdditionalLotSite: Awaited<
+      ReturnType<typeof createVehicleStockSuite>
+    >['createAdditionalLotSite'];
 
     beforeAll(async () => {
       ({
@@ -56,6 +61,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         authToken,
         otherAuthToken,
         createAndReceive,
+        createAdditionalLotSite,
       } = await createVehicleStockSuite({
         configureModule: (builder) => builder,
       }));
@@ -507,6 +513,213 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       expect(res.body.meta.limit).toBe(50);
     });
 
+    it('WHEN vehicle cursor omits limit THEN meta.limit defaults to 25', async () => {
+      const res = await listCursor({}).expect(200);
+      expect(res.body.meta.limit).toBe(25);
+    });
+
+    it('WHEN filters match no rows THEN cursor list returns an empty page', async () => {
+      const res = await listCursor({
+        search: `no-match-${Date.now()}-cursor`,
+      }).expect(200);
+      expect(res.body.data).toEqual([]);
+      expect(res.body.meta.hasNextPage).toBe(false);
+      expect(res.body.meta.nextCursor).toBeNull();
+    });
+
+    it('WHEN every row in scope has NULL plate THEN paging plate ASC covers all rows', async () => {
+      const tag = `null-plate-only-${Date.now()}`;
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        const created = await createAndReceive({
+          vin: vin(`NPL${i}${tag}`),
+          sellerType: 'VENDOR',
+        });
+        ids.push(created.received.vehicle_id);
+        await prisma.vehicle.update({
+          where: { id: created.received.vehicle_id },
+          data: {
+            make: tag,
+            plate: null,
+            stock_status: VehicleStockStatus.IN_STOCK,
+          },
+        });
+      }
+
+      const first = await listCursor({
+        search: tag,
+        sortField: 'plate',
+        sortDirection: 'asc',
+        limit: '2',
+      }).expect(200);
+
+      const second = await listCursor({
+        search: tag,
+        sortField: 'plate',
+        sortDirection: 'asc',
+        limit: '2',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+
+      const seen = mergePageIdsWithoutOverlap(
+        first.body.data.map((row: { id: string }) => row.id),
+        second.body.data as { id: string }[],
+      );
+      expect(seen.size).toBe(3);
+      expect([...seen].sort()).toEqual([...ids].sort());
+    });
+
+    it('WHEN cursor pages nullable vin DESC THEN order is descending without repeats', async () => {
+      const tag = `vin-desc-${Date.now()}`;
+      const orderedVins = [
+        vin(`VINZ${tag}`),
+        vin(`VINM${tag}`),
+        vin(`VINA${tag}`),
+      ];
+      const ids: string[] = [];
+      for (const vehicleVin of orderedVins) {
+        const created = await createAndReceive({
+          vin: vehicleVin,
+          sellerType: 'VENDOR',
+        });
+        ids.push(created.received.vehicle_id);
+        await prisma.vehicle.update({
+          where: { id: created.received.vehicle_id },
+          data: { make: tag, stock_status: VehicleStockStatus.IN_STOCK },
+        });
+      }
+
+      const first = await listCursor({
+        search: tag,
+        sortField: 'vin',
+        sortDirection: 'desc',
+        limit: '2',
+      }).expect(200);
+
+      const second = await listCursor({
+        search: tag,
+        sortField: 'vin',
+        sortDirection: 'desc',
+        limit: '2',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+
+      const seen = mergePageIdsWithoutOverlap(
+        first.body.data.map((row: { id: string }) => row.id),
+        second.body.data as { id: string }[],
+      );
+      expect(seen.size).toBe(3);
+      const combined = [...first.body.data, ...second.body.data] as {
+        vin: string;
+      }[];
+      for (let i = 1; i < combined.length; i += 1) {
+        expect(combined[i - 1].vin.localeCompare(combined[i].vin)).toBeGreaterThanOrEqual(
+          0,
+        );
+      }
+    });
+
+    it('WHEN cursor pages nullable vin DESC THEN order is descending without repeats', async () => {
+      const tag = `iso-tenant-${Date.now()}`;
+      const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
+      await seedReadySellerAndAccountingProfile(otherPrisma, otherTenantId, {
+        includeVehicleMargin: true,
+      });
+      const foreignVendor = await otherPrisma.vendor.create({
+        data: {
+          tenant_id: otherTenantId,
+          name: 'Foreign vendor',
+          email: `foreign-${tag}@example.com`,
+          account_number: `FV-${tag.slice(-6)}`,
+        },
+      });
+      const foreignCreate = await request(app.getHttpServer())
+        .post('/api/vehicle-purchases')
+        .set('Authorization', `Bearer ${otherAuthToken}`)
+        .send({
+          seller_type: 'VENDOR',
+          vendor_id: foreignVendor.id,
+          vin: vin(`ISOOTH${tag}`),
+          make: tag,
+          model: 'Golf',
+          year: 2018,
+          purchase_price: 10000,
+        })
+        .expect(201);
+      const foreignReceive = await request(app.getHttpServer())
+        .post(`/api/vehicle-purchases/${foreignCreate.body.id}/receive`)
+        .set('Authorization', `Bearer ${otherAuthToken}`)
+        .expect(201);
+      await otherPrisma.vehicle.update({
+        where: { id: foreignReceive.body.vehicle_id },
+        data: { stock_status: VehicleStockStatus.IN_STOCK },
+      });
+
+      const home = await createAndReceive({
+        vin: vin(`ISOHOME${tag}`),
+        sellerType: 'VENDOR',
+      });
+      await prisma.vehicle.update({
+        where: { id: home.received.vehicle_id },
+        data: { make: tag, stock_status: VehicleStockStatus.IN_STOCK },
+      });
+
+      const list = await listCursor({ search: tag, limit: '50' }).expect(200);
+      expect(list.body.data.some((row: { id: string }) => row.id === foreignReceive.body.vehicle_id)).toBe(
+        false,
+      );
+      expect(list.body.data.some((row: { id: string }) => row.id === home.received.vehicle_id)).toBe(
+        true,
+      );
+
+      const count = await request(app.getHttpServer())
+        .get('/api/vehicle-stock/capped-count')
+        .query({ search: tag, stock_status: VehicleStockStatus.IN_STOCK })
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+      expect(count.body).toEqual({ count: 1, isCapped: false });
+    });
+
+    it('WHEN stock sits at an unauthorized site THEN cursor list and capped-count omit it', async () => {
+      const hidden = await createAdditionalLotSite({
+        code: `ISO-${Date.now().toString().slice(-8)}`,
+        grantMembership: false,
+      });
+      const tag = `iso-site-${Date.now()}`;
+      const visible = await createAndReceive({
+        vin: vin(`VIS${tag}`),
+        sellerType: 'VENDOR',
+      });
+      await prisma.vehicle.update({
+        where: { id: visible.received.vehicle_id },
+        data: { make: tag, stock_status: VehicleStockStatus.IN_STOCK },
+      });
+      const offSite = await createAndReceive({
+        vin: vin(`HID${tag}`),
+        sellerType: 'VENDOR',
+      });
+      await prisma.vehicle.update({
+        where: { id: offSite.received.vehicle_id },
+        data: {
+          make: tag,
+          stock_status: VehicleStockStatus.IN_STOCK,
+          site_id: hidden.site.id,
+          location_id: hidden.lot.id,
+        },
+      });
+
+      const list = await listCursor({ search: tag, limit: '50' }).expect(200);
+      expect(list.body.data).toHaveLength(1);
+      expect(list.body.data[0].id).toBe(visible.received.vehicle_id);
+
+      const count = await request(app.getHttpServer())
+        .get('/api/vehicle-stock/capped-count')
+        .query({ search: tag, stock_status: VehicleStockStatus.IN_STOCK })
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+      expect(count.body).toEqual({ count: 1, isCapped: false });
+    });
+
     it('WHEN a scoped search matches one row THEN hasNextPage is false', async () => {
       const tag = `last-${Date.now()}`;
       const created = await createAndReceive({
@@ -933,6 +1146,102 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     it('WHEN inventory cursor limit exceeds pilot maximum THEN meta.limit is 100', async () => {
       const res = await listInventoryCursor({ limit: '999' }).expect(200);
       expect(res.body.meta.limit).toBe(100);
+    });
+
+    it('WHEN inventory cursor omits limit THEN meta.limit defaults to 10', async () => {
+      const res = await listInventoryCursor({}).expect(200);
+      expect(res.body.meta.limit).toBe(10);
+    });
+
+    it('WHEN inventory filters match no rows THEN cursor list returns an empty page', async () => {
+      const res = await listInventoryCursor({
+        search: `no-match-${Date.now()}-inv`,
+      }).expect(200);
+      expect(res.body.data).toEqual([]);
+      expect(res.body.meta.hasNextPage).toBe(false);
+      expect(res.body.meta.nextCursor).toBeNull();
+    });
+
+    it('WHEN the cursor anchor row was deleted THEN the next inventory page still succeeds', async () => {
+      const tag = `del-row-${Date.now()}`;
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        const item = await prisma.catalogItem.create({
+          data: {
+            tenant_id: tenantId,
+            sku: `${tag}-${i}`,
+            name: `${tag} item ${i}`,
+            retail_price: 10 + i,
+            cost_price: 1,
+          },
+        });
+        ids.push(item.id);
+      }
+
+      const first = await listInventoryCursor({
+        search: tag,
+        sortField: 'sku',
+        sortDirection: 'asc',
+        limit: '1',
+      }).expect(200);
+
+      const deletedId = first.body.data[0].id as string;
+      const cursor = first.body.meta.nextCursor as string;
+      await prisma.catalogItem.delete({ where: { id: deletedId } });
+
+      const second = await listInventoryCursor({
+        search: tag,
+        sortField: 'sku',
+        sortDirection: 'asc',
+        limit: '10',
+        cursor,
+      }).expect(200);
+
+      expect(
+        second.body.data.find((row: { id: string }) => row.id === deletedId),
+      ).toBeUndefined();
+      expect(second.body.data.length).toBe(2);
+      for (const id of ids) {
+        if (id === deletedId) continue;
+        expect(second.body.data.some((row: { id: string }) => row.id === id)).toBe(
+          true,
+        );
+      }
+    });
+
+    it('WHEN another tenant owns catalog rows THEN inventory list and capped-count stay tenant-scoped', async () => {
+      const tag = `iso-inv-${Date.now()}`;
+      const basePrisma = app.get(PrismaService);
+      const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
+      await otherPrisma.catalogItem.create({
+        data: {
+          tenant_id: otherTenantId,
+          sku: `${tag}-foreign`,
+          name: `${tag} foreign`,
+          retail_price: 99,
+          cost_price: 1,
+        },
+      });
+      await prisma.catalogItem.create({
+        data: {
+          tenant_id: tenantId,
+          sku: `${tag}-home`,
+          name: `${tag} home`,
+          retail_price: 10,
+          cost_price: 1,
+        },
+      });
+
+      const list = await listInventoryCursor({ search: tag, limit: '50' }).expect(200);
+      expect(list.body.data).toHaveLength(1);
+      expect(list.body.data[0].sku).toBe(`${tag}-home`);
+
+      const count = await request(app.getHttpServer())
+        .get('/api/inventory/capped-count')
+        .query({ search: tag })
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+      expect(count.body).toEqual({ count: 1, isCapped: false });
     });
 
     it('WHEN 1,001 or more catalog rows match THEN capped count returns count 1000 and isCapped true', async () => {
