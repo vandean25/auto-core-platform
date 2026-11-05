@@ -4,7 +4,9 @@ import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import {
   clearUndoEligibleEntry,
   getUndoEligibleEntry,
+  isUndoInFlight,
   runLatestEligibleUndoFromShortcut,
+  runUndoInFlight,
   setGlobalUndoRunner,
   setUndoEligibleEntry,
 } from './undo-eligible-entry-store'
@@ -29,6 +31,21 @@ describe('undo eligible entry store', () => {
     expect(getUndoEligibleEntry()?.orderId).toBe('order-2')
     clearUndoEligibleEntry()
     expect(getUndoEligibleEntry()).toBeNull()
+  })
+
+  it('rejects a second undo while the first is still in flight', async () => {
+    let resolveFirst!: () => void
+    const firstWork = new Promise<void>((resolve) => {
+      resolveFirst = resolve
+    })
+    const pending = runUndoInFlight(() => firstWork)
+    expect(isUndoInFlight()).toBe(true)
+    await expect(runUndoInFlight(() => Promise.resolve('skipped'))).rejects.toThrow(
+      'Undo already in progress',
+    )
+    resolveFirst()
+    await pending
+    expect(isUndoInFlight()).toBe(false)
   })
 
   it('runs the latest eligible undo from the keyboard shortcut runner', () => {

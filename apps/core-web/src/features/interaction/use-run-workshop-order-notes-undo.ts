@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { useUndoWorkshopOrderNotes, workshopKeys } from '@/api/workshop'
-import { getErrorMessage } from '@/lib/error-utils'
+import { getErrorMessage, getHttpErrorStatus } from '@/lib/error-utils'
 import {
   clearUndoEligibleEntry,
   getUndoEligibleEntry,
@@ -35,6 +35,10 @@ export function useRunWorkshopOrderNotesUndo() {
           toast.success(t('orderDetail.toast.notesUndoSuccess'))
         })
       } catch (error: unknown) {
+        const status = getHttpErrorStatus(error)
+        if (status === 403 || status === 409) {
+          clearUndoEligibleEntry()
+        }
         toast.error(getErrorMessage(error, t('orderDetail.toast.notesUndoFailed')))
       }
     },

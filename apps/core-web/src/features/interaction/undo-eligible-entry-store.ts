@@ -51,14 +51,14 @@ export function isUndoInFlight(): boolean {
   return undoInFlight
 }
 
-export function runUndoInFlight<T>(work: () => Promise<T>): Promise<T> {
+export async function runUndoInFlight<T>(work: () => Promise<T>): Promise<T> {
   if (undoInFlight) {
-    return Promise.reject(new Error('Undo already in progress'))
+    throw new Error('Undo already in progress')
   }
   undoInFlight = true
   emit()
   try {
-    return work()
+    return await work()
   } finally {
     undoInFlight = false
     emit()

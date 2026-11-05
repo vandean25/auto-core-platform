@@ -8,6 +8,7 @@ import { toastSuccessWithUndo } from '@/lib/toast-actions'
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import { getUndoEligibleEntry } from '@/features/interaction/undo-eligible-entry-store'
 import { createWorkshopOrderUndoNotesAction } from '@/features/actions/work-order-undo-notes-action'
+import { useRunWorkshopOrderNotesUndo } from '@/features/interaction/use-run-workshop-order-notes-undo'
 import { useWorkshopOrderActions } from './useWorkshopOrderActions'
 
 vi.mock('@/lib/toast-actions', () => ({
@@ -28,7 +29,13 @@ vi.mock('@/api/auth-session', () => ({
 }))
 
 vi.mock('@/features/interaction/use-run-workshop-order-notes-undo', () => ({
-  useRunWorkshopOrderNotesUndo: vi.fn(() => vi.fn()),
+  useRunWorkshopOrderNotesUndo: vi.fn(),
+}))
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
 }))
 
 const order = {
@@ -38,8 +45,11 @@ const order = {
 } as import('@/api/types').WorkshopOrder
 
 describe('useWorkshopOrderActions notes undo pilot', () => {
+  const runNotesUndo = vi.fn()
+
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useRunWorkshopOrderNotesUndo).mockReturnValue(runNotesUndo)
     vi.mocked(authSessionApi.useAuthSession).mockReturnValue({
       data: { activeRole: 'ADMIN' },
     } as ReturnType<typeof authSessionApi.useAuthSession>)
@@ -59,7 +69,15 @@ describe('useWorkshopOrderActions notes undo pilot', () => {
       await result.current.saveNotes('After')
     })
 
-    expect(toastSuccessWithUndo).toHaveBeenCalled()
+    expect(toastSuccessWithUndo).toHaveBeenCalledWith(
+      'orderDetail.toast.notesSaved',
+      'orderDetail.undoNotes.action',
+      expect.any(Function),
+    )
+    const onUndo = vi.mocked(toastSuccessWithUndo).mock.calls[0][2]
+    onUndo()
+    expect(runNotesUndo).toHaveBeenCalledWith('order-1')
+
     const entry = getUndoEligibleEntry()
     expect(entry).toMatchObject({
       actionId: ENTITY_ACTION_IDS.workOrderUndoNotes,

@@ -7,7 +7,7 @@ import type { TyreSet } from '@/api/tyre-storage'
 import type { WorkshopOrder } from '@/api/types'
 import { downloadCreditNotePdf, type CreditNoteResponseDto } from '@/api/useCreditNotes'
 import { canPrintCreditNote, canRecordTyreMeasurement } from '@/features/actions/action-role-predicates'
-import { isRegisteredEntityActionId } from '@/features/actions/entity-action'
+import { ENTITY_ACTION_IDS, isRegisteredEntityActionId } from '@/features/actions/entity-action'
 import { RegistryActionButton } from '@/features/actions/RegistryActionButton'
 import {
   createCreditNotePrintAction,
@@ -18,6 +18,10 @@ import {
 import { createTyreSetTyreMeasurementAction, type TyreSetRowActionContext } from '@/features/actions/tyre-set-row-actions'
 import { createWorkshopOrderTyreMeasurementAction, type WorkshopOrderListRow, type WorkshopOrderRowActionContext } from '@/features/actions/work-order-row-actions'
 import { workshopOrderToListRow } from '@/features/peek/WorkshopOrderPeekContent'
+import {
+  clearUndoEligibleEntry,
+  setUndoEligibleEntry,
+} from '@/features/interaction/undo-eligible-entry-store'
 import { triggerBlobDownload } from '@/lib/download'
 import { i18n } from '@/lib/i18n'
 import { buildPaletteContextSection } from './build-palette-context-section'
@@ -171,6 +175,63 @@ describe('work order measurement page and palette parity', () => {
       }
     },
   )
+})
+
+describe('work order notes undo palette context', () => {
+  const openOrder: WorkshopOrder = {
+    id: 'order-undo-1',
+    order_number: 'WO-UNDO',
+    status: 'INTAKE',
+    purpose: 'CUSTOMER_REPAIR',
+    vehicle_id: 'vehicle-1',
+    odometer: 1000,
+    fuel_level: 50,
+    customer: { id: 'customer-1', type: 'PRIVATE', first_name: 'Alex', last_name: 'Example' },
+    vehicle: { id: 'vehicle-1', make: 'Audi', model: 'A4', year: 2024 },
+    tasks: [],
+    createdAt: '2026-01-01T12:00:00Z',
+  }
+
+  afterEach(() => {
+    clearUndoEligibleEntry()
+  })
+
+  it('includes undo in Cmd+K when an eligible entry exists for the open order', () => {
+    setUndoEligibleEntry({
+      actionId: ENTITY_ACTION_IDS.workOrderUndoNotes,
+      orderId: openOrder.id,
+      previousNotes: 'Old notes',
+      expectedUpdatedAt: '2026-11-05T12:00:00.000Z',
+      contextGeneration: 0,
+    })
+    const undoNotes = vi.fn()
+    const navigate = vi.fn()
+    const workshop = {
+      navigate,
+      generatePdf: {} as never,
+      t: translations.workshop,
+      undoNotes,
+    }
+    const section = buildPaletteContextSection(
+      { entity: 'workshop_order', id: openOrder.id },
+      'ADMIN',
+      '',
+      { order: openOrder },
+      translations,
+      {
+        workshop,
+        customer: { navigate, onDelete: vi.fn(), t: translations.customers },
+        vehicle: { navigate, t: translations.vehicles },
+        estimate: { navigate },
+        tyreSet: { navigate },
+        creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+      },
+    )
+    const item = section?.items.find((entry) => entry.id === ENTITY_ACTION_IDS.workOrderUndoNotes)
+    expect(item?.label).toBe(translations.workshop('orderDetail.undoNotes.action'))
+    item!.onSelect()
+    expect(undoNotes).toHaveBeenCalledWith(openOrder.id)
+  })
 })
 
 describe('credit note print page and palette parity', () => {
