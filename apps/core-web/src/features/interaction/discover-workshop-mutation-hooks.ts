@@ -122,6 +122,26 @@ function optimisticSpreadDeclaresMutationKey(source: string, hookBlock: string):
   return false
 }
 
+/** True when the hook spreads optimisticMutationOptions (or mechanic lifecycle helper) into useMutation. */
+export function hookUsesOptimisticMutationHelper(owningHook: string, sourceFile: string): boolean {
+  const source = readSource(sourceFile)
+  const block = getHookSourceBlock(source, owningHook)
+  if (!block) return false
+  const useMutationBlock = block.match(/useMutation\s*\(\s*\{([\s\S]*?)\}\s*[,)]/)?.[1]
+  if (!useMutationBlock) return false
+  for (const spreadName of useMutationBlock.matchAll(/\.\.\.([A-Za-z0-9_]+)/g)) {
+    const name = spreadName[1]
+    if (!name) continue
+    if (new RegExp(`const\\s+${name}\\s*=\\s*optimisticMutationOptions`).test(source)) {
+      return true
+    }
+    if (new RegExp(`const\\s+${name}\\s*=\\s*mechanicQueueLifecycleOptimistic`).test(source)) {
+      return true
+    }
+  }
+  return false
+}
+
 /** True when the hook's useMutation options include an explicit mutationKey property. */
 export function hookDeclaresMutationKey(owningHook: string, sourceFile: string): boolean {
   const source = readSource(sourceFile)
@@ -138,4 +158,8 @@ export function discoverWorkshopHooksMissingMutationKey(
     .filter(({ owningHook, sourceFile }) => !hookDeclaresMutationKey(owningHook, sourceFile))
     .map(({ owningHook }) => owningHook)
     .sort()
+}
+
+export function readWorkshopPilotSourceFile(relativePath: string): string {
+  return readSource(relativePath)
 }

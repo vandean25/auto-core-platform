@@ -22,3 +22,16 @@ export type MutationKeyBaselineDocument = {
   /** Owning hooks whose useMutation options still omit mutationKey (shrinks as hooks migrate). */
   missingMutationKey: string[]
 }
+
+/** Hooks whose inventory classification is not yet matched by runtime (still use optimisticMutationOptions). */
+export type UnmigratedOptimisticConsumerEntry = {
+  operationId: string
+  owningHook: string
+  note?: string
+}
+
+export type UnmigratedOptimisticConsumersBaselineDocument = {
+  schemaVersion: 1
+  module: 'workshop-orders-and-mechanic-queue'
+  entries: UnmigratedOptimisticConsumerEntry[]
+}

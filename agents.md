@@ -112,13 +112,16 @@ auto-core-platform/
 
 Binding contract: [ADR-0036 Frontend interaction rules](docs/internal/01-ADR/2026-11-02-frontend-interaction-rules.md) (optimistic updates, prefetch, keyboard parity, guards). Pilot mutation inventory lives under `apps/core-web/src/features/interaction/`.
 
+**Target vs current behavior:** `classification` in `workshop-mutation-inventory.json` is the ADR **target** (what the guard will enforce after migration). Hooks that still spread `optimisticMutationOptions` while classified `server-confirmed` must appear in `unmigrated-optimistic-consumers.baseline.json` until P4 removes the helper usage. Plain `useMutation` hooks classified `optimistic` are aspirational until they adopt the shared helper (AUT-893 will trace optimistic entries to `@/lib/optimistic-mutation`).
+
 **Adding a work-order or mechanic-queue mutation**
 
 1. Implement the TanStack `useMutation` hook (or reuse a shared helper) in the appropriate `src/api/` module.
 2. Assign a stable **`mutationKey`** via `mutationKey:` in the hook options (or via `optimisticMutationOptions` from `@/lib/optimistic-mutation`). Do not rely on implicit optimistic behavior for new hooks.
 3. Add one row to `workshop-mutation-inventory.json`: key = **`operationId` + `owningHook`** (export name of the hook, or `WorkshopReadyEmailNotice` for the inline resend mutation). Set `classification` to `optimistic`, `server-confirmed` (with non-empty `serverConfirmedReason` per ADR R1), or `conditional` (with `eligibilityPredicate` naming an exported, tested function).
 4. If the hook still lacks `mutationKey`, add `owningHook` to `mutation-key.baseline.json` until the key exists; the baseline may only **shrink** when keys are added.
-5. Extend `workshop-mutation-inventory.test.ts` only when you add a new conditional predicate or change discovery scope.
+5. If the hook still uses `optimisticMutationOptions` but the inventory target is `server-confirmed`, add `operationId` + `owningHook` to `unmigrated-optimistic-consumers.baseline.json`; shrink that baseline when migration lands.
+6. Extend `workshop-mutation-inventory.test.ts` only when you add a new conditional predicate or change discovery scope.
 
 Absent inventory entries are gaps, never permission to optimistically mutate. CI guard wiring is AUT-893; this pilot does not enforce inventory in CI yet.
 
