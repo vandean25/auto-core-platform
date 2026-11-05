@@ -24,17 +24,26 @@ describe('Workshop order notes undo (e2e)', () => {
   let authToken: string;
   let techToken: string;
   let customerId: string;
-  let vehicleId: string;
 
   const api = () => request(app.getHttpServer());
 
   async function createIntakeOrder() {
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        make: 'VW',
+        model: 'Polo',
+        year: 2020,
+        vin: `VIN-NOTES-UNDO-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      },
+    });
     const res = await api()
       .post('/api/workshop/orders')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
-        vehicleId,
+        vehicleId: vehicle.id,
         odometer: 12000,
         fuelLevel: 50,
       })
@@ -55,7 +64,7 @@ describe('Workshop order notes undo (e2e)', () => {
     return res.body as { id: string; notes: string | null; updatedAt: string };
   }
 
-  async function undoNotes(
+  function undoNotes(
     orderId: string,
     body: { previousNotes: string | null; expectedUpdatedAt: string },
     token = authToken,
@@ -121,17 +130,6 @@ describe('Workshop order notes undo (e2e)', () => {
     });
     customerId = customer.id;
 
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        tenant_id: tenantId,
-        customer_id: customerId,
-        make: 'VW',
-        model: 'Polo',
-        year: 2020,
-        vin: `VIN-NOTES-UNDO-${Date.now()}`,
-      },
-    });
-    vehicleId = vehicle.id;
   });
 
   afterAll(async () => {
@@ -149,7 +147,7 @@ describe('Workshop order notes undo (e2e)', () => {
     const undoRes = await undoNotes(order.id, {
       previousNotes: order.notes,
       expectedUpdatedAt: updated.updatedAt,
-    }).expect(201);
+    }).expect(200);
 
     expect(undoRes.body.notes).toBe(order.notes);
     const row = await prisma.workshopOrder.findUniqueOrThrow({
@@ -167,7 +165,7 @@ describe('Workshop order notes undo (e2e)', () => {
       expectedUpdatedAt: updated.updatedAt,
     };
 
-    await undoNotes(order.id, dto).expect(201);
+    await undoNotes(order.id, dto).expect(200);
     const second = await undoNotes(order.id, dto).expect(409);
     expect(second.body.message).toMatch(/concurrently|Undo is no longer available/i);
   });
