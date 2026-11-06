@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "guard": "intent-prefetch",
+  "violations": [
+    "components/settings/accounting-export-settings-panel.tsx::DataTable::missing-intent-prefetch",
+    "pages/finance/AccountingExportReadinessPage.tsx::DataTable::missing-intent-prefetch",
+    "pages/finance/CreditNotesPage.tsx::DataTable::missing-intent-prefetch",
+    "pages/purchase-bills/PurchaseBillsPage.tsx::DataTable::missing-intent-prefetch",
+    "pages/purchase-orders/PurchaseOrderList.tsx::DataTable::missing-intent-prefetch",
+    "pages/sales-orders/SalesOrderList.tsx::DataTable::missing-intent-prefetch",
+    "pages/stock-transfers/StockTransferList.tsx::DataTable::missing-intent-prefetch",
+    "pages/tyre-storage/TyreStorageListPage.tsx::DataTable::missing-intent-prefetch",
+    "pages/vehicles/GewaehrleistungDueList.tsx::DataTable::missing-intent-prefetch",
+    "pages/vehicles/PickerlDueList.tsx::DataTable::missing-intent-prefetch",
+    "pages/vendors/VendorList.tsx::DataTable::missing-intent-prefetch",
+    "pages/workshop/WorkshopEstimateList.tsx::DataTable::missing-intent-prefetch"
+  ]
+}

@@ -1,8 +1,27 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
+import type { TFunction } from 'i18next'
+
+import { diffBaseline } from '@/features/interaction/guards/baseline-ratchet'
+import { UPDATE_BASELINES, writeGuardBaseline } from '@/features/interaction/guards/baseline-files'
+import { productionSources } from '@/features/interaction/guards/production-sources'
+import { analyzeSource } from '@/features/interaction/guards/source-text'
+import { SECOND_KEY_PATHS } from '@/features/shortcuts/use-g-sequence-navigation'
+import { SHORTCUT_SCOPE_PRECEDENCE } from '@/features/shortcuts/shortcut-dispatcher'
+import {
+  DATA_TABLE_ROW_KEYS,
+  GLOBAL_PLAIN_KEYS,
+  RESERVED_SINGLE_KEYS,
+} from '@/features/shortcuts/shortcut-constants'
+import { createCustomerRowActions } from './customer-row-actions'
 import { isRegisteredEntityActionId } from './entity-action'
+import { createEstimateRowActions } from './estimate-row-actions'
 import baseline from './registry-parity.baseline.json'
+import shortcutBaseline from './registry-parity.shortcuts.baseline.json'
+import { findShortcutConflicts, type ShortcutParityModel } from './shortcut-parity'
+import { createVehicleRowActions } from './vehicle-row-actions'
+import { createWorkshopOrderRowActions } from './work-order-row-actions'
 
 /**
  * Product scope exclusions (Dejan decision, 2026-10-23: "settings/admin and mechanic
@@ -164,35 +183,6 @@ function scanRegistryParitySources(sources: Record<string, string>) {
   }
 }
 
-function countEntries(items: readonly string[]): Map<string, number> {
-  const counts = new Map<string, number>()
-  for (const item of items) {
-    counts.set(item, (counts.get(item) ?? 0) + 1)
-  }
-  return counts
-}
-
-function subtractCounts(
-  left: ReadonlyMap<string, number>,
-  right: ReadonlyMap<string, number>,
-): string[] {
-  const result: string[] = []
-  for (const [key, count] of left) {
-    const extra = count - (right.get(key) ?? 0)
-    for (let i = 0; i < extra; i += 1) result.push(key)
-  }
-  return result.sort()
-}
-
-function diffBaselineViolations(current: readonly string[], expectedBaseline: readonly string[]) {
-  const currentCounts = countEntries(current)
-  const baselineCounts = countEntries(expectedBaseline)
-  return {
-    added: subtractCounts(currentCounts, baselineCounts),
-    stale: subtractCounts(baselineCounts, currentCounts),
-  }
-}
-
 describe('registry-parity scanner (inline fixtures)', () => {
   it('flags a new onClick Button, DropdownMenuItem, or AlertDialogTrigger without data-action-id', () => {
     const result = scanRegistryParitySources({
@@ -292,7 +282,7 @@ describe('registry-parity scanner (inline fixtures)', () => {
       'pages/c.tsx::Button::newAction',
     ]
 
-    expect(diffBaselineViolations(current, base)).toEqual({
+    expect(diffBaseline(current, base)).toEqual({
       added: ['pages/c.tsx::Button::newAction'],
       stale: ['pages/a.tsx::Button::save', 'pages/b.tsx::Button::oldAction'],
     })
@@ -310,7 +300,7 @@ describe('src/pages and src/features action registry parity guard', () => {
   })
 
   it('matches the ratcheting baseline (no new page-only actions; remove migrated entries from registry-parity.baseline.json)', () => {
-    const { added, stale } = diffBaselineViolations(scanResult.violations, baseline)
+    const { added, stale } = diffBaseline(scanResult.violations, baseline)
 
     expect(
       added,
@@ -320,5 +310,227 @@ describe('src/pages and src/features action registry parity guard', () => {
       stale,
       'Stale baseline entries no longer occur in source. Remove these lines from src/features/actions/registry-parity.baseline.json.',
     ).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Shortcut parity (ADR-0036 R5, AUT-893): scopes, reserved keys, simultaneous availability, precedence.
+// ---------------------------------------------------------------------------
+
+const t = ((key: string) => key) as unknown as TFunction<never>
+
+/**
+ * Each registry list is its own row surface; keys must be unique within it. Add a new list here with
+ * the module that declares its actions: the completeness test below fails for a module that declares a
+ * `shortcutKey` and is missing from this map.
+ */
+const REAL_ROW_SURFACES = {
+  customers: {
+    file: 'features/actions/customer-row-actions.ts',
+    definitions: createCustomerRowActions(t as never),
+  },
+  vehicles: {
+    file: 'features/actions/vehicle-row-actions.ts',
+    definitions: createVehicleRowActions(t as never),
+  },
+  estimates: {
+    file: 'features/actions/estimate-row-actions.ts',
+    definitions: createEstimateRowActions(t as never),
+  },
+  workOrders: {
+    file: 'features/actions/work-order-row-actions.ts',
+    definitions: createWorkshopOrderRowActions(t as never),
+  },
+}
+
+/**
+ * Row surfaces that can be mounted on one page at the same time. None of today's registry lists share
+ * a page, so each is checked alone; add a group here when a page embeds two lists.
+ */
+const REAL_SIMULTANEOUS_GROUPS: ReadonlyArray<readonly string[]> = []
+
+/** The only files allowed to register dispatcher handlers; a new site must extend the parity model. */
+const SHORTCUT_HANDLER_SITES: Readonly<Record<string, 'row' | 'global'>> = {
+  'components/data-table/use-data-table-row-shortcuts.ts': 'row',
+  'features/shortcuts/use-registry-row-shortcuts.ts': 'row',
+  'features/shortcuts/GlobalShortcutLayer.tsx': 'global',
+  'features/shortcuts/use-g-sequence-navigation.ts': 'global',
+}
+
+const HANDLER_CALL_PATTERN = /\buseShortcutHandler\(\s*(['"])(row|global)\1/g
+const PLAIN_HOTKEY_PATTERN = /\buseHotkeys\(\s*(['"])([^'"+]+)\1/g
+
+function findShortcutRegistrationViolations(sources: Record<string, string>): string[] {
+  const violations: string[] = []
+  for (const [path, source] of Object.entries(sources)) {
+    const masked = analyzeSource(source).masked
+    for (const match of masked.matchAll(HANDLER_CALL_PATTERN)) {
+      if (SHORTCUT_HANDLER_SITES[path] !== match[2]) {
+        violations.push(`${path}::useShortcutHandler(${match[2]})::unregistered-site`)
+      }
+    }
+    for (const match of masked.matchAll(PLAIN_HOTKEY_PATTERN)) {
+      violations.push(`${path}::useHotkeys::${match[2]}`)
+    }
+  }
+  return violations.sort()
+}
+
+function realShortcutModel(): ShortcutParityModel {
+  return {
+    rowSurfaces: Object.fromEntries(
+      Object.entries(REAL_ROW_SURFACES).map(([surface, { definitions }]) => [surface, definitions]),
+    ),
+    simultaneousGroups: REAL_SIMULTANEOUS_GROUPS,
+    dataTableKeys: DATA_TABLE_ROW_KEYS,
+    globalKeys: GLOBAL_PLAIN_KEYS,
+    sequenceSecondKeys: Object.keys(SECOND_KEY_PATHS),
+    reservedKeys: RESERVED_SINGLE_KEYS,
+    precedence: SHORTCUT_SCOPE_PRECEDENCE,
+  }
+}
+
+const FIXTURE_MODEL: ShortcutParityModel = {
+  rowSurfaces: {
+    customers: [
+      { id: 'customer.open', shortcutKey: 'o' },
+      { id: 'customer.edit', shortcutKey: 'e' },
+    ],
+    vehicles: [{ id: 'vehicle.open', shortcutKey: 'o' }],
+  },
+  simultaneousGroups: [],
+  dataTableKeys: ['j', 'k', 'x'],
+  globalKeys: ['j', '?', 'g'],
+  sequenceSecondKeys: ['w', 'c', 'v'],
+  reservedKeys: ['j', 'k', 'x', 'g', '?'],
+  precedence: ['row', 'global'],
+}
+
+function withSurface(
+  rowSurfaces: ShortcutParityModel['rowSurfaces'],
+  overrides: Partial<ShortcutParityModel> = {},
+): ShortcutParityModel {
+  return { ...FIXTURE_MODEL, rowSurfaces, ...overrides }
+}
+
+describe('shortcut parity (ADR-0036 R5)', () => {
+  it('fails when two actions share a shortcutKey in one active row scope', () => {
+    const conflicts = findShortcutConflicts(
+      withSurface({
+        customers: [
+          { id: 'customer.open', shortcutKey: 'o' },
+          { id: 'customer.call', shortcutKey: 'O' },
+        ],
+      }),
+    )
+
+    expect(conflicts).toEqual(['row:customers::duplicate::o'])
+  })
+
+  it('lets separate list surfaces reuse a key while their pages never mount together', () => {
+    expect(findShortcutConflicts(FIXTURE_MODEL)).toEqual([])
+  })
+
+  it.each([
+    {
+      name: 'a dispatcher-owned row key',
+      surfaces: { customers: [{ id: 'customer.pick', shortcutKey: 'x' }] },
+      expected: ['row:customers::reserved::x'],
+    },
+    {
+      name: 'a multi-character key',
+      surfaces: { customers: [{ id: 'customer.pick', shortcutKey: 'ab' }] },
+      expected: ['row:customers::reserved::ab'],
+    },
+    {
+      name: 'a g-sequence second key the row scope would swallow',
+      surfaces: { customers: [{ id: 'customer.workshop', shortcutKey: 'w' }] },
+      expected: ['row:customers::shadows-global::w'],
+    },
+    {
+      name: 'a global plain key',
+      surfaces: { customers: [{ id: 'customer.help', shortcutKey: '?' }] },
+      expected: ['row:customers::reserved::?', 'row:customers::shadows-global::?'],
+    },
+  ])('fails for $name', ({ surfaces, expected }) => {
+    expect(findShortcutConflicts(withSurface(surfaces))).toEqual(expected)
+  })
+
+  it('fails when two lists that can be mounted at once share a key', () => {
+    const conflicts = findShortcutConflicts({
+      ...FIXTURE_MODEL,
+      simultaneousGroups: [['customers', 'vehicles']],
+    })
+
+    expect(conflicts).toEqual(['row:customers+vehicles::duplicate::o'])
+  })
+
+  it('fails when the global scope outranks the row scope or repeats a key', () => {
+    expect(findShortcutConflicts({ ...FIXTURE_MODEL, precedence: ['global', 'row'] })).toEqual([
+      'dispatcher::precedence::global>row',
+    ])
+    expect(findShortcutConflicts({ ...FIXTURE_MODEL, globalKeys: ['j', 'g', 'j'] })).toEqual([
+      'global::duplicate::j',
+    ])
+  })
+
+  it('flags a handler registered outside the known sites and a plain-character useHotkeys', () => {
+    const violations = findShortcutRegistrationViolations({
+      'features/shortcuts/use-registry-row-shortcuts.ts': "useShortcutHandler('row', handler)",
+      'pages/orders/OrderPage.tsx': `
+        // useShortcutHandler('row', commented) is not a registration
+        useShortcutHandler('global', () => false)
+        useHotkeys('n', openCreate)
+        useHotkeys('mod+z', undo)
+      `,
+    })
+
+    expect(violations).toEqual([
+      'pages/orders/OrderPage.tsx::useHotkeys::n',
+      'pages/orders/OrderPage.tsx::useShortcutHandler(global)::unregistered-site',
+    ])
+  })
+
+  it('cannot assign shortcut keys to child actions until the parity model traverses children', () => {
+    const entityActionSource = productionSources['features/actions/entity-action.ts'] ?? ''
+    const childType = /export type EntityActionChild<[\s\S]*?\n\}/.exec(entityActionSource)?.[0] ?? ''
+
+    expect(childType).toContain('EntityActionChild')
+    expect(childType).not.toContain('shortcutKey')
+  })
+
+  it('covers every module that declares a shortcutKey in REAL_ROW_SURFACES', () => {
+    const declaring = Object.entries(productionSources)
+      .filter(
+        ([path, source]) =>
+          path !== 'features/actions/entity-action.ts' && /\bshortcutKey:/.test(analyzeSource(source).masked),
+      )
+      .map(([path]) => path)
+      .sort()
+
+    expect(declaring).toEqual(Object.values(REAL_ROW_SURFACES).map(({ file }) => file).sort())
+  })
+
+  it('keeps the dispatcher key sets inside the reserved list and ranks row above global', () => {
+    expect(SHORTCUT_SCOPE_PRECEDENCE).toEqual(['row', 'global'])
+    for (const key of [...DATA_TABLE_ROW_KEYS, ...GLOBAL_PLAIN_KEYS]) {
+      expect(RESERVED_SINGLE_KEYS).toContain(key)
+    }
+  })
+
+  it('matches the shortcut baseline on the real registry (remove fixed entries from registry-parity.shortcuts.baseline.json)', () => {
+    const current = [
+      ...findShortcutConflicts(realShortcutModel()),
+      ...findShortcutRegistrationViolations(productionSources),
+    ].sort()
+    if (UPDATE_BASELINES) {
+      writeGuardBaseline('actions', 'registry-parity.shortcuts.baseline.json', 'shortcut-parity', current)
+      return
+    }
+
+    const { added, stale } = diffBaseline(current, shortcutBaseline.violations)
+
+    expect(added, 'New shortcut conflicts: pick a unique, non-reserved key in this scope.').toEqual([])
+    expect(stale, 'Stale shortcut baseline entries: remove them from registry-parity.shortcuts.baseline.json.').toEqual([])
   })
 })

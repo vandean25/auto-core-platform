@@ -459,6 +459,18 @@ jobs:
       - name: Verify build chunk manifest script (unit tests)
         run: npm run build:verify-chunks:test
 
+      - name: Verify interaction guard baselines did not grow
+        # The vitest guards (run below) fail on new and stale violations; this step fails on baseline growth.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          node tools/check-interaction-baselines.mjs --base "origin/${BASE_REF}"
+
+      - name: Verify interaction baseline check script (unit tests)
+        run: npm run interaction-baselines:check:test
+
       - name: Run frontend unit tests
         run: npm test --workspace=core-web
 

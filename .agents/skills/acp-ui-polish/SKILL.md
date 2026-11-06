@@ -102,7 +102,7 @@ Accent bars follow the same status (`border-l-amber-500` → `border-l-warning`)
 
 Every list and detail page renders all three states. Build them before the happy path.
 
-- **Loading:** a `Skeleton` (`apps/core-web/src/components/ui/skeleton.tsx`) shaped like the final content: blocks for cards, rows for lists. No spinner stands in for content. Show the skeleton after a 150–300 ms delay, so a fast response does not flash. Today `DataTable` shows one text row (`dataTable.loading`, "Laden…") while `isLoading` is set; skeleton rows inside `DataTable` are a target. `PageLoader` (`apps/core-web/src/components/ui/PageLoader.tsx`) is the route-level fallback used in `apps/core-web/src/App.tsx` and `apps/core-web/src/app/AppRouteTree.tsx`. It is not a content loader.
+- **Loading:** a `Skeleton` (`apps/core-web/src/components/ui/skeleton.tsx`) shaped like the final content: blocks for cards, rows for lists. No spinner stands in for content. Show the skeleton after the shared delay, so a fast response does not flash; delay, minimum display time and the refresh indicator are fixed by [Frontend interaction rules](../../../agents.md#frontend-interaction-rules) (R2). Today `DataTable` shows one text row (`dataTable.loading`, "Laden…") while `isLoading` is set; skeleton rows inside `DataTable` are a target. `PageLoader` (`apps/core-web/src/components/ui/PageLoader.tsx`) is the route-level fallback used in `apps/core-web/src/App.tsx` and `apps/core-web/src/app/AppRouteTree.tsx`. It is not a content loader.
 - **Empty:** say what is missing and offer one action, such as "Kunde anlegen". A table passes `emptyStateMessage` to `DataTable`; the default is `dataTable.noResults` ("Keine Ergebnisse."). A page-level empty state uses `Empty` (`apps/core-web/src/components/ui/empty.tsx`) with `EmptyTitle`/`EmptyDescription` and one action in `EmptyContent`. Loading presets (`TableSkeleton`, `DetailSkeleton`, `CardSkeleton`) live in `apps/core-web/src/components/ui/skeleton-presets.tsx`.
 - **Error:** one German sentence in Sie-form that says what happened and what to do, plus a Retry button that refetches. Never render raw API text. The backend sends codes, and the client maps them to the `errors` namespace (see `.agents/skills/acp-i18n/SKILL.md`).
 
@@ -206,7 +206,7 @@ Adapted from Anthropic's `frontend-design` skill (Apache-2.0), toned down for a 
 - **Hierarchy by weight and size first, color second.** One `h1` per page, section titles `font-semibold`, metadata `text-sm text-muted-foreground`.
 - **Calm surfaces.** The page sits on `bg-background`; groups sit on `bg-card` with `border-border`. No stacked shadows, gradients or saturated fills.
 - **One accent.** `bg-primary` marks the single primary action in a view. Other buttons are `outline`, `secondary` or `ghost` (`apps/core-web/src/components/ui/button.tsx`). Otherwise color only signals state.
-- **Motion explains a change** (a panel opens, a save completes). It stays short and is off under reduced motion.
+- **Motion explains a change** (a panel opens, a save completes). It stays short and is off under reduced motion; durations come from the motion tokens in [Frontend interaction rules](../../../agents.md#frontend-interaction-rules) (R6).
 - **Typography:** Inter via `@fontsource/inter` today. Font and theme changes belong to T2 (AUT-655), not to a feature PR.
 
 ```tsx
@@ -227,6 +227,7 @@ Paste this into the PR body and tick every line.
 - [ ] **States:** loading, empty, error and loaded each checked in the browser.
 - [ ] **Rules grep:** no new `slate-`, `gray-` or `amber-` classes, no `text-[Npx]`, no raw `<table>`, no `@radix-ui/react-icons` import, no `toLocaleString` or `Intl` outside `src/lib/format/`.
 - [ ] **Keyboard:** a keyboard-only pass over the change, with a visible focus ring on every control.
+- [ ] **Interaction rules:** the change follows [Frontend interaction rules](../../../agents.md#frontend-interaction-rules) (mutation key and inventory, intent prefetch, shortcut keys, motion tokens), the interaction guards pass and no guard baseline grew.
 - [ ] **Playwright:** the CI jobs "Frontend Lint, Build and Unit Tests" and "Frontend UI Smoke" are green. Read the smoke job log, not only the check mark. The axe spec is `apps/core-web/e2e/a11y-smoke.spec.ts`.
 - [ ] **i18n:** every new string exists in `locales/de` and `locales/en`. `npm run i18n:check` and `npm run lint --workspace=core-web` pass. Rules: `.agents/skills/acp-i18n/SKILL.md`.
 - [ ] **Code health:** the CI check "Code Health (Fallow)" is green. Rules: `.agents/skills/acp-code-health/SKILL.md`.
