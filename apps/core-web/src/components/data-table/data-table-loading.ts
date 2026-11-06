@@ -70,13 +70,13 @@ export function shouldShowDataTableFetchError(
   )
 }
 
+/** A stale preview keeps the card list (locked and busy), so the phone layout does not flip while it refetches. */
 export function shouldUseMobileDataTableList(
   isMobile: boolean,
   showFirstLoadSkeleton: boolean,
-  isStalePreview: boolean,
   bodyRowCount: number,
 ) {
-  return isMobile && !showFirstLoadSkeleton && !isStalePreview && bodyRowCount > 0
+  return isMobile && !showFirstLoadSkeleton && bodyRowCount > 0
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {

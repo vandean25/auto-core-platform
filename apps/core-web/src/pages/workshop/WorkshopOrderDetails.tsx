@@ -38,7 +38,7 @@ export function WorkshopOrderDetails() {
   const { data: order, isLoading } = useWorkshopOrder(id);
   useDocumentTitle(order?.order_number);
 
-  if (isLoading && !order) return <OrderLoading />;
+  if (isLoading) return <OrderLoading />;
   if (!order) return <OrderNotFound />;
   return <WorkshopOrderView order={order} />;
 }

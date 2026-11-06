@@ -38,6 +38,7 @@ import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep
 import { IntakeExistingVehiclePanel, IntakeNewVehiclePanel, IntakeOrderFields } from './workshop-order-intake-panels'
 import {
   submitWorkshopIntakeOrder,
+  type PendingOrderFailure,
   type WorkshopOrderListPendingRow,
 } from './workshop-order-intake-create'
 
@@ -52,7 +53,7 @@ interface WorkshopOrderIntakeDialogProps {
   listPendingMode?: boolean
   onPendingOrder?: (row: WorkshopOrderListPendingRow, meta: { localId: string }) => void
   onPendingOrderSettled?: (localId: string, serverOrderId: string) => void
-  onPendingOrderFailed?: (localId: string, message: string) => void
+  onPendingOrderFailed?: (localId: string, failure: PendingOrderFailure) => void
 }
 
 export function WorkshopOrderIntakeDialog({
@@ -193,7 +194,7 @@ export function WorkshopOrderIntakeDialog({
         onNavigateCreated: (orderId, message) => openCreatedOrder(orderId, message),
         toastError: (message) => toast.error(message),
         onConflict: setExistingOrderConflict,
-        onPendingFailed: (localId, message) => onPendingOrderFailed?.(localId, message),
+        onPendingFailed: (localId, failure) => onPendingOrderFailed?.(localId, failure),
       },
     })
   }

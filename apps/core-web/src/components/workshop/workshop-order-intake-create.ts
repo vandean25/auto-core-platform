@@ -20,9 +20,19 @@ type ExistingVehicle = {
   customer: WorkshopOrder['customer']
 }
 
-export type WorkshopOrderListPendingRow = WorkshopOrderListRow & DataTablePendingRowMeta
+/** Why a list-pending create failed. `conflict` keeps the live order of a VEHICLE_HAS_ACTIVE_ORDER 409 reachable. */
+export type PendingOrderFailure = {
+  message: string
+  conflict?: { orderId: string; orderNumber?: string }
+}
 
-type CreateOrderPayload = {
+export type WorkshopOrderListPendingRow = WorkshopOrderListRow & DataTablePendingRowMeta & {
+  /** The submitted payload, so Retry re-sends exactly this create on the same row. */
+  createPayload: CreateOrderPayload
+  pendingFailure?: PendingOrderFailure
+}
+
+export type CreateOrderPayload = {
   customerId: string
   vehicleId: string
   odometer: number
@@ -36,10 +46,12 @@ type CreateOrderFn = (payload: CreateOrderPayload) => Promise<{ id: string }>
 export function buildWorkshopOrderPendingListRow(
   localId: string,
   vehicle: ExistingVehicle,
+  createPayload: CreateOrderPayload,
 ): WorkshopOrderListPendingRow {
   return {
     id: localId,
     __dataTablePending: true,
+    createPayload,
     orderNo: '',
     customer: getWorkshopCustomerDisplayName({ customer: vehicle.customer } as WorkshopOrder),
     vehicle: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
@@ -57,31 +69,44 @@ type PendingCallbacks = {
 
 export function startPendingWorkshopOrder(
   vehicle: ExistingVehicle,
+  payload: CreateOrderPayload,
   callbacks: PendingCallbacks,
 ): string | undefined {
   if (!callbacks.listPendingMode || !callbacks.onPendingOrder) return undefined
   const localId = generateId()
-  callbacks.onPendingOrder(buildWorkshopOrderPendingListRow(localId, vehicle), { localId })
+  callbacks.onPendingOrder(buildWorkshopOrderPendingListRow(localId, vehicle, payload), { localId })
   callbacks.closeDialog()
   return localId
 }
 
-export function finishPendingWorkshopOrder(
-  pendingLocalId: string | undefined,
-  orderId: string,
-  message: string,
-  callbacks: PendingCallbacks & {
-    toastSuccess: (message: string) => void
-    onNavigateCreated: (orderId: string, message: string) => void
+/**
+ * Runs (or re-runs) the create behind a pending row. The row stays until the orders refetch that
+ * `useCreateWorkshopOrder` triggers, so a failure only marks it and a retry reuses the same row id.
+ */
+export async function createPendingWorkshopOrder(
+  localId: string,
+  payload: CreateOrderPayload,
+  createOrder: CreateOrderFn,
+  outcome: {
+    createFailedMessage: string
+    onSettled: (localId: string, serverOrderId: string) => void
+    onFailed: (localId: string, failure: PendingOrderFailure) => void
   },
-): void {
-  if (pendingLocalId && callbacks.onPendingOrderSettled) {
-    callbacks.onPendingOrderSettled(pendingLocalId, orderId)
-    callbacks.toastSuccess(message)
-    // List create stays on the list. The pending row remains until that refetch includes the order.
-    return
+): Promise<void> {
+  try {
+    const order = await createOrder(payload)
+    outcome.onSettled(localId, order.id)
+  } catch (error) {
+    outcome.onFailed(localId, pendingOrderFailureFromError(error, payload.vehicleId, outcome.createFailedMessage))
   }
-  callbacks.onNavigateCreated(orderId, message)
+}
+
+function pendingOrderFailureFromError(error: unknown, vehicleId: string, fallback: string): PendingOrderFailure {
+  const conflict = conflictFromError(error, { vehicleId, tab: 'existing', formSignature: '' })
+  if (conflict) {
+    return { message: conflict.message, conflict: { orderId: conflict.orderId, orderNumber: conflict.orderNumber } }
+  }
+  return { message: getErrorMessage(error, fallback) }
 }
 
 export type IntakeCreateMessages = {
@@ -113,7 +138,7 @@ type IntakeCreateDeps = {
     onNavigateCreated: (orderId: string, message: string) => void
     toastError: (message: string) => void
     onConflict: (conflict: ExistingOrderConflict) => void
-    onPendingFailed: (localId: string, message: string) => void
+    onPendingFailed: (localId: string, failure: PendingOrderFailure) => void
   }
 }
 
@@ -152,45 +177,45 @@ async function registeredVehicleForIntake(deps: IntakeCreateDeps): Promise<Exist
 }
 
 async function createResolvedIntakeOrder(vehicle: ExistingVehicle, deps: IntakeCreateDeps): Promise<void> {
-  const pendingLocalId = startPendingWorkshopOrder(vehicle, deps.pendingCallbacks)
-  try {
-    const order = await deps.createOrder({
-      customerId: vehicle.customer?.id ?? '',
-      vehicleId: vehicle.id,
-      ...(deps.activeTab === 'existing' && deps.pickerlMode
-        ? { ...deps.orderPayload, createPickerlTask: true }
-        : deps.orderPayload),
+  const payload: CreateOrderPayload = {
+    customerId: vehicle.customer?.id ?? '',
+    vehicleId: vehicle.id,
+    ...(deps.activeTab === 'existing' && deps.pickerlMode
+      ? { ...deps.orderPayload, createPickerlTask: true }
+      : deps.orderPayload),
+  }
+  const successMessage =
+    deps.pickerlMode && deps.activeTab === 'existing' ? deps.messages.pickerlOpened : deps.messages.orderCreated
+  const pendingLocalId = startPendingWorkshopOrder(vehicle, payload, deps.pendingCallbacks)
+  if (pendingLocalId) {
+    // List create stays on the list; the pending row remains until the orders refetch includes the order.
+    await createPendingWorkshopOrder(pendingLocalId, payload, deps.createOrder, {
+      createFailedMessage: deps.messages.createFailed,
+      onSettled: (localId, serverOrderId) => {
+        deps.pendingCallbacks.onPendingOrderSettled?.(localId, serverOrderId)
+        deps.notify.toastSuccess(successMessage)
+      },
+      onFailed: deps.notify.onPendingFailed,
     })
-    finishPendingWorkshopOrder(
-      pendingLocalId,
-      order.id,
-      deps.pickerlMode && deps.activeTab === 'existing' ? deps.messages.pickerlOpened : deps.messages.orderCreated,
-      { ...deps.pendingCallbacks, ...deps.notify },
-    )
+    return
+  }
+  try {
+    const order = await deps.createOrder(payload)
+    deps.notify.onNavigateCreated(order.id, successMessage)
   } catch (error) {
-    reportIntakeCreateFailure(vehicle, pendingLocalId, error, deps)
+    reportIntakeCreateFailure(vehicle, error, deps)
   }
 }
 
-function reportIntakeCreateFailure(
-  vehicle: ExistingVehicle,
-  pendingLocalId: string | undefined,
-  error: unknown,
-  deps: IntakeCreateDeps,
-) {
+function reportIntakeCreateFailure(vehicle: ExistingVehicle, error: unknown, deps: IntakeCreateDeps) {
   const conflict = conflictFromError(error, {
     vehicleId: vehicle.id,
     tab: deps.activeTab,
     formSignature: deps.formSignature,
   })
-  const message = conflict?.message ?? getErrorMessage(error, deps.messages.createFailed)
-  if (pendingLocalId) {
-    deps.notify.onPendingFailed(pendingLocalId, message)
-    return
-  }
   if (conflict && deps.isCurrentAttempt()) {
     deps.notify.onConflict(conflict)
     return
   }
-  deps.notify.toastError(message)
+  deps.notify.toastError(conflict?.message ?? getErrorMessage(error, deps.messages.createFailed))
 }

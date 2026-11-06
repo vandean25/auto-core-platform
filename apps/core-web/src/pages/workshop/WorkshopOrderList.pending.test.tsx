@@ -1,87 +1,107 @@
-import { render, renderHook, screen, act, fireEvent } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as workshopApi from '@/api/workshop'
+import { fetchWithAuth } from '@/api/client'
+import { workshopKeys } from '@/api/workshop'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import { deWorkshop } from '@/test/de-workshop'
 import deCommon from '../../../../../locales/de/common.json'
+import deErrors from '../../../../../locales/de/errors.json'
 import WorkshopOrderList from './WorkshopOrderList'
-import { useWorkshopOrderListRows } from './useWorkshopOrderListPendingRows'
 
-vi.mock('@/api/workshop', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/api/workshop')>()
-  return {
-    ...actual,
-    useWorkshopOrders: vi.fn(),
-    useWorkshopOrder: vi.fn(() => ({ data: undefined, isLoading: false })),
-    useCreateWorkshopOrder: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-    useRegisterIntake: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-    useWorkshopSearch: vi.fn(() => ({ data: undefined, isLoading: false })),
-    useGenerateWorkshopPdf: vi.fn(() => ({ mutateAsync: vi.fn() })),
-  }
-})
+// Only the network boundary is faked. The real list, intake dialog, create mutation and orders query run together.
+vi.mock('@/api/client', () => ({
+  API_BASE_URL: 'http://127.0.0.1:3000',
+  fetchWithAuth: vi.fn(),
+}))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
 }))
-vi.mock('@/components/workshop/WorkshopOrderIntakeDialog', () => ({
-  WorkshopOrderIntakeDialog: (props: {
-    onPendingOrder: (row: object, meta: { localId: string }) => void
-    onPendingOrderFailed: (localId: string, message: string) => void
-    onPendingOrderSettled: (localId: string, serverOrderId: string) => void
-  }) => (
-    <div>
-      <button
-        type="button"
-        onClick={() =>
-          props.onPendingOrder(
-            {
-              id: 'local-1',
-              __dataTablePending: true,
-              orderNo: '',
-              customer: 'Pilot customer',
-              vehicle: '2018 VW Golf',
-              openedAt: '',
-              status: 'SCHEDULED',
-            },
-            { localId: 'local-1' },
-          )
-        }
-      >
-        add pending
-      </button>
-      <button type="button" onClick={() => props.onPendingOrderFailed('local-1', 'create failed')}>
-        fail pending
-      </button>
-      <button type="button" onClick={() => props.onPendingOrderSettled('local-1', 'server-1')}>
-        settle pending
-      </button>
-    </div>
-  ),
-}))
 
-const orders = { data: [] as { id: string; order_number: string; createdAt: string; status: 'SCHEDULED'; vehicle: { year: number; make: string; model: string }; customer: { first_name: string; last_name: string } }[], meta: { pageCount: 1 } }
+const oi = deWorkshop.orderIntake
+const loading = deCommon.dataTable.loading
 
-function mockOrders() {
-  vi.mocked(workshopApi.useWorkshopOrders).mockReturnValue({
-    data: orders,
-    isLoading: false,
-    isFetching: false,
-    isPlaceholderData: false,
-    isError: false,
-    refetch: vi.fn(),
-  } as never)
+type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void }
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+const vehicle = {
+  id: 'vehicle-1',
+  make: 'Volkswagen',
+  model: 'Golf VII',
+  year: 2018,
+  plate: 'W-12345AB',
+  customer: { id: 'customer-1', first_name: 'Pilot', last_name: 'Customer', type: 'PRIVATE' },
+}
+
+function serverOrder(id: string, orderNumber: string) {
+  return {
+    id,
+    order_number: orderNumber,
+    createdAt: '2026-11-06T08:00:00.000Z',
+    status: 'SCHEDULED',
+    vehicle,
+    customer: vehicle.customer,
+    tasks: [],
+  }
+}
+
+const httpResponse = (status: number, body: unknown) =>
+  ({ ok: status < 400, status, json: async () => body }) as Response
+
+type FakeServer = {
+  orders: ReturnType<typeof serverOrder>[]
+  orderListGets: number
+  postBodies: Record<string, unknown>[]
+  /** Settles the next POST. Left null, the POST answers with the next entry of `postResults`. */
+  postGate: Deferred<Response> | null
+  postResults: Response[]
+  /** Holds the next orders GET until released. */
+  listGate: Deferred<void> | null
+}
+
+let server: FakeServer
+let queryClient: QueryClient
+
+function installFakeServer() {
+  vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
+    const target = String(url)
+    if (target.startsWith('/api/workshop/search')) {
+      return httpResponse(200, { data: { vehicles: [vehicle], customers: [] } })
+    }
+    if (target.startsWith('/api/workshop/orders')) {
+      if (init?.method === 'POST') {
+        server.postBodies.push(JSON.parse(String(init.body)))
+        return server.postGate ? server.postGate.promise : (server.postResults.shift() as Response)
+      }
+      server.orderListGets += 1
+      const gate = server.listGate
+      server.listGate = null
+      if (gate) await gate.promise
+      const total = server.orders.length
+      return httpResponse(200, { data: server.orders, meta: { page: 1, pageSize: 10, total, pageCount: 1 } })
+    }
+    return httpResponse(200, { data: [] })
+  })
 }
 
 function renderList() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={queryClient}>
       <SavedViewsProvider userKey="test-user">
         <DashboardWidgetsProvider userKey="test-user">
-          <MemoryRouter>
-            <WorkshopOrderList />
+          <MemoryRouter initialEntries={['/workshop/orders']}>
+            <Routes>
+              <Route path="/workshop/orders" element={<WorkshopOrderList />} />
+              <Route path="/workshop/orders/:id" element={<h1>Order detail route</h1>} />
+            </Routes>
           </MemoryRouter>
         </DashboardWidgetsProvider>
       </SavedViewsProvider>
@@ -89,83 +109,188 @@ function renderList() {
   )
 }
 
-describe('WorkshopOrderList pending rows', () => {
-  beforeEach(() => {
-    orders.data = []
-    mockOrders()
-  })
+/** Opens the real intake dialog, picks the vehicle and submits. */
+async function submitIntake() {
+  fireEvent.click(await screen.findByRole('button', { name: deWorkshop.orders.list.newOrder }))
+  fireEvent.change(await screen.findByPlaceholderText(oi.searchPlaceholder), { target: { value: 'W-12345' } })
+  fireEvent.click(await screen.findByRole('button', { name: /2018 Volkswagen Golf VII/i }))
+  fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+}
 
-  it('shows a pending row after submit and an error marker when create fails', () => {
+const pendingRows = () => screen.queryAllByText(loading.pendingRow)
+const bodyRows = () => within(screen.getByRole('table')).getAllByRole('row').slice(1)
+const settle = () => act(() => new Promise((done) => setTimeout(done, 30)))
+
+beforeEach(() => {
+  server = { orders: [], orderListGets: 0, postBodies: [], postGate: null, postResults: [], listGate: null }
+  installFakeServer()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.mocked(fetchWithAuth).mockReset()
+})
+
+describe('WorkshopOrderList list-create lifecycle', () => {
+  // Regression: the settle callback captured dataUpdatedAt from the submit click, so any refetch that landed
+  // during the POST dropped the pending row before the new order existed in the list.
+  it('keeps the pending row through an unrelated refetch and one create refetch, then swaps in the server row', async () => {
     renderList()
-    fireEvent.click(screen.getByRole('button', { name: 'add pending' }))
-    expect(screen.getByText('Pilot customer')).toBeInTheDocument()
-    expect(screen.getByText(deCommon.dataTable.loading.pendingRow)).toHaveClass('sr-only')
-    fireEvent.contextMenu(screen.getByText('Pilot customer'))
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    await screen.findByText(deWorkshop.orders.list.empty)
+    expect(server.orderListGets).toBe(1)
 
-    fireEvent.click(screen.getByRole('button', { name: 'fail pending' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('create failed')
+    server.postGate = deferred<Response>()
+    await submitIntake()
+    expect(pendingRows()).toHaveLength(1)
+    expect(server.postBodies).toEqual([expect.objectContaining({ customerId: 'customer-1', vehicleId: 'vehicle-1' })])
 
-    fireEvent.click(screen.getByRole('button', { name: deCommon.dataTable.loading.dismiss }))
-    expect(screen.queryByText('Pilot customer')).not.toBeInTheDocument()
+    await act(() => queryClient.refetchQueries({ queryKey: workshopKeys.orders() }))
+    expect(server.orderListGets).toBe(2)
+    expect(pendingRows()).toHaveLength(1)
+
+    server.orders = [serverOrder('order-new', 'WO-2026-0100')]
+    server.listGate = deferred<void>()
+    const releaseList = server.listGate
+    server.postGate.resolve(httpResponse(201, serverOrder('order-new', 'WO-2026-0100')))
+
+    await waitFor(() => expect(server.orderListGets).toBe(3))
+    expect(pendingRows()).toHaveLength(1)
+    expect(screen.queryByText('WO-2026-0100')).not.toBeInTheDocument()
+
+    releaseList.resolve()
+    expect(await screen.findByText('WO-2026-0100')).toBeInTheDocument()
+    expect(pendingRows()).toHaveLength(0)
+    expect(bodyRows()).toHaveLength(1)
+    await settle()
+    expect(server.orderListGets).toBe(3)
   })
 
-  it('keeps the pending row until the loaded page contains the server order', () => {
-    const { result, rerender } = renderHook(
-      ({ data }) => useWorkshopOrderListRows(data, false),
-      { initialProps: { data: orders as never } },
-    )
-    act(() => {
-      result.current.intakePendingProps.onPendingOrder({
-        id: 'local-1',
-        __dataTablePending: true,
-        orderNo: '',
-        customer: 'Pilot customer',
-        vehicle: '2018 VW Golf',
-        openedAt: '',
-        status: 'SCHEDULED',
-      })
-      result.current.intakePendingProps.onPendingOrderSettled('local-1', 'server-1')
-    })
-    expect(result.current.tableRows.some((row) => row.id === 'local-1')).toBe(true)
+  // A new order that sorts onto another page never shows up in the refetch, so the row must clear on the refetch itself.
+  it('drops the settled pending row when the create refetch does not contain the new order', async () => {
+    server.orders = [serverOrder('order-old', 'WO-2026-0001')]
+    renderList()
+    await screen.findByText('WO-2026-0001')
 
-    rerender({
-      data: {
-        data: [{
-          id: 'server-1',
-          order_number: 'WO-9',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          status: 'SCHEDULED',
-          vehicle: { year: 2018, make: 'VW', model: 'Golf' },
-          customer: { first_name: 'Other', last_name: 'Person', type: 'PRIVATE' },
-        }],
-        meta: { pageCount: 1, total: 1, page: 1, pageSize: 10 },
-      } as never,
-    })
-    expect(result.current.tableRows.some((row) => row.id === 'local-1')).toBe(false)
-    expect(result.current.tableRows.some((row) => row.id === 'server-1')).toBe(true)
+    server.postGate = deferred<Response>()
+    await submitIntake()
+    expect(pendingRows()).toHaveLength(1)
+
+    server.listGate = deferred<void>()
+    const releaseList = server.listGate
+    server.postGate.resolve(httpResponse(201, serverOrder('order-new', 'WO-2026-0100')))
+    await waitFor(() => expect(server.orderListGets).toBe(2))
+    expect(pendingRows()).toHaveLength(1)
+
+    releaseList.resolve()
+    await waitFor(() => expect(pendingRows()).toHaveLength(0))
+    expect(bodyRows()).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: 'Order detail route' })).not.toBeInTheDocument()
   })
 
-  it('drops a settled pending row when the next page does not contain the server order', () => {
-    const { result, rerender } = renderHook(
-      ({ data, updatedAt }) => useWorkshopOrderListRows(data, false, updatedAt),
-      { initialProps: { data: orders as never, updatedAt: 0 } },
-    )
-    act(() => {
-      result.current.intakePendingProps.onPendingOrder({
-        id: 'local-1',
-        __dataTablePending: true,
-        orderNo: '',
-        customer: 'Pilot customer',
-        vehicle: '2018 VW Golf',
-        openedAt: '',
-        status: 'SCHEDULED',
-      })
-      result.current.intakePendingProps.onPendingOrderSettled('local-1', 'server-1')
-    })
-    expect(result.current.tableRows.some((row) => row.id === 'local-1')).toBe(true)
+  // Regression: Retry only reopened an empty intake dialog and left the failed row behind.
+  it('retries the failed submission with the same payload on the same row', async () => {
+    server.postResults = [
+      httpResponse(500, {}),
+      httpResponse(201, serverOrder('order-new', 'WO-2026-0100')),
+    ]
+    renderList()
+    await screen.findByText(deWorkshop.orders.list.empty)
 
-    rerender({ data: orders as never, updatedAt: 1 })
-    expect(result.current.tableRows.some((row) => row.id === 'local-1')).toBe(false)
+    await submitIntake()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(deErrors.codes.HTTP_500)
+    expect(pendingRows()).toHaveLength(1)
+
+    server.orders = [serverOrder('order-new', 'WO-2026-0100')]
+    fireEvent.click(within(alert).getByRole('button', { name: loading.retry }))
+
+    expect(await screen.findByText('WO-2026-0100')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(server.postBodies).toHaveLength(2)
+    expect(server.postBodies[1]).toEqual(server.postBodies[0])
+    expect(pendingRows()).toHaveLength(0)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(bodyRows()).toHaveLength(1)
+  })
+
+  it('shows a single pending row while the retry is in flight', async () => {
+    server.postResults = [httpResponse(500, {})]
+    renderList()
+    await screen.findByText(deWorkshop.orders.list.empty)
+    await submitIntake()
+    const alert = await screen.findByRole('alert')
+
+    server.postGate = deferred<Response>()
+    fireEvent.click(within(alert).getByRole('button', { name: loading.retry }))
+
+    await waitFor(() => expect(server.postBodies).toHaveLength(2))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(pendingRows()).toHaveLength(1)
+    expect(bodyRows()).toHaveLength(1)
+  })
+
+  it('keeps the error marker and re-offers Retry when the retry fails again', async () => {
+    server.postResults = [httpResponse(500, {}), httpResponse(503, {})]
+    renderList()
+    await screen.findByText(deWorkshop.orders.list.empty)
+    await submitIntake()
+    fireEvent.click(within(await screen.findByRole('alert')).getByRole('button', { name: loading.retry }))
+
+    expect(await screen.findByText(deErrors.codes.HTTP_503)).toBeInTheDocument()
+    expect(pendingRows()).toHaveLength(1)
+    expect(screen.getByRole('button', { name: loading.retry })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: loading.dismiss }))
+    expect(pendingRows()).toHaveLength(0)
+  })
+
+  // Regression: closing the dialog on submit turned the VEHICLE_HAS_ACTIVE_ORDER 409 into plain text without the link.
+  it('offers the existing order from the pending row when the vehicle already has an active order', async () => {
+    server.postResults = [
+      httpResponse(409, {
+        message: 'Vehicle already has active order WO-2026-0007',
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        orderId: 'order-live',
+        orderNumber: 'WO-2026-0007',
+      }),
+    ]
+    renderList()
+    await screen.findByText(deWorkshop.orders.list.empty)
+    await submitIntake()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(oi.activeOrderConflict.replace('{{orderNumber}}', 'WO-2026-0007'))
+    expect(within(alert).queryByRole('button', { name: loading.retry })).not.toBeInTheDocument()
+    const open = within(alert).getByRole('button', { name: oi.openOrderNumber.replace('{{orderNumber}}', 'WO-2026-0007') })
+    expect(open).toHaveClass('min-h-11')
+
+    fireEvent.click(open)
+    expect(await screen.findByRole('heading', { name: 'Order detail route' })).toBeInTheDocument()
+  })
+})
+
+describe('WorkshopOrderList first load', () => {
+  // The skeleton gate must stay silent for a fast response: no skeleton node may ever be added, and the rows
+  // show the moment the data lands instead of waiting on the gate.
+  it('never mounts a skeleton and shows the rows at once when the first page arrives within 200 ms', async () => {
+    server.orders = [serverOrder('order-old', 'WO-2026-0001')]
+    server.listGate = deferred<void>()
+    const release = server.listGate
+    let skeletonSeen = false
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('.animate-pulse')) skeletonSeen = true
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    renderList()
+    await act(() => new Promise((done) => setTimeout(done, 100)))
+    release.resolve()
+
+    expect(await screen.findByText('WO-2026-0001')).toBeInTheDocument()
+    await act(() => new Promise((done) => setTimeout(done, 500)))
+    observer.disconnect()
+    expect(skeletonSeen).toBe(false)
+    expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
   })
 })

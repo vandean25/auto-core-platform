@@ -39,12 +39,16 @@ function Harness({
   data = rows,
   isLoading = false,
   hasUsableData,
+  isFetching,
+  isPlaceholderData,
   columns = baseColumns,
 }: {
   rowBehaviour?: DataTableRowBehaviour<Row>
   data?: Row[]
   isLoading?: boolean
   hasUsableData?: boolean
+  isFetching?: boolean
+  isPlaceholderData?: boolean
   columns?: ColumnDef<Row>[]
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -57,6 +61,8 @@ function Harness({
         data={data}
         isLoading={isLoading}
         hasUsableData={hasUsableData}
+        isFetching={isFetching}
+        isPlaceholderData={isPlaceholderData}
         columnFilters={columnFilters}
         setColumnFilters={setColumnFilters}
         sorting={sorting}
@@ -203,6 +209,34 @@ describe('DataTable list mode', () => {
     })
     expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'true')
     vi.useRealTimers()
+  })
+
+  // Regression: a stale preview used to swap the phone card list for a headerless table and back when the data arrived.
+  it('keeps the card list, locked and busy, while a stale preview refetches at 375px', () => {
+    const onRowClick = vi.fn()
+    const rowBehaviour = {
+      onRowClick,
+      getRowContextActions: () => [{ id: 'order.open', label: 'Öffnen', onClick: vi.fn() }],
+    }
+    const { rerender } = render(<Harness rowBehaviour={rowBehaviour} hasUsableData />)
+    const list = screen.getByRole('list')
+
+    rerender(<Harness rowBehaviour={rowBehaviour} hasUsableData isFetching isPlaceholderData />)
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByRole('list')).toBe(list)
+    expect(list).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent(deCommon.dataTable.loading.stalePreview)
+    fireEvent.click(within(screen.getAllByRole('listitem')[0]).getByText('Pilot Customer 1'))
+    expect(onRowClick).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: deCommon.dataTable.rowActions })).not.toBeInTheDocument()
+
+    rerender(<Harness rowBehaviour={rowBehaviour} hasUsableData isFetching={false} isPlaceholderData={false} />)
+
+    expect(screen.getByRole('list')).toBe(list)
+    expect(list).toHaveAttribute('aria-busy', 'false')
+    fireEvent.click(within(screen.getAllByRole('listitem')[0]).getByText('Pilot Customer 1'))
+    expect(onRowClick).toHaveBeenCalledWith(rows[0])
   })
 
   it('hides the CSV export on phone because it reads table cells', () => {

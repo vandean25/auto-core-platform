@@ -117,12 +117,14 @@ export function DataTablePendingIcon({ label }: DataTablePendingIconProps) {
 type InteractionErrorMarkerProps = {
   message: string
   onRetry?: () => void
+  /** A follow-up other than retry, such as opening the order a conflict refers to. */
+  action?: { label: string; onClick: () => void }
   onDismiss?: () => void
   className?: string
 }
 
 /** Visible, non-color-only error marker until retry, edit or dismiss (ADR-0036 R1). */
-export function InteractionErrorMarker({ message, onRetry, onDismiss, className }: InteractionErrorMarkerProps) {
+export function InteractionErrorMarker({ message, onRetry, action, onDismiss, className }: InteractionErrorMarkerProps) {
   const { t } = useTranslation('common')
   return (
     <div
@@ -137,6 +139,11 @@ export function InteractionErrorMarker({ message, onRetry, onDismiss, className 
       {onRetry ? (
         <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={onRetry}>
           {t('dataTable.loading.retry')}
+        </Button>
+      ) : null}
+      {action ? (
+        <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={action.onClick}>
+          {action.label}
         </Button>
       ) : null}
       {onDismiss ? (

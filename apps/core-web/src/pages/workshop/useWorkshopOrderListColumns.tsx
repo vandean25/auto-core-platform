@@ -5,18 +5,19 @@ import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTablePendingIcon, InteractionErrorMarker, isDataTablePendingRow } from '@/components/data-table/data-table-states'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import type { WorkshopOrderListPendingRow } from '@/components/workshop/workshop-order-intake-create'
 import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-actions'
-import type { WorkshopOrderListPendingRow } from './useWorkshopOrderListPendingRows'
 
-type PendingColumnActions = {
+export type PendingColumnActions = {
   onDismissPending: (localId: string) => void
-  onRetryPending: () => void
+  onRetryPending: (row: WorkshopOrderListPendingRow) => void
+  onOpenOrder: (orderId: string) => void
 }
 
 export function useWorkshopOrderListColumns(
   t: TFunction<'workshop'>,
   tCommon: TFunction<'common'>,
-  pendingActions?: PendingColumnActions,
+  pendingActions: PendingColumnActions,
 ): ColumnDef<WorkshopOrderListRow>[] {
   return useMemo(
     () => [
@@ -41,19 +42,30 @@ export function useWorkshopOrderListColumns(
         ),
         cell: ({ row }) => {
           const pending = row.original as WorkshopOrderListPendingRow
-          if (isDataTablePendingRow(pending) && pending.pendingError) {
-            return (
-              <div className="space-y-2">
-                <div>{pending.customer}</div>
-                <InteractionErrorMarker
-                  message={pending.pendingError}
-                  onRetry={pendingActions?.onRetryPending}
-                  onDismiss={() => pendingActions?.onDismissPending(pending.id)}
-                />
-              </div>
-            )
-          }
-          return pending.customer
+          const failure = isDataTablePendingRow(pending) ? pending.pendingFailure : undefined
+          if (!failure) return pending.customer
+          const { conflict } = failure
+          return (
+            <div className="space-y-2">
+              <div>{pending.customer}</div>
+              <InteractionErrorMarker
+                message={failure.message}
+                // A conflict means the vehicle already has a live order, so re-sending would fail the same way.
+                onRetry={conflict ? undefined : () => pendingActions.onRetryPending(pending)}
+                action={
+                  conflict
+                    ? {
+                        label: conflict.orderNumber
+                          ? t('orderIntake.openOrderNumber', { orderNumber: conflict.orderNumber })
+                          : t('orderIntake.openExistingOrder'),
+                        onClick: () => pendingActions.onOpenOrder(conflict.orderId),
+                      }
+                    : undefined
+                }
+                onDismiss={() => pendingActions.onDismissPending(pending.id)}
+              />
+            </div>
+          )
         },
       },
       {

@@ -1,15 +1,18 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
-import { useWorkshopOrders } from '@/api/workshop'
-import type { DataTablePendingRowMeta } from '@/components/data-table/data-table-states'
+import { useCreateWorkshopOrder, useWorkshopOrders } from '@/api/workshop'
+import {
+  createPendingWorkshopOrder,
+  type PendingOrderFailure,
+  type WorkshopOrderListPendingRow,
+} from '@/components/workshop/workshop-order-intake-create'
 import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-actions'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
 import { useRetainedQueryData } from '@/hooks/useRetainedQueryData'
 import { formatDate } from '@/lib/format'
-
-export type WorkshopOrderListPendingRow = WorkshopOrderListRow & DataTablePendingRowMeta & {
-  pendingError?: string
-}
 
 type OrdersPage = ReturnType<typeof useWorkshopOrders>['data']
 
@@ -27,7 +30,7 @@ export function useWorkshopOrderListRows(responseData: OrdersPage, isError: bool
       status: order.status,
     }))
   }, [visibleResponse])
-  const pending = useWorkshopOrderListPendingRows(loadedRows, visibleResponse, dataUpdatedAt)
+  const pending = useWorkshopOrderListPendingRows(loadedRows, dataUpdatedAt)
   return {
     visibleResponse,
     showingStaleError: isError && retained.isRetained,
@@ -37,48 +40,80 @@ export function useWorkshopOrderListRows(responseData: OrdersPage, isError: bool
 
 type PendingSettlement = {
   serverOrderId: string
-  page: OrdersPage
-  updatedAt: number
+  /** Wall-clock time the create settled. The row goes once the orders query holds data fetched after it. */
+  settledAt: number
 }
 
-function useWorkshopOrderListPendingRows(
-  loadedRows: WorkshopOrderListRow[],
-  visibleResponse: OrdersPage,
-  dataUpdatedAt: number,
-) {
+function useWorkshopOrderListPendingRows(loadedRows: WorkshopOrderListRow[], dataUpdatedAt: number) {
+  const { t } = useTranslation('workshop')
+  const navigate = useNavigate()
+  const createOrder = useCreateWorkshopOrder()
   const [pendingRows, setPendingRows] = useState<WorkshopOrderListPendingRow[]>([])
   const [settled, setSettled] = useState<Record<string, PendingSettlement>>({})
+  const retrying = useRef(new Set<string>())
 
   const tableRows = useMemo(() => {
     const stillPending = pendingRows.filter((pending) => {
       const settlement = settled[pending.id]
       if (!settlement) return true
       if (loadedRows.some((row) => row.id === settlement.serverOrderId)) return false
-      return settlement.page === visibleResponse && settlement.updatedAt === dataUpdatedAt
+      // shortcut: millisecond clock, a refetch landing in the same ms as the settle keeps the row until the next fetch.
+      return dataUpdatedAt <= settlement.settledAt
     })
     return [...stillPending, ...loadedRows]
-  }, [dataUpdatedAt, loadedRows, pendingRows, settled, visibleResponse])
+  }, [dataUpdatedAt, loadedRows, pendingRows, settled])
 
-  const intakePendingProps = {
-    listPendingMode: true as const,
-    onPendingOrder: (row: WorkshopOrderListPendingRow) => {
-      setPendingRows((previous) => [row, ...previous.filter((existing) => existing.id !== row.id)])
-    },
-    onPendingOrderSettled: (localId: string, serverOrderId: string) => {
-      setSettled((previous) => ({
-        ...previous,
-        [localId]: { serverOrderId, page: visibleResponse, updatedAt: dataUpdatedAt },
-      }))
-    },
-    onPendingOrderFailed: (localId: string, message: string) => {
+  const onPendingOrder = useCallback((row: WorkshopOrderListPendingRow) => {
+    setPendingRows((previous) => [row, ...previous.filter((existing) => existing.id !== row.id)])
+  }, [])
+  const onPendingOrderSettled = useCallback((localId: string, serverOrderId: string) => {
+    setSettled((previous) => ({
+      ...previous,
+      [localId]: { serverOrderId, settledAt: Date.now() },
+    }))
+  }, [])
+  const onPendingOrderFailed = useCallback((localId: string, failure: PendingOrderFailure) => {
+    setPendingRows((previous) =>
+      previous.map((row) => (row.id === localId ? { ...row, pendingFailure: failure } : row)),
+    )
+  }, [])
+  const dismissPending = useCallback((localId: string) => {
+    setPendingRows((previous) => previous.filter((row) => row.id !== localId))
+  }, [])
+
+  const { mutateAsync } = createOrder
+  const retryPending = useCallback(
+    (row: WorkshopOrderListPendingRow) => {
+      if (retrying.current.has(row.id)) return
+      retrying.current.add(row.id)
       setPendingRows((previous) =>
-        previous.map((row) => (row.id === localId ? { ...row, pendingError: message } : row)),
+        previous.map((existing) => (existing.id === row.id ? { ...existing, pendingFailure: undefined } : existing)),
       )
+      void createPendingWorkshopOrder(row.id, row.createPayload, mutateAsync, {
+        createFailedMessage: t('orderIntake.toastCreateFailed'),
+        onSettled: (localId, serverOrderId) => {
+          onPendingOrderSettled(localId, serverOrderId)
+          toast.success(t('orderIntake.toastOrderCreated'))
+        },
+        onFailed: onPendingOrderFailed,
+      }).finally(() => retrying.current.delete(row.id))
     },
-    onDismissPending: (localId: string) => {
-      setPendingRows((previous) => previous.filter((row) => row.id !== localId))
-    },
-  }
+    [mutateAsync, onPendingOrderFailed, onPendingOrderSettled, t],
+  )
 
-  return { tableRows, intakePendingProps }
+  const intakePendingProps = useMemo(
+    () => ({ listPendingMode: true as const, onPendingOrder, onPendingOrderSettled, onPendingOrderFailed }),
+    [onPendingOrder, onPendingOrderFailed, onPendingOrderSettled],
+  )
+
+  const pendingActions = useMemo(
+    () => ({
+      onDismissPending: dismissPending,
+      onRetryPending: retryPending,
+      onOpenOrder: (orderId: string) => navigate(`/workshop/orders/${orderId}`),
+    }),
+    [dismissPending, navigate, retryPending],
+  )
+
+  return { tableRows, intakePendingProps, pendingActions }
 }

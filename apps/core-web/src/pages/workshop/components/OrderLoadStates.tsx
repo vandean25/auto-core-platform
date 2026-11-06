@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { DetailSkeleton } from '@/components/ui/skeleton-presets'
 
-export function OrderLoading({ show = true }: { show?: boolean }) {
+export function OrderLoading() {
   const { t } = useTranslation('workshop')
-  return <DetailSkeleton label={t('orderDetail.loading')} show={show} />
+  return <DetailSkeleton label={t('orderDetail.loading')} />
 }
 
 export function OrderNotFound() {

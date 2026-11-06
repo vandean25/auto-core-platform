@@ -178,7 +178,7 @@ describe('WorkshopOrderIntakeDialog', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
   })
 
-  it('closes the dialog and reports the pending-row error when list-pending create hits a 409', async () => {
+  it('closes the dialog and hands the pending row the live order when list-pending create hits a 409', async () => {
     const onPendingOrder = vi.fn()
     const onPendingOrderFailed = vi.fn()
     const onOpenChange = vi.fn()
@@ -213,7 +213,10 @@ describe('WorkshopOrderIntakeDialog', () => {
     await waitFor(() => expect(onPendingOrderFailed).toHaveBeenCalled())
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(onPendingOrderFailed.mock.calls[0][0]).toBe(onPendingOrder.mock.calls[0][1].localId)
-    expect(String(onPendingOrderFailed.mock.calls[0][1])).toContain('WO-2026-0007')
+    expect(onPendingOrderFailed.mock.calls[0][1]).toEqual({
+      message: oi.activeOrderConflict.replace('{{orderNumber}}', 'WO-2026-0007'),
+      conflict: { orderId: 'order-live', orderNumber: 'WO-2026-0007' },
+    })
     expect(toast.error).not.toHaveBeenCalled()
   })
 

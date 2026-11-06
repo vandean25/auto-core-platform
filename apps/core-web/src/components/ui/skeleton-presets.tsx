@@ -47,19 +47,9 @@ export function CardSkeleton({ lines = 3, className }: { lines?: number; classNa
 }
 
 /** Page header block plus a card grid, shaped like a detail page. */
-export function DetailSkeleton({
-  label,
-  delayMs = SKELETON_DELAY_MS,
-  show = true,
-}: {
-  label?: string
-  delayMs?: number
-  /** Prefetched detail with usable data skips the skeleton entirely. */
-  show?: boolean
-}) {
+export function DetailSkeleton({ label, delayMs = SKELETON_DELAY_MS }: { label?: string; delayMs?: number }) {
   const { t } = useTranslation('common')
-  const delayedVisible = useDelayedFlag(show, delayMs)
-  const visible = show && (delayMs === 0 || delayedVisible)
+  const visible = useDelayedFlag(true, delayMs)
   if (!visible) return null
 
   return (

@@ -67,7 +67,6 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
   const useMobileList = shouldUseMobileDataTableList(
     isMobile,
     presentation.showFirstLoadSkeleton,
-    presentation.isStalePreview,
     bodyRowCount,
   )
 

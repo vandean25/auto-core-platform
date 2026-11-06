@@ -28,10 +28,7 @@ export default function WorkshopOrderList() {
   const ordersQuery = useWorkshopOrders(queryParams)
   const peek = usePeekSearchParam()
   const rows = useWorkshopOrderListRows(ordersQuery.data, ordersQuery.isError, ordersQuery.dataUpdatedAt)
-  const columns = useWorkshopOrderListColumns(t, tCommon, {
-    onDismissPending: rows.intakePendingProps.onDismissPending,
-    onRetryPending: () => setCreateOpen(true),
-  })
+  const columns = useWorkshopOrderListColumns(t, tCommon, rows.pendingActions)
   const rowBehaviour = useWorkshopOrderListRowBehaviour(
     t,
     navigate,

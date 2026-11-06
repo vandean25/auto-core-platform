@@ -70,6 +70,7 @@ describe('submitWorkshopIntakeOrder', () => {
   it('marks the pending row when create rejects in list-pending mode', async () => {
     const onPendingFailed = vi.fn()
     const onPendingOrder = vi.fn()
+    const createOrder = vi.fn().mockRejectedValue(new Error('down'))
     const input = deps({
       selectedVehicle: {
         id: 'vehicle-1',
@@ -78,7 +79,7 @@ describe('submitWorkshopIntakeOrder', () => {
         model: 'Golf',
         customer: { id: 'customer-1', first_name: 'Pilot', last_name: 'Customer' },
       } as never,
-      createOrder: vi.fn().mockRejectedValue(new Error('down')),
+      createOrder,
       pendingCallbacks: {
         listPendingMode: true,
         closeDialog: vi.fn(),
@@ -95,8 +96,10 @@ describe('submitWorkshopIntakeOrder', () => {
 
     await expect(submitWorkshopIntakeOrder(input)).resolves.toBeUndefined()
     expect(onPendingOrder).toHaveBeenCalledTimes(1)
+    // Retry re-sends this payload, so the row must carry exactly what the create was called with.
+    expect(onPendingOrder.mock.calls[0][0].createPayload).toEqual(createOrder.mock.calls[0][0])
     const localId = onPendingOrder.mock.calls[0][1].localId as string
-    expect(onPendingFailed).toHaveBeenCalledWith(localId, 'failed')
+    expect(onPendingFailed).toHaveBeenCalledWith(localId, { message: 'failed' })
     expect(input.pendingCallbacks.closeDialog).toHaveBeenCalled()
     expect(input.notify.toastError).not.toHaveBeenCalled()
   })
