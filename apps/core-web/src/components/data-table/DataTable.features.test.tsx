@@ -506,7 +506,38 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(scrollRegion().scrollTop).toBe(0)
     // r62 is on the new page one as well, so only the reset can have cleared it.
     expect(screen.queryByText(/gewählt/)).not.toBeInTheDocument()
-    expect(within(document.querySelector('tr[data-row-key="r62"]') ?? document.body).queryByRole('checkbox', { checked: true })).toBeNull()
+    scrollTo(3000)
+    expect(within(document.querySelector('tr[data-row-key="r62"]') as HTMLElement).getByRole('checkbox')).not.toBeChecked()
+  })
+
+  // ACP review note: a short cached chain is within one viewport of its end, so the load-ahead asked for the next page of the
+  // old chain while page one was being fetched, and that page landed on top of the refreshed list.
+  it('WHEN a restart reaches a short cached list THEN no next page of the old chain is requested while page one loads', async () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    client.setQueryData(listKey('B'), {
+      pages: [pageOf(0, { size: 5 }), pageOf(1, { size: 5 })],
+      pageParams: [0, 1],
+    })
+    let landPageOne: () => void = () => undefined
+    const fetchPage = vi.fn(({ page }: PageRequest) =>
+      page === 0
+        ? new Promise<ReturnType<typeof pageOf>>((resolve) => {
+            landPageOne = () => resolve(pageOf(0, { pages: 3 }))
+          })
+        : Promise.resolve(pageOf(page, { pages: 3 })),
+    )
+    render(<InfiniteListHarness client={client} fetchPage={fetchPage} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter B' }))
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledWith({ page: 0, filter: 'B' }))
+    await act(async () => undefined)
+    expect(fetchPage).toHaveBeenCalledTimes(1)
+
+    await act(async () => landPageOne())
+    await waitFor(() => expect(client.getQueryData<{ pages: unknown[] }>(listKey('B'))?.pages).toHaveLength(1))
+    await act(async () => undefined)
+    expect(fetchPage).toHaveBeenCalledTimes(1)
   })
 
   // Pilot check "Bedienung", scenario 5: keyboard focus was a DOM position, which a virtualized window destroys.

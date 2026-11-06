@@ -53,7 +53,7 @@ function isWithinOneViewportOfEnd<TScroll extends Element | Window>(
 
 function canRequestPage(view: DataTableInfiniteView | undefined, rowCount: number): view is DataTableInfiniteView {
   if (!view?.canLoadMore || rowCount === 0) return false
-  return !view.isFetchingNextPage && !view.isFetchNextPageError
+  return !view.isFetchingNextPage && !view.isFetchNextPageError && !view.isRefreshing
 }
 
 /**

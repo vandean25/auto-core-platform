@@ -23,6 +23,9 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
       setRunning((count) => count + 1)
       try {
         await refreshInfiniteList(queryClient, queryKey, options)
+        // query-core hands new data to observers in a timeout(0); unlocking before that lets the load-ahead fetch
+        // the next page of the chain that was just replaced.
+        await new Promise((resolve) => setTimeout(resolve, 0))
       } finally {
         setRunning((count) => count - 1)
       }

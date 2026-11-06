@@ -1,5 +1,5 @@
-import { QueryClientContext, hashKey } from '@tanstack/react-query'
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { QueryClientContext, hashKey, type QueryClient, type QueryKey } from '@tanstack/react-query'
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
 import {
@@ -53,42 +53,25 @@ function ariaRowCountOf({ hasNextPage, totalCount }: DataTableInfiniteProps, loa
 }
 
 /**
- * Restart, refresh and staleness of an infinite list (ADR-0035 §6-7). The consumer owns the query; this only
- * reacts to its key and cache. `useContext` rather than `useQueryClient`: offset tables run without a provider.
+ * Callers build the key inline, so its identity changes every render; effects follow this one, which changes only when
+ * the key's content does. `changing` is true from the render that sees a new key until `settled()` (called from the
+ * layout effect that starts the restart): passive effects of that first commit (load-ahead) must not fetch the next
+ * page of the chain being left.
  */
-export function useDataTableInfinite<TData extends object>(
-  infinite: DataTableInfiniteProps | undefined,
-  data: TData[],
-) {
-  const client = useContext(QueryClientContext)
-  // Callers build the key inline, so its identity changes every render; effects follow it only when its content changes.
-  const [queryKey, setQueryKey] = useState(infinite?.queryKey)
-  const incomingKey = infinite?.queryKey
+function useStableQueryKey(incomingKey: QueryKey | undefined) {
+  const [queryKey, setQueryKey] = useState(incomingKey)
+  const [changing, setChanging] = useState(false)
   if (incomingKey !== undefined && (queryKey === undefined || hashKey(queryKey) !== hashKey(incomingKey))) {
     setQueryKey(incomingKey)
+    setChanging(true)
   }
-  const keyHash = queryKey === undefined ? undefined : hashKey(queryKey)
-  const { needsRefresh, refresh, isRefreshing } = useInfiniteListRefresh(queryKey)
-  const [epoch, setEpoch] = useState(0)
-  const isInfinite = infinite !== undefined
-  const rows = useMemo(() => (isInfinite ? mergeLoadedRows(data) : data), [data, isInfinite])
+  const settled = useCallback(() => setChanging(false), [])
+  return { queryKey, changing, settled }
+}
 
-  // A changed key is a new result list: abort the chain being left and start the selected one at page one,
-  // also when its pages are cached (they stay visible as a locked preview until page one lands).
-  const previousKey = useRef(queryKey)
-  useLayoutEffect(() => {
-    const previous = previousKey.current
-    previousKey.current = queryKey
-    if (!client || !queryKey || !previous || hashKey(previous) === hashKey(queryKey)) return
-    setEpoch((value) => value + 1)
-    void cancelInfiniteList(client, previous)
-    if (client.getQueryCache().find({ queryKey, exact: true })?.state.data !== undefined) {
-      void refresh({ withCount: false }).catch(() => undefined)
-    }
-  }, [client, queryKey, refresh])
-
-  // Realtime, mutations, mount, focus and reconnect no longer refetch the retained pages (the query is static): they mark
-  // the list stale. An event during a load is kept past that load, and an old cache offers the refresh when it is shown again.
+/** Realtime, mutations, mount, focus and reconnect no longer refetch the retained pages (the query is static): they mark
+ * the list stale. An event during a load is kept past that load, and an old cache offers the refresh when it is shown again. */
+function useStaleMarking(client: QueryClient | undefined, queryKey: QueryKey | undefined) {
   useEffect(() => {
     if (!client || !queryKey) return undefined
     const stopKeeping = keepStaleAcrossFetch(client, queryKey)
@@ -106,6 +89,40 @@ export function useDataTableInfinite<TData extends object>(
       window.removeEventListener('online', markIfOutdated)
     }
   }, [client, queryKey])
+}
+
+/**
+ * Restart, refresh and staleness of an infinite list (ADR-0035 §6-7). The consumer owns the query; this only
+ * reacts to its key and cache. `useContext` rather than `useQueryClient`: offset tables run without a provider.
+ */
+export function useDataTableInfinite<TData extends object>(
+  infinite: DataTableInfiniteProps | undefined,
+  data: TData[],
+) {
+  const client = useContext(QueryClientContext)
+  const { queryKey, changing: keyChanging, settled } = useStableQueryKey(infinite?.queryKey)
+  const keyHash = queryKey === undefined ? undefined : hashKey(queryKey)
+  const { needsRefresh, refresh, isRefreshing } = useInfiniteListRefresh(queryKey)
+  const [epoch, setEpoch] = useState(0)
+  const isInfinite = infinite !== undefined
+  const rows = useMemo(() => (isInfinite ? mergeLoadedRows(data) : data), [data, isInfinite])
+
+  // A changed key is a new result list: abort the chain being left and start the selected one at page one,
+  // also when its pages are cached (they stay visible as a locked preview until page one lands).
+  const previousKey = useRef(queryKey)
+  useLayoutEffect(() => {
+    const previous = previousKey.current
+    previousKey.current = queryKey
+    settled()
+    if (!client || !queryKey || !previous || hashKey(previous) === hashKey(queryKey)) return
+    setEpoch((value) => value + 1)
+    void cancelInfiniteList(client, previous)
+    if (client.getQueryCache().find({ queryKey, exact: true })?.state.data !== undefined) {
+      void refresh({ withCount: false }).catch(() => undefined)
+    }
+  }, [client, queryKey, refresh, settled])
+
+  useStaleMarking(client, queryKey)
 
   if (!infinite || keyHash === undefined) return { rows, infiniteView: undefined }
 
@@ -120,7 +137,7 @@ export function useDataTableInfinite<TData extends object>(
     canLoadMore: infinite.hasNextPage && !capReached,
     ariaRowCount: ariaRowCountOf(infinite, rows.length),
     needsRefresh,
-    isRefreshing,
+    isRefreshing: isRefreshing || keyChanging,
     refresh: () => {
       setEpoch((value) => value + 1)
       void refresh().catch(() => undefined)

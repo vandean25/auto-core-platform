@@ -10,6 +10,7 @@ import {
   useClientSessionResetting,
 } from '@/auth/client-session-reset'
 import { savedViewsStorageKey } from '@/features/saved-views/SavedViewsProvider'
+import { readListScrollAnchor, rememberListScrollAnchor } from '@/lib/list-scroll-anchors'
 import {
   resetIntentPrefetchScheduler,
   scheduleDetailPrefetch,
@@ -161,6 +162,16 @@ describe('resetClientSession', () => {
 
     expect(queryClient.getQueryData(queryKey)).toBeUndefined()
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+  })
+
+  // ADR-0035 §7: a saved list position belongs to the context it was taken in; after a tenant or site switch it must not
+  // be restored into another tenant's rows that happen to share a record ID.
+  it.each(['session', 'context'] as const)('forgets saved list scroll positions on a %s reset', async (scope) => {
+    rememberListScrollAnchor('list-key', { rowId: 'r10', offset: 12 })
+
+    await resetClientSession(new QueryClient(), scope)
+
+    expect(readListScrollAnchor('list-key')).toBeUndefined()
   })
 
   it('bumps the session generation so user-scoped providers reload', async () => {
