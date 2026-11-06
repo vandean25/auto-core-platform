@@ -35,3 +35,14 @@ export type UnmigratedOptimisticConsumersBaselineDocument = {
   module: 'workshop-orders-and-mechanic-queue'
   entries: UnmigratedOptimisticConsumerEntry[]
 }
+
+/** Inventory entry for a module outside the AUT-894 pilot; `sourceFile` disambiguates equal hook names. */
+export type MutationInventoryEntry = WorkshopMutationInventoryEntry & {
+  sourceFile?: string
+}
+
+/** Entries for modules beyond the work-order pilot, grown module by module (ADR-0036 R1). */
+export type MutationInventoryExtensionDocument = {
+  schemaVersion: 1
+  entries: MutationInventoryEntry[]
+}

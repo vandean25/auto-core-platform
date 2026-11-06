@@ -6,7 +6,8 @@ import { G_SEQUENCE_TIMEOUT_MS } from './shortcut-constants'
 import { useShortcutHandler } from './shortcut-dispatcher'
 import { useSingleKeyShortcutsEnabled } from './single-key-shortcuts-setting'
 
-const SECOND_KEY_PATHS: Record<string, string> = {
+/** Second keys of `g` + key navigation; a registry `shortcutKey` must not reuse them. */
+export const SECOND_KEY_PATHS: Record<string, string> = {
   w: APP_ROUTE_PATHS.workshopOrders,
   c: APP_ROUTE_PATHS.customers,
   v: APP_ROUTE_PATHS.vehicles,

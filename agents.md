@@ -108,24 +108,55 @@ auto-core-platform/
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
 - **Action Registry & Action IDs**: Shared record/page actions live in `src/features/actions/entity-action.ts` using stable `<entity>.<action>` IDs with optional dot-separated child segments (`<entity>.<action>.<segment>...`, e.g., `customer.delete`, `workOrder.jobCardPdf`, `workOrder.taskState.t1.done`), exposed on page action buttons via `data-action-id` (`RegistryActionButton`) and gated through `src/features/actions/action-role-predicates.ts`. Every record action on an ACP page must be a registry action reachable via Cmd+K with identical role gating and confirmations. This is enforced by `src/features/actions/registry-parity.test.ts` against `src/features/actions/registry-parity.baseline.json`: new `onClick` `Button`/`DropdownMenuItem` or `AlertDialogTrigger` elements in `src/pages/` or `src/features/` without a registered `data-action-id` fail CI, and migrating an existing action requires deleting its entry from `registry-parity.baseline.json` (the baseline may only shrink). Dialog footers (`DialogFooter`, `AlertDialogFooter`, `SheetFooter`), settings/admin configuration screens, and the mechanic touch UI are excluded.
 
-### Frontend interaction rules (ADR-0036)
+### Frontend interaction rules
 
-Binding contract: [ADR-0036 Frontend interaction rules](docs/internal/01-ADR/2026-11-02-frontend-interaction-rules.md) (optimistic updates, prefetch, keyboard parity, guards). Pilot mutation inventory lives under `apps/core-web/src/features/interaction/`.
+This is the **single entry point for coding agents**; the contract and rationale live in [ADR-0036 Frontend interaction rules](docs/internal/01-ADR/2026-11-02-frontend-interaction-rules.md). Do not copy these rules into `.cursor/rules`, `CLAUDE.md` or skills; link here instead. Static guards prove wiring, not business safety: reversibility, authorization and concurrency still need tests.
 
-**Target vs current behavior:** `classification` in `workshop-mutation-inventory.json` is the ADR **target** (what the guard will enforce after migration). Hooks that still spread `optimisticMutationOptions` while classified `server-confirmed` must appear in `unmigrated-optimistic-consumers.baseline.json` until P4 removes the helper usage. Plain `useMutation` hooks classified `optimistic` are aspirational until they adopt the shared helper (AUT-893 will trace optimistic entries to `@/lib/optimistic-mutation`).
+**Shared APIs (use these, never a per-page substitute)**
 
-**Keyboard shortcuts (R5, AUT-877):** single-key shortcuts go through the one dispatcher in `src/features/shortcuts/shortcut-dispatcher.ts` (scopes `row` > `global`, dialogs suspend both). Register with `useShortcutHandler`; do not add `useHotkeys` for plain character keys. A record action gets its key via `shortcutKey` on the registry definition; keys must be unique per list and not in `RESERVED_SINGLE_KEYS` (enforced by `shortcut-key-uniqueness.test.ts`). The per-user "Single-key shortcuts" setting (localStorage, account menu) switches every dispatcher key off; Cmd/Ctrl combos stay outside it.
+| Rule | Use | Where |
+|---|---|---|
+| R1 optimistic updates | `optimisticMutationOptions` plus a `mutationKey` and an inventory entry | `src/lib/optimistic-mutation.ts` |
+| R2 loading and pending | 200 ms skeleton delay, 350 ms minimum, 200 ms refresh indicator | `src/features/interaction/loading-timings.ts` |
+| R3 undo | latest eligible undo entry | `src/features/interaction/undo-eligible-entry-store.ts` |
+| R4 intent prefetch | `rowBehaviour.onRowPrefetch` calling `scheduleDetailPrefetch` | `src/lib/intent-prefetch.ts` |
+| R5 keyboard | `useShortcutHandler` and registry `shortcutKey` | `src/features/shortcuts/shortcut-dispatcher.ts`, `src/features/actions/entity-action.ts` |
+| R6 motion | `motionDurationClass` / `motionDurationMs`: 150 ms finite, 200 ms sheets and dialogs | `src/lib/motion-tokens.ts` |
+| R7 infinite lists | shared infinite mode, explicit refresh (ADR-0035) | `src/lib/infinite-list-query.ts` |
 
-**Adding a work-order or mechanic-queue mutation**
+**CI guards (all run in the frontend unit tests; baselines are checked in)**
 
-1. Implement the TanStack `useMutation` hook (or reuse a shared helper) in the appropriate `src/api/` module.
-2. Assign a stable **`mutationKey`** via `mutationKey:` in the hook options (or via `optimisticMutationOptions` from `@/lib/optimistic-mutation`). Do not rely on implicit optimistic behavior for new hooks.
-3. Add one row to `workshop-mutation-inventory.json`: key = **`operationId` + `owningHook`** (export name of the hook, or `WorkshopReadyEmailNotice` for the inline resend mutation). Set `classification` to `optimistic`, `server-confirmed` (with non-empty `serverConfirmedReason` per ADR R1), or `conditional` (with `eligibilityPredicate` naming an exported, tested function).
-4. If the hook still lacks `mutationKey`, add `owningHook` to `mutation-key.baseline.json` until the key exists; the baseline may only **shrink** when keys are added.
-5. If the hook still uses `optimisticMutationOptions` but the inventory target is `server-confirmed`, add `operationId` + `owningHook` to `unmigrated-optimistic-consumers.baseline.json`; shrink that baseline when migration lands.
-6. Extend `workshop-mutation-inventory.test.ts` only when you add a new conditional predicate or change discovery scope.
+| Guard | Fails when | Satisfy it by | Baseline |
+|---|---|---|---|
+| Mutation classification (`features/interaction/guards/mutation-classification.test.ts`) | a `useMutation` (also via alias, namespace import or an unregistered wrapper) has no resolvable `mutationKey`, no inventory entry for its owning hook, or is classified optimistic without `optimisticMutationOptions` | step list below; a comment is never an exemption | `mutation-classification.baseline.json`, plus `mutation-key.baseline.json` for the workshop pilot |
+| Intent prefetch (`intent-prefetch.test.ts`) | a navigable `DataTable` consumer (row click or href) does not route `onRowPrefetch` through `scheduleDetailPrefetch` | wire it, or add a reasoned entry to `intent-prefetch-exceptions.json` (list has no detail target) | `intent-prefetch.baseline.json` |
+| Keyboard uniqueness (`features/actions/registry-parity.test.ts`) | a `shortcutKey` repeats within a list, is reserved, shadows a global key or `g`-sequence key, or a handler is registered outside the dispatcher | pick a free single key; register through `useShortcutHandler`; add a new list to `REAL_ROW_SURFACES` | `registry-parity.shortcuts.baseline.json` |
+| Transition duration (`transition-duration.test.ts`) | a finite transition above 200 ms, or a duration that cannot be resolved statically (variable, interpolated class, unknown CSS variable) in Tailwind, CSS, framer-motion or other JS | use the motion tokens; repeating indicators (`animate-spin`, `repeat: Infinity`, `infinite`) are classified separately; debounce, delay and toast timings are not transitions | `transition-duration.baseline.json` |
 
-Absent inventory entries are gaps, never permission to optimistically mutate. CI guard wiring is AUT-893; this pilot does not enforce inventory in CI yet.
+**Baseline rules.** A baseline lists the violations that existed when its guard was activated. Current code must match it exactly: a violation missing from the baseline fails, and a baseline line whose violation is gone fails as stale. Removing a violation means removing its exact baseline line in the same change (`UPDATE_INTERACTION_BASELINES=1 npm test --workspace=core-web -- src/features/interaction/guards src/features/actions/registry-parity.test.ts` rewrites the files; review the diff). A baseline may only shrink: `npm run interaction-baselines:check` (CI step "Verify interaction guard baselines did not grow") rejects any added line against the PR base. Never rename, suppress, stub or broaden a baseline to pass. Reasoned exceptions (`intent-prefetch-exceptions.json`) and legitimate server-confirmed classifications are separate reviewed inventories, not debt.
+
+**Target vs current behavior:** `classification` in the inventories is the ADR **target**. Hooks that still spread `optimisticMutationOptions` while classified `server-confirmed` must appear in `unmigrated-optimistic-consumers.baseline.json` until P4 removes the helper usage. A hook classified `optimistic` that does not use the helper is a baselined `optimistic-without-helper` violation until it migrates.
+
+**Keyboard shortcuts (R5):** single-key shortcuts go through the one dispatcher (scopes `row` > `global`, dialogs suspend both). Do not add `useHotkeys` for plain character keys. A record action gets its key via `shortcutKey` on the registry definition; child actions cannot carry one. The per-user "Single-key shortcuts" setting (localStorage, account menu) switches every dispatcher key off; Cmd/Ctrl combos stay outside it.
+
+**Adding a mutation (any module)**
+
+1. Implement the TanStack `useMutation` hook (or reuse a registered wrapper) in the appropriate `src/api/` module. A new wrapper around `useMutation` or `optimisticMutationOptions` must be registered in `REGISTERED_MUTATION_WRAPPERS` (`features/interaction/guards/mutation-classification.ts`) with guard coverage before it is used.
+2. Assign a stable **`mutationKey`** in the hook options (or through `optimisticMutationOptions` from `@/lib/optimistic-mutation`). Do not rely on implicit optimistic behavior.
+3. Add one inventory entry keyed by **`operationId` + `owningHook`**: in `workshop-mutation-inventory.json` for work orders and the mechanic queue, otherwise in `mutation-inventory.json` (set `sourceFile` when another file exports the same hook name). Set `classification` to `optimistic` (the hook must use `optimisticMutationOptions`), `server-confirmed` (non-empty `serverConfirmedReason` per ADR R1) or `conditional` (`eligibilityPredicate` naming an exported, tested function).
+4. Workshop pilot only: a hook that still lacks `mutationKey` stays in `mutation-key.baseline.json` until the key exists. Everywhere else the guard baseline is the only place an existing gap may live; new hooks are never added to it.
+5. If the hook still uses `optimisticMutationOptions` but the target is `server-confirmed`, add `operationId` + `owningHook` to `unmigrated-optimistic-consumers.baseline.json`.
+6. Extend `workshop-mutation-inventory.test.ts` only when you add a new conditional predicate or change the pilot discovery scope.
+
+Absent inventory entries are gaps, never permission to optimistically mutate.
+
+### Definition of Done
+
+A change is done when:
+- Behaviour changes and bugfixes have a test that failed first (TDD workflow above).
+- The local checks for the touched workspace pass and the CI result, including `Code Health (Fallow)`, is green.
+- User-facing text exists in German and English (ACP i18n skill).
+- **Interaction compliance (frontend):** every mutation, `DataTable` list, record-action shortcut and transition the change adds or touches follows [Frontend interaction rules](#frontend-interaction-rules), the four interaction guards pass, and no guard baseline grew.
 
 ### Page Layout Defaults
 - **Main Container**: Admin routes are wrapped by `PageContainer` in `App.tsx` (`max-w-page mx-auto p-6`). Adjust width via `--container-page` in `src/index.css`. Pages should not repeat that wrapper — use `space-y-6` / `space-y-8` on a root fragment or inner div when vertical spacing is needed.
@@ -234,6 +265,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 ### PR Lifecycle & CI Verification
 - When opening a pull request for a Linear issue, create it initially as a **Draft PR** (`gh pr create --draft ...`).
 - UI ticket acceptance criterion: **Every new record action is a registry action and reachable via Cmd+K.**
+- PR checklist: frontend PRs tick the interaction-compliance item of the UI review checklist (`.agents/skills/acp-ui-polish/SKILL.md`, section 8), which points to [Frontend interaction rules](#frontend-interaction-rules).
 - Monitor/verify that all continuous integration checks (linting, tests, build) pass.
 - Once and only when all CI checks succeed, mark the pull request as ready for review:
   ```bash

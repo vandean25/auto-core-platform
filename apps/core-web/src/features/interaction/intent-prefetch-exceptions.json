@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    { "file": "components/hr/EmployeeTable.tsx", "reason": "Row click opens a sheet from the already-loaded employee row; no detail endpoint." },
+    { "file": "components/settings/AuditLogsTab.tsx", "reason": "Immutable audit log; the row opens the loaded entry, no record detail view." },
+    { "file": "components/settings/TeamSettingsTab.tsx", "reason": "Row click opens a member sheet from the loaded row; configuration screen without a detail route." },
+    { "file": "components/settings/workshop-hours-settings-panel.tsx", "reason": "Row click opens the holiday edit dialog from the loaded row; no detail route." },
+    { "file": "pages/hr/HrLeavePage.tsx", "reason": "Row click opens an approval sheet from the loaded booking; no detail route." },
+    { "file": "pages/platform/PlatformTenantsPage.tsx", "reason": "Platform-admin configuration: row click opens an edit sheet from the loaded tenant." },
+    { "file": "pages/workshop/LoanerVehiclesPage.tsx", "reason": "Row click toggles the in-page selection panel; no detail route." },
+    { "file": "pages/workshop/WorkshopPickList.tsx", "reason": "Action-only queue: row click opens the pick drawer from the loaded order; no separate detail query." }
+  ]
+}

@@ -17,7 +17,8 @@ import { isSingleKeyShortcutsEnabled } from './single-key-shortcuts-setting'
 export type ShortcutScope = 'row' | 'global'
 export type ShortcutHandler = (key: string, event: KeyboardEvent) => boolean
 
-const SCOPE_ORDER: readonly ShortcutScope[] = ['row', 'global']
+/** Dispatch order, highest precedence first; the shortcut parity guard asserts it. */
+export const SHORTCUT_SCOPE_PRECEDENCE: readonly ShortcutScope[] = ['row', 'global']
 /** Row navigation is not a mutation, so holding j/k may keep moving; nothing else repeats. */
 const REPEATABLE_ROW_KEYS = new Set(['j', 'k'])
 
@@ -32,7 +33,7 @@ function dispatch(event: KeyboardEvent) {
     return
   }
   const key = event.key.toLowerCase()
-  for (const scope of SCOPE_ORDER) {
+  for (const scope of SHORTCUT_SCOPE_PRECEDENCE) {
     if (event.repeat && !(scope === 'row' && REPEATABLE_ROW_KEYS.has(key))) continue
     for (const handler of handlers[scope]) {
       if (handler(key, event)) {
@@ -51,7 +52,7 @@ function registerShortcutHandler(scope: ShortcutScope, handler: ShortcutHandler)
   }
   return () => {
     handlers[scope].delete(handler)
-    if (listening && SCOPE_ORDER.every((name) => handlers[name].size === 0)) {
+    if (listening && SHORTCUT_SCOPE_PRECEDENCE.every((name) => handlers[name].size === 0)) {
       document.removeEventListener('keydown', dispatch)
       listening = false
     }

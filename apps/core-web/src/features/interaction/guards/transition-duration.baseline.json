@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "guard": "transition-duration",
+  "violations": [
+    "components/workshop/TaskLineItemEditor.tsx::js::duration=240ms",
+    "components/workshop/TaskLineItemEditor.tsx::tailwind::duration-500",
+    "pages/inventory/InventoryLedgerPage.tsx::js::duration=250ms",
+    "pages/inventory/InventoryLedgerPage.tsx::js::duration=300ms",
+    "pages/inventory/InventoryLedgerPage.tsx::js::duration=350ms",
+    "pages/purchase-orders/PurchaseOrderLineItems.tsx::js::duration=240ms",
+    "pages/purchase-orders/PurchaseOrderLineItems.tsx::tailwind::duration-500",
+    "pages/workshop/WorkshopOrderDetails.tsx::js::duration=220ms",
+    "pages/workshop/WorkshopOrderDetails.tsx::js::duration=220ms"
+  ]
+}
