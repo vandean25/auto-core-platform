@@ -92,7 +92,9 @@
       "system": "System"
     },
     "helpDocs": "Help / Docs",
-    "helpDocsOpensNewTab": "Help / Docs (opens in a new tab)"
+    "helpDocsOpensNewTab": "Help / Docs (opens in a new tab)",
+    "shortcutsHelp": "Show keyboard shortcuts",
+    "singleKeyShortcuts": "Single-key shortcuts"
   },
   "tenantSwitcher": {
     "currentTenant": "Current Tenant",

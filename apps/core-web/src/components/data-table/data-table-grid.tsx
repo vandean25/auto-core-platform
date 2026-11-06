@@ -13,6 +13,7 @@ import { DataTableGridBody } from './data-table-grid-body'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 import type { DataTableEmptyState } from './data-table-states'
 import { useDataTableRovingFocus } from './use-data-table-roving-focus'
+import { useDataTableRowShortcuts } from './use-data-table-row-shortcuts'
 
 // Only header render functions (the DataTableColumnHeader pattern) expose a sort control.
 // Plain-text headers do not, so they must not advertise sorting.
@@ -60,13 +61,14 @@ export function DataTableGrid<TData extends object>({
   const visibleColumnCount = table.getVisibleLeafColumns().length
   const bodyRowModels = table.getRowModel().rows.map((row) => row as DataTableBodyRowModel<TData>)
   const paginationKey = `${pagination.pageIndex}:${pagination.pageSize}`
-  const { handleArrowFocus, tabIndexForRow, onRowFocus } = useDataTableRovingFocus(
+  const { handleArrowFocus, tabIndexForRow, onRowFocus, hasRovingRows } = useDataTableRovingFocus(
     bodyRowModels,
     rowBehaviour,
     data,
     paginationKey,
     tableBodyRef,
   )
+  useDataTableRowShortcuts(table, tableBodyRef, hasRovingRows)
 
   return (
     <div

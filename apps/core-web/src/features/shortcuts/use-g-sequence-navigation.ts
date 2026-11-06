@@ -1,20 +1,15 @@
 import { useEffect, useRef } from 'react'
-import { useHotkeys } from 'react-hotkeys-hook'
 import { useNavigate } from 'react-router-dom'
 
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { G_SEQUENCE_TIMEOUT_MS } from './shortcut-constants'
-import { isGlobalShortcutEnabled } from './shortcut-guard'
+import { useShortcutHandler } from './shortcut-dispatcher'
+import { useSingleKeyShortcutsEnabled } from './single-key-shortcuts-setting'
 
 const SECOND_KEY_PATHS: Record<string, string> = {
   w: APP_ROUTE_PATHS.workshopOrders,
   c: APP_ROUTE_PATHS.customers,
   v: APP_ROUTE_PATHS.vehicles,
-}
-
-const globalHotkeyOptions = {
-  enabled: isGlobalShortcutEnabled,
-  ignoreEventWhen: (event: KeyboardEvent) => event.repeat,
 }
 
 export function useGSequenceNavigation(): void {
@@ -38,32 +33,23 @@ export function useGSequenceNavigation(): void {
 
   useEffect(() => () => disarmSequence(), [])
 
-  useHotkeys(
-    'g',
-    () => {
-      armSequence()
-    },
-    {
-      ...globalHotkeyOptions,
-      preventDefault: true,
-    },
-    [],
-  )
+  // Turning the setting off must not leave a half-typed sequence behind.
+  const enabled = useSingleKeyShortcutsEnabled()
+  useEffect(() => {
+    if (!enabled) disarmSequence()
+  }, [enabled])
 
-  useHotkeys(
-    ['w', 'c', 'v'],
-    (event) => {
-      if (!armedRef.current) {
-        return
-      }
-      const path = SECOND_KEY_PATHS[event.key.toLowerCase()]
-      if (!path) {
-        return
-      }
+  useShortcutHandler('global', (key) => {
+    const path = SECOND_KEY_PATHS[key]
+    if (armedRef.current && path) {
       disarmSequence()
       navigate(path)
-    },
-    globalHotkeyOptions,
-    [navigate],
-  )
+      return true
+    }
+    if (key === 'g') {
+      armSequence()
+      return true
+    }
+    return false
+  })
 }

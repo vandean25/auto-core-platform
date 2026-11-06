@@ -52,6 +52,7 @@
     "filterPlaceholder": "Filter…",
     "exportCsv": "Export CSV",
     "exportCsvTitle": "Exports the visible columns of the rows loaded in this table",
+    "refreshList": "Refresh list",
     "hide": "Hide",
     "columnOptions": "{{title}} column options",
     "selectAll": "Select all rows on this page",
@@ -340,8 +341,11 @@
       "goWorkshopOrders": "Workshop orders",
       "goCustomers": "Customers",
       "goVehicles": "Vehicles",
-      "rowOpenDetail": "Open focused row in full"
-    }
+      "rowNext": "Focus next row",
+      "rowPrevious": "Focus previous row",
+      "rowToggleSelection": "Select or deselect focused row"
+    },
+    "singleKeyOff": "Single-key shortcuts are off. Arrow keys and the shortcuts with Ctrl or ⌘ still work. You can turn single-key shortcuts back on in the account menu."
   },
   "sidebar": {
     "toggle": "Show or hide the sidebar",

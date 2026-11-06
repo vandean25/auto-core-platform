@@ -52,6 +52,7 @@
     "filterPlaceholder": "Filtern…",
     "exportCsv": "CSV exportieren",
     "exportCsvTitle": "Exportiert die sichtbaren Spalten der in dieser Tabelle geladenen Zeilen",
+    "refreshList": "Liste aktualisieren",
     "hide": "Ausblenden",
     "columnOptions": "{{title}} — Spaltenoptionen",
     "selectAll": "Alle Zeilen auf dieser Seite auswählen",
@@ -340,8 +341,11 @@
       "goWorkshopOrders": "Werkstattaufträge",
       "goCustomers": "Kunden",
       "goVehicles": "Fahrzeuge",
-      "rowOpenDetail": "Fokussierte Zeile vollständig öffnen"
-    }
+      "rowNext": "Nächste Zeile fokussieren",
+      "rowPrevious": "Vorherige Zeile fokussieren",
+      "rowToggleSelection": "Fokussierte Zeile auswählen oder abwählen"
+    },
+    "singleKeyOff": "Einzeltasten-Kürzel sind ausgeschaltet. Pfeiltasten und die Kürzel mit Strg oder ⌘ funktionieren weiter. Sie können die Einzeltasten-Kürzel im Kontomenü einschalten."
   },
   "sidebar": {
     "toggle": "Seitenleiste ein- oder ausblenden",

@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { TFunction } from 'i18next'
+import { useMemo } from 'react'
 import {
   MemoryRouter,
   Route,
@@ -7,11 +8,13 @@ import {
   useLocation,
   type NavigateFunction,
 } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import deCommon from '../../../../../locales/de/common.json'
 import { createCustomerRowActions } from '@/features/actions/customer-row-actions'
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
+import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
+import { DataTable } from '@/components/data-table/DataTable'
 import type { Customer } from '@/api/types'
 import { G_SEQUENCE_TIMEOUT_MS } from './shortcut-constants'
 import {
@@ -20,7 +23,16 @@ import {
   isShortcutLayerSuspended,
 } from './shortcut-guard'
 import { GlobalShortcutLayer } from './GlobalShortcutLayer'
+import {
+  bindSingleKeyShortcutsUser,
+  setSingleKeyShortcutsEnabled,
+} from './single-key-shortcuts-setting'
 import { useRegistryRowShortcuts } from './use-registry-row-shortcuts'
+
+beforeEach(() => {
+  window.localStorage.clear()
+  bindSingleKeyShortcutsUser('test-user')
+})
 
 const customerA: Customer = {
   id: 'cust-a',
@@ -293,7 +305,7 @@ describe('GlobalShortcutLayer', () => {
     pressKey(document, '?', { shiftKey: true })
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent(deCommon.shortcuts.title)
-    expect(screen.getAllByText('O').length).toBeGreaterThan(0)
+    expect(dialog).toHaveTextContent(deCommon.shortcuts.entries.goWorkshopOrders)
 
     fireEvent.keyDown(dialog, { key: 'Escape' })
     await waitFor(() => {
@@ -432,5 +444,202 @@ describe('GlobalShortcutLayer navigation sequences', () => {
     pressKey(document, 'g')
     pressKey(document, 'v')
     expect(screen.getByTestId('location')).toHaveTextContent('/vehicles')
+  })
+})
+
+const customerC: Customer = { ...customerB, id: 'cust-c', first_name: 'Cleo', last_name: 'Gamma' }
+
+function CustomerListHarness({
+  records = [customerA, customerB, customerC],
+  actorRole = 'ADMIN',
+  navigate = vi.fn() as NavigateFunction,
+}: {
+  records?: Customer[]
+  actorRole?: string
+  navigate?: NavigateFunction
+}) {
+  const definitions = useMemo(() => createCustomerRowActions(customerT), [])
+  const runContext = useMemo(
+    () => ({ navigate, onDelete: vi.fn(), t: customerT }),
+    [navigate],
+  )
+  const tableBehaviour = useMemo(() => ({ onRowClick: vi.fn() }), [])
+  useRegistryRowShortcuts({ role: actorRole, definitions, runContext, records })
+  const rowBehaviour = useRegistryRowBehaviour({ role: actorRole, definitions, runContext, tableBehaviour })
+
+  return (
+    <DataTable
+      columns={[{ accessorKey: 'id', header: 'ID' }]}
+      data={records}
+      columnFilters={[]}
+      setColumnFilters={vi.fn()}
+      sorting={[]}
+      setSorting={vi.fn()}
+      pagination={{ pageIndex: 0, pageSize: 10 }}
+      setPagination={vi.fn()}
+      rowBehaviour={rowBehaviour}
+      bulkActions={(rows) => <output data-testid="selected">{rows.map((r) => r.id).join(',')}</output>}
+    />
+  )
+}
+
+function renderShell(children: React.ReactNode, initialPath = '/dashboard') {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <GlobalShortcutLayer />
+      <LocationDisplay />
+      {children}
+    </MemoryRouter>,
+  )
+}
+
+function rowEl(rowId: string): HTMLElement {
+  return document.querySelector(`tr[data-row-id="${rowId}"]`) as HTMLElement
+}
+
+describe('single-key shortcuts (AUT-877, ADR-0036 R5)', () => {
+  // Regression: j on a fresh list advanced to row 2 (or did nothing) instead of entering at row 1.
+  it('SCENARIO 1: j on a fresh list focuses row 1 (not row 2) and never steals focus from a control', () => {
+    renderShell(
+      <>
+        <button type="button">Other control</button>
+        <CustomerListHarness />
+      </>,
+    )
+
+    screen.getByRole('button', { name: 'Other control' }).focus()
+    pressKey(document, 'j')
+    expect(screen.getByRole('button', { name: 'Other control' })).toHaveFocus()
+
+    ;(document.activeElement as HTMLElement).blur()
+    pressKey(document, 'j')
+    expect(rowEl('cust-a')).toHaveFocus()
+
+    pressKey(document, 'j')
+    expect(rowEl('cust-b')).toHaveFocus()
+    pressKey(document, 'k')
+    expect(rowEl('cust-a')).toHaveFocus()
+  })
+
+  // Regression: row actions ran without the normal role predicate, or more than once per press.
+  it('SCENARIO 2: a registry shortcutKey on a focused row runs the action once, and only when the role allows it', () => {
+    const navigate = vi.fn() as NavigateFunction
+    const { unmount } = renderShell(<CustomerListHarness navigate={navigate} />)
+
+    rowEl('cust-b').focus()
+    pressKey(document, 'o')
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(navigate).toHaveBeenCalledWith('/customers/cust-b')
+    unmount()
+
+    const deniedNavigate = vi.fn() as NavigateFunction
+    renderShell(<CustomerListHarness navigate={deniedNavigate} actorRole="" />)
+    rowEl('cust-b').focus()
+    pressKey(document, 'o')
+    expect(deniedNavigate).not.toHaveBeenCalled()
+  })
+
+  // Regression: character keys fired while typing or composing (IME), hijacking the user's text.
+  it('SCENARIO 3: j/k/x and action keys do nothing while typing in an input or composing with an IME', () => {
+    const navigate = vi.fn() as NavigateFunction
+    renderShell(
+      <>
+        <input data-testid="field" />
+        <CustomerListHarness navigate={navigate} />
+      </>,
+    )
+
+    // Positive control: the same keys do work on a focused row.
+    rowEl('cust-a').focus()
+    pressKey(document, 'j')
+    expect(rowEl('cust-b')).toHaveFocus()
+
+    const field = screen.getByTestId('field')
+    field.focus()
+    for (const key of ['j', 'k', 'x', 'o']) pressKey(field, key)
+    expect(field).toHaveFocus()
+
+    // IME: a row is focused, but the keystroke belongs to the composition (keyCode 229 / isComposing).
+    rowEl('cust-b').focus()
+    for (const key of ['j', 'k', 'x', 'o']) pressKey(document, key, { isComposing: true, keyCode: 229 })
+
+    expect(rowEl('cust-b')).toHaveFocus()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('selected')).not.toBeInTheDocument()
+  })
+
+  // Regression: global single keys (j, ?, g-sequences) could not be turned off (WCAG 2.1.4).
+  it('SCENARIO 4: with the setting off, j, ? and g-sequences do nothing and a pending g is cleared', () => {
+    renderShell(<CustomerListHarness />)
+
+    pressKey(document, 'g')
+    act(() => setSingleKeyShortcutsEnabled(false))
+
+    pressKey(document, 'j')
+    pressKey(document, '?', { shiftKey: true })
+    pressKey(document, 'w')
+    expect(document.body).toHaveFocus()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/dashboard')
+
+    // Re-enabling must not resurrect the sequence that was armed before the switch-off.
+    act(() => setSingleKeyShortcutsEnabled(true))
+    pressKey(document, 'w')
+    expect(screen.getByTestId('location')).toHaveTextContent('/dashboard')
+
+    pressKey(document, 'g')
+    pressKey(document, 'w')
+    expect(screen.getByTestId('location')).toHaveTextContent('/workshop/orders')
+  })
+
+  // Regression: holding a key repeated the action (and toggled selection back off).
+  it('SCENARIO 5: a held key fires no mutation more than once', () => {
+    const navigate = vi.fn() as NavigateFunction
+    renderShell(<CustomerListHarness navigate={navigate} />)
+
+    pressKey(document, 'j', { repeat: true })
+    expect(document.body).toHaveFocus()
+
+    rowEl('cust-a').focus()
+    pressKey(document, 'x')
+    for (let i = 0; i < 3; i += 1) pressKey(document, 'x', { repeat: true })
+    expect(screen.getByTestId('selected')).toHaveTextContent('cust-a')
+
+    pressKey(document, 'o')
+    for (let i = 0; i < 3; i += 1) pressKey(document, 'o', { repeat: true })
+    expect(navigate).toHaveBeenCalledTimes(1)
+  })
+
+  // Regression: row keys reached the list behind an open dialog.
+  it('SCENARIO 6: with a dialog open, row keys do not reach the list behind it', () => {
+    const navigate = vi.fn() as NavigateFunction
+    renderShell(
+      <>
+        <CustomerListHarness navigate={navigate} />
+        <div role="dialog" aria-label="Open dialog" />
+      </>,
+    )
+
+    rowEl('cust-a').focus()
+    for (const key of ['j', 'x', 'o']) pressKey(document, key)
+
+    expect(within(document.body).getByRole('dialog')).toBeInTheDocument()
+    expect(rowEl('cust-a')).toHaveFocus()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('selected')).not.toBeInTheDocument()
+  })
+
+  // Regression: the help sheet showed a static key list instead of the keys the current page really honours.
+  it('help sheet lists the effective keys of the mounted list and none while single-key shortcuts are off', async () => {
+    renderShell(<CustomerListHarness />)
+
+    pressKey(document, '?', { shiftKey: true })
+    const dialog = await screen.findByRole('dialog')
+    const lists = within(dialog).getByRole('heading', { name: deCommon.shortcuts.sections.lists }).parentElement as HTMLElement
+    expect(within(lists).getAllByText(/^[A-Z]$/).map((key) => key.textContent)).toEqual(['J', 'K', 'X', 'O'])
+
+    act(() => setSingleKeyShortcutsEnabled(false))
+    expect(within(dialog).queryByRole('heading', { name: deCommon.shortcuts.sections.lists })).not.toBeInTheDocument()
+    expect(dialog).toHaveTextContent('Einzeltasten-Kürzel sind ausgeschaltet')
   })
 })
