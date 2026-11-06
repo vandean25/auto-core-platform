@@ -62,7 +62,6 @@ export function startPendingWorkshopOrder(
   if (!callbacks.listPendingMode || !callbacks.onPendingOrder) return undefined
   const localId = generateId()
   callbacks.onPendingOrder(buildWorkshopOrderPendingListRow(localId, vehicle), { localId })
-  callbacks.closeDialog()
   return localId
 }
 
@@ -78,6 +77,7 @@ export function finishPendingWorkshopOrder(
   if (pendingLocalId && callbacks.onPendingOrderSettled) {
     callbacks.onPendingOrderSettled(pendingLocalId, orderId)
     callbacks.toastSuccess(message)
+    callbacks.closeDialog()
     return
   }
   callbacks.onNavigateCreated(orderId, message)
@@ -92,19 +92,25 @@ export async function createWorkshopOrderFromVehicle(
   notify: {
     toastSuccess: (message: string) => void
     onNavigateCreated: (orderId: string, message: string) => void
+    onPendingFailed?: (localId: string) => void
   },
 ): Promise<string | undefined> {
   if (!vehicle.customer?.id) {
     throw new Error('missing-customer')
   }
   const pendingLocalId = startPendingWorkshopOrder(vehicle, pendingCallbacks)
-  const order = await createOrder({
-    customerId: vehicle.customer.id,
-    vehicleId: vehicle.id,
-    ...payload,
-  })
-  finishPendingWorkshopOrder(pendingLocalId, order.id, successMessage, { ...pendingCallbacks, ...notify })
-  return pendingLocalId
+  try {
+    const order = await createOrder({
+      customerId: vehicle.customer.id,
+      vehicleId: vehicle.id,
+      ...payload,
+    })
+    finishPendingWorkshopOrder(pendingLocalId, order.id, successMessage, { ...pendingCallbacks, ...notify })
+    return pendingLocalId
+  } catch (error) {
+    if (pendingLocalId) notify.onPendingFailed?.(pendingLocalId)
+    throw error
+  }
 }
 
 export type IntakeCreateMessages = {

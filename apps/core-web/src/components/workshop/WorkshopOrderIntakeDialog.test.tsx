@@ -178,6 +178,47 @@ describe('WorkshopOrderIntakeDialog', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
   })
 
+  it('keeps the dialog open and clears the pending row when list-pending create hits a 409', async () => {
+    const onPendingOrder = vi.fn()
+    const onPendingOrderFailed = vi.fn()
+    const onOpenChange = vi.fn()
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
+          status: 409,
+          data: {
+            message: 'Vehicle already has active order WO-2026-0007',
+            code: 'VEHICLE_HAS_ACTIVE_ORDER',
+            orderId: 'order-live',
+            orderNumber: 'WO-2026-0007',
+          },
+        }),
+      ),
+      isPending: false,
+    } as never)
+
+    render(
+      <WorkshopOrderIntakeDialog
+        open
+        onOpenChange={onOpenChange}
+        listPendingMode
+        onPendingOrder={onPendingOrder}
+        onPendingOrderFailed={onPendingOrderFailed}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
+
+    expect(
+      await screen.findByText(oi.activeOrderConflict.replace('{{orderNumber}}', 'WO-2026-0007')),
+    ).toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    expect(onPendingOrder).toHaveBeenCalled()
+    expect(onPendingOrderFailed).toHaveBeenCalledWith(onPendingOrder.mock.calls[0][1].localId)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
   it('shows the reference id when order creation fails with a server error', async () => {
     vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
       mutateAsync: vi.fn().mockRejectedValue(

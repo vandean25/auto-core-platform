@@ -58,8 +58,9 @@ export function DetailSkeleton({
   show?: boolean
 }) {
   const { t } = useTranslation('common')
-  const visible = useDelayedFlag(show, delayMs)
-  if (!show || !visible) return null
+  const delayedVisible = useDelayedFlag(show, delayMs)
+  const visible = show && (delayMs === 0 || delayedVisible)
+  if (!visible) return null
 
   return (
     <div role="status" aria-busy="true" className="space-y-6">

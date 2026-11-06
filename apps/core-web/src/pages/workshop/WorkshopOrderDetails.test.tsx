@@ -401,6 +401,19 @@ describe("WorkshopOrderDetails Characterization", () => {
       expect(screen.getByText("Werkstattauftrag wird geladen…")).toBeInTheDocument();
     });
 
+    it("skips the detail skeleton when the order is already cached", () => {
+      queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), { id: "order-1" });
+      asMock(workshopApi.useWorkshopOrder).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      });
+
+      renderComponent();
+
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(screen.queryByText("Werkstattauftrag wird geladen…")).not.toBeInTheDocument();
+    });
+
     it("renders not-found card when order is null", () => {
       asMock(workshopApi.useWorkshopOrder).mockReturnValue({
         data: null,

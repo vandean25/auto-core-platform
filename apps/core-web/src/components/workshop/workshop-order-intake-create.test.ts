@@ -66,4 +66,38 @@ describe('submitWorkshopIntakeOrder', () => {
     }))
     expect(input.notify.onNavigateCreated).toHaveBeenCalledWith('order-1', 'pickerl')
   })
+
+  it('removes the pending row when create rejects in list-pending mode', async () => {
+    const onPendingFailed = vi.fn()
+    const onPendingOrder = vi.fn()
+    const input = deps({
+      selectedVehicle: {
+        id: 'vehicle-1',
+        year: 2018,
+        make: 'VW',
+        model: 'Golf',
+        customer: { id: 'customer-1', first_name: 'Pilot', last_name: 'Customer' },
+      } as never,
+      createOrder: vi.fn().mockRejectedValue(Object.assign(new Error('down'), { status: 500 })),
+      pendingCallbacks: {
+        listPendingMode: true,
+        closeDialog: vi.fn(),
+        onPendingOrder,
+      },
+      notify: {
+        toastSuccess: vi.fn(),
+        onNavigateCreated: vi.fn(),
+        toastError: vi.fn(),
+        onConflict: vi.fn(),
+        onPendingFailed,
+      },
+    })
+
+    await expect(submitWorkshopIntakeOrder(input)).resolves.toBeUndefined()
+    expect(onPendingOrder).toHaveBeenCalledTimes(1)
+    const localId = onPendingOrder.mock.calls[0][1].localId as string
+    expect(onPendingFailed).toHaveBeenCalledWith(localId)
+    expect(input.pendingCallbacks.closeDialog).not.toHaveBeenCalled()
+    expect(input.notify.toastError).toHaveBeenCalled()
+  })
 })

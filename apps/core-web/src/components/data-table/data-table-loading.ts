@@ -72,11 +72,11 @@ export function shouldShowDataTableFetchError(
 
 export function shouldUseMobileDataTableList(
   isMobile: boolean,
-  isLoading: boolean,
+  showFirstLoadSkeleton: boolean,
   isStalePreview: boolean,
   bodyRowCount: number,
 ) {
-  return isMobile && !isLoading && !isStalePreview && bodyRowCount > 0
+  return isMobile && !showFirstLoadSkeleton && !isStalePreview && bodyRowCount > 0
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {

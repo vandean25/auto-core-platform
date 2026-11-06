@@ -66,7 +66,7 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
   )
   const useMobileList = shouldUseMobileDataTableList(
     isMobile,
-    isLoading,
+    presentation.showFirstLoadSkeleton,
     presentation.isStalePreview,
     bodyRowCount,
   )
@@ -92,7 +92,7 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
           showSkeleton={presentation.showFirstLoadSkeleton}
           ariaBusy={presentation.ariaBusy}
           isStalePreview={presentation.isStalePreview}
-          suppressEmptyState={isLoading && !hasUsableData}
+          suppressEmptyState={!hasUsableData && (isLoading || isError)}
           density={density}
           hideHeader={isMobile}
           openRowContextMenu={openRowContextMenu}
