@@ -560,11 +560,14 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
 
     const view = renderHook(
       () => {
-        useInfiniteQuery({
+        const list = useInfiniteQuery({
           queryKey: infiniteListKey,
           meta: infiniteListQueryMeta(infiniteCountKey),
           initialPageParam: undefined as string | undefined,
-          queryFn: async () => pageOne,
+          queryFn: async ({ pageParam }) => {
+            const url = pageParam === undefined ? LIST_URL : `${LIST_URL}?cursor=${String(pageParam)}`
+            return (await (await fetchWithAuth(url)).json()) as ListPage
+          },
           getNextPageParam: (lastPage) => lastPage.meta.next_cursor ?? undefined,
           staleTime: Infinity,
           initialData: seededInfinite(),
@@ -576,7 +579,7 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
           staleTime: Infinity,
           initialData: { count: 3, isCapped: false },
         })
-        return useMutation({
+        const mutation = useMutation({
           ...optimisticMutationOptions<InfiniteData<ListPage>, { id: string; label: string }>({
             queryKey: infiniteListKey,
             mutationKey: [...infiniteListKey, 'patch'],
@@ -587,6 +590,7 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
           }),
           mutationFn: async () => (await fetchWithAuth(PATCH_URL, { method: 'PATCH' })).json() as Promise<unknown>,
         })
+        return { list, mutation }
       },
       { wrapper },
     )
@@ -602,7 +606,7 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
     await act(async () => {
-      await view.result.current.mutateAsync({ id: 'row-a', label: 'ignored' })
+      await view.result.current.mutation.mutateAsync({ id: 'row-a', label: 'ignored' })
     })
 
     expect(invalidateSpy).toHaveBeenCalledWith({
@@ -627,7 +631,7 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     })
 
     await act(async () => {
-      await view.result.current.mutateAsync({ id: 'row-b', label: 'Beta-updated' })
+      await view.result.current.mutation.mutateAsync({ id: 'row-b', label: 'Beta-updated' })
     })
 
     const flat = queryClient
@@ -647,7 +651,7 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     })
 
     await act(async () => {
-      await view.result.current.mutateAsync({ id: 'row-a', label: 'ignored' })
+      await view.result.current.mutation.mutateAsync({ id: 'row-a', label: 'ignored' })
     })
 
     const flat = queryClient
@@ -702,50 +706,13 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
   })
 
   it('reloads page one and the count when the user clicks Liste aktualisieren', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    const { view } = renderInfiniteMutationHarness({
+      shouldOptimistic: () => false,
+      apply: (cache) => cache,
     })
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>
-        {children}
-        <InfiniteListRefreshNotice queryKey={infiniteListKey} />
-      </QueryClientProvider>
-    )
-    const { result } = renderHook(
-      () => {
-        useInfiniteQuery({
-          queryKey: infiniteListKey,
-          meta: infiniteListQueryMeta(infiniteCountKey),
-          initialPageParam: undefined as string | undefined,
-          queryFn: async () => (await (await fetchWithAuth(LIST_URL)).json()) as ListPage,
-          getNextPageParam: (lastPage) => lastPage.meta.next_cursor ?? undefined,
-          staleTime: Infinity,
-          initialData: seededInfinite(),
-        })
-        useQuery({
-          queryKey: infiniteCountKey,
-          queryFn: async () =>
-            (await (await fetchWithAuth(COUNT_URL)).json()) as { count: number; isCapped: boolean },
-          staleTime: Infinity,
-          initialData: { count: 3, isCapped: false },
-        })
-        return useMutation({
-          ...optimisticMutationOptions<InfiniteData<ListPage>, { id: string; label: string }>({
-            queryKey: infiniteListKey,
-            mutationKey: [...infiniteListKey, 'patch'],
-            entityId: ({ id }) => id,
-            apply: (cache) => cache,
-            revert: (_cache, _variables, snapshot) => snapshot,
-            shouldOptimistic: () => false,
-          }),
-          mutationFn: async () => (await fetchWithAuth(PATCH_URL, { method: 'PATCH' })).json() as Promise<unknown>,
-        })
-      },
-      { wrapper },
-    )
 
     await act(async () => {
-      await result.current.mutateAsync({ id: 'row-a', label: 'ignored' })
+      await view.result.current.mutation.mutateAsync({ id: 'row-a', label: 'ignored' })
     })
 
     listGetUrls.length = 0
@@ -757,7 +724,79 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
 
     await waitFor(() => expect(listGetUrls).toEqual([LIST_URL]))
     await waitFor(() => expect(countGets).toBe(1))
-    expect(queryClient.getQueryData<InfiniteData<ListPage>>(infiniteListKey)?.pages).toHaveLength(1)
+    await waitFor(() => expect(view.result.current.list.data?.pages).toHaveLength(1))
+    expect(screen.queryByRole('button', { name: 'Liste aktualisieren' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the loaded chain and the refresh notice when page one fails', async () => {
+    const { view, queryClient } = renderInfiniteMutationHarness({
+      shouldOptimistic: () => false,
+      apply: (cache) => cache,
+    })
+    await act(async () => {
+      await view.result.current.mutation.mutateAsync({ id: 'row-a', label: 'ignored' })
+    })
+    vi.mocked(fetchWithAuth).mockImplementation((input) => {
+      if (String(input) === LIST_URL) return Promise.reject(new Error('offline'))
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ count: 3, isCapped: false }) } as Response)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Liste aktualisieren' }))
+    })
+
+    await waitFor(() => expect(view.result.current.list.data?.pages).toHaveLength(2))
+    expect(queryClient.getQueryData<InfiniteData<ListPage>>(infiniteListKey)?.pages).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Liste aktualisieren' })).toBeInTheDocument()
+  })
+
+  it('keeps a page loaded during a field patch instead of reverting it', async () => {
+    let releasePatch: (() => void) | undefined
+    vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
+      const url = String(input)
+      if ((init?.method ?? 'GET') === 'PATCH') {
+        return new Promise<Response>((resolve) => {
+          releasePatch = () => resolve({ ok: true, status: 200, json: async () => ({}) } as Response)
+        })
+      }
+      if (url === `${LIST_URL}?cursor=cursor-page-3`) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [{ id: 'row-d', label: 'Delta' }], meta: { next_cursor: null } }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => pageOne } as Response)
+    })
+    const { view, queryClient } = renderInfiniteMutationHarness({
+      apply: (cache, { id, label }) => ({
+        ...cache,
+        pages: cache.pages.map((page) => ({
+          ...page,
+          data: page.data.map((row) => (row.id === id ? { ...row, label } : row)),
+        })),
+      }),
+    })
+    queryClient.setQueryData<InfiniteData<ListPage>>(infiniteListKey, {
+      pages: [pageOne, { ...pageTwo, meta: { next_cursor: 'cursor-page-3' } }],
+      pageParams: [undefined, 'cursor-page-2'],
+    })
+
+    act(() => {
+      view.result.current.mutation.mutate({ id: 'row-b', label: 'Beta-updated' })
+    })
+    await settle()
+    await act(async () => {
+      await view.result.current.list.fetchNextPage()
+    })
+    await act(async () => {
+      releasePatch?.()
+    })
+
+    await waitFor(() => expect(view.result.current.mutation.isSuccess).toBe(true))
+    const ids = view.result.current.list.data?.pages.flatMap((page) => page.data.map((row) => row.id))
+    expect(ids).toEqual(['row-a', 'row-b', 'row-c', 'row-d'])
+    expect(view.result.current.list.data?.pages[0]?.data[1]?.label).toBe('Beta-updated')
     expect(screen.queryByRole('button', { name: 'Liste aktualisieren' })).not.toBeInTheDocument()
   })
 })

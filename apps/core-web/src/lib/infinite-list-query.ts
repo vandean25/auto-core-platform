@@ -77,7 +77,7 @@ export function rowIdsPreserveMembershipAndOrder(
   after: readonly string[] | undefined,
 ): boolean {
   if (before === undefined || after === undefined) return false
-  if (before.length !== after.length) return false
+  if (after.length < before.length) return false
   return before.every((id, index) => id === after[index])
 }
 
@@ -124,51 +124,55 @@ export function resetInfiniteListStaleStateForTests() {
   notifyStaleListeners()
 }
 
+function initialPageParamOf(query: Query): unknown {
+  return (query.options as { initialPageParam?: unknown }).initialPageParam
+}
+
+async function readFirstPage(client: QueryClient, query: Query): Promise<unknown> {
+  const queryFn = query.options.queryFn
+  if (typeof queryFn !== 'function') return undefined
+  const pageFn = queryFn as QueryFunction<unknown, QueryKey, unknown>
+  const controller = new AbortController()
+  return pageFn({
+    client,
+    queryKey: query.queryKey,
+    signal: controller.signal,
+    meta: query.meta,
+    pageParam: initialPageParamOf(query),
+    direction: 'forward',
+  })
+}
+
+async function refetchCountQuery(client: QueryClient, countQueryKey: QueryKey | undefined) {
+  if (countQueryKey === undefined) return
+  const countQuery = client.getQueryCache().find({ queryKey: countQueryKey, exact: true })
+  const countQueryFn = countQuery?.options.queryFn
+  if (!countQuery || typeof countQueryFn !== 'function') return
+  await client.fetchQuery({
+    queryKey: countQueryKey,
+    queryFn: countQueryFn,
+    meta: countQuery.meta,
+  })
+}
+
 export async function refreshInfiniteList(client: QueryClient, queryKey: QueryKey) {
   const query = client.getQueryCache().find({ queryKey, exact: true })
+  if (!query) return
   const countQueryKey = readInfiniteListMeta(query)?.countQueryKey
 
-  clearInfiniteListStaleNotice(queryKey)
   await client.cancelQueries({ queryKey, exact: true })
   if (countQueryKey !== undefined) {
     await client.cancelQueries({ queryKey: countQueryKey, exact: true })
   }
 
-  const savedInfiniteOptions = query
-    ? {
-        queryFn: query.options.queryFn,
-        initialPageParam: (query.options as { initialPageParam?: unknown }).initialPageParam,
-        getNextPageParam: (query.options as { getNextPageParam?: (lastPage: unknown) => unknown })
-          .getNextPageParam,
-        meta: query.meta,
-      }
-    : undefined
-
-  if (savedInfiniteOptions?.queryFn && typeof savedInfiniteOptions.queryFn === 'function') {
-    client.removeQueries({ queryKey, exact: true })
-    await client.fetchInfiniteQuery({
-      queryKey,
-      queryFn: savedInfiniteOptions.queryFn as QueryFunction<unknown, QueryKey, unknown>,
-      initialPageParam: savedInfiniteOptions.initialPageParam as unknown,
-      getNextPageParam: savedInfiniteOptions.getNextPageParam as
-        | ((lastPage: unknown) => unknown)
-        | undefined,
-      meta: savedInfiniteOptions.meta,
-    })
-  }
-
-  if (countQueryKey !== undefined) {
-    const countQuery = client.getQueryCache().find({ queryKey: countQueryKey, exact: true })
-    const countQueryFn = countQuery?.options.queryFn
-    if (countQuery && typeof countQueryFn === 'function') {
-      client.removeQueries({ queryKey: countQueryKey, exact: true })
-      await client.fetchQuery({
-        queryKey: countQueryKey,
-        queryFn: countQueryFn,
-        meta: countQuery.meta,
-      })
-    }
-  }
+  const page = await readFirstPage(client, query)
+  if (page === undefined) return
+  await refetchCountQuery(client, countQueryKey)
+  client.setQueryData(queryKey, {
+    pages: [page],
+    pageParams: [initialPageParamOf(query)],
+  })
+  clearInfiniteListStaleNotice(queryKey)
 }
 
 export type InfiniteListSettlementDecision = 'field-only' | 'stale' | 'reverted-and-stale'
@@ -192,10 +196,10 @@ export function settleInfiniteListAfterMutation(
 
   if (snapshot !== undefined && beforeIds !== undefined && afterIds !== undefined) {
     client.setQueryData(queryKey, snapshot)
+    markInfiniteListStale(client, queryKey)
+    return 'reverted-and-stale'
   }
 
   markInfiniteListStale(client, queryKey)
-  return beforeIds !== undefined && afterIds !== undefined && !rowIdsPreserveMembershipAndOrder(beforeIds, afterIds)
-    ? 'reverted-and-stale'
-    : 'stale'
+  return 'stale'
 }

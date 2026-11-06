@@ -22,7 +22,7 @@ export function InfiniteListRefreshNotice({ queryKey }: InfiniteListRefreshNotic
       className="min-h-11"
       disabled={isRefreshing}
       onClick={() => {
-        void refresh()
+        void refresh().catch(() => undefined)
       }}
     >
       {t('dataTable.refreshList')}

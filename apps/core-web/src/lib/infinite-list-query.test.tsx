@@ -24,6 +24,7 @@ describe('infinite-list-query helpers', () => {
     expect(isInfiniteDataShape(cache)).toBe(true)
     expect(listRowIdsFromCache(cache)).toEqual(['a', 'b', 'c'])
     expect(rowIdsPreserveMembershipAndOrder(['a', 'b'], ['a', 'b'])).toBe(true)
+    expect(rowIdsPreserveMembershipAndOrder(['a', 'b'], ['a', 'b', 'c'])).toBe(true)
     expect(rowIdsPreserveMembershipAndOrder(['a', 'b'], ['b', 'a'])).toBe(false)
   })
 
