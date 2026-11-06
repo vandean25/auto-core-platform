@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import { useInventory } from './inventory'
+import { isInventoryCursorSort, useInventory } from './inventory'
 import { fetchWithAuth } from './client'
 
 vi.mock('./client', () => ({
@@ -58,5 +58,20 @@ describe('inventory api hooks', () => {
       expect(result.current.isSuccess).toBe(true)
     })
     expect(fetchWithAuth).toHaveBeenCalledWith('/api/inventory?page=1&pageSize=10')
+  })
+})
+
+describe('isInventoryCursorSort', () => {
+  // Regression (AUT-890): the infinite list must only run on the sorts the API whitelists for cursors, else it answers
+  // LIST_CURSOR_SORT_UNSUPPORTED. Unsorted lists use the server default (sku).
+  it.each([
+    [undefined, true],
+    ['sku', true],
+    ['name', true],
+    ['price', true],
+    ['status', false],
+    ['warehouse_location', false],
+  ])('sortField %s -> cursor mode %s', (sortField, expected) => {
+    expect(isInventoryCursorSort(sortField)).toBe(expected)
   })
 })

@@ -27,6 +27,9 @@ export type DataTableInfiniteProps = {
   fetchNextPage: () => unknown
   /** From the separate capped count query; leave out while unknown. */
   totalCount?: { count: number; isCapped: boolean }
+  /** The count request failed: the rows stay usable, the table offers "Anzahl nicht verfügbar" with a retry. */
+  isCountError?: boolean
+  retryCount?: () => void
 }
 
 export type DataTableCoreProps<TData extends object> = {

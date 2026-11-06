@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { InventoryItem, InventoryResponse, InventoryTransaction } from './types'
 import { fetchWithAuth } from './client'
+import { useCursorList } from './cursor-list'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 type InventoryApiResponse = {
@@ -20,9 +21,21 @@ export type InventoryItemDetail = InventoryItem & {
     cost_price: number
 }
 
+type InventoryCursorFilters = { search?: string; location?: string }
+type InventoryCursorParams = InventoryCursorFilters & { sortField?: string; sortDirection?: 'asc' | 'desc' }
+
+/** Sorts the API whitelists for cursor paging (ADR-0035); any other sort stays on offset paging. */
+const INVENTORY_CURSOR_SORT_FIELDS = new Set(['sku', 'name', 'price'])
+
+export function isInventoryCursorSort(sortField?: string): boolean {
+    return !sortField || INVENTORY_CURSOR_SORT_FIELDS.has(sortField)
+}
+
 export const inventoryKeys = {
     all: ['inventory'] as const,
     list: (params: { page?: number; pageSize?: number; search?: string; brand?: string; location?: string; sortField?: string; sortDirection?: 'asc' | 'desc' }) => [...inventoryKeys.all, 'list', params] as const,
+    cursorList: (params: InventoryCursorParams) => [...inventoryKeys.all, 'cursor-list', params] as const,
+    cappedCount: (filters: InventoryCursorFilters) => [...inventoryKeys.all, 'capped-count', filters] as const,
     detail: (itemId: string) => [...inventoryKeys.all, 'detail', itemId] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
     sku: (sku?: string, itemId?: string) => [...inventoryKeys.all, 'sku', sku ?? '', itemId ?? ''] as const,
@@ -80,6 +93,20 @@ export function useInventory(
             const payload = (await response.json()) as InventoryApiResponse
             return normalizeInventoryResponse(payload)
         },
+    })
+}
+
+/** Infinite parts list (cap 2,000 rows) with its capped count; idle while the offset list is in charge. */
+export function useInventoryCursorList(params: InventoryCursorParams, enabled: boolean) {
+    const filters = { search: params.search, location: params.location }
+    return useCursorList<InventoryItem>({
+        enabled,
+        path: '/api/inventory',
+        countPath: '/api/inventory/capped-count',
+        listKey: inventoryKeys.cursorList(params),
+        countKey: inventoryKeys.cappedCount(filters),
+        params,
+        countParams: filters,
     })
 }
 

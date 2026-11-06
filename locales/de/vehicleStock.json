@@ -15,6 +15,8 @@
     "addVehicle": "Fahrzeug",
     "saveViewTitle": "Fahrzeugbestand",
     "searchPlaceholder": "FIN, Kennzeichen, Fahrzeug, Farbe",
+    "statusFilterAria": "Status filtern",
+    "allStatuses": "Alle Status",
     "deleteDraftConfirm": "Diesen Einkaufsentwurf wirklich löschen?",
     "draftDeleted": "Einkaufsentwurf gelöscht",
     "deleteDraftFailed": "Einkaufsentwurf konnte nicht gelöscht werden",

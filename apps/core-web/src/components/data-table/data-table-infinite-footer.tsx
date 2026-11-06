@@ -24,6 +24,32 @@ export function DataTableInfiniteRefresh({ view }: { view: DataTableInfiniteView
   )
 }
 
+/** The capped match count above the rows ("1.000+ Treffer"); a failed count never blocks the rows (ADR-0035 §5). */
+export function DataTableInfiniteCount({ view }: { view: DataTableInfiniteView | undefined }) {
+  const { t } = useTranslation('common')
+  if (!view) return null
+  const { totalCount, isCountError, retryCount } = view
+  if (totalCount) {
+    const formatted = formatNumber(totalCount.count)
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="data-table-count">
+        {totalCount.isCapped
+          ? t('dataTable.infinite.countCapped', { formatted })
+          : t('dataTable.infinite.count', { count: totalCount.count, formatted })}
+      </p>
+    )
+  }
+  if (!isCountError || !retryCount) return null
+  return (
+    <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+      {t('dataTable.infinite.countUnavailable')}
+      <Button type="button" variant="outline" size="sm" className="max-md:min-h-11" onClick={retryCount}>
+        {t('dataTable.loading.retry')}
+      </Button>
+    </p>
+  )
+}
+
 /**
  * Below the rows of an infinite list: the keyboard-reachable "load more" button, the 2,000-row stop, the retry row
  * after a failed page, and one polite announcement of what happened (loading, end, limit, error).

@@ -7,11 +7,13 @@ import { Car, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { StatusBadge } from '@/components/status/StatusBadge'
+import { StatusBadge, formatStatusLabel } from '@/components/status/StatusBadge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useVehicleStockListState } from '@/api/vehicle-stock-list'
 import { Button } from '@/components/ui/button'
 import {
+  VEHICLE_STOCK_STATUS_OPTIONS,
   useDeleteVehiclePurchase,
-  useVehicleStock,
   vehiclePurchaseDetailQueryOptions,
   vehicleStockDetailQueryOptions,
   type VehicleStockRow,
@@ -38,11 +40,17 @@ export default function VehicleStockList() {
   const navigate = useNavigate()
   const role = useAuthRole()
   const queryClient = useQueryClient()
-  const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const { data: responseData, isLoading } = useVehicleStock(queryParams)
+  const { queryParams, columnFilters, setColumnFilters, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
+  const statusFilter = queryParams.filters.find((filter) => filter.field === 'stock_status')?.value
+  const { rows, tableProps } = useVehicleStockListState(queryParams)
   const deletePurchase = useDeleteVehiclePurchase()
 
-  const rows = useMemo(() => responseData?.data ?? [], [responseData])
+  const handleStatusFilter = (value: string) => {
+    setColumnFilters((previous) => {
+      const without = previous.filter((filter) => filter.id !== 'stock_status')
+      return value === '_all' ? without : [...without, { id: 'stock_status', value }]
+    })
+  }
   const na = t('shared.notAvailable')
   const emDash = t('shared.emDash')
 
@@ -115,6 +123,7 @@ export default function VehicleStockList() {
       },
       {
         accessorKey: 'stock_status',
+        meta: { mobile: 'status' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('stockList.columns.status')} />
         ),
@@ -146,12 +155,29 @@ export default function VehicleStockList() {
         </div>
       </div>
 
+      <div className="mb-4 flex items-center gap-2">
+        <Select value={statusFilter ?? '_all'} onValueChange={handleStatusFilter}>
+          <SelectTrigger className="h-11 w-[220px] max-w-full md:h-8" aria-label={t('stockList.statusFilterAria')}>
+            <SelectValue placeholder={t('stockList.allStatuses')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">{t('stockList.allStatuses')}</SelectItem>
+            {VEHICLE_STOCK_STATUS_OPTIONS.map((status) => (
+              <SelectItem key={status} value={status}>
+                {formatStatusLabel(status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <DataTable
         columns={columns}
         data={rows}
         saveViewTitle={t('stockList.saveViewTitle')}
-        pageCount={responseData?.meta?.pageCount ?? 1}
-        isLoading={isLoading}
+        {...tableProps}
+        columnFilters={columnFilters}
+        setColumnFilters={setColumnFilters}
         searchPlaceholder={t('stockList.searchPlaceholder')}
         rowBehaviour={{
           onRowClick: (row) => navigate(stockRowPath(row)),

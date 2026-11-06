@@ -3,7 +3,7 @@ import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstac
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { densityTokens } from '@/lib/density-tokens'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { bindSingleKeyShortcutsUser } from '@/features/shortcuts/single-key-shortcuts-setting'
@@ -23,6 +23,7 @@ import {
   scrollRegion,
   scrollTo,
   seedLoadedPages,
+  settleVirtualizerTimers,
   type PageRequest,
 } from './data-table-infinite-test-utils'
 import deCommon from '../../../../../locales/de/common.json'
@@ -347,6 +348,7 @@ describe('DataTable infinite mode (AUT-889)', () => {
     bindSingleKeyShortcutsUser('infinite-test')
   })
   afterEach(() => restoreLayout())
+  afterAll(settleVirtualizerTimers)
 
   // Pilot check "Requests", scenario 1: a scroll handler that fetched on every event cancelled the running fetch each time.
   it('WHEN the user scrolls to one viewport before the end and hasNextPage is true THEN exactly one next-page fetch starts', async () => {
@@ -660,6 +662,42 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(document.querySelector('tr[data-table-header]')).toHaveAttribute('aria-rowindex', '1')
     expect(document.querySelector('tr[data-row-key="r0"]')).toHaveAttribute('aria-rowindex', '2')
     expect(document.querySelector('tr[data-row-key="r5"]')).toHaveAttribute('aria-rowindex', '7')
+  })
+
+  // Pilot check "Zähler": a capped count is shown as "1.000+", never as a complete total.
+  it.each([
+    { totalCount: { count: 1000, isCapped: true }, text: '1.000+ Treffer' },
+    { totalCount: { count: 250, isCapped: false }, text: '250 Treffer' },
+    { totalCount: { count: 1, isCapped: false }, text: '1 Treffer' },
+  ])('WHEN the count is $totalCount THEN the table shows "$text"', ({ totalCount, text }) => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} totalCount={totalCount} />)
+
+    expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  // Pilot check "Zähler": a failed count never blocks the rows; it offers a retry of the count only.
+  it('WHEN only the count failed THEN the rows stay and "Anzahl nicht verfügbar" offers a retry', () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    const retryCount = vi.fn()
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} isCountError retryCount={retryCount} />)
+
+    expect(renderedRowIds().length).toBeGreaterThan(0)
+    expect(screen.getByText(infiniteDt.infinite.countUnavailable)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: infiniteDt.loading.retry }))
+    expect(retryCount).toHaveBeenCalledTimes(1)
+  })
+
+  // AUT-890 scenario 3: an old ?page=3 link must start the infinite list at the top, not on a page that no longer exists.
+  it('WHEN an old link opens page 3 THEN the infinite list resets to page index 0 and shows the first rows', async () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} initialPageIndex={2} />)
+
+    await waitFor(() => expect(screen.getByTestId('page-index')).toHaveTextContent('0'))
+    expect(renderedRowIds()[0]).toBe('r0')
   })
 
   // Pilot check "Requests": "Weitere laden" is the way for keyboard users; it must not start a second parallel fetch.

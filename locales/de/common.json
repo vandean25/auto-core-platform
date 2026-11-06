@@ -90,7 +90,11 @@
       "loadMoreFailed": "Weitere Zeilen konnten nicht geladen werden.",
       "capReached": "Es werden höchstens {{max}} Zeilen geladen. Filter verfeinern.",
       "endReached_one": "Ende der Liste, eine Zeile geladen.",
-      "endReached_other": "Ende der Liste, {{count}} Zeilen geladen."
+      "endReached_other": "Ende der Liste, {{count}} Zeilen geladen.",
+      "count_one": "{{formatted}} Treffer",
+      "count_other": "{{formatted}} Treffer",
+      "countCapped": "{{formatted}}+ Treffer",
+      "countUnavailable": "Anzahl nicht verfügbar"
     }
   },
   "dashboard": {

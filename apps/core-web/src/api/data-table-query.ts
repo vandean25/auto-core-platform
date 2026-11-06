@@ -9,6 +9,14 @@ interface BuildDataTableUrlOptions {
   maxPageSize?: number
 }
 
+/** The search text of a list: the search box, else the first non-empty fallback filter (old links and saved views). */
+export function resolveListSearch(queryParams: DataTableQueryParams, fallbackFilterFields?: string[]) {
+  const searchFallback = fallbackFilterFields
+    ?.map((field) => queryParams.filters.find((f) => f.field === field)?.value)
+    .find(Boolean)
+  return typeof queryParams.search === 'string' && queryParams.search.trim() !== '' ? queryParams.search : searchFallback
+}
+
 export function buildDataTableUrl(
   baseUrl: string,
   queryParams?: DataTableQueryParams,
@@ -29,13 +37,7 @@ export function buildDataTableUrl(
     params.append('sortField', mappedSortField)
   }
 
-  const searchFallback = options.searchFallbackFilterFields
-    ?.map((field) => queryParams.filters.find((f) => f.field === field)?.value)
-    .find(Boolean)
-  const search =
-    typeof queryParams.search === 'string' && queryParams.search.trim() !== ''
-      ? queryParams.search
-      : searchFallback
+  const search = resolveListSearch(queryParams, options.searchFallbackFilterFields)
   if (search) {
     params.append('search', search)
   }
