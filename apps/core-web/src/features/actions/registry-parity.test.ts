@@ -319,12 +319,28 @@ describe('src/pages and src/features action registry parity guard', () => {
 
 const t = ((key: string) => key) as unknown as TFunction<never>
 
-/** Each registry list is its own row surface; keys must be unique within it. */
+/**
+ * Each registry list is its own row surface; keys must be unique within it. Add a new list here with
+ * the module that declares its actions: the completeness test below fails for a module that declares a
+ * `shortcutKey` and is missing from this map.
+ */
 const REAL_ROW_SURFACES = {
-  customers: createCustomerRowActions(t as never),
-  vehicles: createVehicleRowActions(t as never),
-  estimates: createEstimateRowActions(t as never),
-  workOrders: createWorkshopOrderRowActions(t as never),
+  customers: {
+    file: 'features/actions/customer-row-actions.ts',
+    definitions: createCustomerRowActions(t as never),
+  },
+  vehicles: {
+    file: 'features/actions/vehicle-row-actions.ts',
+    definitions: createVehicleRowActions(t as never),
+  },
+  estimates: {
+    file: 'features/actions/estimate-row-actions.ts',
+    definitions: createEstimateRowActions(t as never),
+  },
+  workOrders: {
+    file: 'features/actions/work-order-row-actions.ts',
+    definitions: createWorkshopOrderRowActions(t as never),
+  },
 }
 
 /**
@@ -362,7 +378,9 @@ function findShortcutRegistrationViolations(sources: Record<string, string>): st
 
 function realShortcutModel(): ShortcutParityModel {
   return {
-    rowSurfaces: REAL_ROW_SURFACES,
+    rowSurfaces: Object.fromEntries(
+      Object.entries(REAL_ROW_SURFACES).map(([surface, { definitions }]) => [surface, definitions]),
+    ),
     simultaneousGroups: REAL_SIMULTANEOUS_GROUPS,
     dataTableKeys: DATA_TABLE_ROW_KEYS,
     globalKeys: GLOBAL_PLAIN_KEYS,
@@ -479,6 +497,18 @@ describe('shortcut parity (ADR-0036 R5)', () => {
 
     expect(childType).toContain('EntityActionChild')
     expect(childType).not.toContain('shortcutKey')
+  })
+
+  it('covers every module that declares a shortcutKey in REAL_ROW_SURFACES', () => {
+    const declaring = Object.entries(productionSources)
+      .filter(
+        ([path, source]) =>
+          path !== 'features/actions/entity-action.ts' && /\bshortcutKey:/.test(analyzeSource(source).masked),
+      )
+      .map(([path]) => path)
+      .sort()
+
+    expect(declaring).toEqual(Object.values(REAL_ROW_SURFACES).map(({ file }) => file).sort())
   })
 
   it('keeps the dispatcher key sets inside the reserved list and ranks row above global', () => {
