@@ -31,34 +31,36 @@ export function isFocusOnDataTableRow(): boolean {
   return getFocusedDataTableRowId() !== null
 }
 
-export function isRowShortcutEnabled(event: KeyboardEvent): boolean {
-  return (
-    !isShortcutLayerSuspended() &&
-    isFocusOnDataTableRow() &&
-    !hasShortcutModifier(event)
-  )
-}
+const EDITABLE_ROLE_SELECTOR =
+  '[role="textbox"], [role="searchbox"], [role="combobox"], [role="spinbutton"], [contenteditable]:not([contenteditable="false"])'
 
-export function isGlobalShortcutEnabled(event: KeyboardEvent): boolean {
-  return !isShortcutLayerSuspended() && !hasShortcutModifier(event)
-}
-
-export function isEditableControlFocused(): boolean {
-  if (typeof document === 'undefined') {
+/** Text entry or typeahead owner: inputs, textareas, selects, contenteditable and ARIA equivalents. */
+export function isEditableElement(element: EventTarget | null): boolean {
+  if (!(element instanceof Element)) {
     return false
   }
-  const active = document.activeElement
-  if (!active) {
-    return false
-  }
-  const tagName = active.tagName
+  const tagName = element.tagName
   if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
     return true
   }
-  if (active instanceof HTMLElement && active.isContentEditable) {
-    return true
-  }
-  return false
+  return (
+    (element instanceof HTMLElement && element.isContentEditable) ||
+    element.closest(EDITABLE_ROLE_SELECTOR) !== null
+  )
+}
+
+export function isEditableControlFocused(): boolean {
+  return typeof document !== 'undefined' && isEditableElement(document.activeElement)
+}
+
+/** IME composition: the browser reports keyCode 229 / isComposing while a candidate is being built. */
+export function isComposingKeyEvent(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === 229
+}
+
+/** Plain character: browser/AT modifier chords (Ctrl, Cmd, Alt/AltGr) never qualify; Shift only for `?`. */
+export function isPlainShortcutKey(event: KeyboardEvent): boolean {
+  return !hasShortcutModifier(event) && (!event.shiftKey || event.key === '?')
 }
 
 /** Latest eligible undo only; never intercept native text undo in editable controls. */
@@ -71,4 +73,16 @@ export function isEligibleUndoShortcutEnabled(event: KeyboardEvent): boolean {
     return false
   }
   return (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+}
+
+/** True when the keystroke is not ours: handled already, composing, chord, or typed into/over an editable control. */
+export function shouldIgnoreShortcutEvent(event: KeyboardEvent): boolean {
+  return (
+    event.defaultPrevented ||
+    isComposingKeyEvent(event) ||
+    !isPlainShortcutKey(event) ||
+    isShortcutLayerSuspended() ||
+    isEditableElement(event.target) ||
+    isEditableControlFocused()
+  )
 }

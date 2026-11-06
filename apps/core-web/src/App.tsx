@@ -159,7 +159,7 @@ function AppShell({
               <EntityActionConfirmHost />
               <IosInstallHint />
               <UndoEligibleEntrySessionSync />
-              <GlobalShortcutLayer />
+              <GlobalShortcutLayer userKey={effectiveUserKey} />
               <AppMain />
               <AdminPhoneNav platformRole={platformRole} activeRole={activeRole} onOpenSearch={() => setSearchOpen(true)} />
             </SidebarProvider>

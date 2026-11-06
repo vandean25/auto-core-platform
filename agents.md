@@ -114,6 +114,8 @@ Binding contract: [ADR-0036 Frontend interaction rules](docs/internal/01-ADR/202
 
 **Target vs current behavior:** `classification` in `workshop-mutation-inventory.json` is the ADR **target** (what the guard will enforce after migration). Hooks that still spread `optimisticMutationOptions` while classified `server-confirmed` must appear in `unmigrated-optimistic-consumers.baseline.json` until P4 removes the helper usage. Plain `useMutation` hooks classified `optimistic` are aspirational until they adopt the shared helper (AUT-893 will trace optimistic entries to `@/lib/optimistic-mutation`).
 
+**Keyboard shortcuts (R5, AUT-877):** single-key shortcuts go through the one dispatcher in `src/features/shortcuts/shortcut-dispatcher.ts` (scopes `row` > `global`, dialogs suspend both). Register with `useShortcutHandler`; do not add `useHotkeys` for plain character keys. A record action gets its key via `shortcutKey` on the registry definition; keys must be unique per list and not in `RESERVED_SINGLE_KEYS` (enforced by `shortcut-key-uniqueness.test.ts`). The per-user "Single-key shortcuts" setting (localStorage, account menu) switches every dispatcher key off; Cmd/Ctrl combos stay outside it.
+
 **Adding a work-order or mechanic-queue mutation**
 
 1. Implement the TanStack `useMutation` hook (or reuse a shared helper) in the appropriate `src/api/` module.

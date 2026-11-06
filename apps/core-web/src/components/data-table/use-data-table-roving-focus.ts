@@ -56,5 +56,5 @@ export function useDataTableRovingFocus<TData extends object>(
     }
   }
 
-  return { handleArrowFocus, tabIndexForRow, onRowFocus }
+  return { handleArrowFocus, tabIndexForRow, onRowFocus, hasRovingRows: rovingRowIndices.length > 0 }
 }

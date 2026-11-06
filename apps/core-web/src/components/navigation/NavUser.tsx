@@ -1,8 +1,9 @@
-import { BookOpen, Check, ExternalLink, Monitor, Moon, Sun, UserRound } from 'lucide-react'
+import { BookOpen, Check, ExternalLink, Keyboard, Monitor, Moon, Sun, UserRound } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useTranslation } from 'react-i18next'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -15,6 +16,11 @@ import { SidebarMenu, SidebarMenuItem, useSidebar } from '@/components/ui/sideba
 import { InstallAppMenuItem } from '@/components/pwa/InstallAppMenuItem'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
 import { useUiLanguage, type UiLanguage } from '@/lib/i18n'
+import { openShortcutHelp } from '@/features/shortcuts/shortcut-help-trigger'
+import {
+  setSingleKeyShortcutsEnabled,
+  useSingleKeyShortcutsEnabled,
+} from '@/features/shortcuts/single-key-shortcuts-setting'
 import { SidebarDropdownButton } from './SidebarDropdownButton'
 
 const THEME_CHOICES = [
@@ -43,6 +49,7 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
   const { isMobile } = useSidebar()
   const { language, setLanguage, isSwitching, switchError, labels } = useUiLanguage()
   const { theme = 'system', setTheme } = useTheme()
+  const singleKeyShortcuts = useSingleKeyShortcutsEnabled()
   const initials = initialsFor(userEmail)
   const accountLabel = userEmail ?? tCommon('profile.menuLabel')
 
@@ -108,6 +115,21 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem
+              checked={singleKeyShortcuts}
+              onCheckedChange={setSingleKeyShortcutsEnabled}
+              onSelect={(event) => event.preventDefault()}
+              className="max-sm:min-h-11"
+              data-testid="single-key-shortcuts-toggle"
+            >
+              {t('user.singleKeyShortcuts')}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuItem onSelect={openShortcutHelp} className="max-sm:min-h-11">
+              <Keyboard aria-hidden="true" />
+              <span className="flex-1">{t('user.shortcutsHelp')}</span>
+            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
             <InstallAppMenuItem />

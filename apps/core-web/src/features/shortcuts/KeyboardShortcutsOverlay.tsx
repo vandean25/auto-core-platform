@@ -8,6 +8,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Kbd } from '@/components/ui/kbd'
+import { useShortcutHelpEntries } from './shortcut-help-entries'
+import { useSingleKeyShortcutsEnabled } from './single-key-shortcuts-setting'
 
 function isMacPlatform(): boolean {
   if (typeof navigator === 'undefined') {
@@ -45,6 +47,8 @@ export function KeyboardShortcutsOverlay({
 }: KeyboardShortcutsOverlayProps) {
   const { t } = useTranslation('common')
   const mod = isMacPlatform() ? '⌘' : 'Ctrl'
+  const singleKeyEnabled = useSingleKeyShortcutsEnabled()
+  const listEntries = useShortcutHelpEntries()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,25 +70,37 @@ export function KeyboardShortcutsOverlay({
               keys={[mod, 'B']}
               label={t('shortcuts.entries.toggleSidebar')}
             />
-            <ShortcutRow keys={['?']} label={t('shortcuts.entries.showHelp')} />
+            {singleKeyEnabled ? (
+              <ShortcutRow keys={['?']} label={t('shortcuts.entries.showHelp')} />
+            ) : null}
           </section>
-          <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('shortcuts.sections.navigation')}
-            </h3>
-            <ShortcutRow
-              keys={['G', 'W']}
-              label={t('shortcuts.entries.goWorkshopOrders')}
-            />
-            <ShortcutRow keys={['G', 'C']} label={t('shortcuts.entries.goCustomers')} />
-            <ShortcutRow keys={['G', 'V']} label={t('shortcuts.entries.goVehicles')} />
-          </section>
-          <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('shortcuts.sections.lists')}
-            </h3>
-            <ShortcutRow keys={['O']} label={t('shortcuts.entries.rowOpenDetail')} />
-          </section>
+          {singleKeyEnabled ? (
+            <>
+              <section>
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('shortcuts.sections.navigation')}
+                </h3>
+                <ShortcutRow
+                  keys={['G', 'W']}
+                  label={t('shortcuts.entries.goWorkshopOrders')}
+                />
+                <ShortcutRow keys={['G', 'C']} label={t('shortcuts.entries.goCustomers')} />
+                <ShortcutRow keys={['G', 'V']} label={t('shortcuts.entries.goVehicles')} />
+              </section>
+              {listEntries.length > 0 ? (
+                <section>
+                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('shortcuts.sections.lists')}
+                  </h3>
+                  {listEntries.map((entry) => (
+                    <ShortcutRow key={entry.id} keys={entry.keys} label={entry.label} />
+                  ))}
+                </section>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('shortcuts.singleKeyOff')}</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
