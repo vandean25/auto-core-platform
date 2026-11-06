@@ -92,7 +92,9 @@
       "system": "System"
     },
     "helpDocs": "Hilfe / Dokumentation",
-    "helpDocsOpensNewTab": "Hilfe / Dokumentation (öffnet in neuem Tab)"
+    "helpDocsOpensNewTab": "Hilfe / Dokumentation (öffnet in neuem Tab)",
+    "shortcutsHelp": "Tastenkürzel anzeigen",
+    "singleKeyShortcuts": "Einzeltasten-Kürzel"
   },
   "tenantSwitcher": {
     "currentTenant": "Aktueller Mandant",

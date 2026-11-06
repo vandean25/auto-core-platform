@@ -1,33 +1,19 @@
-import { useMemo } from 'react'
-import { useHotkeys } from 'react-hotkeys-hook'
+import { useEffect, useMemo } from 'react'
 
 import {
   executeEntityAction,
   filterEntityActions,
   type EntityActionDefinition,
 } from '@/features/actions/entity-action'
-import {
-  getFocusedDataTableRowId,
-  isRowShortcutEnabled,
-} from './shortcut-guard'
+import { registerShortcutHelpEntries } from './shortcut-help-entries'
+import { useShortcutHandler } from './shortcut-dispatcher'
+import { getFocusedDataTableRowId } from './shortcut-guard'
 
 type RegistryRowShortcutsArgs<TRecord extends { id: string }, TRunContext> = {
   role: string | undefined
   definitions: EntityActionDefinition<TRecord, TRunContext>[]
   runContext: TRunContext
   records: TRecord[]
-}
-
-function collectShortcutKeys<TRecord extends object, TRunContext>(
-  definitions: EntityActionDefinition<TRecord, TRunContext>[],
-): string[] {
-  const keys = new Set<string>()
-  for (const definition of definitions) {
-    if (definition.shortcutKey) {
-      keys.add(definition.shortcutKey)
-    }
-  }
-  return [...keys]
 }
 
 export function useRegistryRowShortcuts<TRecord extends { id: string }, TRunContext>(
@@ -40,35 +26,37 @@ export function useRegistryRowShortcuts<TRecord extends { id: string }, TRunCont
     [records],
   )
 
-  const shortcutKeys = useMemo(() => collectShortcutKeys(definitions), [definitions])
-
-  useHotkeys(
-    shortcutKeys,
-    (event) => {
-      const rowId = getFocusedDataTableRowId()
-      if (!rowId) {
-        return
-      }
-      const record = recordById.get(rowId)
-      if (!record) {
-        return
-      }
-      const pressedKey = event.key.toLowerCase()
-      const allowed = filterEntityActions(definitions, role, record)
-      const action = allowed.find(
-        (definition) => definition.shortcutKey?.toLowerCase() === pressedKey,
-      )
-      if (!action) {
-        return
-      }
-      event.preventDefault()
-      executeEntityAction(action, record, runContext)
-    },
-    {
-      enabled: (event) => isRowShortcutEnabled(event) && shortcutKeys.length > 0,
-      ignoreEventWhen: (event) => event.repeat,
-      preventDefault: true,
-    },
-    [definitions, recordById, role, runContext, shortcutKeys],
+  useEffect(
+    () =>
+      registerShortcutHelpEntries(
+        definitions
+          .filter((definition) => definition.shortcutKey)
+          .map((definition) => ({
+            id: definition.id,
+            keys: [definition.shortcutKey!.toUpperCase()],
+            label: definition.label,
+          })),
+      ),
+    [definitions],
   )
+
+  useShortcutHandler('row', (key, event) => {
+    if (event.repeat) {
+      return false
+    }
+    const rowId = getFocusedDataTableRowId()
+    const record = rowId ? recordById.get(rowId) : undefined
+    if (!record) {
+      return false
+    }
+    // Same predicates as the context menu and Cmd+K: role and per-record enabled state.
+    const action = filterEntityActions(definitions, role, record).find(
+      (definition) => definition.shortcutKey?.toLowerCase() === key,
+    )
+    if (!action) {
+      return false
+    }
+    executeEntityAction(action, record, runContext)
+    return true
+  })
 }
