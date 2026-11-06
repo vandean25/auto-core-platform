@@ -643,13 +643,52 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     expect(screen.queryByRole('button', { name: 'Liste aktualisieren' })).not.toBeInTheDocument()
   })
 
-  it('reverts membership or order changes and shows the refresh notice', async () => {
-    const { view, queryClient } = renderInfiniteMutationHarness({
+  const membershipChanges: Array<{
+    change: 'tail-insert' | 'middle-insert' | 'removal' | 'reorder'
+    apply: (cache: InfiniteData<ListPage>) => InfiniteData<ListPage>
+  }> = [
+    {
+      change: 'tail-insert',
+      apply: (cache) => ({
+        ...cache,
+        pages: cache.pages.map((page, index) =>
+          index === cache.pages.length - 1
+            ? { ...page, data: [...page.data, { id: 'row-new', label: 'New' }] }
+            : page,
+        ),
+      }),
+    },
+    {
+      change: 'middle-insert',
+      apply: (cache) => ({
+        ...cache,
+        pages: cache.pages.map((page, index) =>
+          index === 0
+            ? { ...page, data: [page.data[0]!, { id: 'row-new', label: 'New' }, ...page.data.slice(1)] }
+            : page,
+        ),
+      }),
+    },
+    {
+      change: 'removal',
+      apply: (cache) => ({
+        ...cache,
+        pages: cache.pages.map((page, index) =>
+          index === 0 ? { ...page, data: page.data.slice(1) } : page,
+        ),
+      }),
+    },
+    {
+      change: 'reorder',
       apply: (cache) => ({
         ...cache,
         pages: [{ ...pageOne, data: [...pageOne.data].reverse() }, pageTwo],
       }),
-    })
+    },
+  ]
+
+  it.each(membershipChanges)('reverts a $change and shows the refresh notice', async ({ apply }) => {
+    const { view, queryClient } = renderInfiniteMutationHarness({ apply })
 
     await act(async () => {
       await view.result.current.mutation.mutateAsync({ id: 'row-a', label: 'ignored' })
@@ -659,6 +698,7 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
       .getQueryData<InfiniteData<ListPage>>(infiniteListKey)
       ?.pages.flatMap((page) => page.data.map((row) => row.id))
     expect(flat).toEqual(['row-a', 'row-b', 'row-c'])
+    expect(listGetUrls).toHaveLength(0)
     expect(screen.getByRole('button', { name: 'Liste aktualisieren' })).toBeInTheDocument()
   })
 

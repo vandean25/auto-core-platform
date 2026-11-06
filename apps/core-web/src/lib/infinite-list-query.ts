@@ -71,13 +71,18 @@ function extractRowArray(value: unknown): Array<{ id: string }> | undefined {
   return undefined
 }
 
-export function rowIdsPreserveMembershipAndOrder(
-  before: readonly string[] | undefined,
-  after: readonly string[] | undefined,
-): boolean {
-  if (before === undefined || after === undefined) return false
-  if (after.length < before.length) return false
+function sameRowIds(before: readonly string[] | undefined, after: readonly string[] | undefined): boolean {
+  if (before === undefined || after === undefined || before.length !== after.length) return false
   return before.every((id, index) => id === after[index])
+}
+
+/** First snapshot pages must keep their ids. Pages appended after that are a later fetch, not an insert. */
+function retainedPagesKeepMembership(snapshot: unknown, current: unknown): boolean {
+  if (!isInfiniteDataShape(snapshot) || !isInfiniteDataShape(current)) return false
+  if (current.pages.length < snapshot.pages.length) return false
+  return snapshot.pages.every((page, index) =>
+    sameRowIds(rowIdsFromRows(extractRowArray(page)), rowIdsFromRows(extractRowArray(current.pages[index]))),
+  )
 }
 
 export function isInfiniteListQuery(client: QueryClient, queryKey: QueryKey): boolean {
@@ -155,7 +160,7 @@ export function settleInfiniteListAfterMutation(
   const beforeIds = listRowIdsFromCache(snapshot)
   const afterIds = listRowIdsFromCache(current)
 
-  if (rowIdsPreserveMembershipAndOrder(beforeIds, afterIds)) {
+  if (retainedPagesKeepMembership(snapshot, current)) {
     return 'field-only'
   }
 

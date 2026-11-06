@@ -10,7 +10,6 @@ import {
   listRowIdsFromCache,
   markInfiniteListStale,
   refreshInfiniteList,
-  rowIdsPreserveMembershipAndOrder,
 } from '@/lib/infinite-list-query'
 
 vi.mock('@/api/client', () => ({ API_BASE_URL: 'http://127.0.0.1:3000', fetchWithAuth: vi.fn() }))
@@ -23,9 +22,6 @@ describe('infinite-list-query helpers', () => {
     }
     expect(isInfiniteDataShape(cache)).toBe(true)
     expect(listRowIdsFromCache(cache)).toEqual(['a', 'b', 'c'])
-    expect(rowIdsPreserveMembershipAndOrder(['a', 'b'], ['a', 'b'])).toBe(true)
-    expect(rowIdsPreserveMembershipAndOrder(['a', 'b'], ['a', 'b', 'c'])).toBe(true)
-    expect(rowIdsPreserveMembershipAndOrder(['a', 'b'], ['b', 'a'])).toBe(false)
   })
 
   it('refreshInfiniteList loads page one and count', async () => {
