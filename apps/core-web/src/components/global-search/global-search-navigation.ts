@@ -1,4 +1,5 @@
-import { Settings } from 'lucide-react'
+import { Bookmark, Settings } from 'lucide-react'
+import { savedViewPath, type SavedView } from '@/features/saved-views/SavedViewsProvider'
 import { i18n } from '@/lib/i18n'
 import { getVisibleNavGroups, type NavAccessContext } from '@/components/navigation/nav-config'
 import { getVisibleTabs, type SettingsTab } from '@/pages/settings-page-tabs'
@@ -65,6 +66,29 @@ export function getSettingsSection(context: NavAccessContext, navigation: QuickA
 }
 
 /**
+ * "Open view …" for the user's saved views. A view whose list the role cannot reach through the sidebar is left out,
+ * and the entry opens the saved href itself, so Cmd/Ctrl+Enter opens it in a new tab like any other entry.
+ */
+export function getSavedViewsSection(savedViews: readonly SavedView[], navigation: QuickActionSection): QuickActionSection {
+  const lists = new Map(navigation.items.map((item) => [savedViewPath(item.href), item.label]))
+  return {
+    heading: i18n.t('nav:globalSearch.savedViews.heading'),
+    items: savedViews.flatMap((view) => {
+      const list = lists.get(savedViewPath(view.href))
+      if (!list) return []
+      return [
+        {
+          href: view.href,
+          icon: Bookmark,
+          label: i18n.t('nav:globalSearch.savedViews.open', { name: view.name }),
+          description: list,
+        },
+      ]
+    }),
+  }
+}
+
+/**
  * Everything the palette offers besides search results, narrowed to the query. Settings tabs only
  * show once the user types, and a prefix filter (`k:`, `fz:` ...) asks for entities only.
  */
@@ -72,14 +96,16 @@ export function getPaletteSections(
   context: NavAccessContext | null,
   query: string,
   intakePrefill?: WorkshopIntakePrefill | null,
+  savedViews: readonly SavedView[] = [],
 ): QuickActionSection[] {
   // Mechanics (TECH) cannot open any admin-shell page, so the palette offers them no navigation or create entries.
   if (!context || context.activeRole === 'TECH' || parseSearchInput(query).types) return []
 
   const navigation = getNavigationSection(context)
   const settings = query ? [getSettingsSection(context, navigation)] : []
+  const savedViewsSection = getSavedViewsSection(savedViews, navigation)
   return filterQuickActionSections(
-    [navigation, ...settings, ...getGlobalSearchQuickActionSections(intakePrefill, context.activeRole ?? undefined)],
+    [navigation, ...(savedViewsSection.items.length > 0 ? [savedViewsSection] : []), ...settings, ...getGlobalSearchQuickActionSections(intakePrefill, context.activeRole ?? undefined)],
     query,
   )
 }

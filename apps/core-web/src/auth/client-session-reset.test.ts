@@ -9,6 +9,7 @@ import {
   useClientSessionGeneration,
   useClientSessionResetting,
 } from '@/auth/client-session-reset'
+import { savedViewsStorageKey } from '@/features/saved-views/SavedViewsProvider'
 import {
   resetIntentPrefetchScheduler,
   scheduleDetailPrefetch,
@@ -27,7 +28,8 @@ const SESSION_LOCAL_STORAGE_KEYS = [
 /** Kept across a full reset by the AUT-819 product decision: per user, never shown to another user. */
 const KEPT_USER_LOCAL_STORAGE_KEYS = [
   'acp:dashboard-widgets:user-1',
-  'acp:saved-views:user-1',
+  savedViewsStorageKey('user-1', 'tenant-a'),
+  savedViewsStorageKey('user-1', 'tenant-b'),
 ]
 
 const DEVICE_LOCAL_STORAGE_KEYS = [

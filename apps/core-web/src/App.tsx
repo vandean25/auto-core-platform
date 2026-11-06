@@ -125,7 +125,7 @@ function AppShell({
   const [sidebarOpen, setSidebarOpen] = useSidebarOpen()
 
   return (
-    <SavedViewsProvider userKey={effectiveUserKey}>
+    <SavedViewsProvider userKey={effectiveUserKey} tenantId={activeTenant?.id ?? null}>
       <DashboardWidgetsProvider userKey={effectiveUserKey}>
         <RealtimeDashboardSyncProvider>
           <>

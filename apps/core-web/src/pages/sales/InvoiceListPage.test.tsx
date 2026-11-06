@@ -138,6 +138,26 @@ describe('InvoiceListPage', () => {
     )
   })
 
+  it('filters the list by the search box across invoice number, customer and status', () => {
+    asMock(salesApi.useInvoices).mockReturnValue({
+      data: [
+        makeInvoice({ id: 'inv-ada', invoice_number: 'RE-2026-0001' }),
+        makeInvoice({
+          id: 'inv-alan',
+          invoice_number: 'RE-2026-0002',
+          customer: { ...customer, id: 'cust-2', first_name: 'Alan', last_name: 'Turing' },
+        }),
+      ],
+      isLoading: false,
+    })
+
+    renderPage()
+    fireEvent.change(screen.getByPlaceholderText(deSales.invoices.list.searchPlaceholder), { target: { value: 'turing' } })
+
+    expect(screen.getByText('RE-2026-0002')).toBeInTheDocument()
+    expect(screen.queryByText('RE-2026-0001')).not.toBeInTheDocument()
+  })
+
   it('reorders rows when sortField and sortDirection change', () => {
     asMock(salesApi.useInvoices).mockReturnValue({
       data: [

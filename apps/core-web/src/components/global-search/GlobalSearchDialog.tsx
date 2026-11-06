@@ -5,6 +5,7 @@ import { MessageSquareText } from 'lucide-react'
 
 import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
+import { useOptionalSavedViews } from '@/features/saved-views/SavedViewsProvider'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
@@ -290,7 +291,8 @@ function SearchPalette({
     setSearch,
     onOpenChange,
   })
-  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill)
+  const savedViews = useOptionalSavedViews()
+  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill, savedViews)
   const commandEntryVisible =
     canUseWorkshopCommand(sessionMeta.roleInfo?.activeRole) &&
     !query &&

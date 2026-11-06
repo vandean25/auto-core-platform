@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AddToDashboardButton } from "@/features/dashboard-widgets/AddToDashboardButton"
 import { SaveCurrentViewButton } from "@/features/saved-views/SaveCurrentViewButton"
+import { SavedViewsMenu } from "@/features/saved-views/SavedViewsMenu"
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { downloadCsv } from "@/lib/csv"
 import { DataTableViewOptions } from "./data-table-view-options"
@@ -79,7 +80,12 @@ export function DataTableToolbar<TData extends object>({
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2" data-testid="data-table-toolbar-actions">
-        {saveViewTitle ? <SaveCurrentViewButton title={saveViewTitle} /> : null}
+        {saveViewTitle ? (
+          <>
+            <SavedViewsMenu title={saveViewTitle} />
+            <SaveCurrentViewButton title={saveViewTitle} />
+          </>
+        ) : null}
         {dashboardSource ? <AddToDashboardButton source={dashboardSource} /> : null}
         {enableCsvExport ? (
           <Button
