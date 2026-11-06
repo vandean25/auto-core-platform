@@ -32,6 +32,9 @@ export type DataTableInfiniteProps = {
   retryCount?: () => void
 }
 
+/** Handed to `bulkActions` so an action that finished can drop the selection it worked on. */
+export type DataTableBulkControls = { clearSelection: () => void }
+
 export type DataTableCoreProps<TData extends object> = {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -59,7 +62,7 @@ export type DataTableCoreProps<TData extends object> = {
   searchPlaceholder?: string
   emptyStateMessage?: string
   emptyState?: DataTableEmptyState
-  bulkActions?: (selectedRows: TData[]) => ReactNode
+  bulkActions?: (selectedRows: TData[], controls: DataTableBulkControls) => ReactNode
   rowBehaviour?: DataTableRowBehaviour<TData>
   pageSizeOptions?: readonly number[]
   infinite?: DataTableInfiniteProps

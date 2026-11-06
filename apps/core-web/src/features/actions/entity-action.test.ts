@@ -18,6 +18,7 @@ import {
   toDataTableContextActions,
   type EntityActionDefinition,
 } from './entity-action'
+import { createInventoryBulkActions } from './inventory-bulk-actions'
 import { createImportJobRowActions } from './import-job-row-actions'
 import { createVehicleRowActions } from './vehicle-row-actions'
 import { createWorkshopOrderRowActions } from './work-order-row-actions'
@@ -97,6 +98,7 @@ describe('entity action registry helpers', () => {
       ...createWorkshopCommandActions(passthroughT as TFunction<'workshop'>),
       createCreditNotePrintAction(passthroughT as TFunction<'finance'>),
       ...createSavedViewActions(passthroughT as TFunction<'common'>),
+      ...createInventoryBulkActions(passthroughT as TFunction<'inventory'>),
     ]
 
     expect(allRegistered.map((action) => action.id)).toEqual([...REGISTERED_ENTITY_ACTION_IDS])

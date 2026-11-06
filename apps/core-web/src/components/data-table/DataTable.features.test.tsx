@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 import { densityTokens } from '@/lib/density-tokens'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { bindSingleKeyShortcutsUser } from '@/features/shortcuts/single-key-shortcuts-setting'
+import { resetClientSession } from '@/auth/client-session-reset'
 import { clearListScrollAnchors } from '@/lib/list-scroll-anchors'
 import { DataTable } from './DataTable'
 import {
@@ -735,5 +736,149 @@ describe('DataTable infinite mode (AUT-889)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: infiniteDt.loading.retry }))
     await waitFor(() => expect(client.getQueryData<{ pages: unknown[] }>(listKey(''))?.pages).toHaveLength(2))
+  })
+})
+
+// AUT-886 / ADR-0035 §8: explicit loaded-ID selection with Shift ranges, never filter-wide.
+describe('DataTable multi-select (AUT-886)', () => {
+  let restoreLayout: () => void
+  const respondWithPages = (pages = Infinity) =>
+    vi.fn(({ page }: PageRequest) => Promise.resolve(pageOf(page, { pages })))
+  const boxOf = (rowId: string) =>
+    within(document.querySelector(`tr[data-row-key="${rowId}"]`) as HTMLElement).getByRole('checkbox')
+  const selectedIds = () =>
+    [...document.querySelectorAll('tr[data-state="selected"]')].map((row) => row.getAttribute('data-row-key'))
+
+  beforeEach(() => {
+    restoreLayout = mockListLayout()
+    clearListScrollAnchors()
+    bindSingleKeyShortcutsUser('multi-select-test')
+  })
+  afterEach(() => restoreLayout())
+  afterAll(settleVirtualizerTimers)
+
+  it('WHEN a row is clicked and another row is shift-clicked THEN all rows in between are selected', () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} withSelection />)
+
+    fireEvent.click(boxOf('r2'))
+    fireEvent.click(boxOf('r5'), { shiftKey: true })
+
+    expect(selectedIds()).toEqual(['r2', 'r3', 'r4', 'r5'])
+    expect(screen.getByText('4 gewählt')).toBeInTheDocument()
+  })
+
+  it('WHEN the range is picked upwards THEN the rows between the clicked row and the anchor are selected', () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} withSelection />)
+
+    fireEvent.click(boxOf('r6'))
+    fireEvent.click(boxOf('r3'), { shiftKey: true })
+
+    expect(selectedIds()).toEqual(['r3', 'r4', 'r5', 'r6'])
+  })
+
+  it('WHEN the selection was reset THEN a shift-click does not extend from the row picked before the reset', async () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} withSelection />)
+    fireEvent.click(boxOf('r2'))
+    fireEvent.click(screen.getByRole('button', { name: 'Sort Z' }))
+    await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument())
+
+    fireEvent.click(boxOf('r5'), { shiftKey: true })
+
+    expect(selectedIds()).toEqual(['r5'])
+  })
+
+  it.each([
+    { change: 'filter', control: 'Filter B' },
+    { change: 'sort', control: 'Sort Z' },
+  ])('WHEN the $change changes THEN the selection is cleared', async ({ control }) => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} withSelection />)
+    fireEvent.click(boxOf('r1'))
+    fireEvent.click(boxOf('r3'), { shiftKey: true })
+    expect(screen.getByText('3 gewählt')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: control }))
+
+    await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument())
+    expect(selectedIds()).toEqual([])
+  })
+
+  it('WHEN more rows load THEN the selection stays and the new rows are not selected', async () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages(3)} withSelection />)
+    fireEvent.click(boxOf('r2'))
+
+    scrollTo(4100)
+    await waitFor(() => expect(client.getQueryData<{ pages: unknown[] }>(listKey(''))?.pages).toHaveLength(2))
+    scrollTo(5000)
+
+    expect(renderedRowIds()).toContain('r120')
+    expect(boxOf('r120')).not.toBeChecked()
+    expect(screen.getByText('1 gewählt')).toBeInTheDocument()
+    scrollTo(0)
+    expect(boxOf('r2')).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Alle 200 geladenen Zeilen auswählen' })).toBeInTheDocument()
+  })
+
+  it('WHEN select-all-loaded is used THEN only the loaded rows are selected, not the rest of the result', () => {
+    const client = createListClient()
+    seedLoadedPages(client, 2)
+    render(
+      <InfiniteListHarness
+        client={client}
+        fetchPage={respondWithPages()}
+        withSelection
+        totalCount={{ count: 1000, isCapped: true }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Alle 200 geladenen Zeilen auswählen' }))
+
+    expect(screen.getByText('200 gewählt')).toBeInTheDocument()
+  })
+
+  it('WHEN the list is a stale preview THEN no row can be selected and select-all is unavailable', async () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    const fetchPage = vi.fn(({ page }: PageRequest) =>
+      page === 0 ? new Promise<ReturnType<typeof pageOf>>(() => undefined) : Promise.resolve(pageOf(page)),
+    )
+    render(<InfiniteListHarness client={client} fetchPage={fetchPage} withSelection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Filter B' }))
+    await waitFor(() => expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'true'))
+
+    expect(boxOf('r0')).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Alle 100 geladenen Zeilen auswählen' })).toBeDisabled()
+    fireEvent.click(boxOf('r0'))
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
+  })
+
+  it('WHEN a pending row is among the rows THEN select-all leaves it out', () => {
+    const data: Row[] = [...rows, { id: 'tmp', name: 'Neu', status: 'OPEN', amount: 0, __dataTablePending: true } as Row]
+    render(<Harness data={data} bulkActions={(selected) => <span>{selected.length} gewählt</span>} />)
+
+    fireEvent.click(screen.getByRole('checkbox', { name: dt.selectAll }))
+
+    expect(screen.getByText('2 gewählt')).toBeInTheDocument()
+  })
+
+  it('WHEN the tenant or site context is switched THEN the selection is cleared', async () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(<InfiniteListHarness client={client} fetchPage={respondWithPages()} withSelection />)
+    fireEvent.click(boxOf('r1'))
+    expect(screen.getByText('1 gewählt')).toBeInTheDocument()
+
+    await act(async () => resetClientSession(client, 'context'))
+
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
   })
 })

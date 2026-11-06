@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +10,7 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deCommon from '../../../../locales/de/common.json'
 import deInventory from '../../../../locales/de/inventory.json'
+import { getSelectionPaletteSection } from '@/features/actions/selection-palette-store'
 import InventoryList from './InventoryList'
 
 const partsList = deInventory.partsList
@@ -22,8 +23,14 @@ vi.mock('@/api/inventory', async (importOriginal) => ({
 vi.mock('@/api/locations', () => ({
   useLocations: vi.fn(),
 }))
+const { authRole, fetchWithAuth } = vi.hoisted(() => ({ authRole: { current: 'ADMIN' }, fetchWithAuth: vi.fn() }))
 vi.mock('@/auth/AuthProvider', () => ({
-  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+  useAuth: () => ({ claims: { role: authRole.current } }),
+}))
+// Only the transport is replaced, so the real bulk hook decides which requests are sent.
+vi.mock('@/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/client')>()),
+  fetchWithAuth,
 }))
 vi.mock('@/components/AddItemDialog', () => ({
   AddItemDialog: () => <button type="button">+ Item</button>,
@@ -250,5 +257,144 @@ describe('InventoryList row actions', () => {
       expect.objectContaining({ search: 'bremse', sortField: 'name', sortDirection: 'desc' }),
       true,
     )
+  })
+})
+
+describe('InventoryList bulk price change (AUT-886)', () => {
+  const bulk = deInventory.bulk.adjustPrice
+  const items: InventoryItem[] = ['1', '2', '3'].map((n) => ({ ...item, id: `item-${n}`, sku: `BRK-00${n}`, name: `Pad ${n}` }))
+  let restoreLayout: () => void
+
+  const json = (status: number, body: unknown) =>
+    Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
+  const requests = () =>
+    fetchWithAuth.mock.calls.map(([url, init]) => `${(init as RequestInit | undefined)?.method ?? 'GET'} ${String(url)}`)
+
+  beforeEach(() => {
+    restoreLayout = mockListLayout()
+    vi.clearAllMocks()
+    authRole.current = 'ADMIN'
+    asMock(inventoryApi.useInventory).mockReturnValue({ data: undefined, isLoading: false })
+    asMock(inventoryApi.useInventoryCursorList).mockReturnValue({
+      rows: items,
+      tableProps: {
+        isLoading: false,
+        isFetching: false,
+        isPlaceholderData: false,
+        isError: false,
+        onRetry: vi.fn(),
+        hasUsableData: true,
+        infinite: {
+          queryKey: ['inventory', 'cursor-list', {}],
+          hasNextPage: false,
+          isFetchingNextPage: false,
+          isFetchNextPageError: false,
+          fetchNextPage: vi.fn(),
+          totalCount: { count: 3, isCapped: false },
+        },
+      },
+    })
+    asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
+  })
+  afterEach(() => {
+    cleanup()
+    restoreLayout()
+  })
+  afterAll(settleVirtualizerTimers)
+
+  function renderList() {
+    return render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <SavedViewsProvider userKey="test-user">
+          <DashboardWidgetsProvider userKey="test-user">
+            <MemoryRouter>
+              <InventoryList />
+            </MemoryRouter>
+          </DashboardWidgetsProvider>
+        </SavedViewsProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  function selectFirstTwoAndOpenDialog() {
+    const boxes = screen.getAllByRole('checkbox', { name: deCommon.dataTable.selectRow })
+    fireEvent.click(boxes[0])
+    fireEvent.click(boxes[1], { shiftKey: true })
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: bulk.action }))
+    return screen.getByRole('dialog')
+  }
+
+  function submitPercent(dialog: HTMLElement, percent: string) {
+    fireEvent.change(within(dialog).getByLabelText(bulk.percentLabel), { target: { value: percent } })
+    fireEvent.click(within(dialog).getByRole('button', { name: bulk.submit }))
+  }
+
+  it('WHEN the bulk price action runs THEN only the selected IDs are sent to the server', async () => {
+    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
+      init?.method === 'PATCH'
+        ? json(200, {})
+        : json(200, { id: url.split('/').pop(), sku: 'X', name: 'Pad', brand_id: null, cost_price: 60, price: 100 }),
+    )
+    renderList()
+
+    submitPercent(selectFirstTwoAndOpenDialog(), '10')
+
+    await waitFor(() => expect(requests().filter((entry) => entry.startsWith('PATCH'))).toHaveLength(2))
+    expect(new Set(requests())).toEqual(
+      new Set(['GET /api/inventory/item-1', 'GET /api/inventory/item-2', 'PATCH /api/inventory/item-1', 'PATCH /api/inventory/item-2']),
+    )
+    const patch = fetchWithAuth.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PATCH')
+    expect(JSON.parse((patch?.[1] as RequestInit).body as string)).toMatchObject({ retail_price: 110, cost_price: 60 })
+  })
+
+  it('WHEN the server answers 403 for every record THEN the dialog reports each part and the selection stays', async () => {
+    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
+      init?.method === 'PATCH'
+        ? json(403, { statusCode: 403, message: 'Only OWNER or ADMIN can receive, adjust, or edit inventory items.' })
+        : json(200, { id: url.split('/').pop(), sku: 'X', name: 'Pad', brand_id: null, cost_price: 60, price: 100 }),
+    )
+    renderList()
+
+    submitPercent(selectFirstTwoAndOpenDialog(), '10')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(`${deInventory.bulk.adjustPrice.result.replace('{{updated}}', '0').replace('{{total}}', '2')}`)
+    expect(alert).toHaveTextContent('BRK-001: keine Berechtigung')
+    expect(alert).toHaveTextContent('BRK-002: keine Berechtigung')
+    expect(alert).toHaveTextContent(bulk.forbiddenHint)
+    expect(alert).not.toHaveTextContent('BRK-003')
+    expect(screen.getByRole('toolbar', { hidden: true })).toHaveTextContent('2 ausgewählt')
+  })
+
+  it('WHEN the role may not edit prices THEN no bulk price action is offered, in the bar or in Cmd+K', () => {
+    authRole.current = 'SALES'
+    renderList()
+
+    fireEvent.click(screen.getAllByRole('checkbox', { name: deCommon.dataTable.selectRow })[0])
+
+    expect(within(screen.getByRole('toolbar')).queryByRole('button', { name: bulk.action })).not.toBeInTheDocument()
+    expect(getSelectionPaletteSection()).toBeNull()
+  })
+
+  it('WHEN rows are selected THEN the same registry action is published for Cmd+K and opens the dialog', () => {
+    renderList()
+    fireEvent.click(screen.getAllByRole('checkbox', { name: deCommon.dataTable.selectRow })[0])
+
+    const action = getSelectionPaletteSection()?.items[0]
+    expect(action).toMatchObject({ id: 'inventoryItem.bulkAdjustPrice', label: bulk.action })
+    expect(screen.getByRole('toolbar').querySelector('[data-action-id="inventoryItem.bulkAdjustPrice"]')).not.toBeNull()
+    act(() => action?.onSelect())
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('WHEN the selection is cleared THEN nothing is published to Cmd+K any more', () => {
+    renderList()
+    fireEvent.click(screen.getAllByRole('checkbox', { name: deCommon.dataTable.selectRow })[0])
+    expect(getSelectionPaletteSection()).not.toBeNull()
+
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: deCommon.dataTable.actionBar.clear }))
+
+    expect(getSelectionPaletteSection()).toBeNull()
   })
 })

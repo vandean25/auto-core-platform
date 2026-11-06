@@ -19,6 +19,7 @@ import { DataTableInfiniteCount, DataTableInfiniteFooter, DataTableInfiniteRefre
 import { DataTablePagination } from './data-table-pagination'
 import type { DataTableInfiniteView } from './use-data-table-infinite'
 import { DataTableSelectionBar } from './data-table-selection'
+import type { DataTableBulkControls } from './data-table-props'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 
 type DataTableSurfaceBodyProps<TData extends object> = {
@@ -121,7 +122,7 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
 
 type DataTableSurfaceMainProps<TData extends object> = DataTableSurfaceBodyProps<TData> & {
   pageSizeOptions: readonly number[]
-  bulkActions?: (selectedRows: TData[]) => ReactNode
+  bulkActions?: (selectedRows: TData[], controls: DataTableBulkControls) => ReactNode
   contextMenu: ReactNode
 }
 

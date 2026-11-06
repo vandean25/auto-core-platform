@@ -4,6 +4,7 @@ import { DE_INVENTORY } from './helpers/de-inventory';
 import { DE_COMMON } from './helpers/de-common';
 import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
+import { pageOverflow } from './utils/phone-layout';
 
 const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
 
@@ -222,5 +223,70 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
     await expect(page.getByText('SKU-0000')).toBeVisible();
     await expect(page.getByText(DE_COMMON.dataTable.infinite.countUnavailable)).toBeVisible();
     await expect(page.getByRole('button', { name: DE_COMMON.dataTable.loading.retry })).toBeVisible();
+  });
+});
+
+/**
+ * Multi-select on the parts list (AUT-886, ADR-0035 §8). Demo data only, every API response is mocked. The mock serves
+ * the list and its count, so these specs prove the selection UI, not server authorization (see the unit and backend specs).
+ */
+test.describe('Inventory — multi-select (AUT-886)', () => {
+  const items = Array.from({ length: 120 }, (_, index) => {
+    const number = String(index).padStart(4, '0');
+    return createMockInventoryItem({ id: `item-${number}`, sku: `SKU-${number}`, name: `Bremsscheibe ${number}` });
+  });
+  const selectRow = DE_COMMON.dataTable.selectRow;
+  const selectedCount = (count: number) => `${count} ausgewählt`;
+
+  async function openParts(page: Page) {
+    await mockCursorList(page, { path: '/api/inventory', rows: items });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await new AutoCorePage(page, 'Artikel').navigate('/inventory');
+    await expect(page.getByRole('heading', { name: DE_INVENTORY.partsList.title })).toBeVisible();
+  }
+
+  test('WHEN a row is clicked and another shift-clicked THEN all rows in between are selected', async ({ page }) => {
+    await openParts(page);
+    const row = (sku: string) => page.locator('tr[data-table-row="true"]').filter({ hasText: sku });
+
+    await row('SKU-0001').getByRole('checkbox', { name: selectRow }).click();
+    await row('SKU-0004').getByRole('checkbox', { name: selectRow }).click({ modifiers: ['Shift'] });
+
+    const toolbar = page.getByRole('toolbar', { name: DE_COMMON.dataTable.actionBar.label });
+    await expect(toolbar).toContainText(selectedCount(4));
+    for (const sku of ['SKU-0001', 'SKU-0002', 'SKU-0003', 'SKU-0004']) {
+      await expect(row(sku)).toHaveAttribute('data-state', 'selected');
+    }
+    await expect(row('SKU-0005')).not.toHaveAttribute('data-state', 'selected');
+    // "Select all loaded" names the loaded rows (one block of 50), never the whole result.
+    await expect(toolbar.getByRole('button', { name: 'Alle geladenen auswählen (50)' })).toBeVisible();
+  });
+
+  test.describe('at 375px', () => {
+    test.use({ viewport: { width: 375, height: 812 } });
+
+    test('WHEN the viewport is 375px THEN rows are selectable through a visible 44px control without long-press', async ({ page }) => {
+      await openParts(page);
+
+      const cards = page.locator('li[data-table-row="true"]');
+      await expect(cards.first()).toBeVisible();
+      const control = cards.first().locator('label').filter({ has: page.getByRole('checkbox', { name: selectRow }) });
+      const box = await control.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      await control.click();
+      const toolbar = page.getByRole('toolbar', { name: DE_COMMON.dataTable.actionBar.label });
+      await expect(toolbar).toContainText(selectedCount(1));
+
+      const selectAll = toolbar.getByRole('button', { name: 'Alle geladenen auswählen (50)' });
+      expect((await selectAll.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect((await toolbar.getByRole('button', { name: DE_COMMON.dataTable.actionBar.clear }).boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44);
+      await selectAll.click();
+      await expect(toolbar).toContainText(selectedCount(50));
+      expect(await pageOverflow(page)).toBe(0);
+    });
   });
 });

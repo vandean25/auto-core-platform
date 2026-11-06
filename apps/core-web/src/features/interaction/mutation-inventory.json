@@ -1,4 +1,12 @@
 {
   "schemaVersion": 1,
-  "entries": []
+  "entries": [
+    {
+      "operationId": "inventory.item.bulkAdjustPrice",
+      "owningHook": "useBulkAdjustInventoryPrices",
+      "sourceFile": "api/inventory.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Price edits change what is invoiced and are role-checked per part on the server; the result (updated, forbidden, failed) is reported per part before the list is refreshed."
+    }
+  ]
 }

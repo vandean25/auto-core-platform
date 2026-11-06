@@ -173,6 +173,7 @@ function DataTableListRow<TData extends object>({
 
   // Display-column buttons (id "actions") have no registry action behind them, so they stay reachable next to the "..." menu.
   const actionsCell = slot('actions')
+  const selectCell = slot('select')
   const detailsCell = slot(slots.details)
 
   return (
@@ -182,6 +183,8 @@ function DataTableListRow<TData extends object>({
       data-row-id={getTableRowId(record)}
       className={listRowClassName(interactionLocked, isPending, itemProps?.className)}
     >
+      {/* A visible 44px select control, so selecting never depends on long-press (ADR-0036 R5). */}
+      {selectCell ? <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center">{selectCell}</label> : null}
       <ListRowPrimary
         record={record}
         rowBehaviour={interactionLocked || isPending ? undefined : rowBehaviour}
