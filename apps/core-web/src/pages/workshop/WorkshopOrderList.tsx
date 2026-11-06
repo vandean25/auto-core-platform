@@ -42,7 +42,19 @@ export default function WorkshopOrderList() {
       <PageHeader
         title={t('orders.list.title')}
         description={t('orders.list.description')}
-        actions={<WorkshopOrderListActions t={t} onOpenPickList={() => navigate('/workshop/pick-list')} onCreate={() => setCreateOpen(true)} />}
+        actions={
+          <>
+            <TooltipHint hint={t('orders.list.partsPickHint')}>
+              <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
+                {t('orders.list.partsPickQueue')}
+              </Button>
+            </TooltipHint>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className='h-4 w-4 mr-2' />
+              {t('orders.list.newOrder')}
+            </Button>
+          </>
+        }
       />
       <DataTable
         columns={columns}
@@ -73,29 +85,5 @@ export default function WorkshopOrderList() {
       <WorkshopOrderIntakeDialog open={createOpen} onOpenChange={setCreateOpen} {...rows.intakePendingProps} />
       <WorkshopOrderPeekSheet t={t} peekId={peek.peekId} isPeekOpen={peek.isPeekOpen} closePeek={peek.closePeek} />
     </div>
-  )
-}
-
-function WorkshopOrderListActions({
-  t,
-  onOpenPickList,
-  onCreate,
-}: {
-  t: ReturnType<typeof useTranslation<'workshop'>>['t']
-  onOpenPickList: () => void
-  onCreate: () => void
-}) {
-  return (
-    <>
-      <TooltipHint hint={t('orders.list.partsPickHint')}>
-        <Button variant='outline' onClick={onOpenPickList}>
-          {t('orders.list.partsPickQueue')}
-        </Button>
-      </TooltipHint>
-      <Button onClick={onCreate}>
-        <Plus className='h-4 w-4 mr-2' />
-        {t('orders.list.newOrder')}
-      </Button>
-    </>
   )
 }
