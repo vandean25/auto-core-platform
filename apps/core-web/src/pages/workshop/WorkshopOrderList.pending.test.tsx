@@ -300,6 +300,44 @@ describe('WorkshopOrderList pending row shortcuts', () => {
   })
 })
 
+describe('WorkshopOrderList pending row pointer and keyboard paths', () => {
+  const conflict = httpResponse(409, {
+    message: 'Vehicle already has active order WO-2026-0007',
+    code: 'VEHICLE_HAS_ACTIVE_ORDER',
+    orderId: 'order-live',
+    orderNumber: 'WO-2026-0007',
+  })
+  // Regression: a desktop pending row kept onRowClick/onRowPrefetch wired, so clicking or hovering it opened the peek
+  // sheet and fetched /workshop/orders/<client-generated id>, an order that does not exist.
+  it.each([
+    ['in flight', () => { server.postGate = deferred<Response>() }],
+    ['failed', () => { server.postResults = [httpResponse(500, {})] }],
+    ['a 409', () => { server.postResults = [conflict] }],
+  ])('treats the pending row as inert while %s', async (_state, arrange) => {
+    arrange()
+    renderList()
+    await screen.findByText(deWorkshop.orders.list.empty)
+    await submitIntake()
+    const cell = screen.getByText('2018 Volkswagen Golf VII').closest('td') as HTMLElement
+    const row = cell.closest('tr') as HTMLElement
+    expect(row).not.toHaveClass('cursor-pointer')
+
+    fireEvent.pointerEnter(row, { pointerType: 'mouse' })
+    fireEvent.pointerDown(cell, { pointerType: 'mouse' })
+    fireEvent.click(cell)
+    fireEvent.click(row)
+    act(() => row.focus())
+    fireEvent.keyDown(row, { key: 'Enter' })
+    fireEvent.keyDown(row, { key: 'ContextMenu' })
+    await act(() => new Promise((done) => setTimeout(done, 300)))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: deCommon.dataTable.closeContextMenu })).not.toBeInTheDocument()
+    const detailGets = vi.mocked(fetchWithAuth).mock.calls.filter(([url]) => /^\/api\/workshop\/orders\/[^/?]+$/.test(String(url)))
+    expect(detailGets).toEqual([])
+  })
+})
+
 describe('WorkshopOrderList first load', () => {
   // The skeleton gate must stay silent for a fast response: no skeleton node may ever be added, and the rows
   // show the moment the data lands instead of waiting on the gate.

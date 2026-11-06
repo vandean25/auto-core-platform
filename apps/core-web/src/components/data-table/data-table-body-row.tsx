@@ -138,7 +138,9 @@ type RowKeyHandlerArgs<TData extends object> = {
   rowData: TData
   data: TData[]
   interaction: RowInteractionState
-  rowBehaviour: DataTableRowBehaviour<TData> | undefined
+  /** The effective click handler: undefined while the row is locked or pending. */
+  onRowClick: ((row: TData) => void) | undefined
+  canOpenContextMenu: boolean
   openRowContextMenu: (row: TData, x: number, y: number) => boolean
   onArrowFocus: (direction: 'up' | 'down') => void
 }
@@ -207,15 +209,15 @@ export function handleDataTableBodyRowKeyDown<TData extends object>({
   rowData,
   data,
   interaction,
-  rowBehaviour,
+  onRowClick,
+  canOpenContextMenu,
   openRowContextMenu,
   onArrowFocus,
 }: RowKeyHandlerArgs<TData>) {
   const resolvedRow = resolveRowFromElement(event.currentTarget, data, rowData)
-  const onRowClick = rowBehaviour?.onRowClick
 
   if (handleDataTableRowArrowKey(event, onArrowFocus)) return
-  if (handleDataTableRowContextMenuKey(event, resolvedRow, openRowContextMenu)) return
+  if (canOpenContextMenu && handleDataTableRowContextMenuKey(event, resolvedRow, openRowContextMenu)) return
   handleDataTableRowActivateKey(event, resolvedRow, data, interaction, onRowClick)
 }
 
@@ -251,7 +253,9 @@ export function DataTableBodyRow<TData extends object>({
   const { onRowClick, onRowPrefetch, showClickableStyles } = resolveLockedRowBehaviour(
     interactionLocked,
     rowBehaviour,
+    rowData,
   )
+  const canOpenContextMenu = shouldOpenBodyRowContextMenu(interactionLocked, rowData)
 
   useEffect(() => {
     return () => {
@@ -299,7 +303,7 @@ export function DataTableBodyRow<TData extends object>({
         }
       }}
       onContextMenu={(event) => {
-        if (!shouldOpenBodyRowContextMenu(interactionLocked, rowData)) return
+        if (!canOpenContextMenu) return
         event.preventDefault()
         openRowContextMenu(resolveRowFromElement(event.currentTarget, data, rowData), event.clientX, event.clientY)
       }}
@@ -309,7 +313,8 @@ export function DataTableBodyRow<TData extends object>({
           rowData,
           data,
           interaction,
-          rowBehaviour,
+          onRowClick,
+          canOpenContextMenu,
           openRowContextMenu,
           onArrowFocus,
         })

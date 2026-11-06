@@ -3,11 +3,13 @@ import { isDataTablePendingRow } from './data-table-states'
 import { clickableRowClassName } from './data-table-row-styles'
 import { cn } from '@/lib/utils'
 
+/** A stale preview and a pending row are both inert: no click, prefetch or clickable styling. */
 export function resolveLockedRowBehaviour<TData extends object>(
   interactionLocked: boolean,
   rowBehaviour: DataTableRowBehaviour<TData> | undefined,
+  rowData: TData,
 ) {
-  if (interactionLocked) {
+  if (interactionLocked || isDataTablePendingRow(rowData)) {
     return { onRowClick: undefined, onRowPrefetch: undefined, showClickableStyles: false }
   }
   const onRowClick = rowBehaviour?.onRowClick
