@@ -1,6 +1,12 @@
 import { hashKey } from '@tanstack/react-query'
 import type { Mutation, MutationFunctionContext, QueryKey } from '@tanstack/react-query'
-import { isInfiniteListQuery, settleInfiniteListAfterMutation } from '@/lib/infinite-list-query'
+import {
+  isInfiniteListQuery,
+  markInfiniteListStale,
+  noteInfiniteMembershipDrift,
+  settleInfiniteListAfterMutation,
+  takeInfiniteMembershipDrift,
+} from '@/lib/infinite-list-query'
 
 export type QueryKeyResolver<TVariables> = QueryKey | ((variables: TVariables) => QueryKey)
 
@@ -115,11 +121,17 @@ function reconcileSettledPrimaryQuery(
   resolvedQueryKey: QueryKey,
   snapshot: unknown,
 ) {
-  if (isInfiniteListQuery(client, resolvedQueryKey)) {
-    settleInfiniteListAfterMutation(client, resolvedQueryKey, snapshot)
+  if (!isInfiniteListQuery(client, resolvedQueryKey)) {
+    void client.invalidateQueries({ queryKey: resolvedQueryKey })
     return
   }
-  void client.invalidateQueries({ queryKey: resolvedQueryKey })
+  const drifted = takeInfiniteMembershipDrift(client, resolvedQueryKey)
+  if (drifted !== undefined) {
+    client.setQueryData(resolvedQueryKey, drifted)
+    markInfiniteListStale(client, resolvedQueryKey)
+    return
+  }
+  settleInfiniteListAfterMutation(client, resolvedQueryKey, snapshot)
 }
 
 function invalidateSettledCaches(
@@ -129,6 +141,9 @@ function invalidateSettledCaches(
   snapshot: unknown,
   exceptMutationId?: number,
 ) {
+  if (isInfiniteListQuery(client, resolvedQueryKey)) {
+    noteInfiniteMembershipDrift(client, resolvedQueryKey, snapshot)
+  }
   if (countOtherPendingMutationsForQueryKey(client, resolvedQueryKey, exceptMutationId) === 0) {
     reconcileSettledPrimaryQuery(client, resolvedQueryKey, snapshot)
   }

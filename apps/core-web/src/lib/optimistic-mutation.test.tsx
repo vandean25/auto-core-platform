@@ -841,6 +841,107 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     expect(screen.queryByRole('button', { name: 'Liste aktualisieren' })).not.toBeInTheDocument()
   })
 
+  it('keeps an earlier reorder from surviving a later field-only settle', async () => {
+    let releaseReorder: (() => void) | undefined
+    let releaseField: (() => void) | undefined
+    vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'POST' && url.endsWith('/reorder')) {
+        return new Promise<Response>((resolve) => {
+          releaseReorder = () => resolve({ ok: true, status: 200, json: async () => ({}) } as Response)
+        })
+      }
+      if (method === 'POST' && url.endsWith('/field')) {
+        return new Promise<Response>((resolve) => {
+          releaseField = () => resolve({ ok: true, status: 200, json: async () => ({}) } as Response)
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => pageOne,
+      } as Response)
+    })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        {children}
+        <InfiniteListRefreshNotice queryKey={infiniteListKey} />
+      </QueryClientProvider>
+    )
+    const { result } = renderHook(
+      () => {
+        useInfiniteQuery({
+          queryKey: infiniteListKey,
+          meta: infiniteListQueryMeta(infiniteCountKey),
+          initialPageParam: undefined as string | undefined,
+          queryFn: async () => (await (await fetchWithAuth(LIST_URL)).json()) as ListPage,
+          getNextPageParam: (lastPage) => lastPage.meta.next_cursor ?? undefined,
+          staleTime: Infinity,
+          initialData: seededInfinite(),
+        })
+        const reorder = useMutation({
+          ...optimisticMutationOptions<InfiniteData<ListPage>, { id: string }>({
+            queryKey: infiniteListKey,
+            mutationKey: [...infiniteListKey, 'reorder'],
+            entityId: ({ id }) => id,
+            apply: (cache) => ({
+              ...cache,
+              pages: [{ ...pageOne, data: [...pageOne.data].reverse() }, pageTwo],
+            }),
+            revert: (_cache, _variables, snapshot) => snapshot,
+          }),
+          mutationFn: async () => (await fetchWithAuth(`${PATCH_URL}/reorder`, { method: 'POST' })).json(),
+        })
+        const field = useMutation({
+          ...optimisticMutationOptions<InfiniteData<ListPage>, { id: string; label: string }>({
+            queryKey: infiniteListKey,
+            mutationKey: [...infiniteListKey, 'field'],
+            entityId: ({ id }) => id,
+            apply: (cache, { id, label }) => ({
+              ...cache,
+              pages: cache.pages.map((page) => ({
+                ...page,
+                data: page.data.map((row) => (row.id === id ? { ...row, label } : row)),
+              })),
+            }),
+            revert: (_cache, _variables, snapshot) => snapshot,
+          }),
+          mutationFn: async () => (await fetchWithAuth(`${PATCH_URL}/field`, { method: 'POST' })).json(),
+        })
+        return { reorder, field }
+      },
+      { wrapper },
+    )
+
+    act(() => {
+      result.current.reorder.mutate({ id: 'row-a' })
+    })
+    await settle()
+    act(() => {
+      result.current.field.mutate({ id: 'row-b', label: 'Beta-updated' })
+    })
+    await settle()
+    await act(async () => {
+      releaseReorder?.()
+    })
+    await settle()
+    await act(async () => {
+      releaseField?.()
+    })
+    await settle()
+
+    const ids = queryClient
+      .getQueryData<InfiniteData<ListPage>>(infiniteListKey)
+      ?.pages.flatMap((page) => page.data.map((row) => row.id))
+    expect(ids).toEqual(['row-a', 'row-b', 'row-c'])
+    expect(listGetUrls).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Liste aktualisieren' })).toBeInTheDocument()
+  })
+
   it('drops the refresh notice when the query client is cleared', async () => {
     const { view, queryClient } = renderInfiniteMutationHarness({
       shouldOptimistic: () => false,

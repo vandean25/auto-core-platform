@@ -1,4 +1,5 @@
 import type { InfiniteData, Query, QueryClient, QueryFunction, QueryKey } from '@tanstack/react-query'
+import { hashKey } from '@tanstack/react-query'
 
 /** TanStack Query `meta` flag for migrated ADR-0035 infinite lists. */
 export type InfiniteListQueryMeta = {
@@ -93,6 +94,37 @@ export function isInfiniteListQuery(client: QueryClient, queryKey: QueryKey): bo
 
 export function markInfiniteListStale(client: QueryClient, queryKey: QueryKey) {
   void client.invalidateQueries({ queryKey, exact: true, refetchType: 'none' })
+}
+
+const membershipDrift = new WeakMap<QueryClient, Map<string, unknown>>()
+
+function membershipDriftFor(client: QueryClient): Map<string, unknown> {
+  const existing = membershipDrift.get(client)
+  if (existing) return existing
+  const map = new Map<string, unknown>()
+  membershipDrift.set(client, map)
+  client.getQueryCache().subscribe((event) => {
+    if (event.type === 'removed') map.delete(hashKey(event.query.queryKey))
+  })
+  return map
+}
+
+/** Remember the cache from before the first membership change while later mutations are still pending. */
+export function noteInfiniteMembershipDrift(client: QueryClient, queryKey: QueryKey, snapshot: unknown) {
+  if (!isInfiniteDataShape(snapshot)) return
+  if (retainedPagesKeepMembership(snapshot, client.getQueryData(queryKey))) return
+  const map = membershipDriftFor(client)
+  const key = hashKey(queryKey)
+  if (!map.has(key)) map.set(key, snapshot)
+}
+
+export function takeInfiniteMembershipDrift(client: QueryClient, queryKey: QueryKey): unknown | undefined {
+  const map = membershipDrift.get(client)
+  if (!map) return undefined
+  const key = hashKey(queryKey)
+  const snapshot = map.get(key)
+  map.delete(key)
+  return snapshot
 }
 
 function initialPageParamOf(query: Query): unknown {
