@@ -168,6 +168,12 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
       }
       expect(await pageOverflow(page)).toBe(0);
 
+      // The status select is the only way to reach the infinite list: it is a touch target too.
+      const statusSelect = page.getByRole('combobox', { name: DE_VEHICLE_STOCK.stockList.statusFilterAria });
+      const selectBox = await statusSelect.boundingBox();
+      expect(selectBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect((selectBox?.x ?? 0) + (selectBox?.width ?? 0)).toBeLessThanOrEqual(375);
+
       // Scrolling the page loads the next block and still renders only a window of the cards.
       await expect(async () => {
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));

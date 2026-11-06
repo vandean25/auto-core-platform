@@ -95,14 +95,20 @@ describe('useCursorList', () => {
     expect(result.current.tableProps.infinite.totalCount).toBeUndefined()
   })
 
-  it('reports a failed first page as a list error with a retry', async () => {
-    vi.mocked(fetchWithAuth).mockImplementation(async (url) =>
-      String(url).includes('capped-count') ? jsonResponse({ count: 0, isCapped: false }) : failure(),
-    )
+  it('reports a failed first page as a list error and loads the rows when the retry succeeds', async () => {
+    let failing = true
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (String(url).includes('capped-count')) return jsonResponse({ count: 1, isCapped: false })
+      return failing ? failure() : jsonResponse({ data: [{ id: 'a' }], meta: { nextCursor: null, hasNextPage: false } })
+    })
     const { result } = renderHook(() => useCursorList<Row>(options()), { wrapper: wrapper() })
 
     await waitFor(() => expect(result.current.tableProps.isError).toBe(true))
     expect(result.current.rows).toEqual([])
-    expect(result.current.tableProps.onRetry).toBeTypeOf('function')
+
+    failing = false
+    act(() => result.current.tableProps.onRetry())
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
+    expect(result.current.tableProps.isError).toBe(false)
   })
 })

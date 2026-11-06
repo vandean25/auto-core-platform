@@ -157,7 +157,7 @@ export default function VehicleStockList() {
 
       <div className="mb-4 flex items-center gap-2">
         <Select value={statusFilter ?? '_all'} onValueChange={handleStatusFilter}>
-          <SelectTrigger className="h-8 w-[220px]" aria-label={t('stockList.statusFilterAria')}>
+          <SelectTrigger className="h-11 w-[220px] max-w-full md:h-8" aria-label={t('stockList.statusFilterAria')}>
             <SelectValue placeholder={t('stockList.allStatuses')} />
           </SelectTrigger>
           <SelectContent>

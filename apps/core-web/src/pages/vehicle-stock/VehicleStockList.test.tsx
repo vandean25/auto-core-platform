@@ -84,8 +84,13 @@ describe('VehicleStockList paging mode', () => {
 
     expect(asMock(vehicleStockApi.useVehicleStock)).toHaveBeenLastCalledWith(expect.anything(), { enabled: !infinite })
     expect(asMock(vehicleStockApi.useVehicleStockCursorList)).toHaveBeenLastCalledWith(expect.anything(), infinite)
-    expect(screen.queryByRole('button', { name: deCommon.dataTable.next }) === null).toBe(infinite)
-    expect(screen.queryByText('1 Treffer') !== null).toBe(infinite)
+    if (infinite) {
+      expect(screen.queryByRole('button', { name: deCommon.dataTable.next })).not.toBeInTheDocument()
+      expect(screen.getByText('1 Treffer')).toBeInTheDocument()
+    } else {
+      expect(screen.getByRole('button', { name: deCommon.dataTable.next })).toBeInTheDocument()
+      expect(screen.queryByText('1 Treffer')).not.toBeInTheDocument()
+    }
   })
 
   // AUT-890: choosing a draft-free status in the select is what switches the list to infinite mode.
