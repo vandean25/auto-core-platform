@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DashboardWidgetsProvider, useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
-import { SavedViewsProvider, useSavedViews } from '@/features/saved-views/SavedViewsProvider'
+import { SavedViewsProvider, savedViewsStorageKey, useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 
 afterEach(() => {
   window.localStorage.clear()
@@ -13,6 +13,7 @@ function SavedViewsProbe() {
     <div>
       <span data-testid="saved-count">{savedViews.length}</span>
       <span data-testid="saved-first">{savedViews[0]?.name ?? ''}</span>
+      <span data-testid="saved-first-href">{savedViews[0]?.href ?? ''}</span>
     </div>
   )
 }
@@ -29,7 +30,7 @@ function DashboardWidgetsProbe() {
 
 describe('provider hydration persistence', () => {
   it('keeps saved views after provider mount', () => {
-    const storageKey = 'acp:saved-views:test-user'
+    const storageKey = savedViewsStorageKey('test-user', 'tenant-a')
     window.localStorage.setItem(
       storageKey,
       JSON.stringify([
@@ -43,7 +44,7 @@ describe('provider hydration persistence', () => {
     )
 
     render(
-      <SavedViewsProvider userKey="test-user">
+      <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
         <SavedViewsProbe />
       </SavedViewsProvider>,
     )
@@ -51,6 +52,49 @@ describe('provider hydration persistence', () => {
     expect(screen.getByTestId('saved-count')).toHaveTextContent('1')
     expect(screen.getByTestId('saved-first')).toHaveTextContent('My Overdue Orders')
     expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '[]')).toHaveLength(1)
+  })
+
+  it('moves the views saved before tenant scoping into the first tenant that loads them, once', () => {
+    const legacyKey = 'acp:saved-views:test-user'
+    window.localStorage.setItem(
+      legacyKey,
+      JSON.stringify([{ id: 'old-1', name: 'Alt', href: '/customers?search=a', createdAt: '2026-03-09T09:00:00.000Z' }]),
+    )
+
+    const first = render(
+      <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
+        <SavedViewsProbe />
+      </SavedViewsProvider>,
+    )
+    expect(screen.getByTestId('saved-first')).toHaveTextContent('Alt')
+    first.unmount()
+    cleanup()
+    render(
+      <SavedViewsProvider userKey="test-user" tenantId="tenant-b">
+        <SavedViewsProbe />
+      </SavedViewsProvider>,
+    )
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0')
+    expect(window.localStorage.getItem(legacyKey)).toBeNull()
+    expect(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a'))).toContain('Alt')
+  })
+
+  it('drops the page number of views stored before saved views stopped keeping it', () => {
+    window.localStorage.setItem(
+      savedViewsStorageKey('test-user', 'tenant-a'),
+      JSON.stringify([
+        { id: 'old-1', name: 'Seite 3', href: '/workshop/orders?page=3&search=Gruber', createdAt: '2026-03-09T09:00:00.000Z' },
+      ]),
+    )
+
+    render(
+      <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
+        <SavedViewsProbe />
+      </SavedViewsProvider>,
+    )
+
+    expect(screen.getByTestId('saved-first-href')).toHaveTextContent('/workshop/orders?search=Gruber')
   })
 
   it('keeps dashboard widgets after provider mount', () => {

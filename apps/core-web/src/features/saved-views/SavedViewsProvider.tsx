@@ -3,6 +3,8 @@ import { generateId } from '@/lib/id'
 
 const STORAGE_PREFIX = 'acp:saved-views:'
 const MAX_SAVED_VIEWS = 30
+/** Table state that describes a position in the result, not a way of looking at it: a saved view starts on page 1. */
+const TRANSIENT_PARAMS = ['page', 'peek', 'action'] as const
 
 export type SavedView = {
   id: string
@@ -16,10 +18,17 @@ type CreateSavedViewInput = {
   href: string
 }
 
+type SavedViewResult = { ok: boolean; reason?: 'duplicate' | 'invalid' }
+
 type SavedViewsContextValue = {
   savedViews: SavedView[]
   addSavedView: (input: CreateSavedViewInput) => { created: boolean; reason?: 'duplicate' | 'invalid' }
+  renameSavedView: (id: string, name: string) => SavedViewResult
   removeSavedView: (id: string) => void
+  /** The view whose rename dialog is open: one dialog (`SavedViewRenameHost`) serves the toolbar menu and Cmd+K. */
+  renamingView: SavedView | null
+  requestRename: (view: SavedView) => void
+  cancelRename: () => void
 }
 
 const SavedViewsContext = React.createContext<SavedViewsContextValue | null>(null)
@@ -31,6 +40,7 @@ function normalizeHref(href: string): string {
   try {
     const url = new URL(trimmed, 'http://localhost')
     const params = new URLSearchParams(url.search)
+    for (const key of TRANSIENT_PARAMS) params.delete(key)
     params.sort()
     const normalizedQuery = params.toString()
     return `${url.pathname}${normalizedQuery ? `?${normalizedQuery}` : ''}`
@@ -39,13 +49,30 @@ function normalizeHref(href: string): string {
   }
 }
 
-function getStorageKey(userKey: string): string {
-  return `${STORAGE_PREFIX}${userKey}`
+/** Per user and tenant (AUT-880): another tenant's views never load, and stay stored for when the user returns. */
+export function savedViewsStorageKey(userKey: string, tenantId: string | null): string {
+  return `${STORAGE_PREFIX}${userKey}:${tenantId ?? 'none'}`
 }
 
-function loadSavedViews(storageKey: string): SavedView[] {
+/**
+ * Views saved before tenant scoping sit under the user-only key. They move once into the first tenant that loads;
+ * the legacy key is then gone, so no second tenant ever sees them.
+ */
+function adoptLegacyViews(storageKey: string, legacyKey: string): string | null {
   try {
-    const raw = window.localStorage.getItem(storageKey)
+    const legacy = window.localStorage.getItem(legacyKey)
+    if (legacy === null) return null
+    window.localStorage.setItem(storageKey, legacy)
+    window.localStorage.removeItem(legacyKey)
+    return legacy
+  } catch {
+    return null
+  }
+}
+
+function loadSavedViews(storageKey: string, legacyKey: string): SavedView[] {
+  try {
+    const raw = window.localStorage.getItem(storageKey) ?? adoptLegacyViews(storageKey, legacyKey)
     if (!raw) return []
 
     const parsed = JSON.parse(raw) as unknown
@@ -70,6 +97,11 @@ function loadSavedViews(storageKey: string): SavedView[] {
   }
 }
 
+/** The list a saved view belongs to, so a list's menu shows only its own views. */
+export function savedViewPath(href: string): string {
+  return href.split('?')[0]
+}
+
 function persistSavedViews(storageKey: string, savedViews: SavedView[]) {
   window.localStorage.setItem(storageKey, JSON.stringify(savedViews))
 }
@@ -80,28 +112,20 @@ function createSavedViewId(): string {
 
 type SavedViewsProviderProps = {
   userKey: string
+  /** Null for a session without an active tenant (a platform admin outside any tenant). */
+  tenantId?: string | null
   children: React.ReactNode
 }
 
-export function SavedViewsProvider({ userKey, children }: SavedViewsProviderProps) {
-  const storageKey = React.useMemo(() => getStorageKey(userKey), [userKey])
-  const [savedViews, setSavedViews] = React.useState<SavedView[]>(() => loadSavedViews(storageKey))
-  const [hydratedStorageKey, setHydratedStorageKey] = React.useState(storageKey)
+function SavedViewsStore({ storageKey, legacyKey, children }: { storageKey: string; legacyKey: string; children: React.ReactNode }) {
+  const [savedViews, setSavedViews] = React.useState<SavedView[]>(() => loadSavedViews(storageKey, legacyKey))
   const savedViewsRef = React.useRef<SavedView[]>(savedViews)
+  const [renamingId, setRenamingId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     savedViewsRef.current = savedViews
-  }, [savedViews])
-
-  React.useEffect(() => {
-    setSavedViews(loadSavedViews(storageKey))
-    setHydratedStorageKey(storageKey)
-  }, [storageKey])
-
-  React.useEffect(() => {
-    if (hydratedStorageKey !== storageKey) return
     persistSavedViews(storageKey, savedViews)
-  }, [storageKey, hydratedStorageKey, savedViews])
+  }, [storageKey, savedViews])
 
   const addSavedView = React.useCallback(
     ({ name, href }: CreateSavedViewInput): { created: boolean; reason?: 'duplicate' | 'invalid' } => {
@@ -131,20 +155,48 @@ export function SavedViewsProvider({ userKey, children }: SavedViewsProviderProp
     [],
   )
 
+  const renameSavedView = React.useCallback((id: string, name: string): SavedViewResult => {
+    const normalizedName = name.trim()
+    const target = savedViewsRef.current.find((view) => view.id === id)
+    if (!normalizedName || !target) return { ok: false, reason: 'invalid' }
+
+    // Same rule as saving: one name per list, whatever the casing.
+    const taken = savedViewsRef.current.some(
+      (view) =>
+        view.id !== id &&
+        savedViewPath(view.href) === savedViewPath(target.href) &&
+        view.name.toLowerCase() === normalizedName.toLowerCase(),
+    )
+    if (taken) return { ok: false, reason: 'duplicate' }
+
+    setSavedViews((previous) => previous.map((view) => (view.id === id ? { ...view, name: normalizedName } : view)))
+    return { ok: true }
+  }, [])
+
   const removeSavedView = React.useCallback((id: string) => {
     setSavedViews((previous) => previous.filter((view) => view.id !== id))
   }, [])
 
+  const requestRename = React.useCallback((view: SavedView) => setRenamingId(view.id), [])
+  const cancelRename = React.useCallback(() => setRenamingId(null), [])
+  const renamingView = savedViews.find((view) => view.id === renamingId) ?? null
+
   const value = React.useMemo<SavedViewsContextValue>(
-    () => ({
-      savedViews,
-      addSavedView,
-      removeSavedView,
-    }),
-    [savedViews, addSavedView, removeSavedView],
+    () => ({ savedViews, addSavedView, renameSavedView, removeSavedView, renamingView, requestRename, cancelRename }),
+    [savedViews, addSavedView, renameSavedView, removeSavedView, renamingView, requestRename, cancelRename],
   )
 
   return <SavedViewsContext.Provider value={value}>{children}</SavedViewsContext.Provider>
+}
+
+export function SavedViewsProvider({ userKey, tenantId = null, children }: SavedViewsProviderProps) {
+  const storageKey = savedViewsStorageKey(userKey, tenantId)
+  // Keyed by the storage key: a tenant or user change mounts a fresh store, so no render shows the previous one's views.
+  return (
+    <SavedViewsStore key={storageKey} storageKey={storageKey} legacyKey={`${STORAGE_PREFIX}${userKey}`}>
+      {children}
+    </SavedViewsStore>
+  )
 }
 
 export function useSavedViews() {
@@ -153,4 +205,9 @@ export function useSavedViews() {
     throw new Error('useSavedViews must be used within a SavedViewsProvider.')
   }
   return context
+}
+
+/** For surfaces that can also render outside a provider (the mechanic shell has none): null instead of a throw. */
+export function useOptionalSavedViewsContext(): SavedViewsContextValue | null {
+  return React.useContext(SavedViewsContext)
 }

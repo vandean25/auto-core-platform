@@ -36,6 +36,7 @@ import { useGlobalSearchShortcut } from '@/hooks/useGlobalSearchShortcut'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
+import { SavedViewRenameHost } from '@/features/saved-views/SavedViewRenameHost'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { CheckInOfflinePurgeDialog } from '@/features/workshop/check-in/CheckInOfflinePurgeDialog'
 import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
@@ -125,7 +126,7 @@ function AppShell({
   const [sidebarOpen, setSidebarOpen] = useSidebarOpen()
 
   return (
-    <SavedViewsProvider userKey={effectiveUserKey}>
+    <SavedViewsProvider userKey={effectiveUserKey} tenantId={activeTenant?.id ?? null}>
       <DashboardWidgetsProvider userKey={effectiveUserKey}>
         <RealtimeDashboardSyncProvider>
           <>
@@ -157,6 +158,7 @@ function AppShell({
 
               <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
               <EntityActionConfirmHost />
+              <SavedViewRenameHost />
               <IosInstallHint />
               <UndoEligibleEntrySessionSync />
               <GlobalShortcutLayer userKey={effectiveUserKey} />

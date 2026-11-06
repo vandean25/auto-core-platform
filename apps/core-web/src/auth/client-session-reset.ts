@@ -13,9 +13,9 @@ import { clearPersistedQueryCache } from '@/auth/persisted-query-cache'
  * - `context`: tenant or site switch by the same user. Drops the cache and the tenant session storage only, so
  *   saved views, the dashboard layout, onboarding state and the push registration survive the switch.
  *
- * Saved views (`acp:saved-views:<userId>`) and the dashboard layout (`acp:dashboard-widgets:<userId>`) are keyed by
- * user id and are never removed here: the product decision for AUT-819 keeps them across sign-out, and the
- * providers only ever read the key of the signed-in user.
+ * Saved views (`acp:saved-views:<userId>:<tenantId>`, AUT-880) and the dashboard layout
+ * (`acp:dashboard-widgets:<userId>`) are keyed by user id and are never removed here: the product decision for AUT-819
+ * keeps them across sign-out, and the providers only ever read the key of the signed-in user (and active tenant).
  */
 
 export type ClientSessionResetScope = 'session' | 'context'

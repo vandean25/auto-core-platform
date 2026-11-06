@@ -139,6 +139,13 @@
       "estimate": "Aktionen für Kostenvoranschlag {{number}} v{{version}}",
       "creditNote": "Aktionen für Gutschrift {{number}}"
     },
+    "savedViews": {
+      "heading": "Gespeicherte Ansichten",
+      "manageHeading": "Ansichten verwalten",
+      "open": "Ansicht öffnen: {{name}}",
+      "rename": "Ansicht umbenennen: {{name}}",
+      "remove": "Ansicht entfernen: {{name}}"
+    },
     "quickActions": {
       "navigate": "Navigation",
       "create": "Anlegen",

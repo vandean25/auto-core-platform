@@ -139,6 +139,13 @@
       "estimate": "Actions for estimate {{number}} v{{version}}",
       "creditNote": "Actions for credit note {{number}}"
     },
+    "savedViews": {
+      "heading": "Saved views",
+      "manageHeading": "Manage views",
+      "open": "Open view {{name}}",
+      "rename": "Rename view {{name}}",
+      "remove": "Remove view {{name}}"
+    },
     "quickActions": {
       "navigate": "Navigate",
       "create": "Create",

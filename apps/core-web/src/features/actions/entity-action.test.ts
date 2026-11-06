@@ -25,6 +25,7 @@ import { createWorkshopOrderUndoNotesAction } from './work-order-undo-notes-acti
 import { createTyreSetTyreMeasurementAction } from './tyre-set-row-actions'
 import { createWorkshopCommandActions } from './workshop-command-actions'
 import { createCreditNotePrintAction } from './credit-note-row-actions'
+import { createSavedViewActions } from './saved-view-actions'
 
 type RecordItem = { id: string; status: string }
 type Context = { navigate: (path: string) => void }
@@ -95,6 +96,7 @@ describe('entity action registry helpers', () => {
       ...createImportJobRowActions(passthroughT as TFunction<'settings'>),
       ...createWorkshopCommandActions(passthroughT as TFunction<'workshop'>),
       createCreditNotePrintAction(passthroughT as TFunction<'finance'>),
+      ...createSavedViewActions(passthroughT as TFunction<'common'>),
     ]
 
     expect(allRegistered.map((action) => action.id)).toEqual([...REGISTERED_ENTITY_ACTION_IDS])

@@ -15,6 +15,7 @@
       "title": "Verkaufsrechnungen",
       "description": "Ausgestellte Rechnungen und Rechnungsentwürfe aus allen Verkaufsbereichen.",
       "newInvoice": "Rechnung",
+      "saveViewTitle": "Rechnungen",
       "searchPlaceholder": "Rechnungen durchsuchen…",
       "columns": {
         "invoiceNumber": "Rechnung Nr.",

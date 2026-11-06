@@ -15,6 +15,7 @@
       "title": "Sales Invoices",
       "description": "Finalized and draft customer invoices across sales channels.",
       "newInvoice": "Invoice",
+      "saveViewTitle": "Invoices",
       "searchPlaceholder": "Search invoices...",
       "columns": {
         "invoiceNumber": "Invoice #",

@@ -5,6 +5,8 @@ import { MessageSquareText } from 'lucide-react'
 
 import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
+import { executeEntityAction } from '@/features/actions/entity-action'
+import { useSavedViewActions } from '@/features/saved-views/use-saved-view-actions'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
@@ -31,7 +33,7 @@ import {
 } from './global-search-context-actions'
 import { useGlobalSearchPaletteContext } from './use-global-search-palette-context'
 import { truncate } from './global-search-format'
-import { getPaletteSections } from './global-search-navigation'
+import { getPaletteSections, getSavedViewManageSection } from './global-search-navigation'
 import { recentItemsKey, useRecentItems, type RecentSearchItem } from './global-search-recent'
 
 interface GlobalSearchDialogProps {
@@ -195,6 +197,72 @@ function CommandEntryGroup({ onSelect }: { onSelect: () => void }) {
   )
 }
 
+/** The navigation, create and saved-view entries under the search results. */
+function PaletteActionGroups({
+  sections,
+  manageSection,
+  openHref,
+  runContextAction,
+}: {
+  sections: ReturnType<typeof getPaletteSections>
+  manageSection: PaletteContextActionSection | null
+  openHref: (href: string) => void
+  runContextAction: (action: PaletteContextAction) => void
+}) {
+  return (
+    <>
+      {sections.map((section) => (
+        <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
+      ))}
+      {manageSection ? <GlobalSearchContextActionGroup section={manageSection} onSelect={runContextAction} /> : null}
+    </>
+  )
+}
+
+/** Search results once the user typed, the recent items and the prefix help before. */
+function PaletteResultsOrRecent({
+  query,
+  groups,
+  isLoading,
+  error,
+  hasSections,
+  activeSiteId,
+  sites,
+  recent,
+  openItem,
+}: {
+  query: string
+  groups: ReturnType<typeof useGlobalSearch>['groups']
+  isLoading: boolean
+  error: ReturnType<typeof useGlobalSearch>['error']
+  hasSections: boolean
+  activeSiteId: string | null
+  sites: NonNullable<ReturnType<typeof useMySites>['data']>
+  recent: ReturnType<typeof useRecentItems>
+  openItem: (item: RecentSearchItem) => void
+}) {
+  if (!query) {
+    return (
+      <>
+        <RecentItemsGroup items={recent.items} onSelect={openItem} onRemove={recent.remove} />
+        <PrefixHelp />
+      </>
+    )
+  }
+  return (
+    <SearchResults
+      groups={groups}
+      isLoading={isLoading}
+      error={error}
+      hasSections={hasSections}
+      activeSiteId={activeSiteId}
+      sites={sites}
+      query={truncate(query)}
+      onSelect={openItem}
+    />
+  )
+}
+
 function SearchPaletteBody({
   query,
   subPage,
@@ -203,6 +271,7 @@ function SearchPaletteBody({
   isLoading,
   error,
   sections,
+  savedViewManageSection,
   activeSiteId,
   sites,
   recent,
@@ -217,6 +286,7 @@ function SearchPaletteBody({
   isLoading: boolean
   error: ReturnType<typeof useGlobalSearch>['error']
   sections: ReturnType<typeof getPaletteSections>
+  savedViewManageSection: PaletteContextActionSection | null
   activeSiteId: string | null
   sites: NonNullable<ReturnType<typeof useMySites>['data']>
   recent: ReturnType<typeof useRecentItems>
@@ -235,26 +305,23 @@ function SearchPaletteBody({
       {subPage.isSubPage ? null : (
         <>
           {commandEntryVisible ? <CommandEntryGroup onSelect={onOpenCommand} /> : null}
-          {query ? (
-            <SearchResults
-              groups={groups}
-              isLoading={isLoading}
-              error={error}
-              hasSections={sections.length > 0}
-              activeSiteId={activeSiteId}
-              sites={sites}
-              query={truncate(query)}
-              onSelect={openItem}
-            />
-          ) : (
-            <>
-              <RecentItemsGroup items={recent.items} onSelect={openItem} onRemove={recent.remove} />
-              <PrefixHelp />
-            </>
-          )}
-          {sections.map((section) => (
-            <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
-          ))}
+          <PaletteResultsOrRecent
+            query={query}
+            groups={groups}
+            isLoading={isLoading}
+            error={error}
+            hasSections={sections.length > 0}
+            activeSiteId={activeSiteId}
+            sites={sites}
+            recent={recent}
+            openItem={openItem}
+          />
+          <PaletteActionGroups
+            sections={sections}
+            manageSection={savedViewManageSection}
+            openHref={openHref}
+            runContextAction={subPage.runContextAction}
+          />
         </>
       )}
     </>
@@ -290,7 +357,14 @@ function SearchPalette({
     setSearch,
     onOpenChange,
   })
-  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill)
+  const savedViewActions = useSavedViewActions()
+  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill, savedViewActions.savedViews)
+  const savedViewManageSection = getSavedViewManageSection(
+    sessionMeta.roleInfo,
+    query,
+    savedViewActions.savedViews,
+    (action, view) => executeEntityAction(savedViewActions.actions[action], view, savedViewActions.context),
+  )
   const commandEntryVisible =
     canUseWorkshopCommand(sessionMeta.roleInfo?.activeRole) &&
     !query &&
@@ -339,6 +413,7 @@ function SearchPalette({
           isLoading={isLoading}
           error={error}
           sections={sections}
+          savedViewManageSection={savedViewManageSection}
           activeSiteId={sessionMeta.activeSiteId}
           sites={sites}
           recent={recent}

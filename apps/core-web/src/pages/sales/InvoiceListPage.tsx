@@ -166,7 +166,7 @@ export default function InvoiceListPage() {
         data={data}
         pageCount={pageCount}
         isLoading={isLoading}
-        searchColumn="invoice_number"
+        saveViewTitle={t('invoices.list.saveViewTitle')}
         searchPlaceholder={t('invoices.list.searchPlaceholder')}
         rowBehaviour={{
           onRowClick: (row) => {

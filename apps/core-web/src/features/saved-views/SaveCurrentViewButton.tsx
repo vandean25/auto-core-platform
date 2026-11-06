@@ -18,7 +18,8 @@ import { Label } from '@/components/ui/label'
 import { TooltipHint } from '@/components/ui/tooltip'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 
-const TABLE_STATE_KEYS = new Set(['page', 'pageSize', 'sortField', 'sortDirection'])
+// `peek` and `action` open a sheet or dialog and are dropped from a saved view, so they are no reason to offer saving.
+const TABLE_STATE_KEYS = new Set(['page', 'pageSize', 'sortField', 'sortDirection', 'peek', 'action'])
 
 function hasMeaningfulFilters(search: string): boolean {
   const searchParams = new URLSearchParams(search)

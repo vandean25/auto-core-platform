@@ -173,7 +173,22 @@
     "defaultName": "{{title}} view",
     "added": "Saved view added to Favorites.",
     "duplicate": "This view is already in Favorites.",
-    "failed": "Unable to save this view."
+    "failed": "Unable to save this view.",
+    "menuButton": "Views",
+    "menuAria": "Saved views for {{title}}",
+    "menuTitle": "Views",
+    "renameAria": "Rename view {{name}}",
+    "removeAria": "Remove view {{name}}",
+    "removed": "View removed.",
+    "openAction": "Open view",
+    "renameAction": "Rename view",
+    "removeAction": "Remove view",
+    "removeConfirmTitle": "Remove this view?",
+    "removeConfirmDescription": "The view “{{name}}” will be removed.",
+    "renameTitle": "Rename view",
+    "renamed": "View renamed.",
+    "renameDuplicate": "A view with this name already exists here.",
+    "renameFailed": "Unable to rename this view."
   },
   "onboarding": {
     "title": "Get your workshop set up",
