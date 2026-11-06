@@ -132,6 +132,19 @@ describe('GlobalSearch navigation targets', () => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
     })
 
+    it('WHEN a saved view is picked with Cmd/Ctrl held THEN it opens in a new tab instead of navigating', () => {
+      seed('u', 't', [{ id: 'v1', name: 'Gruber in progress', href: '/workshop/orders?search=Gruber' }])
+      const open = vi.spyOn(window, 'open').mockReturnValue(null)
+      renderPalette()
+
+      type('Gruber')
+      fireEvent.click(screen.getByText('Open view Gruber in progress'), { ctrlKey: true })
+
+      expect(open).toHaveBeenCalledWith('/workshop/orders?search=Gruber', '_blank', 'noopener,noreferrer')
+      expect(mockNavigate).not.toHaveBeenCalled()
+      open.mockRestore()
+    })
+
     it('offers the saved view of an invoice list as "Open view …" with its list as description', () => {
       seed('u', 't', [{ id: 'v2', name: 'Unpaid invoices', href: '/sales/invoices?filter_status=OPEN' }])
       renderPalette()

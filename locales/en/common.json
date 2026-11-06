@@ -176,9 +176,8 @@
     "renameAction": "Rename view",
     "removeAction": "Remove view",
     "removeConfirmTitle": "Remove this view?",
-    "removeConfirmDescription": "The view “{{name}}” is removed from your saved views. Your data stays unchanged.",
+    "removeConfirmDescription": "The view “{{name}}” will be removed.",
     "renameTitle": "Rename view",
-    "renameDescription": "The view keeps its filters, search and sort.",
     "renamed": "View renamed.",
     "renameDuplicate": "A view with this name already exists here.",
     "renameFailed": "Unable to rename this view."

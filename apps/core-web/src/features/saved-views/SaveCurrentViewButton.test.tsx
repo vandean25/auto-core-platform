@@ -123,6 +123,23 @@ async function openMenu() {
   return screen.findByRole('dialog', { name: /Ansichten/ })
 }
 
+describe('SaveCurrentViewButton visibility (AUT-880)', () => {
+  it.each(['?peek=order-1', '?action=create', '?peek=order-1&page=2&sortField=date'])(
+    'offers no save button for %s: peek, action and table position are not part of a saved view',
+    (search) => {
+      render(
+        <MemoryRouter initialEntries={[`/workshop/orders${search}`]}>
+          <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
+            <SaveCurrentViewButton title="Arbeitsaufträge" />
+          </SavedViewsProvider>
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByRole('button', { name: /speichern/ })).not.toBeInTheDocument()
+    },
+  )
+})
+
 describe('saved views for work orders and invoices (AUT-880)', () => {
   it('WHEN the user saves the current work-order filters THEN the view appears in the view menu', async () => {
     render(toolbar())
@@ -206,7 +223,7 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     fireEvent.click(within(menu).getByRole('button', { name: 'Ansicht Gruber in Arbeit entfernen' }))
     // Same confirmation as every destructive registry action.
     const confirm = await screen.findByRole('alertdialog')
-    expect(confirm).toHaveTextContent('Die Ansicht „Gruber in Arbeit“ wird aus Ihren gespeicherten Ansichten entfernt.')
+    expect(confirm).toHaveTextContent('Die Ansicht „Gruber in Arbeit“ wird entfernt.')
     expect(JSON.parse(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a')) ?? '[]')).toHaveLength(2)
     fireEvent.click(within(confirm).getByRole('button', { name: 'Ansicht entfernen' }))
 
@@ -317,7 +334,7 @@ describe('saved invoice views (AUT-880)', () => {
 
     await waitFor(() => expect(rowNumbers()).toEqual(['RE-2026-0001', 'RE-2026-0002']))
     expect(screen.getByPlaceholderText('Rechnungen durchsuchen…')).toHaveValue('Lovelace')
-    // The list stayed mounted while the view opened: same search input, rows never replaced by a skeleton.
+    // The list stayed mounted while the view opened: it is the same search input, not a remounted one.
     expect(screen.getByPlaceholderText('Rechnungen durchsuchen…')).toBe(searchInput)
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent('/sales/invoices?search=Lovelace&sortDirection=asc&sortField=date'),

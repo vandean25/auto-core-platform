@@ -176,9 +176,8 @@
     "renameAction": "Ansicht umbenennen",
     "removeAction": "Ansicht entfernen",
     "removeConfirmTitle": "Ansicht entfernen?",
-    "removeConfirmDescription": "Die Ansicht „{{name}}“ wird aus Ihren gespeicherten Ansichten entfernt. Die Daten bleiben unverändert.",
+    "removeConfirmDescription": "Die Ansicht „{{name}}“ wird entfernt.",
     "renameTitle": "Ansicht umbenennen",
-    "renameDescription": "Die Filter, die Suche und die Sortierung der Ansicht bleiben unverändert.",
     "renamed": "Ansicht umbenannt.",
     "renameDuplicate": "Eine Ansicht mit diesem Namen gibt es hier schon.",
     "renameFailed": "Die Ansicht konnte nicht umbenannt werden."

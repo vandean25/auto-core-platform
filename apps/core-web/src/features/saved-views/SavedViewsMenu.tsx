@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -38,11 +37,11 @@ function RenameViewDialog({ view, onClose }: { view: SavedView; onClose: () => v
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
+      {/* No description: the title and the name field say all there is to do. */}
+      <DialogContent className="sm:max-w-[425px]" aria-describedby={undefined}>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{t('savedViews.renameTitle')}</DialogTitle>
-            <DialogDescription>{t('savedViews.renameDescription')}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-4">
             <Label htmlFor="saved-view-rename">{t('savedViews.nameLabel')}</Label>
