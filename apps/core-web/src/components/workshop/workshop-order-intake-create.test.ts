@@ -100,7 +100,7 @@ describe('submitWorkshopIntakeOrder', () => {
     expect(onPendingOrder.mock.calls[0][0].createPayload).toEqual(createOrder.mock.calls[0][0])
     const localId = onPendingOrder.mock.calls[0][1].localId as string
     expect(onPendingFailed).toHaveBeenCalledWith(localId, { message: 'failed' })
-    expect(input.pendingCallbacks.closeDialog).toHaveBeenCalled()
+    expect(input.pendingCallbacks.closeDialog).toHaveBeenCalledTimes(1)
     expect(input.notify.toastError).not.toHaveBeenCalled()
   })
 

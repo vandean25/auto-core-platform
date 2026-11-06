@@ -64,6 +64,8 @@ type FakeServer = {
   postResults: Response[]
   /** Holds the next orders GET until released. */
   listGate: Deferred<void> | null
+  /** Makes the next orders GET answer 500. */
+  failNextList: boolean
 }
 
 let server: FakeServer
@@ -84,6 +86,10 @@ function installFakeServer() {
       const gate = server.listGate
       server.listGate = null
       if (gate) await gate.promise
+      if (server.failNextList) {
+        server.failNextList = false
+        return httpResponse(500, {})
+      }
       const total = server.orders.length
       return httpResponse(200, { data: server.orders, meta: { page: 1, pageSize: 10, total, pageCount: 1 } })
     }
@@ -123,7 +129,7 @@ const bodyRows = () => within(screen.getByRole('table')).getAllByRole('row').sli
 const settle = () => act(() => new Promise((done) => setTimeout(done, 30)))
 
 beforeEach(() => {
-  server = { orders: [], orderListGets: 0, postBodies: [], postGate: null, postResults: [], listGate: null }
+  server = { orders: [], orderListGets: 0, postBodies: [], postGate: null, postResults: [], listGate: null, failNextList: false }
   installFakeServer()
 })
 
@@ -335,6 +341,54 @@ describe('WorkshopOrderList pending row pointer and keyboard paths', () => {
     expect(screen.queryByRole('button', { name: deCommon.dataTable.closeContextMenu })).not.toBeInTheDocument()
     const detailGets = vi.mocked(fetchWithAuth).mock.calls.filter(([url]) => /^\/api\/workshop\/orders\/[^/?]+$/.test(String(url)))
     expect(detailGets).toEqual([])
+  })
+})
+
+describe('WorkshopOrderList filter change', () => {
+  const changeSearch = async () => {
+    fireEvent.change(await screen.findByPlaceholderText(deWorkshop.orders.list.searchPlaceholder), { target: { value: 'Golf' } })
+  }
+
+  // Regression guard for scenarios 3 and 4 through the real orders query: dropping keepPreviousData loses the stale
+  // preview (busy table, status text) even though the retained rows still show.
+  it('keeps the previous page busy and locked while a filter change loads, then swaps in the new page', async () => {
+    server.orders = [serverOrder('order-old', 'WO-2026-0001')]
+    renderList()
+    await screen.findByText('WO-2026-0001')
+
+    server.orders = [serverOrder('order-new', 'WO-2026-0002')]
+    server.listGate = deferred<void>()
+    const release = server.listGate
+    await changeSearch()
+
+    await waitFor(() => expect(server.orderListGets).toBe(2))
+    expect(await screen.findByText(loading.stalePreview)).toBeInTheDocument()
+    expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
+
+    release.resolve()
+    expect(await screen.findByText('WO-2026-0002')).toBeInTheDocument()
+    expect(screen.queryByText('WO-2026-0001')).not.toBeInTheDocument()
+    expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'false')
+    expect(screen.queryByText(loading.stalePreview)).not.toBeInTheDocument()
+  })
+
+  it('keeps the last page and offers Retry when the filter change fails, then recovers', async () => {
+    server.orders = [serverOrder('order-old', 'WO-2026-0001')]
+    renderList()
+    await screen.findByText('WO-2026-0001')
+
+    server.failNextList = true
+    await changeSearch()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(loading.loadFailed)
+    expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
+
+    server.orders = [serverOrder('order-new', 'WO-2026-0002')]
+    fireEvent.click(within(alert).getByRole('button', { name: loading.retry }))
+    expect(await screen.findByText('WO-2026-0002')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
 

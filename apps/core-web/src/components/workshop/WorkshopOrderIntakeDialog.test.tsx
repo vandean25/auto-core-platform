@@ -210,7 +210,7 @@ describe('WorkshopOrderIntakeDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
     fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
-    await waitFor(() => expect(onPendingOrderFailed).toHaveBeenCalled())
+    await waitFor(() => expect(onPendingOrderFailed).toHaveBeenCalledTimes(1))
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(onPendingOrderFailed.mock.calls[0][0]).toBe(onPendingOrder.mock.calls[0][1].localId)
     expect(onPendingOrderFailed.mock.calls[0][1]).toEqual({
@@ -459,7 +459,7 @@ describe('WorkshopOrderIntakeDialog', () => {
       }),
     )
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalled()
+      expect(toast.error).toHaveBeenCalledTimes(1)
     })
 
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
