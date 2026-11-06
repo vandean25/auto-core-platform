@@ -415,8 +415,12 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(screen.queryByRole('button', { name: infiniteDt.refreshList })).not.toBeInTheDocument()
   })
 
-  // Pilot check "Requests": the page landing cleared the stale flag, so an event during a load was silently dropped.
-  it('WHEN a realtime event arrives while the next page loads THEN the notice is still there after that page landed', async () => {
+  // Pilot check "Requests": the page landing cleared the stale flag, so an event before or during a load was silently dropped
+  // (an already stale list ignores a second invalidation, and the success of the page resets the flag).
+  it.each([
+    { name: 'before the next page loads', eventDuringLoad: false },
+    { name: 'while the next page loads', eventDuringLoad: true },
+  ])('WHEN a realtime event arrives $name THEN the notice is still there after that page landed', async ({ eventDuringLoad }) => {
     const client = createListClient()
     seedLoadedPages(client, 1)
     let landPage: () => void = () => undefined
@@ -427,14 +431,40 @@ describe('DataTable infinite mode (AUT-889)', () => {
         }),
     )
     render(<InfiniteListHarness client={client} fetchPage={fetchPage} />)
+    const invalidator = createEchoSafeInvalidator(client)
 
+    if (!eventDuringLoad) act(() => invalidator.invalidate(['infinite-rows']))
     scrollTo(4100)
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1))
-    act(() => createEchoSafeInvalidator(client).invalidate(['infinite-rows']))
+    if (eventDuringLoad) act(() => invalidator.invalidate(['infinite-rows']))
     await act(async () => landPage())
 
     expect(await screen.findByRole('button', { name: infiniteDt.refreshList })).toBeInTheDocument()
     expect(client.getQueryData<{ pages: unknown[] }>(listKey(''))?.pages).toHaveLength(2)
+  })
+
+  // Review of 3a81697: the listener must not outlive the fetch it watches; a refresh right after a cancelled load is fresh.
+  it('WHEN a refresh follows a next-page load THEN the notice does not come back', async () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    let landPage: () => void = () => undefined
+    const fetchPage = vi.fn(({ page }: PageRequest) =>
+      page === 1
+        ? new Promise<ReturnType<typeof pageOf>>((resolve) => {
+            landPage = () => resolve(pageOf(1))
+          })
+        : Promise.resolve(pageOf(0, { pages: 3 })),
+    )
+    render(<InfiniteListHarness client={client} fetchPage={fetchPage} />)
+
+    scrollTo(4100)
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledWith({ page: 1, filter: '' }))
+    act(() => createEchoSafeInvalidator(client).invalidate(['infinite-rows']))
+    fireEvent.click(await screen.findByRole('button', { name: infiniteDt.refreshList }))
+    await waitFor(() => expect(client.getQueryData<{ pages: unknown[] }>(listKey(''))?.pages).toHaveLength(1))
+    await act(async () => landPage())
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: infiniteDt.refreshList })).not.toBeInTheDocument())
   })
 
   // Pilot check "Requests": remount, focus and reconnect no longer reload the retained pages; an old cache offers the refresh.

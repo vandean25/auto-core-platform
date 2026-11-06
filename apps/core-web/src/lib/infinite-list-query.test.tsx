@@ -186,4 +186,31 @@ describe('infinite-list-query helpers', () => {
       expect(listRowIdsFromCache(queryClient.getQueryData(key))).toEqual(['newer'])
     })
   })
+
+  describe('count refetch on refresh', () => {
+    const key = ['test', 'count-refresh'] as const
+    const countKey = ['test', 'count-refresh', 'count'] as const
+
+    // ADR-0035 §5: sorting alone does not recount, explicit refresh does.
+    it.each([
+      { withCount: true, countFetches: 1 },
+      { withCount: false, countFetches: 0 },
+    ])('WHEN withCount is $withCount THEN the capped count is fetched $countFetches times', async ({ withCount, countFetches }) => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const countFn = vi.fn(async () => ({ count: 1, isCapped: false }))
+      queryClient.getQueryCache().build(queryClient, { queryKey: countKey, queryFn: countFn } as never)
+      queryClient.getQueryCache().build(queryClient, {
+        queryKey: key,
+        meta: infiniteListQueryMeta(countKey),
+        initialPageParam: 0,
+        queryFn: async () => ({ data: [{ id: 'a' }] }),
+      } as never)
+      queryClient.setQueryData(key, { pages: [{ data: [{ id: 'a' }] }, { data: [{ id: 'b' }] }], pageParams: [0, 1] })
+
+      await refreshInfiniteList(queryClient, key, { withCount })
+
+      expect(countFn).toHaveBeenCalledTimes(countFetches)
+      expect(queryClient.getQueryData<InfiniteData<unknown>>(key)?.pages).toHaveLength(1)
+    })
+  })
 })

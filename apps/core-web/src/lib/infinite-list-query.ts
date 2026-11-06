@@ -110,18 +110,44 @@ export function isInfiniteListQuery(client: QueryClient, queryKey: QueryKey): bo
   return isInfiniteDataShape(query?.state.data)
 }
 
-/** An event that arrives while a page is loading must survive that page landing, which clears the stale flag. */
+/**
+ * A page landing (`success`) clears the invalidated flag, and query-core ignores an invalidation of an already invalidated
+ * query. So a list that was stale when a load began, or that was invalidated during it, would silently become "fresh".
+ * This restores the flag after such a load. A cancelled load reverts the state itself (`setState`), and a manual
+ * `setQueryData` (explicit refresh) is not a load, so neither restores anything. Returns the unsubscribe function.
+ */
+type FetchPhase = 'start' | 'invalidated' | 'reset' | 'end' | 'other'
+
+function fetchPhaseOf(action: { type: string; manual?: boolean }): FetchPhase {
+  if (action.type === 'fetch') return 'start'
+  if (action.type === 'invalidate') return 'invalidated'
+  if (action.type === 'setState' || (action.type === 'success' && action.manual)) return 'reset'
+  return action.type === 'success' || action.type === 'error' ? 'end' : 'other'
+}
+
 export function keepStaleAcrossFetch(client: QueryClient, queryKey: QueryKey) {
+  const hash = hashKey(queryKey)
+  let staleDuringFetch = false
   return client.getQueryCache().subscribe((event) => {
+    if (event.type !== 'updated' || event.query.queryHash !== hash) return
     const { query } = event
-    if (event.type !== 'updated' || event.action.type !== 'invalidate') return
-    if (query.state.fetchStatus !== 'fetching' || hashKey(query.queryKey) !== hashKey(queryKey)) return
-    const unsubscribe = client.getQueryCache().subscribe((next) => {
-      if (next.query !== query || next.type !== 'updated') return
-      if (next.action.type !== 'success' && next.action.type !== 'error') return
-      unsubscribe()
-      query.invalidate()
-    })
+    switch (fetchPhaseOf(event.action)) {
+      case 'start':
+        staleDuringFetch = query.state.isInvalidated
+        break
+      case 'invalidated':
+        staleDuringFetch ||= query.state.fetchStatus === 'fetching'
+        break
+      case 'reset':
+        staleDuringFetch = false
+        break
+      case 'end': {
+        const restore = staleDuringFetch
+        staleDuringFetch = false
+        if (restore) query.invalidate()
+        break
+      }
+    }
   })
 }
 
