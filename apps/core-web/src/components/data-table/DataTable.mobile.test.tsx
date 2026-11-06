@@ -239,6 +239,24 @@ describe('DataTable list mode', () => {
     expect(onRowClick).toHaveBeenCalledWith(rows[0])
   })
 
+  // Regression: every pending row was dimmed with opacity-60, so the Retry/Dismiss controls of a failed row looked disabled.
+  it('keeps the controls of a pending row at full opacity and 44px on the phone list', () => {
+    const pendingRow = { id: 'local-1', __dataTablePending: true as const, customer: 'Pilot Customer 3', vehicle: '2019 Golf', status: 'OPEN', orderNo: '' }
+    const columns: ColumnDef<Row>[] = baseColumns.map((column) =>
+      'accessorKey' in column && column.accessorKey === 'customer'
+        ? { ...column, cell: ({ row }) => (<><span>{row.original.customer}</span><button type="button" className="min-h-11">Erneut versuchen</button></>) }
+        : column,
+    )
+    render(<Harness data={[pendingRow, ...rows]} columns={columns} rowBehaviour={{ onRowClick: vi.fn() }} />)
+
+    const item = screen.getAllByRole('listitem')[0]
+    expect(item).not.toHaveClass('opacity-60')
+    expect(item).toHaveClass('text-muted-foreground')
+    expect(within(item).getByRole('button', { name: 'Erneut versuchen' })).toHaveClass('min-h-11')
+    fireEvent.click(within(item).getByText('Pilot Customer 3'))
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  })
+
   it('hides the CSV export on phone because it reads table cells', () => {
     render(<Harness />)
 

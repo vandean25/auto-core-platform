@@ -93,12 +93,15 @@ export async function createPendingWorkshopOrder(
     onFailed: (localId: string, failure: PendingOrderFailure) => void
   },
 ): Promise<void> {
+  let order: { id: string }
   try {
-    const order = await createOrder(payload)
-    outcome.onSettled(localId, order.id)
+    order = await createOrder(payload)
   } catch (error) {
     outcome.onFailed(localId, pendingOrderFailureFromError(error, payload.vehicleId, outcome.createFailedMessage))
+    return
   }
+  // Outside the try: a throwing success handler must not turn a created order into a retryable failure.
+  outcome.onSettled(localId, order.id)
 }
 
 function pendingOrderFailureFromError(error: unknown, vehicleId: string, fallback: string): PendingOrderFailure {
@@ -143,7 +146,14 @@ type IntakeCreateDeps = {
 }
 
 export async function submitWorkshopIntakeOrder(deps: IntakeCreateDeps): Promise<void> {
-  const vehicle = await resolveIntakeVehicle(deps)
+  let vehicle: ExistingVehicle | undefined
+  try {
+    vehicle = await resolveIntakeVehicle(deps)
+  } catch (error) {
+    // Registering the vehicle failed before any order exists: report it, create nothing, leave the dialog open.
+    deps.notify.toastError(getErrorMessage(error, deps.messages.createFailed))
+    return
+  }
   if (!vehicle) return
   await createResolvedIntakeOrder(vehicle, deps)
 }
@@ -217,5 +227,5 @@ function reportIntakeCreateFailure(vehicle: ExistingVehicle, error: unknown, dep
     deps.notify.onConflict(conflict)
     return
   }
-  deps.notify.toastError(conflict?.message ?? getErrorMessage(error, deps.messages.createFailed))
+  deps.notify.toastError(getErrorMessage(error, deps.messages.createFailed))
 }

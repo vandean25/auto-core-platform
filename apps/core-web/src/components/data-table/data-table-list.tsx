@@ -159,7 +159,7 @@ function DataTableListRow<TData extends object>({
     <li
       data-table-row="true"
       data-row-id={getTableRowId(record)}
-      className={cn('flex flex-wrap items-center', (interactionLocked || isPending) && 'opacity-60')}
+      className={cn('flex flex-wrap items-center', interactionLocked && 'opacity-60', isPending && 'bg-muted/40 text-muted-foreground')}
     >
       <ListRowPrimary
         record={record}
