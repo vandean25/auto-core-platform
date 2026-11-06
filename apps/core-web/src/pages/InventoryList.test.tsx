@@ -388,6 +388,24 @@ describe('InventoryList bulk price change (AUT-886)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
+  // Large data: select-all-loaded can reach 2,000 rows, but one action must not fire 4,000 requests.
+  it('WHEN more than 100 parts are selected THEN the bar shows the limit instead of the action, also in Cmd+K', () => {
+    const many = Array.from({ length: 101 }, (_, index) => ({ ...item, id: `item-${index}`, sku: `BRK-${index}` }))
+    asMock(inventoryApi.useInventoryCursorList).mockReturnValue({
+      ...asMock(inventoryApi.useInventoryCursorList)(),
+      rows: many,
+    })
+    renderList()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /geladenen Zeilen auswählen/ }))
+
+    const bar = screen.getByRole('toolbar')
+    expect(bar).toHaveTextContent('101 ausgewählt')
+    expect(bar).toHaveTextContent('Höchstens 100 Teile pro Aktion.')
+    expect(within(bar).queryByRole('button', { name: bulk.action })).not.toBeInTheDocument()
+    expect(getSelectionPaletteSection()).toBeNull()
+  })
+
   it('WHEN the selection is cleared THEN nothing is published to Cmd+K any more', () => {
     renderList()
     fireEvent.click(screen.getAllByRole('checkbox', { name: deCommon.dataTable.selectRow })[0])
