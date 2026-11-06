@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { DataTableDensity } from '@/lib/density-tokens'
@@ -60,6 +60,13 @@ export function useDataTableViewModel<TData extends object>({
   const presentation = refreshingPreview
     ? { ...basePresentation, isStalePreview: true, ariaBusy: true }
     : basePresentation
+
+  // An infinite list has no pages: an old `?page=3` link starts at the top and drops the page from the URL (ADR-0035).
+  // Keyed on the state object, not the index: the URL sync of the table state can put the old index back on mount.
+  const inInfiniteMode = infiniteView !== undefined
+  useEffect(() => {
+    if (inInfiniteMode && pagination.pageIndex > 0) setPagination((previous) => ({ ...previous, pageIndex: 0 }))
+  }, [inInfiniteMode, pagination, setPagination])
 
   usePresentationLatencyRef(presentationLatencyRef, presentation.presentationLatencyMs)
 

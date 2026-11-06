@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import VehicleList from './VehicleList'
 import * as vehiclesApi from '@/api/vehicles'
 import { vehicleKeys } from '@/api/vehicles'
@@ -18,6 +18,7 @@ import CustomerList from '@/pages/customers/CustomerList'
 import InvoiceListPage from '@/pages/sales/InvoiceListPage'
 import VehicleStockList from '@/pages/vehicle-stock/VehicleStockList'
 import InventoryList from '@/pages/InventoryList'
+import { mockListLayout } from '@/components/data-table/data-table-infinite-test-utils'
 import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
@@ -62,6 +63,7 @@ vi.mock('@/api/inventory', async (importOriginal) => {
   return {
     ...actual,
     useInventory: vi.fn(),
+    useInventoryCursorList: vi.fn(),
   }
 })
 vi.mock('@/api/locations', () => ({
@@ -219,6 +221,25 @@ describe('VehicleList peek sheet', () => {
       },
       isLoading: false,
     })
+    // The parts list opens in infinite mode (AUT-890); its rows come from the cursor hook.
+    asMock(inventoryApi.useInventoryCursorList).mockReturnValue({
+      rows: [{ id: 'item-1', sku: 'BRK-001', name: 'Brake Pad', price: 49.9, status: 'IN_STOCK' }],
+      tableProps: {
+        isLoading: false,
+        isFetching: false,
+        isPlaceholderData: false,
+        isError: false,
+        onRetry: vi.fn(),
+        hasUsableData: true,
+        infinite: {
+          queryKey: ['inventory', 'cursor-list', {}],
+          hasNextPage: false,
+          isFetchingNextPage: false,
+          isFetchNextPageError: false,
+          fetchNextPage: vi.fn(),
+        },
+      },
+    })
     asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
   }
 
@@ -267,6 +288,9 @@ describe('VehicleList peek sheet', () => {
     'WHEN the user hovers a $name row for 100 ms THEN the detail query is prefetched once',
     ({ Component, expectedKey, stockRow }) => {
       vi.useFakeTimers()
+      // jsdom has no layout; the infinite parts list virtualizes its rows.
+      const restoreLayout = mockListLayout()
+      onTestFinished(restoreLayout)
       mockMainListsForPrefetch()
       if (stockRow) {
         asMock(vehicleStockApi.useVehicleStock).mockReturnValue({

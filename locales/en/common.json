@@ -90,7 +90,11 @@
       "loadMoreFailed": "More rows could not be loaded.",
       "capReached": "At most {{max}} rows are loaded. Refine the filter.",
       "endReached_one": "End of the list, one row loaded.",
-      "endReached_other": "End of the list, {{count}} rows loaded."
+      "endReached_other": "End of the list, {{count}} rows loaded.",
+      "count_one": "{{formatted}} result",
+      "count_other": "{{formatted}} results",
+      "countCapped": "{{formatted}}+ results",
+      "countUnavailable": "Count unavailable"
     }
   },
   "dashboard": {

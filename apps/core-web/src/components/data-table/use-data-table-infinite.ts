@@ -15,7 +15,7 @@ import type { DataTableInfiniteProps } from './data-table-props'
 /** What the grid, the card list and the footer need from an infinite list. Offset-mode tables have none. */
 export type DataTableInfiniteView = Pick<
   DataTableInfiniteProps,
-  'queryKey' | 'hasNextPage' | 'isFetchingNextPage' | 'isFetchNextPageError' | 'fetchNextPage'
+  'queryKey' | 'hasNextPage' | 'isFetchingNextPage' | 'isFetchNextPageError' | 'fetchNextPage' | 'totalCount' | 'isCountError' | 'retryCount'
 > & {
   canLoadMore: boolean
   /** The 2,000-row stop. It outranks the real end of the list only while pages remain. */
@@ -133,6 +133,9 @@ export function useDataTableInfinite<TData extends object>(
     isFetchingNextPage: infinite.isFetchingNextPage,
     isFetchNextPageError: infinite.isFetchNextPageError,
     fetchNextPage: infinite.fetchNextPage,
+    totalCount: infinite.totalCount,
+    isCountError: infinite.isCountError,
+    retryCount: infinite.retryCount,
     capReached,
     canLoadMore: infinite.hasNextPage && !capReached,
     ariaRowCount: ariaRowCountOf(infinite, rows.length),

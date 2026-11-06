@@ -15,7 +15,7 @@ import {
 } from './data-table-states'
 import { DataTableGrid } from './data-table-grid'
 import { DataTableList } from './data-table-list'
-import { DataTableInfiniteFooter, DataTableInfiniteRefresh } from './data-table-infinite-footer'
+import { DataTableInfiniteCount, DataTableInfiniteFooter, DataTableInfiniteRefresh } from './data-table-infinite-footer'
 import { DataTablePagination } from './data-table-pagination'
 import type { DataTableInfiniteView } from './use-data-table-infinite'
 import { DataTableSelectionBar } from './data-table-selection'
@@ -53,6 +53,7 @@ function DataTableBanners({ presentation, isError, resolvedFetchErrorMessage, on
     <>
       <DataTableStaleStatus visible={presentation.isStalePreview} />
       <DataTableInfiniteRefresh view={infiniteView} />
+      <DataTableInfiniteCount view={infiniteView} />
       {showFetchError && resolvedFetchErrorMessage && onRetry ? (
         <DataTableFetchError message={resolvedFetchErrorMessage} onRetry={onRetry} />
       ) : null}

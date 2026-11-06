@@ -1,16 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { buildDataTableUrl } from './data-table-query'
+import { useCursorList } from './cursor-list'
+import { buildDataTableUrl, resolveListSearch } from './data-table-query'
 import type { components } from './generated/openapi'
 import { vehicleKeys } from './vehicles'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 import type { GewaehrleistungStatus } from '@/lib/vehicle-sale-warranty'
 
+type VehicleStockCursorFilters = { search?: string; stock_status?: string }
+type VehicleStockCursorParams = VehicleStockCursorFilters & { sortField?: string; sortDirection?: 'asc' | 'desc' }
+
+/** Statuses of the filter select. ON_ORDER also lists the draft purchases, which only the offset list can merge in. */
+export const VEHICLE_STOCK_STATUS_OPTIONS = ['IN_STOCK', 'RESERVED', 'IN_PREP', 'SOLD', 'ON_ORDER'] as const
+const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
+const VEHICLE_STOCK_CURSOR_SORT_FIELDS = new Set(['make', 'model', 'year', 'vin', 'plate', 'color', 'updatedAt'])
+
+/**
+ * Cursor paging needs a status that excludes the draft purchases and a whitelisted sort (ADR-0035, AUT-888);
+ * "all statuses" and every other sort stay on offset paging.
+ */
+export function isVehicleStockCursorMode({ stockStatus, sortField }: { stockStatus?: string; sortField?: string }): boolean {
+  const statusExcludesDrafts =
+    VEHICLE_STOCK_STATUS_OPTIONS.some((status) => status === stockStatus) && stockStatus !== 'ON_ORDER'
+  return statusExcludesDrafts && (!sortField || VEHICLE_STOCK_CURSOR_SORT_FIELDS.has(sortField))
+}
+
 export const vehicleStockKeys = {
   all: ['vehicle-stock'] as const,
   list: (queryParams?: DataTableQueryParams) =>
     [...vehicleStockKeys.all, 'list', queryParams] as const,
+  cursorList: (params: VehicleStockCursorParams) =>
+    [...vehicleStockKeys.all, 'cursor-list', params] as const,
+  cappedCount: (filters: VehicleStockCursorFilters) =>
+    [...vehicleStockKeys.all, 'capped-count', filters] as const,
   detail: (id: string) => [...vehicleStockKeys.all, 'detail', id] as const,
   purchases: () => [...vehicleStockKeys.all, 'purchases'] as const,
   purchase: (id: string) => [...vehicleStockKeys.purchases(), id] as const,
@@ -289,17 +312,37 @@ export type PatchVehicleStockInput = {
   emission_class?: string | null
 }
 
-export function useVehicleStock(queryParams?: DataTableQueryParams) {
+export function useVehicleStock(queryParams?: DataTableQueryParams, options?: { enabled?: boolean }) {
   return useQuery<VehicleStockListResponse>({
     queryKey: vehicleStockKeys.list(queryParams),
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const url = buildDataTableUrl('/api/vehicle-stock', queryParams, {
-        searchFallbackFilterFields: ['vin', 'plate', 'make', 'model', 'color'],
+        searchFallbackFilterFields: VEHICLE_STOCK_SEARCH_FILTER_FIELDS,
+        exactFilterMap: { stock_status: 'stock_status' },
       })
       const response = await fetchWithAuth(url)
       if (!response.ok) throw new Error('Failed to fetch vehicle stock')
       return response.json()
     },
+  })
+}
+
+/** Infinite dealer-stock list (cap 2,000 rows) with its capped count; idle while the offset list is in charge. */
+export function useVehicleStockCursorList(queryParams: DataTableQueryParams, enabled: boolean) {
+  const filters = {
+    search: resolveListSearch(queryParams, VEHICLE_STOCK_SEARCH_FILTER_FIELDS),
+    stock_status: queryParams.filters.find((filter) => filter.field === 'stock_status')?.value,
+  }
+  const params = { ...filters, sortField: queryParams.sortField, sortDirection: queryParams.sortDirection }
+  return useCursorList<VehicleStockRow>({
+    enabled,
+    path: '/api/vehicle-stock',
+    countPath: '/api/vehicle-stock/capped-count',
+    listKey: vehicleStockKeys.cursorList(params),
+    countKey: vehicleStockKeys.cappedCount(filters),
+    params,
+    countParams: filters,
   })
 }
 

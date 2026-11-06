@@ -59,12 +59,24 @@ type HarnessProps = {
   rowBehaviour?: DataTableRowBehaviour<InfiniteRow>
   withSelection?: boolean
   totalCount?: DataTableInfiniteProps['totalCount']
+  isCountError?: boolean
+  retryCount?: () => void
+  /** An old `?page=3` link arrives as a non-zero page index. */
+  initialPageIndex?: number
 }
 
-function InfiniteListBody({ fetchPage, rowBehaviour, withSelection, totalCount }: Omit<HarnessProps, 'client'>) {
+function InfiniteListBody({
+  fetchPage,
+  rowBehaviour,
+  withSelection,
+  totalCount,
+  isCountError,
+  retryCount,
+  initialPageIndex = 0,
+}: Omit<HarnessProps, 'client'>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: PAGE_SIZE })
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: initialPageIndex, pageSize: PAGE_SIZE })
   const filter = String(columnFilters[0]?.value ?? '')
   const query = useInfiniteQuery({
     ...infiniteListQueryOptions(),
@@ -77,6 +89,7 @@ function InfiniteListBody({ fetchPage, rowBehaviour, withSelection, totalCount }
 
   return (
     <>
+      <output data-testid="page-index">{pagination.pageIndex}</output>
       <button type="button" onClick={() => setColumnFilters([])}>{FILTER_A_LABEL}</button>
       <button type="button" onClick={() => setColumnFilters([{ id: 'name', value: 'B' }])}>{FILTER_B_LABEL}</button>
       <DataTable<InfiniteRow>
@@ -102,6 +115,8 @@ function InfiniteListBody({ fetchPage, rowBehaviour, withSelection, totalCount }
           isFetchNextPageError: query.isFetchNextPageError,
           fetchNextPage: query.fetchNextPage,
           totalCount,
+          isCountError,
+          retryCount,
         }}
       />
     </>

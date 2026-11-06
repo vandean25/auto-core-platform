@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { inventoryItemDetailQueryOptions, useInventory } from '@/api/inventory'
+import { inventoryItemDetailQueryOptions } from '@/api/inventory'
+import { useInventoryListState } from '@/api/inventory-list'
 import { useLocations } from '@/api/locations'
 import type { InventoryItem } from '@/api/types'
 import { AddItemDialog } from '@/components/AddItemDialog'
@@ -35,13 +36,9 @@ export default function InventoryList() {
     const searchFromNameFilter = queryParams.filters.find((f) => f.field === 'name')?.value
     const locationFilter = queryParams.filters.find((f) => f.field === 'location')?.value
 
-    const { data: responseData, isLoading } = useInventory({
-        page: queryParams.page,
-        pageSize: queryParams.pageSize,
+    const { rows: data, tableProps } = useInventoryListState(queryParams, {
         search: queryParams.search ?? searchFromNameFilter,
         location: locationFilter,
-        sortField: queryParams.sortField,
-        sortDirection: queryParams.sortDirection,
     })
     const { data: locations } = useLocations()
 
@@ -62,20 +59,17 @@ export default function InventoryList() {
         })
     }
 
-    const data = responseData?.data ?? []
-    const pageCount = responseData?.meta.pageCount ?? 1
-
     const columns: ColumnDef<InventoryItem>[] = [
         {
             accessorKey: 'status',
             enableSorting: false,
-            meta: { label: t('partsList.columns.status') },
+            meta: { label: t('partsList.columns.status'), mobile: 'status' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.status')} />,
             cell: ({ row }) => <StatusBadge status={row.original.status} />,
         },
         {
             accessorKey: 'sku',
-            meta: { label: t('partsList.columns.part') },
+            meta: { label: t('partsList.columns.part'), mobile: 'title' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.part')} />,
             cell: ({ row }) => (
                 <div className="flex flex-col">
@@ -86,7 +80,7 @@ export default function InventoryList() {
         },
         {
             accessorKey: 'name',
-            meta: { label: t('partsList.columns.description') },
+            meta: { label: t('partsList.columns.description'), mobile: 'subtitle' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.description')} />,
             cell: ({ row }) => <span className="text-foreground">{row.original.name}</span>,
         },
@@ -101,7 +95,7 @@ export default function InventoryList() {
         },
         {
             accessorKey: 'price',
-            meta: { label: t('partsList.columns.price') },
+            meta: { label: t('partsList.columns.price'), mobile: 'trailing', numeric: true },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.price')} />,
             cell: ({ row }) => {
                 const amount = Number(row.getValue('price'))
@@ -145,8 +139,7 @@ export default function InventoryList() {
                 data={data}
                 saveViewTitle={t('partsList.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_INVENTORY}
-                pageCount={pageCount}
-                isLoading={isLoading}
+                {...tableProps}
                 searchColumn="name"
                 searchPlaceholder={t('partsList.searchPlaceholder')}
                 columnFilters={columnFilters}
