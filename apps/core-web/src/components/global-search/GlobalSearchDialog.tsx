@@ -197,6 +197,72 @@ function CommandEntryGroup({ onSelect }: { onSelect: () => void }) {
   )
 }
 
+/** The navigation, create and saved-view entries under the search results. */
+function PaletteActionGroups({
+  sections,
+  manageSection,
+  openHref,
+  runContextAction,
+}: {
+  sections: ReturnType<typeof getPaletteSections>
+  manageSection: PaletteContextActionSection | null
+  openHref: (href: string) => void
+  runContextAction: (action: PaletteContextAction) => void
+}) {
+  return (
+    <>
+      {sections.map((section) => (
+        <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
+      ))}
+      {manageSection ? <GlobalSearchContextActionGroup section={manageSection} onSelect={runContextAction} /> : null}
+    </>
+  )
+}
+
+/** Search results once the user typed, the recent items and the prefix help before. */
+function PaletteResultsOrRecent({
+  query,
+  groups,
+  isLoading,
+  error,
+  hasSections,
+  activeSiteId,
+  sites,
+  recent,
+  openItem,
+}: {
+  query: string
+  groups: ReturnType<typeof useGlobalSearch>['groups']
+  isLoading: boolean
+  error: ReturnType<typeof useGlobalSearch>['error']
+  hasSections: boolean
+  activeSiteId: string | null
+  sites: NonNullable<ReturnType<typeof useMySites>['data']>
+  recent: ReturnType<typeof useRecentItems>
+  openItem: (item: RecentSearchItem) => void
+}) {
+  if (!query) {
+    return (
+      <>
+        <RecentItemsGroup items={recent.items} onSelect={openItem} onRemove={recent.remove} />
+        <PrefixHelp />
+      </>
+    )
+  }
+  return (
+    <SearchResults
+      groups={groups}
+      isLoading={isLoading}
+      error={error}
+      hasSections={hasSections}
+      activeSiteId={activeSiteId}
+      sites={sites}
+      query={truncate(query)}
+      onSelect={openItem}
+    />
+  )
+}
+
 function SearchPaletteBody({
   query,
   subPage,
@@ -239,29 +305,23 @@ function SearchPaletteBody({
       {subPage.isSubPage ? null : (
         <>
           {commandEntryVisible ? <CommandEntryGroup onSelect={onOpenCommand} /> : null}
-          {query ? (
-            <SearchResults
-              groups={groups}
-              isLoading={isLoading}
-              error={error}
-              hasSections={sections.length > 0}
-              activeSiteId={activeSiteId}
-              sites={sites}
-              query={truncate(query)}
-              onSelect={openItem}
-            />
-          ) : (
-            <>
-              <RecentItemsGroup items={recent.items} onSelect={openItem} onRemove={recent.remove} />
-              <PrefixHelp />
-            </>
-          )}
-          {sections.map((section) => (
-            <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
-          ))}
-          {savedViewManageSection ? (
-            <GlobalSearchContextActionGroup section={savedViewManageSection} onSelect={subPage.runContextAction} />
-          ) : null}
+          <PaletteResultsOrRecent
+            query={query}
+            groups={groups}
+            isLoading={isLoading}
+            error={error}
+            hasSections={sections.length > 0}
+            activeSiteId={activeSiteId}
+            sites={sites}
+            recent={recent}
+            openItem={openItem}
+          />
+          <PaletteActionGroups
+            sections={sections}
+            manageSection={savedViewManageSection}
+            openHref={openHref}
+            runContextAction={subPage.runContextAction}
+          />
         </>
       )}
     </>
