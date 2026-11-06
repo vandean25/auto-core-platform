@@ -83,7 +83,7 @@ type MutationSite = {
 const IMPORT_PATTERN = /import\s+(?:type\s+)?([\s\S]*?)\s+from\s+(['"])([^'"]+)\2/g
 const REEXPORT_PATTERN = /export\s*\{([^}]*)\}\s*from\s*(['"])([^'"]+)\2/g
 const IDENTIFIER = '[A-Za-z_$][\\w$]*'
-const escapeIdentifier = (name: string) => name.replace(/\$/g, '\\$')
+const escapeIdentifier = (name: string) => name.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
 
 function parseNamedImports(clause: string): Array<{ imported: string; local: string }> {
   const named = /\{([\s\S]*)\}/.exec(clause)?.[1] ?? ''
