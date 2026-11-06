@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
@@ -8,7 +7,7 @@ import { InvoiceOverrunWarning } from "@/components/workshop/InvoiceOverrunWarni
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import { WorkshopOrderMeasurementsSection } from "@/components/workshop/WorkshopOrderMeasurementsSection";
 import { TyreMeasurementSection } from "@/features/tyre-report/TyreMeasurementSection";
-import { useWorkshopOrder, workshopKeys } from "@/api/workshop";
+import { useWorkshopOrder } from "@/api/workshop";
 import { useAuthSession } from "@/api/auth-session";
 import type { WorkshopOrder } from "@/api/types";
 import {
@@ -36,12 +35,10 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export function WorkshopOrderDetails() {
   const { id = "" } = useParams<{ id: string }>();
-  const queryClient = useQueryClient();
   const { data: order, isLoading } = useWorkshopOrder(id);
   useDocumentTitle(order?.order_number);
-  const prefetched = Boolean(queryClient.getQueryData(workshopKeys.detail(id)));
 
-  if (isLoading && !order) return <OrderLoading show={!prefetched} />;
+  if (isLoading && !order) return <OrderLoading />;
   if (!order) return <OrderNotFound />;
   return <WorkshopOrderView order={order} />;
 }

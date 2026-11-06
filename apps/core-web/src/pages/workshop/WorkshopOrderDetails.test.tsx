@@ -390,19 +390,7 @@ describe("WorkshopOrderDetails Characterization", () => {
   // =====================================================================
 
   describe("loading and error states", () => {
-    it("renders loading indicator while fetching", () => {
-      asMock(workshopApi.useWorkshopOrder).mockReturnValue({
-        data: undefined,
-        isLoading: true,
-      });
-
-      renderComponent();
-
-      expect(screen.getByText("Werkstattauftrag wird geladen…")).toBeInTheDocument();
-    });
-
-    it("skips the detail skeleton when the order is already cached", () => {
-      queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), { id: "order-1" });
+    it("renders loading indicator while fetching", async () => {
       asMock(workshopApi.useWorkshopOrder).mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -411,7 +399,18 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(await screen.findByRole("status")).toHaveTextContent("Werkstattauftrag wird geladen…");
+    });
+
+    it("shows a cached order without a detail skeleton", async () => {
+      const actual = await vi.importActual<typeof import("@/api/workshop")>("@/api/workshop");
+      asMock(workshopApi.useWorkshopOrder).mockImplementation(actual.useWorkshopOrder);
+      queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), baseOrder);
+
+      renderComponent();
+
       expect(screen.queryByText("Werkstattauftrag wird geladen…")).not.toBeInTheDocument();
+      expect(screen.getByText(String(baseOrder.order_number))).toBeInTheDocument();
     });
 
     it("renders not-found card when order is null", () => {

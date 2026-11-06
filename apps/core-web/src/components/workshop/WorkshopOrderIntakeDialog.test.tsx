@@ -178,7 +178,7 @@ describe('WorkshopOrderIntakeDialog', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
   })
 
-  it('keeps the dialog open and clears the pending row when list-pending create hits a 409', async () => {
+  it('closes the dialog and reports the pending-row error when list-pending create hits a 409', async () => {
     const onPendingOrder = vi.fn()
     const onPendingOrderFailed = vi.fn()
     const onOpenChange = vi.fn()
@@ -210,12 +210,10 @@ describe('WorkshopOrderIntakeDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
     fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
-    expect(
-      await screen.findByText(oi.activeOrderConflict.replace('{{orderNumber}}', 'WO-2026-0007')),
-    ).toBeInTheDocument()
-    expect(onOpenChange).not.toHaveBeenCalledWith(false)
-    expect(onPendingOrder).toHaveBeenCalled()
-    expect(onPendingOrderFailed).toHaveBeenCalledWith(onPendingOrder.mock.calls[0][1].localId)
+    await waitFor(() => expect(onPendingOrderFailed).toHaveBeenCalled())
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onPendingOrderFailed.mock.calls[0][0]).toBe(onPendingOrder.mock.calls[0][1].localId)
+    expect(String(onPendingOrderFailed.mock.calls[0][1])).toContain('WO-2026-0007')
     expect(toast.error).not.toHaveBeenCalled()
   })
 

@@ -7,7 +7,7 @@ import { DetailSkeleton } from '@/components/ui/skeleton-presets'
 
 export function OrderLoading({ show = true }: { show?: boolean }) {
   const { t } = useTranslation('workshop')
-  return <DetailSkeleton label={t('orderDetail.loading')} show={show} delayMs={0} />
+  return <DetailSkeleton label={t('orderDetail.loading')} show={show} />
 }
 
 export function OrderNotFound() {

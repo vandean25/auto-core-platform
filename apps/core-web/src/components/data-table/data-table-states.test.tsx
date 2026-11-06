@@ -1,26 +1,14 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import deCommon from '../../../../../locales/de/common.json'
-import { DetailSkeleton } from '@/components/ui/skeleton-presets'
-import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 import { InteractionErrorMarker, SubmitButtonPending } from './data-table-states'
 
-beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
   cleanup()
-  vi.useRealTimers()
 })
 
-const elapse = (ms: number) => act(() => vi.advanceTimersByTime(ms))
-
 describe('data-table-states ADR-0036 scenarios', () => {
-  it('WHEN a prefetched detail is opened THEN no skeleton is shown', () => {
-    render(<DetailSkeleton show={false} />)
-    elapse(INTERACTION_LOADING_TIMINGS.skeletonDelayMs + INTERACTION_LOADING_TIMINGS.skeletonMinVisibleMs)
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-  })
-
   it('renders a visible error marker with retry and dismiss actions', () => {
     const onRetry = vi.fn()
     const onDismiss = vi.fn()

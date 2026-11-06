@@ -135,12 +135,12 @@ export function InteractionErrorMarker({ message, onRetry, onDismiss, className 
       <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
       <span>{message}</span>
       {onRetry ? (
-        <Button type="button" variant="outline" size="sm" className="h-8" onClick={onRetry}>
+        <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={onRetry}>
           {t('dataTable.loading.retry')}
         </Button>
       ) : null}
       {onDismiss ? (
-        <Button type="button" variant="ghost" size="sm" className="h-8" onClick={onDismiss}>
+        <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={onDismiss}>
           {t('dataTable.loading.dismiss')}
         </Button>
       ) : null}

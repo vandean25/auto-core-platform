@@ -52,7 +52,7 @@ interface WorkshopOrderIntakeDialogProps {
   listPendingMode?: boolean
   onPendingOrder?: (row: WorkshopOrderListPendingRow, meta: { localId: string }) => void
   onPendingOrderSettled?: (localId: string, serverOrderId: string) => void
-  onPendingOrderFailed?: (localId: string) => void
+  onPendingOrderFailed?: (localId: string, message: string) => void
 }
 
 export function WorkshopOrderIntakeDialog({
@@ -193,7 +193,7 @@ export function WorkshopOrderIntakeDialog({
         onNavigateCreated: (orderId, message) => openCreatedOrder(orderId, message),
         toastError: (message) => toast.error(message),
         onConflict: setExistingOrderConflict,
-        onPendingFailed: (localId) => onPendingOrderFailed?.(localId),
+        onPendingFailed: (localId, message) => onPendingOrderFailed?.(localId, message),
       },
     })
   }

@@ -27,8 +27,11 @@ export default function WorkshopOrderList() {
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const ordersQuery = useWorkshopOrders(queryParams)
   const peek = usePeekSearchParam()
-  const columns = useWorkshopOrderListColumns(t, tCommon)
-  const rows = useWorkshopOrderListRows(ordersQuery.data, ordersQuery.isError, queryClient)
+  const rows = useWorkshopOrderListRows(ordersQuery.data, ordersQuery.isError, ordersQuery.dataUpdatedAt)
+  const columns = useWorkshopOrderListColumns(t, tCommon, {
+    onDismissPending: rows.intakePendingProps.onDismissPending,
+    onRetryPending: () => setCreateOpen(true),
+  })
   const rowBehaviour = useWorkshopOrderListRowBehaviour(
     t,
     navigate,

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -10,8 +9,6 @@ import { DataTableColumnHeader } from './data-table-column-header'
 import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { triggerBlobDownload } from '@/lib/download'
 import deCommon from '../../../../../locales/de/common.json'
-import { useWorkshopOrderListColumns } from '@/pages/workshop/useWorkshopOrderListColumns'
-
 const dt = deCommon.dataTable
 const columnOptionsLabel = (title: string) => dt.columnOptions.replace('{{title}}', title)
 
@@ -1133,53 +1130,6 @@ describe('DataTable loading primitives (AUT-879)', () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
-  it('WHEN a server-confirmed create is submitted THEN a pending row without number, price or actions appears', () => {
-    function PendingPilot() {
-      const { t } = useTranslation('workshop')
-      const { t: tCommon } = useTranslation('common')
-      const columns = useWorkshopOrderListColumns(t, tCommon)
-      const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-      const [sorting, setSorting] = useState<SortingState>([])
-      const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
-      const row = {
-        id: 'local-1',
-        __dataTablePending: true as const,
-        orderNo: '',
-        customer: 'Pilot customer',
-        vehicle: '2018 VW Golf',
-        openedAt: '',
-        status: 'SCHEDULED' as const,
-      }
-      return (
-        <MemoryRouter>
-          <DataTable
-            columns={columns}
-            data={[row]}
-            columnFilters={columnFilters}
-            setColumnFilters={setColumnFilters}
-            sorting={sorting}
-            setSorting={setSorting}
-            pagination={pagination}
-            setPagination={setPagination}
-            hasUsableData
-            rowBehaviour={{
-              getRowContextActions: () => [{ label: 'Archive', onClick: vi.fn() }],
-              getRowAccessibleName: () => 'Pilot customer',
-              onRowClick: vi.fn(),
-            }}
-          />
-        </MemoryRouter>
-      )
-    }
-
-    render(<PendingPilot />)
-
-    expect(screen.getByText('Pilot customer')).toBeInTheDocument()
-    expect(screen.getByText(deCommon.dataTable.loading.pendingRow)).toHaveClass('sr-only')
-    expect(screen.queryByRole('button', { name: deCommon.dataTable.rowActions })).not.toBeInTheDocument()
-    fireEvent.contextMenu(screen.getByText('Pilot customer'))
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-  })
 })
 
 type CustomerValue = {

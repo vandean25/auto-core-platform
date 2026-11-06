@@ -62,6 +62,7 @@ export function startPendingWorkshopOrder(
   if (!callbacks.listPendingMode || !callbacks.onPendingOrder) return undefined
   const localId = generateId()
   callbacks.onPendingOrder(buildWorkshopOrderPendingListRow(localId, vehicle), { localId })
+  callbacks.closeDialog()
   return localId
 }
 
@@ -77,40 +78,10 @@ export function finishPendingWorkshopOrder(
   if (pendingLocalId && callbacks.onPendingOrderSettled) {
     callbacks.onPendingOrderSettled(pendingLocalId, orderId)
     callbacks.toastSuccess(message)
-    callbacks.closeDialog()
+    // List create stays on the list. The pending row remains until that refetch includes the order.
     return
   }
   callbacks.onNavigateCreated(orderId, message)
-}
-
-export async function createWorkshopOrderFromVehicle(
-  vehicle: ExistingVehicle,
-  payload: Omit<CreateOrderPayload, 'customerId' | 'vehicleId'>,
-  createOrder: CreateOrderFn,
-  pendingCallbacks: PendingCallbacks,
-  successMessage: string,
-  notify: {
-    toastSuccess: (message: string) => void
-    onNavigateCreated: (orderId: string, message: string) => void
-    onPendingFailed?: (localId: string) => void
-  },
-): Promise<string | undefined> {
-  if (!vehicle.customer?.id) {
-    throw new Error('missing-customer')
-  }
-  const pendingLocalId = startPendingWorkshopOrder(vehicle, pendingCallbacks)
-  try {
-    const order = await createOrder({
-      customerId: vehicle.customer.id,
-      vehicleId: vehicle.id,
-      ...payload,
-    })
-    finishPendingWorkshopOrder(pendingLocalId, order.id, successMessage, { ...pendingCallbacks, ...notify })
-    return pendingLocalId
-  } catch (error) {
-    if (pendingLocalId) notify.onPendingFailed?.(pendingLocalId)
-    throw error
-  }
 }
 
 export type IntakeCreateMessages = {
@@ -142,7 +113,7 @@ type IntakeCreateDeps = {
     onNavigateCreated: (orderId: string, message: string) => void
     toastError: (message: string) => void
     onConflict: (conflict: ExistingOrderConflict) => void
-    onPendingFailed: (localId: string) => void
+    onPendingFailed: (localId: string, message: string) => void
   }
 }
 
@@ -181,29 +152,45 @@ async function registeredVehicleForIntake(deps: IntakeCreateDeps): Promise<Exist
 }
 
 async function createResolvedIntakeOrder(vehicle: ExistingVehicle, deps: IntakeCreateDeps): Promise<void> {
-  let pendingLocalId: string | undefined
+  const pendingLocalId = startPendingWorkshopOrder(vehicle, deps.pendingCallbacks)
   try {
-    pendingLocalId = await createWorkshopOrderFromVehicle(
-      vehicle,
-      deps.activeTab === 'existing' && deps.pickerlMode
+    const order = await deps.createOrder({
+      customerId: vehicle.customer?.id ?? '',
+      vehicleId: vehicle.id,
+      ...(deps.activeTab === 'existing' && deps.pickerlMode
         ? { ...deps.orderPayload, createPickerlTask: true }
-        : deps.orderPayload,
-      deps.createOrder,
-      deps.pendingCallbacks,
+        : deps.orderPayload),
+    })
+    finishPendingWorkshopOrder(
+      pendingLocalId,
+      order.id,
       deps.pickerlMode && deps.activeTab === 'existing' ? deps.messages.pickerlOpened : deps.messages.orderCreated,
-      deps.notify,
+      { ...deps.pendingCallbacks, ...deps.notify },
     )
   } catch (error) {
-    if (pendingLocalId) deps.notify.onPendingFailed(pendingLocalId)
-    const conflict = conflictFromError(error, {
-      vehicleId: vehicle.id,
-      tab: deps.activeTab,
-      formSignature: deps.formSignature,
-    })
-    if (conflict && deps.isCurrentAttempt()) {
-      deps.notify.onConflict(conflict)
-      return
-    }
-    deps.notify.toastError(getErrorMessage(error, deps.messages.createFailed))
+    reportIntakeCreateFailure(vehicle, pendingLocalId, error, deps)
   }
+}
+
+function reportIntakeCreateFailure(
+  vehicle: ExistingVehicle,
+  pendingLocalId: string | undefined,
+  error: unknown,
+  deps: IntakeCreateDeps,
+) {
+  const conflict = conflictFromError(error, {
+    vehicleId: vehicle.id,
+    tab: deps.activeTab,
+    formSignature: deps.formSignature,
+  })
+  const message = conflict?.message ?? getErrorMessage(error, deps.messages.createFailed)
+  if (pendingLocalId) {
+    deps.notify.onPendingFailed(pendingLocalId, message)
+    return
+  }
+  if (conflict && deps.isCurrentAttempt()) {
+    deps.notify.onConflict(conflict)
+    return
+  }
+  deps.notify.toastError(message)
 }

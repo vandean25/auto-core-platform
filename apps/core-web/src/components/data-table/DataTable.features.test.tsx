@@ -187,6 +187,10 @@ describe('DataTable states', () => {
     act(() => vi.advanceTimersByTime(1))
     expect(container.querySelector('tbody .animate-pulse')).toBeNull()
     expect(screen.getByText('Alpha')).toBeInTheDocument()
+
+    rerender(<Harness data={[]} isLoading bypassSkeleton />)
+    act(() => vi.advanceTimersByTime(200))
+    expect(container.querySelector('tbody .animate-pulse')).toBeNull()
   })
 
   it('renders the Empty state with message and action', () => {
