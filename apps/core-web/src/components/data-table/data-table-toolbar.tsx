@@ -3,7 +3,6 @@ import { Download, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { AddToDashboardButton } from "@/features/dashboard-widgets/AddToDashboardButton"
 import { SaveCurrentViewButton } from "@/features/saved-views/SaveCurrentViewButton"
 import { SavedViewsMenu } from "@/features/saved-views/SavedViewsMenu"
@@ -12,6 +11,7 @@ import { downloadCsv } from "@/lib/csv"
 import { DataTableViewOptions } from "./data-table-view-options"
 import { DataTableColumnFilters } from "./data-table-column-filters"
 import { buildDataTableCsv, getDataTableCsvFileName, getDataTableExportColumns } from "./data-table-csv"
+import { DataTableToolbarSearch } from './data-table-toolbar-search'
 
 interface DataTableToolbarProps<TData extends object> {
   table: Table<TData>
@@ -23,6 +23,7 @@ interface DataTableToolbarProps<TData extends object> {
   csvFileName?: string
   getRoot?: () => Element | null
   isLoading?: boolean
+  refreshIndicator?: React.ReactNode
 }
 
 export function DataTableToolbar<TData extends object>({
@@ -35,6 +36,7 @@ export function DataTableToolbar<TData extends object>({
   csvFileName,
   getRoot,
   isLoading = false,
+  refreshIndicator,
 }: DataTableToolbarProps<TData>) {
   const { t } = useTranslation('common')
   const filterPlaceholder = placeholder ?? t('dataTable.filterPlaceholder')
@@ -44,25 +46,7 @@ export function DataTableToolbar<TData extends object>({
     <div className="flex flex-wrap items-center justify-between gap-2" data-testid="data-table-toolbar">
       {/* Full width on a phone, so the search hint is not cut off by the buttons next to it. */}
       <div className="flex flex-1 flex-wrap items-center gap-2 max-sm:basis-full">
-        {searchColumn ? (
-            <Input
-            placeholder={filterPlaceholder}
-            value={(table.getColumn(searchColumn)?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-                table.getColumn(searchColumn)?.setFilterValue(event.target.value)
-            }
-            className="h-11 md:h-8 md:w-[150px] lg:w-[250px]"
-            />
-        ) : (
-            <Input
-            placeholder={filterPlaceholder}
-            value={(table.getState().globalFilter as string) ?? ""}
-            onChange={(event) =>
-                table.setGlobalFilter(event.target.value)
-            }
-            className="h-11 md:h-8 md:w-[150px] lg:w-[250px]"
-            />
-        )}
+        <DataTableToolbarSearch table={table} searchColumn={searchColumn} placeholder={filterPlaceholder} />
         <DataTableColumnFilters table={table} />
 
         {isFiltered && (
@@ -80,6 +64,7 @@ export function DataTableToolbar<TData extends object>({
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2" data-testid="data-table-toolbar-actions">
+        {refreshIndicator}
         {saveViewTitle ? (
           <>
             <SavedViewsMenu title={saveViewTitle} />

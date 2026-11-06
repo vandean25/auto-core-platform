@@ -390,7 +390,7 @@ describe("WorkshopOrderDetails Characterization", () => {
   // =====================================================================
 
   describe("loading and error states", () => {
-    it("renders loading indicator while fetching", () => {
+    it("renders loading indicator while fetching", async () => {
       asMock(workshopApi.useWorkshopOrder).mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -398,7 +398,58 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      expect(screen.getByText("Werkstattauftrag wird geladen…")).toBeInTheDocument();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(await screen.findByRole("status")).toHaveTextContent("Werkstattauftrag wird geladen…");
+    });
+
+    describe("with the real order query", () => {
+      const loadingText = "Werkstattauftrag wird geladen…";
+      const orderUrl = "/api/workshop/orders/order-1";
+      let release: (response: Response) => void;
+
+      beforeEach(async () => {
+        const actual = await vi.importActual<typeof import("@/api/workshop")>("@/api/workshop");
+        asMock(workshopApi.useWorkshopOrder).mockImplementation(actual.useWorkshopOrder);
+        // Only the order request is answered by the test; every other request of the page stays pending.
+        asMock(fetchWithAuth).mockImplementation((url: string) =>
+          new Promise<Response>((resolve) => {
+            if (url === orderUrl) release = resolve;
+          }),
+        );
+      });
+
+      afterEach(() => {
+        // Restores the default mocks of the outer beforeEach, so the real query and fetch never leak into other tests.
+        asMock(workshopApi.useWorkshopOrder).mockReset();
+        asMock(fetchWithAuth).mockReset();
+      });
+
+      // Regression: the loading text used to render the instant the query started, even for a fast response.
+      it("shows no loading placeholder when the order arrives within the 200 ms skeleton delay", async () => {
+        renderComponent();
+        expect(screen.queryByText(loadingText)).not.toBeInTheDocument();
+
+        await act(async () => {
+          release({ ok: true, json: async () => baseOrder } as Response);
+        });
+        expect(await screen.findByText("WO-001")).toBeInTheDocument();
+        await act(() => new Promise((done) => setTimeout(done, 250)));
+
+        expect(screen.queryByText(loadingText)).not.toBeInTheDocument();
+      });
+
+      // Guards the prefetch path: a cached order must win over the revalidation that is still in flight.
+      it("keeps a prefetched order on screen while it revalidates, without a skeleton", async () => {
+        queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), baseOrder);
+        await queryClient.invalidateQueries({ queryKey: workshopApi.workshopKeys.detail("order-1") });
+
+        renderComponent();
+        await act(() => new Promise((done) => setTimeout(done, 250)));
+
+        expect(asMock(fetchWithAuth).mock.calls.filter(([url]) => url === orderUrl)).toHaveLength(1);
+        expect(screen.getByText("WO-001")).toBeInTheDocument();
+        expect(screen.queryByText(loadingText)).not.toBeInTheDocument();
+      });
     });
 
     it("renders not-found card when order is null", () => {
