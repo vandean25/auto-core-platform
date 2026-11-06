@@ -138,32 +138,25 @@ function invalidateSettledCaches(
   }
 }
 
-function settledMutationContext<TVariables>(
+function settledQueryKey<TVariables>(
   queryKey: QueryKeyResolver<TVariables>,
   variables: TVariables,
   context: OptimisticContext<unknown> | undefined,
-) {
-  return {
-    resolvedQueryKey: context?.resolvedQueryKey ?? resolveQueryKey(queryKey, variables),
-    extraSnapshots: context?.skipped ? [] : (context?.extraSnapshots ?? []),
-    snapshot: context?.skipped ? undefined : context?.snapshot,
-  }
+): QueryKey {
+  if (context?.resolvedQueryKey !== undefined) return context.resolvedQueryKey
+  return resolveQueryKey(queryKey, variables)
 }
 
-function runOptimisticMutationSettled<TVariables>(
-  queryKey: QueryKeyResolver<TVariables>,
-  mutationKey: QueryKey,
-  variables: TVariables,
+function settledExtraSnapshots(
   context: OptimisticContext<unknown> | undefined,
-  client: MutationFunctionContext['client'],
-) {
-  const { resolvedQueryKey, extraSnapshots, snapshot } = settledMutationContext(
-    queryKey,
-    variables,
-    context,
-  )
-  const settlingMutationId = findSettlingMutationId(client, mutationKey, variables, context)
-  invalidateSettledCaches(client, resolvedQueryKey, extraSnapshots, snapshot, settlingMutationId)
+): ExtraSnapshot[] {
+  if (context === undefined || context.skipped === true) return []
+  return context.extraSnapshots
+}
+
+function settledPrimarySnapshot(context: OptimisticContext<unknown> | undefined): unknown {
+  if (context === undefined || context.skipped === true) return undefined
+  return context.snapshot
 }
 
 /**
@@ -275,12 +268,13 @@ export function optimisticMutationOptions<TCache, TVariables>({
       context: OptimisticContext<TCache> | undefined,
       { client }: MutationFunctionContext,
     ) => {
-      runOptimisticMutationSettled(
-        queryKey,
-        mutationKey,
-        variables,
-        context as OptimisticContext<unknown> | undefined,
+      const settledContext = context as OptimisticContext<unknown> | undefined
+      invalidateSettledCaches(
         client,
+        settledQueryKey(queryKey, variables, settledContext),
+        settledExtraSnapshots(settledContext),
+        settledPrimarySnapshot(settledContext),
+        findSettlingMutationId(client, mutationKey, variables, settledContext),
       )
     },
   }
