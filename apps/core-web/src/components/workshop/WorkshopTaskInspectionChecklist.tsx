@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error-utils";
 import {
   useUpdateWorkshopTaskChecklist,
   useWorkshopTaskChecklist,
@@ -28,9 +29,9 @@ export function WorkshopTaskInspectionChecklist({
         taskId,
         items: [{ id: itemId, ...values }],
       });
-    } catch {
-      // The API answers a refusal with English validation text, so the toast stays on the translated fallback.
-      toast.error(t("inspection.checklist.saveError"));
+    } catch (error: unknown) {
+      // The API answers a refusal with English validation text, so only the status-based copy (403) replaces the translated fallback.
+      toast.error(getErrorMessage(error, t("inspection.checklist.saveError")));
     }
   }
 
@@ -49,7 +50,6 @@ export function WorkshopTaskInspectionChecklist({
       <WorkshopTaskInspectionChecklistView
         checklist={checklistQuery.data}
         readOnly={readOnly}
-        saving={updateChecklist.isPending}
         onSave={saveItem}
       />
       <InspectionCatalogueReferencePicker

@@ -4,7 +4,7 @@ import type { WorkshopOrder } from '@/api/types'
 import { isWorkshopTechAssignableStatus } from '@/features/actions/action-role-predicates'
 import { runAssignWorkshopOrderMechanic } from '@/features/actions/work-order-row-actions'
 
-/** Assigned technician and bay of an order, and the optimistic technician assignment (rolled back when it fails). */
+/** Assigned technician and bay of an order, and the server-confirmed technician assignment (pending until the server answers). */
 export function useWorkshopTechAssignment(order: WorkshopOrder) {
   const { t } = useTranslation('workshop')
   const assignBoard = useAssignBoard()

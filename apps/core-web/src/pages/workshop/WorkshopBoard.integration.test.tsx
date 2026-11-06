@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkshopBoard from './WorkshopBoard'
 import { fetchWithAuth } from '@/api/client'
 import { deWorkshop } from '@/test/de-workshop'
+import errorsDe from '../../../../../locales/de/errors.json' with { type: 'json' }
 
 vi.mock('@/api/client', () => ({
   fetchWithAuth: vi.fn(),
@@ -139,7 +140,8 @@ describe('WorkshopBoard integration', () => {
     })
   })
 
-  it('moves the card to the chosen mechanic before the server answers and back with a toast on 403', async () => {
+  // Scenario 4: the move is server-confirmed, so the card stays and shows pending; a 403 shows the permission message.
+  it('keeps the card in its column with pending until the server answers, and reports a 403 as a permission error', async () => {
     let answerAssign: (response: Response) => void = () => {}
     assignGate = new Promise<Response>((resolve) => {
       answerAssign = resolve
@@ -160,14 +162,20 @@ describe('WorkshopBoard integration', () => {
 
     const card = 'workshop-order-card-order-1'
     await waitFor(() => {
-      expect(within(screen.getByTestId('board-column-mech-2')).getByTestId(card)).toBeInTheDocument()
+      expect(screen.getByTestId('board-column-mech-2')).toHaveAttribute('aria-busy', 'true')
     })
+    expect(within(screen.getByTestId('board-column-unassigned')).getByTestId(card)).toHaveAttribute(
+      'aria-busy',
+      'true',
+    )
+    expect(within(screen.getByTestId('board-column-mech-2')).queryByTestId(card)).toBeNull()
 
     answerAssign(jsonResponse({ message: 'Forbidden' }, false, 403))
 
     await waitFor(() => {
-      expect(within(screen.getByTestId('board-column-unassigned')).getByTestId(card)).toBeInTheDocument()
+      expect(screen.getByTestId('board-column-mech-2')).not.toHaveAttribute('aria-busy', 'true')
     })
-    expect(toast.error).toHaveBeenCalledWith(deWorkshop.board.assignError)
+    expect(within(screen.getByTestId('board-column-unassigned')).getByTestId(card)).toBeInTheDocument()
+    expect(toast.error).toHaveBeenCalledWith(errorsDe.codes.HTTP_403)
   })
 })

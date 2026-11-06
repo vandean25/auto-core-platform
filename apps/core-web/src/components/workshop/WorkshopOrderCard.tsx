@@ -4,6 +4,7 @@ import { GripVertical } from 'lucide-react'
 import type { SyntheticEvent } from 'react'
 import { StatusBadge, formatStatusLabel } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,8 @@ interface WorkshopOrderCardContentProps {
   isDragging?: boolean
   /** The card being dragged keeps its slot in the source column (invisible) so the column height stays stable. */
   isPlaceholder?: boolean
+  /** A server-confirmed move is in flight: the card stays put, cannot be moved again and shows pending. */
+  isMoving?: boolean
   quickAssignTargets?: BoardAssignmentTarget[]
   onQuickAssign?: (target: BoardAssignmentTarget) => void
   setNodeRef?: (element: HTMLElement | null) => void
@@ -56,6 +59,7 @@ export function WorkshopOrderCardContent({
   order,
   isDragging = false,
   isPlaceholder = false,
+  isMoving = false,
   quickAssignTargets = [],
   onQuickAssign,
   setNodeRef,
@@ -70,6 +74,7 @@ export function WorkshopOrderCardContent({
     <div
       ref={setNodeRef}
       data-testid={`workshop-order-card-${order.id}`}
+      aria-busy={isMoving || undefined}
       className={cn(
         'relative rounded-md border bg-card shadow-sm border-l-4 p-3 cursor-grab active:cursor-grabbing select-none transition-shadow',
         borderColor,
@@ -127,9 +132,11 @@ export function WorkshopOrderCardContent({
                 size="sm"
                 aria-label={t('orderCard.assignAria', { orderNumber: order.orderNumber })}
                 className="ml-auto min-h-11 min-w-11 px-3"
+                disabled={isMoving}
                 onPointerDown={stopEventFromStartingDrag}
                 onTouchStart={stopEventFromStartingDrag}
               >
+                {isMoving && <Spinner className="size-3.5" />}
                 {t('orderCard.assign')}
               </Button>
             </DropdownMenuTrigger>
@@ -159,6 +166,7 @@ export function WorkshopOrderCardContent({
 interface WorkshopOrderCardProps {
   order: BoardOrder
   isPlaceholder?: boolean
+  isMoving?: boolean
   quickAssignTargets?: BoardAssignmentTarget[]
   onQuickAssign?: (target: BoardAssignmentTarget) => void
 }
@@ -166,15 +174,20 @@ interface WorkshopOrderCardProps {
 export function WorkshopOrderCard({
   order,
   isPlaceholder = false,
+  isMoving = false,
   quickAssignTargets = [],
   onQuickAssign,
 }: WorkshopOrderCardProps) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef } = useDraggable({ id: order.id })
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef } = useDraggable({
+    id: order.id,
+    disabled: isMoving,
+  })
 
   return (
     <WorkshopOrderCardContent
       order={order}
       isPlaceholder={isPlaceholder}
+      isMoving={isMoving}
       quickAssignTargets={quickAssignTargets}
       onQuickAssign={onQuickAssign}
       setNodeRef={setNodeRef}

@@ -146,8 +146,6 @@
     "api/margin-rules.ts::useUpdateMarginRule::missing-mutation-key",
     "api/margin-rules.ts::useUpdatePriceJumpThreshold::missing-inventory-entry",
     "api/margin-rules.ts::useUpdatePriceJumpThreshold::missing-mutation-key",
-    "api/mechanic.ts::useSaveDiagnostics::optimistic-without-helper",
-    "api/mechanic.ts::useUpdateMechanicTaskChecklist::optimistic-without-helper",
     "api/nova.ts::useNovaCalculate::missing-inventory-entry",
     "api/platform-tenants.ts::useCreatePlatformTenant::missing-inventory-entry",
     "api/platform-tenants.ts::useCreatePlatformTenant::missing-mutation-key",
@@ -317,7 +315,6 @@
     "api/warranty-claims.ts::useCreateWarrantyClaim::missing-mutation-key",
     "api/warranty-claims.ts::useUpdateWarrantyClaim::missing-inventory-entry",
     "api/warranty-claims.ts::useUpdateWarrantyClaim::missing-mutation-key",
-    "api/workshop-check-in.ts::useUpdateWorkshopCheckInDraft::optimistic-without-helper",
     "api/workshop.ts::useCreateWorkshopHoliday::missing-inventory-entry",
     "api/workshop.ts::useCreateWorkshopHoliday::missing-mutation-key",
     "api/workshop.ts::useDeleteWorkshopHoliday::missing-inventory-entry",
@@ -327,7 +324,6 @@
     "api/workshop.ts::useUpdateWorkshopHoliday::missing-inventory-entry",
     "api/workshop.ts::useUpdateWorkshopHoliday::missing-mutation-key",
     "api/workshop.ts::useUpdateWorkshopSettings::missing-inventory-entry",
-    "api/workshop.ts::useUpdateWorkshopSettings::missing-mutation-key",
-    "api/workshop.ts::useUpdateWorkshopTaskChecklist::optimistic-without-helper"
+    "api/workshop.ts::useUpdateWorkshopSettings::missing-mutation-key"
   ]
 }

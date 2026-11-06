@@ -5,7 +5,7 @@ import { act, fireEvent, renderHook, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import { boardKeys, useBoardActive, workshopKeys } from '@/api/workshop'
-import type { BoardActiveResponse } from '@/api/workshop'
+import type { AssignBoardPayload, BoardActiveResponse } from '@/api/workshop'
 import { fetchWithAuth } from '@/api/client'
 import { mechanicQueueKeys } from '@/api/mechanic'
 import { InfiniteListRefreshNotice } from '@/components/list/InfiniteListRefreshNotice'
@@ -13,7 +13,6 @@ import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashb
 import { ENTITY_UPDATED_EVENT } from '@/features/realtime/types'
 import { infiniteListQueryMeta, refreshInfiniteList } from '@/lib/infinite-list-query'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
-import { useWorkshopBoardAssignment } from '@/pages/workshop/useWorkshopBoardAssignment'
 import { deWorkshop } from '@/test/de-workshop'
 import { registerGermanUiForTests } from '@/test/german-ui'
 
@@ -82,6 +81,42 @@ function emit(type: 'WORKSHOP_ORDER' | 'WORKSHOP_TASK') {
 const orderOne = (mechanicId: string | null = null): Order => ({ id: 'order-1', mechanicId, bayId: null })
 const orderTwo = (mechanicId: string | null = null): Order => ({ id: 'order-2', mechanicId, bayId: null })
 
+/**
+ * Optimistic vehicle for the helper tests. The real board assign (`useAssignBoard`) is server-confirmed since
+ * AUT-882, so the helper's ordering, rollback and echo rules are exercised on an equivalent card move here.
+ */
+function useOptimisticBoardMove() {
+  const { mutateAsync } = useMutation({
+    ...optimisticMutationOptions<BoardActiveResponse, AssignBoardPayload>({
+      queryKey: boardKeys.active(),
+      mutationKey: [...boardKeys.active(), 'assign'],
+      entityId: ({ orderId }) => orderId,
+      apply: (cache, { orderId, mechanicId }) => ({
+        ...cache,
+        data: cache.data.map((order) => (order.id === orderId ? { ...order, mechanicId } : order)),
+      }),
+      revert: (cache, { orderId }, snapshot) => {
+        const before = snapshot.data.find((order) => order.id === orderId)
+        if (!before) return cache
+        return {
+          ...cache,
+          data: cache.data.map((order) =>
+            order.id === orderId ? { ...order, mechanicId: before.mechanicId } : order,
+          ),
+        }
+      },
+    }),
+    mutationFn: async (payload: AssignBoardPayload) => {
+      const response = await fetchWithAuth(ASSIGN_URL, { method: 'PATCH', body: JSON.stringify(payload) })
+      if (!response.ok) throw new Error('Failed to assign board')
+      return response.json() as Promise<unknown>
+    },
+  })
+  return (orderId: string, target: { id: string }) => {
+    mutateAsync({ orderId, mechanicId: target.id }).catch(() => toast.error(deWorkshop.board.assignError))
+  }
+}
+
 async function setup(initial: Order[]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -94,7 +129,7 @@ async function setup(initial: Order[]) {
   const view = renderHook(
     () => ({
       board: useBoardActive(),
-      assign: useWorkshopBoardAssignment('mechanic'),
+      assign: useOptimisticBoardMove(),
       queue: useQuery({
         queryKey: [...mechanicQueueKeys.queue(), 'test'],
         queryFn: async () => (await fetchWithAuth(QUEUE_URL)).json() as Promise<unknown>,
@@ -133,7 +168,7 @@ async function setup(initial: Order[]) {
   const mechanicOf = (id: string) =>
     view.result.current.board.data?.data.find((order) => order.id === id)?.mechanicId
   const drag = async (orderId: string, mechanicId: string) => {
-    act(() => view.result.current.assign(orderId, { kind: 'mechanic', id: mechanicId, label: mechanicId }))
+    act(() => view.result.current.assign(orderId, { id: mechanicId }))
     await settle()
   }
   return { view, queryClient, seen, mechanicOf, drag }

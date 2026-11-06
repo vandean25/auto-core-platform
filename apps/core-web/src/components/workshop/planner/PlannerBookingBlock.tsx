@@ -4,6 +4,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from 'react-router-dom'
 import type { PlannerBooking } from '@/api/workshop'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { Spinner } from '@/components/ui/spinner'
+import { PlannerPendingMovesContext } from './planner-pending-moves'
 
 interface PlannerBookingBlockProps {
   booking: PlannerBooking
@@ -17,7 +19,9 @@ export function PlannerBookingBlock({
   isDragging = false,
 }: PlannerBookingBlockProps) {
   const navigate = useNavigate()
-  const isDraggable = booking.status === 'SCHEDULED' && booking.occupancyKind === 'BOOKING'
+  const isMoving = React.useContext(PlannerPendingMovesContext).has(booking.orderId)
+  const isDraggable =
+    booking.status === 'SCHEDULED' && booking.occupancyKind === 'BOOKING' && !isMoving
 
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: booking.orderId,
@@ -38,6 +42,7 @@ export function PlannerBookingBlock({
       ref={setNodeRef}
       style={{ ...style, ...dragStyle }}
       data-testid={`planner-booking-${booking.orderId}`}
+      aria-busy={isMoving || undefined}
       className={`absolute top-1 bottom-1 rounded-md border px-2 py-1 text-xs shadow-sm overflow-hidden text-left ${
         isDragging ? 'opacity-60 z-20' : 'z-10'
       } ${
@@ -51,6 +56,7 @@ export function PlannerBookingBlock({
       <div className="flex items-center gap-1.5 min-w-0">
         <StatusBadge status={booking.status} />
         <span className="font-medium truncate">{booking.orderNumber}</span>
+        {isMoving && <Spinner className="ml-auto size-3.5 shrink-0" />}
       </div>
       <p className="truncate text-muted-foreground">{plate}</p>
       {booking.mechanicName && (

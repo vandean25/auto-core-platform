@@ -1,15 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import * as React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkshopPlannerPage from './WorkshopPlannerPage'
 import * as workshopApi from '@/api/workshop'
 import { deWorkshop } from '@/test/de-workshop'
+import { toast } from 'sonner'
+import errorsDe from '../../../../../locales/de/errors.json' with { type: 'json' }
 
 const planner = deWorkshop.planner
 
 vi.mock('@/api/workshop')
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 let capturedOnDragEnd: ((event: { active: { id: string }; over: { id: string } | null }) => void) | null =
   null
@@ -281,5 +284,57 @@ describe('WorkshopPlannerPage', () => {
       }),
       expect.objectContaining({ onError: expect.any(Function), onSettled: expect.any(Function) }),
     )
+  })
+
+  // Scenario 4: a reschedule needs the server's capacity and conflict checks, so the booking waits where it is.
+  describe('server-confirmed reschedule', () => {
+    type MutateOptions = { onError: (error: unknown) => void; onSettled: () => void }
+
+    function dropOnSlot(queryClient: QueryClient) {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter>
+            <WorkshopPlannerPage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+      act(() => {
+        capturedOnDragEnd?.({
+          active: { id: 'order-scheduled' },
+          over: { id: 'planner-slot-bay-1__2026-08-21T11:00:00.000Z' },
+        })
+      })
+      return updateMutate.mock.calls.at(-1)?.[1] as MutateOptions
+    }
+
+    it('does not patch the planner cache and shows pending on the booking until the server answers', () => {
+      const queryClient = createQueryClient()
+      const setQueryData = vi.spyOn(queryClient, 'setQueryData')
+
+      const { onSettled } = dropOnSlot(queryClient)
+
+      expect(setQueryData).not.toHaveBeenCalled()
+      expect(screen.getByTestId('planner-booking-order-scheduled')).toHaveAttribute('aria-busy', 'true')
+      expect(screen.getByTestId('planner-booking-order-intake')).not.toHaveAttribute('aria-busy', 'true')
+
+      act(() => onSettled())
+
+      expect(screen.getByTestId('planner-booking-order-scheduled')).not.toHaveAttribute('aria-busy', 'true')
+    })
+
+    it.each([
+      ['a failed reschedule', new Error('Network down'), planner.page.rescheduleFailed],
+      ['a 403', Object.assign(new Error('Forbidden resource'), { status: 403 }), errorsDe.codes.HTTP_403],
+    ])('clears pending and reports %s', (_name, error, message) => {
+      const { onError, onSettled } = dropOnSlot(createQueryClient())
+
+      act(() => {
+        onError(error)
+        onSettled()
+      })
+
+      expect(toast.error).toHaveBeenCalledWith(message)
+      expect(screen.getByTestId('planner-booking-order-scheduled')).not.toHaveAttribute('aria-busy', 'true')
+    })
   })
 })

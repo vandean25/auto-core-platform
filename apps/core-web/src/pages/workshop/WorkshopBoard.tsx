@@ -42,7 +42,7 @@ export default function WorkshopBoard() {
 
   const { data: resourcesData, isLoading: resourcesLoading } = useWorkshopResources()
   const { data: boardData, isLoading: boardLoading } = useBoardActive()
-  const performBoardAssign = useWorkshopBoardAssignment(viewMode)
+  const { assign: performBoardAssign, pendingMoves } = useWorkshopBoardAssignment(viewMode)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -124,6 +124,7 @@ export default function WorkshopBoard() {
                   orders={col.orders}
                   activeId={activeId}
                   quickAssignTargets={quickAssignTargets}
+                  pendingMoves={pendingMoves}
                   onQuickAssign={performBoardAssign}
                 />
               ))}

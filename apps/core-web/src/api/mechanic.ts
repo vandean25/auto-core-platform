@@ -1,6 +1,11 @@
 import { i18n } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DETAIL_PREFETCH_GC_MS } from "@/lib/intent-prefetch";
+import {
+  applyChecklistEdits,
+  revertChecklistEdits,
+  type ChecklistItemEdit,
+} from "@/api/inspection-checklist-patch";
 import { optimisticMutationOptions } from "@/lib/optimistic-mutation";
 import type { components } from "./generated/openapi";
 import { fetchWithAuth } from "./client";
@@ -107,8 +112,12 @@ function mechanicTaskDetailExtraCache<TVariables extends { taskId: string }>(
             cache as MechanicTaskDetail,
             resolveStatus(variables),
           ),
-    revert: (_cache: unknown, _variables: unknown, snapshot: unknown) =>
-      snapshot ?? _cache,
+    // Restore the status only: a notes edit on the same detail may still be pending.
+    revert: (cache: unknown, _variables: unknown, snapshot: unknown) =>
+      patchMechanicTaskDetailStatus(
+        cache as MechanicTaskDetail,
+        (snapshot as MechanicTaskDetail).taskStatus,
+      ),
   };
 }
 
@@ -150,17 +159,27 @@ export function useMechanicTaskChecklist(taskId: string) {
   });
 }
 
+type UpdateMechanicTaskChecklistVariables = {
+  taskId: string;
+  items: ChecklistItemEdit[];
+};
+
+const updateMechanicTaskChecklistOptimistic = optimisticMutationOptions<
+  MechanicTaskChecklist,
+  UpdateMechanicTaskChecklistVariables
+>({
+  mutationKey: [...mechanicQueueKeys.all, "task", "checklist", "update"],
+  queryKey: ({ taskId }) => mechanicQueueKeys.taskChecklist(taskId),
+  entityId: ({ items }) => items.map((item) => item.id).join(","),
+  apply: (checklist, { items }) => applyChecklistEdits(checklist, items),
+  revert: (checklist, { items }, snapshot) =>
+    revertChecklistEdits(checklist, items, snapshot),
+});
+
 export function useUpdateMechanicTaskChecklist() {
-  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: {
-      taskId: string;
-      items: Array<{
-        id: string;
-        passed?: boolean | null;
-        notes?: string | null;
-      }>;
-    }) => {
+    ...updateMechanicTaskChecklistOptimistic,
+    mutationFn: async (payload: UpdateMechanicTaskChecklistVariables) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(payload.taskId)}/checklist`,
         {
@@ -172,11 +191,6 @@ export function useUpdateMechanicTaskChecklist() {
       if (!response.ok)
         await throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveChecklistFailed'));
       return response.json() as Promise<MechanicTaskChecklist>;
-    },
-    onSuccess: (_result, payload) => {
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskChecklist(payload.taskId),
-      });
     },
   });
 }
@@ -321,16 +335,37 @@ export function useCompleteTask() {
   });
 }
 
+type SaveDiagnosticsVariables = {
+  taskId: string;
+  payload: SaveDiagnosticsPayload;
+};
+
+function patchMechanicNotes(detail: MechanicTaskDetail, mechanicNotes: string | null) {
+  return { ...detail, mechanicNotes };
+}
+
+const saveDiagnosticsOptimistic = optimisticMutationOptions<
+  MechanicTaskDetail,
+  SaveDiagnosticsVariables
+>({
+  mutationKey: [...mechanicQueueKeys.all, "task", "diagnostics"],
+  queryKey: ({ taskId }) => mechanicQueueKeys.taskDetail(taskId),
+  entityId: ({ taskId }) => taskId,
+  // Only the notes are predictable; voice-note acceptance and inspection items settle through the refetch.
+  apply: (detail, { payload }) =>
+    payload.mechanicNotes === undefined
+      ? detail
+      : patchMechanicNotes(detail, payload.mechanicNotes),
+  revert: (detail, { payload }, snapshot) =>
+    payload.mechanicNotes === undefined
+      ? detail
+      : patchMechanicNotes(detail, snapshot.mechanicNotes ?? null),
+});
+
 export function useSaveDiagnostics() {
-  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      taskId,
-      payload,
-    }: {
-      taskId: string;
-      payload: SaveDiagnosticsPayload;
-    }) => {
+    ...saveDiagnosticsOptimistic,
+    mutationFn: async ({ taskId, payload }: SaveDiagnosticsVariables) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/diagnostics`,
         {
@@ -343,11 +378,6 @@ export function useSaveDiagnostics() {
         return throwHttpError(response, i18n.t('common:apiErrors.workshop.mechanic.saveDiagnosticsFailed'));
       }
       return response.json() as Promise<SaveDiagnosticsResponse>;
-    },
-    onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(taskId),
-      });
     },
   });
 }
