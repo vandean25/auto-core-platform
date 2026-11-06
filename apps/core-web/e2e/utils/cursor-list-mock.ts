@@ -14,6 +14,8 @@ type CursorListMockOptions<TRow> = {
   failCount?: boolean;
   /** Block size of the mock; the real API clamps `limit` the same way. */
   maxLimit?: number;
+  /** Shape of the answer to a request without cursor mode: the classic `page`/`pageSize` envelope (default) or the unpaged array of the invoice list. */
+  unpaged?: 'offset' | 'array';
 };
 
 /** Every request a mocked list received, in order, as parsed URLs. */
@@ -31,7 +33,7 @@ export const requestedBlocks = (requests: CursorListRequests) =>
  */
 export async function mockCursorList<TRow>(
   page: Page,
-  { path, rows, count, failCount = false, maxLimit = 50 }: CursorListMockOptions<TRow>,
+  { path, rows, count, failCount = false, maxLimit = 50, unpaged = 'offset' }: CursorListMockOptions<TRow>,
 ): Promise<CursorListRequests> {
   const requests: CursorListRequests = { list: [], count: [], failList: false };
 
@@ -63,6 +65,11 @@ export async function mockCursorList<TRow>(
         meta: { nextCursor: end < rows.length ? `offset:${end}` : null, hasNextPage: end < rows.length, limit },
       };
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+      return;
+    }
+
+    if (unpaged === 'array') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
       return;
     }
 

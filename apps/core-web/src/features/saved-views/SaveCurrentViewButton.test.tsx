@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import * as salesApi from '@/api/sales'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchWithAuth } from '@/api/client'
+import { mockListLayout, settleVirtualizerTimers } from '@/components/data-table/data-table-infinite-test-utils'
 import type { Invoice } from '@/api/types'
 import InvoiceListPage from '@/pages/sales/InvoiceListPage'
 import { SavedViewsProvider, savedViewsStorageKey } from '@/features/saved-views/SavedViewsProvider'
@@ -11,9 +12,9 @@ import { SaveCurrentViewButton } from './SaveCurrentViewButton'
 import { SavedViewRenameHost } from './SavedViewRenameHost'
 import { SavedViewsMenu } from './SavedViewsMenu'
 
-vi.mock('@/api/sales', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/api/sales')>()),
-  useInvoices: vi.fn(),
+vi.mock('@/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/client')>()),
+  fetchWithAuth: vi.fn(),
 }))
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ claims: { role: 'ADMIN' } }) }))
 
@@ -299,21 +300,43 @@ describe('saved invoice views (AUT-880)', () => {
       invoice_number: number,
     }) as Invoice
 
+  // jsdom has no layout; the default invoice route is an infinite (virtualized) list.
+  let restoreLayout: () => void
+  const jsonResponse = (body: unknown): Response => ({ ok: true, json: async () => body }) as Response
+  const invoices = [
+    invoice('i1', 'RE-2026-0001', 'Lovelace', '2026-01-01T00:00:00.000Z'),
+    invoice('i2', 'RE-2026-0002', 'Lovelace', '2026-02-01T00:00:00.000Z'),
+    invoice('i3', 'RE-2026-0003', 'Turing', '2026-03-01T00:00:00.000Z'),
+  ]
+
   beforeEach(() => {
-    vi.mocked(salesApi.useInvoices).mockReturnValue({
-      data: [
-        invoice('i1', 'RE-2026-0001', 'Lovelace', '2026-01-01T00:00:00.000Z'),
-        invoice('i2', 'RE-2026-0002', 'Lovelace', '2026-02-01T00:00:00.000Z'),
-        invoice('i3', 'RE-2026-0003', 'Turing', '2026-03-01T00:00:00.000Z'),
-      ],
-      isLoading: false,
-    } as unknown as ReturnType<typeof salesApi.useInvoices>)
+    restoreLayout = mockListLayout()
+    // The API of this test answers a cursor request with the rows that match its search, in the requested date order.
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const params = new URL(String(url), 'http://acp.test').searchParams
+      if (String(url).includes('capped-count')) return jsonResponse({ count: invoices.length, isCapped: false })
+      const search = params.get('search')?.toLowerCase()
+      const rows = invoices.filter((row) => !search || row.customer.last_name.toLowerCase().includes(search))
+      const direction = params.get('sortDirection') === 'asc' ? 1 : -1
+      rows.sort((left, right) => left.date.localeCompare(right.date) * direction)
+      return jsonResponse({ data: rows, meta: { nextCursor: null, hasNextPage: false, limit: 50 } })
+    })
   })
+
+  afterEach(() => restoreLayout())
+  afterAll(settleVirtualizerTimers)
+
+  const cursorRequests = () =>
+    vi
+      .mocked(fetchWithAuth)
+      .mock.calls.map((call) => new URL(String(call[0]), 'http://acp.test'))
+      .filter((url) => url.pathname === '/api/sales/invoices' && url.searchParams.get('pagination') === 'cursor')
 
   const rowNumbers = () =>
     Array.from(document.querySelectorAll('[data-table-row="true"]')).map((row) => /RE-2026-\d{4}/.exec(row.textContent ?? '')?.[0])
 
-  it('WHEN the user opens a saved invoice view THEN filters, sort and search are restored from it', async () => {
+  // Scenario 4 (LF 6a): a saved view on the migrated list sends its search and sort to the cursor API.
+  it('WHEN the user opens a saved invoice view THEN its search and sort apply to the infinite list', async () => {
     seedViews('test-user', 'tenant-a', [
       { id: 'v1', name: 'Lovelace aufsteigend', href: '/sales/invoices?search=Lovelace&sortField=date&sortDirection=asc' },
     ])
@@ -327,14 +350,27 @@ describe('saved invoice views (AUT-880)', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     )
-    // The default view: every invoice, newest first.
-    expect(rowNumbers()).toEqual(['RE-2026-0003', 'RE-2026-0002', 'RE-2026-0001'])
+    // The default view: every invoice, newest first, loaded as the first cursor block.
+    await waitFor(() => expect(rowNumbers()).toEqual(['RE-2026-0003', 'RE-2026-0002', 'RE-2026-0001']))
+    expect(Object.fromEntries(cursorRequests()[0].searchParams)).toEqual({
+      pagination: 'cursor',
+      limit: '50',
+      sortField: 'date',
+      sortDirection: 'desc',
+    })
     const searchInput = screen.getByPlaceholderText('Rechnungen durchsuchen…')
 
     fireEvent.click(screen.getByRole('button', { name: 'Gespeicherte Ansichten für Rechnungen' }))
     fireEvent.click(within(await screen.findByRole('dialog', { name: /Ansichten/ })).getByRole('button', { name: 'Lovelace aufsteigend' }))
 
     await waitFor(() => expect(rowNumbers()).toEqual(['RE-2026-0001', 'RE-2026-0002']))
+    expect(Object.fromEntries(cursorRequests().at(-1)!.searchParams)).toEqual({
+      pagination: 'cursor',
+      limit: '50',
+      search: 'Lovelace',
+      sortField: 'date',
+      sortDirection: 'asc',
+    })
     expect(screen.getByPlaceholderText('Rechnungen durchsuchen…')).toHaveValue('Lovelace')
     // The list stayed mounted while the view opened: it is the same search input, not a remounted one.
     expect(screen.getByPlaceholderText('Rechnungen durchsuchen…')).toBe(searchInput)

@@ -5,7 +5,7 @@ import { encodeListCursor } from '../src/common/list-cursor/index.js';
 import { LIST_CURSOR_ENDPOINT } from '../src/common/list-cursor/list-cursor.constants.js';
 import { hashListFilterContext } from '../src/common/list-cursor/list-cursor.filter-hash.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { VehicleStockStatus } from '@prisma/client';
+import { InvoiceStatus, VehicleStockStatus } from '@prisma/client';
 import { createE2eApp, createE2eTenant } from './helpers/e2e-suite.js';
 import {
   createVehicleStockSuite,
@@ -1260,6 +1260,312 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ count: 1000, isCapped: true });
+    });
+  });
+  describe('invoice list (AUT-891)', () => {
+    let app: INestApplication;
+    let prisma: PrismaService;
+    let tenantId: string;
+    let otherTenantId: string;
+    let authToken: string;
+    let customerId: string;
+
+    beforeEach(async () => {
+      app = await createE2eApp(undefined, { productionErrorFilter: true });
+      const basePrisma = app.get(PrismaService);
+      const ctx = await createE2eTenant(app, basePrisma, 'list-cursor-inv-doc');
+      tenantId = ctx.tenantId;
+      prisma = ctx.prisma;
+      authToken = ctx.authToken;
+      customerId = (
+        await prisma.customer.create({
+          data: { tenant_id: tenantId, first_name: 'Erika', last_name: 'Musterfrau' },
+        })
+      ).id;
+      const otherTenant = await createTestTenant(
+        basePrisma,
+        'list-cursor-inv-doc-other',
+      );
+      otherTenantId = otherTenant.tenantId;
+    });
+
+    afterEach(async () => {
+      if (otherTenantId) {
+        await cleanupTestTenantGraph(prisma, otherTenantId);
+        otherTenantId = '';
+      }
+      if (tenantId) {
+        await cleanupTestTenantGraph(prisma, tenantId);
+        tenantId = '';
+      }
+      await teardownTestApp(app, prisma);
+    });
+
+    function invoiceRow(
+      overrides: Partial<{
+        invoice_number: string | null;
+        status: InvoiceStatus;
+        date: Date;
+        customer_id: string;
+        tenant_id: string;
+      }> = {},
+    ) {
+      return {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        status: InvoiceStatus.FINALIZED,
+        date: new Date('2026-01-01T10:00:00.000Z'),
+        due_date: new Date('2026-01-15T10:00:00.000Z'),
+        total_net: 100,
+        total_tax: 20,
+        total_gross: 120,
+        ...overrides,
+      };
+    }
+
+    function listInvoiceCursor(query: Record<string, string>, token = authToken) {
+      return request(app.getHttpServer())
+        .get('/api/sales/invoices')
+        .query({ pagination: 'cursor', ...query })
+        .set('Authorization', `Bearer ${token}`);
+    }
+
+    async function pageThrough(
+      query: Record<string, string>,
+    ): Promise<{ id: string; invoice_number: string | null }[]> {
+      const rows: { id: string; invoice_number: string | null }[] = [];
+      let cursor: string | undefined;
+      for (let guard = 0; guard < 20; guard += 1) {
+        const res = await listInvoiceCursor({
+          ...query,
+          ...(cursor ? { cursor } : {}),
+        }).expect(200);
+        rows.push(...res.body.data);
+        cursor = res.body.meta.nextCursor ?? undefined;
+        if (!cursor) return rows;
+      }
+      throw new Error('cursor chain did not end');
+    }
+
+    // Scenario 1: strict number order across blocks, drafts (no number) last in both directions.
+    it.each([
+      ['asc', [1, 2, 3, 4, 5, 6, 7]],
+      ['desc', [7, 6, 5, 4, 3, 2, 1]],
+    ])(
+      'WHEN invoices are paged by number %s THEN blocks continue in strict number order without gaps or repeats and drafts come last',
+      async (direction, expectedNumbers) => {
+        const numbers = [4, 1, 7, 3, 6, 2, 5].map(
+          (n) => `RE-2026-${String(n).padStart(4, '0')}`,
+        );
+        await prisma.invoice.createMany({
+          data: [
+            ...numbers.map((invoice_number) => invoiceRow({ invoice_number })),
+            invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT }),
+            invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT }),
+          ],
+        });
+
+        const rows = await pageThrough({
+          sortField: 'invoice_number',
+          sortDirection: direction,
+          limit: '3',
+        });
+
+        expect(rows.map((row) => row.invoice_number)).toEqual([
+          ...expectedNumbers.map((n) => `RE-2026-${String(n).padStart(4, '0')}`),
+          null,
+          null,
+        ]);
+        expect(new Set(rows.map((row) => row.id)).size).toBe(9);
+      },
+    );
+
+    it('WHEN many invoices share one date THEN date blocks break the tie by id without gaps or repeats (stable date order)', async () => {
+      await prisma.invoice.createMany({
+        data: Array.from({ length: 7 }, (_, index) =>
+          invoiceRow({ invoice_number: `RE-2026-${100 + index}` }),
+        ),
+      });
+      await prisma.invoice.createMany({
+        data: [
+          invoiceRow({
+            invoice_number: 'RE-2026-200',
+            date: new Date('2026-03-01T10:00:00.000Z'),
+          }),
+        ],
+      });
+
+      const rows = await pageThrough({
+        sortField: 'date',
+        sortDirection: 'desc',
+        limit: '2',
+      });
+
+      expect(rows).toHaveLength(8);
+      expect(rows[0].invoice_number).toBe('RE-2026-200');
+      const tied = rows.slice(1).map((row) => row.id);
+      expect(tied).toEqual([...tied].sort().reverse());
+      expect(new Set(rows.map((row) => row.id)).size).toBe(8);
+    });
+
+    it('WHEN no sort is requested THEN the newest invoice comes first and meta.limit defaults to 25', async () => {
+      await prisma.invoice.createMany({
+        data: [
+          invoiceRow({ date: new Date('2026-01-01T00:00:00.000Z'), invoice_number: 'OLD' }),
+          invoiceRow({ date: new Date('2026-06-01T00:00:00.000Z'), invoice_number: 'NEW' }),
+        ],
+      });
+
+      const res = await listInvoiceCursor({}).expect(200);
+
+      expect(res.body.data.map((row: { invoice_number: string }) => row.invoice_number)).toEqual(['NEW', 'OLD']);
+      expect(res.body.meta).toEqual({ nextCursor: null, hasNextPage: false, limit: 25 });
+    });
+
+    it('WHEN the requested limit exceeds the ceiling THEN meta.limit is clamped to 100', async () => {
+      const res = await listInvoiceCursor({ limit: '500' }).expect(200);
+
+      expect(res.body.meta.limit).toBe(100);
+    });
+
+    it.each(['customer', 'status', 'total_gross', 'constructor'])(
+      'WHEN cursor mode sorts by %s THEN the API returns 400 LIST_CURSOR_SORT_UNSUPPORTED',
+      async (sortField) => {
+        const res = await listInvoiceCursor({ sortField }).expect(400);
+
+        expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
+      },
+    );
+
+    it('WHEN a cursor is replayed with a different search THEN the API returns 400 LIST_CURSOR_INVALID', async () => {
+      await prisma.invoice.createMany({
+        data: [invoiceRow({ invoice_number: 'A-1' }), invoiceRow({ invoice_number: 'A-2' })],
+      });
+      const first = await listInvoiceCursor({ limit: '1', search: 'A-' }).expect(200);
+
+      const res = await listInvoiceCursor({
+        limit: '1',
+        search: 'B-',
+        cursor: first.body.meta.nextCursor,
+      }).expect(400);
+
+      expect(res.body.code).toBe('LIST_CURSOR_INVALID');
+    });
+
+    it('WHEN the cursor row was deleted THEN the next invoice block still succeeds', async () => {
+      await prisma.invoice.createMany({
+        data: [
+          invoiceRow({ invoice_number: 'D-1', status: InvoiceStatus.DRAFT }),
+          invoiceRow({ invoice_number: 'D-2', status: InvoiceStatus.DRAFT }),
+          invoiceRow({ invoice_number: 'D-3', status: InvoiceStatus.DRAFT }),
+        ],
+      });
+      const query = { sortField: 'invoice_number', sortDirection: 'asc', limit: '1' };
+      const first = await listInvoiceCursor(query).expect(200);
+      await prisma.invoice.delete({ where: { id: first.body.data[0].id } });
+
+      const second = await listInvoiceCursor({
+        ...query,
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+
+      expect(second.body.data.map((row: { invoice_number: string }) => row.invoice_number)).toEqual(['D-2']);
+    });
+
+    it('WHEN a search has several words THEN number, customer name and status are searched and tenants stay separate', async () => {
+      const otherPrisma = createTenantAwarePrisma(
+        app.get(PrismaService),
+        otherTenantId,
+      );
+      const other = await otherPrisma.customer.create({
+        data: { tenant_id: otherTenantId, first_name: 'Erika', last_name: 'Musterfrau' },
+      });
+      await prisma.invoice.createMany({
+        data: [
+          invoiceRow({ invoice_number: 'RE-2026-0001' }),
+          invoiceRow({ invoice_number: 'RE-2026-0002', status: InvoiceStatus.PAID }),
+        ],
+      });
+      await otherPrisma.invoice.create({
+        data: invoiceRow({
+          tenant_id: otherTenantId,
+          customer_id: other.id,
+          invoice_number: 'RE-2026-0001',
+        }),
+      });
+
+      const byName = await listInvoiceCursor({ search: 'erika muster' }).expect(200);
+      const byNumber = await listInvoiceCursor({ search: '0002' }).expect(200);
+      const byStatus = await listInvoiceCursor({ search: 'paid' }).expect(200);
+      const count = await request(app.getHttpServer())
+        .get('/api/sales/invoices/capped-count')
+        .query({ search: 'erika' })
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(byName.body.data).toHaveLength(2);
+      expect(byNumber.body.data.map((row: { invoice_number: string }) => row.invoice_number)).toEqual(['RE-2026-0002']);
+      expect(byStatus.body.data).toHaveLength(1);
+      expect(count.body).toEqual({ count: 2, isCapped: false });
+    });
+
+    it('WHEN 1,001 invoices match THEN capped count returns count 1000 and isCapped true', async () => {
+      await prisma.invoice.createMany({
+        data: Array.from({ length: 1001 }, (_, index) =>
+          invoiceRow({ invoice_number: `CAP-${index}` }),
+        ),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get('/api/sales/invoices/capped-count')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(res.body).toEqual({ count: 1000, isCapped: true });
+    });
+
+    // Scenario 3: a role without invoice access.
+    it.each([
+      ['invoice cursor list', '/api/sales/invoices', { pagination: 'cursor', limit: '10' }],
+      ['invoice capped-count', '/api/sales/invoices/capped-count', {}],
+    ])(
+      'WHEN TECH role calls the %s THEN the API returns 403',
+      async (_label, path, query) => {
+        const basePrisma = app.get(PrismaService);
+        const techUid = `tech-invoice-${tenantId}-${Date.now()}`;
+        const techUser = await basePrisma.user.create({
+          data: { firebaseUid: techUid, email: `${techUid}@example.com` },
+        });
+        await seedTestTenantMember(basePrisma, {
+          tenantId,
+          userId: techUser.id,
+          role: 'TECH',
+        });
+        const techToken = createTestAuthToken(app.get(AuthService), {
+          tenantId,
+          firebaseUid: techUid,
+          email: techUser.email,
+          role: 'TECH',
+        });
+
+        await request(app.getHttpServer())
+          .get(path)
+          .query(query)
+          .set('Authorization', `Bearer ${techToken}`)
+          .expect(403);
+      },
+    );
+
+    it('WHEN the list is requested without cursor mode THEN the unpaged array contract is unchanged', async () => {
+      await prisma.invoice.createMany({ data: [invoiceRow({ invoice_number: 'ARR-1' })] });
+
+      const res = await request(app.getHttpServer())
+        .get('/api/sales/invoices')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.map((row: { invoice_number: string }) => row.invoice_number)).toEqual(['ARR-1']);
     });
   });
 });

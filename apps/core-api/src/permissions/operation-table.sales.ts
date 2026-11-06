@@ -20,6 +20,7 @@ export const SALES_OPERATIONS: OperationTable = {
     'business_state',
   ]),
   'SalesController.findAll': op('invoice.read', BACK_OFFICE_DEMO, 'site'),
+  'SalesController.cappedCount': op('invoice.read', BACK_OFFICE_DEMO, 'site'),
   'SalesController.findOne': op('invoice.read', BACK_OFFICE_DEMO, 'site'),
   'InvoicesController.createDraft': op(
     'invoice.draft.create',

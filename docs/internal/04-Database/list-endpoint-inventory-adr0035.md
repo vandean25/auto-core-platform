@@ -16,6 +16,16 @@ Rollout step 1 from [concept-list-scrolling](../00-Inbox/concept-list-scrolling.
 | `GET /api/vehicle-stock` | `make`, `model`, `year`, `vin`, `plate`, `color`, `updatedAt` | yes | yes | 50 | `GET /api/vehicle-stock/capped-count` |
 | `GET /api/inventory` | `sku`, `name`, `price` (`retail_price`) | yes | yes | 100 (default page size 10) | `GET /api/inventory/capped-count` |
 
+## Invoice wave (AUT-891)
+
+| Endpoint | Sort field | ASC cursor | DESC cursor | Default / cap | Capped count |
+| --- | --- | --- | --- | --- | --- |
+| `GET /api/sales/invoices?pagination=cursor` | `invoice_number` (nullable, drafts last), `date` (default, newest first) | yes | yes | 25 / 100 | `GET /api/sales/invoices/capped-count` |
+
+Offset-style (unpaged array) response stays for every request without `pagination=cursor` / `cursor`. Customer name (relation), status and total are **not** approved for cursor paging and keep the unpaged list in the browser. Search (cursor and count): invoice number (contains), customer first/last/company name (all words must match), status. Permission: `invoice.read` (TECH gets 403). The list stays tenant-wide as before; the cursor is additionally bound to the session's active site. Indexes: migration `20261106120000_aut891_invoice_list_cursor_indexes`. Plans: [aut891-invoice-list-explain-evidence.md](./aut891-invoice-list-explain-evidence.md).
+
+Offset removal for invoices: **not yet.** The unpaged array is still the data source of the customer, status and total sorts, so the endpoint keeps it.
+
 **Vehicle stock cursor constraints:** merged ON_ORDER / draft rows stay **offset-only**. Cursor and capped count require a `stock_status` filter that excludes draft merge (any value except unset / `ON_ORDER`).
 
 **Offset-only sorts (unchanged):** relation, computed, and relevance sorts on each view (e.g. inventory status/location columns) remain offset until separately approved.
@@ -26,6 +36,7 @@ Rollout step 1 from [concept-list-scrolling](../00-Inbox/concept-list-scrolling.
 | --- | --- | --- |
 | `GET /api/vehicle-stock` | `apps/core-web` `vehicleStockKeys` / Vehicle stock list | Infinite list (AUT-890) when a draft-free status is selected and the sort is a cursor sort; "all statuses" and `stock_status` sort stay offset |
 | `GET /api/inventory` | `apps/core-web` inventory hooks / Item list | Infinite list (AUT-890) on `sku`, `name`, `price` or no sort; any other sort stays offset |
+| `GET /api/sales/invoices` | `apps/core-web` `invoiceKeys` / Invoice list | Infinite list (AUT-891) on `invoice_number`, `date` or no sort; customer, status and total sort stay unpaged |
 | MCP `list_catalog_items` | Agent MCP read tools | Separate keyset; not replaced in LF 10a |
 
 ## Search / filter fields (server-side)
@@ -50,6 +61,7 @@ Cursor payload binds a hash of normalized filter context plus tenant and active 
 | --- | --- | --- |
 | `Vehicle` (dealer stock) | `vehicleStockKeys` | Mark stale; no retained-page refetch (ADR-0035 §7) |
 | `CatalogItem` / stock | `inventoryKeys` (TanStack) | Same explicit refresh contract |
+| `Invoice` (new `INVOICE` event, AUT-891) | `invoiceKeys.all` | Cursor lists are marked stale without refetch; "Liste aktualisieren" |
 
 ## Index migrations (additive)
 

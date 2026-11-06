@@ -44,3 +44,16 @@ export async function cappedVehicleListCount(
   });
   return cappedCountFromRows(rows);
 }
+
+/** Bounded match count for the invoice list (ADR-0035 §5). */
+export async function cappedInvoiceListCount(
+  prisma: PrismaService,
+  where: Prisma.InvoiceWhereInput,
+): Promise<CappedListCountResult> {
+  const rows = await prisma.invoice.findMany({
+    where,
+    select: { id: true },
+    take: LIST_COUNT_PROBE_TAKE,
+  });
+  return cappedCountFromRows(rows);
+}

@@ -5,6 +5,7 @@ export const LIST_CURSOR_VERSION = 1 as const;
 export const LIST_CURSOR_ENDPOINT = {
   vehicleStock: 'vehicle-stock',
   inventory: 'inventory',
+  invoices: 'invoices',
 } as const;
 
 export type ListCursorEndpointId =

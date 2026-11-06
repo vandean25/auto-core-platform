@@ -4,6 +4,7 @@ export {
 } from './list-cursor.constants.js';
 export {
   cappedCatalogItemListCount,
+  cappedInvoiceListCount,
   cappedVehicleListCount,
 } from './capped-list-count.js';
 export {

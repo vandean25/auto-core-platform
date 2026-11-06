@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Plus } from 'lucide-react'
-import { invoiceDetailQueryOptions, useInvoices } from '@/api/sales'
+import { formatInvoiceCustomerName, useInvoiceListState } from '@/api/invoice-list'
+import { invoiceDetailQueryOptions } from '@/api/sales'
 import type { Invoice } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -22,25 +23,6 @@ import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
 const formatDate = (value: string) => formatDateShort(value)
 
-function formatCustomerName(invoice: Invoice) {
-  const customer = invoice.customer
-  if (customer.type === 'COMPANY' && customer.company_name) {
-    return customer.company_name
-  }
-  return `${customer.first_name} ${customer.last_name}`.trim()
-}
-
-function matchesSearch(invoice: Invoice, search: string) {
-  const haystack = [
-    invoice.invoice_number ?? '',
-    formatCustomerName(invoice),
-    invoice.status,
-  ]
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(search)
-}
-
 export default function InvoiceListPage() {
   const { t } = useTranslation('sales')
   useEffect(() => {
@@ -54,54 +36,12 @@ export default function InvoiceListPage() {
     initialSorting: [{ id: 'date', desc: true }],
   })
 
-  const { data: invoices = [], isLoading } = useInvoices()
-
-  const filteredInvoices = useMemo(() => {
-    const search = queryParams.search?.trim().toLowerCase()
-    let rows = search
-      ? invoices.filter((invoice) => matchesSearch(invoice, search))
-      : [...invoices]
-
-    if (queryParams.sortField) {
-      const direction = queryParams.sortDirection === 'desc' ? -1 : 1
-      const field = queryParams.sortField
-      rows = [...rows].sort((left, right) => {
-        const leftValue =
-          field === 'customer'
-            ? formatCustomerName(left)
-            : String((left as Record<string, unknown>)[field] ?? '')
-        const rightValue =
-          field === 'customer'
-            ? formatCustomerName(right)
-            : String((right as Record<string, unknown>)[field] ?? '')
-        return (
-          leftValue.localeCompare(rightValue, undefined, { numeric: true }) *
-          direction
-        )
-      })
-    }
-
-    return rows
-  }, [
-    invoices,
-    queryParams.search,
-    queryParams.sortField,
-    queryParams.sortDirection,
-  ])
-
-  const pageCount = Math.max(
-    1,
-    Math.ceil(filteredInvoices.length / queryParams.pageSize),
-  )
-
-  const data = useMemo(() => {
-    const start = (queryParams.page - 1) * queryParams.pageSize
-    return filteredInvoices.slice(start, start + queryParams.pageSize)
-  }, [filteredInvoices, queryParams.page, queryParams.pageSize])
+  const { rows: data, tableProps } = useInvoiceListState(queryParams)
 
   const columns: ColumnDef<Invoice>[] = [
     {
       accessorKey: 'invoice_number',
+      meta: { mobile: 'title' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.invoiceNumber')} />
       ),
@@ -114,6 +54,7 @@ export default function InvoiceListPage() {
     },
     {
       accessorKey: 'date',
+      meta: { mobile: 'details' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.date')} />
       ),
@@ -121,14 +62,16 @@ export default function InvoiceListPage() {
     },
     {
       id: 'customer',
-      accessorFn: (row) => formatCustomerName(row),
+      meta: { mobile: 'subtitle' },
+      accessorFn: (row) => formatInvoiceCustomerName(row),
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.customer')} />
       ),
-      cell: ({ row }) => <div>{formatCustomerName(row.original)}</div>,
+      cell: ({ row }) => <div>{formatInvoiceCustomerName(row.original)}</div>,
     },
     {
       accessorKey: 'status',
+      meta: { mobile: 'status' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.status')} />
       ),
@@ -136,6 +79,7 @@ export default function InvoiceListPage() {
     },
     {
       accessorKey: 'total_gross',
+      meta: { mobile: 'trailing' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.total')} />
       ),
@@ -164,8 +108,7 @@ export default function InvoiceListPage() {
       <DataTable
         columns={columns}
         data={data}
-        pageCount={pageCount}
-        isLoading={isLoading}
+        {...tableProps}
         saveViewTitle={t('invoices.list.saveViewTitle')}
         searchPlaceholder={t('invoices.list.searchPlaceholder')}
         rowBehaviour={{

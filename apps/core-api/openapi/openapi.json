@@ -2695,22 +2695,96 @@
       },
       "get": {
         "operationId": "SalesController_findAll",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from meta.nextCursor of the previous cursor page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Cursor mode only. Default 25, maximum 100.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pagination",
+            "required": false,
+            "in": "query",
+            "description": "Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offset",
+                "cursor"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Cursor mode only: `invoice_number` or `date` (default).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "invoice_number",
+                "date"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/InvoiceResponseDto"
-                  }
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InvoiceResponseDto"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvoiceCursorPageResponseDto"
+                    }
+                  ]
                 }
               }
             }
           }
         },
+        "summary": "List invoices. Unpaged array by default; `pagination=cursor` returns a keyset page.",
         "tags": [
           "Sales"
         ]
@@ -2809,6 +2883,37 @@
             }
           }
         },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/api/sales/invoices/capped-count": {
+      "get": {
+        "operationId": "SalesController_cappedCount",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CappedListCountResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bounded match count for the invoice list search (ADR-0035)",
         "tags": [
           "Sales"
         ]
@@ -21785,6 +21890,45 @@
           "total_tax",
           "total_gross",
           "items"
+        ]
+      },
+      "ListCursorPageMetaDto": {
+        "type": "object",
+        "properties": {
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "nextCursor",
+          "hasNextPage",
+          "limit"
+        ]
+      },
+      "InvoiceCursorPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ListCursorPageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "CreateDraftInvoiceDto": {

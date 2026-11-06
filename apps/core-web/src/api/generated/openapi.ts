@@ -820,6 +820,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List invoices. Unpaged array by default; `pagination=cursor` returns a keyset page. */
         get: operations["SalesController_findAll"];
         put?: never;
         post: operations["SalesController_createDraft"];
@@ -854,6 +855,23 @@ export interface paths {
         };
         get?: never;
         put: operations["SalesController_finalize"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sales/invoices/capped-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bounded match count for the invoice list search (ADR-0035) */
+        get: operations["SalesController_cappedCount"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -6746,6 +6764,15 @@ export interface components {
             items: components["schemas"]["InvoiceItemResponseDto"][];
             /** @description Country-specific margin-scheme legal notice for on-screen invoice display. */
             margin_scheme_legal_note?: string | null;
+        };
+        ListCursorPageMetaDto: {
+            nextCursor: string | null;
+            hasNextPage: boolean;
+            limit: number;
+        };
+        InvoiceCursorPageResponseDto: {
+            data: components["schemas"]["InvoiceResponseDto"][];
+            meta: components["schemas"]["ListCursorPageMetaDto"];
         };
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
@@ -14441,7 +14468,18 @@ export interface operations {
     };
     SalesController_findAll: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Opaque cursor from meta.nextCursor of the previous cursor page */
+                cursor?: string;
+                /** @description Cursor mode only. Default 25, maximum 100. */
+                limit?: number;
+                /** @description Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract. */
+                pagination?: "offset" | "cursor";
+                search?: string;
+                sortDirection?: "asc" | "desc";
+                /** @description Cursor mode only: `invoice_number` or `date` (default). */
+                sortField?: "invoice_number" | "date";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14453,7 +14491,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InvoiceResponseDto"][];
+                    "application/json": components["schemas"]["InvoiceResponseDto"][] | components["schemas"]["InvoiceCursorPageResponseDto"];
                 };
             };
         };
@@ -14544,6 +14582,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceResponseDto"];
+                };
+            };
+        };
+    };
+    SalesController_cappedCount: {
+        parameters: {
+            query?: {
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CappedListCountResponseDto"];
                 };
             };
         };

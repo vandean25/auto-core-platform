@@ -36,6 +36,7 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   EMPLOYEE_WORK_SCHEDULE: true,
   PARTS_RESERVATION: true,
   PARTS_REQUISITION: true,
+  INVOICE: true,
   CREDIT_NOTE: true,
   PAYMENT: true,
   FISCAL_RECEIPT: true,

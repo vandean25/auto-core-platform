@@ -1,12 +1,38 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
+import { useCursorList } from './cursor-list'
 import { throwIfSalesResponseNotOk } from './sales-api-errors'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
+
+/** Invoice list search and sort that the cursor endpoint takes (ADR-0035). */
+export type InvoiceCursorFilters = { search?: string }
+export type InvoiceCursorParams = InvoiceCursorFilters & { sortField?: string; sortDirection?: 'asc' | 'desc' }
 
 export const invoiceKeys = {
     all: ['invoices'] as const,
     detail: (id: string) => [...invoiceKeys.all, id] as const,
+    cursorList: (params: InvoiceCursorParams) => [...invoiceKeys.all, 'cursor-list', params] as const,
+    cappedCount: (filters: InvoiceCursorFilters) => [...invoiceKeys.all, 'capped-count', filters] as const,
+}
+
+/** Sorts the invoice cursor API approves; customer, status and total keep the unpaged list (ADR-0035 §3). */
+export function isInvoiceCursorSort(sortField?: string): boolean {
+    return sortField === undefined || sortField === 'invoice_number' || sortField === 'date'
+}
+
+/** Infinite invoice list (cap 2,000 rows) with its capped count; idle while the unpaged list is in charge. */
+export function useInvoiceCursorList(params: InvoiceCursorParams, enabled: boolean) {
+    const filters = { search: params.search }
+    return useCursorList<Invoice>({
+        enabled,
+        path: '/api/sales/invoices',
+        countPath: '/api/sales/invoices/capped-count',
+        listKey: invoiceKeys.cursorList(params),
+        countKey: invoiceKeys.cappedCount(filters),
+        params,
+        countParams: filters,
+    })
 }
 
 export interface CreateInvoicePayload {
@@ -68,9 +94,10 @@ export function useFinalizeInvoice() {
     })
 }
 
-export function useInvoices() {
+export function useInvoices(options?: { enabled?: boolean }) {
     return useQuery<Invoice[]>({
         queryKey: invoiceKeys.all,
+        enabled: options?.enabled ?? true,
         queryFn: async () => {
             const response = await fetchWithAuth('/api/sales/invoices')
             if (!response.ok) throw new Error('Failed to fetch invoices')
