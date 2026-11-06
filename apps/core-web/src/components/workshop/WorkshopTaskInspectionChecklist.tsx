@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { getErrorMessage } from "@/lib/error-utils";
+import { getPermissionAwareErrorMessage } from "@/lib/error-utils";
 import {
   useUpdateWorkshopTaskChecklist,
   useWorkshopTaskChecklist,
@@ -31,7 +31,7 @@ export function WorkshopTaskInspectionChecklist({
       });
     } catch (error: unknown) {
       // The API answers a refusal with English validation text, so only the status-based copy (403) replaces the translated fallback.
-      toast.error(getErrorMessage(error, t("inspection.checklist.saveError")));
+      toast.error(getPermissionAwareErrorMessage(error, t("inspection.checklist.saveError")));
     }
   }
 

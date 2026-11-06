@@ -7,7 +7,7 @@ import {
   type BoardAssignmentTarget,
   useAssignBoard,
 } from '@/api/workshop'
-import { getErrorMessage } from '@/lib/error-utils'
+import { getPermissionAwareErrorMessage } from '@/lib/error-utils'
 import { WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID } from './workshop-board-announcements'
 
 /** Order id → id of the column it is moving to. The move is server-confirmed, so these stay where they are until the server answers. */
@@ -37,7 +37,7 @@ export function useWorkshopBoardAssignment(viewMode: BoardViewMode) {
         new Map(previous).set(orderId, target?.id ?? WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID),
       )
       mutateAsync(payload)
-        .catch((error: unknown) => toast.error(getErrorMessage(error, t('board.assignError'))))
+        .catch((error: unknown) => toast.error(getPermissionAwareErrorMessage(error, t('board.assignError'))))
         .finally(() => {
           inFlight.current.delete(orderId)
           setPendingMoves((previous) => {

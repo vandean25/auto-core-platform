@@ -459,7 +459,7 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByText('Grok Bot')).toBeVisible()
   })
 
-  test('Rolls back optimistic update if assign API call fails', async ({ page }) => {
+  test('Keeps the card in its column and reports the error if the assign API call fails', async ({ page }) => {
     const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await page.route(
@@ -659,7 +659,7 @@ test.describe('Blueprint: Workshop Board', () => {
     return { targetBox }
   }
 
-  test('WHEN a card is dragged out of a column THEN that column keeps its height and the empty state waits for the drop; WHEN it hovers an empty column THEN a drop slot is shown', async ({ page }) => {
+  test('WHEN a card is dragged out of a column THEN that column keeps its height and the empty state waits for the server; WHEN it hovers an empty column THEN a drop slot is shown', async ({ page }) => {
     await setupDragBoard(page, 200)
     const source = page.getByTestId('board-column-unassigned')
     const target = page.getByTestId('board-column-emp-mech-002')
@@ -672,9 +672,11 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(target.getByTestId('board-drop-slot')).toBeVisible()
     await expect(target).not.toContainText(DE_WORKSHOP.board.emptyColumn)
 
+    // The move is server-confirmed (ADR-0036): the mocked board still lists the card as unassigned, so it stays.
     await page.mouse.up()
-    await expect(target.getByTestId('workshop-order-card-ws-board-002')).toBeVisible()
-    await expect(source).toContainText(DE_WORKSHOP.board.emptyColumn)
+    await expect(source.getByTestId('workshop-order-card-ws-board-002')).toBeVisible()
+    await expect(source).not.toContainText(DE_WORKSHOP.board.emptyColumn)
+    await expect(target.getByTestId('workshop-order-card-ws-board-002')).toHaveCount(0)
   })
 
   test('WHEN the assign request fails after a drag THEN the card returns to the source column', async ({ page }) => {

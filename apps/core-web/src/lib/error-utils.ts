@@ -112,6 +112,11 @@ export function getErrorMessage(
   return appendServerReference(message, normalized, (error as ApiErrorLike).eventId)
 }
 
+/** A 403 gets the permission copy; any other failure keeps the caller's own, more specific text. */
+export function getPermissionAwareErrorMessage(error: unknown, fallbackMessage: string): string {
+  return getErrorStatus(error) === 403 ? getErrorMessage(error, fallbackMessage) : fallbackMessage
+}
+
 export function getErrorStatus(error: unknown): number | null {
   if (!isObjectLike(error)) {
     return null

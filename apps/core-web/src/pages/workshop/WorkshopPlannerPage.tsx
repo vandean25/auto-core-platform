@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core'
 import { Calendar, ChevronLeft, ChevronRight, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
-import { getErrorMessage } from '@/lib/error-utils'
+import { getPermissionAwareErrorMessage } from '@/lib/error-utils'
 import {
   useUpdateWorkshopOrder,
   useWorkshopPlanner,
@@ -225,7 +225,7 @@ export default function WorkshopPlannerPage() {
       },
       {
         onError: (error) => {
-          toast.error(getErrorMessage(error, t('planner.page.rescheduleFailed')))
+          toast.error(getPermissionAwareErrorMessage(error, t('planner.page.rescheduleFailed')))
         },
         onSettled: () => {
           setPendingMoves((previous) => {
