@@ -1668,6 +1668,22 @@ export interface paths {
         patch: operations["WorkshopController_updateOrder"];
         trace?: never;
     };
+    "/api/workshop/orders/{id}/notes/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopController_undoOrderNotes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{id}/create-invoice": {
         parameters: {
             query?: never;
@@ -7973,6 +7989,12 @@ export interface components {
             siteId?: string;
             /** Format: uuid */
             expectedSiteId?: string;
+        };
+        UndoWorkshopOrderNotesDto: {
+            /** @description Notes value before the edit being undone. Omit or null to restore an empty field. */
+            previousNotes?: string | null;
+            /** @description ISO timestamp of updatedAt immediately after the committed notes edit. */
+            expectedUpdatedAt: string;
         };
         CreateWorkshopTaskDto: {
             title: string;
@@ -16196,6 +16218,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateWorkshopOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_undoOrderNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoWorkshopOrderNotesDto"];
             };
         };
         responses: {

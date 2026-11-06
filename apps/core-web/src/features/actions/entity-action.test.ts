@@ -21,6 +21,7 @@ import {
 import { createImportJobRowActions } from './import-job-row-actions'
 import { createVehicleRowActions } from './vehicle-row-actions'
 import { createWorkshopOrderRowActions } from './work-order-row-actions'
+import { createWorkshopOrderUndoNotesAction } from './work-order-undo-notes-action'
 import { createTyreSetTyreMeasurementAction } from './tyre-set-row-actions'
 import { createWorkshopCommandActions } from './workshop-command-actions'
 import { createCreditNotePrintAction } from './credit-note-row-actions'
@@ -87,6 +88,7 @@ describe('entity action registry helpers', () => {
     const allRegistered = [
       ...createCustomerRowActions(passthroughT as TFunction<'customers'>),
       ...createWorkshopOrderRowActions(passthroughT as TFunction<'workshop'>),
+      createWorkshopOrderUndoNotesAction(passthroughT as TFunction<'workshop'>),
       ...createVehicleRowActions(passthroughT as TFunction<'vehicles'>),
       ...createEstimateRowActions(passthroughT as TFunction<'workshop'>),
       createTyreSetTyreMeasurementAction(passthroughT as TFunction<'workshop'>),

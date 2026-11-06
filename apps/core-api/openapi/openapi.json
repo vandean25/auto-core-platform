@@ -5579,6 +5579,47 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/notes/undo": {
+      "post": {
+        "operationId": "WorkshopController_undoOrderNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoWorkshopOrderNotesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopOrderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders/{id}/create-invoice": {
       "post": {
         "operationId": "WorkshopController_createInvoiceFromOrder",
@@ -26478,6 +26519,23 @@
             "format": "uuid"
           }
         }
+      },
+      "UndoWorkshopOrderNotesDto": {
+        "type": "object",
+        "properties": {
+          "previousNotes": {
+            "type": "string",
+            "description": "Notes value before the edit being undone. Omit or null to restore an empty field.",
+            "nullable": true
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "description": "ISO timestamp of updatedAt immediately after the committed notes edit."
+          }
+        },
+        "required": [
+          "expectedUpdatedAt"
+        ]
       },
       "CreateWorkshopTaskDto": {
         "type": "object",

@@ -14,6 +14,10 @@ import {
   runUpdateWorkshopOrderTaskStatus,
   type WorkshopOrderRowActionContext,
 } from './work-order-row-actions'
+import {
+  getUndoEligibleEntry,
+  runLatestEligibleUndoFromShortcut,
+} from '@/features/interaction/undo-eligible-entry-store'
 
 /**
  * Everything the work order registry actions need to run: navigation, the PDF job, the active mechanics and the
@@ -50,7 +54,20 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
   )
 
   return useMemo(
-    () => ({ navigate, generatePdf, t, mechanics, assignMechanic, updateTaskStatus }),
+    () => ({
+      navigate,
+      generatePdf,
+      t,
+      mechanics,
+      assignMechanic,
+      updateTaskStatus,
+      undoNotes: (orderId: string) => {
+        const entry = getUndoEligibleEntry()
+        if (entry?.orderId === orderId) {
+          runLatestEligibleUndoFromShortcut()
+        }
+      },
+    }),
     [assignMechanic, generatePdf, mechanics, navigate, t, updateTaskStatus],
   )
 }

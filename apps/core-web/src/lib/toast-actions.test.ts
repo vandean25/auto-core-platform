@@ -1,7 +1,12 @@
 // @vitest-environment node
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { OPEN_TOAST_ACTION_LABEL, toastSuccessWithOpen } from './toast-actions'
+import {
+  OPEN_TOAST_ACTION_LABEL,
+  UNDO_TOAST_DURATION_MS,
+  toastSuccessWithOpen,
+  toastSuccessWithUndo,
+} from './toast-actions'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -32,5 +37,22 @@ describe('toastSuccessWithOpen', () => {
 
   it('labels the action Open', () => {
     expect(OPEN_TOAST_ACTION_LABEL).toBe('Open')
+  })
+})
+
+describe('toastSuccessWithUndo', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('shows a ~6s success toast with an Undo action after a committed edit', () => {
+    const onUndo = vi.fn()
+
+    toastSuccessWithUndo('Internal notes saved', 'Undo', onUndo)
+
+    expect(toast.success).toHaveBeenCalledWith('Internal notes saved', {
+      duration: UNDO_TOAST_DURATION_MS,
+      action: { label: 'Undo', onClick: onUndo },
+    })
   })
 })

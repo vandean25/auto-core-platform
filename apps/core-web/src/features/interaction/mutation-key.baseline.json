@@ -33,7 +33,6 @@
     "useUpdateMechanicTaskChecklist",
     "useUpdateWorkshopCheckInDraft",
     "useUpdateWorkshopCheckInInspection",
-    "useUpdateWorkshopOrder",
     "useUpdateWorkshopTaskChecklist",
     "useUploadVoiceNote",
     "useUploadWorkshopCheckInMedia",

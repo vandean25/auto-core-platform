@@ -624,6 +624,7 @@ export const useCreateWorkshopOrder = () => {
 export const useUpdateWorkshopOrder = () => {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: ['workshop', 'order', 'update'],
     mutationFn: async ({
       id,
       notes,
@@ -662,6 +663,37 @@ export const useUpdateWorkshopOrder = () => {
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
+      queryClient.setQueryData(workshopKeys.order(order.id), order)
+    },
+  })
+}
+
+export const useUndoWorkshopOrderNotes = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationKey: ['workshop', 'order', 'notes', 'undo'],
+    mutationFn: async ({
+      id,
+      previousNotes,
+      expectedUpdatedAt,
+    }: {
+      id: string
+      previousNotes: string | null
+      expectedUpdatedAt: string
+    }) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${id}/notes/undo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ previousNotes, expectedUpdatedAt }),
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to undo workshop order notes')
+      }
+      const json = await response.json()
+      return normalizeOrder(json)
+    },
+    onSuccess: (order) => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       queryClient.setQueryData(workshopKeys.order(order.id), order)
     },
   })
