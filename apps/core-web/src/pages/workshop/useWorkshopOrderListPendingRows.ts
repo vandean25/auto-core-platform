@@ -33,6 +33,8 @@ export function useWorkshopOrderListRows(responseData: OrdersPage, isError: bool
   const pending = useWorkshopOrderListPendingRows(loadedRows, dataUpdatedAt)
   return {
     visibleResponse,
+    /** Server rows only. Row actions and shortcuts must never see the client-side ids of pending rows. */
+    loadedRows,
     showingStaleError: isError && retained.isRetained,
     ...pending,
   }

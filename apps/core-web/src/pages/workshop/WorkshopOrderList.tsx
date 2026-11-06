@@ -34,7 +34,7 @@ export default function WorkshopOrderList() {
     navigate,
     queryClient,
     peek.openPeek,
-    rows.tableRows,
+    rows.loadedRows,
   )
 
   return (

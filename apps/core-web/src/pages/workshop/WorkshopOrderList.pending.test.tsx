@@ -270,6 +270,36 @@ describe('WorkshopOrderList list-create lifecycle', () => {
   })
 })
 
+describe('WorkshopOrderList pending row shortcuts', () => {
+  // Regression: row shortcuts looked the focused row up among the pending rows too, so "o" on a failed row's
+  // controls opened /workshop/orders/<client-generated id>, an order that does not exist.
+  it.each([
+    ['a failed create with Retry', httpResponse(500, {}), loading.retry],
+    [
+      'a 409 with Open order',
+      httpResponse(409, {
+        message: 'Vehicle already has active order WO-2026-0007',
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        orderId: 'order-live',
+        orderNumber: 'WO-2026-0007',
+      }),
+      oi.openOrderNumber.replace('{{orderNumber}}', 'WO-2026-0007'),
+    ],
+  ])('does not run the open-order shortcut from the controls of %s', async (_label, failure, buttonName) => {
+    server.postResults = [failure]
+    renderList()
+    await screen.findByText(deWorkshop.orders.list.empty)
+    await submitIntake()
+    const control = within(await screen.findByRole('alert')).getByRole('button', { name: buttonName })
+
+    act(() => control.focus())
+    fireEvent.keyDown(control, { key: 'o', code: 'KeyO' })
+    await settle()
+
+    expect(screen.queryByRole('heading', { name: 'Order detail route' })).not.toBeInTheDocument()
+  })
+})
+
 describe('WorkshopOrderList first load', () => {
   // The skeleton gate must stay silent for a fast response: no skeleton node may ever be added, and the rows
   // show the moment the data lands instead of waiting on the gate.
