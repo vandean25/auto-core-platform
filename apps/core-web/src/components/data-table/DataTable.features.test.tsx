@@ -140,6 +140,9 @@ describe('DataTable states', () => {
     act(() => {
       vi.advanceTimersByTime(200)
     })
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
 
     expect(container.querySelectorAll('tbody tr').length).toBeGreaterThan(0)
     expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
@@ -160,6 +163,25 @@ describe('DataTable states', () => {
 
     expect(container.querySelector('tbody .animate-pulse')).toBeNull()
     expect(screen.getByText('Alpha')).toBeInTheDocument()
+  })
+
+  it('WHEN a skeleton has appeared THEN it stays at least 350 ms unless bypassed', () => {
+    const { container, rerender } = render(<Harness data={[]} isLoading />)
+    act(() => vi.advanceTimersByTime(200))
+    act(() => vi.advanceTimersByTime(0))
+    expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
+
+    rerender(<Harness data={rows} isLoading={false} hasUsableData />)
+    act(() => vi.advanceTimersByTime(349))
+    expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(container.querySelector('tbody .animate-pulse')).toBeNull()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+
+    rerender(<Harness data={[]} isLoading bypassSkeleton />)
+    act(() => vi.advanceTimersByTime(200))
+    expect(container.querySelector('tbody .animate-pulse')).toBeNull()
   })
 
   it('renders the Empty state with message and action', () => {

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { getTableRowId, type DataTableBodyRowModel } from './data-table-body-row'
+import { isDataTablePendingRow } from './data-table-states'
 import { getDataTableMobileSlots, type DataTableMobileSlots } from './data-table-column-meta'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 
@@ -20,6 +21,7 @@ type DataTableListProps<TData extends object> = {
   columns: Parameters<typeof getDataTableMobileSlots>[0]
   rows: DataTableBodyRowModel<TData>[]
   rowBehaviour?: DataTableRowBehaviour<TData>
+  interactionLocked?: boolean
 }
 
 const rowPrimaryClassName = 'flex min-h-14 min-w-40 flex-1 items-center gap-3 py-2 pl-3 text-left last:pr-3'
@@ -102,6 +104,7 @@ type DataTableListRowProps<TData extends object> = {
   row: DataTableBodyRowModel<TData>
   slots: DataTableMobileSlots
   rowBehaviour?: DataTableRowBehaviour<TData>
+  interactionLocked?: boolean
 }
 
 /** Tap target of a row: the existing `onRowClick`, else the detail link, else plain content. */
@@ -134,8 +137,14 @@ function ListRowPrimary<TData extends object>({
   return <div className={rowPrimaryClassName}>{children}</div>
 }
 
-function DataTableListRow<TData extends object>({ row, slots, rowBehaviour }: DataTableListRowProps<TData>) {
+function DataTableListRow<TData extends object>({
+  row,
+  slots,
+  rowBehaviour,
+  interactionLocked = false,
+}: DataTableListRowProps<TData>) {
   const record = row.original
+  const isPending = isDataTablePendingRow(record)
   const cells = row.getVisibleCells()
   const slot = (id: string | undefined): ReactNode => {
     const cell = cells.find((candidate) => candidate.column.id === id)
@@ -147,8 +156,15 @@ function DataTableListRow<TData extends object>({ row, slots, rowBehaviour }: Da
   const detailsCell = slot(slots.details)
 
   return (
-    <li data-table-row="true" data-row-id={getTableRowId(record)} className="flex flex-wrap items-center">
-      <ListRowPrimary record={record} rowBehaviour={rowBehaviour}>
+    <li
+      data-table-row="true"
+      data-row-id={getTableRowId(record)}
+      className={cn('flex flex-wrap items-center', interactionLocked && 'opacity-60', isPending && 'bg-muted/40 text-muted-foreground')}
+    >
+      <ListRowPrimary
+        record={record}
+        rowBehaviour={interactionLocked || isPending ? undefined : rowBehaviour}
+      >
         <ListRowContent title={slot(slots.title)} subtitle={slot(slots.subtitle)} status={slot(slots.status)} trailing={slot(slots.trailing)} />
       </ListRowPrimary>
       {actionsCell ? (
@@ -156,19 +172,32 @@ function DataTableListRow<TData extends object>({ row, slots, rowBehaviour }: Da
       ) : null}
       {/* Wide content (controls, notes) needs its own line: inside the slots it would be truncated or squeeze the row. */}
       {detailsCell ? <div className="w-full px-3 pb-2">{detailsCell}</div> : null}
-      <DataTableRowActions row={record} rowBehaviour={rowBehaviour} />
+      {!interactionLocked && !isPending ? (
+        <DataTableRowActions row={record} rowBehaviour={rowBehaviour} />
+      ) : null}
     </li>
   )
 }
 
 /** Phone list mode of {@link DataTable}: two-line rows (title, subtitle, status, trailing), an optional full-width details line and a "..." row actions menu. */
-export function DataTableList<TData extends object>({ columns, rows, rowBehaviour }: DataTableListProps<TData>) {
+export function DataTableList<TData extends object>({
+  columns,
+  rows,
+  rowBehaviour,
+  interactionLocked = false,
+}: DataTableListProps<TData>) {
   const slots = getDataTableMobileSlots(columns)
 
   return (
-    <ul className="divide-y rounded-md border" data-table-list="true">
+    <ul className="divide-y rounded-md border" data-table-list="true" aria-busy={interactionLocked}>
       {rows.map((row) => (
-        <DataTableListRow key={row.id} row={row} slots={slots} rowBehaviour={rowBehaviour} />
+        <DataTableListRow
+          key={row.id}
+          row={row}
+          slots={slots}
+          rowBehaviour={rowBehaviour}
+          interactionLocked={interactionLocked}
+        />
       ))}
     </ul>
   )

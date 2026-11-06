@@ -455,6 +455,7 @@ async function fetchWorkshopOrdersPage(queryParams: DataTableQueryParams): Promi
 export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
   return useQuery<WorkshopOrderResponse>({
     queryKey: workshopKeys.ordersPage(queryParams),
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
         searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],

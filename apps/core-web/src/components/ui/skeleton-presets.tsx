@@ -11,7 +11,8 @@ const SKELETON_DELAY_MS = 200
 /** Placeholder body rows for a table. Render inside a `TableBody` while loading. */
 export function TableSkeleton({ rows = 5, cols, delayMs = SKELETON_DELAY_MS }: { rows?: number; cols: number; delayMs?: number }) {
   const { t } = useTranslation('common')
-  const visible = useDelayedFlag(true, delayMs)
+  const delayedVisible = useDelayedFlag(delayMs > 0, delayMs)
+  const visible = delayMs === 0 || delayedVisible
   if (!visible) return null
 
   return Array.from({ length: rows }, (_, rowIndex) => (

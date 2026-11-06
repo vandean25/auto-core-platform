@@ -3,14 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
+
 export function OrderLoading() {
   const { t } = useTranslation('workshop')
-
-  return (
-    <div className="p-8 text-center text-sm text-muted-foreground">
-      {t('orderDetail.loading')}
-    </div>
-  )
+  return <DetailSkeleton label={t('orderDetail.loading')} />
 }
 
 export function OrderNotFound() {

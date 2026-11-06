@@ -1336,7 +1336,6 @@
     "openExistingOrder": "Bestehenden Auftrag öffnen",
     "openOrderNumber": "{{orderNumber}} öffnen",
     "cancel": "Abbrechen",
-    "creating": "Wird erstellt…",
     "createPickerl": "§57a-Auftrag anlegen",
     "pickerlNotesDefault": "§57a Begutachtung",
     "createOrder": "Auftrag anlegen",

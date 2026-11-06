@@ -178,6 +178,76 @@ describe('WorkshopOrderIntakeDialog', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
   })
 
+  it('closes the dialog and hands the pending row the live order when list-pending create hits a 409', async () => {
+    const onPendingOrder = vi.fn()
+    const onPendingOrderFailed = vi.fn()
+    const onOpenChange = vi.fn()
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
+          status: 409,
+          data: {
+            message: 'Vehicle already has active order WO-2026-0007',
+            code: 'VEHICLE_HAS_ACTIVE_ORDER',
+            orderId: 'order-live',
+            orderNumber: 'WO-2026-0007',
+          },
+        }),
+      ),
+      isPending: false,
+    } as never)
+
+    render(
+      <WorkshopOrderIntakeDialog
+        open
+        onOpenChange={onOpenChange}
+        listPendingMode
+        onPendingOrder={onPendingOrder}
+        onPendingOrderFailed={onPendingOrderFailed}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
+
+    await waitFor(() => expect(onPendingOrderFailed).toHaveBeenCalledTimes(1))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onPendingOrderFailed.mock.calls[0][0]).toBe(onPendingOrder.mock.calls[0][1].localId)
+    expect(onPendingOrderFailed.mock.calls[0][1]).toEqual({
+      message: oi.activeOrderConflict.replace('{{orderNumber}}', 'WO-2026-0007'),
+      conflict: { orderId: 'order-live', orderNumber: 'WO-2026-0007' },
+    })
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  // Regression: a failing vehicle registration on the new-vehicle tab rejected unhandled, with no toast.
+  it('toasts the error and stays open when registering a new vehicle fails', async () => {
+    const register = vi.fn().mockRejectedValue(new Error('register down'))
+    const createOrder = vi.fn()
+    const onOpenChange = vi.fn()
+    vi.mocked(workshopApi.useRegisterIntake).mockReturnValue({ mutateAsync: register, isPending: false } as never)
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({ mutateAsync: createOrder, isPending: false } as never)
+
+    render(<WorkshopOrderIntakeDialog open onOpenChange={onOpenChange} />)
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: oi.tabNewVehicle }), { button: 0 })
+    fireEvent.change(await screen.findByPlaceholderText(oi.vinPlaceholder), { target: { value: 'WVWZZZ1KZ6W000001' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.platePlaceholder), { target: { value: 'W-1' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.makePlaceholder), { target: { value: 'VW' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.modelPlaceholder), { target: { value: 'Golf' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.yearPlaceholder), { target: { value: '2018' } })
+    fireEvent.click(screen.getByRole('button', { name: oi.createNew }))
+    fireEvent.change(screen.getByPlaceholderText(oi.firstName), { target: { value: 'Pilot' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.lastName), { target: { value: 'Customer' } })
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(oi.toastCreateFailed))
+    expect(toast.error).toHaveBeenCalledTimes(1)
+    expect(register).toHaveBeenCalledTimes(1)
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
   it('shows the reference id when order creation fails with a server error', async () => {
     vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
       mutateAsync: vi.fn().mockRejectedValue(
@@ -389,7 +459,7 @@ describe('WorkshopOrderIntakeDialog', () => {
       }),
     )
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalled()
+      expect(toast.error).toHaveBeenCalledTimes(1)
     })
 
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))

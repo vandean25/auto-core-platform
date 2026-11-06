@@ -1336,7 +1336,6 @@
     "openExistingOrder": "Open existing order",
     "openOrderNumber": "Open {{orderNumber}}",
     "cancel": "Cancel",
-    "creating": "Creating...",
     "createPickerl": "Create §57a order",
     "pickerlNotesDefault": "§57a inspection",
     "createOrder": "Create Order",

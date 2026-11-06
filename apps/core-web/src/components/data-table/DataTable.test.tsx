@@ -3,13 +3,12 @@ import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstac
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 import { DataTableColumnHeader } from './data-table-column-header'
 import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { triggerBlobDownload } from '@/lib/download'
 import deCommon from '../../../../../locales/de/common.json'
-
 const dt = deCommon.dataTable
 const columnOptionsLabel = (title: string) => dt.columnOptions.replace('{{title}}', title)
 
@@ -1056,6 +1055,81 @@ describe('DataTable Export CSV', () => {
 
     expect((await downloadedCsv()).split('\r\n')).toEqual(['Active', 'Example'])
   })
+})
+
+describe('DataTable loading primitives (AUT-879)', () => {
+  type LoadRow = { id: string; name: string; __dataTablePending?: true }
+  const columns: ColumnDef<LoadRow>[] = [
+    { accessorKey: 'name', header: 'Name' },
+  ]
+  const data: LoadRow[] = [{ id: 'a', name: 'Alpha' }]
+
+  function LoadingHarness(
+    props: Partial<React.ComponentProps<typeof DataTable<(typeof data)[number]>>> & {
+      initialFilters?: ColumnFiltersState
+    },
+  ) {
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(props.initialFilters ?? [])
+    const [sorting, setSorting] = useState<SortingState>([])
+    const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
+    return (
+      <MemoryRouter>
+        <DataTable
+          columns={columns}
+          data={props.data ?? data}
+          columnFilters={columnFilters}
+          setColumnFilters={setColumnFilters}
+          sorting={sorting}
+          setSorting={setSorting}
+          pagination={pagination}
+          setPagination={setPagination}
+          hasUsableData={props.hasUsableData ?? true}
+          {...props}
+        />
+      </MemoryRouter>
+    )
+  }
+
+  beforeEach(() => vi.useFakeTimers())
+
+  it('WHEN the user changes a filter THEN the previous rows stay as a non-actionable preview with aria-busy and hidden menus', () => {
+    const onRowClick = vi.fn()
+    const getRowContextActions = vi.fn(() => [{ label: 'Archive', onClick: vi.fn() }])
+    render(
+      <LoadingHarness
+        isFetching
+        isPlaceholderData
+        rowBehaviour={{ onRowClick, getRowContextActions, getRowAccessibleName: (row) => row.name }}
+      />,
+    )
+
+    const table = screen.getByRole('table')
+    expect(table).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByText(deCommon.dataTable.loading.stalePreview)).toBeInTheDocument()
+
+    fireEvent.contextMenu(screen.getByText('Alpha'))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Alpha'))
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('WHEN that refetch fails THEN aria-busy clears and an inline error with Retry appears', () => {
+    const onRetry = vi.fn()
+    render(
+      <LoadingHarness
+        isFetching={false}
+        isPlaceholderData
+        isError
+        onRetry={onRetry}
+      />,
+    )
+
+    expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'false')
+    expect(screen.getByRole('alert')).toHaveTextContent(deCommon.dataTable.loading.loadFailed)
+    fireEvent.click(screen.getByRole('button', { name: deCommon.dataTable.loading.retry }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
 })
 
 type CustomerValue = {

@@ -16,13 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  buildRegisterPayload,
   canSubmitOrder,
-  conflictFromError,
   emptyCustomerForm,
   emptyVehicleForm,
   visibleConflict,
@@ -34,11 +30,17 @@ import type {
   NewCustomerForm,
   NewVehicleForm,
 } from '@/features/workshop/intake-form'
-import { getErrorMessage } from '@/lib/error-utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { PageLoader } from '@/components/ui/PageLoader'
+import { SubmitButtonPending } from '@/components/data-table/data-table-states'
 import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep'
+import { IntakeExistingVehiclePanel, IntakeNewVehiclePanel, IntakeOrderFields } from './workshop-order-intake-panels'
+import {
+  submitWorkshopIntakeOrder,
+  type PendingOrderFailure,
+  type WorkshopOrderListPendingRow,
+} from './workshop-order-intake-create'
 
 type ExistingVehicle = Vehicle & { customer: Customer | null }
 type ExistingCustomer = Customer & { vehicles: Vehicle[] }
@@ -48,6 +50,10 @@ interface WorkshopOrderIntakeDialogProps {
   onOpenChange: (open: boolean) => void
   initialVehicleId?: string
   pickerlMode?: boolean
+  listPendingMode?: boolean
+  onPendingOrder?: (row: WorkshopOrderListPendingRow, meta: { localId: string }) => void
+  onPendingOrderSettled?: (localId: string, serverOrderId: string) => void
+  onPendingOrderFailed?: (localId: string, failure: PendingOrderFailure) => void
 }
 
 export function WorkshopOrderIntakeDialog({
@@ -55,6 +61,10 @@ export function WorkshopOrderIntakeDialog({
   onOpenChange,
   initialVehicleId,
   pickerlMode = false,
+  listPendingMode = false,
+  onPendingOrder,
+  onPendingOrderSettled,
+  onPendingOrderFailed,
 }: WorkshopOrderIntakeDialogProps) {
   const { t } = useTranslation('workshop')
   const [workshopNamespaceReady, setWorkshopNamespaceReady] = useState(() =>
@@ -138,65 +148,57 @@ export function WorkshopOrderIntakeDialog({
     navigate(`/workshop/orders/${orderId}`)
   }
 
+  const pendingCallbacks = {
+    listPendingMode,
+    onPendingOrder,
+    onPendingOrderSettled,
+    closeDialog: () => handleDialogOpenChange(false),
+  }
+
+  const orderPayload = {
+    odometer: Number(odometer),
+    fuelLevel: Number(fuelLevel),
+    reportedIssue: notes || undefined,
+  }
+
+  const formSignature = JSON.stringify([newVehicle, newCustomer, customerMode, selectedCustomer?.id ?? null])
+
   async function handleCreateOrder() {
     setExistingOrderConflict(null)
     attemptRef.current += 1
     const attempt = attemptRef.current
-    let orderVehicleId: string | undefined
-    try {
-      if (activeTab === 'existing') {
-        if (!selectedVehicle?.customer?.id) {
-          toast.error(t('orderIntake.toastSelectVehicle'))
-          return
-        }
-
-        orderVehicleId = selectedVehicle.id
-        const order = await createOrder.mutateAsync({
-          customerId: selectedVehicle.customer.id,
-          vehicleId: selectedVehicle.id,
-          odometer: Number(odometer),
-          fuelLevel: Number(fuelLevel),
-          reportedIssue: notes || undefined,
-          ...(pickerlMode ? { createPickerlTask: true } : {}),
-        })
-        openCreatedOrder(
-          order.id,
-          pickerlMode ? t('orderIntake.toastPickerlOpened') : t('orderIntake.toastOrderCreated'),
-        )
-        return
-      }
-
-      if (customerMode === 'existing' && !selectedCustomer?.id) {
-        toast.error(t('orderIntake.toastSelectCustomer'))
-        return
-      }
-      const registerPayload = buildRegisterPayload(newVehicle, newCustomer, customerMode, selectedCustomer?.id)
-      const vehicle = (await registerIntake.mutateAsync(registerPayload)) as ExistingVehicle
-      if (!vehicle.customer?.id) {
-        toast.error(t('orderIntake.toastNoCustomerLinked'))
-        return
-      }
-
-      orderVehicleId = vehicle.id
-      const order = await createOrder.mutateAsync({
-        customerId: vehicle.customer.id,
-        vehicleId: vehicle.id,
-        odometer: Number(odometer),
-        fuelLevel: Number(fuelLevel),
-        reportedIssue: notes || undefined,
-      })
-      openCreatedOrder(order.id, t('orderIntake.toastOrderCreated'))
-    } catch (error) {
-      const conflict = conflictFromError(error, { vehicleId: orderVehicleId, tab: activeTab, formSignature })
-      if (conflict && attempt === attemptRef.current) {
-        setExistingOrderConflict(conflict)
-        return
-      }
-      toast.error(getErrorMessage(error, t('orderIntake.toastCreateFailed')))
-    }
+    await submitWorkshopIntakeOrder({
+      activeTab,
+      selectedVehicle,
+      selectedCustomer,
+      customerMode,
+      newVehicle,
+      newCustomer,
+      orderPayload,
+      pickerlMode,
+      isCurrentAttempt: () => attempt === attemptRef.current,
+      formSignature,
+      messages: {
+        selectVehicle: t('orderIntake.toastSelectVehicle'),
+        selectCustomer: t('orderIntake.toastSelectCustomer'),
+        noCustomerLinked: t('orderIntake.toastNoCustomerLinked'),
+        pickerlOpened: t('orderIntake.toastPickerlOpened'),
+        orderCreated: t('orderIntake.toastOrderCreated'),
+        createFailed: t('orderIntake.toastCreateFailed'),
+      },
+      registerVehicle: (payload) => registerIntake.mutateAsync(payload) as Promise<ExistingVehicle>,
+      createOrder: (payload) => createOrder.mutateAsync(payload),
+      pendingCallbacks,
+      notify: {
+        toastSuccess: (message) => toast.success(message),
+        onNavigateCreated: (orderId, message) => openCreatedOrder(orderId, message),
+        toastError: (message) => toast.error(message),
+        onConflict: setExistingOrderConflict,
+        onPendingFailed: (localId, failure) => onPendingOrderFailed?.(localId, failure),
+      },
+    })
   }
 
-  const formSignature = JSON.stringify([newVehicle, newCustomer, customerMode, selectedCustomer?.id ?? null])
   const activeConflict = visibleConflict(existingOrderConflict, {
     tab: activeTab,
     selectedVehicleId: selectedVehicle?.id,
@@ -244,187 +246,32 @@ export function WorkshopOrderIntakeDialog({
             ) : null}
 
             <TabsContent value="existing" className="space-y-4">
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('orderIntake.searchPlaceholder')}
+              <IntakeExistingVehiclePanel
+                t={t}
+                search={search}
+                onSearchChange={setSearch}
+                isLoading={isLoading}
+                vehicles={vehicles}
+                selectedVehicle={selectedVehicle}
+                onSelectVehicle={setSelectedVehicle}
               />
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="border rounded-lg">
-                  <div className="px-3 py-2 border-b text-sm font-medium">{t('orderIntake.vehicles')}</div>
-                  <div className="max-h-56 overflow-auto">
-                    {isLoading && <div className="p-3 text-sm text-muted-foreground">{t('orderIntake.searching')}</div>}
-                    {!isLoading && vehicles.length === 0 && (
-                      <div className="p-3 text-sm text-muted-foreground">{t('orderIntake.noVehicles')}</div>
-                    )}
-                    {vehicles.map((vehicle) => (
-                      <button
-                        type="button"
-                        key={vehicle.id}
-                        onClick={() => setSelectedVehicle(vehicle as ExistingVehicle)}
-                        className={`w-full text-left px-3 py-2 border-b last:border-b-0 hover:bg-accent ${
-                          selectedVehicle?.id === vehicle.id ? 'bg-accent' : ''
-                        }`}
-                      >
-                        <div className="text-sm font-medium">
-                          {vehicle.year} {vehicle.make} {vehicle.model}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {t('orderIntake.vehicleMeta', {
-                            vin: vehicle.vin || t('orderIntake.na'),
-                            plate: vehicle.plate || t('orderIntake.na'),
-                          })}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {t('orderIntake.customerLabel', {
-                            name: vehicle.customer
-                              ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}`
-                              : t('orderIntake.unassigned'),
-                          })}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-3 space-y-2">
-                  <div className="text-sm font-medium">{t('orderIntake.selectedVehicle')}</div>
-                  {selectedVehicle ? (
-                    <>
-                      <div className="text-sm">
-                        {selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {t('orderIntake.vehicleMeta', {
-                          vin: selectedVehicle.vin || t('orderIntake.na'),
-                          plate: selectedVehicle.plate || t('orderIntake.na'),
-                        })}
-                      </div>
-                      <div className="text-sm">
-                        {t('orderIntake.customerLabel', {
-                          name: selectedVehicle.customer
-                            ? `${selectedVehicle.customer.first_name} ${selectedVehicle.customer.last_name}`
-                            : t('orderIntake.noLinkedCustomer'),
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">{t('orderIntake.pickVehicle')}</div>
-                  )}
-                </div>
-              </div>
             </TabsContent>
 
             <TabsContent value="new-vehicle" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Input
-                  placeholder={t('orderIntake.vinPlaceholder')}
-                  value={newVehicle.vin}
-                  onChange={(e) => setNewVehicle((v) => ({ ...v, vin: e.target.value }))}
-                />
-                <Input
-                  placeholder={t('orderIntake.platePlaceholder')}
-                  value={newVehicle.plate}
-                  onChange={(e) => setNewVehicle((v) => ({ ...v, plate: e.target.value }))}
-                />
-                <Input
-                  placeholder={t('orderIntake.makePlaceholder')}
-                  value={newVehicle.make}
-                  onChange={(e) => setNewVehicle((v) => ({ ...v, make: e.target.value }))}
-                />
-                <Input
-                  placeholder={t('orderIntake.modelPlaceholder')}
-                  value={newVehicle.model}
-                  onChange={(e) => setNewVehicle((v) => ({ ...v, model: e.target.value }))}
-                />
-                <Input
-                  placeholder={t('orderIntake.yearPlaceholder')}
-                  type="number"
-                  value={newVehicle.year}
-                  onChange={(e) => setNewVehicle((v) => ({ ...v, year: e.target.value }))}
-                />
-              </div>
-
-              <div className="border rounded-lg p-3 space-y-3">
-                <div className="text-sm font-medium">{t('orderIntake.customerSection')}</div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={customerMode === 'existing' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCustomerMode('existing')}
-                  >
-                    {t('orderIntake.selectExisting')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={customerMode === 'new' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCustomerMode('new')}
-                  >
-                    {t('orderIntake.createNew')}
-                  </Button>
-                </div>
-
-                {customerMode === 'existing' ? (
-                  <div className="space-y-2">
-                    <Input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder={t('orderIntake.searchCustomersPlaceholder')}
-                    />
-                    <div className="border rounded-md max-h-44 overflow-auto">
-                      {customers.length === 0 && (
-                        <div className="p-3 text-sm text-muted-foreground">{t('orderIntake.noCustomers')}</div>
-                      )}
-                      {customers.map((customer) => (
-                        <button
-                          type="button"
-                          key={customer.id}
-                          onClick={() => setSelectedCustomer(customer as ExistingCustomer)}
-                          className={`w-full text-left px-3 py-2 border-b last:border-b-0 hover:bg-accent ${
-                            selectedCustomer?.id === customer.id ? 'bg-accent' : ''
-                          }`}
-                        >
-                          <div className="text-sm font-medium">
-                            {customer.first_name} {customer.last_name}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {customer.email || t('orderIntake.noEmail')} · {customer.phone || t('orderIntake.noPhone')}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Input
-                      placeholder={t('orderIntake.firstName')}
-                      value={newCustomer.firstName}
-                      onChange={(e) => setNewCustomer((v) => ({ ...v, firstName: e.target.value }))}
-                    />
-                    <Input
-                      placeholder={t('orderIntake.lastName')}
-                      value={newCustomer.lastName}
-                      onChange={(e) => setNewCustomer((v) => ({ ...v, lastName: e.target.value }))}
-                    />
-                    <Input
-                      placeholder={t('orderIntake.email')}
-                      type="email"
-                      value={newCustomer.email}
-                      onChange={(e) => setNewCustomer((v) => ({ ...v, email: e.target.value }))}
-                    />
-                    <Input
-                      placeholder={t('orderIntake.phone')}
-                      type="tel"
-                      autoComplete="tel"
-                      value={newCustomer.phone}
-                      onChange={(e) => setNewCustomer((v) => ({ ...v, phone: e.target.value }))}
-                    />
-                  </div>
-                )}
-              </div>
+              <IntakeNewVehiclePanel
+                t={t}
+                newVehicle={newVehicle}
+                onVehicleChange={setNewVehicle}
+                customerMode={customerMode}
+                onCustomerModeChange={setCustomerMode}
+                search={search}
+                onSearchChange={setSearch}
+                customers={customers}
+                selectedCustomer={selectedCustomer}
+                onSelectCustomer={setSelectedCustomer}
+                newCustomer={newCustomer}
+                onCustomerChange={setNewCustomer}
+              />
             </TabsContent>
 
             <TabsContent value="registration-document" className="space-y-3">
@@ -443,37 +290,15 @@ export function WorkshopOrderIntakeDialog({
             </TabsContent>
           </Tabs>
 
-          <div className="border rounded-lg p-3 space-y-3">
-            <div className="text-sm font-medium">{t('orderIntake.orderIntakeSection')}</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="order-intake-odometer">{t('orderIntake.odometerPlaceholder')}</Label>
-                <Input
-                  id="order-intake-odometer"
-                  placeholder={t('orderIntake.odometerPlaceholder')}
-                  type="number"
-                  value={odometer}
-                  onChange={(e) => setOdometer(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="order-intake-fuel">{t('orderIntake.fuelPlaceholder')}</Label>
-                <Input
-                  id="order-intake-fuel"
-                  placeholder={t('orderIntake.fuelPlaceholder')}
-                  type="number"
-                  value={fuelLevel}
-                  onChange={(e) => setFuelLevel(e.target.value)}
-                />
-              </div>
-            </div>
-            <textarea
-              className="w-full min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-base md:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder={t('orderIntake.notesPlaceholder')}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
+          <IntakeOrderFields
+            t={t}
+            odometer={odometer}
+            fuelLevel={fuelLevel}
+            notes={notes}
+            onOdometerChange={setOdometer}
+            onFuelLevelChange={setFuelLevel}
+            onNotesChange={setNotes}
+          />
 
           {activeConflict ? (
             <Alert>
@@ -498,22 +323,13 @@ export function WorkshopOrderIntakeDialog({
           <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
             {t('orderIntake.cancel')}
           </Button>
-          <Button
+          <SubmitButtonPending
             type="button"
+            pending={createOrder.isPending || registerIntake.isPending}
+            label={pickerlMode ? t('orderIntake.createPickerl') : t('orderIntake.createOrder')}
+            disabled={!canSubmit || activeTab === 'registration-document'}
             onClick={handleCreateOrder}
-            disabled={
-              createOrder.isPending ||
-              registerIntake.isPending ||
-              !canSubmit ||
-              activeTab === 'registration-document'
-            }
-          >
-            {createOrder.isPending || registerIntake.isPending
-              ? t('orderIntake.creating')
-              : pickerlMode
-                ? t('orderIntake.createPickerl')
-                : t('orderIntake.createOrder')}
-          </Button>
+          />
         </DialogFooter>
           </>
         )}
