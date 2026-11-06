@@ -7,12 +7,6 @@ import { useShortcutHandler } from '@/features/shortcuts/shortcut-dispatcher'
 
 const ACTIONABLE_ROW_SELECTOR = 'tr[data-table-row="true"][tabindex]'
 
-function moveRowFocus(body: HTMLElement, focusedRow: HTMLTableRowElement, step: 1 | -1) {
-  const rows = [...body.querySelectorAll<HTMLTableRowElement>(ACTIONABLE_ROW_SELECTOR)]
-  const next = rows.indexOf(focusedRow) + step
-  rows[Math.max(0, Math.min(next, rows.length - 1))]?.focus()
-}
-
 function toggleRowSelection<TData extends object>(
   table: LegacyTable<TData>,
   focusedRow: HTMLTableRowElement,
@@ -24,17 +18,29 @@ function toggleRowSelection<TData extends object>(
   return true
 }
 
+/** The actionable row that has focus, if it belongs to this table. */
+function focusedRowOf(body: HTMLElement | null) {
+  const focusedRow = document.activeElement?.closest<HTMLTableRowElement>(ACTIONABLE_ROW_SELECTOR)
+  return body && focusedRow && body.contains(focusedRow) ? focusedRow : undefined
+}
+
 /**
  * j/k move focus between loaded rows and x toggles selection (ADR-0036 R5). One handler per table,
  * never per row. It only acts when focus is on a row of THIS table, so overlapping lists stay independent.
+ * Moving is by record ID (`moveFocusFrom`), so it also reaches rows outside a virtualized render window.
  */
 export function useDataTableRowShortcuts<TData extends object>(
   table: LegacyTable<TData>,
   tableBodyRef: RefObject<HTMLTableSectionElement | null>,
   hasActionableRows: boolean,
+  moveFocusFrom: (rowKey: string, step: 1 | -1) => void,
 ) {
   const { t } = useTranslation('common')
   const canSelect = Boolean(table.options.enableRowSelection)
+  const moveFocus = (row: HTMLTableRowElement, step: 1 | -1) => {
+    moveFocusFrom(row.dataset.rowKey ?? '', step)
+    return true
+  }
 
   useEffect(() => {
     if (!hasActionableRows) return undefined
@@ -48,15 +54,9 @@ export function useDataTableRowShortcuts<TData extends object>(
   }, [canSelect, hasActionableRows, t])
 
   useShortcutHandler('row', (key) => {
-    const body = tableBodyRef.current
-    const focusedRow = document.activeElement?.closest<HTMLTableRowElement>(ACTIONABLE_ROW_SELECTOR)
-    if (!body || !focusedRow || !body.contains(focusedRow)) {
-      return false
-    }
-    if (key === 'j' || key === 'k') {
-      moveRowFocus(body, focusedRow, key === 'j' ? 1 : -1)
-      return true
-    }
-    return key === 'x' && canSelect && toggleRowSelection(table, focusedRow)
+    const focusedRow = focusedRowOf(tableBodyRef.current)
+    if (!focusedRow) return false
+    if (key === 'x') return canSelect && toggleRowSelection(table, focusedRow)
+    return (key === 'j' || key === 'k') && moveFocus(focusedRow, key === 'j' ? 1 : -1)
   })
 }

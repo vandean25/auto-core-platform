@@ -15,7 +15,9 @@ import {
 } from './data-table-states'
 import { DataTableGrid } from './data-table-grid'
 import { DataTableList } from './data-table-list'
+import { DataTableInfiniteFooter, DataTableInfiniteRefresh } from './data-table-infinite-footer'
 import { DataTablePagination } from './data-table-pagination'
+import type { DataTableInfiniteView } from './use-data-table-infinite'
 import { DataTableSelectionBar } from './data-table-selection'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 
@@ -36,6 +38,26 @@ type DataTableSurfaceBodyProps<TData extends object> = {
   emptyState?: DataTableEmptyState
   onRetry?: () => void
   openRowContextMenu: (row: TData, x: number, y: number) => boolean
+  infiniteView?: DataTableInfiniteView
+}
+
+type DataTableBannersProps = Pick<
+  DataTableSurfaceBodyProps<object>,
+  'presentation' | 'isError' | 'resolvedFetchErrorMessage' | 'onRetry' | 'infiniteView'
+>
+
+/** Status lines above the rows: stale preview, "Liste aktualisieren" and a failed fetch with retry. */
+function DataTableBanners({ presentation, isError, resolvedFetchErrorMessage, onRetry, infiniteView }: DataTableBannersProps) {
+  const showFetchError = shouldShowDataTableFetchError(resolvedFetchErrorMessage, onRetry, presentation, isError)
+  return (
+    <>
+      <DataTableStaleStatus visible={presentation.isStalePreview} />
+      <DataTableInfiniteRefresh view={infiniteView} />
+      {showFetchError && resolvedFetchErrorMessage && onRetry ? (
+        <DataTableFetchError message={resolvedFetchErrorMessage} onRetry={onRetry} />
+      ) : null}
+    </>
+  )
 }
 
 export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfaceBodyProps<TData>) {
@@ -48,22 +70,15 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
     hasUsableData,
     isError,
     resolvedEmptyStateMessage,
-    resolvedFetchErrorMessage,
     isMobile,
     bodyRowModels,
     bodyRowCount,
     density,
     emptyState,
-    onRetry,
     openRowContextMenu,
+    infiniteView,
   } = props
 
-  const showFetchError = shouldShowDataTableFetchError(
-    resolvedFetchErrorMessage,
-    onRetry,
-    presentation,
-    isError,
-  )
   const useMobileList = shouldUseMobileDataTableList(
     isMobile,
     presentation.showFirstLoadSkeleton,
@@ -72,16 +87,14 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
 
   return (
     <>
-      <DataTableStaleStatus visible={presentation.isStalePreview} />
-      {showFetchError && resolvedFetchErrorMessage && onRetry ? (
-        <DataTableFetchError message={resolvedFetchErrorMessage} onRetry={onRetry} />
-      ) : null}
+      <DataTableBanners {...props} />
       {useMobileList ? (
         <DataTableList
           columns={table.getVisibleLeafColumns()}
           rows={bodyRowModels}
           rowBehaviour={rowBehaviour}
           interactionLocked={presentation.isStalePreview}
+          infiniteView={infiniteView}
         />
       ) : (
         <DataTableGrid
@@ -97,8 +110,10 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
           openRowContextMenu={openRowContextMenu}
           emptyStateMessage={resolvedEmptyStateMessage}
           emptyState={emptyState}
+          infiniteView={infiniteView}
         />
       )}
+      <DataTableInfiniteFooter view={infiniteView} loadedCount={bodyRowCount} hidden={presentation.isStalePreview} />
     </>
   )
 }
@@ -120,7 +135,7 @@ export function DataTableSurfaceMain<TData extends object>({
   return (
     <>
       <DataTableSurfaceBody table={table} presentation={presentation} {...bodyProps} />
-      <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />
+      {bodyProps.infiniteView ? null : <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />}
       <DataTableSelectionBar
         table={table}
         bulkActions={bulkActions}

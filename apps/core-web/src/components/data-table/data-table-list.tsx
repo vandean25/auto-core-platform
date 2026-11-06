@@ -2,7 +2,8 @@ import { flexRender } from '@tanstack/react-table'
 import { MoreHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { useLayoutEffect, useRef, useState, type HTMLAttributes, type Ref, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -16,12 +17,19 @@ import { getTableRowId, type DataTableBodyRowModel } from './data-table-body-row
 import { isDataTablePendingRow } from './data-table-states'
 import { getDataTableMobileSlots, type DataTableMobileSlots } from './data-table-column-meta'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
+import type { DataTableInfiniteView } from './use-data-table-infinite'
+import { useDataTableVirtualEffects, useDataTableVirtualOptions } from './use-data-table-virtual'
+
+// Two-line card (min-h-14) until a card has been measured; cards with a details line are taller.
+const ESTIMATED_CARD_HEIGHT = 72
 
 type DataTableListProps<TData extends object> = {
   columns: Parameters<typeof getDataTableMobileSlots>[0]
   rows: DataTableBodyRowModel<TData>[]
   rowBehaviour?: DataTableRowBehaviour<TData>
   interactionLocked?: boolean
+  /** Present in infinite mode: only the cards near the viewport (and the focused one) are rendered, each measured. */
+  infiniteView?: DataTableInfiniteView
 }
 
 const rowPrimaryClassName = 'flex min-h-14 min-w-40 flex-1 items-center gap-3 py-2 pl-3 text-left last:pr-3'
@@ -105,6 +113,8 @@ type DataTableListRowProps<TData extends object> = {
   slots: DataTableMobileSlots
   rowBehaviour?: DataTableRowBehaviour<TData>
   interactionLocked?: boolean
+  /** Position, measuring and focus tracking of a virtualized card. */
+  itemProps?: HTMLAttributes<HTMLLIElement> & { ref?: Ref<HTMLLIElement>; 'data-index'?: number }
 }
 
 /** Tap target of a row: the existing `onRowClick`, else the detail link, else plain content. */
@@ -137,11 +147,21 @@ function ListRowPrimary<TData extends object>({
   return <div className={rowPrimaryClassName}>{children}</div>
 }
 
+function listRowClassName(interactionLocked: boolean, isPending: boolean, extra: string | undefined) {
+  return cn(
+    'flex flex-wrap items-center',
+    interactionLocked && 'opacity-60',
+    isPending && 'bg-muted/40 text-muted-foreground',
+    extra,
+  )
+}
+
 function DataTableListRow<TData extends object>({
   row,
   slots,
   rowBehaviour,
   interactionLocked = false,
+  itemProps,
 }: DataTableListRowProps<TData>) {
   const record = row.original
   const isPending = isDataTablePendingRow(record)
@@ -157,9 +177,10 @@ function DataTableListRow<TData extends object>({
 
   return (
     <li
+      {...itemProps}
       data-table-row="true"
       data-row-id={getTableRowId(record)}
-      className={cn('flex flex-wrap items-center', interactionLocked && 'opacity-60', isPending && 'bg-muted/40 text-muted-foreground')}
+      className={listRowClassName(interactionLocked, isPending, itemProps?.className)}
     >
       <ListRowPrimary
         record={record}
@@ -185,20 +206,71 @@ export function DataTableList<TData extends object>({
   rows,
   rowBehaviour,
   interactionLocked = false,
+  infiniteView,
 }: DataTableListProps<TData>) {
   const slots = getDataTableMobileSlots(columns)
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const [scrollMargin, setScrollMargin] = useState(0)
+  const [focusedKey, setFocusedKey] = useState<string | null>(null)
+  const rowKeys = rows.map((row) => row.id)
 
+  // The page scrolls, not the list: its distance from the page top moves with banners and filters above it.
+  useLayoutEffect(() => {
+    const top = listRef.current ? listRef.current.getBoundingClientRect().top + window.scrollY : 0
+    setScrollMargin((previous) => (previous === top ? previous : top))
+  }, [rows.length, interactionLocked, infiniteView?.needsRefresh, infiniteView?.epoch])
+
+  const virtualizer = useWindowVirtualizer<Element>({
+    ...useDataTableVirtualOptions<Window>(infiniteView, rowKeys, focusedKey === null ? -1 : rowKeys.indexOf(focusedKey)),
+    estimateSize: () => ESTIMATED_CARD_HEIGHT,
+    scrollMargin,
+  })
+  useDataTableVirtualEffects(virtualizer, infiniteView, rowKeys, scrollMargin)
+
+  if (!infiniteView) {
+    return (
+      <ul className="divide-y rounded-md border" data-table-list="true" aria-busy={interactionLocked}>
+        {rows.map((row) => (
+          <DataTableListRow key={row.id} row={row} slots={slots} rowBehaviour={rowBehaviour} interactionLocked={interactionLocked} />
+        ))}
+      </ul>
+    )
+  }
+
+  const setSize = infiniteView.ariaRowCount < 0 ? -1 : infiniteView.ariaRowCount - 1
   return (
-    <ul className="divide-y rounded-md border" data-table-list="true" aria-busy={interactionLocked}>
-      {rows.map((row) => (
-        <DataTableListRow
-          key={row.id}
-          row={row}
-          slots={slots}
-          rowBehaviour={rowBehaviour}
-          interactionLocked={interactionLocked}
-        />
-      ))}
+    <ul
+      ref={listRef}
+      className="relative overflow-hidden rounded-md border"
+      style={{ height: virtualizer.getTotalSize() }}
+      data-table-list="true"
+      aria-busy={interactionLocked}
+    >
+      {virtualizer.getVirtualItems().map((item) => {
+        const row = rows[item.index]
+        if (!row) return null
+        return (
+          <DataTableListRow
+            key={row.id}
+            row={row}
+            slots={slots}
+            rowBehaviour={rowBehaviour}
+            interactionLocked={interactionLocked}
+            itemProps={{
+              ref: virtualizer.measureElement,
+              'data-index': item.index,
+              'aria-posinset': item.index + 1,
+              'aria-setsize': setSize,
+              className: cn('absolute left-0 top-0 w-full', item.index > 0 && 'border-t'),
+              style: { transform: `translateY(${item.start - scrollMargin}px)` },
+              onFocus: () => setFocusedKey(row.id),
+              onBlur: (event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setFocusedKey(null)
+              },
+            }}
+          />
+        )
+      })}
     </ul>
   )
 }

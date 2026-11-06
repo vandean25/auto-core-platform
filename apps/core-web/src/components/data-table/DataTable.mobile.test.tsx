@@ -1,10 +1,19 @@
 import { useState } from 'react'
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
+import {
+  InfiniteListHarness,
+  createListClient,
+  dt as infiniteDt,
+  mockListLayout,
+  pageOf,
+  seedLoadedPages,
+  type PageRequest,
+} from './data-table-infinite-test-utils'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { createCustomerRowActions } from '@/features/actions/customer-row-actions'
@@ -288,5 +297,58 @@ describe('DataTable list mode', () => {
     expect(onDelete).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'list.delete', hidden: true }))
     expect(onDelete).toHaveBeenCalledWith('a')
+  })
+})
+
+describe('DataTable infinite list mode on a phone (AUT-889)', () => {
+  let restoreLayout: () => void
+  beforeEach(() => {
+    restoreLayout = mockListLayout()
+  })
+  afterEach(() => {
+    restoreLayout()
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+  })
+
+  const renderPhoneList = (fetchPage: (request: PageRequest) => Promise<ReturnType<typeof pageOf>>) => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    return render(
+      <InfiniteListHarness client={client} fetchPage={fetchPage} rowBehaviour={{ onRowClick: vi.fn(), getRowContextActions: () => [{ label: 'Archivieren', onClick: vi.fn() }] }} />,
+    )
+  }
+
+  // Pilot check "Bedienung": 100 measured cards must not all be mounted, and the list semantics must not claim a size.
+  it('renders only the cards near the viewport as a measured list with unknown set size', () => {
+    renderPhoneList(vi.fn())
+
+    const cards = screen.getAllByRole('listitem')
+    expect(cards.length).toBeGreaterThan(5)
+    expect(cards.length).toBeLessThan(40)
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(cards[0]).toHaveAttribute('aria-posinset', '1')
+    expect(cards[0]).toHaveAttribute('aria-setsize', '-1')
+    expect(cards[0]).toHaveAttribute('data-index', '0')
+  })
+
+  // ADR-0036 R5: keyboard extras are desktop-only, so a phone keeps taps for loading and for every row action.
+  it('keeps "Weitere laden" and the row actions menu as 44px tap targets', () => {
+    renderPhoneList(vi.fn())
+
+    expect(screen.getByRole('button', { name: infiniteDt.infinite.loadMore })).toHaveClass('min-h-11')
+    expect(screen.getAllByRole('button', { name: infiniteDt.rowActions })[0]).toHaveClass('size-11')
+  })
+
+  // Pilot check "Requests" on a phone: the page scrolls, not an inner box, so loading follows the window scroll position.
+  it('loads the next page once when the window scrolls to one viewport before the end', async () => {
+    const fetchPage = vi.fn((_request: PageRequest) => new Promise<ReturnType<typeof pageOf>>(() => undefined))
+    renderPhoneList(fetchPage)
+
+    expect(fetchPage).not.toHaveBeenCalled()
+    // Cards that were never on screen still count with their estimated height, so the end is a little further than 100 x 49px.
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 5200 })
+    act(() => void fireEvent.scroll(window))
+    act(() => void fireEvent.scroll(window))
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1))
   })
 })
