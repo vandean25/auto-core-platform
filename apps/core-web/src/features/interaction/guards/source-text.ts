@@ -87,12 +87,23 @@ class SourceScanner {
 
   private stepCode(): void {
     const char = this.current()
-    const next = this.peek()
-    if (char === '/' && next === '/') this.skipLineComment()
-    else if (char === '/' && next === '*') this.skipBlockComment()
-    else if (char === '`') this.startTemplate()
+    if (this.startsComment()) this.skipComment()
     else if (char === '"' || char === "'") this.skipQuoted(char)
-    else if (OPENERS.includes(char)) this.openBracket(char)
+    else if (char === '`') this.startTemplate()
+    else this.stepBracketOrCode(char)
+  }
+
+  private startsComment(): boolean {
+    return this.current() === '/' && (this.peek() === '/' || this.peek() === '*')
+  }
+
+  private skipComment(): void {
+    if (this.peek() === '/') this.skipLineComment()
+    else this.skipBlockComment()
+  }
+
+  private stepBracketOrCode(char: string): void {
+    if (OPENERS.includes(char)) this.openBracket(char)
     else if (CLOSERS.includes(char)) this.closeBracket(char)
     else this.emitCode(char)
   }
