@@ -130,9 +130,13 @@ describe('infinite-list-query helpers', () => {
       { wrapper },
     )
     markInfiniteListStale(queryClient, listKey)
+    const query = queryClient.getQueryCache().find({ queryKey: listKey, exact: true })
+    expect(query?.state.isInvalidated).toBe(true)
     await act(async () => {
       await refreshInfiniteList(queryClient, listKey)
     })
     await waitFor(() => expect(listGets).toBe(1))
+    expect(query?.state.isInvalidated).toBe(false)
+    expect(queryClient.getQueryData<InfiniteData<unknown>>(listKey)?.pages).toHaveLength(1)
   })
 })

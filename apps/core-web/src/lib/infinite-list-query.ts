@@ -127,6 +127,26 @@ export function takeInfiniteMembershipDrift(client: QueryClient, queryKey: Query
   return snapshot
 }
 
+const refreshEpochs = new WeakMap<QueryClient, Map<string, number>>()
+
+/** Counts the explicit refreshes that discarded this list's cursor chain. A mutation records it when it starts. */
+export function infiniteListRefreshEpoch(client: QueryClient, queryKey: QueryKey): number {
+  return refreshEpochs.get(client)?.get(hashKey(queryKey)) ?? 0
+}
+
+/** True when an explicit refresh replaced the chain after `epoch` was recorded; the refresh then wins over that snapshot. */
+export function isSupersededByRefresh(client: QueryClient, queryKey: QueryKey, epoch: number | undefined): boolean {
+  return epoch !== undefined && epoch !== infiniteListRefreshEpoch(client, queryKey)
+}
+
+function startNewRefreshEpoch(client: QueryClient, queryKey: QueryKey) {
+  const epochs = refreshEpochs.get(client) ?? new Map<string, number>()
+  refreshEpochs.set(client, epochs)
+  epochs.set(hashKey(queryKey), infiniteListRefreshEpoch(client, queryKey) + 1)
+  // Drift remembered from before the refresh describes the discarded chain.
+  membershipDriftFor(client).delete(hashKey(queryKey))
+}
+
 function initialPageParamOf(query: Query): unknown {
   return (query.options as { initialPageParam?: unknown }).initialPageParam
 }
@@ -171,6 +191,7 @@ export async function refreshInfiniteList(client: QueryClient, queryKey: QueryKe
   const page = await readFirstPage(client, query)
   if (page === undefined) return
   await refetchCountQuery(client, countQueryKey)
+  startNewRefreshEpoch(client, queryKey)
   client.setQueryData(queryKey, {
     pages: [page],
     pageParams: [initialPageParamOf(query)],

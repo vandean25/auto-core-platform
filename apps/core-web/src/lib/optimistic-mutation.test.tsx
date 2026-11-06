@@ -11,7 +11,7 @@ import { mechanicQueueKeys } from '@/api/mechanic'
 import { InfiniteListRefreshNotice } from '@/components/list/InfiniteListRefreshNotice'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { ENTITY_UPDATED_EVENT } from '@/features/realtime/types'
-import { infiniteListQueryMeta } from '@/lib/infinite-list-query'
+import { infiniteListQueryMeta, refreshInfiniteList } from '@/lib/infinite-list-query'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import { useWorkshopBoardAssignment } from '@/pages/workshop/useWorkshopBoardAssignment'
 import { deWorkshop } from '@/test/de-workshop'
@@ -940,6 +940,194 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     expect(ids).toEqual(['row-a', 'row-b', 'row-c'])
     expect(listGetUrls).toHaveLength(0)
     expect(screen.getByRole('button', { name: 'Liste aktualisieren' })).toBeInTheDocument()
+  })
+
+  describe('explicit refresh while a mutation is pending', () => {
+    const freshPage: ListPage = {
+      data: [
+        { id: 'row-x', label: 'Xray' },
+        { id: 'row-y', label: 'Yankee' },
+      ],
+      meta: { next_cursor: 'cursor-fresh-2' },
+    }
+    const json = (body: unknown) => Promise.resolve({ ok: true, status: 200, json: async () => body } as Response)
+    const noticeButton = () => screen.queryByRole('button', { name: 'Liste aktualisieren' })
+    const idsOf = (queryClient: QueryClient) =>
+      queryClient
+        .getQueryData<InfiniteData<ListPage>>(infiniteListKey)
+        ?.pages.flatMap((page) => page.data.map((row) => row.id))
+
+    /** Writes (PATCH/POST) stay pending until the test answers them; reads return the fresh first page. */
+    function holdWrites() {
+      const held = new Map<string, { succeed: () => void; fail: () => void }>()
+      vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
+        const url = String(input)
+        if ((init?.method ?? 'GET') !== 'GET') {
+          return new Promise<Response>((resolve, reject) => {
+            held.set(url, { succeed: () => resolve({ ok: true, status: 200, json: async () => ({}) } as Response), fail: () => reject(new Error('rejected')) })
+          })
+        }
+        if (url === COUNT_URL) {
+          countGets += 1
+          return json({ count: 2, isCapped: false })
+        }
+        listGetUrls.push(url)
+        return json(freshPage)
+      })
+      return held
+    }
+
+    /** A field patch and a reorder (different mutation keys, so they run concurrently) on one infinite list. */
+    function renderRaceHarness() {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+          <InfiniteListRefreshNotice queryKey={infiniteListKey} />
+        </QueryClientProvider>
+      )
+      const view = renderHook(
+        () => {
+          useInfiniteQuery({
+            queryKey: infiniteListKey,
+            meta: infiniteListQueryMeta(infiniteCountKey),
+            initialPageParam: undefined as string | undefined,
+            queryFn: async () => (await (await fetchWithAuth(LIST_URL)).json()) as ListPage,
+            getNextPageParam: (lastPage) => lastPage.meta.next_cursor ?? undefined,
+            staleTime: Infinity,
+            initialData: seededInfinite(),
+          })
+          useQuery({
+            queryKey: infiniteCountKey,
+            queryFn: async () => (await (await fetchWithAuth(COUNT_URL)).json()) as { count: number; isCapped: boolean },
+            staleTime: Infinity,
+            initialData: { count: 3, isCapped: false },
+          })
+          const field = useMutation({
+            ...optimisticMutationOptions<InfiniteData<ListPage>, { id: string; label: string; optimistic: boolean }>({
+              queryKey: infiniteListKey,
+              mutationKey: [...infiniteListKey, 'field'],
+              shouldOptimistic: ({ optimistic }) => optimistic,
+              entityId: ({ id }) => id,
+              apply: (cache, { id, label }) => ({
+                ...cache,
+                pages: cache.pages.map((page) => ({
+                  ...page,
+                  data: page.data.map((row) => (row.id === id ? { ...row, label } : row)),
+                })),
+              }),
+              revert: (_cache, _variables, snapshot) => snapshot,
+            }),
+            mutationFn: async () => (await fetchWithAuth(`${PATCH_URL}/field`, { method: 'PATCH' })).json(),
+          })
+          const reorder = useMutation({
+            ...optimisticMutationOptions<InfiniteData<ListPage>, { id: string }>({
+              queryKey: infiniteListKey,
+              mutationKey: [...infiniteListKey, 'reorder'],
+              entityId: ({ id }) => id,
+              apply: (cache) => ({
+                ...cache,
+                pages: [{ ...cache.pages[0]!, data: [...cache.pages[0]!.data].reverse() }, ...cache.pages.slice(1)],
+              }),
+              revert: (_cache, _variables, snapshot) => snapshot,
+            }),
+            mutationFn: async () => (await fetchWithAuth(`${PATCH_URL}/reorder`, { method: 'POST' })).json(),
+          })
+          return { field, reorder }
+        },
+        { wrapper },
+      )
+      return { view, queryClient }
+    }
+
+    /** Multi-page list in the stale-preview state: an earlier reorder was reverted and marked the list stale. */
+    async function reachStalePreview() {
+      const held = holdWrites()
+      const harness = renderRaceHarness()
+      act(() => {
+        harness.view.result.current.reorder.mutate({ id: 'row-a' })
+      })
+      await settle()
+      await act(async () => {
+        held.get(`${PATCH_URL}/reorder`)?.succeed()
+      })
+      await settle()
+      expect(noticeButton()).toBeInTheDocument()
+      expect(harness.queryClient.getQueryData<InfiniteData<ListPage>>(infiniteListKey)?.pages).toHaveLength(2)
+      held.clear()
+      listGetUrls.length = 0
+      countGets = 0
+      return { held, ...harness }
+    }
+
+    /** An optimistic patch resets `isInvalidated`, so only a non-optimistic mutation leaves the notice to click. */
+    const refresh = (queryClient: QueryClient) =>
+      act(async () => {
+        const button = noticeButton()
+        if (button) fireEvent.click(button)
+        else await refreshInfiniteList(queryClient, infiniteListKey)
+      })
+
+    // Regression (CR7): settling a mutation that started before the refresh restored its old multi-page
+    // snapshot and marked the list stale again, discarding the user's refresh.
+    it.each([
+      { change: 'optimistic patch', optimistic: true, answer: 'succeed' as const },
+      { change: 'optimistic patch (rollback)', optimistic: true, answer: 'fail' as const },
+      { change: 'non-optimistic change', optimistic: false, answer: 'succeed' as const },
+      { change: 'non-optimistic change (failure)', optimistic: false, answer: 'fail' as const },
+    ])('keeps the refreshed first page when an earlier $change settles after the refresh', async ({ optimistic, answer }) => {
+      const { held, view, queryClient } = await reachStalePreview()
+
+      act(() => {
+        view.result.current.field.mutate({ id: 'row-b', label: 'Beta-updated', optimistic })
+      })
+      await settle()
+      await refresh(queryClient)
+      await waitFor(() => expect(idsOf(queryClient)).toEqual(['row-x', 'row-y']))
+      expect(noticeButton()).not.toBeInTheDocument()
+
+      await act(async () => {
+        held.get(`${PATCH_URL}/field`)?.[answer]()
+      })
+      await settle()
+
+      expect(idsOf(queryClient)).toEqual(['row-x', 'row-y'])
+      expect(queryClient.getQueryData<InfiniteData<ListPage>>(infiniteListKey)?.pages).toHaveLength(1)
+      expect(queryClient.getQueryCache().find({ queryKey: infiniteListKey, exact: true })?.state.isInvalidated).toBe(false)
+      expect(noticeButton()).not.toBeInTheDocument()
+      expect(listGetUrls).toEqual([LIST_URL])
+    })
+
+    // A mutation started after the refresh still reconciles normally; the older one settling last must not swallow that.
+    it('still marks the refreshed list stale when a mutation started after the refresh changed membership', async () => {
+      const { held, view, queryClient } = await reachStalePreview()
+
+      act(() => {
+        view.result.current.field.mutate({ id: 'row-b', label: 'Beta-updated', optimistic: true })
+      })
+      await settle()
+      await refresh(queryClient)
+      await waitFor(() => expect(idsOf(queryClient)).toEqual(['row-x', 'row-y']))
+      act(() => {
+        view.result.current.reorder.mutate({ id: 'row-x' })
+      })
+      await settle()
+      expect(idsOf(queryClient)).toEqual(['row-y', 'row-x'])
+
+      await act(async () => {
+        held.get(`${PATCH_URL}/reorder`)?.succeed()
+      })
+      await settle()
+      await act(async () => {
+        held.get(`${PATCH_URL}/field`)?.succeed()
+      })
+      await settle()
+
+      expect(idsOf(queryClient)).toEqual(['row-x', 'row-y'])
+      expect(noticeButton()).toBeInTheDocument()
+    })
   })
 
   it('drops the refresh notice when the query client is cleared', async () => {

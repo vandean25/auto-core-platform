@@ -1,7 +1,9 @@
 import { hashKey } from '@tanstack/react-query'
 import type { Mutation, MutationFunctionContext, QueryKey } from '@tanstack/react-query'
 import {
+  infiniteListRefreshEpoch,
   isInfiniteListQuery,
+  isSupersededByRefresh,
   markInfiniteListStale,
   noteInfiniteMembershipDrift,
   settleInfiniteListAfterMutation,
@@ -46,6 +48,8 @@ type OptimisticContext<TCache> = {
   snapshot: TCache | undefined
   resolvedQueryKey: QueryKey
   extraSnapshots: ExtraSnapshot[]
+  /** Explicit-refresh epoch of the primary query when the mutation started (ADR-0036 R7). */
+  refreshEpoch?: number
   skipped?: boolean
 }
 
@@ -120,17 +124,21 @@ function reconcileSettledPrimaryQuery(
   client: MutationFunctionContext['client'],
   resolvedQueryKey: QueryKey,
   snapshot: unknown,
+  superseded: boolean,
 ) {
   if (!isInfiniteListQuery(client, resolvedQueryKey)) {
     void client.invalidateQueries({ queryKey: resolvedQueryKey })
     return
   }
+  // Drift here comes from mutations that started after the last refresh; a refresh clears the older entries.
   const drifted = takeInfiniteMembershipDrift(client, resolvedQueryKey)
   if (drifted !== undefined) {
     client.setQueryData(resolvedQueryKey, drifted)
     markInfiniteListStale(client, resolvedQueryKey)
     return
   }
+  // A snapshot from before an explicit refresh describes a cursor chain the user discarded.
+  if (superseded) return
   settleInfiniteListAfterMutation(client, resolvedQueryKey, snapshot)
 }
 
@@ -139,13 +147,15 @@ function invalidateSettledCaches(
   resolvedQueryKey: QueryKey,
   extraSnapshots: ExtraSnapshot[],
   snapshot: unknown,
+  refreshEpoch: number | undefined,
   exceptMutationId?: number,
 ) {
-  if (isInfiniteListQuery(client, resolvedQueryKey)) {
+  const superseded = isSupersededByRefresh(client, resolvedQueryKey, refreshEpoch)
+  if (!superseded && isInfiniteListQuery(client, resolvedQueryKey)) {
     noteInfiniteMembershipDrift(client, resolvedQueryKey, snapshot)
   }
   if (countOtherPendingMutationsForQueryKey(client, resolvedQueryKey, exceptMutationId) === 0) {
-    reconcileSettledPrimaryQuery(client, resolvedQueryKey, snapshot)
+    reconcileSettledPrimaryQuery(client, resolvedQueryKey, snapshot, superseded)
   }
   for (const { queryKey: extraKey } of extraSnapshots) {
     if (countOtherPendingMutationsForQueryKey(client, extraKey, exceptMutationId) > 0) continue
@@ -224,11 +234,13 @@ export function optimisticMutationOptions<TCache, TVariables>({
       { client }: MutationFunctionContext,
     ) => {
       const resolvedQueryKey = resolveQueryKey(queryKey, variables)
+      const refreshEpoch = infiniteListRefreshEpoch(client, resolvedQueryKey)
       if (shouldOptimistic && !shouldOptimistic(variables)) {
         return {
           snapshot: undefined,
           resolvedQueryKey,
           extraSnapshots: [],
+          refreshEpoch,
           skipped: true,
         } satisfies OptimisticContext<TCache>
       }
@@ -250,7 +262,7 @@ export function optimisticMutationOptions<TCache, TVariables>({
         )
       }
 
-      return { snapshot, resolvedQueryKey, extraSnapshots } satisfies OptimisticContext<TCache>
+      return { snapshot, resolvedQueryKey, extraSnapshots, refreshEpoch } satisfies OptimisticContext<TCache>
     },
     onError: (
       _error: unknown,
@@ -268,7 +280,9 @@ export function optimisticMutationOptions<TCache, TVariables>({
       }
       if (client.isMutating({ mutationKey, exact: true, predicate: sameEntityOptimistic }) > 1) return
 
-      if (snapshot !== undefined) {
+      // An explicit refresh replaced the cache after this mutation started: its snapshot is the discarded chain.
+      const supersededByRefresh = isSupersededByRefresh(client, context.resolvedQueryKey, context.refreshEpoch)
+      if (snapshot !== undefined && !supersededByRefresh) {
         client.setQueryData<TCache>(context.resolvedQueryKey, (cache) =>
           cache === undefined ? cache : revert(cache, variables, snapshot),
         )
@@ -289,6 +303,7 @@ export function optimisticMutationOptions<TCache, TVariables>({
         settledQueryKey(queryKey, variables, settledContext),
         settledExtraSnapshots(settledContext),
         settledPrimarySnapshot(settledContext),
+        settledContext?.refreshEpoch,
         findSettlingMutationId(client, mutationKey, variables, settledContext),
       )
     },
