@@ -11,7 +11,7 @@ import { mechanicQueueKeys } from '@/api/mechanic'
 import { InfiniteListRefreshNotice } from '@/components/list/InfiniteListRefreshNotice'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { ENTITY_UPDATED_EVENT } from '@/features/realtime/types'
-import { infiniteListQueryMeta, infiniteListNeedsRefresh, resetInfiniteListStaleStateForTests } from '@/lib/infinite-list-query'
+import { infiniteListQueryMeta } from '@/lib/infinite-list-query'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import { useWorkshopBoardAssignment } from '@/pages/workshop/useWorkshopBoardAssignment'
 import { deWorkshop } from '@/test/de-workshop'
@@ -505,7 +505,6 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
   let countGets: number
 
   beforeEach(() => {
-    resetInfiniteListStaleStateForTests()
     listGetUrls = []
     countGets = 0
     vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
@@ -615,7 +614,9 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
       refetchType: 'none',
     })
     expect(listGetUrls).toHaveLength(0)
-    expect(infiniteListNeedsRefresh(infiniteListKey)).toBe(true)
+    expect(queryClient.getQueryCache().find({ queryKey: infiniteListKey, exact: true })?.state.isInvalidated).toBe(
+      true,
+    )
     expect(screen.getByRole('button', { name: 'Liste aktualisieren' })).toBeInTheDocument()
   })
 
@@ -798,5 +799,24 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     expect(ids).toEqual(['row-a', 'row-b', 'row-c', 'row-d'])
     expect(view.result.current.list.data?.pages[0]?.data[1]?.label).toBe('Beta-updated')
     expect(screen.queryByRole('button', { name: 'Liste aktualisieren' })).not.toBeInTheDocument()
+  })
+
+  it('drops the refresh notice when the query client is cleared', async () => {
+    const { view, queryClient } = renderInfiniteMutationHarness({
+      shouldOptimistic: () => false,
+      apply: (cache) => cache,
+    })
+    await act(async () => {
+      await view.result.current.mutation.mutateAsync({ id: 'row-a', label: 'ignored' })
+    })
+    expect(screen.getByRole('button', { name: 'Liste aktualisieren' })).toBeInTheDocument()
+
+    act(() => {
+      queryClient.clear()
+    })
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Liste aktualisieren' })).not.toBeInTheDocument(),
+    )
   })
 })

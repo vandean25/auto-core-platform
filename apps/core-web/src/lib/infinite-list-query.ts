@@ -1,5 +1,4 @@
 import type { InfiniteData, Query, QueryClient, QueryFunction, QueryKey } from '@tanstack/react-query'
-import { hashKey } from '@tanstack/react-query'
 
 /** TanStack Query `meta` flag for migrated ADR-0035 infinite lists. */
 export type InfiniteListQueryMeta = {
@@ -87,41 +86,8 @@ export function isInfiniteListQuery(client: QueryClient, queryKey: QueryKey): bo
   return isInfiniteDataShape(query?.state.data)
 }
 
-const staleListKeys = new Set<string>()
-const staleListeners = new Set<() => void>()
-
-function notifyStaleListeners() {
-  for (const listener of staleListeners) {
-    listener()
-  }
-}
-
-export function subscribeInfiniteListStale(onStoreChange: () => void): () => void {
-  staleListeners.add(onStoreChange)
-  return () => {
-    staleListeners.delete(onStoreChange)
-  }
-}
-
-export function infiniteListNeedsRefresh(queryKey: QueryKey): boolean {
-  return staleListKeys.has(hashKey(queryKey))
-}
-
 export function markInfiniteListStale(client: QueryClient, queryKey: QueryKey) {
-  staleListKeys.add(hashKey(queryKey))
   void client.invalidateQueries({ queryKey, exact: true, refetchType: 'none' })
-  notifyStaleListeners()
-}
-
-export function clearInfiniteListStaleNotice(queryKey: QueryKey) {
-  if (!staleListKeys.delete(hashKey(queryKey))) return
-  notifyStaleListeners()
-}
-
-/** @internal test helper */
-export function resetInfiniteListStaleStateForTests() {
-  staleListKeys.clear()
-  notifyStaleListeners()
 }
 
 function initialPageParamOf(query: Query): unknown {
@@ -172,7 +138,6 @@ export async function refreshInfiniteList(client: QueryClient, queryKey: QueryKe
     pages: [page],
     pageParams: [initialPageParamOf(query)],
   })
-  clearInfiniteListStaleNotice(queryKey)
 }
 
 export type InfiniteListSettlementDecision = 'field-only' | 'stale' | 'reverted-and-stale'
@@ -195,6 +160,7 @@ export function settleInfiniteListAfterMutation(
   }
 
   if (snapshot !== undefined && beforeIds !== undefined && afterIds !== undefined) {
+    // A stale snapshot beats a silent reorder, including pages loaded while this mutation was in flight.
     client.setQueryData(queryKey, snapshot)
     markInfiniteListStale(client, queryKey)
     return 'reverted-and-stale'
