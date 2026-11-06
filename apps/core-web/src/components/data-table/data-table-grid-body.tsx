@@ -1,7 +1,9 @@
 import type { LegacyReactTable as LegacyTable } from '@tanstack/react-table/legacy'
+import type { VirtualItem } from '@tanstack/react-virtual'
+import type { ReactNode } from 'react'
 
 import { TableSkeleton } from '@/components/ui/skeleton-presets'
-import { TableBody } from '@/components/ui/table'
+import { TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import {
   DataTableBodyRow,
@@ -24,10 +26,20 @@ type DataTableGridBodyProps<TData extends object> = {
   emptyStateMessage: string
   emptyState?: DataTableEmptyState
   tableBodyRef: React.RefObject<HTMLTableSectionElement | null>
-  tabIndexForRow: (visibleRowIndex: number, rowIsRovingFocusable: boolean) => number | undefined
-  handleArrowFocus: (visibleRowIndex: number, direction: 'up' | 'down') => void
-  onRowFocus: (visibleRowIndex: number) => void
+  tabIndexForRow: (rowKey: string, rowIsRovingFocusable: boolean) => number | undefined
+  handleArrowFocus: (rowKey: string, direction: 'up' | 'down') => void
+  onRowFocus: (rowKey: string) => void
   openRowContextMenu: (row: TData, x: number, y: number) => boolean
+  /** The render window of a virtualized (infinite) table; offset tables render every row. */
+  virtual?: DataTableVirtualRows
+}
+
+export type DataTableVirtualRows = {
+  items: VirtualItem[]
+  /** Where the first row starts inside the scroll box (the sticky header above it). */
+  startOffset: number
+  totalSize: number
+  measureElement: (element: Element | null) => void
 }
 
 type DataTableGridBodyRowsProps<TData extends object> = Pick<
@@ -39,8 +51,19 @@ type DataTableGridBodyRowsProps<TData extends object> = Pick<
   | 'handleArrowFocus'
   | 'onRowFocus'
   | 'openRowContextMenu'
+  | 'virtual'
+  | 'visibleColumnCount'
 > & {
   bodyRows: ReturnType<LegacyTable<TData>['getRowModel']>['rows']
+}
+
+/** Empty rows stand in for the unrendered ones, so the scrollbar and the sticky header keep their real proportions. */
+function VirtualSpacer({ height, colSpan }: { height: number; colSpan: number }) {
+  return (
+    <TableRow aria-hidden="true" data-virtual-spacer="true" className="border-0 hover:bg-transparent">
+      <TableCell colSpan={colSpan} className="p-0" style={{ height }} />
+    </TableRow>
+  )
 }
 
 function DataTableGridBodyRows<TData extends object>({
@@ -52,8 +75,10 @@ function DataTableGridBodyRows<TData extends object>({
   handleArrowFocus,
   onRowFocus,
   openRowContextMenu,
+  virtual,
+  visibleColumnCount,
 }: DataTableGridBodyRowsProps<TData>) {
-  return bodyRows.map((row, visibleRowIndex) => {
+  const renderRow = (row: (typeof bodyRows)[number], virtualIndex?: number) => {
     const bodyRow = row as DataTableBodyRowModel<TData>
     const interaction = getRowInteraction(bodyRow, rowBehaviour)
     return (
@@ -64,13 +89,37 @@ function DataTableGridBodyRows<TData extends object>({
         rowBehaviour={rowBehaviour}
         interaction={interaction}
         interactionLocked={isStalePreview}
-        tabIndex={tabIndexForRow(visibleRowIndex, interaction.rowIsRovingFocusable && !isStalePreview)}
+        tabIndex={tabIndexForRow(row.id, interaction.rowIsRovingFocusable && !isStalePreview)}
         openRowContextMenu={openRowContextMenu}
-        onArrowFocus={(direction) => handleArrowFocus(visibleRowIndex, direction)}
-        onRowFocus={() => onRowFocus(visibleRowIndex)}
+        onArrowFocus={(direction) => handleArrowFocus(row.id, direction)}
+        onRowFocus={() => onRowFocus(row.id)}
+        virtual={
+          virtual && virtualIndex !== undefined
+            ? { index: virtualIndex, measureRef: virtual.measureElement }
+            : undefined
+        }
       />
     )
-  })
+  }
+
+  if (!virtual) return bodyRows.map((row) => renderRow(row))
+
+  const rendered: ReactNode[] = []
+  let cursor = virtual.startOffset
+  for (const item of virtual.items) {
+    const row = bodyRows[item.index]
+    if (!row) continue
+    if (item.start > cursor) {
+      rendered.push(<VirtualSpacer key={`before-${item.key}`} height={item.start - cursor} colSpan={visibleColumnCount} />)
+    }
+    rendered.push(renderRow(row, item.index))
+    cursor = item.end
+  }
+  const end = virtual.startOffset + virtual.totalSize
+  if (end > cursor) {
+    rendered.push(<VirtualSpacer key="after" height={end - cursor} colSpan={visibleColumnCount} />)
+  }
+  return rendered
 }
 
 function DataTableGridBodyContent<TData extends object>(
@@ -112,6 +161,8 @@ function DataTableGridBodyContent<TData extends object>(
       handleArrowFocus={props.handleArrowFocus}
       onRowFocus={props.onRowFocus}
       openRowContextMenu={props.openRowContextMenu}
+      virtual={props.virtual}
+      visibleColumnCount={props.visibleColumnCount}
     />
   )
 }

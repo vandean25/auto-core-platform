@@ -2,6 +2,7 @@ import * as React from 'react'
 import { getCurrentScope, setUser } from '@sentry/react'
 import type { QueryClient } from '@tanstack/react-query'
 import { clearPersistedQueryCache } from '@/auth/persisted-query-cache'
+import { clearListScrollAnchors } from '@/lib/list-scroll-anchors'
 
 /**
  * AUT-819: one reset for every client-side trace of a user or tenant session. Server-side authorization is
@@ -149,6 +150,7 @@ export async function resetClientSession(
   await runWithClientSessionPending(async () => {
     await queryClient.cancelQueries()
     queryClient.clear()
+    clearListScrollAnchors()
 
     removeSessionStorageKeys(window.sessionStorage, TENANT_SESSION_STORAGE_PREFIXES, [])
 

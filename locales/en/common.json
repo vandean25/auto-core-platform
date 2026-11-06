@@ -56,6 +56,8 @@
     "hide": "Hide",
     "columnOptions": "{{title}} column options",
     "selectAll": "Select all rows on this page",
+    "selectAllLoaded_one": "Select the loaded row",
+    "selectAllLoaded_other": "Select all {{count}} loaded rows",
     "selectRow": "Select row",
     "scrollRegion": "Scrollable table",
     "actionBar": {
@@ -81,6 +83,14 @@
       "dismiss": "Dismiss",
       "loadFailed": "The table could not be loaded.",
       "pendingRow": "Creating entry…"
+    },
+    "infinite": {
+      "loadMore": "Load more",
+      "loadingMore": "Loading more rows…",
+      "loadMoreFailed": "More rows could not be loaded.",
+      "capReached": "At most {{max}} rows are loaded. Refine the filter.",
+      "endReached_one": "End of the list, one row loaded.",
+      "endReached_other": "End of the list, {{count}} rows loaded."
     }
   },
   "dashboard": {

@@ -231,6 +231,8 @@ type DataTableBodyRowProps<TData extends object> = {
   onArrowFocus: (direction: 'up' | 'down') => void
   onRowFocus: () => void
   interactionLocked?: boolean
+  /** Set by a virtualized table: measures the row's height and states its logical position (1 is the header row). */
+  virtual?: { index: number; measureRef: (element: Element | null) => void }
 }
 
 export function DataTableBodyRow<TData extends object>({
@@ -243,6 +245,7 @@ export function DataTableBodyRow<TData extends object>({
   onArrowFocus,
   onRowFocus,
   interactionLocked = false,
+  virtual,
 }: DataTableBodyRowProps<TData>) {
   const fallbackRowId = useId()
   const rowData = row.original
@@ -267,7 +270,11 @@ export function DataTableBodyRow<TData extends object>({
   return (
     <TableRow
       key={row.id}
+      ref={virtual?.measureRef}
+      data-index={virtual?.index}
+      aria-rowindex={virtual ? virtual.index + 2 : undefined}
       data-table-row="true"
+      data-row-key={row.id}
       data-row-id={rowId}
       data-state={row.getIsSelected() && 'selected'}
       onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}

@@ -1,5 +1,8 @@
 import type { InfiniteData, Query, QueryClient, QueryFunction, QueryKey } from '@tanstack/react-query'
-import { hashKey } from '@tanstack/react-query'
+import { hashKey, keepPreviousData } from '@tanstack/react-query'
+
+/** ADR-0035: loaded rows per result list; beyond this the user refines the filter instead of scrolling on. */
+export const INFINITE_LIST_ROW_CAP = 2000
 
 /** TanStack Query `meta` flag for migrated ADR-0035 infinite lists. */
 export type InfiniteListQueryMeta = {
@@ -13,6 +16,21 @@ export const infiniteListQueryMeta = (
 ): InfiniteListQueryMeta => ({
   listPagination: 'infinite',
   ...(countQueryKey !== undefined ? { countQueryKey } : {}),
+})
+
+/** After this age a cached list that is mounted again, or whose tab regains focus, offers "Liste aktualisieren". */
+export const INFINITE_LIST_OUTDATED_AFTER_MS = 5 * 60 * 1000
+
+/**
+ * Spread into `useInfiniteQuery` of a migrated list. `staleTime: 'static'` makes query-core skip the query in every
+ * automatic refetch (invalidation by realtime or a mutation, mount, focus, reconnect) while still flagging it as
+ * invalidated, which is what the DataTable turns into "Liste aktualisieren" (ADR-0035 §7). The previous rows stay as
+ * a locked preview while a new chain loads.
+ */
+export const infiniteListQueryOptions = (countQueryKey?: QueryKey) => ({
+  meta: infiniteListQueryMeta(countQueryKey),
+  staleTime: 'static' as const,
+  placeholderData: keepPreviousData,
 })
 
 function readInfiniteListMeta(query: Query | undefined): InfiniteListQueryMeta | undefined {
@@ -92,6 +110,21 @@ export function isInfiniteListQuery(client: QueryClient, queryKey: QueryKey): bo
   return isInfiniteDataShape(query?.state.data)
 }
 
+/** An event that arrives while a page is loading must survive that page landing, which clears the stale flag. */
+export function keepStaleAcrossFetch(client: QueryClient, queryKey: QueryKey) {
+  return client.getQueryCache().subscribe((event) => {
+    const { query } = event
+    if (event.type !== 'updated' || event.action.type !== 'invalidate') return
+    if (query.state.fetchStatus !== 'fetching' || hashKey(query.queryKey) !== hashKey(queryKey)) return
+    const unsubscribe = client.getQueryCache().subscribe((next) => {
+      if (next.query !== query || next.type !== 'updated') return
+      if (next.action.type !== 'success' && next.action.type !== 'error') return
+      unsubscribe()
+      query.invalidate()
+    })
+  })
+}
+
 export function markInfiniteListStale(client: QueryClient, queryKey: QueryKey) {
   void client.invalidateQueries({ queryKey, exact: true, refetchType: 'none' })
 }
@@ -151,15 +184,14 @@ function initialPageParamOf(query: Query): unknown {
   return (query.options as { initialPageParam?: unknown }).initialPageParam
 }
 
-async function readFirstPage(client: QueryClient, query: Query): Promise<unknown> {
+async function readFirstPage(client: QueryClient, query: Query, signal: AbortSignal): Promise<unknown> {
   const queryFn = query.options.queryFn
   if (typeof queryFn !== 'function') return undefined
   const pageFn = queryFn as QueryFunction<unknown, QueryKey, unknown>
-  const controller = new AbortController()
   return pageFn({
     client,
     queryKey: query.queryKey,
-    signal: controller.signal,
+    signal,
     meta: query.meta,
     pageParam: initialPageParamOf(query),
     direction: 'forward',
@@ -178,24 +210,64 @@ async function refetchCountQuery(client: QueryClient, countQueryKey: QueryKey | 
   })
 }
 
-export async function refreshInfiniteList(client: QueryClient, queryKey: QueryKey) {
+const refreshControllers = new WeakMap<QueryClient, Map<string, AbortController>>()
+
+/** Aborts the page-one read of a running explicit refresh of this list, if any. */
+function abortRefresh(client: QueryClient, queryKey: QueryKey) {
+  refreshControllers.get(client)?.get(hashKey(queryKey))?.abort()
+}
+
+/** Aborts everything in flight for a list whose chain is being left (pages, count and a running refresh). */
+export async function cancelInfiniteList(client: QueryClient, queryKey: QueryKey) {
+  abortRefresh(client, queryKey)
+  const countQueryKey = readInfiniteListMeta(client.getQueryCache().find({ queryKey, exact: true }))?.countQueryKey
+  await client.cancelQueries({ queryKey, exact: true })
+  if (countQueryKey !== undefined) await client.cancelQueries({ queryKey: countQueryKey, exact: true })
+}
+
+/** Records whether an invalidation reaches the list while it refreshes; setQueryData would clear it. */
+function watchInvalidations(client: QueryClient, query: Query) {
+  const watcher = { seen: false, stop: () => unsubscribe() }
+  const unsubscribe = client.getQueryCache().subscribe((event) => {
+    if (event.query === query && event.type === 'updated' && event.action.type === 'invalidate') watcher.seen = true
+  })
+  return watcher
+}
+
+export async function refreshInfiniteList(client: QueryClient, queryKey: QueryKey, { withCount = true } = {}) {
   const query = client.getQueryCache().find({ queryKey, exact: true })
   if (!query) return
   const countQueryKey = readInfiniteListMeta(query)?.countQueryKey
 
-  await client.cancelQueries({ queryKey, exact: true })
-  if (countQueryKey !== undefined) {
-    await client.cancelQueries({ queryKey: countQueryKey, exact: true })
-  }
+  await cancelInfiniteList(client, queryKey)
+  const controller = new AbortController()
+  const controllers = refreshControllers.get(client) ?? new Map<string, AbortController>()
+  refreshControllers.set(client, controllers)
+  controllers.set(hashKey(queryKey), controller)
 
-  const page = await readFirstPage(client, query)
-  if (page === undefined) return
-  await refetchCountQuery(client, countQueryKey)
+  // Cleared first so an event arriving during the refresh is distinguishable from the one that made the user refresh.
+  query.setState({ isInvalidated: false })
+  const watcher = watchInvalidations(client, query)
+  let page: unknown
+  try {
+    page = await readFirstPage(client, query, controller.signal)
+    if (withCount && page !== undefined && !controller.signal.aborted) await refetchCountQuery(client, countQueryKey)
+  } catch (error) {
+    // A superseded refresh (new filter, newer refresh) is not a failure; a real failure leaves the list marked stale.
+    if (controller.signal.aborted) return
+    markInfiniteListStale(client, queryKey)
+    throw error
+  } finally {
+    watcher.stop()
+    if (controllers.get(hashKey(queryKey)) === controller) controllers.delete(hashKey(queryKey))
+  }
+  if (page === undefined || controller.signal.aborted) return
   startNewRefreshEpoch(client, queryKey)
   client.setQueryData(queryKey, {
     pages: [page],
     pageParams: [initialPageParamOf(query)],
   })
+  if (watcher.seen) markInfiniteListStale(client, queryKey)
 }
 
 export type InfiniteListSettlementDecision = 'field-only' | 'stale' | 'reverted-and-stale'

@@ -56,6 +56,8 @@
     "hide": "Ausblenden",
     "columnOptions": "{{title}} — Spaltenoptionen",
     "selectAll": "Alle Zeilen auf dieser Seite auswählen",
+    "selectAllLoaded_one": "Die geladene Zeile auswählen",
+    "selectAllLoaded_other": "Alle {{count}} geladenen Zeilen auswählen",
     "selectRow": "Zeile auswählen",
     "scrollRegion": "Scrollbare Tabelle",
     "actionBar": {
@@ -81,6 +83,14 @@
       "dismiss": "Schließen",
       "loadFailed": "Die Tabelle konnte nicht geladen werden.",
       "pendingRow": "Eintrag wird angelegt…"
+    },
+    "infinite": {
+      "loadMore": "Weitere laden",
+      "loadingMore": "Weitere Zeilen werden geladen…",
+      "loadMoreFailed": "Weitere Zeilen konnten nicht geladen werden.",
+      "capReached": "Es werden höchstens {{max}} Zeilen geladen. Filter verfeinern.",
+      "endReached_one": "Ende der Liste, eine Zeile geladen.",
+      "endReached_other": "Ende der Liste, {{count}} Zeilen geladen."
     }
   },
   "dashboard": {

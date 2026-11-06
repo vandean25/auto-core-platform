@@ -8,14 +8,18 @@ import { isDataTablePendingRow } from './data-table-states'
 import { DataTableActionBar } from './data-table-action-bar'
 
 // Header and cell are components (TanStack renders function renderers as components), so they may call hooks.
-function createSelectColumn<TData extends object>(): ColumnDef<TData> {
+function createSelectColumn<TData extends object>(infinite: boolean): ColumnDef<TData> {
   return {
     id: 'select',
     header: function SelectAllHeader({ table }) {
       const { t } = useTranslation('common')
+      // An infinite list selects only what is loaded; later pages are never selected silently (ADR-0035 §8).
+      const label = infinite
+        ? t('dataTable.selectAllLoaded', { count: table.getRowModel().rows.length })
+        : t('dataTable.selectAll')
       return (
         <Checkbox
-          aria-label={t('dataTable.selectAll')}
+          aria-label={label}
           checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(value === true)}
         />
@@ -40,7 +44,7 @@ function createSelectColumn<TData extends object>(): ColumnDef<TData> {
 }
 
 /** Row selection state plus the checkbox column, which is only added when `enabled`. */
-export function useDataTableSelection<TData extends object>(enabled: boolean, resetKey: string) {
+export function useDataTableSelection<TData extends object>(enabled: boolean, resetKey: string, infinite: boolean) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   // Selected rows belong to one page of one result set, so any change of sort, filter, search or page drops them.
   const [seenResetKey, setSeenResetKey] = useState(resetKey)
@@ -49,7 +53,7 @@ export function useDataTableSelection<TData extends object>(enabled: boolean, re
     setRowSelection({})
   }
   // Stable identity: header and cell are components, which would remount on every render otherwise.
-  const selectColumn = useMemo(() => createSelectColumn<TData>(), [])
+  const selectColumn = useMemo(() => createSelectColumn<TData>(infinite), [infinite])
 
   return {
     rowSelection,

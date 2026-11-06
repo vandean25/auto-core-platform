@@ -6,14 +6,11 @@ import { Table, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { densityTokens, type DataTableDensity } from '@/lib/density-tokens'
 import { getDataTableHeadClassName } from './data-table-column-meta'
-import {
-  type DataTableBodyRowModel,
-} from './data-table-body-row'
 import { DataTableGridBody } from './data-table-grid-body'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 import type { DataTableEmptyState } from './data-table-states'
-import { useDataTableRovingFocus } from './use-data-table-roving-focus'
-import { useDataTableRowShortcuts } from './use-data-table-row-shortcuts'
+import type { DataTableInfiniteView } from './use-data-table-infinite'
+import { useDataTableGridRows } from './use-data-table-grid-rows'
 
 // Only header render functions (the DataTableColumnHeader pattern) expose a sort control.
 // Plain-text headers do not, so they must not advertise sorting.
@@ -39,6 +36,8 @@ type DataTableGridProps<TData extends object> = {
   openRowContextMenu: (row: TData, x: number, y: number) => boolean
   emptyStateMessage: string
   emptyState?: DataTableEmptyState
+  /** Present in infinite mode: only the rows near the viewport (and the focused one) are rendered. */
+  infiniteView?: DataTableInfiniteView
 }
 
 /** The scrollable table of {@link DataTable} (desktop, tablet, and the loading / empty states on phone). */
@@ -55,20 +54,21 @@ export function DataTableGrid<TData extends object>({
   openRowContextMenu,
   emptyStateMessage,
   emptyState,
+  infiniteView,
 }: DataTableGridProps<TData>) {
   const tableBodyRef = useRef<HTMLTableSectionElement | null>(null)
+  const tableRef = useRef<HTMLTableElement | null>(null)
   const { pagination } = table.getState()
   const visibleColumnCount = table.getVisibleLeafColumns().length
-  const bodyRowModels = table.getRowModel().rows.map((row) => row as DataTableBodyRowModel<TData>)
-  const paginationKey = `${pagination.pageIndex}:${pagination.pageSize}`
-  const { handleArrowFocus, tabIndexForRow, onRowFocus, hasRovingRows } = useDataTableRovingFocus(
-    bodyRowModels,
+  const { virtual, moveFocusFrom, tabIndexForRow, onRowFocus } = useDataTableGridRows({
+    table,
     rowBehaviour,
-    data,
-    paginationKey,
+    infiniteView,
+    density,
+    hideHeader,
+    tableRef,
     tableBodyRef,
-  )
-  useDataTableRowShortcuts(table, tableBodyRef, hasRovingRows)
+  })
 
   return (
     <div
@@ -78,10 +78,10 @@ export function DataTableGrid<TData extends object>({
       )}
       data-density={density}
     >
-      <Table aria-busy={ariaBusy}>
+      <Table ref={tableRef} aria-busy={ariaBusy} aria-rowcount={infiniteView?.ariaRowCount}>
         <TableHeader className={cn('sticky top-0 z-10 bg-background', hideHeader && 'hidden')}>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} data-table-header="true">
+            <TableRow key={headerGroup.id} data-table-header="true" aria-rowindex={infiniteView ? 1 : undefined}>
               {headerGroup.headers.map((header) => {
                 return (
                   <TableHead
@@ -112,9 +112,10 @@ export function DataTableGrid<TData extends object>({
           emptyState={emptyState}
           tableBodyRef={tableBodyRef}
           tabIndexForRow={tabIndexForRow}
-          handleArrowFocus={handleArrowFocus}
+          handleArrowFocus={(rowKey, direction) => moveFocusFrom(rowKey, direction === 'down' ? 1 : -1)}
           onRowFocus={onRowFocus}
           openRowContextMenu={openRowContextMenu}
+          virtual={virtual}
         />
       </Table>
     </div>

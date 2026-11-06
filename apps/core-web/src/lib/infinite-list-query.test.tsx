@@ -139,4 +139,51 @@ describe('infinite-list-query helpers', () => {
     expect(query?.state.isInvalidated).toBe(false)
     expect(queryClient.getQueryData<InfiniteData<unknown>>(listKey)?.pages).toHaveLength(1)
   })
+
+  describe('explicit refresh of a list that changes while it loads', () => {
+    const key = ['test', 'refresh-race'] as const
+
+    function listWithOnePage() {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const answers: Array<(page: { data: { id: string }[] }) => void> = []
+      queryClient.getQueryCache().build(queryClient, {
+        queryKey: key,
+        meta: infiniteListQueryMeta(),
+        initialPageParam: 0,
+        queryFn: () => new Promise<{ data: { id: string }[] }>((resolve) => answers.push(resolve)),
+      } as never)
+      queryClient.setQueryData(key, { pages: [{ data: [{ id: 'old' }] }], pageParams: [0] })
+      return { queryClient, answers }
+    }
+
+    // ADR-0035 §7: setQueryData for the new page one clears the stale flag, which dropped the event that arrived meanwhile.
+    it('WHEN an event arrives during the refresh THEN the list is still marked stale after page one landed', async () => {
+      const { queryClient, answers } = listWithOnePage()
+      const refresh = refreshInfiniteList(queryClient, key)
+      await waitFor(() => expect(answers.length).toBeGreaterThan(0))
+
+      markInfiniteListStale(queryClient, key)
+      answers.at(-1)?.({ data: [{ id: 'fresh' }] })
+      await refresh
+
+      expect(listRowIdsFromCache(queryClient.getQueryData(key))).toEqual(['fresh'])
+      expect(queryClient.getQueryCache().find({ queryKey: key, exact: true })?.state.isInvalidated).toBe(true)
+    })
+
+    // Two refreshes (or a filter change) can overlap; the answer of the abandoned one must never replace the newer page one.
+    it('WHEN a newer refresh supersedes a running one THEN the late answer of the first is dropped', async () => {
+      const { queryClient, answers } = listWithOnePage()
+      const firstRefresh = refreshInfiniteList(queryClient, key)
+      await waitFor(() => expect(answers.length).toBe(1))
+      const secondRefresh = refreshInfiniteList(queryClient, key)
+      await waitFor(() => expect(answers.length).toBe(2))
+
+      answers[1]({ data: [{ id: 'newer' }] })
+      await secondRefresh
+      answers[0]({ data: [{ id: 'older' }] })
+      await firstRefresh
+
+      expect(listRowIdsFromCache(queryClient.getQueryData(key))).toEqual(['newer'])
+    })
+  })
 })

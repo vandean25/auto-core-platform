@@ -3,17 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
 
-type InfiniteListRefreshNoticeProps = {
-  queryKey: QueryKey
+type InfiniteListRefreshButtonProps = {
+  isRefreshing: boolean
+  onRefresh: () => void
 }
 
 /** ADR-0035 explicit refresh affordance after infinite-list settlement marks the query stale. */
-export function InfiniteListRefreshNotice({ queryKey }: InfiniteListRefreshNoticeProps) {
+export function InfiniteListRefreshButton({ isRefreshing, onRefresh }: InfiniteListRefreshButtonProps) {
   const { t } = useTranslation('common')
-  const { needsRefresh, refresh, isRefreshing } = useInfiniteListRefresh(queryKey)
-
-  if (!needsRefresh) return null
-
   return (
     <Button
       type="button"
@@ -21,11 +18,22 @@ export function InfiniteListRefreshNotice({ queryKey }: InfiniteListRefreshNotic
       size="sm"
       className="min-h-11"
       disabled={isRefreshing}
-      onClick={() => {
-        void refresh().catch(() => undefined)
-      }}
+      onClick={onRefresh}
     >
       {t('dataTable.refreshList')}
     </Button>
+  )
+}
+
+export function InfiniteListRefreshNotice({ queryKey }: { queryKey: QueryKey }) {
+  const { needsRefresh, refresh, isRefreshing } = useInfiniteListRefresh(queryKey)
+  if (!needsRefresh) return null
+  return (
+    <InfiniteListRefreshButton
+      isRefreshing={isRefreshing}
+      onRefresh={() => {
+        void refresh().catch(() => undefined)
+      }}
+    />
   )
 }

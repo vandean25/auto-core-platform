@@ -12,6 +12,7 @@ import {
 } from './data-table-loading'
 import type { DataTableCoreProps } from './data-table-props'
 import { DEFAULT_DATA_TABLE_PAGE_SIZE_OPTIONS } from './data-table-props'
+import { useDataTableInfinite } from './use-data-table-infinite'
 import { useDataTableInstance } from './use-data-table-instance'
 
 export type DataTableViewModelProps<TData extends object> = DataTableCoreProps<TData>
@@ -40,11 +41,13 @@ export function useDataTableViewModel<TData extends object>({
   bulkActions,
   rowBehaviour,
   pageSizeOptions = DEFAULT_DATA_TABLE_PAGE_SIZE_OPTIONS,
+  infinite,
 }: DataTableViewModelProps<TData>) {
   const { t } = useTranslation('common')
   const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
   const hasUsableData = hasUsableDataProp ?? !isLoading
-  const presentation = useDataTablePresentation({
+  const { rows, infiniteView } = useDataTableInfinite(infinite, data)
+  const basePresentation = useDataTablePresentation({
     isLoading,
     isFetching,
     isPlaceholderData,
@@ -52,6 +55,11 @@ export function useDataTableViewModel<TData extends object>({
     hasUsableData,
     bypassSkeleton,
   })
+  // While page one of a restarted or refreshed list loads, the rows on screen are a locked preview (ADR-0035 §6-7).
+  const refreshingPreview = Boolean(infiniteView?.isRefreshing)
+  const presentation = refreshingPreview
+    ? { ...basePresentation, isStalePreview: true, ariaBusy: true }
+    : basePresentation
 
   usePresentationLatencyRef(presentationLatencyRef, presentation.presentationLatencyMs)
 
@@ -69,14 +77,15 @@ export function useDataTableViewModel<TData extends object>({
   const hasBulkActions = Boolean(bulkActions)
   const { rowSelection, setRowSelection, withSelectColumn } = useDataTableSelection<TData>(
     hasBulkActions,
-    JSON.stringify([sorting, columnFilters, globalFilter, pagination]),
+    JSON.stringify([sorting, columnFilters, globalFilter, pagination, infiniteView?.restoreKey, infiniteView?.epoch]),
+    infiniteView !== undefined,
   )
   const { openRowContextMenu, menu: contextMenu } = useDataTableContextMenu(
     rowBehaviour?.getRowContextActions,
   )
 
   const { table, bodyRowModels } = useDataTableInstance({
-    data,
+    data: rows,
     columns: withSelectColumn(columns),
     pageCount,
     columnFilters,
@@ -94,7 +103,8 @@ export function useDataTableViewModel<TData extends object>({
 
   return {
     table,
-    data,
+    data: rows,
+    infiniteView,
     rowBehaviour,
     presentation,
     isLoading,

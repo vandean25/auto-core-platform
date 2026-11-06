@@ -5,6 +5,7 @@ import type {
   SortingState,
 } from '@tanstack/react-table'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import type { QueryKey } from '@tanstack/react-query'
 import type { MutableRefObject, ReactNode } from 'react'
 
 import type { DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
@@ -12,6 +13,21 @@ import type { DataTableEmptyState } from './data-table-states'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 
 export const DEFAULT_DATA_TABLE_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
+
+/**
+ * Optional infinite mode (ADR-0035). `data` is the flattened rows of the consumer's `useInfiniteQuery` (spread
+ * `infiniteListQueryOptions` into it); the table virtualizes them, loads ahead and owns restart and refresh.
+ */
+export type DataTableInfiniteProps = {
+  /** Key of that query. A different key (search, filter or sort changed) restarts the list at page one. */
+  queryKey: QueryKey
+  hasNextPage: boolean
+  isFetchingNextPage: boolean
+  isFetchNextPageError: boolean
+  fetchNextPage: () => unknown
+  /** From the separate capped count query; leave out while unknown. */
+  totalCount?: { count: number; isCapped: boolean }
+}
 
 export type DataTableCoreProps<TData extends object> = {
   columns: ColumnDef<TData>[]
@@ -43,6 +59,7 @@ export type DataTableCoreProps<TData extends object> = {
   bulkActions?: (selectedRows: TData[]) => ReactNode
   rowBehaviour?: DataTableRowBehaviour<TData>
   pageSizeOptions?: readonly number[]
+  infinite?: DataTableInfiniteProps
   enableCsvExport?: boolean
   csvFileName?: string
 }
