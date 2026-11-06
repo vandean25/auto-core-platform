@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InventoryItem } from '@/api/types'
 import * as inventoryApi from '@/api/inventory'
 import * as locationsApi from '@/api/locations'
-import { mockListLayout } from '@/components/data-table/data-table-infinite-test-utils'
+import { mockListLayout, settleVirtualizerTimers } from '@/components/data-table/data-table-infinite-test-utils'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deCommon from '../../../../locales/de/common.json'
@@ -91,6 +91,8 @@ describe('InventoryList row actions', () => {
     cleanup()
     restoreLayout()
   })
+
+  afterAll(settleVirtualizerTimers)
 
   it('does not expose Delete for catalog items', () => {
     const queryClient = new QueryClient({

@@ -3,7 +3,7 @@ import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstac
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { densityTokens } from '@/lib/density-tokens'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { bindSingleKeyShortcutsUser } from '@/features/shortcuts/single-key-shortcuts-setting'
@@ -23,6 +23,7 @@ import {
   scrollRegion,
   scrollTo,
   seedLoadedPages,
+  settleVirtualizerTimers,
   type PageRequest,
 } from './data-table-infinite-test-utils'
 import deCommon from '../../../../../locales/de/common.json'
@@ -347,6 +348,7 @@ describe('DataTable infinite mode (AUT-889)', () => {
     bindSingleKeyShortcutsUser('infinite-test')
   })
   afterEach(() => restoreLayout())
+  afterAll(settleVirtualizerTimers)
 
   // Pilot check "Requests", scenario 1: a scroll handler that fetched on every event cancelled the running fetch each time.
   it('WHEN the user scrolls to one viewport before the end and hasNextPage is true THEN exactly one next-page fetch starts', async () => {

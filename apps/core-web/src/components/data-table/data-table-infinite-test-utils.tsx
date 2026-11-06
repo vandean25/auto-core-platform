@@ -160,6 +160,13 @@ export function mockListLayout() {
   }
 }
 
+/**
+ * The virtualizer ends a scroll 150 ms after the last scroll event, also on an unmounted table. Awaited in `afterAll`
+ * of a file that scrolls, it keeps that timer from firing after jsdom is gone ("window is not defined", an unhandled
+ * error that fails the whole run on a slow runner).
+ */
+export const settleVirtualizerTimers = () => new Promise<void>((resolve) => setTimeout(resolve, 200))
+
 export const scrollRegion = () => screen.getByRole('region', { name: dt.scrollRegion })
 
 export function scrollTo(top: number) {

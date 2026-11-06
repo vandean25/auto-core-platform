@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as vehicleStockApi from '@/api/vehicle-stock'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
-import { mockListLayout } from '@/components/data-table/data-table-infinite-test-utils'
+import { mockListLayout, settleVirtualizerTimers } from '@/components/data-table/data-table-infinite-test-utils'
 import deCommon from '../../../../../locales/de/common.json'
 import deVehicleStock from '../../../../../locales/de/vehicleStock.json'
 import VehicleStockList from './VehicleStockList'
@@ -71,6 +71,8 @@ describe('VehicleStockList paging mode', () => {
     cleanup()
     restoreLayout()
   })
+
+  afterAll(settleVirtualizerTimers)
 
   // AUT-890: the API refuses cursor paging for "all statuses" (merged draft purchases), so that view keeps its pages.
   it.each([
