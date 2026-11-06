@@ -25,6 +25,10 @@ type SavedViewsContextValue = {
   addSavedView: (input: CreateSavedViewInput) => { created: boolean; reason?: 'duplicate' | 'invalid' }
   renameSavedView: (id: string, name: string) => SavedViewResult
   removeSavedView: (id: string) => void
+  /** The view whose rename dialog is open: one dialog (`SavedViewRenameHost`) serves the toolbar menu and Cmd+K. */
+  renamingView: SavedView | null
+  requestRename: (view: SavedView) => void
+  cancelRename: () => void
 }
 
 const SavedViewsContext = React.createContext<SavedViewsContextValue | null>(null)
@@ -116,6 +120,7 @@ type SavedViewsProviderProps = {
 function SavedViewsStore({ storageKey, legacyKey, children }: { storageKey: string; legacyKey: string; children: React.ReactNode }) {
   const [savedViews, setSavedViews] = React.useState<SavedView[]>(() => loadSavedViews(storageKey, legacyKey))
   const savedViewsRef = React.useRef<SavedView[]>(savedViews)
+  const [renamingId, setRenamingId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     savedViewsRef.current = savedViews
@@ -172,9 +177,13 @@ function SavedViewsStore({ storageKey, legacyKey, children }: { storageKey: stri
     setSavedViews((previous) => previous.filter((view) => view.id !== id))
   }, [])
 
+  const requestRename = React.useCallback((view: SavedView) => setRenamingId(view.id), [])
+  const cancelRename = React.useCallback(() => setRenamingId(null), [])
+  const renamingView = savedViews.find((view) => view.id === renamingId) ?? null
+
   const value = React.useMemo<SavedViewsContextValue>(
-    () => ({ savedViews, addSavedView, renameSavedView, removeSavedView }),
-    [savedViews, addSavedView, renameSavedView, removeSavedView],
+    () => ({ savedViews, addSavedView, renameSavedView, removeSavedView, renamingView, requestRename, cancelRename }),
+    [savedViews, addSavedView, renameSavedView, removeSavedView, renamingView, requestRename, cancelRename],
   )
 
   return <SavedViewsContext.Provider value={value}>{children}</SavedViewsContext.Provider>
@@ -198,9 +207,7 @@ export function useSavedViews() {
   return context
 }
 
-/**
- * For surfaces that can also render outside a provider (the mechanic shell has none): no views instead of a throw.
- */
-export function useOptionalSavedViews(): SavedView[] {
-  return React.useContext(SavedViewsContext)?.savedViews ?? []
+/** For surfaces that can also render outside a provider (the mechanic shell has none): null instead of a throw. */
+export function useOptionalSavedViewsContext(): SavedViewsContextValue | null {
+  return React.useContext(SavedViewsContext)
 }

@@ -141,7 +141,10 @@
     },
     "savedViews": {
       "heading": "Saved views",
-      "open": "Open view {{name}}"
+      "manageHeading": "Manage views",
+      "open": "Open view {{name}}",
+      "rename": "Rename view {{name}}",
+      "remove": "Remove view {{name}}"
     },
     "quickActions": {
       "navigate": "Navigate",

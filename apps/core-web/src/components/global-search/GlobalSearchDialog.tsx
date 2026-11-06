@@ -5,7 +5,8 @@ import { MessageSquareText } from 'lucide-react'
 
 import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
-import { useOptionalSavedViews } from '@/features/saved-views/SavedViewsProvider'
+import { executeEntityAction } from '@/features/actions/entity-action'
+import { useSavedViewActions } from '@/features/saved-views/use-saved-view-actions'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
@@ -32,7 +33,7 @@ import {
 } from './global-search-context-actions'
 import { useGlobalSearchPaletteContext } from './use-global-search-palette-context'
 import { truncate } from './global-search-format'
-import { getPaletteSections } from './global-search-navigation'
+import { getPaletteSections, getSavedViewManageSection } from './global-search-navigation'
 import { recentItemsKey, useRecentItems, type RecentSearchItem } from './global-search-recent'
 
 interface GlobalSearchDialogProps {
@@ -204,6 +205,7 @@ function SearchPaletteBody({
   isLoading,
   error,
   sections,
+  savedViewManageSection,
   activeSiteId,
   sites,
   recent,
@@ -218,6 +220,7 @@ function SearchPaletteBody({
   isLoading: boolean
   error: ReturnType<typeof useGlobalSearch>['error']
   sections: ReturnType<typeof getPaletteSections>
+  savedViewManageSection: PaletteContextActionSection | null
   activeSiteId: string | null
   sites: NonNullable<ReturnType<typeof useMySites>['data']>
   recent: ReturnType<typeof useRecentItems>
@@ -256,6 +259,9 @@ function SearchPaletteBody({
           {sections.map((section) => (
             <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
           ))}
+          {savedViewManageSection ? (
+            <GlobalSearchContextActionGroup section={savedViewManageSection} onSelect={subPage.runContextAction} />
+          ) : null}
         </>
       )}
     </>
@@ -291,8 +297,14 @@ function SearchPalette({
     setSearch,
     onOpenChange,
   })
-  const savedViews = useOptionalSavedViews()
-  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill, savedViews)
+  const savedViewActions = useSavedViewActions()
+  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill, savedViewActions.savedViews)
+  const savedViewManageSection = getSavedViewManageSection(
+    sessionMeta.roleInfo,
+    query,
+    savedViewActions.savedViews,
+    (action, view) => executeEntityAction(savedViewActions.actions[action], view, savedViewActions.context),
+  )
   const commandEntryVisible =
     canUseWorkshopCommand(sessionMeta.roleInfo?.activeRole) &&
     !query &&
@@ -341,6 +353,7 @@ function SearchPalette({
           isLoading={isLoading}
           error={error}
           sections={sections}
+          savedViewManageSection={savedViewManageSection}
           activeSiteId={sessionMeta.activeSiteId}
           sites={sites}
           recent={recent}

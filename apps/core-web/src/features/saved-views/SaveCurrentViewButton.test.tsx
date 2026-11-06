@@ -8,6 +8,7 @@ import InvoiceListPage from '@/pages/sales/InvoiceListPage'
 import { SavedViewsProvider, savedViewsStorageKey } from '@/features/saved-views/SavedViewsProvider'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { SaveCurrentViewButton } from './SaveCurrentViewButton'
+import { SavedViewRenameHost } from './SavedViewRenameHost'
 import { SavedViewsMenu } from './SavedViewsMenu'
 
 vi.mock('@/api/sales', async (importOriginal) => ({
@@ -104,6 +105,7 @@ function toolbar(options: { userKey?: string; tenantId?: string | null; initial?
       <SavedViewsProvider userKey={userKey} tenantId={tenantId}>
         <SaveCurrentViewButton title="Arbeitsaufträge" />
         <SavedViewsMenu title="Arbeitsaufträge" />
+        <SavedViewRenameHost />
         <EntityActionConfirmHost />
         <LocationProbe />
       </SavedViewsProvider>
@@ -251,8 +253,8 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     seedViews('test-user', 'tenant-b', [{ id: 'v2', name: 'Huber in Arbeit', href: '/workshop/orders?search=Huber' }])
     const { rerender } = render(toolbar({ tenantId: 'tenant-a' }))
     expect(within(await openMenu()).getByRole('button', { name: 'Gruber in Arbeit' })).toBeInTheDocument()
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
 
+    // The menu is still open while the tenant switches.
     rerender(toolbar({ tenantId: 'tenant-b' }))
 
     // Read in the same commit as the switch: no frame may still show tenant A's view.
