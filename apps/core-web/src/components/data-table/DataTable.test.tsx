@@ -1059,10 +1059,11 @@ describe('DataTable Export CSV', () => {
 })
 
 describe('DataTable loading primitives (AUT-879)', () => {
-  const columns: ColumnDef<{ id: string; name: string }>[] = [
+  type LoadRow = { id: string; name: string; __dataTablePending?: true }
+  const columns: ColumnDef<LoadRow>[] = [
     { accessorKey: 'name', header: 'Name' },
   ]
-  const data = [{ id: 'a', name: 'Alpha' }]
+  const data: LoadRow[] = [{ id: 'a', name: 'Alpha' }]
 
   function LoadingHarness(
     props: Partial<React.ComponentProps<typeof DataTable<(typeof data)[number]>>> & {
@@ -1136,7 +1137,7 @@ describe('DataTable loading primitives (AUT-879)', () => {
       __dataTablePending: true as const,
       name: 'Pending customer',
     }
-    const pendingColumns: ColumnDef<typeof pendingRow>[] = [
+    const pendingColumns: ColumnDef<LoadRow>[] = [
       {
         accessorKey: 'name',
         header: 'Name',

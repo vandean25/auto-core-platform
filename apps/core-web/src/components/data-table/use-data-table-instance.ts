@@ -7,6 +7,7 @@ import type {
   ColumnFiltersState,
   OnChangeFn,
   PaginationState,
+  RowSelectionState,
   SortingState,
 } from '@tanstack/react-table'
 
@@ -25,8 +26,8 @@ type UseDataTableInstanceParams<TData extends object> = {
   pagination: PaginationState
   setPagination: OnChangeFn<PaginationState>
   hasBulkActions: boolean
-  rowSelection: Record<string, boolean>
-  setRowSelection: OnChangeFn<Record<string, boolean>>
+  rowSelection: RowSelectionState
+  setRowSelection: OnChangeFn<RowSelectionState>
 }
 
 export function useDataTableInstance<TData extends object>({

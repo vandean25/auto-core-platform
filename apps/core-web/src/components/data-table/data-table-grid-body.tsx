@@ -73,7 +73,9 @@ function DataTableGridBodyRows<TData extends object>({
   })
 }
 
-function DataTableGridBodyContent<TData extends object>(props: DataTableGridBodyProps<TData>) {
+function DataTableGridBodyContent<TData extends object>(
+  props: Omit<DataTableGridBodyProps<TData>, 'tableBodyRef'>,
+) {
   const { columnFilters, globalFilter } = props.table.getState()
   const bodyRows = props.table.getRowModel().rows
 

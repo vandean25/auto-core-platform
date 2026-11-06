@@ -17,12 +17,13 @@ export function useWorkshopOrderListPendingRows(
   const pendingServerIds = useRef<Map<string, string>>(new Map())
 
   useEffect(() => {
-    if (!responseData?.data) return
+    const loaded = responseData?.data
+    if (!loaded) return
     setPendingRows((previous) =>
       previous.filter((pending) => {
         const serverId = pendingServerIds.current.get(pending.id)
         if (!serverId) return true
-        return !responseData.data.some((order) => order.id === serverId)
+        return !loaded.some((order) => order.id === serverId)
       }),
     )
   }, [responseData])

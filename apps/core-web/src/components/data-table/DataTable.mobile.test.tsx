@@ -38,11 +38,13 @@ function Harness({
   rowBehaviour,
   data = rows,
   isLoading = false,
+  hasUsableData,
   columns = baseColumns,
 }: {
   rowBehaviour?: DataTableRowBehaviour<Row>
   data?: Row[]
   isLoading?: boolean
+  hasUsableData?: boolean
   columns?: ColumnDef<Row>[]
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -54,6 +56,7 @@ function Harness({
         columns={columns}
         data={data}
         isLoading={isLoading}
+        hasUsableData={hasUsableData}
         columnFilters={columnFilters}
         setColumnFilters={setColumnFilters}
         sorting={sorting}
