@@ -57,7 +57,6 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
     taskLineItemOverrides,
     handleTaskLineItemsChange,
     clearTaskLineItemOverrides,
-    savingLineItemsTaskId,
   } = useWorkshopTaskLineItems({
     orderId: order.id,
     isLocked: taskWriteBlocked,
@@ -143,7 +142,6 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
               rawTaskTotals={checkout.rawTaskTotals}
               isLocked={taskWriteBlocked}
               isAddingTask={taskActions.isAddingTask}
-              savingLineItemsTaskId={savingLineItemsTaskId}
               newTaskTitle={taskActions.newTaskTitle}
               expandedTaskId={expandedTaskId}
               onNewTaskTitleChange={taskActions.setNewTaskTitle}

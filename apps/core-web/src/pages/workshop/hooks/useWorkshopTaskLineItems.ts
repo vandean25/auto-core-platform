@@ -212,7 +212,6 @@ export function useWorkshopTaskLineItems({
     taskLineItemOverrides,
     handleTaskLineItemsChange,
     clearTaskLineItemOverrides,
-    /** Task whose line items are being saved right now; its save is server-confirmed (prices, tax). */
-    savingLineItemsTaskId: replaceTaskLineItems.isPending ? (replaceTaskLineItems.variables?.taskId ?? null) : null,
+    isReplacingLineItems: replaceTaskLineItems.isPending,
   }
 }

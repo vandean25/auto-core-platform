@@ -59,6 +59,7 @@ export const workshopKeys = {
   taskChecklist: (orderId: string, taskId: string) =>
     [...workshopKeys.all, 'taskChecklist', orderId, taskId] as const,
   order: (id: string) => workshopKeys.detail(id),
+  taskLineItemsSave: () => [...workshopKeys.all, 'task-line-items'] as const,
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
   planner: (from?: string, to?: string, bayId?: string) =>
     from && to
@@ -900,6 +901,7 @@ export const useReplaceWorkshopTaskLineItems = () => {
       items: ReplaceWorkshopTaskLineItemPayload[]
     }
   >({
+    mutationKey: workshopKeys.taskLineItemsSave(),
     mutationFn: async ({
       orderId,
       taskId,

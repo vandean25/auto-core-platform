@@ -1,4 +1,4 @@
-import { Loader2, Plus, Search, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import type React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +15,7 @@ import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
 import type { WorkshopOrder, WorkshopTask } from '@/api/types'
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
+import { TaskLineItemsSavingStatus } from '@/components/workshop/TaskLineItemsSavingStatus'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
 import { WorkshopTaskInspectionChecklist } from '@/components/workshop/WorkshopTaskInspectionChecklist'
 
@@ -26,7 +27,6 @@ export interface TaskListProps {
   rawTaskTotals: Map<string, TaskTotals>
   isLocked: boolean
   isAddingTask?: boolean
-  savingLineItemsTaskId?: string | null
   newTaskTitle: string
   expandedTaskId: string | null
   onNewTaskTitleChange: (value: string) => void
@@ -71,7 +71,6 @@ function RepairTasksCard({
   rawTaskTotals,
   isLocked,
   isAddingTask = false,
-  savingLineItemsTaskId = null,
   newTaskTitle,
   expandedTaskId,
   onNewTaskTitleChange,
@@ -124,7 +123,6 @@ function RepairTasksCard({
             onTaskDelete={onTaskDelete}
             canDeleteTask={canDeleteTask}
             isDeletingTask={isDeletingTask}
-            isSavingLineItems={savingLineItemsTaskId === task.id}
             onOpenFitmentSearch={onOpenFitmentSearch}
           />
         ))}
@@ -252,18 +250,6 @@ function TaskQuickAddForm({
   )
 }
 
-/** Pending feedback for the server-confirmed line-item save (prices and tax come back from the server). */
-function LineItemsSavingStatus({ saving }: { saving: boolean }) {
-  const { t } = useTranslation('workshop')
-  if (!saving) return null
-  return (
-    <p role='status' aria-label={t('taskLineItems.saving')} className='flex items-center gap-1.5 text-xs text-muted-foreground'>
-      <Loader2 className='h-3.5 w-3.5 animate-spin' aria-hidden='true' />
-      {t('taskLineItems.saving')}
-    </p>
-  )
-}
-
 interface TaskAccordionRowProps {
   task: WorkshopTask
   workshopOrderId: string
@@ -277,7 +263,6 @@ interface TaskAccordionRowProps {
   onTaskDelete: (taskId: string) => void
   canDeleteTask: boolean
   isDeletingTask: boolean
-  isSavingLineItems: boolean
   onOpenFitmentSearch?: (taskId: string) => void
 }
 
@@ -294,7 +279,6 @@ function TaskAccordionRow({
   onTaskDelete,
   canDeleteTask,
   isDeletingTask,
-  isSavingLineItems,
   onOpenFitmentSearch,
 }: TaskAccordionRowProps) {
   const { t } = useTranslation('workshop')
@@ -435,7 +419,7 @@ function TaskAccordionRow({
             readOnly={isLocked}
             onLineItemsChange={(items) => onTaskLineItemsChange(task.id, items)}
           />
-          <LineItemsSavingStatus saving={isSavingLineItems} />
+          <TaskLineItemsSavingStatus taskId={task.id} />
 
           <div className='space-y-2'>
             <div className='text-sm font-semibold'>{t('taskList.mechanicNotes')}</div>

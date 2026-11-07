@@ -235,9 +235,10 @@ describe('WorkshopOrderDetails line-item persistence', () => {
     { pendingTaskId: 'task-1', visible: true },
     { pendingTaskId: 'task-2', visible: false },
   ])('shows the saving status on the task only while its own save runs ($pendingTaskId)', ({ pendingTaskId, visible }) => {
-    ;(workshopApi.useReplaceWorkshopTaskLineItems as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      createMutationMock({ isPending: true, variables: { taskId: pendingTaskId } }),
-    )
+    void queryClient
+      .getMutationCache()
+      .build(queryClient, { mutationKey: workshopApi.workshopKeys.taskLineItemsSave(), mutationFn: () => new Promise(() => undefined) })
+      .execute({ taskId: pendingTaskId })
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={['/workshop/orders/order-1']}>
