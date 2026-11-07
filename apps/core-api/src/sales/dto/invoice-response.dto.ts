@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { DiscountType, InvoiceStatus, InvoiceTaxMode } from '@prisma/client';
 import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
 import { VehicleResponseDto } from '../../vehicle/dto/vehicle-response.dto.js';
+import { ListCursorPageMetaDto } from '../../common/dto/list-cursor-response.dto.js';
 
 export class InvoiceItemResponseDto {
   @ApiProperty()
@@ -128,4 +129,12 @@ export class InvoiceResponseDto {
       'Country-specific margin-scheme legal notice for on-screen invoice display.',
   })
   margin_scheme_legal_note?: string | null;
+}
+
+export class InvoiceCursorPageResponseDto {
+  @ApiProperty({ type: () => [InvoiceResponseDto] })
+  data!: InvoiceResponseDto[];
+
+  @ApiProperty({ type: () => ListCursorPageMetaDto })
+  meta!: ListCursorPageMetaDto;
 }

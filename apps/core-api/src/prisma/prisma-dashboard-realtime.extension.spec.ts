@@ -69,6 +69,28 @@ describe('emitRealtimeForOperation', () => {
     expect(emitEntityUpdated).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['create', 'CREATED'],
+    ['update', 'UPDATED'],
+  ])(
+    'emits INVOICE on invoice %s so open invoice lists learn about newly issued invoices',
+    async (operation, action) => {
+      const emitEntityUpdated = jest.fn();
+
+      await runWithTenant('tenant-1', async () => {
+        emitRealtimeForOperation({ emitEntityUpdated }, 'Invoice', operation, {
+          id: 'inv-1',
+        });
+      });
+
+      expect(emitEntityUpdated).toHaveBeenCalledWith('tenant-1', {
+        type: 'INVOICE',
+        action,
+        entityId: 'inv-1',
+      });
+    },
+  );
+
   it('emits employee work schedule changes', async () => {
     const emitEntityUpdated = jest.fn();
 

@@ -115,6 +115,10 @@ const entityInvalidationMap: Record<
     dashboardSourceKeys: ["workshop-orders"],
     domainQueryKeys: workshopAndMechanicQueueKeys,
   },
+  INVOICE: {
+    dashboardSourceKeys: ["invoices"],
+    domainQueryKeys: [invoiceKeys.all],
+  },
   CREDIT_NOTE: {
     dashboardSourceKeys: ["credit-notes"],
     domainQueryKeys: [creditNoteKeys.all, invoiceKeys.all],

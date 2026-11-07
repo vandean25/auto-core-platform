@@ -7,3 +7,14 @@ export class CappedListCountResponseDto {
   @ApiProperty()
   isCapped!: boolean;
 }
+
+export class ListCursorPageMetaDto {
+  @ApiProperty({ type: String, nullable: true })
+  nextCursor!: string | null;
+
+  @ApiProperty()
+  hasNextPage!: boolean;
+
+  @ApiProperty({ minimum: 1 })
+  limit!: number;
+}

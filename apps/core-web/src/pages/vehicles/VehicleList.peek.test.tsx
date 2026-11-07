@@ -48,6 +48,7 @@ vi.mock('@/api/sales', async (importOriginal) => {
   return {
     ...actual,
     useInvoices: vi.fn(),
+    useInvoiceCursorList: vi.fn(),
   }
 })
 vi.mock('@/api/vehicle-stock', async (importOriginal) => {
@@ -192,8 +193,10 @@ describe('VehicleList peek sheet', () => {
     })
     asMock(customersApi.useCustomer).mockReturnValue({ data: undefined, isLoading: false })
     asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync: vi.fn() })
-    asMock(salesApi.useInvoices).mockReturnValue({
-      data: [
+    asMock(salesApi.useInvoices).mockReturnValue({ data: [], isLoading: false })
+    // The invoice list opens in infinite mode (AUT-891); its rows come from the cursor hook.
+    asMock(salesApi.useInvoiceCursorList).mockReturnValue({
+      rows: [
         {
           id: 'inv-1',
           status: 'FINALIZED',
@@ -204,7 +207,21 @@ describe('VehicleList peek sheet', () => {
           invoice_number: 'RE-2026-0001',
         },
       ],
-      isLoading: false,
+      tableProps: {
+        isLoading: false,
+        isFetching: false,
+        isPlaceholderData: false,
+        isError: false,
+        onRetry: vi.fn(),
+        hasUsableData: true,
+        infinite: {
+          queryKey: ['invoices', 'cursor-list', {}],
+          hasNextPage: false,
+          isFetchingNextPage: false,
+          isFetchNextPageError: false,
+          fetchNextPage: vi.fn(),
+        },
+      },
     })
     asMock(vehicleStockApi.useVehicleStock).mockReturnValue({
       data: {

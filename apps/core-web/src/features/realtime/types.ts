@@ -25,6 +25,7 @@ export type RealtimeEntityType =
   | "EMPLOYEE_WORK_SCHEDULE"
   | "PARTS_RESERVATION"
   | "PARTS_REQUISITION"
+  | "INVOICE"
   | "CREDIT_NOTE"
   | "PAYMENT"
   | "FISCAL_RECEIPT";

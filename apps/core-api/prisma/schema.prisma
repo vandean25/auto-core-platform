@@ -3275,6 +3275,8 @@ model Invoice {
   @@index([tenant_id])
   @@index([tenant_id, site_id, date])
   @@index([tenant_id, legal_entity_id, date])
+  @@index([tenant_id, invoice_number, id])
+  @@index([tenant_id, date, id])
   @@index([invoice_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "invoices_invoice_number_trgm_idx")
   @@map("invoices")
 }
