@@ -515,6 +515,29 @@ describe('concurrent board assign and workshop task status', () => {
     await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('DONE'))
   })
 
+  // The guard is per order: a task patch on another order must not hold back this order's detail refetch.
+  it('refetches the assigned order detail while a task-status patch of another order is pending', async () => {
+    const { view } = renderAssignAndTask(createOrder('IN_PROGRESS'))
+    await waitFor(() => expect(mocks.socket.on).toHaveBeenCalled())
+    await respond(BOARD_URL, 'GET', 200, {
+      data: [{ id: 'order-1', mechanicId: null, bayId: null }],
+    } as BoardActiveResponse)
+    await waitFor(() => expect(view.result.current.board.data).toBeDefined())
+
+    act(() => {
+      void view.result.current.updateTask.mutateAsync({ orderId: 'order-2', taskId: 'task-9', status: 'DONE' })
+    })
+    act(() =>
+      view.result.current.boardAssignment.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
+    )
+    await settle()
+    const detailGets = pending(ORDER_DETAIL_URL, 'GET').length
+
+    await respond(ASSIGN_URL, 'PATCH', 200, {})
+
+    await waitFor(() => expect(pending(ORDER_DETAIL_URL, 'GET').length).toBeGreaterThan(detailGets))
+  })
+
   // Scenario 3 for the move: nothing was patched, so a 403 only clears pending and shows the permission message.
   it('a 403 on the move keeps the order detail and the optimistic task status and shows the permission message', async () => {
     const { queryClient, view } = renderAssignAndTask({

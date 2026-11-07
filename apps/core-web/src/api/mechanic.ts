@@ -168,6 +168,7 @@ const updateMechanicTaskChecklistOptimistic = optimisticMutationOptions<
   MechanicTaskChecklist,
   UpdateMechanicTaskChecklistVariables
 >({
+  // Starts with [mechanic] rather than the query key: realtime invalidates that root, so echo deferral still works.
   mutationKey: [...mechanicQueueKeys.all, "task", "checklist", "update"],
   queryKey: ({ taskId }) => mechanicQueueKeys.taskChecklist(taskId),
   entityId: ({ items }) => items.map((item) => item.id).join(","),
@@ -348,6 +349,7 @@ const saveDiagnosticsOptimistic = optimisticMutationOptions<
   MechanicTaskDetail,
   SaveDiagnosticsVariables
 >({
+  // Starts with [mechanic] rather than the query key (see the checklist hook above).
   mutationKey: [...mechanicQueueKeys.all, "task", "diagnostics"],
   queryKey: ({ taskId }) => mechanicQueueKeys.taskDetail(taskId),
   entityId: ({ taskId }) => taskId,

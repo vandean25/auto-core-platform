@@ -97,6 +97,7 @@ const updateWorkshopTaskChecklistOptimistic = optimisticMutationOptions<
   WorkshopTaskChecklist,
   UpdateWorkshopTaskChecklistVariables
 >({
+  // Not prefixed by the query key on purpose: it still starts with [workshop], which realtime invalidates, so echo deferral works.
   mutationKey: [...workshopKeys.all, 'taskChecklist', 'update'],
   queryKey: ({ orderId, taskId }) => workshopKeys.taskChecklist(orderId, taskId),
   entityId: ({ items }) => items.map((item) => item.id).join(','),
@@ -1040,7 +1041,11 @@ export function useAssignBoard() {
       void queryClient.invalidateQueries({ queryKey: boardKeys.active() })
       void queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       // A pending optimistic task-status patch on this detail settles it itself; a refetch now would overwrite that patch.
-      if (queryClient.isMutating({ mutationKey: updateWorkshopTaskOptimistic.mutationKey }) === 0) {
+      const taskPatchPending = queryClient.isMutating({
+        mutationKey: updateWorkshopTaskOptimistic.mutationKey,
+        predicate: (mutation) => (mutation.state.variables as UpdateWorkshopTaskVariables).orderId === orderId,
+      })
+      if (taskPatchPending === 0) {
         void queryClient.invalidateQueries({ queryKey: workshopKeys.detail(orderId) })
       }
     },

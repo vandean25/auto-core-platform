@@ -216,26 +216,25 @@ export default function WorkshopPlannerPage() {
     const end = new Date(start.getTime() + durationMs)
     setPendingMoves((previous) => new Set(previous).add(orderId))
 
-    updateOrder.mutate(
-      {
+    // mutateAsync, not mutate's callbacks: those only fire for the latest call of a hook instance, so a second drop
+    // would leave this booking pending and swallow its error.
+    updateOrder
+      .mutateAsync({
         id: orderId,
         bayId,
         scheduledStartAt: start.toISOString(),
         scheduledEndAt: end.toISOString(),
-      },
-      {
-        onError: (error) => {
-          toast.error(getPermissionAwareErrorMessage(error, t('planner.page.rescheduleFailed')))
-        },
-        onSettled: () => {
-          setPendingMoves((previous) => {
-            const next = new Set(previous)
-            next.delete(orderId)
-            return next
-          })
-        },
-      },
-    )
+      })
+      .catch((error: unknown) => {
+        toast.error(getPermissionAwareErrorMessage(error, t('planner.page.rescheduleFailed')))
+      })
+      .finally(() => {
+        setPendingMoves((previous) => {
+          const next = new Set(previous)
+          next.delete(orderId)
+          return next
+        })
+      })
   }
 
   const handleDragStart = (event: DragStartEvent) => {
