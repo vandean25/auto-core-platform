@@ -117,7 +117,8 @@
     {
       "operationId": "workshop.check-in.draft.update",
       "owningHook": "useUpdateWorkshopCheckInDraft",
-      "classification": "optimistic"
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Draft saves are version-checked (expected_revision) and the server assigns the next revision of a legal capture record; the form already holds the edit locally, and a stale revision answers 409 instead of being replayed."
     },
     {
       "operationId": "workshop.check-in.complete",

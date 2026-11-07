@@ -10,14 +10,12 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { Calendar, ChevronLeft, ChevronRight, Wrench } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getPermissionAwareErrorMessage } from '@/lib/error-utils'
 import {
-  type PlannerGridResponse,
   useUpdateWorkshopOrder,
   useWorkshopPlanner,
   useWorkshopSettings,
-  workshopKeys,
 } from '@/api/workshop'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -38,6 +36,7 @@ import {
   startOfWeekMonday,
 } from '@/features/workshop/planner/planner-time'
 import { PlannerBookingBlock } from '@/components/workshop/planner/PlannerBookingBlock'
+import { PlannerPendingMovesContext } from '@/components/workshop/planner/planner-pending-moves'
 import {
   PlannerCreateSheet,
   type PlannerCreatePrefill,
@@ -93,7 +92,6 @@ export default function WorkshopPlannerPage() {
   const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const queryClient = useQueryClient()
   const [viewMode, setViewMode] = React.useState<PlannerViewMode>(readViewMode)
   const { data: settings } = useWorkshopSettings()
   const defaultTimezone = settings?.timezone ?? 'Europe/Vienna'
@@ -121,6 +119,7 @@ export default function WorkshopPlannerPage() {
   const [activeBookingId, setActiveBookingId] = React.useState<string | null>(null)
 
   const updateOrder = useUpdateWorkshopOrder()
+  const [pendingMoves, setPendingMoves] = React.useState<ReadonlySet<string>>(new Set())
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor))
 
   React.useEffect(() => {
@@ -209,53 +208,33 @@ export default function WorkshopPlannerPage() {
     openCreateSheet(bayId, startIso, end.toISOString())
   }
 
-  const performReschedule = (
-    orderId: string,
-    bayId: string,
-    startIso: string,
-    durationMs: number,
-    plannerKey: readonly unknown[],
-  ) => {
+  // Server-confirmed (ADR-0036 R1): capacity and conflict checks run on the server, so the booking stays put and
+  // shows pending until it answers. Nothing is written to the planner cache here.
+  const performReschedule = (orderId: string, bayId: string, startIso: string, durationMs: number) => {
+    if (pendingMoves.has(orderId)) return
     const start = new Date(startIso)
     const end = new Date(start.getTime() + durationMs)
-    const previousData = queryClient.getQueryData<PlannerGridResponse>(plannerKey)
+    setPendingMoves((previous) => new Set(previous).add(orderId))
 
-    queryClient.setQueryData<PlannerGridResponse>(plannerKey, (old) => {
-      if (!old) return old
-      return {
-        ...old,
-        bookings: old.bookings.map((booking) =>
-          booking.orderId === orderId
-            ? {
-                ...booking,
-                bayId,
-                scheduledStartAt: start.toISOString(),
-                scheduledEndAt: end.toISOString(),
-              }
-            : booking,
-        ),
-      }
-    })
-
-    updateOrder.mutate(
-      {
+    // mutateAsync, not mutate's callbacks: those only fire for the latest call of a hook instance, so a second drop
+    // would leave this booking pending and swallow its error.
+    updateOrder
+      .mutateAsync({
         id: orderId,
         bayId,
         scheduledStartAt: start.toISOString(),
         scheduledEndAt: end.toISOString(),
-      },
-      {
-        onError: (error) => {
-          queryClient.setQueryData(plannerKey, previousData)
-          const message =
-            error instanceof Error ? error.message : t('planner.page.rescheduleFailed')
-          toast.error(message)
-        },
-        onSettled: () => {
-          void queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
-        },
-      },
-    )
+      })
+      .catch((error: unknown) => {
+        toast.error(getPermissionAwareErrorMessage(error, t('planner.page.rescheduleFailed')))
+      })
+      .finally(() => {
+        setPendingMoves((previous) => {
+          const next = new Set(previous)
+          next.delete(orderId)
+          return next
+        })
+      })
   }
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -272,14 +251,13 @@ export default function WorkshopPlannerPage() {
 
     const slot = parsePlannerSlotId(String(over.id))
     const weekSlot = parsePlannerWeekSlotId(String(over.id))
-    const plannerKey = workshopKeys.planner(queryRange.from, queryRange.to)
 
     const durationMs =
       new Date(booking.scheduledEndAt).getTime() -
       new Date(booking.scheduledStartAt).getTime()
 
     if (slot) {
-      performReschedule(booking.orderId, slot.bayId, slot.startIso, durationMs, plannerKey)
+      performReschedule(booking.orderId, slot.bayId, slot.startIso, durationMs)
       return
     }
 
@@ -294,7 +272,7 @@ export default function WorkshopPlannerPage() {
         hours.isClosed || !hours.openTime || !hours.closeTime
           ? buildDayWindow(hours, plannerTimezone, weekSlot.date).start.toISOString()
           : preservedStart.toISOString()
-      performReschedule(booking.orderId, weekSlot.bayId, startIso, durationMs, plannerKey)
+      performReschedule(booking.orderId, weekSlot.bayId, startIso, durationMs)
     }
   }
 
@@ -361,6 +339,7 @@ export default function WorkshopPlannerPage() {
           onGoToSettings={() => navigate('/settings?tab=bays')}
         />
       ) : (
+        <PlannerPendingMovesContext.Provider value={pendingMoves}>
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
@@ -405,6 +384,7 @@ export default function WorkshopPlannerPage() {
             {activeBooking && <PlannerBookingBlock booking={activeBooking} isDragging />}
           </DragOverlay>
         </DndContext>
+        </PlannerPendingMovesContext.Provider>
       )}
 
       <PlannerCreateUrlOpener setPrefill={setCreatePrefill} setOpen={setCreateOpen} />

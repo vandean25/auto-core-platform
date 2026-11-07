@@ -33,7 +33,7 @@ export function createWorkshopBoardDragHandlers(
           label: targetColumnId,
         })
       }
-      // Clear the drag only after the optimistic move is queued, so the source column never flashes its empty state.
+      // Clear the drag only after the move is submitted, so the source column never flashes its empty state while it waits.
       setActiveId(null)
     },
   }

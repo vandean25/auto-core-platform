@@ -4,7 +4,13 @@ import path from 'node:path'
 import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { initI18n } from '@/lib/i18n'
-import { getErrorBody, getErrorCode, getErrorMessage, getErrorMessageFromResponse } from './error-utils'
+import {
+  getErrorBody,
+  getErrorCode,
+  getErrorMessage,
+  getErrorMessageFromResponse,
+  getPermissionAwareErrorMessage,
+} from './error-utils'
 
 describe('getErrorMessage', () => {
   beforeAll(async () => {
@@ -287,5 +293,24 @@ describe('error fallback literal guard', () => {
     }
 
     expect(violations).toEqual([])
+  })
+})
+
+describe('getPermissionAwareErrorMessage', () => {
+  beforeAll(async () => {
+    await initI18n({ language: 'de' })
+  })
+
+  // Regression: the board and planner toasts must keep their own wording for a 422, and only a 403 gets the permission copy.
+  it.each([
+    [403, 'Sie haben keine Berechtigung für diese Aktion.'],
+    [422, 'own wording'],
+    [500, 'own wording'],
+  ])('answers a %i with the expected text', (status, expected) => {
+    expect(getPermissionAwareErrorMessage({ status }, 'own wording')).toBe(expected)
+  })
+
+  it('keeps the caller text for an error without a status', () => {
+    expect(getPermissionAwareErrorMessage(new Error('Network down'), 'own wording')).toBe('own wording')
   })
 })

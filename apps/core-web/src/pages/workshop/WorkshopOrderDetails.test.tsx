@@ -23,6 +23,7 @@ import { getCatalogSourceBannerCopy } from "@/features/workshop/catalog-source-c
 import { toast } from "sonner";
 import { formattedCurrencyPattern } from "@/test/format-assertions";
 import { deWorkshop } from "@/test/de-workshop";
+import errorsDe from "../../../../../locales/de/errors.json" with { type: "json" };
 import { fetchWithAuth } from "@/api/client";
 
 vi.mock("@/api/client", () => ({
@@ -2179,7 +2180,8 @@ describe("WorkshopOrderDetails Characterization", () => {
         fireEvent.click(screen.getByRole("option", { name: "Alex Tech" }));
       };
 
-      it("updates the cached order optimistically while the assignment is pending", async () => {
+      // Scenario 4: a technician change is server-confirmed (availability), so the page waits instead of patching.
+      it("keeps the cached order unassigned and locks the picker while the assignment is pending", async () => {
         let resolveAssign: (() => void) | undefined;
         vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
           if (
@@ -2203,18 +2205,20 @@ describe("WorkshopOrderDetails Characterization", () => {
 
         pickAlex();
 
-        await waitFor(() =>
-          expect(
-            queryClient.getQueryData<{ mechanicId?: string; mechanic_id?: string }>(
-              workshopApi.workshopKeys.detail("order-1"),
-            ),
-          ).toMatchObject({ mechanicId: "mech-1", mechanic_id: "mech-1" }),
-        );
+        await waitFor(() => expect(screen.getByTestId("assigned-tech-select")).toBeDisabled());
+        expect(
+          queryClient.getQueryData<{ mechanicId?: string | null }>(
+            workshopApi.workshopKeys.detail("order-1"),
+          )?.mechanicId ?? null,
+        ).toBeNull();
+        expect(toast.success).not.toHaveBeenCalled();
+
         await act(async () => resolveAssign?.());
         expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianAssigned);
       });
 
-      it("rolls the cached order back and toasts when the assignment fails", async () => {
+      // Scenario 3: the 403 is reported as a permission error; nothing was patched, so nothing needs rolling back.
+      it("shows the permission message and leaves the cached order unassigned when the assignment is refused", async () => {
         vi.mocked(fetchWithAuth).mockResolvedValue({
           ok: false,
           status: 403,
@@ -2226,17 +2230,13 @@ describe("WorkshopOrderDetails Characterization", () => {
 
         pickAlex();
 
-        await waitFor(() =>
-          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.technicianAssignFailed),
-        );
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(errorsDe.codes.HTTP_403));
         expect(toast.error).not.toHaveBeenCalledWith("forbidden");
-        await waitFor(() => {
-          const order = queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
-            workshopApi.workshopKeys.detail("order-1"),
-          );
-          expect(order?.mechanicId ?? null).toBeNull();
-          expect(order?.mechanic_id ?? null).toBeNull();
-        });
+        const order = queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
+          workshopApi.workshopKeys.detail("order-1"),
+        );
+        expect(order?.mechanicId ?? null).toBeNull();
+        expect(order?.mechanic_id ?? null).toBeNull();
       });
 
       it("reads the technician and bay from the snake_case ids", () => {

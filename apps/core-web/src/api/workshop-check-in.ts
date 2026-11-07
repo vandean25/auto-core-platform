@@ -212,6 +212,7 @@ export function useCreateWorkshopCheckIn() {
 export function useUpdateWorkshopCheckInDraft() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...workshopCheckInKeys.all, 'draft', 'update'],
     mutationFn: (payload: {
       orderId: string
       body: UpdateWorkshopCheckInPayload

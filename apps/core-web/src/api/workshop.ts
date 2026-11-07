@@ -21,6 +21,7 @@ import { buildDataTableUrl } from './data-table-query'
 import { laborKeys } from './labor'
 import { DETAIL_PREFETCH_GC_MS } from '@/lib/intent-prefetch'
 import { isWorkshopTaskStatusUpdateOptimisticEligible } from '@/features/interaction/workshop-task-update-eligibility'
+import { applyChecklistEdits, revertChecklistEdits } from '@/api/inspection-checklist-patch'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import {
   getWorkshopCustomerDisplayName,
@@ -86,14 +87,28 @@ export function useWorkshopTaskChecklist(orderId: string, taskId: string) {
   })
 }
 
+type UpdateWorkshopTaskChecklistVariables = {
+  orderId: string
+  taskId: string
+  items: Array<{ id: string; passed?: boolean | null; notes?: string | null }>
+}
+
+const updateWorkshopTaskChecklistOptimistic = optimisticMutationOptions<
+  WorkshopTaskChecklist,
+  UpdateWorkshopTaskChecklistVariables
+>({
+  // Not prefixed by the query key on purpose: it still starts with [workshop], which realtime invalidates, so echo deferral works.
+  mutationKey: [...workshopKeys.all, 'taskChecklist', 'update'],
+  queryKey: ({ orderId, taskId }) => workshopKeys.taskChecklist(orderId, taskId),
+  entityId: ({ items }) => items.map((item) => item.id).join(','),
+  apply: (checklist, { items }) => applyChecklistEdits(checklist, items),
+  revert: (checklist, { items }, snapshot) => revertChecklistEdits(checklist, items, snapshot),
+})
+
 export function useUpdateWorkshopTaskChecklist() {
-  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: {
-      orderId: string
-      taskId: string
-      items: Array<{ id: string; passed?: boolean | null; notes?: string | null }>
-    }) => {
+    ...updateWorkshopTaskChecklistOptimistic,
+    mutationFn: async (payload: UpdateWorkshopTaskChecklistVariables) => {
       const response = await fetchWithAuth(
         `${WORKSHOP_API}/orders/${payload.orderId}/tasks/${payload.taskId}/checklist`,
         {
@@ -104,11 +119,6 @@ export function useUpdateWorkshopTaskChecklist() {
       )
       if (!response.ok) throw await parseErrorResponse(response, 'Failed to save checklist')
       return response.json() as Promise<WorkshopTaskChecklist>
-    },
-    onSuccess: (_result, payload) => {
-      queryClient.invalidateQueries({
-        queryKey: workshopKeys.taskChecklist(payload.orderId, payload.taskId),
-      })
     },
   })
 }
@@ -1010,89 +1020,34 @@ export function useBoardActive() {
   })
 }
 
-function patchBoardOrder(
-  cache: BoardActiveResponse,
-  orderId: string,
-  patch: (order: BoardOrder) => BoardOrder,
-): BoardActiveResponse {
-  return { ...cache, data: cache.data.map((order) => (order.id === orderId ? patch(order) : order)) }
-}
-
-function patchWorkshopOrderAssignment(
-  order: WorkshopOrder,
-  payload: AssignBoardPayload,
-): WorkshopOrder {
-  const { mechanicId, bayId } = payload
-  return {
-    ...order,
-    ...(mechanicId !== undefined && { mechanicId, mechanic_id: mechanicId }),
-    ...(bayId !== undefined && { bayId, bay_id: bayId }),
-  }
-}
-
-const assignBoardOptimistic = optimisticMutationOptions<BoardActiveResponse, AssignBoardPayload>({
-  queryKey: boardKeys.active(),
-  mutationKey: [...boardKeys.active(), 'assign'],
-  entityId: ({ orderId }) => orderId,
-  apply: (cache, { orderId, mechanicId, bayId }) =>
-    patchBoardOrder(cache, orderId, (order) => ({
-      ...order,
-      ...(mechanicId !== undefined && { mechanicId }),
-      ...(bayId !== undefined && { bayId }),
-    })),
-  revert: (cache, { orderId, mechanicId, bayId }, snapshot) => {
-    const before = snapshot.data.find((order) => order.id === orderId)
-    if (!before) return cache
-    return patchBoardOrder(cache, orderId, (order) => ({
-      ...order,
-      ...(mechanicId !== undefined && { mechanicId: before.mechanicId }),
-      ...(bayId !== undefined && { bayId: before.bayId }),
-    }))
-  },
-  extraCaches: [
-    {
-      queryKey: ({ orderId }) => workshopKeys.detail(orderId),
-      apply: (cache, payload) =>
-        cache === undefined ? cache : patchWorkshopOrderAssignment(cache as WorkshopOrder, payload),
-      revert: (cache, payload, snapshot) => {
-        if (cache === undefined || snapshot === undefined) return cache
-        const order = cache as WorkshopOrder
-        const before = snapshot as WorkshopOrder
-        return {
-          ...order,
-          ...(payload.mechanicId !== undefined && {
-            mechanicId: before.mechanicId,
-            mechanic_id: before.mechanic_id,
-          }),
-          ...(payload.bayId !== undefined && {
-            bayId: before.bayId,
-            bay_id: before.bay_id,
-          }),
-        }
-      },
-    },
-  ],
-})
-
+/**
+ * Server-confirmed (ADR-0036 R1): bay and mechanic availability is validated on the server, so nothing is patched
+ * before it answers. The caller shows pending on the card and the target column.
+ */
 export function useAssignBoard() {
   const queryClient = useQueryClient()
   return useMutation({
-    ...assignBoardOptimistic,
+    mutationKey: [...boardKeys.active(), 'assign'],
     mutationFn: async (payload: AssignBoardPayload) => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/board/assign`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { message?: string }
-        throw new Error(body.message ?? 'Failed to assign board')
-      }
+      if (!response.ok) throw await parseErrorResponse(response, 'Failed to assign board')
       return response.json()
     },
-    // Board + order detail caches are refetched by the optimistic helper's onSettled.
-    onSuccess: (_response, _payload) => {
-      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+    onSettled: (_response, _error, { orderId }) => {
+      void queryClient.invalidateQueries({ queryKey: boardKeys.active() })
+      void queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      // A pending optimistic task-status patch on this detail settles it itself; a refetch now would overwrite that patch.
+      const taskPatchPending = queryClient.isMutating({
+        mutationKey: updateWorkshopTaskOptimistic.mutationKey,
+        predicate: (mutation) => (mutation.state.variables as UpdateWorkshopTaskVariables).orderId === orderId,
+      })
+      if (taskPatchPending === 0) {
+        void queryClient.invalidateQueries({ queryKey: workshopKeys.detail(orderId) })
+      }
     },
   })
 }

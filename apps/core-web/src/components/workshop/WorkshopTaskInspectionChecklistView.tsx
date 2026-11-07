@@ -28,7 +28,8 @@ export type InspectionChecklistViewLabels = {
 type Props = {
   checklist: InspectionChecklistData;
   readOnly?: boolean;
-  saving: boolean;
+  /** Locks the controls while a server-confirmed save runs; optimistic callers leave it unset. */
+  saving?: boolean;
   /** When true, pass/fail and note controls meet the 44px tablet touch target. */
   touchFriendly?: boolean;
   labels?: InspectionChecklistViewLabels;
@@ -111,7 +112,7 @@ function InspectionItemRow({
 export function WorkshopTaskInspectionChecklistView({
   checklist,
   readOnly = false,
-  saving,
+  saving = false,
   touchFriendly = false,
   labels,
   onSave,

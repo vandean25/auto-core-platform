@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { getPermissionAwareErrorMessage } from "@/lib/error-utils";
 import {
   useMechanicTaskChecklist,
   useUpdateMechanicTaskChecklist,
@@ -26,8 +27,8 @@ export function MechanicTaskInspectionChecklist({
         taskId,
         items: [{ id: itemId, ...values }],
       });
-    } catch {
-      toast.error(t("mechanic.taskDetail.checklist.saveError"));
+    } catch (error: unknown) {
+      toast.error(getPermissionAwareErrorMessage(error, t("mechanic.taskDetail.checklist.saveError")));
     }
   }
 
@@ -47,7 +48,6 @@ export function MechanicTaskInspectionChecklist({
       checklist={checklistQuery.data}
       readOnly={readOnly}
       touchFriendly
-      saving={updateChecklist.isPending}
       onSave={saveItem}
     />
   );

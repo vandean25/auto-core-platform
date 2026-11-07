@@ -7,6 +7,7 @@ import {
   boardKeys,
   useBoardActive,
   useUpdateWorkshopTask,
+  useUpdateWorkshopTaskChecklist,
   workshopKeys,
 } from '@/api/workshop'
 import type { BoardActiveResponse } from '@/api/workshop'
@@ -16,13 +17,21 @@ import {
   mechanicQueueKeys,
   useMechanicQueue,
   useCompleteTask,
+  useSaveDiagnostics,
   useStartTask,
   useSwitchTask,
+  useUpdateMechanicTaskChecklist,
   type MechanicQueueResponse,
+  type MechanicTaskDetail,
 } from '@/api/mechanic'
+import { getErrorMessage } from '@/lib/error-utils'
+import { registerGermanUiForTests } from '@/test/german-ui'
+import errorsDe from '../../../../locales/de/errors.json' with { type: 'json' }
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { ENTITY_UPDATED_EVENT } from '@/features/realtime/types'
 import { useWorkshopBoardAssignment } from '@/pages/workshop/useWorkshopBoardAssignment'
+
+registerGermanUiForTests()
 
 const mocks = vi.hoisted(() => ({
   socket: { on: vi.fn(), off: vi.fn(), disconnect: vi.fn(), connect: vi.fn(), active: false },
@@ -444,65 +453,10 @@ describe('concurrent board assign and workshop task status', () => {
     )
   })
 
-  it('(f) does not refetch the board over a pending task-status mutation', async () => {
+  function renderAssignAndTask(initialOrder: WorkshopOrder) {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
-    queryClient.setQueryData(workshopKeys.detail('order-1'), createOrder('IN_PROGRESS'))
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>
-        <RealtimeDashboardSyncProvider>{children}</RealtimeDashboardSyncProvider>
-      </QueryClientProvider>
-    )
-    const view = renderHook(
-      () => ({
-        board: useBoardActive(),
-        assign: useWorkshopBoardAssignment('mechanic'),
-        updateTask: useUpdateWorkshopTask(),
-      }),
-      { wrapper },
-    )
-    await waitFor(() => expect(mocks.socket.on).toHaveBeenCalled())
-    await respond(BOARD_URL, 'GET', 200, {
-      data: [{ id: 'order-1', mechanicId: null, bayId: null }],
-    } as BoardActiveResponse)
-    await waitFor(() => expect(view.result.current.board.data).toBeDefined())
-
-    act(() => {
-      void view.result.current.updateTask.mutateAsync({
-        orderId: 'order-1',
-        taskId: 'task-1',
-        status: 'DONE',
-      })
-    })
-    await settle()
-
-    act(() => view.result.current.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }))
-    await settle()
-
-    expect(pending(BOARD_URL)).toHaveLength(1)
-    expect(
-      queryClient.getQueryData<BoardActiveResponse>(boardKeys.active())?.data[0]?.mechanicId,
-    ).toBe('mech-2')
-    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status).toBe(
-      'DONE',
-    )
-
-    await respond(ASSIGN_URL, 'PATCH', 200, {})
-    await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
-    await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('DONE'))
-  })
-
-  it('notes save does not refetch order detail while assign still owns the cache', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    })
-    const initialOrder = {
-      ...createOrder('IN_PROGRESS'),
-      mechanicId: 'mech-1',
-      mechanic_id: 'mech-1',
-    }
-    queryClient.setQueryData(workshopKeys.detail('order-1'), initialOrder)
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>
         <RealtimeDashboardSyncProvider>{children}</RealtimeDashboardSyncProvider>
@@ -521,82 +475,76 @@ describe('concurrent board assign and workshop task status', () => {
           staleTime: Infinity,
         }),
         board: useBoardActive(),
-        assign: useWorkshopBoardAssignment('mechanic'),
+        boardAssignment: useWorkshopBoardAssignment('mechanic'),
         updateTask: useUpdateWorkshopTask(),
       }),
       { wrapper },
     )
+    return { queryClient, view }
+  }
+
+  // Planner/bay moves are server-confirmed: the board cache is never patched, and the move is reported as pending.
+  it('(f) leaves the board as it was while the move is pending and does not refetch the detail over a pending task status', async () => {
+    const { queryClient, view } = renderAssignAndTask(createOrder('IN_PROGRESS'))
     await waitFor(() => expect(mocks.socket.on).toHaveBeenCalled())
     await respond(BOARD_URL, 'GET', 200, {
-      data: [{ id: 'order-1', mechanicId: 'mech-1', bayId: null }],
+      data: [{ id: 'order-1', mechanicId: null, bayId: null }],
     } as BoardActiveResponse)
     await waitFor(() => expect(view.result.current.board.data).toBeDefined())
 
-    act(() =>
-      view.result.current.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
-    )
-    await settle()
-
     act(() => {
-      void view.result.current.updateTask.mutateAsync({
-        orderId: 'order-1',
-        taskId: 'task-1',
-        mechanicNotes: 'Pads look fine',
-      })
+      void view.result.current.updateTask.mutateAsync({ orderId: 'order-1', taskId: 'task-1', status: 'DONE' })
     })
     await settle()
-
-    const notesPatch = unanswered(TASK_PATCH_URL, 'PATCH').find(
-      (request) => (request.body as { mechanicNotes?: string }).mechanicNotes !== undefined,
+    act(() =>
+      view.result.current.boardAssignment.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
     )
-    expect(notesPatch).toBeDefined()
-    notesPatch!.respond(200, {
-      ...createOrder('IN_PROGRESS'),
-      mechanicId: 'mech-1',
-      mechanic_id: 'mech-1',
-      tasks: [
-        {
-          ...createOrder('IN_PROGRESS').tasks![0],
-          mechanicNotes: 'Pads look fine',
-        },
-      ],
-    })
     await settle()
 
-    expect(unanswered(ORDER_DETAIL_URL, 'GET')).toHaveLength(0)
-    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe(
-      'mech-2',
-    )
-    expect(
-      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.mechanicNotes,
-    ).toBe('Pads look fine')
+    expect(queryClient.getQueryData<BoardActiveResponse>(boardKeys.active())?.data[0]?.mechanicId).toBeNull()
+    expect(view.result.current.boardAssignment.pendingMoves.get('order-1')).toBe('mech-2')
+    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status).toBe('DONE')
 
+    const detailGets = pending(ORDER_DETAIL_URL, 'GET').length
     await respond(ASSIGN_URL, 'PATCH', 200, {})
+    await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
+    expect(view.result.current.boardAssignment.pendingMoves.size).toBe(0)
+    expect(pending(ORDER_DETAIL_URL, 'GET')).toHaveLength(detailGets)
+    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status).toBe('DONE')
+
+    await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('DONE'))
   })
 
-  it('failed assign reverts mechanic on order detail but keeps optimistic task status', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  // The guard is per order: a task patch on another order must not hold back this order's detail refetch.
+  it('refetches the assigned order detail while a task-status patch of another order is pending', async () => {
+    const { view } = renderAssignAndTask(createOrder('IN_PROGRESS'))
+    await waitFor(() => expect(mocks.socket.on).toHaveBeenCalled())
+    await respond(BOARD_URL, 'GET', 200, {
+      data: [{ id: 'order-1', mechanicId: null, bayId: null }],
+    } as BoardActiveResponse)
+    await waitFor(() => expect(view.result.current.board.data).toBeDefined())
+
+    act(() => {
+      void view.result.current.updateTask.mutateAsync({ orderId: 'order-2', taskId: 'task-9', status: 'DONE' })
     })
-    const orderWithMechanic = {
+    act(() =>
+      view.result.current.boardAssignment.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
+    )
+    await settle()
+    const detailGets = pending(ORDER_DETAIL_URL, 'GET').length
+
+    await respond(ASSIGN_URL, 'PATCH', 200, {})
+
+    await waitFor(() => expect(pending(ORDER_DETAIL_URL, 'GET').length).toBeGreaterThan(detailGets))
+  })
+
+  // Scenario 3 for the move: nothing was patched, so a 403 only clears pending and shows the permission message.
+  it('a 403 on the move keeps the order detail and the optimistic task status and shows the permission message', async () => {
+    const { queryClient, view } = renderAssignAndTask({
       ...createOrder('DONE'),
       mechanicId: 'mech-1',
       mechanic_id: 'mech-1',
-    }
-    queryClient.setQueryData(workshopKeys.detail('order-1'), orderWithMechanic)
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>
-        <RealtimeDashboardSyncProvider>{children}</RealtimeDashboardSyncProvider>
-      </QueryClientProvider>
-    )
-    const view = renderHook(
-      () => ({
-        board: useBoardActive(),
-        assign: useWorkshopBoardAssignment('mechanic'),
-        updateTask: useUpdateWorkshopTask(),
-      }),
-      { wrapper },
-    )
+    })
     await waitFor(() => expect(mocks.socket.on).toHaveBeenCalled())
     await respond(BOARD_URL, 'GET', 200, {
       data: [{ id: 'order-1', mechanicId: 'mech-1', bayId: null }],
@@ -604,34 +552,21 @@ describe('concurrent board assign and workshop task status', () => {
     await waitFor(() => expect(view.result.current.board.data).toBeDefined())
 
     act(() =>
-      view.result.current.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
+      view.result.current.boardAssignment.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
     )
     await settle()
-    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe(
-      'mech-2',
-    )
-
     act(() => {
-      void view.result.current.updateTask.mutateAsync({
-        orderId: 'order-1',
-        taskId: 'task-1',
-        status: 'DONE',
-      })
+      void view.result.current.updateTask.mutateAsync({ orderId: 'order-1', taskId: 'task-1', status: 'DONE' })
     })
     await settle()
-    expect(
-      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status,
-    ).toBe('DONE')
+    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe('mech-1')
 
     await respond(ASSIGN_URL, 'PATCH', 403, { message: 'forbidden' })
-    await waitFor(() =>
-      expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe(
-        'mech-1',
-      ),
-    )
-    expect(
-      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status,
-    ).toBe('DONE')
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(errorsDe.codes.HTTP_403))
+
+    expect(view.result.current.boardAssignment.pendingMoves.size).toBe(0)
+    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe('mech-1')
+    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status).toBe('DONE')
   })
 })
 
@@ -683,5 +618,221 @@ describe('workshop task notes merge', () => {
     expect(
       queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.mechanicNotes,
     ).toBe('Check pads again')
+  })
+})
+
+
+// AUT-882: field edits on work-order and mechanic-queue caches are optimistic (ADR-0036 R1).
+const CHECKLIST_PATCH_URL = '/api/workshop/orders/order-1/tasks/task-1/checklist'
+const MECHANIC_CHECKLIST_URL = '/api/mechanic/tasks/task-1/checklist'
+const DIAGNOSTICS_URL = '/api/mechanic/tasks/task-1/diagnostics'
+
+const checklistSeed = {
+  id: 'inspection-1',
+  title: 'Pickerl',
+  items: [{ id: 'item-1', label_snapshot: 'Beleuchtung', passed: null, notes: null }],
+}
+const taskDetailSeed = {
+  taskId: 'task-1',
+  taskStatus: 'IN_PROGRESS',
+  mechanicNotes: 'before',
+} as MechanicTaskDetail
+
+function useWorkshopChecklistEdit() {
+  const { mutateAsync } = useUpdateWorkshopTaskChecklist()
+  return () =>
+    mutateAsync({ orderId: 'order-1', taskId: 'task-1', items: [{ id: 'item-1', passed: true }] })
+}
+
+function useMechanicChecklistEdit() {
+  const { mutateAsync } = useUpdateMechanicTaskChecklist()
+  return () => mutateAsync({ taskId: 'task-1', items: [{ id: 'item-1', passed: true }] })
+}
+
+function useDiagnosticsEdit() {
+  const { mutateAsync } = useSaveDiagnostics()
+  return () => mutateAsync({ taskId: 'task-1', payload: { mechanicNotes: 'after' } })
+}
+
+type FieldEdit = {
+  name: string
+  url: string
+  queryKey: readonly unknown[]
+  seed: unknown
+  useEdit: () => () => Promise<unknown>
+  read: (cache: unknown) => unknown
+  before: unknown
+  after: unknown
+}
+
+const fieldEdits: FieldEdit[] = [
+  {
+    name: 'workshop checklist item',
+    url: CHECKLIST_PATCH_URL,
+    queryKey: workshopKeys.taskChecklist('order-1', 'task-1'),
+    seed: checklistSeed,
+    useEdit: useWorkshopChecklistEdit,
+    read: (cache) => (cache as typeof checklistSeed).items[0]?.passed,
+    before: null,
+    after: true,
+  },
+  {
+    name: 'mechanic checklist item',
+    url: MECHANIC_CHECKLIST_URL,
+    queryKey: mechanicQueueKeys.taskChecklist('task-1'),
+    seed: checklistSeed,
+    useEdit: useMechanicChecklistEdit,
+    read: (cache) => (cache as typeof checklistSeed).items[0]?.passed,
+    before: null,
+    after: true,
+  },
+  {
+    name: 'mechanic diagnostics notes',
+    url: DIAGNOSTICS_URL,
+    queryKey: mechanicQueueKeys.taskDetail('task-1'),
+    seed: taskDetailSeed,
+    useEdit: useDiagnosticsEdit,
+    read: (cache) => (cache as MechanicTaskDetail).mechanicNotes,
+    before: 'before',
+    after: 'after',
+  },
+]
+
+describe('AUT-882 optimistic field edits', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    requests = []
+    answered = new Set()
+    mocks.token = 'token'
+    vi.mocked(fetchWithAuth).mockImplementation(
+      (input, init) =>
+        new Promise<Response>((resolve) => {
+          requests.push({
+            url: String(input),
+            method: init?.method ?? 'GET',
+            body: init?.body ? JSON.parse(String(init.body)) : undefined,
+            respond: (status, body = {}) =>
+              resolve({ ok: status < 400, status, json: async () => body } as Response),
+          })
+        }),
+    )
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function setupEdit(edit: FieldEdit) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(edit.queryKey, edit.seed)
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const view = renderHook(edit.useEdit, { wrapper })
+    const read = () => edit.read(queryClient.getQueryData(edit.queryKey))
+    return { view, read }
+  }
+
+  // Scenario 1: the cache holds the new value while the PATCH is still unanswered.
+  it.each(fieldEdits)('shows the edited $name before the server responds', async (edit) => {
+    const { view, read } = setupEdit(edit)
+
+    act(() => {
+      void view.result.current()
+    })
+    await settle()
+
+    expect(unanswered(edit.url, 'PATCH')).toHaveLength(1)
+    expect(read()).toBe(edit.after)
+  })
+
+  // Scenario 2: a definite rejection puts the previous value back and the caller can raise the error marker.
+  it.each(fieldEdits)('restores the previous $name when the server rejects the edit', async (edit) => {
+    const { view, read } = setupEdit(edit)
+
+    let rejection: unknown
+    act(() => {
+      void view.result.current().catch((error: unknown) => {
+        rejection = error
+      })
+    })
+    await settle()
+    expect(read()).toBe(edit.after)
+
+    await respond(edit.url, 'PATCH', 422, { message: 'rejected' })
+
+    await waitFor(() => expect(read()).toBe(edit.before))
+    expect(rejection).toBeInstanceOf(Error)
+  })
+
+  // Scenario 3: the same rollback on 403, with the error carrying the status the permission message is built from.
+  it.each(fieldEdits)('rolls back the $name on 403 and maps it to the permission message', async (edit) => {
+    const { view, read } = setupEdit(edit)
+
+    let rejection: unknown
+    act(() => {
+      void view.result.current().catch((error: unknown) => {
+        rejection = error
+      })
+    })
+    await settle()
+    expect(read()).toBe(edit.after)
+    await respond(edit.url, 'PATCH', 403, { message: 'Forbidden resource' })
+
+    await waitFor(() => expect(read()).toBe(edit.before))
+    expect(getErrorMessage(rejection, 'fallback')).toBe(errorsDe.codes.HTTP_403)
+  })
+
+  // ADR-0036 acceptance: a rolled-back lifecycle change must not take a newer notes edit of the same record with it.
+  it('keeps pending diagnostics notes when a task lifecycle change on the same detail fails', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const detailKey = mechanicQueueKeys.taskDetail('task-1')
+    queryClient.setQueryData(detailKey, { ...taskDetailSeed, taskStatus: 'NOT_STARTED' })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const view = renderHook(() => ({ start: useStartTask(), save: useDiagnosticsEdit() }), { wrapper })
+
+    act(() => {
+      void view.result.current.start.mutateAsync({ taskId: 'task-1' }).catch(() => undefined)
+      void view.result.current.save()
+    })
+    await settle()
+    await respond(START_URL, 'POST', 403, { message: 'rejected' })
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData<MechanicTaskDetail>(detailKey)?.taskStatus).toBe('NOT_STARTED'),
+    )
+    expect(queryClient.getQueryData<MechanicTaskDetail>(detailKey)?.mechanicNotes).toBe('after')
+  })
+
+  // Scenario 1 for the mechanic queue: list row and detail change together before the server answers.
+  it('moves the queue row and the task detail together before the start request is answered', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(mechanicQueueKeys.queue(), createQueue('NOT_STARTED'))
+    queryClient.setQueryData(mechanicQueueKeys.taskDetail('task-1'), { ...taskDetailSeed, taskStatus: 'NOT_STARTED' })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const view = renderHook(() => useStartTask(), { wrapper })
+
+    act(() => {
+      void view.result.current.mutateAsync({ taskId: 'task-1' })
+    })
+    await settle()
+
+    expect(unanswered(START_URL, 'POST')).toHaveLength(1)
+    expect(queryClient.getQueryData<MechanicQueueResponse>(mechanicQueueKeys.queue())?.data[0]?.taskStatus).toBe(
+      'IN_PROGRESS',
+    )
+    expect(queryClient.getQueryData<MechanicTaskDetail>(mechanicQueueKeys.taskDetail('task-1'))?.taskStatus).toBe(
+      'IN_PROGRESS',
+    )
   })
 })

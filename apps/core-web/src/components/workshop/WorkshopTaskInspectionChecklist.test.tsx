@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import * as workshopApi from '@/api/workshop'
 import { deWorkshop } from '@/test/de-workshop'
+import errorsDe from '../../../../../locales/de/errors.json' with { type: 'json' }
 import { WorkshopTaskInspectionChecklist } from './WorkshopTaskInspectionChecklist'
 
 vi.mock('@/api/workshop')
@@ -72,5 +73,29 @@ describe('WorkshopTaskInspectionChecklist', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
     expect(toast.error).toHaveBeenCalledWith(deWorkshop.inspection.checklist.saveError)
     expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('must be shorter'))
+  })
+
+  // Scenario 3: the rolled-back edit tells the user why, not just that it failed.
+  it('shows the permission message when the server answers 403', async () => {
+    mockUpdate({
+      mutateAsync: vi.fn().mockRejectedValue(Object.assign(new Error('Forbidden resource'), { status: 403 })),
+    })
+
+    render(<WorkshopTaskInspectionChecklist orderId='order-1' taskId='task-1' />)
+    fireEvent.click(screen.getByRole('button', { name: 'OK: Beleuchtung' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(errorsDe.codes.HTTP_403))
+  })
+
+  // The edit is already visible, so a save in flight must not lock the next tap.
+  it('keeps the pass and defect buttons enabled while a save is in flight', () => {
+    vi.mocked(workshopApi.useUpdateWorkshopTaskChecklist).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: true,
+    } as never)
+
+    render(<WorkshopTaskInspectionChecklist orderId='order-1' taskId='task-1' />)
+
+    expect(screen.getByRole('button', { name: 'OK: Beleuchtung' })).toBeEnabled()
   })
 })

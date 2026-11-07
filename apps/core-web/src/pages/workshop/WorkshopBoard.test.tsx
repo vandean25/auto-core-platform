@@ -6,6 +6,8 @@ import WorkshopBoard from './WorkshopBoard'
 import * as workshopApi from '@/api/workshop'
 import { deWorkshop } from '@/test/de-workshop'
 import { i18n } from '@/lib/i18n'
+import { toast } from 'sonner'
+import errorsDe from '../../../../../locales/de/errors.json' with { type: 'json' }
 
 const orderCard = deWorkshop.orderCard
 const boardA11y = deWorkshop.board.a11y
@@ -19,6 +21,7 @@ const mechanicColumn = (name: string) =>
 const orderNo = 'WO-2026-0001'
 
 vi.mock('@/api/workshop')
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 type DragEventLike = { active: { id: string }; over: { id: string } | null }
 type AnnouncementArgs = { active: { id: string }; over?: { id: string } | null }
@@ -295,6 +298,74 @@ describe('WorkshopBoard', () => {
     })
 
     expect(assignMutate).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: 'mech-2' })
+  })
+
+  // Scenario 4: a bay or mechanic move is server-confirmed, so nothing moves until the server answers.
+  describe('server-confirmed move', () => {
+    function dropOnMechanic() {
+      let settleMove: (value: unknown) => void = () => undefined
+      let failMove: (error: unknown) => void = () => undefined
+      assignMutate.mockReturnValue(
+        new Promise((resolve, reject) => {
+          settleMove = resolve
+          failMove = reject
+        }),
+      )
+      renderBoard()
+      act(() => {
+        capturedOnDragEnd?.({ active: { id: 'order-1' }, over: { id: 'mech-2' } })
+      })
+      return { settleMove, failMove }
+    }
+
+    it('keeps the card in its column and shows pending on the card and the target column', () => {
+      dropOnMechanic()
+
+      const card = screen.getByTestId('workshop-order-card-order-1')
+      expect(within(screen.getByTestId('board-column-unassigned')).getByTestId('workshop-order-card-order-1')).toBe(card)
+      expect(card).toHaveAttribute('aria-busy', 'true')
+      expect(screen.getByTestId('board-column-mech-2')).toHaveAttribute('aria-busy', 'true')
+      const assign = within(card).getByRole('button', {
+        name: orderCard.assignAria.replace('{{orderNumber}}', orderNo),
+      })
+      expect(assign).toBeDisabled()
+      expect(assign).toHaveTextContent(orderCard.assign)
+    })
+
+    it('clears the pending state once the server confirmed the move', async () => {
+      const { settleMove } = dropOnMechanic()
+
+      await act(async () => {
+        settleMove({})
+      })
+
+      expect(screen.getByTestId('workshop-order-card-order-1')).not.toHaveAttribute('aria-busy', 'true')
+      expect(screen.getByTestId('board-column-mech-2')).not.toHaveAttribute('aria-busy', 'true')
+    })
+
+    it('sends a second drop of the same pending card only once', () => {
+      dropOnMechanic()
+
+      act(() => {
+        capturedOnDragEnd?.({ active: { id: 'order-1' }, over: { id: 'mech-1' } })
+      })
+
+      expect(assignMutate).toHaveBeenCalledTimes(1)
+    })
+
+    it.each([
+      ['a failed move', new Error('Network down'), deWorkshop.board.assignError],
+      ['a 403', Object.assign(new Error('Forbidden resource'), { status: 403 }), errorsDe.codes.HTTP_403],
+    ])('clears pending and reports %s', async (_name, error, message) => {
+      const { failMove } = dropOnMechanic()
+
+      await act(async () => {
+        failMove(error)
+      })
+
+      expect(screen.getByTestId('workshop-order-card-order-1')).not.toHaveAttribute('aria-busy', 'true')
+      expect(toast.error).toHaveBeenCalledWith(message)
+    })
   })
 
   it('announces drag events with the order number and column label instead of ids', () => {
