@@ -635,6 +635,11 @@
     "cancel": "Cancel",
     "deleteTask": "Delete task",
     "deleting": "Deleting...",
+    "fieldSaveFailed": "{{record}}: {{field}} not saved, previous value restored.",
+    "fieldLabels": {
+      "notes": "Internal notes",
+      "reportedIssue": "Reported issue"
+    },
     "undoNotes": {
       "action": "Undo"
     },
@@ -940,6 +945,7 @@
     "missingItemNo": "N/A"
   },
   "taskLineItems": {
+    "saving": "Saving line items…",
     "toast": {
       "conflictStale": "This order was updated by another user. Data was refreshed — please review and try again.",
       "invalidLineItems": "Invalid line items. Check quantities and try again.",

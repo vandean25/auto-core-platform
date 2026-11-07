@@ -13,6 +13,7 @@ import {
 import {
   createWorkshopOrderRowActions,
   runAssignWorkshopOrderMechanic,
+  runGenerateWorkshopJobCardPdf,
   runUpdateWorkshopOrderTaskStatus,
   type WorkshopOrderListRow,
   type WorkshopOrderRowActionContext,
@@ -106,6 +107,13 @@ describe('work order row actions', () => {
         .not.toContain('workOrder.recordTyreMeasurement')
     },
   )
+
+  // Regression: Cmd+K and the row menu could start a second job card PDF while the first was still generating.
+  it('does not start a second job card PDF while one is generating', async () => {
+    const mutateAsync = vi.fn()
+    await runGenerateWorkshopJobCardPdf(row, { generatePdf: { mutateAsync, isPending: true } as never, t })
+    expect(mutateAsync).not.toHaveBeenCalled()
+  })
 
   it('navigates to the order detail when open runs', () => {
     const navigate = vi.fn()

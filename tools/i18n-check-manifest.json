@@ -45,7 +45,8 @@
     "workshop:command.clarificationPrompts.",
     "vehicleStock:stockDetail.fieldLabels.",
     "customers:detail.fieldLabels.",
-    "vehicles:detail.fieldLabels."
+    "vehicles:detail.fieldLabels.",
+    "workshop:orderDetail.fieldLabels."
   ],
   "usedKeys": [
     "settings:accountingExport.header.selected",

@@ -12,7 +12,10 @@ type Options<TField extends string, TValue> = {
   /** True when the cache shows the new value before the server answers; the editor then closes at once. */
   isOptimistic: (field: TField, value: TValue) => boolean
   successMessage: string
-  failureMessage: string
+  /** Replaces the success toast, e.g. with an Undo toast built from the confirmed server result. */
+  onSaved?: (result: unknown, field: TField, value: TValue) => void
+  /** Toast fallback of a failed save; a function when the text depends on the field. */
+  failureMessage: string | ((field: TField) => string)
   /** Toast text of a failed save; by default only a 403 gets the permission copy and the rest the fallback. */
   describeError?: (error: unknown, fallback: string) => string
 }
@@ -26,6 +29,7 @@ export function useOptimisticFieldSave<TField extends string, TValue = string>({
   save,
   isOptimistic,
   successMessage,
+  onSaved,
   failureMessage,
   describeError = getPermissionAwareErrorMessage,
 }: Options<TField, TValue>) {
@@ -39,11 +43,12 @@ export function useOptimisticFieldSave<TField extends string, TValue = string>({
     async (field: TField, value: TValue) => {
       clear(field)
       const request = save(field, value)
-      const reportFailure = (error: unknown) => toast.error(describeError(error, failureMessage))
+      const reportFailure = (error: unknown) => toast.error(describeError(error, typeof failureMessage === 'function' ? failureMessage(field) : failureMessage))
+      const reportSaved = (result: unknown) =>
+        onSaved ? onSaved(result, field, value) : toast.success(successMessage)
       if (!isOptimistic(field, value)) {
         try {
-          await request
-          toast.success(successMessage)
+          reportSaved(await request)
         } catch (error) {
           reportFailure(error)
           throw error
@@ -51,14 +56,14 @@ export function useOptimisticFieldSave<TField extends string, TValue = string>({
         return
       }
       void request.then(
-        () => toast.success(successMessage),
+        reportSaved,
         (error: unknown) => {
           setFailures((current) => [...current.filter((failure) => failure.field !== field), { field, value }])
           reportFailure(error)
         },
       )
     },
-    [clear, describeError, failureMessage, isOptimistic, save, successMessage],
+    [clear, describeError, failureMessage, isOptimistic, onSaved, save, successMessage],
   )
 
   const retry = useCallback(

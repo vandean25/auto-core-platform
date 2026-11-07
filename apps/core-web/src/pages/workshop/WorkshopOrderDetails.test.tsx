@@ -43,6 +43,7 @@ vi.mock("@/api/workshop", async (importOriginal) => {
     ...actual,
     useWorkshopOrder: vi.fn(),
     useUpdateWorkshopOrder: vi.fn(),
+    useUpdateWorkshopOrderNotes: vi.fn(),
     useCreateWorkshopTask: vi.fn(),
     useDeleteWorkshopTask: vi.fn(),
     useUpdateWorkshopTask: vi.fn(),
@@ -240,7 +241,7 @@ function setupDefaultMocks(orderOverride?: unknown) {
     isLoading: false,
   });
   asMock(salesApi.useInvoice).mockReturnValue({ data: null, isLoading: false });
-  asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+  asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
     createMutationMock(),
   );
   asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(
@@ -1676,6 +1677,15 @@ describe("WorkshopOrderDetails Characterization", () => {
   // =====================================================================
 
   describe("print action", () => {
+    // Regression: the header button stayed clickable while the PDF job was running, so a second click queued a duplicate.
+    it("blocks a second job card click while the PDF is being generated", () => {
+      asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(createMutationMock({ isPending: true }));
+
+      renderComponent();
+
+      expect(screen.getAllByText("Jobkarte drucken")[0]?.closest("button")).toBeDisabled();
+    });
+
     it("calls PDF generation and triggers download", async () => {
       const mockGenerate = createMutationMock({
         mutateAsync: vi.fn().mockResolvedValue({ enqueued: false }),
@@ -1831,7 +1841,7 @@ describe("WorkshopOrderDetails Characterization", () => {
     describe("inline note saves", () => {
       it("saves the internal notes and toasts success", async () => {
         const mutateAsync = vi.fn().mockResolvedValue({});
-        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+        asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
           createMutationMock({ mutateAsync }),
         );
         renderComponent();
@@ -1846,7 +1856,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       it("toasts the error message when saving the internal notes fails", async () => {
         const mutateAsync = vi.fn().mockRejectedValue(new Error("Notes rejected"));
-        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+        asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
           createMutationMock({ mutateAsync }),
         );
         renderComponent();
@@ -1862,7 +1872,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       it("falls back to the translated message when the notes error carries none", async () => {
         const mutateAsync = vi.fn().mockRejectedValue("boom");
-        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+        asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
           createMutationMock({ mutateAsync }),
         );
         renderComponent();
@@ -1876,7 +1886,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       it("saves the reported issue and toasts success", async () => {
         const mutateAsync = vi.fn().mockResolvedValue({});
-        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+        asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
           createMutationMock({ mutateAsync }),
         );
         renderComponent();
@@ -1896,7 +1906,7 @@ describe("WorkshopOrderDetails Characterization", () => {
           reportedIssue: undefined,
           reported_issue: "Legacy issue text",
         });
-        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+        asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
           createMutationMock({ mutateAsync }),
         );
         renderComponent();
@@ -1910,7 +1920,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       it("toasts when saving the reported issue fails", async () => {
         const mutateAsync = vi.fn().mockRejectedValue("boom");
-        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+        asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
           createMutationMock({ mutateAsync }),
         );
         renderComponent();
@@ -1920,6 +1930,22 @@ describe("WorkshopOrderDetails Characterization", () => {
         await waitFor(() =>
           expect(toast.error).toHaveBeenCalledWith(orderDetailToast.reportedIssueSaveFailed),
         );
+      });
+
+      // Regression: a rejected optimistic save was only a toast, so the restored text hid that the edit was lost.
+      it("keeps a marker with Retry after the reported issue save is rejected", async () => {
+        const mutateAsync = vi.fn().mockRejectedValueOnce("boom").mockResolvedValue({});
+        asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(createMutationMock({ mutateAsync }));
+        renderComponent();
+
+        editInline("Strange noise from engine", deWorkshop.taskList.reportedIssueAria, "Rattle");
+
+        const marker = await screen.findByRole("alert");
+        expect(marker).toHaveTextContent("WO-001: Gemeldetes Problem nicht gespeichert");
+        fireEvent.click(within(marker).getByRole("button", { name: "Erneut laden" }));
+
+        await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
       });
 
       it("renders the notes read-only when the order is invoiced", () => {

@@ -19,6 +19,11 @@
       "serverConfirmedReason": "Workshop order creation assigns authoritative document numbering and lifecycle state; no deduplication contract on the client."
     },
     {
+      "operationId": "workshop.order.notes.update",
+      "owningHook": "useUpdateWorkshopOrderNotes",
+      "classification": "optimistic"
+    },
+    {
       "operationId": "workshop.order.update",
       "owningHook": "useUpdateWorkshopOrder",
       "classification": "server-confirmed",

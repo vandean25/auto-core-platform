@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import * as React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -318,6 +318,19 @@ describe('WorkshopPlannerPage', () => {
       })
       return answer
     }
+
+    // Regression (375px browser run): the day grid scrolls sideways and clips the end of a block, so a pending spinner
+    // placed after the order number was off-screen; it has to lead the row, ahead of the status badge and number.
+    it('puts the pending spinner ahead of the order number on the moving booking only', () => {
+      dropOnSlot(createQueryClient())
+
+      const moving = screen.getByTestId('planner-booking-order-scheduled')
+      const spinner = within(moving).getByRole('status')
+      expect(spinner.compareDocumentPosition(within(moving).getByText('WO-2026-0100'))).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      expect(within(screen.getByTestId('planner-booking-order-intake')).queryByRole('status')).not.toBeInTheDocument()
+    })
 
     it('does not patch the planner cache and shows pending on the booking until the server answers', async () => {
       const queryClient = createQueryClient()
