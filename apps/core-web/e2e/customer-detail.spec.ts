@@ -5,6 +5,7 @@ import {
   createMockCustomerDetailResponse,
 } from './utils/mock-factories';
 import { DE_CUSTOMERS } from './helpers/de-customers';
+import { PHONE_WIDTHS } from './utils/phone-layout';
 
 /**
  * Blueprint Validation Suite — Customer Detail Page
@@ -374,4 +375,29 @@ test.describe('Blueprint: Customer Detail Page', () => {
     // Verify the UI reflects the saved value
     await expect(page.getByText('new.email@example.com')).toBeVisible();
   });
+});
+
+// AUT-883 validation: the display button is 44px, but the open editor shrank to the 36px default input height.
+test.describe('Customer contact editor on a phone (AUT-883)', () => {
+  for (const width of PHONE_WIDTHS) {
+    test(`${width}px: the open inline editor is a 44px touch target`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+      );
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, phone: '+43 123 456 789' })),
+        }),
+      );
+      await page.goto(`/customers/${CUSTOMER_ID}`);
+
+      await page.getByRole('button', { name: '+43 123 456 789' }).click();
+
+      const editor = page.getByRole('textbox', { name: DE_CUSTOMERS.detail.aria.phone });
+      expect((await editor.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    });
+  }
 });

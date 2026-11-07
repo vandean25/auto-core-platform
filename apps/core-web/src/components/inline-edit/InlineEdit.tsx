@@ -304,7 +304,7 @@ function InlineTextInput({
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         className={cn(
-          'h-9',
+          'h-9 max-sm:h-11',
           validationError && 'border-destructive focus-visible:ring-destructive',
           inputClassName,
         )}

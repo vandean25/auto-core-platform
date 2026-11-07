@@ -1,6 +1,8 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_VEHICLE_STOCK } from './helpers/de-vehicle-stock';
+import { expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout';
+import deVehicleStock from '../../../locales/de/vehicleStock.json' with { type: 'json' };
 
 const SALE_ID = 'sale-1';
 const VEHICLE_ID = 'vehicle-1';
@@ -101,4 +103,25 @@ test.describe('Vehicle sale Gewährleistung save feedback', () => {
     expect(patchCount).toBe(0);
     await expect(page.getByText(DE_VEHICLE_STOCK.sale.saveStatus.saving)).toHaveCount(0);
   });
+});
+
+// AUT-883 validation: on a phone the header pushed "Rechnung ausstellen" to x=700, outside the screen and under the status badge.
+test.describe('Vehicle sale header on a phone (AUT-883)', () => {
+  for (const width of PHONE_WIDTHS) {
+    test(`${width}px: no page scroll and every header action reachable with a 44px target`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await mockSalePage(page, createSale(), (route) => fulfillJson(route, createSale()));
+      await new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle).navigate(`/vehicle-stock/sales/${SALE_ID}`);
+      await expect(page.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice })).toBeVisible();
+
+      await expectNoPageScroll(page);
+      for (const name of [deVehicleStock.sale.backToVehicleAria, deVehicleStock.sale.downloadKaufvertrag, deVehicleStock.sale.finalizeInvoice]) {
+        const box = (await page.getByRole('button', { name }).boundingBox())!;
+        expect(box.x, `${name} starts on screen`).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width, `${name} ends on screen`).toBeLessThanOrEqual(width);
+        expect(box.height, `${name} height`).toBeGreaterThanOrEqual(44);
+        expect(box.width, `${name} width`).toBeGreaterThanOrEqual(44);
+      }
+    });
+  }
 });

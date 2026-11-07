@@ -32,6 +32,7 @@
   },
   "stockDetail": {
     "loading": "Bestandsfahrzeug wird geladen…",
+    "loadFailed": "Bestandsfahrzeug konnte nicht geladen werden.",
     "noVin": "Keine FIN",
     "backAria": "Zurück zum Fahrzeugbestand",
     "stockPrep": "Bestandsaufbereitung",
