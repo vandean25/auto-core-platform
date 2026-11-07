@@ -26,6 +26,32 @@ export type CursorListRequests = { list: URL[]; count: URL[]; failList: boolean 
 export const requestedBlocks = (requests: CursorListRequests) =>
   new Set(requests.list.map((url) => url.searchParams.get('cursor')));
 
+/** One cursor block: rows `[start, start + limit)` with an opaque `offset:<n>` cursor to the next. */
+function cursorBlock<TRow>(rows: TRow[], params: URLSearchParams, maxLimit: number) {
+  const limit = Math.min(Number(params.get('limit') ?? maxLimit), maxLimit);
+  const start = Number((params.get('cursor') ?? 'offset:0').split(':')[1]);
+  const end = start + limit;
+  return {
+    data: rows.slice(start, end),
+    meta: { nextCursor: end < rows.length ? `offset:${end}` : null, hasNextPage: end < rows.length, limit },
+  };
+}
+
+/** The classic `page`/`pageSize` envelope of an offset list. */
+function offsetPage<TRow>(rows: TRow[], params: URLSearchParams) {
+  const pageSize = Number(params.get('pageSize') ?? 10);
+  const pageNumber = Number(params.get('page') ?? 1);
+  const body = createMockListResponse(rows.slice((pageNumber - 1) * pageSize, pageNumber * pageSize), rows.length);
+  const pageCount = Math.ceil(rows.length / pageSize);
+  body.meta = { ...body.meta, page: pageNumber, limit: pageSize, pageCount, totalPages: pageCount };
+  return body;
+}
+
+function listBody<TRow>(rows: TRow[], params: URLSearchParams, { maxLimit, unpaged }: { maxLimit: number; unpaged: 'offset' | 'array' }) {
+  if (params.get('pagination') === 'cursor' || params.has('cursor')) return cursorBlock(rows, params, maxLimit);
+  return unpaged === 'array' ? rows : offsetPage(rows, params);
+}
+
 /**
  * Mocks one ADR-0035 pilot list: cursor requests (`pagination=cursor` / `cursor=`) get `{ data, meta: { nextCursor, hasNextPage } }`
  * blocks with an opaque `offset:<n>` cursor; offset requests get the classic `page`/`pageSize` response, so a page that falls
@@ -54,29 +80,7 @@ export async function mockCursorList<TRow>(
       await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
       return;
     }
-    const params = url.searchParams;
-
-    if (params.get('pagination') === 'cursor' || params.has('cursor')) {
-      const limit = Math.min(Number(params.get('limit') ?? maxLimit), maxLimit);
-      const start = Number((params.get('cursor') ?? 'offset:0').split(':')[1]);
-      const end = start + limit;
-      const body = {
-        data: rows.slice(start, end),
-        meta: { nextCursor: end < rows.length ? `offset:${end}` : null, hasNextPage: end < rows.length, limit },
-      };
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
-      return;
-    }
-
-    if (unpaged === 'array') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
-      return;
-    }
-
-    const pageSize = Number(params.get('pageSize') ?? 10);
-    const pageNumber = Number(params.get('page') ?? 1);
-    const body = createMockListResponse(rows.slice((pageNumber - 1) * pageSize, pageNumber * pageSize), rows.length);
-    body.meta = { ...body.meta, page: pageNumber, limit: pageSize, pageCount: Math.ceil(rows.length / pageSize), totalPages: Math.ceil(rows.length / pageSize) };
+    const body = listBody(rows, url.searchParams, { maxLimit, unpaged });
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 

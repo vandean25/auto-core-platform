@@ -35,6 +35,52 @@ function mergePageIdsWithoutOverlap(
   return seen;
 }
 
+/** Own tenant plus a second tenant, on one app, for the isolation checks (inventory and invoice suites). */
+async function startTenantPair(prefix: string) {
+  const app = await createE2eApp(undefined, { productionErrorFilter: true });
+  const basePrisma = app.get(PrismaService);
+  const ctx = await createE2eTenant(app, basePrisma, prefix);
+  const otherTenant = await createTestTenant(basePrisma, `${prefix}-other`);
+  return {
+    app,
+    prisma: ctx.prisma,
+    tenantId: ctx.tenantId,
+    authToken: ctx.authToken,
+    otherTenantId: otherTenant.tenantId,
+    otherAuthToken: createTestAuthToken(app.get(AuthService), otherTenant),
+  };
+}
+
+async function stopTenantPair(
+  suite: { app: INestApplication; prisma: PrismaService },
+  tenantIds: string[],
+) {
+  for (const id of tenantIds) {
+    if (id) await cleanupTestTenantGraph(suite.prisma, id);
+  }
+  await teardownTestApp(suite.app, suite.prisma);
+}
+
+/** A TECH member of `tenantId`: the role without stock or invoice access. */
+async function createTechToken(app: INestApplication, tenantId: string, label: string) {
+  const basePrisma = app.get(PrismaService);
+  const techUid = `tech-${label}-${tenantId}-${Date.now()}`;
+  const techUser = await basePrisma.user.create({
+    data: { firebaseUid: techUid, email: `${techUid}@example.com` },
+  });
+  await seedTestTenantMember(basePrisma, {
+    tenantId,
+    userId: techUser.id,
+    role: 'TECH',
+  });
+  return createTestAuthToken(app.get(AuthService), {
+    tenantId,
+    firebaseUid: techUid,
+    email: techUser.email,
+    role: 'TECH',
+  });
+}
+
 describe('List cursor foundation (AUT-888 e2e)', () => {
   describe('vehicle stock pilot', () => {
     let app: INestApplication;
@@ -394,25 +440,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       expect(res.body.code).toBe('LIST_CURSOR_STOCK_FILTER_REQUIRED');
     });
 
-    async function createTechToken() {
-      const techUid = `tech-cursor-${tenantId}-${Date.now()}`;
-      const techUser = await basePrisma.user.create({
-        data: {
-          firebaseUid: techUid,
-          email: `${techUid}@example.com`,
-        },
-      });
-      await seedTestTenantMember(basePrisma, {
-        tenantId,
-        userId: techUser.id,
-        role: 'TECH',
-      });
-      return createTestAuthToken(app.get(AuthService), {
-        tenantId,
-        firebaseUid: techUid,
-        email: techUser.email,
-        role: 'TECH',
-      });
+    function createVehicleTechToken() {
+      return createTechToken(app, tenantId, 'cursor');
     }
 
     it.each([
@@ -433,7 +462,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     ])(
       'WHEN TECH role calls %s THEN the API returns 403',
       async (_label, path, query) => {
-        const techToken = await createTechToken();
+        const techToken = await createVehicleTechToken();
         await request(app.getHttpServer())
           .get(path)
           .query(query)
@@ -785,28 +814,13 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     let siteId: string;
 
     beforeEach(async () => {
-      app = await createE2eApp(undefined, { productionErrorFilter: true });
-      const basePrisma = app.get(PrismaService);
-      const ctx = await createE2eTenant(app, basePrisma, 'list-cursor-inv');
-      tenantId = ctx.tenantId;
-      prisma = ctx.prisma;
-      authToken = ctx.authToken;
-      siteId = await resolveTestMainSiteId(basePrisma, tenantId);
-      const otherTenant = await createTestTenant(basePrisma, 'list-cursor-inv-other');
-      otherTenantId = otherTenant.tenantId;
-      otherAuthToken = createTestAuthToken(app.get(AuthService), otherTenant);
+      ({ app, prisma, tenantId, authToken, otherTenantId, otherAuthToken } =
+        await startTenantPair('list-cursor-inv'));
+      siteId = await resolveTestMainSiteId(app.get(PrismaService), tenantId);
     });
 
     afterEach(async () => {
-      if (otherTenantId) {
-        await cleanupTestTenantGraph(prisma, otherTenantId);
-        otherTenantId = '';
-      }
-      if (tenantId) {
-        await cleanupTestTenantGraph(prisma, tenantId);
-        tenantId = '';
-      }
-      await teardownTestApp(app, prisma);
+      await stopTenantPair({ app, prisma }, [otherTenantId, tenantId]);
     });
 
     function listInventoryCursor(query: Record<string, string>, token = authToken) {
@@ -1085,35 +1099,13 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       },
     );
 
-    async function createInventoryTechToken(basePrisma: PrismaService) {
-      const techUid = `tech-inv-${tenantId}-${Date.now()}`;
-      const techUser = await basePrisma.user.create({
-        data: {
-          firebaseUid: techUid,
-          email: `${techUid}@example.com`,
-        },
-      });
-      await seedTestTenantMember(basePrisma, {
-        tenantId,
-        userId: techUser.id,
-        role: 'TECH',
-      });
-      return createTestAuthToken(app.get(AuthService), {
-        tenantId,
-        firebaseUid: techUid,
-        email: techUser.email,
-        role: 'TECH',
-      });
-    }
-
     it.each([
       ['inventory cursor list', '/api/inventory', { pagination: 'cursor', limit: '10' }],
       ['inventory capped-count', '/api/inventory/capped-count', {}],
     ])(
       'WHEN TECH role calls %s THEN the API returns 403',
       async (_label, path, query) => {
-        const basePrisma = app.get(PrismaService);
-        const techToken = await createInventoryTechToken(basePrisma);
+        const techToken = await createTechToken(app, tenantId, 'inv');
         await request(app.getHttpServer())
           .get(path)
           .query(query)
@@ -1271,34 +1263,17 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     let customerId: string;
 
     beforeEach(async () => {
-      app = await createE2eApp(undefined, { productionErrorFilter: true });
-      const basePrisma = app.get(PrismaService);
-      const ctx = await createE2eTenant(app, basePrisma, 'list-cursor-inv-doc');
-      tenantId = ctx.tenantId;
-      prisma = ctx.prisma;
-      authToken = ctx.authToken;
+      ({ app, prisma, tenantId, authToken, otherTenantId } =
+        await startTenantPair('list-cursor-inv-doc'));
       customerId = (
         await prisma.customer.create({
           data: { tenant_id: tenantId, first_name: 'Erika', last_name: 'Musterfrau' },
         })
       ).id;
-      const otherTenant = await createTestTenant(
-        basePrisma,
-        'list-cursor-inv-doc-other',
-      );
-      otherTenantId = otherTenant.tenantId;
     });
 
     afterEach(async () => {
-      if (otherTenantId) {
-        await cleanupTestTenantGraph(prisma, otherTenantId);
-        otherTenantId = '';
-      }
-      if (tenantId) {
-        await cleanupTestTenantGraph(prisma, tenantId);
-        tenantId = '';
-      }
-      await teardownTestApp(app, prisma);
+      await stopTenantPair({ app, prisma }, [otherTenantId, tenantId]);
     });
 
     function invoiceRow(
@@ -1531,22 +1506,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     ])(
       'WHEN TECH role calls the %s THEN the API returns 403',
       async (_label, path, query) => {
-        const basePrisma = app.get(PrismaService);
-        const techUid = `tech-invoice-${tenantId}-${Date.now()}`;
-        const techUser = await basePrisma.user.create({
-          data: { firebaseUid: techUid, email: `${techUid}@example.com` },
-        });
-        await seedTestTenantMember(basePrisma, {
-          tenantId,
-          userId: techUser.id,
-          role: 'TECH',
-        });
-        const techToken = createTestAuthToken(app.get(AuthService), {
-          tenantId,
-          firebaseUid: techUid,
-          email: techUser.email,
-          role: 'TECH',
-        });
+        const techToken = await createTechToken(app, tenantId, 'invoice');
 
         await request(app.getHttpServer())
           .get(path)
