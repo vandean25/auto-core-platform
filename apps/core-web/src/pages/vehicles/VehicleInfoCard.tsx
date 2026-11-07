@@ -16,6 +16,7 @@ import {
   getFirstRegistrationDate,
   type VehicleDetailResponse,
 } from './vehicle-detail-model'
+import { FieldSaveFailures } from '@/features/interaction/use-optimistic-field-save'
 import { useVehicleFieldSaves, type EditableVehicleField } from './useVehicleDetailMutations'
 
 type VehicleInfoCardProps = {
@@ -35,7 +36,7 @@ type EditableFieldConfig = {
 
 export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardProps) {
   const { t } = useTranslation('vehicles')
-  const { saveRegulatoryField, saveVehicleField } = useVehicleFieldSaves(vehicle.id)
+  const { saveRegulatoryField, saveVehicleField, failures, retry, dismiss } = useVehicleFieldSaves(vehicle.id)
   const firstRegistrationDate = getFirstRegistrationDate(vehicle)
 
   const editableFields: EditableFieldConfig[] = [
@@ -94,6 +95,17 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
         <CardTitle className='text-base font-semibold'>{t('detail.vehicleInfo')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-3 text-sm'>
+        <FieldSaveFailures
+          failures={failures}
+          message={(field) =>
+            t('detail.fieldSaveFailed', {
+              record: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+              field: t(`detail.fieldLabels.${field}`),
+            })
+          }
+          onRetry={retry}
+          onDismiss={dismiss}
+        />
         <LegacyNumbers
           legacyIds={vehicle.legacy_ids}
           sourceLabel={(source) => t('detail.legacyNumberSource', { source })}

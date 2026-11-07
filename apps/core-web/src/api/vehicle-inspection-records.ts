@@ -32,6 +32,7 @@ export function useCreateVehicleInspectionRecord(vehicleId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: [...vehicleInspectionKeys.all(vehicleId), 'create'],
     mutationFn: async (data: CreateVehicleInspectionRecordDto) => {
       const response = await fetchWithAuth(
         `/api/vehicles/${vehicleId}/inspection-records`,

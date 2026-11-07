@@ -182,6 +182,19 @@
     "validity": {
       "open": "from {{from}}",
       "closed": "{{from}} – {{to}}"
+    },
+    "fieldSaveFailed": "{{record}}: {{field}} was not saved, previous value restored.",
+    "fieldLabels": {
+      "company_name": "Company name",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "email": "Email",
+      "phone": "Phone",
+      "address_street": "Street",
+      "address_zip": "ZIP",
+      "address_city": "City",
+      "address_country": "Country",
+      "vat_id": "VAT ID"
     }
   },
   "dialog": {
@@ -190,6 +203,7 @@
     "updated": "Customer updated",
     "created": "Customer created",
     "saveFailed": "Failed to save customer",
+    "createUnconfirmed": "Customer not confirmed. Check the customer list before creating it again.",
     "checkFields": "Please check the marked fields.",
     "errors": {
       "email": "Please enter a valid e-mail address or leave the field empty.",

@@ -5,7 +5,10 @@ import { useCursorList } from './cursor-list'
 import { buildDataTableUrl, resolveListSearch } from './data-table-query'
 import type { components } from './generated/openapi'
 import { vehicleKeys } from './vehicles'
+import { isVehicleStockPatchOptimisticEligible } from '@/features/interaction/customer-vehicle-update-eligibility'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
+import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
+import { patchRecordInCache, restoreRecordFields } from '@/lib/optimistic-record-patch'
 import type { GewaehrleistungStatus } from '@/lib/vehicle-sale-warranty'
 
 type VehicleStockCursorFilters = { search?: string; stock_status?: string }
@@ -28,10 +31,11 @@ export function isVehicleStockCursorMode({ stockStatus, sortField }: { stockStat
 
 export const vehicleStockKeys = {
   all: ['vehicle-stock'] as const,
-  list: (queryParams?: DataTableQueryParams) =>
-    [...vehicleStockKeys.all, 'list', queryParams] as const,
-  cursorList: (params: VehicleStockCursorParams) =>
-    [...vehicleStockKeys.all, 'cursor-list', params] as const,
+  /** Offset and infinite list pages: what a field edit patches (a stock status change is never optimistic). */
+  lists: () => [...vehicleStockKeys.all, 'list'] as const,
+  list: (queryParams?: DataTableQueryParams) => [...vehicleStockKeys.lists(), queryParams] as const,
+  cursorLists: () => [...vehicleStockKeys.all, 'cursor-list'] as const,
+  cursorList: (params: VehicleStockCursorParams) => [...vehicleStockKeys.cursorLists(), params] as const,
   cappedCount: (filters: VehicleStockCursorFilters) =>
     [...vehicleStockKeys.all, 'capped-count', filters] as const,
   detail: (id: string) => [...vehicleStockKeys.all, 'detail', id] as const,
@@ -368,22 +372,46 @@ export function useVehicleStockDetail(vehicleId: string) {
   })
 }
 
+type PatchVehicleStockVariables = { vehicleId: string; patch: PatchVehicleStockInput }
+
+// Descriptive fields only (see the predicate); detail and every cached list page (offset or infinite) are patched.
+const patchVehicleStockOptimistic = optimisticMutationOptions<unknown, PatchVehicleStockVariables>({
+  queryKey: ({ vehicleId }) => vehicleStockKeys.detail(vehicleId),
+  mutationKey: [...vehicleStockKeys.all, 'patch'],
+  entityId: ({ vehicleId }) => vehicleId,
+  shouldOptimistic: ({ patch }) => isVehicleStockPatchOptimisticEligible(patch),
+  apply: (cache, { vehicleId, patch }) => patchRecordInCache(cache, vehicleId, patch),
+  revert: (cache, { vehicleId, patch }, snapshot) => restoreRecordFields(cache, vehicleId, Object.keys(patch), snapshot),
+  prefixCaches: [vehicleStockKeys.lists, vehicleStockKeys.cursorLists].map((queryKey) => ({
+    queryKey,
+    apply: (cache: unknown, { vehicleId, patch }: PatchVehicleStockVariables) =>
+      patchRecordInCache(cache, vehicleId, patch),
+    revert: (cache: unknown, { vehicleId, patch }: PatchVehicleStockVariables, snapshot: unknown) =>
+      restoreRecordFields(cache, vehicleId, Object.keys(patch), snapshot),
+  })),
+})
+
 export function usePatchVehicleStock(vehicleId: string) {
   const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: PatchVehicleStockInput) => {
+  const { mutateAsync, ...mutation } = useMutation({
+    ...patchVehicleStockOptimistic,
+    mutationFn: async ({ patch }: PatchVehicleStockVariables) => {
       const response = await fetchWithAuth(`/api/vehicle-stock/${vehicleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(patch),
       })
       if (!response.ok) await parseError(response, 'Failed to update vehicle stock')
       return response.json()
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
+    // Location and reservation (and the other server-confirmed fields) refetch every stock projection here.
+    onSuccess: (_data, { patch }) => {
+      if (!isVehicleStockPatchOptimisticEligible(patch)) {
+        void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
+      }
     },
   })
+  return { ...mutation, mutateAsync: (patch: PatchVehicleStockInput) => mutateAsync({ vehicleId, patch }) }
 }
 
 export function vehiclePurchaseDetailQueryOptions(id: string) {
@@ -409,6 +437,7 @@ export function useVehiclePurchase(id: string) {
 export function useCreateVehiclePurchase() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'purchase', 'create'],
     mutationFn: async (data: CreateVehiclePurchaseInput) => {
       const response = await fetchWithAuth('/api/vehicle-purchases', {
         method: 'POST',
@@ -427,6 +456,7 @@ export function useCreateVehiclePurchase() {
 export function useUpdateVehiclePurchase(id: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'purchase', 'update'],
     mutationFn: async (data: PatchVehiclePurchaseInput) => {
       const response = await fetchWithAuth(`/api/vehicle-purchases/${id}`, {
         method: 'PATCH',
@@ -446,6 +476,7 @@ export function useUpdateVehiclePurchase(id: string) {
 export function useReceiveVehiclePurchase() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'purchase', 'receive'],
     mutationFn: async (id: string) => {
       const response = await fetchWithAuth(`/api/vehicle-purchases/${id}/receive`, {
         method: 'POST',
@@ -463,6 +494,7 @@ export function useReceiveVehiclePurchase() {
 export function useDeleteVehiclePurchase() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'purchase', 'delete'],
     mutationFn: async (id: string) => {
       const response = await fetchWithAuth(`/api/vehicle-purchases/${id}`, {
         method: 'DELETE',
@@ -491,6 +523,7 @@ export function useVehicleSale(id: string) {
 export function useCreateVehicleSale() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'sale', 'create'],
     mutationFn: async (data: CreateVehicleSaleDto) => {
       const response = await fetchWithAuth('/api/vehicle-sales', {
         method: 'POST',
@@ -511,6 +544,7 @@ export function useCreateVehicleSale() {
 export function useUpdateVehicleSale() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'sale', 'update'],
     mutationFn: async ({ id, data }: { id: string; data: PatchVehicleSaleDto }) => {
       const response = await fetchWithAuth(`/api/vehicle-sales/${id}`, {
         method: 'PATCH',
@@ -532,6 +566,7 @@ export function useUpdateVehicleSale() {
 export function useFinalizeVehicleSale() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'sale', 'finalize'],
     mutationFn: async (id: string) => {
       const response = await fetchWithAuth(`/api/vehicle-sales/${id}/finalize`, {
         method: 'POST',
@@ -550,6 +585,7 @@ export function useFinalizeVehicleSale() {
 export function useUpsertVehicleSaleTradeIn() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'sale', 'trade-in', 'upsert'],
     mutationFn: async ({ id, data }: { id: string; data: VehicleSaleTradeInInput }) => {
       const response = await fetchWithAuth(`/api/vehicle-sales/${id}/trade-in`, {
         method: 'PUT',
@@ -570,6 +606,7 @@ export function useUpsertVehicleSaleTradeIn() {
 export function useRemoveVehicleSaleTradeIn() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleStockKeys.all, 'sale', 'trade-in', 'remove'],
     mutationFn: async (id: string) => {
       const response = await fetchWithAuth(`/api/vehicle-sales/${id}/trade-in`, {
         method: 'DELETE',

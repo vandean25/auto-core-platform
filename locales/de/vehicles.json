@@ -103,7 +103,16 @@
       "cancel": "Abbrechen",
       "unassign": "Zuweisung aufheben"
     },
-    "idLabel": "ID: {{id}}"
+    "idLabel": "ID: {{id}}",
+    "fieldSaveFailed": "{{record}}: {{field}} nicht gespeichert, vorheriger Wert wiederhergestellt.",
+    "fieldLabels": {
+      "make": "Marke",
+      "model": "Modell",
+      "year": "Baujahr",
+      "engine_code": "Motorcode",
+      "vin": "FIN",
+      "plate": "Kennzeichen"
+    }
   },
   "pickerlDue": {
     "title": "Pickerl fällig",
@@ -204,7 +213,8 @@
     "saveChanges": "Änderungen speichern",
     "created": "Fahrzeug angelegt",
     "updated": "Fahrzeug aktualisiert",
-    "saveFailed": "Fahrzeug konnte nicht gespeichert werden"
+    "saveFailed": "Fahrzeug konnte nicht gespeichert werden",
+    "createUnconfirmed": "Fahrzeug nicht bestätigt. Bitte prüfen Sie die Fahrzeugliste, bevor Sie es erneut anlegen."
   },
   "pickerlSection": {
     "warnings": {

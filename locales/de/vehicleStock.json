@@ -48,7 +48,14 @@
     "ledgerType": "Typ",
     "ledgerAmount": "Betrag",
     "saveFailed": "Speichern fehlgeschlagen",
-    "prepFailed": "Bestandsaufbereitung konnte nicht gestartet werden"
+    "prepFailed": "Bestandsaufbereitung konnte nicht gestartet werden",
+    "fieldSaveFailed": "{{record}}: {{field}} nicht gespeichert, vorheriger Wert wiederhergestellt.",
+    "fieldLabels": {
+      "mileage": "Kilometerstand",
+      "color": "Farbe",
+      "key_number": "Schlüsselnummer",
+      "registration_certificate_no": "Zulassungsbescheinigung"
+    }
   },
   "purchase": {
     "title": "Fahrzeugeinkauf",

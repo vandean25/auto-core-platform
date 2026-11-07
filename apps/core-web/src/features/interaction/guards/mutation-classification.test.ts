@@ -10,6 +10,7 @@ import {
   type MutationWrapperRegistry,
 } from './mutation-classification'
 import { productionSources } from './production-sources'
+import * as eligibility from '../customer-vehicle-update-eligibility'
 import extendedInventoryDocument from '../mutation-inventory.json'
 import type { MutationInventoryExtensionDocument } from '../mutation-inventory.types'
 import mutationKeyBaseline from '../mutation-key.baseline.json'
@@ -266,6 +267,15 @@ export function useArchiveOrder() {
 
     it('has no inventory entry for a hook that no longer exists', () => {
       expect(result.orphanInventoryEntries).toEqual([])
+    })
+
+    it('names an exported eligibility predicate for every conditional extended entry', () => {
+      const exported = eligibility as Record<string, unknown>
+      for (const entry of extendedInventory.entries) {
+        if (entry.classification === 'conditional') {
+          expect(typeof exported[entry.eligibilityPredicate ?? ''], entry.owningHook).toBe('function')
+        }
+      }
     })
 
     it('requires every extended inventory entry to carry its classification rationale', () => {

@@ -48,7 +48,14 @@
     "ledgerType": "Type",
     "ledgerAmount": "Amount",
     "saveFailed": "Failed to save",
-    "prepFailed": "Failed to start stock prep"
+    "prepFailed": "Failed to start stock prep",
+    "fieldSaveFailed": "{{record}}: {{field}} was not saved, previous value restored.",
+    "fieldLabels": {
+      "mileage": "Mileage",
+      "color": "Color",
+      "key_number": "Key number",
+      "registration_certificate_no": "Registration certificate"
+    }
   },
   "purchase": {
     "title": "Vehicle purchase",

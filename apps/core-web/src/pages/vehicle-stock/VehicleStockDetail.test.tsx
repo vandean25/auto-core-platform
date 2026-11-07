@@ -1,14 +1,19 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as vehicleStockApi from '@/api/vehicle-stock'
+import { toast } from 'sonner'
 import { deVehicleStock } from '@/test/de-vehicleStock'
+import errorsDe from '../../../../../locales/de/errors.json'
 import VehicleStockDetail from './VehicleStockDetail'
 
 vi.mock('@/api/vehicle-stock')
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@/api/workshop', () => ({ useCreateWorkshopOrder: () => ({ mutateAsync: vi.fn() }) }))
-vi.mock('@/components/sales/CustomerSearch', () => ({ CustomerSearch: () => null }))
+vi.mock('@/api/customers', () => ({
+  useCustomers: () => ({ data: { data: [{ id: 'cust-9', type: 'PRIVATE', first_name: 'Pilot', last_name: 'Customer' }] } }),
+}))
 
 const stockVehicle = {
   id: 'veh-1', make: 'Audi', model: 'A4', year: 2020, vin: 'WAUZZZ8K9BA000001', stock_status: 'IN_STOCK',
@@ -82,5 +87,56 @@ describe('VehicleStockDetail (AUT-659)', () => {
     expect(table.getByText(/12\.345,60/)).toBeInTheDocument()
     expect(table.getByText('COST')).toBeInTheDocument()
     expect(table.getByText(/250,00/)).toBeInTheDocument()
+  })
+
+  // Scenario 4 (reserve): the reservation is a shared-resource write, so it waits for the server and only the picker shows pending.
+  it('WHEN a customer is picked for the reservation THEN only the picker is pending and the page waits for the server', async () => {
+    let resolvePatch: ((value: unknown) => void) | undefined
+    const mutateAsync = vi.fn().mockReturnValue(new Promise((resolve) => { resolvePatch = resolve }))
+    vi.mocked(vehicleStockApi.usePatchVehicleStock).mockReturnValue(
+      { mutateAsync } as unknown as ReturnType<typeof vehicleStockApi.usePatchVehicleStock>,
+    )
+    mockDetail({ data: stockVehicle })
+    renderPage()
+
+    fireEvent.click(screen.getByRole('combobox'))
+    fireEvent.click(await screen.findByText('Pilot Customer'))
+
+    expect(mutateAsync).toHaveBeenCalledWith({ reserved_for_customer_id: 'cust-9' })
+    const picker = screen.getByRole('combobox')
+    expect(picker).toHaveAttribute('aria-busy', 'true')
+    expect(picker).toBeDisabled()
+    // Nothing else on the page is pending and nothing shows the reservation before the server confirmed it.
+    expect(document.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: deVehicleStock.stockDetail.sell })).toBeEnabled()
+    expect(screen.queryByText('Pilot Customer')).not.toBeInTheDocument()
+
+    await act(async () => resolvePatch?.({}))
+    expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-busy', 'true')
+  })
+
+  // Scenario 2/3 for the stock detail: the editor closes at once, a rejection leaves a marker and a 403 gets the permission text.
+  it.each([
+    { name: 'a rejection', error: new Error('rejected'), toastText: deVehicleStock.stockDetail.saveFailed },
+    { name: 'HTTP 403', error: Object.assign(new Error('Forbidden resource'), { status: 403 }), toastText: errorsDe.codes.HTTP_403 },
+  ])('WHEN the server answers $name to a color edit THEN a marker names the vehicle and field and the toast is right', async ({ error, toastText }) => {
+    const mutateAsync = vi.fn().mockRejectedValue(error)
+    vi.mocked(vehicleStockApi.usePatchVehicleStock).mockReturnValue(
+      { mutateAsync } as unknown as ReturnType<typeof vehicleStockApi.usePatchVehicleStock>,
+    )
+    mockDetail({ data: stockVehicle })
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Schwarz' }))
+    const input = screen.getByPlaceholderText(deVehicleStock.stockDetail.color)
+    fireEvent.change(input, { target: { value: 'Rot' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '2020 Audi A4: Farbe nicht gespeichert, vorheriger Wert wiederhergestellt.',
+    )
+    expect(mutateAsync).toHaveBeenCalledWith({ color: 'Rot' })
+    expect(toast.error).toHaveBeenCalledWith(toastText)
+    expect(screen.queryByPlaceholderText(deVehicleStock.stockDetail.color)).not.toBeInTheDocument()
   })
 })

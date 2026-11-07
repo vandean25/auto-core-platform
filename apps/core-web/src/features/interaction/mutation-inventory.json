@@ -7,6 +7,162 @@
       "sourceFile": "api/inventory.ts",
       "classification": "server-confirmed",
       "serverConfirmedReason": "Price edits change what is invoiced and are role-checked per part on the server; the result (updated, forbidden, failed) is reported per part before the list is refreshed."
+    },
+    {
+      "operationId": "customer.create",
+      "owningHook": "useCreateCustomer",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Customer creation assigns the server identity and runs duplicate and field validation; no deduplication contract exists, so the list shows a pending row until the server answers."
+    },
+    {
+      "operationId": "customer.update",
+      "owningHook": "useUpdateCustomer",
+      "classification": "conditional",
+      "eligibilityPredicate": "isCustomerUpdateOptimisticEligible"
+    },
+    {
+      "operationId": "customer.delete",
+      "owningHook": "useDeleteCustomer",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deletion is guarded by the deletion policy (open orders, invoices, vehicles); the server decides and the client cannot predict or safely roll it back."
+    },
+    {
+      "operationId": "customer.consent.record-event",
+      "owningHook": "useRecordCommunicationEvent",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Consent events are an append-only legal record with server-assigned sequence and revision; the effective status is computed by the server."
+    },
+    {
+      "operationId": "vehicle.party.add",
+      "owningHook": "useAddVehicleParty",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Adding a party can change the main contact and the customer's vehicle list; the server validates the period and role."
+    },
+    {
+      "operationId": "vehicle.party.end",
+      "owningHook": "useEndVehicleParty",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Ending a party changes the main contact and period records; the server validates and computes the result."
+    },
+    {
+      "operationId": "vehicle.create",
+      "owningHook": "useCreateVehicle",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Vehicle creation runs identity resolution (FIN/plate uniqueness) and assigns the server identity; no deduplication contract exists."
+    },
+    {
+      "operationId": "vehicle.resolve-identity",
+      "owningHook": "useResolveVehicleIdentity",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Identity resolution calls a catalogue lookup and rewrites derived vehicle data; the result is not predictable."
+    },
+    {
+      "operationId": "vehicle.update",
+      "owningHook": "useUpdateVehicle",
+      "classification": "conditional",
+      "eligibilityPredicate": "isVehicleUpdateOptimisticEligible"
+    },
+    {
+      "operationId": "vehicle-stock.patch",
+      "owningHook": "usePatchVehicleStock",
+      "classification": "conditional",
+      "eligibilityPredicate": "isVehicleStockPatchOptimisticEligible"
+    },
+    {
+      "operationId": "vehicle-stock.purchase.create",
+      "owningHook": "useCreateVehiclePurchase",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Purchase creation assigns the purchase number and cost basis and checks the fiscal lock date."
+    },
+    {
+      "operationId": "vehicle-stock.purchase.update",
+      "owningHook": "useUpdateVehiclePurchase",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Purchase patches change price, tax treatment and cost basis, which the server recalculates and validates against the lock date."
+    },
+    {
+      "operationId": "vehicle-stock.purchase.receive",
+      "owningHook": "useReceiveVehiclePurchase",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Receiving books the vehicle into stock and writes the vehicle ledger; a financial and stock effect the client cannot predict."
+    },
+    {
+      "operationId": "vehicle-stock.purchase.delete",
+      "owningHook": "useDeleteVehiclePurchase",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deletion is guarded by the deletion policy and the purchase state; the server decides."
+    },
+    {
+      "operationId": "vehicle-stock.sale.create",
+      "owningHook": "useCreateVehicleSale",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Sale creation reserves the vehicle (contested resource), assigns the sale number and calculates price and tax."
+    },
+    {
+      "operationId": "vehicle-stock.sale.update",
+      "owningHook": "useUpdateVehicleSale",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Sale patches change price, discounts, tax treatment and warranty terms, which the server recalculates."
+    },
+    {
+      "operationId": "vehicle-stock.sale.finalize",
+      "owningHook": "useFinalizeVehicleSale",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Finalizing a sale is a fiscal posting: document numbers, ledger entries, stock status and lock date are authoritative on the server."
+    },
+    {
+      "operationId": "vehicle-stock.sale.trade-in.upsert",
+      "owningHook": "useUpsertVehicleSaleTradeIn",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "A trade-in changes the sale price and tax totals and creates a vehicle purchase; calculated by the server."
+    },
+    {
+      "operationId": "vehicle-stock.sale.trade-in.remove",
+      "owningHook": "useRemoveVehicleSaleTradeIn",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Removing a trade-in recalculates the sale totals and removes the linked purchase; calculated by the server."
+    },
+    {
+      "operationId": "vehicle-stock.equipment.replace",
+      "owningHook": "useReplaceVehicleEquipment",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Replacing the equipment set revalidates the marketplace listing and is a whole-set write with server-side catalogue checks."
+    },
+    {
+      "operationId": "vehicle.inspection-import.preview",
+      "owningHook": "usePreviewInspectionImport",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Import preview parses an uploaded document and stores an import record; a long-running operation with server-assigned results."
+    },
+    {
+      "operationId": "vehicle.inspection-import.apply",
+      "owningHook": "useApplyInspectionImport",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Applying an import is version-checked (fingerprint and version) and rewrites vehicle and Pickerl data; imports stay server-confirmed."
+    },
+    {
+      "operationId": "vehicle.inspection-record.create",
+      "owningHook": "useCreateVehicleInspectionRecord",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Recording a Pickerl inspection recomputes the due date and the due lists on the server."
+    },
+    {
+      "operationId": "vehicle-stock.listing.create",
+      "owningHook": "useCreateVehicleListing",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Creating a marketplace listing is an external side effect with server-side validation of the channels."
+    },
+    {
+      "operationId": "vehicle-stock.listing.patch",
+      "owningHook": "usePatchVehicleListing",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Listing patches feed the external marketplace and its validation result; an external effect."
+    },
+    {
+      "operationId": "vehicle-stock.listing.channel.patch",
+      "owningHook": "usePatchVehicleListingChannel",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Channel patches publish or withdraw the listing on an external marketplace; an external effect."
     }
   ]
 }

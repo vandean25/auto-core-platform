@@ -31,6 +31,7 @@ export type CommunicationEventSummary = {
 }
 
 const consentKeys = {
+  all: ['customer-consent'] as const,
   preferences: (customerId: string) => ['customer-consent', 'preferences', customerId] as const,
   history: (customerId: string) => ['customer-consent', 'history', customerId] as const,
 }
@@ -73,6 +74,7 @@ export function useCustomerCommunicationHistory(customerId: string) {
 export function useRecordCommunicationEvent(customerId: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...consentKeys.all, 'record-event'],
     mutationFn: async (body: Record<string, unknown>) => {
       const response = await fetchWithAuth(
         `/api/customers/${customerId}/communication-events`,

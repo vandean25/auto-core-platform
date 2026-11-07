@@ -19,23 +19,27 @@ import {
     FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { useCreateVehicle, useUpdateVehicle } from '@/api/vehicles'
 import type { components } from '@/api/generated/openapi'
 import type { Customer, Vehicle } from '@/api/types'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
+import { useVehicleDialogSubmit } from './use-vehicle-dialog-submit'
 import {
   VehicleRegulatorySection,
   type VehicleNovaClass,
   type VehicleRegulatoryValues,
 } from '@/components/vehicles/VehicleRegulatorySection'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 interface VehicleDialogProps {
     vehicle?: Vehicle & { customer?: Customer | null }
     trigger?: ReactNode
     open?: boolean
     onOpenChange?: (open: boolean) => void
+    /**
+     * List create: the caller sends the create behind a pending row. The dialog closes at once and
+     * submits only once per opening, so a double click cannot create the vehicle twice.
+     */
+    onCreate?: (payload: components['schemas']['CreateVehicleDto']) => void
 }
 
 type VehicleFormValues = Omit<components['schemas']['CreateVehicleDto'], 'customer_id'>
@@ -78,13 +82,11 @@ function regulatoryFromVehicle(
     }
 }
 
-export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenChange }: VehicleDialogProps) {
+export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenChange, onCreate }: VehicleDialogProps) {
     const { t } = useTranslation(['vehicles', 'common'])
     const [open, setOpen] = useState(false)
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(vehicle?.customer || null)
     const isEdit = !!vehicle
-    const createMutation = useCreateVehicle()
-    const updateMutation = useUpdateVehicle()
     const [regulatoryValues, setRegulatoryValues] = useState<VehicleRegulatoryValues>(
         () => regulatoryFromVehicle(vehicle),
     )
@@ -100,29 +102,19 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
         },
     })
 
-    const onSubmit = async (data: VehicleFormValues) => {
-        try {
-            const payload: components['schemas']['CreateVehicleDto'] = {
-                ...data,
-                ...regulatoryValues,
-                year: Number(data.year),
-                customer_id: selectedCustomer?.id || null,
-            }
-
-            if (isEdit && vehicle) {
-                await updateMutation.mutateAsync({ id: vehicle.id, data: payload })
-                toast.success(t('vehicles:dialog.updated'))
-            } else {
-                await createMutation.mutateAsync(payload)
-                toast.success(t('vehicles:dialog.created'))
-            }
+    const isOpen = controlledOpen ?? open
+    const { submit, isPending } = useVehicleDialogSubmit({
+        vehicleId: vehicle?.id,
+        isOpen,
+        onCreate,
+        finish: () => {
             handleOpenChange(false)
             form.reset()
             setSelectedCustomer(null)
-        } catch {
-            toast.error(t('vehicles:dialog.saveFailed'))
-        }
-    }
+        },
+    })
+    const onSubmit = (data: VehicleFormValues) =>
+        submit({ ...data, ...regulatoryValues, year: Number(data.year), customer_id: selectedCustomer?.id || null })
 
     useEffect(() => {
         if (vehicle) {
@@ -153,7 +145,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
     }
 
     return (
-        <Dialog open={controlledOpen ?? open} onOpenChange={handleOpenChange}>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent fullScreenOnPhone className="sm:max-w-[600px]">
                 <DialogHeader>
@@ -277,7 +269,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                     <Button
                         type="submit"
                         form="vehicle-dialog-form"
-                        disabled={createMutation.isPending || updateMutation.isPending}
+                        disabled={isPending}
                     >
                         {isEdit ? t('vehicles:dialog.saveChanges') : t('vehicles:dialog.create')}
                     </Button>

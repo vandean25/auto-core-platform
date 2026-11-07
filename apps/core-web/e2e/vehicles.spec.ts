@@ -244,7 +244,8 @@ test.describe('Blueprint: Vehicles Module', () => {
     await dialog.getByRole('button', { name: DE_VEHICLES.dialog.create }).click();
     await expect(dialog).not.toBeVisible();
 
-    expect(postBody?.first_registration_date).toBe('2023-06-01');
+    // The dialog closes at once and the list shows a pending row; the POST follows, so wait for it.
+    await expect.poll(() => postBody?.first_registration_date).toBe('2023-06-01');
     expect(postBody?.co2_wltp_g_km).toBe(142);
   });
 

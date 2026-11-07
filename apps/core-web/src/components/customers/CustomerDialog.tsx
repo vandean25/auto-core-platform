@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,18 +23,20 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { CUSTOMER_FIELD_MAX_LENGTH } from '@/constants/field-limits'
-import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { toast } from 'sonner'
-import { buildCustomerPayload, markRefusedFields } from './customer-submit'
-import { toastSuccessWithOpen } from '@/lib/toast-actions'
+import { useCustomerDialogSubmit } from './use-customer-dialog-submit'
 
 interface CustomerDialogProps {
     customer?: Customer
     trigger?: React.ReactNode
     open?: boolean
     onOpenChange?: (open: boolean) => void
+    /**
+     * List create: the caller sends the create behind a pending row. The dialog closes at once and
+     * submits only once per opening, so a double click cannot create the customer twice.
+     */
+    onCreate?: (payload: Partial<Customer>) => void
 }
 
 const DEFAULT_CUSTOMER: Partial<Customer> = {
@@ -53,39 +54,30 @@ const DEFAULT_CUSTOMER: Partial<Customer> = {
     address_country: 'AT',
 }
 
-export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpenChange }: CustomerDialogProps) {
+export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpenChange, onCreate }: CustomerDialogProps) {
     const { t } = useTranslation('customers')
     useEffect(() => {
         void ensureNamespaceLoaded('customers')
     }, [])
     const [open, setOpen] = useState(false)
     const isEdit = !!customer
-    const createMutation = useCreateCustomer()
-    const updateMutation = useUpdateCustomer()
-    const navigate = useNavigate()
 
     const form = useForm<Partial<Customer>>({
         defaultValues: customer || DEFAULT_CUSTOMER,
     })
 
-    const onSubmit = async (formData: Partial<Customer>) => {
-        const payload = buildCustomerPayload(formData, customer)
-        try {
-            if (isEdit && customer) {
-                await updateMutation.mutateAsync({ id: customer.id, data: payload })
-                toast.success(t('dialog.updated'))
-            } else {
-                const created = await createMutation.mutateAsync(payload)
-                toastSuccessWithOpen(t('dialog.created'), () => navigate(`/customers/${created.id}`))
-            }
+    const isOpen = controlledOpen ?? open
+    const { onSubmit, isPending } = useCustomerDialogSubmit({
+        customer,
+        isOpen,
+        onCreate,
+        fieldNames: Object.keys(DEFAULT_CUSTOMER),
+        setError: form.setError,
+        finish: () => {
             handleOpenChange(false)
             form.reset()
-        } catch (error) {
-            // A refused field is marked on the field itself; the toast then only points at it.
-            const marked = markRefusedFields(error, Object.keys(DEFAULT_CUSTOMER), form.setError, t)
-            toast.error(t(marked > 0 ? 'dialog.checkFields' : 'dialog.saveFailed'))
-        }
-    }
+        },
+    })
 
     useEffect(() => {
         if (customer) {
@@ -106,7 +98,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
     const type = form.watch('type')
 
     return (
-        <Dialog open={controlledOpen ?? open} onOpenChange={handleOpenChange}>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent fullScreenOnPhone className="sm:max-w-[600px]">
                 <DialogHeader>
@@ -315,7 +307,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                     <Button
                         type="submit"
                         form="customer-dialog-form"
-                        disabled={createMutation.isPending || updateMutation.isPending}
+                        disabled={isPending}
                     >
                         {isEdit ? t('dialog.saveChanges') : t('dialog.createCustomer')}
                     </Button>

@@ -20,7 +20,7 @@ vi.mock('@/components/vehicles/VehicleRegulatorySection', () => ({ VehicleRegula
 vi.mock('@/components/vehicles/VehicleGewaehrleistungSection', () => ({ VehicleGewaehrleistungSection: () => null }))
 vi.mock('@/features/tyre-storage/TyreSetsSummary', () => ({ TyreSetsSummary: () => null }))
 vi.mock('./useVehicleDetailMutations', () => ({
-  useVehicleFieldSaves: () => ({ saveVehicleField: vi.fn(), saveRegulatoryField: vi.fn() }),
+  useVehicleFieldSaves: () => ({ saveVehicleField: vi.fn(), saveRegulatoryField: vi.fn(), failures: [], retry: vi.fn(), dismiss: vi.fn() }),
 }))
 
 const vehicle = {

@@ -4,9 +4,14 @@ import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
 import { customerKeys } from './customers'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import {
+  isVehicleUpdateOptimisticEligible,
+} from '@/features/interaction/customer-vehicle-update-eligibility'
 import { hasUtcDayChanged } from '@/lib/date-utils'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 import { MAX_VEHICLE_LIST_PAGE_SIZE, clampPageSize } from '@/lib/list-page-size'
+import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
+import { patchRecordInCache, restoreRecordFields } from '@/lib/optimistic-record-patch'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
 type PickerlDuePaginatedResponseDto = components['schemas']['PickerlDuePaginatedResponseDto']
@@ -41,7 +46,8 @@ type VehicleListResponse = {
 
 export const vehicleKeys = {
   all: ['vehicles'] as const,
-  list: (queryParams?: DataTableQueryParams) => [...vehicleKeys.all, 'list', queryParams] as const,
+  lists: () => [...vehicleKeys.all, 'list'] as const,
+  list: (queryParams?: DataTableQueryParams) => [...vehicleKeys.lists(), queryParams] as const,
   detail: (id: string) => [...vehicleKeys.all, 'detail', id] as const,
   pickerlDue: (filters: string) => [...vehicleKeys.all, 'pickerlDue', { filters }] as const,
   pickerlDueAll: () => [...vehicleKeys.all, 'pickerlDue'] as const,
@@ -84,6 +90,7 @@ export function useAddVehicleParty(vehicleId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: [...vehicleKeys.all, 'party', 'add'],
     mutationFn: (data: CreateVehiclePartyDto) =>
       requestVehicleParty<VehiclePartyResponse>(
         `/api/vehicles/${encodeURIComponent(vehicleId)}/parties`,
@@ -98,6 +105,7 @@ export function useEndVehicleParty(vehicleId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: [...vehicleKeys.all, 'party', 'end'],
     mutationFn: (partyId: string) =>
       requestVehicleParty<VehiclePartyResponse>(
         `/api/vehicles/${encodeURIComponent(vehicleId)}/parties/${encodeURIComponent(partyId)}`,
@@ -161,6 +169,7 @@ export function useCreateVehicle() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: [...vehicleKeys.all, 'create'],
     mutationFn: async (data: CreateVehicleDto) => {
       const response = await fetchWithAuth('/api/vehicles', {
         method: 'POST',
@@ -171,7 +180,11 @@ export function useCreateVehicle() {
         const payload = await response
           .json()
           .catch(() => ({ message: 'Failed to create vehicle' }))
-        throw new Error(payload.message || 'Failed to create vehicle')
+        // The status tells a definite refusal from a lost response (no status), which the list reports as unconfirmed.
+        throw Object.assign(new Error(payload.message || 'Failed to create vehicle'), {
+          status: response.status,
+          data: payload,
+        })
       }
       return response.json()
     },
@@ -185,6 +198,7 @@ export function useResolveVehicleIdentity() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: [...vehicleKeys.all, 'resolve-identity'],
     mutationFn: async (vehicleId: string) => {
       const response = await fetchWithAuth(`/api/vehicles/${vehicleId}/resolve-identity`, {
         method: 'POST',
@@ -204,17 +218,31 @@ export function useResolveVehicleIdentity() {
   })
 }
 
+type UpdateVehicleVariables = { id: string; data: UpdateVehicleDto }
+
+// Descriptive fields only (see the predicate); list pages and the detail are patched together.
+const updateVehicleOptimistic = optimisticMutationOptions<unknown, UpdateVehicleVariables>({
+  queryKey: ({ id }) => vehicleKeys.detail(id),
+  mutationKey: [...vehicleKeys.all, 'update'],
+  entityId: ({ id }) => id,
+  shouldOptimistic: isVehicleUpdateOptimisticEligible,
+  apply: (cache, { id, data }) => patchRecordInCache(cache, id, data),
+  revert: (cache, { id, data }, snapshot) => restoreRecordFields(cache, id, Object.keys(data), snapshot),
+  prefixCaches: [
+    {
+      queryKey: () => vehicleKeys.lists(),
+      apply: (cache, { id, data }) => patchRecordInCache(cache, id, data),
+      revert: (cache, { id, data }, snapshot) => restoreRecordFields(cache, id, Object.keys(data), snapshot),
+    },
+  ],
+})
+
 export function useUpdateVehicle() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string
-      data: UpdateVehicleDto
-    }) => {
+    ...updateVehicleOptimistic,
+    mutationFn: async ({ id, data }: UpdateVehicleVariables) => {
       const response = await fetchWithAuth(`/api/vehicles/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -224,12 +252,21 @@ export function useUpdateVehicle() {
         const payload = await response
           .json()
           .catch(() => ({ message: 'Failed to update vehicle' }))
-        throw new Error(payload.message || 'Failed to update vehicle')
+        throw Object.assign(new Error(payload.message || 'Failed to update vehicle'), {
+          status: response.status,
+          data: payload,
+        })
       }
       return response.json()
     },
-    onSuccess: () => {
-      invalidatePartyDependents(queryClient)
+    onSuccess: (_data, variables) => {
+      // The helper reconciles the detail and list caches of an optimistic edit; the other projections refetch here.
+      if (isVehicleUpdateOptimisticEligible(variables)) {
+        queryClient.invalidateQueries({ queryKey: vehicleKeys.pickerlDueAll() })
+        queryClient.invalidateQueries({ queryKey: customerKeys.all })
+      } else {
+        invalidatePartyDependents(queryClient)
+      }
     },
   })
 }

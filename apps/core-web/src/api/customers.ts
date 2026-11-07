@@ -8,11 +8,15 @@ import type {
 import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { isCustomerUpdateOptimisticEligible } from '@/features/interaction/customer-vehicle-update-eligibility'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
+import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
+import { patchRecordInCache, restoreRecordFields } from '@/lib/optimistic-record-patch'
 
 export const customerKeys = {
     all: ['customers'] as const,
-    list: (queryParams?: DataTableQueryParams) => [...customerKeys.all, 'list', queryParams] as const,
+    lists: () => [...customerKeys.all, 'list'] as const,
+    list: (queryParams?: DataTableQueryParams) => [...customerKeys.lists(), queryParams] as const,
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
 }
 
@@ -119,6 +123,7 @@ export function useCreateCustomer() {
     const queryClient = useQueryClient()
     
     return useMutation({
+        mutationKey: [...customerKeys.all, 'create'],
         mutationFn: async (customer: Partial<Customer>) => {
             const response = await fetchWithAuth('/api/customers', {
                 method: 'POST',
@@ -134,11 +139,31 @@ export function useCreateCustomer() {
     })
 }
 
+type UpdateCustomerVariables = { id: string; data: Partial<Customer> }
+
+// Descriptive fields only (see the predicate); list pages and the detail are patched together.
+const updateCustomerOptimistic = optimisticMutationOptions<unknown, UpdateCustomerVariables>({
+    queryKey: ({ id }) => customerKeys.detail(id),
+    mutationKey: [...customerKeys.all, 'update'],
+    entityId: ({ id }) => id,
+    shouldOptimistic: isCustomerUpdateOptimisticEligible,
+    apply: (cache, { id, data }) => patchRecordInCache(cache, id, data),
+    revert: (cache, { id, data }, snapshot) => restoreRecordFields(cache, id, Object.keys(data), snapshot),
+    prefixCaches: [
+        {
+            queryKey: () => customerKeys.lists(),
+            apply: (cache, { id, data }) => patchRecordInCache(cache, id, data),
+            revert: (cache, { id, data }, snapshot) => restoreRecordFields(cache, id, Object.keys(data), snapshot),
+        },
+    ],
+})
+
 export function useUpdateCustomer() {
     const queryClient = useQueryClient()
-    
+
     return useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: Partial<Customer> }) => {
+        ...updateCustomerOptimistic,
+        mutationFn: async ({ id, data }: UpdateCustomerVariables) => {
             const response = await fetchWithAuth(`/api/customers/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -147,9 +172,11 @@ export function useUpdateCustomer() {
             if (!response.ok) await throwApiResponseError(response, 'Failed to update customer')
             return response.json()
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: customerKeys.all })
-            queryClient.invalidateQueries({ queryKey: customerKeys.detail(data.id) })
+        // An optimistic edit is reconciled by the helper on settle; a server-confirmed one (e-mail, tax id, type) refetches here.
+        onSuccess: (_data, variables) => {
+            if (!isCustomerUpdateOptimisticEligible(variables)) {
+                queryClient.invalidateQueries({ queryKey: customerKeys.all })
+            }
         },
     })
 }
@@ -158,6 +185,7 @@ export function useDeleteCustomer() {
     const queryClient = useQueryClient()
     
     return useMutation({
+        mutationKey: [...customerKeys.all, 'delete'],
         mutationFn: async (id: string) => {
             const response = await fetchWithAuth(`/api/customers/${id}`, {
                 method: 'DELETE',

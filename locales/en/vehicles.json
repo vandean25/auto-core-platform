@@ -103,7 +103,16 @@
       "cancel": "Cancel",
       "unassign": "Unassign"
     },
-    "idLabel": "ID: {{id}}"
+    "idLabel": "ID: {{id}}",
+    "fieldSaveFailed": "{{record}}: {{field}} was not saved, previous value restored.",
+    "fieldLabels": {
+      "make": "Make",
+      "model": "Model",
+      "year": "Year",
+      "engine_code": "Engine code",
+      "vin": "VIN",
+      "plate": "License plate"
+    }
   },
   "pickerlDue": {
     "title": "Pickerl due",
@@ -204,7 +213,8 @@
     "saveChanges": "Save changes",
     "created": "Vehicle created",
     "updated": "Vehicle updated",
-    "saveFailed": "Failed to save vehicle"
+    "saveFailed": "Failed to save vehicle",
+    "createUnconfirmed": "Vehicle not confirmed. Check the vehicle list before creating it again."
   },
   "pickerlSection": {
     "warnings": {
