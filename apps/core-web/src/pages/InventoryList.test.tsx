@@ -265,6 +265,26 @@ describe('InventoryList bulk price change (AUT-886)', () => {
   const items: InventoryItem[] = ['1', '2', '3'].map((n) => ({ ...item, id: `item-${n}`, sku: `BRK-00${n}`, name: `Pad ${n}` }))
   let restoreLayout: () => void
 
+  const cursorListOf = (rows: InventoryItem[]) => ({
+    rows,
+    tableProps: {
+      isLoading: false,
+      isFetching: false,
+      isPlaceholderData: false,
+      isError: false,
+      onRetry: vi.fn(),
+      hasUsableData: true,
+      infinite: {
+        queryKey: ['inventory', 'cursor-list', {}],
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        isFetchNextPageError: false,
+        fetchNextPage: vi.fn(),
+        totalCount: { count: rows.length, isCapped: false },
+      },
+    },
+  })
+
   const json = (status: number, body: unknown) =>
     Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
   const requests = () =>
@@ -275,25 +295,7 @@ describe('InventoryList bulk price change (AUT-886)', () => {
     vi.clearAllMocks()
     authRole.current = 'ADMIN'
     asMock(inventoryApi.useInventory).mockReturnValue({ data: undefined, isLoading: false })
-    asMock(inventoryApi.useInventoryCursorList).mockReturnValue({
-      rows: items,
-      tableProps: {
-        isLoading: false,
-        isFetching: false,
-        isPlaceholderData: false,
-        isError: false,
-        onRetry: vi.fn(),
-        hasUsableData: true,
-        infinite: {
-          queryKey: ['inventory', 'cursor-list', {}],
-          hasNextPage: false,
-          isFetchingNextPage: false,
-          isFetchNextPageError: false,
-          fetchNextPage: vi.fn(),
-          totalCount: { count: 3, isCapped: false },
-        },
-      },
-    })
+    asMock(inventoryApi.useInventoryCursorList).mockReturnValue(cursorListOf(items))
     asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
   })
   afterEach(() => {
@@ -391,10 +393,7 @@ describe('InventoryList bulk price change (AUT-886)', () => {
   // Large data: select-all-loaded can reach 2,000 rows, but one action must not fire 4,000 requests.
   it('WHEN more than 100 parts are selected THEN the bar shows the limit instead of the action, also in Cmd+K', () => {
     const many = Array.from({ length: 101 }, (_, index) => ({ ...item, id: `item-${index}`, sku: `BRK-${index}` }))
-    asMock(inventoryApi.useInventoryCursorList).mockReturnValue({
-      ...asMock(inventoryApi.useInventoryCursorList)(),
-      rows: many,
-    })
+    asMock(inventoryApi.useInventoryCursorList).mockReturnValue(cursorListOf(many))
     renderList()
 
     fireEvent.click(screen.getByRole('checkbox', { name: /geladenen Zeilen auswählen/ }))
