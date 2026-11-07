@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 
 import type { PaletteContextActionSection } from '@/components/global-search/global-search-context-actions'
 
+// One slot: the single list with `bulkActions` on screen owns it. Two such lists mounted at once would overwrite each other.
 let section: PaletteContextActionSection | null = null
 const listeners = new Set<() => void>()
 

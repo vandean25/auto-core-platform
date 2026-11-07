@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InventoryItem } from '@/api/types'
@@ -23,6 +24,7 @@ vi.mock('@/api/inventory', async (importOriginal) => ({
 vi.mock('@/api/locations', () => ({
   useLocations: vi.fn(),
 }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 const { authRole, fetchWithAuth } = vi.hoisted(() => ({ authRole: { current: 'ADMIN' }, fetchWithAuth: vi.fn() }))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: authRole.current } }),
@@ -366,6 +368,76 @@ describe('InventoryList bulk price change (AUT-886)', () => {
     expect(alert).toHaveTextContent(bulk.forbiddenHint)
     expect(alert).not.toHaveTextContent('BRK-003')
     expect(screen.getByRole('toolbar', { hidden: true })).toHaveTextContent('2 ausgewählt')
+  })
+
+  // Review of 9c9b2aa: a retry after a partial failure used to apply the percentage again to parts that had succeeded.
+  describe('result states', () => {
+    const detail = (url: string) => ({ id: url.split('/').pop(), sku: 'X', name: 'Pad', brand_id: null, cost_price: 60, price: 100 })
+    /** PATCH answers per part from `status`, which a test may change between submits (the cause was fixed). */
+    function serverWith(status: Record<string, number>) {
+      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
+        init?.method === 'PATCH' ? json(status[url.split('/').pop() as string] ?? 200, {}) : json(200, detail(url)),
+      )
+    }
+    const patched = () => requests().filter((entry) => entry.startsWith('PATCH'))
+
+    it('WHEN every part is changed THEN the dialog closes, a toast reports the count and the selection is cleared', async () => {
+      serverWith({})
+      renderList()
+
+      submitPercent(selectFirstTwoAndOpenDialog(), '10')
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(toast.success).toHaveBeenCalledWith('2 Preise geändert')
+      expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
+    })
+
+    it('WHEN only some parts fail THEN only those are listed and the count says how many changed', async () => {
+      serverWith({ 'item-2': 500 })
+      renderList()
+
+      submitPercent(selectFirstTwoAndOpenDialog(), '10')
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent('1 von 2 geändert.')
+      expect(alert).toHaveTextContent('BRK-002: fehlgeschlagen')
+      expect(alert).not.toHaveTextContent('BRK-001')
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('WHEN the user retries after a partial failure THEN only the failed parts are sent again and the percentage is not applied twice', async () => {
+      const status: Record<string, number> = { 'item-2': 500 }
+      serverWith(status)
+      renderList()
+      const dialog = selectFirstTwoAndOpenDialog()
+      submitPercent(dialog, '10')
+      await screen.findByRole('alert')
+      status['item-2'] = 200
+
+      expect(within(dialog).getByLabelText(deInventory.bulk.adjustPrice.percentLabel)).toBeDisabled()
+      fireEvent.click(within(dialog).getByRole('button', { name: bulk.retryFailed }))
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(patched().filter((entry) => entry.endsWith('item-1'))).toHaveLength(1)
+      expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2)
+      expect(toast.success).toHaveBeenCalledWith('2 Preise geändert')
+    })
+
+    it('WHEN the dialog is closed after a failure and opened again THEN it starts empty', async () => {
+      serverWith({ 'item-2': 500 })
+      renderList()
+      const dialog = selectFirstTwoAndOpenDialog()
+      submitPercent(dialog, '10')
+      await screen.findByRole('alert')
+
+      fireEvent.keyDown(dialog, { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: bulk.action }))
+
+      const reopened = screen.getByRole('dialog')
+      expect(within(reopened).getByLabelText(bulk.percentLabel)).toHaveValue('')
+      expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
+    })
   })
 
   it('WHEN the role may not edit prices THEN no bulk price action is offered, in the bar or in Cmd+K', () => {

@@ -109,6 +109,7 @@ describe('Inventory item mutations (e2e)', () => {
   // AUT-886: the bulk price change on the parts list sends one PATCH per selected part and relies on this per-record 403.
   it.each<{ role: TenantMemberRole; status: number }>([
     { role: 'TECH', status: 403 },
+    { role: 'SALES', status: 403 },
     { role: 'ADMIN', status: 200 },
   ])('answers PATCH /inventory/:id with $status for role $role', async ({ role, status }) => {
     await runWithTenantContext(tenantId, async () => {

@@ -55,14 +55,18 @@ function BulkPriceDialog({ items, open, onOpenChange, onDone }: PriceDialogProps
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (value === null) return
-    const outcome = await mutation.mutateAsync({ items, percent: value })
+    // After a partial result only the failed parts are sent again: the others already carry the new price.
+    const failedIds = new Set(result?.failed.map((failure) => failure.id))
+    const targets = result ? items.filter((item) => failedIds.has(item.id)) : items
+    const outcome = await mutation.mutateAsync({ items: targets, percent: value })
+    const updated = (result?.updated ?? 0) + outcome.updated
     if (outcome.failed.length === 0) {
-      toast.success(t('bulk.adjustPrice.success', { count: outcome.updated }))
+      toast.success(t('bulk.adjustPrice.success', { count: updated }))
       onOpenChange(false)
       onDone()
       return
     }
-    setResult(outcome)
+    setResult({ total: items.length, updated, failed: outcome.failed })
   }
 
   return (
@@ -79,6 +83,7 @@ function BulkPriceDialog({ items, open, onOpenChange, onDone }: PriceDialogProps
               id="bulk-price-percent"
               inputMode="decimal"
               value={percent}
+              disabled={result !== null}
               onChange={(event) => setPercent(event.target.value)}
               aria-describedby="bulk-price-percent-hint"
             />
@@ -87,7 +92,7 @@ function BulkPriceDialog({ items, open, onOpenChange, onDone }: PriceDialogProps
           {result ? <BulkPriceResultAlert result={result} /> : null}
           <DialogFooter>
             <Button type="submit" disabled={value === null || mutation.isPending}>
-              {mutation.isPending ? t('bulk.adjustPrice.submitting') : t('bulk.adjustPrice.submit')}
+              {mutation.isPending ? t('bulk.adjustPrice.submitting') : result ? t('bulk.adjustPrice.retryFailed') : t('bulk.adjustPrice.submit')}
             </Button>
           </DialogFooter>
         </form>
@@ -103,8 +108,18 @@ export function InventoryBulkActions({ items, clearSelection }: InventoryBulkAct
   const { t } = useTranslation('inventory')
   const role = useAuthRole()
   const [open, setOpen] = useState(false)
+  // A new key per opening: a closed dialog never shows the percent or the failures of the last run.
+  const [openings, setOpenings] = useState(0)
   const actions = useMemo(() => createInventoryBulkActions(t), [t])
-  const runContext = useMemo(() => ({ openPriceDialog: () => setOpen(true) }), [])
+  const runContext = useMemo(
+    () => ({
+      openPriceDialog: () => {
+        setOpenings((count) => count + 1)
+        setOpen(true)
+      },
+    }),
+    [],
+  )
 
   useEffect(() => {
     const entries = mapRegistryActionsToPalette(actions, role, items, runContext, () =>
@@ -132,7 +147,7 @@ export function InventoryBulkActions({ items, clearSelection }: InventoryBulkAct
           />
         ))
       )}
-      <BulkPriceDialog items={items} open={open} onOpenChange={setOpen} onDone={clearSelection} />
+      <BulkPriceDialog key={openings} items={items} open={open} onOpenChange={setOpen} onDone={clearSelection} />
     </>
   )
 }

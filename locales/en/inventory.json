@@ -97,6 +97,7 @@
       "percentLabel": "Change in %",
       "percentHint": "From -50 to 100, for example 5 for +5%.",
       "submit": "Change prices",
+      "retryFailed": "Retry failed parts",
       "submitting": "Changing…",
       "limit": "At most {{max}} parts per action.",
       "result": "{{updated}} of {{total}} changed.",
