@@ -51,6 +51,7 @@ function Harness({
   isFetching,
   isPlaceholderData,
   columns = baseColumns,
+  bulkActions,
 }: {
   rowBehaviour?: DataTableRowBehaviour<Row>
   data?: Row[]
@@ -59,6 +60,7 @@ function Harness({
   isFetching?: boolean
   isPlaceholderData?: boolean
   columns?: ColumnDef<Row>[]
+  bulkActions?: (selected: Row[]) => React.ReactNode
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
@@ -79,6 +81,7 @@ function Harness({
         pagination={pagination}
         setPagination={setPagination}
         rowBehaviour={rowBehaviour}
+        bulkActions={bulkActions}
       />
     </MemoryRouter>
   )
@@ -350,5 +353,40 @@ describe('DataTable infinite list mode on a phone (AUT-889)', () => {
     act(() => void fireEvent.scroll(window))
     act(() => void fireEvent.scroll(window))
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('DataTable list mode selection (AUT-886)', () => {
+  const bulkActions = (selected: Row[]) => <span>{selected.map((row) => row.orderNo).join(',')} gewählt</span>
+
+  it('WHEN the viewport is 375px THEN every row has a visible checkbox with a 44px tap target and no long-press is needed', () => {
+    const onRowClick = vi.fn()
+    render(<Harness bulkActions={bulkActions} rowBehaviour={{ onRowClick }} />)
+
+    const boxes = screen.getAllByRole('checkbox', { name: infiniteDt.selectRow })
+    expect(boxes).toHaveLength(rows.length)
+    expect(boxes[0].closest('label, div')).toHaveClass('size-11')
+    fireEvent.click(boxes[0])
+
+    expect(screen.getByText('WO-1 gewählt')).toBeInTheDocument()
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('WHEN rows are selected on a phone THEN the action bar offers "Alle geladenen auswählen (N)" instead of a header checkbox', () => {
+    render(<Harness bulkActions={bulkActions} />)
+    expect(screen.queryByRole('checkbox', { name: infiniteDt.selectAll })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('checkbox', { name: infiniteDt.selectRow })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Alle geladenen auswählen (2)' }))
+
+    expect(screen.getByText('WO-1,WO-2 gewählt')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Alle geladenen auswählen/ })).not.toBeInTheDocument()
+  })
+
+  it('WHEN a pending row is listed THEN it has no checkbox', () => {
+    const pending = { id: 'tmp', customer: 'Neu', vehicle: '', status: '', orderNo: '', __dataTablePending: true } as Row
+    render(<Harness bulkActions={bulkActions} data={[...rows, pending]} />)
+
+    expect(screen.getAllByRole('checkbox', { name: infiniteDt.selectRow })).toHaveLength(rows.length)
   })
 })

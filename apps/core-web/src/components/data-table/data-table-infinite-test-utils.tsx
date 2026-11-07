@@ -17,6 +17,7 @@ export const dt = deCommon.dataTable
 // Plain test labels, kept out of JSX so the i18n lint rule (which exempts only *.test.tsx files) has nothing to flag.
 const FILTER_A_LABEL = 'Filter A'
 const FILTER_B_LABEL = 'Filter B'
+const SORT_LABEL = 'Sort Z'
 const selectedCountLabel = (count: number) => `${count} gewählt`
 
 export type InfiniteRow = { id: string; name: string }
@@ -92,6 +93,7 @@ function InfiniteListBody({
       <output data-testid="page-index">{pagination.pageIndex}</output>
       <button type="button" onClick={() => setColumnFilters([])}>{FILTER_A_LABEL}</button>
       <button type="button" onClick={() => setColumnFilters([{ id: 'name', value: 'B' }])}>{FILTER_B_LABEL}</button>
+      <button type="button" onClick={() => setSorting([{ id: 'name', desc: true }])}>{SORT_LABEL}</button>
       <DataTable<InfiniteRow>
         columns={columns}
         data={data}

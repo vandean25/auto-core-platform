@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { DataTableDensity } from '@/lib/density-tokens'
+import { useClientSessionGeneration } from '@/auth/client-session-reset'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useDataTableContextMenu } from './data-table-context-menu'
 import { useDataTableSelection } from './data-table-selection'
@@ -82,9 +83,11 @@ export function useDataTableViewModel<TData extends object>({
   const [density, setDensity] = useState<DataTableDensity>('comfortable')
   const isMobile = useIsMobile()
   const hasBulkActions = Boolean(bulkActions)
-  const { rowSelection, setRowSelection, withSelectColumn } = useDataTableSelection<TData>(
+  // A tenant or site switch is a new scope: nothing selected before it may carry over (ADR-0035 §8).
+  const sessionGeneration = useClientSessionGeneration()
+  const { rowSelection, setRowSelection, selectionMeta, withSelectColumn } = useDataTableSelection<TData>(
     hasBulkActions,
-    JSON.stringify([sorting, columnFilters, globalFilter, pagination, infiniteView?.restoreKey, infiniteView?.epoch]),
+    JSON.stringify([sorting, columnFilters, globalFilter, pagination, infiniteView?.restoreKey, infiniteView?.epoch, sessionGeneration]),
     infiniteView !== undefined,
   )
   const { openRowContextMenu, menu: contextMenu } = useDataTableContextMenu(
@@ -104,7 +107,9 @@ export function useDataTableViewModel<TData extends object>({
     pagination,
     setPagination,
     hasBulkActions,
+    selectionLocked: presentation.isStalePreview,
     rowSelection,
+    selectionMeta,
     setRowSelection,
   })
 

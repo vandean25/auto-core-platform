@@ -62,6 +62,7 @@
     "scrollRegion": "Scrollable table",
     "actionBar": {
       "label": "Actions for selected rows",
+      "selectAllLoaded": "Select all loaded ({{count}})",
       "selected_one": "{{count}} selected",
       "selected_other": "{{count}} selected",
       "clear": "Clear selection"

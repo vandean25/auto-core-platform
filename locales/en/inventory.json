@@ -85,6 +85,32 @@
     },
     "notAvailable": "N/A"
   },
+  "bulk": {
+    "heading": "Selection",
+    "adjustPrice": {
+      "action": "Change price",
+      "paletteDescription_one": "{{count}} part selected",
+      "paletteDescription_other": "{{count}} parts selected",
+      "title": "Change retail price",
+      "description_one": "Applies to {{count}} selected part.",
+      "description_other": "Applies to {{count}} selected parts.",
+      "percentLabel": "Change in %",
+      "percentHint": "From -50 to 100, for example 5 for +5%.",
+      "submit": "Change prices",
+      "retryFailed": "Retry failed parts",
+      "submitting": "Changing…",
+      "limit": "At most {{max}} parts per action.",
+      "result": "{{updated}} of {{total}} changed.",
+      "forbiddenHint": "Only owners and administrators can change prices.",
+      "failedGroup_one": "{{reason}}: {{count}} part ({{skus}})",
+      "failedGroup_other": "{{reason}}: {{count}} parts ({{skus}})",
+      "skusMore": "{{skus}} and {{rest}} more",
+      "reasonForbidden": "Not permitted",
+      "reasonFailed": "Failed",
+      "success_one": "{{count}} price changed",
+      "success_other": "{{count}} prices changed"
+    }
+  },
   "addItemDialog": {
     "trigger": "Item",
     "title": "Add inventory item",

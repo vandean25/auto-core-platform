@@ -46,6 +46,7 @@ export const ENTITY_ACTION_IDS = {
   savedViewOpen: 'savedView.open',
   savedViewRename: 'savedView.rename',
   savedViewDelete: 'savedView.delete',
+  inventoryItemBulkAdjustPrice: 'inventoryItem.bulkAdjustPrice',
 } as const
 
 export const REGISTERED_ENTITY_ACTION_IDS: readonly string[] = Object.values(ENTITY_ACTION_IDS)

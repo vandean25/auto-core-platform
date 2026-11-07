@@ -6,6 +6,7 @@ import { MessageSquareText } from 'lucide-react'
 import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
 import { executeEntityAction } from '@/features/actions/entity-action'
+import { useSelectionPaletteSection } from '@/features/actions/selection-palette-store'
 import { useSavedViewActions } from '@/features/saved-views/use-saved-view-actions'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -263,6 +264,26 @@ function PaletteResultsOrRecent({
   )
 }
 
+/** The actions of the selected rows (root page only) and of the current record or open sub page. */
+function PaletteContextGroups({
+  subPage,
+  selectionSection,
+}: {
+  subPage: ReturnType<typeof usePaletteSubPages>
+  selectionSection: PaletteContextActionSection | null
+}) {
+  return (
+    <>
+      {!subPage.isSubPage && selectionSection ? (
+        <GlobalSearchContextActionGroup section={selectionSection} onSelect={subPage.runContextAction} />
+      ) : null}
+      {subPage.contextSection ? (
+        <GlobalSearchContextActionGroup section={subPage.contextSection} onSelect={subPage.runContextAction} />
+      ) : null}
+    </>
+  )
+}
+
 function SearchPaletteBody({
   query,
   subPage,
@@ -272,6 +293,7 @@ function SearchPaletteBody({
   error,
   sections,
   savedViewManageSection,
+  selectionSection,
   activeSiteId,
   sites,
   recent,
@@ -287,6 +309,8 @@ function SearchPaletteBody({
   error: ReturnType<typeof useGlobalSearch>['error']
   sections: ReturnType<typeof getPaletteSections>
   savedViewManageSection: PaletteContextActionSection | null
+  /** Actions for the rows selected in the list on screen (AUT-886). */
+  selectionSection: PaletteContextActionSection | null
   activeSiteId: string | null
   sites: NonNullable<ReturnType<typeof useMySites>['data']>
   recent: ReturnType<typeof useRecentItems>
@@ -296,12 +320,7 @@ function SearchPaletteBody({
 }) {
   return (
     <>
-      {subPage.contextSection ? (
-        <GlobalSearchContextActionGroup
-          section={subPage.contextSection}
-          onSelect={subPage.runContextAction}
-        />
-      ) : null}
+      <PaletteContextGroups subPage={subPage} selectionSection={selectionSection} />
       {subPage.isSubPage ? null : (
         <>
           {commandEntryVisible ? <CommandEntryGroup onSelect={onOpenCommand} /> : null}
@@ -357,6 +376,9 @@ function SearchPalette({
     setSearch,
     onOpenChange,
   })
+  const selectionPublished = useSelectionPaletteSection()
+  const selectionItems = selectionPublished ? filterPaletteContextActions(selectionPublished.items, query) : []
+  const selectionSection = selectionPublished && selectionItems.length > 0 ? { ...selectionPublished, items: selectionItems } : null
   const savedViewActions = useSavedViewActions()
   const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill, savedViewActions.savedViews)
   const savedViewManageSection = getSavedViewManageSection(
@@ -414,6 +436,7 @@ function SearchPalette({
           error={error}
           sections={sections}
           savedViewManageSection={savedViewManageSection}
+          selectionSection={selectionSection}
           activeSiteId={sessionMeta.activeSiteId}
           sites={sites}
           recent={recent}

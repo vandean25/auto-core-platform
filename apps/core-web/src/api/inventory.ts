@@ -269,3 +269,54 @@ export function useCreateInventoryItem() {
         },
     })
 }
+
+export type BulkPriceFailure = { id: string; sku: string; forbidden: boolean }
+export type BulkPriceResult = { total: number; updated: number; failed: BulkPriceFailure[] }
+
+const BULK_PRICE_CONCURRENCY = 5
+
+/** Reads the current record, then edits it, so the server checks role, tenant and item for every part on its own. */
+async function adjustRetailPrice(item: Pick<InventoryItem, 'id' | 'sku'>, percent: number): Promise<BulkPriceFailure | null> {
+    const failure = (status?: number): BulkPriceFailure => ({ id: item.id, sku: item.sku, forbidden: status === 403 })
+    try {
+        const read = await fetchWithAuth(`/api/inventory/${item.id}`)
+        if (!read.ok) return failure(read.status)
+        const detail = (await read.json()) as InventoryItemDetail
+        const response = await fetchWithAuth(`/api/inventory/${item.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sku: detail.sku,
+                name: detail.name,
+                cost_price: detail.cost_price,
+                retail_price: Math.round(detail.price * (1 + percent / 100) * 100) / 100,
+                ...(detail.brand_id ? { brandId: detail.brand_id } : {}),
+            }),
+        })
+        return response.ok ? null : failure(response.status)
+    } catch {
+        return failure()
+    }
+}
+
+/** Bulk price change (ADR-0035 §8): sends exactly the given parts, a few at a time; every rejection is reported per part. */
+export function useBulkAdjustInventoryPrices() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationKey: [...inventoryKeys.all, 'bulk-adjust-price'],
+        mutationFn: async ({ items, percent }: { items: Pick<InventoryItem, 'id' | 'sku'>[]; percent: number }): Promise<BulkPriceResult> => {
+            const failed: BulkPriceFailure[] = []
+            for (let start = 0; start < items.length; start += BULK_PRICE_CONCURRENCY) {
+                const outcomes = await Promise.all(
+                    items.slice(start, start + BULK_PRICE_CONCURRENCY).map((item) => adjustRetailPrice(item, percent)),
+                )
+                failed.push(...outcomes.filter((outcome): outcome is BulkPriceFailure => outcome !== null))
+            }
+            return { total: items.length, updated: items.length - failed.length, failed }
+        },
+        onSuccess: () => {
+            // A migrated infinite list is only marked stale ("Liste aktualisieren"), never refetched page by page.
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+        },
+    })
+}

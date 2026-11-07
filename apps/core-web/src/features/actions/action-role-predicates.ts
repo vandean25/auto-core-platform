@@ -36,6 +36,11 @@ export function canDeleteCustomerFromList(role: string | null | undefined): bool
   return role !== ''
 }
 
+/** Mirrors the backend `assertCanMutateInventoryStock`: only OWNER/ADMIN edit catalog items (the server still decides per record). */
+export function canEditInventoryItems(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN'
+}
+
 export function canOpenVehicle(role: string | null | undefined): boolean {
   return role !== ''
 }

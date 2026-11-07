@@ -12,6 +12,7 @@ import { useLocations } from '@/api/locations'
 import type { InventoryItem } from '@/api/types'
 import { AddItemDialog } from '@/components/AddItemDialog'
 import { DataTable } from '@/components/data-table/DataTable'
+import { InventoryBulkActions } from '@/components/inventory/InventoryBulkActions'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -144,6 +145,9 @@ export default function InventoryList() {
                 searchPlaceholder={t('partsList.searchPlaceholder')}
                 columnFilters={columnFilters}
                 setColumnFilters={setColumnFilters}
+                bulkActions={(selected, { clearSelection, selectOnly }) => (
+                    <InventoryBulkActions items={selected} clearSelection={clearSelection} selectOnly={selectOnly} />
+                )}
                 rowBehaviour={{
                   onRowClick: (item) =>
                     navigate(`/inventory/${item.id}/ledger?sku=${encodeURIComponent(item.sku)}`, {

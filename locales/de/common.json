@@ -62,6 +62,7 @@
     "scrollRegion": "Scrollbare Tabelle",
     "actionBar": {
       "label": "Aktionen für ausgewählte Zeilen",
+      "selectAllLoaded": "Alle geladenen auswählen ({{count}})",
       "selected_one": "{{count}} ausgewählt",
       "selected_other": "{{count}} ausgewählt",
       "clear": "Auswahl aufheben"

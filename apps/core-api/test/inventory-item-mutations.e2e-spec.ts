@@ -1,7 +1,7 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { LocationType } from '@prisma/client';
+import { LocationType, TenantMemberRole } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -104,6 +104,29 @@ describe('Inventory item mutations (e2e)', () => {
         reason: 'Cycle count correction',
       })
       .expect(400);
+  });
+
+  // AUT-886: the bulk price change on the parts list sends one PATCH per selected part and relies on this per-record 403.
+  it.each<{ role: TenantMemberRole; status: number }>([
+    { role: 'TECH', status: 403 },
+    { role: 'SALES', status: 403 },
+    { role: 'ADMIN', status: 200 },
+    { role: 'OWNER', status: 200 },
+  ])('answers PATCH /inventory/:id with $status for role $role', async ({ role, status }) => {
+    await runWithTenantContext(tenantId, async () => {
+      await prisma.tenantMember.updateMany({ where: { tenant_id: tenantId }, data: { role } });
+    });
+    const token = createTestAuthToken(app.get(AuthService), { ...testTenant, role }, { role });
+
+    const response = await request(app.getHttpServer())
+      .patch(`/api/inventory/${catalogItemId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ sku: 'DEMO-PART-001', name: 'Demo filter', cost_price: 4.5, retail_price: 10.99 })
+      .expect(status);
+
+    if (status === 200) expect(Number(response.body.retail_price)).toBe(10.99);
+    const stored = await createTenantAwarePrisma(prisma, tenantId).catalogItem.findFirst({ where: { id: catalogItemId } });
+    expect(Number(stored?.retail_price)).toBe(status === 200 ? 10.99 : 9.99);
   });
 
   it('forbids TECH users from receiving stock', async () => {

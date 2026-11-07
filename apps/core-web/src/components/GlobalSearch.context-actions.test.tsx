@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
+import { publishSelectionPaletteSection } from '@/features/actions/selection-palette-store'
 import * as workOrderRowActions from '@/features/actions/work-order-row-actions'
 import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
@@ -370,6 +371,26 @@ describe('GlobalSearch context actions', () => {
 
       expect(screen.queryByText('Open estimate')).toBeNull()
     })
+  })
+
+  // AUT-886: a bulk action on the selected rows is a registry action, so it must be reachable from Cmd+K too.
+  it('lists the actions for the selected rows of the list on screen and runs the picked one', () => {
+    const onSelect = vi.fn()
+    const onOpenChange = vi.fn()
+    renderOnRoute('/dashboard', onOpenChange)
+
+    act(() =>
+      publishSelectionPaletteSection({
+        heading: 'Selection',
+        items: [{ id: 'inventoryItem.bulkAdjustPrice', label: 'Change price', description: '2 parts selected', onSelect }],
+      }),
+    )
+    fireEvent.click(screen.getByText('Change price'))
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    act(() => publishSelectionPaletteSection(null))
+    expect(screen.queryByText('Change price')).not.toBeInTheDocument()
   })
 
   it('shows no context group off a record page', () => {
