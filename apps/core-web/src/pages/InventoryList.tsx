@@ -145,8 +145,8 @@ export default function InventoryList() {
                 searchPlaceholder={t('partsList.searchPlaceholder')}
                 columnFilters={columnFilters}
                 setColumnFilters={setColumnFilters}
-                bulkActions={(selected, { clearSelection }) => (
-                    <InventoryBulkActions items={selected} clearSelection={clearSelection} />
+                bulkActions={(selected, { clearSelection, selectOnly }) => (
+                    <InventoryBulkActions items={selected} clearSelection={clearSelection} selectOnly={selectOnly} />
                 )}
                 rowBehaviour={{
                   onRowClick: (item) =>

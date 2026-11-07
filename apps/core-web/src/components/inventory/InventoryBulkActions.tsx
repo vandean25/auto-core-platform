@@ -22,30 +22,40 @@ function parsePercent(raw: string): number | null {
   return raw.trim() !== '' && Number.isFinite(value) && value !== 0 && value >= MIN_PERCENT && value <= MAX_PERCENT ? value : null
 }
 
-/** What the server refused or failed, per part. A partial result keeps the dialog open so nothing is missed. */
+const SKUS_SHOWN = 3
+
+/** One line per reason, not per part: up to 100 parts can fail for the same cause. */
 function BulkPriceResultAlert({ result }: { result: BulkPriceResult }) {
   const { t } = useTranslation('inventory')
+  const groups = [
+    { reason: t('bulk.adjustPrice.reasonForbidden'), failures: result.failed.filter((failure) => failure.forbidden) },
+    { reason: t('bulk.adjustPrice.reasonFailed'), failures: result.failed.filter((failure) => !failure.forbidden) },
+  ].filter((group) => group.failures.length > 0)
   return (
     <div role="alert" className="space-y-1 text-sm text-destructive">
       <p>{t('bulk.adjustPrice.result', { updated: result.updated, total: result.total })}</p>
       <ul className="list-disc pl-5">
-        {result.failed.map((failure) => (
-          <li key={failure.id}>
-            {t('bulk.adjustPrice.failedItem', {
-              sku: failure.sku,
-              reason: failure.forbidden ? t('bulk.adjustPrice.reasonForbidden') : t('bulk.adjustPrice.reasonFailed'),
-            })}
-          </li>
-        ))}
+        {groups.map(({ reason, failures }) => {
+          const shown = failures.slice(0, SKUS_SHOWN).map((failure) => failure.sku).join(', ')
+          const skus = failures.length > SKUS_SHOWN ? t('bulk.adjustPrice.skusMore', { skus: shown, rest: failures.length - SKUS_SHOWN }) : shown
+          return <li key={reason}>{t('bulk.adjustPrice.failedGroup', { count: failures.length, reason, skus })}</li>
+        })}
       </ul>
       {result.failed.some((failure) => failure.forbidden) ? <p>{t('bulk.adjustPrice.forbiddenHint')}</p> : null}
     </div>
   )
 }
 
-type PriceDialogProps = { items: InventoryItem[]; open: boolean; onOpenChange: (open: boolean) => void; onDone: () => void }
+type PriceDialogProps = {
+  items: InventoryItem[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onDone: () => void
+  /** Some parts failed: the selection narrows to them, so nothing can change a succeeded part again. */
+  onPartial: (failedIds: string[]) => void
+}
 
-function BulkPriceDialog({ items, open, onOpenChange, onDone }: PriceDialogProps) {
+function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }: PriceDialogProps) {
   const { t } = useTranslation('inventory')
   const mutation = useBulkAdjustInventoryPrices()
   const [percent, setPercent] = useState('')
@@ -55,10 +65,7 @@ function BulkPriceDialog({ items, open, onOpenChange, onDone }: PriceDialogProps
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (value === null) return
-    // After a partial result only the failed parts are sent again: the others already carry the new price.
-    const failedIds = new Set(result?.failed.map((failure) => failure.id))
-    const targets = result ? items.filter((item) => failedIds.has(item.id)) : items
-    const outcome = await mutation.mutateAsync({ items: targets, percent: value })
+    const outcome = await mutation.mutateAsync({ items, percent: value })
     const updated = (result?.updated ?? 0) + outcome.updated
     if (outcome.failed.length === 0) {
       toast.success(t('bulk.adjustPrice.success', { count: updated }))
@@ -66,11 +73,18 @@ function BulkPriceDialog({ items, open, onOpenChange, onDone }: PriceDialogProps
       onDone()
       return
     }
-    setResult({ total: items.length, updated, failed: outcome.failed })
+    onPartial(outcome.failed.map((failure) => failure.id))
+    setResult({ total: result?.total ?? items.length, updated, failed: outcome.failed })
+  }
+
+  // The result of a running request must not be written into a dialog nobody can see.
+  const handleOpenChange = (next: boolean) => {
+    if (!next && mutation.isPending) return
+    onOpenChange(next)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
@@ -101,10 +115,10 @@ function BulkPriceDialog({ items, open, onOpenChange, onDone }: PriceDialogProps
   )
 }
 
-type InventoryBulkActionsProps = { items: InventoryItem[]; clearSelection: () => void }
+type InventoryBulkActionsProps = { items: InventoryItem[]; clearSelection: () => void; selectOnly: (ids: string[]) => void }
 
 /** Bulk actions of the parts list: the registry action as a bar button, the same entry in Cmd+K, and its dialog. */
-export function InventoryBulkActions({ items, clearSelection }: InventoryBulkActionsProps) {
+export function InventoryBulkActions({ items, clearSelection, selectOnly }: InventoryBulkActionsProps) {
   const { t } = useTranslation('inventory')
   const role = useAuthRole()
   const [open, setOpen] = useState(false)
@@ -147,7 +161,7 @@ export function InventoryBulkActions({ items, clearSelection }: InventoryBulkAct
           />
         ))
       )}
-      <BulkPriceDialog key={openings} items={items} open={open} onOpenChange={setOpen} onDone={clearSelection} />
+      <BulkPriceDialog key={openings} items={items} open={open} onOpenChange={setOpen} onDone={clearSelection} onPartial={selectOnly} />
     </>
   )
 }

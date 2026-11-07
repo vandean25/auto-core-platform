@@ -845,6 +845,20 @@ describe('DataTable multi-select (AUT-886)', () => {
     expect(screen.getByText('200 gewählt')).toBeInTheDocument()
   })
 
+  it('WHEN "Alle geladenen auswählen (N)" in the bar is used THEN every loaded row is selected, not the rest of the result', () => {
+    const client = createListClient()
+    seedLoadedPages(client, 2)
+    render(
+      <InfiniteListHarness client={client} fetchPage={respondWithPages()} withSelection totalCount={{ count: 1000, isCapped: true }} />,
+    )
+    fireEvent.click(boxOf('r1'))
+
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Alle geladenen auswählen (200)' }))
+
+    expect(screen.getByText('200 gewählt')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Alle geladenen auswählen/ })).not.toBeInTheDocument()
+  })
+
   it('WHEN the list is a stale preview THEN no row can be selected and select-all is unavailable', async () => {
     const client = createListClient()
     seedLoadedPages(client, 1)

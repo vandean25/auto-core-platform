@@ -102,6 +102,7 @@ export function DataTableSelectionBar<TData extends object>({
   if (!bulkActions || selectedRows.length === 0) return null
 
   const clearSelection = () => table.toggleAllRowsSelected(false)
+  const selectOnly = (ids: string[]) => table.setRowSelection(Object.fromEntries(ids.map((id) => [id, true])))
   const selectableCount = table.getRowModel().rows.filter((row) => row.getCanSelect()).length
   return (
     <DataTableActionBar
@@ -113,7 +114,7 @@ export function DataTableSelectionBar<TData extends object>({
           : undefined
       }
     >
-      {bulkActions(selectedRows, { clearSelection })}
+      {bulkActions(selectedRows, { clearSelection, selectOnly })}
     </DataTableActionBar>
   )
 }

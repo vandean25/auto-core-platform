@@ -102,9 +102,11 @@
       "limit": "Höchstens {{max}} Teile pro Aktion.",
       "result": "{{updated}} von {{total}} geändert.",
       "forbiddenHint": "Preise ändern dürfen nur Inhaber und Administratoren.",
-      "failedItem": "{{sku}}: {{reason}}",
-      "reasonForbidden": "keine Berechtigung",
-      "reasonFailed": "fehlgeschlagen",
+      "failedGroup_one": "{{reason}}: {{count}} Teil ({{skus}})",
+      "failedGroup_other": "{{reason}}: {{count}} Teile ({{skus}})",
+      "skusMore": "{{skus}} und {{rest}} weitere",
+      "reasonForbidden": "Keine Berechtigung",
+      "reasonFailed": "Fehlgeschlagen",
       "success_one": "{{count}} Preis geändert",
       "success_other": "{{count}} Preise geändert"
     }

@@ -32,8 +32,8 @@ export type DataTableInfiniteProps = {
   retryCount?: () => void
 }
 
-/** Handed to `bulkActions` so an action that finished can drop the selection it worked on. */
-export type DataTableBulkControls = { clearSelection: () => void }
+/** Handed to `bulkActions` so an action that finished can drop the selection it worked on, or keep only what is left to do. */
+export type DataTableBulkControls = { clearSelection: () => void; selectOnly: (ids: string[]) => void }
 
 export type DataTableCoreProps<TData extends object> = {
   columns: ColumnDef<TData>[]

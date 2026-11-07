@@ -363,8 +363,7 @@ describe('InventoryList bulk price change (AUT-886)', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(`${deInventory.bulk.adjustPrice.result.replace('{{updated}}', '0').replace('{{total}}', '2')}`)
-    expect(alert).toHaveTextContent('BRK-001: keine Berechtigung')
-    expect(alert).toHaveTextContent('BRK-002: keine Berechtigung')
+    expect(alert).toHaveTextContent('Keine Berechtigung: 2 Teile (BRK-001, BRK-002)')
     expect(alert).toHaveTextContent(bulk.forbiddenHint)
     expect(alert).not.toHaveTextContent('BRK-003')
     expect(screen.getByRole('toolbar', { hidden: true })).toHaveTextContent('2 ausgewählt')
@@ -400,7 +399,7 @@ describe('InventoryList bulk price change (AUT-886)', () => {
 
       const alert = await screen.findByRole('alert')
       expect(alert).toHaveTextContent('1 von 2 geändert.')
-      expect(alert).toHaveTextContent('BRK-002: fehlgeschlagen')
+      expect(alert).toHaveTextContent('Fehlgeschlagen: 1 Teil (BRK-002)')
       expect(alert).not.toHaveTextContent('BRK-001')
       expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
@@ -437,6 +436,69 @@ describe('InventoryList bulk price change (AUT-886)', () => {
       const reopened = screen.getByRole('dialog')
       expect(within(reopened).getByLabelText(bulk.percentLabel)).toHaveValue('')
       expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
+    })
+    // Review of 34925ea: closing and reopening used to target the whole selection again, including parts already changed.
+    it('WHEN the dialog is closed after a partial failure and opened again THEN only the failed parts are selected and sent', async () => {
+      const status: Record<string, number> = { 'item-2': 500 }
+      serverWith(status)
+      renderList()
+      const dialog = selectFirstTwoAndOpenDialog()
+      submitPercent(dialog, '10')
+      await screen.findByRole('alert')
+      status['item-2'] = 200
+
+      fireEvent.keyDown(dialog, { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(screen.getByRole('toolbar')).toHaveTextContent('1 ausgewählt')
+      fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: bulk.action }))
+      const reopened = screen.getByRole('dialog')
+      expect(within(reopened).getByLabelText(bulk.percentLabel)).toHaveValue('')
+      expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
+      submitPercent(reopened, '10')
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(patched().filter((entry) => entry.endsWith('item-1'))).toHaveLength(1)
+      expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2)
+    })
+
+    // Review of 34925ea: a partial result written into a dismissed dialog was never seen.
+    it('WHEN the dialog is dismissed while the request runs THEN it stays open and shows the result', async () => {
+      const releases: Array<() => void> = []
+      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Promise<Response>((resolve) => {
+              releases.push(() => resolve(new Response('{}', { status: 500 })))
+            })
+          : json(200, detail(url)),
+      )
+      renderList()
+      const dialog = selectFirstTwoAndOpenDialog()
+      submitPercent(dialog, '10')
+      await waitFor(() => expect(releases).toHaveLength(2))
+
+      fireEvent.keyDown(dialog, { key: 'Escape' })
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      releases.forEach((release) => release())
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Fehlgeschlagen')
+    })
+
+    // Review of 34925ea (Kompakte Texte): 100 failures with one reason are one line, not 100.
+    it('WHEN 100 parts fail for the same reason THEN the dialog shows one grouped line with the first SKUs', async () => {
+      const many = Array.from({ length: 100 }, (_, index) => ({ ...item, id: `item-${index}`, sku: `BRK-${index}` }))
+      asMock(inventoryApi.useInventoryCursorList).mockReturnValue(cursorListOf(many))
+      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
+        init?.method === 'PATCH' ? json(403, { statusCode: 403, message: 'forbidden' }) : json(200, detail(url)),
+      )
+      renderList()
+      fireEvent.click(screen.getByRole('checkbox', { name: /geladenen Zeilen auswählen/ }))
+      fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: bulk.action }))
+
+      submitPercent(screen.getByRole('dialog'), '10')
+
+      const alert = await screen.findByRole('alert')
+      expect(within(alert).getAllByRole('listitem')).toHaveLength(1)
+      expect(alert).toHaveTextContent('Keine Berechtigung: 100 Teile (BRK-0, BRK-1, BRK-2 und 97 weitere)')
     })
   })
 

@@ -111,6 +111,7 @@ describe('Inventory item mutations (e2e)', () => {
     { role: 'TECH', status: 403 },
     { role: 'SALES', status: 403 },
     { role: 'ADMIN', status: 200 },
+    { role: 'OWNER', status: 200 },
   ])('answers PATCH /inventory/:id with $status for role $role', async ({ role, status }) => {
     await runWithTenantContext(tenantId, async () => {
       await prisma.tenantMember.updateMany({ where: { tenant_id: tenantId }, data: { role } });

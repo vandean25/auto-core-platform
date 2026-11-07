@@ -102,9 +102,11 @@
       "limit": "At most {{max}} parts per action.",
       "result": "{{updated}} of {{total}} changed.",
       "forbiddenHint": "Only owners and administrators can change prices.",
-      "failedItem": "{{sku}}: {{reason}}",
-      "reasonForbidden": "not permitted",
-      "reasonFailed": "failed",
+      "failedGroup_one": "{{reason}}: {{count}} part ({{skus}})",
+      "failedGroup_other": "{{reason}}: {{count}} parts ({{skus}})",
+      "skusMore": "{{skus}} and {{rest}} more",
+      "reasonForbidden": "Not permitted",
+      "reasonFailed": "Failed",
       "success_one": "{{count}} price changed",
       "success_other": "{{count}} prices changed"
     }
