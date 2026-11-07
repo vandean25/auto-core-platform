@@ -60,6 +60,7 @@ export function useInspectionImports(vehicleId: string) {
 export function usePreviewInspectionImport(vehicleId: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...inspectionImportKeys.all, 'preview'],
     mutationFn: async (body: components['schemas']['PreviewInspectionImportDto']) => {
       const response = await fetchWithAuth(
         `/api/vehicles/${encodeURIComponent(vehicleId)}/inspection-imports/preview`,
@@ -88,6 +89,7 @@ export function usePreviewInspectionImport(vehicleId: string) {
 export function useApplyInspectionImport(vehicleId: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...inspectionImportKeys.all, 'apply'],
     mutationFn: async (params: {
       importId: string
       fingerprint: string

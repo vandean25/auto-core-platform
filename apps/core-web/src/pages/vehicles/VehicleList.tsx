@@ -1,12 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import { toast } from 'sonner'
+import type { components } from '@/api/generated/openapi'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { CarFront, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { useVehicles } from '@/api/vehicles'
+import {
+  DataTablePendingIcon,
+  InteractionErrorMarker,
+  isDataTablePendingRow,
+} from '@/components/data-table/data-table-states'
+import { useCreateVehicle, useVehicles } from '@/api/vehicles'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
 import { Button } from '@/components/ui/button'
@@ -16,6 +23,11 @@ import { MAX_VEHICLE_LIST_PAGE_SIZE, VEHICLE_LIST_PAGE_SIZE_OPTIONS } from '@/li
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
 import { VehiclePeekSheet } from '@/features/peek/VehiclePeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
+import {
+  describePendingCreateError,
+  useListPendingCreate,
+  type PendingCreateRow,
+} from '@/features/interaction/use-list-pending-create'
 import { useVehicleListRowBehaviour } from './useVehicleListRowBehaviour'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
@@ -42,12 +54,13 @@ function getCustomerLabel(
 
 export default function VehicleList() {
   const { t } = useTranslation('vehicles')
+  const { t: tCommon } = useTranslation('common')
   useEffect(() => {
     void ensureNamespaceLoaded('vehicles')
   }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10, maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE })
-  const { data: responseData, isLoading } = useVehicles(queryParams)
+  const { data: responseData, isLoading, dataUpdatedAt } = useVehicles(queryParams)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const rows = useMemo<VehicleRow[]>(() => {
@@ -61,6 +74,29 @@ export default function VehicleList() {
     }))
   }, [responseData, t])
 
+  const createVehicle = useCreateVehicle()
+  const buildPendingRow = useCallback(
+    (localId: string, payload: components['schemas']['CreateVehicleDto']): VehicleRow => ({
+      id: localId,
+      vehicle: `${payload.make} ${payload.model}`,
+      year: payload.year,
+      vin: payload.vin || t('shared.notAvailable'),
+      plate: payload.plate || t('shared.notAvailable'),
+      customer: '',
+    }),
+    [t],
+  )
+  const pending = useListPendingCreate<components['schemas']['CreateVehicleDto'], VehicleRow>({
+    create: createVehicle.mutateAsync,
+    buildRow: buildPendingRow,
+    serverRows: rows,
+    dataUpdatedAt,
+    describeError: (error) =>
+      describePendingCreateError(error, { unconfirmed: t('dialog.createUnconfirmed'), failed: t('dialog.saveFailed') }),
+    onCreated: () => toast.success(t('dialog.created')),
+  })
+
+  const dismissPending = pending.dismiss
   const peek = usePeekSearchParam()
   const rowBehaviour = useVehicleListRowBehaviour(t, navigate, peek.openPeek, rows)
 
@@ -71,9 +107,13 @@ export default function VehicleList() {
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="" className="w-[50px]" />
         ),
-        cell: () => (
+        cell: ({ row }) => (
           <div className="w-[50px]">
-            <CarFront className="h-4 w-4 text-muted-foreground" />
+            {isDataTablePendingRow(row.original) ? (
+              <DataTablePendingIcon label={tCommon('dataTable.loading.pendingRow')} />
+            ) : (
+              <CarFront className="h-4 w-4 text-muted-foreground" />
+            )}
           </div>
         ),
         enableSorting: false,
@@ -85,7 +125,16 @@ export default function VehicleList() {
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.makeModel')} />
         ),
-        cell: ({ row }) => row.original.vehicle,
+        cell: ({ row }) => {
+          const failure = (row.original as PendingCreateRow<VehicleRow>).pendingFailure
+          if (!failure) return row.original.vehicle
+          return (
+            <div className="space-y-2">
+              <div>{row.original.vehicle}</div>
+              <InteractionErrorMarker message={failure} onDismiss={() => dismissPending(row.original.id)} />
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'year',
@@ -115,7 +164,7 @@ export default function VehicleList() {
         ),
       },
     ],
-    [t],
+    [dismissPending, t, tCommon],
   )
 
   return (
@@ -130,11 +179,11 @@ export default function VehicleList() {
         </Button>
       </div>
 
-      <VehicleDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+      <VehicleDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={pending.submit} />
 
       <DataTable
         columns={columns}
-        data={rows}
+        data={pending.rows}
         saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
         pageCount={responseData?.meta?.pageCount ?? 1}

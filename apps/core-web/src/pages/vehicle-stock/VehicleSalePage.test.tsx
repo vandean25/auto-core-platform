@@ -197,6 +197,43 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     )
   })
 
+  // Scenario 4 (sell): the fiscal posting waits for the server and only the finalize button shows it is pending.
+  it('shows pending only on the finalize button and waits for the server before leaving the page', async () => {
+    let resolveFinalize: ((value: unknown) => void) | undefined
+    finalizeSale.mockReturnValueOnce(new Promise((resolve) => { resolveFinalize = resolve }))
+
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+          <Route path="/sales/invoices/:id" element={<h1>Invoice route</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const finalizeButton = screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice })
+    expect(finalizeButton).not.toHaveAttribute('aria-busy', 'true')
+
+    fireEvent.click(finalizeButton)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+    expect(finalizeSale).toHaveBeenCalledTimes(1)
+    expect(finalizeButton).toHaveAttribute('aria-busy', 'true')
+    expect(finalizeButton).toBeDisabled()
+    expect(finalizeButton).toHaveTextContent(deVehicleStock.sale.finalizeInvoice)
+    expect(document.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
+    expect(screen.queryByText('Invoice route')).not.toBeInTheDocument()
+
+    // A second click while pending sends nothing.
+    fireEvent.click(finalizeButton)
+    expect(finalizeSale).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      resolveFinalize?.({ invoice: { id: 'invoice-1' } })
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.getByText('Invoice route')).toBeInTheDocument()
+  })
+
   it('preserves newer edits when an older autosave refreshes the sale query', async () => {
     let resolveUpdate: (() => void) | undefined
     updateSale.mockReturnValueOnce(new Promise<void>((resolve) => {

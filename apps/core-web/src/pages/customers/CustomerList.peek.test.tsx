@@ -90,6 +90,7 @@ describe('CustomerList peek sheet and registry primitives', () => {
       isLoading: false,
     }))
     asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(customersApi.useCreateCustomer).mockReturnValue({ mutateAsync: vi.fn() })
   })
 
   it('opens peek on row click and preserves table params', async () => {

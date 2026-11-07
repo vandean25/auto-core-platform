@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download } from 'lucide-react'
+import { ArrowLeft, Download, Loader2Icon } from 'lucide-react'
 import { CapabilityGate } from '@/components/CapabilityGate'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -105,10 +105,13 @@ export function VehicleSaleActions({
           {t('sale.downloadKaufvertrag')}
         </Button>
       </CapabilityGate>
+      {/* Server-confirmed fiscal posting: only this button shows pending, the label stays (same look as SubmitButtonPending). */}
       <Button
         disabled={!saleId || !isDraft || isFinalizing || saveStatus === 'saving'}
+        aria-busy={isFinalizing}
         onClick={onFinalize}
       >
+        {isFinalizing ? <Loader2Icon aria-hidden="true" className="mr-2 size-4 animate-spin motion-reduce:animate-none" /> : null}
         {t('sale.finalizeInvoice')}
       </Button>
     </div>

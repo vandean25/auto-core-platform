@@ -1,9 +1,10 @@
-import { toast } from 'sonner'
 import { Phone, Mail, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useUpdateCustomer } from '@/api/customers'
 import { CUSTOMER_FIELD_MAX_LENGTH, type CustomerField } from '@/constants/field-limits'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
+import { isCustomerUpdateOptimisticEligible } from '@/features/interaction/customer-vehicle-update-eligibility'
+import { FieldSaveFailures, useOptimisticFieldSave } from '@/features/interaction/use-optimistic-field-save'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LegacyNumbers } from '@/components/LegacyNumbers'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
@@ -13,26 +14,19 @@ function useSaveCustomerField(customerId: string) {
   const { t } = useTranslation('customers')
   const updateCustomer = useUpdateCustomer()
 
-  return async (field: CustomerField, nextValue: string) => {
-    try {
-      await updateCustomer.mutateAsync({
-        id: customerId,
-        data: {
-          [field]: nextValue,
-        },
-      })
-      toast.success(t('detail.updated'))
-    } catch (error: unknown) {
-      // The API answers a refusal in English, so the toast only ever shows the translated fallback.
-      toast.error(t('detail.updateFailed'))
-      throw error
-    }
-  }
+  // The API answers a refusal in English, so only the translated fallback (or the permission text on 403) is shown.
+  return useOptimisticFieldSave<CustomerField, string>({
+    save: (field, value) => updateCustomer.mutateAsync({ id: customerId, data: { [field]: value } }),
+    isOptimistic: (field, value) => isCustomerUpdateOptimisticEligible({ data: { [field]: value } }),
+    successMessage: t('detail.updated'),
+    failureMessage: t('detail.updateFailed'),
+  })
 }
 
 export function CustomerContactCard({ customer }: { customer: CustomerDetailResponse }) {
   const { t } = useTranslation('customers')
-  const handleSaveCustomerField = useSaveCustomerField(customer.id)
+  const { saveField: handleSaveCustomerField, failures, retry, dismiss } = useSaveCustomerField(customer.id)
+  const record = customer.type === 'COMPANY' ? customer.company_name : `${customer.first_name} ${customer.last_name}`
 
   return (
     <Card className='lg:col-span-1'>
@@ -40,6 +34,12 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
         <CardTitle className='text-base font-semibold'>{t('detail.contactInformation')}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-4'>
+        <FieldSaveFailures
+          failures={failures}
+          message={(field) => t('detail.fieldSaveFailed', { record, field: t(`detail.fieldLabels.${field}`) })}
+          onRetry={retry}
+          onDismiss={dismiss}
+        />
         <LegacyNumbers
           legacyIds={customer.legacy_ids}
           sourceLabel={(source) => t('detail.fields.legacyNumberSource', { source })}

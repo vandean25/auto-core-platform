@@ -182,6 +182,19 @@
     "validity": {
       "open": "ab {{from}}",
       "closed": "{{from}} – {{to}}"
+    },
+    "fieldSaveFailed": "{{record}}: {{field}} nicht gespeichert, vorheriger Wert wiederhergestellt.",
+    "fieldLabels": {
+      "company_name": "Firmenname",
+      "first_name": "Vorname",
+      "last_name": "Nachname",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "address_street": "Straße",
+      "address_zip": "PLZ",
+      "address_city": "Ort",
+      "address_country": "Land",
+      "vat_id": "UID-Nummer"
     }
   },
   "dialog": {
@@ -190,6 +203,7 @@
     "updated": "Kunde aktualisiert",
     "created": "Kunde angelegt",
     "saveFailed": "Kunde konnte nicht gespeichert werden",
+    "createUnconfirmed": "Kunde nicht bestätigt. Bitte prüfen Sie die Kundenliste, bevor Sie ihn erneut anlegen.",
     "checkFields": "Bitte die markierten Felder prüfen.",
     "errors": {
       "email": "Bitte eine gültige E-Mail-Adresse eingeben oder das Feld leer lassen.",

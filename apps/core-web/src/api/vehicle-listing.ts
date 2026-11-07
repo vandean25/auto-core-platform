@@ -75,6 +75,7 @@ export function useVehicleListingValidation(vehicleId: string, enabled = true) {
 export function useCreateVehicleListing(vehicleId: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleListingKeys.all, 'create'],
     mutationFn: async (payload: components['schemas']['CreateVehicleListingDto']) => {
       const response = await fetchWithAuth(`/api/vehicle-stock/${vehicleId}/listing`, {
         method: 'POST',
@@ -96,6 +97,7 @@ export function useCreateVehicleListing(vehicleId: string) {
 export function usePatchVehicleListing(vehicleId: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleListingKeys.all, 'patch'],
     mutationFn: async (payload: PatchVehicleListingDto) => {
       const response = await fetchWithAuth(`/api/vehicle-stock/${vehicleId}/listing`, {
         method: 'PATCH',
@@ -118,6 +120,7 @@ export function usePatchVehicleListing(vehicleId: string) {
 export function usePatchVehicleListingChannel(vehicleId: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleListingKeys.all, 'patch-channel'],
     mutationFn: async ({
       platform,
       payload,

@@ -12,19 +12,17 @@ import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
+import { FieldSaveFailures } from '@/features/interaction/use-optimistic-field-save'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
-import {
-  usePatchVehicleStock,
-  useVehicleStockDetail,
-} from '@/api/vehicle-stock'
+import { useVehicleStockDetail } from '@/api/vehicle-stock'
 import { useCreateWorkshopOrder } from '@/api/workshop'
 import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
+import { useVehicleStockFieldSaves } from './useVehicleStockFieldSaves'
 import type { Customer } from '@/api/types'
 import {
   VehicleRegulatorySection,
   type VehicleNovaClass,
-  type VehicleRegulatoryValues,
 } from '@/components/vehicles/VehicleRegulatorySection'
 import {
   useLocalizedCopy,
@@ -66,7 +64,7 @@ export default function VehicleStockDetail() {
     void ensureNamespaceLoaded('vehicleStock')
   }, [])
   const { data: vehicle, isLoading } = useVehicleStockDetail(vehicleId)
-  const patchStock = usePatchVehicleStock(vehicleId)
+  const { descriptiveSave, reserving, reserve, saveRegulatory } = useVehicleStockFieldSaves(vehicleId)
   const createPrep = useCreateWorkshopOrder()
 
   if (isLoading || !vehicle) {
@@ -87,19 +85,6 @@ export default function VehicleStockDetail() {
         email: '',
       } as Customer)
     : null
-
-  const saveField = async (patch: Parameters<typeof patchStock.mutateAsync>[0]) => {
-    try {
-      await patchStock.mutateAsync(patch)
-      toast.success(t('shared.saved'))
-    } catch (error) {
-      toast.error(getErrorMessage(error, t('stockDetail.saveFailed')))
-    }
-  }
-
-  const saveRegulatory = async (patch: Partial<VehicleRegulatoryValues>) => {
-    await saveField(patch as Parameters<typeof patchStock.mutateAsync>[0])
-  }
 
   const startPrep = async () => {
     try {
@@ -160,6 +145,17 @@ export default function VehicleStockDetail() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-lg border p-4 space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('stockDetail.details')}</h2>
+          <FieldSaveFailures
+            failures={descriptiveSave.failures}
+            message={(field) =>
+              t('stockDetail.fieldSaveFailed', {
+                record: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+                field: t(`stockDetail.fieldLabels.${field}`),
+              })
+            }
+            onRetry={descriptiveSave.retry}
+            onDismiss={descriptiveSave.dismiss}
+          />
           <div>
             <div className="text-xs text-muted-foreground">{t('stockDetail.costBasis')}</div>
             <div className="font-medium">{formatCurrency(vehicle.cost_basis)}</div>
@@ -169,7 +165,7 @@ export default function VehicleStockDetail() {
             <InlineEdit
               value={vehicle.mileage != null ? String(vehicle.mileage) : ''}
               placeholder={t('stockDetail.mileage')}
-              onSave={(next) => saveField({ mileage: Number(next) || 0 })}
+              onSave={(next) => descriptiveSave.saveField('mileage', next)}
             />
           </div>
           <div>
@@ -177,7 +173,7 @@ export default function VehicleStockDetail() {
             <InlineEdit
               value={vehicle.color}
               placeholder={t('stockDetail.color')}
-              onSave={(next) => saveField({ color: next })}
+              onSave={(next) => descriptiveSave.saveField('color', next)}
             />
           </div>
           <div>
@@ -185,12 +181,12 @@ export default function VehicleStockDetail() {
             <InlineEdit
               value={vehicle.key_number}
               placeholder={t('stockDetail.keyNumber')}
-              onSave={(next) => saveField({ key_number: next })}
+              onSave={(next) => descriptiveSave.saveField('key_number', next)}
             />
           </div>
           <RegistrationCertificateField
             value={vehicle.registration_certificate_no}
-            onSave={(next) => saveField({ registration_certificate_no: next })}
+            onSave={(next) => descriptiveSave.saveField('registration_certificate_no', next)}
           />
           <VehicleRegulatorySection
             mode="inline"
@@ -217,9 +213,8 @@ export default function VehicleStockDetail() {
             <div className="text-xs text-muted-foreground mb-1">{t('stockDetail.reservedFor')}</div>
             <CustomerSearch
               value={reservedCustomer}
-              onChange={(customer) => {
-                void saveField({ reserved_for_customer_id: customer?.id ?? null })
-              }}
+              pending={reserving}
+              onChange={(customer) => void reserve(customer?.id ?? null)}
             />
           </div>
         </div>

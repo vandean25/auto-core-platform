@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Loader2Icon } from "lucide-react"
 import { useTranslation } from 'react-i18next'
 
 import { cn } from "@/lib/utils"
@@ -23,6 +23,8 @@ import type { Customer } from "@/api/types"
 interface CustomerSearchProps {
     value?: Customer | null
     onChange: (customer: Customer | null) => void
+    /** A server-confirmed write is in flight: only this button shows it, and it cannot be used again meanwhile. */
+    pending?: boolean
 }
 
 const getCustomerName = (customer: Customer) => {
@@ -30,7 +32,7 @@ const getCustomerName = (customer: Customer) => {
     return `${customer.first_name} ${customer.last_name}`
 }
 
-export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
+export function CustomerSearch({ value, onChange, pending = false }: CustomerSearchProps) {
   const { t } = useTranslation('customers')
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
@@ -55,10 +57,16 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          aria-busy={pending}
+          disabled={pending}
+          className="w-full justify-between max-sm:min-h-11"
         >
           {value ? getCustomerName(value) : t('search.selectPlaceholder')}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {pending ? (
+            <Loader2Icon aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">

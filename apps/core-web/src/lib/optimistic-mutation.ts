@@ -18,6 +18,14 @@ export type ExtraOptimisticCache<TVariables> = {
   revert: (cache: unknown, variables: TVariables, snapshot: unknown) => unknown
 }
 
+/** Patches every cached query under a key prefix that holds data (all pages and sort/filter variants of a list). */
+export type PrefixOptimisticCache<TVariables> = {
+  /** Prefix of the cached queries, e.g. the list keys of a domain. Queries without data are left alone. */
+  queryKey: (variables: TVariables) => QueryKey
+  apply: (cache: unknown, variables: TVariables) => unknown
+  revert: (cache: unknown, variables: TVariables, snapshot: unknown) => unknown
+}
+
 type OptimisticMutationConfig<TCache, TVariables> = {
   /** Query whose cached data the mutation patches optimistically. */
   queryKey: QueryKeyResolver<TVariables>
@@ -38,11 +46,21 @@ type OptimisticMutationConfig<TCache, TVariables> = {
   revert: (cache: TCache, variables: TVariables, snapshot: TCache) => TCache
   /** Optional extra caches patched in the same mutation (e.g. order detail while assigning the board). */
   extraCaches?: ExtraOptimisticCache<TVariables>[]
+  /**
+   * Cached list queries patched in the same mutation. Each matching query is settled like the primary one:
+   * offset lists refetch, infinite lists keep their retained pages and are marked stale (ADR-0036 R7).
+   */
+  prefixCaches?: PrefixOptimisticCache<TVariables>[]
   /** When false, skips cancel/snapshot/apply (mutation still uses scope and settle invalidation). */
   shouldOptimistic?: (variables: TVariables) => boolean
 }
 
-type ExtraSnapshot = { queryKey: QueryKey; snapshot: unknown }
+type ExtraSnapshot = {
+  queryKey: QueryKey
+  snapshot: unknown
+  /** Set for a query found through `prefixCaches`: its own revert, and reconcile-on-settle instead of invalidate. */
+  fromPrefix?: { revert: (cache: unknown, variables: unknown, snapshot: unknown) => unknown }
+}
 
 type OptimisticContext<TCache> = {
   snapshot: TCache | undefined
@@ -66,8 +84,8 @@ function revertExtraCaches<TVariables>(
   extraSnapshots: ExtraSnapshot[],
   extraCaches: ExtraOptimisticCache<TVariables>[] | undefined,
 ) {
-  for (const [index, { queryKey: extraKey, snapshot: extraSnapshot }] of extraSnapshots.entries()) {
-    const extra = extraCaches?.[index]
+  for (const [index, { queryKey: extraKey, snapshot: extraSnapshot, fromPrefix }] of extraSnapshots.entries()) {
+    const extra = fromPrefix ?? extraCaches?.[index]
     if (!extra || extraSnapshot === undefined) continue
     client.setQueryData(extraKey, (cache) =>
       cache === undefined ? cache : extra.revert(cache, variables, extraSnapshot),
@@ -157,9 +175,13 @@ function invalidateSettledCaches(
   if (countOtherPendingMutationsForQueryKey(client, resolvedQueryKey, exceptMutationId) === 0) {
     reconcileSettledPrimaryQuery(client, resolvedQueryKey, snapshot, superseded)
   }
-  for (const { queryKey: extraKey } of extraSnapshots) {
+  for (const { queryKey: extraKey, snapshot: extraSnapshot, fromPrefix } of extraSnapshots) {
+    if (fromPrefix) {
+      noteInfiniteMembershipDrift(client, extraKey, extraSnapshot)
+    }
     if (countOtherPendingMutationsForQueryKey(client, extraKey, exceptMutationId) > 0) continue
-    void client.invalidateQueries({ queryKey: extraKey })
+    if (fromPrefix) reconcileSettledPrimaryQuery(client, extraKey, extraSnapshot, false)
+    else void client.invalidateQueries({ queryKey: extraKey })
   }
 }
 
@@ -224,6 +246,7 @@ export function optimisticMutationOptions<TCache, TVariables>({
   apply,
   revert,
   extraCaches,
+  prefixCaches,
   shouldOptimistic,
 }: OptimisticMutationConfig<TCache, TVariables>) {
   return {
@@ -260,6 +283,20 @@ export function optimisticMutationOptions<TCache, TVariables>({
         client.setQueryData(extraKey, (cache) =>
           cache === undefined ? cache : extra.apply(cache, variables),
         )
+      }
+
+      for (const prefix of prefixCaches ?? []) {
+        const prefixKey = prefix.queryKey(variables)
+        await client.cancelQueries({ queryKey: prefixKey })
+        for (const [key, cached] of client.getQueriesData({ queryKey: prefixKey })) {
+          if (cached === undefined) continue
+          extraSnapshots.push({
+            queryKey: key,
+            snapshot: cached,
+            fromPrefix: { revert: (cache, vars, before) => prefix.revert(cache, vars as TVariables, before) },
+          })
+          client.setQueryData(key, (cache) => (cache === undefined ? cache : prefix.apply(cache, variables)))
+        }
       }
 
       return { snapshot, resolvedQueryKey, extraSnapshots, refreshEpoch } satisfies OptimisticContext<TCache>

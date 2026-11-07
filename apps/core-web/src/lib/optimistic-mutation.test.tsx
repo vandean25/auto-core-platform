@@ -1184,3 +1184,77 @@ describe('AUT-895 infinite-list optimistic settlement (ADR-0036 R7)', () => {
     )
   })
 })
+
+describe('AUT-883 prefixCaches (every cached list page of a domain)', () => {
+  const lists = ['test', 'rows', 'list'] as const
+  type Page = { rows: Array<{ id: string; label: string }> }
+
+  function setupPrefix() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const pageA = [...lists, { page: 1 }] as const
+    const pageB = [...lists, { page: 2 }] as const
+    const unloaded = [...lists, { page: 3 }] as const
+    queryClient.setQueryData<Page>(pageA, { rows: [{ id: 'r1', label: 'old' }] })
+    queryClient.setQueryData<Page>(pageB, { rows: [{ id: 'r1', label: 'old' }, { id: 'r2', label: 'two' }] })
+    void queryClient.prefetchQuery({ queryKey: unloaded, queryFn: () => new Promise(() => undefined) })
+    const control: { resolve: () => void; reject: () => void } = { resolve: () => undefined, reject: () => undefined }
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(
+      () =>
+        useMutation({
+          ...optimisticMutationOptions<Page, { id: string; label: string }>({
+            queryKey: ['test', 'rows', 'detail'],
+            mutationKey: ['test', 'rows', 'rename'],
+            entityId: ({ id }) => id,
+            apply: (cache) => cache,
+            revert: (cache) => cache,
+            prefixCaches: [
+              {
+                queryKey: () => lists,
+                apply: (cache, { id, label }) => ({
+                  rows: (cache as Page).rows.map((row) => (row.id === id ? { ...row, label } : row)),
+                }),
+                revert: (cache, { id }, snapshot) => ({
+                  rows: (cache as Page).rows.map((row) =>
+                    row.id === id ? { ...row, label: (snapshot as Page).rows.find((r) => r.id === id)!.label } : row,
+                  ),
+                }),
+              },
+            ],
+          }),
+          mutationFn: () =>
+            new Promise<void>((resolve, reject) => {
+              control.resolve = resolve
+              control.reject = () => reject(new Error('rejected'))
+            }),
+        }),
+      { wrapper },
+    )
+    return { queryClient, result, control, pageA, pageB, unloaded }
+  }
+
+  it('patches every cached page that holds data before the server answers and leaves unloaded pages alone', async () => {
+    const { queryClient, result, pageA, pageB, unloaded } = setupPrefix()
+
+    act(() => void result.current.mutateAsync({ id: 'r1', label: 'new' }).catch(() => undefined))
+    await settle()
+
+    expect(queryClient.getQueryData<Page>(pageA)?.rows[0]?.label).toBe('new')
+    expect(queryClient.getQueryData<Page>(pageB)?.rows.map((row) => row.label)).toEqual(['new', 'two'])
+    expect(queryClient.getQueryData(unloaded)).toBeUndefined()
+  })
+
+  it('restores every patched page on a rejection', async () => {
+    const { queryClient, result, control, pageA, pageB } = setupPrefix()
+
+    act(() => void result.current.mutateAsync({ id: 'r1', label: 'new' }).catch(() => undefined))
+    await settle()
+    await act(async () => control.reject())
+    await settle()
+
+    expect(queryClient.getQueryData<Page>(pageA)?.rows[0]?.label).toBe('old')
+    expect(queryClient.getQueryData<Page>(pageB)?.rows.map((row) => row.label)).toEqual(['old', 'two'])
+  })
+})

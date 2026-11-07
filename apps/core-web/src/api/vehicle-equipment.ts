@@ -54,6 +54,7 @@ export function useVehicleEquipmentAssignment(vehicleId: string) {
 export function useReplaceVehicleEquipment(vehicleId: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...vehicleEquipmentKeys.all, 'replace'],
     mutationFn: async (payload: components['schemas']['ReplaceVehicleEquipmentDto']) => {
       const response = await fetchWithAuth(`/api/vehicle-stock/${vehicleId}/equipment`, {
         method: 'PUT',

@@ -5,7 +5,7 @@ import { useCustomers } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { CustomerDialog } from '@/components/customers/CustomerDialog'
-import { Plus, User, Building2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -15,7 +15,9 @@ import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { CustomerPeekSheet } from '@/features/peek/CustomerPeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
+import { CustomerIconCell, CustomerNameCell } from './customer-list-cells'
 import { useCustomerListRowBehaviour } from './useCustomerListRowBehaviour'
+import { useCustomerPendingCreate } from './useCustomerPendingCreate'
 
 export const CUSTOMER_CREATE_DIALOG_ACTION_IDS = ['create', 'customer.create'] as const
 
@@ -25,11 +27,12 @@ export default function CustomerList() {
     void ensureNamespaceLoaded('customers')
   }, [])
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const { data: responseData, isLoading, isError } = useCustomers(queryParams)
+  const { data: responseData, isLoading, isError, dataUpdatedAt } = useCustomers(queryParams)
 
   const customers: Customer[] = Array.isArray(responseData)
     ? responseData
     : responseData?.data || []
+  const pending = useCustomerPendingCreate(customers, dataUpdatedAt)
   const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount || 1
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
@@ -53,11 +56,7 @@ export default function CustomerList() {
       ),
       cell: ({ row }) => (
         <div className="w-[50px]">
-          {row.original.type === 'COMPANY' ? (
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <User className="h-4 w-4 text-muted-foreground" />
-          )}
+          <CustomerIconCell customer={row.original} />
         </div>
       ),
       enableSorting: false,
@@ -69,20 +68,7 @@ export default function CustomerList() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.name')} />
       ),
-      cell: ({ row }) => (
-        <div>
-          <div className="font-medium">
-            {row.original.type === 'COMPANY'
-              ? row.original.company_name
-              : `${row.original.first_name} ${row.original.last_name}`}
-          </div>
-          {row.original.type === 'COMPANY' && (
-            <div className="text-xs text-muted-foreground">
-              {row.original.first_name} {row.original.last_name}
-            </div>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => <CustomerNameCell customer={row.original} onDismiss={pending.dismiss} />,
     },
     {
       accessorKey: 'email',
@@ -124,7 +110,7 @@ export default function CustomerList() {
 
       <DataTable
         columns={columns}
-        data={customers}
+        data={pending.rows}
         saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_CUSTOMERS}
         pageCount={pageCount}
@@ -150,6 +136,7 @@ export default function CustomerList() {
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         customer={selectedCustomer}
+        onCreate={pending.submit}
       />
       <CustomerPeekSheet
         peekId={peek.peekId}

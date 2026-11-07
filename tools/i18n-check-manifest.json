@@ -42,7 +42,10 @@
     "nav:groups.",
     "nav:modules.",
     "settings:dataImport.undo.blockedSection.reasons.",
-    "workshop:command.clarificationPrompts."
+    "workshop:command.clarificationPrompts.",
+    "vehicleStock:stockDetail.fieldLabels.",
+    "customers:detail.fieldLabels.",
+    "vehicles:detail.fieldLabels."
   ],
   "usedKeys": [
     "settings:accountingExport.header.selected",

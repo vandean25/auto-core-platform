@@ -28,6 +28,7 @@ import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { useSubmitOnce } from '@/features/interaction/use-submit-once'
 import { buildCustomerPayload, markRefusedFields } from './customer-submit'
 import { toastSuccessWithOpen } from '@/lib/toast-actions'
 
@@ -36,6 +37,11 @@ interface CustomerDialogProps {
     trigger?: React.ReactNode
     open?: boolean
     onOpenChange?: (open: boolean) => void
+    /**
+     * List create: the caller sends the create behind a pending row. The dialog closes at once and
+     * submits only once per opening, so a double click cannot create the customer twice.
+     */
+    onCreate?: (payload: Partial<Customer>) => void
 }
 
 const DEFAULT_CUSTOMER: Partial<Customer> = {
@@ -53,7 +59,7 @@ const DEFAULT_CUSTOMER: Partial<Customer> = {
     address_country: 'AT',
 }
 
-export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpenChange }: CustomerDialogProps) {
+export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpenChange, onCreate }: CustomerDialogProps) {
     const { t } = useTranslation('customers')
     useEffect(() => {
         void ensureNamespaceLoaded('customers')
@@ -68,8 +74,18 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
         defaultValues: customer || DEFAULT_CUSTOMER,
     })
 
+    const isOpen = controlledOpen ?? open
+    const claimSubmit = useSubmitOnce(isOpen)
+
     const onSubmit = async (formData: Partial<Customer>) => {
         const payload = buildCustomerPayload(formData, customer)
+        if (!isEdit && onCreate) {
+            if (!claimSubmit()) return
+            onCreate(payload)
+            handleOpenChange(false)
+            form.reset()
+            return
+        }
         try {
             if (isEdit && customer) {
                 await updateMutation.mutateAsync({ id: customer.id, data: payload })
@@ -106,7 +122,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
     const type = form.watch('type')
 
     return (
-        <Dialog open={controlledOpen ?? open} onOpenChange={handleOpenChange}>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent fullScreenOnPhone className="sm:max-w-[600px]">
                 <DialogHeader>
