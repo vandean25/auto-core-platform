@@ -19,18 +19,16 @@ import {
     FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { useCreateVehicle, useUpdateVehicle } from '@/api/vehicles'
 import type { components } from '@/api/generated/openapi'
 import type { Customer, Vehicle } from '@/api/types'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
-import { useSubmitOnce } from '@/features/interaction/use-submit-once'
+import { useVehicleDialogSubmit } from './use-vehicle-dialog-submit'
 import {
   VehicleRegulatorySection,
   type VehicleNovaClass,
   type VehicleRegulatoryValues,
 } from '@/components/vehicles/VehicleRegulatorySection'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 interface VehicleDialogProps {
     vehicle?: Vehicle & { customer?: Customer | null }
@@ -89,8 +87,6 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
     const [open, setOpen] = useState(false)
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(vehicle?.customer || null)
     const isEdit = !!vehicle
-    const createMutation = useCreateVehicle()
-    const updateMutation = useUpdateVehicle()
     const [regulatoryValues, setRegulatoryValues] = useState<VehicleRegulatoryValues>(
         () => regulatoryFromVehicle(vehicle),
     )
@@ -107,34 +103,18 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
     })
 
     const isOpen = controlledOpen ?? open
-    const claimSubmit = useSubmitOnce(isOpen)
-
-    const onSubmit = async (data: VehicleFormValues) => {
-        try {
-            const payload: components['schemas']['CreateVehicleDto'] = {
-                ...data,
-                ...regulatoryValues,
-                year: Number(data.year),
-                customer_id: selectedCustomer?.id || null,
-            }
-
-            if (isEdit && vehicle) {
-                await updateMutation.mutateAsync({ id: vehicle.id, data: payload })
-                toast.success(t('vehicles:dialog.updated'))
-            } else if (onCreate) {
-                if (!claimSubmit()) return
-                onCreate(payload)
-            } else {
-                await createMutation.mutateAsync(payload)
-                toast.success(t('vehicles:dialog.created'))
-            }
+    const { submit, isPending } = useVehicleDialogSubmit({
+        vehicleId: vehicle?.id,
+        isOpen,
+        onCreate,
+        finish: () => {
             handleOpenChange(false)
             form.reset()
             setSelectedCustomer(null)
-        } catch {
-            toast.error(t('vehicles:dialog.saveFailed'))
-        }
-    }
+        },
+    })
+    const onSubmit = (data: VehicleFormValues) =>
+        submit({ ...data, ...regulatoryValues, year: Number(data.year), customer_id: selectedCustomer?.id || null })
 
     useEffect(() => {
         if (vehicle) {
@@ -289,7 +269,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                     <Button
                         type="submit"
                         form="vehicle-dialog-form"
-                        disabled={createMutation.isPending || updateMutation.isPending}
+                        disabled={isPending}
                     >
                         {isEdit ? t('vehicles:dialog.saveChanges') : t('vehicles:dialog.create')}
                     </Button>

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,13 +23,9 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { CUSTOMER_FIELD_MAX_LENGTH } from '@/constants/field-limits'
-import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { toast } from 'sonner'
-import { useSubmitOnce } from '@/features/interaction/use-submit-once'
-import { buildCustomerPayload, markRefusedFields } from './customer-submit'
-import { toastSuccessWithOpen } from '@/lib/toast-actions'
+import { useCustomerDialogSubmit } from './use-customer-dialog-submit'
 
 interface CustomerDialogProps {
     customer?: Customer
@@ -66,42 +61,23 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
     }, [])
     const [open, setOpen] = useState(false)
     const isEdit = !!customer
-    const createMutation = useCreateCustomer()
-    const updateMutation = useUpdateCustomer()
-    const navigate = useNavigate()
 
     const form = useForm<Partial<Customer>>({
         defaultValues: customer || DEFAULT_CUSTOMER,
     })
 
     const isOpen = controlledOpen ?? open
-    const claimSubmit = useSubmitOnce(isOpen)
-
-    const onSubmit = async (formData: Partial<Customer>) => {
-        const payload = buildCustomerPayload(formData, customer)
-        if (!isEdit && onCreate) {
-            if (!claimSubmit()) return
-            onCreate(payload)
+    const { onSubmit, isPending } = useCustomerDialogSubmit({
+        customer,
+        isOpen,
+        onCreate,
+        fieldNames: Object.keys(DEFAULT_CUSTOMER),
+        setError: form.setError,
+        finish: () => {
             handleOpenChange(false)
             form.reset()
-            return
-        }
-        try {
-            if (isEdit && customer) {
-                await updateMutation.mutateAsync({ id: customer.id, data: payload })
-                toast.success(t('dialog.updated'))
-            } else {
-                const created = await createMutation.mutateAsync(payload)
-                toastSuccessWithOpen(t('dialog.created'), () => navigate(`/customers/${created.id}`))
-            }
-            handleOpenChange(false)
-            form.reset()
-        } catch (error) {
-            // A refused field is marked on the field itself; the toast then only points at it.
-            const marked = markRefusedFields(error, Object.keys(DEFAULT_CUSTOMER), form.setError, t)
-            toast.error(t(marked > 0 ? 'dialog.checkFields' : 'dialog.saveFailed'))
-        }
-    }
+        },
+    })
 
     useEffect(() => {
         if (customer) {
@@ -331,7 +307,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                     <Button
                         type="submit"
                         form="customer-dialog-form"
-                        disabled={createMutation.isPending || updateMutation.isPending}
+                        disabled={isPending}
                     >
                         {isEdit ? t('dialog.saveChanges') : t('dialog.createCustomer')}
                     </Button>
