@@ -21,7 +21,7 @@ const stockVehicle = {
   reserved_for_customer: null, ledger_entries: [] as Array<{ id: string; entry_type: string; amount: string }>,
 }
 
-function mockDetail(result: { data?: unknown; isLoading?: boolean }) {
+function mockDetail(result: { data?: unknown; isLoading?: boolean; error?: Error | null }) {
   vi.mocked(vehicleStockApi.useVehicleStockDetail).mockReturnValue(
     result as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockDetail>,
   )
@@ -44,6 +44,15 @@ describe('VehicleStockDetail (AUT-659)', () => {
     vi.mocked(vehicleStockApi.usePatchVehicleStock).mockReturnValue(
       { mutateAsync: vi.fn() } as unknown as ReturnType<typeof vehicleStockApi.usePatchVehicleStock>,
     )
+  })
+
+  // Regression (AUT-883 validation): a failed load (404/500) kept the loading skeleton on screen for ever.
+  it('WHEN the stock vehicle cannot be loaded THEN the error is shown instead of the loading state', () => {
+    mockDetail({ data: undefined, isLoading: false, error: new Error('Failed to fetch vehicle') })
+    renderPage()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(deVehicleStock.stockDetail.loadFailed)
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   // Regression: the loading state was a bare text line instead of a skeleton.

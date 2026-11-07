@@ -32,6 +32,7 @@
   },
   "stockDetail": {
     "loading": "Loading stock vehicle...",
+    "loadFailed": "Stock vehicle could not be loaded.",
     "noVin": "No VIN",
     "backAria": "Back to vehicle stock",
     "stockPrep": "Stock prep",

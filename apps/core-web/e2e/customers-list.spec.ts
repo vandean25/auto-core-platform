@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories';
 import { DE_CUSTOMERS } from './helpers/de-customers';
+import { PHONE_WIDTHS } from './utils/phone-layout';
 import {
   closeListPeekSheet,
   expectListPeekForRecord,
@@ -127,4 +128,17 @@ test.describe('Customers list row navigation (AUT-220)', () => {
     await openListPeekInFull(page);
     await expect(page).toHaveURL(/\/customers\/cust-anna$/);
   });
+
+  // AUT-883 validation: the create entry of the customer list was 36px high on a phone (the vehicle list's is 44px).
+  for (const width of PHONE_WIDTHS) {
+    test(`${width}px: the create button is a 44px touch target inside the screen`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
+      await corePage.navigate('/customers');
+
+      const box = (await corePage.createButton.first().boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    });
+  }
 });

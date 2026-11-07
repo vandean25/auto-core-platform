@@ -22,8 +22,17 @@ export default function VehicleStockDetail() {
   useEffect(() => {
     void ensureNamespaceLoaded('vehicleStock')
   }, [])
-  const { data: vehicle, isLoading } = useVehicleStockDetail(vehicleId)
+  const { data: vehicle, isLoading, error } = useVehicleStockDetail(vehicleId)
   const createPrep = useCreateWorkshopOrder()
+
+  // A refused or failed load is an error, not a loading state (ADR-0036 R2).
+  if (error && !vehicle) {
+    return (
+      <div role="alert" className="p-8 text-center">
+        {t('stockDetail.loadFailed')}
+      </div>
+    )
+  }
 
   if (isLoading || !vehicle) {
     return <DetailSkeleton label={t('stockDetail.loading')} />

@@ -27,10 +27,11 @@ export function VehicleSaleTitle({
   const { t } = useTranslation('vehicleStock')
   const navigate = useNavigate()
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-wrap items-center gap-4">
       <Button
         variant="ghost"
         size="icon"
+        className="shrink-0 max-sm:min-h-11 max-sm:min-w-11"
         aria-label={vehicleId ? t('sale.backToVehicleAria') : t('sale.backAria')}
         onClick={() => navigate(vehicleId ? `/vehicle-stock/${vehicleId}` : '/vehicle-stock')}
       >
@@ -91,13 +92,14 @@ export function VehicleSaleActions({
     error: t('sale.saveStatus.error'),
   }
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       {saveStatus === 'idle' ? null : (
         <span className={`text-sm ${SAVE_STATUS_CLASS[saveStatus]}`}>{saveStatusLabel[saveStatus]}</span>
       )}
       <CapabilityGate capability="kaufvertragAt">
         <Button
           variant="outline"
+          className="max-sm:min-h-11"
           disabled={!saleId || isFinalizing || isDownloading || saveStatus === 'saving' || isCancelled}
           onClick={onDownload}
         >
@@ -107,6 +109,7 @@ export function VehicleSaleActions({
       </CapabilityGate>
       {/* Server-confirmed fiscal posting: only this button shows pending, the label stays (same look as SubmitButtonPending). */}
       <Button
+        className="max-sm:min-h-11"
         disabled={!saleId || !isDraft || isFinalizing || saveStatus === 'saving'}
         aria-busy={isFinalizing}
         onClick={onFinalize}
