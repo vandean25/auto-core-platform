@@ -17,6 +17,7 @@ vi.mock('@/api/workshop', async (importOriginal) => {
     ...actual,
     useWorkshopOrder: vi.fn(),
     useUpdateWorkshopOrder: vi.fn(),
+    useUpdateWorkshopOrderNotes: vi.fn(),
     useCreateWorkshopTask: vi.fn(),
     useDeleteWorkshopTask: vi.fn(),
     useUpdateWorkshopTask: vi.fn(),
@@ -135,7 +136,7 @@ describe('WorkshopOrderDetails line-item persistence', () => {
       data: null,
       isLoading: false,
     })
-    ;(workshopApi.useUpdateWorkshopOrder as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+    ;(workshopApi.useUpdateWorkshopOrderNotes as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       createMutationMock(),
     )
     ;(workshopApi.useCreateWorkshopTask as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
@@ -227,5 +228,29 @@ describe('WorkshopOrderDetails line-item persistence', () => {
         ],
       })
     })
+  })
+
+  // Regression: line items are saved server-confirmed (prices, tax), but nothing on the task showed that a save was running.
+  it.each([
+    { pendingTaskId: 'task-1', visible: true },
+    { pendingTaskId: 'task-2', visible: false },
+  ])('shows the saving status on the task only while its own save runs ($pendingTaskId)', ({ pendingTaskId, visible }) => {
+    void queryClient
+      .getMutationCache()
+      .build(queryClient, { mutationKey: workshopApi.workshopKeys.taskLineItemsSave(), mutationFn: () => new Promise(() => undefined) })
+      .execute({ taskId: pendingTaskId })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/workshop/orders/order-1']}>
+          <Routes>
+            <Route path='/workshop/orders/:id' element={<WorkshopOrderDetails />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByText('Oil Change'))
+
+    expect(screen.queryByRole('status', { name: 'Positionen werden gespeichert…' }) !== null).toBe(visible)
   })
 })

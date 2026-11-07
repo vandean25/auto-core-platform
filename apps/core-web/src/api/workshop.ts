@@ -59,6 +59,7 @@ export const workshopKeys = {
   taskChecklist: (orderId: string, taskId: string) =>
     [...workshopKeys.all, 'taskChecklist', orderId, taskId] as const,
   order: (id: string) => workshopKeys.detail(id),
+  taskLineItemsSave: () => [...workshopKeys.all, 'task-line-items'] as const,
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
   planner: (from?: string, to?: string, bayId?: string) =>
     from && to
@@ -679,6 +680,51 @@ export const useUpdateWorkshopOrder = () => {
   })
 }
 
+type UpdateWorkshopOrderNotesVariables = { id: string; notes?: string; reportedIssue?: string }
+
+// Internal notes and the reported issue are stored verbatim (no shared resource, numbering or price), so unlike the
+// bay / mechanic / schedule patches of useUpdateWorkshopOrder they are optimistic (ADR-0036 R1). A separate hook,
+// because the helper serialises one mutationKey and planner reschedules of different orders must stay parallel.
+const updateWorkshopOrderNotesOptimistic = optimisticMutationOptions<WorkshopOrder, UpdateWorkshopOrderNotesVariables>({
+  queryKey: (variables) => workshopKeys.detail(variables.id),
+  mutationKey: [...workshopKeys.all, 'order-notes'],
+  entityId: (variables) => variables.id,
+  apply: (order, { notes, reportedIssue }) => ({
+    ...order,
+    ...(notes !== undefined && { notes }),
+    ...(reportedIssue !== undefined && { reportedIssue }),
+  }),
+  revert: (order, { notes, reportedIssue }, snapshot) => ({
+    ...order,
+    ...(notes !== undefined && { notes: snapshot.notes }),
+    ...(reportedIssue !== undefined && { reportedIssue: snapshot.reportedIssue }),
+  }),
+})
+
+export const useUpdateWorkshopOrderNotes = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    ...updateWorkshopOrderNotesOptimistic,
+    mutationFn: async ({ id, ...patch }: UpdateWorkshopOrderNotesVariables) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to update workshop order')
+      }
+      return normalizeOrder(await response.json())
+    },
+    // The helper reconciles the text on settle; only the committed version is merged here, which the notes Undo compares.
+    onSuccess: (order) => {
+      queryClient.setQueryData(workshopKeys.order(order.id), (cached: WorkshopOrder | undefined) =>
+        cached && { ...cached, updatedAt: order.updatedAt },
+      )
+    },
+  })
+}
+
 export const useUndoWorkshopOrderNotes = () => {
   const queryClient = useQueryClient()
   return useMutation({
@@ -855,6 +901,7 @@ export const useReplaceWorkshopTaskLineItems = () => {
       items: ReplaceWorkshopTaskLineItemPayload[]
     }
   >({
+    mutationKey: workshopKeys.taskLineItemsSave(),
     mutationFn: async ({
       orderId,
       taskId,

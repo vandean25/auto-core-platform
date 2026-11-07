@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   boardKeys,
   useBoardActive,
+  useUpdateWorkshopOrderNotes,
   useUpdateWorkshopTask,
   useUpdateWorkshopTaskChecklist,
   workshopKeys,
@@ -654,6 +655,19 @@ function useDiagnosticsEdit() {
   return () => mutateAsync({ taskId: 'task-1', payload: { mechanicNotes: 'after' } })
 }
 
+const ORDER_PATCH_URL = '/api/workshop/orders/order-1'
+const orderSeed = { id: 'order-1', notes: 'before', reportedIssue: 'before', bayId: 'bay-1' }
+
+function useOrderNotesEdit() {
+  const { mutateAsync } = useUpdateWorkshopOrderNotes()
+  return () => mutateAsync({ id: 'order-1', notes: 'after' })
+}
+
+function useOrderReportedIssueEdit() {
+  const { mutateAsync } = useUpdateWorkshopOrderNotes()
+  return () => mutateAsync({ id: 'order-1', reportedIssue: 'after' })
+}
+
 type FieldEdit = {
   name: string
   url: string
@@ -685,6 +699,26 @@ const fieldEdits: FieldEdit[] = [
     read: (cache) => (cache as typeof checklistSeed).items[0]?.passed,
     before: null,
     after: true,
+  },
+  {
+    name: 'work order internal notes',
+    url: ORDER_PATCH_URL,
+    queryKey: workshopKeys.detail('order-1'),
+    seed: orderSeed,
+    useEdit: useOrderNotesEdit,
+    read: (cache) => (cache as typeof orderSeed).notes,
+    before: 'before',
+    after: 'after',
+  },
+  {
+    name: 'work order reported issue',
+    url: ORDER_PATCH_URL,
+    queryKey: workshopKeys.detail('order-1'),
+    seed: orderSeed,
+    useEdit: useOrderReportedIssueEdit,
+    read: (cache) => (cache as typeof orderSeed).reportedIssue,
+    before: 'before',
+    after: 'after',
   },
   {
     name: 'mechanic diagnostics notes',

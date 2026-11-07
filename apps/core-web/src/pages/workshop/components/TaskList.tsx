@@ -15,6 +15,7 @@ import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
 import type { WorkshopOrder, WorkshopTask } from '@/api/types'
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
+import { TaskLineItemsSavingStatus } from '@/components/workshop/TaskLineItemsSavingStatus'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
 import { WorkshopTaskInspectionChecklist } from '@/components/workshop/WorkshopTaskInspectionChecklist'
 
@@ -418,6 +419,7 @@ function TaskAccordionRow({
             readOnly={isLocked}
             onLineItemsChange={(items) => onTaskLineItemsChange(task.id, items)}
           />
+          <TaskLineItemsSavingStatus taskId={task.id} />
 
           <div className='space-y-2'>
             <div className='text-sm font-semibold'>{t('taskList.mechanicNotes')}</div>

@@ -54,9 +54,9 @@ export function PlannerBookingBlock({
       {...(isDraggable ? { ...listeners, ...attributes } : {})}
     >
       <div className="flex items-center gap-1.5 min-w-0">
+        {isMoving && <Spinner className="size-3.5 shrink-0" />}
         <StatusBadge status={booking.status} />
         <span className="font-medium truncate">{booking.orderNumber}</span>
-        {isMoving && <Spinner className="ml-auto size-3.5 shrink-0" />}
       </div>
       <p className="truncate text-muted-foreground">{plate}</p>
       {booking.mechanicName && (

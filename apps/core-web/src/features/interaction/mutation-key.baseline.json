@@ -22,7 +22,6 @@
     "useRecordWorkshopOverrunNotice",
     "useRegisterIntake",
     "useRegistrationIntakeOrder",
-    "useReplaceWorkshopTaskLineItems",
     "useRequestPart",
     "useResumeWaitingTasks",
     "useReviseWorkshopEstimate",

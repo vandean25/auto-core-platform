@@ -204,6 +204,7 @@ export async function runGenerateWorkshopJobCardPdf(
   row: Pick<WorkshopOrderListRow, 'id' | 'orderNo'>,
   { generatePdf, t: translate }: Pick<WorkshopOrderRowActionContext, 'generatePdf' | 't'>,
 ) {
+  if (generatePdf.isPending) return
   const toastId = toast.loading(translate('orderDetail.toast.jobCardPdfGenerating'))
   try {
     const res = await generatePdf.mutateAsync(row.id)

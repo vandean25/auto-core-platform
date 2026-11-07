@@ -19,6 +19,7 @@ import { OrderTopBar, CustomerVehicleInfo } from "./components/OrderHeader";
 import { OrderAdvisorPanels } from "./components/OrderAdvisorPanels";
 import { OrderLoading, OrderNotFound } from "./components/OrderLoadStates";
 import { TaskList } from "./components/TaskList";
+import { WorkshopOrderSaveFailures } from "./components/WorkshopOrderSaveFailures";
 import { WorkshopOrderUndoNotesAction } from "./components/WorkshopOrderUndoNotesAction";
 import { CheckoutFooter } from "./components/CheckoutFooter";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
@@ -134,6 +135,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
               transition: { duration: 0.22, ease: "easeOut", delay: 0.04 },
             }}
           >
+            <WorkshopOrderSaveFailures order={order} actions={orderActions} />
             <TaskList
               order={order}
               tasks={checkout.tasks}

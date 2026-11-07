@@ -113,6 +113,7 @@ function OrderJobCardPdfButton({ order }: { order: WorkshopOrder }) {
       runContext={runContext}
       role={role}
       label={t('orderHeader.printJobCard')}
+      loading={generatePdf.isPending}
       className="min-h-11"
     />
   )

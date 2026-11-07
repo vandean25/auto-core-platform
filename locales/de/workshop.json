@@ -635,6 +635,11 @@
     "cancel": "Abbrechen",
     "deleteTask": "Aufgabe löschen",
     "deleting": "Wird gelöscht…",
+    "fieldSaveFailed": "{{record}}: {{field}} nicht gespeichert, vorheriger Wert wiederhergestellt.",
+    "fieldLabels": {
+      "notes": "Interne Notizen",
+      "reportedIssue": "Gemeldetes Problem"
+    },
     "undoNotes": {
       "action": "Rückgängig"
     },
@@ -940,6 +945,7 @@
     "missingItemNo": "k. A."
   },
   "taskLineItems": {
+    "saving": "Positionen werden gespeichert…",
     "toast": {
       "conflictStale": "Dieser Auftrag wurde von einer anderen Person geändert. Daten wurden aktualisiert — bitte prüfen und erneut versuchen.",
       "invalidLineItems": "Ungültige Positionen. Mengen prüfen und erneut versuchen.",
