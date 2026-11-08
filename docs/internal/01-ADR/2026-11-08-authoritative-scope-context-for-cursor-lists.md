@@ -131,10 +131,11 @@ LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED (page or count) | LIST_CURSOR_INVAL
     budget 1 -> (context errors only) handshake:
         user session lifecycle on same tenant/site/principal (§3, §6) ->
             NEW episode, fresh initial budget; pending recovery on the old episode is abandoned
-        same tenant, site and principal, external scope change only (epochs/policy) ->
+        same tenant, site and principal, same user session (pending budgeted recovery) ->
+            restart page 1, budget 0 (wins over external-scope-only flush below)
+        same tenant, site and principal, external scope change only (epochs/policy),
+            lifecycle-only handshake (not this pending recovery handshake) ->
             flush/block per §6; no automatic page-one restart; episode unchanged
-        same tenant, site and principal, same user session (recovery refresh only) ->
-            restart page 1, budget 0
         different tenant, site or principal -> central session reset, NEW episode,
                                                no restart of the old query
         (LIST_CURSOR_INVALID with valid context -> restart page 1, budget 0, no handshake)
@@ -149,7 +150,7 @@ BLOCKED -manual retry | explicit user refresh | new semantic query | user contex
 ```
 
 - Canonical API codes are `LIST_CURSOR_INVALID` and `LIST_CURSOR_SORT_UNSUPPORTED` (ADR-0010 / OpenAPI). The recovery state machine uses the shorthands `CURSOR_INVALID` and `UNSUPPORTED_SORT` for the same outcomes. One total automatic action per episode is shared by page and count and by all scope and cursor-recovery failure types (`CONTEXT_MISMATCH`, `CONTEXT_REQUIRED`, `LIST_CURSOR_INVALID`), so alternating errors cannot multiply attempts. The unsupported-sort latch is a one-way mode switch for the episode, not a budgeted action. A realtime event, focus, or an external-scope lifecycle handshake never starts a new episode. A new episode starts only on user session lifecycle or tenant/site/principal switch (§6, episode key above).
-- Lifecycle and recovery share one singleflight handshake per client context. **Precedence** (highest first): tenant/site/principal switch; **genuine user session lifecycle** (logout, reauthentication, new sign-in — §3, not merely a digest change from automatic recovery); then pending **same-episode** recovery (one restart, budget 0); then **external scope** change (epochs/policy — flush/block, no restart). A recovery-minted SC alone does not count as user session lifecycle.
+- Lifecycle and recovery share one singleflight handshake per client context. **Precedence** (highest first): tenant/site/principal switch; **genuine user session lifecycle**; pending **same-episode budgeted recovery** (one restart, budget 0, including when epochs also changed); **external scope** flush/block only on **lifecycle-only** handshakes that are not finishing a pending recovery. A recovery-minted SC alone does not count as user session lifecycle.
 - The asymmetry is intended: a failed request interrupts a load the user just started, so one budgeted automatic restart finishes that load. A lifecycle handshake runs while the user may be reading or mid-action, so an external scope change there blocks until an explicit user refresh (ADR-0035 §7) instead of replacing the list underneath them.
 - Quarantine, flush and late-result fencing remain mandatory when the budget is spent.
 - `LIST_CURSOR_STOCK_FILTER_REQUIRED` (vehicle stock) is not a recovery case. It keeps its existing handling and is outside this contract.
