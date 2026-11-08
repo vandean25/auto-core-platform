@@ -9,7 +9,7 @@ import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import errorsDe from '../../../../../locales/de/errors.json'
 import { deSales } from '@/test/de-sales'
 import InvoiceListPage from './InvoiceListPage'
-import { queueInvoiceDraftCreate } from './useInvoicePendingCreate'
+import { queueInvoiceDraftCreate, takeQueuedInvoiceDraftCreate } from './useInvoicePendingCreate'
 
 vi.mock('@/api/client', () => ({ API_BASE_URL: 'http://127.0.0.1:3000', fetchWithAuth: vi.fn() }))
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ claims: { role: 'ADMIN' } }) }))
@@ -60,6 +60,7 @@ beforeEach(() => {
   invoices = []
   posts = []
   listGate = null
+  takeQueuedInvoiceDraftCreate()
   vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
     const path = String(url)
     if (path === '/api/sales-orders/so-1/create-invoice' && init?.method === 'POST') {
@@ -145,14 +146,23 @@ describe('InvoiceList pending draft (ADR-0036 R1)', () => {
     }
   })
 
-  it('posts once when the same order is queued twice', async () => {
+  it('keeps the first handoff when the same order is queued again before the list takes it', async () => {
     post = new Promise(() => {})
     queueInvoiceDraftCreate({ orderId: 'so-1', customerName: 'Test Customer' })
-    queueInvoiceDraftCreate({ orderId: 'so-1', customerName: 'Test Customer' })
+    queueInvoiceDraftCreate({ orderId: 'so-1', customerName: 'Second Customer' })
     renderList()
 
     expect(await screen.findByText('Test Customer')).toBeInTheDocument()
+    expect(screen.queryByText('Second Customer')).not.toBeInTheDocument()
     await waitFor(() => expect(posts).toHaveLength(1))
-    expect(screen.getAllByText('Test Customer')).toHaveLength(1)
+  })
+
+  it('accepts a new handoff for that order once the list has taken the first', () => {
+    queueInvoiceDraftCreate({ orderId: 'so-1', customerName: 'Test Customer' })
+    queueInvoiceDraftCreate({ orderId: 'so-1', customerName: 'Second Customer' })
+    expect(takeQueuedInvoiceDraftCreate()).toEqual({ orderId: 'so-1', customerName: 'Test Customer' })
+
+    queueInvoiceDraftCreate({ orderId: 'so-1', customerName: 'Second Customer' })
+    expect(takeQueuedInvoiceDraftCreate()).toEqual({ orderId: 'so-1', customerName: 'Second Customer' })
   })
 })

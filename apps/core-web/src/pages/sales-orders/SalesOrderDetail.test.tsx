@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
+import { act, render, renderHook, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,8 @@ import SalesOrderDetail from './SalesOrderDetail'
 import { deSales } from '@/test/de-sales'
 import * as salesOrdersApi from '@/api/sales-orders'
 import { takeQueuedInvoiceDraftCreate } from '@/pages/sales/useInvoicePendingCreate'
+import type { SalesOrder } from '@/api/types'
+import { useSalesOrderActions } from './useSalesOrderActions'
 
 const mockNavigate = vi.fn()
 
@@ -54,6 +56,7 @@ describe('SalesOrderDetail create invoice', () => {
   })
 
   beforeEach(() => {
+    takeQueuedInvoiceDraftCreate()
     vi.clearAllMocks()
     asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
       data: baseOrder,
@@ -106,6 +109,44 @@ describe('SalesOrderDetail create invoice', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices')
     })
+    expect(takeQueuedInvoiceDraftCreate()).toEqual({
+      orderId: 'so-1',
+      customerName: 'Test Customer',
+    })
+  })
+
+  it('disables create invoice once the handoff has started', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/sales-orders/so-1']}>
+          <Routes>
+            <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: deSales.orders.detail.createInvoice }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: deSales.orders.detail.createInvoice }))
+
+    expect(screen.getByRole('button', { name: deSales.orders.detail.createInvoice })).toBeDisabled()
+    expect(takeQueuedInvoiceDraftCreate()).toEqual({
+      orderId: 'so-1',
+      customerName: 'Test Customer',
+    })
+  })
+
+  it('navigates once when create invoice is requested again before the button can disable', () => {
+    const { result } = renderHook(() => useSalesOrderActions('so-1'))
+    const order = baseOrder as unknown as SalesOrder
+    act(() => {
+      result.current.createInvoice(order)
+      result.current.createInvoice(order)
+    })
+
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices')
     expect(takeQueuedInvoiceDraftCreate()).toEqual({
       orderId: 'so-1',
       customerName: 'Test Customer',
