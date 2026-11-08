@@ -18,7 +18,7 @@ import { isDataTablePendingRow } from './data-table-states'
 import { getDataTableMobileSlots, type DataTableMobileSlots } from './data-table-column-meta'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 import type { DataTableInfiniteView } from './use-data-table-infinite'
-import { useDataTableVirtualEffects, useDataTableVirtualOptions } from './use-data-table-virtual'
+import { observeScrollOffset, useDataTableVirtualEffects, useDataTableVirtualOptions } from './use-data-table-virtual'
 
 // Two-line card (min-h-14) until a card has been measured; cards with a details line are taller.
 const ESTIMATED_CARD_HEIGHT = 72
@@ -225,6 +225,7 @@ export function DataTableList<TData extends object>({
 
   const virtualizer = useWindowVirtualizer<Element>({
     ...useDataTableVirtualOptions<Window>(infiniteView, rowKeys, focusedKey === null ? -1 : rowKeys.indexOf(focusedKey)),
+    observeElementOffset: observeScrollOffset,
     estimateSize: () => ESTIMATED_CARD_HEIGHT,
     scrollMargin,
   })

@@ -9,7 +9,7 @@ import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 import type { DataTableInfiniteView } from './use-data-table-infinite'
 import { useDataTableRovingFocus } from './use-data-table-roving-focus'
 import { useDataTableRowShortcuts } from './use-data-table-row-shortcuts'
-import { useDataTableVirtualEffects, useDataTableVirtualOptions } from './use-data-table-virtual'
+import { observeScrollOffset, useDataTableVirtualEffects, useDataTableVirtualOptions } from './use-data-table-virtual'
 
 // Row and header heights of the two densities (Table cell padding), used until a row has been measured.
 const ESTIMATED_ROW_HEIGHT = { comfortable: 49, compact: 37 } as const
@@ -48,6 +48,7 @@ export function useDataTableGridRows<TData extends object>({
   const pinnedIndex = roving.activeKey === null ? -1 : rowKeys.indexOf(roving.activeKey)
   const virtualizer = useVirtualizer<HTMLElement, Element>({
     ...useDataTableVirtualOptions<HTMLElement>(infiniteView, rowKeys, pinnedIndex),
+    observeElementOffset: observeScrollOffset,
     getScrollElement: () => tableRef.current?.parentElement ?? null,
     estimateSize: () => ESTIMATED_ROW_HEIGHT[density],
     scrollMargin: headerHeight,
