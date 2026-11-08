@@ -109,7 +109,7 @@ export default function VendorList() {
                 saveViewTitle={t('vendors.list.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_VENDORS}
                 pageCount={pageCount}
-                isLoading={isLoading}
+                isLoading={isLoading && pending.rows.length === data.length}
                 searchColumn="name"
                 searchPlaceholder={t('vendors.list.searchPlaceholder')}
                 rowBehaviour={{

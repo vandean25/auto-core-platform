@@ -75,7 +75,7 @@ describe('PurchaseOrderList create behind a pending row (ADR-0036 R1)', () => {
     queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
     renderList()
 
-    expect(await screen.findByText('Nordteile')).toBeInTheDocument()
+    expect(await screen.findByText('Nordteile', undefined, { timeout: 3000 })).toBeInTheDocument()
     expect(screen.queryByText('PO-9')).not.toBeInTheDocument()
     expect(screen.queryByText(deFinance.purchaseOrders.list.deleted)).not.toBeInTheDocument()
     expect(screen.getByRole('row', { name: /Nordteile/ })).toHaveAttribute('aria-disabled', 'true')

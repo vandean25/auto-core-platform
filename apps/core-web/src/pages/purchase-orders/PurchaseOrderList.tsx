@@ -113,7 +113,7 @@ export default function PurchaseOrderList() {
                 saveViewTitle={t('purchaseOrders.list.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS}
                 pageCount={pageCount}
-                isLoading={isLoading}
+                isLoading={isLoading && pending.rows.length === data.length}
                 searchColumn="order_number"
                 searchPlaceholder={t('purchaseOrders.list.searchPlaceholder')}
                 rowBehaviour={{

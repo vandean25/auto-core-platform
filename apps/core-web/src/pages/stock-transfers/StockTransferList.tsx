@@ -156,7 +156,7 @@ export default function StockTransferList() {
         saveViewTitle={t('stockTransfers.list.saveViewTitle')}
         pageCount={1}
         pageSizeOptions={[]}
-        isLoading={isLoading}
+        isLoading={isLoading && pending.rows.length === filteredData.length}
         searchColumn="transferNumber"
         searchPlaceholder={t('stockTransfers.list.searchPlaceholder')}
         rowBehaviour={{ onRowClick: (row) => navigate(`/stock-transfers/${row.id}`) }}
