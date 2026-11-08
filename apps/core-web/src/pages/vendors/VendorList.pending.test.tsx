@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -30,6 +30,10 @@ type VendorRow = {
 
 let vendors: VendorRow[]
 let post: Response | Promise<Response>
+let posts: unknown[]
+let listGate: { promise: Promise<Response>; resolve: (value: Response) => void } | null
+
+const pastSkeleton = () => act(() => new Promise((done) => setTimeout(done, 350)))
 
 function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -46,12 +50,15 @@ function renderList() {
   )
 }
 
-async function submitVendor() {
+async function submitVendor(clicks = 1) {
   fireEvent.click(await screen.findByRole('button', { name: copy.list.create }))
   fireEvent.change(await screen.findByLabelText(deFinance.columns.name), { target: { value: 'Nordteile' } })
   fireEvent.change(screen.getByLabelText(deFinance.columns.email), { target: { value: 'nord@example.test' } })
   fireEvent.change(screen.getByLabelText(copy.dialog.accountNumber), { target: { value: 'K-88' } })
-  fireEvent.click(screen.getByRole('button', { name: copy.dialog.saveVendor }))
+  const submit = screen.getByRole('button', { name: copy.dialog.saveVendor })
+  await act(() => {
+    for (let click = 0; click < clicks; click += 1) submit.click()
+  })
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 }
 
@@ -59,11 +66,17 @@ const rows = () => within(screen.getByRole('table')).getAllByRole('row').slice(1
 
 beforeEach(() => {
   vendors = []
+  posts = []
+  listGate = null
   post = http(500, {})
   vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
     const path = String(url)
-    if (path.startsWith('/api/vendors') && init?.method === 'POST') return post
+    if (path.startsWith('/api/vendors') && init?.method === 'POST') {
+      posts.push(JSON.parse(String(init.body)))
+      return post
+    }
     if (path.startsWith('/api/vendors')) {
+      if (listGate) return listGate.promise
       return http(200, { data: vendors, meta: { total: vendors.length, page: 1, pageSize: 10, pageCount: 1 } })
     }
     if (path.startsWith('/api/brands')) {
@@ -118,6 +131,29 @@ describe('VendorList create behind a pending row (ADR-0036 R1)', () => {
     expect(alert).not.toHaveTextContent('Geheim')
     expect(screen.getByText('Nordteile')).toBeInTheDocument()
     expect(screen.queryByText('K-88')).not.toBeInTheDocument()
-    expect(vi.mocked(fetchWithAuth).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+    expect(posts).toHaveLength(1)
+  })
+
+  it('shows the pending vendor while the first list load is still unresolved', async () => {
+    let releaseList!: (value: Response) => void
+    listGate = { promise: new Promise((done) => { releaseList = done }), resolve: (value) => releaseList(value) }
+    post = new Promise(() => {})
+    renderList()
+    await submitVendor()
+
+    expect(screen.getByText('Nordteile')).toBeInTheDocument()
+    await pastSkeleton()
+    expect(screen.getByText('Nordteile')).toBeInTheDocument()
+    expect(posts).toHaveLength(1)
+    releaseList(http(200, { data: [], meta: { total: 0, page: 1, pageSize: 10, pageCount: 1 } }))
+  })
+
+  it('sends one create when the save button is clicked twice', async () => {
+    post = new Promise(() => {})
+    renderList()
+    await submitVendor(2)
+    await pastSkeleton()
+    expect(posts).toHaveLength(1)
+    expect(screen.getAllByText('Nordteile')).toHaveLength(1)
   })
 })

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -63,6 +63,10 @@ const confirmed = {
 
 let transfers: unknown[] = []
 let post: Response | Promise<Response> = http(500, {})
+let posts: unknown[] = []
+let listGate: Promise<Response> | null = null
+
+const pastSkeleton = () => act(() => new Promise((done) => setTimeout(done, 350)))
 
 function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -80,7 +84,7 @@ function renderList() {
   )
 }
 
-async function submitTransfer() {
+async function submitTransfer(clicks = 1) {
   fireEvent.click(await screen.findByRole('button', { name: copy.list.newTransfer }))
   fireEvent.click(await screen.findByLabelText(copy.create.fromSite))
   fireEvent.click(await screen.findByRole('option', { name: 'Wien (W)' }))
@@ -89,12 +93,17 @@ async function submitTransfer() {
   fireEvent.change(screen.getByLabelText(copy.create.addParts), { target: { value: 'OF' } })
   const partButton = await screen.findByRole('button', { name: /OF-1/, hidden: true })
   fireEvent.click(partButton)
-  fireEvent.click(screen.getByRole('button', { name: deInventory.actions.submitRequest }))
+  const submit = screen.getByRole('button', { name: deInventory.actions.submitRequest })
+  await act(() => {
+    for (let click = 0; click < clicks; click += 1) submit.click()
+  })
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 }
 
 beforeEach(() => {
   transfers = []
+  posts = []
+  listGate = null
   vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
     const path = String(url)
     if (path === '/api/sites') return http(200, sites)
@@ -102,8 +111,11 @@ beforeEach(() => {
     if (path.startsWith('/api/inventory')) {
       return http(200, { data: [part], meta: { total: 1, page: 1, pageSize: 8, pageCount: 1 } })
     }
-    if (path.startsWith('/api/stock-transfers') && init?.method === 'POST') return post
-    if (path.startsWith('/api/stock-transfers')) return http(200, transfers)
+    if (path.startsWith('/api/stock-transfers') && init?.method === 'POST') {
+      posts.push(JSON.parse(String(init.body)))
+      return post
+    }
+    if (path.startsWith('/api/stock-transfers')) return listGate ?? http(200, transfers)
     return http(200, [])
   })
 })
@@ -143,5 +155,29 @@ describe('StockTransferList create behind a pending row (ADR-0036 R1)', () => {
     expect(screen.getByText('Wien')).toBeInTheDocument()
     expect(screen.queryByText('confirmed-transfer')).not.toBeInTheDocument()
     expect(screen.queryByText('TR-9')).not.toBeInTheDocument()
+  })
+
+  it('shows the pending transfer while the first list load is still unresolved', async () => {
+    let releaseList!: (value: Response) => void
+    listGate = new Promise((done) => { releaseList = done })
+    post = new Promise(() => {})
+    renderList()
+    await submitTransfer()
+
+    expect(screen.getByText('Wien')).toBeInTheDocument()
+    await pastSkeleton()
+    expect(screen.getByText('Wien')).toBeInTheDocument()
+    expect(screen.queryByText('TR-9')).not.toBeInTheDocument()
+    expect(posts).toHaveLength(1)
+    releaseList(http(200, []))
+  })
+
+  it('sends one create when the submit button is clicked twice', async () => {
+    post = new Promise(() => {})
+    renderList()
+    await submitTransfer(2)
+    await pastSkeleton()
+    expect(posts).toHaveLength(1)
+    expect(screen.getAllByText('Wien')).toHaveLength(1)
   })
 })

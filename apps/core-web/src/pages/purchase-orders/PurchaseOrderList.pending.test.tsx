@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,7 +9,8 @@ import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deFinance from '../../../../../locales/de/finance.json'
 import errorsDe from '../../../../../locales/de/errors.json'
 import PurchaseOrderList from './PurchaseOrderList'
-import { queuePurchaseOrderCreate } from './usePurchaseOrderPendingCreate'
+import { usePurchaseOrderDraft } from './usePurchaseOrderDraft'
+import * as pendingCreate from './usePurchaseOrderPendingCreate'
 
 vi.mock('@/api/client', () => ({ API_BASE_URL: 'http://127.0.0.1:3000', fetchWithAuth: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -35,6 +36,10 @@ const confirmed = {
 
 let orders = [confirmed]
 let post: Response | Promise<Response> = http(500, {})
+let posts: unknown[] = []
+let listGate: Promise<Response> | null = null
+
+const pastSkeleton = () => act(() => new Promise((done) => setTimeout(done, 350)))
 
 function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -56,11 +61,16 @@ function renderList() {
 
 beforeEach(() => {
   orders = []
+  posts = []
+  listGate = null
   vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
     const path = String(url)
-    if (path.startsWith('/api/purchase-orders') && init?.method === 'POST') return post
+    if (path.startsWith('/api/purchase-orders') && init?.method === 'POST') {
+      posts.push(JSON.parse(String(init.body)))
+      return post
+    }
     if (path.startsWith('/api/purchase-orders')) {
-      return http(200, { data: orders, meta: { total: orders.length, page: 1, pageSize: 10, pageCount: 1 } })
+      return listGate ?? http(200, { data: orders, meta: { total: orders.length, page: 1, pageSize: 10, pageCount: 1 } })
     }
     return http(200, [])
   })
@@ -72,7 +82,7 @@ describe('PurchaseOrderList create behind a pending row (ADR-0036 R1)', () => {
     post = new Promise((resolve) => {
       release = resolve
     })
-    queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
+    pendingCreate.queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
     renderList()
 
     expect(await screen.findByText('Nordteile', undefined, { timeout: 3000 })).toBeInTheDocument()
@@ -90,7 +100,7 @@ describe('PurchaseOrderList create behind a pending row (ADR-0036 R1)', () => {
 
   it('keeps the shell on 403 and does not show the server body or open an order', async () => {
     post = http(403, { message: 'Geheim' })
-    queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
+    pendingCreate.queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
     renderList()
 
     const alert = await screen.findByRole('alert')
@@ -99,5 +109,45 @@ describe('PurchaseOrderList create behind a pending row (ADR-0036 R1)', () => {
     expect(screen.getByText('Nordteile')).toBeInTheDocument()
     expect(screen.queryByText('confirmed-order')).not.toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText('PO-9')).not.toBeInTheDocument())
+  })
+
+  it('shows the pending order while the first list load is still unresolved', async () => {
+    let releaseList!: (value: Response) => void
+    listGate = new Promise((done) => { releaseList = done })
+    post = new Promise(() => {})
+    pendingCreate.queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
+    renderList()
+
+    expect(await screen.findByText('Nordteile')).toBeInTheDocument()
+    await pastSkeleton()
+    expect(screen.getByText('Nordteile')).toBeInTheDocument()
+    expect(screen.queryByText('PO-9')).not.toBeInTheDocument()
+    expect(posts).toHaveLength(1)
+    releaseList(http(200, { data: [], meta: { total: 0, page: 1, pageSize: 10, pageCount: 1 } }))
+  })
+
+  it('queues one order when the handoff runs twice, and the list posts once', async () => {
+    const queued = vi.spyOn(pendingCreate, 'queuePurchaseOrderCreate')
+    post = new Promise(() => {})
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const { result, unmount } = renderHook(() => usePurchaseOrderDraft('vendor-1', 'Nordteile'), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>
+          <MemoryRouter>{children}</MemoryRouter>
+        </QueryClientProvider>
+      ),
+    })
+    await act(async () => {
+      await result.current.triggerAutoSave({ vendorId: 'vendor-1', vendorName: 'Nordteile' }, { immediate: true })
+      await result.current.triggerAutoSave({ vendorId: 'vendor-1', vendorName: 'Nordteile' }, { immediate: true })
+    })
+    expect(queued).toHaveBeenCalledTimes(1)
+    unmount()
+
+    renderList()
+    expect(await screen.findByText('Nordteile')).toBeInTheDocument()
+    await pastSkeleton()
+    expect(posts).toHaveLength(1)
+    queued.mockRestore()
   })
 })
