@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
+import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deCommon from '../../../../locales/de/common.json'
@@ -42,7 +43,10 @@ const serverItem = {
 }
 
 let postGate: Deferred<Response> | null
+let listGate: Promise<Response> | null
 let items: Array<typeof serverItem>
+
+const activatedSkeleton = () => document.querySelector('tbody .animate-pulse')
 
 function renderList() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -59,20 +63,11 @@ function renderList() {
   )
 }
 
-async function submitItem() {
-  fireEvent.click(await screen.findByRole('button', { name: dialogCopy.trigger }))
-  fireEvent.change(await screen.findByLabelText(dialogCopy.sku), { target: { value: 'OF-9' } })
-  fireEvent.change(screen.getByLabelText(dialogCopy.name), { target: { value: 'Ölfilter' } })
-  fireEvent.change(screen.getByLabelText(dialogCopy.costPrice), { target: { value: '8.5' } })
-  fireEvent.change(screen.getByLabelText(dialogCopy.retailPrice), { target: { value: '19.5' } })
-  fireEvent.click(screen.getByRole('button', { name: dialogCopy.submit }))
-  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-}
-
 const bodyRows = () => within(screen.getByRole('table')).getAllByRole('row').slice(1)
 
 beforeEach(() => {
   postGate = null
+  listGate = null
   items = []
   vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
     const path = String(url)
@@ -84,6 +79,11 @@ beforeEach(() => {
       return postGate ? postGate.promise : httpResponse(201, serverItem)
     }
     if (path.startsWith('/api/inventory')) {
+      if (listGate) {
+        const gate = listGate
+        listGate = null
+        return gate
+      }
       return httpResponse(200, {
         data: items,
         meta: { total: items.length, page: 1, pageSize: 10, pageCount: 1 },
@@ -101,22 +101,39 @@ afterEach(() => {
 describe('InventoryList create behind a pending row (ADR-0036 R1)', () => {
   // Scenario 5: a pending row has no article number, price or actions, and the server row replaces it once.
   it('shows a pending row without number, price or actions, then swaps in the server row once', async () => {
-    renderList()
-    await screen.findByPlaceholderText(deInventory.partsList.searchPlaceholder)
-    postGate = deferred<Response>()
+    vi.useFakeTimers()
+    let releaseList!: (value: Response) => void
+    try {
+      listGate = new Promise((done) => { releaseList = done })
+      postGate = deferred<Response>()
+      renderList()
+      fireEvent.click(screen.getByRole('button', { name: dialogCopy.trigger }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      fireEvent.change(screen.getByLabelText(dialogCopy.sku), { target: { value: 'OF-9' } })
+      fireEvent.change(screen.getByLabelText(dialogCopy.name), { target: { value: 'Ölfilter' } })
+      fireEvent.change(screen.getByLabelText(dialogCopy.costPrice), { target: { value: '8.5' } })
+      fireEvent.change(screen.getByLabelText(dialogCopy.retailPrice), { target: { value: '19.5' } })
+      await act(async () => { await vi.advanceTimersByTimeAsync(INTERACTION_LOADING_TIMINGS.skeletonDelayMs) })
+      expect(activatedSkeleton()).not.toBeNull()
 
-    await submitItem()
+      fireEvent.click(screen.getByRole('button', { name: dialogCopy.submit }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
-    const [pending] = bodyRows()
-    expect(screen.getAllByText(loading.pendingRow)).toHaveLength(1)
-    expect(pending).toHaveTextContent('Ölfilter')
-    expect(pending).not.toHaveTextContent('OF-9')
-    expect(pending).not.toHaveTextContent('19,50')
-    expect(pending).not.toHaveTextContent('8,50')
-    expect(pending).toHaveAttribute('aria-disabled', 'true')
-    expect(within(pending!).queryAllByRole('button')).toHaveLength(0)
-    expect(within(pending!).queryAllByRole('link')).toHaveLength(0)
+      const [pending] = bodyRows()
+      expect(activatedSkeleton()).toBeNull()
+      expect(screen.getAllByText(loading.pendingRow)).toHaveLength(1)
+      expect(pending).toHaveTextContent('Ölfilter')
+      expect(pending).not.toHaveTextContent('OF-9')
+      expect(pending).not.toHaveTextContent('19,50')
+      expect(pending).not.toHaveTextContent('8,50')
+      expect(pending).toHaveAttribute('aria-disabled', 'true')
+      expect(within(pending!).queryAllByRole('button')).toHaveLength(0)
+      expect(within(pending!).queryAllByRole('link')).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
 
+    releaseList(httpResponse(200, { data: [], meta: { total: 0, page: 1, pageSize: 10, pageCount: 1 } }))
     items = [serverItem]
     await act(async () => postGate?.resolve(httpResponse(201, serverItem)))
 

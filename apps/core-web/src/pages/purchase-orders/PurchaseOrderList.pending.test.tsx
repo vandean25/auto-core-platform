@@ -1,9 +1,10 @@
-import { act, render, renderHook, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
+import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deFinance from '../../../../../locales/de/finance.json'
@@ -40,6 +41,7 @@ let posts: unknown[] = []
 let listGate: Promise<Response> | null = null
 
 const pastSkeleton = () => act(() => new Promise((done) => setTimeout(done, 350)))
+const activatedSkeleton = () => document.querySelector('tbody .animate-pulse')
 
 function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -113,17 +115,25 @@ describe('PurchaseOrderList create behind a pending row (ADR-0036 R1)', () => {
 
   it('shows the pending order while the first list load is still unresolved', async () => {
     let releaseList!: (value: Response) => void
-    listGate = new Promise((done) => { releaseList = done })
-    post = new Promise(() => {})
-    pendingCreate.queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
-    renderList()
+    vi.useFakeTimers()
+    try {
+      listGate = new Promise((done) => { releaseList = done })
+      post = new Promise(() => {})
+      renderList()
+      await act(async () => { await vi.advanceTimersByTimeAsync(INTERACTION_LOADING_TIMINGS.skeletonDelayMs) })
+      expect(activatedSkeleton()).not.toBeNull()
+      pendingCreate.queuePurchaseOrderCreate({ vendorId: 'vendor-1', vendorName: 'Nordteile' })
+      fireEvent.click(within(screen.getByRole('table')).getByRole('button', { name: deFinance.columns.vendor }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
-    expect(await screen.findByText('Nordteile')).toBeInTheDocument()
-    await pastSkeleton()
-    expect(screen.getByText('Nordteile')).toBeInTheDocument()
-    expect(screen.queryByText('PO-9')).not.toBeInTheDocument()
-    expect(posts).toHaveLength(1)
-    releaseList(http(200, { data: [], meta: { total: 0, page: 1, pageSize: 10, pageCount: 1 } }))
+      expect(screen.getByText('Nordteile')).toBeInTheDocument()
+      expect(activatedSkeleton()).toBeNull()
+      expect(screen.queryByText('PO-9')).not.toBeInTheDocument()
+      expect(posts).toHaveLength(1)
+      releaseList(http(200, { data: [], meta: { total: 0, page: 1, pageSize: 10, pageCount: 1 } }))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('queues one order when the handoff runs twice, and the list posts once', async () => {

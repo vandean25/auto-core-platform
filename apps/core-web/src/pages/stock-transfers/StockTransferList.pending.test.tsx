@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
+import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deInventory from '../../../../../locales/de/inventory.json'
 import errorsDe from '../../../../../locales/de/errors.json'
@@ -67,6 +68,7 @@ let posts: unknown[] = []
 let listGate: Promise<Response> | null = null
 
 const pastSkeleton = () => act(() => new Promise((done) => setTimeout(done, 350)))
+const activatedSkeleton = () => document.querySelector('tbody .animate-pulse')
 
 function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -158,18 +160,37 @@ describe('StockTransferList create behind a pending row (ADR-0036 R1)', () => {
   })
 
   it('shows the pending transfer while the first list load is still unresolved', async () => {
-    let releaseList!: (value: Response) => void
-    listGate = new Promise((done) => { releaseList = done })
-    post = new Promise(() => {})
-    renderList()
-    await submitTransfer()
+    vi.useFakeTimers()
+    try {
+      let releaseList!: (value: Response) => void
+      listGate = new Promise((done) => { releaseList = done })
+      post = new Promise(() => {})
+      renderList()
+      fireEvent.click(screen.getByRole('button', { name: copy.list.newTransfer }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      fireEvent.click(screen.getByLabelText(copy.create.fromSite))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      fireEvent.click(screen.getByRole('option', { name: 'Wien (W)' }))
+      fireEvent.click(screen.getByLabelText(copy.create.toSite))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      fireEvent.click(screen.getByRole('option', { name: 'Graz (G)' }))
+      fireEvent.change(screen.getByLabelText(copy.create.addParts), { target: { value: 'OF' } })
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      fireEvent.click(screen.getByRole('button', { name: /OF-1/, hidden: true }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(INTERACTION_LOADING_TIMINGS.skeletonDelayMs) })
+      expect(activatedSkeleton()).not.toBeNull()
 
-    expect(screen.getByText('Wien')).toBeInTheDocument()
-    await pastSkeleton()
-    expect(screen.getByText('Wien')).toBeInTheDocument()
-    expect(screen.queryByText('TR-9')).not.toBeInTheDocument()
-    expect(posts).toHaveLength(1)
-    releaseList(http(200, []))
+      fireEvent.click(screen.getByRole('button', { name: deInventory.actions.submitRequest }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+      expect(screen.getByText('Wien')).toBeInTheDocument()
+      expect(activatedSkeleton()).toBeNull()
+      expect(screen.queryByText('TR-9')).not.toBeInTheDocument()
+      expect(posts).toHaveLength(1)
+      releaseList(http(200, []))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sends one create when the submit button is clicked twice', async () => {

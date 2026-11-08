@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
+import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deCommon from '../../../../../locales/de/common.json'
@@ -34,6 +35,7 @@ let posts: unknown[]
 let listGate: { promise: Promise<Response>; resolve: (value: Response) => void } | null
 
 const pastSkeleton = () => act(() => new Promise((done) => setTimeout(done, 350)))
+const activatedSkeleton = () => document.querySelector('tbody .animate-pulse')
 
 function renderList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -135,17 +137,30 @@ describe('VendorList create behind a pending row (ADR-0036 R1)', () => {
   })
 
   it('shows the pending vendor while the first list load is still unresolved', async () => {
-    let releaseList!: (value: Response) => void
-    listGate = { promise: new Promise((done) => { releaseList = done }), resolve: (value) => releaseList(value) }
-    post = new Promise(() => {})
-    renderList()
-    await submitVendor()
+    vi.useFakeTimers()
+    try {
+      let releaseList!: (value: Response) => void
+      listGate = { promise: new Promise((done) => { releaseList = done }), resolve: (value) => releaseList(value) }
+      post = new Promise(() => {})
+      renderList()
+      fireEvent.click(screen.getByRole('button', { name: copy.list.create }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      fireEvent.change(screen.getByLabelText(deFinance.columns.name), { target: { value: 'Nordteile' } })
+      fireEvent.change(screen.getByLabelText(deFinance.columns.email), { target: { value: 'nord@example.test' } })
+      fireEvent.change(screen.getByLabelText(copy.dialog.accountNumber), { target: { value: 'K-88' } })
+      await act(async () => { await vi.advanceTimersByTimeAsync(INTERACTION_LOADING_TIMINGS.skeletonDelayMs) })
+      expect(activatedSkeleton()).not.toBeNull()
 
-    expect(screen.getByText('Nordteile')).toBeInTheDocument()
-    await pastSkeleton()
-    expect(screen.getByText('Nordteile')).toBeInTheDocument()
-    expect(posts).toHaveLength(1)
-    releaseList(http(200, { data: [], meta: { total: 0, page: 1, pageSize: 10, pageCount: 1 } }))
+      fireEvent.click(screen.getByRole('button', { name: copy.dialog.saveVendor }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+      expect(screen.getByText('Nordteile')).toBeInTheDocument()
+      expect(activatedSkeleton()).toBeNull()
+      expect(posts).toHaveLength(1)
+      releaseList(http(200, { data: [], meta: { total: 0, page: 1, pageSize: 10, pageCount: 1 } }))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sends one create when the save button is clicked twice', async () => {

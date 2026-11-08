@@ -114,6 +114,7 @@ export default function PurchaseOrderList() {
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS}
                 pageCount={pageCount}
                 isLoading={isLoading && pending.rows.length === data.length}
+                bypassSkeleton={pending.rows.length !== data.length}
                 searchColumn="order_number"
                 searchPlaceholder={t('purchaseOrders.list.searchPlaceholder')}
                 rowBehaviour={{
