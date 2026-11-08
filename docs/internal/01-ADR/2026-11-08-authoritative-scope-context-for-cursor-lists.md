@@ -1,12 +1,12 @@
 ---
-title: "ADR-0037: Authoritative Scope Context for Cursor Lists"
+title: "ADR-0038: Authoritative Scope Context for Cursor Lists"
 date: "2026-11-08"
 status: accepted
 deciders: "Dejan Dosenovic (Product Owner); review by Product Planner and Software Engineer"
 tags: [adr, platform, tables, security, multi-tenancy, sessions]
 ---
 
-# ADR-0037: Authoritative Scope Context for Cursor Lists
+# ADR-0038: Authoritative Scope Context for Cursor Lists
 
 ## Status
 
@@ -154,7 +154,7 @@ The earlier open choices were resolved on 2026-11-08 at the owner's instruction,
 | Policy-version derivation | Boot-time content digest of the contracted routes' operation entries, catalogue version and demo mask (§5) | Policy ships in the image, so no pipeline coupling is needed |
 | Transport of the SC | Request header on list and count, digest echoed in the body, `private, no-store`, cursor version 2 (§8) | A query string would reach logs and error-tracking URLs; requests are same-origin |
 | Storage of continuity ids | Stateless HMAC lineage from the verified token's subject and authentication time, plus a small ended-lineage table written by a new logout endpoint (§3) | Logout is client-only today; second-resolution limit accepted |
-| Relationship to ADR-0034 | Separate epoch; ADR-0037 does not wait for ADR-0034; its writers must also advance the epoch (§2) | Its versions cover fewer writers and it is Proposed |
+| Relationship to ADR-0034 | Separate epoch; ADR-0038 does not wait for ADR-0034; its writers must also advance the epoch (§2) | Its versions cover fewer writers and it is Proposed |
 | Transport and 5xx retry | At most one identical retry for a network error or 5xx; none for 4xx; not a restart or resync (§9) | Keeps today's behavior for transient failures only |
 
 **Still open for lack of evidence** (fail-closed defaults apply meanwhile):
