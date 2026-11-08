@@ -134,6 +134,8 @@ export default function InventoryList() {
                 saveViewTitle={t('partsList.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_INVENTORY}
                 {...list.tableProps}
+                isLoading={Boolean(list.tableProps.isLoading) && pending.rows.length === list.rows.length}
+                bypassSkeleton={pending.rows.length !== list.rows.length}
                 searchColumn="name"
                 searchPlaceholder={t('partsList.searchPlaceholder')}
                 columnFilters={columnFilters}

@@ -7,7 +7,6 @@
     "saveChanges": "Änderungen speichern",
     "confirm": "Bestätigen",
     "submitRequest": "Anfrage senden",
-    "submitting": "Wird gesendet…",
     "ship": "Versenden",
     "approve": "Freigeben",
     "reject": "Ablehnen",
@@ -249,6 +248,7 @@
       "invalidQuantityForSku": "Ungültige Menge für {{sku}}",
       "success": "Umlagerungsanfrage erstellt",
       "failed": "Umlagerungsanfrage konnte nicht erstellt werden",
+      "createUnconfirmed": "Umlagerung nicht bestätigt. Bitte prüfen Sie die Umlagerungsliste, bevor Sie sie erneut anfordern.",
       "sourceBinOptional": "Quell-Lagerplatz (optional)",
       "requestedQtyAria": "Angefragte Menge für {{sku}}",
       "sourceBinAria": "Quell-Lagerplatz für {{sku}}"

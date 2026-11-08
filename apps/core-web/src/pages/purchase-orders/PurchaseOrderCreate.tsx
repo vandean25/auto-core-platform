@@ -151,8 +151,9 @@ function VendorStep({
                     clearPendingSave()
                     setStep(1)
                 }}>{t('actions.back')}</Button>
-                <Button 
-                    onClick={handleCreatePO} 
+                <Button
+                    className="max-sm:min-h-11"
+                    onClick={handleCreatePO}
                     disabled={!selectedVendorId || isCreating}
                 >
                     {isCreating ? t('shared.creating') : t('purchaseOrders.create.createButton')}
@@ -181,12 +182,16 @@ export default function PurchaseOrderCreate() {
     const initialVendorExists = vendors.some((v) => v.id === vendorIdFromParams && supportsBrand(v, selectedBrand))
     const [selectedVendorId, setSelectedVendorId] = useState<string>(initialVendorExists ? vendorIdFromParams : '')
 
-    const { saveStatus, triggerAutoSave, clearPendingSave, isPending } = usePurchaseOrderDraft(selectedVendorId)
+    const selectedVendor = vendors.find((vendor) => vendor.id === selectedVendorId)
+    const { saveStatus, triggerAutoSave, clearPendingSave, isPending } = usePurchaseOrderDraft(
+        selectedVendorId,
+        selectedVendor?.name ?? '',
+    )
     const filteredVendors = vendors.filter((v) => supportsBrand(v, selectedBrand))
 
     const handleCreatePO = () => {
         if (!selectedVendorId) return
-        triggerAutoSave({ vendorId: selectedVendorId }, { immediate: true })
+        triggerAutoSave({ vendorId: selectedVendorId, vendorName: selectedVendor?.name ?? '' }, { immediate: true })
     }
 
     return (

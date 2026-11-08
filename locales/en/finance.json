@@ -244,6 +244,8 @@
       "vendorsForBrand": "Showing vendors for {{brand}}",
       "noVendorsForBrand": "No vendors found for this brand.",
       "createFailed": "Failed to create PO",
+      "createUnconfirmed": "Purchase order not confirmed. Check the order list before creating it again.",
+      "created": "Purchase order created",
       "createButton": "Create purchase order"
     },
     "detail": {
@@ -411,7 +413,10 @@
       "title": "Add vendor",
       "accountNumber": "Account number",
       "supportedBrandsAria": "Select supported brands for new vendor",
-      "saveVendor": "Save vendor"
+      "saveVendor": "Save vendor",
+      "created": "Vendor created",
+      "createFailed": "Failed to create vendor",
+      "createUnconfirmed": "Vendor not confirmed. Check the vendor list before creating it again."
     }
   },
   "purchaseInvoices": {

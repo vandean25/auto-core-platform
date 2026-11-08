@@ -1,16 +1,14 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PurchaseOrderCreate from './PurchaseOrderCreate'
 import * as vendorApi from '@/api/vendors'
 import * as brandApi from '@/api/brands'
-import * as purchaseOrderApi from '@/api/purchase-orders'
-import deCommon from '../../../../../locales/de/common.json'
+import { takeQueuedPurchaseOrderCreate } from './usePurchaseOrderPendingCreate'
 
 vi.mock('@/api/vendors')
 vi.mock('@/api/brands')
-vi.mock('@/api/purchase-orders')
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -47,33 +45,25 @@ describe('PurchaseOrderCreate autosave', () => {
   const renderPage = () =>
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <PurchaseOrderCreate />
+        <MemoryRouter initialEntries={['/purchase-orders/new']}>
+          <Routes>
+            <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
+            <Route path="/purchase-orders" element={<p>order-list</p>} />
+          </Routes>
         </MemoryRouter>
       </QueryClientProvider>,
     )
 
-  it('auto-creates a draft PO 750ms after a vendor is selected', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ id: 'po-1' })
-    asMock(purchaseOrderApi.useCreatePO).mockReturnValue({
-      mutateAsync,
-      isPending: false,
-    })
-
+  it('hands the vendor to the order list 750ms after it is selected, without creating yet', async () => {
     renderPage()
 
     fireEvent.click(screen.getByRole('button', { name: 'Bosch' }))
     fireEvent.click(screen.getByText('Bosch Automotive'))
 
-    await waitFor(
-      () => {
-        expect(mutateAsync).toHaveBeenCalledWith({ vendorId: 'vendor-1', items: [] })
-      },
-      { timeout: 2000 },
-    )
-
-    expect(
-      await screen.findByText(new RegExp(`${deCommon.documentSave.saving}|${deCommon.documentSave.saved}`)),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('order-list', undefined, { timeout: 2000 })).toBeInTheDocument()
+    expect(takeQueuedPurchaseOrderCreate()).toEqual({
+      vendorId: 'vendor-1',
+      vendorName: 'Bosch Automotive',
+    })
   })
 })

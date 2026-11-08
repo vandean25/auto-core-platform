@@ -33,7 +33,9 @@ const STOCK_TRANSFER_API = "/api/stock-transfers";
 
 async function parseStockTransferResponse(response: Response, fallbackMessage: string) {
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response, fallbackMessage));
+    throw Object.assign(new Error(await getErrorMessage(response, fallbackMessage)), {
+      status: response.status,
+    });
   }
   return (await response.json()) as StockTransfer;
 }

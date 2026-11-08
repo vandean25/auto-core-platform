@@ -244,6 +244,8 @@
       "vendorsForBrand": "Lieferanten für {{brand}}",
       "noVendorsForBrand": "Für diese Marke wurden keine Lieferanten gefunden.",
       "createFailed": "Bestellung konnte nicht angelegt werden",
+      "createUnconfirmed": "Bestellung nicht bestätigt. Bitte prüfen Sie die Bestellliste, bevor Sie sie erneut anlegen.",
+      "created": "Bestellung angelegt",
       "createButton": "Bestellung anlegen"
     },
     "detail": {
@@ -411,7 +413,10 @@
       "title": "Lieferant anlegen",
       "accountNumber": "Kontonummer",
       "supportedBrandsAria": "Unterstützte Marken für neuen Lieferanten wählen",
-      "saveVendor": "Lieferant speichern"
+      "saveVendor": "Lieferant speichern",
+      "created": "Lieferant angelegt",
+      "createFailed": "Lieferant konnte nicht angelegt werden",
+      "createUnconfirmed": "Lieferant nicht bestätigt. Bitte prüfen Sie die Lieferantenliste, bevor Sie ihn erneut anlegen."
     }
   },
   "purchaseInvoices": {

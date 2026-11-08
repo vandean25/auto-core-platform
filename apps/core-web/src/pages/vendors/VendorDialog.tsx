@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useCreateVendor } from '@/api/vendors'
+import type { VendorCreateRequest } from './useVendorPendingCreate'
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -17,9 +17,10 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 interface VendorDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
+    onCreate: (input: VendorCreateRequest) => void
 }
 
-export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
+export function VendorDialog({ open, onOpenChange, onCreate }: VendorDialogProps) {
     const { t } = useTranslation('finance')
     useEffect(() => {
         void ensureNamespaceLoaded('finance')
@@ -29,25 +30,24 @@ export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
     const [email, setEmail] = useState('')
     const [accountNumber, setAccountNumber] = useState('')
     const [selectedBrandIds, setSelectedBrandIds] = useState<number[]>([])
+    const submitted = useRef(false)
 
-    const createVendor = useCreateVendor()
+    useEffect(() => {
+        if (open) submitted.current = false
+    }, [open])
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        createVendor.mutate(
-            {
-                name,
-                email,
-                account_number: accountNumber,
-                brandIds: selectedBrandIds,
-            },
-            {
-                onSuccess: () => {
-                    onOpenChange(false)
-                    resetForm()
-                },
-            }
-        )
+        if (submitted.current) return
+        submitted.current = true
+        onCreate({
+            name,
+            email,
+            account_number: accountNumber,
+            brandIds: selectedBrandIds,
+        })
+        onOpenChange(false)
+        resetForm()
     }
 
     const resetForm = () => {
@@ -101,8 +101,8 @@ export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="submit" disabled={createVendor.isPending}>
-                            {createVendor.isPending ? t('shared.saving') : t('vendors.dialog.saveVendor')}
+                        <Button type="submit" className="max-sm:min-h-11">
+                            {t('vendors.dialog.saveVendor')}
                         </Button>
                     </DialogFooter>
                 </form>
