@@ -17,6 +17,7 @@ import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/type
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
 import { TaskLineItemsSavingStatus } from '@/components/workshop/TaskLineItemsSavingStatus'
+import { WORKSHOP_TASK_STATUSES } from '@/features/actions/work-order-row-actions'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
 import { WorkshopTaskInspectionChecklist } from '@/components/workshop/WorkshopTaskInspectionChecklist'
 
@@ -24,15 +25,6 @@ function taskFeesSegment(fees: number, segment: string) {
   if (fees <= 0) return ''
   return segment
 }
-
-const TASK_STATUSES: WorkshopTaskStatus[] = [
-  'NOT_STARTED',
-  'IN_PROGRESS',
-  'WAITING_PARTS',
-  'WAITING_CUSTOMER',
-  'PAUSED',
-  'DONE',
-]
 
 function TaskStatusPicker({
   task,
@@ -45,7 +37,7 @@ function TaskStatusPicker({
 }) {
   const { t } = useTranslation('workshop')
   const { t: statusLabel } = useTranslation('enums')
-  const options = TASK_STATUSES.map((status) => ({
+  const options = WORKSHOP_TASK_STATUSES.map((status) => ({
     value: status,
     label: statusLabel(`status.${status}`),
   }))

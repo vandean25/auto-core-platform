@@ -271,6 +271,123 @@ describe('work order notes undo palette context', () => {
   })
 })
 
+describe('work order reschedule and task status in Cmd+K', () => {
+  const order: WorkshopOrder = {
+    id: 'order-1',
+    order_number: 'WO-1',
+    status: 'SCHEDULED',
+    purpose: 'CUSTOMER_REPAIR',
+    vehicle_id: 'vehicle-1',
+    odometer: 1000,
+    fuel_level: 50,
+    bayId: 'bay-1',
+    scheduledStartAt: '2026-08-21T06:00:00.000Z',
+    scheduledEndAt: '2026-08-21T07:30:00.000Z',
+    customer: { id: 'customer-1', type: 'PRIVATE', first_name: 'Alex', last_name: 'Example' },
+    vehicle: { id: 'vehicle-1', make: 'Audi', model: 'A4', year: 2024 },
+    tasks: [
+      {
+        id: 'task-1',
+        title: 'Oil Change',
+        lineItemsVersion: 0,
+        status: 'IN_PROGRESS',
+        done: false,
+        lineItems: [],
+      },
+    ],
+    createdAt: '2026-01-01T12:00:00Z',
+    updatedAt: '2026-08-21T06:00:00.000Z',
+  }
+
+  function sectionFor(role: string) {
+    const updateTaskStatus = vi.fn()
+    const reschedule = vi.fn()
+    const navigate = vi.fn()
+    const workshop = {
+      navigate,
+      generatePdf: {} as never,
+      t: translations.workshop,
+      updateTaskStatus,
+      reschedule,
+    }
+    const section = buildPaletteContextSection(
+      { entity: 'workshop_order', id: order.id },
+      role,
+      '',
+      { order },
+      translations,
+      {
+        workshop,
+        customer: { navigate, onDelete: vi.fn(), t: translations.customers },
+        vehicle: { navigate, t: translations.vehicles },
+        estimate: { navigate },
+        tyreSet: { navigate },
+        creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+      },
+    )
+    return { section, updateTaskStatus, reschedule }
+  }
+
+  it('runs a task status and a reschedule from the palette with the registry actions', () => {
+    const { section, updateTaskStatus, reschedule } = sectionFor('ADMIN')
+    const taskStatus = section?.items.find((item) => item.id === ENTITY_ACTION_IDS.workOrderTaskState)
+    const waiting = taskStatus?.children
+      ?.find((task) => task.label === 'Oil Change')
+      ?.children?.find((choice) => choice.id.endsWith('WAITING_PARTS'))
+    expect(taskStatus?.children?.[0]?.children?.some((choice) => choice.id.endsWith('IN_PROGRESS'))).toBe(
+      false,
+    )
+    waiting?.onSelect()
+    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-1', 'WAITING_PARTS')
+
+    const move = section?.items.find((item) => item.id === ENTITY_ACTION_IDS.workOrderReschedule)
+    expect(move?.children?.length).toBeGreaterThan(0)
+    expect(move?.children?.some((choice) => choice.id.endsWith('20260821'))).toBe(false)
+    move?.children?.[0]?.onSelect()
+    expect(reschedule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'order-1',
+        bayId: 'bay-1',
+        startIso: '2026-08-21T06:00:00.000Z',
+        endIso: '2026-08-21T07:30:00.000Z',
+      }),
+    )
+  })
+
+  it('keeps reschedule for a technician and withholds task status', () => {
+    const { section } = sectionFor('TECH')
+    expect(section?.items.map((item) => item.id)).toContain(ENTITY_ACTION_IDS.workOrderReschedule)
+    expect(section?.items.map((item) => item.id)).not.toContain(ENTITY_ACTION_IDS.workOrderTaskState)
+  })
+
+  it('withholds reschedule when the order is not eligible', () => {
+    const { section } = sectionFor('ADMIN')
+    const inProgress = buildPaletteContextSection(
+      { entity: 'workshop_order', id: order.id },
+      'ADMIN',
+      '',
+      { order: { ...order, status: 'IN_PROGRESS' } },
+      translations,
+      {
+        workshop: {
+          navigate: vi.fn(),
+          generatePdf: {} as never,
+          t: translations.workshop,
+          updateTaskStatus: vi.fn(),
+          reschedule: vi.fn(),
+        },
+        customer: { navigate: vi.fn(), onDelete: vi.fn(), t: translations.customers },
+        vehicle: { navigate: vi.fn(), t: translations.vehicles },
+        estimate: { navigate: vi.fn() },
+        tyreSet: { navigate: vi.fn() },
+        creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+      },
+    )
+    expect(section?.items.map((item) => item.id)).toContain(ENTITY_ACTION_IDS.workOrderReschedule)
+    expect(inProgress?.items.map((item) => item.id)).not.toContain(ENTITY_ACTION_IDS.workOrderReschedule)
+  })
+})
+
 describe('credit note print page and palette parity', () => {
   function makeCreditNote(overrides: Partial<CreditNoteResponseDto> = {}): CreditNoteResponseDto {
     return {

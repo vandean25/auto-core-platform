@@ -495,8 +495,7 @@
         "jobCardPdf": "Job card PDF",
         "assignMechanic": "Assign mechanic",
         "taskState": "Task status",
-        "taskDone": "Done",
-        "taskReopen": "Reopen"
+        "reschedule": "Reschedule"
       },
       "columns": {
         "orderNo": "Order No.",

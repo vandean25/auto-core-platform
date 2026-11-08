@@ -495,8 +495,7 @@
         "jobCardPdf": "Werkstattkarte als PDF",
         "assignMechanic": "Mechaniker zuweisen",
         "taskState": "Aufgabenstatus",
-        "taskDone": "Erledigt",
-        "taskReopen": "Wieder öffnen"
+        "reschedule": "Termin verschieben"
       },
       "columns": {
         "orderNo": "Auftragsnr.",

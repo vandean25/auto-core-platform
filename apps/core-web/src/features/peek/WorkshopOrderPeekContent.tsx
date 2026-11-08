@@ -15,6 +15,9 @@ export function workshopOrderToListRow(order: WorkshopOrder): WorkshopOrderListR
     openedAt: formatDate(order.createdAt),
     status: order.status,
     mechanicId: order.mechanicId ?? order.mechanic_id ?? null,
+    bayId: order.bayId ?? order.bay_id ?? null,
+    scheduledStartAt: order.scheduledStartAt ?? order.scheduled_start_at ?? null,
+    scheduledEndAt: order.scheduledEndAt ?? order.scheduled_end_at ?? null,
     tasks: order.tasks,
   }
 }

@@ -8,6 +8,19 @@ import {
 } from '@/lib/format'
 
 const DATE_OPTION_DAYS = 14
+const RESCHEDULABLE_STATUSES = ['SCHEDULED', 'INTAKE']
+
+export function canRescheduleWorkshopOrder(order: {
+  status: string
+  bayId?: string | null
+  scheduledStartAt?: string | null
+  scheduledEndAt?: string | null
+}): boolean {
+  return (
+    RESCHEDULABLE_STATUSES.includes(order.status) &&
+    Boolean(order.bayId && order.scheduledStartAt && order.scheduledEndAt)
+  )
+}
 
 export function workshopScheduleDateOptions(
   anchor: Date,

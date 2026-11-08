@@ -7,6 +7,7 @@ import {
   useUpdateWorkshopTask,
 } from '@/api/workshop'
 import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
+import { runUpdateWorkshopOrderTaskStatus } from '@/features/actions/work-order-row-actions'
 import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
 import { getErrorMessage } from '@/lib/error-utils'
 
@@ -68,18 +69,17 @@ export function useWorkshopTaskActions({
 
   const changeTaskStatus = async (taskId: string, status: WorkshopTaskStatus) => {
     if (isLocked) return
-    try {
-      await updateTask.mutateAsync({ orderId: order.id, taskId, status })
-      const task = tasks.find((candidate) => candidate.id === taskId)
-      if (
-        status === 'DONE' &&
-        task?.title === PICKERL_TASK_TITLE &&
-        pickerl.canManagePickerl
-      ) {
-        pickerl.offerRecording()
-      }
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t('orderDetail.toast.taskStatusUpdateFailed')))
+    const saved = await runUpdateWorkshopOrderTaskStatus(
+      order.id,
+      taskId,
+      status,
+      updateTask.mutateAsync,
+      t,
+    )
+    if (!saved) return
+    const task = tasks.find((candidate) => candidate.id === taskId)
+    if (status === 'DONE' && task?.title === PICKERL_TASK_TITLE && pickerl.canManagePickerl) {
+      pickerl.offerRecording()
     }
   }
 
