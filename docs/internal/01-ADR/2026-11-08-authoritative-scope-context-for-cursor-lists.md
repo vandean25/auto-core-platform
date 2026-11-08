@@ -2,7 +2,7 @@
 title: "ADR-0038: Authoritative Scope Context for Cursor Lists"
 date: "2026-11-08"
 status: accepted
-deciders: "Dejan Dosenovic (Product Owner); review by Product Planner and Software Engineer"
+deciders: "Dejan Dosenovic (Product Owner)"
 tags: [adr, platform, tables, security, multi-tenancy, sessions]
 ---
 
@@ -10,13 +10,13 @@ tags: [adr, platform, tables, security, multi-tenancy, sessions]
 
 ## Status
 
-**Accepted — 2026-11-08.** Accepted on the owner's instruction in the AUT-891 session. No Product Planner or Software Engineer review is recorded; several rounds of automated model review preceded acceptance, the last with no findings, and they do not substitute for it. This records the architecture decision. Implementation, rollout and QA remain outstanding, and accepted design does not mean deployed behavior.
+**Accepted — 2026-11-08.** Merged repository status (not rollout or feature QA acceptance). Accepted on the owner's instruction in the AUT-891 session. The document records Dejan Dosenovic as decider; no Product Planner or Software Engineer review is recorded in this file. Several rounds of automated model review preceded merge; they do not substitute for human review and do not by themselves establish explicit owner acceptance of every concrete mechanism or risk limit below.
 
-The owner approved the planning *direction* on 2026-11-08 (09:34 MEZ): mandatory expected context, server-verified session continuity, coherent authorization, and one shared safety and recovery contract. Acceptance adopts the mechanism and the resolutions below. Names marked "recommended" (secret, header, table) are proposed names, fixed in the implementation specification. **Implementation, including shared prerequisites, is not authorized by this ADR.** Specification, implementation and release approvals stay separate.
+The owner approved the planning *direction* on 2026-11-08 (09:34 MEZ): mandatory expected context, server-verified session continuity, coherent authorization, and one shared safety and recovery contract. The sections below record the **documented design target** and interim proposed behavior. Mechanism choices, risk tolerances (including still-open items) and implementation authorization remain separate approvals. Names marked "recommended" (secret, header, table) are proposed names, fixed in the implementation specification. **Implementation, including shared prerequisites, is not authorized by this ADR.** Specification, implementation and release approvals stay separate.
 
 This ADR amends [ADR-0035](2026-11-02-cursor-based-infinite-lists.md) §2 (the explicit page-one restart after an incompatible cursor becomes one budgeted automatic restart) and §6/§7 (a changed authoritative context becomes a reset trigger). The amendment takes effect for a consumer when that consumer's enforcement is on (§7); until then ADR-0035 stands for it.
 
-The open choices of the earlier draft were resolved on 2026-11-08 at the owner's instruction by delegating them to a reviewing model, grounded in a read of `main`. They appear below as the adopted resolutions. Two items remain open for lack of evidence (see "Still open for lack of evidence" under "Resolutions").
+The open choices of the earlier draft were documented on 2026-11-08 at the owner's instruction, grounded in a read of `main`. Resolved choices appear in the Resolutions table as **documented design targets** (not owner-approved mechanism or risk acceptance where a row is still open). **Three** items remain open for lack of evidence or owner choice (see "Still open for lack of evidence" under "Resolutions").
 
 Observed facts (marked *Observed*) come from reading `main` at `9284e46`. They are not independently audited; the Software Engineer re-verifies them in the implementation specification. This ADR claims no QA acceptance and no PASS.
 
@@ -45,7 +45,7 @@ Drivers:
 ## Fixed Requirements (approved direction)
 
 1. Expected context is mandatory on cursor **and** count requests; omission cannot bypass validation.
-2. Server-verified session continuity.
+2. **Independently authenticated session continuity:** distinct sign-ins and lineages (including other devices) must be isolatable server-side; a stale lineage must not be treated as current. This requirement is not waived by the interim continuity digest in §3.
 3. A coherent authorization decision over permission state, scope epoch and data.
 4. One shared safety and recovery contract for the invoice, inventory and vehicle-stock cursor consumers and the later Sales Orders wave.
 5. Legacy offset behavior and each consumer's permissions and visibility are preserved.
@@ -64,7 +64,13 @@ ADR-0034's versions are not reused: its `authorization_version` fences a narrowe
 
 ### 3. Session continuity
 
-The continuity id is an HMAC of the identity provider's subject and authentication time taken from the verified token. A normal credential refresh keeps the authentication time, so the id is unchanged; reauthentication sets a new one. Explicit logout calls a new authenticated server endpoint that records the ended lineage in a small user-scoped table (recommended name `ended_session_lineages`: user, lineage digest, authentication time, ended-at), read in the §4 snapshot; a row may be pruned only once a later refresh-token revocation covers its authentication time **and** the maximum ID-token lifetime has passed since that revocation. A refresh-token revocation ends all lineages of the user at the next handshake, and on list and count requests within the token-expiry bound (§5). Each sign-in has its own lineage at one-second resolution; two sign-ins in the same second share one, which is an accepted limit. Continuity means "same lineage"; it never means "currently valid". Validity is evaluated per request.
+**Required contract** (fixed requirement 2): the server must be able to reject a context whose lineage is no longer current, including replay from another device or an ended sign-in. That obligation stands regardless of the interim digest below.
+
+**Proposed interim continuity digest** (implementation detail, not owner-approved isolation mechanism): an HMAC of the identity provider's subject and authentication time from the verified token, plus an ended-lineage table written by a new authenticated logout endpoint (recommended name `ended_session_lineages`). Until still-open item 3 is decided, this digest is a **documented placeholder**, not a substitute for required independent-session isolation and not approved risk acceptance for alias cases.
+
+A normal credential refresh keeps the authentication time, so the digest is unchanged; reauthentication or a new sign-in sets a new authentication time and a new digest. Explicit logout on the same principal, tenant and site records the ended lineage in the table, read in the §4 snapshot; a row may be pruned only once a later refresh-token revocation covers its authentication time **and** the maximum ID-token lifetime has passed since that revocation. **User session lifecycle** (logout, reauthentication or a new sign-in on the same principal, tenant and site): the prior lineage is ended, old SCs fail closed (401 via ended lineage and/or digest mismatch), protected caches are quarantined, and the client starts a **new** §9 episode with the normal initial recovery budget for that new episode. That is not rearming the prior episode's spent budget. A refresh-token revocation ends all lineages at the next handshake and on list and count requests within the token-expiry bound (§5).
+
+**Deterministic alias (disclosed, unresolved):** two independently authenticated sign-ins in the same UTC second receive the same digest. This is a **same-subject/authentication-time alias**, not a random HMAC collision and not evidence of a cross-user or cross-tenant leak. Required isolation is **not** met for those distinct sign-ins while only this digest is used; accepting that gap would be **new explicit owner risk acceptance**, not an option authorized here (still-open item 3). Continuity means "same lineage digest"; it never means "currently valid". Validity is evaluated per request.
 
 ### 4. Decision point and coherent read
 
@@ -74,12 +80,12 @@ After authentication, the shared cursor list and count helper (and the handshake
 - A relevant change committed before the snapshot, meaning one that advanced a component bound in the SC, rejects an old context. A change that advances no bound component does not reject, and a correct new context is not rejected merely because a mutation occurred. The tenant-authorization epoch is tenant-wide, so a tenant, legal-entity or site activation change can reject contexts of members it does not affect; that rare over-invalidation is accepted. Role-definition edits advance only the epochs of assigned members.
 - A later commit cannot recall delivered bytes; the next old-context request rejects.
 - A second epoch read in the same snapshot is not independent freshness evidence, so none is made.
-- Existing 401, 403 and 422 outcomes take precedence when scope is unusable. Precedence is: 401, 403 or 422; then `CONTEXT_REQUIRED` or `CONTEXT_MISMATCH`; then the cursor codes. A `CURSOR_INVALID` response therefore implies that the expected SC matched the snapshot.
+- Existing 401, 403 and 422 outcomes take precedence when scope is unusable. Precedence is: 401, 403 or 422; then `CONTEXT_REQUIRED` or `CONTEXT_MISMATCH`; then the cursor codes. A `LIST_CURSOR_INVALID` response therefore implies that the expected SC matched the snapshot.
 
 ### 5. Authorities outside the database snapshot
 
 - **Time expiry is not a writer.** It is evaluated against authoritative time at the snapshot, not by an epoch increment.
-- **Identity-provider revocation and claim freshness** is separate and not atomic with the database: per request the bound is the existing ID-token expiry check, which already fails closed; the handshake additionally checks revocation and fails closed (a blocked list) when the identity provider is unreachable. Revocations that change the database are caught immediately by the epochs. A bound tighter than token expiry is deferred pending measured cost.
+- **Identity-provider revocation and claim freshness** is separate and not atomic with the database snapshot. Membership, activation and site scope are evaluated on every request from current database state in the §4 snapshot; this ADR does not bypass those checks. On the list and count **hot path**, the **interim proposed** check is ID-token **expiry** (reject expired tokens). The **handshake** additionally checks identity-provider **revocation**; unreachable identity provider fails closed (content stays quarantined). An identity-provider account disabled or revoked while the token is still unexpired and database membership still authorizes access may keep issuing protected reads until token expiry or a successful handshake — this interval is **disclosed interim behavior**, not an owner-approved guarantee of current identity-provider authentication on every page. Database-visible membership or role revocations are caught immediately by the epochs. A precise maximum staleness bound on the hot path remains an owner decision after measurement (still-open item 1).
 - **Policy deployment**: the policy version is a content digest computed at boot over the operation entries of the contracted routes, the permission catalogue version and the demo request mask for those routes. It ships with the image, so it is not tied to the deploy pipeline. While old and new revisions both serve after a digest change, a request can see a mismatch, take the one restart and end blocked; that fails closed.
 - An epoch covers revocation or policy invalidation only where it is demonstrably coupled to that authority; otherwise separate freshness requirements apply. No global external atomicity is claimed.
 
@@ -87,50 +93,64 @@ After authentication, the shared cursor list and count helper (and the handshake
 
 A handshake endpoint (name and shape fixed in the implementation specification) performs fresh authentication (including an identity-provider revocation check) and authorization, then returns the SC. On resume, focus, reconnect and online, protected cached content stays quarantined until the handshake succeeds. An unchanged epoch alone does not release it: current credential validity, ended lineage, membership, activation and expiry are re-evaluated. A handshake failure leaves content blocked with manual retry. Offline revocation is not instant, and delivered bytes are not recalled.
 
-A lifecycle handshake is not a recovery of a failed request and does not spend the episode budget in §9:
+A lifecycle handshake is not a recovery of a failed request and does not spend the §9 recovery budget of the current episode (except where a pending recovery handshake counts as that recovery's handshake per §9):
 
 - It returns the same SC: the quarantined content is released.
-- It returns a different SC for the same tenant and site (an external scope change): pages, counts, selection and anchors are flushed, late results fenced, and the list stays blocked until an explicit user refresh (ADR-0035 §7). No page-one restart runs automatically.
-- It returns an SC for a different tenant or site, or a different principal: this is a genuine context switch. The central session reset runs (ADR-0035 §6) and a new episode starts.
+- It returns a different SC for the same tenant and site because **scope epochs or policy** changed while the user session is unchanged (external scope change): pages, counts, selection and anchors are flushed, late results fenced, and the list stays blocked until an explicit user refresh (ADR-0035 §7). No page-one restart runs automatically; the episode key is unchanged.
+- It returns a different SC for the same tenant and site because **user session lifecycle** changed (logout, reauthentication or new sign-in — new continuity digest, §3): ended-lineage rules apply, caches are quarantined, a **new** §9 episode starts with a fresh initial recovery budget; this is not the external-scope flush/block-only path above.
+- It returns an SC for a different tenant or site, or a different principal: a genuine tenancy/principal context switch. The central session reset runs (ADR-0035 §6) and a new episode starts.
 
 ### 7. Requests and rollout
 
 The expected SC is mandatory on the cursor list **and** the count request of every contracted consumer. Omission returns a typed `CONTEXT_REQUIRED`. There is no compatibility window by default: enforcement starts in the release in which the web app sends the SC, and a client without it receives the typed, documented `CONTEXT_REQUIRED` rather than a silent failure. A window is granted only on log evidence of other callers (see "Still open for lack of evidence" under "Resolutions"). Offset endpoints are unaffected.
 
-No consumer counts as covered by this contract, and the Sales Orders gate in "Gates and Sequencing" is not met, before enforcement is on for both the cursor and the count endpoint of that consumer.
+A consumer counts as covered by this contract only after enforcement is on for both its cursor list and its count endpoint. For Sales Orders, turning that enforcement on is **rollout/completion** work on endpoints defined in the wave specification, not a precondition that those endpoints already exist before implementation starts (see "Gates and Sequencing").
 
 ### 8. Binding
 
-The SC travels in a request header (recommended name `X-ACP-Scope-Context`) on the cursor list and count requests, never in the query string, which would reach request logs and error-tracking URLs. Responses return the SC digest in the body (`meta` for pages, a sibling field for the count) and are `Cache-Control: private, no-store`. A cursor binds the SC digest, endpoint, sort, direction and the resolver fingerprint; the cursor payload moves to version 2 and stays unsigned, because the server compares its digest with the digest of the presented, verified SC and authorizes freshly on every request. Version 1 cursors return `CURSOR_INVALID` and take the budgeted restart. Cache keys use the SC digest. OpenAPI and generated types are regenerated (ADR-0010). A response whose echoed context differs from the client's validated context is discarded.
+The SC travels in a request header (recommended name `X-ACP-Scope-Context`) on the cursor list and count requests, never in the query string, which would reach request logs and error-tracking URLs. Responses return the SC digest in the body (`meta` for pages, a sibling field for the count) and are `Cache-Control: private, no-store`. A cursor binds the SC digest, endpoint, sort, direction and the resolver fingerprint; the cursor payload moves to version 2 and stays unsigned, because the server compares its digest with the digest of the presented, verified SC and authorizes freshly on every request. Version 1 cursors return `LIST_CURSOR_INVALID` and take the budgeted restart. Cache keys use the SC digest. OpenAPI and generated types are regenerated (ADR-0010). A response whose echoed context differs from the client's validated context is discarded.
 
 ### 9. One shared recovery contract
 
 ```
-Episode key = semantic user query + genuine context switch
-  (user-initiated, or a different tenant, site or principal revealed by any handshake)
-Recovery contexts that keep tenant, site and principal, recovery epochs,
-generations and successes never rearm it
+Episode key = semantic user query + episode counter
+  Reset (new episode, fresh initial budget 1) on:
+    user session lifecycle on same principal/tenant/site (logout, reauth, new sign-in),
+    or different tenant, site or principal (handshake or user switch)
+  Unchanged episode on:
+    external scope change (epochs/policy) on same session — flush/block per §6, budget unchanged
+Recovery within one episode (CONTEXT_MISMATCH / LIST_CURSOR_INVALID restart, or
+handshake that only refreshes the same session SC after a budgeted recovery) —
+never rearm a spent budget (budget 0 stays 0)
 
 READY -next page | count-> LOADING
 LOADING -ok-> READY
-LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED (page or count) | CURSOR_INVALID (page)->
+LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED (page or count) | LIST_CURSOR_INVALID (page;
+    recovery shorthand CURSOR_INVALID)->
     singleflight; QUARANTINE + FLUSH + fence late results
     budget 1 -> (context errors only) handshake:
-        same tenant, site and principal -> restart page 1, budget 0
+        user session lifecycle on same tenant/site/principal (§3, §6) ->
+            NEW episode, fresh initial budget; pending recovery on the old episode is abandoned
+        same tenant, site and principal, same user session (pending budgeted recovery) ->
+            restart page 1, budget 0 (wins over external-scope-only flush below)
+        same tenant, site and principal, external scope change only (epochs/policy),
+            lifecycle-only handshake (not this pending recovery handshake) ->
+            flush/block per §6; no automatic page-one restart; episode unchanged
         different tenant, site or principal -> central session reset, NEW episode,
                                                no restart of the old query
-        (CURSOR_INVALID with valid context -> restart page 1, budget 0, no handshake)
+        (LIST_CURSOR_INVALID with valid context -> restart page 1, budget 0, no handshake)
     budget 0 -> BLOCKED (manual)
 handshake failure -> BLOCKED (manual)
 LOADING -401 | 403 | 422-> QUARANTINE + FLUSH + fence late results -> BLOCKED (never automatic)
-LOADING -UNSUPPORTED_SORT-> OFFSET (latched for the episode, offset 0, keep sort and filters)
+LOADING -LIST_CURSOR_SORT_UNSUPPORTED (recovery shorthand UNSUPPORTED_SORT)->
+    OFFSET (latched for the episode, offset 0, keep sort and filters)
 LOADING -network error or 5xx (after at most one identical retry, same generation) | other 4xx-> ERROR (not a restart or resync)
 ERROR -manual retry-> LOADING (same episode, budget unchanged)
 BLOCKED -manual retry | explicit user refresh | new semantic query | user context switch-> new episode
 ```
 
-- One total automatic action per episode is shared by page and count and by all scope and cursor-recovery failure types (`CONTEXT_MISMATCH`, `CONTEXT_REQUIRED`, `CURSOR_INVALID`), so alternating errors cannot multiply attempts. The unsupported-sort latch is a one-way mode switch for the episode, not a budgeted action. A realtime event, focus or lifecycle refresh never starts a new episode by itself. The one exception is a handshake that reveals a genuine context switch (different tenant, site or principal), which runs the central session reset and starts a new episode.
-- Lifecycle and recovery share one singleflight handshake per client context. A tenant, site or principal change revealed by it takes precedence over a restart or a block. For a different SC with the same tenant, site and principal: if a recovery is pending when the handshake completes, the recovery rule applies (one restart, budget 0) and the handshake counts as that recovery's handshake; otherwise the lifecycle rule in §6 applies (flush and block, no budget spent).
+- Canonical API codes are `LIST_CURSOR_INVALID` and `LIST_CURSOR_SORT_UNSUPPORTED` (ADR-0010 / OpenAPI). The recovery state machine uses the shorthands `CURSOR_INVALID` and `UNSUPPORTED_SORT` for the same outcomes. One total automatic action per episode is shared by page and count and by all scope and cursor-recovery failure types (`CONTEXT_MISMATCH`, `CONTEXT_REQUIRED`, `LIST_CURSOR_INVALID`), so alternating errors cannot multiply attempts. The unsupported-sort latch is a one-way mode switch for the episode, not a budgeted action. A realtime event, focus, or an external-scope lifecycle handshake never starts a new episode. A new episode starts only on user session lifecycle or tenant/site/principal switch (§6, episode key above).
+- Lifecycle and recovery share one singleflight handshake per client context. **Precedence** (highest first): tenant/site/principal switch; **genuine user session lifecycle**; pending **same-episode budgeted recovery** (one restart, budget 0, including when epochs also changed); **external scope** flush/block only on **lifecycle-only** handshakes that are not finishing a pending recovery. A recovery-minted SC alone does not count as user session lifecycle.
 - The asymmetry is intended: a failed request interrupts a load the user just started, so one budgeted automatic restart finishes that load. A lifecycle handshake runs while the user may be reading or mid-action, so an external scope change there blocks until an explicit user refresh (ADR-0035 §7) instead of replacing the list underneath them.
 - Quarantine, flush and late-result fencing remain mandatory when the budget is spent.
 - `LIST_CURSOR_STOCK_FILTER_REQUIRED` (vehicle stock) is not a recovery case. It keeps its existing handling and is outside this contract.
@@ -143,24 +163,25 @@ Page and count acceptance use separate generations. Count identity binds **all**
 
 ## Resolutions
 
-The earlier open choices were resolved on 2026-11-08 at the owner's instruction, grounded in a read of `main` at `9284e46`. Nothing has been run or measured; acceptance of this ADR adopts them.
+The earlier open choices were documented on 2026-11-08 at the owner's instruction, grounded in a read of `main` at `9284e46`. Nothing has been run or measured. Rows below are **design targets** for implementation specification; rows marked still open are not owner-approved.
 
 | Choice | Resolution | Basis |
 |---|---|---|
 | Token form | HMAC-signed, self-contained SC; current and previous key accepted; no expiry (§1) | Validity is checked per request, so a server-side reference only adds a lookup; the API already has an HMAC token pattern |
 | Epoch granularity for role definitions | A grant-changing edit advances the epoch of each assigned member; the tenant epoch covers only tenant, legal-entity and site activation (§2) | Avoids tenant-wide over-invalidation and a role list inside the SC |
 | Snapshot isolation | Read-only `REPEATABLE READ` transaction in the shared cursor helper and the handshake; the guard is not rewritten (§4) | One snapshot without a global rewrite; validate-after-read rejected |
-| Identity-provider freshness | Token-expiry check per request, revocation check at the handshake, fail closed (§5) | Database-visible revocations are caught by the epochs; a tighter bound needs measured cost |
+| Identity-provider freshness | Token-expiry on list/count hot path; revocation at handshake; DB membership unchanged (§5) | IdP-only disable with valid token is an explicit tolerance until handshake/expiry; tighter hot-path bound needs measured cost and owner choice |
 | Policy-version derivation | Boot-time content digest of the contracted routes' operation entries, catalogue version and demo mask (§5) | Policy ships in the image, so no pipeline coupling is needed |
 | Transport of the SC | Request header on list and count, digest echoed in the body, `private, no-store`, cursor version 2 (§8) | A query string would reach logs and error-tracking URLs; requests are same-origin |
-| Storage of continuity ids | Stateless HMAC lineage from the verified token's subject and authentication time, plus a small ended-lineage table written by a new logout endpoint (§3) | Logout is client-only today; second-resolution limit accepted |
+| Storage of continuity ids | Stateless HMAC lineage from the verified token's subject and authentication time, plus a small ended-lineage table written by a new logout endpoint (§3) | Logout is client-only today; same-second alias is deterministic, not an approved isolation limit (see still-open item 3) |
 | Relationship to ADR-0034 | Separate epoch; ADR-0038 does not wait for ADR-0034; its writers must also advance the epoch (§2) | Its versions cover fewer writers and it is Proposed |
 | Transport and 5xx retry | At most one identical retry for a network error or 5xx; none for 4xx; not a restart or resync (§9) | Keeps today's behavior for transient failures only |
 
-**Still open for lack of evidence** (fail-closed defaults apply meanwhile):
+**Still open for lack of evidence or owner choice** (interim §3–§5 text applies only as documented placeholder, not approved risk acceptance):
 
-1. **Identity-provider staleness tighter than token expiry.** Needs the measured latency and quota cost of a revocation check on the list and count path under representative load, and an owner tolerance for a disabled identity-provider user who still has a membership. Default: token expiry per request, revocation check at the handshake.
-2. **Compatibility window for direct clients.** Needs a Cloud Logging query over the three cursor list routes and three count routes, grouped by user agent and origin, for a period the owner picks. API keys cannot reach these routes, and `core-web` is the only in-repo caller. Default: no window; unknown clients receive `CONTEXT_REQUIRED`.
+1. **Identity-provider maximum authentication staleness on the hot path.** Needs measured latency and quota cost of a revocation check on list and count under representative load, then an owner decision on the precise acceptable bound. Interim proposed behavior: token expiry on the hot path, revocation at handshake, quarantine on handshake failure (IdP-only disable with valid token and authorized DB state — not a bypass of database checks).
+2. **Compatibility window for direct clients.** Needs a Cloud Logging query over the three cursor list routes and three count routes, grouped by user agent and origin, for a period the owner picks. API keys cannot reach these routes, and `core-web` is the only in-repo caller. Interim proposed behavior: no window; unknown clients receive `CONTEXT_REQUIRED`.
+3. **Server-verifiable continuity mechanism.** Needs either (a) owner **explicit risk acceptance** of the same-second alias isolation gap, or (b) a separately approved continuity specification that satisfies fixed requirement 2. The interim HMAC digest is not a approved substitute for required isolation.
 
 ## Alternatives Considered
 
@@ -176,7 +197,7 @@ An unsafe opt-out is not an alternative.
 
 ## Consequences
 
-- Positive: stale or foreign-principal content is rejected by the server even when events are missed; recovery cannot loop; old-session replay is rejected.
+- Positive: stale or foreign-principal content is rejected by the server even when events are missed; recovery cannot loop; ended lineages and digest mismatch reject replay when the mechanism distinguishes lineages (full cross-lineage proof depends on still-open item 3).
 - Negative: a coverage obligation across all access writers; extra snapshot reads on the cursor hot path; a client rollout and a coordinated server change; a new logout endpoint and ended-lineage table; a request header and cursor version 2; rare over-invalidation on tenant-wide activation changes.
 - Neutral: no business entity, fiscal rule or visibility change. Accepted design does not mean deployed behavior.
 
@@ -200,34 +221,38 @@ Nothing here has been run. Names are proposals, not existing files.
 - `CONTEXT_REQUIRED` on omission, for the count request as well as the page request, on each contracted consumer once enforcement is on.
 - No automatic retry of 401, 403 and 422, and none of the typed scope or cursor errors.
 - Unsupported sort latches offset at offset 0 and keeps filters and sort.
-- Replay of an old continuity id is rejected, including from another device.
+- Replay of an old continuity digest is rejected when ended-lineage or digest rules distinguish it (cross-device and cross-lineage cases per fixed requirement 2; same-second alias excluded until item 3 is resolved).
 - A→B→A on membership, site grant and user or site status, not only on a role definition.
 - Fencing and quarantine continue after the budget is exhausted.
-- A lifecycle handshake that returns a changed SC flushes and blocks without an automatic restart.
+- An **external-scope** lifecycle handshake (epochs/policy changed, user session unchanged — §6) flushes and blocks without an automatic restart; user session lifecycle starts a new episode instead (§6, §9).
+- User session lifecycle during a pending same-episode recovery abandons the old recovery and starts a new episode (precedence above).
 - Invoice, inventory and vehicle-stock consumers keep their existing regressions after the shared change.
 
 New behavior follows the TDD workflow in `agents.md`: each new test must fail against the pre-change code. Characterization baselines are used only to pin existing, correct behavior that the change must not alter.
 
-Before implementation is authorized:
+Before **shared prerequisite** implementation is authorized (existing three consumers):
 
 - **Writer coverage** and transactional coupling of every access-relevant writer.
-- **Identity provider**: the measured cost of the handshake revocation check, and that the authentication time stays the same across a token refresh and differs per sign-in.
+- **Identity provider**: the measured cost of the handshake revocation check, and that the authentication time stays the same across a token refresh and differs per sign-in (subject to still-open items 1 and 3).
 - **Deployment**: behavior while old and new revisions both serve after a policy-digest change.
 - **Hosting**: that Firebase Hosting forwards the SC request header; if it does not, requests fail closed with `CONTEXT_REQUIRED` and there is no fallback to a query parameter.
 - **Clients**: the log evidence behind the compatibility-window item.
 - **Cost**: connection-pool use and query plans of the read-only `REPEATABLE READ` transaction, and that the over-invalidation is acceptable.
-- **Environment**: schema and collation, Prisma behavior under a non-UTC runtime, real query plans, the live URL and mobile card capability, and QA acceptance on the released build.
+
+Sales Orders–specific query plans, endpoint integration and **released QA** on that wave are **completion evidence** (see Gates and Sequencing), not prerequisites before shared work or Sales implementation starts. Schema, collation, Prisma non-UTC behavior, live URL and mobile card capability belong to the Sales wave specification and its QA, not to authorizing the shared prerequisite alone.
 
 ## Gates and Sequencing
 
-The Sales Orders wave (AUT-891) starts only after all of the following are documented; none is today:
+The Sales Orders wave (AUT-891) **starts** only after all of the following are documented; none is today:
 
 1. AUT-890 pilot QA acceptance.
 2. Invoice-wave QA acceptance.
 3. Approval of the corrected Sales Orders specification.
-4. This ADR, which is accepted; enforcement on the Sales Orders cursor and count endpoints must still be in place (§7).
+4. This ADR accepted as the shared scope-context design (repository status today).
 
-Merges, reviews and scratch probes do not replace these. Sales Orders query plans and QA are completion evidence. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit owner approval; this ADR authorizes none. Shared changes require renewed relevant regressions before rollout.
+**Before rollout/completion** of Sales Orders (not before implementation starts): enforcement of this ADR on the Sales Orders cursor list and capped-count endpoints (§7), plus Sales Orders query plans, endpoint integration and released QA on the built wave. Those items cannot be gates on their own not-yet-built endpoints. Approved bounded shared-prerequisite readiness on the three existing consumers remains a pre-start requirement when a separate prerequisite correction is owner-approved.
+
+Merges, reviews and scratch probes do not replace 1–3. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit owner approval; this ADR authorizes none. Shared changes require renewed relevant regressions before rollout.
 
 ## Sales Orders Wave: Settled Scope (planning input)
 
