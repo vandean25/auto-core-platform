@@ -57,7 +57,7 @@ ACCEPTED ── Tx-E match ──────▶ APPLIED
 APPLIED | CONFLICT | FENCED ──▶ retained ──▶ deleted
 ```
 
-Acknowledgement by the client changes no state. Retention counts from the time the row reached a terminal state.
+Acknowledgement by the client changes no state. Retention counts from the later of the terminal time and the key's UUIDv7 time (section 7).
 
 ### 5. Race matrix
 
