@@ -23,7 +23,9 @@
         "customer": "Kunde",
         "status": "Status",
         "total": "Summe"
-      }
+      },
+      "createUnconfirmed": "Entwurf nicht bestätigt. Bitte prüfen Sie die Rechnungsliste, bevor Sie ihn erneut anlegen.",
+      "createFailed": "Rechnungsentwurf konnte nicht angelegt werden."
     },
     "newPage": {
       "title": "Verkaufsrechnungen benötigen einen Quellauftrag",
@@ -99,6 +101,12 @@
       "subtotal": "Zwischensumme",
       "taxVat": "USt.",
       "total": "Summe",
+      "internalNotes": "Interne Notiz",
+      "internalNotesEmpty": "Interne Notiz hinzufügen",
+      "internalNotesAria": "Interne Notiz zur Rechnung",
+      "internalNotesSaved": "Interne Notiz gespeichert",
+      "internalNotesFailed": "Interne Notiz nicht gespeichert",
+      "noteConflict": "Konflikt: {{note}}",
       "incompleteDraft": "Der Rechnungsentwurf ist unvollständig. Bitte ergänzen Sie Kunde und Positionen, bevor Sie die Rechnung ausstellen.",
       "finalizedSuccess": "Rechnung ausgestellt, Rechnungsnummer vergeben.",
       "finalizeFailed": "Rechnung konnte nicht ausgestellt werden"

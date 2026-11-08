@@ -100,6 +100,7 @@ export function usePurchaseInvoice(id: string) {
 export function useCreatePurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...purchaseInvoiceKeys.all, 'create'],
         mutationFn: async (payload: CreatePurchaseInvoiceDto) => {
             const response = await fetchWithAuth('/api/purchase-invoices', {
                 method: 'POST',
@@ -118,6 +119,7 @@ export function useCreatePurchaseInvoice() {
 export function useUpdatePurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...purchaseInvoiceKeys.all, 'update'],
         mutationFn: async ({ id, payload, signal }: { id: string, payload: CreatePurchaseInvoiceDto, signal?: AbortSignal }) => {
             const response = await fetchWithAuth(`/api/purchase-invoices/${id}`, {
                 method: 'PATCH',
@@ -138,6 +140,7 @@ export function useUpdatePurchaseInvoice() {
 export function usePostPurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...purchaseInvoiceKeys.all, 'post'],
         mutationFn: async (id: string) => {
             const response = await fetchWithAuth(`/api/purchase-invoices/${id}/post`, {
                 method: 'PATCH',
@@ -155,6 +158,7 @@ export function usePostPurchaseInvoice() {
 export function usePayPurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...purchaseInvoiceKeys.all, 'pay'],
         mutationFn: async (id: string) => {
             const response = await fetchWithAuth(`/api/purchase-invoices/${id}/pay`, {
                 method: 'PATCH',
@@ -172,6 +176,7 @@ export function usePayPurchaseInvoice() {
 export function useDeletePurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...purchaseInvoiceKeys.all, 'delete'],
         mutationFn: async (id: string) => {
             const response = await fetchWithAuth(`/api/purchase-invoices/${id}`, {
                 method: 'DELETE',
@@ -191,6 +196,7 @@ export function useDeletePurchaseInvoice() {
 export function useDeletePurchaseInvoiceLine() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...purchaseInvoiceKeys.all, 'delete-line'],
         mutationFn: async ({ id, lineId }: { id: string, lineId: string }) => {
             const response = await fetchWithAuth(`/api/purchase-invoices/${id}/lines/${lineId}`, {
                 method: 'DELETE',

@@ -10,18 +10,21 @@ import type { Invoice } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { StatusBadge } from '@/components/status/StatusBadge'
 import { canOpenBackOfficeDetail } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { formatDateShort } from '@/lib/format'
 import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
-import { formatCurrency } from '@/lib/utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
-
-const formatDate = (value: string) => formatDateShort(value)
+import {
+  InvoiceCustomerCell,
+  InvoiceDateCell,
+  InvoiceNumberCell,
+  InvoiceStatusCell,
+  InvoiceTotalCell,
+} from './invoice-list-cells'
+import { useInvoicePendingCreate } from './useInvoicePendingCreate'
 
 export default function InvoiceListPage() {
   const { t } = useTranslation('sales')
@@ -36,7 +39,9 @@ export default function InvoiceListPage() {
     initialSorting: [{ id: 'date', desc: true }],
   })
 
-  const { rows: data, tableProps } = useInvoiceListState(queryParams)
+  const { rows: data, dataUpdatedAt, tableProps } = useInvoiceListState(queryParams)
+  const pending = useInvoicePendingCreate(data, dataUpdatedAt)
+  const listLoading = Boolean(tableProps.isLoading) && pending.rows.length === data.length
 
   const columns: ColumnDef<Invoice>[] = [
     {
@@ -45,12 +50,7 @@ export default function InvoiceListPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.invoiceNumber')} />
       ),
-      cell: ({ row }) => (
-        <div className="font-medium">
-          {row.original.invoice_number ??
-            t('shared.draftLabel', { id: row.original.id.slice(0, 8) })}
-        </div>
-      ),
+      cell: ({ row }) => <InvoiceNumberCell invoice={row.original} />,
     },
     {
       accessorKey: 'date',
@@ -58,7 +58,7 @@ export default function InvoiceListPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.date')} />
       ),
-      cell: ({ row }) => <div>{formatDate(row.original.date)}</div>,
+      cell: ({ row }) => <InvoiceDateCell invoice={row.original} />,
     },
     {
       id: 'customer',
@@ -67,7 +67,7 @@ export default function InvoiceListPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.customer')} />
       ),
-      cell: ({ row }) => <div>{formatInvoiceCustomerName(row.original)}</div>,
+      cell: ({ row }) => <InvoiceCustomerCell invoice={row.original} onDismiss={pending.dismiss} />,
     },
     {
       accessorKey: 'status',
@@ -75,7 +75,7 @@ export default function InvoiceListPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.status')} />
       ),
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      cell: ({ row }) => <InvoiceStatusCell invoice={row.original} />,
     },
     {
       accessorKey: 'total_gross',
@@ -83,11 +83,7 @@ export default function InvoiceListPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('invoices.list.columns.total')} />
       ),
-      cell: ({ row }) => (
-        <div className="text-right font-medium">
-          {formatCurrency(Number(row.original.total_gross))}
-        </div>
-      ),
+      cell: ({ row }) => <InvoiceTotalCell invoice={row.original} />,
     },
   ]
 
@@ -107,8 +103,10 @@ export default function InvoiceListPage() {
 
       <DataTable
         columns={columns}
-        data={data}
+        data={pending.rows}
         {...tableProps}
+        isLoading={listLoading}
+        bypassSkeleton={pending.rows.length !== data.length}
         saveViewTitle={t('invoices.list.saveViewTitle')}
         searchPlaceholder={t('invoices.list.searchPlaceholder')}
         rowBehaviour={{

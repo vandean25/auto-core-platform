@@ -72,6 +72,7 @@ export function useInvoiceDraftAutosave({
             taxRate: item.tax_rate,
           })),
           notes: draftNotesRef.current,
+          ...(invoice.internal_notes ? { internalNotes: invoice.internal_notes } : {}),
         })
       : null
     hydratedRef.current = true

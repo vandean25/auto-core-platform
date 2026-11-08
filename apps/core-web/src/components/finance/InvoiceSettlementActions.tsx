@@ -87,7 +87,7 @@ function RecordControls({
           <SelectItem value="CARD">{t('settlement.methodCard')}</SelectItem>
         </SelectContent>
       </Select>
-      <Button size="sm" onClick={onRecord} disabled={pending}>
+      <Button size="sm" className="max-sm:min-h-11" onClick={onRecord} disabled={pending} aria-busy={pending}>
         {t('actions.recordSettlement')}
       </Button>
     </>
@@ -103,7 +103,9 @@ function ReconcileButton({ invoiceId, idempotencyKey }: { invoiceId: string; ide
     <Button
       size="sm"
       variant="outline"
+      className="max-sm:min-h-11"
       disabled={reconcile.isPending}
+      aria-busy={reconcile.isPending}
       onClick={() => reconcile.mutate(undefined, { onSuccess: toasts.onReconcileSuccess, onError: toasts.onError })}
     >
       {t('actions.reconcile')}
@@ -120,7 +122,9 @@ function CancelReceiptButton({ invoiceId, receiptId }: { invoiceId: string; rece
     <Button
       size="sm"
       variant="destructive"
+      className="max-sm:min-h-11"
       disabled={cancel.isPending}
+      aria-busy={cancel.isPending}
       onClick={() => cancel.mutate(receiptId, { onSuccess: toasts.onCancelSuccess, onError: toasts.onError })}
     >
       {t('settlement.cancelFiscalReceipt')}

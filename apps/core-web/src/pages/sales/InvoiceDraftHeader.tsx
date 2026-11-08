@@ -52,7 +52,9 @@ export function InvoiceDraftHeader({
           type="button"
           variant="destructive"
           onClick={onFinalize}
+          className="max-sm:min-h-11"
           disabled={!isValid || isFinalizeBusy || salesOrderBlocksFinalize}
+          aria-busy={isFinalizeBusy}
           title={salesOrderStatus === "INVOICED" ? t("finalize.salesOrderBlocked") : undefined}
         >
           {isFinalizeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SalesOrderDetail from './SalesOrderDetail'
 import { deSales } from '@/test/de-sales'
 import * as salesOrdersApi from '@/api/sales-orders'
+import { takeQueuedInvoiceDraftCreate } from '@/pages/sales/useInvoicePendingCreate'
 
 const mockNavigate = vi.fn()
 
@@ -85,13 +86,7 @@ describe('SalesOrderDetail create invoice', () => {
     expect(screen.getByText(deSales.orders.detail.createInvoiceDraftConfirm)).toBeInTheDocument()
   })
 
-  it('navigates to the sourced draft editor after creating an invoice', async () => {
-    const createInvoice = vi.fn().mockResolvedValue({ id: 'inv-42', status: 'DRAFT' })
-    asMock(salesOrdersApi.useCreateInvoiceFromOrder).mockReturnValue({
-      mutateAsync: createInvoice,
-      isPending: false,
-    })
-
+  it('hands the draft to the invoice list without posting from the order page', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter initialEntries={['/sales-orders/so-1']}>
@@ -109,8 +104,11 @@ describe('SalesOrderDetail create invoice', () => {
     )
 
     await waitFor(() => {
-      expect(createInvoice).toHaveBeenCalledWith('so-1')
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-42/edit')
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices')
+    })
+    expect(takeQueuedInvoiceDraftCreate()).toEqual({
+      orderId: 'so-1',
+      customerName: 'Test Customer',
     })
   })
 })

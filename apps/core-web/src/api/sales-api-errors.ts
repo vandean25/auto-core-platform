@@ -20,19 +20,12 @@ export function formatNestApiErrorMessage(
   return fallbackMessage
 }
 
-export async function readNestApiErrorMessage(
-  response: Response,
-  fallbackMessage: string,
-): Promise<string> {
-  const payload = (await response.json().catch(() => ({}))) as NestErrorPayload
-  return formatNestApiErrorMessage(payload, fallbackMessage)
-}
-
 export async function throwIfSalesResponseNotOk(
   response: Response,
   fallbackMessage: string,
 ): Promise<void> {
   if (response.ok) return
-  const message = await readNestApiErrorMessage(response, fallbackMessage)
-  throw new Error(message)
+  const payload = (await response.json().catch(() => ({}))) as NestErrorPayload
+  const message = formatNestApiErrorMessage(payload, fallbackMessage)
+  throw Object.assign(new Error(message), { status: response.status, data: payload })
 }

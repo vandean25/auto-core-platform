@@ -23,7 +23,9 @@
         "customer": "Customer",
         "status": "Status",
         "total": "Total"
-      }
+      },
+      "createUnconfirmed": "Draft not confirmed. Check the invoice list before creating it again.",
+      "createFailed": "The invoice draft could not be created."
     },
     "newPage": {
       "title": "Sales invoices need a source order",
@@ -99,6 +101,12 @@
       "subtotal": "Subtotal",
       "taxVat": "Tax (VAT)",
       "total": "Total",
+      "internalNotes": "Internal note",
+      "internalNotesEmpty": "Add internal note",
+      "internalNotesAria": "Internal note on the invoice",
+      "internalNotesSaved": "Internal note saved",
+      "internalNotesFailed": "Internal note was not saved",
+      "noteConflict": "Conflict: {{note}}",
       "incompleteDraft": "Invoice draft is incomplete. Add a customer and line items before finalizing.",
       "finalizedSuccess": "Invoice finalized and number generated!",
       "finalizeFailed": "Failed to finalize invoice"

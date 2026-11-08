@@ -310,6 +310,118 @@
       "owningHook": "usePatchVehicleListingChannel",
       "classification": "server-confirmed",
       "serverConfirmedReason": "Channel patches publish or withdraw the listing on an external marketplace; an external effect."
+    },
+    {
+      "operationId": "invoice.draft.create-from-workshop",
+      "owningHook": "useCreateDraftInvoice",
+      "sourceFile": "api/invoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "The server assigns the draft identity and prices from the workshop order. There is no deduplication contract."
+    },
+    {
+      "operationId": "invoice.discount.update",
+      "owningHook": "useUpdateInvoiceDiscount",
+      "sourceFile": "api/invoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "A discount changes the price and the tax. The server recalculates both."
+    },
+    {
+      "operationId": "invoice.issue",
+      "owningHook": "useIssueInvoice",
+      "sourceFile": "api/invoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Issuing posts the invoice. The number and the status are assigned by the server."
+    },
+    {
+      "operationId": "invoice.pdf.generate",
+      "owningHook": "useGenerateInvoicePdf",
+      "sourceFile": "api/invoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "The PDF is the customer delivery of the invoice. The server builds the document."
+    },
+    {
+      "operationId": "invoice.draft.update",
+      "owningHook": "useUpdateInvoice",
+      "sourceFile": "api/sales.ts",
+      "classification": "conditional",
+      "eligibilityPredicate": "isInvoiceUpdateOptimisticEligible"
+    },
+    {
+      "operationId": "invoice.finalize",
+      "owningHook": "useFinalizeInvoice",
+      "sourceFile": "api/sales.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Finalizing locks the invoice, assigns the official number and posts stock. The client waits for that result."
+    },
+    {
+      "operationId": "invoice.draft.create-from-order",
+      "owningHook": "useCreateInvoiceFromOrder",
+      "sourceFile": "api/sales-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "The server copies prices and assigns the draft identity from the sales order. There is no deduplication contract. The list shows a pending row without a number or a price."
+    },
+    {
+      "operationId": "invoice.settlement.record",
+      "owningHook": "useRecordSettlement",
+      "sourceFile": "api/useInvoiceSettlement.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Recording a payment changes the settled amount. The server is the authority for the payment."
+    },
+    {
+      "operationId": "invoice.settlement.reconcile",
+      "owningHook": "useReconcileSettlement",
+      "sourceFile": "api/useInvoiceSettlement.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Reconciliation matches the payment to the fiscal receipt. The server decides the match."
+    },
+    {
+      "operationId": "invoice.settlement.cancel-fiscal",
+      "owningHook": "useCancelFiscalReceipt",
+      "sourceFile": "api/useInvoiceSettlement.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Cancelling a fiscal receipt is a fiscal cancellation. The server confirms it."
+    },
+    {
+      "operationId": "purchase-invoice.create",
+      "owningHook": "useCreatePurchaseInvoice",
+      "sourceFile": "api/usePurchaseInvoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "A purchase invoice carries vendor prices and tax. The server assigns the identity. There is no deduplication contract."
+    },
+    {
+      "operationId": "purchase-invoice.update",
+      "owningHook": "useUpdatePurchaseInvoice",
+      "sourceFile": "api/usePurchaseInvoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Editing a purchase invoice writes prices and tax. The server recalculates the totals."
+    },
+    {
+      "operationId": "purchase-invoice.post",
+      "owningHook": "usePostPurchaseInvoice",
+      "sourceFile": "api/usePurchaseInvoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Posting a purchase invoice is a posting. The status is server-authoritative."
+    },
+    {
+      "operationId": "purchase-invoice.pay",
+      "owningHook": "usePayPurchaseInvoice",
+      "sourceFile": "api/usePurchaseInvoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Marking a purchase invoice paid is a payment. The server confirms it."
+    },
+    {
+      "operationId": "purchase-invoice.delete",
+      "owningHook": "useDeletePurchaseInvoice",
+      "sourceFile": "api/usePurchaseInvoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deleting a purchase invoice is guarded by the server and removes a financial document."
+    },
+    {
+      "operationId": "purchase-invoice.line.delete",
+      "owningHook": "useDeletePurchaseInvoiceLine",
+      "sourceFile": "api/usePurchaseInvoices.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Removing a line changes the price and the tax. The server recalculates the bill."
     }
   ]
 }

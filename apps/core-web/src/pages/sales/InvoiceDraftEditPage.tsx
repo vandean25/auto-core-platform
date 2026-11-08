@@ -15,6 +15,7 @@ import { getInvoiceDraftView } from "./invoice-draft-view"
 import { InvoiceDraftHeader } from "./InvoiceDraftHeader"
 import { InvoiceDraftParties } from "./InvoiceDraftParties"
 import { InvoiceDraftStatus } from "./InvoiceDraftStatus"
+import { InvoiceInternalNote, invoiceInternalNote } from "./InvoiceInternalNote"
 import { useInvoiceDraftAutosave } from "./useInvoiceDraftAutosave"
 import { useInvoiceFinalize } from "./useInvoiceFinalize"
 import { useInvoicePartSearch } from "./useInvoicePartSearch"
@@ -49,6 +50,10 @@ export default function InvoiceDraftEditPage() {
   const record = useInvoiceDraftRecord(invoiceId)
   const { editor, updateInvoiceMutation } = record
   const draftNotesRef = React.useRef<string | undefined>(undefined)
+  const internalNotesRef = React.useRef<string | undefined>(undefined)
+  React.useEffect(() => {
+    internalNotesRef.current = invoiceInternalNote(record.invoice)
+  })
   // CI's Contract Guard greps this file for the taxRate mapping, so the payload stays here.
   const buildPayload = React.useCallback(() => {
     if (!editor.customer) return null
@@ -62,6 +67,7 @@ export default function InvoiceDraftEditPage() {
         taxRate: item.tax_rate,
       })),
       notes: draftNotesRef.current,
+      ...(internalNotesRef.current ? { internalNotes: internalNotesRef.current } : {}),
     }
   }, [editor.customer, editor.items])
   const autosave = useInvoiceDraftAutosave({
@@ -112,6 +118,12 @@ export default function InvoiceDraftEditPage() {
           onRemoveItem={editor.removeItem}
           onOpenPartSearch={partSearch.openPartSearch}
           onAddItem={editor.addItem}
+        />
+
+        <InvoiceInternalNote
+          invoiceId={draft.invoice.id}
+          note={invoiceInternalNote(draft.invoice)}
+          buildPayload={buildPayload}
         />
 
         <div className="flex justify-end border-t pt-8">
