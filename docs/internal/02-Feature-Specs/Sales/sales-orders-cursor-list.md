@@ -122,7 +122,7 @@ Precedence on this endpoint: 401/403/422; then `CONTEXT_REQUIRED` / `CONTEXT_MIS
 
 Error classes on this endpoint: `401/403/422` (unchanged, never auto-retried); `CONTEXT_REQUIRED` and `CONTEXT_MISMATCH` (ADR-0038); `LIST_CURSOR_INVALID`; `LIST_CURSOR_SORT_UNSUPPORTED`; and the documented `400` codes for forbidden parameters and an invalid `status` (code names proposed).
 
-Recovery follows ADR-0038 §9: one total automatic action per stable query episode shared by page and count; singleflight; quarantine, flush and late-result fencing always; no automatic retry of 401/403/422; a valid-context `LIST_CURSOR_INVALID` allows one restart that preserves all effective parameters. The API returns `LIST_CURSOR_SORT_UNSUPPORTED` for an unsupported cursor sort; only the UI latches the existing offset mode at offset 0 for that episode, keeping sort and filters, with no repeated cursor attempts. Filters are never removed to recover.
+Recovery follows ADR-0038 §9: one total automatic action per stable query episode shared by page and count; singleflight; quarantine, flush and late-result fencing always; no automatic retry of 401/403/422; a valid-context `LIST_CURSOR_INVALID` allows one restart that preserves all effective parameters. Recovery-generated continuity after a budgeted restart does not rearm the shared episode budget. The API returns `LIST_CURSOR_SORT_UNSUPPORTED` for an unsupported cursor sort; only the UI latches the existing offset mode at offset 0 for that episode, keeping sort and filters, with no repeated cursor attempts. Filters are never removed to recover.
 
 ### Visibility
 
@@ -269,14 +269,18 @@ New behavior follows the TDD workflow in `agents.md`: each new test must fail ag
 
 ## Gates and Sequencing
 
-Implementation of this wave starts only after all of these are documented:
+**Pre-start** (implementation of this wave begins only after all are documented):
 
 1. AUT-890 pilot QA acceptance. **Missing.**
 2. Invoice-wave QA acceptance. **Missing.**
-3. Approval of this specification. **Missing.**
-4. ADR-0038 is accepted. Enforcement of its contract on the Sales Orders cursor and count endpoints: **Missing** (the shared prerequisite is neither specified nor implemented).
+3. Approval of this corrected specification. **Missing.**
+4. ADR-0038 accepted as the shared scope-context design (repository status today).
 
-Merges, reviews and scratch probes do not substitute for 1 or 2. Query plans on representative data and QA acceptance of the Sales Orders wave are completion evidence, not start conditions. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit approval; this document authorizes none. Shared changes need renewed relevant regressions before rollout. QA owns released verification; Infra owns releases. This wave stops after its own PR for owner review.
+Approved bounded shared-prerequisite readiness on the three existing ADR-0038 consumers remains a pre-start gate when a separately owner-approved prerequisite correction exists; this spec does not authorize that correction.
+
+**Completion / rollout** (not pre-start): implementation and integration of the Sales Orders cursor list and capped-count endpoints; ADR-0038 enforcement turned on for both; query plans on representative data; and released QA acceptance for this wave. Those items cannot require their own endpoints to exist before implementation starts.
+
+Merges, reviews and scratch probes do not substitute for 1–2. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit owner approval; this document authorizes none. Shared changes need renewed relevant regressions before rollout. QA owns released verification; Infra owns releases. This wave stops after its own PR for owner review.
 
 ## Evidence Still Needed
 
