@@ -60,8 +60,8 @@ A fence sets a row to FENCED (= NOT_APPLIED) under the same journal-row lock as 
 
 - **User fence** (explicit, authorized, takes the key and the frozen intent; a different intent gets 422):
   - Row ACCEPTED: allowed from 2 min after `acceptedAt` (the lease). The lease is UX only; the lock decides, because a late-starting Tx-E could still hold the row.
-  - No row, key UUIDv7 time **within** the admission window (§6): takes the journal-row lock and either inserts FENCED (future execution fence, serializing against concurrent Tx-A) or, if Tx-A commits ACCEPTED first, applies the ACCEPTED rule. This path does not reconstruct proof deleted by retention.
-  - No row, key time **outside** the admission window: under the same lock discipline, refuses a new fence insert (admission impossible) and returns **`OUTCOME_UNAVAILABLE`** — historical outcome unknown, not NOT_APPLIED. Elapsed time, current price, revision or transport errors must not justify silent replay or a new-key percentage retry.
+  - No row, key UUIDv7 time **within** the admission window (§6): must serialize with concurrent Tx-A under the shared journal-row lock obligation (implementation must prove wait/re-read or `OPERATION_UNRESOLVED`; claiming a lock on an absent row is not proof here). Either inserts FENCED or, if Tx-A commits ACCEPTED first, applies the ACCEPTED rule. Does not reconstruct proof deleted by retention.
+  - No row, key time **outside** the admission window: refuses a new fence insert and returns **`OUTCOME_UNAVAILABLE`** when no committed row exists — historical outcome unknown, not NOT_APPLIED. If an **already-committed** ACCEPTED row exists for the key, returns that row's state under lock instead (key-age pre-check does not void admitted work).
   - Row final: returns the stored outcome.
 - **System fence:** the retention job fences every row still ACCEPTED **24 h after `acceptedAt`** (cutoff source: server `acceptedAt` at job evaluation time, not key UUID time alone), through the same locked transition. It is a committed fence with scheduler retries and escalation, not a proof that every row resolved within 24 h without the job running. It bounds the same-principal block (section 6) and resolves rows whose item was deleted or whose principal lost access, which no user can fence.
 
@@ -86,7 +86,8 @@ No transition leaves a final state. Client acknowledgement changes no state. ACC
 | Same key, different intent | 422 `IDEMPOTENCY_KEY_REUSED`, no execution |
 | Fence vs Tx-E | Row lock decides; exactly one wins |
 | Tx-A in flight inside window vs no-row fence inside window | Journal-row lock: exactly one of FENCED insert or ACCEPTED commit wins; no authoritative NOT_APPLIED while ACCEPTED can still commit |
-| Tx-A in flight at window edge vs no-row fence after key time exceeds admission | Tx-A admission pre-check and fence outside-window path both refuse new work; lock serializes so neither returns NOT_APPLIED while the other may still commit ACCEPTED inside the window |
+| Tx-A admitted before cutoff (ACCEPTED commit or in-flight insert) while key UUID time later reads outside window | Key-age pre-check applies only on **no-row admission**; fence must acquire journal-row lock, wait/re-read, return stored ACCEPTED/final outcome or `OPERATION_UNRESOLVED` — not `OUTCOME_UNAVAILABLE` and not NOT_APPLIED while uncommitted ACCEPTED may still complete |
+| New fence/admission after cutoff with no row | Outside-window path returns `OUTCOME_UNAVAILABLE`; new Tx-A admission rejected with `IDEMPOTENCY_KEY_EXPIRED` |
 | No-row fence outside admission window | No FENCED insert; `OUTCOME_UNAVAILABLE` only — does not prove an operation never ran |
 | Late original request after a fence | 409 `OPERATION_FENCED`, no effect |
 | Fence before Tx-A (lost request) | FENCED row inserted; the later Tx-A gets 409 `OPERATION_FENCED` |
@@ -101,7 +102,7 @@ No transition leaves a final state. Client acknowledgement changes no state. ACC
 
 - **Coordination:** at most one ACCEPTED guarded operation per (tenant, principal, item), enforced by a partial unique index, not by the browser. Legacy edits take no lock. No global exactly-once claim is made; unconditional legacy writers can still overwrite guarded commits, and revision advancement alone does not make them safe.
 - **Key:** client-generated UUIDv7 in the `Idempotency-Key` header, one key per item per consent, stored by the client with the frozen intent until the outcome is final.
-- **Separate clocks:** admission uses the key's UUIDv7 time (within 24 h in the past and 5 min in the future of server time, checked only when no row exists; a pre-filter, not proof). `acceptedAt` is server time and anchors the 2 min lease and the 24 h system fence. Retention deletes final rows 30 days after the later of their final time and the key time.
+- **Separate clocks:** admission uses the key's UUIDv7 time (within 24 h in the past and 5 min in the future of server time, checked only on the **no-row** Tx-A insert path; a pre-filter, not proof). An existing journal row is served from storage regardless of key UUID age until retention deletes it. `acceptedAt` is server time and anchors the 2 min lease and the 24 h system fence. Retention deletes final rows 30 days after the later of their final time and the key time.
 - **Non-reuse:** at deletion a key's time is more than 30 days old, so admission rejects it forever; no tombstone is needed. A different timestamp is a different key, hence a new operation under its own revision check.
 
 ### 7. Discovery, fence API and UI states
@@ -109,12 +110,12 @@ No transition leaves a final state. Client acknowledgement changes no state. ACC
 Principal-only; keys are not bearer credentials; every call needs current authorization and the principal match.
 
 - `GET /api/inventory/price-operations` lists the caller's own rows that are ACCEPTED or final within retention (state, item, SKU, original basis, target, expected revision, `acceptedAt`, final time), with bounded pagination (fixed maximum page size in the implementation specification). Rows whose item was deleted (404) or is no longer accessible (403) are omitted, so no receipt is disclosed (authorized no-row privacy).
-- `GET /api/inventory/price-operations/:key` returns one own row, or 404 if none exists (not proof of anything).
+- `GET /api/inventory/price-operations/:key` returns one own row within retention, or **404** if no row exists (read-only; not proof of outcome). **404** is not used for unknown historical outcome on mutating routes.
 - `POST /api/inventory/price-operations/:key/fence` with the frozen intent (`itemId`, `retail_price`, `expectedRevision`) performs the user fence (section 3) and returns the resulting state.
 
 A 400, 410 or 422 describes the current attempt only; the original outcome, including a recorded 409, is read from the journal. There is no replay: a fenced or conflicting operation is redone only through a new preview, consent and key.
 
-**Response applicability:** guarded `PATCH` admission (Tx-A) returns `GUARDED_REQUEST_INVALID` for keys more than 5 min ahead of server time and `IDEMPOTENCY_KEY_EXPIRED` when the key UUID time is older than the admission window — before any journal write. The fence and discovery routes use §3: inside-window no-row fence may commit FENCED; outside-window or post-retention missing row returns `OUTCOME_UNAVAILABLE` (410). A far-future key cannot create an unbounded FENCED row.
+**Response applicability:** guarded `PATCH` (Tx-A) applies `GUARDED_REQUEST_INVALID` / `IDEMPOTENCY_KEY_EXPIRED` on **no-row admission** only — before any journal write. If a row already exists, Tx-A step 3 returns the stored outcome regardless of key UUID age. `POST .../fence`: inside-window no-row may commit FENCED; outside-window **with no row** returns `OUTCOME_UNAVAILABLE` (410); with an existing row, §3 row rules apply. `GET .../:key` stays **404** when no row (discovery never returns 410). Retained receipts remain readable until retention deletion.
 
 Client acknowledgement is UX only: it never changes journal state and never proves that a mutation committed. **UI states per item:** Applied; Conflict (shows that the price changed, offers a new preview); Pending (ACCEPTED, under 2 min); Unresolved (ACCEPTED after 2 min, offers "Mark as not applied", which calls the fence); Not applied (FENCED); Outcome unavailable (`OUTCOME_UNAVAILABLE` after retention or expired admission). On load, the parts list calls discovery and shows unresolved and unacknowledged final operations; the per-tab client copy of keys and intents is a convenience, not the source of truth. A partial unique index violation or ambiguous uniqueness at fence time maps to `OPERATION_UNRESOLVED`, not an undifferentiated 500. All texts in German and English.
 
@@ -130,7 +131,7 @@ The target is an integer in minor units from 0 to 9,999,999,999 (99,999,999.99),
 | FENCED | 409 | `OPERATION_FENCED` |
 | Historical outcome unknown (retention, never admitted, or outside admission window) | 410 | `OUTCOME_UNAVAILABLE` |
 | Key reused with a different intent | 422 | `IDEMPOTENCY_KEY_REUSED` |
-| Key older than the admission window | 410 | `IDEMPOTENCY_KEY_EXPIRED` |
+| Key older than the admission window on **no-row** PATCH admission | 410 | `IDEMPOTENCY_KEY_EXPIRED` |
 | Key missing, not UUIDv7 or more than 5 min ahead; body not exactly the two fields | 400 | `GUARDED_REQUEST_INVALID` |
 
 ### 9. Revision (decision rule)
@@ -192,7 +193,7 @@ No implementation is authorized. Prerequisite evidence, none gathered yet:
 - CORS and proxy pass-through of the `Idempotency-Key` header (decision 2).
 - Realtime extension timing relative to commit (decision 8).
 
-Later tests (not yet written or run) must cover atomic success, every race-matrix row, same-key rejection after a rollback, lost-response, crash, user and system fence, admission and retention boundaries, the UI states, the frozen preview flow, and the existing selection, legacy, permission and mobile regressions. Full end-to-end runs stay in CI; performance benchmarks belong in nightly runs.
+Later tests (not yet written or run) must cover atomic success, every race-matrix row (including cutoff edge with already-admitted Tx-A), same-key rejection after a rollback, lost-response, crash, user and system fence, admission and retention boundaries, the UI states, the frozen preview flow, and the existing selection, legacy, permission and mobile regressions. Proof that no-row fence paths honor the journal-row lock obligation (wait/re-read, not false `OUTCOME_UNAVAILABLE`) is an implementation-design prerequisite, not established here. Full end-to-end runs stay in CI; performance benchmarks belong in nightly runs.
 
 ## Pragmatic Enforcer Analysis
 

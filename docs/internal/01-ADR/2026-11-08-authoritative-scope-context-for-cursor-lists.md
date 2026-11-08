@@ -129,7 +129,12 @@ LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED (page or count) | LIST_CURSOR_INVAL
     recovery shorthand CURSOR_INVALID)->
     singleflight; QUARANTINE + FLUSH + fence late results
     budget 1 -> (context errors only) handshake:
-        same tenant, site and principal -> restart page 1, budget 0
+        user session lifecycle on same tenant/site/principal (§3, §6) ->
+            NEW episode, fresh initial budget; pending recovery on the old episode is abandoned
+        same tenant, site and principal, external scope change only (epochs/policy) ->
+            flush/block per §6; no automatic page-one restart; episode unchanged
+        same tenant, site and principal, same user session (recovery refresh only) ->
+            restart page 1, budget 0
         different tenant, site or principal -> central session reset, NEW episode,
                                                no restart of the old query
         (LIST_CURSOR_INVALID with valid context -> restart page 1, budget 0, no handshake)
@@ -144,7 +149,7 @@ BLOCKED -manual retry | explicit user refresh | new semantic query | user contex
 ```
 
 - Canonical API codes are `LIST_CURSOR_INVALID` and `LIST_CURSOR_SORT_UNSUPPORTED` (ADR-0010 / OpenAPI). The recovery state machine uses the shorthands `CURSOR_INVALID` and `UNSUPPORTED_SORT` for the same outcomes. One total automatic action per episode is shared by page and count and by all scope and cursor-recovery failure types (`CONTEXT_MISMATCH`, `CONTEXT_REQUIRED`, `LIST_CURSOR_INVALID`), so alternating errors cannot multiply attempts. The unsupported-sort latch is a one-way mode switch for the episode, not a budgeted action. A realtime event, focus, or an external-scope lifecycle handshake never starts a new episode. A new episode starts only on user session lifecycle or tenant/site/principal switch (§6, episode key above).
-- Lifecycle and recovery share one singleflight handshake per client context. Tenant, site or principal change takes precedence over restart or block. For a different SC with the same tenant, site and principal: if a recovery is pending, the recovery rule applies (one restart, budget 0); if the change is **external scope** (epochs/policy), §6 flush/block applies; if **user session lifecycle** (new digest), a new episode starts per §6.
+- Lifecycle and recovery share one singleflight handshake per client context. **Precedence** (highest first): tenant/site/principal switch; **genuine user session lifecycle** (logout, reauthentication, new sign-in — §3, not merely a digest change from automatic recovery); then pending **same-episode** recovery (one restart, budget 0); then **external scope** change (epochs/policy — flush/block, no restart). A recovery-minted SC alone does not count as user session lifecycle.
 - The asymmetry is intended: a failed request interrupts a load the user just started, so one budgeted automatic restart finishes that load. A lifecycle handshake runs while the user may be reading or mid-action, so an external scope change there blocks until an explicit user refresh (ADR-0035 §7) instead of replacing the list underneath them.
 - Quarantine, flush and late-result fencing remain mandatory when the budget is spent.
 - `LIST_CURSOR_STOCK_FILTER_REQUIRED` (vehicle stock) is not a recovery case. It keeps its existing handling and is outside this contract.
@@ -218,7 +223,8 @@ Nothing here has been run. Names are proposals, not existing files.
 - Replay of an old continuity digest is rejected when ended-lineage or digest rules distinguish it (cross-device and cross-lineage cases per fixed requirement 2; same-second alias excluded until item 3 is resolved).
 - A→B→A on membership, site grant and user or site status, not only on a role definition.
 - Fencing and quarantine continue after the budget is exhausted.
-- A lifecycle handshake that returns a changed SC flushes and blocks without an automatic restart.
+- An **external-scope** lifecycle handshake (epochs/policy changed, user session unchanged — §6) flushes and blocks without an automatic restart; user session lifecycle starts a new episode instead (§6, §9).
+- User session lifecycle during a pending same-episode recovery abandons the old recovery and starts a new episode (precedence above).
 - Invoice, inventory and vehicle-stock consumers keep their existing regressions after the shared change.
 
 New behavior follows the TDD workflow in `agents.md`: each new test must fail against the pre-change code. Characterization baselines are used only to pin existing, correct behavior that the change must not alter.
