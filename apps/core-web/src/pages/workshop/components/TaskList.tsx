@@ -368,27 +368,27 @@ function TaskRowFace({
   onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
 }) {
   const titleClass = task.done ? 'line-through text-muted-foreground' : ''
+  const toggleFromButton = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    onToggleExpanded()
+  }
   return (
-    <div className='flex min-w-0 flex-1 flex-col gap-1'>
+    <div className='flex min-w-0 flex-1 flex-col gap-1' onClick={onToggleExpanded}>
       <div className='flex items-center gap-2'>
         <button
           type='button'
           className='flex min-w-0 flex-1 items-center gap-3 border-0 bg-transparent p-0 text-left'
           aria-expanded={isExpanded}
-          onClick={onToggleExpanded}
+          onClick={toggleFromButton}
         >
           <span className={`text-sm ${titleClass}`}>{task.title}</span>
           <span className='ml-auto text-sm font-semibold'>{totalLabel}</span>
         </button>
-        <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
+        <span onClick={(event) => event.stopPropagation()}>
+          <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
+        </span>
       </div>
-      <button
-        type='button'
-        className='w-full border-0 bg-transparent p-0 text-left text-xs text-muted-foreground'
-        onClick={onToggleExpanded}
-      >
-        {summary}
-      </button>
+      <span className='w-full text-xs text-muted-foreground'>{summary}</span>
     </div>
   )
 }
