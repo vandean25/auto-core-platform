@@ -1,7 +1,7 @@
 ---
 title: "ADR-0037: Authoritative Scope Context for Cursor Lists"
 date: "2026-11-08"
-status: proposed
+status: accepted
 deciders: "Dejan Dosenovic (Product Owner); review by Product Planner and Software Engineer"
 tags: [adr, platform, tables, security, multi-tenancy, sessions]
 ---
@@ -10,15 +10,15 @@ tags: [adr, platform, tables, security, multi-tenancy, sessions]
 
 ## Status
 
-**Proposed — 2026-11-08.** This is a decision packet for review by the Product Planner and the Software Engineer, then Dejan's concrete decision. It changes documentation only.
+**Accepted — 2026-11-08.** Accepted on the owner's instruction in the AUT-891 session. No Product Planner or Software Engineer review is recorded; several rounds of automated model review preceded acceptance, the last with no findings, and they do not substitute for it. This records the architecture decision. Implementation, rollout and QA remain outstanding, and accepted design does not mean deployed behavior.
 
-The owner approved the planning *direction* on 2026-11-08 (09:34 MEZ): mandatory expected context, server-verified session continuity, coherent authorization, and one shared safety and recovery contract. **No concrete architecture, storage, schema, API, token or protocol is approved.** Every name, structure and interface below is a recommendation, not an adopted contract. Implementation, including shared prerequisites, is not authorized. Specification, implementation and release approvals stay separate.
+The owner approved the planning *direction* on 2026-11-08 (09:34 MEZ): mandatory expected context, server-verified session continuity, coherent authorization, and one shared safety and recovery contract. Acceptance adopts the mechanism and the resolutions below. Names marked "recommended" (secret, header, table) are proposed names, fixed in the implementation specification. **Implementation, including shared prerequisites, is not authorized by this ADR.** Specification, implementation and release approvals stay separate.
 
-If accepted, this ADR would amend [ADR-0035](2026-11-02-cursor-based-infinite-lists.md) §2 (the explicit page-one restart after an incompatible cursor becomes one budgeted automatic restart) and §6/§7 (a changed authoritative context becomes a reset trigger). Until then ADR-0035 stands unchanged.
+This ADR amends [ADR-0035](2026-11-02-cursor-based-infinite-lists.md) §2 (the explicit page-one restart after an incompatible cursor becomes one budgeted automatic restart) and §6/§7 (a changed authoritative context becomes a reset trigger). The amendment takes effect for a consumer when that consumer's enforcement is on (§7); until then ADR-0035 stands for it.
 
-The open choices of the earlier draft were resolved on 2026-11-08 at the owner's instruction by delegating them to a reviewing model, grounded in a read of `main`. They appear below as recommended resolutions, awaiting the owner's acceptance of this ADR. Two items remain open for lack of evidence (see "Recommended Resolutions"). Acceptance flips the status; nothing is accepted until then.
+The open choices of the earlier draft were resolved on 2026-11-08 at the owner's instruction by delegating them to a reviewing model, grounded in a read of `main`. They appear below as the adopted resolutions. Two items remain open for lack of evidence (see "Still open for lack of evidence" under "Resolutions").
 
-Observed facts (marked *Observed*) come from reading `main` at `9284e46`. They are not independently audited; the Software Engineer re-verifies them before acceptance. This ADR claims no QA acceptance and no PASS.
+Observed facts (marked *Observed*) come from reading `main` at `9284e46`. They are not independently audited; the Software Engineer re-verifies them in the implementation specification. This ADR claims no QA acceptance and no PASS.
 
 ## Context and Decision Drivers
 
@@ -50,7 +50,7 @@ Drivers:
 4. One shared safety and recovery contract for the invoice, inventory and vehicle-stock cursor consumers and the later Sales Orders wave.
 5. Legacy offset behavior and each consumer's permissions and visibility are preserved.
 
-## Decision (recommended; pending owner acceptance)
+## Decision
 
 ### 1. Scope Context
 
@@ -85,7 +85,7 @@ After authentication, the shared cursor list and count helper (and the handshake
 
 ### 6. Handshake and quarantine
 
-A handshake endpoint (proposed) performs fresh authentication (including an identity-provider revocation check) and authorization, then returns the SC. On resume, focus, reconnect and online, protected cached content stays quarantined until the handshake succeeds. An unchanged epoch alone does not release it: current credential validity, ended lineage, membership, activation and expiry are re-evaluated. A handshake failure leaves content blocked with manual retry. Offline revocation is not instant, and delivered bytes are not recalled.
+A handshake endpoint (name and shape fixed in the implementation specification) performs fresh authentication (including an identity-provider revocation check) and authorization, then returns the SC. On resume, focus, reconnect and online, protected cached content stays quarantined until the handshake succeeds. An unchanged epoch alone does not release it: current credential validity, ended lineage, membership, activation and expiry are re-evaluated. A handshake failure leaves content blocked with manual retry. Offline revocation is not instant, and delivered bytes are not recalled.
 
 A lifecycle handshake is not a recovery of a failed request and does not spend the episode budget in §9:
 
@@ -95,7 +95,7 @@ A lifecycle handshake is not a recovery of a failed request and does not spend t
 
 ### 7. Requests and rollout
 
-The expected SC is mandatory on the cursor list **and** the count request of every contracted consumer. Omission returns a typed `CONTEXT_REQUIRED`. There is no compatibility window by default: enforcement starts in the release in which the web app sends the SC, and a client without it receives the typed, documented `CONTEXT_REQUIRED` rather than a silent failure. A window is granted only on log evidence of other callers (see "Still open for lack of evidence" under "Recommended Resolutions"). Offset endpoints are unaffected.
+The expected SC is mandatory on the cursor list **and** the count request of every contracted consumer. Omission returns a typed `CONTEXT_REQUIRED`. There is no compatibility window by default: enforcement starts in the release in which the web app sends the SC, and a client without it receives the typed, documented `CONTEXT_REQUIRED` rather than a silent failure. A window is granted only on log evidence of other callers (see "Still open for lack of evidence" under "Resolutions"). Offset endpoints are unaffected.
 
 No consumer counts as covered by this contract, and the Sales Orders gate in "Gates and Sequencing" is not met, before enforcement is on for both the cursor and the count endpoint of that consumer.
 
@@ -141,9 +141,9 @@ BLOCKED -manual retry | explicit user refresh | new semantic query | user contex
 
 Page and count acceptance use separate generations. Count identity binds **all** resolved effective filters and the SC digest, but not sort. A sort-only change keeps the count only while filters and validated context are unchanged, no invalidation or explicit refresh occurred, and the echoed context matches. The page fingerprint adds endpoint, sort and direction. One resolver feeds rows, count and fingerprint. Scope invalidation flushes protected pages, counts, selection and anchors.
 
-## Recommended Resolutions (pending owner acceptance)
+## Resolutions
 
-The earlier open choices were resolved on 2026-11-08 at the owner's instruction, grounded in a read of `main` at `9284e46`. Nothing has been run, measured or approved; acceptance of this ADR adopts them.
+The earlier open choices were resolved on 2026-11-08 at the owner's instruction, grounded in a read of `main` at `9284e46`. Nothing has been run or measured; acceptance of this ADR adopts them.
 
 | Choice | Resolution | Basis |
 |---|---|---|
@@ -208,7 +208,7 @@ Nothing here has been run. Names are proposals, not existing files.
 
 New behavior follows the TDD workflow in `agents.md`: each new test must fail against the pre-change code. Characterization baselines are used only to pin existing, correct behavior that the change must not alter.
 
-Before acceptance:
+Before implementation is authorized:
 
 - **Writer coverage** and transactional coupling of every access-relevant writer.
 - **Identity provider**: the measured cost of the handshake revocation check, and that the authentication time stays the same across a token refresh and differs per sign-in.
@@ -225,7 +225,7 @@ The Sales Orders wave (AUT-891) starts only after all of the following are docum
 1. AUT-890 pilot QA acceptance.
 2. Invoice-wave QA acceptance.
 3. Approval of the corrected Sales Orders specification.
-4. An accepted decision on this ADR, or a demonstrated accepted equivalent.
+4. This ADR, which is accepted; enforcement on the Sales Orders cursor and count endpoints must still be in place (§7).
 
 Merges, reviews and scratch probes do not replace these. Sales Orders query plans and QA are completion evidence. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit owner approval; this ADR authorizes none. Shared changes require renewed relevant regressions before rollout.
 
