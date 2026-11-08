@@ -44,7 +44,8 @@ function renderList() {
   return render(
     <QueryClientProvider client={client}>
       <SavedViewsProvider userKey="test-user">
-        <MemoryRouter initialEntries={['/sales/invoices?sortField=status']}>
+        {/* Default router updates sit in startTransition and can stay uncommitted past findBy's 1s budget on a loaded runner. */}
+        <MemoryRouter initialEntries={['/sales/invoices?sortField=status']} useTransitions={false}>
           <Routes>
             <Route path="/sales/invoices" element={<InvoiceListPage />} />
             <Route path="/sales/invoices/:id/edit" element={<p>draft-editor</p>} />
@@ -87,10 +88,19 @@ describe('InvoiceList pending draft (ADR-0036 R1)', () => {
     expect(within(screen.getByRole('row', { name: /Test Customer/ })).queryByRole('button')).not.toBeInTheDocument()
     expect(within(screen.getByRole('row', { name: /Test Customer/ })).queryByRole('link')).not.toBeInTheDocument()
 
+    await waitFor(() => expect(posts).toHaveLength(1))
     invoices = [{ ...confirmed, invoice_number: 'RE-9' }]
-    release(http(201, { id: 'inv-9' }))
+    await act(async () => {
+      release(http(201, { id: 'inv-9' }))
+    })
 
-    expect(await screen.findByText('draft-editor')).toBeInTheDocument()
+    try {
+      expect(await screen.findByText('draft-editor', undefined, { timeout: 3000 })).toBeInTheDocument()
+    } catch (error) {
+      const alert = screen.queryByRole('alert')
+      if (!alert) throw error
+      throw new Error(`Draft create stayed on the list: ${alert.textContent}`, { cause: error })
+    }
     expect(screen.getAllByText('draft-editor')).toHaveLength(1)
     expect(posts).toHaveLength(1)
   })
