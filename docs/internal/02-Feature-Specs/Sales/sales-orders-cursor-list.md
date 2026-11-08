@@ -40,7 +40,7 @@ Out: any other list; removing or changing offset behavior; Sales Orders selectio
 | Endpoint | `GET /api/sales-orders` (`SalesOrderController.findAll`). Query: `status`, `search`, `page`, `pageSize` (default 25), `sortField`, `sortDirection`, and a JSON `params`. Response `{ data, meta: { total, page, pageSize, pageCount } }`. Rows carry the order with `customer`, `vehicle` (identity-resolution fields stripped) and `items`. |
 | Sort whitelist | `status`, `order_number`, `total_amount`, `createdAt`, `customer.last_name`, `customer.company_name`. Others are silently dropped. |
 | Order | `QueryBuilder.buildOrderBy` adds no `id` tiebreaker. With no sort, the paginated path has no `ORDER BY`, so the default order is unspecified. |
-| Search | `contains`, case-insensitive, OR over `order_number`, `customer.last_name`, `customer.company_name`. The controller assigns a truthy `search` as given, so whitespace-only input from a direct caller is literal. The web omits a whitespace-only search and sends any other search untrimmed. |
+| Search | `contains`, case-insensitive, OR over `order_number`, `customer.last_name`, `customer.company_name`. The controller assigns a truthy `search` as given, so whitespace-only input from a direct caller is literal. The web replaces a whitespace-only search box with the first non-empty `filter_order_number` fallback value and sends it untrimmed; a whitespace-only fallback value is sent as is, and any other search is sent untrimmed. |
 | Status and `params` | A `status` query replaces **all** `filters` from `params`. `status` is not validated against the enum. The web sends flat parameters only, never `params`. |
 | Visibility | `sales.order.read` (`BACK_OFFICE_DEMO`, site scope). The service calls `getSiteId()`, which throws `ACTIVE_SITE_REQUIRED` (422) without a valid active site. Rows are filtered by `tenant_id` and `site_id = active site`, so null-site rows are excluded. `findOne` uses authorized sites, so list and detail visibility differ; this spec does not change that. |
 | `order_number` | Text, unique per tenant, not null. Format `${prefix}${n}` with an unpadded number and a tenant-set prefix. Order is the database text order, not numeric. |
@@ -48,9 +48,9 @@ Out: any other list; removing or changing offset behavior; Sales Orders selectio
 | Measured (disposable) | `createdAt` is `timestamp without time zone` with precision 3; `order_number` is `text`; the database collation was `C.UTF-8` (byte order: `SO-2026-10000` sorts before `SO-2026-1001` and `SO-2026-9999`). Indexes on `sales_orders`: primary key, unique `(tenant_id, id)`, `(tenant_id)`, unique `(tenant_id, order_number)`, `(tenant_id, site_id)`, trigram GIN on `order_number`. |
 | Web list | `SalesOrderList` uses `useSalesOrders` with offset paging (default page size 10), `sortFieldMap` `customer` → `customer.last_name`, `exactFilterMap` `status` → `status`, search fallback on `filter_order_number`. No `initialSorting`, no `bulkActions`, no `meta.mobile` on columns. |
 | Saved Views | Stored as `{ name, href }` with a normalized query. Date sort key `createdAt`, customer sort key `customer`, status filter key `filter_status`, plus `search`, `page`, `pageSize`. |
-| Delete | DRAFT-only Delete is a right-click context action with a browser `confirm()`. The endpoint requires `sales.order.delete` and rejects non-draft orders. It is not a registry action and has no keyboard or visible-mobile path. |
+| Delete | DRAFT-only Delete is a right-click context action with a browser `confirm()`. The endpoint requires `sales.order.delete` and rejects orders that are not DRAFT or that already have an invoice. It is not a registry action and has no keyboard or visible-mobile path. |
 | Realtime and export | `SALES_ORDER` events invalidate `salesOrderKeys.all` and the `sales-orders` dashboard source. CSV export covers loaded rows only. |
-| Reported, unverified | An intent-prefetch baseline entry for `SalesOrderList.tsx` exists; wiring prefetch would remove it. |
+| Prefetch baseline | The intent-prefetch baseline lists `pages/sales-orders/SalesOrderList.tsx::DataTable::missing-intent-prefetch`; wiring prefetch removes that line. |
 
 ---
 
@@ -109,13 +109,16 @@ Cursor-mode rules for direct API callers:
 2. The legacy override is applied first: a `status` query replaces `params.filters`. The effective filters are computed after it.
 3. Any `params` component that is still effective after flat parameters override it (`filters` without `status`, `search` without a flat `search`, `sorting` without a flat `sortField`), or that is unknown or ambiguous, returns a documented `400`. `params.page` and `params.pageSize` are always forbidden.
 4. An invalid `status` returns a documented `400`. Legacy handling is unchanged.
-5. `search` is used as given. The web omits a whitespace-only search and otherwise sends it untrimmed; direct whitespace stays literal.
+5. `search` is used as given. Direct whitespace stays literal. The web's search resolution is the existing `resolveListSearch` behavior (see the baseline) and is not changed.
+6. In cursor mode any `sortField` other than `createdAt` or `order_number`, including one outside the legacy whitelist, and a `sortDirection` without a `sortField`, returns `LIST_CURSOR_SORT_UNSUPPORTED`; nothing is silently dropped or replaced by the default order. Only a request with neither returns the default `createdAt DESC, id DESC`.
 
 The web never sends `params` today, so for web requests rule 3 reduces to the eligibility rule above.
 
 ### Scope context, errors and recovery
 
 The scope-context contract is [ADR-0038](../../01-ADR/2026-11-08-authoritative-scope-context-for-cursor-lists.md): the expected scope context is mandatory on the cursor list and the count request, a cursor binds the scope-context digest, requests are authorized at a single snapshot, and typed context errors rank after 401/403/422 and before the cursor codes. Sales Orders is not covered by that contract before enforcement is on for both of its endpoints.
+
+Precedence on this endpoint: 401/403/422; then `CONTEXT_REQUIRED` / `CONTEXT_MISMATCH`; then the parameter-validation 400s (forbidden parameter, effective or unknown `params`, invalid `status`); then `LIST_CURSOR_SORT_UNSUPPORTED`; then `LIST_CURSOR_INVALID`. The parameter-validation 400s are "other 4xx" in ADR-0038 §9: an error state, no automatic retry, not budgeted. A request that fails both context and parameter validation therefore returns the context error.
 
 Error classes on this endpoint: `401/403/422` (unchanged, never auto-retried); `CONTEXT_REQUIRED` and `CONTEXT_MISMATCH` (ADR-0038); `LIST_CURSOR_INVALID`; `LIST_CURSOR_SORT_UNSUPPORTED`; and the documented `400` codes for forbidden parameters and an invalid `status` (code names proposed).
 
@@ -131,7 +134,7 @@ The same resolver feeds the count: effective search and status, tenant and activ
 
 ### Limits
 
-Default limit 25 and ceiling 100 from the shared helper; the web loads blocks of 50 and stops at 2,000 loaded rows (ADR-0035 §1).
+Default limit 25 (set per endpoint, as for invoices) and the shared ceiling 100 (`GLOBAL_LIST_LIMIT_MAX`); the web loads blocks of 50 and stops at 2,000 loaded rows (ADR-0035 §1).
 
 ### Examples (proposed)
 
@@ -146,8 +149,12 @@ X-ACP-Scope-Context: <opaque>
 GET /api/sales-orders/capped-count?status=CONFIRMED&search=Meier
 200 { "count": 1000, "isCapped": true, "scopeContextDigest": "<digest>" }
 
+(with a valid X-ACP-Scope-Context header)
 GET /api/sales-orders?pagination=cursor&page=2        → 400 (forbidden parameter)
 GET /api/sales-orders?pagination=cursor&sortField=total_amount → 400 LIST_CURSOR_SORT_UNSUPPORTED
+(without the header)
+GET /api/sales-orders?pagination=cursor&page=2        → CONTEXT_REQUIRED (context ranks first)
+(offset mode, unchanged)
 GET /api/sales-orders?page=2&pageSize=25&sortField=status      → unchanged offset response
 ```
 
@@ -213,7 +220,7 @@ Order number is the title, customer the subtitle, then status, with the amount t
 
 ### DRAFT Delete parity
 
-The existing DRAFT-only Delete becomes a registry action with a stable `<entity>.<action>` id (for example `salesOrder.delete`), gated through the existing role predicates, reachable through Cmd+K with identical role gating and confirmation, and with a visible mobile path through an existing pattern. The endpoint, `sales.order.delete` permission, non-draft rejection and the confirmation requirement are unchanged. There is no right-click-only or long-press-only path, no new business action and no new permission. The confirmation mechanism follows the registry convention, to be verified. Migrating an existing action may require removing its baseline entry, which may only shrink (`agents.md`).
+The existing DRAFT-only Delete becomes a registry action with a stable `<entity>.<action>` id (for example `salesOrder.delete`), gated through the existing role predicates, reachable through Cmd+K with identical role gating and confirmation, and with a visible mobile path through an existing pattern. The endpoint, `sales.order.delete` permission, the rejection of non-draft or invoiced orders and the confirmation requirement are unchanged. There is no right-click-only or long-press-only path, no new business action and no new permission. The confirmation mechanism follows the registry convention, to be verified. Migrating an existing action may require removing its baseline entry, which may only shrink (`agents.md`).
 
 ### Saved Views and URL
 
@@ -267,7 +274,7 @@ Implementation of this wave starts only after all of these are documented:
 1. AUT-890 pilot QA acceptance. **Missing.**
 2. Invoice-wave QA acceptance. **Missing.**
 3. Approval of this specification. **Missing.**
-4. ADR-0038 is accepted; enforcement of its contract on the Sales Orders cursor and count endpoints must be in place.
+4. ADR-0038 is accepted. Enforcement of its contract on the Sales Orders cursor and count endpoints: **Missing** (the shared prerequisite is neither specified nor implemented).
 
 Merges, reviews and scratch probes do not substitute for 1 or 2. Query plans on representative data and QA acceptance of the Sales Orders wave are completion evidence, not start conditions. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit approval; this document authorizes none. Shared changes need renewed relevant regressions before rollout. QA owns released verification; Infra owns releases. This wave stops after its own PR for owner review.
 
@@ -275,14 +282,14 @@ Merges, reviews and scratch probes do not substitute for 1 or 2. Query plans on 
 
 - Schema, collation and timestamp precision on QA and production; Prisma behavior under a non-UTC runtime.
 - Real endpoint and Prisma-emitted plans (see Database Impact), and QA search plans on representative data.
-- Live URL, table-state and request pipeline for `page`/`pageSize`; mobile card capability; the registry confirmation convention; the prefetch baseline entry.
+- Live URL, table-state and request pipeline for `page`/`pageSize`; mobile card capability; the registry confirmation convention.
 - Released-build QA: keyboard navigation across virtualization boundaries, 320px and 200% zoom, the 403 in the UI, site-switch and cursor reset, a real websocket refresh, invalid-cursor recovery.
 
 ---
 
 ## Remaining-View Inventory (not part of this wave)
 
-Cursor mode exists today on three endpoints: vehicle stock, inventory and invoices. About thirty files import the shared `DataTable`; that count is a preliminary `grep`, not an approved rollout list, and includes component-level tables. Besides the migrated lists and Sales Orders, the list pages seen are customers, vehicles, purchase orders, purchase bills, vendors, credit notes, stock transfers, workshop orders, estimates, loaner vehicles, pick list, tyre storage, Gewährleistung-due, HR clock and leave, platform tenants, accounting export readiness and employees. For customers, purchase orders, vendors, credit notes and vehicles only the web hook's offset parameters were seen; the rest are unexamined. Settings and admin tables are neither exempt nor examined. No other view or wave is selected.
+The ADR-0035 shared list cursor (`LIST_CURSOR_ENDPOINT`) exists today on three endpoints: vehicle stock, inventory and invoices. Some log and feed endpoints have their own cursor pagination, outside this inventory. About thirty files import the shared `DataTable`; that count is a preliminary `grep`, not an approved rollout list, and includes component-level tables. Besides the migrated lists and Sales Orders, the list pages seen are customers, vehicles, purchase orders, purchase bills, vendors, credit notes, stock transfers, workshop orders, estimates, loaner vehicles, pick list, tyre storage, Gewährleistung-due, HR clock and leave, platform tenants, accounting export readiness and employees. For customers, purchase orders, vendors, credit notes and vehicles only the web hook's offset parameters were seen; the rest are unexamined. Settings and admin tables are neither exempt nor examined. No other view or wave is selected.
 
 ---
 
