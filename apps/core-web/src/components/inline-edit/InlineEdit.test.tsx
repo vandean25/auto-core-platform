@@ -195,6 +195,46 @@ describe('InlineEdit command picker', () => {
     expect(screen.queryByPlaceholderText('Suchen')).not.toBeInTheDocument()
   })
 
+  it('WHEN the desktop trigger opens THEN it is a dialog and expanded toggles', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    const pickers = [
+      {
+        ariaLabel: 'Zugewiesener Mechaniker',
+        emptyText: 'Nicht zugewiesen',
+        value: null,
+        options: mechanics.slice(0, 1),
+      },
+      {
+        ariaLabel: 'Zugesagter Termin',
+        emptyText: 'Nicht gesetzt',
+        value: '2026-08-21',
+        options: [{ value: '2026-08-21', label: '21.08.2026' }],
+      },
+      {
+        ariaLabel: 'Aufgabenstatus',
+        emptyText: 'Nicht begonnen',
+        value: 'NOT_STARTED',
+        options: [{ value: 'NOT_STARTED', label: 'Nicht begonnen' }],
+        appearance: 'badge' as const,
+        badgeStatus: 'NOT_STARTED',
+      },
+    ]
+
+    for (const picker of pickers) {
+      const { unmount } = render(<InlineEditCommandPicker {...picker} onSave={vi.fn()} />)
+      const trigger = screen.getByRole('button', { name: picker.ariaLabel })
+      expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+      fireEvent.click(trigger)
+      expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+      fireEvent.click(trigger)
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      unmount()
+    }
+  })
+
   it('WHEN the viewport is 375px THEN the picker opens as a bottom sheet with ≥44px rows', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 })
     render(

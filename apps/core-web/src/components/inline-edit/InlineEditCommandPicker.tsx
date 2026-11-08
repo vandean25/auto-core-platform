@@ -90,125 +90,106 @@ function PickerOptions({
   )
 }
 
-function PickerTriggerButton({
-  ariaLabel,
-  busy,
-  disabled,
-  className,
-  testId,
-  onClick,
-  children,
-}: {
+type PickerTriggerButtonProps = Omit<React.ComponentPropsWithoutRef<'button'>, 'aria-label' | 'children'> & {
   ariaLabel: string
   busy: boolean
-  disabled: boolean
-  className?: string
   testId?: string
-  onClick?: () => void
   children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      aria-label={ariaLabel}
-      aria-busy={busy || undefined}
-      disabled={disabled}
-      onClick={(event) => {
-        event.stopPropagation()
-        onClick?.()
-      }}
-      className={className}
-    >
-      {children}
-    </button>
-  )
 }
 
-function FieldPickerTrigger({
-  label,
-  ariaLabel,
-  busy,
-  disabled,
-  leading,
-  className,
-  testId,
-  onClick,
-}: {
+const PickerTriggerButton = React.forwardRef<HTMLButtonElement, PickerTriggerButtonProps>(
+  function PickerTriggerButton(props, ref) {
+    const { ariaLabel, busy, testId, className, onClick, children, disabled, ...rest } = props
+    return (
+      <button
+        // PopoverTrigger asChild anchors the popover and sets its dialog state through these props.
+        {...rest}
+        ref={ref}
+        type="button"
+        data-testid={testId}
+        aria-label={ariaLabel}
+        aria-busy={busy || undefined}
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation()
+          onClick?.(event)
+        }}
+        className={className}
+      >
+        {children}
+      </button>
+    )
+  },
+)
+
+type FieldPickerTriggerProps = Omit<PickerTriggerButtonProps, 'children'> & {
   label: string
-  ariaLabel: string
-  busy: boolean
-  disabled: boolean
   leading?: React.ReactNode
-  className?: string
-  testId?: string
-  onClick?: () => void
-}) {
-  return (
-    <PickerTriggerButton
-      ariaLabel={ariaLabel}
-      busy={busy}
-      disabled={disabled}
-      testId={testId}
-      onClick={onClick}
-      className={cn(
-        'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm',
-        'ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        'disabled:cursor-not-allowed disabled:opacity-50 max-md:h-11',
-        className,
-      )}
-    >
-      <span className="flex min-w-0 items-center">
-        {leading}
-        <span className="truncate">{label}</span>
-      </span>
-      {busy ? (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-      ) : (
-        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-      )}
-    </PickerTriggerButton>
-  )
 }
 
-function BadgePickerTrigger({
-  label,
-  ariaLabel,
-  busy,
-  disabled,
-  badgeStatus,
-  className,
-  testId,
-  onClick,
-}: {
+const FieldPickerTrigger = React.forwardRef<HTMLButtonElement, FieldPickerTriggerProps>(
+  function FieldPickerTrigger(props, ref) {
+    const { label, ariaLabel, busy, disabled, leading, className, testId, onClick, ...rest } = props
+    return (
+      <PickerTriggerButton
+        {...rest}
+        ref={ref}
+        ariaLabel={ariaLabel}
+        busy={busy}
+        disabled={disabled}
+        testId={testId}
+        onClick={onClick}
+        className={cn(
+          'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm',
+          'ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'disabled:cursor-not-allowed disabled:opacity-50 max-md:h-11',
+          className,
+        )}
+      >
+        <span className="flex min-w-0 items-center">
+          {leading}
+          <span className="truncate">{label}</span>
+        </span>
+        {busy ? (
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        )}
+      </PickerTriggerButton>
+    )
+  },
+)
+
+type BadgePickerTriggerProps = Omit<PickerTriggerButtonProps, 'children'> & {
   label: string
-  ariaLabel: string
-  busy: boolean
-  disabled: boolean
   badgeStatus: string
-  className?: string
-  testId?: string
-  onClick?: () => void
-}) {
-  return (
-    <PickerTriggerButton
-      ariaLabel={ariaLabel}
-      busy={busy}
-      disabled={disabled}
-      testId={testId}
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-start rounded-md border-0 bg-transparent p-0',
-        'min-h-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        'disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11',
-        className,
-      )}
-    >
-      <StatusBadge status={badgeStatus} label={label} />
-      {busy ? <Loader2 className="ml-1 h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
-    </PickerTriggerButton>
-  )
 }
+
+const BadgePickerTrigger = React.forwardRef<HTMLButtonElement, BadgePickerTriggerProps>(
+  function BadgePickerTrigger(props, ref) {
+    const { label, ariaLabel, busy, disabled, badgeStatus, className, testId, onClick, ...rest } = props
+    return (
+      <PickerTriggerButton
+        {...rest}
+        ref={ref}
+        ariaLabel={ariaLabel}
+        busy={busy}
+        disabled={disabled}
+        testId={testId}
+        onClick={onClick}
+        className={cn(
+          'inline-flex items-start rounded-md border-0 bg-transparent p-0',
+          'min-h-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11',
+          className,
+        )}
+      >
+        <StatusBadge status={badgeStatus} label={label} />
+        {busy ? <Loader2 className="ml-1 h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
+      </PickerTriggerButton>
+    )
+  },
+)
 
 function savePickerChoice({
   next,
@@ -308,10 +289,11 @@ function closedPickerTrigger(props: {
   testId?: string
   onClick?: () => void
 }) {
-  if (props.appearance === 'badge') {
-    return <BadgePickerTrigger {...props} />
+  const { appearance, badgeStatus, ...shared } = props
+  if (appearance === 'badge') {
+    return <BadgePickerTrigger {...shared} badgeStatus={badgeStatus} />
   }
-  return <FieldPickerTrigger {...props} />
+  return <FieldPickerTrigger {...shared} />
 }
 
 function pickerIsBusy(pending: boolean, saving: boolean) {
