@@ -67,7 +67,7 @@ After authentication, one database snapshot reads membership and activation, per
 - A relevant change committed before the snapshot, meaning one that advanced a component bound in the SC, rejects an old context. A change that advances no bound component does not reject, and a correct new context is not rejected merely because a mutation occurred. With a coarse (tenant-wide) epoch granularity, an unrelated role edit in the same tenant can advance a bound component and reject; that over-invalidation is the cost named in the open choices.
 - A later commit cannot recall delivered bytes; the next old-context request rejects.
 - A second epoch read in the same snapshot is not independent freshness evidence, so none is made.
-- Existing 401, 403 and 422 outcomes take precedence when scope is unusable.
+- Existing 401, 403 and 422 outcomes take precedence when scope is unusable. Precedence is: 401, 403 or 422; then `CONTEXT_REQUIRED` or `CONTEXT_MISMATCH`; then the cursor codes. A `CURSOR_INVALID` response therefore implies that the expected SC matched the snapshot.
 
 ### 5. Authorities outside the database snapshot
 
@@ -99,8 +99,10 @@ A cursor binds the SC digest, endpoint, sort, direction and the resolver fingerp
 ### 9. One shared recovery contract
 
 ```
-Episode key = semantic user query + genuine user context switch
-(recovery contexts, epochs, generations and successes never rearm it)
+Episode key = semantic user query + genuine context switch
+  (user-initiated, or a different tenant, site or principal revealed by any handshake)
+Recovery contexts that keep tenant, site and principal, recovery epochs,
+generations and successes never rearm it
 
 READY -next page | count-> LOADING
 LOADING -ok-> READY
@@ -114,14 +116,14 @@ LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED (page or count) | CURSOR_INVALID (p
     budget 0 -> BLOCKED (manual)
 handshake failure -> BLOCKED (manual)
 LOADING -401 | 403 | 422-> QUARANTINE + FLUSH + fence late results -> BLOCKED (never automatic)
-LOADING -UNSUPPORTED_SORT-> latch offset at offset 0, keep sort and filters
+LOADING -UNSUPPORTED_SORT-> OFFSET (latched for the episode, offset 0, keep sort and filters)
 LOADING -other or network error-> ERROR (not a restart or resync)
 ERROR -manual retry-> LOADING (same episode, budget unchanged)
 BLOCKED -manual retry | explicit user refresh | new semantic query | user context switch-> new episode
 ```
 
-- One total automatic action per episode is shared by page and count and by all failure types, so alternating errors cannot multiply attempts. A realtime event, focus or lifecycle refresh never starts a new episode by itself. The one exception is a handshake that reveals a genuine context switch (different tenant, site or principal), which runs the central session reset and starts a new episode.
-- Lifecycle and recovery share one singleflight handshake per client context. If both are triggered at once, a tenant, site or principal change takes precedence over a restart or a block.
+- One total automatic action per episode is shared by page and count and by all scope and cursor-recovery failure types (`CONTEXT_MISMATCH`, `CONTEXT_REQUIRED`, `CURSOR_INVALID`), so alternating errors cannot multiply attempts. The unsupported-sort latch is a one-way mode switch for the episode, not a budgeted action. A realtime event, focus or lifecycle refresh never starts a new episode by itself. The one exception is a handshake that reveals a genuine context switch (different tenant, site or principal), which runs the central session reset and starts a new episode.
+- Lifecycle and recovery share one singleflight handshake per client context. A tenant, site or principal change revealed by it takes precedence over a restart or a block. For a different SC with the same tenant, site and principal: if a recovery is pending when the handshake completes, the recovery rule applies (one restart, budget 0) and the handshake counts as that recovery's handshake; otherwise the lifecycle rule in §6 applies (flush and block, no budget spent).
 - The asymmetry is intended: a failed request interrupts a load the user just started, so one budgeted automatic restart finishes that load. A lifecycle handshake runs while the user may be reading or mid-action, so an external scope change there blocks until an explicit user refresh (ADR-0035 §7) instead of replacing the list underneath them.
 - Quarantine, flush and late-result fencing remain mandatory when the budget is spent.
 - `LIST_CURSOR_STOCK_FILTER_REQUIRED` (vehicle stock) is not a recovery case. It keeps its existing handling and is outside this contract.
