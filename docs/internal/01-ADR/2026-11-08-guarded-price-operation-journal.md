@@ -1,7 +1,7 @@
 ---
 title: "ADR-0037: Durable Operation Journal for Guarded Parts Price Changes"
 date: "2026-11-08"
-status: proposed
+status: accepted
 deciders: "Dejan Dosenovic"
 tags: [adr, inventory, concurrency, idempotency]
 ---
@@ -10,7 +10,7 @@ tags: [adr, inventory, concurrency, idempotency]
 
 ## Status
 
-**Proposed — 2026-11-08.** Awaiting review by the Product Planner and the Software Engineer, then Dejan Dosenovic's concrete decision. This document authorizes no implementation, no storage, no trigger, no endpoint and no migration. Statements about the current code (main `3b612c1`) come from earlier code reading and are **unverified**; each becomes a prerequisite in "Implementation and Validation". No test or QA result is claimed.
+**Accepted — 2026-11-08.** Accepted by Dejan Dosenovic, who confirmed this in the implementing session after seven rounds of independent review of this text (version of commit `192b5cc`). Review by the Product Planner and the Software Engineer is not recorded in this document. Acceptance fixes the architecture direction, the mechanism and the recommended values below. It authorizes no implementation, no storage, no trigger, no endpoint and no migration; those need the prerequisite evidence, a reviewed implementation design and the later testing, release-QA and production approvals. Statements about the current code (main `3b612c1`) come from earlier code reading and are **unverified**; each becomes a prerequisite in "Implementation and Validation". No test or QA result is claimed.
 
 ## Context and Decision Drivers
 
@@ -27,7 +27,7 @@ Settled product boundaries: parts list only; loaded, selected IDs, at most 100; 
 
 ## Decision
 
-Introduce a narrow **operation journal** for guarded price operations, with acceptance separated from execution. Names, schema and endpoints below are recommendations, not adopted identifiers.
+Introduce a narrow **operation journal** for guarded price operations, with acceptance separated from execution. The mechanism and values below are accepted. Table, field and endpoint names are illustrative; final identifiers and schema are fixed in the implementation design.
 
 ### 1. Acceptance (Tx-A)
 
@@ -79,7 +79,7 @@ A uniqueness rule allows at most one unresolved (ACCEPTED) guarded operation per
 
 ### 7. Identity, time and retention (recommended values)
 
-- **Identity:** the key is a client-generated UUIDv7 sent in an `Idempotency-Key` header, consumed only by the guarded branch. Legacy requests keep today's behavior for that header. Header name and protocol still need approval.
+- **Identity:** the key is a client-generated UUIDv7 sent in an `Idempotency-Key` header, consumed only by the guarded branch. Legacy requests keep today's behavior for that header. Header name and protocol are accepted as stated; wire details are finalized in the implementation design.
 - **Admission:** a key is admitted only if its UUIDv7 time is within 24 h in the past and 5 min in the future of server time. This is a pre-filter against suspended clients and skew, not proof. An existing journal row is looked up first, so an accepted operation stays recoverable after 24 h.
 - **`acceptedAt`** is server-authoritative. ACCEPTED has no wall-clock expiry and active rows are never deleted. A 2-minute lease, counted from `acceptedAt`, is the earliest time at which a fence of an ACCEPTED row is allowed.
 - **Retention:** terminal and fenced rows live 30 days, counted from the later of the terminal time and the key's UUIDv7 time, longer than the admission window plus skew. After deletion a same-string key is rejected by admission age, so no separate tombstone is needed. A forged timestamp creates a different key string, hence a new operation under its own CAS.
@@ -91,7 +91,7 @@ The server offers a read-only discovery/status capability scoped to the caller's
 
 ### 9. Money and response compatibility
 
-The canonical target is an integer in minor units from 0 to 9,999,999,999 (99,999,999.99), written to the stored decimal without extra database rounding. The percentage policy and rounding stay unchanged. A parsed JSON number cannot distinguish `1e2` from `100`; lexical rejection needs separate raw-body parser scope. Guarded responses are documented as separate schemas so legacy generated unions are untouched. Status codes (proposed): revision conflict 409 `INVENTORY_REVISION_CONFLICT`; unresolved earlier operation 409 `OPERATION_UNRESOLVED`; expired admission 410; intent mismatch 422. Clients branch on `code`.
+The canonical target is an integer in minor units from 0 to 9,999,999,999 (99,999,999.99), written to the stored decimal without extra database rounding. The percentage policy and rounding stay unchanged. A parsed JSON number cannot distinguish `1e2` from `100`; lexical rejection needs separate raw-body parser scope. Guarded responses are documented as separate schemas so legacy generated unions are untouched. Status codes: revision conflict 409 `INVENTORY_REVISION_CONFLICT`; unresolved earlier operation 409 `OPERATION_UNRESOLVED`; expired admission 410; intent mismatch 422. Clients branch on `code`.
 
 ### 10. Revision
 
@@ -139,7 +139,7 @@ No implementation is authorized. Prerequisite evidence, none gathered yet:
 
 Later tests (not yet written or run) must cover atomic success, different-key races, same-key serialization and changed-intent rejection including rollback, lost-response, in-flight, late-request, crash, terminal-conflict and expiry reconciliation, the frozen preview flow, and the existing selection, legacy, permission and mobile regressions. Full end-to-end runs stay in CI; performance benchmarks belong in nightly runs.
 
-## Decisions Requested from Dejan
+## Accepted Decisions
 
 1. Adopt this journal (separate acceptance, fenced execution) as the mechanism.
 2. Header carriage and name of the key.
