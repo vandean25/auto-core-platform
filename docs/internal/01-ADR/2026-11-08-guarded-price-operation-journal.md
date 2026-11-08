@@ -14,7 +14,7 @@ tags: [adr, inventory, concurrency, idempotency]
 
 ## Context and Decision Drivers
 
-The bulk price action on the parts list (`/inventory`, AUT-886) reads each part and then sends a full-body `PATCH /api/inventory/:id`. The reported contract has no revision, so overlapping edits can overwrite each other. A guarded, price-only branch of the same route (`retail_price` + `expectedRevision`) fixes the overlap only if an outcome can always be recovered after a lost response, a reload, a new tab or another device.
+The bulk price action on the parts list (`/inventory`, AUT-886) reads each part and then sends a full-body `PATCH /api/inventory/:id` (reported, unverified at `3b612c1`). The reported contract has no revision, so overlapping edits can overwrite each other. A guarded, price-only branch of the same route (`retail_price` + `expectedRevision`) fixes the overlap only if an outcome can always be recovered after a lost response, a reload, a new tab or another device.
 
 Dejan approved these requirements on 2026-11-08; they are fixed and not reopened here:
 
@@ -31,22 +31,22 @@ Introduce a narrow **operation journal** for guarded price operations, with acce
 
 ### 1. Acceptance (Tx-A)
 
-A short transaction, committed independently of the business transaction, inserts or reads a journal row unique on (tenant, principal, key). The row durably binds: tenant, principal, item, operation kind, expected revision and the absolute target in canonical minor units. It also records the original basis and SKU for authorized explanation, the server-set `acceptedAt` and the state ACCEPTED. The commit of Tx-A is the linearization point of the binding. Reuse of a key with a different intent is rejected without execution. The existing PATCH handler runs Tx-A and then Tx-E in one request. A process death between them leaves ACCEPTED, which the recovery path resolves.
+A short transaction, committed independently of the business transaction. It first checks current authorization and that the item exists in the tenant (no row is written for an unauthorized or unknown item; Tx-E checks again). It then inserts or reads a journal row unique on (tenant, principal, key). The row durably binds: tenant, principal, item, operation kind, expected revision and the absolute target in canonical minor units. It also records the original basis and SKU for authorized explanation, the server-set `acceptedAt` and the state ACCEPTED. The commit of Tx-A is the linearization point of the binding. Reuse of a key with a different intent is rejected without execution. A same-key request that finds the row in ACCEPTED does not run Tx-E again: it returns 409 `OPERATION_UNRESOLVED`, and only fencing or discovery resolves it. Proposed: the existing PATCH handler runs Tx-A and then Tx-E in one request. A process death between them leaves ACCEPTED, which the recovery path resolves.
 
 ### 2. Execution (Tx-E)
 
 One transaction, always in the order journal row, then item row:
 
-1. Lock the journal row. Require state ACCEPTED and the current fence epoch.
+1. Lock the journal row. Require state ACCEPTED; FENCED and the terminal states are final, so the state alone is the fence.
 2. Re-check current authorization (existing role check, tenant scope, no site predicate).
 3. Lock the item row (tenant-scoped) and compare the expected revision.
-4. Match: change only `retail_price`, write the business audit, record the exact post-trigger revision and set APPLIED. Mismatch: set CONFLICT with no price change and no business audit.
+4. Match: change only `retail_price`, write the business audit, record the exact post-trigger revision (depends on the revision hypothesis in section 10) and set APPLIED. Mismatch: set CONFLICT with no price change and no business audit.
 
 Mutation, business audit and terminal proof commit atomically. A 409 is raised only after the commit so the terminal record cannot roll back. Realtime publication happens only after commit and never for a conflict or a rollback.
 
 ### 3. Fencing and recovery
 
-Recovery is an explicit, authorized action that locks the same journal row and moves ACCEPTED to FENCED (NOT_APPLIED). Execution and fencing serialize on that row: either Tx-E commits first and recovery observes the terminal result, or the fence commits first and Tx-E aborts with no effect, permanently. A late original request after a fence is rejected. Only FENCED or a terminal state allows NOT_APPLIED. A timeout, an expired lease, a missing row or a browser acknowledgement is not proof. If Tx-E holds the lock, recovery waits within a bound and then reports "still unresolved". A read-only status or discovery never mutates.
+Recovery is an explicit, authorized action that takes the key and the frozen intent. It locks the same journal row and moves ACCEPTED to FENCED (NOT_APPLIED). **If no row exists**, it inserts a FENCED row under the same unique (tenant, principal, key), so a later Tx-A for that key finds FENCED and never executes; a differing intent is rejected. A fence is allowed only after the lease (section 7) has ended; the lease end is not proof, only the committed fence is. Execution and fencing serialize on the journal row: either Tx-E commits first and recovery observes the terminal result, or the fence commits first and Tx-E observes FENCED and returns without any write. A late original request after a fence is rejected. Only FENCED or a terminal state allows NOT_APPLIED. A timeout, an expired lease, a missing row or a browser acknowledgement is not proof. Tx-E has its own `lock_timeout` and statement timeout, both shorter than the lease, so it cannot hold the journal row beyond the lease. If the lock is still held, recovery waits within its bound and then reports "still unresolved". A read-only status or discovery never mutates.
 
 ### 4. State model
 
@@ -54,18 +54,23 @@ Recovery is an explicit, authorized action that locks the same journal row and m
 ACCEPTED ── Tx-E match ──────▶ APPLIED
     │ ──── Tx-E mismatch ────▶ CONFLICT
     └ ──── fence (explicit) ─▶ FENCED  (= NOT_APPLIED)
-APPLIED | CONFLICT | FENCED ── client acknowledgement (UX only) ──▶ retained ──▶ deleted
+APPLIED | CONFLICT | FENCED ──▶ retained ──▶ deleted
 ```
+
+Acknowledgement by the client changes no state. Retention counts from the time the row reached a terminal state.
 
 ### 5. Race matrix
 
 | Race | Outcome |
 |---|---|
-| Same key, same intent, concurrent | One execution; the other waits and returns the stored result |
+| Same key, same intent, concurrent | One execution; the other waits for the lock and returns the stored result once terminal |
 | Same key, different intent | Rejected, no execution |
 | Fence vs Tx-E | Row lock decides; no third outcome |
 | Late original after fence | Rejected, no effect |
-| Different keys, same item | Item lock plus revision CAS: one APPLIED, one CONFLICT |
+| Different keys, same item, different principals | Item lock plus revision CAS: one APPLIED, one CONFLICT |
+| Different keys, same item, same principal | Second refused at Tx-A (409 `OPERATION_UNRESOLVED`) while the first is unresolved; no execution |
+| Same-key retry while ACCEPTED | 409 `OPERATION_UNRESOLVED`; Tx-E is not run again |
+| Fence with no row (request not yet accepted) | FENCED row inserted; a later Tx-A for that key does not execute |
 | Crash between Tx-A and Tx-E | ACCEPTED persists; recovery fences or observes |
 
 ### 6. Coordination
@@ -76,13 +81,13 @@ A uniqueness rule allows at most one unresolved (ACCEPTED) guarded operation per
 
 - **Identity:** the key is a client-generated UUIDv7 sent in an `Idempotency-Key` header, consumed only by the guarded branch. Legacy requests keep today's behavior for that header. Header name and protocol still need approval.
 - **Admission:** a key is admitted only if its UUIDv7 time is within 24 h in the past and 5 min in the future of server time. This is a pre-filter against suspended clients and skew, not proof. An existing journal row is looked up first, so an accepted operation stays recoverable after 24 h.
-- **`acceptedAt`** is server-authoritative. ACCEPTED has no wall-clock expiry and active rows are never deleted. A 2-minute lease only allows recovery to attempt a fence.
+- **`acceptedAt`** is server-authoritative. ACCEPTED has no wall-clock expiry and active rows are never deleted. A 2-minute lease, counted from `acceptedAt`, is the earliest time at which a fence is allowed.
 - **Retention:** terminal and fenced rows live 30 days, longer than the admission window plus skew. After deletion a same-string key is rejected by admission age, so no separate tombstone is needed. A forged timestamp creates a different key string, hence a new operation under its own CAS.
-- **Lock bounds:** recovery lock wait 5 s. A lock timeout or deadlock aborts only Tx-E, leaving ACCEPTED, which the client shows as unresolved.
+- **Lock bounds:** Tx-E lock timeout 10 s and statement timeout 30 s, both below the lease; recovery lock wait 5 s. A lock timeout or deadlock aborts only Tx-E, leaving ACCEPTED, which the client shows as unresolved until fenced or observed.
 
 ### 8. Discovery and authorization
 
-The server offers a read-only discovery/status capability scoped to the caller's own operations (state, original basis, target, expected revision, SKU, `acceptedAt`), plus the explicit fence action. Visibility is principal-only in this version. Keys are not bearer credentials. Discovery, recovery, fencing and any future replay need current authorization and the principal match. A deleted item gives 404, lost access gives 403, and receipt contents are not disclosed. 400/410/422 describe the current attempt only; the original outcome, including a recorded 409, is recovered from the journal. There is no automatic replay, and any later approved replay resolves the original frozen intent without recalculation.
+The server offers a read-only discovery/status capability scoped to the caller's own operations (state, original basis, target, expected revision, SKU, `acceptedAt`), plus the explicit fence action. Visibility is principal-only in this version. Keys are not bearer credentials. Discovery, recovery, fencing and any future replay need current authorization and the principal match. A deleted item gives 404, lost access gives 403, and receipt contents are not disclosed. Rows that cannot be fenced under these conditions are never deleted while ACCEPTED; they stay readable to an operator for audit, and how they are resolved is an open decision (below). 400/410/422 describe the current attempt only; the original outcome, including a recorded 409, is recovered from the journal. There is no automatic replay, and any later approved replay resolves the original frozen intent without recalculation.
 
 ### 9. Money and response compatibility
 
@@ -129,6 +134,7 @@ No implementation is authorized. Prerequisite evidence, none gathered yet:
 - A writer lock graph supporting the journal-then-item order, since lock ordering alone does not prove deadlock freedom.
 - Existing operation patterns (to confirm or exclude reuse).
 - CORS and proxy pass-through of the custom header; request-body parser scope.
+- The journal model is excluded from realtime emission, and emission for the price change happens only after commit (the realtime extension may otherwise emit before commit).
 - Equivalence evidence if reuse of an existing pattern is proposed.
 
 Later tests (not yet written or run) must cover atomic success, different-key races, same-key serialization and changed-intent rejection including rollback, lost-response, in-flight, late-request, crash, terminal-conflict and expiry reconciliation, the frozen preview flow, and the existing selection, legacy, permission and mobile regressions. Full end-to-end runs stay in CI; performance benchmarks belong in nightly runs.
@@ -141,6 +147,7 @@ Later tests (not yet written or run) must cover atomic success, different-key ra
 4. Lease 2 min, recovery lock wait 5 s, admission 24 h, retention 30 days.
 5. Status codes and codes listed in section 9.
 6. New narrow journal storage versus a demonstrated equivalent existing pattern.
+7. Resolution of ACCEPTED rows whose item was deleted or whose principal lost access (recommendation: the still-authorized principal may fence by row, never executing; otherwise an operator reads them for audit).
 
 ## Pragmatic Enforcer Analysis
 
