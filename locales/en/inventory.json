@@ -249,6 +249,7 @@
       "invalidQuantityForSku": "Invalid quantity for {{sku}}",
       "success": "Transfer request created",
       "failed": "Failed to create transfer request",
+      "createUnconfirmed": "Transfer not confirmed. Check the transfer list before requesting it again.",
       "sourceBinOptional": "Source bin (optional)",
       "requestedQtyAria": "Requested quantity for {{sku}}",
       "sourceBinAria": "Source bin for {{sku}}"

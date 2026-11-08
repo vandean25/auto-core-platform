@@ -8,11 +8,38 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { DataTablePendingIcon, InteractionErrorMarker, isDataTablePendingRow } from '@/components/data-table/data-table-states'
+import type { PendingCreateRow } from '@/features/interaction/use-list-pending-create'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { formatDate } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { StockTransferCreateDialog } from './StockTransferCreateDialog'
+import { useStockTransferPendingCreate } from './useStockTransferPendingCreate'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
+
+function TransferNumberCell({
+  transfer,
+  onDismiss,
+}: {
+  transfer: StockTransfer
+  onDismiss: (localId: string) => void
+}) {
+  const { t } = useTranslation('common')
+  if (!isDataTablePendingRow(transfer)) {
+    return (
+      <Link to={`/stock-transfers/${transfer.id}`} className="font-medium hover:underline">
+        {transfer.transferNumber}
+      </Link>
+    )
+  }
+  const failure = (transfer as PendingCreateRow<StockTransfer>).pendingFailure
+  return (
+    <div>
+      <DataTablePendingIcon label={t('dataTable.loading.pendingRow')} />
+      {failure ? <InteractionErrorMarker message={failure} onDismiss={() => onDismiss(transfer.id)} /> : null}
+    </div>
+  )
+}
 
 export default function StockTransferList() {
   const { t } = useTranslation('inventory')
@@ -23,7 +50,7 @@ export default function StockTransferList() {
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
-  const { data = [], isLoading } = useStockTransfers()
+  const { data = [], isLoading, dataUpdatedAt } = useStockTransfers()
 
   const filteredData = useMemo(() => {
     const search = queryParams.search?.trim().toLowerCase()
@@ -62,6 +89,8 @@ export default function StockTransferList() {
     return rows
   }, [data, queryParams.filters, queryParams.search, queryParams.sortDirection, queryParams.sortField])
 
+  const pending = useStockTransferPendingCreate(filteredData, dataUpdatedAt)
+
   const columns: ColumnDef<StockTransfer>[] = useMemo(
     () => [
       {
@@ -69,14 +98,7 @@ export default function StockTransferList() {
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('stockTransfers.list.columns.transferNumber')} />
         ),
-        cell: ({ row }) => (
-          <Link
-            to={`/stock-transfers/${row.original.id}`}
-            className="font-medium hover:underline"
-          >
-            {row.original.transferNumber}
-          </Link>
-        ),
+        cell: ({ row }) => <TransferNumberCell transfer={row.original} onDismiss={pending.dismiss} />,
       },
       {
         accessorKey: 'fromSiteName',
@@ -97,23 +119,23 @@ export default function StockTransferList() {
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('stockTransfers.list.columns.status')} />
         ),
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        cell: ({ row }) => (isDataTablePendingRow(row.original) ? null : <StatusBadge status={row.original.status} />),
       },
       {
         accessorKey: 'createdAt',
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('stockTransfers.list.columns.requested')} />
         ),
-        cell: ({ row }) => formatDate(row.original.createdAt),
+        cell: ({ row }) => (isDataTablePendingRow(row.original) ? null : formatDate(row.original.createdAt)),
       },
       {
         accessorKey: 'lines',
         header: t('stockTransfers.list.columns.lines'),
         enableSorting: false,
-        cell: ({ row }) => row.original.lines.length,
+        cell: ({ row }) => (isDataTablePendingRow(row.original) ? null : row.original.lines.length),
       },
     ],
-    [t],
+    [pending.dismiss, t],
   )
 
   return (
@@ -123,14 +145,14 @@ export default function StockTransferList() {
           <h1 className="text-2xl font-semibold tracking-tight">{t('stockTransfers.list.title')}</h1>
           <p className="text-muted-foreground">{t('stockTransfers.list.description')}</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button className="max-sm:min-h-11" onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> {t('stockTransfers.list.newTransfer')}
         </Button>
       </div>
 
       <DataTable
         columns={columns}
-        data={filteredData}
+        data={pending.rows}
         saveViewTitle={t('stockTransfers.list.saveViewTitle')}
         pageCount={1}
         pageSizeOptions={[]}
@@ -141,7 +163,7 @@ export default function StockTransferList() {
         {...tableState}
       />
 
-      <StockTransferCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <StockTransferCreateDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={pending.submit} />
     </>
   )
 }

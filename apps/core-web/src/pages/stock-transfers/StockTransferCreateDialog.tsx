@@ -1,8 +1,6 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useCreateStockTransfer } from '@/api/stock-transfers'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,50 +19,62 @@ import {
   transferDraftBlocker,
 } from './stock-transfer-create-parts'
 import { useStockTransferCreateForm } from './useStockTransferCreateForm'
+import type { StockTransferCreateRequest } from './useStockTransferPendingCreate'
 
 type StockTransferCreateDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onCreate: (input: StockTransferCreateRequest) => void
 }
 
 export function StockTransferCreateDialog({
   open,
   onOpenChange,
+  onCreate,
 }: StockTransferCreateDialogProps) {
   const { t } = useTranslation(['inventory', 'common'])
   useEffect(() => {
     void ensureNamespaceLoaded('inventory')
   }, [])
 
-  const navigate = useNavigate()
-  const createTransfer = useCreateStockTransfer()
+  const submitted = useRef(false)
   const form = useStockTransferCreateForm(open)
   const { fromSiteId, toSiteId, lines, showSourceBin } = form
+
+  useEffect(() => {
+    if (open) submitted.current = false
+  }, [open])
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) form.reset()
     onOpenChange(nextOpen)
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
+    if (submitted.current) return
     const blocker = transferDraftBlocker(fromSiteId, toSiteId, lines, t)
     if (blocker) {
       toast.error(blocker)
       return
     }
 
+    let payloadLines
     try {
-      const transfer = await createTransfer.mutateAsync({
-        fromSiteId,
-        toSiteId,
-        lines: toTransferPayloadLines(lines, showSourceBin, t),
-      })
-      toast.success(t('inventory:stockTransfers.create.success'))
-      handleClose(false)
-      navigate(`/stock-transfers/${transfer.id}`)
+      payloadLines = toTransferPayloadLines(lines, showSourceBin, t)
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, t('inventory:stockTransfers.create.failed')))
+      return
     }
+
+    submitted.current = true
+    onCreate({
+      fromSiteId,
+      toSiteId,
+      lines: payloadLines,
+      fromSiteName: form.availableFromSites.find((site) => site.id === fromSiteId)?.name ?? '',
+      toSiteName: form.availableToSites.find((site) => site.id === toSiteId)?.name ?? '',
+    })
+    handleClose(false)
   }
 
   return (
@@ -119,10 +129,8 @@ export function StockTransferCreateDialog({
           <Button variant="outline" onClick={() => handleClose(false)}>
             {t('common:actions.cancel')}
           </Button>
-          <Button onClick={() => void handleSubmit()} disabled={createTransfer.isPending}>
-            {createTransfer.isPending
-              ? t('inventory:actions.submitting')
-              : t('inventory:actions.submitRequest')}
+          <Button className="max-sm:min-h-11" onClick={handleSubmit}>
+            {t('inventory:actions.submitRequest')}
           </Button>
         </DialogFooter>
       </DialogContent>

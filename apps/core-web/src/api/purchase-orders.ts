@@ -56,10 +56,11 @@ export function useCreatePO() {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const error = await res
-          .json()
-          .catch(() => ({ message: "Failed to create PO" }));
-        throw new Error(error.message || "Failed to create PO");
+        const error = (await res.json().catch(() => ({ message: "Failed to create PO" }))) as {
+          message?: string | string[];
+        };
+        const message = Array.isArray(error.message) ? error.message.join(", ") : error.message;
+        throw Object.assign(new Error(message || "Failed to create PO"), { status: res.status, data: error });
       }
       return res.json();
     },

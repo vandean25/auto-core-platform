@@ -41,7 +41,7 @@
       "owningHook": "useCreateStockTransfer",
       "sourceFile": "api/stock-transfers.ts",
       "classification": "server-confirmed",
-      "serverConfirmedReason": "Creating a transfer checks site membership and legal-entity boundaries and commits stock. The result is not predictable, and there is no deduplication contract."
+      "serverConfirmedReason": "Creating a transfer checks site membership and legal-entity boundaries and commits stock. The result is not predictable, and there is no deduplication contract. The list shows a pending row without a transfer number, quantity or status until the server answers."
     },
     {
       "operationId": "stock-transfer.approve",
@@ -90,7 +90,7 @@
       "owningHook": "useCreatePO",
       "sourceFile": "api/purchase-orders.ts",
       "classification": "server-confirmed",
-      "serverConfirmedReason": "Purchase-order creation assigns the order number and stores line prices. Numbering and prices stay server-confirmed, and there is no deduplication contract."
+      "serverConfirmedReason": "Purchase-order creation assigns the order number and stores line prices. Numbering and prices stay server-confirmed, and there is no deduplication contract. The list shows a pending row without an order number, price or status until the server answers."
     },
     {
       "operationId": "purchase-order.mark-sent",
@@ -139,7 +139,7 @@
       "owningHook": "useCreateVendor",
       "sourceFile": "api/vendors.ts",
       "classification": "server-confirmed",
-      "serverConfirmedReason": "Vendor creation assigns the server identity and has no deduplication contract."
+      "serverConfirmedReason": "Vendor creation assigns the server identity and has no deduplication contract. The list shows a pending row without an account number until the server answers."
     },
     {
       "operationId": "vendor.update",
