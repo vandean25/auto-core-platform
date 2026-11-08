@@ -86,6 +86,10 @@ export type WorkshopOrder = Omit<
     mechanicId?: string | null
     bay_id?: string | null
     bayId?: string | null
+    scheduled_start_at?: string | null
+    scheduledStartAt?: string | null
+    scheduled_end_at?: string | null
+    scheduledEndAt?: string | null
     tasks?: WorkshopTask[]
     invoice?: OpenApiSchemas['WorkshopInvoiceSummaryDto'] | null
     updatedAt?: string

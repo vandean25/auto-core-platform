@@ -8,13 +8,8 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateShort, formatOdometerKm } from '@/lib/format'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { InlineEditCommandPicker } from '@/components/inline-edit/InlineEditCommandPicker'
+import type { InlineEditPickerOption } from '@/components/inline-edit/InlineEditCommandPicker'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { CatalogSourceBanner } from '@/components/workshop/CatalogSourceBanner'
 import type { CatalogProviderOemConcern, WorkshopOrder } from '@/api/types'
@@ -126,6 +121,7 @@ export interface OrderTopBarProps {
   catalogSearchSession?: CatalogSearchSession
   oemConcernCode?: CatalogProviderOemConcern['code'] | null
   checkInHref?: string | null
+  promisedLabel: string
 }
 
 export function OrderTopBar({
@@ -135,13 +131,13 @@ export function OrderTopBar({
   catalogSearchSession,
   oemConcernCode,
   checkInHref,
+  promisedLabel,
 }: OrderTopBarProps) {
   const { t } = useTranslation('workshop')
   const customerName = getCustomerName(order, t('orderHeader.dealerStock'))
   const vehicleLabel = getVehicleLabel(order)
   const plate = order.vehicle.plate || t('orderHeader.noPlate')
   const unassigned = t('orderHeader.unassigned')
-  const notSet = t('orderHeader.notSet')
 
   return (
     <header>
@@ -158,7 +154,7 @@ export function OrderTopBar({
               </p>
               <p className='text-sm text-muted-foreground'>
                 {t('orderHeader.promisedMeta', {
-                  promised: notSet,
+                  promised: promisedLabel,
                   tech: assignedTechName ?? unassigned,
                   bay: bayName ?? unassigned,
                 })}
@@ -187,11 +183,53 @@ export function OrderTopBar({
   )
 }
 
+function PromisedTimeValue({
+  schedule,
+  notSet,
+  ariaLabel,
+}: {
+  schedule: {
+    label: string
+    canEdit: boolean
+    pending: boolean
+    currentDate: string | null
+    options: InlineEditPickerOption[]
+    save: (date: string) => Promise<void>
+  }
+  notSet: string
+  ariaLabel: string
+}) {
+  if (!schedule.canEdit) {
+    return (
+      <div className='font-medium flex items-center'>
+        <Clock className='w-4 h-4 mr-1.5 text-muted-foreground' />
+        {schedule.label}
+      </div>
+    )
+  }
+
+  return (
+    <InlineEditCommandPicker
+      value={schedule.currentDate}
+      options={schedule.options}
+      saveMode='server-confirmed'
+      pending={schedule.pending}
+      ariaLabel={ariaLabel}
+      emptyText={notSet}
+      leading={<Clock className='w-4 h-4 mr-1.5 text-muted-foreground' />}
+      className='font-medium'
+      testId='order-date-picker'
+      onSave={schedule.save}
+    />
+  )
+}
+
 function AssignedTechField({
   assignedTechName,
   assignedTechId,
   mechanics,
   disabled,
+  pending = false,
   unassignedLabel,
   ariaLabel,
   onAssignedTechChange,
@@ -200,6 +238,7 @@ function AssignedTechField({
   assignedTechId?: string | null
   mechanics: WorkshopMechanicOption[]
   disabled: boolean
+  pending?: boolean
   unassignedLabel: string
   ariaLabel: string
   onAssignedTechChange?: (mechanicId: string | null) => void
@@ -213,31 +252,25 @@ function AssignedTechField({
     )
   }
 
+  const options: InlineEditPickerOption[] = [
+    { value: 'unassigned', label: unassignedLabel },
+    ...mechanics.map((mechanic) => ({ value: mechanic.id, label: mechanic.name })),
+  ]
+
   return (
-    <Select
+    <InlineEditCommandPicker
       value={assignedTechId ?? 'unassigned'}
-      onValueChange={(value) => onAssignedTechChange(value === 'unassigned' ? null : value)}
-      disabled={disabled}
-    >
-      <SelectTrigger
-        className='h-9 font-medium'
-        data-testid='assigned-tech-select'
-        aria-label={ariaLabel}
-      >
-        <div className='flex items-center'>
-          <User className='w-4 h-4 mr-1.5 text-muted-foreground' />
-          <SelectValue placeholder={unassignedLabel} />
-        </div>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value='unassigned'>{unassignedLabel}</SelectItem>
-        {mechanics.map((mechanic) => (
-          <SelectItem key={mechanic.id} value={mechanic.id}>
-            {mechanic.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      options={options}
+      saveMode='server-confirmed'
+      pending={pending}
+      disabled={disabled || pending}
+      ariaLabel={ariaLabel}
+      emptyText={unassignedLabel}
+      leading={<User className='w-4 h-4 mr-1.5 text-muted-foreground' />}
+      className='font-medium'
+      testId='assigned-tech-select'
+      onSave={(next) => onAssignedTechChange(next === 'unassigned' ? null : next)}
+    />
   )
 }
 
@@ -250,6 +283,7 @@ export function CustomerVehicleInfo({
   canAssignTech = false,
   isAssigningTech = false,
   onAssignedTechChange,
+  schedule,
 }: {
   order: WorkshopOrder
   assignedTechName?: string | null
@@ -259,6 +293,14 @@ export function CustomerVehicleInfo({
   canAssignTech?: boolean
   isAssigningTech?: boolean
   onAssignedTechChange?: (mechanicId: string | null) => void
+  schedule: {
+    label: string
+    canEdit: boolean
+    pending: boolean
+    currentDate: string | null
+    options: InlineEditPickerOption[]
+    save: (date: string) => Promise<void>
+  }
 }) {
   const { t } = useTranslation('workshop')
   const canAssign = canAssignTech && isWorkshopTechAssignableStatus(order.status)
@@ -282,7 +324,8 @@ export function CustomerVehicleInfo({
                 assignedTechName={assignedTechName}
                 assignedTechId={assignedTechId}
                 mechanics={mechanics}
-                disabled={!canAssign || isAssigningTech}
+                disabled={!canAssign}
+                pending={isAssigningTech}
                 unassignedLabel={unassigned}
                 ariaLabel={t('orderHeader.assignedTech')}
                 onAssignedTechChange={onAssignedTechChange}
@@ -297,10 +340,11 @@ export function CustomerVehicleInfo({
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.promisedTime')}</div>
-              <div className='font-medium flex items-center'>
-                <Clock className='w-4 h-4 mr-1.5 text-muted-foreground' />
-                {notSet}
-              </div>
+              <PromisedTimeValue
+                schedule={schedule}
+                notSet={notSet}
+                ariaLabel={t('orderHeader.promisedTime')}
+              />
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.keyTag')}</div>

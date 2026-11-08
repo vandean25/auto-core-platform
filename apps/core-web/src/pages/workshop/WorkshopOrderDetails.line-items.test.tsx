@@ -136,6 +136,9 @@ describe('WorkshopOrderDetails line-item persistence', () => {
       data: null,
       isLoading: false,
     })
+    ;(workshopApi.useUpdateWorkshopOrder as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      createMutationMock(),
+    )
     ;(workshopApi.useUpdateWorkshopOrderNotes as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       createMutationMock(),
     )

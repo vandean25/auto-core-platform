@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 import type { NavigateFunction } from 'react-router-dom'
-import { CheckSquare, ExternalLink, FileDown, LogIn, Ruler, User } from 'lucide-react'
+import { Calendar, CheckSquare, ExternalLink, FileDown, LogIn, Ruler, User } from 'lucide-react'
 
 import {
   downloadWorkshopPdf,
@@ -11,6 +11,13 @@ import { triggerBlobDownload } from '@/lib/download'
 import { toast } from 'sonner'
 import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
 import { getErrorMessage, getPermissionAwareErrorMessage } from '@/lib/error-utils'
+import { formatLocalDateInZone } from '@/lib/format'
+import { DEFAULT_TIME_ZONE, i18n } from '@/lib/i18n'
+import {
+  canRescheduleWorkshopOrder,
+  shiftScheduleToLocalDate,
+  workshopScheduleDateOptions,
+} from '@/pages/workshop/workshop-schedule-date'
 import {
   canAssignWorkshopOrderMechanic,
   canCheckInWorkshopOrder,
@@ -41,7 +48,27 @@ export type WorkshopOrderListRow = {
   openedAt: string
   status: WorkshopOrder['status']
   mechanicId?: string | null
+  bayId?: string | null
+  scheduledStartAt?: string | null
+  scheduledEndAt?: string | null
   tasks?: WorkshopTask[]
+}
+
+export const WORKSHOP_TASK_STATUSES: WorkshopTaskStatus[] = [
+  'NOT_STARTED',
+  'IN_PROGRESS',
+  'WAITING_PARTS',
+  'WAITING_CUSTOMER',
+  'PAUSED',
+  'DONE',
+]
+
+export type WorkshopOrderRescheduleRequest = {
+  orderId: string
+  bayId: string
+  startIso: string
+  endIso: string
+  date: string
 }
 
 export type WorkshopOrderRowActionContext = {
@@ -59,6 +86,7 @@ export type WorkshopOrderRowActionContext = {
     taskId: string,
     status: WorkshopTaskStatus,
   ) => void | Promise<void>
+  reschedule?: (request: WorkshopOrderRescheduleRequest) => void | Promise<void>
   undoNotes?: (orderId: string) => void | Promise<void>
 }
 
@@ -95,6 +123,31 @@ export async function runAssignWorkshopOrderMechanic(
   }
 }
 
+export async function runRescheduleWorkshopOrder(
+  request: WorkshopOrderRescheduleRequest,
+  mutateOrder: (payload: {
+    id: string
+    bayId: string
+    scheduledStartAt: string
+    scheduledEndAt: string
+  }) => Promise<unknown>,
+  t: TFunction<'workshop'>,
+) {
+  const next = shiftScheduleToLocalDate(
+    request.startIso,
+    request.endIso,
+    request.date,
+    DEFAULT_TIME_ZONE,
+  )
+  if (!next) return
+  try {
+    await mutateOrder({ id: request.orderId, bayId: request.bayId, ...next })
+  } catch (error: unknown) {
+    toast.error(getPermissionAwareErrorMessage(error, t('planner.page.rescheduleFailed')))
+    throw error
+  }
+}
+
 export async function runUpdateWorkshopOrderTaskStatus(
   orderId: string,
   taskId: string,
@@ -108,8 +161,10 @@ export async function runUpdateWorkshopOrderTaskStatus(
 ) {
   try {
     await mutateTask({ orderId, taskId, status })
+    return true
   } catch (error: unknown) {
     toast.error(getErrorMessage(error, t('orderDetail.toast.taskStatusUpdateFailed')))
+    return false
   }
 }
 
@@ -153,37 +208,24 @@ function buildAssignMechanicChildren(
 function buildTaskStateLeafItems(
   task: WorkshopTask,
   taskSegment: string,
-  t: TFunction<'workshop'>,
 ): EntityActionChild<WorkshopOrderListRow, WorkshopOrderRowActionContext>[] {
   const baseId = `${ENTITY_ACTION_IDS.workOrderTaskState}.${taskSegment}`
-  const isDone = task.status === 'DONE' || task.done
 
-  return [
-    {
-      id: `${baseId}.done`,
-      label: t('orders.list.actions.taskDone'),
-      icon: CheckSquare,
-      isEnabled: (record) => !isWorkshopOrderLockedStatus(record.status) && !isDone,
-      run: async (record, ctx) => {
-        await ctx.updateTaskStatus?.(record.id, task.id, 'DONE')
-      },
+  return WORKSHOP_TASK_STATUSES.map((status) => ({
+    id: `${baseId}.${status}`,
+    label: i18n.t(`status.${status}`, { ns: 'enums' }),
+    icon: CheckSquare,
+    isEnabled: (record: WorkshopOrderListRow) =>
+      !isWorkshopOrderLockedStatus(record.status) && task.status !== status,
+    run: async (record: WorkshopOrderListRow, ctx: WorkshopOrderRowActionContext) => {
+      await ctx.updateTaskStatus?.(record.id, task.id, status)
     },
-    {
-      id: `${baseId}.reopen`,
-      label: t('orders.list.actions.taskReopen'),
-      icon: CheckSquare,
-      isEnabled: (record) => !isWorkshopOrderLockedStatus(record.status) && isDone,
-      run: async (record, ctx) => {
-        await ctx.updateTaskStatus?.(record.id, task.id, 'IN_PROGRESS')
-      },
-    },
-  ]
+  }))
 }
 
 function buildTaskStateChildren(
   row: WorkshopOrderListRow,
   context: WorkshopOrderRowActionContext,
-  t: TFunction<'workshop'>,
 ): EntityActionChild<WorkshopOrderListRow, WorkshopOrderRowActionContext>[] {
   const tasks = row.tasks ?? []
   if (!context.updateTaskStatus || tasks.length === 0) return []
@@ -195,7 +237,7 @@ function buildTaskStateChildren(
       label: task.title,
       icon: CheckSquare,
       isEnabled: (record) => !isWorkshopOrderLockedStatus(record.status),
-      children: buildTaskStateLeafItems(task, taskSegment, t),
+      children: buildTaskStateLeafItems(task, taskSegment),
     }
   })
 }
@@ -255,6 +297,51 @@ export function createWorkshopOrderTyreMeasurementAction(
   }
 }
 
+function buildRescheduleChildren(
+  row: WorkshopOrderListRow,
+  context: WorkshopOrderRowActionContext,
+): EntityActionChild<WorkshopOrderListRow, WorkshopOrderRowActionContext>[] {
+  if (!context.reschedule || !canRescheduleWorkshopOrder(row)) return []
+  const startIso = row.scheduledStartAt
+  const endIso = row.scheduledEndAt
+  const bayId = row.bayId
+  if (!startIso || !endIso || !bayId) return []
+
+  const currentDate = formatLocalDateInZone(new Date(startIso), DEFAULT_TIME_ZONE)
+  return workshopScheduleDateOptions(new Date(), DEFAULT_TIME_ZONE, currentDate)
+    .filter((option) => option.value !== currentDate)
+    .map((option) => ({
+      id: `${ENTITY_ACTION_IDS.workOrderReschedule}.${sanitizeActionIdSegment(option.value)}`,
+      label: option.label,
+      icon: Calendar,
+      run: async (record: WorkshopOrderListRow, ctx: WorkshopOrderRowActionContext) => {
+        if (!record.bayId || !record.scheduledStartAt || !record.scheduledEndAt) return
+        await ctx.reschedule?.({
+          orderId: record.id,
+          bayId: record.bayId,
+          startIso: record.scheduledStartAt,
+          endIso: record.scheduledEndAt,
+          date: option.value,
+        })
+      },
+    }))
+}
+
+function workshopOrderRescheduleAction(
+  t: TFunction<'workshop'>,
+): EntityActionDefinition<WorkshopOrderListRow, WorkshopOrderRowActionContext> {
+  return {
+    id: ENTITY_ACTION_IDS.workOrderReschedule,
+    kind: 'run',
+    label: t('orders.list.actions.reschedule'),
+    icon: Calendar,
+    isAllowedForRole: () => true,
+    isEnabled: (row) => canRescheduleWorkshopOrder(row),
+    children: (row, context) => buildRescheduleChildren(row, context),
+    run: () => {},
+  }
+}
+
 export function createWorkshopOrderRowActions(
   t: TFunction<'workshop'>,
 ): EntityActionDefinition<WorkshopOrderListRow, WorkshopOrderRowActionContext>[] {
@@ -301,8 +388,9 @@ export function createWorkshopOrderRowActions(
       icon: CheckSquare,
       isAllowedForRole: canManageWorkshopTasks,
       isEnabled: (row) => !isWorkshopOrderLockedStatus(row.status) && (row.tasks?.length ?? 0) > 0,
-      children: (row, context) => buildTaskStateChildren(row, context, t),
+      children: (row, context) => buildTaskStateChildren(row, context),
       run: () => {},
     },
+    workshopOrderRescheduleAction(t),
   ]
 }

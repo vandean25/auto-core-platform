@@ -495,8 +495,7 @@
         "jobCardPdf": "Werkstattkarte als PDF",
         "assignMechanic": "Mechaniker zuweisen",
         "taskState": "Aufgabenstatus",
-        "taskDone": "Erledigt",
-        "taskReopen": "Wieder öffnen"
+        "reschedule": "Termin verschieben"
       },
       "columns": {
         "orderNo": "Auftragsnr.",
@@ -1195,7 +1194,8 @@
     "mechanicNotes": "Mechaniker-Notizen",
     "mechanicNotesPlaceholder": "Beobachtungen, Messwerte und Servicenotizen…",
     "mechanicNotesEmpty": "Mechaniker-Notizen hinzufügen",
-    "mechanicNotesAria": "Mechaniker-Notizen"
+    "mechanicNotesAria": "Mechaniker-Notizen",
+    "statusAria": "Aufgabenstatus"
   },
   "taskLineEditor": {
     "searchPlaceholder": "Arbeit oder Teilenummer suchen…",

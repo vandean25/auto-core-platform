@@ -6,12 +6,15 @@ import type { WorkshopTaskStatus } from '@/api/types'
 import {
   useAssignBoard,
   useGenerateWorkshopPdf,
+  useUpdateWorkshopOrder,
   useUpdateWorkshopTask,
   useWorkshopResources,
 } from '@/api/workshop'
 import {
   runAssignWorkshopOrderMechanic,
+  runRescheduleWorkshopOrder,
   runUpdateWorkshopOrderTaskStatus,
+  type WorkshopOrderRescheduleRequest,
   type WorkshopOrderRowActionContext,
 } from './work-order-row-actions'
 import {
@@ -28,6 +31,7 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
   const navigate = useNavigate()
   const generatePdf = useGenerateWorkshopPdf()
   const assignBoard = useAssignBoard()
+  const updateOrder = useUpdateWorkshopOrder()
   const updateTask = useUpdateWorkshopTask()
   const workshopResourcesQuery = useWorkshopResources()
 
@@ -53,6 +57,13 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
     [t, updateTask],
   )
 
+  const reschedule = useCallback(
+    async (request: WorkshopOrderRescheduleRequest) => {
+      await runRescheduleWorkshopOrder(request, updateOrder.mutateAsync, t)
+    },
+    [t, updateOrder],
+  )
+
   return useMemo(
     () => ({
       navigate,
@@ -61,6 +72,7 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
       mechanics,
       assignMechanic,
       updateTaskStatus,
+      reschedule,
       undoNotes: (orderId: string) => {
         const entry = getUndoEligibleEntry()
         if (entry?.orderId === orderId) {
@@ -68,6 +80,6 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
         }
       },
     }),
-    [assignMechanic, generatePdf, mechanics, navigate, t, updateTaskStatus],
+    [assignMechanic, generatePdf, mechanics, navigate, reschedule, t, updateTaskStatus],
   )
 }

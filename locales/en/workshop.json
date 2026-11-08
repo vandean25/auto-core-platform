@@ -495,8 +495,7 @@
         "jobCardPdf": "Job card PDF",
         "assignMechanic": "Assign mechanic",
         "taskState": "Task status",
-        "taskDone": "Done",
-        "taskReopen": "Reopen"
+        "reschedule": "Reschedule"
       },
       "columns": {
         "orderNo": "Order No.",
@@ -1195,7 +1194,8 @@
     "mechanicNotes": "Mechanic notes",
     "mechanicNotesPlaceholder": "Mechanic observations, measurements, and service notes...",
     "mechanicNotesEmpty": "Add mechanic notes",
-    "mechanicNotesAria": "Mechanic notes"
+    "mechanicNotesAria": "Mechanic notes",
+    "statusAria": "Task status"
   },
   "taskLineEditor": {
     "searchPlaceholder": "Search labor or part number...",

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { z } from 'zod'
 import { InlineEdit } from './InlineEdit'
+import { InlineEditCommandPicker } from './InlineEditCommandPicker'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
 
 describe('InlineEdit', () => {
@@ -81,5 +82,227 @@ describe('InlineEdit', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hauptstrasse 1' }))
 
     expect(screen.getByRole('textbox', { name: 'Straße' })).toHaveAttribute('maxLength', '200')
+  })
+})
+
+const mechanics = [
+  { value: 'mech-anna', label: 'Anna Berger' },
+  { value: 'mech-bernd', label: 'Bernd Hofer' },
+  ...Array.from({ length: 40 }, (_, index) => ({
+    value: `mech-${index}`,
+    label: `Mechaniker ${index}`,
+  })),
+]
+
+const statuses = [
+  { value: 'IN_PROGRESS', label: 'In Bearbeitung' },
+  { value: 'WAITING_PARTS', label: 'Wartet auf Teile' },
+]
+
+describe('InlineEdit command picker', () => {
+  afterEach(() => {
+    cleanup()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+  })
+
+  it('WHEN the user opens the mechanic picker and types part of a name THEN only matching mechanics are listed', () => {
+    render(
+      <InlineEditCommandPicker
+        value={null}
+        options={mechanics}
+        onSave={vi.fn()}
+        ariaLabel="Zugewiesener Mechaniker"
+        emptyText="Nicht zugewiesen"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zugewiesener Mechaniker' }))
+    fireEvent.change(screen.getByPlaceholderText('Suchen'), { target: { value: 'ann' } })
+
+    expect(screen.getByRole('option', { name: 'Anna Berger' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Bernd Hofer' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Mechaniker 0' })).not.toBeInTheDocument()
+  })
+
+  it('WHEN the search text is only in an id THEN that option stays hidden', () => {
+    render(
+      <InlineEditCommandPicker
+        value={null}
+        options={[
+          { value: 'a1e5c0de-1111-4000-8000-000000000001', label: 'Anna Berger' },
+          { value: 'unassigned', label: 'Nicht zugewiesen' },
+          { value: 'IN_PROGRESS', label: 'In Bearbeitung' },
+        ]}
+        onSave={vi.fn()}
+        ariaLabel="Zugewiesener Mechaniker"
+        emptyText="Nicht zugewiesen"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zugewiesener Mechaniker' }))
+    const search = screen.getByPlaceholderText('Suchen')
+    fireEvent.change(search, { target: { value: 'a1e5' } })
+    expect(screen.queryByRole('option', { name: 'Anna Berger' })).not.toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: 'un' } })
+    expect(screen.queryByRole('option', { name: 'Nicht zugewiesen' })).not.toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: 'prog' } })
+    expect(screen.queryByRole('option', { name: 'In Bearbeitung' })).not.toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: 'anna' } })
+    expect(screen.getByRole('option', { name: 'Anna Berger' })).toBeInTheDocument()
+  })
+
+  it('WHEN the user picks a status with Enter THEN the value is saved and the picker closes', () => {
+    const onSave = vi.fn((): Promise<void> => new Promise(() => undefined))
+    render(
+      <InlineEditCommandPicker
+        value="WAITING_PARTS"
+        options={statuses}
+        saveMode="optimistic"
+        onSave={onSave}
+        ariaLabel="Aufgabenstatus"
+        emptyText="Nicht gesetzt"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aufgabenstatus' }))
+    const search = screen.getByPlaceholderText('Suchen')
+    fireEvent.change(search, { target: { value: 'bearb' } })
+    fireEvent.keyDown(search, { key: 'Enter' })
+
+    expect(onSave).toHaveBeenCalledWith('IN_PROGRESS')
+    expect(screen.queryByRole('option', { name: 'In Bearbeitung' })).not.toBeInTheDocument()
+  })
+
+  it('WHEN the user presses Esc THEN the picker closes without saving', () => {
+    const onSave = vi.fn()
+    render(
+      <InlineEditCommandPicker
+        value="IN_PROGRESS"
+        options={statuses}
+        onSave={onSave}
+        ariaLabel="Aufgabenstatus"
+        emptyText="Nicht gesetzt"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aufgabenstatus' }))
+    fireEvent.keyDown(screen.getByPlaceholderText('Suchen'), { key: 'Escape' })
+
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.queryByPlaceholderText('Suchen')).not.toBeInTheDocument()
+  })
+
+  it('WHEN the desktop trigger opens THEN it is a dialog and expanded toggles', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    const pickers = [
+      {
+        ariaLabel: 'Zugewiesener Mechaniker',
+        emptyText: 'Nicht zugewiesen',
+        value: null,
+        options: mechanics.slice(0, 1),
+      },
+      {
+        ariaLabel: 'Zugesagter Termin',
+        emptyText: 'Nicht gesetzt',
+        value: '2026-08-21',
+        options: [{ value: '2026-08-21', label: '21.08.2026' }],
+      },
+      {
+        ariaLabel: 'Aufgabenstatus',
+        emptyText: 'Nicht begonnen',
+        value: 'NOT_STARTED',
+        options: [{ value: 'NOT_STARTED', label: 'Nicht begonnen' }],
+        appearance: 'badge' as const,
+        badgeStatus: 'NOT_STARTED',
+      },
+    ]
+
+    for (const picker of pickers) {
+      const { unmount } = render(<InlineEditCommandPicker {...picker} onSave={vi.fn()} />)
+      const trigger = screen.getByRole('button', { name: picker.ariaLabel })
+      expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+      fireEvent.click(trigger)
+      expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+      fireEvent.click(trigger)
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      unmount()
+    }
+  })
+
+  it('WHEN the viewport is 375px THEN the picker opens as a bottom sheet with ≥44px rows', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 })
+    render(
+      <InlineEditCommandPicker
+        value="mech-anna"
+        options={mechanics.slice(0, 2)}
+        onSave={vi.fn()}
+        ariaLabel="Zugewiesener Mechaniker"
+        emptyText="Nicht zugewiesen"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zugewiesener Mechaniker' }))
+
+    const sheet = screen.getByRole('dialog')
+    expect(sheet).toHaveAttribute('data-side', 'bottom')
+    const row = screen.getByRole('option', { name: 'Anna Berger' })
+    expect(Number.parseFloat(row.style.minHeight)).toBeGreaterThanOrEqual(44)
+  })
+
+  it('keeps a select border and chevron on a field, and a status badge on a status', () => {
+    const { rerender } = render(
+      <InlineEditCommandPicker
+        value={null}
+        options={mechanics.slice(0, 1)}
+        onSave={vi.fn()}
+        ariaLabel="Zugewiesener Mechaniker"
+        emptyText="Nicht zugewiesen"
+      />,
+    )
+
+    const field = screen.getByRole('button', { name: 'Zugewiesener Mechaniker' })
+    expect(field.className).toContain('h-9')
+    expect(field.className).toContain('border-input')
+    expect(field.querySelector('svg')).not.toBeNull()
+
+    rerender(
+      <InlineEditCommandPicker
+        value="NOT_STARTED"
+        options={[{ value: 'NOT_STARTED', label: 'Nicht begonnen' }]}
+        appearance="badge"
+        badgeStatus="NOT_STARTED"
+        onSave={vi.fn()}
+        ariaLabel="Aufgabenstatus"
+        emptyText="Nicht begonnen"
+      />,
+    )
+
+    const badge = screen.getByText('Nicht begonnen')
+    expect(badge.className).toContain('rounded-md')
+    expect(badge.className).toContain('border')
+    expect(screen.getByRole('button', { name: 'Aufgabenstatus' }).className).not.toContain('border-input')
+  })
+
+  it('WHEN the role may not change the field THEN the picker is not offered', () => {
+    render(
+      <InlineEditCommandPicker
+        value="IN_PROGRESS"
+        options={statuses}
+        readOnly
+        onSave={vi.fn()}
+        ariaLabel="Aufgabenstatus"
+        emptyText="Nicht gesetzt"
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Aufgabenstatus' })).not.toBeInTheDocument()
+    expect(screen.getByText('In Bearbeitung')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Suchen')).not.toBeInTheDocument()
   })
 })

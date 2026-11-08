@@ -51,6 +51,15 @@ describe('work order row actions', () => {
     ],
   }
 
+  it('hides task status from a role that cannot manage workshop tasks', () => {
+    expect(filterEntityActions(definitions, 'MECHANIC', row).map((action) => action.id)).not.toContain(
+      ENTITY_ACTION_IDS.workOrderTaskState,
+    )
+    expect(filterEntityActions(definitions, 'ADMIN', row).map((action) => action.id)).toContain(
+      ENTITY_ACTION_IDS.workOrderTaskState,
+    )
+  })
+
   it('exposes open, check-in, PDF, assignMechanic, and taskState actions for standard roles', () => {
     const actions = filterEntityActions(definitions, 'ADMIN', row)
     expect(actions.map((action) => action.id)).toEqual([
@@ -182,22 +191,63 @@ describe('work order row actions', () => {
     const task1Leaves =
       resolveEntityActionChildren(taskChildren[0]?.children, row, context) ?? []
     expect(task1Leaves.map((leaf) => leaf.id)).toEqual([
-      'workOrder.taskState.task1.done',
-      'workOrder.taskState.task1.reopen',
+      'workOrder.taskState.task1.NOT_STARTED',
+      'workOrder.taskState.task1.IN_PROGRESS',
+      'workOrder.taskState.task1.WAITING_PARTS',
+      'workOrder.taskState.task1.WAITING_CUSTOMER',
+      'workOrder.taskState.task1.PAUSED',
+      'workOrder.taskState.task1.DONE',
     ])
-    expect(task1Leaves[0]?.isEnabled?.(row)).toBe(true)
-    expect(task1Leaves[1]?.isEnabled?.(row)).toBe(false)
+    expect(task1Leaves.find((leaf) => leaf.id.endsWith('IN_PROGRESS'))?.isEnabled?.(row)).toBe(false)
+    expect(task1Leaves.find((leaf) => leaf.id.endsWith('DONE'))?.isEnabled?.(row)).toBe(true)
 
-    await task1Leaves[0]?.run?.(row, context)
-    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-1', 'DONE')
+    await task1Leaves.find((leaf) => leaf.id.endsWith('WAITING_PARTS'))?.run?.(row, context)
+    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-1', 'WAITING_PARTS')
 
     const task2Leaves =
       resolveEntityActionChildren(taskChildren[1]?.children, row, context) ?? []
-    expect(task2Leaves[0]?.isEnabled?.(row)).toBe(false)
-    expect(task2Leaves[1]?.isEnabled?.(row)).toBe(true)
+    expect(task2Leaves.find((leaf) => leaf.id.endsWith('DONE'))?.isEnabled?.(row)).toBe(false)
+    expect(task2Leaves.find((leaf) => leaf.id.endsWith('IN_PROGRESS'))?.isEnabled?.(row)).toBe(true)
 
-    await task2Leaves[1]?.run?.(row, context)
+    await task2Leaves.find((leaf) => leaf.id.endsWith('IN_PROGRESS'))?.run?.(row, context)
     expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-2', 'IN_PROGRESS')
+  })
+
+  it('offers reschedule only when the order can be moved, and runs the shared request', async () => {
+    const reschedule = vi.fn().mockResolvedValue(undefined)
+    const context: WorkshopOrderRowActionContext = {
+      navigate: vi.fn(),
+      generatePdf: { mutateAsync: vi.fn() } as never,
+      t,
+      reschedule,
+    }
+    const booked: WorkshopOrderListRow = {
+      ...row,
+      status: 'SCHEDULED',
+      bayId: 'bay-1',
+      scheduledStartAt: '2026-08-21T06:00:00.000Z',
+      scheduledEndAt: '2026-08-21T07:30:00.000Z',
+    }
+    expect(filterEntityActions(definitions, 'MECHANIC', booked).map((action) => action.id)).toContain(
+      ENTITY_ACTION_IDS.workOrderReschedule,
+    )
+    expect(filterEntityActions(definitions, 'MECHANIC', row).map((action) => action.id)).not.toContain(
+      ENTITY_ACTION_IDS.workOrderReschedule,
+    )
+    expect(
+      filterEntityActions(definitions, 'MECHANIC', { ...booked, status: 'IN_PROGRESS' }).map(
+        (action) => action.id,
+      ),
+    ).not.toContain(ENTITY_ACTION_IDS.workOrderReschedule)
+
+    const action = definitions.find((item) => item.id === ENTITY_ACTION_IDS.workOrderReschedule)
+    const dates = resolveEntityActionChildren(action?.children, booked, context) ?? []
+    expect(dates.length).toBeGreaterThan(0)
+    expect(dates.some((date) => date.id.endsWith('20260821'))).toBe(false)
+    await dates[0]?.run?.(booked, context)
+    expect(reschedule).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-1', bayId: 'bay-1', startIso: booked.scheduledStartAt }),
+    )
   })
 
   it('runs assignMechanic and updateTaskStatus helpers with error handling', async () => {

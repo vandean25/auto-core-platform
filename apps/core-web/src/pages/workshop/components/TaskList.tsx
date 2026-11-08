@@ -7,17 +7,60 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
+import { InlineEditCommandPicker } from '@/components/inline-edit/InlineEditCommandPicker'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { formatNumber } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
-import type { WorkshopOrder, WorkshopTask } from '@/api/types'
+import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
 import { TaskLineItemsSavingStatus } from '@/components/workshop/TaskLineItemsSavingStatus'
+import { WORKSHOP_TASK_STATUSES } from '@/features/actions/work-order-row-actions'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
 import { WorkshopTaskInspectionChecklist } from '@/components/workshop/WorkshopTaskInspectionChecklist'
+
+function taskFeesSegment(fees: number, segment: string) {
+  if (fees <= 0) return ''
+  return segment
+}
+
+function TaskStatusPicker({
+  task,
+  readOnly,
+  onChange,
+}: {
+  task: WorkshopTask
+  readOnly: boolean
+  onChange: (taskId: string, status: WorkshopTaskStatus) => void
+}) {
+  const { t } = useTranslation('workshop')
+  const { t: statusLabel } = useTranslation('enums')
+  const options = WORKSHOP_TASK_STATUSES.map((status) => ({
+    value: status,
+    label: statusLabel(`status.${status}`),
+  }))
+
+  if (readOnly) {
+    return <StatusBadge status={task.status} />
+  }
+
+  return (
+    <InlineEditCommandPicker
+      value={task.status}
+      options={options}
+      saveMode='optimistic'
+      appearance='badge'
+      badgeStatus={task.status}
+      ariaLabel={t('taskList.statusAria')}
+      emptyText={statusLabel(`status.${task.status}`)}
+      className='w-auto shrink-0'
+      testId={`task-status-picker-${task.id}`}
+      onSave={(status) => onChange(task.id, status as WorkshopTaskStatus)}
+    />
+  )
+}
 
 type WorkshopOrderWithLegacyReportedIssue = WorkshopOrder & { reported_issue?: string | null }
 
@@ -32,6 +75,7 @@ export interface TaskListProps {
   onNewTaskTitleChange: (value: string) => void
   onAddTask: () => void
   onToggleTask: (taskId: string, checked: boolean) => void
+  onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
   onExpandedTaskIdChange: (taskId: string | null) => void
   onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
   onTaskMechanicNotesChange: (taskId: string, notes: string) => void
@@ -44,7 +88,28 @@ export interface TaskListProps {
   onOpenFitmentSearch?: (taskId: string) => void
 }
 
-export function TaskList({ onSaveReportedIssue, onSaveNotes, undoNotesAction, ...sections }: TaskListProps) {
+export function TaskList({
+  onSaveReportedIssue,
+  onSaveNotes,
+  undoNotesAction,
+  onToggleTask,
+  onTaskStatusChange,
+  onExpandedTaskIdChange,
+  onTaskLineItemsChange,
+  onTaskMechanicNotesChange,
+  onTaskDelete,
+  onOpenFitmentSearch,
+  ...sections
+}: TaskListProps) {
+  const actions = {
+    onToggleTask,
+    onTaskStatusChange,
+    onExpandedTaskIdChange,
+    onTaskLineItemsChange,
+    onTaskMechanicNotesChange,
+    onTaskDelete,
+    onOpenFitmentSearch,
+  }
   return (
     <>
       <ReportedIssueCard
@@ -52,7 +117,7 @@ export function TaskList({ onSaveReportedIssue, onSaveNotes, undoNotesAction, ..
         isLocked={sections.isLocked}
         onSave={onSaveReportedIssue}
       />
-      <RepairTasksCard {...sections} />
+      <RepairTasksCard {...sections} actions={actions} />
       <InternalNotesCard
         order={sections.order}
         isLocked={sections.isLocked}
@@ -63,7 +128,21 @@ export function TaskList({ onSaveReportedIssue, onSaveNotes, undoNotesAction, ..
   )
 }
 
-type RepairTasksCardProps = Omit<TaskListProps, 'onSaveReportedIssue' | 'onSaveNotes'>
+type TaskRowActions = Pick<
+  TaskListProps,
+  | 'onToggleTask'
+  | 'onTaskStatusChange'
+  | 'onExpandedTaskIdChange'
+  | 'onTaskLineItemsChange'
+  | 'onTaskMechanicNotesChange'
+  | 'onTaskDelete'
+  | 'onOpenFitmentSearch'
+>
+
+type RepairTasksCardProps = Omit<
+  TaskListProps,
+  'onSaveReportedIssue' | 'onSaveNotes' | 'undoNotesAction' | keyof TaskRowActions
+> & { actions: TaskRowActions }
 
 function RepairTasksCard({
   order,
@@ -75,14 +154,9 @@ function RepairTasksCard({
   expandedTaskId,
   onNewTaskTitleChange,
   onAddTask,
-  onToggleTask,
-  onExpandedTaskIdChange,
-  onTaskLineItemsChange,
-  onTaskMechanicNotesChange,
-  onTaskDelete,
   canDeleteTask,
   isDeletingTask,
-  onOpenFitmentSearch,
+  actions,
 }: RepairTasksCardProps) {
   const { t } = useTranslation('workshop')
 
@@ -114,16 +188,17 @@ function RepairTasksCard({
             totals={rawTaskTotals.get(task.id)}
             isExpanded={expandedTaskId === task.id}
             isLocked={isLocked}
-            onToggleTask={onToggleTask}
+            onToggleTask={actions.onToggleTask}
+            onTaskStatusChange={actions.onTaskStatusChange}
             onToggleExpanded={() =>
-              onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
+              actions.onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
             }
-            onTaskLineItemsChange={onTaskLineItemsChange}
-            onTaskMechanicNotesChange={onTaskMechanicNotesChange}
-            onTaskDelete={onTaskDelete}
+            onTaskLineItemsChange={actions.onTaskLineItemsChange}
+            onTaskMechanicNotesChange={actions.onTaskMechanicNotesChange}
+            onTaskDelete={actions.onTaskDelete}
             canDeleteTask={canDeleteTask}
             isDeletingTask={isDeletingTask}
-            onOpenFitmentSearch={onOpenFitmentSearch}
+            onOpenFitmentSearch={actions.onOpenFitmentSearch}
           />
         ))}
       </CardContent>
@@ -257,6 +332,7 @@ interface TaskAccordionRowProps {
   isExpanded: boolean
   isLocked: boolean
   onToggleTask: (taskId: string, checked: boolean) => void
+  onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
   onToggleExpanded: () => void
   onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
   onTaskMechanicNotesChange: (taskId: string, notes: string) => void
@@ -266,6 +342,46 @@ interface TaskAccordionRowProps {
   onOpenFitmentSearch?: (taskId: string) => void
 }
 
+function TaskRowFace({
+  task,
+  totalLabel,
+  summary,
+  isExpanded,
+  isLocked,
+  onToggleExpanded,
+  onTaskStatusChange,
+}: {
+  task: WorkshopTask
+  totalLabel: string
+  summary: string
+  isExpanded: boolean
+  isLocked: boolean
+  onToggleExpanded: () => void
+  onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
+}) {
+  const titleClass = task.done ? 'line-through text-muted-foreground' : ''
+  return (
+    <div className='relative min-w-0 flex-1'>
+      <button
+        type='button'
+        className='grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1 border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+        aria-expanded={isExpanded}
+        onClick={onToggleExpanded}
+      >
+        <span className={`min-w-0 text-sm ${titleClass}`}>{task.title}</span>
+        <span className='text-sm font-semibold'>{totalLabel}</span>
+        <span className='invisible col-start-3 row-start-1' aria-hidden='true'>
+          <StatusBadge status={task.status} />
+        </span>
+        <span className='col-span-3 text-xs text-muted-foreground'>{summary}</span>
+      </button>
+      <div className='absolute right-0 top-0'>
+        <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
+      </div>
+    </div>
+  )
+}
+
 function TaskAccordionRow({
   task,
   workshopOrderId,
@@ -273,6 +389,7 @@ function TaskAccordionRow({
   isExpanded,
   isLocked,
   onToggleTask,
+  onTaskStatusChange,
   onToggleExpanded,
   onTaskLineItemsChange,
   onTaskMechanicNotesChange,
@@ -311,10 +428,26 @@ function TaskAccordionRow({
   const partsLabel = t('taskList.parts', { count: partsCount })
   const feesLabel = t('taskList.fees', { count: feesCount })
   const laborLabel = t('taskList.labor', { count: laborCount })
-  const feesSegment =
-    taskTotals.fees > 0
-      ? t('taskList.feesSegment', { amount: formatCurrency(taskTotals.fees) })
-      : ''
+  const feesSegment = taskFeesSegment(
+    taskTotals.fees,
+    t('taskList.feesSegment', { amount: formatCurrency(taskTotals.fees) }),
+  )
+  const summary = t('taskList.taskSummary', {
+    parts: partsLabel,
+    fees: feesLabel,
+    labor: laborLabel,
+    partsTotal: formatCurrency(taskTotals.parts),
+    feesSegment,
+    laborTotal: formatCurrency(taskTotals.labor),
+    stdHours: formatNumber(taskTotals.laborStandardHours, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    actualHours: formatNumber(taskTotals.laborActualHours, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+  })
 
   return (
     <div
@@ -333,40 +466,15 @@ function TaskAccordionRow({
               : t('taskList.markComplete', { title: task.title })
           }
         />
-        <button
-          type='button'
-          className='flex min-w-0 flex-1 flex-col gap-1 border-0 bg-transparent p-0 text-left'
-          aria-expanded={isExpanded}
-          onClick={onToggleExpanded}
-        >
-          <span className='flex w-full items-center gap-3'>
-            <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
-              {task.title}
-            </span>
-            <span className='ml-auto flex items-center gap-2'>
-              <span className='text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
-              <StatusBadge status={task.status} />
-            </span>
-          </span>
-          <span className='w-full text-xs text-muted-foreground'>
-            {t('taskList.taskSummary', {
-              parts: partsLabel,
-              fees: feesLabel,
-              labor: laborLabel,
-              partsTotal: formatCurrency(taskTotals.parts),
-              feesSegment,
-              laborTotal: formatCurrency(taskTotals.labor),
-              stdHours: formatNumber(taskTotals.laborStandardHours, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }),
-              actualHours: formatNumber(taskTotals.laborActualHours, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }),
-            })}
-          </span>
-        </button>
+        <TaskRowFace
+          task={task}
+          totalLabel={formatCurrency(taskTotals.total)}
+          summary={summary}
+          isExpanded={isExpanded}
+          isLocked={isLocked}
+          onToggleExpanded={onToggleExpanded}
+          onTaskStatusChange={onTaskStatusChange}
+        />
       </div>
 
       {isExpanded && (
