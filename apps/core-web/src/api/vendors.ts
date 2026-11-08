@@ -1,4 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { isVendorUpdateOptimisticEligible } from '@/features/interaction/parts-purchasing-update-eligibility'
+import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
+import { patchRecordInCache, restoreRecordFields } from '@/lib/optimistic-record-patch'
+import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
@@ -8,6 +12,7 @@ const VENDORS_API = '/api/vendors'
 
 export const vendorKeys = {
     all: ['vendors'] as const,
+    lists: () => [...vendorKeys.all, 'list'] as const,
     list: (queryParams?: DataTableQueryParams) => [...vendorKeys.all, 'list', queryParams] as const,
     detail: (id: string) => [...vendorKeys.all, 'detail', id] as const,
     articles: (vendorId: string) => [...vendorKeys.all, 'articles', vendorId] as const,
@@ -52,6 +57,7 @@ export function useVendor<TVendor = Vendor>(id: string) {
 export function useCreateVendor() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...vendorKeys.all, 'create'],
         mutationFn: async (data: {
             name: string;
             email: string;
@@ -68,8 +74,8 @@ export function useCreateVendor() {
                     brandIds: data.brandIds
                 }),
             })
-            if (!res.ok) throw new Error('Failed to create vendor')
-            return res.json()
+            if (!res.ok) await throwApiResponseError(res, 'Failed to create vendor')
+            return res.json() as Promise<{ id: string }>
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: vendorKeys.all })
@@ -77,13 +83,29 @@ export function useCreateVendor() {
     })
 }
 
+type UpdateVendorVariables = { id: string; data: Partial<Vendor> & { brandIds?: number[] } }
+
+const updateVendorOptimistic = optimisticMutationOptions<unknown, UpdateVendorVariables>({
+    queryKey: ({ id }) => vendorKeys.detail(id),
+    mutationKey: [...vendorKeys.all, 'update'],
+    entityId: ({ id }) => id,
+    shouldOptimistic: isVendorUpdateOptimisticEligible,
+    apply: (cache, { id, data }) => patchRecordInCache(cache, id, data),
+    revert: (cache, { id, data }, snapshot) => restoreRecordFields(cache, id, Object.keys(data), snapshot),
+    prefixCaches: [
+        {
+            queryKey: () => vendorKeys.lists(),
+            apply: (cache, { id, data }) => patchRecordInCache(cache, id, data),
+            revert: (cache, { id, data }, snapshot) => restoreRecordFields(cache, id, Object.keys(data), snapshot),
+        },
+    ],
+})
+
 export function useUpdateVendor() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ id, data }: {
-            id: string
-            data: Partial<Vendor> & { brandIds?: number[] }
-        }) => {
+        ...updateVendorOptimistic,
+        mutationFn: async ({ id, data }: UpdateVendorVariables) => {
             const res = await fetchWithAuth(`${VENDORS_API}/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -94,12 +116,14 @@ export function useUpdateVendor() {
                     brandIds: data.brandIds,
                 }),
             })
-            if (!res.ok) throw new Error('Failed to update vendor')
+            if (!res.ok) await throwApiResponseError(res, 'Failed to update vendor')
             return res.json()
         },
-        onSuccess: (updatedVendor) => {
-            queryClient.invalidateQueries({ queryKey: vendorKeys.all })
-            queryClient.invalidateQueries({ queryKey: vendorKeys.detail(updatedVendor.id) })
+        // An optimistic edit is reconciled by the helper on settle. Brands stay server-confirmed and refetch here.
+        onSuccess: (_data, variables) => {
+            if (!isVendorUpdateOptimisticEligible(variables)) {
+                queryClient.invalidateQueries({ queryKey: vendorKeys.all })
+            }
         },
     })
 }
@@ -107,14 +131,12 @@ export function useUpdateVendor() {
 export function useDeleteVendor() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...vendorKeys.all, 'delete'],
         mutationFn: async (id: string) => {
             const res = await fetchWithAuth(`${VENDORS_API}/${id}`, {
                 method: 'DELETE',
             })
-            if (!res.ok) {
-                const error = await res.json().catch(() => ({ message: 'Failed to delete vendor' }))
-                throw new Error(error.message || 'Failed to delete vendor')
-            }
+            if (!res.ok) await throwApiResponseError(res, 'Failed to delete vendor')
             return id
         },
         onSuccess: () => {

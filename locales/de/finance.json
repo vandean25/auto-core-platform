@@ -380,6 +380,12 @@
       "accountNumberPlaceholder": "Kontonummer",
       "addAccountNumber": "Kontonummer hinzufügen",
       "accountNumberAria": "Lieferanten-Kontonummer",
+      "fieldSaveFailed": "{{record}}: {{field}} nicht gespeichert, vorheriger Wert wiederhergestellt.",
+      "fieldLabels": {
+        "name": "Name",
+        "email": "E-Mail",
+        "account_number": "Kontonummer"
+      },
       "tabs": {
         "activeOrders": "Aktive Bestellungen",
         "invoiceHistory": "Rechnungsverlauf",

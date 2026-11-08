@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import type { StockTransfer } from '@/api/stock-transfers'
 import {
   AlertDialog,
@@ -81,6 +81,11 @@ interface TransferActionButtonsProps {
   fulfilmentActions: ReturnType<typeof useFulfilmentActions>
 }
 
+function PendingMark({ pending }: { pending: boolean }) {
+  if (!pending) return null
+  return <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+}
+
 function TransferActionButtons({
   transfer,
   access,
@@ -95,9 +100,12 @@ function TransferActionButtons({
       {access.canApprove ? (
         <>
           <Button
+            className="max-sm:min-h-11"
+            aria-busy={requestActions.approvePending}
             onClick={() => void requestActions.approve(transfer)}
             disabled={requestActions.approvePending}
           >
+            <PendingMark pending={requestActions.approvePending} />
             {t('inventory:actions.approve')}
           </Button>
           <ReasonDialog
@@ -132,18 +140,24 @@ function TransferActionButtons({
 
       {access.canShip ? (
         <Button
+          className="max-sm:min-h-11"
+          aria-busy={fulfilmentActions.shipPending}
           onClick={() => void fulfilmentActions.ship(transfer)}
           disabled={fulfilmentActions.shipPending || !shipReady}
         >
+          <PendingMark pending={fulfilmentActions.shipPending} />
           {t('inventory:actions.ship')}
         </Button>
       ) : null}
 
       {access.canReceive ? (
         <Button
+          className="max-sm:min-h-11"
+          aria-busy={fulfilmentActions.receivePending}
           onClick={() => void fulfilmentActions.receive(transfer)}
           disabled={fulfilmentActions.receivePending}
         >
+          <PendingMark pending={fulfilmentActions.receivePending} />
           {t('inventory:actions.receiveStock')}
         </Button>
       ) : null}
@@ -151,9 +165,12 @@ function TransferActionButtons({
       {access.canReturn ? (
         <Button
           variant="outline"
+          className="max-sm:min-h-11"
+          aria-busy={fulfilmentActions.returnPending}
           onClick={() => void fulfilmentActions.returnUnreceived(transfer)}
           disabled={fulfilmentActions.returnPending}
         >
+          <PendingMark pending={fulfilmentActions.returnPending} />
           {t('inventory:actions.returnUnreceived')}
         </Button>
       ) : null}

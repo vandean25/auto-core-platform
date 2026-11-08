@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAdjustInventoryStock } from '@/api/inventory'
 import { useLocations } from '@/api/locations'
-import { Button } from '@/components/ui/button'
+import { SubmitButtonPending } from '@/components/data-table/data-table-states'
 import {
   Dialog,
   DialogContent,
@@ -84,7 +84,7 @@ export function AdjustInventoryStockDialog({
             <div className="grid gap-2">
               <Label>{t('dialogs.adjustStock.storageBin')}</Label>
               <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger>
+                <SelectTrigger className="max-sm:min-h-11">
                   <SelectValue placeholder={t('dialogs.adjustStock.selectBin')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -115,9 +115,12 @@ export function AdjustInventoryStockDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={adjustMutation.isPending}>
-              {t('actions.applyAdjustment')}
-            </Button>
+            <SubmitButtonPending
+              type="submit"
+              pending={adjustMutation.isPending}
+              label={t('actions.applyAdjustment')}
+              className="max-sm:min-h-11"
+            />
           </DialogFooter>
         </form>
       </DialogContent>

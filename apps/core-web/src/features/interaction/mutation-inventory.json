@@ -9,6 +9,153 @@
       "serverConfirmedReason": "Price edits change what is invoiced and are role-checked per part on the server; the result (updated, forbidden, failed) is reported per part before the list is refreshed."
     },
     {
+      "operationId": "inventory.item.receive",
+      "owningHook": "useReceiveInventoryStock",
+      "sourceFile": "api/inventory.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Receiving stock writes a ledger entry. On-hand quantity is derived, so the client must not show a new quantity before the server confirms it."
+    },
+    {
+      "operationId": "inventory.item.adjust",
+      "owningHook": "useAdjustInventoryStock",
+      "sourceFile": "api/inventory.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "A stock adjustment writes a signed ledger entry. On-hand quantity is derived and must not be shown before the server confirms it."
+    },
+    {
+      "operationId": "inventory.item.update",
+      "owningHook": "useUpdateInventoryItem",
+      "sourceFile": "api/inventory.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Saving an item writes cost and retail prices together with the description. Prices stay server-confirmed."
+    },
+    {
+      "operationId": "inventory.item.create",
+      "owningHook": "useCreateInventoryItem",
+      "sourceFile": "api/inventory.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Item creation assigns the server identity and has no deduplication contract. The list shows a pending row without article number, price or actions until the server answers."
+    },
+    {
+      "operationId": "stock-transfer.create",
+      "owningHook": "useCreateStockTransfer",
+      "sourceFile": "api/stock-transfers.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Creating a transfer checks site membership and legal-entity boundaries and commits stock. The result is not predictable, and there is no deduplication contract."
+    },
+    {
+      "operationId": "stock-transfer.approve",
+      "owningHook": "useApproveStockTransfer",
+      "sourceFile": "api/stock-transfers.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Approval is version-checked and commits stock at the source. Availability and the resulting status are decided by the server."
+    },
+    {
+      "operationId": "stock-transfer.reject",
+      "owningHook": "useRejectStockTransfer",
+      "sourceFile": "api/stock-transfers.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Rejection is version-checked and releases the transfer. The server decides the resulting stock."
+    },
+    {
+      "operationId": "stock-transfer.cancel",
+      "owningHook": "useCancelStockTransfer",
+      "sourceFile": "api/stock-transfers.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Cancellation is version-checked and releases reserved stock. The client cannot predict the resulting quantities."
+    },
+    {
+      "operationId": "stock-transfer.ship",
+      "owningHook": "useShipStockTransfer",
+      "sourceFile": "api/stock-transfers.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Shipping is version-checked and books a stock movement. Quantities stay server-confirmed."
+    },
+    {
+      "operationId": "stock-transfer.receive",
+      "owningHook": "useReceiveStockTransfer",
+      "sourceFile": "api/stock-transfers.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Receiving books stock into the destination under a version check. On-hand quantity is derived on the server."
+    },
+    {
+      "operationId": "stock-transfer.return",
+      "owningHook": "useReturnStockTransfer",
+      "sourceFile": "api/stock-transfers.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Returning unreceived quantity writes a compensating stock movement under a version check."
+    },
+    {
+      "operationId": "purchase-order.create",
+      "owningHook": "useCreatePO",
+      "sourceFile": "api/purchase-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Purchase-order creation assigns the order number and stores line prices. Numbering and prices stay server-confirmed, and there is no deduplication contract."
+    },
+    {
+      "operationId": "purchase-order.mark-sent",
+      "owningHook": "useMarkPOSent",
+      "sourceFile": "api/purchase-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Marking a purchase order sent also moves linked parts reservations to ordered and recomputes requisitions. That stock effect is not predictable."
+    },
+    {
+      "operationId": "purchase-order.receive",
+      "owningHook": "useReceiveGoods",
+      "sourceFile": "api/purchase-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Goods receipt posts stock ledger entries and recomputes the order status. Quantities stay server-confirmed."
+    },
+    {
+      "operationId": "purchase-order.item.add",
+      "owningHook": "useAddPOItems",
+      "sourceFile": "api/purchase-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Adding lines writes quantities and unit costs and can change the order total. Prices and quantities stay server-confirmed."
+    },
+    {
+      "operationId": "purchase-order.item.update",
+      "owningHook": "useUpdatePOItem",
+      "sourceFile": "api/purchase-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Updating a line changes quantity or unit cost and the order total. The client must not show those figures before the server confirms them."
+    },
+    {
+      "operationId": "purchase-order.item.delete",
+      "owningHook": "useDeletePOItem",
+      "sourceFile": "api/purchase-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deleting a line changes the order total and is guarded by the order status and linked reservations. The server decides."
+    },
+    {
+      "operationId": "purchase-order.delete",
+      "owningHook": "useDeletePurchaseOrder",
+      "sourceFile": "api/purchase-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deletion is guarded by the purchase-order state. The server decides."
+    },
+    {
+      "operationId": "vendor.create",
+      "owningHook": "useCreateVendor",
+      "sourceFile": "api/vendors.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Vendor creation assigns the server identity and has no deduplication contract."
+    },
+    {
+      "operationId": "vendor.update",
+      "owningHook": "useUpdateVendor",
+      "sourceFile": "api/vendors.ts",
+      "classification": "conditional",
+      "eligibilityPredicate": "isVendorUpdateOptimisticEligible"
+    },
+    {
+      "operationId": "vendor.delete",
+      "owningHook": "useDeleteVendor",
+      "sourceFile": "api/vendors.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deletion is refused while purchase orders, purchase invoices, vehicle purchases or vendor articles are linked. The server decides."
+    },
+    {
       "operationId": "customer.create",
       "owningHook": "useCreateCustomer",
       "classification": "server-confirmed",

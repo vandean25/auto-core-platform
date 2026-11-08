@@ -481,7 +481,9 @@ describe('StockTransferDetail', () => {
       mutations.approve.isPending = true
       renderPage()
 
-      expect(screen.getByRole('button', { name: actions.approve })).toBeDisabled()
+      const approve = screen.getByRole('button', { name: actions.approve })
+      expect(approve).toBeDisabled()
+      expect(approve).toHaveAttribute('aria-busy', 'true')
     })
   })
 

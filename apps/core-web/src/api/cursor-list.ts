@@ -86,5 +86,5 @@ export function useCursorList<TRow extends { id: string }>({
       retryCount: () => void count.refetch(),
     },
   }
-  return { rows, tableProps }
+  return { rows, dataUpdatedAt: list.dataUpdatedAt, tableProps }
 }

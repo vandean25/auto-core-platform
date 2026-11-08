@@ -122,8 +122,8 @@
     "costPrice": "Cost price (€)",
     "retailPrice": "Retail price (€)",
     "submit": "Create",
-    "creating": "Creating…",
     "createFailed": "Failed to create item",
+    "createUnconfirmed": "Item not confirmed. Check the parts list before creating it again.",
     "created": "Inventory item created"
   },
   "dialogs": {

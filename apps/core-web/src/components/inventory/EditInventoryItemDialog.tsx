@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import type { InventoryItemDetail } from '@/api/inventory'
 import { useUpdateInventoryItem } from '@/api/inventory'
 import { BrandCombobox } from '@/components/BrandCombobox'
-import { Button } from '@/components/ui/button'
+import { SubmitButtonPending } from '@/components/data-table/data-table-states'
 import {
   Dialog,
   DialogContent,
@@ -108,9 +108,12 @@ export function EditInventoryItemDialog({ item, open, onOpenChange }: EditInvent
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={updateMutation.isPending}>
-              {t('actions.saveChanges')}
-            </Button>
+            <SubmitButtonPending
+              type="submit"
+              pending={updateMutation.isPending}
+              label={t('actions.saveChanges')}
+              className="max-sm:min-h-11"
+            />
           </DialogFooter>
         </form>
       </DialogContent>

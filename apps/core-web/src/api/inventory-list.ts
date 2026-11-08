@@ -10,9 +10,12 @@ export function useInventoryListState(queryParams: DataTableQueryParams, filters
   const infiniteMode = isInventoryCursorSort(queryParams.sortField)
   const offsetList = useInventory({ page: queryParams.page, pageSize: queryParams.pageSize, ...listParams }, { enabled: !infiniteMode })
   const cursorList = useInventoryCursorList(listParams, infiniteMode)
-  if (infiniteMode) return cursorList
+  if (infiniteMode) {
+    return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }
+  }
   return {
     rows: offsetList.data?.data ?? [],
+    dataUpdatedAt: offsetList.dataUpdatedAt,
     tableProps: { pageCount: offsetList.data?.meta.pageCount ?? 1, isLoading: offsetList.isLoading },
   }
 }

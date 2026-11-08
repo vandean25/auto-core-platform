@@ -7,6 +7,7 @@ import {
   useMarkPOSent,
 } from "@/api/purchase-orders";
 import { useUnbilledReceipts } from "@/api/usePurchaseInvoices";
+import { SubmitButtonPending } from "@/components/data-table/data-table-states";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -235,9 +236,12 @@ function ReceiveGoodsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("actions.cancel")}
           </Button>
-          <Button onClick={handleSubmit} disabled={receiveGoods.isPending}>
-            {receiveGoods.isPending ? t("shared.processing") : t("actions.confirmReceipt")}
-          </Button>
+          <SubmitButtonPending
+            pending={receiveGoods.isPending}
+            label={t("actions.confirmReceipt")}
+            onClick={handleSubmit}
+            className="max-sm:min-h-11"
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

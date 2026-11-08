@@ -3,17 +3,29 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useUpdateVendor } from '@/api/vendors'
 import type { Vendor } from '@/api/types'
+import { isVendorUpdateOptimisticEligible } from '@/features/interaction/parts-purchasing-update-eligibility'
+import { useOptimisticFieldSave } from '@/features/interaction/use-optimistic-field-save'
+import { getPermissionAwareErrorMessage } from '@/lib/error-utils'
 
 type EditableVendorField = 'name' | 'email' | 'account_number'
 
 function errorToast(error: unknown, fallback: string) {
-  toast.error(error instanceof Error ? error.message : fallback)
+  toast.error(getPermissionAwareErrorMessage(error, fallback))
 }
 
 /** Inline field saves and the optimistic supported-brands update of the vendor detail page. */
 export function useVendorDetailActions(vendor: Vendor | undefined) {
   const { t } = useTranslation(['finance', 'common'])
   const updateVendor = useUpdateVendor()
+  const fieldSave = useOptimisticFieldSave<EditableVendorField, string>({
+    save: (field, value) => {
+      if (!vendor) return Promise.reject(new Error('missing vendor'))
+      return updateVendor.mutateAsync({ id: vendor.id, data: { [field]: value } })
+    },
+    isOptimistic: (field, value) => isVendorUpdateOptimisticEligible({ data: { [field]: value } }),
+    successMessage: t('vendors.detail.toast.updated', { ns: 'finance' }),
+    failureMessage: t('vendors.detail.toast.updateFailed', { ns: 'finance' }),
+  })
   const [draftBrands, setDraftBrands] = useState<{ vendorId: string | null; ids: number[] | null }>({
     vendorId: null,
     ids: null,
@@ -26,15 +38,9 @@ export function useVendorDetailActions(vendor: Vendor | undefined) {
       ? draftBrands.ids
       : (vendor?.supportedBrands?.map((b) => b.id) ?? [])
 
-  const saveField = async (field: EditableVendorField, nextValue: string) => {
+  const saveField = (field: EditableVendorField, nextValue: string) => {
     if (!vendor) return
-    try {
-      await updateVendor.mutateAsync({ id: vendor.id, data: { [field]: nextValue } })
-      toast.success(t('vendors.detail.toast.updated', { ns: 'finance' }))
-    } catch (updateError: unknown) {
-      errorToast(updateError, t('vendors.detail.toast.updateFailed', { ns: 'finance' }))
-      throw updateError
-    }
+    return fieldSave.saveField(field, nextValue)
   }
 
   const changeBrands = async (nextIds: number[]) => {
@@ -58,5 +64,13 @@ export function useVendorDetailActions(vendor: Vendor | undefined) {
     }
   }
 
-  return { brandIds, saveField, changeBrands, isUpdating: updateVendor.isPending }
+  return {
+    brandIds,
+    saveField,
+    changeBrands,
+    isUpdating: updateVendor.isPending,
+    failures: fieldSave.failures,
+    retryField: fieldSave.retry,
+    dismissField: fieldSave.dismiss,
+  }
 }

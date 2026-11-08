@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { InventoryItem, InventoryResponse, InventoryTransaction } from './types'
+import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
@@ -114,9 +115,9 @@ async function parseApiError(response: Response, fallback: string): Promise<Erro
     try {
         const body = (await response.json()) as { message?: string | string[] }
         const message = Array.isArray(body.message) ? body.message.join(', ') : body.message
-        return new Error(message || fallback)
+        return Object.assign(new Error(message || fallback), { status: response.status })
     } catch {
-        return new Error(fallback)
+        return Object.assign(new Error(fallback), { status: response.status })
     }
 }
 
@@ -184,6 +185,7 @@ export function useInventoryItemBySku(sku?: string, itemId?: string) {
 export function useReceiveInventoryStock(itemId: string) {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...inventoryKeys.all, 'receive-stock'],
         mutationFn: async (data: { locationId: string; quantity: number }) => {
             const response = await fetchWithAuth(`/api/inventory/${itemId}/receive`, {
                 method: 'POST',
@@ -203,6 +205,7 @@ export function useReceiveInventoryStock(itemId: string) {
 export function useAdjustInventoryStock(itemId: string) {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...inventoryKeys.all, 'adjust-stock'],
         mutationFn: async (data: { locationId: string; quantity: number; reason: string }) => {
             const response = await fetchWithAuth(`/api/inventory/${itemId}/adjust`, {
                 method: 'POST',
@@ -222,6 +225,7 @@ export function useAdjustInventoryStock(itemId: string) {
 export function useUpdateInventoryItem(itemId: string) {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...inventoryKeys.all, 'update'],
         mutationFn: async (data: {
             sku: string
             name: string
@@ -245,24 +249,27 @@ export function useUpdateInventoryItem(itemId: string) {
     })
 }
 
+export type CreateInventoryItemInput = {
+    sku: string
+    name: string
+    cost_price: number
+    retail_price: number
+    brandId?: number
+    revenue_group_id?: number
+}
+
 export function useCreateInventoryItem() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async (data: {
-            sku: string
-            name: string
-            cost_price: number
-            retail_price: number
-            brandId?: number
-            revenue_group_id?: number
-        }) => {
+        mutationKey: [...inventoryKeys.all, 'create'],
+        mutationFn: async (data: CreateInventoryItemInput) => {
             const response = await fetchWithAuth('/api/inventory', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             })
-            if (!response.ok) throw new Error('Failed to create inventory item')
-            return response.json()
+            if (!response.ok) await throwApiResponseError(response, 'Failed to create inventory item')
+            return response.json() as Promise<{ id: string }>
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: inventoryKeys.all })

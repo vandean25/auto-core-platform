@@ -45,6 +45,7 @@ export function usePurchaseOrders(queryParams?: DataTableQueryParams) {
 export function useCreatePO() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [...purchaseOrderKeys.all, "create"],
     mutationFn: async (data: {
       vendorId: string;
       items: { catalogItemId: string; quantity: number; unitCost: number }[];
@@ -88,6 +89,7 @@ export function usePurchaseOrder(id: string) {
 export function useMarkPOSent() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [...purchaseOrderKeys.all, "mark-sent"],
     mutationFn: async (id: string) => {
       const res = await fetchWithAuth(`${PO_API}/${id}/mark-as-sent`, {
         method: "POST",
@@ -110,6 +112,7 @@ export function useMarkPOSent() {
 export function useReceiveGoods() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [...purchaseOrderKeys.all, "receive"],
     mutationFn: async ({
       orderId,
       items,
@@ -142,6 +145,7 @@ export function useReceiveGoods() {
 export function useAddPOItems() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [...purchaseOrderKeys.all, "add-items"],
     mutationFn: async ({
       orderId,
       items,
@@ -174,6 +178,7 @@ export function useAddPOItems() {
 export function useUpdatePOItem() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [...purchaseOrderKeys.all, "update-item"],
     mutationFn: async ({
       orderId,
       itemId,
@@ -208,6 +213,7 @@ export function useUpdatePOItem() {
 export function useDeletePOItem() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [...purchaseOrderKeys.all, "delete-item"],
     mutationFn: async ({
       orderId,
       itemId,
@@ -238,6 +244,7 @@ export function useDeletePOItem() {
 export function useDeletePurchaseOrder() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [...purchaseOrderKeys.all, "delete"],
     mutationFn: async (id: string) => {
       const res = await fetchWithAuth(`${PO_API}/${id}`, {
         method: "DELETE",
