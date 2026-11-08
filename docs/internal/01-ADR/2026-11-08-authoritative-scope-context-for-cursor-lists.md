@@ -14,6 +14,8 @@ tags: [adr, platform, tables, security, multi-tenancy, sessions]
 
 The owner approved the planning *direction* on 2026-11-08 (09:34 MEZ): mandatory expected context, server-verified session continuity, coherent authorization, and one shared safety and recovery contract. **No concrete architecture, storage, schema, API, token or protocol is approved.** Every name, structure and interface below is a recommendation, not an adopted contract. Implementation, including shared prerequisites, is not authorized. Specification, implementation and release approvals stay separate.
 
+If accepted, this ADR would amend [ADR-0035](2026-11-02-cursor-based-infinite-lists.md) §2 (the explicit page-one restart after an incompatible cursor becomes one budgeted automatic restart) and §6/§7 (a changed authoritative context becomes a reset trigger). Until then ADR-0035 stands unchanged.
+
 Observed facts (marked *Observed*) come from reading `main` at `9284e46`. They are not independently audited; the Software Engineer re-verifies them before acceptance. This ADR claims no QA acceptance and no PASS.
 
 ## Context and Decision Drivers
@@ -24,9 +26,10 @@ Observed facts (marked *Observed*) come from reading `main` at `9284e46`. They a
 
 - The cursor binds the endpoint, sort, direction, filter hash, tenant and site. It carries no principal, session or permission-version binding.
 - Requests are authorized from current database state on every request, so a cursor never grants access.
-- Scope changes reach the web app as best-effort websocket events (claims, site context, site access scope). The site-access-scope handler only invalidates site queries; it does not reset list caches or selection. A client that missed an event has no authoritative way to learn that its scope changed before the server rejects a request.
-- `User`, `TenantMember` and `SiteMembership` carry timestamps but no persisted, monotonic scope version today. [ADR-0034](2026-11-02-custom-tenant-roles.md) (also Proposed, not implemented) would add `TenantRole.version`, `TenantMember.authorization_version` and an opaque `permissionsVersion`, and relies on events plus a refetch after a 403 for client detection.
-- The shared web cursor hook raises a generic error for any non-OK response and does not distinguish invalid-cursor, unsupported-sort, context and 401/403/422 failures. The app-wide query default is one automatic retry.
+- Scope changes reach the web app as best-effort websocket events (claims, site context, site access scope). The site-access-scope handler only invalidates site queries; it does not reset list caches or selection.
+- On reconnect and when a hidden tab becomes visible, a resync invalidates the session, site and realtime-backed queries, so the client re-reads its *current* session and sites. That cannot detect A→B→A or a scope change that goes unnoticed while the socket stays connected, does not reset list caches or selection, and gives the server no way to reject a stale client context.
+- `User`, `TenantMember` and `SiteMembership` carry timestamps but no persisted, monotonic scope version today. [ADR-0034](2026-11-02-custom-tenant-roles.md) (also Proposed, not implemented) would add `TenantRole.version`, `TenantMember.authorization_version` and an opaque `permissionsVersion`. Its client detection relies on events, a refetch after a 403 or tenant change, and a refetch on reconnect.
+- The shared web cursor hook throws a generic `Error` for any non-OK response, so the typed 400 cursor codes (`LIST_CURSOR_INVALID`, `LIST_CURSOR_SORT_UNSUPPORTED`, `LIST_CURSOR_STOCK_FILTER_REQUIRED`) and 401/403/422 are indistinguishable to callers. No context-mismatch failure type exists yet. The app-wide query default is one automatic retry.
 
 Drivers:
 
@@ -60,8 +63,8 @@ The server mints an opaque continuity id per authenticated session lineage. A no
 
 After authentication, one database snapshot reads membership and activation, permissions, both epochs and the authoritative time (demo and time expiry), then the data.
 
-- The server returns a typed `CONTEXT_MISMATCH` iff the expected SC differs from the snapshot's.
-- A relevant change committed before the snapshot rejects an old context. Unrelated changes do not reject, and a correct new context is not rejected merely because a mutation occurred.
+- The server compares the bound *components* of the expected SC (principal, continuity id, tenant, site, both epochs, policy version) with the snapshot's, not token bytes, and returns a typed `CONTEXT_MISMATCH` iff any component differs.
+- A relevant change committed before the snapshot, meaning one that advanced a component bound in the SC, rejects an old context. A change that advances no bound component does not reject, and a correct new context is not rejected merely because a mutation occurred. With a coarse (tenant-wide) epoch granularity, an unrelated role edit in the same tenant can advance a bound component and reject; that over-invalidation is the cost named in the open choices.
 - A later commit cannot recall delivered bytes; the next old-context request rejects.
 - A second epoch read in the same snapshot is not independent freshness evidence, so none is made.
 - Existing 401, 403 and 422 outcomes take precedence when scope is unusable.
@@ -77,9 +80,17 @@ After authentication, one database snapshot reads membership and activation, per
 
 A handshake endpoint (proposed) performs fresh authentication and authorization, then returns the SC. On resume, focus, reconnect and online, protected cached content stays quarantined until the handshake succeeds. An unchanged epoch alone does not release it: current credential validity, membership, activation and expiry are re-evaluated. A handshake failure leaves content blocked with manual retry. Offline revocation is not instant, and delivered bytes are not recalled.
 
+A lifecycle handshake is not a recovery of a failed request and does not spend the episode budget in §9:
+
+- It returns the same SC: the quarantined content is released.
+- It returns a different SC for the same tenant and site (an external scope change): pages, counts, selection and anchors are flushed, late results fenced, and the list stays blocked until an explicit user refresh (ADR-0035 §7). No page-one restart runs automatically.
+- It returns an SC for a different tenant or site, or a different principal: this is a genuine context switch. The central session reset runs (ADR-0035 §6) and a new episode starts.
+
 ### 7. Requests and rollout
 
 The expected SC is mandatory on the cursor list **and** the count request of every contracted consumer. Omission returns a typed `CONTEXT_REQUIRED`. Roll out under a versioned, coordinated compatibility path: the server issues and echoes the SC, the web app sends it, then the server enforces it. Existing direct clients are inventoried, notified and given a window rather than broken silently. Offset endpoints are unaffected.
+
+Requirement 1 holds only once enforcement is on. During the compatibility window an omitted SC is accepted, so the protections are advisory only. No consumer counts as covered by this contract, and the Sales Orders gate in "Gates and Sequencing" is not met, before enforcement is on for both the cursor and the count endpoint of that consumer.
 
 ### 8. Binding
 
@@ -91,17 +102,24 @@ A cursor binds the SC digest, endpoint, sort, direction and the resolver fingerp
 Episode key = semantic user query + genuine user context switch
 (recovery contexts, epochs, generations and successes never rearm it)
 
+READY -next page | count-> LOADING
 LOADING -ok-> READY
-LOADING -CONTEXT_MISMATCH | CURSOR_INVALID (page or count)->
+LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED | CURSOR_INVALID (page or count)->
     singleflight; QUARANTINE + FLUSH + fence late results
     budget 1 -> handshake if context -> restart page 1, budget 0
     budget 0 -> BLOCKED (manual)
-LOADING -401 | 403 | 422-> QUARANTINE + FLUSH -> BLOCKED (never automatic)
+handshake failure -> BLOCKED (manual)
+LOADING -401 | 403 | 422-> QUARANTINE + FLUSH + fence late results -> BLOCKED (never automatic)
 LOADING -UNSUPPORTED_SORT-> latch offset at offset 0, keep sort and filters
-BLOCKED -manual retry | refresh | new query | user context switch-> new episode
+LOADING -other or network error-> error state, manual retry; not a restart or resync
+BLOCKED -manual retry | explicit user refresh | new semantic query | user context switch-> new episode
 ```
 
-One total automatic action per episode is shared by page and count and by all failure types, so alternating errors cannot multiply attempts. Quarantine, flush and late-result fencing remain mandatory when the budget is spent. Automatic retry of 401, 403 and 422 is suppressed, overriding the default.
+- One total automatic action per episode is shared by page and count and by all failure types, so alternating errors cannot multiply attempts. A realtime event, focus or lifecycle refresh never starts a new episode.
+- Quarantine, flush and late-result fencing remain mandatory when the budget is spent.
+- `LIST_CURSOR_STOCK_FILTER_REQUIRED` (vehicle stock) is not a recovery case. It keeps its existing handling and is outside this contract.
+- `CONTEXT_REQUIRED` reaching a web client that always sends the SC signals version skew. It follows the context-mismatch path once and then stops.
+- Library-level automatic retry is disabled for every typed scope or cursor error (`CONTEXT_MISMATCH`, `CONTEXT_REQUIRED`, the cursor codes) and for 401, 403 and 422, overriding the one-retry default. The only automatic scope or cursor action is the budgeted one. Whether transport and 5xx retries of an identical request remain is an open choice; they are never a restart or resync.
 
 ### 10. Page and count identity
 
@@ -118,6 +136,7 @@ Page and count acceptance use separate generations. Count identity binds **all**
 | Policy-version derivation | Content digest versus pipeline-coupled |
 | Transport of the SC | Header versus query |
 | Rollout windows for direct clients | Needs the client inventory |
+| Transport and 5xx retry of an identical request | Keep the default, or disable on cursor requests; never a restart or resync |
 | Storage of continuity ids | |
 | Relationship to ADR-0034 | Reuse its versions, or a separate epoch; sequencing if ADR-0034 is not accepted first |
 
@@ -141,7 +160,9 @@ An unsafe opt-out is not an alternative.
 
 ## Validation and Proof Obligations
 
-Nothing here has been run. Proposed scenarios, each one test:
+Nothing here has been run. Names are proposals, not existing files.
+
+**Six focused scenarios, each one test.** The first three and the last are Sales Orders wave scenarios; they sit here because they exercise the shared contract on the first consumer.
 
 | WHEN / THEN | Proposed test | Runner |
 |---|---|---|
@@ -152,7 +173,18 @@ Nothing here has been run. Proposed scenarios, each one test:
 | Concurrent invalid-cursor failures recover and then fail again in one episode → one automatic restart | `cursorRecovery_shared_episode_budget` | web unit |
 | A `SALES_ORDER` realtime event arrives → retained rows stay unchanged until an explicit fresh-chain refresh | `salesOrders_explicit_realtime_refresh` | web unit |
 
-Additional coverage is unlimited. A forced failure is required only for demonstrated bugs; correct behavior uses characterization baselines.
+**Supporting coverage for the shared requirements** (unlimited; each is a separate test, per consumer where the consumer differs):
+
+- `CONTEXT_REQUIRED` on omission, for the count request as well as the page request, on each contracted consumer once enforcement is on.
+- No automatic retry of 401, 403 and 422, and none of the typed scope or cursor errors.
+- Unsupported sort latches offset at offset 0 and keeps filters and sort.
+- Replay of an old continuity id is rejected, including from another device.
+- A→B→A on membership, site grant and user or site status, not only on a role definition.
+- Fencing and quarantine continue after the budget is exhausted.
+- A lifecycle handshake that returns a changed SC flushes and blocks without an automatic restart.
+- Invoice, inventory and vehicle-stock consumers keep their existing regressions after the shared change.
+
+New behavior follows the TDD workflow in `agents.md`: each new test must fail against the pre-change code. Characterization baselines are used only to pin existing, correct behavior that the change must not alter.
 
 Before acceptance:
 
@@ -161,7 +193,7 @@ Before acceptance:
 - **Deployment**: policy-deployment authority.
 - **Clients**: an inventory of direct API clients.
 - **Cost**: that snapshot reads and over-invalidation are acceptable.
-- **Environment**: schema and collation, Prisma behavior under a non-UTC runtime, real query plans, the live URL and mobile card capability, and released QA.
+- **Environment**: schema and collation, Prisma behavior under a non-UTC runtime, real query plans, the live URL and mobile card capability, and QA acceptance on the released build.
 
 ## Gates and Sequencing
 
@@ -174,9 +206,13 @@ The Sales Orders wave (AUT-891) starts only after all of the following are docum
 
 Merges, reviews and scratch probes do not replace these. Sales Orders query plans and QA are completion evidence. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit owner approval; this ADR authorizes none. Shared changes require renewed relevant regressions before rollout.
 
-## Sales Orders Wave: Preserved Behavior (planning input)
+## Sales Orders Wave: Settled Scope (planning input)
 
-Cursor-only default `createdAt DESC, id DESC`; database text ordering for `order_number`; exact tenant, active-site and null-site visibility and existing permissions; Saved Views and live-URL compatibility; effective legacy `params` computed after the status override, with remaining filters forcing the unchanged offset fallback; raw wire search; exact 1,000 versus 1,001 capped count; an independent 2,000 loaded-row ceiling; no snapshot or no-gap guarantee on mutable data; mobile date plus vehicle; and the existing DRAFT Delete reachable through Cmd+K and a visible mobile path. No Sales Orders selection is introduced.
+**Preserved behavior:** cursor-only default `createdAt DESC, id DESC`; database text ordering for `order_number`; exact tenant, active-site and null-site visibility and existing permissions; Saved Views and live-URL compatibility; effective legacy `params` computed after the status override, with remaining filters forcing the unchanged offset fallback; raw wire search; exact 1,000 versus 1,001 capped count; an independent 2,000 loaded-row ceiling; no snapshot or no-gap guarantee on mutable data; the existing DRAFT-only Delete with its endpoint, permission, state restriction and confirmation.
+
+**New fixed requirements of the wave, not current behavior:** the card shows date plus vehicle, and the DRAFT Delete becomes a registry action reachable through Cmd+K with a visible mobile path. Today it is a right-click context action with a browser confirmation. Whether the existing card supports a second detail line is unverified.
+
+No Sales Orders selection is introduced.
 
 ## References
 
