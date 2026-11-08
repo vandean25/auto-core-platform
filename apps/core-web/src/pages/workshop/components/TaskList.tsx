@@ -368,27 +368,24 @@ function TaskRowFace({
   onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
 }) {
   const titleClass = task.done ? 'line-through text-muted-foreground' : ''
-  const toggleFromButton = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation()
-    onToggleExpanded()
-  }
   return (
-    <div className='flex min-w-0 flex-1 flex-col gap-1' onClick={onToggleExpanded}>
-      <div className='flex items-center gap-2'>
-        <button
-          type='button'
-          className='flex min-w-0 flex-1 items-center gap-3 border-0 bg-transparent p-0 text-left'
-          aria-expanded={isExpanded}
-          onClick={toggleFromButton}
-        >
-          <span className={`text-sm ${titleClass}`}>{task.title}</span>
-          <span className='ml-auto text-sm font-semibold'>{totalLabel}</span>
-        </button>
-        <span onClick={(event) => event.stopPropagation()}>
-          <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
+    <div className='relative min-w-0 flex-1'>
+      <button
+        type='button'
+        className='grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1 border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+        aria-expanded={isExpanded}
+        onClick={onToggleExpanded}
+      >
+        <span className={`min-w-0 text-sm ${titleClass}`}>{task.title}</span>
+        <span className='text-sm font-semibold'>{totalLabel}</span>
+        <span className='invisible col-start-3 row-start-1' aria-hidden='true'>
+          <StatusBadge status={task.status} />
         </span>
+        <span className='col-span-3 text-xs text-muted-foreground'>{summary}</span>
+      </button>
+      <div className='absolute right-0 top-0'>
+        <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
       </div>
-      <span className='w-full text-xs text-muted-foreground'>{summary}</span>
     </div>
   )
 }

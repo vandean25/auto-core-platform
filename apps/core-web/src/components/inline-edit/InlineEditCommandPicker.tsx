@@ -113,7 +113,10 @@ function PickerTriggerButton({
       aria-label={ariaLabel}
       aria-busy={busy || undefined}
       disabled={disabled}
-      onClick={onClick}
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick?.()
+      }}
       className={className}
     >
       {children}
