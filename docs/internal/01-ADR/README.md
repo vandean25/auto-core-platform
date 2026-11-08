@@ -4,7 +4,7 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 
 **Numbering note (2026-08-18):** The workshop planner kanban board was originally titled ADR-0013, colliding with row-level multi-tenancy. It is now **ADR-0018**. **ADR-0013** is only [Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md).
 
-**Status column:** *Accepted* here means the ADR is merged repository documentation, not deployed behavior, implementation authorization or explicit owner acceptance of every concrete mechanism or risk limit in the ADR body (those are recorded per ADR).
+**Status column:** *Accepted* here means the ADR is merged repository documentation, not deployed behavior, implementation authorization or explicit owner acceptance of every concrete mechanism, risk limit or still-open item in the ADR body (those are recorded per ADR).
 
 | Number   | Title                                                                  | Status   | Date                            | File                                                                                                               |
 | -------- | ---------------------------------------------------------------------- | -------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
