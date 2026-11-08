@@ -10,7 +10,9 @@ tags: [adr, inventory, concurrency, idempotency]
 
 ## Status
 
-**Accepted — 2026-11-08.** Accepted by Dejan Dosenovic, who confirmed this in the implementing session after seven rounds of independent review of this text (version of commit `192b5cc`). Review by the Product Planner and the Software Engineer is not recorded in this document. Acceptance fixes the architecture direction, the mechanism and the recommended values below. It authorizes no implementation, no storage, no trigger, no endpoint and no migration; those need the prerequisite evidence, a reviewed implementation design and the later testing, release-QA and production approvals. Statements about the current code (main `3b612c1`) come from earlier code reading and are **unverified**; each becomes a prerequisite in "Implementation and Validation". No test or QA result is claimed.
+**Accepted — 2026-11-08.** Accepted by Dejan Dosenovic, who confirmed this in the implementing session after seven rounds of independent review of this text (version of commit `192b5cc`). Review by the Product Planner and the Software Engineer is not recorded in this document. Acceptance fixes the architecture direction, the mechanism and the values below. It authorizes no implementation, no storage, no trigger, no endpoint and no migration; those need the prerequisite evidence, a reviewed implementation design and the later testing, release-QA and production approvals. Statements about the current code (main `3b612c1`) come from earlier code reading and are **unverified**; each becomes a prerequisite in "Implementation and Validation". No test or QA result is claimed.
+
+Amended 2026-11-08 at the owner's direction: resolved open decisions.
 
 ## Context and Decision Drivers
 
@@ -23,79 +25,127 @@ Dejan approved these requirements on 2026-11-08; they are fixed and not reopened
 - Demonstrable late-request fencing before an operation is declared NOT_APPLIED.
 - Not accepted as risks: rebinding the same key to a different intent after a rollback, and a lost frozen intent causing a duplicate percentage operation.
 
-Settled product boundaries: parts list only; loaded, selected IDs, at most 100; tenant-wide prices (no site predicate); the existing route and the price-only body; legacy validation, authorization, non-disclosure, percentage and rounding unchanged; fresh authorized reads during preview before consent; consent freezes target, expected revision and operation identity; no hidden re-read or repricing after consent.
+Settled product boundaries: parts list only; loaded, selected IDs, at most 100; tenant-wide prices (no site predicate); the existing route with a body of exactly `retail_price` and `expectedRevision`; legacy validation, authorization, non-disclosure, percentage and rounding unchanged; fresh authorized reads during preview before consent; consent freezes target, expected revision and operation key; no hidden re-read or repricing after consent.
 
 ## Decision
 
-Introduce a narrow **operation journal** for guarded price operations, with acceptance separated from execution. The mechanism and values below are accepted. Table, field and endpoint names are illustrative; final identifiers and schema are fixed in the implementation design.
+Introduce a narrow **operation journal** for guarded price operations, with acceptance separated from execution. The identifiers below are the decided names; column-level schema is left to the implementation design and must not change the semantics here.
 
-### 1. Acceptance (Tx-A)
+### 1. Request and acceptance (Tx-A)
 
-A short transaction, committed independently of the business transaction. It first checks current authorization and that the item exists in the tenant (no row is written for an unauthorized or unknown item; Tx-E checks again). It then inserts or reads a journal row unique on (tenant, principal, key). The row durably binds: tenant, principal, item, operation kind, expected revision and the absolute target in canonical minor units. It also records the original basis and SKU for authorized explanation, the server-set `acceptedAt` and the state ACCEPTED. The commit of Tx-A is the linearization point of the binding. Reuse of a key with a different intent is rejected without execution. A same-key request locks the journal row (`FOR UPDATE`, bounded by the 5 s recovery wait). If the row is terminal or FENCED, it returns the stored result (for FENCED: the stored NOT_APPLIED result, not `OPERATION_UNRESOLVED`). If it is still ACCEPTED, or the 5 s wait elapses while Tx-E holds the lock, it returns 409 `OPERATION_UNRESOLVED` (it does not execute and does not mutate). It never runs Tx-E, and only fencing or discovery resolves an ACCEPTED row. Proposed: the existing PATCH handler runs Tx-A and then Tx-E in one request. A process death between them leaves ACCEPTED, which the recovery path resolves.
+**Branch selection.** A `PATCH /api/inventory/:id` whose body contains `expectedRevision` is a guarded request. It must carry exactly `retail_price` and `expectedRevision` and an `Idempotency-Key` header holding a UUIDv7; otherwise it fails with 400 before any write. A request without `expectedRevision` is a legacy request and ignores the header, as today.
+
+**Tx-A** is a short transaction that commits on its own, before the business transaction:
+
+1. Check current authorization and that the item exists in the tenant. Nothing is written for an unauthorized or unknown item.
+2. If no journal row exists for (tenant, principal, key), check the admission window (section 6) and insert one in state ACCEPTED (insert on conflict do nothing; a lost insert race continues with step 3). The row binds tenant, principal, item, operation kind, expected revision and the absolute target in minor units, and records the original basis, SKU and the server-set `acceptedAt`.
+3. If the row exists: a different intent gets 422 without execution. The same intent locks the row (`FOR UPDATE`, 5 s wait) and returns the stored outcome if it is final, otherwise 409 `OPERATION_UNRESOLVED`. A same-key request never runs Tx-E.
+
+The commit of Tx-A is the linearization point of the binding. The PATCH handler runs Tx-A and then Tx-E in one request; a process death between them leaves ACCEPTED.
 
 ### 2. Execution (Tx-E)
 
-One transaction, always in the order journal row, then item row:
+One transaction, lock order journal row, then item row:
 
-1. Lock the journal row. Require state ACCEPTED; FENCED and the terminal states are final, so the state alone is the fence.
+1. Lock the journal row; continue only in state ACCEPTED. Final states never change, so the state itself is the fence.
 2. Re-check current authorization (existing role check, tenant scope, no site predicate).
 3. Lock the item row (tenant-scoped) and compare the expected revision.
-4. Match: change only `retail_price`, write the business audit, record the exact post-trigger revision (depends on the revision hypothesis in section 10) and set APPLIED. Mismatch: set CONFLICT with no price change and no business audit.
+4. Match: change only `retail_price`, write the business audit, record the post-update revision (section 9) and set APPLIED. Mismatch: set CONFLICT, with no price change and no business audit.
 
-Mutation, business audit and terminal proof commit atomically. A 409 is raised only after the commit so the terminal record cannot roll back. Realtime publication happens only after commit and never for a conflict or a rollback.
+Mutation, business audit and terminal proof commit atomically. The 409 for CONFLICT is sent only after the commit, so the conflict receipt survives it. Realtime publication happens only after commit, never for CONFLICT or a rollback. Tx-E runs with a 10 s lock timeout and a 30 s transaction timeout; a timeout or deadlock aborts it without any write and leaves ACCEPTED.
 
-### 3. Fencing and recovery
+### 3. Fencing
 
-Recovery is an explicit, authorized action that takes the key and the frozen intent. It locks the same journal row and moves ACCEPTED to FENCED (NOT_APPLIED). **If no row exists**, it inserts a FENCED row (except for a key more than 24 h in the past, see below) under the same unique (tenant, principal, key), so a later Tx-A for that key finds FENCED and never executes; a differing intent is rejected. A fence that finds ACCEPTED is allowed only after the lease (section 7) has ended; the lease end is not proof, only the committed fence is. A fence that finds no row needs no lease and takes effect immediately, but it considers the admission window: a key more than 24 h in the past can never be admitted, so the fence reports it as NOT_APPLIED without inserting a row. A key within the window, or ahead of server time (it enters the window later), gets a FENCED row; the unique constraint serializes it against a concurrent Tx-A, and if Tx-A commits first the fence finds ACCEPTED and the lease rule applies. Execution and fencing serialize on the journal row: either Tx-E commits first and recovery observes the terminal result, or the fence commits first and Tx-E observes FENCED and returns without any write. A late original request after a fence is rejected. Only FENCED or a terminal state allows NOT_APPLIED. A timeout, an expired lease, a missing row or a browser acknowledgement is not proof. Tx-E sets a lock timeout of 10 s and a whole-transaction timeout of 30 s. The lease is a UX bound; correctness comes only from the row lock, because a late-starting Tx-E could still hold the row past the lease. If the lock is still held, recovery waits within its bound and then reports "still unresolved". A read-only status or discovery never mutates.
+A fence sets a row to FENCED (= NOT_APPLIED) under the same journal-row lock as Tx-E, so exactly one of them wins; a later Tx-E or same-key request finds FENCED and writes nothing. Only FENCED, APPLIED or CONFLICT proves an outcome. A timeout, an elapsed lease, a missing row or receipt, a current price or revision match, or a browser acknowledgement never does.
+
+- **User fence** (explicit, authorized, takes the key and the frozen intent; a different intent gets 422):
+  - Row ACCEPTED: allowed from 2 min after `acceptedAt` (the lease). The lease is UX only; the lock decides, because a late-starting Tx-E could still hold the row.
+  - No row, key time not older than 24 h (including keys ahead of server time): inserts a FENCED row immediately. The unique key serializes it against a concurrent Tx-A; if Tx-A commits first, the ACCEPTED rule applies.
+  - No row, key time older than 24 h: reports NOT_APPLIED without a row, because admission can never accept that key.
+  - Row final: returns the stored outcome.
+- **System fence:** the retention job fences every row still ACCEPTED 24 h after `acceptedAt`, through the same locked transition. It is a committed fence, not a timeout verdict. It bounds the same-principal block (section 6) and resolves rows whose item was deleted or whose principal lost access, which no user can fence.
+
+A fence waits at most 5 s for the row lock and otherwise reports "still unresolved". Discovery never mutates.
 
 ### 4. State model
 
 ```
-ACCEPTED ── Tx-E match ──────▶ APPLIED
-    │ ──── Tx-E mismatch ────▶ CONFLICT
-    └ ──── fence (explicit) ─▶ FENCED  (= NOT_APPLIED)
-APPLIED | CONFLICT | FENCED ──▶ retained ──▶ deleted
+ACCEPTED ── Tx-E, revision matches ──▶ APPLIED
+    ├──── Tx-E, revision differs ────▶ CONFLICT
+    └──── user or system fence ──────▶ FENCED  (= NOT_APPLIED)
+APPLIED | CONFLICT | FENCED ── retention (section 6) ──▶ deleted
 ```
 
-Acknowledgement by the client changes no state. Retention counts from the later of the terminal time and the key's UUIDv7 time (section 7).
+No transition leaves a final state. Client acknowledgement changes no state. ACCEPTED rows are never deleted.
 
 ### 5. Race matrix
 
 | Race | Outcome |
 |---|---|
-| Same key, same intent, concurrent | One execution; the duplicate waits for the row lock (5 s bound), then returns the stored result if terminal, otherwise (still ACCEPTED, or the wait elapsed) 409 `OPERATION_UNRESOLVED` |
-| Same key, different intent | Rejected, no execution |
-| Fence vs Tx-E | Row lock decides; no third outcome |
-| Late original after fence | Rejected, no effect |
-| Different keys, same item, different principals | Item lock plus revision CAS: one APPLIED, one CONFLICT |
-| Different keys, same item, same principal | Second refused at Tx-A (409 `OPERATION_UNRESOLVED`) while the first is unresolved; no execution |
-| Same-key retry while ACCEPTED | 409 `OPERATION_UNRESOLVED`; Tx-E is not run again |
-| Fence with no row (request not yet accepted) | FENCED row inserted; a later Tx-A for that key does not execute |
-| Crash between Tx-A and Tx-E | ACCEPTED persists; recovery fences or observes |
+| Same key, same intent, concurrent | One Tx-E; the duplicate waits at most 5 s, then returns the stored outcome if final, else 409 `OPERATION_UNRESOLVED` |
+| Same key, different intent | 422 `IDEMPOTENCY_KEY_REUSED`, no execution |
+| Fence vs Tx-E | Row lock decides; exactly one wins |
+| Late original request after a fence | 409 `OPERATION_FENCED`, no effect |
+| Fence before Tx-A (lost request) | FENCED row inserted; the later Tx-A gets 409 `OPERATION_FENCED` |
+| Different keys, same item, different principals | Item lock plus revision check: one APPLIED, one CONFLICT |
+| Different keys, same item, same principal | Second refused at Tx-A with 409 `OPERATION_UNRESOLVED` until the first is final |
+| Request in flight on device A, never accepted, user continues on device B | B cannot see or fence it; if a guarded change lands first, the late request gets CONFLICT by its revision check (depends on section 9) |
+| Crash between Tx-A and Tx-E | ACCEPTED persists; a user or system fence resolves it |
+| Legacy full-body write vs guarded operation | No coordination; the legacy write can overwrite a guarded commit |
 
-### 6. Coordination
+### 6. Coordination, identity and time
 
-A uniqueness rule allows at most one unresolved (ACCEPTED) guarded operation per (tenant, principal, item). Another guarded operation on that item for the same principal is refused until the first is resolved. A browser lock or discovery alone cannot enforce this. Legacy edits receive no lock. No global exactly-once claim is made, and unconditional legacy full-body writers can still overwrite guarded commits; revision advancement alone does not make them CAS-safe.
+- **Coordination:** at most one ACCEPTED guarded operation per (tenant, principal, item), enforced by a partial unique index, not by the browser. Legacy edits take no lock. No global exactly-once claim is made; unconditional legacy writers can still overwrite guarded commits, and revision advancement alone does not make them safe.
+- **Key:** client-generated UUIDv7 in the `Idempotency-Key` header, one key per item per consent, stored by the client with the frozen intent until the outcome is final.
+- **Separate clocks:** admission uses the key's UUIDv7 time (within 24 h in the past and 5 min in the future of server time, checked only when no row exists; a pre-filter, not proof). `acceptedAt` is server time and anchors the 2 min lease and the 24 h system fence. Retention deletes final rows 30 days after the later of their final time and the key time.
+- **Non-reuse:** at deletion a key's time is more than 30 days old, so admission rejects it forever; no tombstone is needed. A different timestamp is a different key, hence a new operation under its own revision check.
 
-### 7. Identity, time and retention (recommended values)
+### 7. Discovery, fence API and UI states
 
-- **Identity:** the key is a client-generated UUIDv7 sent in an `Idempotency-Key` header, consumed only by the guarded branch. Legacy requests keep today's behavior for that header. Header name and protocol are accepted as stated; wire details are finalized in the implementation design.
-- **Admission:** a key is admitted only if its UUIDv7 time is within 24 h in the past and 5 min in the future of server time. This is a pre-filter against suspended clients and skew, not proof. An existing journal row is looked up first, so an accepted operation stays recoverable after 24 h.
-- **`acceptedAt`** is server-authoritative. ACCEPTED has no wall-clock expiry and active rows are never deleted. A 2-minute lease, counted from `acceptedAt`, is the earliest time at which a fence of an ACCEPTED row is allowed.
-- **Retention:** terminal and fenced rows live 30 days, counted from the later of the terminal time and the key's UUIDv7 time, longer than the admission window plus skew. After deletion a same-string key is rejected by admission age, so no separate tombstone is needed. A forged timestamp creates a different key string, hence a new operation under its own CAS.
-- **Lock bounds:** Tx-E lock timeout 10 s and whole-transaction timeout 30 s; recovery lock wait 5 s. A lock timeout or deadlock aborts only Tx-E, leaving ACCEPTED, which the client shows as unresolved until fenced or observed.
+Principal-only; keys are not bearer credentials; every call needs current authorization and the principal match.
 
-### 8. Discovery and authorization
+- `GET /api/inventory/price-operations` lists the caller's own rows that are ACCEPTED or final within retention (state, item, SKU, original basis, target, expected revision, `acceptedAt`, final time). Rows whose item was deleted (404) or is no longer accessible (403) are omitted, so no receipt is disclosed.
+- `GET /api/inventory/price-operations/:key` returns one own row, or 404 if none exists (not proof of anything).
+- `POST /api/inventory/price-operations/:key/fence` with the frozen intent (`itemId`, `retail_price`, `expectedRevision`) performs the user fence (section 3) and returns the resulting state.
 
-The server offers a read-only discovery/status capability scoped to the caller's own operations (state, original basis, target, expected revision, SKU, `acceptedAt`), plus the explicit fence action. Visibility is principal-only in this version. Keys are not bearer credentials. Discovery, recovery, fencing and any future replay need current authorization and the principal match. A deleted item gives 404, lost access gives 403, and receipt contents are not disclosed. Rows that cannot be fenced under these conditions are never deleted while ACCEPTED; they stay readable to an operator for audit, and how they are resolved is an open decision (below). 400/410/422 describe the current attempt only; the original outcome, including a recorded 409, is recovered from the journal. There is no automatic replay, and any later approved replay resolves the original frozen intent without recalculation.
+A 400, 410 or 422 describes the current attempt only; the original outcome, including a recorded 409, is read from the journal. There is no replay: a fenced or conflicting operation is redone only through a new preview, consent and key.
 
-### 9. Money and response compatibility
+**UI states per item:** Applied; Conflict (shows that the price changed, offers a new preview); Pending (ACCEPTED, under 2 min); Unresolved (ACCEPTED after 2 min, offers "Mark as not applied", which calls the fence); Not applied (FENCED). On load, the parts list calls discovery and shows unresolved and unacknowledged final operations; the per-tab client copy of keys and intents is a convenience, not the source of truth. All texts in German and English.
 
-The canonical target is an integer in minor units from 0 to 9,999,999,999 (99,999,999.99), written to the stored decimal without extra database rounding. The percentage policy and rounding stay unchanged. A parsed JSON number cannot distinguish `1e2` from `100`; lexical rejection needs separate raw-body parser scope. Guarded responses are documented as separate schemas so legacy generated unions are untouched. Status codes: revision conflict 409 `INVENTORY_REVISION_CONFLICT`; unresolved earlier operation 409 `OPERATION_UNRESOLVED`; expired admission 410; intent mismatch 422. Clients branch on `code`.
+### 8. Money and responses
 
-### 10. Revision
+The target is an integer in minor units from 0 to 9,999,999,999 (99,999,999.99), written to the stored decimal without extra database rounding; percentage and rounding policy stay unchanged. Lexical forms such as `1e2` are not rejected; legacy number validation applies. Guarded responses use separate OpenAPI schemas so legacy generated unions stay untouched. Clients branch on `code`:
 
-An integer `revision` assigned by a single `BEFORE UPDATE` trigger (`OLD.revision + 1`, once per UPDATE) is a hypothesis, not a decision. No application increments. The item row lock proves neither universal revision advancement nor delete/recreate (ABA) safety.
+| Outcome | HTTP | `code` |
+|---|---|---|
+| APPLIED | 200 | none; guarded receipt with the new revision |
+| CONFLICT | 409 | `INVENTORY_REVISION_CONFLICT` |
+| Earlier operation unresolved | 409 | `OPERATION_UNRESOLVED` |
+| FENCED | 409 | `OPERATION_FENCED` |
+| Key reused with a different intent | 422 | `IDEMPOTENCY_KEY_REUSED` |
+| Key older than the admission window | 410 | `IDEMPOTENCY_KEY_EXPIRED` |
+| Key missing, not UUIDv7 or more than 5 min ahead; body not exactly the two fields | 400 | `GUARDED_REQUEST_INVALID` |
+
+### 9. Revision (decision rule)
+
+The revision mechanism depends on unverified evidence, so this ADR fixes the rule, not the outcome:
+
+- **Default:** an integer `revision` set by a single `BEFORE UPDATE` trigger (`OLD.revision + 1`, once per UPDATE), because it also covers writers the application cannot see. No application code increments it.
+- **Fallback:** application-side increments only if the trigger evidence fails (conflicting triggers, or Prisma returning a stale revision) **and** writer coverage shows every parts-table update goes through one service.
+- **Recreate:** if any writer deletes and recreates a part under the same id, the revision must continue from the old value; if neither holds, the guarded action is deferred.
+
+## Decisions
+
+| # | Decision | Rationale | Would change if |
+|---|---|---|---|
+| 1 | Journal with separate acceptance, fenced execution and system fence | The only option that meets all three fixed requirements synchronously, without a queue | The recovery requirement is withdrawn: plain guarded PATCH |
+| 2 | `Idempotency-Key` header with a UUIDv7; branch selected by `expectedRevision` | The body is fixed to two fields; the name follows the IETF Idempotency-Key draft | The CORS/proxy check shows the header is stripped: query parameter `operationKey` on the same route, same semantics |
+| 3 | Principal-only discovery and user fence | Binding and the one-unresolved rule are per principal; the system fence removes the need for an operator fence | A permission for operator recovery is added under ADR-0034 |
+| 4 | Lease 2 min; Tx-E lock 10 s and transaction 30 s; lock wait 5 s; system fence 24 h; admission 24 h past / 5 min future; retention 30 days | The lease exceeds the Tx-E bound four times, the system fence matches the admission window, retention far exceeds admission | Measured lock waits on the parts table exceed 10 s |
+| 5 | Codes in section 8 | 409 for state outcomes and 422 for key reuse follow the IETF draft; 410 only for an expired key | The `core-api` error convention (unverified) differs: same codes in that convention |
+| 6 | Storage rule: a new narrow `inventory_price_operations` table, unless the prerequisite review finds an existing pattern with independent commit, per-intent unique binding, same-lock fencing and authorized discovery, which is then reused | No such pattern is known (unverified); a separate table keeps writes off the hot parts table | The review finds such a pattern |
+| 7 | ACCEPTED rows with a deleted item or lost access: system fence after 24 h, then normal retention; never executed | A committed fence is proof, needs no operator role and frees the row for deletion | Such rows must stay ACCEPTED for manual review |
+| 8 | Realtime rule: the journal is never emitted; the price change is emitted after commit, explicitly from the guarded path if the extension emits before commit | Satisfies "realtime only after commit" whatever the extension does today (unverified) | — |
 
 ## Consequences
 
@@ -103,12 +153,12 @@ An integer `revision` assigned by a single `BEFORE UPDATE` trigger (`OLD.revisio
 
 - Binding, fencing and recovery survive rollback, crashes, reloads and device changes.
 - Mutation, audit and applied proof are atomic; fence and execution cannot both win.
-- No heuristic (price or revision comparison) decides an outcome.
+- No heuristic decides an outcome, and no row stays unresolved beyond 24 h.
 
 ### Negative
 
-- New storage, a retention job and an authorized discovery and fence API surface, all needing approval.
-- The same-principal per-item block can delay a second bulk action until recovery.
+- New storage, a retention-and-fence job and three small API routes.
+- A principal's second guarded operation on the same item waits until the first is final (normally immediate; at worst a user fence after 2 min or the system fence after 24 h).
 - Legacy writers remain unprotected; the guard is action-local.
 
 ### Neutral
@@ -117,47 +167,36 @@ An integer `revision` assigned by a single `BEFORE UPDATE` trigger (`OLD.revisio
 
 ## Alternatives Considered
 
-- **Reuse an existing pattern:** only if later shown equivalent (independent commit, per-intent unique binding, fencing under the same row lock, authorized discovery). Otherwise defer.
-- **Pending-operation field on the catalog row:** serializes with the item lock but adds writes to a hot table and fits per-principal binding poorly.
+- **Reuse an existing pattern:** only under decision 6.
+- **Pending-operation field on the parts row:** serializes with the item lock but adds writes to a hot table and fits per-principal binding poorly.
 - **Asynchronous queue and worker:** changes the synchronous UX and is larger.
 - **Advisory or browser locks:** not durable.
 - **Rejected:** keeping the binding only inside the business transaction (it disappears on rollback) and accepting the duplicate-percentage risk.
-- **Deferral:** acceptable if the prerequisites below cannot be met.
+- **Deferral:** applies if the section 9 rule leaves no usable revision mechanism.
 
 ## Implementation and Validation
 
 No implementation is authorized. Prerequisite evidence, none gathered yet:
 
-- Writer and bypass coverage for the catalog table, including raw and nested writes, `upsert`, jobs, imports, and delete/recreate ABA.
-- Trigger hypothesis: single trigger, coexistence with other triggers, Prisma return values after the trigger, realtime behavior after commit.
-- Database version, backfill, integer width and fail-closed overflow, rollout, lock levels and rollback compatibility.
-- A writer lock graph supporting the journal-then-item order, since lock ordering alone does not prove deadlock freedom.
-- Existing operation patterns (to confirm or exclude reuse).
-- CORS and proxy pass-through of the custom header; request-body parser scope.
-- The journal model is excluded from realtime emission, and emission for the price change happens only after commit (the realtime extension may otherwise emit before commit).
-- Equivalence evidence if reuse of an existing pattern is proposed.
+- Writer and bypass coverage for the parts table (raw and nested writes, `upsert`, jobs, imports, delete/recreate under the same id), feeding the section 9 rule.
+- Trigger evidence: single trigger, coexistence with other triggers, Prisma return values after the trigger, backfill, integer width and fail-closed overflow.
+- Database version, lock levels, rollout and rollback compatibility, and a writer lock graph for the journal-then-item order (lock ordering alone does not prove deadlock freedom).
+- Existing operation patterns and the `core-api` error convention (decisions 5 and 6).
+- CORS and proxy pass-through of the `Idempotency-Key` header (decision 2).
+- Realtime extension timing relative to commit (decision 8).
 
-Later tests (not yet written or run) must cover atomic success, different-key races, same-key serialization and changed-intent rejection including rollback, lost-response, in-flight, late-request, crash, terminal-conflict and expiry reconciliation, the frozen preview flow, and the existing selection, legacy, permission and mobile regressions. Full end-to-end runs stay in CI; performance benchmarks belong in nightly runs.
-
-## Accepted Decisions
-
-1. Adopt this journal (separate acceptance, fenced execution) as the mechanism.
-2. Header carriage and name of the key.
-3. Principal-only visibility of discovery and fence.
-4. Lease 2 min, Tx-E lock timeout 10 s and transaction timeout 30 s, recovery lock wait 5 s, admission 24 h, retention 30 days.
-5. Status codes and codes listed in section 9.
-6. New narrow journal storage versus a demonstrated equivalent existing pattern.
-7. Resolution of ACCEPTED rows whose item was deleted or whose principal lost access (recommendation: the still-authorized principal may fence by row, never executing; otherwise an operator reads them for audit).
+Later tests (not yet written or run) must cover atomic success, every race-matrix row, same-key rejection after a rollback, lost-response, crash, user and system fence, admission and retention boundaries, the UI states, the frozen preview flow, and the existing selection, legacy, permission and mobile regressions. Full end-to-end runs stay in CI; performance benchmarks belong in nightly runs.
 
 ## Pragmatic Enforcer Analysis
 
-Necessity **7/10**: an unrecoverable outcome after a lost response risks a duplicate price change on real parts. Complexity **6/10**: one table, a short acceptance step, a row-lock fence and a retention job; no queue and no change to legacy writers. Ratio **0.86**, below 1.5. The simpler guarded PATCH without a journal remains the fallback only if the approved recovery requirement is withdrawn.
+Necessity **7/10**: an unrecoverable outcome after a lost response risks a duplicate price change on real parts. Complexity **6/10**: one table, a short acceptance step, a row-lock fence, one job for fencing and retention, and three small routes; no queue and no change to legacy writers. Ratio **0.86**, below 1.5. The simpler guarded PATCH without a journal remains the fallback only if the approved recovery requirement is withdrawn.
 
 ## References
 
 - [ADR-0010: OpenAPI contract](2026-04-12-openapi-contract-first.md)
 - [ADR-0011: Atomic status transition guards](2026-04-12-atomic-status-transition-guards.md)
 - [ADR-0013: Tenant isolation](2026-04-15-row-level-multi-tenancy.md)
+- [ADR-0034: Custom tenant roles](2026-11-02-custom-tenant-roles.md)
 - [ADR-0035: Cursor-based infinite lists](2026-11-02-cursor-based-infinite-lists.md)
 - [ADR-0036: Frontend interaction rules](2026-11-02-frontend-interaction-rules.md)
 
