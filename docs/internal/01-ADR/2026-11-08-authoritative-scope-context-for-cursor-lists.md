@@ -231,6 +231,8 @@ Merges, reviews and scratch probes do not replace these. Sales Orders query plan
 
 ## Sales Orders Wave: Settled Scope (planning input)
 
+The full draft specification is [Sales Orders Cursor List](../02-Feature-Specs/Sales/sales-orders-cursor-list.md); it is not yet approved.
+
 **Preserved behavior:** cursor-only default `createdAt DESC, id DESC`; database text ordering for `order_number`; exact tenant, active-site and null-site visibility and existing permissions; Saved Views and live-URL compatibility; effective legacy `params` computed after the status override, with remaining filters forcing the unchanged offset fallback; raw wire search; exact 1,000 versus 1,001 capped count; an independent 2,000 loaded-row ceiling; no snapshot or no-gap guarantee on mutable data; the existing DRAFT-only Delete with its endpoint, permission, state restriction and confirmation.
 
 **New fixed requirements of the wave, not current behavior:** the card shows date plus vehicle, and the DRAFT Delete becomes a registry action reachable through Cmd+K with a visible mobile path. Today it is a right-click context action with a browser confirmation. Whether the existing card supports a second detail line is unverified.
