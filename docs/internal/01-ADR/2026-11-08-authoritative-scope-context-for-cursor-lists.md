@@ -104,18 +104,25 @@ Episode key = semantic user query + genuine user context switch
 
 READY -next page | count-> LOADING
 LOADING -ok-> READY
-LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED | CURSOR_INVALID (page or count)->
+LOADING -CONTEXT_MISMATCH | CONTEXT_REQUIRED (page or count) | CURSOR_INVALID (page)->
     singleflight; QUARANTINE + FLUSH + fence late results
-    budget 1 -> handshake if context -> restart page 1, budget 0
+    budget 1 -> (context errors only) handshake:
+        same tenant, site and principal -> restart page 1, budget 0
+        different tenant, site or principal -> central session reset, NEW episode,
+                                               no restart of the old query
+        (CURSOR_INVALID with valid context -> restart page 1, budget 0, no handshake)
     budget 0 -> BLOCKED (manual)
 handshake failure -> BLOCKED (manual)
 LOADING -401 | 403 | 422-> QUARANTINE + FLUSH + fence late results -> BLOCKED (never automatic)
 LOADING -UNSUPPORTED_SORT-> latch offset at offset 0, keep sort and filters
-LOADING -other or network error-> error state, manual retry; not a restart or resync
+LOADING -other or network error-> ERROR (not a restart or resync)
+ERROR -manual retry-> LOADING (same episode, budget unchanged)
 BLOCKED -manual retry | explicit user refresh | new semantic query | user context switch-> new episode
 ```
 
-- One total automatic action per episode is shared by page and count and by all failure types, so alternating errors cannot multiply attempts. A realtime event, focus or lifecycle refresh never starts a new episode.
+- One total automatic action per episode is shared by page and count and by all failure types, so alternating errors cannot multiply attempts. A realtime event, focus or lifecycle refresh never starts a new episode by itself. The one exception is a handshake that reveals a genuine context switch (different tenant, site or principal), which runs the central session reset and starts a new episode.
+- Lifecycle and recovery share one singleflight handshake per client context. If both are triggered at once, a tenant, site or principal change takes precedence over a restart or a block.
+- The asymmetry is intended: a failed request interrupts a load the user just started, so one budgeted automatic restart finishes that load. A lifecycle handshake runs while the user may be reading or mid-action, so an external scope change there blocks until an explicit user refresh (ADR-0035 §7) instead of replacing the list underneath them.
 - Quarantine, flush and late-result fencing remain mandatory when the budget is spent.
 - `LIST_CURSOR_STOCK_FILTER_REQUIRED` (vehicle stock) is not a recovery case. It keeps its existing handling and is outside this contract.
 - `CONTEXT_REQUIRED` reaching a web client that always sends the SC signals version skew. It follows the context-mismatch path once and then stops.
@@ -162,7 +169,7 @@ An unsafe opt-out is not an alternative.
 
 Nothing here has been run. Names are proposals, not existing files.
 
-**Six focused scenarios, each one test.** The first three and the last are Sales Orders wave scenarios; they sit here because they exercise the shared contract on the first consumer.
+**Six focused scenarios, each one test.** These are carried from the Sales Orders wave plan. Only `salesOrders_missed_event_epoch_replay`, `cursorScope_resync_rejects_late_results` and `cursorRecovery_shared_episode_budget` test the contract of this ADR. The timestamp, exact-count and explicit-refresh rows test keyset, count and ADR-0035 §7 behavior of the Sales Orders wave and belong to its specification; they are listed here only because the wave plan names them.
 
 | WHEN / THEN | Proposed test | Runner |
 |---|---|---|
