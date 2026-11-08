@@ -36,7 +36,7 @@ export default function VendorDetail() {
   const { id } = useParams<{ id: string }>()
   const { data: vendor, isLoading, error } = useVendor<VendorDetailResponse>(id ?? '')
   const { data: articles = [], isLoading: isLoadingArticles } = useVendorArticles(vendor?.id)
-  const { brandIds, saveField, changeBrands, isUpdating } = useVendorDetailActions(vendor)
+  const { brandIds, saveField, changeBrands, isUpdating, failures, retryField, dismissField } = useVendorDetailActions(vendor)
 
   if (isLoading) {
     return <DetailSkeleton label={t('vendors.detail.loading', { ns: 'finance' })} />
@@ -86,7 +86,13 @@ export default function VendorDetail() {
       />
 
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
-        <VendorContactCard vendor={vendor} onSaveField={saveField} />
+        <VendorContactCard
+          vendor={vendor}
+          onSaveField={saveField}
+          failures={failures}
+          onRetryField={retryField}
+          onDismissField={dismissField}
+        />
 
         <div className='lg:col-span-2'>
           <Tabs defaultValue='orders'>

@@ -88,6 +88,7 @@ export function useCreateStockTransfer() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...stockTransferKeys.all, "create"],
     mutationFn: async (payload: CreateStockTransferPayload) => {
       const response = await fetchWithAuth(STOCK_TRANSFER_API, {
         method: "POST",
@@ -106,6 +107,7 @@ export function useApproveStockTransfer(transferId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...stockTransferKeys.all, "approve"],
     mutationFn: async (payload: ApproveStockTransferPayload) => {
       const response = await fetchWithAuth(
         `${STOCK_TRANSFER_API}/${transferId}/approve`,
@@ -125,6 +127,7 @@ export function useRejectStockTransfer(transferId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...stockTransferKeys.all, "reject"],
     mutationFn: async (payload: RejectStockTransferPayload) => {
       const response = await fetchWithAuth(
         `${STOCK_TRANSFER_API}/${transferId}/reject`,
@@ -144,6 +147,7 @@ export function useCancelStockTransfer(transferId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...stockTransferKeys.all, "cancel"],
     mutationFn: async (payload: CancelStockTransferPayload) => {
       const response = await fetchWithAuth(
         `${STOCK_TRANSFER_API}/${transferId}/cancel`,
@@ -163,6 +167,7 @@ export function useShipStockTransfer(transferId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...stockTransferKeys.all, "ship"],
     mutationFn: async (payload: ShipStockTransferPayload) => {
       const response = await fetchWithAuth(
         `${STOCK_TRANSFER_API}/${transferId}/ship`,
@@ -182,6 +187,7 @@ export function useReceiveStockTransfer(transferId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...stockTransferKeys.all, "receive"],
     mutationFn: async (payload: ReceiveStockTransferPayload) => {
       const response = await fetchWithAuth(
         `${STOCK_TRANSFER_API}/${transferId}/receive`,
@@ -201,6 +207,7 @@ export function useReturnStockTransfer(transferId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...stockTransferKeys.all, "return"],
     mutationFn: async (payload: ReturnStockTransferPayload) => {
       const response = await fetchWithAuth(
         `${STOCK_TRANSFER_API}/${transferId}/return`,

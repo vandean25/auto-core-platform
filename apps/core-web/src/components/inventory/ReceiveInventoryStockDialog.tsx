@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useReceiveInventoryStock } from '@/api/inventory'
 import { useLocations } from '@/api/locations'
-import { Button } from '@/components/ui/button'
+import { SubmitButtonPending } from '@/components/data-table/data-table-states'
 import {
   Dialog,
   DialogContent,
@@ -83,7 +83,7 @@ export function ReceiveInventoryStockDialog({
             <div className="grid gap-2">
               <Label>{t('dialogs.receiveStock.storageBin')}</Label>
               <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger>
+                <SelectTrigger className="max-sm:min-h-11">
                   <SelectValue placeholder={t('dialogs.receiveStock.selectBin')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -108,9 +108,12 @@ export function ReceiveInventoryStockDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={receiveMutation.isPending}>
-              {t('dialogs.receiveStock.submit')}
-            </Button>
+            <SubmitButtonPending
+              type="submit"
+              pending={receiveMutation.isPending}
+              label={t('dialogs.receiveStock.submit')}
+              className="max-sm:min-h-11"
+            />
           </DialogFooter>
         </form>
       </DialogContent>

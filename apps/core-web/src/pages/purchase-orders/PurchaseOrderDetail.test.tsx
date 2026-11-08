@@ -835,10 +835,12 @@ describe('PurchaseOrderDetail behavior', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
-    it('shows the processing label while receiving', () => {
+    it('keeps the receipt label and marks the button pending while receiving', () => {
       asMock(purchaseOrderApi.useReceiveGoods).mockReturnValue({ mutate: receiveMutate, isPending: true })
       const dialog = openDialog()
-      expect(dialog.getByRole('button', { name: deFinance.shared.processing })).toBeDisabled()
+      const confirm = dialog.getByRole('button', { name: deFinance.actions.confirmReceipt })
+      expect(confirm).toBeDisabled()
+      expect(confirm).toHaveAttribute('aria-busy', 'true')
     })
   })
 })

@@ -10,7 +10,8 @@ import {
   type MutationWrapperRegistry,
 } from './mutation-classification'
 import { productionSources } from './production-sources'
-import * as eligibility from '../customer-vehicle-update-eligibility'
+import * as customerEligibility from '../customer-vehicle-update-eligibility'
+import * as partsEligibility from '../parts-purchasing-update-eligibility'
 import extendedInventoryDocument from '../mutation-inventory.json'
 import type { MutationInventoryExtensionDocument } from '../mutation-inventory.types'
 import mutationKeyBaseline from '../mutation-key.baseline.json'
@@ -270,7 +271,7 @@ export function useArchiveOrder() {
     })
 
     it('names an exported eligibility predicate for every conditional extended entry', () => {
-      const exported = eligibility as Record<string, unknown>
+      const exported = { ...customerEligibility, ...partsEligibility } as Record<string, unknown>
       for (const entry of extendedInventory.entries) {
         if (entry.classification === 'conditional') {
           expect(typeof exported[entry.eligibilityPredicate ?? ''], entry.owningHook).toBe('function')

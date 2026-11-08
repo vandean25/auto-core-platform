@@ -15,14 +15,20 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { InventoryBulkActions } from '@/components/inventory/InventoryBulkActions'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { StatusBadge } from '@/components/status/StatusBadge'
 import { canOpenBackOfficeDetail } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/sources'
-import { formatCurrency } from '@/lib/format'
 import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import {
+    InventoryDescriptionCell,
+    InventoryLocationCell,
+    InventoryPartCell,
+    InventoryPriceCell,
+    InventoryStatusCell,
+} from './inventory-list-cells'
+import { useInventoryPendingCreate } from './useInventoryPendingCreate'
 
 export default function InventoryList() {
     const { t } = useTranslation('inventory')
@@ -37,10 +43,11 @@ export default function InventoryList() {
     const searchFromNameFilter = queryParams.filters.find((f) => f.field === 'name')?.value
     const locationFilter = queryParams.filters.find((f) => f.field === 'location')?.value
 
-    const { rows: data, tableProps } = useInventoryListState(queryParams, {
+    const list = useInventoryListState(queryParams, {
         search: queryParams.search ?? searchFromNameFilter,
         location: locationFilter,
     })
+    const pending = useInventoryPendingCreate(list.rows, list.dataUpdatedAt)
     const { data: locations } = useLocations()
 
     const warehouseLocations = React.useMemo(
@@ -66,46 +73,32 @@ export default function InventoryList() {
             enableSorting: false,
             meta: { label: t('partsList.columns.status'), mobile: 'status' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.status')} />,
-            cell: ({ row }) => <StatusBadge status={row.original.status} />,
+            cell: ({ row }) => <InventoryStatusCell item={row.original} />,
         },
         {
             accessorKey: 'sku',
             meta: { label: t('partsList.columns.part'), mobile: 'title' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.part')} />,
-            cell: ({ row }) => (
-                <div className="flex flex-col">
-                    <span className="font-bold text-foreground">{row.original.sku}</span>
-                    <span className="text-sm text-muted-foreground">{row.original.brand}</span>
-                </div>
-            ),
+            cell: ({ row }) => <InventoryPartCell item={row.original} />,
         },
         {
             accessorKey: 'name',
             meta: { label: t('partsList.columns.description'), mobile: 'subtitle' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.description')} />,
-            cell: ({ row }) => <span className="text-foreground">{row.original.name}</span>,
+            cell: ({ row }) => <InventoryDescriptionCell item={row.original} onDismiss={pending.dismiss} />,
         },
         {
             accessorKey: 'warehouse_location',
             enableSorting: false,
             meta: { label: t('partsList.columns.storageLocation') },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.storageLocation')} />,
-            cell: ({ row }) => (
-                <span className="text-muted-foreground">{row.original.warehouse_location ?? t('partsList.notAvailable')}</span>
-            ),
+            cell: ({ row }) => <InventoryLocationCell item={row.original} />,
         },
         {
             accessorKey: 'price',
             meta: { label: t('partsList.columns.price'), mobile: 'trailing', numeric: true },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.price')} />,
-            cell: ({ row }) => {
-                const amount = Number(row.getValue('price'))
-                return (
-                    <div className="font-medium">
-                        {formatCurrency(amount)}
-                    </div>
-                )
-            },
+            cell: ({ row }) => <InventoryPriceCell item={row.original} />,
         },
     ]
 
@@ -116,7 +109,7 @@ export default function InventoryList() {
                     <h1 className="text-2xl font-semibold tracking-tight">{t('partsList.title')}</h1>
                     <p className="text-muted-foreground">{t('partsList.description')}</p>
                 </div>
-                <AddItemDialog />
+                <AddItemDialog onCreate={pending.submit} />
             </div>
 
             <div className="mb-4 flex items-center gap-2">
@@ -137,10 +130,10 @@ export default function InventoryList() {
 
             <DataTable
                 columns={columns}
-                data={data}
+                data={pending.rows}
                 saveViewTitle={t('partsList.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_INVENTORY}
-                {...tableProps}
+                {...list.tableProps}
                 searchColumn="name"
                 searchPlaceholder={t('partsList.searchPlaceholder')}
                 columnFilters={columnFilters}

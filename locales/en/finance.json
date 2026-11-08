@@ -380,6 +380,12 @@
       "accountNumberPlaceholder": "Account number",
       "addAccountNumber": "Add account number",
       "accountNumberAria": "Vendor account number",
+      "fieldSaveFailed": "{{record}}: {{field}} was not saved, previous value restored.",
+      "fieldLabels": {
+        "name": "Name",
+        "email": "Email",
+        "account_number": "Account number"
+      },
       "tabs": {
         "activeOrders": "Active orders",
         "invoiceHistory": "Invoice history",

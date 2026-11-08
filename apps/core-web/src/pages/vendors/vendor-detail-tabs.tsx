@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Mail, Tags } from 'lucide-react'
 import { BrandMultiSelect } from '@/components/BrandMultiSelect'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
+import { FieldSaveFailures } from '@/features/interaction/use-optimistic-field-save'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -68,12 +69,20 @@ function EmptyRow({ colSpan, children }: { colSpan: number; children: string }) 
   )
 }
 
+type VendorField = 'name' | 'email' | 'account_number'
+
 export function VendorContactCard({
   vendor,
   onSaveField,
+  failures,
+  onRetryField,
+  onDismissField,
 }: {
   vendor: Vendor
-  onSaveField: (field: 'name' | 'email' | 'account_number', value: string) => Promise<void>
+  onSaveField: (field: VendorField, value: string) => Promise<void> | void
+  failures: Array<{ field: VendorField; value: string }>
+  onRetryField: (failure: { field: VendorField; value: string }) => void
+  onDismissField: (field: VendorField) => void
 }) {
   const { t } = useTranslation(['finance', 'common'])
 
@@ -83,6 +92,18 @@ export function VendorContactCard({
         <CardTitle className='text-base font-semibold'>{t('vendors.detail.contactInformation', { ns: 'finance' })}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-4'>
+        <FieldSaveFailures
+          failures={failures}
+          message={(field) =>
+            t('vendors.detail.fieldSaveFailed', {
+              ns: 'finance',
+              record: vendor.name,
+              field: t(`vendors.detail.fieldLabels.${field}`, { ns: 'finance' }),
+            })
+          }
+          onRetry={onRetryField}
+          onDismiss={onDismissField}
+        />
         <div>
           <div className='text-xs text-muted-foreground mb-1'>{t('vendors.detail.vendorName', { ns: 'finance' })}</div>
           <InlineEdit

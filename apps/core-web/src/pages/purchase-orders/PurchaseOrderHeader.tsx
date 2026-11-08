@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Receipt } from "lucide-react";
+import { Loader2, Receipt } from "lucide-react";
 import type { PurchaseOrder } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status/StatusBadge";
@@ -39,9 +39,11 @@ export function PurchaseOrderHeader({
           <Button
             variant="default"
             className="max-sm:min-h-11"
+            aria-busy={isMarkingSent}
             onClick={onMarkAsSent}
             disabled={isMarkingSent}
           >
+            {isMarkingSent ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
             {t("actions.markAsSent")}
           </Button>
         )}

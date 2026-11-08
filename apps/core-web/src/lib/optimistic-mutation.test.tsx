@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { boardKeys, useBoardActive, workshopKeys } from '@/api/workshop'
 import type { AssignBoardPayload, BoardActiveResponse } from '@/api/workshop'
 import { fetchWithAuth } from '@/api/client'
+import { useUpdateVendor, vendorKeys } from '@/api/vendors'
 import { mechanicQueueKeys } from '@/api/mechanic'
 import { InfiniteListRefreshNotice } from '@/components/list/InfiniteListRefreshNotice'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
@@ -1256,5 +1257,44 @@ describe('AUT-883 prefixCaches (every cached list page of a domain)', () => {
 
     expect(queryClient.getQueryData<Page>(pageA)?.rows[0]?.label).toBe('old')
     expect(queryClient.getQueryData<Page>(pageB)?.rows.map((row) => row.label)).toEqual(['old', 'two'])
+  })
+})
+
+describe('AUT-884 parts, stock and purchasing', () => {
+  beforeEach(() => {
+    requests = []
+    answered = new Set()
+    vi.mocked(fetchWithAuth).mockImplementation(
+      (input, init) =>
+        new Promise<Response>((resolve) => {
+          requests.push({
+            url: String(input),
+            method: init?.method ?? 'GET',
+            body: init?.body ? JSON.parse(String(init.body)) : undefined,
+            respond: (status, body = {}) =>
+              resolve({ ok: status < 400, status, json: async () => body } as Response),
+          })
+        }),
+    )
+  })
+
+  // Scenario 1: an eligible vendor name edit updates list and detail before the server responds.
+  it('shows the new vendor name in the list and the detail before the server responds', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const edited = { id: 'rec-1', name: 'Alt', email: 'a@example.test', account_number: '1', supportedBrands: [] }
+    const other = { id: 'rec-2', name: 'Andere', email: 'b@example.test', account_number: '2', supportedBrands: [] }
+    client.setQueryData(vendorKeys.detail('rec-1'), edited)
+    client.setQueryData(vendorKeys.list(), { data: [{ ...edited }, { ...other }], meta: { total: 2, page: 1, pageSize: 10, pageCount: 1 } })
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    const { result } = renderHook(() => useUpdateVendor(), { wrapper })
+
+    act(() => void result.current.mutateAsync({ id: 'rec-1', data: { name: 'Neu' } }).catch(() => undefined))
+    await settle()
+
+    expect(requests.filter((request) => request.url === '/api/vendors/rec-1' && request.method === 'PUT')).toHaveLength(1)
+    expect(client.getQueryData<{ name: string }>(vendorKeys.detail('rec-1'))?.name).toBe('Neu')
+    const rows = client.getQueryData<{ data: Array<{ id: string; name: string }> }>(vendorKeys.list())?.data
+    expect(rows?.[0]?.name).toBe('Neu')
+    expect(rows?.[1]?.name).toBe('Andere')
   })
 })
