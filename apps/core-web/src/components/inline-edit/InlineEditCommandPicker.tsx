@@ -197,8 +197,8 @@ function BadgePickerTrigger({
       testId={testId}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center rounded-md border-0 bg-transparent p-0',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'inline-flex items-start rounded-md border-0 bg-transparent p-0',
+        'min-h-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         'disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11',
         className,
       )}
