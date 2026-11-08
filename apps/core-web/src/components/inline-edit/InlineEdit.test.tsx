@@ -124,6 +124,36 @@ describe('InlineEdit command picker', () => {
     expect(screen.queryByRole('option', { name: 'Mechaniker 0' })).not.toBeInTheDocument()
   })
 
+  it('WHEN the search text is only in an id THEN that option stays hidden', () => {
+    render(
+      <InlineEditCommandPicker
+        value={null}
+        options={[
+          { value: 'a1e5c0de-1111-4000-8000-000000000001', label: 'Anna Berger' },
+          { value: 'unassigned', label: 'Nicht zugewiesen' },
+          { value: 'IN_PROGRESS', label: 'In Bearbeitung' },
+        ]}
+        onSave={vi.fn()}
+        ariaLabel="Zugewiesener Mechaniker"
+        emptyText="Nicht zugewiesen"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zugewiesener Mechaniker' }))
+    const search = screen.getByPlaceholderText('Suchen')
+    fireEvent.change(search, { target: { value: 'a1e5' } })
+    expect(screen.queryByRole('option', { name: 'Anna Berger' })).not.toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: 'un' } })
+    expect(screen.queryByRole('option', { name: 'Nicht zugewiesen' })).not.toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: 'prog' } })
+    expect(screen.queryByRole('option', { name: 'In Bearbeitung' })).not.toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: 'anna' } })
+    expect(screen.getByRole('option', { name: 'Anna Berger' })).toBeInTheDocument()
+  })
+
   it('WHEN the user picks a status with Enter THEN the value is saved and the picker closes', () => {
     const onSave = vi.fn((): Promise<void> => new Promise(() => undefined))
     render(

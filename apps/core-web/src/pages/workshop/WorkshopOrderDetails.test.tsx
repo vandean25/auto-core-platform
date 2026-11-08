@@ -23,6 +23,8 @@ import { getCatalogSourceBannerCopy } from "@/features/workshop/catalog-source-c
 import { toast } from "sonner";
 import { formattedCurrencyPattern } from "@/test/format-assertions";
 import { deWorkshop } from "@/test/de-workshop";
+import { DEFAULT_TIME_ZONE } from "@/lib/i18n/constants";
+import { workshopScheduleDateOptions } from "./workshop-schedule-date";
 import errorsDe from "../../../../../locales/de/errors.json" with { type: "json" };
 import { fetchWithAuth } from "@/api/client";
 
@@ -755,8 +757,14 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
+      const bookedDate = "2026-08-21";
+      const nextDate = workshopScheduleDateOptions(new Date(), DEFAULT_TIME_ZONE, bookedDate).find(
+        (option) => option.value !== bookedDate,
+      )?.value;
+      expect(nextDate).toBeDefined();
+
       fireEvent.click(screen.getByTestId("order-date-picker"));
-      fireEvent.click(document.querySelector('[data-value="2026-11-09"]') as HTMLElement);
+      fireEvent.click(document.querySelector(`[data-value="${nextDate}"]`) as HTMLElement);
 
       await waitFor(() => {
         expect(mutateAsync).toHaveBeenCalledWith(

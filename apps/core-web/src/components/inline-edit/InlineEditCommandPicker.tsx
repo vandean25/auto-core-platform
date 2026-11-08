@@ -35,9 +35,10 @@ type InlineEditCommandPickerProps = {
   testId?: string
 }
 
-function matchesSearch(itemValue: string, search: string, keywords: string[] = []) {
-  const haystack = [itemValue, ...keywords].join(' ').toLowerCase()
-  return haystack.includes(search.trim().toLowerCase()) ? 1 : 0
+function matchesSearch(_itemValue: string, search: string, keywords: string[] = []) {
+  const needle = search.trim().toLowerCase()
+  if (!needle) return 1
+  return keywords.some((keyword) => keyword.toLowerCase().includes(needle)) ? 1 : 0
 }
 
 function PickerOptions({
