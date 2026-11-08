@@ -108,6 +108,7 @@ export function useCreateInvoiceFromOrder() {
     const queryClient = useQueryClient()
     
     return useMutation({
+        mutationKey: [...invoiceKeys.all, 'create-from-order'],
         mutationFn: async (id: string) => {
             const response = await fetchWithAuth(`/api/sales-orders/${id}/create-invoice`, {
                 method: 'POST',

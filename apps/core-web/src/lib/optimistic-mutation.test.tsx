@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { boardKeys, useBoardActive, workshopKeys } from '@/api/workshop'
 import type { AssignBoardPayload, BoardActiveResponse } from '@/api/workshop'
 import { fetchWithAuth } from '@/api/client'
+import { invoiceKeys, useUpdateInvoice } from '@/api/sales'
 import { useUpdateVendor, vendorKeys } from '@/api/vendors'
 import { mechanicQueueKeys } from '@/api/mechanic'
 import { InfiniteListRefreshNotice } from '@/components/list/InfiniteListRefreshNotice'
@@ -1296,5 +1297,66 @@ describe('AUT-884 parts, stock and purchasing', () => {
     const rows = client.getQueryData<{ data: Array<{ id: string; name: string }> }>(vendorKeys.list())?.data
     expect(rows?.[0]?.name).toBe('Neu')
     expect(rows?.[1]?.name).toBe('Andere')
+  })
+})
+
+describe('AUT-896 invoice note', () => {
+  const invoice = {
+    id: 'inv-1',
+    status: 'DRAFT',
+    internal_notes: 'Alt',
+    notes: 'Öffentlich',
+    total_gross: '12.00',
+  }
+  const payload = {
+    customerId: 'cust-1',
+    items: [{ description: 'Pads', quantity: 1, unitPrice: 10, taxRate: 20 }],
+    internalNotes: 'Neu',
+  }
+
+  beforeEach(() => {
+    requests = []
+    answered = new Set()
+    vi.mocked(fetchWithAuth).mockImplementation(
+      (input, init) =>
+        new Promise<Response>((resolve) => {
+          requests.push({
+            url: String(input),
+            method: init?.method ?? 'GET',
+            body: init?.body ? JSON.parse(String(init.body)) : undefined,
+            respond: (status, body = {}) =>
+              resolve({ ok: status < 400, status, json: async () => body } as Response),
+          })
+        }),
+    )
+  })
+
+  function renderUpdate() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    client.setQueryData(invoiceKeys.detail('inv-1'), invoice)
+    client.setQueryData(invoiceKeys.all, [{ ...invoice, total_gross: '12.00' }])
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    const view = renderHook(() => useUpdateInvoice(), { wrapper })
+    return { client, result: view.result }
+  }
+
+  it('shows the new internal note before the server responds and leaves the price untouched', async () => {
+    const { client, result } = renderUpdate()
+    act(() => void result.current.mutateAsync({ id: 'inv-1', payload, changedFields: ['internalNotes'] }).catch(() => undefined))
+    await settle()
+
+    expect(client.getQueryData<typeof invoice>(invoiceKeys.detail('inv-1'))?.internal_notes).toBe('Neu')
+    expect(client.getQueryData<typeof invoice>(invoiceKeys.detail('inv-1'))?.total_gross).toBe('12.00')
+    expect(client.getQueryData<Array<{ total_gross: string }>>(invoiceKeys.all)?.[0]?.total_gross).toBe('12.00')
+    expect(requests.filter((request) => request.method === 'PATCH')).toHaveLength(1)
+  })
+
+  it('does not patch the cache when the save includes prices', async () => {
+    const { client, result } = renderUpdate()
+    act(() => void result.current.mutateAsync({ id: 'inv-1', payload }).catch(() => undefined))
+    await settle()
+
+    expect(client.getQueryData<typeof invoice>(invoiceKeys.detail('inv-1'))?.internal_notes).toBe('Alt')
+    expect(client.getQueryData<typeof invoice>(invoiceKeys.detail('inv-1'))?.total_gross).toBe('12.00')
   })
 })

@@ -78,7 +78,7 @@ export function PurchaseBillPageHeader({ form }: { form: PurchaseBillFormModel }
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="default" className="bg-info hover:bg-info/90" disabled={isPending}>
+                  <Button variant="default" className="bg-info hover:bg-info/90 max-md:min-h-11" disabled={isPending} aria-busy={isPosting}>
                     {isPosting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                     {t('actions.postBill')}
                   </Button>
@@ -92,7 +92,7 @@ export function PurchaseBillPageHeader({ form }: { form: PurchaseBillFormModel }
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => void form.handlePost()} disabled={isPosting}>
+                    <AlertDialogAction onClick={() => void form.handlePost()} disabled={isPosting} aria-busy={isPosting}>
                       {isPosting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                       {t('actions.postBill')}
                     </AlertDialogAction>
@@ -105,7 +105,7 @@ export function PurchaseBillPageHeader({ form }: { form: PurchaseBillFormModel }
               <Button variant="outline" onClick={onCancel} disabled={isCreating}>
                 {t('actions.cancel')}
               </Button>
-              <Button variant="secondary" onClick={() => void form.handleCreateDraft()} disabled={isCreating}>
+              <Button variant="secondary" className="max-md:min-h-11" onClick={() => void form.handleCreateDraft()} disabled={isCreating} aria-busy={isCreating}>
                 {isCreating ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

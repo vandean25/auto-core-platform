@@ -133,6 +133,7 @@ export function useRecordSettlement(invoiceId: string) {
   )
 
   return useMutation({
+    mutationKey: [...invoiceKeys.all, 'settlement', 'record'],
     mutationFn: async (input: {
       method: 'CASH' | 'CARD'
       externalReceiptNumber?: string
@@ -166,6 +167,7 @@ export function useRecordSettlement(invoiceId: string) {
 export function useReconcileSettlement(invoiceId: string, idempotencyKey: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...invoiceKeys.all, 'settlement', 'reconcile'],
     mutationFn: async () => {
       if (!idempotencyKey) {
         throw new SettlementMutationError('settlement.errors.missingIdempotencyKey')
@@ -194,6 +196,7 @@ export function useCancelFiscalReceipt(invoiceId: string) {
   const cancelKeyRef = useRef(generateId())
 
   return useMutation({
+    mutationKey: [...invoiceKeys.all, 'settlement', 'cancel-fiscal'],
     mutationFn: async (fiscalReceiptId: string) => {
       const response = await fetchWithAuth(`/api/fiscal-receipts/${fiscalReceiptId}/cancellation`, {
         method: 'POST',

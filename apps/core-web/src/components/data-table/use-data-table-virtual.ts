@@ -6,6 +6,43 @@ import type { DataTableInfiniteView } from './use-data-table-infinite'
 
 const OVERSCAN_ROWS = 8
 
+type ScrollElement = Element | Window
+
+function readScrollOffset(element: ScrollElement, horizontal: boolean, isRtl: boolean) {
+  if ('scrollY' in element) return horizontal ? element.scrollX : element.scrollY
+  return horizontal ? element.scrollLeft * (isRtl ? -1 : 1) : element.scrollTop
+}
+
+/**
+ * Same scroll tracking as TanStack Virtual, except unmount clears the "scrolling ended" timer.
+ * The library leaves that 150ms timeout running, and its React update throws `window is not defined`
+ * once the test environment has torn the page down.
+ */
+export function observeScrollOffset<TScroll extends ScrollElement>(
+  instance: Virtualizer<TScroll, Element>,
+  onOffset: (offset: number, isScrolling: boolean) => void,
+) {
+  const element = instance.scrollElement
+  const targetWindow = instance.targetWindow
+  if (!element || !targetWindow) return
+
+  let offset = 0
+  let timeoutId: number | undefined
+  const report = (isScrolling: boolean) => {
+    offset = readScrollOffset(element, instance.options.horizontal, instance.options.isRtl)
+    if (timeoutId !== undefined) targetWindow.clearTimeout(timeoutId)
+    timeoutId = targetWindow.setTimeout(() => onOffset(offset, false), instance.options.isScrollingResetDelay)
+    onOffset(offset, isScrolling)
+  }
+  const onScroll = () => report(true)
+  report(false)
+  element.addEventListener('scroll', onScroll, { passive: true })
+  return () => {
+    element.removeEventListener('scroll', onScroll)
+    if (timeoutId !== undefined) targetWindow.clearTimeout(timeoutId)
+  }
+}
+
 /**
  * Options shared by the table and the card list virtualizer. `pinnedIndex` (the roving-focus row) stays mounted,
  * so keyboard focus and the one tab stop never disappear with the render window. Disabled for offset tables.

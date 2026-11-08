@@ -25,7 +25,8 @@ export interface UpdateInvoiceDiscountPayload {
 
 export function useCreateDraftInvoice() {
   const queryClient = useQueryClient()
-  return useMutation({
+    return useMutation({
+    mutationKey: [...invoiceKeys.all, 'create-draft'],
     mutationFn: async (orderId: string) => {
       const response = await fetchWithAuth(`${INVOICES_API}/drafts`, {
         method: 'POST',
@@ -51,6 +52,7 @@ export function useCreateDraftInvoice() {
 export function useUpdateInvoiceDiscount() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...invoiceKeys.all, 'update-discount'],
     mutationFn: async ({
       invoiceId,
       payload,
@@ -83,6 +85,7 @@ export function useUpdateInvoiceDiscount() {
 export function useIssueInvoice() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: [...invoiceKeys.all, 'issue'],
     mutationFn: async (invoiceId: string) => {
       const response = await fetchWithAuth(
         `${INVOICES_API}/${invoiceId}/issue`,
@@ -113,6 +116,7 @@ export function useIssueInvoice() {
 
 export function useGenerateInvoicePdf() {
   return useMutation({
+    mutationKey: [...invoiceKeys.all, 'pdf'],
     mutationFn: async (invoiceId: string) => {
       const response = await fetchWithAuth(
         `${INVOICES_API}/${invoiceId}/pdf`,

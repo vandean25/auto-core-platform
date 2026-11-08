@@ -48,17 +48,16 @@ export function InvoiceFinalizeDialog({
           <Button
             type="button"
             variant="destructive"
+            className="max-sm:min-h-11"
             disabled={isFinalizing}
+            aria-busy={isFinalizing}
             onClick={onConfirm}
           >
+            {isFinalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {t('sales:invoiceEditor.finalizeDialog.confirm')}
             {isFinalizing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t('sales:invoiceEditor.finalizeDialog.finalizing')}
-              </>
-            ) : (
-              t('sales:invoiceEditor.finalizeDialog.confirm')
-            )}
+              <span className="sr-only">{t('sales:invoiceEditor.finalizeDialog.finalizing')}</span>
+            ) : null}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

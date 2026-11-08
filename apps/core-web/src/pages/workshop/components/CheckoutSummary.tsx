@@ -104,8 +104,10 @@ export function CheckoutSummary({
                 className='max-md:min-h-11'
                 onClick={onCreateDraftInvoice}
                 disabled={!canCreateDraftInCheckout || createDraftPending}
+                aria-busy={createDraftPending}
               >
-                {createDraftPending ? t('checkoutSummary.creatingDraft') : t('checkoutSummary.createDraft')}
+                {t('checkoutSummary.createDraft')}
+                {createDraftPending ? <span className='sr-only'>{t('checkoutSummary.creatingDraft')}</span> : null}
               </Button>
             )}
             {activeInvoiceId && fetchedInvoice?.status === 'DRAFT' && (
@@ -114,8 +116,10 @@ export function CheckoutSummary({
                 className='max-md:min-h-11'
                 onClick={onIssueInvoice}
                 disabled={!canIssueInvoiceInCheckout || issuePending}
+                aria-busy={issuePending}
               >
-                {issuePending ? t('checkoutSummary.issuing') : t('checkoutSummary.issue')}
+                {t('checkoutSummary.issue')}
+                {issuePending ? <span className='sr-only'>{t('checkoutSummary.issuing')}</span> : null}
               </Button>
             )}
             {activeInvoiceId && isInvoiceLoading && (

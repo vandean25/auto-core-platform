@@ -3,6 +3,9 @@ import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 import { throwIfSalesResponseNotOk } from './sales-api-errors'
+import { isInvoiceUpdateOptimisticEligible } from '@/features/interaction/invoice-update-eligibility'
+import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
+import { patchRecordInCache, restoreRecordFields } from '@/lib/optimistic-record-patch'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 /** Invoice list search and sort that the cursor endpoint takes (ADR-0035). */
@@ -49,18 +52,43 @@ export interface CreateInvoicePayload {
     internalNotes?: string
 }
 
+type UpdateInvoiceVariables = {
+    id: string
+    payload: CreateInvoicePayload
+    signal?: AbortSignal
+    /** Set only for a note edit. Prices and lines omit it and stay server-confirmed. */
+    changedFields?: readonly string[]
+}
+
+function invoiceNotePatch(payload: CreateInvoicePayload) {
+    return {
+        ...(payload.notes !== undefined ? { notes: payload.notes } : {}),
+        ...(payload.internalNotes !== undefined ? { internal_notes: payload.internalNotes } : {}),
+    }
+}
+
+function invoiceNoteFields(payload: CreateInvoicePayload) {
+    return [
+        payload.notes !== undefined ? 'notes' : '',
+        payload.internalNotes !== undefined ? 'internal_notes' : '',
+    ].filter((field) => field.length > 0)
+}
+
+const updateInvoiceOptimistic = optimisticMutationOptions<unknown, UpdateInvoiceVariables>({
+    queryKey: ({ id }) => invoiceKeys.detail(id),
+    mutationKey: [...invoiceKeys.all, 'update'],
+    entityId: ({ id }) => id,
+    shouldOptimistic: isInvoiceUpdateOptimisticEligible,
+    apply: (cache, { id, payload }) => patchRecordInCache(cache, id, invoiceNotePatch(payload)),
+    revert: (cache, { id, payload }, snapshot) =>
+        restoreRecordFields(cache, id, invoiceNoteFields(payload), snapshot),
+})
+
 export function useUpdateInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({
-            id,
-            payload,
-            signal,
-        }: {
-            id: string
-            payload: CreateInvoicePayload
-            signal?: AbortSignal
-        }) => {
+        ...updateInvoiceOptimistic,
+        mutationFn: async ({ id, payload, signal }: UpdateInvoiceVariables) => {
             const response = await fetchWithAuth(`/api/sales/invoices/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -70,9 +98,11 @@ export function useUpdateInvoice() {
             await throwIfSalesResponseNotOk(response, 'Failed to update invoice')
             return response.json() as Promise<Invoice>
         },
-        onSuccess: (data) => {
+        onSuccess: (data, variables) => {
             queryClient.setQueryData(invoiceKeys.detail(data.id), data)
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
+            if (!isInvoiceUpdateOptimisticEligible(variables)) {
+                queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
+            }
         },
     })
 }
@@ -80,6 +110,7 @@ export function useUpdateInvoice() {
 export function useFinalizeInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
+        mutationKey: [...invoiceKeys.all, 'finalize'],
         mutationFn: async (invoiceId: string) => {
             const response = await fetchWithAuth(`/api/sales/invoices/${invoiceId}/finalize`, {
                 method: 'PUT',

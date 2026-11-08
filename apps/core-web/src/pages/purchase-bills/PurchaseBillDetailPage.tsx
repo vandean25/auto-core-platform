@@ -71,11 +71,12 @@ export default function PurchaseBillDetailPage() {
                 </Button>
 
                 {invoice.status === 'POSTED' && (
-                    <Button 
-                        variant="default" 
-                        className="bg-success hover:bg-success/90"
+                    <Button
+                        variant="default"
+                        className="bg-success hover:bg-success/90 max-md:min-h-11"
                         onClick={handleMarkAsPaid}
                         disabled={payMutation.isPending}
+                        aria-busy={payMutation.isPending}
                     >
                         {payMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                         {t('actions.markAsPaid')}

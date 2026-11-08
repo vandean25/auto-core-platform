@@ -36,9 +36,11 @@ import { useSalesLocaleReady, useSalesOrderActions } from './useSalesOrderAction
 export function SalesOrderHeaderActions({
   status,
   onCreateInvoice,
+  pending = false,
 }: {
   status: SalesOrder['status']
   onCreateInvoice: () => void
+  pending?: boolean
 }) {
   const { t } = useTranslation('sales')
 
@@ -53,7 +55,7 @@ export function SalesOrderHeaderActions({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="lg" className="gap-2 max-sm:min-h-11">
+        <Button size="lg" className="gap-2 max-sm:min-h-11" disabled={pending} aria-busy={pending}>
           <FileText className="h-4 w-4" /> {t('orders.detail.createInvoice')}
         </Button>
       </AlertDialogTrigger>
@@ -68,7 +70,9 @@ export function SalesOrderHeaderActions({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t('shared.cancel')}</AlertDialogCancel>
-          <AlertDialogAction onClick={onCreateInvoice}>{t('orders.detail.createInvoice')}</AlertDialogAction>
+          <AlertDialogAction onClick={onCreateInvoice} disabled={pending}>
+            {t('orders.detail.createInvoice')}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -85,7 +89,7 @@ export default function SalesOrderDetail() {
     listPath: APP_ROUTE_PATHS.salesOrders,
     currentLabel: order?.order_number ?? t('orders.detail.breadcrumbFallback'),
   })
-  const { createInvoice, saveNotes } = useSalesOrderActions(id!)
+  const { createInvoice, saveNotes, handingOffInvoice } = useSalesOrderActions(id!)
 
   if (!salesLocaleReady) {
     return <PageLoader />
@@ -119,7 +123,13 @@ export default function SalesOrderDetail() {
           </span>
         }
         description={t('orders.detail.createdOn', { date: formatDate(order.createdAt) })}
-        actions={<SalesOrderHeaderActions status={order.status} onCreateInvoice={createInvoice} />}
+        actions={
+          <SalesOrderHeaderActions
+            status={order.status}
+            pending={handingOffInvoice}
+            onCreateInvoice={() => createInvoice(order)}
+          />
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">

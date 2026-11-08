@@ -354,6 +354,36 @@ describe('DataTable infinite list mode on a phone (AUT-889)', () => {
     act(() => void fireEvent.scroll(window))
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1))
   })
+
+  // The scroll-end timer used to call React after jsdom tore `window` down and failed the whole unit job.
+  it('clears the scroll-end timer when the phone list unmounts', () => {
+    const pending = new Set<unknown>()
+    const originalSetTimeout = window.setTimeout.bind(window)
+    const originalClearTimeout = window.clearTimeout.bind(window)
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      const delay = timeout ?? 0
+      const id = originalSetTimeout(handler, delay, ...args)
+      if (delay >= 100 && delay < 1_000) pending.add(id)
+      return id
+    }) as typeof window.setTimeout
+    window.clearTimeout = ((id?: unknown) => {
+      pending.delete(id)
+      originalClearTimeout(id as number)
+    }) as typeof window.clearTimeout
+
+    try {
+      const fetchPage = vi.fn((_request: PageRequest) => new Promise<ReturnType<typeof pageOf>>(() => undefined))
+      const { unmount } = renderPhoneList(fetchPage)
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 5200 })
+      act(() => void fireEvent.scroll(window))
+      unmount()
+      expect(pending.size).toBe(0)
+    } finally {
+      window.setTimeout = originalSetTimeout as typeof window.setTimeout
+      window.clearTimeout = originalClearTimeout as typeof window.clearTimeout
+      for (const id of pending) originalClearTimeout(id as number)
+    }
+  })
 })
 
 describe('DataTable list mode selection (AUT-886)', () => {
