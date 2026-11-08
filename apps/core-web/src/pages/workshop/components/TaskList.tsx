@@ -59,6 +59,8 @@ function TaskStatusPicker({
       value={task.status}
       options={options}
       saveMode='optimistic'
+      appearance='badge'
+      badgeStatus={task.status}
       ariaLabel={t('taskList.statusAria')}
       emptyText={statusLabel(`status.${task.status}`)}
       className='w-auto shrink-0'
@@ -348,6 +350,49 @@ interface TaskAccordionRowProps {
   onOpenFitmentSearch?: (taskId: string) => void
 }
 
+function TaskRowFace({
+  task,
+  totalLabel,
+  summary,
+  isExpanded,
+  isLocked,
+  onToggleExpanded,
+  onTaskStatusChange,
+}: {
+  task: WorkshopTask
+  totalLabel: string
+  summary: string
+  isExpanded: boolean
+  isLocked: boolean
+  onToggleExpanded: () => void
+  onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
+}) {
+  const titleClass = task.done ? 'line-through text-muted-foreground' : ''
+  return (
+    <div className='flex min-w-0 flex-1 flex-col gap-1'>
+      <div className='flex items-center gap-2'>
+        <button
+          type='button'
+          className='flex min-w-0 flex-1 items-center gap-3 border-0 bg-transparent p-0 text-left'
+          aria-expanded={isExpanded}
+          onClick={onToggleExpanded}
+        >
+          <span className={`text-sm ${titleClass}`}>{task.title}</span>
+          <span className='ml-auto text-sm font-semibold'>{totalLabel}</span>
+        </button>
+        <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
+      </div>
+      <button
+        type='button'
+        className='w-full border-0 bg-transparent p-0 text-left text-xs text-muted-foreground'
+        onClick={onToggleExpanded}
+      >
+        {summary}
+      </button>
+    </div>
+  )
+}
+
 function TaskAccordionRow({
   task,
   workshopOrderId,
@@ -398,6 +443,22 @@ function TaskAccordionRow({
     taskTotals.fees,
     t('taskList.feesSegment', { amount: formatCurrency(taskTotals.fees) }),
   )
+  const summary = t('taskList.taskSummary', {
+    parts: partsLabel,
+    fees: feesLabel,
+    labor: laborLabel,
+    partsTotal: formatCurrency(taskTotals.parts),
+    feesSegment,
+    laborTotal: formatCurrency(taskTotals.labor),
+    stdHours: formatNumber(taskTotals.laborStandardHours, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    actualHours: formatNumber(taskTotals.laborActualHours, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+  })
 
   return (
     <div
@@ -416,38 +477,15 @@ function TaskAccordionRow({
               : t('taskList.markComplete', { title: task.title })
           }
         />
-        <button
-          type='button'
-          className='flex min-w-0 flex-1 flex-col gap-1 border-0 bg-transparent p-0 text-left'
-          aria-expanded={isExpanded}
-          onClick={onToggleExpanded}
-        >
-          <span className='flex w-full items-center gap-3'>
-            <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
-              {task.title}
-            </span>
-            <span className='ml-auto text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
-          </span>
-          <span className='w-full text-xs text-muted-foreground'>
-            {t('taskList.taskSummary', {
-              parts: partsLabel,
-              fees: feesLabel,
-              labor: laborLabel,
-              partsTotal: formatCurrency(taskTotals.parts),
-              feesSegment,
-              laborTotal: formatCurrency(taskTotals.labor),
-              stdHours: formatNumber(taskTotals.laborStandardHours, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }),
-              actualHours: formatNumber(taskTotals.laborActualHours, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              }),
-            })}
-          </span>
-        </button>
-        <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
+        <TaskRowFace
+          task={task}
+          totalLabel={formatCurrency(taskTotals.total)}
+          summary={summary}
+          isExpanded={isExpanded}
+          isLocked={isLocked}
+          onToggleExpanded={onToggleExpanded}
+          onTaskStatusChange={onTaskStatusChange}
+        />
       </div>
 
       {isExpanded && (

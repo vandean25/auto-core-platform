@@ -183,6 +183,47 @@ export function OrderTopBar({
   )
 }
 
+function PromisedTimeValue({
+  schedule,
+  notSet,
+  ariaLabel,
+}: {
+  schedule: {
+    label: string
+    canEdit: boolean
+    pending: boolean
+    currentDate: string | null
+    options: InlineEditPickerOption[]
+    save: (date: string) => Promise<void>
+  }
+  notSet: string
+  ariaLabel: string
+}) {
+  if (!schedule.canEdit) {
+    return (
+      <div className='font-medium flex items-center'>
+        <Clock className='w-4 h-4 mr-1.5 text-muted-foreground' />
+        {schedule.label}
+      </div>
+    )
+  }
+
+  return (
+    <InlineEditCommandPicker
+      value={schedule.currentDate}
+      options={schedule.options}
+      saveMode='server-confirmed'
+      pending={schedule.pending}
+      ariaLabel={ariaLabel}
+      emptyText={notSet}
+      leading={<Clock className='w-4 h-4 mr-1.5 text-muted-foreground' />}
+      className='font-medium'
+      testId='order-date-picker'
+      onSave={schedule.save}
+    />
+  )
+}
+
 function AssignedTechField({
   assignedTechName,
   assignedTechId,
@@ -217,20 +258,19 @@ function AssignedTechField({
   ]
 
   return (
-    <div className='flex items-center gap-1.5 font-medium'>
-      <User className='h-4 w-4 shrink-0 text-muted-foreground' />
-      <InlineEditCommandPicker
-        value={assignedTechId ?? 'unassigned'}
-        options={options}
-        saveMode='server-confirmed'
-        pending={pending}
-        disabled={disabled || pending}
-        ariaLabel={ariaLabel}
-        emptyText={unassignedLabel}
-        testId='assigned-tech-select'
-        onSave={(next) => onAssignedTechChange(next === 'unassigned' ? null : next)}
-      />
-    </div>
+    <InlineEditCommandPicker
+      value={assignedTechId ?? 'unassigned'}
+      options={options}
+      saveMode='server-confirmed'
+      pending={pending}
+      disabled={disabled || pending}
+      ariaLabel={ariaLabel}
+      emptyText={unassignedLabel}
+      leading={<User className='w-4 h-4 mr-1.5 text-muted-foreground' />}
+      className='font-medium'
+      testId='assigned-tech-select'
+      onSave={(next) => onAssignedTechChange(next === 'unassigned' ? null : next)}
+    />
   )
 }
 
@@ -300,20 +340,11 @@ export function CustomerVehicleInfo({
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.promisedTime')}</div>
-              <div className='flex items-center gap-1.5 font-medium'>
-                <Clock className='h-4 w-4 shrink-0 text-muted-foreground' />
-                <InlineEditCommandPicker
-                  value={schedule.currentDate}
-                  options={schedule.options}
-                  saveMode='server-confirmed'
-                  readOnly={!schedule.canEdit}
-                  pending={schedule.pending}
-                  ariaLabel={t('orderHeader.promisedTime')}
-                  emptyText={notSet}
-                  testId='order-date-picker'
-                  onSave={schedule.save}
-                />
-              </div>
+              <PromisedTimeValue
+                schedule={schedule}
+                notSet={notSet}
+                ariaLabel={t('orderHeader.promisedTime')}
+              />
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.keyTag')}</div>

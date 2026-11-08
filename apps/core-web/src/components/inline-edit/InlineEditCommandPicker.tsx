@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { ChevronDown, Loader2 } from 'lucide-react'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -26,6 +27,10 @@ type InlineEditCommandPickerProps = {
   disabled?: boolean
   ariaLabel: string
   emptyText: string
+  /** Closed control. `field` matches a select; `badge` keeps the status chip. */
+  appearance?: 'field' | 'badge'
+  leading?: React.ReactNode
+  badgeStatus?: string
   className?: string
   testId?: string
 }
@@ -84,22 +89,22 @@ function PickerOptions({
   )
 }
 
-function PickerTrigger({
-  label,
+function PickerTriggerButton({
   ariaLabel,
   busy,
   disabled,
   className,
   testId,
   onClick,
+  children,
 }: {
-  label: string
   ariaLabel: string
   busy: boolean
   disabled: boolean
   className?: string
   testId?: string
   onClick?: () => void
+  children: React.ReactNode
 }) {
   return (
     <button
@@ -109,16 +114,95 @@ function PickerTrigger({
       aria-busy={busy || undefined}
       disabled={disabled}
       onClick={onClick}
+      className={className}
+    >
+      {children}
+    </button>
+  )
+}
+
+function FieldPickerTrigger({
+  label,
+  ariaLabel,
+  busy,
+  disabled,
+  leading,
+  className,
+  testId,
+  onClick,
+}: {
+  label: string
+  ariaLabel: string
+  busy: boolean
+  disabled: boolean
+  leading?: React.ReactNode
+  className?: string
+  testId?: string
+  onClick?: () => void
+}) {
+  return (
+    <PickerTriggerButton
+      ariaLabel={ariaLabel}
+      busy={busy}
+      disabled={disabled}
+      testId={testId}
+      onClick={onClick}
       className={cn(
-        'inline-flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm',
-        'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        'disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm',
+        'ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'disabled:cursor-not-allowed disabled:opacity-50 max-md:h-11',
         className,
       )}
     >
-      <span className="min-w-0 truncate">{label}</span>
-      {busy ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
-    </button>
+      <span className="flex min-w-0 items-center">
+        {leading}
+        <span className="truncate">{label}</span>
+      </span>
+      {busy ? (
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+      ) : (
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+      )}
+    </PickerTriggerButton>
+  )
+}
+
+function BadgePickerTrigger({
+  label,
+  ariaLabel,
+  busy,
+  disabled,
+  badgeStatus,
+  className,
+  testId,
+  onClick,
+}: {
+  label: string
+  ariaLabel: string
+  busy: boolean
+  disabled: boolean
+  badgeStatus: string
+  className?: string
+  testId?: string
+  onClick?: () => void
+}) {
+  return (
+    <PickerTriggerButton
+      ariaLabel={ariaLabel}
+      busy={busy}
+      disabled={disabled}
+      testId={testId}
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center rounded-md border-0 bg-transparent p-0',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11',
+        className,
+      )}
+    >
+      <StatusBadge status={badgeStatus} label={label} />
+      {busy ? <Loader2 className="ml-1 h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
+    </PickerTriggerButton>
   )
 }
 
@@ -208,32 +292,77 @@ function DesktopCommandPicker({
   )
 }
 
-/** Searchable command picker for an inline choice. Mobile uses the bottom sheet; desktop uses a popover. */
-export function InlineEditCommandPicker({
-  value,
-  options,
-  onSave,
-  saveMode = 'server-confirmed',
-  readOnly = false,
-  pending = false,
-  disabled = false,
-  ariaLabel,
-  emptyText,
-  className,
-  testId,
-}: InlineEditCommandPickerProps) {
-  const { t } = useTranslation('common')
-  const isMobile = useIsMobile()
-  const [open, setOpen] = React.useState(false)
-  const [saving, setSaving] = React.useState(false)
-  const label = options.find((option) => option.value === value)?.label ?? emptyText
-  const searchLabel = t('inlineEdit.search')
-  const emptyLabel = t('inlineEdit.noMatches')
+function closedPickerTrigger(props: {
+  appearance: 'field' | 'badge'
+  label: string
+  ariaLabel: string
+  busy: boolean
+  disabled: boolean
+  leading?: React.ReactNode
+  badgeStatus: string
+  className?: string
+  testId?: string
+  onClick?: () => void
+}) {
+  if (props.appearance === 'badge') {
+    return <BadgePickerTrigger {...props} />
+  }
+  return <FieldPickerTrigger {...props} />
+}
 
+function pickerIsBusy(pending: boolean, saving: boolean) {
+  return pending || saving
+}
+
+function pickerIsDisabled(disabled: boolean, pending: boolean, saving: boolean) {
+  return disabled || pending || saving
+}
+
+function badgeStatusValue(badgeStatus: string | undefined, value?: string | null) {
+  return badgeStatus ?? value ?? ''
+}
+
+function commandPickerView({
+  props,
+  isMobile,
+  open,
+  setOpen,
+  saving,
+  setSaving,
+  searchLabel,
+  emptyLabel,
+}: {
+  props: InlineEditCommandPickerProps
+  isMobile: boolean
+  open: boolean
+  setOpen: (open: boolean) => void
+  saving: boolean
+  setSaving: (saving: boolean) => void
+  searchLabel: string
+  emptyLabel: string
+}) {
+  const {
+    value,
+    options,
+    onSave,
+    saveMode = 'server-confirmed',
+    readOnly = false,
+    pending = false,
+    disabled = false,
+    ariaLabel,
+    emptyText,
+    appearance = 'field',
+    leading,
+    badgeStatus,
+    className,
+    testId,
+  } = props
+  const label = options.find((option) => option.value === value)?.label ?? emptyText
   if (readOnly) {
     return <span className={cn('text-sm', className)}>{label}</span>
   }
 
+  const close = () => setOpen(false)
   const panel = (
     <PickerOptions
       options={options}
@@ -241,35 +370,44 @@ export function InlineEditCommandPicker({
       emptyLabel={emptyLabel}
       searchLabel={searchLabel}
       onSelect={(next) =>
-        savePickerChoice({
-          next,
-          value,
-          options,
-          saveMode,
-          onSave,
-          close: () => setOpen(false),
-          setSaving,
-        })
+        savePickerChoice({ next, value, options, saveMode, onSave, close, setSaving })
       }
-      onCancel={() => setOpen(false)}
+      onCancel={close}
     />
   )
-  const trigger = (
-    <PickerTrigger
-      label={label}
-      ariaLabel={ariaLabel}
-      busy={pending || saving}
-      disabled={disabled || pending || saving}
-      className={className}
-      testId={testId}
-      onClick={isMobile ? () => setOpen(true) : undefined}
-    />
-  )
+  const trigger = closedPickerTrigger({
+    appearance,
+    label,
+    ariaLabel,
+    busy: pickerIsBusy(pending, saving),
+    disabled: pickerIsDisabled(disabled, pending, saving),
+    leading,
+    badgeStatus: badgeStatusValue(badgeStatus, value),
+    className,
+    testId,
+    onClick: isMobile ? () => setOpen(true) : undefined,
+  })
   const frame = { open, onOpenChange: setOpen, panel, trigger }
-
   if (isMobile) {
     return <MobileCommandPicker {...frame} ariaLabel={ariaLabel} searchLabel={searchLabel} />
   }
-
   return <DesktopCommandPicker {...frame} />
+}
+
+/** Searchable command picker for an inline choice. Mobile uses the bottom sheet; desktop uses a popover. */
+export function InlineEditCommandPicker(props: InlineEditCommandPickerProps) {
+  const { t } = useTranslation('common')
+  const isMobile = useIsMobile()
+  const [open, setOpen] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+  return commandPickerView({
+    props,
+    isMobile,
+    open,
+    setOpen,
+    saving,
+    setSaving,
+    searchLabel: t('inlineEdit.search'),
+    emptyLabel: t('inlineEdit.noMatches'),
+  })
 }

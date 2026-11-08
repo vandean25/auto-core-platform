@@ -185,6 +185,40 @@ describe('InlineEdit command picker', () => {
     expect(Number.parseFloat(row.style.minHeight)).toBeGreaterThanOrEqual(44)
   })
 
+  it('keeps a select border and chevron on a field, and a status badge on a status', () => {
+    const { rerender } = render(
+      <InlineEditCommandPicker
+        value={null}
+        options={mechanics.slice(0, 1)}
+        onSave={vi.fn()}
+        ariaLabel="Zugewiesener Mechaniker"
+        emptyText="Nicht zugewiesen"
+      />,
+    )
+
+    const field = screen.getByRole('button', { name: 'Zugewiesener Mechaniker' })
+    expect(field.className).toContain('h-9')
+    expect(field.className).toContain('border-input')
+    expect(field.querySelector('svg')).not.toBeNull()
+
+    rerender(
+      <InlineEditCommandPicker
+        value="NOT_STARTED"
+        options={[{ value: 'NOT_STARTED', label: 'Nicht begonnen' }]}
+        appearance="badge"
+        badgeStatus="NOT_STARTED"
+        onSave={vi.fn()}
+        ariaLabel="Aufgabenstatus"
+        emptyText="Nicht begonnen"
+      />,
+    )
+
+    const badge = screen.getByText('Nicht begonnen')
+    expect(badge.className).toContain('rounded-md')
+    expect(badge.className).toContain('border')
+    expect(screen.getByRole('button', { name: 'Aufgabenstatus' }).className).not.toContain('border-input')
+  })
+
   it('WHEN the role may not change the field THEN the picker is not offered', () => {
     render(
       <InlineEditCommandPicker
