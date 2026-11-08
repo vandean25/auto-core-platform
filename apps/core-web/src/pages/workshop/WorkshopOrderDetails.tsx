@@ -30,6 +30,7 @@ import { useWorkshopPickerlPrompt } from "./hooks/useWorkshopPickerlPrompt";
 import { useWorkshopTaskActions } from "./hooks/useWorkshopTaskActions";
 import { useWorkshopTaskLineItems } from "./hooks/useWorkshopTaskLineItems";
 import { useWorkshopTechAssignment } from "./hooks/useWorkshopTechAssignment";
+import { useWorkshopOrderSchedule } from "./hooks/useWorkshopOrderSchedule";
 import { APP_ROUTE_PATHS } from "@/lib/app-route-paths";
 import { RecordPickerlDialog } from "@/components/vehicles/RecordPickerlDialog";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -70,6 +71,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
   const pickerl = useWorkshopPickerlPrompt(order, checkout.tasks);
   const orderActions = useWorkshopOrderActions(order, isLocked);
   const tech = useWorkshopTechAssignment(order);
+  const schedule = useWorkshopOrderSchedule(order);
   const fitment = useWorkshopFitmentSearch(order);
   const taskActions = useWorkshopTaskActions({
     order,
@@ -92,6 +94,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
           catalogSearchSession={fitment.catalogSearchSession}
           oemConcernCode={fitment.oemConcernCode}
           checkInHref={checkInHref}
+          promisedLabel={schedule.label}
         />
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />
@@ -122,6 +125,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
               onAssignedTechChange={(mechanicId) =>
                 void tech.handleAssignedTechChange(mechanicId)
               }
+              schedule={schedule}
             />
             <OrderAdvisorPanels order={order} isLocked={isLocked} />
           </motion.div>
@@ -148,6 +152,9 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
               onAddTask={() => void taskActions.addTask()}
               onToggleTask={(taskId, checked) =>
                 void taskActions.toggleTask(taskId, checked)
+              }
+              onTaskStatusChange={(taskId, status) =>
+                void taskActions.changeTaskStatus(taskId, status)
               }
               onExpandedTaskIdChange={setExpandedTaskId}
               onTaskLineItemsChange={(taskId, items) =>

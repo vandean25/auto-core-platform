@@ -241,6 +241,7 @@ function setupDefaultMocks(orderOverride?: unknown) {
     isLoading: false,
   });
   asMock(salesApi.useInvoice).mockReturnValue({ data: null, isLoading: false });
+  asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(createMutationMock());
   asMock(workshopApi.useUpdateWorkshopOrderNotes).mockReturnValue(
     createMutationMock(),
   );
@@ -736,6 +737,61 @@ describe("WorkshopOrderDetails Characterization", () => {
         });
       });
       expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianUnassigned);
+    });
+
+    it("saves a searched schedule date through the server-confirmed order update", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({});
+      setupDefaultMocks({
+        ...baseOrder,
+        status: "SCHEDULED",
+        bayId: "bay-1",
+        bay_id: "bay-1",
+        scheduledStartAt: "2026-08-21T06:00:00.000Z",
+        scheduledEndAt: "2026-08-21T07:30:00.000Z",
+      });
+      asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+        createMutationMock({ mutateAsync }),
+      );
+
+      renderComponent();
+
+      fireEvent.click(screen.getByTestId("order-date-picker"));
+      fireEvent.click(document.querySelector('[data-value="2026-11-09"]') as HTMLElement);
+
+      await waitFor(() => {
+        expect(mutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ id: "order-1", bayId: "bay-1" }),
+        );
+      });
+      const payload = mutateAsync.mock.calls[0][0] as {
+        scheduledStartAt: string;
+        scheduledEndAt: string;
+      };
+      expect(new Date(payload.scheduledEndAt).getTime() - new Date(payload.scheduledStartAt).getTime()).toBe(
+        90 * 60 * 1000,
+      );
+    });
+
+    it("saves a task status from the command picker without waiting to close", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({});
+      asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(
+        createMutationMock({ mutateAsync }),
+      );
+
+      renderComponent();
+
+      fireEvent.click(screen.getByTestId("task-status-picker-task-1"));
+      fireEvent.click(screen.getByRole("option", { name: "Wartet auf Teile" }));
+
+      await waitFor(() => {
+        expect(mutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            orderId: "order-1",
+            taskId: "task-1",
+            status: "WAITING_PARTS",
+          }),
+        );
+      });
     });
 
     it("shows an error toast when technician assignment fails", async () => {

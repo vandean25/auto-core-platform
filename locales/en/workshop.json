@@ -1195,7 +1195,8 @@
     "mechanicNotes": "Mechanic notes",
     "mechanicNotesPlaceholder": "Mechanic observations, measurements, and service notes...",
     "mechanicNotesEmpty": "Add mechanic notes",
-    "mechanicNotesAria": "Mechanic notes"
+    "mechanicNotesAria": "Mechanic notes",
+    "statusAria": "Task status"
   },
   "taskLineEditor": {
     "searchPlaceholder": "Search labor or part number...",

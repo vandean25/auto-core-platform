@@ -7,17 +7,66 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
+import { InlineEditCommandPicker } from '@/components/inline-edit/InlineEditCommandPicker'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { formatNumber } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
-import type { WorkshopOrder, WorkshopTask } from '@/api/types'
+import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
 import { TaskLineItemsSavingStatus } from '@/components/workshop/TaskLineItemsSavingStatus'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
 import { WorkshopTaskInspectionChecklist } from '@/components/workshop/WorkshopTaskInspectionChecklist'
+
+function taskFeesSegment(fees: number, segment: string) {
+  if (fees <= 0) return ''
+  return segment
+}
+
+const TASK_STATUSES: WorkshopTaskStatus[] = [
+  'NOT_STARTED',
+  'IN_PROGRESS',
+  'WAITING_PARTS',
+  'WAITING_CUSTOMER',
+  'PAUSED',
+  'DONE',
+]
+
+function TaskStatusPicker({
+  task,
+  readOnly,
+  onChange,
+}: {
+  task: WorkshopTask
+  readOnly: boolean
+  onChange: (taskId: string, status: WorkshopTaskStatus) => void
+}) {
+  const { t } = useTranslation('workshop')
+  const { t: statusLabel } = useTranslation('enums')
+  const options = TASK_STATUSES.map((status) => ({
+    value: status,
+    label: statusLabel(`status.${status}`),
+  }))
+
+  if (readOnly) {
+    return <StatusBadge status={task.status} />
+  }
+
+  return (
+    <InlineEditCommandPicker
+      value={task.status}
+      options={options}
+      saveMode='optimistic'
+      ariaLabel={t('taskList.statusAria')}
+      emptyText={statusLabel(`status.${task.status}`)}
+      className='w-auto shrink-0'
+      testId={`task-status-picker-${task.id}`}
+      onSave={(status) => onChange(task.id, status as WorkshopTaskStatus)}
+    />
+  )
+}
 
 type WorkshopOrderWithLegacyReportedIssue = WorkshopOrder & { reported_issue?: string | null }
 
@@ -32,6 +81,7 @@ export interface TaskListProps {
   onNewTaskTitleChange: (value: string) => void
   onAddTask: () => void
   onToggleTask: (taskId: string, checked: boolean) => void
+  onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
   onExpandedTaskIdChange: (taskId: string | null) => void
   onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
   onTaskMechanicNotesChange: (taskId: string, notes: string) => void
@@ -76,6 +126,7 @@ function RepairTasksCard({
   onNewTaskTitleChange,
   onAddTask,
   onToggleTask,
+  onTaskStatusChange,
   onExpandedTaskIdChange,
   onTaskLineItemsChange,
   onTaskMechanicNotesChange,
@@ -115,6 +166,7 @@ function RepairTasksCard({
             isExpanded={expandedTaskId === task.id}
             isLocked={isLocked}
             onToggleTask={onToggleTask}
+            onTaskStatusChange={onTaskStatusChange}
             onToggleExpanded={() =>
               onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
             }
@@ -257,6 +309,7 @@ interface TaskAccordionRowProps {
   isExpanded: boolean
   isLocked: boolean
   onToggleTask: (taskId: string, checked: boolean) => void
+  onTaskStatusChange: (taskId: string, status: WorkshopTaskStatus) => void
   onToggleExpanded: () => void
   onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
   onTaskMechanicNotesChange: (taskId: string, notes: string) => void
@@ -273,6 +326,7 @@ function TaskAccordionRow({
   isExpanded,
   isLocked,
   onToggleTask,
+  onTaskStatusChange,
   onToggleExpanded,
   onTaskLineItemsChange,
   onTaskMechanicNotesChange,
@@ -311,10 +365,10 @@ function TaskAccordionRow({
   const partsLabel = t('taskList.parts', { count: partsCount })
   const feesLabel = t('taskList.fees', { count: feesCount })
   const laborLabel = t('taskList.labor', { count: laborCount })
-  const feesSegment =
-    taskTotals.fees > 0
-      ? t('taskList.feesSegment', { amount: formatCurrency(taskTotals.fees) })
-      : ''
+  const feesSegment = taskFeesSegment(
+    taskTotals.fees,
+    t('taskList.feesSegment', { amount: formatCurrency(taskTotals.fees) }),
+  )
 
   return (
     <div
@@ -343,10 +397,7 @@ function TaskAccordionRow({
             <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
               {task.title}
             </span>
-            <span className='ml-auto flex items-center gap-2'>
-              <span className='text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
-              <StatusBadge status={task.status} />
-            </span>
+            <span className='ml-auto text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
           </span>
           <span className='w-full text-xs text-muted-foreground'>
             {t('taskList.taskSummary', {
@@ -367,6 +418,7 @@ function TaskAccordionRow({
             })}
           </span>
         </button>
+        <TaskStatusPicker task={task} readOnly={isLocked} onChange={onTaskStatusChange} />
       </div>
 
       {isExpanded && (

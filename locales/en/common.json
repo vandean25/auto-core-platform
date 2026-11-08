@@ -387,7 +387,9 @@
   },
   "inlineEdit": {
     "emptyText": "Click to edit",
-    "invalidValue": "Invalid value"
+    "invalidValue": "Invalid value",
+    "search": "Search",
+    "noMatches": "No matches"
   },
   "dateField": {
     "placeholder": "DD.MM.YYYY",

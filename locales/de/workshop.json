@@ -1195,7 +1195,8 @@
     "mechanicNotes": "Mechaniker-Notizen",
     "mechanicNotesPlaceholder": "Beobachtungen, Messwerte und Servicenotizen…",
     "mechanicNotesEmpty": "Mechaniker-Notizen hinzufügen",
-    "mechanicNotesAria": "Mechaniker-Notizen"
+    "mechanicNotesAria": "Mechaniker-Notizen",
+    "statusAria": "Aufgabenstatus"
   },
   "taskLineEditor": {
     "searchPlaceholder": "Arbeit oder Teilenummer suchen…",

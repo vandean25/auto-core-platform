@@ -351,6 +351,10 @@ type RawWorkshopOrder = Omit<WorkshopOrder, 'tasks'> & {
   bay_id?: string | null
   stagingLocationId?: string | null
   staging_location_id?: string | null
+  scheduledStartAt?: string | null
+  scheduled_start_at?: string | null
+  scheduledEndAt?: string | null
+  scheduled_end_at?: string | null
 }
 
 function normalizeTask(task: RawWorkshopTask): WorkshopTask {

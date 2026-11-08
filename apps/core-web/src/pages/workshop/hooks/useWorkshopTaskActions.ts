@@ -136,6 +136,7 @@ export function useWorkshopTaskActions({
     cancelDeleteTask: () => setTaskPendingDelete(null),
     addTask,
     toggleTask,
+    changeTaskStatus,
     changeMechanicNotes,
     requestDeleteTask,
     confirmDeleteTask,
