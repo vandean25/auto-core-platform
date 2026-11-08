@@ -94,7 +94,28 @@ export interface TaskListProps {
   onOpenFitmentSearch?: (taskId: string) => void
 }
 
-export function TaskList({ onSaveReportedIssue, onSaveNotes, undoNotesAction, ...sections }: TaskListProps) {
+export function TaskList({
+  onSaveReportedIssue,
+  onSaveNotes,
+  undoNotesAction,
+  onToggleTask,
+  onTaskStatusChange,
+  onExpandedTaskIdChange,
+  onTaskLineItemsChange,
+  onTaskMechanicNotesChange,
+  onTaskDelete,
+  onOpenFitmentSearch,
+  ...sections
+}: TaskListProps) {
+  const actions = {
+    onToggleTask,
+    onTaskStatusChange,
+    onExpandedTaskIdChange,
+    onTaskLineItemsChange,
+    onTaskMechanicNotesChange,
+    onTaskDelete,
+    onOpenFitmentSearch,
+  }
   return (
     <>
       <ReportedIssueCard
@@ -102,7 +123,7 @@ export function TaskList({ onSaveReportedIssue, onSaveNotes, undoNotesAction, ..
         isLocked={sections.isLocked}
         onSave={onSaveReportedIssue}
       />
-      <RepairTasksCard {...sections} />
+      <RepairTasksCard {...sections} actions={actions} />
       <InternalNotesCard
         order={sections.order}
         isLocked={sections.isLocked}
@@ -113,7 +134,21 @@ export function TaskList({ onSaveReportedIssue, onSaveNotes, undoNotesAction, ..
   )
 }
 
-type RepairTasksCardProps = Omit<TaskListProps, 'onSaveReportedIssue' | 'onSaveNotes'>
+type TaskRowActions = Pick<
+  TaskListProps,
+  | 'onToggleTask'
+  | 'onTaskStatusChange'
+  | 'onExpandedTaskIdChange'
+  | 'onTaskLineItemsChange'
+  | 'onTaskMechanicNotesChange'
+  | 'onTaskDelete'
+  | 'onOpenFitmentSearch'
+>
+
+type RepairTasksCardProps = Omit<
+  TaskListProps,
+  'onSaveReportedIssue' | 'onSaveNotes' | 'undoNotesAction' | keyof TaskRowActions
+> & { actions: TaskRowActions }
 
 function RepairTasksCard({
   order,
@@ -125,15 +160,9 @@ function RepairTasksCard({
   expandedTaskId,
   onNewTaskTitleChange,
   onAddTask,
-  onToggleTask,
-  onTaskStatusChange,
-  onExpandedTaskIdChange,
-  onTaskLineItemsChange,
-  onTaskMechanicNotesChange,
-  onTaskDelete,
   canDeleteTask,
   isDeletingTask,
-  onOpenFitmentSearch,
+  actions,
 }: RepairTasksCardProps) {
   const { t } = useTranslation('workshop')
 
@@ -165,17 +194,17 @@ function RepairTasksCard({
             totals={rawTaskTotals.get(task.id)}
             isExpanded={expandedTaskId === task.id}
             isLocked={isLocked}
-            onToggleTask={onToggleTask}
-            onTaskStatusChange={onTaskStatusChange}
+            onToggleTask={actions.onToggleTask}
+            onTaskStatusChange={actions.onTaskStatusChange}
             onToggleExpanded={() =>
-              onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
+              actions.onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
             }
-            onTaskLineItemsChange={onTaskLineItemsChange}
-            onTaskMechanicNotesChange={onTaskMechanicNotesChange}
-            onTaskDelete={onTaskDelete}
+            onTaskLineItemsChange={actions.onTaskLineItemsChange}
+            onTaskMechanicNotesChange={actions.onTaskMechanicNotesChange}
+            onTaskDelete={actions.onTaskDelete}
             canDeleteTask={canDeleteTask}
             isDeletingTask={isDeletingTask}
-            onOpenFitmentSearch={onOpenFitmentSearch}
+            onOpenFitmentSearch={actions.onOpenFitmentSearch}
           />
         ))}
       </CardContent>
