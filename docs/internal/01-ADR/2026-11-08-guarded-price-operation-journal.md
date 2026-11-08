@@ -31,7 +31,7 @@ Introduce a narrow **operation journal** for guarded price operations, with acce
 
 ### 1. Acceptance (Tx-A)
 
-A short transaction, committed independently of the business transaction. It first checks current authorization and that the item exists in the tenant (no row is written for an unauthorized or unknown item; Tx-E checks again). It then inserts or reads a journal row unique on (tenant, principal, key). The row durably binds: tenant, principal, item, operation kind, expected revision and the absolute target in canonical minor units. It also records the original basis and SKU for authorized explanation, the server-set `acceptedAt` and the state ACCEPTED. The commit of Tx-A is the linearization point of the binding. Reuse of a key with a different intent is rejected without execution. A same-key request that finds the row in ACCEPTED does not run Tx-E again: it returns 409 `OPERATION_UNRESOLVED`, and only fencing or discovery resolves it. Proposed: the existing PATCH handler runs Tx-A and then Tx-E in one request. A process death between them leaves ACCEPTED, which the recovery path resolves.
+A short transaction, committed independently of the business transaction. It first checks current authorization and that the item exists in the tenant (no row is written for an unauthorized or unknown item; Tx-E checks again). It then inserts or reads a journal row unique on (tenant, principal, key). The row durably binds: tenant, principal, item, operation kind, expected revision and the absolute target in canonical minor units. It also records the original basis and SKU for authorized explanation, the server-set `acceptedAt` and the state ACCEPTED. The commit of Tx-A is the linearization point of the binding. Reuse of a key with a different intent is rejected without execution. A same-key request locks the journal row (`FOR UPDATE`, bounded by the 5 s recovery wait). If the row is terminal or FENCED, it returns the stored result (for FENCED: the stored NOT_APPLIED result, not `OPERATION_UNRESOLVED`). If it is still ACCEPTED, it returns 409 `OPERATION_UNRESOLVED`. It never runs Tx-E, and only fencing or discovery resolves an ACCEPTED row. Proposed: the existing PATCH handler runs Tx-A and then Tx-E in one request. A process death between them leaves ACCEPTED, which the recovery path resolves.
 
 ### 2. Execution (Tx-E)
 
@@ -46,7 +46,7 @@ Mutation, business audit and terminal proof commit atomically. A 409 is raised o
 
 ### 3. Fencing and recovery
 
-Recovery is an explicit, authorized action that takes the key and the frozen intent. It locks the same journal row and moves ACCEPTED to FENCED (NOT_APPLIED). **If no row exists**, it inserts a FENCED row under the same unique (tenant, principal, key), so a later Tx-A for that key finds FENCED and never executes; a differing intent is rejected. A fence is allowed only after the lease (section 7) has ended; the lease end is not proof, only the committed fence is. Execution and fencing serialize on the journal row: either Tx-E commits first and recovery observes the terminal result, or the fence commits first and Tx-E observes FENCED and returns without any write. A late original request after a fence is rejected. Only FENCED or a terminal state allows NOT_APPLIED. A timeout, an expired lease, a missing row or a browser acknowledgement is not proof. Tx-E has its own `lock_timeout` and statement timeout, both shorter than the lease, so it cannot hold the journal row beyond the lease. If the lock is still held, recovery waits within its bound and then reports "still unresolved". A read-only status or discovery never mutates.
+Recovery is an explicit, authorized action that takes the key and the frozen intent. It locks the same journal row and moves ACCEPTED to FENCED (NOT_APPLIED). **If no row exists**, it inserts a FENCED row under the same unique (tenant, principal, key), so a later Tx-A for that key finds FENCED and never executes; a differing intent is rejected. A fence that finds ACCEPTED is allowed only after the lease (section 7) has ended; the lease end is not proof, only the committed fence is. A fence that finds no row needs no lease and takes effect immediately; the unique constraint serializes it against a concurrent Tx-A, and if Tx-A commits first the fence finds ACCEPTED and the lease rule applies. Execution and fencing serialize on the journal row: either Tx-E commits first and recovery observes the terminal result, or the fence commits first and Tx-E observes FENCED and returns without any write. A late original request after a fence is rejected. Only FENCED or a terminal state allows NOT_APPLIED. A timeout, an expired lease, a missing row or a browser acknowledgement is not proof. Tx-E sets a lock timeout of 10 s and a whole-transaction timeout of 30 s. The lease is a UX bound; correctness comes only from the row lock, because a late-starting Tx-E could still hold the row past the lease. If the lock is still held, recovery waits within its bound and then reports "still unresolved". A read-only status or discovery never mutates.
 
 ### 4. State model
 
@@ -63,7 +63,7 @@ Acknowledgement by the client changes no state. Retention counts from the time t
 
 | Race | Outcome |
 |---|---|
-| Same key, same intent, concurrent | One execution; the other waits for the lock and returns the stored result once terminal |
+| Same key, same intent, concurrent | One execution; the duplicate waits for the row lock (5 s bound), then returns the stored result if terminal, otherwise 409 `OPERATION_UNRESOLVED` |
 | Same key, different intent | Rejected, no execution |
 | Fence vs Tx-E | Row lock decides; no third outcome |
 | Late original after fence | Rejected, no effect |
@@ -83,7 +83,7 @@ A uniqueness rule allows at most one unresolved (ACCEPTED) guarded operation per
 - **Admission:** a key is admitted only if its UUIDv7 time is within 24 h in the past and 5 min in the future of server time. This is a pre-filter against suspended clients and skew, not proof. An existing journal row is looked up first, so an accepted operation stays recoverable after 24 h.
 - **`acceptedAt`** is server-authoritative. ACCEPTED has no wall-clock expiry and active rows are never deleted. A 2-minute lease, counted from `acceptedAt`, is the earliest time at which a fence is allowed.
 - **Retention:** terminal and fenced rows live 30 days, longer than the admission window plus skew. After deletion a same-string key is rejected by admission age, so no separate tombstone is needed. A forged timestamp creates a different key string, hence a new operation under its own CAS.
-- **Lock bounds:** Tx-E lock timeout 10 s and statement timeout 30 s, both below the lease; recovery lock wait 5 s. A lock timeout or deadlock aborts only Tx-E, leaving ACCEPTED, which the client shows as unresolved until fenced or observed.
+- **Lock bounds:** Tx-E lock timeout 10 s and whole-transaction timeout 30 s; recovery lock wait 5 s. A lock timeout or deadlock aborts only Tx-E, leaving ACCEPTED, which the client shows as unresolved until fenced or observed.
 
 ### 8. Discovery and authorization
 
@@ -144,7 +144,7 @@ Later tests (not yet written or run) must cover atomic success, different-key ra
 1. Adopt this journal (separate acceptance, fenced execution) as the mechanism.
 2. Header carriage and name of the key.
 3. Principal-only visibility of discovery and fence.
-4. Lease 2 min, recovery lock wait 5 s, admission 24 h, retention 30 days.
+4. Lease 2 min, Tx-E lock timeout 10 s and transaction timeout 30 s, recovery lock wait 5 s, admission 24 h, retention 30 days.
 5. Status codes and codes listed in section 9.
 6. New narrow journal storage versus a demonstrated equivalent existing pattern.
 7. Resolution of ACCEPTED rows whose item was deleted or whose principal lost access (recommendation: the still-authorized principal may fence by row, never executing; otherwise an operator reads them for audit).
