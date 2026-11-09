@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CheckoutFooter } from '@/pages/workshop/components/CheckoutFooter'
@@ -12,7 +12,11 @@ function setViewport(width: number) {
 
 function StickyChromeProbe() {
   const ref = useStickyBottomChromeHeight<HTMLElement>()
-  return <section ref={ref} data-sticky-bottom-chrome="" data-testid="probe" style={{ height: 88 }} />
+  return (
+    <section data-sticky-bottom-chrome="">
+      <div ref={ref} data-sticky-bottom-chrome-measure="" data-testid="probe" style={{ height: 88 }} />
+    </section>
+  )
 }
 
 vi.mock('react-i18next', () => ({
@@ -20,7 +24,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@/pages/workshop/components/CheckoutSummary', () => ({
-  CheckoutSummary: () => null,
+  CheckoutSummary: () => <div data-testid="tall-checkout-summary" style={{ height: 480 }} />,
 }))
 
 const checkoutFooterProps = {
@@ -79,7 +83,10 @@ describe('useStickyBottomChromeHeight (AUT-919)', () => {
     rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
     ) {
-      if (this.dataset.testid === 'probe' || this.hasAttribute('data-sticky-bottom-chrome')) {
+      if (
+        this.dataset.testid === 'probe' ||
+        this.hasAttribute('data-sticky-bottom-chrome-measure')
+      ) {
         return {
           height: 88,
           width: 375,
@@ -89,6 +96,22 @@ describe('useStickyBottomChromeHeight (AUT-919)', () => {
           right: 375,
           x: 0,
           y: 700,
+          toJSON: () => ({}),
+        } as DOMRect
+      }
+      if (
+        this.hasAttribute('data-sticky-bottom-chrome') &&
+        !this.hasAttribute('data-sticky-bottom-chrome-measure')
+      ) {
+        return {
+          height: 568,
+          width: 375,
+          top: 276,
+          bottom: 844,
+          left: 0,
+          right: 375,
+          x: 0,
+          y: 276,
           toJSON: () => ({}),
         } as DOMRect
       }
@@ -141,5 +164,57 @@ describe('useStickyBottomChromeHeight (AUT-919)', () => {
 
     unmount()
     expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('')
+  })
+
+  it('WHEN checkout sheet is open with a tall summary THEN published sticky chrome height stays the collapsed bar height', async () => {
+    setViewport(375)
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
+
+    const { container } = render(
+      <CheckoutFooter {...checkoutFooterProps} isCheckoutOpen checkoutFooterTotal={250} />,
+    )
+
+    await waitFor(() => {
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
+        '112px',
+      )
+    })
+
+    expect(screen.getByTestId('tall-checkout-summary')).toBeInTheDocument()
+    const measure = container.querySelector('[data-sticky-bottom-chrome-measure]')
+    const section = container.querySelector('[data-sticky-bottom-chrome]')
+    expect(measure).not.toBeNull()
+    expect(section).not.toBeNull()
+    const sectionHeight = section!.getBoundingClientRect().height
+    const barHeight = measure!.getBoundingClientRect().height
+    expect(sectionHeight).toBeGreaterThan(barHeight + 200)
+  })
+
+  it('cancels the follow-up rAF update on unmount so the height variable stays cleared', async () => {
+    const originalRaf = window.requestAnimationFrame
+    const rafCallbacks: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      rafCallbacks.push(cb)
+      return rafCallbacks.length
+    })
+
+    setViewport(375)
+    const view = render(<StickyChromeProbe />)
+    await waitFor(() => {
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
+        '112px',
+      )
+    })
+
+    view.unmount()
+    expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('')
+
+    for (const cb of rafCallbacks) {
+      cb(0)
+    }
+    expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('')
+
+    vi.mocked(window.requestAnimationFrame).mockRestore?.()
+    window.requestAnimationFrame = originalRaf
   })
 })

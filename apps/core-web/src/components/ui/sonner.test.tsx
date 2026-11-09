@@ -20,16 +20,27 @@ function seedPhoneNavHeight() {
   )
 }
 
-function WorkshopStickyChrome() {
+function WorkshopStickyChrome({
+  checkoutExpanded = false,
+}: {
+  checkoutExpanded?: boolean
+}) {
   const chromeRef = useStickyBottomChromeHeight<HTMLElement>()
   return (
     <section
-      ref={chromeRef}
       data-sticky-bottom-chrome=""
       data-testid="sticky-checkout-footer"
-      style={{ height: STICKY_CHROME_PX }}
       className="sticky bottom-[var(--phone-nav-h)]"
-    />
+    >
+      <div
+        ref={chromeRef}
+        data-sticky-bottom-chrome-measure=""
+        style={{ height: STICKY_CHROME_PX }}
+      />
+      {checkoutExpanded ? (
+        <div data-testid="expanded-checkout-sheet" style={{ height: 520 }} />
+      ) : null}
+    </section>
   )
 }
 
@@ -129,7 +140,7 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
     rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
     ) {
-      if (this.hasAttribute('data-sticky-bottom-chrome')) {
+      if (this.hasAttribute('data-sticky-bottom-chrome-measure')) {
         return {
           height: STICKY_CHROME_PX,
           width: 375,
@@ -257,5 +268,36 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
     await waitFor(() => expect(document.querySelector('[data-sonner-toast]')).not.toBeNull())
     expect(toasterStyleAttribute()).toContain('var(--sticky-bottom-chrome-h)')
     expect(document.activeElement).toBe(notesField)
+  })
+
+  it('WHEN the checkout sheet is expanded on a phone THEN undo toast offset still uses collapsed bar height only', async () => {
+    setViewport(375)
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
+    seedPhoneNavHeight()
+    render(
+      <AppThemeProvider>
+        <div data-phone-nav="true" data-testid="phone-nav" style={{ height: 57 }} />
+        <WorkshopStickyChrome checkoutExpanded />
+        <Toaster />
+      </AppThemeProvider>,
+    )
+
+    await waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
+        '112px',
+      ),
+    )
+
+    act(() => {
+      toastSuccessWithUndo('Interne Notizen gespeichert', 'Rückgängig', vi.fn())
+    })
+    await waitFor(() => expect(document.querySelector('[data-sonner-toast]')).not.toBeNull())
+
+    const toaster = document.querySelector('[data-sonner-toaster]') as HTMLElement | null
+    expect(toaster).not.toBeNull()
+    const toast = document.querySelector('[data-sonner-toast]') as HTMLElement | null
+    expect(toast).not.toBeNull()
+    expect(toast!.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    expect(toasterStyleAttribute()).toContain('var(--sticky-bottom-chrome-h)')
   })
 })

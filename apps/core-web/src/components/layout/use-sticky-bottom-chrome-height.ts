@@ -24,6 +24,9 @@ export function useStickyBottomChromeHeight<T extends HTMLElement>() {
     const root = document.documentElement
 
     const update = () => {
+      if (!el.isConnected) {
+        return
+      }
       if (window.innerWidth > PHONE_LAYOUT_MAX_PX) {
         clearStickyBottomChromeHeight(root)
         return
@@ -35,13 +38,20 @@ export function useStickyBottomChromeHeight<T extends HTMLElement>() {
       )
     }
 
+    let rafId = 0
     update()
-    requestAnimationFrame(update)
+    rafId = requestAnimationFrame(() => {
+      rafId = 0
+      update()
+    })
     const resizeObserver = new ResizeObserver(update)
     resizeObserver.observe(el)
     window.addEventListener('resize', update)
 
     return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+      }
       resizeObserver.disconnect()
       window.removeEventListener('resize', update)
       clearStickyBottomChromeHeight(root)

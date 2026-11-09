@@ -199,9 +199,7 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
     expect(toastBox).not.toBeNull()
     expect(toastBox!.y + toastBox!.height).toBeLessThanOrEqual(footerBox!.y + 2)
     expect(undoBox!.y + undoBox!.height).toBeLessThanOrEqual(footerBox!.y + 2)
-    if (undoBox!.height > 0) {
-      expect(undoBox!.height).toBeGreaterThanOrEqual(43.5)
-    }
+    expect(undoBox!.height).toBeGreaterThanOrEqual(43.5)
     expect(await pageOverflow(page)).toBeLessThanOrEqual(1)
 
     await undoButton.click()
