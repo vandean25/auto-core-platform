@@ -98,15 +98,89 @@ test('acceptsAllowlistedHumanOnCurrentHead', () => {
   assert.match(result.summary, new RegExp(HEAD));
 });
 
-test('newPushInvalidatesPriorOverride', () => {
+test('newPushInvalidatesPriorOverride', async () => {
   const newHead = 'cafebabe00000000000000000000000000000000';
-  const result = verifyFixture({
-    headSha: newHead,
-    headPushedAt: '2026-01-02T13:00:00Z',
-    events: [labeled({ at: '2026-01-02T12:00:00Z' })],
-  });
+  const issueEvents = [labeled({ at: '2026-01-02T12:00:00Z' })];
+  const labels = [{ name: OVERRIDE }];
+
+  const fetchImpl = async (url) => {
+    if (url.includes('/events?')) {
+      return { ok: true, json: async () => issueEvents };
+    }
+    if (url.includes('/timeline?')) {
+      return { ok: true, json: async () => [] };
+    }
+    if (url.includes('/check-suites?')) {
+      assert.match(url, new RegExp(newHead));
+      return {
+        ok: true,
+        json: async () => ({
+          check_suites: [checkSuitePush('2026-01-02T13:00:00Z', newHead)],
+        }),
+      };
+    }
+    if (url.endsWith('/labels')) {
+      return { ok: true, json: async () => labels };
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+
+  const result = await loadGateOverrideVerificationInputs(
+    {
+      repo: 'org/repo',
+      prNumber: PR,
+      token: 'test-token',
+      headSha: newHead,
+      allowlist: ALLOWED,
+    },
+    { fetchImpl },
+  );
+
   assert.equal(result.skip, false);
   assert.equal(result.reason, 'stale-label');
+});
+
+test('acceptsAllowlistedHumanDespiteLaterLabelTriggeredCheckSuite', async () => {
+  const issueEvents = [labeled({ at: '2026-01-02T12:00:00Z' })];
+  const labels = [{ name: OVERRIDE }];
+
+  const fetchImpl = async (url) => {
+    if (url.includes('/events?')) {
+      return { ok: true, json: async () => issueEvents };
+    }
+    if (url.includes('/timeline?')) {
+      return { ok: true, json: async () => [timelineCommitted(HEAD)] };
+    }
+    if (url.includes('/check-suites?')) {
+      return {
+        ok: true,
+        json: async () => ({
+          check_suites: [
+            checkSuitePush('2026-01-02T11:00:00Z'),
+            checkSuitePush('2026-01-02T12:30:00Z'),
+          ],
+        }),
+      };
+    }
+    if (url.endsWith('/labels')) {
+      return { ok: true, json: async () => labels };
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+
+  const result = await loadGateOverrideVerificationInputs(
+    {
+      repo: 'org/repo',
+      prNumber: PR,
+      token: 'test-token',
+      headSha: HEAD,
+      allowlist: ALLOWED,
+    },
+    { fetchImpl },
+  );
+
+  assert.equal(result.skip, true);
+  assert.equal(result.reason, 'valid-override');
 });
 
 test('resolveHeadPushedAt ignores timeline committed metadata without created_at', async () => {

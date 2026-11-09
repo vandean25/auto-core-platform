@@ -10,6 +10,27 @@ const GITHUB_HEADERS = (token) => ({
 });
 
 /**
+ * @param {string | null} left
+ * @param {string} right
+ * @param {'earliest' | 'latest'} pick
+ * @returns {string | null}
+ */
+function pickIsoTimestamp(left, right, pick) {
+  if (!right) {
+    return left;
+  }
+  if (!left) {
+    return right;
+  }
+  const leftTime = new Date(left).getTime();
+  const rightTime = new Date(right).getTime();
+  if (pick === 'earliest') {
+    return leftTime <= rightTime ? left : right;
+  }
+  return leftTime >= rightTime ? left : right;
+}
+
+/**
  * Parses repo variable text into lowercase GitHub login names.
  * @param {string | string[] | undefined} raw
  * @returns {string[]}
@@ -58,13 +79,10 @@ export function headPushedAtFromForcePushTimeline(timeline, headSha) {
   if (matches.length === 0) {
     return null;
   }
-  return matches.reduce((latest, entry) => {
-    const at = entry.created_at ?? '';
-    if (!at) {
-      return latest;
-    }
-    return !latest || new Date(at) > new Date(latest) ? at : latest;
-  }, /** @type {string | null} */ (null));
+  return matches.reduce(
+    (latest, entry) => pickIsoTimestamp(latest, entry.created_at ?? '', 'latest'),
+    /** @type {string | null} */ (null),
+  );
 }
 
 /**
@@ -78,15 +96,26 @@ export function headPushedAtFromForcePushTimeline(timeline, headSha) {
  * @returns {Promise<string | null>}
  */
 export async function headPushedAtFromCheckSuites(repo, prNumber, headSha, token, fetchImpl = fetch) {
-  const response = await fetchImpl(
-    `https://api.github.com/repos/${repo}/commits/${headSha}/check-suites?per_page=100`,
-    { headers: GITHUB_HEADERS(token) },
-  );
-  if (!response.ok) {
-    return null;
+  const allSuites = [];
+  let page = 1;
+  while (true) {
+    const response = await fetchImpl(
+      `https://api.github.com/repos/${repo}/commits/${headSha}/check-suites?per_page=100&page=${page}`,
+      { headers: GITHUB_HEADERS(token) },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const payload = await response.json();
+    const batch = payload.check_suites ?? [];
+    allSuites.push(...batch);
+    if (batch.length < 100) {
+      break;
+    }
+    page += 1;
   }
-  const payload = await response.json();
-  const suites = (payload.check_suites ?? []).filter(
+
+  const suites = allSuites.filter(
     (suite) =>
       suite.head_sha === headSha &&
       suite.pull_requests?.some((pr) => pr.number === prNumber),
@@ -94,13 +123,12 @@ export async function headPushedAtFromCheckSuites(repo, prNumber, headSha, token
   if (suites.length === 0) {
     return null;
   }
-  return suites.reduce((latest, suite) => {
-    const at = suite.created_at ?? '';
-    if (!at) {
-      return latest;
-    }
-    return !latest || new Date(at) > new Date(latest) ? at : latest;
-  }, /** @type {string | null} */ (null));
+  // Earliest suite is when GitHub first received this commit for the PR (push time).
+  // Later suites (including label-triggered workflow runs) must not invalidate a valid label.
+  return suites.reduce(
+    (earliest, suite) => pickIsoTimestamp(earliest, suite.created_at ?? '', 'earliest'),
+    /** @type {string | null} */ (null),
+  );
 }
 
 /**
@@ -130,8 +158,9 @@ export async function resolveHeadPushedAt(query) {
   if (candidates.length === 0) {
     return null;
   }
-  return candidates.reduce((latest, at) =>
-    new Date(at) > new Date(latest) ? at : latest,
+  return candidates.reduce(
+    (latest, at) => pickIsoTimestamp(latest, at, 'latest'),
+    candidates[0],
   );
 }
 

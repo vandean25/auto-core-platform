@@ -317,7 +317,7 @@ The full UI smoke suite (`npm run test:e2e` without a file filter) and `test:e2e
 ### Code health gate (Fallow)
 - The CI check `Code Health (Fallow)` (`fallow audit`, config `.fallowrc.json`) fails only on findings the PR introduces. Its CI result is the only source of truth.
 - Run `npx fallow audit` at most once locally before pushing. No polling, no re-runs in a loop.
-- At most one gate-fix round per PR. If it still fails, stop and flag it for a human in the PR; only a human may add the `gate-override` label (then re-run the job).
+- At most one gate-fix round per PR. If it still fails, stop and flag it for a human in the PR; only an allowlisted human login (repo variable `GATE_OVERRIDE_ACTORS`) may add `gate-override` on the current head. CI re-runs on that label; no manual job re-run is required.
 - Fix the code. Never game the gate with renames, file splits, stubs, re-export shims or suppression comments, and never edit `.fallowrc.json` or the workflow to pass.
 - Reviewers do not repeat gate findings; they only check whether a gate fix is real or cosmetic. Details: `.agents/skills/acp-code-health/SKILL.md`.
 
