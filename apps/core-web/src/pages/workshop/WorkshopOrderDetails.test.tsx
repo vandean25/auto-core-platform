@@ -983,6 +983,7 @@ describe("WorkshopOrderDetails Characterization", () => {
         screen.getByRole("button", { name: checkoutCopy.openInvoice }),
       ).toBeInTheDocument();
     });
+
   });
 
   describe("demo session task writes", () => {
