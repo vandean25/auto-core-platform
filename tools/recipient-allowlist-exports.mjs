@@ -35,26 +35,22 @@ function collectExportDeclaration(names, node, sourceFile) {
   if (ts.isNamespaceExport(clause)) names.add(`export*as:${clause.name.text}`)
 }
 
+function collectBindingElementList(elements, names) {
+  for (const element of elements) {
+    if (element.dotDotDotToken) return false
+    if (!element.name || ts.isOmittedExpression(element.name)) return false
+    if (!addBindingPattern(element.name, names)) return false
+  }
+  return true
+}
+
 function addBindingPattern(name, names) {
   if (ts.isIdentifier(name)) {
     names.add(name.text)
     return true
   }
-  if (ts.isObjectBindingPattern(name)) {
-    for (const element of name.elements) {
-      if (element.dotDotDotToken) return false
-      if (!element.name || ts.isOmittedExpression(element.name)) return false
-      if (!addBindingPattern(element.name, names)) return false
-    }
-    return true
-  }
-  if (ts.isArrayBindingPattern(name)) {
-    for (const element of name.elements) {
-      if (element.dotDotDotToken) return false
-      if (!element.name || ts.isOmittedExpression(element.name)) return false
-      if (!addBindingPattern(element.name, names)) return false
-    }
-    return true
+  if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
+    return collectBindingElementList(name.elements, names)
   }
   return false
 }
@@ -72,21 +68,10 @@ function collectNamedExport(names, node) {
   names.add(node.name?.text ?? 'default')
 }
 
-function collectTopLevelExport(statement, names, sourceFile) {
-  if (ts.isExportAssignment(statement)) {
-    names.add('default')
-    return true
-  }
-  if (ts.isExportDeclaration(statement)) {
-    collectExportDeclaration(names, statement, sourceFile)
-    return true
-  }
+function collectDeclarativeExport(statement, names) {
   if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) {
     collectNamedExport(names, statement)
     return true
-  }
-  if (ts.isVariableStatement(statement)) {
-    return collectExportVariableBindings(names, statement) ? true : null
   }
   if (
     ts.isTypeAliasDeclaration(statement) ||
@@ -96,6 +81,10 @@ function collectTopLevelExport(statement, names, sourceFile) {
     collectNamedExport(names, statement)
     return true
   }
+  return null
+}
+
+function collectModuleOrImportExport(statement, names) {
   if (ts.isModuleDeclaration(statement) && hasExportModifier(statement) && statement.name) {
     names.add(statement.name.text)
     return true
@@ -104,6 +93,25 @@ function collectTopLevelExport(statement, names, sourceFile) {
     names.add(statement.name.text)
     return true
   }
+  return null
+}
+
+function collectTopLevelExport(statement, names, sourceFile) {
+  if (ts.isExportAssignment(statement)) {
+    names.add('default')
+    return true
+  }
+  if (ts.isExportDeclaration(statement)) {
+    collectExportDeclaration(names, statement, sourceFile)
+    return true
+  }
+  const declarative = collectDeclarativeExport(statement, names)
+  if (declarative !== null) return declarative
+  if (ts.isVariableStatement(statement)) {
+    return collectExportVariableBindings(names, statement) ? true : null
+  }
+  const moduleOrImport = collectModuleOrImportExport(statement, names)
+  if (moduleOrImport !== null) return moduleOrImport
   if (hasExportModifier(statement) || hasDefaultModifier(statement)) return null
   return true
 }
