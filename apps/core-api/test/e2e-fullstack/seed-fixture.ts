@@ -75,6 +75,9 @@ export type E2eFullstackFixture = {
   commandLoanerName: string;
   commandSentence: string;
   commandConflictSentence: string;
+  otherTenantId: string;
+  otherTenantCustomerId: string;
+  otherTenantAuthToken: string;
 };
 
 const repoRoot = resolve(
@@ -123,12 +126,29 @@ async function seedBaseTenantData(
   commandCustomerId: string;
   commandGolfVehicleId: string;
   commandPoloVehicleId: string;
+  otherTenantId: string;
+  otherTenantCustomerId: string;
+  otherTenantAuthToken: string;
 }> {
   await truncateTransactionalTables(prisma);
 
   const tenant = await createTestTenant(prisma, 'e2e-fullstack');
   const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
-  const authToken = createTestAuthToken(app.get(AuthService), tenant);
+  const authService = app.get(AuthService);
+  const authToken = createTestAuthToken(authService, tenant);
+
+  const otherTenant = await createTestTenant(prisma, 'e2e-fullstack-b');
+  const otherPrisma = createTenantAwarePrisma(prisma, otherTenant.tenantId);
+  const otherTenantCustomer = await otherPrisma.customer.create({
+    data: {
+      tenant_id: otherTenant.tenantId,
+      first_name: 'Other',
+      last_name: 'Tenant',
+      email: 'e2e-fullstack-other-tenant@auto.core.test',
+      type: 'PRIVATE',
+    },
+  });
+  const otherTenantAuthToken = createTestAuthToken(authService, otherTenant);
 
   await seedReadySellerAndAccountingProfile(tenantPrisma, tenant.tenantId, {
     includeVehicleMargin: true,
@@ -160,7 +180,6 @@ async function seedBaseTenantData(
     },
   });
 
-  const authService = app.get(AuthService);
   const mechanicFirebaseUid = `e2e-fullstack-mechanic-${tenant.tenantId}`;
   const mechanicUser = await prisma.user.create({
     data: {
@@ -453,6 +472,9 @@ async function seedBaseTenantData(
     commandCustomerId: commandCustomer.id,
     commandGolfVehicleId: commandGolf.id,
     commandPoloVehicleId: commandPolo.id,
+    otherTenantId: otherTenant.tenantId,
+    otherTenantCustomerId: otherTenantCustomer.id,
+    otherTenantAuthToken,
   };
 }
 
@@ -517,6 +539,9 @@ export async function seedE2eFullstackFixture(
       commandLoanerName: E2E_FULLSTACK_COMMAND_LOANER_DISPLAY_NAME,
       commandSentence: `${E2E_FULLSTACK_COMMAND_CUSTOMER_LAST} Golf montag 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren`,
       commandConflictSentence: `${E2E_FULLSTACK_COMMAND_CUSTOMER_LAST} Polo montag 8 Uhr großes Service`,
+      otherTenantId: seeded.otherTenantId,
+      otherTenantCustomerId: seeded.otherTenantCustomerId,
+      otherTenantAuthToken: seeded.otherTenantAuthToken,
     };
 
     await mkdir(dirname(fixturePath), { recursive: true });

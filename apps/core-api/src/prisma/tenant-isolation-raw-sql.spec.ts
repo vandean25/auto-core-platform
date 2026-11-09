@@ -118,6 +118,20 @@ describe('Tenant Isolation Raw SQL Audit', () => {
     expect(violations).toEqual([]);
   });
 
+  it('injectedTenantFilterRegressionFailsGate', () => {
+    const tenantTables = new Set(['customers', 'workshop_orders']);
+    const unfiltered = `
+      SELECT id FROM customers
+      WHERE id = $1
+    `;
+    const filtered = `
+      SELECT id FROM customers
+      WHERE id = $1 AND tenant_id = $2
+    `;
+    expect(auditRawQuery(unfiltered, tenantTables).isValid).toBe(false);
+    expect(auditRawQuery(filtered, tenantTables).isValid).toBe(true);
+  });
+
   it('adversarial check: raw query on tenant table without tenant_id is rejected by audit', () => {
     const tenantTables = new Set(['workshop_orders', 'invoices', 'vehicles']);
 

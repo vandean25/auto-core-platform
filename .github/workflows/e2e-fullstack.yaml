@@ -1,9 +1,13 @@
 name: Full-stack Playwright
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - '.github/workflows/e2e-fullstack.yaml'
   schedule:
-    # Nightly harness (not a PR gate yet). Promotion: after 2 consecutive weeks
-    # green, add pull_request with paths: ['apps/**'] below.
     - cron: '0 3 * * *'
   workflow_dispatch:
 
@@ -16,7 +20,7 @@ permissions:
 
 jobs:
   e2e-fullstack:
-    name: Full-stack Playwright (nightly / manual)
+    name: Full-stack Playwright (${{ github.event_name == 'pull_request' && 'PR gate' || 'nightly / manual' }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     container:
@@ -61,6 +65,9 @@ jobs:
       - name: Verify full-stack Vite host
         run: node --test apps/core-web/e2e-fullstack/run-vite.test.mjs
 
+      - name: Verify full-stack PR gate contract
+        run: node --test apps/core-web/e2e-fullstack/gate.contract.test.mjs
+
       - name: Run full-stack Playwright harness
         env:
           DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auto_core_test
@@ -82,6 +89,7 @@ jobs:
   # the PR e2e shards. Exceeding the < 10 s threshold fails the Jest assertion, the
   # step exits non-zero, and this job (and the run) turns red.
   backend-e2e-benchmark:
+    if: github.event_name != 'pull_request'
     name: Backend E2E Benchmark (nightly / manual)
     runs-on: ubuntu-latest
     timeout-minutes: 20

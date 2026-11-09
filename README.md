@@ -464,7 +464,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
   npm run test:e2e:fullstack
 ```
 
-CI runs this in the **Full-stack Playwright** workflow (`.github/workflows/e2e-fullstack.yaml`) **nightly** and on **workflow_dispatch** only (10-minute cap). After two weeks of green nightly runs, add a `pull_request` trigger with `paths: ['apps/**']` to that workflow to promote it to the PR gate.
+CI runs this in the **Full-stack Playwright** workflow (`.github/workflows/e2e-fullstack.yaml`) on every PR that touches `apps/**` (10-minute cap, no Playwright retries), plus **nightly** `schedule` and **workflow_dispatch**. The backend E2E benchmark job in that workflow stays nightly-only.
 
 ---
 
