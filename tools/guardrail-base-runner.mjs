@@ -14,12 +14,20 @@ import { guardrailRepoRoot } from './guardrail-repo-root.mjs'
 const USAGE = `Usage: node tools/guardrail-base-runner.mjs --base <ref> --bundle <name> [-- <checker-args...>]
 
   --base <ref>       Revision to read checker sources from, for example a merge-base SHA (required)
-  --bundle <name>    Checker bundle: spec-quality | interaction-baselines (required)
+  --bundle <name>    Checker bundle: spec-quality | interaction-baselines | allowlist-growth (required)
 
 Checker arguments after -- are forwarded to the base-revision script.
 `
 
-const BUNDLES = {
+/** Files required to bootstrap this runner from the merge-base revision (listed in CI). */
+export const RUNNER_SELF_FILES = [
+  'tools/guardrail-base-runner.mjs',
+  'tools/parse-cli-options.mjs',
+  'tools/guardrail-git-io.mjs',
+  'tools/guardrail-repo-root.mjs',
+]
+
+export const BUNDLES = {
   'spec-quality': {
     entry: 'tools/check-spec-quality.mjs',
     files: [
@@ -43,15 +51,18 @@ const BUNDLES = {
       'tools/guardrail-cli.mjs',
     ],
   },
-}
-
-/** Copies a bundle file when present at base; skips files this base predates. */
-function optionalBundleFiles(repoRoot, base, filePaths) {
-  const present = []
-  for (const file of filePaths) {
-    if (readAtRevision(repoRoot, base, file) !== undefined) present.push(file)
-  }
-  return present
+  'allowlist-growth': {
+    entry: 'tools/check-allowlist-growth.mjs',
+    files: [
+      'tools/check-allowlist-growth.mjs',
+      'tools/allowlist-growth-lib.mjs',
+      'tools/interaction-baselines-lib.mjs',
+      'tools/parse-cli-options.mjs',
+      'tools/guardrail-repo-root.mjs',
+      'tools/guardrail-git-io.mjs',
+      'tools/guardrail-cli.mjs',
+    ],
+  },
 }
 
 const ARG_SPEC = {
@@ -66,15 +77,23 @@ function splitAtSeparator(argv) {
   return { flags: argv.slice(0, separator), checkerArgs: argv.slice(separator + 1) }
 }
 
+function requireBundleFilesAtBase(repoRoot, base, bundle) {
+  const entryText = readAtRevision(repoRoot, base, bundle.entry)
+  if (entryText === undefined) {
+    throw new Error(`Bundle entry ${bundle.entry} missing at ${base}`)
+  }
+  const missing = bundle.files.filter((file) => readAtRevision(repoRoot, base, file) === undefined)
+  if (missing.length > 0) {
+    throw new Error(`Bundle incomplete at ${base}: missing ${missing.join(', ')}`)
+  }
+  return bundle.files
+}
+
 function materializeBundle(repoRoot, base, bundle) {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'guardrail-base-'))
-  const files = optionalBundleFiles(repoRoot, base, bundle.files)
+  const files = requireBundleFilesAtBase(repoRoot, base, bundle)
   for (const file of files) {
     const text = readAtRevision(repoRoot, base, file)
-    if (text === undefined) {
-      fs.rmSync(tempRoot, { recursive: true, force: true })
-      throw new Error(`Missing ${file} at ${base}`)
-    }
     const target = path.join(tempRoot, file)
     fs.mkdirSync(path.dirname(target), { recursive: true })
     fs.writeFileSync(target, text)

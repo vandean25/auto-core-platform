@@ -1,5 +1,8 @@
 import { findBaselineGrowth } from './interaction-baselines-lib.mjs'
 
+export const SYSTEM_PRISMA_DELEGATES_PATTERN =
+  /export const SYSTEM_PRISMA_MODEL_DELEGATES = \[([\s\S]*?)\] as const/
+
 /** Ratcheted allowlists outside interaction guard baseline JSON files (AUT-924). */
 export const GROWTH_ALLOWLISTS = [
   {
@@ -39,17 +42,37 @@ export const GROWTH_ALLOWLISTS = [
 ]
 
 export function extractSystemPrismaDelegates(source) {
-  const match = source.match(/export const SYSTEM_PRISMA_MODEL_DELEGATES = \[([\s\S]*?)\] as const/)
-  if (!match) return []
+  const match = source.match(SYSTEM_PRISMA_DELEGATES_PATTERN)
+  if (!match) return null
   return [...match[1].matchAll(/'([^']+)'/g)].map((part) => part[1]).sort()
 }
 
 export function extractSystemPrismaGetters(source) {
+  if (!source.includes('export class SystemPrismaService')) return null
+  if (!/^\s+get \w+\(\)/m.test(source)) return null
   return [...source.matchAll(/^\s+get (\w+)\(\)/gm)].map((part) => part[1]).sort()
 }
 
 export function extractRecipientAllowlistExports(source) {
-  return [...source.matchAll(/^export function (\w+)/gm)].map((part) => part[1]).sort()
+  const names = new Set()
+  for (const match of source.matchAll(/^export\s+(?:async\s+)?function\s+(\w+)/gm)) names.add(match[1])
+  for (const match of source.matchAll(/^export\s+(?:const|let|var|class|enum)\s+(\w+)/gm)) names.add(match[1])
+  for (const match of source.matchAll(/^export\s+(?:type|interface)\s+(\w+)/gm)) names.add(match[1])
+  for (const match of source.matchAll(/^export\s*\{([^}]+)\}/gm)) {
+    for (const part of match[1].split(',')) {
+      const binding = part.trim().split(/\s+as\s+/)[0].trim()
+      if (/^\w+$/.test(binding)) names.add(binding)
+    }
+  }
+  if (/^export\s+default\s+/m.test(source)) names.add('default')
+  if (/^export\s/m.test(source) && names.size === 0) return null
+  return [...names].sort()
+}
+
+function resolveIdentities(identities, text) {
+  const values = identities(text)
+  if (values === null) return { values: [], unparseable: true }
+  return { values, unparseable: false }
 }
 
 export function checkAllowlistGrowth({ readBase, readHead, allowlists = GROWTH_ALLOWLISTS }) {
@@ -66,11 +89,25 @@ export function checkAllowlistGrowth({ readBase, readHead, allowlists = GROWTH_A
       continue
     }
     if (baseText === undefined) {
-      const growth = identities(headText)
-      results.push({ id, file, status: growth.length > 0 ? 'grew' : 'activated', growth: [] })
+      const headList = resolveIdentities(identities, headText)
+      if (headList.unparseable) {
+        results.push({ id, file, status: 'unparseable', growth: [] })
+        continue
+      }
+      results.push({ id, file, status: headList.values.length > 0 ? 'grew' : 'activated', growth: [] })
       continue
     }
-    const growth = findBaselineGrowth(identities(baseText), identities(headText))
+    const baseList = resolveIdentities(identities, baseText)
+    const headList = resolveIdentities(identities, headText)
+    if (baseList.unparseable || headList.unparseable) {
+      results.push({ id, file, status: 'unparseable', growth: [] })
+      continue
+    }
+    if (baseList.values.length > 0 && headList.values.length === 0) {
+      results.push({ id, file, status: 'unparseable', growth: [] })
+      continue
+    }
+    const growth = findBaselineGrowth(baseList.values, headList.values)
     results.push({ id, file, status: growth.length > 0 ? 'grew' : 'ok', growth })
   }
   return results

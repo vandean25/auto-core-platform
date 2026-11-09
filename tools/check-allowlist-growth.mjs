@@ -29,11 +29,13 @@ function growthResults(repoRoot, base) {
   })
 }
 
-function rejectRemovedAllowlistFiles(results, base) {
-  const removed = results.filter((result) => result.status === 'removed')
-  if (removed.length === 0) return
-  for (const result of removed) console.error(`${result.file}: removed against ${base}`)
-  fail('Allowlist files must not be deleted or renamed.', 1)
+function rejectStructuralFailures(results, base) {
+  const structural = results.filter(
+    (result) => result.status === 'removed' || result.status === 'unparseable',
+  )
+  if (structural.length === 0) return
+  for (const result of structural) console.error(`${result.file}: ${result.status} against ${base}`)
+  fail('Allowlist files must not be deleted, renamed, or reshaped to evade ratchet parsing.', 1)
 }
 
 function rejectAllowlistGrowth(results, base) {
@@ -50,7 +52,7 @@ function rejectAllowlistGrowth(results, base) {
 function runAllowlistGrowthCheck(repoRoot, base) {
   assertResolvableRevision(repoRoot, base, fail)
   const results = growthResults(repoRoot, base)
-  rejectRemovedAllowlistFiles(results, base)
+  rejectStructuralFailures(results, base)
   rejectAllowlistGrowth(results, base)
   console.log(`allowlist growth check passed (${results.length} inventories, none grew against ${base}).`)
 }

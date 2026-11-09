@@ -56,6 +56,7 @@ function writeBaseline(options, offenders) {
   console.log(`spec-quality baseline written: ${offenders.length} entries`)
 }
 
+/** Fails the run on offenders the baseline does not cover. */
 function compareWithCommittedBaseline(options, offenders) {
   if (!fs.existsSync(options.baselinePath)) {
     console.error('Missing baseline. Run: npm run spec-quality:check -- --write-baseline')

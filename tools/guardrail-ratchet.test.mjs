@@ -10,7 +10,12 @@ import {
 } from './spec-quality-baseline-ratchet.mjs'
 import { checkBaselineGrowth, findBaselineStructureViolations, INTERACTION_BASELINES } from './interaction-baselines-lib.mjs'
 import { runCheckerAtBaseRevision } from './guardrail-base-runner.mjs'
-import { checkAllowlistGrowth } from './allowlist-growth-lib.mjs'
+import {
+  GROWTH_ALLOWLISTS,
+  checkAllowlistGrowth,
+  extractRecipientAllowlistExports,
+  extractSystemPrismaDelegates,
+} from './allowlist-growth-lib.mjs'
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
 
@@ -184,95 +189,141 @@ describe('AUT-924 guardrail ratchets', () => {
           bundleName: 'spec-quality',
           checkerArgs: ['--base', baseSha],
         }),
-      (error) => error.status === 1,
+      (error) => {
+        assert.equal(error.status, 1)
+        assert.match(String(error.stderr ?? error.message), /grew|loosened|baseline/i)
+        return true
+      },
     )
   })
 
   it('allowlistGrowthFailsPrefetchAndI18n', () => {
-    const prefetchBase = JSON.stringify(
-      { schemaVersion: 1, exceptions: [{ file: 'pages/a.tsx', reason: 'no detail route' }] },
-      null,
-      2,
-    )
-    const prefetchHead = JSON.stringify(
+    const entryById = Object.fromEntries(GROWTH_ALLOWLISTS.map((entry) => [entry.id, entry]))
+    const cases = [
       {
-        schemaVersion: 1,
-        exceptions: [
-          { file: 'pages/a.tsx', reason: 'no detail route' },
-          { file: 'pages/b.tsx', reason: 'new exception' },
-        ],
+        entry: entryById['intent-prefetch-exceptions'],
+        base: JSON.stringify(
+          { schemaVersion: 1, exceptions: [{ file: 'pages/a.tsx', reason: 'no detail route' }] },
+          null,
+          2,
+        ),
+        head: JSON.stringify(
+          {
+            schemaVersion: 1,
+            exceptions: [
+              { file: 'pages/a.tsx', reason: 'no detail route' },
+              { file: 'pages/b.tsx', reason: 'new exception' },
+            ],
+          },
+          null,
+          2,
+        ),
       },
-      null,
-      2,
-    )
-    const prefetch = checkAllowlistGrowth({
-      allowlists: [
-        {
-          id: 'intent-prefetch-exceptions',
-          file: 'apps/core-web/src/features/interaction/intent-prefetch-exceptions.json',
-          identities(text) {
-            return JSON.parse(text).exceptions.map((entry) => entry.file)
-          },
-        },
-      ],
-      readBase: () => prefetchBase,
-      readHead: () => prefetchHead,
-    })
-    assert.equal(prefetch[0].status, 'grew')
-
-    const manifestBase = JSON.stringify({ treatNamespaceAsUsed: ['errors'], usedKeyPrefixes: ['a.'], usedKeys: [] }, null, 2)
-    const manifestHead = JSON.stringify(
-      { treatNamespaceAsUsed: ['errors'], usedKeyPrefixes: ['a.', 'b.'], usedKeys: [] },
-      null,
-      2,
-    )
-    const manifest = checkAllowlistGrowth({
-      allowlists: [
-        {
-          id: 'i18n-check-manifest',
-          file: 'tools/i18n-check-manifest.json',
-          identities(text) {
-            const document = JSON.parse(text)
-            return [...document.treatNamespaceAsUsed, ...document.usedKeyPrefixes, ...(document.usedKeys ?? [])]
-          },
-        },
-      ],
-      readBase: () => manifestBase,
-      readHead: () => manifestHead,
-    })
-    assert.equal(manifest[0].status, 'grew')
+      {
+        entry: entryById['i18n-check-manifest'],
+        base: JSON.stringify({ treatNamespaceAsUsed: ['errors'], usedKeyPrefixes: ['a.'], usedKeys: [] }, null, 2),
+        head: JSON.stringify(
+          { treatNamespaceAsUsed: ['errors'], usedKeyPrefixes: ['a.', 'b.'], usedKeys: [] },
+          null,
+          2,
+        ),
+      },
+    ]
+    for (const { entry, base, head } of cases) {
+      const [result] = checkAllowlistGrowth({
+        allowlists: [entry],
+        readBase: () => base,
+        readHead: () => head,
+      })
+      assert.equal(result.status, 'grew', entry.id)
+    }
   })
 
   it('allowlistGrowthFailsTenantBypassAndRecipient', () => {
-    const typesBase = "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n"
-    const typesHead = "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user', 'customer'] as const\n"
-    const prisma = checkAllowlistGrowth({
-      allowlists: [
-        {
-          id: 'system-prisma-delegates',
-          file: 'apps/core-api/src/prisma/system-prisma.types.ts',
-          identities: (text) => [...text.matchAll(/'([^']+)'/g)].map((part) => part[1]),
-        },
-      ],
-      readBase: () => typesBase,
-      readHead: () => typesHead,
-    })
-    assert.deepEqual(prisma[0].growth, ['customer'])
+    const entryById = Object.fromEntries(GROWTH_ALLOWLISTS.map((entry) => [entry.id, entry]))
+    const serviceGetterStub = `export class SystemPrismaService {
+  get tenant() { return null }
+}
+`
+    const serviceGetterGrowth = `export class SystemPrismaService {
+  get tenant() { return null }
+  get customer() { return null }
+}
+`
+    const cases = [
+      {
+        entry: entryById['system-prisma-delegates'],
+        base: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n",
+        head: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user', 'customer'] as const\n",
+        status: 'grew',
+        growth: ['customer'],
+      },
+      {
+        entry: entryById['system-prisma-delegates'],
+        base: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n",
+        head: "export const TENANT_BYPASS = ['tenant', 'user', 'customer'] as const\n",
+        status: 'unparseable',
+      },
+      {
+        entry: entryById['system-prisma-service-getters'],
+        base: serviceGetterStub,
+        head: serviceGetterGrowth,
+        status: 'grew',
+        growth: ['customer'],
+      },
+      {
+        entry: entryById['recipient-allowlist-exports'],
+        base: 'export function parseRecipientAllowlist() {}\n',
+        head: 'export function parseRecipientAllowlist() {}\nexport const bypassAllowlist = true\n',
+        status: 'grew',
+        growth: ['bypassAllowlist'],
+      },
+    ]
+    for (const scenario of cases) {
+      const [result] = checkAllowlistGrowth({
+        allowlists: [scenario.entry],
+        readBase: () => scenario.base,
+        readHead: () => scenario.head,
+      })
+      assert.equal(result.status, scenario.status, scenario.entry.id)
+      if (scenario.growth) assert.deepEqual(result.growth, scenario.growth)
+    }
+    assert.deepEqual(extractRecipientAllowlistExports('export const bypass = 1\n'), ['bypass'])
+    assert.equal(
+      extractSystemPrismaDelegates("export const TENANT_BYPASS = ['a'] as const\n"),
+      null,
+    )
+  })
 
-    const recipientBase = 'export function parseRecipientAllowlist() {}\n'
-    const recipientHead =
-      'export function parseRecipientAllowlist() {}\nexport function bypassRecipientAllowlist() {}\n'
-    const recipient = checkAllowlistGrowth({
-      allowlists: [
-        {
-          id: 'recipient-allowlist-exports',
-          file: 'apps/core-api/src/notifications/email/recipient-allowlist.ts',
-          identities: (text) => [...text.matchAll(/^export function (\w+)/gm)].map((part) => part[1]),
-        },
-      ],
-      readBase: () => recipientBase,
-      readHead: () => recipientHead,
-    })
-    assert.deepEqual(recipient[0].growth, ['bypassRecipientAllowlist'])
+  it('allowlistGrowthCliFailsOnGrowthRemovedAndMissingBase', () => {
+    const entry = GROWTH_ALLOWLISTS.find((row) => row.id === 'intent-prefetch-exceptions')
+    const guardDocument = (files) =>
+      JSON.stringify({ schemaVersion: 1, exceptions: files.map((file) => ({ file, reason: 'r' })) }, null, 2)
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'allowlist-growth-cli-'))
+    initRepo(dir)
+    writeAndCommit(dir, entry.file, guardDocument(['pages/a.tsx']), 'base allowlist')
+    fs.writeFileSync(
+      path.join(dir, entry.file),
+      guardDocument(['pages/a.tsx', 'pages/b.tsx']),
+    )
+    const growth = runNode(dir, path.join(REPO_ROOT, 'tools/check-allowlist-growth.mjs'), ['--base', 'HEAD'])
+    assert.equal(growth.status, 1)
+    assert.match(growth.stderr, /grew/)
+
+    const removedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'allowlist-growth-removed-'))
+    initRepo(removedDir)
+    writeAndCommit(removedDir, entry.file, guardDocument(['pages/a.tsx']), 'base allowlist')
+    fs.rmSync(path.join(removedDir, entry.file))
+    const removed = runNode(removedDir, path.join(REPO_ROOT, 'tools/check-allowlist-growth.mjs'), ['--base', 'HEAD'])
+    assert.equal(removed.status, 1)
+    assert.match(removed.stderr, /removed/)
+
+    const missingBase = runNode(
+      dir,
+      path.join(REPO_ROOT, 'tools/check-allowlist-growth.mjs'),
+      ['--base', 'origin/does-not-exist'],
+    )
+    assert.equal(missingBase.status, 2)
   })
 })
