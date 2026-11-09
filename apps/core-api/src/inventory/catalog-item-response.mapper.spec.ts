@@ -13,11 +13,17 @@ function makeCatalogItem(): Prisma.CatalogItemGetPayload<Record<string, never>> 
     cost_price: null,
     retail_price: new Prisma.Decimal('12.5'),
     unit: 'pcs',
+    source_system: null,
+    external_article_id: null,
+    ean: null,
+    oem_numbers: null,
+    specs: null,
+    superseded_by_id: null,
     brand_id: 1,
     revenue_group_id: null,
     revision: 7n,
-    created_at: new Date(),
-    updated_at: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 

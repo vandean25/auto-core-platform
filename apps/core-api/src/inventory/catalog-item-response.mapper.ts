@@ -13,9 +13,9 @@ export function toJsonSafeCatalogItem(item: CatalogItem): CatalogItemHttpEmbed {
   };
 }
 
-export function embedCatalogItemForHttp<T extends { catalog_item?: CatalogItem | null }>(
-  row: T,
-): T {
+export function embedCatalogItemForHttp<
+  T extends { catalog_item?: CatalogItem | null },
+>(row: T): T {
   if (!('catalog_item' in row) || row.catalog_item === undefined) {
     return row;
   }
@@ -37,7 +37,7 @@ export function mapNestedCatalogItemsForHttp<
   return {
     ...parent,
     items: parent.items.map((item) => embedCatalogItemForHttp(item)),
-  } as T;
+  };
 }
 
 export function toCatalogItemResponseDto(
