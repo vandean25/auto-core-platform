@@ -32,7 +32,7 @@ Saved views (AUT-880) live in localStorage per user and tenant: they are lost ac
 
 5. **TENANT:** list, get-by-id, copy, and realtime delivery return a view only when the viewer currently holds the read permission for its `list_path`, via a server-side `list_path → permission` registry on every request.
 6. **PERSONAL:** list, get-by-id, update, delete, and realtime are limited to rows where `owner_user_id` equals the viewer inside the tenant. No API returns another member's PERSONAL views. Palette and Cmd+K aggregates apply the same `list_path` read permission as TENANT rows (a view the owner kept after losing list access is omitted).
-7. Permission `views.shared.manage` (default OWNER, ADMIN; catalogue lands with [ADR-0034](2026-11-02-custom-tenant-roles.md)) for create, edit, delete, or unshare of TENANT views. Others may copy permitted TENANT views read-only.
+7. Permission `views.shared.manage` (default OWNER, ADMIN; catalogue lands with [ADR-0034](2026-11-02-custom-tenant-roles.md)) for create, edit, delete, or unshare of TENANT views. `views.shared.manage` does **not** bypass PERSONAL ownership: update, delete, and share of a PERSONAL row require `owner_user_id` equal to the caller. Copy of a permitted TENANT view inserts a new **PERSONAL** row for the caller (new server id, name/href derived from the source).
 
 ### Validation
 
@@ -41,35 +41,38 @@ Saved views (AUT-880) live in localStorage per user and tenant: they are lost ac
 
 ### Limits and locking
 
-10. Limits: 50 PERSONAL per `(tenant, owner, list_path)`, 50 TENANT per `(tenant, list_path)`; `name` ≤ 60 characters, `href` ≤ 2,000 characters; 422 `SAVED_VIEW_LIMIT`; name clash 409 `SAVED_VIEW_DUPLICATE`.
-11. Before counting or writing, take `pg_advisory_xact_lock` on `(tenant_id, bucket, list_path)` where `bucket` is the owner user id for PERSONAL and the literal tenant bucket for TENANT. This applies to **create**, **import** (per affected list path in the batch), **share** (TENANT bucket on the target list path), **unshare** (PERSONAL bucket for the target owner and list path), and **membership removal** (every PERSONAL bucket and TENANT list path touched in that transaction). Share into TENANT must take the TENANT list lock, not only the sharer's PERSONAL lock.
-12. Before any PERSONAL insert (create, import row, unshare), re-check that the owner still has an active `TenantMember` for the tenant under that PERSONAL lock.
+10. Limits: 50 PERSONAL per `(tenant, owner, list_path)`, 50 TENANT per `(tenant, list_path)`; `name` ≤ 60 characters, `href` ≤ 2,000 characters; 422 `SAVED_VIEW_LIMIT`; name clash (including a rename that loses the partial unique index) 409 `SAVED_VIEW_DUPLICATE`.
+11. **Advisory lock namespace:** cap and import locks use dedicated `pg_advisory_xact_lock(int4, int4)` class ids (`SAVED_VIEW_CAP_LOCK_CLASS`, `SAVED_VIEW_IMPORT_LOCK_CLASS`) disjoint from the per-tenant authorization lock in [ADR-0034](2026-11-02-custom-tenant-roles.md). The second key hashes `(tenant_id, owner_user_id, list_path)` for PERSONAL caps, `(tenant_id, list_path)` for TENANT caps, and `(tenant_id, user_id)` for import idempotency.
+12. Before counting or writing, take the cap lock for the target bucket and `list_path`. This applies to **create**, **copy**, **import** (per affected list path), **share** (TENANT bucket on the target list path), **unshare** (PERSONAL bucket for the acting owner and list path), and **membership removal** (every PERSONAL bucket and TENANT list path touched). Share into TENANT must take the TENANT list lock, not only the sharer's PERSONAL lock. Any transaction that needs more than one list-path cap lock acquires them in **ascending `list_path` order** (import and membership removal included) to avoid deadlocks.
+13. Before any PERSONAL insert (**create**, **copy**, **import** row, **unshare**), re-check under that PERSONAL lock that the target `owner_user_id` still has an active `TenantMember` for the tenant, then count and write.
 
 ### Concurrency and realtime
 
-13. Optimistic concurrency via `version` (409 `SAVED_VIEW_CHANGED`). Creates are server-confirmed ([ADR-0036](2026-11-02-frontend-interaction-rules.md)).
-14. Realtime event `SAVED_VIEW` carries `id` and `list_path` only; clients refetch through the permission-filtered GET.
+14. Optimistic concurrency via `version` (409 `SAVED_VIEW_CHANGED`). Creates are server-confirmed ([ADR-0036](2026-11-02-frontend-interaction-rules.md)).
+15. Realtime event `SAVED_VIEW` carries `id` and `list_path` only; clients refetch through the permission-filtered GET.
 
 ### Lifecycle
 
-15. **Membership removal** (same transaction): under the advisory locks in §11, delete the member's PERSONAL views and set `owner_user_id = null` on their TENANT views. Deactivation keeps views; tenant deletion cascades.
-16. **Unshare** (TENANT → PERSONAL): under the PERSONAL bucket lock, count toward the 50 PERSONAL cap; reject with `SAVED_VIEW_LIMIT` or `SAVED_VIEW_DUPLICATE` when applicable.
+16. **Membership removal** (same transaction): acquire cap locks for every affected `list_path` in ascending order (§12), delete the member's PERSONAL views, and set `owner_user_id = null` on their TENANT views. Do **not** delete or reset their `saved_view_imports` row (rejoin must not run a second one-time import). Deactivation keeps views; tenant deletion cascades views and import markers.
+17. **Orphan TENANT rows** (`owner_user_id` null): remain visible to members who pass the `list_path` read filter. Only holders of `views.shared.manage` may edit or delete them in place. **Unshare to PERSONAL** is forbidden while `owner_user_id` is null. **Claim** (optional admin action) inserts a PERSONAL copy for the caller under the caller's PERSONAL lock, cap, duplicate check, and membership re-check (§12–13).
+18. **Unshare** (TENANT → PERSONAL, non-null owner): under the acting owner's PERSONAL bucket lock (§12–13), count toward the 50 PERSONAL cap; reject with `SAVED_VIEW_LIMIT` or `SAVED_VIEW_DUPLICATE` when applicable.
 
 ### One-time import (copy, not rename)
 
-17. The client reads import status from the server and posts **at most 30** local rows per request (AUT-880 export size), unchanged from today's storage shape (`id`, `name`, `href`, `createdAt`). The localStorage key `acp:saved-views:<user>:<tenant>` stays **intact** for web rollback; the server never deletes or rewrites it.
-18. **Single transaction per import attempt:**
-    - If a `saved_view_imports` row already exists for `(tenant_id, user_id)`, return **409 `ALREADY_IMPORTED`** (committed marker only; no in-flight partial marker).
-    - Otherwise acquire a transaction-scoped advisory lock on `(tenant_id, user_id)` for import idempotency.
-    - For each row: normalize href like AUT-880 (strip `page` / `peek` / `action`, sort query). Reject rows that fail §8–9 or length limits; they are counted as `rejected` in the response body and are not inserted.
-    - For each remaining row on a list path: under that list's PERSONAL lock, enforce the 50 cap. **Same list, same case-insensitive name, different href** (allowed in AUT-880 add but not in server uniqueness): keep the row with the latest `createdAt`, skip the others as `skippedDuplicateName`.
-    - If **no** row would insert, roll back and return **400 `SAVED_VIEW_IMPORT_EMPTY`** without creating a marker.
-    - Insert all accepted rows, then insert `saved_view_imports`, and commit atomically.
-19. **Source of truth after import:** once `saved_view_imports` exists for the member, server-backed clients load and mutate views **only** through the API (no merge or fallback read from localStorage). Pre-import clients may still use localStorage only.
+19. The client reads import status from the server and posts **at most 30** local rows per request (AUT-880 export size), unchanged from today's storage shape (`id`, `name`, `href`, `createdAt`). Ignore client `id`, owner, and visibility; every imported row is **PERSONAL** with `owner_user_id` = the caller. The localStorage key `acp:saved-views:<user>:<tenant>` stays **intact** for web rollback; the server never deletes or rewrites it.
+20. **Single transaction per import attempt:**
+    - Acquire the import idempotency lock (§11) **first**.
+    - Re-read `saved_view_imports`; if a row exists, return **409 `ALREADY_IMPORTED`**.
+    - For each posted row: normalize href like AUT-880 (strip `page` / `peek` / `action`, sort query). Rows that fail §8–9 or length limits are omitted; the response lists each as `rejected` with `{ name, href, reason }`.
+    - **Same list, same case-insensitive name, different href:** keep the row with the latest `createdAt`, skip the others as `skippedDuplicateName` (response lists them).
+    - Sort the distinct `list_path` values of rows to insert; acquire PERSONAL cap locks in that order (§12); under each lock run the membership re-check (§13) and enforce the 50 cap.
+    - If **no** row would insert, roll back and return **400 `SAVED_VIEW_IMPORT_EMPTY`** without a marker (partial `rejected` / `skippedDuplicateName` counts do not commit a marker).
+    - Insert accepted `saved_views` rows, insert `saved_view_imports`, commit atomically (marker and rows share one outcome).
+21. **Source of truth after import:** once `saved_view_imports` exists for the member, server-backed clients load and mutate views **only** through the API (no merge or fallback read from localStorage). Pre-import clients may still use localStorage only.
 
 ### Rollout
 
-20. No feature flag: core platform behavior with a non-destructive migration.
+22. No feature flag: core platform behavior with a non-destructive migration.
 
 ## Consequences
 
@@ -94,6 +97,7 @@ Saved views (AUT-880) live in localStorage per user and tenant: they are lost ac
 - [ADR-0034: Custom tenant roles](2026-11-02-custom-tenant-roles.md)
 - [ADR-0036: Frontend interaction rules](2026-11-02-frontend-interaction-rules.md)
 - [ADR-0038: Authoritative scope context for cursor lists](2026-11-08-authoritative-scope-context-for-cursor-lists.md)
+- [Deletion policy](../../deletion-policy.md) — `saved_views` / `saved_view_imports` matrix (ADR-0039)
 - AUT-880: `apps/core-web/src/features/saved-views/SavedViewsProvider.tsx`
 
 ## Linear Tracking
