@@ -4,13 +4,12 @@
  *
  * Exit codes: 0 no growth, 1 a baseline grew, 2 usage/setup error (for example the base ref is missing).
  */
-import { execFileSync } from 'node:child_process'
-import fs from 'node:fs'
-import path from 'node:path'
 import { parseCliArgs } from './parse-cli-options.mjs'
-import { checkBaselineGrowth } from './interaction-baselines-lib.mjs'
+import { checkBaselineGrowth, findBaselineStructureViolations } from './interaction-baselines-lib.mjs'
+import { guardrailRepoRoot } from './guardrail-repo-root.mjs'
+import { fail, parseRequiredBase, printMultisetGrowth } from './guardrail-cli.mjs'
+import { assertResolvableRevision, readAtRevision, readHead } from './guardrail-git-io.mjs'
 
-const REPO_ROOT = path.resolve(import.meta.dirname, '..')
 const USAGE = `Usage: node tools/check-interaction-baselines.mjs --base <git-ref>
 
   --base <ref>   Revision to compare against, for example origin/main (required)
@@ -18,61 +17,48 @@ const USAGE = `Usage: node tools/check-interaction-baselines.mjs --base <git-ref
 
 const ARG_SPEC = { boolean: {}, value: { '--base': 'base' }, defaults: { base: undefined } }
 
-function readAtRevision(ref, file) {
-  try {
-    return execFileSync('git', ['show', `${ref}:${file}`], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-  } catch {
-    return undefined
-  }
+function printStructure(violations, base) {
+  console.error(`interaction baseline structure changed against ${base}:`)
+  for (const result of violations) console.error(`  ${result.file}: ${result.status}`)
+  fail('Baseline files must not be deleted, renamed, or sidestepped.', 1)
 }
 
-function fail(message, code) {
-  console.error(message)
-  process.exit(code)
+function interactionGrowthResults(repoRoot, base) {
+  return checkBaselineGrowth({
+    readBase: (file) => readAtRevision(repoRoot, base, file),
+    readHead: (file) => readHead(repoRoot, file),
+  })
 }
 
-function requireBase() {
-  const { base } = parseCliArgs(process.argv.slice(2), ARG_SPEC, USAGE)
-  if (!base) fail(`--base is required\n\n${USAGE}`, 2)
-  return base
+function rejectStructureViolations(results, base) {
+  const structureViolations = findBaselineStructureViolations(results)
+  if (structureViolations.length > 0) printStructure(structureViolations, base)
 }
 
-function verifyRevision(base) {
-  try {
-    execFileSync('git', ['rev-parse', '--verify', `${base}^{commit}`], { cwd: REPO_ROOT, stdio: 'ignore' })
-  } catch {
-    fail(`Cannot resolve ${base}. Fetch it first, for example: git fetch origin main`, 2)
-  }
+function rejectInteractionGrowth(results, base) {
+  const grown = results.filter((result) => result.status === 'grew')
+  if (grown.length === 0) return
+  printMultisetGrowth({
+    label: 'interaction baselines',
+    base,
+    grown,
+    exitMessage: 'Fix the violation instead of baselining it: a baseline may only shrink.',
+  })
 }
 
-function readHead(file) {
-  const target = path.join(REPO_ROOT, file)
-  return fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined
-}
-
-function printGrowth(grown, base) {
-  console.error(`interaction baselines grew against ${base}:`)
-  for (const result of grown) {
-    console.error(`  ${result.file}`)
-    for (const identity of result.growth) console.error(`    + ${identity}`)
-  }
-  fail('Fix the violation instead of baselining it: a baseline may only shrink.', 1)
+function runInteractionBaselineCheck(repoRoot, base) {
+  assertResolvableRevision(repoRoot, base, fail)
+  const results = interactionGrowthResults(repoRoot, base)
+  rejectStructureViolations(results, base)
+  rejectInteractionGrowth(results, base)
+  console.log(`interaction baselines check passed (${results.length} baselines, none grew against ${base}).`)
 }
 
 function main() {
-  const base = requireBase()
-  verifyRevision(base)
-  const results = checkBaselineGrowth({ readBase: (file) => readAtRevision(base, file), readHead })
-  for (const { file } of results.filter((result) => result.status === 'activated')) {
-    console.log(`${file}: new guard baseline, nothing to compare`)
-  }
-  const grown = results.filter((result) => result.status === 'grew')
-  if (grown.length > 0) printGrowth(grown, base)
-  console.log(`interaction baselines check passed (${results.length} baselines, none grew against ${base}).`)
+  runInteractionBaselineCheck(
+    guardrailRepoRoot(),
+    parseRequiredBase(process.argv.slice(2), ARG_SPEC, USAGE),
+  )
 }
 
 main()

@@ -77,6 +77,13 @@ describe('check-interaction-baselines CLI', () => {
     git(dir, 'init', '-q', '-b', 'main')
     git(dir, 'config', 'user.email', 'ci@example.test')
     git(dir, 'config', 'user.name', 'CI')
+    for (const entry of INTERACTION_BASELINES) {
+      const target = path.join(dir, entry.file)
+      if (entry.file === MUTATION.file) continue
+      fs.mkdirSync(path.dirname(target), { recursive: true })
+      const source = path.join(REPO_ROOT, entry.file)
+      fs.writeFileSync(target, fs.existsSync(source) ? fs.readFileSync(source, 'utf8') : '[]')
+    }
     fs.writeFileSync(file, guardDocument(['api/orders.ts::useArchiveOrder::missing-mutation-key']))
     git(dir, 'add', '.')
     git(dir, 'commit', '-q', '-m', 'base')

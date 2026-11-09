@@ -55,7 +55,9 @@ export function checkBaselineGrowth({ readBase, readHead, baselines = INTERACTIO
   for (const { file, identities } of baselines) {
     const headText = readHead(file)
     const baseText = readBase(file)
-    if (headText === undefined) {
+    if (headText === undefined && baseText === undefined) {
+      results.push({ file, status: 'absent', growth: [] })
+    } else if (headText === undefined) {
       results.push({ file, status: 'removed', growth: [] })
     } else if (baseText === undefined) {
       results.push({ file, status: 'activated', growth: [] })
@@ -68,4 +70,18 @@ export function checkBaselineGrowth({ readBase, readHead, baselines = INTERACTIO
     }
   }
   return results
+}
+
+/**
+ * Returns structural baseline tampering: deletes, renames (removed plus activated), or unknown activations
+ * when the base already had the full guard set.
+ */
+export function findBaselineStructureViolations(results) {
+  const removed = results.filter((result) => result.status === 'removed')
+  const activated = results.filter((result) => result.status === 'activated')
+  const violations = [...removed]
+  if (removed.length > 0 && activated.length > 0) {
+    violations.push(...activated.map((result) => ({ ...result, status: 'renamed' })))
+  }
+  return violations
 }

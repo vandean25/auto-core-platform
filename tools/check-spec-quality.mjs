@@ -14,31 +14,40 @@ import {
   loadBaseline,
   toBaselineJson,
 } from './spec-quality-lib.mjs'
+import {
+  auditSpecQualityBaselineRatchet,
+  formatSpecQualityRatchetFailure,
+} from './spec-quality-baseline-ratchet.mjs'
+import { verifyRevision } from './guardrail-git-io.mjs'
+import { guardrailRepoRoot } from './guardrail-repo-root.mjs'
 
-const REPO_ROOT = path.resolve(import.meta.dirname, '..')
 const USAGE = `Usage: node tools/check-spec-quality.mjs [options]
 
   --baseline <file>   Committed allowlist (default: tools/spec-quality-baseline.json)
   --root <dir>        Directory to scan (default: repo root)
+  --base <ref>        Compare the baseline file against this revision; rejects growth (AUT-924)
   --write-baseline    Write every current offender to the allowlist and exit 0
 `
 
 const ARG_SPEC = {
   boolean: { '--write-baseline': 'writeBaseline' },
-  value: { '--baseline': 'baselinePath', '--root': 'rootDir' },
+  value: { '--baseline': 'baselinePath', '--root': 'rootDir', '--base': 'base' },
   defaults: {
     writeBaseline: false,
     baselinePath: 'tools/spec-quality-baseline.json',
     rootDir: '.',
+    base: undefined,
   },
 }
 
-function readOptions() {
-  const parsed = parseCliArgs(process.argv.slice(2), ARG_SPEC, USAGE)
+function readOptions(argv) {
+  const parsed = parseCliArgs(argv, ARG_SPEC, USAGE)
+  const repoRoot = guardrailRepoRoot()
   return {
     ...parsed,
-    baselinePath: path.resolve(REPO_ROOT, parsed.baselinePath),
-    rootDir: path.resolve(REPO_ROOT, parsed.rootDir),
+    repoRoot,
+    baselinePath: path.resolve(repoRoot, parsed.baselinePath),
+    rootDir: path.resolve(repoRoot, parsed.rootDir),
   }
 }
 
@@ -66,8 +75,40 @@ function compareWithCommittedBaseline(options, offenders) {
   process.exit(1)
 }
 
+function exitOnRatchetResult(result) {
+  if (result.error) {
+    console.error(result.error)
+    process.exit(1)
+  }
+  if (result.ok) {
+    console.log(`spec-quality baseline ratchet passed against ${result.base}.`)
+    return
+  }
+  console.error(formatSpecQualityRatchetFailure(result))
+  process.exit(1)
+}
+
+function runBaselineRatchet(options) {
+  try {
+    verifyRevision(options.repoRoot, options.base)
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(2)
+  }
+  exitOnRatchetResult(auditSpecQualityBaselineRatchet(options))
+}
+
+function enforceCiBaselineWrites(writeBaselineFlag) {
+  if (process.env.CI === 'true' && writeBaselineFlag) {
+    console.error('Refusing --write-baseline in CI.')
+    process.exit(2)
+  }
+}
+
 function main() {
-  const options = readOptions()
+  const options = readOptions(process.argv.slice(2))
+  enforceCiBaselineWrites(options.writeBaseline)
+  if (options.base) runBaselineRatchet(options)
   const offenders = findOffenders(options.rootDir)
   if (options.writeBaseline) {
     writeBaseline(options, offenders)
