@@ -588,6 +588,12 @@ jobs:
       contents: read
       pull-requests: read
     steps:
+      - name: Checkout gate-override verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout: .github/scripts/verify-gate-override.mjs
+          sparse-checkout-cone-mode: false
+
       - name: Check gate-override label
         id: override
         env:
