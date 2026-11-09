@@ -7,6 +7,13 @@ function hasExportModifier(node) {
   )
 }
 
+function hasDefaultModifier(node) {
+  return (
+    Array.isArray(node.modifiers) &&
+    node.modifiers.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+  )
+}
+
 function namedBindingKey(exportName, propertyName) {
   if (!propertyName || propertyName === exportName) return exportName
   return `${propertyName}:${exportName}`
@@ -28,16 +35,77 @@ function collectExportDeclaration(names, node, sourceFile) {
   if (ts.isNamespaceExport(clause)) names.add(`export*as:${clause.name.text}`)
 }
 
-function collectNamedExport(names, node) {
-  if (!hasExportModifier(node) || !node.name) return
-  names.add(node.name.text)
+function addBindingPattern(name, names) {
+  if (ts.isIdentifier(name)) {
+    names.add(name.text)
+    return true
+  }
+  if (ts.isObjectBindingPattern(name)) {
+    for (const element of name.elements) {
+      if (element.dotDotDotToken) return false
+      if (!element.name || ts.isOmittedExpression(element.name)) return false
+      if (!addBindingPattern(element.name, names)) return false
+    }
+    return true
+  }
+  if (ts.isArrayBindingPattern(name)) {
+    for (const element of name.elements) {
+      if (element.dotDotDotToken) return false
+      if (!element.name || ts.isOmittedExpression(element.name)) return false
+      if (!addBindingPattern(element.name, names)) return false
+    }
+    return true
+  }
+  return false
 }
 
 function collectExportVariableBindings(names, node) {
-  if (!hasExportModifier(node)) return
+  if (!hasExportModifier(node)) return true
   for (const declaration of node.declarationList.declarations) {
-    if (ts.isIdentifier(declaration.name)) names.add(declaration.name.text)
+    if (!addBindingPattern(declaration.name, names)) return false
   }
+  return true
+}
+
+function collectNamedExport(names, node) {
+  if (!hasExportModifier(node) && !hasDefaultModifier(node)) return
+  names.add(node.name?.text ?? 'default')
+}
+
+function collectTopLevelExport(statement, names, sourceFile) {
+  if (ts.isExportAssignment(statement)) {
+    names.add('default')
+    return true
+  }
+  if (ts.isExportDeclaration(statement)) {
+    collectExportDeclaration(names, statement, sourceFile)
+    return true
+  }
+  if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) {
+    collectNamedExport(names, statement)
+    return true
+  }
+  if (ts.isVariableStatement(statement)) {
+    return collectExportVariableBindings(names, statement) ? true : null
+  }
+  if (
+    ts.isTypeAliasDeclaration(statement) ||
+    ts.isInterfaceDeclaration(statement) ||
+    ts.isEnumDeclaration(statement)
+  ) {
+    collectNamedExport(names, statement)
+    return true
+  }
+  if (ts.isModuleDeclaration(statement) && hasExportModifier(statement) && statement.name) {
+    names.add(statement.name.text)
+    return true
+  }
+  if (ts.isImportEqualsDeclaration(statement) && hasExportModifier(statement) && statement.name) {
+    names.add(statement.name.text)
+    return true
+  }
+  if (hasExportModifier(statement) || hasDefaultModifier(statement)) return null
+  return true
 }
 
 /** Collects exported surface names from `recipient-allowlist.ts` using the TypeScript AST. */
@@ -51,27 +119,10 @@ export function extractRecipientAllowlistExports(source) {
   )
   const names = new Set()
 
-  function visit(node) {
-    if (ts.isExportAssignment(node)) {
-      names.add('default')
-    } else if (ts.isExportDeclaration(node)) {
-      collectExportDeclaration(names, node, sourceFile)
-    } else if (ts.isFunctionDeclaration(node)) {
-      collectNamedExport(names, node)
-    } else if (ts.isClassDeclaration(node)) {
-      collectNamedExport(names, node)
-    } else if (ts.isVariableStatement(node)) {
-      collectExportVariableBindings(names, node)
-    } else if (ts.isTypeAliasDeclaration(node)) {
-      collectNamedExport(names, node)
-    } else if (ts.isInterfaceDeclaration(node)) {
-      collectNamedExport(names, node)
-    } else if (ts.isEnumDeclaration(node)) {
-      collectNamedExport(names, node)
-    }
-    ts.forEachChild(node, visit)
+  for (const statement of sourceFile.statements) {
+    const outcome = collectTopLevelExport(statement, names, sourceFile)
+    if (outcome === null) return null
   }
 
-  visit(sourceFile)
   return [...names].sort()
 }

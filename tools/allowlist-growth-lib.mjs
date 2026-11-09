@@ -45,7 +45,12 @@ export const GROWTH_ALLOWLISTS = [
 export function extractSystemPrismaDelegates(source) {
   const match = source.match(SYSTEM_PRISMA_DELEGATES_PATTERN)
   if (!match) return null
-  return [...match[1].matchAll(/'([^']+)'/g)].map((part) => part[1]).sort()
+  const inner = match[1]
+  if (/"|`/.test(inner)) return null
+  const literals = [...inner.matchAll(/'([^']*)'/g)]
+  const withoutLiterals = inner.replace(/'[^']*'/g, '')
+  if (/[^\s,]/.test(withoutLiterals)) return null
+  return literals.map((part) => part[1]).sort()
 }
 
 export function extractSystemPrismaGetters(source) {
@@ -74,7 +79,13 @@ function compareAllowlistEntry({ id, file, identities, readBase, readHead }) {
 function compareNewAllowlistFile({ id, file, identities, headText }) {
   const headList = resolveIdentities(identities, headText)
   if (headList.unparseable) return { id, file, status: 'unparseable', growth: [] }
-  return { id, file, status: headList.values.length > 0 ? 'grew' : 'activated', growth: [] }
+  const growth = [...headList.values].sort()
+  return {
+    id,
+    file,
+    status: growth.length > 0 ? 'grew' : 'activated',
+    growth,
+  }
 }
 
 function compareExistingAllowlistFile({ id, file, identities, baseText, headText }) {

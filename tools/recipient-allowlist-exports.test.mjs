@@ -16,11 +16,24 @@ describe('extractRecipientAllowlistExports', () => {
     ['export abstract class X {}', ['X']],
     ['export function* gen() {}', ['gen']],
     ['export * from "./extra"', ['export*from:./extra']],
+    ['export default function () {}', ['default']],
+    ['export default class C {}', ['C']],
+    ['export namespace Demo { export const x = 1 }', ['Demo']],
+    ['export import sym = Demo.val', ['sym']],
+    ['export const { a } = { a: 1 }', ['a']],
   ]
 
   for (const [source, expected] of cases) {
     it(`collects exports in: ${source.split('\n')[0]}`, () => {
       assert.deepEqual(extractRecipientAllowlistExports(`${source}\n`), expected)
+    })
+  }
+
+  const failClosed = ['export const { ...rest } = { a: 1 }']
+
+  for (const source of failClosed) {
+    it(`fail-closed on: ${source}`, () => {
+      assert.equal(extractRecipientAllowlistExports(`${source}\n`), null)
     })
   }
 

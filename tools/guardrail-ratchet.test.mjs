@@ -154,6 +154,13 @@ describe('AUT-924 guardrail ratchets', () => {
     assert.match(failed.stderr, /structure|removed/i)
   })
 
+  function linkWorkspaceNodeModules(dir) {
+    const target = path.join(dir, 'node_modules')
+    if (!fs.existsSync(target)) {
+      fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), target, 'dir')
+    }
+  }
+
   it('checkersRunFromBaseRevision', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guardrail-base-'))
     initRepo(dir)
@@ -192,6 +199,50 @@ describe('AUT-924 guardrail ratchets', () => {
       (error) => {
         assert.equal(error.status, 1)
         assert.match(String(error.stderr ?? error.message), /grew|loosened|baseline/i)
+        return true
+      },
+    )
+  })
+
+  it('checkersRunAllowlistGrowthFromBaseRevision', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guardrail-allowlist-base-'))
+    initRepo(dir)
+    linkWorkspaceNodeModules(dir)
+    fs.cpSync(path.join(REPO_ROOT, 'tools'), path.join(dir, 'tools'), { recursive: true })
+    git(dir, 'add', 'tools')
+    const prefetch = 'apps/core-web/src/features/interaction/intent-prefetch-exceptions.json'
+    const guardDocument = (files) =>
+      JSON.stringify(
+        { schemaVersion: 1, exceptions: files.map((file) => ({ file, reason: 'r' })) },
+        null,
+        2,
+      )
+    writeAndCommit(dir, prefetch, guardDocument(['pages/a.tsx']), 'base allowlist')
+    const baseSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim()
+
+    const okOutput = runCheckerAtBaseRevision({
+      repoRoot: dir,
+      base: baseSha,
+      bundleName: 'allowlist-growth',
+      checkerArgs: ['--base', baseSha],
+    })
+    assert.match(okOutput, /passed/)
+
+    fs.writeFileSync(path.join(dir, prefetch), guardDocument(['pages/a.tsx', 'pages/b.tsx']))
+    git(dir, 'add', prefetch)
+    git(dir, 'commit', '-q', '-m', 'head growth')
+
+    assert.throws(
+      () =>
+        runCheckerAtBaseRevision({
+          repoRoot: dir,
+          base: baseSha,
+          bundleName: 'allowlist-growth',
+          checkerArgs: ['--base', baseSha],
+        }),
+      (error) => {
+        assert.equal(error.status, 1)
+        assert.match(String(error.stderr ?? error.stdout ?? error.message), /grew|allowlist/i)
         return true
       },
     )
@@ -239,94 +290,109 @@ describe('AUT-924 guardrail ratchets', () => {
     }
   })
 
-  it('allowlistGrowthFailsTenantBypassAndRecipient', () => {
-    const entryById = Object.fromEntries(GROWTH_ALLOWLISTS.map((entry) => [entry.id, entry]))
-    const serviceGetterStub = `export class SystemPrismaService {
+  const entryById = Object.fromEntries(GROWTH_ALLOWLISTS.map((entry) => [entry.id, entry]))
+  const serviceGetterStub = `export class SystemPrismaService {
   get tenant() { return null }
 }
 `
-    const serviceGetterGrowth = `export class SystemPrismaService {
+  const serviceGetterGrowth = `export class SystemPrismaService {
   get tenant() { return null }
   get customer() { return null }
 }
 `
-    const cases = [
-      {
-        entry: entryById['system-prisma-delegates'],
-        base: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n",
-        head: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user', 'customer'] as const\n",
-        status: 'grew',
-        growth: ['customer'],
-      },
-      {
-        entry: entryById['system-prisma-delegates'],
-        base: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n",
-        head: "export const TENANT_BYPASS = ['tenant', 'user', 'customer'] as const\n",
-        status: 'unparseable',
-      },
-      {
-        entry: entryById['system-prisma-service-getters'],
-        base: serviceGetterStub,
-        head: serviceGetterGrowth,
-        status: 'grew',
-        growth: ['customer'],
-      },
-      {
-        entry: entryById['recipient-allowlist-exports'],
-        base: 'export function parseRecipientAllowlist() {}\n',
-        head: 'export function parseRecipientAllowlist() {}\nexport const bypassAllowlist = true\n',
-        status: 'grew',
-        growth: ['bypassAllowlist'],
-      },
-    ]
-    for (const scenario of cases) {
+  const recipientPath = path.join(
+    REPO_ROOT,
+    'apps/core-api/src/notifications/email/recipient-allowlist.ts',
+  )
+  const recipientBase = fs.readFileSync(recipientPath, 'utf8')
+
+  const tenantBypassCases = [
+    {
+      name: 'system-prisma delegate growth',
+      entry: entryById['system-prisma-delegates'],
+      base: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n",
+      head: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user', 'customer'] as const\n",
+      status: 'grew',
+      growth: ['customer'],
+    },
+    {
+      name: 'system-prisma wrong const',
+      entry: entryById['system-prisma-delegates'],
+      base: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n",
+      head: "export const TENANT_BYPASS = ['tenant', 'user', 'customer'] as const\n",
+      status: 'unparseable',
+    },
+    {
+      name: 'system-prisma double-quote bypass',
+      entry: entryById['system-prisma-delegates'],
+      base: "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', 'user'] as const\n",
+      head: 'export const SYSTEM_PRISMA_MODEL_DELEGATES = [\'tenant\', "customer"] as const\n',
+      status: 'unparseable',
+    },
+    {
+      name: 'system-prisma service getter growth',
+      entry: entryById['system-prisma-service-getters'],
+      base: serviceGetterStub,
+      head: serviceGetterGrowth,
+      status: 'grew',
+      growth: ['customer'],
+    },
+    {
+      name: 'recipient export growth',
+      entry: entryById['recipient-allowlist-exports'],
+      base: 'export function parseRecipientAllowlist() {}\n',
+      head: 'export function parseRecipientAllowlist() {}\nexport const bypassAllowlist = true\n',
+      status: 'grew',
+      growth: ['bypassAllowlist'],
+    },
+    {
+      name: 'recipient star export growth',
+      entry: entryById['recipient-allowlist-exports'],
+      base: recipientBase,
+      head: `${recipientBase}\nexport * from './bypass.js';\n`,
+      status: 'grew',
+      growth: ['export*from:./bypass.js'],
+    },
+    {
+      name: 'prefetch allowlist shrink',
+      entry: entryById['intent-prefetch-exceptions'],
+      base: JSON.stringify({
+        schemaVersion: 1,
+        exceptions: [
+          { file: 'pages/a.tsx', reason: 'r' },
+          { file: 'pages/b.tsx', reason: 'r' },
+        ],
+      }),
+      head: JSON.stringify({
+        schemaVersion: 1,
+        exceptions: [{ file: 'pages/a.tsx', reason: 'r' }],
+      }),
+      status: 'ok',
+    },
+  ]
+
+  for (const scenario of tenantBypassCases) {
+    it(`allowlistGrowthFailsTenantBypassAndRecipient: ${scenario.name}`, () => {
       const [result] = checkAllowlistGrowth({
         allowlists: [scenario.entry],
         readBase: () => scenario.base,
         readHead: () => scenario.head,
       })
-      assert.equal(result.status, scenario.status, scenario.entry.id)
+      assert.equal(result.status, scenario.status, scenario.name)
       if (scenario.growth) assert.deepEqual(result.growth, scenario.growth)
-    }
-    assert.deepEqual(extractRecipientAllowlistExports('export const bypass = 1\n'), ['bypass'])
+    })
+  }
+
+  it('extractSystemPrismaDelegates rejects malformed inventories', () => {
     assert.equal(
       extractSystemPrismaDelegates("export const TENANT_BYPASS = ['a'] as const\n"),
       null,
     )
-
-    const recipientPath = path.join(
-      REPO_ROOT,
-      'apps/core-api/src/notifications/email/recipient-allowlist.ts',
-    )
-    const recipientBase = fs.readFileSync(recipientPath, 'utf8')
-    const starExportGrowth = `${recipientBase}\nexport * from './bypass.js';\n`
-    const [starResult] = checkAllowlistGrowth({
-      allowlists: [entryById['recipient-allowlist-exports']],
-      readBase: () => recipientBase,
-      readHead: () => starExportGrowth,
-    })
-    assert.equal(starResult.status, 'grew')
-    assert.deepEqual(starResult.growth, ['export*from:./bypass.js'])
-
-    const prefetchEntry = entryById['intent-prefetch-exceptions']
-    const shrinkHead = JSON.stringify({
-      schemaVersion: 1,
-      exceptions: [{ file: 'pages/a.tsx', reason: 'r' }],
-    })
-    const shrinkBase = JSON.stringify({
-      schemaVersion: 1,
-      exceptions: [
-        { file: 'pages/a.tsx', reason: 'r' },
-        { file: 'pages/b.tsx', reason: 'r' },
-      ],
-    })
     assert.equal(
-      checkAllowlistGrowth({
-        allowlists: [prefetchEntry],
-        readBase: () => shrinkBase,
-        readHead: () => shrinkHead,
-      })[0].status,
-      'ok',
+      extractSystemPrismaDelegates(
+        "export const SYSTEM_PRISMA_MODEL_DELEGATES = ['tenant', `customer`] as const\n",
+      ),
+      null,
     )
   })
 

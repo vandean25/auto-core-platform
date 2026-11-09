@@ -90,6 +90,13 @@ function requireBundleFilesAtBase(repoRoot, base, bundle) {
   return bundle.files
 }
 
+function linkRepoNodeModules(tempRoot, repoRoot) {
+  const repoNodeModules = path.join(repoRoot, 'node_modules')
+  if (!fs.existsSync(repoNodeModules)) return
+  const linkTarget = path.join(tempRoot, 'node_modules')
+  fs.symlinkSync(repoNodeModules, linkTarget, 'dir')
+}
+
 function materializeBundle(repoRoot, base, bundle) {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'guardrail-base-'))
   const files = requireBundleFilesAtBase(repoRoot, base, bundle)
@@ -99,6 +106,7 @@ function materializeBundle(repoRoot, base, bundle) {
     fs.mkdirSync(path.dirname(target), { recursive: true })
     fs.writeFileSync(target, text)
   }
+  linkRepoNodeModules(tempRoot, repoRoot)
   return { tempRoot, entry: path.join(tempRoot, bundle.entry) }
 }
 
