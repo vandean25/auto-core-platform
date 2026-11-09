@@ -64,7 +64,21 @@ jobs:
         run: |
           git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
           MERGE_BASE=$(git merge-base HEAD "origin/${BASE_REF}")
-          bash .github/scripts/run-guardrail-judges-at-base.sh "$MERGE_BASE"
+          run_guardrail_judges() {
+            if git cat-file -e "${MERGE_BASE}:tools/guardrail-base-runner.mjs"; then
+              if git cat-file -e "${MERGE_BASE}:.github/scripts/run-guardrail-judges-at-base.sh"; then
+                bash <(git show "${MERGE_BASE}:.github/scripts/run-guardrail-judges-at-base.sh") "$MERGE_BASE" "$@"
+              else
+                node tools/check-spec-quality.mjs --base "$MERGE_BASE"
+                node tools/check-allowlist-growth.mjs --base "$MERGE_BASE"
+                node tools/check-interaction-baselines.mjs --base "$MERGE_BASE"
+              fi
+            else
+              node tools/check-spec-quality.mjs --base "$MERGE_BASE"
+              node tools/check-allowlist-growth.mjs --base "$MERGE_BASE"
+            fi
+          }
+          run_guardrail_judges spec-quality allowlist-growth
           node tools/check-spec-quality.mjs
 
       - name: Verify spec quality guard script (unit tests)
@@ -72,6 +86,9 @@ jobs:
 
       - name: Verify guardrail ratchet script (unit tests)
         run: npm run guardrail-ratchet:check:test
+
+      - name: Verify merge-base guardrail judge script (unit tests)
+        run: npm run guardrail-judges-at-base:test
 
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
@@ -486,7 +503,18 @@ jobs:
         run: |
           git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
           MERGE_BASE=$(git merge-base HEAD "origin/${BASE_REF}")
-          bash .github/scripts/run-guardrail-judges-at-base.sh "$MERGE_BASE"
+          run_guardrail_judges() {
+            if git cat-file -e "${MERGE_BASE}:tools/guardrail-base-runner.mjs"; then
+              if git cat-file -e "${MERGE_BASE}:.github/scripts/run-guardrail-judges-at-base.sh"; then
+                bash <(git show "${MERGE_BASE}:.github/scripts/run-guardrail-judges-at-base.sh") "$MERGE_BASE" "$@"
+              else
+                node tools/check-interaction-baselines.mjs --base "$MERGE_BASE"
+              fi
+            else
+              node tools/check-interaction-baselines.mjs --base "$MERGE_BASE"
+            fi
+          }
+          run_guardrail_judges interaction-baselines
 
       - name: Verify interaction baseline check script (unit tests)
         run: npm run interaction-baselines:check:test

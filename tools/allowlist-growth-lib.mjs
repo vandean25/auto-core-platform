@@ -1,4 +1,5 @@
 import { findBaselineGrowth } from './interaction-baselines-lib.mjs'
+import { extractRecipientAllowlistExports } from './recipient-allowlist-exports.mjs'
 
 export const SYSTEM_PRISMA_DELEGATES_PATTERN =
   /export const SYSTEM_PRISMA_MODEL_DELEGATES = \[([\s\S]*?)\] as const/
@@ -53,21 +54,7 @@ export function extractSystemPrismaGetters(source) {
   return [...source.matchAll(/^\s+get (\w+)\(\)/gm)].map((part) => part[1]).sort()
 }
 
-export function extractRecipientAllowlistExports(source) {
-  const names = new Set()
-  for (const match of source.matchAll(/^export\s+(?:async\s+)?function\s+(\w+)/gm)) names.add(match[1])
-  for (const match of source.matchAll(/^export\s+(?:const|let|var|class|enum)\s+(\w+)/gm)) names.add(match[1])
-  for (const match of source.matchAll(/^export\s+(?:type|interface)\s+(\w+)/gm)) names.add(match[1])
-  for (const match of source.matchAll(/^export\s*\{([^}]+)\}/gm)) {
-    for (const part of match[1].split(',')) {
-      const binding = part.trim().split(/\s+as\s+/)[0].trim()
-      if (/^\w+$/.test(binding)) names.add(binding)
-    }
-  }
-  if (/^export\s+default\s+/m.test(source)) names.add('default')
-  if (/^export\s/m.test(source) && names.size === 0) return null
-  return [...names].sort()
-}
+export { extractRecipientAllowlistExports }
 
 function resolveIdentities(identities, text) {
   const values = identities(text)
@@ -94,9 +81,6 @@ function compareExistingAllowlistFile({ id, file, identities, baseText, headText
   const baseList = resolveIdentities(identities, baseText)
   const headList = resolveIdentities(identities, headText)
   if (baseList.unparseable || headList.unparseable) {
-    return { id, file, status: 'unparseable', growth: [] }
-  }
-  if (baseList.values.length > 0 && headList.values.length === 0) {
     return { id, file, status: 'unparseable', growth: [] }
   }
   const growth = findBaselineGrowth(baseList.values, headList.values)

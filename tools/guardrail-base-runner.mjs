@@ -56,6 +56,7 @@ export const BUNDLES = {
     files: [
       'tools/check-allowlist-growth.mjs',
       'tools/allowlist-growth-lib.mjs',
+      'tools/recipient-allowlist-exports.mjs',
       'tools/interaction-baselines-lib.mjs',
       'tools/parse-cli-options.mjs',
       'tools/guardrail-repo-root.mjs',

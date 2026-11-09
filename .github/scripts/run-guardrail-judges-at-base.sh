@@ -4,6 +4,8 @@ set -euo pipefail
 
 BASE=${1:?merge-base ref required}
 ROOT=${GITHUB_WORKSPACE:-$PWD}
+shift || true
+REQUESTED_BUNDLES=("$@")
 
 if ! git -C "$ROOT" cat-file -e "${BASE}:tools/guardrail-base-runner.mjs"; then
   exit 0
@@ -26,9 +28,25 @@ done
 
 export GUARDRAIL_REPO_ROOT="$ROOT"
 
+should_run_bundle() {
+  local bundle=$1
+  if [ "${#REQUESTED_BUNDLES[@]}" -eq 0 ]; then
+    return 0
+  fi
+  for requested in "${REQUESTED_BUNDLES[@]}"; do
+    if [ "$requested" = "$bundle" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 run_bundle() {
   local bundle=$1
   local entry=$2
+  if ! should_run_bundle "$bundle"; then
+    return 0
+  fi
   if git -C "$ROOT" cat-file -e "${BASE}:${entry}"; then
     node "$tmpdir/tools/guardrail-base-runner.mjs" --base "$BASE" --bundle "$bundle" -- --base "$BASE"
   fi

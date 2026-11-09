@@ -293,6 +293,41 @@ describe('AUT-924 guardrail ratchets', () => {
       extractSystemPrismaDelegates("export const TENANT_BYPASS = ['a'] as const\n"),
       null,
     )
+
+    const recipientPath = path.join(
+      REPO_ROOT,
+      'apps/core-api/src/notifications/email/recipient-allowlist.ts',
+    )
+    const recipientBase = fs.readFileSync(recipientPath, 'utf8')
+    const starExportGrowth = `${recipientBase}\nexport * from './bypass.js';\n`
+    const [starResult] = checkAllowlistGrowth({
+      allowlists: [entryById['recipient-allowlist-exports']],
+      readBase: () => recipientBase,
+      readHead: () => starExportGrowth,
+    })
+    assert.equal(starResult.status, 'grew')
+    assert.deepEqual(starResult.growth, ['export*from:./bypass.js'])
+
+    const prefetchEntry = entryById['intent-prefetch-exceptions']
+    const shrinkHead = JSON.stringify({
+      schemaVersion: 1,
+      exceptions: [{ file: 'pages/a.tsx', reason: 'r' }],
+    })
+    const shrinkBase = JSON.stringify({
+      schemaVersion: 1,
+      exceptions: [
+        { file: 'pages/a.tsx', reason: 'r' },
+        { file: 'pages/b.tsx', reason: 'r' },
+      ],
+    })
+    assert.equal(
+      checkAllowlistGrowth({
+        allowlists: [prefetchEntry],
+        readBase: () => shrinkBase,
+        readHead: () => shrinkHead,
+      })[0].status,
+      'ok',
+    )
   })
 
   it('allowlistGrowthCliFailsOnGrowthRemovedAndMissingBase', () => {
