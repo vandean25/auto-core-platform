@@ -10,15 +10,18 @@ tags: [adr, platform, tables, security, multi-tenancy, sessions]
 
 ## Status
 
-**Accepted — 2026-11-08.** Merged repository status (not rollout or feature QA acceptance). Accepted on the owner's instruction in the AUT-891 session. The document records Dejan Dosenovic as decider; no Product Planner or Software Engineer review is recorded in this file. Several rounds of automated model review preceded merge; they do not substitute for human review and do not by themselves establish explicit owner acceptance of every concrete mechanism or risk limit below.
+**Accepted — 2026-11-08.** Merged repository status (not rollout or feature QA acceptance). Accepted on the owner's instruction in the AUT-891 session. The document records Dejan Dosenovic as decider for that acceptance of **planning direction** only. Several rounds of automated model review preceded merge; they do not substitute for human review.
 
-The owner approved the planning *direction* on 2026-11-08 (09:34 MEZ): mandatory expected context, server-verified session continuity, coherent authorization, and one shared safety and recovery contract. The sections below record the **documented design target** and interim proposed behavior. Mechanism choices, risk tolerances and implementation authorization remain separate approvals. Names marked "recommended" (secret, header, table) are proposed names, fixed in the implementation specification. **Implementation, including shared prerequisites, is not authorized by this ADR.** Specification, implementation and release approvals stay separate.
+On **2026-11-08** (09:34 MEZ) the owner fixed the direction: mandatory expected context, server-verified session continuity, coherent authorization, and one shared safety and recovery contract. Sections 1–10 record that design target. Names marked "recommended" (secret, header, table) are proposed names, fixed in the implementation specification. **Implementation, including shared prerequisites, is not authorized by this ADR alone.** Wave specification, implementation and release approvals stay separate where not closed below.
 
 This ADR amends [ADR-0035](2026-11-02-cursor-based-infinite-lists.md) §2 (the explicit page-one restart after an incompatible cursor becomes one budgeted automatic restart) and §6/§7 (a changed authoritative context becomes a reset trigger). The amendment takes effect for a consumer when that consumer's enforcement is on (§7); until then ADR-0035 stands for it.
 
-The open choices of the earlier draft were documented on 2026-11-08 at the owner's instruction, grounded in a read of `main`. Resolved choices appear in the Resolutions table as **documented design targets**. The three items formerly still open under "Resolutions" were decided on 2026-11-09 (B1–B3); context-error statuses were fixed the same day (B4).
+**Amended 2026-11-09** (Product Planner + ACP Software Engineer under Dejan Dosenovic's delegation of 2026-11-09; AUT-932): the three formerly still-open Resolutions items are decided (B1–B3) and context-error statuses are fixed (B4). This amendment records these contract deltas against the 2026-11-08 text:
 
-Amended 2026-11-09: the three still-open items are decided (B1–B3) and the context-error statuses are fixed (B4), decided by Product Planner + ACP Software Engineer under Dejan Dosenovic's delegation of 2026-11-09. No mechanism in sections 1–10 changes.
+- **B1:** hot-path ID-token expiry (reject expired tokens); maximum IdP-only staleness while database membership still authorizes is ID-token lifetime (60 minutes); handshake verifies revocation with `checkRevoked=true`; no per-request revocation on list/count.
+- **B2:** no compatibility window; clients without expected context receive `CONTEXT_REQUIRED`; 7-day read-only log query on list and count routes is evidence only, not a gate.
+- **B3:** HMAC continuity digest (subject + authentication time) with the ended-lineage table is the approved continuity mechanism; same-subject, same-second alias is an accepted risk (see fixed requirement 2 and §3).
+- **B4:** `CONTEXT_REQUIRED` → HTTP 428, `CONTEXT_MISMATCH` → HTTP 412 (client-safe envelope); consumer parameter-validation 400s rank after context codes and are §9 "other 4xx" (no automatic retry, not budgeted); recovery shorthands `CURSOR_INVALID` / `UNSUPPORTED_SORT` unchanged.
 
 Observed facts (marked *Observed*) come from reading `main` at `9284e46`. They are not independently audited; the Software Engineer re-verifies them in the implementation specification. This ADR claims no QA acceptance and no PASS.
 
@@ -47,7 +50,7 @@ Drivers:
 ## Fixed Requirements (approved direction)
 
 1. Expected context is mandatory on cursor **and** count requests; omission cannot bypass validation.
-2. **Independently authenticated session continuity:** distinct sign-ins and lineages (including other devices) must be isolatable server-side; a stale lineage must not be treated as current. This requirement is not waived by the interim continuity digest in §3.
+2. **Independently authenticated session continuity:** distinct sign-ins and lineages (including other devices) must be isolatable server-side; a stale lineage must not be treated as current, **except** the same-subject, same-second alias accepted under B3 (2026-11-09). The approved continuity digest in §3 implements this contract.
 3. A coherent authorization decision over permission state, scope epoch and data.
 4. One shared safety and recovery contract for the invoice, inventory and vehicle-stock cursor consumers and the later Sales Orders wave.
 5. Legacy offset behavior and each consumer's permissions and visibility are preserved.
@@ -66,7 +69,7 @@ ADR-0034's versions are not reused: its `authorization_version` fences a narrowe
 
 ### 3. Session continuity
 
-**Required contract** (fixed requirement 2): the server must be able to reject a context whose lineage is no longer current, including replay from another device or an ended sign-in. That obligation stands regardless of the interim digest below.
+**Required contract** (fixed requirement 2): the server must be able to reject a context whose lineage is no longer current, including replay from another device or an ended sign-in, **subject to the B3 same-subject, same-second alias exception.** The approved continuity digest below implements this contract.
 
 **Continuity digest** (decided B3, 2026-11-09): the HMAC continuity digest (subject + authentication time from the verified token) together with the ended-lineage table written by a new authenticated logout endpoint (recommended name `ended_session_lineages`) is the approved continuity mechanism.
 
@@ -82,7 +85,7 @@ After authentication, the shared cursor list and count helper (and the handshake
 - A relevant change committed before the snapshot, meaning one that advanced a component bound in the SC, rejects an old context. A change that advances no bound component does not reject, and a correct new context is not rejected merely because a mutation occurred. The tenant-authorization epoch is tenant-wide, so a tenant, legal-entity or site activation change can reject contexts of members it does not affect; that rare over-invalidation is accepted. Role-definition edits advance only the epochs of assigned members.
 - A later commit cannot recall delivered bytes; the next old-context request rejects.
 - A second epoch read in the same snapshot is not independent freshness evidence, so none is made.
-- Existing 401, 403 and 422 outcomes take precedence when scope is unusable. Precedence is: 401, 403 or 422; then `CONTEXT_REQUIRED` or `CONTEXT_MISMATCH`; then the cursor codes. `CONTEXT_REQUIRED` is returned with HTTP 428, `CONTEXT_MISMATCH` with HTTP 412, both in the standard API error envelope and listed among the client-safe error codes. Parameter-validation 400s of a consumer rank after the context codes, in the cursor-code tier. `CURSOR_INVALID` and `UNSUPPORTED_SORT` remain state-machine shorthands for `LIST_CURSOR_INVALID` and `LIST_CURSOR_SORT_UNSUPPORTED` (B4). A `LIST_CURSOR_INVALID` response therefore implies that the expected SC matched the snapshot.
+- Existing 401, 403 and 422 outcomes take precedence when scope is unusable. Precedence is: 401, 403 or 422; then `CONTEXT_REQUIRED` or `CONTEXT_MISMATCH`; then the cursor codes. `CONTEXT_REQUIRED` is returned with HTTP 428, `CONTEXT_MISMATCH` with HTTP 412, both in the standard API error envelope and listed among the client-safe error codes (B4). Parameter-validation 400s of a consumer rank after the context codes for precedence and fingerprinting; they are §9 "other 4xx" (no automatic retry, not budgeted), not context-recovery cases. `CURSOR_INVALID` and `UNSUPPORTED_SORT` remain state-machine shorthands for `LIST_CURSOR_INVALID` and `LIST_CURSOR_SORT_UNSUPPORTED`. A `LIST_CURSOR_INVALID` response therefore implies that the expected SC matched the snapshot.
 
 ### 5. Authorities outside the database snapshot
 
@@ -185,7 +188,7 @@ The earlier open choices were documented on 2026-11-08 at the owner's instructio
 2. **B2 – Compatibility window.** None. A client without the expected context receives `CONTEXT_REQUIRED`. The enforcing change records a read-only log query (user agent and origin on the three list and three count routes, 7 days) as evidence; it is not a gate.
 3. **B3 – Continuity mechanism.** The HMAC continuity digest (subject + authentication time) together with the ended-lineage table is the approved continuity mechanism. The same-subject, same-second alias is an accepted risk: it never crosses principal, tenant or site; its effects are that a logout ends both aliased sign-ins (fail closed) and that one aliased sign-in's context is accepted by the other for the same principal with identical rights, while credentials still authorize every request. Fixed requirement 2 is met except for the same-subject, same-second alias, which is accepted as a risk.
 
-**B4 – Context error statuses.** `CONTEXT_REQUIRED` is returned with HTTP 428, `CONTEXT_MISMATCH` with HTTP 412, both in the standard API error envelope and listed among the client-safe error codes. Parameter-validation 400s of a consumer rank after the context codes, in the cursor-code tier. `CURSOR_INVALID` and `UNSUPPORTED_SORT` remain state-machine shorthands for `LIST_CURSOR_INVALID` and `LIST_CURSOR_SORT_UNSUPPORTED`.
+**B4 – Context error statuses.** `CONTEXT_REQUIRED` is returned with HTTP 428, `CONTEXT_MISMATCH` with HTTP 412, both in the standard API error envelope and listed among the client-safe error codes. Parameter-validation 400s of a consumer rank after the context codes for precedence; they remain §9 "other 4xx" (no automatic retry, not budgeted). `CURSOR_INVALID` and `UNSUPPORTED_SORT` remain state-machine shorthands for `LIST_CURSOR_INVALID` and `LIST_CURSOR_SORT_UNSUPPORTED`.
 
 ## Alternatives Considered
 
@@ -247,7 +250,7 @@ Sales Orders–specific query plans, endpoint integration and **released QA** on
 
 ## Gates and Sequencing
 
-The Sales Orders wave (AUT-891) **starts** only after all of the following are documented; none is today:
+The Sales Orders wave (AUT-891) **starts** only after all of the following are documented; **items 1 and 2 are still missing** in repository status (items 3 and 4 are satisfied):
 
 1. AUT-890 pilot QA acceptance.
 2. Invoice-wave QA acceptance.
@@ -256,7 +259,7 @@ The Sales Orders wave (AUT-891) **starts** only after all of the following are d
 
 **Before rollout/completion** of Sales Orders (not before implementation starts): enforcement of this ADR on the Sales Orders cursor list and capped-count endpoints (§7), plus Sales Orders query plans, endpoint integration and released QA on the built wave. Those items cannot be gates on their own not-yet-built endpoints. Approved bounded shared-prerequisite readiness on the three existing consumers remains a pre-start requirement when a separate prerequisite correction is owner-approved.
 
-Merges, reviews and scratch probes do not replace 1–3. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit owner approval; this ADR authorizes none. Shared changes require renewed relevant regressions before rollout.
+Merges, reviews and scratch probes do not replace 1–2. If shared defects block the predecessors, a bounded prerequisite correction is proposed separately for explicit owner approval; this ADR authorizes none. Shared changes require renewed relevant regressions before rollout.
 
 ## Sales Orders Wave: Settled Scope (planning input)
 
@@ -264,7 +267,7 @@ The approved specification is [Sales Orders Cursor List](../02-Feature-Specs/Sal
 
 **Preserved behavior:** cursor-only default `createdAt DESC, id DESC`; database text ordering for `order_number`; exact tenant, active-site and null-site visibility and existing permissions; Saved Views and live-URL compatibility; effective legacy `params` computed after the status override, with remaining filters forcing the unchanged offset fallback; raw wire search; exact 1,000 versus 1,001 capped count; an independent 2,000 loaded-row ceiling; no snapshot or no-gap guarantee on mutable data; the existing DRAFT-only Delete with its endpoint, permission, state restriction and confirmation.
 
-**New fixed requirements of the wave, not current behavior:** the card shows date plus vehicle, and the DRAFT Delete becomes a registry action reachable through Cmd+K with a visible mobile path. Today it is a right-click context action with a browser confirmation. Whether the existing card supports a second detail line is unverified.
+**New fixed requirements of the wave, not current behavior (D10, D11):** Mobile card detail line `dd.MM.yyyy · <plate>` (plate, else make + model, else date only). If the DataTable mobile card has no second detail slot, add an optional `meta.mobile.detail` slot that only Sales Orders uses. DRAFT Delete becomes registry action `salesOrder.delete` using the existing registry `ConfirmDialog` (replaces browser `confirm()`), visible only when status = DRAFT, there is no invoice and the user has `sales.order.delete`; paths: row ⋯ sheet (mobile, visible), detail page header, and Cmd+K for the focused or peeked order; remove the right-click-only path. Endpoint and server rules are unchanged.
 
 No Sales Orders selection is introduced.
 

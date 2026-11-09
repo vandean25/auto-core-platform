@@ -107,7 +107,7 @@ Cursor-mode rules for direct API callers:
 
 1. `page` and `pageSize` are forbidden: 400 `LIST_CURSOR_PARAM_FORBIDDEN` (`page`/`pageSize`/`params.page*` in cursor mode).
 2. The legacy override is applied first: a `status` query replaces `params.filters`. The effective filters are computed after it.
-3. Any `params` component that is still effective after flat parameters override it (`filters` without `status`, `search` without a flat `search`, `sorting` without a flat `sortField`), or that is unknown or ambiguous, returns 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous). `params.page` and `params.pageSize` are always forbidden.
+3. Any `params` component that is still effective after flat parameters override it (`filters` without `status`, `search` without a flat `search`, `sorting` without a flat `sortField`), or that is unknown or ambiguous, returns 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous). `params.page` and `params.pageSize` are always forbidden (400 `LIST_CURSOR_PARAM_FORBIDDEN`).
 4. An invalid `status` returns 400 `LIST_STATUS_INVALID` (status not in the enum, cursor mode only; legacy unchanged).
 5. `search` is used as given. Direct whitespace stays literal. The web's search resolution is the existing `resolveListSearch` behavior (see the baseline) and is not changed.
 6. In cursor mode any `sortField` other than `createdAt` or `order_number`, including one outside the legacy whitelist, and a `sortDirection` without a `sortField`, returns `LIST_CURSOR_SORT_UNSUPPORTED`; nothing is silently dropped or replaced by the default order. Only a request with neither returns the default `createdAt DESC, id DESC`.
@@ -118,7 +118,7 @@ The web never sends `params` today, so for web requests rule 3 reduces to the el
 
 The scope-context contract is [ADR-0038](../../01-ADR/2026-11-08-authoritative-scope-context-for-cursor-lists.md): the expected scope context is mandatory on the cursor list and the count request, a cursor binds the scope-context digest, requests are authorized at a single snapshot, and typed context errors rank after 401/403/422 and before the cursor codes. Sales Orders is not covered by that contract before enforcement is on for both of its endpoints.
 
-Precedence on this endpoint: 401/403/422; then `CONTEXT_REQUIRED` / `CONTEXT_MISMATCH`; then the parameter-validation 400s (`LIST_CURSOR_PARAM_FORBIDDEN`, `LIST_PARAMS_UNSUPPORTED`, `LIST_STATUS_INVALID`); then `LIST_CURSOR_SORT_UNSUPPORTED`; then `LIST_CURSOR_INVALID`. **Ranking:** after 401/403/422 and after `CONTEXT_*`, in the cursor-code tier (before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`). The parameter-validation 400s are "other 4xx" under ADR-0038 §9: no retry, no budget. A request that fails both context and parameter validation therefore returns the context error.
+Precedence on this endpoint: 401/403/422; then `CONTEXT_REQUIRED` / `CONTEXT_MISMATCH`; then the parameter-validation 400s (`LIST_CURSOR_PARAM_FORBIDDEN`, `LIST_PARAMS_UNSUPPORTED`, `LIST_STATUS_INVALID`); then `LIST_CURSOR_SORT_UNSUPPORTED`; then `LIST_CURSOR_INVALID`. **Ranking:** after 401/403/422 and after `CONTEXT_*`, before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`. The three parameter-validation 400s (D5) are precedence-ordered with the cursor codes but are §9 "other 4xx" only (error state, no automatic retry, not budgeted); recovery budgets apply only to `CONTEXT_*` and `LIST_CURSOR_INVALID` per ADR-0038 §9. A request that fails both context and parameter validation therefore returns the context error.
 
 Error classes on this endpoint: `401/403/422` (unchanged, never auto-retried); `CONTEXT_REQUIRED` and `CONTEXT_MISMATCH` (ADR-0038); `LIST_CURSOR_INVALID`; `LIST_CURSOR_SORT_UNSUPPORTED`; and 400 `LIST_CURSOR_PARAM_FORBIDDEN`, `LIST_PARAMS_UNSUPPORTED`, `LIST_STATUS_INVALID` (D5).
 
@@ -130,7 +130,7 @@ Unchanged after validation: `tenant_id`, `site_id = active site`, null-site rows
 
 ### Count
 
-`GET /api/sales-orders/capped-count` reuses the existing `cappedCountFromRows` / `LIST_COUNT_PROBE_TAKE` (no new raw SQL), called inside the shared REPEATABLE READ helper, through the same resolver, without keyset or sort. The same resolver feeds the count: effective search and status, tenant and active site, no keyset predicate and no sort. It reads at most 1,001 ids: exactly 1,000 matches returns `{ count: 1000, isCapped: false }`; 1,001 or more returns `{ count: 1000, isCapped: true }` (D8). The independent 2,000 loaded-row ceiling is unaffected by count semantics. Count identity binds the resolved filters and the scope-context digest, not sort. A sort-only change keeps a safe count under the ADR-0038 conditions; otherwise it refetches. Rows and count are separate observations.
+`GET /api/sales-orders/capped-count` reuses the existing `cappedCountFromRows` / `LIST_COUNT_PROBE_TAKE` (no new raw SQL), called inside the shared REPEATABLE READ helper, through the same resolver, without keyset or sort. The same resolver feeds the count: effective search and status, tenant and active site, no keyset predicate and no sort. It reads at most 1,001 ids: exactly 1,000 matches returns `{ count: 1000, isCapped: false }`; 1,001 or more returns `{ count: 1000, isCapped: true }` (D8). The UI displays **"1.000+"** only when `isCapped` is true; an exact 1,000 authorized matches stay numeric. The independent 2,000 loaded-row ceiling is unaffected by count semantics. Count identity binds the resolved filters and the scope-context digest, not sort. A sort-only change keeps a safe count under the ADR-0038 conditions; otherwise it refetches. Rows and count are separate observations.
 
 ### Limits
 
@@ -286,7 +286,8 @@ Merges, reviews and scratch probes do not substitute for 1–2. If shared defect
 
 - Schema, collation and timestamp precision on QA and production; Prisma behavior under a non-UTC runtime.
 - Real endpoint and Prisma-emitted plans (see Database Impact), and QA search plans on representative data.
-- Live URL, table-state and request pipeline for `page`/`pageSize`; mobile card capability; the registry confirmation convention.
+- Live URL, table-state and request pipeline for `page`/`pageSize` (implementation check).
+- Mobile card `meta.mobile.detail` slot and registry `ConfirmDialog` for `salesOrder.delete` (D10, D11 — implementation checks on shared primitives).
 - Released-build QA: keyboard navigation across virtualization boundaries, 320px and 200% zoom, the 403 in the UI, site-switch and cursor reset, a real websocket refresh, invalid-cursor recovery.
 
 ---
@@ -303,11 +304,11 @@ No remaining open questions. ADR-0038 B1–B4 close the former scope-context ope
 
 ### D5 – Sales parameter-validation codes
 
-400 `LIST_CURSOR_PARAM_FORBIDDEN` (`page`/`pageSize`/`params.page*` in cursor mode); 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous); 400 `LIST_STATUS_INVALID` (status not in the enum, cursor mode only; legacy unchanged). **Ranking:** after 401/403/422 and after `CONTEXT_*`, in the cursor-code tier (before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`). These are "other 4xx" under ADR-0038 §9: no retry, no budget. (Former open question 1.)
+400 `LIST_CURSOR_PARAM_FORBIDDEN` (`page`/`pageSize`/`params.page*` in cursor mode); 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous); 400 `LIST_STATUS_INVALID` (status not in the enum, cursor mode only; legacy unchanged). **Ranking (precedence only):** after 401/403/422 and after `CONTEXT_*`, before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`. These three codes are §9 "other 4xx" (error state, no automatic retry, not budgeted). (Former open question 1.)
 
 ### D8 – Count guard
 
-`GET /api/sales-orders/capped-count` reuses the existing `cappedCountFromRows` / `LIST_COUNT_PROBE_TAKE` (no new raw SQL), called inside the shared REPEATABLE READ helper, through the same resolver, without keyset or sort. 1,001 → `{count:1000,isCapped:true}`.
+`GET /api/sales-orders/capped-count` reuses the existing `cappedCountFromRows` / `LIST_COUNT_PROBE_TAKE` (no new raw SQL), called inside the shared REPEATABLE READ helper, through the same resolver, without keyset or sort. 1,001 → `{count:1000,isCapped:true}`; the UI shows **"1.000+"** only when `isCapped` is true (exact 1,000 stays numeric).
 
 ### D9 – Timestamp precision
 
