@@ -3,6 +3,12 @@ import { pathToFileURL } from 'node:url';
 
 const OVERRIDE_LABEL = 'gate-override';
 
+const GITHUB_HEADERS = (token) => ({
+  Authorization: `Bearer ${token}`,
+  Accept: 'application/vnd.github+json',
+  'X-GitHub-Api-Version': '2022-11-28',
+});
+
 /**
  * Parses repo variable text into lowercase GitHub login names.
  * @param {string | string[] | undefined} raw
@@ -39,18 +45,22 @@ export function isBotActor(actor, event) {
 }
 
 /**
- * @param {Array<{ event?: string, created_at?: string, commit_id?: string }>} events
+ * Head introduction time from issue timeline payloads (REST timeline API).
+ *
+ * @param {Array<{ event?: string, created_at?: string, sha?: string, after?: string }>} timeline
  * @param {string} headSha
  * @returns {string | null} ISO timestamp when headSha was last introduced on the PR
  */
-export function headPushedAt(events, headSha) {
-  const pushEvents = events.filter(
-    (entry) =>
-      (entry.event === 'synchronize' ||
-        entry.event === 'opened' ||
-        entry.event === 'ready_for_review') &&
-      entry.commit_id === headSha,
-  );
+export function headPushedAtFromTimeline(timeline, headSha) {
+  const pushEvents = timeline.filter((entry) => {
+    if (entry.event === 'committed' && entry.sha === headSha) {
+      return true;
+    }
+    if (entry.event === 'head_ref_force_pushed' && entry.after === headSha) {
+      return true;
+    }
+    return false;
+  });
   if (pushEvents.length === 0) {
     return null;
   }
@@ -80,13 +90,14 @@ function latestGateOverrideLabelAction(events) {
 /**
  * @param {{
  *   events: Array<Record<string, unknown>>,
+ *   timeline: Array<Record<string, unknown>>,
  *   headSha: string,
  *   allowlist: string[] | string,
  *   labelsPresent?: string[],
  * }} options
  * @returns {{ skip: boolean, reason: string, summary?: string, actor?: string, headSha?: string }}
  */
-export function verifyGateOverride({ events, headSha, allowlist, labelsPresent }) {
+export function verifyGateOverride({ events, timeline, headSha, allowlist, labelsPresent }) {
   const allowed = parseAllowlist(allowlist);
   if (allowed.length === 0) {
     return { skip: false, reason: 'empty-allowlist' };
@@ -111,7 +122,7 @@ export function verifyGateOverride({ events, headSha, allowlist, labelsPresent }
     return { skip: false, reason: 'not-allowlisted' };
   }
 
-  const pushedAt = headPushedAt(events, headSha);
+  const pushedAt = headPushedAtFromTimeline(timeline, headSha);
   if (!pushedAt) {
     return { skip: false, reason: 'unknown-head-push' };
   }
@@ -127,56 +138,101 @@ export function verifyGateOverride({ events, headSha, allowlist, labelsPresent }
 }
 
 /**
- * @param {string} repo `owner/name`
- * @param {number} issueNumber
+ * @param {string} urlBase includes query string prefix without page
+ * @param {string} errorLabel
  * @param {string} token
+ * @param {typeof fetch} fetchImpl
  */
-async function fetchIssueEvents(repo, issueNumber, token) {
-  const events = [];
+async function fetchPaginatedGithub(urlBase, errorLabel, token, fetchImpl) {
+  const collected = [];
   let page = 1;
   while (true) {
-    const response = await fetch(
-      `https://api.github.com/repos/${repo}/issues/${issueNumber}/events?per_page=100&page=${page}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-      },
-    );
+    const response = await fetchImpl(`${urlBase}&page=${page}`, { headers: GITHUB_HEADERS(token) });
     if (!response.ok) {
-      throw new Error(`GitHub issue events failed: HTTP ${response.status}`);
+      throw new Error(`${errorLabel}: HTTP ${response.status}`);
     }
     const batch = await response.json();
-    events.push(...batch);
+    collected.push(...batch);
     if (batch.length < 100) {
       break;
     }
     page += 1;
   }
-  return events;
+  return collected;
+}
+
+/**
+ * @param {string} repo `owner/name`
+ * @param {number} issueNumber
+ * @param {string} token
+ * @param {typeof fetch} fetchImpl
+ */
+export async function fetchIssueEvents(repo, issueNumber, token, fetchImpl = fetch) {
+  return fetchPaginatedGithub(
+    `https://api.github.com/repos/${repo}/issues/${issueNumber}/events?per_page=100`,
+    'GitHub issue events failed',
+    token,
+    fetchImpl,
+  );
 }
 
 /**
  * @param {string} repo
  * @param {number} issueNumber
  * @param {string} token
+ * @param {typeof fetch} fetchImpl
+ */
+export async function fetchIssueTimeline(repo, issueNumber, token, fetchImpl = fetch) {
+  return fetchPaginatedGithub(
+    `https://api.github.com/repos/${repo}/issues/${issueNumber}/timeline?per_page=100`,
+    'GitHub issue timeline failed',
+    token,
+    fetchImpl,
+  );
+}
+
+/**
+ * @param {string} repo
+ * @param {number} issueNumber
+ * @param {string} token
+ * @param {typeof fetch} fetchImpl
  * @returns {Promise<string[]>}
  */
-async function fetchLabelNames(repo, issueNumber, token) {
-  const response = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}/labels`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
+export async function fetchLabelNames(repo, issueNumber, token, fetchImpl = fetch) {
+  const response = await fetchImpl(`https://api.github.com/repos/${repo}/issues/${issueNumber}/labels`, {
+    headers: GITHUB_HEADERS(token),
   });
   if (!response.ok) {
     throw new Error(`GitHub issue labels failed: HTTP ${response.status}`);
   }
   const labels = await response.json();
   return labels.map((label) => label.name);
+}
+
+/**
+ * @param {{
+ *   repo: string,
+ *   prNumber: number,
+ *   token: string,
+ *   headSha: string,
+ *   allowlist: string[] | string,
+ * }} query
+ * @param {{ fetchImpl?: typeof fetch }} deps
+ */
+export async function loadGateOverrideVerificationInputs(query, deps = {}) {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const [events, labelsPresent, timeline] = await Promise.all([
+    fetchIssueEvents(query.repo, query.prNumber, query.token, fetchImpl),
+    fetchLabelNames(query.repo, query.prNumber, query.token, fetchImpl),
+    fetchIssueTimeline(query.repo, query.prNumber, query.token, fetchImpl),
+  ]);
+  return verifyGateOverride({
+    events,
+    timeline,
+    headSha: query.headSha,
+    allowlist: query.allowlist,
+    labelsPresent,
+  });
 }
 
 /**
@@ -231,21 +287,19 @@ export function writeGateOverrideCliResult(result, targets) {
   );
 }
 
-async function runCli() {
+export async function runCli(deps = {}) {
   const env = readGateOverrideCliEnv();
-  const [events, labelsPresent] = await Promise.all([
-    fetchIssueEvents(env.repo, env.prNumber, env.token),
-    fetchLabelNames(env.repo, env.prNumber, env.token),
-  ]);
-  writeGateOverrideCliResult(
-    verifyGateOverride({
-      events,
+  const result = await loadGateOverrideVerificationInputs(
+    {
+      repo: env.repo,
+      prNumber: env.prNumber,
+      token: env.token,
       headSha: env.headSha,
       allowlist: env.allowlist,
-      labelsPresent,
-    }),
-    env,
+    },
+    deps,
   );
+  writeGateOverrideCliResult(result, env);
 }
 
 const isDirectRun =

@@ -63,7 +63,7 @@ jobs:
         run: npm run spec-quality:check:test
 
       - name: Verify gate-override script (unit tests)
-        run: node --test .github/scripts/verify-gate-override.test.mjs
+        run: npm run gate-override:verify:test
 
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
