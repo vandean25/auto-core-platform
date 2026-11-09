@@ -5838,6 +5838,8 @@ export interface components {
             status: "IN_STOCK" | "OUT_OF_STOCK" | "SUPERSEDED";
             quantity_available: number;
             warehouse_location: string;
+            /** Format: int64 */
+            revision: number;
             cost_price: number;
         };
         ReceiveInventoryStockDto: Record<string, never>;
@@ -5852,6 +5854,8 @@ export interface components {
             unit: string;
             brand_id?: number | null;
             revenue_group_id?: number | null;
+            /** Format: int64 */
+            revision: number;
         };
         PaginationMetaDto: {
             total: number;
@@ -5874,6 +5878,8 @@ export interface components {
             status: "IN_STOCK" | "OUT_OF_STOCK" | "SUPERSEDED";
             quantity_available: number;
             warehouse_location: string;
+            /** Format: int64 */
+            revision: number;
         };
         CreateInventoryItemDto: Record<string, never>;
         AuditLogResponseDto: {

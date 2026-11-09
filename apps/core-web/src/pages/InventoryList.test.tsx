@@ -50,6 +50,7 @@ const item: InventoryItem = {
   status: 'IN_STOCK',
   quantity_available: 4,
   warehouse_location: 'A-1',
+  revision: 0,
 }
 
 function LocationProbe() {

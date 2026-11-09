@@ -18907,6 +18907,10 @@
           "warehouse_location": {
             "type": "string"
           },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
           "cost_price": {
             "type": "number"
           }
@@ -18920,6 +18924,7 @@
           "status",
           "quantity_available",
           "warehouse_location",
+          "revision",
           "cost_price"
         ]
       },
@@ -18964,6 +18969,10 @@
           "revenue_group_id": {
             "type": "number",
             "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
           }
         },
         "required": [
@@ -18971,7 +18980,8 @@
           "sku",
           "name",
           "retail_price",
-          "unit"
+          "unit",
+          "revision"
         ]
       },
       "PaginationMetaDto": {
@@ -19050,6 +19060,10 @@
           },
           "warehouse_location": {
             "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
           }
         },
         "required": [
@@ -19060,7 +19074,8 @@
           "price",
           "status",
           "quantity_available",
-          "warehouse_location"
+          "warehouse_location",
+          "revision"
         ]
       },
       "CreateInventoryItemDto": {

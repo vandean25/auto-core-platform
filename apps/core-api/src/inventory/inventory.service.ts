@@ -25,6 +25,7 @@ import {
   transformInventoryListItem,
   type CatalogItemWithStocksAndBrand,
 } from './inventory-item.transform.js';
+import { toCatalogItemResponseDto } from './catalog-item-response.mapper.js';
 
 function buildCatalogItemInclude(tenantId: string, siteId: string) {
   return {
@@ -407,6 +408,6 @@ export class InventoryService {
       },
     });
 
-    return catalogItem;
+    return toCatalogItemResponseDto(catalogItem);
   }
 }

@@ -1,5 +1,6 @@
 import { LocationType, Prisma } from '@prisma/client';
 import type { AtpService, AtpStockInput } from './atp.service.js';
+import { catalogItemRevisionToJsonInteger } from './catalog-item-revision-json.util.js';
 
 type CatalogItemWithStocksAndBrand = Prisma.CatalogItemGetPayload<{
   include: {
@@ -63,6 +64,7 @@ export function transformInventoryListItem(
     status,
     quantity_available: available,
     warehouse_location: eligibleStocks[0]?.location?.name || 'N/A',
+    revision: catalogItemRevisionToJsonInteger(item.revision),
   };
 }
 
