@@ -49,7 +49,7 @@ describe('undo eligible entry store', () => {
     expect(isUndoInFlight()).toBe(false)
   })
 
-  it('runs the latest eligible undo from the keyboard shortcut runner', () => {
+  it('WHEN Cmd/Ctrl+K Undo is invoked on desktop after the pilot edit THEN the existing Undo action still runs (mechanic exemption respected; mobile keyboard shortcuts remain desktop-only per ADR-0036 R5)', () => {
     const runs: string[] = []
     setGlobalUndoRunner((orderId) => {
       runs.push(orderId)

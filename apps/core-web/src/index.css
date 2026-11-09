@@ -199,6 +199,7 @@
  */
 :root {
   --phone-nav-h: 0px;
+  --sticky-bottom-chrome-h: 0px;
 }
 
 @media (max-width: 767.98px) {
