@@ -107,7 +107,7 @@ describe('SalesOrderDetail create invoice', () => {
     )
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices')
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices', { replace: true })
     })
     expect(takeQueuedInvoiceDraftCreate()).toEqual({
       orderId: 'so-1',
@@ -146,7 +146,7 @@ describe('SalesOrderDetail create invoice', () => {
     })
 
     expect(mockNavigate).toHaveBeenCalledTimes(1)
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices', { replace: true })
     expect(takeQueuedInvoiceDraftCreate()).toEqual({
       orderId: 'so-1',
       customerName: 'Test Customer',

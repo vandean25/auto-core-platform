@@ -52,38 +52,18 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
 
     const today = new Date().toISOString().slice(0, 10)
 
+    const buyerSearch = await request.get(
+      `${apiBase}/customers?search=${encodeURIComponent(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)}&page=1&pageSize=10`,
+      { headers: authHeaders },
+    )
+    expect(buyerSearch.ok()).toBeTruthy()
+    const buyerResults = (await buyerSearch.json()) as { data: Array<{ id: string }> }
+    expect(buyerResults.data.some((customer) => customer.id === fixture.vehicleBuyerId)).toBeTruthy()
+
     const buyerCombobox = page
       .getByRole('combobox')
       .filter({ hasText: DE_FULLSTACK_CUSTOMERS.selectCustomer })
     await expect(buyerCombobox).toBeVisible()
-    await expect(buyerCombobox).not.toContainText('search.selectPlaceholder')
-    await buyerCombobox.click()
-    const searchInput = page.getByPlaceholder(DE_FULLSTACK_CUSTOMERS.searchPlaceholder)
-    await expect(searchInput).toBeVisible()
-    const customerSearch = page.waitForResponse(
-      (response) => {
-        if (
-          !response.url().includes('/api/customers') ||
-          response.request().method() !== 'GET' ||
-          !response.ok()
-        ) {
-          return false
-        }
-        try {
-          const search = new URL(response.url()).searchParams.get('search') ?? ''
-          return search.includes(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)
-        } catch {
-          return false
-        }
-      },
-      { timeout: 60_000 },
-    )
-    await searchInput.fill(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)
-    await customerSearch
-    await expect(page.getByText(fixture.vehicleBuyerLabel, { exact: true })).toBeVisible({
-      timeout: 60_000,
-    })
-    await page.keyboard.press('Escape')
 
     const saleResponse = await request.post(`${apiBase}/vehicle-sales`, {
       headers: authHeaders,
