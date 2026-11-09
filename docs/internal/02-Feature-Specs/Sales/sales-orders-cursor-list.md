@@ -2,7 +2,7 @@
 title: "Sales Orders Cursor List (AUT-891 wave 2)"
 date: "2026-11-08"
 module: "Sales"
-status: draft
+status: "approved (Planner + SE, 2026-11-09)"
 linear-project: "N/A"
 linear-milestone: "N/A"
 tags:
@@ -19,9 +19,9 @@ tags:
 
 > Infinite, cursor-paged mode for the Sales Orders list (`/sales-orders`), the planned second wave of AUT-891 after invoices. It adds an opt-in cursor list and capped-count contract, keeps the legacy offset contract unchanged, and relies on the scope-context contract of [ADR-0038](../../01-ADR/2026-11-08-authoritative-scope-context-for-cursor-lists.md) for principal, session and scope safety. It builds on [ADR-0035](../../01-ADR/2026-11-02-cursor-based-infinite-lists.md) and the [list-scrolling concept](../../00-Inbox/concept-list-scrolling.md).
 
-**Status: draft, not approved.** Approval of this specification is itself a gate (see "Gates and Sequencing"). Part of AUT-891; this document does not complete the issue, claim QA acceptance or authorize implementation. It selects no further wave. The Sales Orders list is the only wave candidate named here.
+**Status: approved (Planner + SE, 2026-11-09).** Part of AUT-891; this document does not complete the issue, claim QA acceptance or authorize P1–S2 coding beyond this docs gate. It selects no further wave. The Sales Orders list is the only wave candidate named here.
 
-**Evidence labels.** *Observed* facts come from reading `main` at `9284e46` in the AUT-891 session; the Software Engineer re-verifies them. *Measured (disposable)* facts come from a throwaway database migrated from this repository's migrations; they are no evidence for QA or production. *Proposed* items are recommendations. Endpoint names, error-code names and component names are proposals until the implementation is approved.
+**Evidence labels.** *Observed* facts come from reading `main` at `9284e46` in the AUT-891 session; the Software Engineer re-verifies them. *Measured (disposable)* facts come from a throwaway database migrated from this repository's migrations; they are no evidence for QA or production. *Proposed* items are recommendations unless this spec or ADR-0038 names them as decided (for example D5 error codes and B4 context codes). Other endpoint and component names stay proposals until wave implementation starts.
 
 ---
 
@@ -97,7 +97,7 @@ The unique `id` tiebreaker always runs in the same direction as the primary sort
 
 ### Timestamp interpretation
 
-The cursor carries `createdAt` in a canonical UTC form at the stored precision. Parsing is strict: a value that does not round-trip exactly is rejected as an invalid cursor. The disposable database showed precision 3; precision on QA and production, and Prisma behavior under a non-UTC runtime, are unproven. Final approval must not rely on precision until that evidence exists.
+Cursor encodes `createdAt` as UTC ISO with exactly the DB precision. `createdAt` is `timestamp(3)` on main. S1's first commit still confirms this via `information_schema` on QA (read-only). If it is not 3, the cursor carries the DB text form and is compared via `::timestamp(n)` in SQL. A strict round-trip failure → `LIST_CURSOR_INVALID` (D9).
 
 ### Parameters and the single resolver
 
@@ -105,10 +105,10 @@ One pure resolver takes the untrusted query (search, status, `params`, sort, lim
 
 Cursor-mode rules for direct API callers:
 
-1. `page` and `pageSize` are forbidden: documented `400`.
+1. `page` and `pageSize` are forbidden: 400 `LIST_CURSOR_PARAM_FORBIDDEN` (`page`/`pageSize`/`params.page*` in cursor mode).
 2. The legacy override is applied first: a `status` query replaces `params.filters`. The effective filters are computed after it.
-3. Any `params` component that is still effective after flat parameters override it (`filters` without `status`, `search` without a flat `search`, `sorting` without a flat `sortField`), or that is unknown or ambiguous, returns a documented `400`. `params.page` and `params.pageSize` are always forbidden.
-4. An invalid `status` returns a documented `400`. Legacy handling is unchanged.
+3. Any `params` component that is still effective after flat parameters override it (`filters` without `status`, `search` without a flat `search`, `sorting` without a flat `sortField`), or that is unknown or ambiguous, returns 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous). `params.page` and `params.pageSize` are always forbidden (400 `LIST_CURSOR_PARAM_FORBIDDEN`).
+4. An invalid `status` returns 400 `LIST_STATUS_INVALID` (status not in the enum, cursor mode only; legacy unchanged).
 5. `search` is used as given. Direct whitespace stays literal. The web's search resolution is the existing `resolveListSearch` behavior (see the baseline) and is not changed.
 6. In cursor mode any `sortField` other than `createdAt` or `order_number`, including one outside the legacy whitelist, and a `sortDirection` without a `sortField`, returns `LIST_CURSOR_SORT_UNSUPPORTED`; nothing is silently dropped or replaced by the default order. Only a request with neither returns the default `createdAt DESC, id DESC`.
 
@@ -118,9 +118,9 @@ The web never sends `params` today, so for web requests rule 3 reduces to the el
 
 The scope-context contract is [ADR-0038](../../01-ADR/2026-11-08-authoritative-scope-context-for-cursor-lists.md): the expected scope context is mandatory on the cursor list and the count request, a cursor binds the scope-context digest, requests are authorized at a single snapshot, and typed context errors rank after 401/403/422 and before the cursor codes. Sales Orders is not covered by that contract before enforcement is on for both of its endpoints.
 
-Precedence on this endpoint: 401/403/422; then `CONTEXT_REQUIRED` / `CONTEXT_MISMATCH`; then the parameter-validation 400s (forbidden parameter, effective or unknown `params`, invalid `status`); then `LIST_CURSOR_SORT_UNSUPPORTED`; then `LIST_CURSOR_INVALID`. The parameter-validation 400s are "other 4xx" in ADR-0038 §9: an error state, no automatic retry, not budgeted. A request that fails both context and parameter validation therefore returns the context error.
+Precedence on this endpoint: 401/403/422; then `CONTEXT_REQUIRED` / `CONTEXT_MISMATCH`; then the parameter-validation 400s (`LIST_CURSOR_PARAM_FORBIDDEN`, `LIST_PARAMS_UNSUPPORTED`, `LIST_STATUS_INVALID`); then `LIST_CURSOR_SORT_UNSUPPORTED`; then `LIST_CURSOR_INVALID`. **Ranking:** after 401/403/422 and after `CONTEXT_*`, before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`. The three parameter-validation 400s (D5) are precedence-ordered with the cursor codes but are §9 "other 4xx" only (error state, no automatic retry, not budgeted); recovery budgets apply only to `CONTEXT_*` and `LIST_CURSOR_INVALID` per ADR-0038 §9. A request that fails both context and parameter validation therefore returns the context error.
 
-Error classes on this endpoint: `401/403/422` (unchanged, never auto-retried); `CONTEXT_REQUIRED` and `CONTEXT_MISMATCH` (ADR-0038); `LIST_CURSOR_INVALID`; `LIST_CURSOR_SORT_UNSUPPORTED`; and the documented `400` codes for forbidden parameters and an invalid `status` (code names proposed).
+Error classes on this endpoint: `401/403/422` (unchanged, never auto-retried); `CONTEXT_REQUIRED` and `CONTEXT_MISMATCH` (ADR-0038); `LIST_CURSOR_INVALID`; `LIST_CURSOR_SORT_UNSUPPORTED`; and 400 `LIST_CURSOR_PARAM_FORBIDDEN`, `LIST_PARAMS_UNSUPPORTED`, `LIST_STATUS_INVALID` (D5).
 
 Recovery follows ADR-0038 §9: one total automatic action per stable query episode shared by page and count; singleflight; quarantine, flush and late-result fencing always; no automatic retry of 401/403/422; a valid-context `LIST_CURSOR_INVALID` allows one restart that preserves all effective parameters. Recovery within the same episode (including recovery-generated SC refresh) does not rearm a spent budget and is not user session lifecycle. User logout or reauthentication starts a **new** episode with a fresh initial budget and takes precedence over a pending same-episode recovery (ADR-0038 §9). The API returns `LIST_CURSOR_SORT_UNSUPPORTED` for an unsupported cursor sort; only the UI latches the existing offset mode at offset 0 for that episode, keeping sort and filters, with no repeated cursor attempts. Filters are never removed to recover.
 
@@ -130,7 +130,7 @@ Unchanged after validation: `tenant_id`, `site_id = active site`, null-site rows
 
 ### Count
 
-The same resolver feeds the count: effective search and status, tenant and active site, no keyset predicate and no sort. It reads at most 1,001 ids: exactly 1,000 matches returns `{ count: 1000, isCapped: false }`; 1,001 or more returns `{ count: 1000, isCapped: true }`, displayed "1.000+" only then. The independent 2,000 loaded-row ceiling is unaffected by count semantics. Count identity binds the resolved filters and the scope-context digest, not sort. A sort-only change keeps a safe count under the ADR-0038 conditions; otherwise it refetches. Rows and count are separate observations.
+`GET /api/sales-orders/capped-count` reuses the existing `cappedCountFromRows` / `LIST_COUNT_PROBE_TAKE` (no new raw SQL), called inside the shared REPEATABLE READ helper, through the same resolver, without keyset or sort. The same resolver feeds the count: effective search and status, tenant and active site, no keyset predicate and no sort. It reads at most 1,001 ids: exactly 1,000 matches returns `{ count: 1000, isCapped: false }`; 1,001 or more returns `{ count: 1000, isCapped: true }` (D8). The UI displays **"1.000+"** only when `isCapped` is true; an exact 1,000 authorized matches stay numeric. The independent 2,000 loaded-row ceiling is unaffected by count semantics. Count identity binds the resolved filters and the scope-context digest, not sort. A sort-only change keeps a safe count under the ADR-0038 conditions; otherwise it refetches. Rows and count are separate observations.
 
 ### Limits
 
@@ -150,10 +150,10 @@ GET /api/sales-orders/capped-count?status=CONFIRMED&search=Meier
 200 { "count": 1000, "isCapped": true, "scopeContextDigest": "<digest>" }
 
 (with a valid X-ACP-Scope-Context header)
-GET /api/sales-orders?pagination=cursor&page=2        → 400 (forbidden parameter)
+GET /api/sales-orders?pagination=cursor&page=2        → 400 LIST_CURSOR_PARAM_FORBIDDEN
 GET /api/sales-orders?pagination=cursor&sortField=total_amount → 400 LIST_CURSOR_SORT_UNSUPPORTED
 (without the header)
-GET /api/sales-orders?pagination=cursor&page=2        → CONTEXT_REQUIRED (context ranks first)
+GET /api/sales-orders?pagination=cursor&page=2        → 428 CONTEXT_REQUIRED (context ranks first)
 (offset mode, unchanged)
 GET /api/sales-orders?page=2&pageSize=25&sortField=status      → unchanged offset response
 ```
@@ -216,11 +216,11 @@ None: no entity or lifecycle rule changes.
 
 ### Mobile card
 
-Order number is the title, customer the subtitle, then status, with the amount trailing, plus the date **and** the vehicle when present. Targets are at least 44px and text stays compact. If the existing card supports several compact details, use them. Whether it does is unverified; if not, a bounded additive slot is proposed, which must change no other list and needs separate review. A broader primitive change is out of scope. The vehicle is never silently dropped.
+Order number is the title, customer the subtitle, then status, with the amount trailing. Detail line `dd.MM.yyyy · <plate>` (plate, else make + model, else date only) (D10) uses the existing shared `meta.mobile: 'details'` slot (full-width line under the title row). Targets are at least 44px and text stays compact. No new column-meta slot and no other list changes.
 
 ### DRAFT Delete parity
 
-The existing DRAFT-only Delete becomes a registry action with a stable `<entity>.<action>` id (for example `salesOrder.delete`), gated through the existing role predicates, reachable through Cmd+K with identical role gating and confirmation, and with a visible mobile path through an existing pattern. The endpoint, `sales.order.delete` permission, the rejection of non-draft or invoiced orders and the confirmation requirement are unchanged. There is no right-click-only or long-press-only path, no new business action and no new permission. The confirmation mechanism follows the registry convention, to be verified. Migrating an existing action may require removing its baseline entry, which may only shrink (`agents.md`).
+Registry action `salesOrder.delete` on `EntityActionDefinition` with `destructive: true` and a `confirm` prompt, dispatched through `executeEntityAction` / `requestEntityActionConfirm` and `EntityActionConfirmHost` (`AlertDialog`; same pattern as `customer.delete`), replacing the browser `confirm()` (D11). Visible only when status = DRAFT, there is no invoice and the user has `sales.order.delete`. Paths: the existing row ⋯ `DropdownMenu` via `DataTableRowActions` / `getRowContextActions` (mobile visible), the detail page header, and Cmd+K for the focused or peeked order. Remove the right-click-only path. Endpoint and server rules unchanged. Migrating an existing action may require removing its baseline entry, which may only shrink (`agents.md`).
 
 ### Saved Views and URL
 
@@ -273,7 +273,7 @@ New behavior follows the TDD workflow in `agents.md`: each new test must fail ag
 
 1. AUT-890 pilot QA acceptance. **Missing.**
 2. Invoice-wave QA acceptance. **Missing.**
-3. Approval of this corrected specification. **Missing.**
+3. Approval of this corrected specification. **Done** (Planner + SE, 2026-11-09; AUT-932).
 4. ADR-0038 accepted as the shared scope-context design (repository status today).
 
 Approved bounded shared-prerequisite readiness on the three existing ADR-0038 consumers remains a pre-start gate when a separately owner-approved prerequisite correction exists; this spec does not authorize that correction.
@@ -286,7 +286,8 @@ Merges, reviews and scratch probes do not substitute for 1–2. If shared defect
 
 - Schema, collation and timestamp precision on QA and production; Prisma behavior under a non-UTC runtime.
 - Real endpoint and Prisma-emitted plans (see Database Impact), and QA search plans on representative data.
-- Live URL, table-state and request pipeline for `page`/`pageSize`; mobile card capability; the registry confirmation convention.
+- Live URL, table-state and request pipeline for `page`/`pageSize` (implementation check).
+- Column `meta.mobile: 'details'` for the date·vehicle line (D10) and `salesOrder.delete` wired through the entity-action registry (`confirm` + `AlertDialog`) (D11 — implementation checks).
 - Released-build QA: keyboard navigation across virtualization boundaries, 320px and 200% zoom, the 403 in the UI, site-switch and cursor reset, a real websocket refresh, invalid-cursor recovery.
 
 ---
@@ -297,12 +298,29 @@ The ADR-0035 shared list cursor (`LIST_CURSOR_ENDPOINT`) exists today on three e
 
 ---
 
-## Open Questions
+## Decided (Planner + SE, 2026-11-09)
 
-1. The documented error-code names and status for forbidden parameters, invalid `status`, `CONTEXT_REQUIRED` and `CONTEXT_MISMATCH`.
-2. Whether the mobile card supports several details or needs the bounded additive slot.
-3. The confirmation convention for the registry Delete.
-4. The compatibility window and identity-provider staleness items left open in ADR-0038.
+No remaining open questions. ADR-0038 B1–B4 close the former scope-context open items.
+
+### D5 – Sales parameter-validation codes
+
+400 `LIST_CURSOR_PARAM_FORBIDDEN` (`page`/`pageSize`/`params.page*` in cursor mode); 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous); 400 `LIST_STATUS_INVALID` (status not in the enum, cursor mode only; legacy unchanged). **Ranking (precedence only):** after 401/403/422 and after `CONTEXT_*`, before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`. These three codes are §9 "other 4xx" (error state, no automatic retry, not budgeted). Wave implementation must register them in `CLIENT_SAFE_HTTP_ERROR_CODES` (with B4 `CONTEXT_*` codes and HTTP 412/428 display names). (Former open question 1.)
+
+### D8 – Count guard
+
+`GET /api/sales-orders/capped-count` reuses the existing `cappedCountFromRows` / `LIST_COUNT_PROBE_TAKE` (no new raw SQL), called inside the shared REPEATABLE READ helper, through the same resolver, without keyset or sort. 1,001 → `{count:1000,isCapped:true}`; the UI shows **"1.000+"** only when `isCapped` is true (exact 1,000 stays numeric).
+
+### D9 – Timestamp precision
+
+Cursor encodes `createdAt` as UTC ISO with exactly the DB precision. `createdAt` is `timestamp(3)` on main. S1's first commit still confirms this via `information_schema` on QA (read-only). If it is not 3, the cursor carries the DB text form and is compared via `::timestamp(n)` in SQL. A strict round-trip failure → `LIST_CURSOR_INVALID`.
+
+### D10 – Mobile card date + vehicle
+
+Detail line `dd.MM.yyyy · <plate>` (plate, else make + model, else date only) on the existing shared `meta.mobile: 'details'` slot (full-width line under the title row). No new column-meta slot and no other list changes. (Former open question 2.)
+
+### D11 – DRAFT Delete
+
+Registry action `salesOrder.delete` on `EntityActionDefinition` with `destructive: true` and a `confirm` prompt, dispatched through `executeEntityAction` / `EntityActionConfirmHost` (`AlertDialog`; same pattern as `customer.delete`), replacing the browser `confirm()`. Visible only when status = DRAFT, there is no invoice and the user has `sales.order.delete`. Paths: existing row ⋯ menu via `DataTableRowActions` / `getRowContextActions` (mobile visible), detail page header, and Cmd+K. Remove the right-click-only path. Endpoint and server rules unchanged. (Former open question 3.)
 
 ---
 
