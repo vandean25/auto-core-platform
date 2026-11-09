@@ -15,10 +15,10 @@ import {
   toBaselineJson,
 } from './spec-quality-lib.mjs'
 import {
-  findAddedBaselineEntries,
-  findLoosenedBaselineEntries,
+  auditSpecQualityBaselineRatchet,
+  formatSpecQualityRatchetFailure,
 } from './spec-quality-baseline-ratchet.mjs'
-import { readAtRevision, verifyRevision } from './guardrail-git-io.mjs'
+import { verifyRevision } from './guardrail-git-io.mjs'
 import { guardrailRepoRoot } from './guardrail-repo-root.mjs'
 
 const USAGE = `Usage: node tools/check-spec-quality.mjs [options]
@@ -75,41 +75,23 @@ function compareWithCommittedBaseline(options, offenders) {
   process.exit(1)
 }
 
-function compareBaselineAgainstBase(options) {
-  const baselineFile = path.relative(options.repoRoot, options.baselinePath).replace(/\\/g, '/')
+function runBaselineRatchet(options) {
   try {
     verifyRevision(options.repoRoot, options.base)
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exit(2)
   }
-  const baseText = readAtRevision(options.repoRoot, options.base, baselineFile)
-  const headText = fs.existsSync(options.baselinePath)
-    ? fs.readFileSync(options.baselinePath, 'utf8')
-    : undefined
-  if (baseText === undefined || headText === undefined) {
-    console.error('spec-quality baseline missing at head or base; refusing to compare.')
+  const result = auditSpecQualityBaselineRatchet(options)
+  if (result.error) {
+    console.error(result.error)
     process.exit(1)
   }
-  const baseAllowlist = JSON.parse(baseText).allowlist ?? []
-  const headAllowlist = JSON.parse(headText).allowlist ?? []
-  const added = findAddedBaselineEntries(baseAllowlist, headAllowlist)
-  const loosened = findLoosenedBaselineEntries(baseAllowlist, headAllowlist)
-  if (added.length === 0 && loosened.length === 0) {
-    console.log(`spec-quality baseline ratchet passed against ${options.base}.`)
+  if (result.ok) {
+    console.log(`spec-quality baseline ratchet passed against ${result.base}.`)
     return
   }
-  if (added.length > 0) {
-    console.error(`spec-quality baseline grew against ${options.base}:`)
-    for (const entry of added) console.error(`  + ${describeOffender(entry)}`)
-  }
-  if (loosened.length > 0) {
-    console.error(`spec-quality baseline loosened against ${options.base}:`)
-    for (const { base, head } of loosened) {
-      console.error(`  ~ ${base.file} [${base.rule}]: ${JSON.stringify(base.key)} → ${JSON.stringify(head.key)}`)
-    }
-  }
-  console.error('The committed allowlist may only shrink or stay exact — never grow or broaden.')
+  console.error(formatSpecQualityRatchetFailure(result))
   process.exit(1)
 }
 
@@ -119,7 +101,7 @@ function main() {
     console.error('Refusing --write-baseline in CI.')
     process.exit(2)
   }
-  if (options.base) compareBaselineAgainstBase(options)
+  if (options.base) runBaselineRatchet(options)
   const offenders = findOffenders(options.rootDir)
   if (options.writeBaseline) {
     writeBaseline(options, offenders)

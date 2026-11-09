@@ -7,6 +7,7 @@
 import { parseCliArgs } from './parse-cli-options.mjs'
 import { checkAllowlistGrowth } from './allowlist-growth-lib.mjs'
 import { defaultRepoRoot, readAtRevision, readHead, verifyRevision } from './guardrail-git-io.mjs'
+import { fail, printMultisetGrowth } from './guardrail-cli.mjs'
 
 const USAGE = `Usage: node tools/check-allowlist-growth.mjs --base <git-ref>
 
@@ -14,20 +15,6 @@ const USAGE = `Usage: node tools/check-allowlist-growth.mjs --base <git-ref>
 `
 
 const ARG_SPEC = { boolean: {}, value: { '--base': 'base' }, defaults: { base: undefined } }
-
-function fail(message, code) {
-  console.error(message)
-  process.exit(code)
-}
-
-function printGrowth(grown, base) {
-  console.error(`allowlists grew against ${base}:`)
-  for (const result of grown) {
-    console.error(`  ${result.file}`)
-    for (const identity of result.growth) console.error(`    + ${identity}`)
-  }
-  fail('Fix the violation instead of allowlisting it: an allowlist may only shrink.', 1)
-}
 
 function main() {
   const { base } = parseCliArgs(process.argv.slice(2), ARG_SPEC, USAGE)
@@ -48,7 +35,14 @@ function main() {
     fail('Allowlist files must not be deleted or renamed.', 1)
   }
   const grown = results.filter((result) => result.status === 'grew')
-  if (grown.length > 0) printGrowth(grown, base)
+  if (grown.length > 0) {
+    printMultisetGrowth({
+      label: 'allowlists',
+      base,
+      grown,
+      exitMessage: 'Fix the violation instead of allowlisting it: an allowlist may only shrink.',
+    })
+  }
   console.log(`allowlist growth check passed (${results.length} inventories, none grew against ${base}).`)
 }
 

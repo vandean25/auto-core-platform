@@ -29,6 +29,7 @@ const BUNDLES = {
       'tools/parse-cli-options.mjs',
       'tools/guardrail-repo-root.mjs',
       'tools/guardrail-git-io.mjs',
+      'tools/guardrail-cli.mjs',
     ],
   },
   'interaction-baselines': {
@@ -39,6 +40,7 @@ const BUNDLES = {
       'tools/parse-cli-options.mjs',
       'tools/guardrail-repo-root.mjs',
       'tools/guardrail-git-io.mjs',
+      'tools/guardrail-cli.mjs',
     ],
   },
 }
