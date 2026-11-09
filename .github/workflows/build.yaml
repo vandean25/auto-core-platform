@@ -9,6 +9,12 @@ on:
       - main
       - 'feat/*'
       - 'feature/*'
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
   # Push on main gives every squash-merge its own CI result. No paths-ignore: the PR trigger has none.
   push:
     branches:
@@ -55,6 +61,9 @@ jobs:
 
       - name: Verify spec quality guard script (unit tests)
         run: npm run spec-quality:check:test
+
+      - name: Verify gate-override script (unit tests)
+        run: node --test .github/scripts/verify-gate-override.test.mjs
 
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
@@ -584,13 +593,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          labels=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '.[].name')
-          if printf '%s\n' "$labels" | grep -qx 'gate-override'; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::gate-override label set: Fallow audit skipped by a human decision."
-            echo "Fallow audit skipped: \`gate-override\` label set." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GATE_OVERRIDE_ACTORS: ${{ vars.GATE_OVERRIDE_ACTORS }}
+        run: node .github/scripts/verify-gate-override.mjs
 
       - name: Checkout
         if: steps.override.outputs.skip != 'true'
