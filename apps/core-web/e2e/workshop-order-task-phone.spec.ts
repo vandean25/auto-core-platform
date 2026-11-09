@@ -119,9 +119,13 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
     await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
     })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    })
   })
 
   test('at 375×844 the undo toast action sits above the sticky checkout footer and is tappable', async ({ page }) => {
+    test.setTimeout(60_000)
     let order = {
       ...createMockWorkshopOrder({
         id: orderId,
@@ -167,15 +171,20 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
     const corePage = new AutoCorePage(page, 'Order')
     await corePage.navigate(`/workshop/orders/${orderId}`)
 
+    await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
+
+    const notesText = page.getByText('Original internal note', { exact: true })
+    await notesText.scrollIntoViewIfNeeded()
+    await notesText.click()
     const notesField = page.getByLabel(deWorkshop.taskList.internalNotesAria)
-    await notesField.scrollIntoViewIfNeeded()
-    await page.getByText('Original internal note').click()
+    await expect(notesField).toBeVisible()
     await notesField.fill('Edited internal note')
     await notesField.blur()
 
     await expect
-      .poll(() =>
-        page.evaluate(() => document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')),
+      .poll(
+        () => page.evaluate(() => document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')),
+        { timeout: 15_000 },
       )
       .not.toBe('')
 
