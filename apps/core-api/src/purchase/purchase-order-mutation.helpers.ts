@@ -40,6 +40,7 @@ import {
   toPurchaseOrderItemNestedCreateData,
 } from './purchase-order-guards.helpers.js';
 import { executeFindOnePurchaseOrder } from './purchase-order-query.helpers.js';
+import { mapNestedCatalogItemsForHttp } from '../inventory/catalog-item-response.mapper.js';
 
 export async function recomputeLinkedRequisitions(
   tx: Prisma.TransactionClient,
@@ -153,7 +154,7 @@ export async function syncPurchaseOrderStatusAndFetch(
     });
   }
 
-  return tx.purchaseOrder.findFirst({
+  const order = await tx.purchaseOrder.findFirst({
     where: {
       id: scope.orderId,
       tenant_id: scope.tenantId,
@@ -166,6 +167,7 @@ export async function syncPurchaseOrderStatusAndFetch(
       },
     },
   });
+  return order ? mapNestedCatalogItemsForHttp(order) : null;
 }
 
 export async function executeCreatePurchaseOrder(
@@ -345,7 +347,7 @@ export async function executeMarkAsSent(
     throw new NotFoundException('Purchase Order not found');
   }
 
-  return updated;
+  return mapNestedCatalogItemsForHttp(updated);
 }
 
 export async function executeRemovePurchaseOrder(

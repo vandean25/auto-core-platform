@@ -2,6 +2,10 @@ import { NotFoundException } from '@nestjs/common';
 import { PurchaseOrderStatus, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { PaginatedPurchaseOrderResult } from './purchase.service.js';
+import {
+  embedCatalogItemForHttp,
+  mapNestedCatalogItemsForHttp,
+} from '../inventory/catalog-item-response.mapper.js';
 
 export function buildLegacyPurchaseOrderWhere(
   tenantId: string,
@@ -57,7 +61,7 @@ export async function executeGetPurchaseOrderItems(
     throw new NotFoundException('Purchase Order not found');
   }
 
-  return po.items;
+  return po.items.map((item) => embedCatalogItemForHttp(item));
 }
 
 export async function executeGetPurchaseOrderItem(
@@ -79,7 +83,7 @@ export async function executeGetPurchaseOrderItem(
     throw new NotFoundException('Purchase order item not found');
   }
 
-  return item;
+  return embedCatalogItemForHttp(item);
 }
 
 export async function executeFindOnePurchaseOrder(
@@ -88,7 +92,7 @@ export async function executeFindOnePurchaseOrder(
   authorizedSiteIds: string[],
   id: string,
 ) {
-  return prisma.purchaseOrder.findFirst({
+  const order = await prisma.purchaseOrder.findFirst({
     where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
     include: {
       vendor: { include: { supportedBrands: true } },
@@ -97,6 +101,7 @@ export async function executeFindOnePurchaseOrder(
       },
     },
   });
+  return order ? mapNestedCatalogItemsForHttp(order) : null;
 }
 
 export async function executeFindAllPurchaseOrders(
