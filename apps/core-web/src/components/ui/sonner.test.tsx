@@ -86,7 +86,18 @@ beforeEach(() => {
   )
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await act(async () => {
+    toast.dismiss()
+  })
+  await waitFor(
+    () => {
+      expect(document.querySelectorAll('[data-sonner-toast]').length).toBe(0)
+    },
+    { timeout: 3_000 },
+  ).catch(() => {
+    /* Sonner may already be torn down. */
+  })
   cleanup()
   setViewport(originalInnerWidth)
   vi.unstubAllGlobals()
