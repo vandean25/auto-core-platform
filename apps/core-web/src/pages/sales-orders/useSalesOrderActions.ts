@@ -37,7 +37,7 @@ export function useSalesOrderActions(id: string) {
         ? customer.company_name
         : `${customer.first_name} ${customer.last_name}`.trim()
     queueInvoiceDraftCreate({ orderId: id, customerName })
-    navigate(APP_ROUTE_PATHS.salesInvoices)
+    navigate(APP_ROUTE_PATHS.salesInvoices, { replace: true })
   }
 
   const saveNotes = async (order: SalesOrder, nextNotes: string) => {

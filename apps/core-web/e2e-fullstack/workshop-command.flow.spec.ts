@@ -55,7 +55,7 @@ function previewOf(page: Page) {
 }
 
 test.describe('Full-stack Cmd+K workshop command flow', () => {
-  test('flow 5: preview → proposal → explicit apply links order, plan and loaner, and a competing proposal stays failed', async ({
+  test('workshopCommandFlow5ApplyVisible: preview → proposal → explicit apply links order, plan and loaner, and a competing proposal stays failed', async ({
     page,
     context,
   }) => {
@@ -76,7 +76,8 @@ test.describe('Full-stack Cmd+K workshop command flow', () => {
 
     await page.getByRole('button', { name: 'Vorschlag übernehmen' }).click()
     await expect(page.getByRole('heading', { name: 'In der Freigabe-Queue' })).toBeVisible()
-    await expect(page.getByText('Noch nicht angewendet')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Jetzt anwenden' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Angewendet' })).toHaveCount(0)
 
     // Pending is not success: nothing is written before the explicit apply.
     const beforeApply = await apiGet<{ data: WorkshopOrderSummary[] }>(
@@ -166,9 +167,9 @@ test.describe('Full-stack Cmd+K workshop command flow', () => {
 
     await openCommandPanel(page)
     await page.getByRole('button', { name: 'Zurück zur Suche' }).click()
-    await expect(page.getByRole('combobox')).toBeVisible()
+    await expect(page.getByRole('dialog').getByRole('combobox')).toBeVisible()
 
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('combobox')).toBeHidden()
+    await expect(page.getByRole('dialog')).toBeHidden()
   })
 })

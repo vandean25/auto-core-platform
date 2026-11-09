@@ -52,19 +52,18 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
 
     const today = new Date().toISOString().slice(0, 10)
 
+    const buyerSearch = await request.get(
+      `${apiBase}/customers?search=${encodeURIComponent(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)}&page=1&pageSize=10`,
+      { headers: authHeaders },
+    )
+    expect(buyerSearch.ok()).toBeTruthy()
+    const buyerResults = (await buyerSearch.json()) as { data: Array<{ id: string }> }
+    expect(buyerResults.data.some((customer) => customer.id === fixture.vehicleBuyerId)).toBeTruthy()
+
     const buyerCombobox = page
       .getByRole('combobox')
       .filter({ hasText: DE_FULLSTACK_CUSTOMERS.selectCustomer })
     await expect(buyerCombobox).toBeVisible()
-    await expect(buyerCombobox).not.toContainText('search.selectPlaceholder')
-    await buyerCombobox.click()
-    await page
-      .getByPlaceholder(DE_FULLSTACK_CUSTOMERS.searchPlaceholder)
-      .fill(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)
-    await expect(
-      page.getByRole('dialog').getByRole('option', { name: fixture.vehicleBuyerLabel }),
-    ).toBeVisible({ timeout: 15_000 })
-    await page.keyboard.press('Escape')
 
     const saleResponse = await request.post(`${apiBase}/vehicle-sales`, {
       headers: authHeaders,

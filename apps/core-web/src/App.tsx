@@ -54,6 +54,7 @@ import { RouteTitle } from '@/components/RouteTitle'
 import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { AppRoutes, MechanicRoutes } from '@/app/AppRouteTree'
+import { InvoiceDraftEditorNavigationHost } from '@/pages/sales/invoice-draft-editor-navigation'
 import { MechanicAccessDeniedPage, NotFoundPage } from '@/app/lazy-app-pages'
 import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkCompletionPage'
 import LoginPage from '@/pages/LoginPage'
@@ -68,6 +69,7 @@ function AppMain() {
       </header>
       <PageBreadcrumbsProvider>
         <PageContainerWithBreadcrumbs>
+          <InvoiceDraftEditorNavigationHost />
           <GlobalErrorBoundary>
             <AppRoutes />
           </GlobalErrorBoundary>
@@ -428,7 +430,7 @@ function App() {
   }
 
   return (
-    <Router>
+    <Router useTransitions={false}>
       <RouteTitle />
       <Routes>
         <Route path={LOGIN_PATH} element={<LoginRoute />} />
