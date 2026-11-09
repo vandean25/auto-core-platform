@@ -40,3 +40,11 @@ export function resolveMergeBase(repoRoot, baseRef) {
 export function defaultRepoRoot() {
   return guardrailRepoRoot()
 }
+
+export function assertResolvableRevision(repoRoot, base, fail) {
+  try {
+    verifyRevision(repoRoot, base)
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error), 2)
+  }
+}

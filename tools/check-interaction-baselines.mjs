@@ -8,7 +8,7 @@ import { parseCliArgs } from './parse-cli-options.mjs'
 import { checkBaselineGrowth, findBaselineStructureViolations } from './interaction-baselines-lib.mjs'
 import { guardrailRepoRoot } from './guardrail-repo-root.mjs'
 import { fail, printMultisetGrowth } from './guardrail-cli.mjs'
-import { readAtRevision, readHead, verifyRevision } from './guardrail-git-io.mjs'
+import { assertResolvableRevision, readAtRevision, readHead } from './guardrail-git-io.mjs'
 
 const USAGE = `Usage: node tools/check-interaction-baselines.mjs --base <git-ref>
 
@@ -17,8 +17,8 @@ const USAGE = `Usage: node tools/check-interaction-baselines.mjs --base <git-ref
 
 const ARG_SPEC = { boolean: {}, value: { '--base': 'base' }, defaults: { base: undefined } }
 
-function requireBase() {
-  const { base } = parseCliArgs(process.argv.slice(2), ARG_SPEC, USAGE)
+function requireBase(argv) {
+  const { base } = parseCliArgs(argv, ARG_SPEC, USAGE)
   if (!base) fail(`--base is required\n\n${USAGE}`, 2)
   return base
 }
@@ -29,30 +29,39 @@ function printStructure(violations, base) {
   fail('Baseline files must not be deleted, renamed, or sidestepped.', 1)
 }
 
-function main() {
-  const base = requireBase()
-  const repoRoot = guardrailRepoRoot()
-  try {
-    verifyRevision(repoRoot, base)
-  } catch (error) {
-    fail(error instanceof Error ? error.message : String(error), 2)
-  }
-  const results = checkBaselineGrowth({
+function interactionGrowthResults(repoRoot, base) {
+  return checkBaselineGrowth({
     readBase: (file) => readAtRevision(repoRoot, base, file),
     readHead: (file) => readHead(repoRoot, file),
   })
+}
+
+function rejectStructureViolations(results, base) {
   const structureViolations = findBaselineStructureViolations(results)
   if (structureViolations.length > 0) printStructure(structureViolations, base)
+}
+
+function rejectInteractionGrowth(results, base) {
   const grown = results.filter((result) => result.status === 'grew')
-  if (grown.length > 0) {
-    printMultisetGrowth({
-      label: 'interaction baselines',
-      base,
-      grown,
-      exitMessage: 'Fix the violation instead of baselining it: a baseline may only shrink.',
-    })
-  }
+  if (grown.length === 0) return
+  printMultisetGrowth({
+    label: 'interaction baselines',
+    base,
+    grown,
+    exitMessage: 'Fix the violation instead of baselining it: a baseline may only shrink.',
+  })
+}
+
+function runInteractionBaselineCheck(repoRoot, base) {
+  assertResolvableRevision(repoRoot, base, fail)
+  const results = interactionGrowthResults(repoRoot, base)
+  rejectStructureViolations(results, base)
+  rejectInteractionGrowth(results, base)
   console.log(`interaction baselines check passed (${results.length} baselines, none grew against ${base}).`)
+}
+
+function main() {
+  runInteractionBaselineCheck(guardrailRepoRoot(), requireBase(process.argv.slice(2)))
 }
 
 main()

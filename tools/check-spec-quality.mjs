@@ -40,8 +40,8 @@ const ARG_SPEC = {
   },
 }
 
-function readOptions() {
-  const parsed = parseCliArgs(process.argv.slice(2), ARG_SPEC, USAGE)
+function readOptions(argv) {
+  const parsed = parseCliArgs(argv, ARG_SPEC, USAGE)
   const repoRoot = guardrailRepoRoot()
   return {
     ...parsed,
@@ -56,7 +56,6 @@ function writeBaseline(options, offenders) {
   console.log(`spec-quality baseline written: ${offenders.length} entries`)
 }
 
-/** Fails the run on offenders the baseline does not cover. */
 function compareWithCommittedBaseline(options, offenders) {
   if (!fs.existsSync(options.baselinePath)) {
     console.error('Missing baseline. Run: npm run spec-quality:check -- --write-baseline')
@@ -75,14 +74,7 @@ function compareWithCommittedBaseline(options, offenders) {
   process.exit(1)
 }
 
-function runBaselineRatchet(options) {
-  try {
-    verifyRevision(options.repoRoot, options.base)
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error))
-    process.exit(2)
-  }
-  const result = auditSpecQualityBaselineRatchet(options)
+function exitOnRatchetResult(result) {
   if (result.error) {
     console.error(result.error)
     process.exit(1)
@@ -95,12 +87,26 @@ function runBaselineRatchet(options) {
   process.exit(1)
 }
 
-function main() {
-  const options = readOptions()
-  if (process.env.CI === 'true' && options.writeBaseline) {
+function runBaselineRatchet(options) {
+  try {
+    verifyRevision(options.repoRoot, options.base)
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(2)
+  }
+  exitOnRatchetResult(auditSpecQualityBaselineRatchet(options))
+}
+
+function enforceCiBaselineWrites(writeBaselineFlag) {
+  if (process.env.CI === 'true' && writeBaselineFlag) {
     console.error('Refusing --write-baseline in CI.')
     process.exit(2)
   }
+}
+
+function main() {
+  const options = readOptions(process.argv.slice(2))
+  enforceCiBaselineWrites(options.writeBaseline)
   if (options.base) runBaselineRatchet(options)
   const offenders = findOffenders(options.rootDir)
   if (options.writeBaseline) {

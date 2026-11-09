@@ -6,7 +6,7 @@
  */
 import { parseCliArgs } from './parse-cli-options.mjs'
 import { checkAllowlistGrowth } from './allowlist-growth-lib.mjs'
-import { defaultRepoRoot, readAtRevision, readHead, verifyRevision } from './guardrail-git-io.mjs'
+import { assertResolvableRevision, defaultRepoRoot, readAtRevision, readHead } from './guardrail-git-io.mjs'
 import { fail, printMultisetGrowth } from './guardrail-cli.mjs'
 
 const USAGE = `Usage: node tools/check-allowlist-growth.mjs --base <git-ref>
@@ -16,34 +16,48 @@ const USAGE = `Usage: node tools/check-allowlist-growth.mjs --base <git-ref>
 
 const ARG_SPEC = { boolean: {}, value: { '--base': 'base' }, defaults: { base: undefined } }
 
-function main() {
-  const { base } = parseCliArgs(process.argv.slice(2), ARG_SPEC, USAGE)
+function requireBase(argv) {
+  const { base } = parseCliArgs(argv, ARG_SPEC, USAGE)
   if (!base) fail(`--base is required\n\n${USAGE}`, 2)
-  const repoRoot = defaultRepoRoot()
-  try {
-    verifyRevision(repoRoot, base)
-  } catch (error) {
-    fail(error instanceof Error ? error.message : String(error), 2)
-  }
-  const results = checkAllowlistGrowth({
+  return base
+}
+
+function growthResults(repoRoot, base) {
+  return checkAllowlistGrowth({
     readBase: (file) => readAtRevision(repoRoot, base, file),
     readHead: (file) => readHead(repoRoot, file),
   })
+}
+
+function rejectRemovedAllowlistFiles(results, base) {
   const removed = results.filter((result) => result.status === 'removed')
-  if (removed.length > 0) {
-    for (const result of removed) console.error(`${result.file}: removed against ${base}`)
-    fail('Allowlist files must not be deleted or renamed.', 1)
-  }
+  if (removed.length === 0) return
+  for (const result of removed) console.error(`${result.file}: removed against ${base}`)
+  fail('Allowlist files must not be deleted or renamed.', 1)
+}
+
+function rejectAllowlistGrowth(results, base) {
   const grown = results.filter((result) => result.status === 'grew')
-  if (grown.length > 0) {
-    printMultisetGrowth({
-      label: 'allowlists',
-      base,
-      grown,
-      exitMessage: 'Fix the violation instead of allowlisting it: an allowlist may only shrink.',
-    })
-  }
+  if (grown.length === 0) return
+  printMultisetGrowth({
+    label: 'allowlists',
+    base,
+    grown,
+    exitMessage: 'Fix the violation instead of allowlisting it: an allowlist may only shrink.',
+  })
+}
+
+function runAllowlistGrowthCheck(repoRoot, base) {
+  assertResolvableRevision(repoRoot, base, fail)
+  const results = growthResults(repoRoot, base)
+  rejectRemovedAllowlistFiles(results, base)
+  rejectAllowlistGrowth(results, base)
   console.log(`allowlist growth check passed (${results.length} inventories, none grew against ${base}).`)
+}
+
+function main() {
+  const base = requireBase(process.argv.slice(2))
+  runAllowlistGrowthCheck(defaultRepoRoot(), base)
 }
 
 main()
