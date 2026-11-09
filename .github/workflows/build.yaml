@@ -9,6 +9,12 @@ on:
       - main
       - 'feat/*'
       - 'feature/*'
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
   # Push on main gives every squash-merge its own CI result. No paths-ignore: the PR trigger has none.
   push:
     branches:
@@ -55,6 +61,9 @@ jobs:
 
       - name: Verify spec quality guard script (unit tests)
         run: npm run spec-quality:check:test
+
+      - name: Verify gate-override script (unit tests)
+        run: npm run gate-override:verify:test
 
       - name: Verify CODEOWNERS critical path coverage
         run: |
@@ -575,7 +584,7 @@ jobs:
   code-health:
     # Fallow audit: fails only on findings this PR introduces (dead code, complexity, duplication,
     # new suppressions, weakened tests). No continue-on-error: the check status is the result.
-    # Human override: add the `gate-override` label, then re-run this job.
+    # Human override: allowlisted actor adds `gate-override` (CI runs on label/unlabeled).
     name: Code Health (Fallow)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -583,26 +592,22 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      checks: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Full history: audit compares against the merge base and attributes findings as new or inherited.
+          fetch-depth: 0
+
       - name: Check gate-override label
         id: override
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          labels=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '.[].name')
-          if printf '%s\n' "$labels" | grep -qx 'gate-override'; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::gate-override label set: Fallow audit skipped by a human decision."
-            echo "Fallow audit skipped: \`gate-override\` label set." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Checkout
-        if: steps.override.outputs.skip != 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          # Full history: audit compares against the merge base and attributes findings as new or inherited.
-          fetch-depth: 0
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GATE_OVERRIDE_ACTORS: ${{ vars.GATE_OVERRIDE_ACTORS }}
+        run: node .github/scripts/verify-gate-override.mjs
 
       - name: Setup Node
         if: steps.override.outputs.skip != 'true'

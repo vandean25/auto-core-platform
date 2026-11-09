@@ -5,6 +5,10 @@ description: "Read who changed a business record, when they changed it, and what
 
 Use audit logs when a price, status, or master-data field does not match what people remember. The trail is the source of truth for *mutations*, not a debug console.
 
+<Warning>
+Only **OWNER** and **ADMIN** see the **Audit Logs** tab under **Settings**. **SALES** and **TECH** have no access to the UI or read API.
+</Warning>
+
 <Info>
 Audit records are **append-only**. There is no delete button. You cannot edit yesterday's snapshot to make it look cleaner.
 </Info>
