@@ -30,15 +30,9 @@ export function requestInvoiceDraftEditorNavigation(invoiceId: string) {
 /** Opens the sales-invoice draft editor from list pending create (mounted for the full authenticated session). */
 export function InvoiceDraftEditorNavigationHost() {
   const navigate = useNavigate()
-  navigateRef = navigate
 
   useEffect(() => {
-    return () => {
-      if (navigateRef === navigate) navigateRef = null
-    }
-  }, [navigate])
-
-  useEffect(() => {
+    navigateRef = navigate
     const openEditor = (event: Event) => {
       const invoiceId = (event as CustomEvent<{ invoiceId: string }>).detail.invoiceId
       if (!invoiceId) return
@@ -46,8 +40,11 @@ export function InvoiceDraftEditorNavigationHost() {
     }
 
     window.addEventListener(INVOICE_DRAFT_EDITOR_NAV_EVENT, openEditor)
-    return () => window.removeEventListener(INVOICE_DRAFT_EDITOR_NAV_EVENT, openEditor)
-  }, [])
+    return () => {
+      window.removeEventListener(INVOICE_DRAFT_EDITOR_NAV_EVENT, openEditor)
+      if (navigateRef === navigate) navigateRef = null
+    }
+  }, [navigate])
 
   return null
 }
