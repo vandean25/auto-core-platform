@@ -4,10 +4,9 @@
  *
  * Exit codes: 0 no growth, 1 an allowlist grew, 2 usage/setup error.
  */
-import { parseCliArgs } from './parse-cli-options.mjs'
 import { checkAllowlistGrowth } from './allowlist-growth-lib.mjs'
 import { assertResolvableRevision, defaultRepoRoot, readAtRevision, readHead } from './guardrail-git-io.mjs'
-import { fail, printMultisetGrowth } from './guardrail-cli.mjs'
+import { fail, parseRequiredBase, printMultisetGrowth } from './guardrail-cli.mjs'
 
 const USAGE = `Usage: node tools/check-allowlist-growth.mjs --base <git-ref>
 
@@ -15,12 +14,6 @@ const USAGE = `Usage: node tools/check-allowlist-growth.mjs --base <git-ref>
 `
 
 const ARG_SPEC = { boolean: {}, value: { '--base': 'base' }, defaults: { base: undefined } }
-
-function requireBase(argv) {
-  const { base } = parseCliArgs(argv, ARG_SPEC, USAGE)
-  if (!base) fail(`--base is required\n\n${USAGE}`, 2)
-  return base
-}
 
 function growthResults(repoRoot, base) {
   return checkAllowlistGrowth({
@@ -58,7 +51,7 @@ function runAllowlistGrowthCheck(repoRoot, base) {
 }
 
 function main() {
-  const base = requireBase(process.argv.slice(2))
+  const base = parseRequiredBase(process.argv.slice(2), ARG_SPEC, USAGE)
   runAllowlistGrowthCheck(defaultRepoRoot(), base)
 }
 

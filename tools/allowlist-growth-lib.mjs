@@ -75,40 +75,34 @@ function resolveIdentities(identities, text) {
   return { values, unparseable: false }
 }
 
-export function checkAllowlistGrowth({ readBase, readHead, allowlists = GROWTH_ALLOWLISTS }) {
-  const results = []
-  for (const { id, file, identities } of allowlists) {
-    const headText = readHead(file)
-    const baseText = readBase(file)
-    if (headText === undefined && baseText === undefined) {
-      results.push({ id, file, status: 'ok', growth: [] })
-      continue
-    }
-    if (headText === undefined) {
-      results.push({ id, file, status: 'removed', growth: [] })
-      continue
-    }
-    if (baseText === undefined) {
-      const headList = resolveIdentities(identities, headText)
-      if (headList.unparseable) {
-        results.push({ id, file, status: 'unparseable', growth: [] })
-        continue
-      }
-      results.push({ id, file, status: headList.values.length > 0 ? 'grew' : 'activated', growth: [] })
-      continue
-    }
-    const baseList = resolveIdentities(identities, baseText)
-    const headList = resolveIdentities(identities, headText)
-    if (baseList.unparseable || headList.unparseable) {
-      results.push({ id, file, status: 'unparseable', growth: [] })
-      continue
-    }
-    if (baseList.values.length > 0 && headList.values.length === 0) {
-      results.push({ id, file, status: 'unparseable', growth: [] })
-      continue
-    }
-    const growth = findBaselineGrowth(baseList.values, headList.values)
-    results.push({ id, file, status: growth.length > 0 ? 'grew' : 'ok', growth })
+function compareAllowlistEntry({ id, file, identities, readBase, readHead }) {
+  const headText = readHead(file)
+  const baseText = readBase(file)
+  if (headText === undefined && baseText === undefined) return { id, file, status: 'ok', growth: [] }
+  if (headText === undefined) return { id, file, status: 'removed', growth: [] }
+  if (baseText === undefined) return compareNewAllowlistFile({ id, file, identities, headText })
+  return compareExistingAllowlistFile({ id, file, identities, baseText, headText })
+}
+
+function compareNewAllowlistFile({ id, file, identities, headText }) {
+  const headList = resolveIdentities(identities, headText)
+  if (headList.unparseable) return { id, file, status: 'unparseable', growth: [] }
+  return { id, file, status: headList.values.length > 0 ? 'grew' : 'activated', growth: [] }
+}
+
+function compareExistingAllowlistFile({ id, file, identities, baseText, headText }) {
+  const baseList = resolveIdentities(identities, baseText)
+  const headList = resolveIdentities(identities, headText)
+  if (baseList.unparseable || headList.unparseable) {
+    return { id, file, status: 'unparseable', growth: [] }
   }
-  return results
+  if (baseList.values.length > 0 && headList.values.length === 0) {
+    return { id, file, status: 'unparseable', growth: [] }
+  }
+  const growth = findBaselineGrowth(baseList.values, headList.values)
+  return { id, file, status: growth.length > 0 ? 'grew' : 'ok', growth }
+}
+
+export function checkAllowlistGrowth({ readBase, readHead, allowlists = GROWTH_ALLOWLISTS }) {
+  return allowlists.map((entry) => compareAllowlistEntry({ ...entry, readBase, readHead }))
 }

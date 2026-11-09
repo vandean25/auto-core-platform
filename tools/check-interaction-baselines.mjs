@@ -7,7 +7,7 @@
 import { parseCliArgs } from './parse-cli-options.mjs'
 import { checkBaselineGrowth, findBaselineStructureViolations } from './interaction-baselines-lib.mjs'
 import { guardrailRepoRoot } from './guardrail-repo-root.mjs'
-import { fail, printMultisetGrowth } from './guardrail-cli.mjs'
+import { fail, parseRequiredBase, printMultisetGrowth } from './guardrail-cli.mjs'
 import { assertResolvableRevision, readAtRevision, readHead } from './guardrail-git-io.mjs'
 
 const USAGE = `Usage: node tools/check-interaction-baselines.mjs --base <git-ref>
@@ -16,12 +16,6 @@ const USAGE = `Usage: node tools/check-interaction-baselines.mjs --base <git-ref
 `
 
 const ARG_SPEC = { boolean: {}, value: { '--base': 'base' }, defaults: { base: undefined } }
-
-function requireBase(argv) {
-  const { base } = parseCliArgs(argv, ARG_SPEC, USAGE)
-  if (!base) fail(`--base is required\n\n${USAGE}`, 2)
-  return base
-}
 
 function printStructure(violations, base) {
   console.error(`interaction baseline structure changed against ${base}:`)
@@ -61,7 +55,10 @@ function runInteractionBaselineCheck(repoRoot, base) {
 }
 
 function main() {
-  runInteractionBaselineCheck(guardrailRepoRoot(), requireBase(process.argv.slice(2)))
+  runInteractionBaselineCheck(
+    guardrailRepoRoot(),
+    parseRequiredBase(process.argv.slice(2), ARG_SPEC, USAGE),
+  )
 }
 
 main()
