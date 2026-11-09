@@ -179,39 +179,73 @@ async function fetchLabelNames(repo, issueNumber, token) {
   return labels.map((label) => label.name);
 }
 
-async function runCli() {
+/**
+ * @returns {{
+ *   token: string,
+ *   repo: string,
+ *   prNumber: number,
+ *   headSha: string,
+ *   allowlist: string,
+ *   outputPath?: string,
+ *   summaryPath?: string,
+ * }}
+ */
+export function readGateOverrideCliEnv() {
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPOSITORY;
   const prNumber = Number(process.env.PR_NUMBER);
   const headSha = process.env.HEAD_SHA;
-  const allowlist = process.env.GATE_OVERRIDE_ACTORS ?? '';
-  const outputPath = process.env.GITHUB_OUTPUT;
-  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 
   if (!token || !repo || !prNumber || !headSha) {
     throw new Error('Missing GH_TOKEN, GITHUB_REPOSITORY, PR_NUMBER, or HEAD_SHA');
   }
 
-  const [events, labelsPresent] = await Promise.all([
-    fetchIssueEvents(repo, prNumber, token),
-    fetchLabelNames(repo, prNumber, token),
-  ]);
+  return {
+    token,
+    repo,
+    prNumber,
+    headSha,
+    allowlist: process.env.GATE_OVERRIDE_ACTORS ?? '',
+    outputPath: process.env.GITHUB_OUTPUT,
+    summaryPath: process.env.GITHUB_STEP_SUMMARY,
+  };
+}
 
-  const result = verifyGateOverride({ events, headSha, allowlist, labelsPresent });
-
-  if (result.skip) {
-    if (outputPath) {
-      appendFileSync(outputPath, 'skip=true\n');
-    }
-    if (summaryPath && result.summary) {
-      appendFileSync(summaryPath, `${result.summary}\n`);
-    }
-    console.log(
-      `::notice::gate-override accepted for @${result.actor} on ${result.headSha}: Fallow audit skipped.`,
-    );
-  } else {
+/**
+ * @param {{ skip: boolean, reason: string, summary?: string, actor?: string, headSha?: string }} result
+ * @param {{ outputPath?: string, summaryPath?: string }} targets
+ */
+export function writeGateOverrideCliResult(result, targets) {
+  if (!result.skip) {
     console.log(`::notice::Fallow audit will run (gate-override not valid: ${result.reason}).`);
+    return;
   }
+  if (targets.outputPath) {
+    appendFileSync(targets.outputPath, 'skip=true\n');
+  }
+  if (targets.summaryPath && result.summary) {
+    appendFileSync(targets.summaryPath, `${result.summary}\n`);
+  }
+  console.log(
+    `::notice::gate-override accepted for @${result.actor} on ${result.headSha}: Fallow audit skipped.`,
+  );
+}
+
+async function runCli() {
+  const env = readGateOverrideCliEnv();
+  const [events, labelsPresent] = await Promise.all([
+    fetchIssueEvents(env.repo, env.prNumber, env.token),
+    fetchLabelNames(env.repo, env.prNumber, env.token),
+  ]);
+  writeGateOverrideCliResult(
+    verifyGateOverride({
+      events,
+      headSha: env.headSha,
+      allowlist: env.allowlist,
+      labelsPresent,
+    }),
+    env,
+  );
 }
 
 const isDirectRun =
