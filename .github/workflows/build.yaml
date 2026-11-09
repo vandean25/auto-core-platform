@@ -579,7 +579,7 @@ jobs:
   code-health:
     # Fallow audit: fails only on findings this PR introduces (dead code, complexity, duplication,
     # new suppressions, weakened tests). No continue-on-error: the check status is the result.
-    # Human override: add the `gate-override` label, then re-run this job.
+    # Human override: allowlisted actor adds `gate-override` (CI runs on label/unlabeled).
     name: Code Health (Fallow)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -587,6 +587,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      checks: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

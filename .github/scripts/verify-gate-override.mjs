@@ -45,29 +45,94 @@ export function isBotActor(actor, event) {
 }
 
 /**
- * Head introduction time from issue timeline payloads (REST timeline API).
+ * Force-push entries on the issue timeline carry GitHub-controlled `created_at`.
  *
- * @param {Array<{ event?: string, created_at?: string, sha?: string, after?: string }>} timeline
+ * @param {Array<{ event?: string, created_at?: string, after?: string }>} timeline
  * @param {string} headSha
- * @returns {string | null} ISO timestamp when headSha was last introduced on the PR
+ * @returns {string | null}
  */
-export function headPushedAtFromTimeline(timeline, headSha) {
-  const pushEvents = timeline.filter((entry) => {
-    if (entry.event === 'committed' && entry.sha === headSha) {
-      return true;
-    }
-    if (entry.event === 'head_ref_force_pushed' && entry.after === headSha) {
-      return true;
-    }
-    return false;
-  });
-  if (pushEvents.length === 0) {
+export function headPushedAtFromForcePushTimeline(timeline, headSha) {
+  const matches = timeline.filter(
+    (entry) => entry.event === 'head_ref_force_pushed' && entry.after === headSha,
+  );
+  if (matches.length === 0) {
     return null;
   }
-  return pushEvents.reduce((latest, entry) => {
+  return matches.reduce((latest, entry) => {
     const at = entry.created_at ?? '';
+    if (!at) {
+      return latest;
+    }
     return !latest || new Date(at) > new Date(latest) ? at : latest;
   }, /** @type {string | null} */ (null));
+}
+
+/**
+ * Check suites for a commit are created when GitHub receives the push (not commit-author metadata).
+ *
+ * @param {string} repo
+ * @param {number} prNumber
+ * @param {string} headSha
+ * @param {string} token
+ * @param {typeof fetch} fetchImpl
+ * @returns {Promise<string | null>}
+ */
+export async function headPushedAtFromCheckSuites(repo, prNumber, headSha, token, fetchImpl = fetch) {
+  const response = await fetchImpl(
+    `https://api.github.com/repos/${repo}/commits/${headSha}/check-suites?per_page=100`,
+    { headers: GITHUB_HEADERS(token) },
+  );
+  if (!response.ok) {
+    return null;
+  }
+  const payload = await response.json();
+  const suites = (payload.check_suites ?? []).filter(
+    (suite) =>
+      suite.head_sha === headSha &&
+      suite.pull_requests?.some((pr) => pr.number === prNumber),
+  );
+  if (suites.length === 0) {
+    return null;
+  }
+  return suites.reduce((latest, suite) => {
+    const at = suite.created_at ?? '';
+    if (!at) {
+      return latest;
+    }
+    return !latest || new Date(at) > new Date(latest) ? at : latest;
+  }, /** @type {string | null} */ (null));
+}
+
+/**
+ * @param {{
+ *   repo: string,
+ *   prNumber: number,
+ *   headSha: string,
+ *   token: string,
+ *   timeline: Array<Record<string, unknown>>,
+ *   fetchImpl?: typeof fetch,
+ * }} query
+ * @returns {Promise<string | null>}
+ */
+export async function resolveHeadPushedAt(query) {
+  const fetchImpl = query.fetchImpl ?? fetch;
+  const [fromForcePush, fromCheckSuites] = await Promise.all([
+    Promise.resolve(headPushedAtFromForcePushTimeline(query.timeline, query.headSha)),
+    headPushedAtFromCheckSuites(
+      query.repo,
+      query.prNumber,
+      query.headSha,
+      query.token,
+      fetchImpl,
+    ),
+  ]);
+  const candidates = [fromForcePush, fromCheckSuites].filter(Boolean);
+  if (candidates.length === 0) {
+    return null;
+  }
+  return candidates.reduce((latest, at) =>
+    new Date(at) > new Date(latest) ? at : latest,
+  );
 }
 
 /**
@@ -90,14 +155,14 @@ function latestGateOverrideLabelAction(events) {
 /**
  * @param {{
  *   events: Array<Record<string, unknown>>,
- *   timeline: Array<Record<string, unknown>>,
+ *   headPushedAt: string | null,
  *   headSha: string,
  *   allowlist: string[] | string,
  *   labelsPresent?: string[],
  * }} options
  * @returns {{ skip: boolean, reason: string, summary?: string, actor?: string, headSha?: string }}
  */
-export function verifyGateOverride({ events, timeline, headSha, allowlist, labelsPresent }) {
+export function verifyGateOverride({ events, headPushedAt, headSha, allowlist, labelsPresent }) {
   const allowed = parseAllowlist(allowlist);
   if (allowed.length === 0) {
     return { skip: false, reason: 'empty-allowlist' };
@@ -122,13 +187,12 @@ export function verifyGateOverride({ events, timeline, headSha, allowlist, label
     return { skip: false, reason: 'not-allowlisted' };
   }
 
-  const pushedAt = headPushedAtFromTimeline(timeline, headSha);
-  if (!pushedAt) {
+  if (!headPushedAt) {
     return { skip: false, reason: 'unknown-head-push' };
   }
 
   const labeledAt = latest.created_at ?? '';
-  if (new Date(labeledAt) <= new Date(pushedAt)) {
+  if (new Date(labeledAt) <= new Date(headPushedAt)) {
     return { skip: false, reason: 'stale-label' };
   }
 
@@ -226,9 +290,17 @@ export async function loadGateOverrideVerificationInputs(query, deps = {}) {
     fetchLabelNames(query.repo, query.prNumber, query.token, fetchImpl),
     fetchIssueTimeline(query.repo, query.prNumber, query.token, fetchImpl),
   ]);
+  const headPushedAt = await resolveHeadPushedAt({
+    repo: query.repo,
+    prNumber: query.prNumber,
+    headSha: query.headSha,
+    token: query.token,
+    timeline,
+    fetchImpl,
+  });
   return verifyGateOverride({
     events,
-    timeline,
+    headPushedAt,
     headSha: query.headSha,
     allowlist: query.allowlist,
     labelsPresent,

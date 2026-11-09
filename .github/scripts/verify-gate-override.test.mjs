@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {
   verifyGateOverride,
   loadGateOverrideVerificationInputs,
+  resolveHeadPushedAt,
 } from './verify-gate-override.mjs';
 
 const OVERRIDE = 'gate-override';
 const HEAD = 'deadbeef00000000000000000000000000000000';
+const PR = 42;
 const ALLOWED = ['trusted-human'];
 
 function labeled({ login = 'trusted-human', at = '2026-01-02T12:00:00Z', bot = false, viaApp = false } = {}) {
@@ -23,22 +25,41 @@ function labeled({ login = 'trusted-human', at = '2026-01-02T12:00:00Z', bot = f
   return event;
 }
 
-/** Timeline `committed` event shape (issue timeline API). */
-function headCommitted(at, sha = HEAD) {
-  return { event: 'committed', created_at: at, sha };
+/** Real timeline `committed` shape: no `created_at`, only commit metadata. */
+function timelineCommitted(sha = HEAD) {
+  return {
+    event: 'committed',
+    sha,
+    author: { date: '1990-01-01T00:00:00Z', name: 'Author', email: 'a@example.com' },
+    committer: { date: '1990-01-01T00:00:00Z', name: 'Committer', email: 'c@example.com' },
+    message: 'msg',
+  };
+}
+
+function checkSuitePush(at, headSha = HEAD, prNumber = PR) {
+  return {
+    head_sha: headSha,
+    created_at: at,
+    pull_requests: [{ number: prNumber }],
+  };
 }
 
 function headForcePushed(at, after) {
   return { event: 'head_ref_force_pushed', created_at: at, after };
 }
 
-function verifyFixture({ events = [], timeline = [], headSha = HEAD, allowlist = ALLOWED, labelsPresent = [OVERRIDE] }) {
-  return verifyGateOverride({ events, timeline, headSha, allowlist, labelsPresent });
+function verifyFixture({
+  events = [],
+  headPushedAt = '2026-01-02T11:00:00Z',
+  headSha = HEAD,
+  allowlist = ALLOWED,
+  labelsPresent = [OVERRIDE],
+}) {
+  return verifyGateOverride({ events, headPushedAt, headSha, allowlist, labelsPresent });
 }
 
 test('rejectsNonAllowlistedActor', () => {
   const result = verifyFixture({
-    timeline: [headCommitted('2026-01-02T10:00:00Z')],
     events: [labeled({ login: 'random-collaborator', at: '2026-01-02T13:00:00Z' })],
   });
   assert.equal(result.skip, false);
@@ -51,10 +72,7 @@ test('rejectsAppOrBotActor', () => {
     { title: 'performed_via_github_app on allowlisted login', labeled: labeled({ login: 'trusted-human', at: '2026-01-02T13:00:00Z', viaApp: true }) },
   ];
   for (const scenario of cases) {
-    const result = verifyFixture({
-      timeline: [headCommitted('2026-01-02T10:00:00Z')],
-      events: [scenario.labeled],
-    });
+    const result = verifyFixture({ events: [scenario.labeled] });
     assert.equal(result.skip, false, scenario.title);
     assert.equal(result.reason, 'bot-or-app', scenario.title);
   }
@@ -63,7 +81,7 @@ test('rejectsAppOrBotActor', () => {
 test('rejectsStaleLabelBeforeHeadPush', () => {
   const result = verifyFixture({
     events: [labeled({ at: '2026-01-02T11:00:00Z' })],
-    timeline: [headCommitted('2026-01-02T12:00:00Z')],
+    headPushedAt: '2026-01-02T12:00:00Z',
   });
   assert.equal(result.skip, false);
   assert.equal(result.reason, 'stale-label');
@@ -71,8 +89,8 @@ test('rejectsStaleLabelBeforeHeadPush', () => {
 
 test('acceptsAllowlistedHumanOnCurrentHead', () => {
   const result = verifyFixture({
-    timeline: [headCommitted('2026-01-02T11:00:00Z')],
     events: [labeled({ login: 'trusted-human', at: '2026-01-02T12:00:00Z' })],
+    headPushedAt: '2026-01-02T11:00:00Z',
   });
   assert.equal(result.skip, true);
   assert.equal(result.reason, 'valid-override');
@@ -84,26 +102,69 @@ test('newPushInvalidatesPriorOverride', () => {
   const newHead = 'cafebabe00000000000000000000000000000000';
   const result = verifyFixture({
     headSha: newHead,
-    timeline: [
-      headCommitted('2026-01-02T11:00:00Z', HEAD),
-      headCommitted('2026-01-02T13:00:00Z', newHead),
-    ],
+    headPushedAt: '2026-01-02T13:00:00Z',
     events: [labeled({ at: '2026-01-02T12:00:00Z' })],
   });
   assert.equal(result.skip, false);
   assert.equal(result.reason, 'stale-label');
 });
 
-test('loadGateOverrideVerificationInputs uses timeline committed events from GitHub APIs', async () => {
+test('resolveHeadPushedAt ignores timeline committed metadata without created_at', async () => {
+  const fetchImpl = async (url) => {
+    if (!url.includes('/check-suites')) {
+      throw new Error(`unexpected fetch: ${url}`);
+    }
+    return {
+      ok: true,
+      json: async () => ({ check_suites: [checkSuitePush('2026-01-02T11:00:00Z')] }),
+    };
+  };
+
+  const at = await resolveHeadPushedAt({
+    repo: 'org/repo',
+    prNumber: PR,
+    headSha: HEAD,
+    token: 'token',
+    timeline: [timelineCommitted(HEAD)],
+    fetchImpl,
+  });
+
+  assert.equal(at, '2026-01-02T11:00:00Z');
+});
+
+test('resolveHeadPushedAt does not use forgeable committer.date when check suites exist', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({ check_suites: [checkSuitePush('2026-01-02T14:00:00Z')] }),
+  });
+
+  const at = await resolveHeadPushedAt({
+    repo: 'org/repo',
+    prNumber: PR,
+    headSha: HEAD,
+    token: 'token',
+    timeline: [
+      {
+        ...timelineCommitted(HEAD),
+        committer: { date: '1990-01-01T00:00:00Z', name: 'x', email: 'x@example.com' },
+      },
+    ],
+    fetchImpl,
+  });
+
+  assert.equal(at, '2026-01-02T14:00:00Z');
+});
+
+test('loadGateOverrideVerificationInputs uses check suites from GitHub APIs', async () => {
   const issueEvents = [
-  /** @type {const} */ ({
+    {
       event: 'labeled',
       created_at: '2026-01-02T12:00:00Z',
       actor: { login: 'trusted-human', type: 'User' },
       label: { name: OVERRIDE },
-    }),
+    },
   ];
-  const timeline = [headCommitted('2026-01-02T11:00:00Z')];
+  const timeline = [timelineCommitted(HEAD)];
   const labels = [{ name: OVERRIDE }];
 
   const fetchImpl = async (url) => {
@@ -112,6 +173,12 @@ test('loadGateOverrideVerificationInputs uses timeline committed events from Git
     }
     if (url.includes('/timeline?')) {
       return { ok: true, json: async () => timeline };
+    }
+    if (url.includes('/check-suites?')) {
+      return {
+        ok: true,
+        json: async () => ({ check_suites: [checkSuitePush('2026-01-02T11:00:00Z')] }),
+      };
     }
     if (url.endsWith('/labels')) {
       return { ok: true, json: async () => labels };
@@ -122,7 +189,7 @@ test('loadGateOverrideVerificationInputs uses timeline committed events from Git
   const result = await loadGateOverrideVerificationInputs(
     {
       repo: 'org/repo',
-      prNumber: 42,
+      prNumber: PR,
       token: 'test-token',
       headSha: HEAD,
       allowlist: ALLOWED,
@@ -134,11 +201,50 @@ test('loadGateOverrideVerificationInputs uses timeline committed events from Git
   assert.equal(result.reason, 'valid-override');
 });
 
-test('head force-push timeline event binds head SHA', () => {
-  const result = verifyFixture({
+test('head force-push timeline event binds head SHA', async () => {
+  const at = await resolveHeadPushedAt({
+    repo: 'org/repo',
+    prNumber: PR,
+    headSha: HEAD,
+    token: 'token',
     timeline: [headForcePushed('2026-01-02T11:00:00Z', HEAD)],
-    events: [labeled({ at: '2026-01-02T12:00:00Z' })],
+    fetchImpl: async () => ({ ok: true, json: async () => ({ check_suites: [] }) }),
   });
-  assert.equal(result.skip, true);
-  assert.equal(result.reason, 'valid-override');
+  assert.equal(at, '2026-01-02T11:00:00Z');
+});
+
+test('additional guard cases', () => {
+  const cases = [
+    {
+      title: 'empty allowlist',
+      input: { allowlist: [], labelsPresent: [OVERRIDE], events: [labeled()] },
+      reason: 'empty-allowlist',
+    },
+    {
+      title: 'label absent on PR',
+      input: { labelsPresent: [], events: [labeled()] },
+      reason: 'label-absent',
+    },
+    {
+      title: 'unlabeled after labeled',
+      input: {
+        events: [
+          labeled({ at: '2026-01-02T12:00:00Z' }),
+          { event: 'unlabeled', created_at: '2026-01-02T12:30:00Z', label: { name: OVERRIDE } },
+        ],
+      },
+      reason: 'no-active-label-event',
+    },
+  ];
+
+  for (const scenario of cases) {
+    const result = verifyFixture({
+      events: scenario.input.events ?? [],
+      allowlist: scenario.input.allowlist ?? ALLOWED,
+      labelsPresent: scenario.input.labelsPresent ?? [OVERRIDE],
+      headPushedAt: '2026-01-02T10:00:00Z',
+    });
+    assert.equal(result.skip, false, scenario.title);
+    assert.equal(result.reason, scenario.reason, scenario.title);
+  }
 });
