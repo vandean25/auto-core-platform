@@ -115,6 +115,12 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
   const orderId = 'wo-aut-919'
   const undoAction = deWorkshop.orderDetail.undoNotes.action
 
+  test.beforeEach(async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    })
+  })
+
   test('at 375×844 the undo toast action sits above the sticky checkout footer and is tappable', async ({ page }) => {
     let order = {
       ...createMockWorkshopOrder({
@@ -162,17 +168,29 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
     await corePage.navigate(`/workshop/orders/${orderId}`)
 
     const notesField = page.getByLabel(deWorkshop.taskList.internalNotesAria)
+    await notesField.scrollIntoViewIfNeeded()
     await page.getByText('Original internal note').click()
     await notesField.fill('Edited internal note')
     await notesField.blur()
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')),
+      )
+      .not.toBe('')
 
     const undoButton = page.getByRole('button', { name: undoAction }).last()
     await expect(undoButton).toBeVisible()
     const undoBox = await undoButton.boundingBox()
     const footer = page.locator('[data-sticky-bottom-chrome]').first()
+    await expect(footer).toBeVisible()
     const footerBox = await footer.boundingBox()
+    const toast = page.locator('[data-sonner-toast]').last()
+    const toastBox = await toast.boundingBox()
     expect(undoBox).not.toBeNull()
     expect(footerBox).not.toBeNull()
+    expect(toastBox).not.toBeNull()
+    expect(toastBox!.y + toastBox!.height).toBeLessThanOrEqual(footerBox!.y + 2)
     expect(undoBox!.y + undoBox!.height).toBeLessThanOrEqual(footerBox!.y + 2)
     expect(undoBox!.height).toBeGreaterThanOrEqual(43.5)
     expect(await pageOverflow(page)).toBeLessThanOrEqual(1)

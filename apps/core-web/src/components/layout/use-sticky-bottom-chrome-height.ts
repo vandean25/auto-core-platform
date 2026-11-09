@@ -26,7 +26,8 @@ export function useStickyBottomChromeHeight<T extends HTMLElement>() {
         clearStickyBottomChromeHeight(root)
         return
       }
-      setStickyBottomChromeHeight(root, el.getBoundingClientRect().height)
+      const measured = Math.max(el.offsetHeight, el.getBoundingClientRect().height)
+      setStickyBottomChromeHeight(root, measured)
     }
 
     update()
