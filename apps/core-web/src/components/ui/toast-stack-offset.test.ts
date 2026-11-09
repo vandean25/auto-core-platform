@@ -7,6 +7,7 @@ describe('toast stack offset (AUT-919)', () => {
     for (const offset of [TOAST_STACK_OFFSET_DESKTOP, TOAST_STACK_OFFSET_MOBILE]) {
       expect(offset).toContain('var(--phone-nav-h)')
       expect(offset).toContain('var(--sticky-bottom-chrome-h)')
+      expect(offset).toContain('var(--sticky-bottom-chrome-floor, 0px)')
     }
   })
 })

@@ -31,6 +31,7 @@ export function useStickyBottomChromeHeight<T extends HTMLElement>() {
     }
 
     update()
+    requestAnimationFrame(update)
     const resizeObserver = new ResizeObserver(update)
     resizeObserver.observe(el)
     window.addEventListener('resize', update)
