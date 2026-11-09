@@ -14,6 +14,8 @@ tags: [adr, inventory, concurrency, idempotency]
 
 Amended 2026-11-08 at the owner's direction: resolved open decisions in this revision.
 
+Amended 2026-11-09: implementation clarifications A1–A3, decided by Product Planner + ACP Software Engineer under Dejan Dosenovic's delegation of 2026-11-09. No requirement, value or code in sections 1–8 changes; section 9's default is replaced by A2.
+
 ## Context and Decision Drivers
 
 The bulk price action on the parts list (`/inventory`, AUT-886) reads each part and then sends a full-body `PATCH /api/inventory/:id` (reported, unverified at `3b612c1`). The reported contract has no revision, so overlapping edits can overwrite each other. A guarded, price-only branch of the same route (`retail_price` + `expectedRevision`) fixes the overlap only if an outcome can always be recovered after a lost response, a reload, a new tab or another device.
@@ -141,6 +143,14 @@ The revision mechanism depends on unverified evidence, so this ADR fixes the rul
 - **Default:** an integer `revision` set by a single `BEFORE UPDATE` trigger (`OLD.revision + 1`, once per UPDATE), because it also covers writers the application cannot see. No application code increments it.
 - **Fallback:** application-side increments only if the trigger evidence fails (conflicting triggers, or Prisma returning a stale revision) **and** exhaustive writer coverage proves every parts-table update goes through one enforced service path (inventory grep alone is insufficient).
 - **Recreate:** if any writer deletes and recreates a part under the same id, the revision must continue from the old value; if neither holds, the guarded action is deferred.
+
+### 10. Implementation clarifications (2026-11-09)
+
+**A1 – No-row serialization.** Tx-A and every user fence run at READ COMMITTED in their own transaction. Their first statement sets `SET LOCAL lock_timeout = '5s'`, after which they acquire a transaction-scoped advisory lock derived from (tenant, principal, key); only then do they read the journal row, check admission and insert. The lock is held for Tx-A only, never across Tx-E. It is the serialization point required by section 3 for absent rows, not a durable binding (durability stays with the journal row and its unique index). A lock or unique-index wait timeout returns 409 `OPERATION_UNRESOLVED` with nothing written. "Advisory or browser locks" under Alternatives refers only to their use as durable binding. The system fence always has a row and uses `FOR UPDATE SKIP LOCKED` without the advisory lock.
+
+**A2 – Revision.** Replaces the section 9 default. `catalog_items.revision` is a `bigint` set by a `BEFORE INSERT OR UPDATE` trigger from the dedicated sequence `catalog_item_revision_seq`. Values are unique over a row's lifetime, including delete and re-insert under the same id (import undo), so no ABA is possible; overflow fails closed. API responses expose it as a JSON integer within the safe-integer range. The journal's `item_id` has no foreign key to `catalog_items`.
+
+**A3 – Wire and bounds.** The guarded body carries `retail_price` in the legacy major-unit format. The server converts it exactly to integer minor units and rejects more than two decimals with `GUARDED_REQUEST_INVALID`. A key timestamped more than 5 min ahead of server time is rejected with `GUARDED_REQUEST_INVALID` on PATCH and fence alike, and nothing is inserted. Discovery pages hold at most 50 rows. The system-fence job runs hourly with a cron monitor and an alert for ACCEPTED rows older than 25 h; this is monitoring, not a resolution guarantee.
 
 ## Decisions
 

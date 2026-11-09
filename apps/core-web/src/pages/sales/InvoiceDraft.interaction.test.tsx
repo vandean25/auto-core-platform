@@ -148,7 +148,7 @@ describe('Invoice draft interaction (AUT-896)', () => {
     held.find((request) => request.method === 'PATCH')?.respond(403, { message: 'Geheim' })
     await settle()
 
-    expect(screen.getByText('Alt')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Alt')).toBeInTheDocument())
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith(errorsDe.codes.HTTP_403)
     expect(screen.queryByText('Geheim')).not.toBeInTheDocument()
   })

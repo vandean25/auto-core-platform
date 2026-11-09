@@ -44,7 +44,7 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0034 | Custom Tenant Roles and Permission Catalogue                          | Proposed | 2026-11-02                      | [2026-11-02-custom-tenant-roles.md](2026-11-02-custom-tenant-roles.md)                                           |
 | ADR-0035 | Cursor-Based Infinite Lists With Explicit Refresh                      | Accepted | 2026-11-02                      | [2026-11-02-cursor-based-infinite-lists.md](2026-11-02-cursor-based-infinite-lists.md)                             |
 | ADR-0036 | Predictable Frontend Interaction and Safe Optimistic Updates           | Accepted | 2026-11-02                      | [2026-11-02-frontend-interaction-rules.md](2026-11-02-frontend-interaction-rules.md)                               |
-| ADR-0037 | Durable Operation Journal for Guarded Parts Price Changes              | Accepted | 2026-11-08                      | [2026-11-08-guarded-price-operation-journal.md](2026-11-08-guarded-price-operation-journal.md)                     |
+| ADR-0037 | Durable Operation Journal for Guarded Parts Price Changes              | Accepted | 2026-11-08 (amended 2026-11-09) | [2026-11-08-guarded-price-operation-journal.md](2026-11-08-guarded-price-operation-journal.md)                     |
 | ADR-0038 | Authoritative Scope Context for Cursor Lists                           | Accepted | 2026-11-08                      | [2026-11-08-authoritative-scope-context-for-cursor-lists.md](2026-11-08-authoritative-scope-context-for-cursor-lists.md) |
 
 Next free number: **ADR-0039**.
