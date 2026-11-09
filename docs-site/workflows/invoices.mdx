@@ -3,7 +3,7 @@ title: "Rechnungen"
 description: "Steuerrechnung lesen, PDF herunterladen und wissen, wann die Nummer verbindlich ist."
 ---
 
-Öffnen Sie **Rechnungen** in der Seitenleiste (`/sales/invoices`), um Entwürfe und abgeschlossene Steuerrechnungen zu durchsuchen. Sie können eine Rechnung auch aus einem [Kundenauftrag](/workflows/sales-orders), aus dem Werkstatt-Checkout oder über **Strg+K → Kundenauftrag zum Fakturieren finden** öffnen (öffnet die Kundenauftragsliste).
+Öffnen Sie **Rechnungen** in der Seitenleiste (`/sales/invoices`), um Entwürfe und abgeschlossene Steuerrechnungen zu durchsuchen. Beim Scrollen lädt die Liste weitere Zeilen nach (bis höchstens **2.000** geladene Zeilen). Filter speichern Sie wie bei [Werkstattaufträgen](/workflows/workshop-orders) als **Seitenleisten-Ansicht** und öffnen sie über Favoriten oder **Strg+K**. Sie können eine Rechnung auch aus einem [Kundenauftrag](/workflows/sales-orders), aus dem Werkstatt-Checkout oder über **Strg+K → Kundenauftrag zum Fakturieren finden** öffnen (öffnet die Kundenauftragsliste).
 
 In der Kopfzeile stehen Rechnungsnummer (oder kurze ID im Entwurf) und Status-Badge: **ENTWURF**, **ABGESCHLOSSEN**, **AUSGESTELLT**, **BEZAHLT**, **STORNIERT**.
 
@@ -24,7 +24,7 @@ Oben rechts: **PDF herunterladen**. Das erzeugt das PDF und startet den Download
 Nummern sehen aus wie `RE-2026-0001` (Jahr + vier Stellen). **Erlösgruppen**-Namen und Einzelpreise der Positionen werden beim Ausstellen eingefroren. Änderungen an einer [Erlösgruppe](/settings/revenue-groups) später schreiben alte Rechnungen nicht um.
 
 <Tip>
-Wer gestern eine Entwurfsposition geändert hat? [Audit-Logs](/settings/audit-logs), nicht das PDF.
+Wer gestern eine Entwurfsposition geändert hat? **OWNER** / **ADMIN** → [Audit-Logs](/settings/audit-logs), nicht das PDF. Rechnungsentwürfe und Positionen bestätigt der Server — die Liste zeigt keinen optimistischen Zwischenstand ohne Antwort.
 </Tip>
 
 <AccordionGroup>

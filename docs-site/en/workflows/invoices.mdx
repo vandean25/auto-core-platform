@@ -3,7 +3,7 @@ title: "Invoices"
 description: "Read a tax invoice, download the PDF, and know when the number is real."
 ---
 
-Open **Invoices** in the sidebar (`/sales/invoices`) to browse drafts and finalized tax invoices. You can also open an invoice from a [sales order](/en/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Find a sales order to invoice** (which opens the sales order list).
+Open **Invoices** in the sidebar (`/sales/invoices`) to browse drafts and finalized tax invoices. Scrolling loads more rows (up to **2,000** loaded). Save filters as a **sidebar view** like [workshop orders](/en/workflows/workshop-orders), then open from **Favorites** or **Ctrl+K**. You can also open an invoice from a [sales order](/en/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Find a sales order to invoice** (which opens the sales order list).
 
 The header shows the invoice number (or a short id while still draft) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**.
 
@@ -24,7 +24,7 @@ Top-right: **Download PDF**. That generates the PDF and downloads it. If the ser
 Numbers look like `RE-2026-0001` (year + four digits). Line **revenue group names** and unit prices are snapshotted at issue. Changing a [revenue group](/en/settings/revenue-groups) later does not rewrite old invoices.
 
 <Tip>
-Need who changed a draft line yesterday? [Audit logs](/en/settings/audit-logs), not the PDF.
+Need who changed a draft line yesterday? **OWNER** / **ADMIN** → [Audit logs](/en/settings/audit-logs), not the PDF. Invoice drafts and lines are server-confirmed — the list does not show an optimistic row without a response.
 </Tip>
 
 <AccordionGroup>
