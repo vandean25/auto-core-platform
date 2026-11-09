@@ -21,7 +21,7 @@ tags:
 
 **Status: approved (Planner + SE, 2026-11-09).** Part of AUT-891; this document does not complete the issue, claim QA acceptance or authorize P1–S2 coding beyond this docs gate. It selects no further wave. The Sales Orders list is the only wave candidate named here.
 
-**Evidence labels.** *Observed* facts come from reading `main` at `9284e46` in the AUT-891 session; the Software Engineer re-verifies them. *Measured (disposable)* facts come from a throwaway database migrated from this repository's migrations; they are no evidence for QA or production. *Proposed* items are recommendations. Endpoint names, error-code names and component names are proposals until the implementation is approved.
+**Evidence labels.** *Observed* facts come from reading `main` at `9284e46` in the AUT-891 session; the Software Engineer re-verifies them. *Measured (disposable)* facts come from a throwaway database migrated from this repository's migrations; they are no evidence for QA or production. *Proposed* items are recommendations unless this spec or ADR-0038 names them as decided (for example D5 error codes and B4 context codes). Other endpoint and component names stay proposals until wave implementation starts.
 
 ---
 
@@ -216,11 +216,11 @@ None: no entity or lifecycle rule changes.
 
 ### Mobile card
 
-Order number is the title, customer the subtitle, then status, with the amount trailing. Detail line `dd.MM.yyyy · <plate>` (plate, else make + model, else date only) (D10). Targets are at least 44px and text stays compact. If the DataTable mobile card has no second detail slot, add an optional `meta.mobile.detail` slot that only Sales Orders uses. No other list changes.
+Order number is the title, customer the subtitle, then status, with the amount trailing. Detail line `dd.MM.yyyy · <plate>` (plate, else make + model, else date only) (D10) uses the existing shared `meta.mobile: 'details'` slot (full-width line under the title row). Targets are at least 44px and text stays compact. No new column-meta slot and no other list changes.
 
 ### DRAFT Delete parity
 
-Registry action `salesOrder.delete` that uses the existing registry `ConfirmDialog` (replaces the browser `confirm()`) and is visible only when status = DRAFT, there is no invoice and the user has `sales.order.delete` (D11). Paths: the row ⋯ sheet (mobile, visible), the detail page header, and Cmd+K for the focused or peeked order. Remove the right-click-only path. Endpoint and server rules unchanged. Migrating an existing action may require removing its baseline entry, which may only shrink (`agents.md`).
+Registry action `salesOrder.delete` on `EntityActionDefinition` with `destructive: true` and a `confirm` prompt, dispatched through `executeEntityAction` / `requestEntityActionConfirm` and `EntityActionConfirmHost` (`AlertDialog`; same pattern as `customer.delete`), replacing the browser `confirm()` (D11). Visible only when status = DRAFT, there is no invoice and the user has `sales.order.delete`. Paths: the existing row ⋯ `DropdownMenu` via `DataTableRowActions` / `getRowContextActions` (mobile visible), the detail page header, and Cmd+K for the focused or peeked order. Remove the right-click-only path. Endpoint and server rules unchanged. Migrating an existing action may require removing its baseline entry, which may only shrink (`agents.md`).
 
 ### Saved Views and URL
 
@@ -287,7 +287,7 @@ Merges, reviews and scratch probes do not substitute for 1–2. If shared defect
 - Schema, collation and timestamp precision on QA and production; Prisma behavior under a non-UTC runtime.
 - Real endpoint and Prisma-emitted plans (see Database Impact), and QA search plans on representative data.
 - Live URL, table-state and request pipeline for `page`/`pageSize` (implementation check).
-- Mobile card `meta.mobile.detail` slot and registry `ConfirmDialog` for `salesOrder.delete` (D10, D11 — implementation checks on shared primitives).
+- Column `meta.mobile: 'details'` for the date·vehicle line (D10) and `salesOrder.delete` wired through the entity-action registry (`confirm` + `AlertDialog`) (D11 — implementation checks).
 - Released-build QA: keyboard navigation across virtualization boundaries, 320px and 200% zoom, the 403 in the UI, site-switch and cursor reset, a real websocket refresh, invalid-cursor recovery.
 
 ---
@@ -304,7 +304,7 @@ No remaining open questions. ADR-0038 B1–B4 close the former scope-context ope
 
 ### D5 – Sales parameter-validation codes
 
-400 `LIST_CURSOR_PARAM_FORBIDDEN` (`page`/`pageSize`/`params.page*` in cursor mode); 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous); 400 `LIST_STATUS_INVALID` (status not in the enum, cursor mode only; legacy unchanged). **Ranking (precedence only):** after 401/403/422 and after `CONTEXT_*`, before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`. These three codes are §9 "other 4xx" (error state, no automatic retry, not budgeted). (Former open question 1.)
+400 `LIST_CURSOR_PARAM_FORBIDDEN` (`page`/`pageSize`/`params.page*` in cursor mode); 400 `LIST_PARAMS_UNSUPPORTED` (`params` component still effective, unknown or ambiguous); 400 `LIST_STATUS_INVALID` (status not in the enum, cursor mode only; legacy unchanged). **Ranking (precedence only):** after 401/403/422 and after `CONTEXT_*`, before `LIST_CURSOR_SORT_UNSUPPORTED`, then `LIST_CURSOR_INVALID`. These three codes are §9 "other 4xx" (error state, no automatic retry, not budgeted). Wave implementation must register them in `CLIENT_SAFE_HTTP_ERROR_CODES` (with B4 `CONTEXT_*` codes and HTTP 412/428 display names). (Former open question 1.)
 
 ### D8 – Count guard
 
@@ -316,11 +316,11 @@ Cursor encodes `createdAt` as UTC ISO with exactly the DB precision. `createdAt`
 
 ### D10 – Mobile card date + vehicle
 
-Detail line `dd.MM.yyyy · <plate>` (plate, else make + model, else date only). If the DataTable mobile card has no second detail slot, add an optional `meta.mobile.detail` slot that only Sales Orders uses. No other list changes. (Former open question 2.)
+Detail line `dd.MM.yyyy · <plate>` (plate, else make + model, else date only) on the existing shared `meta.mobile: 'details'` slot (full-width line under the title row). No new column-meta slot and no other list changes. (Former open question 2.)
 
 ### D11 – DRAFT Delete
 
-Registry action `salesOrder.delete` that uses the existing registry `ConfirmDialog` (replaces the browser `confirm()`) and is visible only when status = DRAFT, there is no invoice and the user has `sales.order.delete`. Paths: the row ⋯ sheet (mobile, visible), the detail page header, and Cmd+K for the focused or peeked order. Remove the right-click-only path. Endpoint and server rules unchanged. (Former open question 3.)
+Registry action `salesOrder.delete` on `EntityActionDefinition` with `destructive: true` and a `confirm` prompt, dispatched through `executeEntityAction` / `EntityActionConfirmHost` (`AlertDialog`; same pattern as `customer.delete`), replacing the browser `confirm()`. Visible only when status = DRAFT, there is no invoice and the user has `sales.order.delete`. Paths: existing row ⋯ menu via `DataTableRowActions` / `getRowContextActions` (mobile visible), detail page header, and Cmd+K. Remove the right-click-only path. Endpoint and server rules unchanged. (Former open question 3.)
 
 ---
 
