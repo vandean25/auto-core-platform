@@ -7,6 +7,7 @@ import deEnums from '../../../locales/de/enums.json' with { type: 'json' }
 
 export const DE_FULLSTACK_SALES = {
   invoicesListTitle: salesDe.invoices.list.title,
+  invoiceDraftTitle: salesDe.invoices.draft.title,
   createInvoice: salesDe.orders.detail.createInvoice,
   finalize: salesDe.invoices.draft.finalize,
   finalizeDialogConfirm: salesDe.invoiceEditor.finalizeDialog.confirm,

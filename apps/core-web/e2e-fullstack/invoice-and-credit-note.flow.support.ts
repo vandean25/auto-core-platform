@@ -57,10 +57,32 @@ export async function finalizeSalesInvoiceFromOrder(
   await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
 
   await page.getByRole('button', { name: DE_FULLSTACK_SALES.createInvoice }).click()
-  await page.getByRole('button', { name: DE_FULLSTACK_SALES.createInvoice }).last().click()
-  await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+\/edit/)
+  const createInvoiceDialog = page.getByRole('alertdialog')
+  await expect(createInvoiceDialog).toBeVisible()
+  const createInvoicePost = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/sales-orders/${order.id}/create-invoice`) &&
+      response.request().method() === 'POST',
+    { timeout: 120_000 },
+  )
+  await createInvoiceDialog
+    .getByRole('button', { name: DE_FULLSTACK_SALES.createInvoice, exact: true })
+    .click()
 
-  await page.getByRole('button', { name: DE_FULLSTACK_SALES.finalize, exact: true }).click()
+  const createResponse = await createInvoicePost
+  expect(createResponse.ok()).toBeTruthy()
+  const createdInvoice = (await createResponse.json()) as { id: string }
+
+  await page.goto(`/sales/invoices/${createdInvoice.id}/edit`)
+  await expect(
+    page.getByRole('heading', { name: DE_FULLSTACK_SALES.invoiceDraftTitle }),
+  ).toBeVisible({ timeout: 60_000 })
+
+  const finalizeButton = page.getByRole('button', { name: DE_FULLSTACK_SALES.finalize, exact: true })
+  await expect(finalizeButton).toBeVisible({ timeout: 60_000 })
+  await expect(finalizeButton).toBeEnabled({ timeout: 120_000 })
+  await finalizeButton.scrollIntoViewIfNeeded()
+  await finalizeButton.click()
   await page
     .getByRole('alertdialog')
     .getByRole('button', { name: DE_FULLSTACK_SALES.finalizeDialogConfirm, exact: true })
