@@ -209,6 +209,6 @@
 
   /* Collapsed workshop checkout footer floor until ResizeObserver publishes live height (AUT-919). */
   :root:has([data-sticky-bottom-chrome]) {
-    --sticky-bottom-chrome-floor: 5.5rem;
+    --sticky-bottom-chrome-floor: 7rem;
   }
 }

@@ -186,7 +186,7 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
       renderMobileUndoStack(viewportWidth)
       await waitFor(() =>
         expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
-          `${STICKY_CHROME_PX}px`,
+          `112px`,
         ),
       )
 
@@ -241,7 +241,7 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
 
     await waitFor(() =>
       expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
-        `${STICKY_CHROME_PX}px`,
+        `112px`,
       ),
     )
 

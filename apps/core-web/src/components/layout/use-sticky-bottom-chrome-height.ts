@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef } from 'react'
 
 const CSS_VAR = '--sticky-bottom-chrome-h'
 const PHONE_LAYOUT_MAX_PX = 767.98
+/** Matches index.css floor until ResizeObserver reports a taller collapsed footer (AUT-919). */
+const STICKY_CHROME_FLOOR_PX = 112
 
 function setStickyBottomChromeHeight(root: HTMLElement, heightPx: number) {
   root.style.setProperty(CSS_VAR, `${heightPx}px`)
@@ -27,7 +29,10 @@ export function useStickyBottomChromeHeight<T extends HTMLElement>() {
         return
       }
       const measured = Math.max(el.offsetHeight, el.getBoundingClientRect().height)
-      setStickyBottomChromeHeight(root, measured)
+      setStickyBottomChromeHeight(
+        root,
+        Math.max(measured, STICKY_CHROME_FLOOR_PX),
+      )
     }
 
     update()

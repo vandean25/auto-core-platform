@@ -118,7 +118,7 @@ describe('useStickyBottomChromeHeight (AUT-919)', () => {
     const view = render(<StickyChromeProbe />)
 
     await waitFor(() => {
-      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('88px')
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('112px')
     })
 
     setViewport(1280)
@@ -136,7 +136,7 @@ describe('useStickyBottomChromeHeight (AUT-919)', () => {
     const { unmount } = render(<CheckoutFooter {...checkoutFooterProps} />)
 
     await waitFor(() => {
-      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('88px')
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('112px')
     })
 
     unmount()
