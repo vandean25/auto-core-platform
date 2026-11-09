@@ -255,7 +255,7 @@ These rules are defined by [ADR-0039](internal/01-ADR/2026-11-09-server-side-sav
 | Entity | Delete | Rule |
 |---|---|---|
 | `saved_views` (PERSONAL) | Owner | Hard delete by the row's `owner_user_id` only. Membership removal deletes the member's PERSONAL rows in the removal transaction. |
-| `saved_views` (TENANT) | Authorized manager | Hard delete (or unshare) only with `views.shared.manage`. Orphan TENANT rows (`owner_user_id` null after removal) are editable/deletable by managers in place; unshare to PERSONAL is blocked until claimed. |
+| `saved_views` (TENANT) | Authorized manager | Hard delete and unshare (non-null owner) only with `views.shared.manage`. Orphan TENANT rows (`owner_user_id` null after removal): managers may edit or hard-delete in place; unshare to PERSONAL is forbidden; claim copies into the caller’s PERSONAL views and leaves the TENANT row orphaned. |
 | `saved_view_imports` | No | One marker per `(tenant_id, user_id)`; retained across membership removal so rejoin cannot re-import. Removed only on tenant purge (cascade). |
 
 ## ADR-0034 — Custom tenant roles (proposed)
