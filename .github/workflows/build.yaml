@@ -13,6 +13,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - edited
       - labeled
       - unlabeled
   # Push on main gives every squash-merge its own CI result. No paths-ignore: the PR trigger has none.
