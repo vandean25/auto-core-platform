@@ -46,5 +46,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0036 | Predictable Frontend Interaction and Safe Optimistic Updates           | Accepted | 2026-11-02                      | [2026-11-02-frontend-interaction-rules.md](2026-11-02-frontend-interaction-rules.md)                               |
 | ADR-0037 | Durable Operation Journal for Guarded Parts Price Changes              | Accepted | 2026-11-08 (amended 2026-11-09) | [2026-11-08-guarded-price-operation-journal.md](2026-11-08-guarded-price-operation-journal.md)                     |
 | ADR-0038 | Authoritative Scope Context for Cursor Lists                           | Accepted | 2026-11-08 (amended 2026-11-09) | [2026-11-08-authoritative-scope-context-for-cursor-lists.md](2026-11-08-authoritative-scope-context-for-cursor-lists.md) |
+| ADR-0039 | Server-Side Saved Views                                                | Accepted | 2026-11-09                      | [2026-11-09-server-side-saved-views.md](2026-11-09-server-side-saved-views.md)                                     |
 
-Next free number: **ADR-0039**.
+Next free number: **ADR-0040**.
