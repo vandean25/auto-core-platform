@@ -25,7 +25,7 @@ function WorkshopStickyChrome({
 }: {
   checkoutExpanded?: boolean
 }) {
-  const chromeRef = useStickyBottomChromeHeight<HTMLElement>()
+  const chromeRef = useStickyBottomChromeHeight<HTMLDivElement>()
   return (
     <section
       data-sticky-bottom-chrome=""

@@ -11,7 +11,7 @@ function setViewport(width: number) {
 }
 
 function StickyChromeProbe() {
-  const ref = useStickyBottomChromeHeight<HTMLElement>()
+  const ref = useStickyBottomChromeHeight<HTMLDivElement>()
   return (
     <section data-sticky-bottom-chrome="">
       <div ref={ref} data-sticky-bottom-chrome-measure="" data-testid="probe" style={{ height: 88 }} />

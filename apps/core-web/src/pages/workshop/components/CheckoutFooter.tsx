@@ -22,7 +22,7 @@ export function CheckoutFooter({
   ...summaryProps
 }: CheckoutFooterProps) {
   const { t } = useTranslation('workshop')
-  const stickyChromeRef = useStickyBottomChromeHeight<HTMLElement>()
+  const stickyChromeRef = useStickyBottomChromeHeight<HTMLDivElement>()
 
   return (
     <section
