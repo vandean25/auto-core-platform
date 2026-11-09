@@ -164,6 +164,23 @@ export function verifyDeclaredRiskAgainstPaths(input) {
 }
 
 /**
+ * Parse `git diff --name-only --no-renames -z` output (NUL-delimited, unquoted paths).
+ *
+ * @param {Buffer | string} output
+ * @returns {string[]}
+ */
+export function parseGitDiffNameOnlyZ(output) {
+  if (!output || (Buffer.isBuffer(output) && output.length === 0)) {
+    return []
+  }
+  const text = Buffer.isBuffer(output) ? output.toString('utf8') : output
+  return text
+    .split('\0')
+    .map((entry) => normalizeRepoPath(entry))
+    .filter(Boolean)
+}
+
+/**
  * @param {string} repoRoot
  * @param {string} baseRef
  * @returns {string[]}
@@ -180,17 +197,16 @@ export function listChangedPathsAgainstBase(repoRoot, baseRef) {
     stdio: ['ignore', 'pipe', 'ignore'],
   }).trim()
 
-  const diffOutput = execFileSync('git', ['diff', '--name-only', `${mergeBase}..HEAD`], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  }).trim()
+  const diffOutput = execFileSync(
+    'git',
+    ['diff', '--name-only', '--no-renames', '-z', `${mergeBase}..HEAD`],
+    {
+      cwd: repoRoot,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    },
+  )
 
-  if (!diffOutput) {
-    return []
-  }
-
-  return diffOutput.split(/\r?\n/).map((entry) => normalizeRepoPath(entry)).filter(Boolean)
+  return parseGitDiffNameOnlyZ(diffOutput)
 }
 
 function defaultRepoRoot() {

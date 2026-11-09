@@ -7,6 +7,7 @@ import {
   compareRisk,
   deriveMinimumRisk,
   parseDeclaredRisk,
+  parseGitDiffNameOnlyZ,
   verifyDeclaredRiskAgainstPaths,
 } from './risk-from-paths.mjs'
 import { loadCodeownersRules } from './codeowners-match-lib.mjs'
@@ -95,4 +96,27 @@ test('missingDeclaredRiskFailsWhenCriticalPathsTouched', () => {
   })
   assert.equal(result.ok, false)
   assert.equal(result.reason, 'missing-declared-risk')
+})
+
+test('renameFromCriticalPathRetainsHighMinimum', () => {
+  const changedPaths = [
+    'apps/core-api/src/auth/auth.service.ts',
+    'docs/scratch/auth-service-relocated.ts',
+  ]
+
+  assert.equal(deriveMinimumRisk(changedPaths, CODEOWNERS_RULES), 'high')
+
+  const result = verifyDeclaredRiskAgainstPaths({
+    changedPaths,
+    declaredRisk: 'low',
+    rules: CODEOWNERS_RULES,
+  })
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, 'declared-below-minimum')
+  assert.equal(result.minimumRisk, 'high')
+})
+
+test('parseGitDiffNameOnlyZ preserves paths with spaces', () => {
+  const zOutput = Buffer.from('README.md\0docs/my notes/file.md\0', 'utf8')
+  assert.deepEqual(parseGitDiffNameOnlyZ(zOutput), ['README.md', 'docs/my notes/file.md'])
 })
