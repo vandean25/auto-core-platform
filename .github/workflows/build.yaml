@@ -37,7 +37,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          # Expression `&& 0` is falsy in GitHub Actions; use full history for merge-base on PRs.
+          # Full history so merge-base and guardrail judges resolve on pull requests.
           fetch-depth: 0
 
       - name: Setup Node

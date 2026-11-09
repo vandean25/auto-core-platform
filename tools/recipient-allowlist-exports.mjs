@@ -116,7 +116,10 @@ function collectTopLevelExport(statement, names, sourceFile) {
   return true
 }
 
-/** Collects exported surface names from `recipient-allowlist.ts` using the TypeScript AST. */
+/**
+ * Collects top-level export surface names from `recipient-allowlist.ts` (not nested namespace members).
+ * `export default function foo` is recorded as `foo`; anonymous default exports as `default`.
+ */
 export function extractRecipientAllowlistExports(source) {
   const sourceFile = ts.createSourceFile(
     'recipient-allowlist.ts',

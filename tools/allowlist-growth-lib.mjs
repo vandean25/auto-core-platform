@@ -1,5 +1,6 @@
 import { findBaselineGrowth } from './interaction-baselines-lib.mjs'
 import { extractRecipientAllowlistExports } from './recipient-allowlist-exports.mjs'
+import { extractSystemPrismaGetters } from './system-prisma-service-getters.mjs'
 
 export const SYSTEM_PRISMA_DELEGATES_PATTERN =
   /export const SYSTEM_PRISMA_MODEL_DELEGATES = \[([\s\S]*?)\] as const/
@@ -53,13 +54,7 @@ export function extractSystemPrismaDelegates(source) {
   return literals.map((part) => part[1]).sort()
 }
 
-export function extractSystemPrismaGetters(source) {
-  if (!source.includes('export class SystemPrismaService')) return null
-  if (!/^\s+get \w+\(\)/m.test(source)) return null
-  return [...source.matchAll(/^\s+get (\w+)\(\)/gm)].map((part) => part[1]).sort()
-}
-
-export { extractRecipientAllowlistExports }
+export { extractRecipientAllowlistExports, extractSystemPrismaGetters }
 
 function resolveIdentities(identities, text) {
   const values = identities(text)

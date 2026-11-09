@@ -198,7 +198,7 @@ describe('AUT-924 guardrail ratchets', () => {
         }),
       (error) => {
         assert.equal(error.status, 1)
-        assert.match(String(error.stderr ?? error.message), /grew|loosened|baseline/i)
+        assert.match(String(error.stderr ?? error.message), /grew/)
         return true
       },
     )

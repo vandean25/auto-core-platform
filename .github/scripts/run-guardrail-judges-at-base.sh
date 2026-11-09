@@ -49,6 +49,9 @@ run_bundle() {
   fi
   if git -C "$ROOT" cat-file -e "${BASE}:${entry}"; then
     node "$tmpdir/tools/guardrail-base-runner.mjs" --base "$BASE" --bundle "$bundle" -- --base "$BASE"
+  else
+    echo "::error::Bundle entry ${entry} missing at merge-base ${BASE}" >&2
+    exit 1
   fi
 }
 

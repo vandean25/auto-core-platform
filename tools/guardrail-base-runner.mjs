@@ -57,6 +57,7 @@ export const BUNDLES = {
       'tools/check-allowlist-growth.mjs',
       'tools/allowlist-growth-lib.mjs',
       'tools/recipient-allowlist-exports.mjs',
+      'tools/system-prisma-service-getters.mjs',
       'tools/interaction-baselines-lib.mjs',
       'tools/parse-cli-options.mjs',
       'tools/guardrail-repo-root.mjs',
