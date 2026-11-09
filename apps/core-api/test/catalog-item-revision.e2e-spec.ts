@@ -136,8 +136,9 @@ describe('catalog item revision (e2e)', () => {
         orderBy: { sku: 'asc' },
       });
       expect(rows).toHaveLength(2);
-      const revA = Number(rows[0]!.revision);
-      const revB = Number(rows[1]!.revision);
+      const [rowA, rowB] = rows;
+      const revA = Number(rowA.revision);
+      const revB = Number(rowB.revision);
       expect(revA).toBeGreaterThan(0);
       expect(revB).toBeGreaterThan(0);
       expect(revA).not.toBe(revB);
