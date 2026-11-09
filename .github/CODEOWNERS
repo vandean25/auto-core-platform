@@ -5,3 +5,45 @@
 /.github/CODEOWNERS @vandean25
 /apps/core-api/eslint.config.mjs @vandean25
 /apps/core-web/eslint*.js @vandean25
+
+# Finance, invoices and credit notes (backend and frontend).
+/apps/core-api/src/finance/ @vandean25
+/apps/core-api/src/invoices/ @vandean25
+/apps/core-api/src/credit-notes/ @vandean25
+/apps/core-web/src/components/finance/ @vandean25
+/apps/core-web/src/pages/finance/ @vandean25
+/apps/core-web/src/pages/sales/Invoice* @vandean25
+/apps/core-web/src/pages/sales/invoice-* @vandean25
+/apps/core-web/src/pages/sales/RelatedCreditNotesCard.tsx @vandean25
+/apps/core-web/src/api/useCreditNotes* @vandean25
+
+# Auth, Firebase and permissions.
+/apps/core-api/src/auth/ @vandean25
+/apps/core-web/src/auth/ @vandean25
+/apps/core-api/src/permissions/ @vandean25
+/apps/core-api/src/tenant-member/tenant-member.firebase* @vandean25
+
+# Tenant isolation and Prisma schema.
+/apps/core-api/src/prisma/ @vandean25
+/apps/core-api/src/common/services/tenant-context.* @vandean25
+/tools/tenant-restore/ @vandean25
+/apps/core-api/prisma/schema* @vandean25
+/apps/core-api/prisma/migrations/ @vandean25
+
+# Agent instructions.
+/agents.md @vandean25
+/AGENTS.md @vandean25
+/CLAUDE.md @vandean25
+/.cursor/ @vandean25
+/.claude/ @vandean25
+/.agents/ @vandean25
+
+# Cloud Build and infrastructure (/.github/scripts/ owned above with gate config).
+/cloudbuild*.yaml @vandean25
+/infra/ @vandean25
+
+# Quality baselines, check scripts and shared checker libraries.
+/tools/spec-quality-baseline.json @vandean25
+/apps/core-web/src/features/**/*.baseline.json @vandean25
+/tools/check-*.mjs @vandean25
+/tools/*-lib.mjs @vandean25
