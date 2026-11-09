@@ -166,6 +166,7 @@ describe('InventoryService', () => {
             },
           ],
           superseded_by: null,
+          revision: BigInt(10),
         },
         {
           id: '2',
@@ -176,6 +177,7 @@ describe('InventoryService', () => {
           retail_price: 200,
           stocks: [],
           superseded_by: { id: '3' },
+          revision: BigInt(20),
         },
       ];
       (prisma.catalogItem.findMany as jest.Mock).mockResolvedValue(mockItems);
@@ -195,6 +197,7 @@ describe('InventoryService', () => {
             status: 'IN_STOCK',
             quantity_available: 8,
             warehouse_location: 'Loc 1',
+            revision: 10,
           },
           {
             id: '2',
@@ -206,6 +209,7 @@ describe('InventoryService', () => {
             status: 'SUPERSEDED',
             quantity_available: 0,
             warehouse_location: 'N/A',
+            revision: 20,
           },
         ],
         meta: {
