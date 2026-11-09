@@ -26,6 +26,7 @@
     "i18n:check:test": "node --test tools/i18n-check.test.mjs",
     "spec-quality:check": "node tools/check-spec-quality.mjs",
     "spec-quality:check:test": "node --test tools/spec-quality.test.mjs",
+    "gate-override:verify:test": "node --test .github/scripts/verify-gate-override.test.mjs",
     "interaction-baselines:check": "node tools/check-interaction-baselines.mjs --base origin/main",
     "interaction-baselines:check:test": "node --test tools/interaction-baselines.test.mjs",
     "worktree:setup": "node tools/worktree/worktree-setup.mjs",
