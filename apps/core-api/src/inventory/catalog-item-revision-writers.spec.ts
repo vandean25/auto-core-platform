@@ -5,7 +5,7 @@ import { REGISTERED_CATALOG_ITEM_WRITER_PATHS } from './catalog-item-revision-wr
 
 const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const CATALOG_WRITE_CALL =
-  /\bcatalogItem\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\(/g;
+  /\bcatalogItem\.(?:create|createMany|createManyAndReturn|update|updateMany|updateManyAndReturn|upsert|delete|deleteMany)\(/g;
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

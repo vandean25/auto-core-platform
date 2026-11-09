@@ -19,6 +19,9 @@ BEFORE INSERT OR UPDATE ON "catalog_items"
 FOR EACH ROW
 EXECUTE FUNCTION set_catalog_item_revision();
 
+-- Existing rows received DEFAULT 0 without firing the insert trigger; bump each via UPDATE.
+UPDATE "catalog_items" SET "revision" = "revision";
+
 CREATE TYPE "InventoryPriceOperationState" AS ENUM ('ACCEPTED', 'APPLIED', 'CONFLICT', 'FENCED');
 
 CREATE TABLE "inventory_price_operations" (

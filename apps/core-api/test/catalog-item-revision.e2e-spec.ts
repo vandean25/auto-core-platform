@@ -1,5 +1,6 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -91,6 +92,60 @@ describe('catalog item revision (e2e)', () => {
       where: { id: item.id },
     });
     expect(Number(afterRow.revision)).toBeGreaterThan(before);
+  });
+
+  it('backfill assigns distinct non-zero revisions to legacy-default rows', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    const skuA = 'REV-BACKFILL-A';
+    const skuB = 'REV-BACKFILL-B';
+
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE catalog_items DISABLE TRIGGER catalog_items_set_revision',
+    );
+    try {
+      await runWithTenantContext(tenantId, async () => {
+        await prisma.catalogItem.createMany({
+          data: [
+            {
+              tenant_id: tenantId,
+              sku: skuA,
+              name: 'Backfill A',
+              retail_price: 1,
+              unit: 'pcs',
+            },
+            {
+              tenant_id: tenantId,
+              sku: skuB,
+              name: 'Backfill B',
+              retail_price: 2,
+              unit: 'pcs',
+            },
+          ],
+        });
+      });
+
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE catalog_items ENABLE TRIGGER catalog_items_set_revision',
+      );
+      await prisma.$executeRaw(
+        Prisma.sql`UPDATE "catalog_items" SET "revision" = "revision" WHERE "tenant_id" = ${tenantId} AND "sku" IN (${skuA}, ${skuB})`,
+      );
+
+      const rows = await tenantPrisma.catalogItem.findMany({
+        where: { sku: { in: [skuA, skuB] } },
+        orderBy: { sku: 'asc' },
+      });
+      expect(rows).toHaveLength(2);
+      const revA = Number(rows[0]!.revision);
+      const revB = Number(rows[1]!.revision);
+      expect(revA).toBeGreaterThan(0);
+      expect(revB).toBeGreaterThan(0);
+      expect(revA).not.toBe(revB);
+    } finally {
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE catalog_items ENABLE TRIGGER catalog_items_set_revision',
+      );
+    }
   });
 
   it('recreate never reuses revision', async () => {
