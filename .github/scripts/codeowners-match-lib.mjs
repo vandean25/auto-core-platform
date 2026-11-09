@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import minimatch from 'minimatch'
+import path from 'node:path'
 
 const REQUIRED_OWNER = '@vandean25'
 
@@ -8,13 +8,66 @@ const REQUIRED_OWNER = '@vandean25'
  */
 
 /**
- * Normalizes repository-relative paths for CODEOWNERS matching.
  * @param {string} filePath
  * @returns {string}
  */
 export function normalizeRepoPath(filePath) {
-  const trimmed = filePath.replaceAll('\\', '/').replace(/^\/+/, '')
-  return trimmed
+  return filePath.replaceAll('\\', '/').replace(/^\/+/, '')
+}
+
+/**
+ * @param {string} segment
+ * @returns {string}
+ */
+function segmentPatternToRegExp(segment) {
+  /** @type {string[]} */
+  const parts = []
+  for (let index = 0; index < segment.length; index += 1) {
+    const char = segment[index]
+    if (char === '*') {
+      if (segment[index + 1] === '*') {
+        parts.push('.*')
+        index += 1
+      } else {
+        parts.push('[^/]*')
+      }
+      continue
+    }
+    if (char === '?') {
+      parts.push('[^/]')
+      continue
+    }
+    if ('\\+?^$.{}[]|()'.includes(char)) {
+      parts.push(`\\${char}`)
+      continue
+    }
+    parts.push(char)
+  }
+  return parts.join('')
+}
+
+/**
+ * @param {string} pattern CODEOWNERS pattern without trailing slash.
+ * @returns {RegExp}
+ */
+function anchoredPatternToRegExp(pattern) {
+  const anchored = pattern.startsWith('/')
+  let body = pattern
+  if (anchored) {
+    body = body.slice(1)
+  }
+
+  const segments = body.split('/')
+  const regexSegments = segments.map((segment) => {
+    if (segment === '**') {
+      return '(?:.+/)?.*'
+    }
+    return segmentPatternToRegExp(segment)
+  })
+
+  let regex = anchored ? `^${regexSegments.join('/')}` : `(?:^|.*/)${regexSegments.join('/')}`
+  regex += '$'
+  return new RegExp(regex)
 }
 
 /**
@@ -36,11 +89,20 @@ export function matchesCodeownersPattern(filePath, pattern) {
     return filePath === dir || filePath.startsWith(`${dir}/`)
   }
 
-  if (normalizedPattern.startsWith('/')) {
-    return minimatch(filePath, normalizedPattern.slice(1), { dot: true })
+  const anchoredRegex = anchoredPatternToRegExp(normalizedPattern)
+  if (anchoredRegex.test(filePath)) {
+    return true
   }
 
-  return minimatch(filePath, normalizedPattern, { dot: true, matchBase: true })
+  if (!normalizedPattern.startsWith('/') && !normalizedPattern.includes('/')) {
+    return anchoredPatternToRegExp(`/${normalizedPattern}`).test(`/${path.basename(filePath)}`)
+  }
+
+  if (!normalizedPattern.startsWith('/')) {
+    return anchoredPatternToRegExp(`/${normalizedPattern}`).test(filePath)
+  }
+
+  return false
 }
 
 /**
@@ -58,13 +120,13 @@ export function parseCodeowners(text) {
     }
 
     const pieces = line.split(/\s+/).filter(Boolean)
-    const pattern = pieces.shift()
-    if (!pattern) {
+    const rulePattern = pieces.shift()
+    if (!rulePattern) {
       continue
     }
 
     rules.push({
-      pattern,
+      pattern: rulePattern,
       owners: pieces,
     })
   }
@@ -73,7 +135,6 @@ export function parseCodeowners(text) {
 }
 
 /**
- * Last matching CODEOWNERS rule wins.
  * @param {string} filePath
  * @param {CodeownersRule[]} rules
  * @returns {string[]}

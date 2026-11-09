@@ -24,3 +24,19 @@ test('trailing slash patterns own directory contents', () => {
   assert.equal(matchesCodeownersPattern('infra/environments/staging.tfvars.example', '/infra/'), true)
   assert.equal(matchesCodeownersPattern('packages/infra/foo', '/infra/'), false)
 })
+
+test('matches representative CODEOWNERS globs', () => {
+  assert.equal(
+    matchesCodeownersPattern(
+      'apps/core-web/src/features/interaction/guards/intent-prefetch.baseline.json',
+      '/apps/core-web/src/features/**/*.baseline.json',
+    ),
+    true,
+  )
+  assert.equal(matchesCodeownersPattern('cloudbuild.staging.yaml', '/cloudbuild*.yaml'), true)
+  assert.equal(matchesCodeownersPattern('tools/spec-quality-lib.mjs', '/tools/*-lib.mjs'), true)
+  assert.equal(
+    matchesCodeownersPattern('apps/core-api/src/common/services/tenant-context.service.ts', '/apps/core-api/src/common/services/tenant-context.*'),
+    true,
+  )
+})
