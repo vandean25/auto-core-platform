@@ -984,11 +984,6 @@ describe("WorkshopOrderDetails Characterization", () => {
       ).toBeInTheDocument();
     });
 
-    it("exposes sticky checkout chrome for mobile toast offset reporting", () => {
-      renderComponent();
-
-      expect(document.querySelector("[data-sticky-bottom-chrome]")).toBeInTheDocument();
-    });
   });
 
   describe("demo session task writes", () => {

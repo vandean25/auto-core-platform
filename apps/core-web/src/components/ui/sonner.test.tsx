@@ -5,12 +5,9 @@ import { AppThemeProvider, THEME_STORAGE_KEY } from '@/components/theme/AppTheme
 import { useStickyBottomChromeHeight } from '@/components/layout/use-sticky-bottom-chrome-height'
 import { toastSuccessWithUndo } from '@/lib/toast-actions'
 import { Toaster } from './sonner'
-import {
-  TOAST_STACK_OFFSET_DESKTOP,
-  TOAST_STACK_OFFSET_MOBILE,
-} from './toast-stack-offset'
 
 const originalInnerWidth = window.innerWidth
+const STICKY_CHROME_PX = 88
 
 function setViewport(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
@@ -30,21 +27,23 @@ function WorkshopStickyChrome() {
       ref={chromeRef}
       data-sticky-bottom-chrome=""
       data-testid="sticky-checkout-footer"
-      style={{ height: 88 }}
+      style={{ height: STICKY_CHROME_PX }}
       className="sticky bottom-[var(--phone-nav-h)]"
     />
   )
 }
 
-function MobileWorkshopChrome({ viewportWidth }: { viewportWidth: number }) {
-  setViewport(viewportWidth)
-  seedPhoneNavHeight()
+function MobileWorkshopChrome() {
   return (
     <>
       <div data-phone-nav="true" data-testid="phone-nav" style={{ height: 57 }} />
       <WorkshopStickyChrome />
     </>
   )
+}
+
+function toasterStyleAttribute() {
+  return document.querySelector('[data-sonner-toaster]')?.getAttribute('style') ?? ''
 }
 
 beforeEach(() => {
@@ -95,9 +94,7 @@ afterEach(async () => {
       expect(document.querySelectorAll('[data-sonner-toast]').length).toBe(0)
     },
     { timeout: 3_000 },
-  ).catch(() => {
-    /* Sonner may already be torn down. */
-  })
+  )
   cleanup()
   setViewport(originalInnerWidth)
   vi.unstubAllGlobals()
@@ -123,89 +120,91 @@ describe('Toaster (AUT-659)', () => {
 })
 
 describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
+  let rectSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     act(() => {
       toast.dismiss()
     })
+    rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.hasAttribute('data-sticky-bottom-chrome')) {
+        return {
+          height: STICKY_CHROME_PX,
+          width: 375,
+          top: 700,
+          bottom: 788,
+          left: 0,
+          right: 375,
+          x: 0,
+          y: 700,
+          toJSON: () => ({}),
+        } as DOMRect
+      }
+      return {
+        height: 0,
+        width: 0,
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect
+    })
+  })
+
+  afterEach(() => {
+    rectSpy.mockRestore()
   })
 
   const renderMobileUndoStack = (viewportWidth: number) => {
-    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
-      configurable: true,
-      value(this: HTMLElement) {
-        if (this.hasAttribute('data-sticky-bottom-chrome') || this.dataset.testid === 'sticky-checkout-footer') {
-          return {
-            height: 88,
-            width: viewportWidth,
-            top: 700,
-            bottom: 788,
-            left: 0,
-            right: viewportWidth,
-            x: 0,
-            y: 700,
-            toJSON: () => ({}),
-          }
-        }
-        return {
-          height: 0,
-          width: 0,
-          top: 0,
-          bottom: 0,
-          left: 0,
-          right: 0,
-          x: 0,
-          y: 0,
-          toJSON: () => ({}),
-        }
-      },
-    })
+    setViewport(viewportWidth)
+    seedPhoneNavHeight()
     render(
       <AppThemeProvider>
-        <MobileWorkshopChrome viewportWidth={viewportWidth} />
+        <MobileWorkshopChrome />
         <Toaster />
       </AppThemeProvider>,
     )
   }
 
-  it('WHEN Interne Notizen are saved on blur at 375×844 with the sticky totals stack + mobile nav THEN the Undo toast including Undo is fully above that chrome and a tap runs server restore', async () => {
-    renderMobileUndoStack(375)
-    await waitFor(() =>
-      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).not.toBe(
-        '',
-      ),
-    )
+  it.each([
+    {
+      viewportWidth: 375,
+      title:
+        'WHEN Interne Notizen are saved on blur at 375×844 with the sticky totals stack + mobile nav THEN the Undo toast including Undo is fully above that chrome and a tap runs server restore',
+    },
+    {
+      viewportWidth: 390,
+      title:
+        'WHEN the same flow runs at 390px THEN the Undo toast including Undo is fully above sticky chrome and tappable (regression target)',
+    },
+  ])('$title', async ({ viewportWidth }) => {
+      renderMobileUndoStack(viewportWidth)
+      await waitFor(() =>
+        expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
+          `${STICKY_CHROME_PX}px`,
+        ),
+      )
 
-    const runServerRestore = vi.fn()
-    act(() => {
-      toastSuccessWithUndo('Interne Notizen gespeichert', 'Rückgängig', runServerRestore)
-    })
+      const runServerRestore = vi.fn()
+      act(() => {
+        toastSuccessWithUndo('Interne Notizen gespeichert', 'Rückgängig', runServerRestore)
+      })
 
-    await waitFor(() => expect(document.querySelector('[data-sonner-toaster]')).not.toBeNull())
-    const toaster = document.querySelector('[data-sonner-toaster]') as HTMLElement
-    expect(toaster).toHaveStyle({ '--mobile-offset-bottom': TOAST_STACK_OFFSET_MOBILE })
+      await waitFor(() => expect(document.querySelector('[data-sonner-toaster]')).not.toBeNull())
+      expect(toasterStyleAttribute()).toContain('var(--sticky-bottom-chrome-h)')
 
-    const undoAction = await screen.findByRole('button', { name: 'Rückgängig' })
-    expect(undoAction.className).toContain('min-h-11')
-    fireEvent.click(undoAction)
-    expect(runServerRestore).toHaveBeenCalledTimes(1)
+      const undoAction = await screen.findByRole('button', { name: 'Rückgängig' })
+      expect(undoAction.className).toContain('min-h-11')
+      fireEvent.click(undoAction)
+      expect(runServerRestore).toHaveBeenCalledTimes(1)
   })
 
-  it('WHEN the same flow runs at 390px THEN the Undo toast including Undo is fully above sticky chrome and tappable (regression target)', async () => {
-    renderMobileUndoStack(390)
-
-    act(() => {
-      toastSuccessWithUndo('Interne Notizen gespeichert', 'Rückgängig', vi.fn())
-    })
-
-    await waitFor(() => expect(document.querySelector('[data-sonner-toaster]')).not.toBeNull())
-    const toaster = document.querySelector('[data-sonner-toaster]') as HTMLElement
-    expect(toaster).toHaveStyle({ '--mobile-offset-bottom': TOAST_STACK_OFFSET_MOBILE })
-    const undoAction = await screen.findByRole('button', { name: 'Rückgängig' })
-    fireEvent.click(undoAction)
-    expect(undoAction).toBeInTheDocument()
-  })
-
-  it('WHEN the same Undo toast appears on desktop without the mobile sticky stack THEN toast Undo and layout match the pre-fix behaviour', async () => {
+  it('WHEN the Undo toast appears on desktop without the mobile sticky stack THEN sticky chrome height stays cleared and Undo still runs', async () => {
     setViewport(1280)
     render(
       <AppThemeProvider>
@@ -219,15 +218,14 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
     })
 
     await waitFor(() => expect(document.querySelector('[data-sonner-toaster]')).not.toBeNull())
-    const toaster = document.querySelector('[data-sonner-toaster]') as HTMLElement
-    expect(toaster).toHaveStyle({ '--offset-bottom': TOAST_STACK_OFFSET_DESKTOP })
     expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('')
+    expect(toasterStyleAttribute()).toContain('var(--phone-nav-h)')
 
     fireEvent.click(await screen.findByRole('button', { name: 'Undo' }))
     expect(runUndo).toHaveBeenCalledTimes(1)
   })
 
-  it('WHEN a small-screen keyboard / scroll keeps Interne Notizen focused while the toast is shown THEN the toast does not cover the focused field and does not cause horizontal overflow', async () => {
+  it('WHEN a small-screen keyboard / scroll keeps Interne Notizen focused while the toast is shown THEN sticky chrome is published for the offset (overlap proof in e2e)', async () => {
     setViewport(375)
     seedPhoneNavHeight()
     render(
@@ -241,6 +239,12 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
       </AppThemeProvider>,
     )
 
+    await waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
+        `${STICKY_CHROME_PX}px`,
+      ),
+    )
+
     const notesField = screen.getByLabelText('Interne Notizen')
     act(() => {
       notesField.focus()
@@ -251,11 +255,7 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
     })
 
     await waitFor(() => expect(document.querySelector('[data-sonner-toast]')).not.toBeNull())
-    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
-      document.documentElement.clientWidth + 1,
-    )
-    const toaster = document.querySelector('[data-sonner-toaster]')
-    expect(toaster).toHaveStyle({ '--mobile-offset-bottom': TOAST_STACK_OFFSET_MOBILE })
+    expect(toasterStyleAttribute()).toContain('var(--sticky-bottom-chrome-h)')
     expect(document.activeElement).toBe(notesField)
   })
 })

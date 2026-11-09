@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockWorkshopOrder } from './utils/mock-factories'
-import { controlsShorterThan44, expectNoPageScroll } from './utils/phone-layout'
+import { controlsShorterThan44, expectNoPageScroll, pageOverflow } from './utils/phone-layout'
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 
 test.describe('Workshop order task quick-add layout (AUT-842)', () => {
@@ -108,5 +108,76 @@ test.describe('Workshop order task quick-add layout (AUT-842)', () => {
 
     // Input has full desktop width
     expect(inputBox!.width).toBeGreaterThan(250)
+  })
+})
+
+test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
+  const orderId = 'wo-aut-919'
+  const undoAction = deWorkshop.orderDetail.undoNotes.action
+
+  test('at 375×844 the undo toast action sits above the sticky checkout footer and is tappable', async ({ page }) => {
+    let order = {
+      ...createMockWorkshopOrder({
+        id: orderId,
+        order_number: 'WO-2026-0919',
+        status: 'IN_PROGRESS',
+      }),
+      notes: 'Original internal note',
+      updatedAt: '2026-11-05T12:00:00.000Z',
+    }
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${orderId}`), async (route) => {
+      if (route.request().method() === 'PATCH') {
+        const body = route.request().postDataJSON() as { notes?: string }
+        order = {
+          ...order,
+          notes: body.notes ?? order.notes,
+          updatedAt: '2026-11-05T12:01:00.000Z',
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(order),
+        })
+        return
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${orderId}/estimates`), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${orderId}/communications`), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${orderId}/notes/undo`), async (route) => {
+      order = { ...order, notes: 'Original internal note', updatedAt: '2026-11-05T12:02:00.000Z' }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+    })
+
+    await page.setViewportSize({ width: 375, height: 844 })
+    const corePage = new AutoCorePage(page, 'Order')
+    await corePage.navigate(`/workshop/orders/${orderId}`)
+
+    const notesField = page.getByLabel(deWorkshop.taskList.internalNotesAria)
+    await page.getByText('Original internal note').click()
+    await notesField.fill('Edited internal note')
+    await notesField.blur()
+
+    const undoButton = page.getByRole('button', { name: undoAction }).last()
+    await expect(undoButton).toBeVisible()
+    const undoBox = await undoButton.boundingBox()
+    const footer = page.locator('[data-sticky-bottom-chrome]').first()
+    const footerBox = await footer.boundingBox()
+    expect(undoBox).not.toBeNull()
+    expect(footerBox).not.toBeNull()
+    expect(undoBox!.y + undoBox!.height).toBeLessThanOrEqual(footerBox!.y + 2)
+    expect(undoBox!.height).toBeGreaterThanOrEqual(43.5)
+    expect(await pageOverflow(page)).toBeLessThanOrEqual(1)
+
+    await undoButton.click()
+    await expect(page.getByText(deWorkshop.orderDetail.toast.notesUndoSuccess)).toBeVisible()
   })
 })

@@ -197,7 +197,7 @@ describe('work order notes undo palette context', () => {
     clearUndoEligibleEntry()
   })
 
-  it('includes undo in Cmd+K when an eligible entry exists for the open order', () => {
+  it('WHEN Cmd/Ctrl+K Undo is invoked on desktop after the pilot edit THEN the existing Undo action still runs', () => {
     setUndoEligibleEntry({
       actionId: ENTITY_ACTION_IDS.workOrderUndoNotes,
       orderId: openOrder.id,
