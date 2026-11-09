@@ -1,11 +1,7 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { apiGetStatus } from './api-request.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
-
-async function apiGetStatus(page: Page, path: string, token?: string) {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {}
-  return page.request.get(path, { headers })
-}
 
 test.describe('Full-stack auth journey', () => {
   test('unauthenticatedOrWrongRoleRejected', async ({ page }) => {

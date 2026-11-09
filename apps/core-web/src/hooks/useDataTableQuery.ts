@@ -7,6 +7,9 @@ import type {
   SortingState,
 } from '@tanstack/react-table'
 
+/** Default debounce for table state → URL sync (`useDataTableQuery`). */
+export const DATA_TABLE_URL_SYNC_DEBOUNCE_MS = 500
+
 interface UseDataTableQueryOptions {
   defaultPageSize?: number
   /** Largest page size the URL may ask for: a hand-edited or old link must not request a page the API refuses. */
@@ -182,7 +185,12 @@ function buildQueryParams(
 
 export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
-  const { defaultPageSize = 25, maxPageSize = MAX_LIST_PAGE_SIZE, debounceMs = 500, initialSorting = [] } = options
+  const {
+    defaultPageSize = 25,
+    maxPageSize = MAX_LIST_PAGE_SIZE,
+    debounceMs = DATA_TABLE_URL_SYNC_DEBOUNCE_MS,
+    initialSorting = [],
+  } = options
   const searchParamsKey = searchParams.toString()
   const initialSortingKey = JSON.stringify(initialSorting)
   // eslint-disable-next-line react-hooks/exhaustive-deps

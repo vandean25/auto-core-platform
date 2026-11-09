@@ -72,11 +72,20 @@ export async function finalizeSalesInvoiceFromOrder(
   const createResponse = await createInvoicePost
   expect(createResponse.ok()).toBeTruthy()
   const createdInvoice = (await createResponse.json()) as { id: string }
+  expect(createdInvoice.id).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  )
 
-  await page.goto(`/sales/invoices/${createdInvoice.id}/edit`)
-  await expect(
-    page.getByRole('heading', { name: DE_FULLSTACK_SALES.invoiceDraftTitle }),
-  ).toBeVisible({ timeout: 60_000 })
+  const editPath = `/sales/invoices/${createdInvoice.id}/edit`
+  await expect(page.getByText(DE_FULLSTACK_SALES.invoiceDraftCreatedToast)).toBeVisible({
+    timeout: 120_000,
+  })
+  await expect(async () => {
+    expect(new URL(page.url()).pathname).toBe(editPath)
+    await expect(
+      page.getByRole('heading', { name: DE_FULLSTACK_SALES.invoiceDraftTitle }),
+    ).toBeVisible()
+  }).toPass({ timeout: 120_000 })
 
   const finalizeButton = page.getByRole('button', { name: DE_FULLSTACK_SALES.finalize, exact: true })
   await expect(finalizeButton).toBeVisible({ timeout: 60_000 })

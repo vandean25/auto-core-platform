@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'apps/**'
+      - 'locales/**'
       - '.github/workflows/e2e-fullstack.yaml'
   schedule:
     - cron: '0 3 * * *'

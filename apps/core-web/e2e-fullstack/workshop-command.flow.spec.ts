@@ -167,9 +167,9 @@ test.describe('Full-stack Cmd+K workshop command flow', () => {
 
     await openCommandPanel(page)
     await page.getByRole('button', { name: 'Zurück zur Suche' }).click()
-    await expect(page.getByRole('combobox')).toBeVisible()
+    await expect(page.getByRole('dialog').getByRole('combobox')).toBeVisible()
 
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('combobox')).toBeHidden()
+    await expect(page.getByRole('dialog')).toBeHidden()
   })
 })

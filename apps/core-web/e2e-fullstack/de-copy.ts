@@ -9,6 +9,7 @@ export const DE_FULLSTACK_SALES = {
   invoicesListTitle: salesDe.invoices.list.title,
   invoiceDraftTitle: salesDe.invoices.draft.title,
   createInvoice: salesDe.orders.detail.createInvoice,
+  invoiceDraftCreatedToast: salesDe.orders.detail.invoiceDraftCreated,
   finalize: salesDe.invoices.draft.finalize,
   finalizeDialogConfirm: salesDe.invoiceEditor.finalizeDialog.confirm,
   downloadPdf: salesDe.invoices.detail.downloadPdf,

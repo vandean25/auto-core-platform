@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { auditRawQuery } from './audit-raw-query.mjs';
 
 describe('Tenant Isolation Raw SQL Audit', () => {
   const srcDir = fileURLToPath(new URL('..', import.meta.url));
@@ -46,34 +47,6 @@ describe('Tenant Isolation Raw SQL Audit', () => {
     return files;
   }
 
-  function auditRawQuery(
-    queryBlock: string,
-    tenantTables: Set<string>,
-  ): { referencedTables: string[]; isValid: boolean } {
-    const normalizedBlock = queryBlock
-      .replace(/["`]/g, '')
-      .replace(/\bpublic\./gi, '');
-    const referencedTables: string[] = [];
-    for (const table of tenantTables) {
-      const regex = new RegExp(
-        `\\b(from|join|update|into)\\s+${table}\\b`,
-        'i',
-      );
-      if (regex.test(normalizedBlock)) {
-        referencedTables.push(table);
-      }
-    }
-
-    if (referencedTables.length === 0) {
-      // Not referencing a tenant-scoped table (e.g. advisory lock, db ping, non-tenant table)
-      return { referencedTables, isValid: true };
-    }
-
-    // Must explicitly include tenant_id
-    const isValid = queryBlock.includes('tenant_id');
-    return { referencedTables, isValid };
-  }
-
   it('every raw query in application code on a tenant-scoped table includes tenant_id', () => {
     const tenantTables = getTenantScopedTables();
     expect(tenantTables.size).toBeGreaterThan(50);
@@ -116,20 +89,6 @@ describe('Tenant Isolation Raw SQL Audit', () => {
     }
 
     expect(violations).toEqual([]);
-  });
-
-  it('injectedTenantFilterRegressionFailsGate', () => {
-    const tenantTables = new Set(['customers', 'workshop_orders']);
-    const unfiltered = `
-      SELECT id FROM customers
-      WHERE id = $1
-    `;
-    const filtered = `
-      SELECT id FROM customers
-      WHERE id = $1 AND tenant_id = $2
-    `;
-    expect(auditRawQuery(unfiltered, tenantTables).isValid).toBe(false);
-    expect(auditRawQuery(filtered, tenantTables).isValid).toBe(true);
   });
 
   it('adversarial check: raw query on tenant table without tenant_id is rejected by audit', () => {

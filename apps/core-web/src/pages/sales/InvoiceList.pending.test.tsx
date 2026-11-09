@@ -8,6 +8,7 @@ import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timi
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import errorsDe from '../../../../../locales/de/errors.json'
 import { deSales } from '@/test/de-sales'
+import { InvoiceDraftEditorNavigationHost } from './invoice-draft-editor-navigation'
 import InvoiceListPage from './InvoiceListPage'
 import { queueInvoiceDraftCreate, takeQueuedInvoiceDraftCreate } from './useInvoicePendingCreate'
 
@@ -46,6 +47,7 @@ function renderList() {
       <SavedViewsProvider userKey="test-user">
         {/* Default router updates sit in startTransition and can stay uncommitted past findBy's 1s budget on a loaded runner. */}
         <MemoryRouter initialEntries={['/sales/invoices?sortField=status']} useTransitions={false}>
+          <InvoiceDraftEditorNavigationHost />
           <Routes>
             <Route path="/sales/invoices" element={<InvoiceListPage />} />
             <Route path="/sales/invoices/:id/edit" element={<p>draft-editor</p>} />

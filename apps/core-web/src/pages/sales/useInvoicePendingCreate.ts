@@ -1,12 +1,11 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useCreateInvoiceFromOrder } from '@/api/sales-orders'
 import type { Invoice } from '@/api/types'
 import { describePendingCreateError, useListPendingCreate } from '@/features/interaction/use-list-pending-create'
-import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { requestInvoiceDraftEditorNavigation } from './invoice-draft-editor-navigation'
 
 export type InvoiceDraftCreateRequest = {
   orderId: string
@@ -53,7 +52,6 @@ function buildPendingInvoice(localId: string, payload: InvoiceDraftCreateRequest
 /** Sales-invoice draft creation stays server-confirmed behind a pending list row (ADR-0036 R1). */
 export function useInvoicePendingCreate(serverRows: Invoice[], dataUpdatedAt: number) {
   const { t } = useTranslation('sales')
-  const navigate = useNavigate()
   const createInvoice = useCreateInvoiceFromOrder()
   const pending = useListPendingCreate<InvoiceDraftCreateRequest, Invoice>({
     create: (payload) => createInvoice.mutateAsync(payload.orderId),
@@ -67,7 +65,7 @@ export function useInvoicePendingCreate(serverRows: Invoice[], dataUpdatedAt: nu
       }),
     onCreated: (created) => {
       toast.success(t('orders.detail.invoiceDraftCreated'))
-      navigate(APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', created.id))
+      requestInvoiceDraftEditorNavigation(created.id)
     },
   })
 

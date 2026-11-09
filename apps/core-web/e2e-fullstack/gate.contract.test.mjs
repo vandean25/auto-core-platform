@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { auditRawQuery } from '../../core-api/src/prisma/audit-raw-query.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)))
 const fullstackDir = resolve(repoRoot, 'apps/core-web/e2e-fullstack')
@@ -17,32 +18,24 @@ const REQUIRED_FLOW_FILES = [
   'client-session-cache-reset.flow.spec.ts',
 ]
 
-function auditRawQuery(queryBlock, tenantTables) {
-  const normalizedBlock = queryBlock
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/--[^\n]*/g, ' ')
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .replace(/\bpublic\./gi, '')
-  const referencedTables = []
-  for (const table of tenantTables) {
-    const regex = new RegExp(`\\b(from|join|update|into)\\s+${table}\\b`, 'i')
-    if (regex.test(normalizedBlock)) {
-      referencedTables.push(table)
-    }
-  }
-  if (referencedTables.length === 0) {
-    return { referencedTables, isValid: true }
-  }
-  const isValid = queryBlock.includes('tenant_id')
-  return { referencedTables, isValid }
-}
+const REQUIRED_JOURNEY_FILES = ['auth.journey.spec.ts', 'tenant-isolation.journey.spec.ts']
 
 test('prJobRunsAllFiveFullstackFlows', () => {
   const onDisk = readdirSync(fullstackDir)
     .filter((name) => name.endsWith('.flow.spec.ts'))
     .sort()
   assert.deepEqual(onDisk, [...REQUIRED_FLOW_FILES].sort())
+
+  for (const file of REQUIRED_JOURNEY_FILES) {
+    assert.ok(readdirSync(fullstackDir).includes(file), `missing full-stack journey spec ${file}`)
+  }
+
+  const playwrightConfig = readFileSync(playwrightConfigPath, 'utf8')
+  assert.doesNotMatch(
+    playwrightConfig,
+    /testMatch|grep:\s*\/\*\.flow\.spec\.ts/,
+    'playwright config must not limit full-stack runs to *.flow.spec.ts only',
+  )
 
   const workflow = readFileSync(workflowPath, 'utf8')
   assert.match(workflow, /pull_request:/)
@@ -67,20 +60,22 @@ test('noFailureHidingRetry', () => {
 
 test('injectedTenantFilterRegressionFailsGate', () => {
   const tenantTables = new Set(['customers', 'workshop_orders'])
-  const unfiltered = `
-    SELECT id FROM customers
-    WHERE id = $1
+  const injectedRegression = `
+    const rows = await prisma.$queryRaw\`
+      SELECT id FROM "customers"
+      WHERE id = \${customerId}
+    \`
   `
-  const filtered = `
-    SELECT id FROM customers
-    WHERE id = $1 AND tenant_id = $2
-  `
-  assert.equal(auditRawQuery(unfiltered, tenantTables).isValid, false)
-  assert.equal(auditRawQuery(filtered, tenantTables).isValid, true)
+  const regressionAudit = auditRawQuery(injectedRegression, tenantTables)
+  assert.equal(regressionAudit.isValid, false, 'unfiltered quoted tenant table must be rejected')
+  assert.deepEqual(regressionAudit.referencedTables, ['customers'])
 
-  const source = readFileSync(
-    resolve(repoRoot, 'apps/core-api/src/prisma/tenant-isolation-raw-sql.spec.ts'),
-    'utf8',
-  )
-  assert.match(source, /injectedTenantFilterRegressionFailsGate/)
+  const filtered = `
+    const rows = await prisma.$queryRaw\`
+      SELECT id FROM customers
+      WHERE id = \${customerId} AND tenant_id = \${tenantId}
+    \`
+  `
+  const filteredAudit = auditRawQuery(filtered, tenantTables)
+  assert.equal(filteredAudit.isValid, true, 'filtered tenant query must remain valid')
 })
