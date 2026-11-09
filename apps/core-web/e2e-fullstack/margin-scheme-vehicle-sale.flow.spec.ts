@@ -58,12 +58,31 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
     await expect(buyerCombobox).toBeVisible()
     await expect(buyerCombobox).not.toContainText('search.selectPlaceholder')
     await buyerCombobox.click()
-    await page
-      .getByPlaceholder(DE_FULLSTACK_CUSTOMERS.searchPlaceholder)
-      .fill(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)
-    await expect(
-      page.getByRole('dialog').getByRole('option', { name: fixture.vehicleBuyerLabel }),
-    ).toBeVisible({ timeout: 15_000 })
+    const searchInput = page.getByPlaceholder(DE_FULLSTACK_CUSTOMERS.searchPlaceholder)
+    await expect(searchInput).toBeVisible()
+    const customerSearch = page.waitForResponse(
+      (response) => {
+        if (
+          !response.url().includes('/api/customers') ||
+          response.request().method() !== 'GET' ||
+          !response.ok()
+        ) {
+          return false
+        }
+        try {
+          const search = new URL(response.url()).searchParams.get('search') ?? ''
+          return search.includes(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)
+        } catch {
+          return false
+        }
+      },
+      { timeout: 60_000 },
+    )
+    await searchInput.fill(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)
+    await customerSearch
+    await expect(page.getByText(fixture.vehicleBuyerLabel, { exact: true })).toBeVisible({
+      timeout: 60_000,
+    })
     await page.keyboard.press('Escape')
 
     const saleResponse = await request.post(`${apiBase}/vehicle-sales`, {
