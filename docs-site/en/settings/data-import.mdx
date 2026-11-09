@@ -47,7 +47,7 @@ Imports create new rows. They do not merge duplicates by plate or email unless t
 
     - **Preview:** A preview dialog details exactly what will be deleted (newly created records), restored to its pre-import state (updated records), flagged as conflicts (edited after import), and blocked.
     - **Downstream reference guard:** Records that have since been referenced by work orders, estimates, invoices, credit notes, or stock movements are strictly blocked and cannot be deleted or modified. Finalized invoices and booked accounting records remain immutable.
-    - **Conflict handling:** Records modified by users after the import are flagged as conflicts and are only reverted if you explicitly select them via their checkbox.
+    - **Conflict handling:** Records modified after the import appear as conflicts. Per row, enable the **Overwrite** checkbox when you want the pre-import state restored.
     - **Confirmation:** You must type **UNDO** to enable the destructive action.
     - **Result:** The job transitions to the terminal status **Undone** (or **Partially undone** if blocked records remain). External ID mappings created by the job are removed, so a subsequent re-import creates fresh records without duplicates.
   </Accordion>

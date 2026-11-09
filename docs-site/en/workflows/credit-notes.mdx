@@ -5,7 +5,7 @@ description: "Issue credit notes (Gutschriften) against finalized invoices and d
 
 Use **Credit Notes** in the sidebar when you need to reduce or reverse part of a finalized tax invoice without editing the original document. Credit notes get their own number series and appear in [Export Readiness](/en/settings/finance#export-readiness) before accounting export.
 
-Only **OWNER** and **ADMIN** members see the **Credit Notes** sidebar entry.
+**OWNER**, **ADMIN**, and **SALES** see **Credit Notes** in the sidebar. **SALES** can read lists and details and download an already generated PDF; only **OWNER** and **ADMIN** can create, edit, and finalize credit notes.
 
 <Steps>
   <Step title="Open Credit Notes">
@@ -32,7 +32,7 @@ Cancelled invoices cannot be exported. A credit note that blocks export readines
 
 <AccordionGroup>
   <Accordion title="Who can use this">
-    Sidebar visibility is limited to **OWNER** and **ADMIN**. Advisors and mechanics do not see the module.
+    **SALES**: read-only; PDF only after the back office generated it. **TECH**: no sidebar entry. Create and finalize: **OWNER** and **ADMIN** (also **Credit note** from an invoice).
   </Accordion>
   <Accordion title="Accounting export">
     Credit notes use the same readiness rules as invoices. See [Finance](/en/settings/finance#export-readiness) and [Accounting export](/en/workflows/accounting-export).

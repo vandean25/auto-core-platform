@@ -47,7 +47,7 @@ Importe legen neue Zeilen an. Sie führen keine Duplikate per Kennzeichen oder E
 
     - **Vorschau:** Vor dem Ausführen zeigt ein Dialog die genaue Aufstellung: wie viele Datensätze gelöscht werden (neu angelegte), wie viele auf den Stand vor dem Import zurückgesetzt werden (aktualisierte), welche Datensätze nach dem Import bearbeitet wurden (Konflikte) und welche blockiert sind.
     - **Schutz vor Folgebelegen:** Datensätze, die nach dem Import in Werkstattaufträgen, Kostenvoranschlägen, Rechnungen, Gutschriften oder Lagerbewegungen verwendet wurden, sind strikt blockiert und werden nicht gelöscht oder verändert. Ausgestellte Rechnungen und gebuchte Finanzdaten bleiben ausnahmslos unberührt.
-    - **Konfliktprüfung:** Wurde ein Datensatz nach dem Import manuell bearbeitet, wird er im Dialog als Konflikt gelistet und nur zurückgesetzt, wenn Sie ihn explizit einzeln per Kontrollkästchen bestätigen.
+    - **Konfliktprüfung:** Wurde ein Datensatz nach dem Import manuell bearbeitet, wird er im Dialog als Konflikt gelistet. Pro Zeile aktivieren Sie das Kontrollkästchen **Überschreiben**, wenn der Stand vor dem Import wiederhergestellt werden soll.
     - **Sicherheitsbestätigung:** Zur Ausführung muss das Bestätigungswort **RÜCKGÄNGIG** eingetippt werden.
     - **Ergebnis:** Der Job wechselt in den Endstatus **Rückgängig gemacht** (oder **Teilweise rückgängig gemacht**, falls Zeilen blockiert waren). Zugehörige externe Zuordnungen werden entfernt, sodass ein erneuter Import saubere Neuanlagen erzeugt.
   </Accordion>
