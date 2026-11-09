@@ -114,19 +114,10 @@ test.describe('Workshop order task quick-add layout (AUT-842)', () => {
 test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
   const orderId = 'wo-aut-919'
   const undoAction = deWorkshop.orderDetail.undoNotes.action
+  let order: ReturnType<typeof createMockWorkshopOrder> & { notes: string; updatedAt: string }
 
   test.beforeEach(async ({ page }) => {
-    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-    })
-    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-    })
-  })
-
-  test('at 375×844 the undo toast action sits above the sticky checkout footer and is tappable', async ({ page }) => {
-    test.setTimeout(60_000)
-    let order = {
+    order = {
       ...createMockWorkshopOrder({
         id: orderId,
         order_number: 'WO-2026-0919',
@@ -167,11 +158,18 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
     })
 
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    })
+  })
+
+  test('at 375×844 the undo toast action sits above the sticky checkout footer and is tappable', async ({ page }) => {
+    test.setTimeout(60_000)
     await page.setViewportSize({ width: 375, height: 844 })
     const corePage = new AutoCorePage(page, 'Order')
     await corePage.navigate(`/workshop/orders/${orderId}`)
 
-    await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
+    await expect(page.getByRole('heading', { name: deWorkshop.taskList.repairTasks, exact: true })).toBeVisible()
 
     const notesText = page.getByText('Original internal note', { exact: true })
     await notesText.scrollIntoViewIfNeeded()
