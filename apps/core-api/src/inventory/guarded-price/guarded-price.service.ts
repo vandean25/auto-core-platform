@@ -106,8 +106,12 @@ export class GuardedPriceService {
     if (txAResult.kind === 'halt') {
       txAResult.throw();
     }
+    if (txAResult.kind !== 'proceed') {
+      operationUnresolved('Guarded acceptance did not proceed to execution.');
+    }
 
-    return await this.runTxE(tenantId, principalId, operationKey, intent);
+    const executionKey = txAResult.journalKey ?? operationKey;
+    return await this.runTxE(tenantId, principalId, executionKey, intent);
   }
 
   private async tryReplayWithoutCatalogItem(
@@ -175,7 +179,7 @@ export class GuardedPriceService {
     operationKey: string,
     intent: GuardedPriceIntent,
   ): Promise<
-    | { kind: 'proceed' }
+    | { kind: 'proceed'; journalKey?: string }
     | { kind: 'replay'; receipt: GuardedPriceReceiptDto }
     | { kind: 'halt'; throw: () => never }
   > {
@@ -242,6 +246,26 @@ export class GuardedPriceService {
                   intent,
                 );
               }
+              const acceptedSameItem =
+                await tx.inventoryPriceOperation.findFirst({
+                  where: {
+                    tenant_id: tenantId,
+                    principal_id: principalId,
+                    item_id: intent.itemId,
+                    state: InventoryPriceOperationState.ACCEPTED,
+                  },
+                });
+              if (
+                acceptedSameItem &&
+                frozenIntentMatchesRow(acceptedSameItem, intent)
+              ) {
+                return await this.handleExistingJournalRow(
+                  tx,
+                  tenantId,
+                  acceptedSameItem,
+                  intent,
+                );
+              }
               operationUnresolved(
                 'Another guarded operation is still in progress for this item.',
               );
@@ -285,9 +309,8 @@ export class GuardedPriceService {
       where: { tenant_id: tenantId, id: row.id },
     });
 
-    const halt = haltForFinalJournalState(fresh.state);
-    if (halt) {
-      return halt;
+    if (fresh.state === InventoryPriceOperationState.ACCEPTED) {
+      return { kind: 'proceed', journalKey: fresh.key };
     }
     if (fresh.state === InventoryPriceOperationState.APPLIED) {
       const item = await tx.catalogItem.findFirst({
@@ -297,6 +320,11 @@ export class GuardedPriceService {
         kind: 'replay',
         receipt: receiptFromAppliedJournal(fresh, item),
       };
+    }
+
+    const halt = haltForFinalJournalState(fresh.state);
+    if (halt) {
+      return halt;
     }
 
     operationUnresolved('Guarded operation is in an unknown state.');
@@ -330,6 +358,9 @@ export class GuardedPriceService {
 
       if (outcome.kind === 'halt') {
         outcome.throw();
+      }
+      if (outcome.kind === 'replay') {
+        return outcome.receipt;
       }
       if (outcome.kind === 'conflict') {
         inventoryRevisionConflict('Catalog item revision no longer matches.');

@@ -21,11 +21,14 @@ import {
   shouldFailTxEAfterCatalogUpdate,
   shouldFailTxEAfterJournalLock,
 } from './guarded-price-test-hooks.js';
+import { receiptFromAppliedJournal } from './guarded-price-receipt.js';
 import { revisionFromDb, revisionToDb } from './guarded-price.revision.js';
 import { operationUnresolved } from './guarded-price.errors.js';
+import type { GuardedPriceReceiptDto } from '../dto/guarded-inventory-price.dto.js';
 
 export type GuardedPriceTxEOutcome =
   | { kind: 'applied'; item: Prisma.CatalogItemGetPayload<object> }
+  | { kind: 'replay'; receipt: GuardedPriceReceiptDto }
   | { kind: 'conflict' }
   | { kind: 'halt'; throw: () => never };
 
@@ -46,6 +49,7 @@ async function lockAcceptedJournal(
       kind: 'journal';
       journal: Prisma.InventoryPriceOperationGetPayload<object>;
     }
+  | { kind: 'replay'; receipt: GuardedPriceReceiptDto }
   | { kind: 'halt'; throw: () => never }
 > {
   const journal = await tx.inventoryPriceOperation.findFirst({
@@ -75,21 +79,32 @@ async function lockAcceptedJournal(
     where: { tenant_id: ctx.tenantId, id: journal.id },
   });
 
-  if (lockedJournal.state !== InventoryPriceOperationState.ACCEPTED) {
-    const halt = haltForFinalJournalState(lockedJournal.state);
-    if (halt) {
-      return halt;
-    }
+  if (lockedJournal.state === InventoryPriceOperationState.ACCEPTED) {
+    return { kind: 'journal', journal: lockedJournal };
+  }
+
+  if (lockedJournal.state === InventoryPriceOperationState.APPLIED) {
+    const item = await tx.catalogItem.findFirst({
+      where: { id: lockedJournal.item_id, tenant_id: ctx.tenantId },
+    });
     return {
-      kind: 'halt',
-      throw: () =>
-        operationUnresolved(
-          'Guarded acceptance row is not available for execution.',
-        ),
+      kind: 'replay',
+      receipt: receiptFromAppliedJournal(lockedJournal, item),
     };
   }
 
-  return { kind: 'journal', journal: lockedJournal };
+  const halt = haltForFinalJournalState(lockedJournal.state);
+  if (halt) {
+    return halt;
+  }
+
+  return {
+    kind: 'halt',
+    throw: () =>
+      operationUnresolved(
+        'Guarded acceptance row is not available for execution.',
+      ),
+  };
 }
 
 async function applyCatalogPrice(
@@ -173,7 +188,7 @@ export async function executeGuardedPriceTxE(
   assertCanMutateInventoryStock(ctx.role);
 
   const journalResult = await lockAcceptedJournal(tx, ctx);
-  if (journalResult.kind === 'halt') {
+  if (journalResult.kind === 'halt' || journalResult.kind === 'replay') {
     return journalResult;
   }
 

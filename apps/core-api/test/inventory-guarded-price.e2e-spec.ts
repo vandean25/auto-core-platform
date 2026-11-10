@@ -293,7 +293,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
     expect(journal).toHaveLength(0);
   });
 
-  it('binding survives rollback', async () => {
+  it('same key retries to completion after Tx-E rollback', async () => {
     const item = await seedItem(10);
     const revision = revisionFromDb(item.revision);
     const key = operationKey('5');
@@ -304,16 +304,21 @@ describe('inventory guarded price PATCH (e2e)', () => {
       expectedRevision: revision,
     }).expect(500);
 
-    const unresolved = await guardedPatch(item.id, key, {
+    guardedPriceTestHooks.failTxEAfterJournalLock = false;
+
+    const response = await guardedPatch(item.id, key, {
       retail_price: 18,
       expectedRevision: revision,
-    }).expect(409);
+    }).expect(200);
 
-    expect(unresolved.body.code).toBe('OPERATION_UNRESOLVED');
+    expect(Number(response.body.retail_price)).toBe(18);
 
     const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
       where: { key },
     });
-    expect(journal.state).toBe(InventoryPriceOperationState.ACCEPTED);
+    expect(journal.state).toBe(InventoryPriceOperationState.APPLIED);
+
+    const row = await catalogRow(item.id);
+    expect(Number(row.retail_price)).toBe(18);
   });
 });

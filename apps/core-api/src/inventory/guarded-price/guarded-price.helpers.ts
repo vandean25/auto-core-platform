@@ -2,7 +2,6 @@ import { InventoryPriceOperationState, type Prisma } from '@prisma/client';
 import {
   inventoryRevisionConflict,
   operationFenced,
-  operationUnresolved,
 } from './guarded-price.errors.js';
 
 export function isLockTimeoutError(error: unknown): boolean {
@@ -35,13 +34,6 @@ export function isRecordNotFound(error: unknown): boolean {
 export function haltForFinalJournalState(
   state: InventoryPriceOperationState,
 ): { kind: 'halt'; throw: () => never } | null {
-  if (state === InventoryPriceOperationState.ACCEPTED) {
-    return {
-      kind: 'halt',
-      throw: () =>
-        operationUnresolved('Guarded operation is still in progress.'),
-    };
-  }
   if (state === InventoryPriceOperationState.FENCED) {
     return {
       kind: 'halt',
