@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenantMemberRole } from '@prisma/client';
 import { getFirebaseAdminAuth } from '../auth/firebase-admin.js';
-import { UserAccessStatusService } from '../auth/user-access-status.service.js';
 import { advanceScopeEpoch } from '../auth/scope-epoch.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 
@@ -10,10 +9,7 @@ import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 export class LandingDemoAccessCleanupService {
   private readonly logger = new Logger(LandingDemoAccessCleanupService.name);
 
-  constructor(
-    private readonly systemPrisma: SystemPrismaService,
-    private readonly userAccessStatus: UserAccessStatusService,
-  ) {}
+  constructor(private readonly systemPrisma: SystemPrismaService) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
     name: 'landing-demo-access-cleanup',
@@ -74,9 +70,12 @@ export class LandingDemoAccessCleanupService {
 
       const uid = membership.user.firebaseUid;
       if (uid && remainingActiveMemberships === 0) {
-        await this.userAccessStatus.advanceAllMembershipEpochs(
-          membership.user.id,
-        );
+        await this.systemPrisma.$transaction(async (tx) => {
+          await advanceScopeEpoch(tx, {
+            kind: 'allMembershipsForUser',
+            userId: membership.user.id,
+          });
+        });
         try {
           await firebaseAuth.updateUser(uid, { disabled: true });
         } catch (error) {

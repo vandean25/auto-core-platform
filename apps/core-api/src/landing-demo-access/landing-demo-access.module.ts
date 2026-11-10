@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module.js';
+import { ScopeEpochModule } from '../auth/scope-epoch.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { LandingDemoAccessController } from './landing-demo-access.controller.js';
@@ -11,7 +11,7 @@ import { LandingDemoSignInGrantModule } from './landing-demo-sign-in-grant.modul
 
 @Module({
   imports: [
-    AuthModule,
+    ScopeEpochModule,
     PrismaModule,
     NotificationsModule,
     LandingDemoSignInGrantModule,

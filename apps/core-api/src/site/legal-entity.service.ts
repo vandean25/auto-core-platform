@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateLegalEntityDto, UpdateLegalEntityDto } from './dto/site.dto.js';
 import { toLegalEntityResponse } from './legal-entity.mapper.js';
 import { buildLegalEntitySellerUpdateData } from './legal-entity-seller.validation.js';
+import { buildLegalEntityProfileUpdateData } from './legal-entity-profile-update.data.js';
 import { assertTenantAdmin } from './site.authorization.js';
 import { isForeignKeyViolation } from './site.helpers.js';
 import { validateLegalEntityCreateInput } from './site.validator.js';
@@ -141,61 +142,10 @@ export class LegalEntityService {
 
     const sellerUpdate = buildLegalEntitySellerUpdateData(existing, dto);
 
-    const nextIsActive = dto.isActive ?? existing.is_active;
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await tx.legalEntity.update({
         where: { id: existing.id },
-        data: {
-          name: sellerUpdate.name ?? existing.name,
-          is_active: nextIsActive,
-          ...(sellerUpdate.address_street !== undefined
-            ? { address_street: sellerUpdate.address_street }
-            : {}),
-          ...(sellerUpdate.address_line2 !== undefined
-            ? { address_line2: sellerUpdate.address_line2 }
-            : {}),
-          ...(sellerUpdate.address_zip !== undefined
-            ? { address_zip: sellerUpdate.address_zip }
-            : {}),
-          ...(sellerUpdate.address_city !== undefined
-            ? { address_city: sellerUpdate.address_city }
-            : {}),
-          ...(sellerUpdate.tax_number !== undefined
-            ? { tax_number: sellerUpdate.tax_number }
-            : {}),
-          ...(sellerUpdate.vat_id !== undefined
-            ? { vat_id: sellerUpdate.vat_id }
-            : {}),
-          ...(sellerUpdate.iban !== undefined
-            ? { iban: sellerUpdate.iban }
-            : {}),
-          ...(sellerUpdate.bic !== undefined ? { bic: sellerUpdate.bic } : {}),
-          ...(sellerUpdate.bank_name !== undefined
-            ? { bank_name: sellerUpdate.bank_name }
-            : {}),
-          ...(sellerUpdate.email !== undefined
-            ? { email: sellerUpdate.email }
-            : {}),
-          ...(sellerUpdate.phone !== undefined
-            ? { phone: sellerUpdate.phone }
-            : {}),
-          ...(sellerUpdate.registration_number !== undefined
-            ? { registration_number: sellerUpdate.registration_number }
-            : {}),
-          ...(sellerUpdate.registration_court !== undefined
-            ? { registration_court: sellerUpdate.registration_court }
-            : {}),
-          ...(sellerUpdate.representatives !== undefined
-            ? { representatives: sellerUpdate.representatives }
-            : {}),
-          ...(sellerUpdate.payment_terms_days !== undefined
-            ? { payment_terms_days: sellerUpdate.payment_terms_days }
-            : {}),
-          ...(sellerUpdate.payment_terms_text !== undefined
-            ? { payment_terms_text: sellerUpdate.payment_terms_text }
-            : {}),
-          ...(dto.rksvMode !== undefined ? { rksv_mode: dto.rksvMode } : {}),
-        },
+        data: buildLegalEntityProfileUpdateData(existing, dto, sellerUpdate),
       });
       if (dto.isActive !== undefined && dto.isActive !== existing.is_active) {
         await advanceScopeEpoch(tx, {

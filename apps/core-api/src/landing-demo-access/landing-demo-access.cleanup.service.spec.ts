@@ -47,11 +47,17 @@ describe('LandingDemoAccessCleanupService', () => {
           user: { id: 'u-2', firebaseUid: 'fb-2' },
         },
       ]);
+    const tenantMemberUpdateMany = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue({ count: 1 });
     const $transaction = jest
       .fn<(...args: unknown[]) => Promise<unknown>>()
       .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
         fn({
-          tenantMember: { update: tenantMemberUpdate },
+          tenantMember: {
+            update: tenantMemberUpdate,
+            updateMany: tenantMemberUpdateMany,
+          },
           tenant: { updateMany: jest.fn() },
         }),
       );
@@ -67,14 +73,7 @@ describe('LandingDemoAccessCleanupService', () => {
       ...cronJobLockTestStub(),
     } as unknown as SystemPrismaService;
 
-    const userAccessStatus = {
-      advanceAllMembershipEpochs: jest.fn(() => Promise.resolve()),
-    };
-
-    const service = new LandingDemoAccessCleanupService(
-      systemPrisma,
-      userAccessStatus as never,
-    );
+    const service = new LandingDemoAccessCleanupService(systemPrisma);
     await service.deactivateExpiredDemoMemberships();
 
     expect(findMany).toHaveBeenCalledWith(
@@ -82,7 +81,7 @@ describe('LandingDemoAccessCleanupService', () => {
         where: expect.objectContaining({ role: TenantMemberRole.DEMO }),
       }),
     );
-    expect($transaction).toHaveBeenCalledTimes(2);
+    expect($transaction).toHaveBeenCalledTimes(3);
     expect(tenantMemberUpdate).toHaveBeenCalledTimes(2);
     expect(updateUser).toHaveBeenCalledTimes(1);
     expect(updateUser).toHaveBeenCalledWith('fb-2', { disabled: true });
