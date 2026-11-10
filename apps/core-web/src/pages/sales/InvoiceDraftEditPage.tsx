@@ -60,7 +60,10 @@ export default function InvoiceDraftEditPage() {
     if (!editor.customer) return null
     return {
       customerId: editor.customer.id,
-      items: editor.items.map(invoiceEditorLineToPayloadItem),
+      items: editor.items.map((item) => ({
+        ...invoiceEditorLineToPayloadItem(item),
+        taxRate: item.tax_rate,
+      })),
       notes: draftNotesRef.current,
       ...(internalNotesRef.current ? { internalNotes: internalNotesRef.current } : {}),
     }
