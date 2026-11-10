@@ -20,6 +20,7 @@ import {
 } from '../src/inventory/guarded-price/guarded-price-test-hooks.js';
 import { revisionFromDb } from '../src/inventory/guarded-price/guarded-price.revision.js';
 import { GUARDED_PRICE_RETENTION_MS } from '../src/inventory/guarded-price/guarded-price.constants.js';
+import { encodePriceOperationDiscoveryCursor } from '../src/inventory/guarded-price/guarded-price-discovery-cursor.js';
 import { GUARDED_PRICE_KIND } from '../src/inventory/guarded-price/guarded-price.errors.js';
 
 describe('inventory price-operations discovery and fence (e2e)', () => {
@@ -495,6 +496,23 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     expect(keys).toContain(page2.body.data[0].key);
   });
 
+  it('discovery reports no next page when exactly fifty rows exist', async () => {
+    const anchor = Date.now();
+    for (let i = 0; i < 50; i++) {
+      const item = await seedItem(10, `FULL-${i}`);
+      const key = operationKeyAt(anchor - i * 1000, String(i).padStart(4, '0'));
+      await guardedPatch(item.id, key, {
+        retail_price: 10 + i,
+        expectedRevision: revisionFromDb(item.revision),
+      }).expect(200);
+    }
+
+    const list = await listOperations().expect(200);
+    expect(list.body.data).toHaveLength(50);
+    expect(list.body.meta.hasNextPage).toBe(false);
+    expect(list.body.meta.nextCursor).toBeNull();
+  });
+
   it('discovery keyset returns every visible row across batch overflow pages', async () => {
     const anchor = Date.now();
     const principal = testTenant.firebaseUid;
@@ -551,6 +569,11 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
 
   it('rejects invalid discovery cursor with 400', async () => {
     await listOperations(undefined, '%%%not-a-cursor%%%').expect(400);
+    const nonV7Cursor = encodePriceOperationDiscoveryCursor({
+      acceptedAt: new Date().toISOString(),
+      key: '00000000-0000-4000-8000-000000000000',
+    });
+    await listOperations(undefined, nonV7Cursor).expect(400);
   });
 
   it.each([
@@ -577,6 +600,7 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
       const key = operationKey(keySuffix);
       const intent = fenceBody(item.id, retail, revision);
 
+      let appliedRetail: string | undefined;
       if (terminalState === InventoryPriceOperationState.FENCED) {
         await postFence(key, intent).expect(200);
       } else {
@@ -584,6 +608,7 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
           retail_price: retail,
           expectedRevision: revision,
         }).expect(200);
+        appliedRetail = applied.body.retail_price;
         if (terminalState === InventoryPriceOperationState.CONFLICT) {
           await tenantPrisma().inventoryPriceOperation.update({
             where: {
@@ -600,13 +625,13 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
             },
           });
         }
-        if (terminalState === InventoryPriceOperationState.APPLIED) {
-          expect(applied.body.retail_price).toBeDefined();
-        }
       }
 
       const replay = await postFence(key, intent).expect(200);
       expect(replay.body.state).toBe(terminalState);
+      if (terminalState === InventoryPriceOperationState.APPLIED) {
+        expect(replay.body.retail_price).toBe(appliedRetail);
+      }
     },
   );
 });

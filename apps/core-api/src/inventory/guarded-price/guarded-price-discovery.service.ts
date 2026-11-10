@@ -177,7 +177,7 @@ export class GuardedPriceDiscoveryService {
     const visibleById = new Set(visible.map((row) => row.id));
     const newSurvivors: InventoryPriceOperation[] = [];
     let lastRawExamined: InventoryPriceOperation | null = null;
-    let stoppedEarly = false;
+    const batchTail = batch[batch.length - 1];
 
     for (const row of batch) {
       lastRawExamined = row;
@@ -186,12 +186,12 @@ export class GuardedPriceDiscoveryService {
       }
       newSurvivors.push(row);
       if (newSurvivors.length >= remainingSlots) {
-        stoppedEarly = true;
         break;
       }
     }
 
-    const batchFullyConsumed = !stoppedEarly;
+    const batchFullyConsumed =
+      lastRawExamined !== null && lastRawExamined.id === batchTail.id;
     const endOfJournal =
       batchFullyConsumed && batch.length < DISCOVERY_RAW_BATCH_SIZE;
     return {
