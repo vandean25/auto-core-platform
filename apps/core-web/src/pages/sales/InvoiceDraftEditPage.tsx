@@ -16,6 +16,7 @@ import { InvoiceDraftHeader } from "./InvoiceDraftHeader"
 import { InvoiceDraftParties } from "./InvoiceDraftParties"
 import { InvoiceDraftStatus } from "./InvoiceDraftStatus"
 import { InvoiceInternalNote, invoiceInternalNote } from "./InvoiceInternalNote"
+import { invoiceEditorLineToPayloadItem } from "./invoice-draft-item-payload"
 import { useInvoiceDraftAutosave } from "./useInvoiceDraftAutosave"
 import { useInvoiceFinalize } from "./useInvoiceFinalize"
 import { useInvoicePartSearch } from "./useInvoicePartSearch"
@@ -59,16 +60,7 @@ export default function InvoiceDraftEditPage() {
     if (!editor.customer) return null
     return {
       customerId: editor.customer.id,
-      items: editor.items.map((item) => ({
-        catalogItemId: item.catalog_item_id,
-        ...(item.workshop_task_line_item_id
-          ? { workshopTaskLineItemId: item.workshop_task_line_item_id }
-          : {}),
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        taxRate: item.tax_rate,
-      })),
+      items: editor.items.map(invoiceEditorLineToPayloadItem),
       notes: draftNotesRef.current,
       ...(internalNotesRef.current ? { internalNotes: internalNotesRef.current } : {}),
     }

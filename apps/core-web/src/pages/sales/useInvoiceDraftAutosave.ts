@@ -4,6 +4,7 @@ import type { CreateInvoicePayload, useUpdateInvoice } from "@/api/sales"
 import type { Invoice } from "@/api/types"
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave"
 import type { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
+import { invoiceEditorLineToPayloadItem } from "./invoice-draft-item-payload"
 
 type InvoiceEditor = ReturnType<typeof useInvoiceEditor>
 type UpdateInvoiceMutation = ReturnType<typeof useUpdateInvoice>
@@ -65,16 +66,7 @@ export function useInvoiceDraftAutosave({
     lastSavedRef.current = invoice.customer
       ? JSON.stringify({
           customerId: invoice.customer.id,
-          items: items.map((item) => ({
-            catalogItemId: item.catalog_item_id,
-            ...(item.workshop_task_line_item_id
-              ? { workshopTaskLineItemId: item.workshop_task_line_item_id }
-              : {}),
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unit_price,
-            taxRate: item.tax_rate,
-          })),
+          items: items.map(invoiceEditorLineToPayloadItem),
           notes: draftNotesRef.current,
           ...(invoice.internal_notes ? { internalNotes: invoice.internal_notes } : {}),
         })
