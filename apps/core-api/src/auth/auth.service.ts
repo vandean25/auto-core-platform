@@ -17,6 +17,7 @@ type AuthClaims = {
   role?: string;
   platformRole?: string;
   iss?: string;
+  auth_time?: number;
 };
 
 type AuthenticateBearerTokenOptions = {
@@ -81,6 +82,7 @@ export class AuthService {
         role: 'ADMIN',
         iss: 'local-test-fixture',
         emailVerified: true,
+        auth_time: Math.floor(Date.now() / 1000),
         ...overrides,
       },
       { secret: this.testJwtSecret },
@@ -157,6 +159,8 @@ export class AuthService {
           ? payload.platformRole
           : undefined,
       iss: payload.iss,
+      auth_time:
+        typeof payload.auth_time === 'number' ? payload.auth_time : undefined,
     };
   }
 
@@ -190,6 +194,8 @@ export class AuthService {
       role,
       platformRole,
       iss: decoded.iss,
+      auth_time:
+        typeof decoded.auth_time === 'number' ? decoded.auth_time : undefined,
     };
   }
 }

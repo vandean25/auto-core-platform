@@ -335,6 +335,14 @@
       "public": false,
       "params": []
     },
+    "CONTEXT_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "CONTEXT_REQUIRED": {
+      "public": true,
+      "params": []
+    },
     "CONTRACT_VERSION_UNSUPPORTED": {
       "public": true,
       "params": []

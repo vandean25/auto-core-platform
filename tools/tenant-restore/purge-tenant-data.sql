@@ -32,6 +32,7 @@ VALUES
   ('document_brand_quota_locks'),
   ('domain_event_consumer_progress'),
   ('employees'),
+  ('ended_session_lineages'),
   ('finance_settings'),
   ('import_mapping_profiles'),
   ('import_sources'),
@@ -291,6 +292,7 @@ VALUES
   ('employee_work_schedules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'users', 'user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('ended_session_lineages', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('external_id_mappings', 'import_jobs', 'tenant_id,first_seen_import_job_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('external_id_mappings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('external_inspection_results', 'inspection_exchange_imports', 'tenant_id,import_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -1154,6 +1156,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."import_mapping_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."finance_settings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."ended_session_lineages"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employees"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

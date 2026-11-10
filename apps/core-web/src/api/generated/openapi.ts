@@ -84,6 +84,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/scope-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_scopeContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/me/preferences": {
         parameters: {
             query?: never;
@@ -5738,6 +5770,14 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
         };
+        ScopeContextHandshakeResponseDto: {
+            /** @description Opaque HMAC-signed scope context token (X-ACP-Scope-Context). */
+            scopeContext: string;
+            /** @description SHA-256 digest of the scope context token for cache keys. */
+            scopeContextDigest: string;
+            /** @description HMAC continuity digest for this sign-in lineage (subject + auth_time). */
+            continuityDigest: string;
+        };
         UserLocalePreferencesResponseDto: {
             locale: components["schemas"]["DisplayLanguage"] | null;
             effectiveLocale: components["schemas"]["DisplayLanguage"];
@@ -5836,6 +5876,8 @@ export interface components {
         CappedListCountResponseDto: {
             count: number;
             isCapped: boolean;
+            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
+            scopeContextDigest?: string;
         };
         /** @enum {string} */
         TransactionType: "PURCHASE_RECEIPT" | "SALE_ISSUE" | "ADJUSTMENT" | "TRANSFER_IN" | "TRANSFER_OUT" | "INITIAL_BALANCE" | "WORKSHOP_CONSUMPTION";
@@ -6807,6 +6849,8 @@ export interface components {
             nextCursor: string | null;
             hasNextPage: boolean;
             limit: number;
+            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
+            scopeContextDigest?: string;
         };
         InvoiceCursorPageResponseDto: {
             data: components["schemas"]["InvoiceResponseDto"][];
@@ -12928,6 +12972,47 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthSessionResponseDto"];
                 };
+            };
+        };
+    };
+    AuthController_scopeContext: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeContextHandshakeResponseDto"];
+                };
+            };
+        };
+    };
+    AuthController_logout: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session lineage ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

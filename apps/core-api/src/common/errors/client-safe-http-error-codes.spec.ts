@@ -76,6 +76,13 @@ describe('client-safe HTTP error codes', () => {
     expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('NOT_A_CATALOG_LINE')).toBe(true);
   });
 
+  it('lists ADR-0038 scope context wire codes', () => {
+    for (const code of ['CONTEXT_REQUIRED', 'CONTEXT_MISMATCH']) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+      expect(readWebPublicErrorCodes().has(code)).toBe(true);
+    }
+  });
+
   it('lists ADR-0037 guarded inventory price wire codes', () => {
     for (const code of [
       'GUARDED_REQUEST_INVALID',

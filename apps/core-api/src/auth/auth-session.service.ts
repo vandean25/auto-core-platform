@@ -33,6 +33,7 @@ type AuthSessionClaims = {
   sub: string;
   email: string;
   emailVerified?: boolean;
+  auth_time?: number;
 };
 
 type UserAccessMembership = {
