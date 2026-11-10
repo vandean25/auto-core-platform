@@ -45,7 +45,12 @@ export async function claimAndExecuteProposal(
   let claimed = false;
   try {
     const outcome = await prisma.$transaction(async (tx) => {
-      await lockSingleTenantTableRow(tx, 'agent_proposals', tenantId, proposal.id);
+      await lockSingleTenantTableRow(
+        tx,
+        'agent_proposals',
+        tenantId,
+        proposal.id,
+      );
       const updated = await tx.agentProposal.updateMany({
         where: {
           id: proposal.id,
