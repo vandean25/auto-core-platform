@@ -4,10 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { REGISTERED_SCOPE_EPOCH_WRITER_PATHS } from './scope-epoch-writers.inventory.js';
 
 const API_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SCAN_ROOTS = [
-  join(API_ROOT, 'src'),
-  join(API_ROOT, 'scripts'),
-];
+const SCAN_ROOTS = [join(API_ROOT, 'src'), join(API_ROOT, 'scripts')];
 
 const TENANT_MEMBER_WRITE =
   /\btenantMember\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\(/g;
@@ -82,7 +79,10 @@ export function countAccessWrites(source: string): number {
     [...source.matchAll(RAW_SITE_MEMBERSHIP_WRITE)].length +
     [...source.matchAll(RAW_TENANT_ACTIVATION_WRITE)].length;
   let activationWrites = 0;
-  if (ACTIVATION_STATUS_WRITE.test(source) && ENTITY_UPDATE_WRITE.test(source)) {
+  if (
+    ACTIVATION_STATUS_WRITE.test(source) &&
+    ENTITY_UPDATE_WRITE.test(source)
+  ) {
     activationWrites += 1;
   }
   if (TENANT_UPSERT_REACTIVATION.test(source)) {
@@ -147,9 +147,7 @@ export function listScopeEpochAtomicityViolations(): {
       continue;
     }
 
-    const blocks = transactionBlocksMissingEpoch(
-      readFileSync(file, 'utf8'),
-    );
+    const blocks = transactionBlocksMissingEpoch(readFileSync(file, 'utf8'));
     if (blocks.length > 0) {
       violations.push({ path, blocks });
     }
