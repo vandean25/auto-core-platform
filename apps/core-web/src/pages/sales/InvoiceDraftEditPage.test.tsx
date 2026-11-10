@@ -91,6 +91,7 @@ const mockInvoice = {
   items: [
     {
       id: 'line-1',
+      workshop_task_line_item_id: 'wtl-965-workshop',
       description: 'Brake pads',
       quantity: '1',
       unit_price: '1',
@@ -182,6 +183,38 @@ describe('InvoiceDraftEditPage autosave', () => {
     )
 
     expect(await screen.findByText(deCommon.documentSave.saved)).toBeInTheDocument()
+  })
+
+  it('includes workshopTaskLineItemId from the loaded invoice in autosave PATCH items', async () => {
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+
+    renderPage()
+
+    fireEvent.change(screen.getByPlaceholderText(invoiceEditor.lineItemsTable.descriptionPlaceholder), {
+      target: { value: 'Brake pads premium' },
+    })
+
+    await waitFor(
+      () => {
+        expect(updateMutation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              items: expect.arrayContaining([
+                expect.objectContaining({
+                  description: 'Brake pads premium',
+                  workshopTaskLineItemId: 'wtl-965-workshop',
+                }),
+              ]),
+            }),
+          }),
+        )
+      },
+      { timeout: 2000 },
+    )
   })
 
   it('does not PATCH an unchanged draft on open', async () => {

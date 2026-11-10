@@ -133,6 +133,7 @@ describe('buildInvoiceSnapshotV2', () => {
             tenant_id: 'tenant-1',
             invoice_id: 'inv-1',
             catalog_item_id: null,
+            workshop_task_line_item_id: null,
             description: 'Service',
             quantity: new Prisma.Decimal('1.000'),
             unit_price: new Prisma.Decimal('100.00'),

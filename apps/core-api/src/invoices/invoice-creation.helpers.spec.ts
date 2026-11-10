@@ -181,6 +181,20 @@ describe('invoice-creation.helpers', () => {
   });
 
   describe('buildDraftInvoiceLineItem', () => {
+    it('stores workshop task line id when provided', () => {
+      const line = buildDraftInvoiceLineItem(
+        {
+          id: 'wtl-abc',
+          description: 'Labor',
+          quantity: 1,
+          unit_price: 90,
+        },
+        0,
+        'tenant-123',
+      );
+      expect(line.workshop_task_line_item_id).toBe('wtl-abc');
+    });
+
     it('snapshots unit price, description, and tax rate', () => {
       const line = buildDraftInvoiceLineItem(
         {
@@ -195,6 +209,7 @@ describe('invoice-creation.helpers', () => {
       );
 
       expect(line.tenant_id).toBe('tenant-123');
+      expect(line.workshop_task_line_item_id).toBeNull();
       expect(line.catalog_item_id).toBe('cat-1');
       expect(line.description).toBe('Brake Fluid Flush');
       expect(line.quantity).toEqual(new Prisma.Decimal(2));
@@ -400,7 +415,7 @@ describe('invoice-creation.helpers', () => {
 
       expect(() =>
         buildDraftInvoiceLinesFromOrder(
-          { tasks: [{ line_items: [] }] },
+          { tasks: [{ id: 'task-1', line_items: [] }] },
           'tenant-1',
         ),
       ).toThrow(BadRequestException);
@@ -412,8 +427,10 @@ describe('invoice-creation.helpers', () => {
           {
             tasks: [
               {
+                id: 'task-cancelled-only',
                 line_items: [
                   {
+                    id: 'line-cancelled',
                     description: 'Cancelled part',
                     quantity: 1,
                     unit_price: 50,
@@ -434,8 +451,10 @@ describe('invoice-creation.helpers', () => {
         {
           tasks: [
             {
+              id: 'task-mixed',
               line_items: [
                 {
+                  id: 'line-active',
                   description: 'Active Labor',
                   quantity: 2,
                   unit_price: 50,
@@ -444,6 +463,7 @@ describe('invoice-creation.helpers', () => {
                     WorkshopPartLineExecutionStatus.CONSUMED,
                 },
                 {
+                  id: 'line-cancelled-2',
                   description: 'Cancelled Part',
                   quantity: 1,
                   unit_price: 100,
@@ -473,8 +493,10 @@ describe('invoice-creation.helpers', () => {
         {
           tasks: [
             {
+              id: 'task-fee',
               line_items: [
                 {
+                  id: 'line-fee',
                   description: 'Leihwagen',
                   quantity: 2,
                   unit_price: 30,

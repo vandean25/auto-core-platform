@@ -5,6 +5,7 @@ export const DEFAULT_INVOICE_DUE_DAYS = 14;
 
 export type InvoiceLineInput = {
   catalogItemId?: string;
+  workshopTaskLineItemId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -40,8 +41,33 @@ export function assertInvoiceHasItems(items: InvoiceLineInput[]): void {
   }
 }
 
+async function assertWorkshopLineItemsBelongToTenant(
+  prisma: Pick<PrismaService, 'workshopTaskLineItem'>,
+  tenantId: string,
+  workshopLineIds: string[],
+): Promise<void> {
+  if (workshopLineIds.length === 0) {
+    return;
+  }
+
+  const workshopLines = await prisma.workshopTaskLineItem.findMany({
+    where: { tenant_id: tenantId, id: { in: workshopLineIds } },
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  });
+  const foundIds = new Set(workshopLines.map((line) => line.id));
+
+  for (const workshopLineId of workshopLineIds) {
+    if (!foundIds.has(workshopLineId)) {
+      throw new BadRequestException(
+        `Workshop line item ${workshopLineId} not found or belongs to another tenant`,
+      );
+    }
+  }
+}
+
 export async function buildFormattedInvoiceItems(
-  prisma: Pick<PrismaService, 'catalogItem'>,
+  prisma: Pick<PrismaService, 'catalogItem' | 'workshopTaskLineItem'>,
   tenantId: string,
   items: InvoiceLineInput[],
 ): Promise<InvoiceLineTotals> {
@@ -67,6 +93,23 @@ export async function buildFormattedInvoiceItems(
     });
     catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
   }
+
+  const uniqueWorkshopLineIds = [
+    ...new Set(
+      items
+        .map((item) => item.workshopTaskLineItemId)
+        .filter(
+          (workshopLineId): workshopLineId is string =>
+            typeof workshopLineId === 'string',
+        ),
+    ),
+  ];
+
+  await assertWorkshopLineItemsBelongToTenant(
+    prisma,
+    tenantId,
+    uniqueWorkshopLineIds,
+  );
 
   let totalNet = 0;
   let totalTax = 0;
@@ -97,6 +140,7 @@ export async function buildFormattedInvoiceItems(
     formattedItems.push({
       tenant_id: tenantId,
       catalog_item_id: item.catalogItemId,
+      workshop_task_line_item_id: item.workshopTaskLineItemId ?? null,
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,

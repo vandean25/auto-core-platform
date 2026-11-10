@@ -1,9 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  useWorkshopCheckout,
-  buildInvoiceLineDiscountUpdates,
-} from './useWorkshopCheckout'
+import { useWorkshopCheckout } from './useWorkshopCheckout'
+import { buildInvoiceLineDiscountUpdates } from './useWorkshopCheckout.logic'
 import * as salesApi from '@/api/sales'
 import * as invoicesApi from '@/api/invoices'
 import { toast } from 'sonner'
@@ -61,6 +59,36 @@ describe('useWorkshopCheckout', () => {
       expect(result).toEqual([])
     })
 
+    it('maps discounts to invoice items via workshop_task_line_item_id when ids differ', () => {
+      const overrides: Record<string, DiscountState> = {
+        'task-1:line-1': { type: 'PERCENTAGE', value: '10' },
+      }
+
+      const rowMap = new Map([
+        ['task-1:line-1', { lineItem: { id: 'line-1' } }],
+      ])
+
+      const invoiceItems = [
+        {
+          id: 'invoice-item-uuid',
+          workshop_task_line_item_id: 'line-1',
+          description: 'Part 1',
+          quantity: '1',
+          unit_price: '100',
+          tax_rate: 21,
+        },
+      ] as unknown as Invoice['items']
+
+      const updates = buildInvoiceLineDiscountUpdates(overrides, rowMap, invoiceItems)
+      expect(updates).toEqual([
+        {
+          id: 'invoice-item-uuid',
+          discountType: 'PERCENTAGE',
+          discountValue: 10,
+        },
+      ])
+    })
+
     it('maps line discount overrides to invoice line item updates', () => {
       const overrides: Record<string, DiscountState> = {
         'task-1:line-1': { type: 'PERCENTAGE', value: '10' },
@@ -89,11 +117,7 @@ describe('useWorkshopCheckout', () => {
         },
       ] as unknown as Invoice['items']
 
-      const updates = buildInvoiceLineDiscountUpdates(
-        overrides,
-        rowMap,
-        invoiceItems,
-      )
+      const updates = buildInvoiceLineDiscountUpdates(overrides, rowMap, invoiceItems)
       expect(updates).toHaveLength(2)
       expect(updates).toContainEqual({
         id: 'line-1',
@@ -161,6 +185,38 @@ describe('useWorkshopCheckout', () => {
       ],
       createdAt: '2026-01-01T00:00:00Z',
     }
+
+    it('uses checkout gross for sticky footer while checkout is open (pre-draft)', () => {
+      const orderWithLabor: WorkshopOrder = {
+        ...baseOrder,
+        tasks: [
+          {
+            ...baseOrder.tasks![0],
+            lineItems: [
+              {
+                id: 'line-labor',
+                type: 'LABOR',
+                itemNo: 'LAB',
+                description: 'Labor',
+                qty: 1,
+                unitPrice: 90,
+              },
+            ],
+          },
+        ],
+      }
+
+      const { result } = renderHook(() =>
+        useWorkshopCheckout({ order: orderWithLabor }),
+      )
+
+      act(() => {
+        result.current.handleCheckoutAction()
+      })
+
+      expect(result.current.checkoutFooterTotal).toBeCloseTo(108)
+      expect(result.current.checkoutNetTotal).toBe(90)
+    })
 
     it('toggles checkout open/close state', () => {
       const { result } = renderHook(() =>

@@ -15,12 +15,13 @@ const REQUIRED_FLOW_FILES = [
   'margin-scheme-vehicle-sale.flow.spec.ts',
   'workshop-command.flow.spec.ts',
   'workshop-mechanic-queue.flow.spec.ts',
+  'workshop-checkout-invoice.flow.spec.ts',
   'client-session-cache-reset.flow.spec.ts',
 ]
 
 const REQUIRED_JOURNEY_FILES = ['auth.journey.spec.ts', 'tenant-isolation.journey.spec.ts']
 
-test('prJobRunsAllFiveFullstackFlows', () => {
+test('prJobRunsAllFullstackFlows', () => {
   const onDisk = readdirSync(fullstackDir)
     .filter((name) => name.endsWith('.flow.spec.ts'))
     .sort()

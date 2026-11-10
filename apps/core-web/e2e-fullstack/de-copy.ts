@@ -42,6 +42,8 @@ export const DE_FULLSTACK_VEHICLE_STOCK = {
 export const DE_FULLSTACK_WORKSHOP = {
   mechanicTask: workshopDe.mechanic.taskDetail.header,
   mechanicQueueTitle: workshopDe.mechanic.queue.title,
+  checkout: workshopDe.checkout,
+  checkoutSummary: workshopDe.checkoutSummary,
 } as const
 
 export const DE_FULLSTACK_STATUS = deEnums.status
