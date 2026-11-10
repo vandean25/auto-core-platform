@@ -131,6 +131,62 @@ function CancelReceiptButton({ invoiceId, receiptId }: { invoiceId: string; rece
   )
 }
 
+function SettlementFiscalOffNotice() {
+  const { t } = useTranslation('finance')
+  return <p className="max-w-sm text-right text-xs text-muted-foreground">{t('settlement.fiscalOff')}</p>
+}
+
+type SettlementUiState = ReturnType<typeof settlementState>
+
+type InvoiceSettlementActionsBodyProps = {
+  invoiceId: string
+  needsExternalReceipt: boolean
+  form: ReturnType<typeof useRecordSettlementForm>
+  payment: Parameters<typeof settlementState>[1]
+} & SettlementUiState
+
+function InvoiceSettlementActionsBody({
+  invoiceId,
+  needsExternalReceipt,
+  form,
+  payment,
+  hasOpenReceipt,
+  signedNormal,
+  showRecord,
+  showReconcile,
+  showCancel,
+}: InvoiceSettlementActionsBodyProps) {
+  return (
+    <div className="flex flex-col items-end gap-2 max-sm:items-stretch">
+      {needsExternalReceipt && showRecord ? (
+        <ExternalReceiptFields
+          number={form.externalNumber}
+          date={form.externalDate}
+          onNumberChange={form.setExternalNumber}
+          onDateChange={form.setExternalDate}
+        />
+      ) : null}
+      <div className="flex flex-wrap justify-end gap-2 max-sm:flex-col">
+        {showRecord ? (
+          <RecordControls
+            method={form.method}
+            onMethodChange={form.setMethod}
+            onRecord={form.submit}
+            pending={form.isPending}
+          />
+        ) : null}
+        {showReconcile ? (
+          <ReconcileButton
+            invoiceId={invoiceId}
+            idempotencyKey={hasOpenReceipt ? payment?.idempotencyKey : undefined}
+          />
+        ) : null}
+        {showCancel && signedNormal ? <CancelReceiptButton invoiceId={invoiceId} receiptId={signedNormal.id} /> : null}
+      </div>
+    </div>
+  )
+}
+
 export function InvoiceSettlementActions(props: Props) {
   return (
     <FinanceLocaleGate>
@@ -144,8 +200,6 @@ function InvoiceSettlementActionsLoaded({
   invoiceStatus,
   canManage,
 }: Props) {
-  const { t } = useTranslation('finance')
-
   const { data } = useInvoiceSettlement(invoiceId)
   const rksvMode = data?.rksvMode
   const payment = data?.payment
@@ -158,29 +212,19 @@ function InvoiceSettlementActionsLoaded({
 
   const visibility = settlementVisibility(canManage, rksvMode, invoiceStatus)
   if (visibility === 'hidden') return null
-  if (visibility === 'fiscalOff') {
-    return <p className="max-w-sm text-right text-xs text-muted-foreground">{t('settlement.fiscalOff')}</p>
-  }
+  if (visibility === 'fiscalOff') return <SettlementFiscalOffNotice />
 
   return (
-    <div className="flex flex-col items-end gap-2 max-sm:items-stretch">
-      {needsExternalReceipt && showRecord ? (
-        <ExternalReceiptFields
-          number={form.externalNumber}
-          date={form.externalDate}
-          onNumberChange={form.setExternalNumber}
-          onDateChange={form.setExternalDate}
-        />
-      ) : null}
-      <div className="flex flex-wrap justify-end gap-2 max-sm:flex-col">
-        {showRecord ? (
-          <RecordControls method={form.method} onMethodChange={form.setMethod} onRecord={form.submit} pending={form.isPending} />
-        ) : null}
-        {showReconcile ? (
-          <ReconcileButton invoiceId={invoiceId} idempotencyKey={hasOpenReceipt ? payment?.idempotencyKey : undefined} />
-        ) : null}
-        {showCancel && signedNormal ? <CancelReceiptButton invoiceId={invoiceId} receiptId={signedNormal.id} /> : null}
-      </div>
-    </div>
+    <InvoiceSettlementActionsBody
+      invoiceId={invoiceId}
+      needsExternalReceipt={needsExternalReceipt}
+      form={form}
+      payment={payment}
+      hasOpenReceipt={hasOpenReceipt}
+      signedNormal={signedNormal}
+      showRecord={showRecord}
+      showReconcile={showReconcile}
+      showCancel={showCancel}
+    />
   )
 }
