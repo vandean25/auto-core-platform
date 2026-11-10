@@ -31,6 +31,7 @@ import deFinance from '../../../../../locales/de/finance.json'
 import deWorkshop from '../../../../../locales/de/workshop.json'
 import { deCustomers } from '@/test/de-customers'
 import TyreSetDetailPage from '@/pages/tyre-storage/TyreSetDetailPage'
+import DashboardPage from '@/pages/DashboardPage'
 import { changeUiLanguage, ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import * as initI18n from '@/lib/i18n/init-i18n'
 import { FinanceLocaleGate } from '@/components/finance/FinanceLocaleGate'
@@ -78,6 +79,15 @@ vi.mock('@/features/actions/use-auth-role', () => ({
 vi.mock('@/api/locations', () => ({ useLocations: vi.fn() }))
 vi.mock('@/api/usePurchaseInvoices')
 vi.mock('@/api/vehicle-stock-list', () => ({ useVehicleStockListState: vi.fn() }))
+vi.mock('@/features/onboarding-checklist/OnboardingChecklist', () => ({
+  OnboardingChecklist: () => null,
+}))
+vi.mock('@/components/dashboard/DashboardKpiRow', () => ({
+  DashboardKpiRow: () => null,
+}))
+vi.mock('@/features/dashboard-widgets/DashboardWidgetsGrid', () => ({
+  DashboardWidgetsGrid: () => null,
+}))
 vi.mock('@/api/useInvoiceSettlement', () => ({
   useCancelFiscalReceipt: () => ({ mutate: vi.fn(), isPending: false }),
   useInvoiceSettlement: vi.fn(),
@@ -150,6 +160,30 @@ describe('lazy namespace first paint (AUT-945)', () => {
     await ensureNamespaceLoaded('finance')
     await ensureNamespaceLoaded('customers')
     await ensureNamespaceLoaded('workshop')
+  })
+
+  it('keeps the dashboard on common copy when the vehicles bundle fails', async () => {
+    stripLazyNamespacesForTest()
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeRole: 'ADMIN' } } as never)
+    const ensureActual = initI18n.ensureNamespaceLoaded.bind(initI18n)
+    for (const language of ['de', 'en'] as const) {
+      i18n.removeResourceBundle(language, 'vehicles')
+    }
+    const rejectSpy = vi.spyOn(initI18n, 'ensureNamespaceLoaded').mockImplementation((namespace) =>
+      namespace === 'vehicles' ? Promise.reject(new Error('chunk failed')) : ensureActual(namespace),
+    )
+
+    try {
+      renderWithProviders(
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>,
+      )
+      expect(await screen.findByText(deCommon.dashboard.title)).toBeInTheDocument()
+      expect(screen.queryByText(deCommon.localeBundle.loadFailed)).not.toBeInTheDocument()
+    } finally {
+      rejectSpy.mockRestore()
+    }
   })
 
   it('hard-reloads tyre storage with German copy, not raw inventory keys', async () => {

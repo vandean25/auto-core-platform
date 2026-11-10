@@ -34,8 +34,8 @@ export function AppRoutes() {
                 <Route path={APP_ROUTE_PATHS.tyreStorage} element={<Lazy.TyreStorageListPage />} />
                 <Route path={APP_ROUTE_PATHS.tyreStorageDetail} element={<Lazy.TyreSetDetailPage />} />
               </Route>
+              <Route path={APP_ROUTE_PATHS.dashboard} element={<Lazy.DashboardPage />} />
               <Route element={<LazyNamespaceLayout namespaces={['vehicles']} />}>
-                <Route path={APP_ROUTE_PATHS.dashboard} element={<Lazy.DashboardPage />} />
                 <Route path={APP_ROUTE_PATHS.vehicles} element={<Lazy.VehicleList />} />
                 <Route
                   path={APP_ROUTE_PATHS.vehiclePickerlDue}

@@ -30,12 +30,30 @@ function StartServiceDialogBody(props: Omit<StartServiceDialogProps, 'open'>) {
     const { status, retry } = useLazyNamespaceBundleReady(['workshop'])
     const { t } = useTranslation('common')
 
+    const shellTitle =
+        status === 'loading'
+            ? t('shell.loading')
+            : status === 'failed'
+              ? t('localeBundle.loadFailed')
+              : null
+
     return (
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px]" fullScreenOnPhone>
+            {shellTitle ? (
+                <DialogHeader>
+                    <DialogTitle>{shellTitle}</DialogTitle>
+                </DialogHeader>
+            ) : null}
             {status === 'loading' ? (
                 <p className="text-sm text-muted-foreground">{t('shell.loading')}</p>
             ) : null}
-            {status === 'failed' ? <LocaleBundleLoadFailed onRetry={retry} className="py-8" /> : null}
+            {status === 'failed' ? (
+                <LocaleBundleLoadFailed
+                    onRetry={retry}
+                    className="py-8"
+                    retryButtonClassName="min-h-11"
+                />
+            ) : null}
             {status === 'ready' ? <StartServiceDialogForm {...props} /> : null}
         </DialogContent>
     )

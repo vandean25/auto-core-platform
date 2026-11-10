@@ -5,7 +5,8 @@ import * as workshopApi from '@/api/workshop'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
 import { deWorkshop } from '@/test/de-workshop'
 import deCommon from '../../../../../locales/de/common.json'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import * as initI18n from '@/lib/i18n/init-i18n'
 import { stripLazyNamespacesForTest } from '@/test/lazy-namespace-test-helpers'
 
 const ss = deWorkshop.startService
@@ -68,6 +69,51 @@ describe('StartServiceDialog', () => {
     await screen.findByText(ss.fuelRange)
     expectFieldErrorLinked(screen.getByLabelText(ss.fuelLevel), ss.fuelRange)
     expectFieldValid(screen.getByLabelText(ss.odometer))
+  })
+
+  it('shows German start service copy when open after the workshop bundle loads', async () => {
+    stripLazyNamespacesForTest()
+    render(
+      <StartServiceDialog
+        open
+        onOpenChange={vi.fn()}
+        customerId="customer-1"
+        vehicleId="vehicle-1"
+        vehicleDescription="VW Golf"
+      />,
+    )
+
+    expect(document.body.textContent).not.toMatch(/startService\./)
+    expect(await screen.findByRole('heading', { name: ss.title })).toBeInTheDocument()
+  })
+
+  it('names the dialog and uses a tall retry when the workshop bundle fails', async () => {
+    stripLazyNamespacesForTest()
+    const ensureActual = initI18n.ensureNamespaceLoaded.bind(initI18n)
+    for (const language of ['de', 'en'] as const) {
+      i18n.removeResourceBundle(language, 'workshop')
+    }
+    const rejectSpy = vi.spyOn(initI18n, 'ensureNamespaceLoaded').mockImplementation((namespace) =>
+      namespace === 'workshop' ? Promise.reject(new Error('chunk failed')) : ensureActual(namespace),
+    )
+
+    try {
+      render(
+        <StartServiceDialog
+          open
+          onOpenChange={vi.fn()}
+          customerId="customer-1"
+          vehicleId="vehicle-1"
+          vehicleDescription="VW Golf"
+        />,
+      )
+
+      expect(document.body.textContent).not.toMatch(/startService\./)
+      expect(await screen.findByRole('heading', { name: deCommon.localeBundle.loadFailed })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: deCommon.localeBundle.retry })).toHaveClass('min-h-11')
+    } finally {
+      rejectSpy.mockRestore()
+    }
   })
 
   it('renders no bundle gate copy while the dialog stays closed', () => {
