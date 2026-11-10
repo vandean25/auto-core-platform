@@ -1,11 +1,24 @@
 process.env.SKIP_PRISMA_CONNECT = 'true';
-import { mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from '../dist/app.module.js';
 import { standardSchemaConverter } from '../dist/common/index.js';
-import { stabilizeOpenApiParameterOrder } from './openapi-document-post-process.mjs';
+import {
+  runOpenApiGeneratorCli,
+  writeOpenApiJson,
+} from './openapi-document-post-process.mjs';
+
+function stabilizeOpenApiParameterOrder(document) {
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    if (!pathItem || typeof pathItem !== 'object') continue;
+    for (const operation of Object.values(pathItem)) {
+      if (!operation || typeof operation !== 'object' || !Array.isArray(operation.parameters)) {
+        continue;
+      }
+      operation.parameters.sort((left, right) => left.name.localeCompare(right.name));
+    }
+  }
+}
 
 /**
  * Boots the compiled Nest app in-process and writes the current OpenAPI document
@@ -50,17 +63,9 @@ async function generateOpenApiSpec() {
     standardSchemaConverter,
   });
   stabilizeOpenApiParameterOrder(document);
-  const outputDir = join(process.cwd(), 'openapi');
-  const outputFile = join(outputDir, 'openapi.json');
-  mkdirSync(outputDir, { recursive: true });
-  writeFileSync(outputFile, JSON.stringify(document, null, 2) + '\n', 'utf8');
-
+  const outputFile = writeOpenApiJson(document);
   await app.close();
   console.log(`OpenAPI spec written to ${outputFile}`);
 }
 
-generateOpenApiSpec().catch((error) => {
-  console.error('Failed to generate OpenAPI spec:');
-  console.error(error instanceof Error ? error.stack : error);
-  process.exit(1);
-});
+runOpenApiGeneratorCli(generateOpenApiSpec);

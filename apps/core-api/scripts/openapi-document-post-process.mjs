@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
+
 const CLOSED_INVENTORY_PATCH_SCHEMAS = [
   'UpdateInventoryItemDto',
   'GuardedInventoryPricePatchDto',
@@ -33,25 +36,18 @@ export function closeGuardedInventoryPatchOpenApiSchemas(document) {
   patchGuardedPriceErrorMessage(schemas.GuardedPriceErrorDto);
 }
 
-function sortOperationParameters(operation) {
-  if (
-    operation &&
-    typeof operation === 'object' &&
-    Array.isArray(operation.parameters)
-  ) {
-    operation.parameters.sort((left, right) =>
-      left.name.localeCompare(right.name),
-    );
-  }
+export function writeOpenApiJson(document, cwd = process.cwd()) {
+  const outputDir = join(cwd, 'openapi');
+  const outputFile = join(outputDir, 'openapi.json');
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(outputFile, JSON.stringify(document, null, 2) + '\n', 'utf8');
+  return outputFile;
 }
 
-export function stabilizeOpenApiParameterOrder(document) {
-  for (const pathItem of Object.values(document.paths ?? {})) {
-    if (!pathItem || typeof pathItem !== 'object') {
-      continue;
-    }
-    for (const operation of Object.values(pathItem)) {
-      sortOperationParameters(operation);
-    }
-  }
+export function runOpenApiGeneratorCli(run) {
+  run().catch((error) => {
+    console.error('Failed to generate OpenAPI spec:');
+    console.error(error instanceof Error ? error.stack : error);
+    process.exit(1);
+  });
 }
