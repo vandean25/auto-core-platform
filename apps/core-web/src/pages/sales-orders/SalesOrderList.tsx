@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useTranslation } from 'react-i18next'
 import { useSalesOrders } from '@/api/sales-orders'
@@ -13,8 +12,9 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import type { SalesOrder } from '@/api/types'
 import { DASHBOARD_WIDGET_SOURCE_SALES_ORDERS } from '@/features/dashboard-widgets/sources'
 import { formatDate } from '@/lib/format'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import { PageLoader } from '@/components/ui/PageLoader'
+import { useSalesLocaleReady } from './useSalesOrderActions'
 import { useSalesOrderListRowBehaviour } from './useSalesOrderListRowBehaviour'
 
 function customerDisplayName(customer: SalesOrder['customer']): string {
@@ -28,10 +28,15 @@ function vehicleDisplayName(vehicle: NonNullable<SalesOrder['vehicle']>): string
 }
 
 export default function SalesOrderList() {
+  const salesLocaleReady = useSalesLocaleReady()
+  if (!salesLocaleReady) {
+    return <PageLoader />
+  }
+  return <SalesOrderListContent />
+}
+
+function SalesOrderListContent() {
   const { t } = useTranslation('sales')
-  useEffect(() => {
-    void ensureNamespaceLoaded('sales')
-  }, [])
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useSalesOrders(queryParams)
   const rowBehaviour = useSalesOrderListRowBehaviour()

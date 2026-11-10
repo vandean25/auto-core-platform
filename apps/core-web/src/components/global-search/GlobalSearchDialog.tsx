@@ -23,7 +23,7 @@ import { canUseWorkshopCommand } from '@/features/actions/action-role-predicates
 import { WorkshopCommandPanel } from '@/features/workshop-command/WorkshopCommandPanel'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 
-const GLOBAL_SEARCH_LAZY_NAMESPACES = ['settings', 'workshop', 'customers', 'vehicles'] as const
+const GLOBAL_SEARCH_LAZY_NAMESPACES = ['settings', 'workshop', 'customers', 'vehicles', 'sales'] as const
 import { GlobalSearchContextActionGroup } from './GlobalSearchContextActionGroup'
 import { QuickActionGroup } from './GlobalSearchResultGroups'
 import { PrefixHelp, RecentItemsGroup, SearchResults } from './GlobalSearchResultGroupsView'

@@ -48,7 +48,17 @@ test.describe('Sales orders delete (AUT-933)', () => {
 
     await trigger.click()
     await page.getByRole('menuitem', { name: deSales.shared.delete }).click()
-    await page.getByRole('button', { name: deSales.shared.delete, exact: true }).click()
+
+    const dialog = page.getByRole('alertdialog')
+    const cancelButton = dialog.getByRole('button', { name: deCommon.actions.cancel })
+    const confirmButton = dialog.getByRole('button', { name: deSales.shared.delete, exact: true })
+    for (const button of [cancelButton, confirmButton]) {
+      const buttonBox = await button.boundingBox()
+      expect(buttonBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(buttonBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+    }
+
+    await confirmButton.click()
 
     await expect.poll(() => deleted).toBe(true)
   })
