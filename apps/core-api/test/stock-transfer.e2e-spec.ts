@@ -1,5 +1,6 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { countDbStatements } from './helpers/db-statement-counter.js';
+import { countStockTransferActionStatements } from './helpers/stock-transfer-statement-counter.js';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -211,7 +212,7 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       Math.max(...quantities),
     );
     const statements = (send: () => Promise<{ status: number }>) =>
-      countDbStatements(async () => {
+      countStockTransferActionStatements(action, async () => {
         expect((await send()).status).toBeLessThan(300);
       });
 
@@ -597,10 +598,12 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
   // quantity is distinct - its existing 2-vs-10 S1 case is the guard there.
   // AUT-909 adds exactly one constant statement per action: the response read
   // resolves line bins in a single StorageLocation query (write-path reads stay bin-free).
+  // Statement counts use BEGIN..COMMIT (+ transfer response tail) only so auth/tenant
+  // lookups and in-flight SQL from other suites are not included (global pg spy flake).
   const DISTINCT_QUANTITY_BOUND = {
-    approve: { equalQuantityStatements: 24, groupsPerExtraQuantity: 1 },
-    ship: { equalQuantityStatements: 37, groupsPerExtraQuantity: 2 },
-    receive: { equalQuantityStatements: 38, groupsPerExtraQuantity: 2 },
+    approve: { equalQuantityStatements: 15, groupsPerExtraQuantity: 1 },
+    ship: { equalQuantityStatements: 28, groupsPerExtraQuantity: 2 },
+    receive: { equalQuantityStatements: 27, groupsPerExtraQuantity: 2 },
   } as const;
 
   it.each(['approve', 'ship', 'receive'] as const)(
