@@ -1,5 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
 import { isUuidV7 } from './guarded-price.uuid.js';
+import { guardedRequestInvalid } from './guarded-price.errors.js';
 
 export type PriceOperationDiscoveryCursor = {
   acceptedAt: string;
@@ -38,6 +38,6 @@ export function parsePriceOperationDiscoveryCursor(
     }
     return { acceptedAt: acceptedAt.toISOString(), key: decoded.key };
   } catch {
-    throw new BadRequestException('Invalid discovery cursor.');
+    guardedRequestInvalid('Invalid discovery cursor.');
   }
 }

@@ -4,8 +4,11 @@ type GuardedPriceTestHookState = {
   failTxEAfterJournalLock: boolean;
   failTxEAfterCatalogUpdate: boolean;
   holdTxEOpenAfterJournalLock: boolean;
+  holdTxEOpenAfterCatalogUpdate: boolean;
   txERelease: (() => void) | null;
+  txECatalogRelease: (() => void) | null;
   onTxEJournalLocked: (() => void) | null;
+  onTxECatalogUpdated: (() => void) | null;
 };
 
 const GLOBAL_HOOK_KEY = '__acpGuardedPriceTestHooks';
@@ -20,11 +23,18 @@ function guardedPriceTestHookState(): GuardedPriceTestHookState {
       failTxEAfterJournalLock: false,
       failTxEAfterCatalogUpdate: false,
       holdTxEOpenAfterJournalLock: false,
+      holdTxEOpenAfterCatalogUpdate: false,
       txERelease: null,
+      txECatalogRelease: null,
       onTxEJournalLocked: null,
+      onTxECatalogUpdated: null,
     };
   }
-  return globalRef[GLOBAL_HOOK_KEY];
+  const state = globalRef[GLOBAL_HOOK_KEY];
+  state.holdTxEOpenAfterCatalogUpdate ??= false;
+  state.txECatalogRelease ??= null;
+  state.onTxECatalogUpdated ??= null;
+  return state;
 }
 
 export const guardedPriceTestHooks = guardedPriceTestHookState();
@@ -59,8 +69,30 @@ export async function waitForTxEReleaseIfHeld(): Promise<void> {
   });
 }
 
+export function shouldHoldTxEOpenAfterCatalogUpdate(): boolean {
+  return (
+    process.env.JEST_WORKER_ID !== undefined &&
+    guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate
+  );
+}
+
+export async function waitForTxECatalogReleaseIfHeld(): Promise<void> {
+  if (!shouldHoldTxEOpenAfterCatalogUpdate()) {
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    guardedPriceTestHooks.txECatalogRelease = resolve;
+  });
+}
+
 export function releaseHeldTxE(): void {
   guardedPriceTestHooks.txERelease?.();
   guardedPriceTestHooks.txERelease = null;
   guardedPriceTestHooks.holdTxEOpenAfterJournalLock = false;
+}
+
+export function releaseHeldTxECatalog(): void {
+  guardedPriceTestHooks.txECatalogRelease?.();
+  guardedPriceTestHooks.txECatalogRelease = null;
+  guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate = false;
 }

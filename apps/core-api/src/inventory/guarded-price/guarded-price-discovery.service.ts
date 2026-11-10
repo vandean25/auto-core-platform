@@ -121,7 +121,16 @@ export class GuardedPriceDiscoveryService {
       lastRawExamined = page.lastRawExamined;
       survivors.push(...page.newSurvivors);
       if (survivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
-        exhausted = page.batchFullyConsumed && page.endOfJournal;
+        if (page.stoppedBeforeTail && !page.remainderHasVisible) {
+          if (page.batchLength < DISCOVERY_RAW_BATCH_SIZE) {
+            exhausted = true;
+          } else {
+            lastRawExamined = page.batchTail;
+            exhausted = false;
+          }
+        } else {
+          exhausted = page.batchFullyConsumed && page.endOfJournal;
+        }
         break;
       }
       if (page.endOfJournal) {
@@ -155,6 +164,10 @@ export class GuardedPriceDiscoveryService {
     batchFullyConsumed: boolean;
     endOfJournal: boolean;
     exhausted: boolean;
+    stoppedBeforeTail: boolean;
+    remainderHasVisible: boolean;
+    batchLength: number;
+    batchTail: InventoryPriceOperation;
   }> {
     const keysetWhere = this.buildKeysetWhere(scanAfter);
     const batch = await this.prisma.inventoryPriceOperation.findMany({
@@ -170,6 +183,10 @@ export class GuardedPriceDiscoveryService {
         batchFullyConsumed: true,
         endOfJournal: true,
         exhausted: true,
+        stoppedBeforeTail: false,
+        remainderHasVisible: false,
+        batchLength: 0,
+        batchTail: null as unknown as InventoryPriceOperation,
       };
     }
 
@@ -192,6 +209,18 @@ export class GuardedPriceDiscoveryService {
 
     const batchFullyConsumed =
       lastRawExamined !== null && lastRawExamined.id === batchTail.id;
+    const stoppedBeforeTail = !batchFullyConsumed;
+    let remainderHasVisible = false;
+    if (stoppedBeforeTail && lastRawExamined) {
+      const resumeIndex =
+        batch.findIndex((row) => row.id === lastRawExamined.id) + 1;
+      for (let index = resumeIndex; index < batch.length; index++) {
+        if (visibleById.has(batch[index].id)) {
+          remainderHasVisible = true;
+          break;
+        }
+      }
+    }
     const endOfJournal =
       batchFullyConsumed && batch.length < DISCOVERY_RAW_BATCH_SIZE;
     return {
@@ -200,6 +229,10 @@ export class GuardedPriceDiscoveryService {
       batchFullyConsumed,
       endOfJournal,
       exhausted: false,
+      stoppedBeforeTail,
+      remainderHasVisible,
+      batchLength: batch.length,
+      batchTail,
     };
   }
 

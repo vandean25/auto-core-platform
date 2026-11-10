@@ -17,6 +17,7 @@ import { testUuidV7At } from '../src/inventory/guarded-price/guarded-price.test-
 import {
   guardedPriceTestHooks,
   releaseHeldTxE,
+  releaseHeldTxECatalog,
 } from '../src/inventory/guarded-price/guarded-price-test-hooks.js';
 import { revisionFromDb } from '../src/inventory/guarded-price/guarded-price.revision.js';
 import { GUARDED_PRICE_RETENTION_MS } from '../src/inventory/guarded-price/guarded-price.constants.js';
@@ -34,7 +35,9 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
   beforeEach(async () => {
     guardedPriceTestHooks.failTxEAfterJournalLock = false;
     guardedPriceTestHooks.holdTxEOpenAfterJournalLock = false;
+    guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate = false;
     guardedPriceTestHooks.onTxEJournalLocked = null;
+    guardedPriceTestHooks.onTxECatalogUpdated = null;
     app = await createE2eApp(undefined, { productionErrorFilter: true });
     prisma = app.get(PrismaService);
     testTenant = await createTestTenant(prisma, 'price-fence');
@@ -51,8 +54,11 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
   afterEach(async () => {
     guardedPriceTestHooks.failTxEAfterJournalLock = false;
     guardedPriceTestHooks.holdTxEOpenAfterJournalLock = false;
+    guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate = false;
     guardedPriceTestHooks.onTxEJournalLocked = null;
+    guardedPriceTestHooks.onTxECatalogUpdated = null;
     releaseHeldTxE();
+    releaseHeldTxECatalog();
     if (tenantId) {
       await cleanupTestTenantGraph(prisma, tenantId);
       tenantId = '';
@@ -132,31 +138,20 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     const intent = fenceBody(item.id, 12, revision);
 
     guardedPriceTestHooks.holdTxEOpenAfterJournalLock = true;
-    let patchSettled = false;
+    const txEHeld = new Promise<void>((resolve) => {
+      guardedPriceTestHooks.onTxEJournalLocked = () => resolve();
+    });
+
     const patchPromise = guardedPatch(item.id, key, {
       retail_price: 12,
       expectedRevision: revision,
-    });
-    void patchPromise.then(
-      () => {
-        patchSettled = true;
-      },
-      () => {
-        patchSettled = true;
-      },
-    );
+    }).then((res) => res);
 
-    const deadline = Date.now() + 15_000;
-    while (Date.now() < deadline) {
-      const row = await tenantPrisma().inventoryPriceOperation.findFirst({
-        where: { key },
-      });
-      if (row?.state === InventoryPriceOperationState.ACCEPTED) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-    expect(patchSettled).toBe(false);
+    await txEHeld;
+    const heldRow = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
+      { where: { key } },
+    );
+    expect(heldRow.state).toBe(InventoryPriceOperationState.ACCEPTED);
 
     let fenceRes: Awaited<ReturnType<typeof postFence>>;
     try {
@@ -164,14 +159,82 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     } finally {
       releaseHeldTxE();
     }
-    await patchPromise;
 
+    const rowAfterFence = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
+      { where: { key } },
+    );
+    expect(rowAfterFence.state).toBe(InventoryPriceOperationState.ACCEPTED);
     expect(fenceRes.status).toBe(409);
     expect(fenceRes.body.code).toBe('OPERATION_UNRESOLVED');
+
+    await patchPromise;
     const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
       { where: { key } },
     );
     expect(journal.state).toBe(InventoryPriceOperationState.APPLIED);
+  });
+
+  it('post-lease fence serializes with in-flight Tx-E catalog write', async () => {
+    const item = await seedItem();
+    const revision = revisionFromDb(item.revision);
+    const key = operationKey('a2a2');
+    const targetRetail = 19;
+    const intent = fenceBody(item.id, targetRetail, revision);
+
+    guardedPriceTestHooks.failTxEAfterJournalLock = true;
+    await guardedPatch(item.id, key, {
+      retail_price: targetRetail,
+      expectedRevision: revision,
+    }).expect(500);
+    guardedPriceTestHooks.failTxEAfterJournalLock = false;
+
+    const acceptedAt = new Date(Date.now() - 3 * 60 * 1000);
+    await tenantPrisma().inventoryPriceOperation.update({
+      where: {
+        tenant_id_principal_id_key: {
+          tenant_id: tenantId,
+          principal_id: testTenant.firebaseUid,
+          key,
+        },
+      },
+      data: { accepted_at: acceptedAt },
+    });
+
+    guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate = true;
+    const catalogHeld = new Promise<void>((resolve) => {
+      guardedPriceTestHooks.onTxECatalogUpdated = () => resolve();
+    });
+
+    const patchPromise = guardedPatch(item.id, key, {
+      retail_price: targetRetail,
+      expectedRevision: revision,
+    }).then((res) => res);
+
+    await catalogHeld;
+    const midJournal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
+      { where: { key } },
+    );
+    expect(midJournal.state).toBe(InventoryPriceOperationState.ACCEPTED);
+
+    let fenceRes: Awaited<ReturnType<typeof postFence>>;
+    try {
+      fenceRes = await postFence(key, intent);
+    } finally {
+      releaseHeldTxECatalog();
+    }
+
+    expect(fenceRes.status).toBe(409);
+    expect(fenceRes.body.code).toBe('OPERATION_UNRESOLVED');
+
+    const patchRes = await patchPromise;
+    expect(patchRes.status).toBe(200);
+    const replay = await postFence(key, intent).expect(200);
+    expect(replay.body.state).toBe(InventoryPriceOperationState.APPLIED);
+    expect(replay.body.retail_price).toBe(patchRes.body.retail_price);
+    const pricedAfter = await tenantPrisma().catalogItem.findFirstOrThrow({
+      where: { id: item.id },
+    });
+    expect(Number(pricedAfter.retail_price)).toBe(targetRetail);
   });
 
   it('fence before Tx-A', async () => {
@@ -568,12 +631,16 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
   });
 
   it('rejects invalid discovery cursor with 400', async () => {
-    await listOperations(undefined, '%%%not-a-cursor%%%').expect(400);
+    const badGarbled = await listOperations(undefined, '%%%not-a-cursor%%%');
+    expect(badGarbled.status).toBe(400);
+    expect(badGarbled.body.code).toBe('GUARDED_REQUEST_INVALID');
     const nonV7Cursor = encodePriceOperationDiscoveryCursor({
       acceptedAt: new Date().toISOString(),
       key: '00000000-0000-4000-8000-000000000000',
     });
-    await listOperations(undefined, nonV7Cursor).expect(400);
+    const badUuid = await listOperations(undefined, nonV7Cursor);
+    expect(badUuid.status).toBe(400);
+    expect(badUuid.body.code).toBe('GUARDED_REQUEST_INVALID');
   });
 
   it.each([
