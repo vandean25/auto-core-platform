@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -9,12 +10,19 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import {
+  ApiBody,
   ApiCreatedResponse,
+  ApiExtraModels,
+  ApiHeader,
   ApiOkResponse,
   ApiQuery,
   ApiOperation,
+  ApiResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service.js';
 import { LedgerService } from './ledger.service.js';
@@ -35,16 +43,31 @@ import {
 } from './inventory-list-query.js';
 import { ReceiveInventoryStockDto } from './dto/receive-inventory-stock.dto.js';
 import { AdjustInventoryStockDto } from './dto/adjust-inventory-stock.dto.js';
+import {
+  GuardedInventoryPricePatchDto,
+  GuardedPriceErrorDto,
+  GuardedPriceReceiptDto,
+} from './dto/guarded-inventory-price.dto.js';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
+import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
+import { GuardedPriceService } from './guarded-price/guarded-price.service.js';
 import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
 import { ApiListCursorModeQuery } from '../common/dto/list-cursor-query.decorator.js';
 
+@ApiExtraModels(
+  GuardedInventoryPricePatchDto,
+  GuardedPriceReceiptDto,
+  GuardedPriceErrorDto,
+  UpdateInventoryItemDto,
+)
 @Controller('inventory')
 export class InventoryController {
   constructor(
     private readonly inventoryService: InventoryService,
     private readonly ledgerService: LedgerService,
     private readonly inventoryItemMutations: InventoryItemMutationsService,
+    private readonly guardedPrice: GuardedPriceService,
+    private readonly inventoryPatchBodyPipe: InventoryPatchBodyPipe,
   ) {}
 
   @Get('availability/:sku')
@@ -104,12 +127,49 @@ export class InventoryController {
   }
 
   @Patch(':id')
-  @ApiOkResponse({ type: CatalogItemResponseDto })
+  @ApiBody({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(UpdateInventoryItemDto) },
+        { $ref: getSchemaPath(GuardedInventoryPricePatchDto) },
+      ],
+    },
+  })
+  @ApiOkResponse({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(CatalogItemResponseDto) },
+        { $ref: getSchemaPath(GuardedPriceReceiptDto) },
+      ],
+    },
+  })
+  @ApiResponse({ status: 200, type: GuardedPriceReceiptDto, description: 'Guarded price receipt (retail_price + expectedRevision body)' })
+  @ApiResponse({ status: 400, type: GuardedPriceErrorDto })
+  @ApiResponse({ status: 409, type: GuardedPriceErrorDto })
+  @ApiResponse({ status: 410, type: GuardedPriceErrorDto })
+  @ApiResponse({ status: 422, type: GuardedPriceErrorDto })
+  @ApiHeader({ name: 'Idempotency-Key', required: false, description: 'UUIDv7; required for guarded PATCH (expectedRevision present)' })
+  @ApiQuery({ name: 'operationKey', required: false, description: 'Fallback for Idempotency-Key when a proxy strips the header' })
   async updateItem(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateInventoryItemDto,
+    @Req() req: Request,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Query('operationKey') operationKey?: string,
   ) {
-    return await this.inventoryItemMutations.updateItem(id, dto);
+    const body = this.inventoryPatchBodyPipe.transform(req.body, {
+      type: 'body',
+      metatype: Object,
+    });
+    if (body.mode === 'guarded') {
+      return await this.guardedPrice.patchGuardedPrice(
+        id,
+        body.retailPrice,
+        body.expectedRevision,
+        idempotencyKey,
+        operationKey,
+      );
+    }
+    return await this.inventoryItemMutations.updateItem(id, body.dto);
   }
 
   @Get()

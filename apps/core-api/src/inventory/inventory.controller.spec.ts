@@ -3,6 +3,8 @@ import { InventoryController } from './inventory.controller.js';
 import { InventoryService } from './inventory.service.js';
 import { LedgerService } from './ledger.service.js';
 import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
+import { GuardedPriceService } from './guarded-price/guarded-price.service.js';
+import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -19,6 +21,9 @@ describe('InventoryController', () => {
     adjustStock: jest.fn(),
     updateItem: jest.fn(),
   };
+  const mockGuardedPrice = {
+    patchGuardedPrice: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -30,6 +35,8 @@ describe('InventoryController', () => {
           useValue: { getTransactionHistory: jest.fn() },
         },
         { provide: InventoryItemMutationsService, useValue: mockMutationsService },
+        { provide: GuardedPriceService, useValue: mockGuardedPrice },
+        InventoryPatchBodyPipe,
       ],
     }).compile();
 

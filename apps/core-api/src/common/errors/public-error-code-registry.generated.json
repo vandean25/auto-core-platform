@@ -663,6 +663,10 @@
       "public": true,
       "params": []
     },
+    "GUARDED_REQUEST_INVALID": {
+      "public": true,
+      "params": []
+    },
     "HTTP_400": {
       "public": true,
       "params": []
@@ -720,6 +724,14 @@
       "params": []
     },
     "HUMAN_ONLY_EXCLUDED": {
+      "public": true,
+      "params": []
+    },
+    "IDEMPOTENCY_KEY_EXPIRED": {
+      "public": true,
+      "params": []
+    },
+    "IDEMPOTENCY_KEY_REUSED": {
       "public": true,
       "params": []
     },
@@ -1063,6 +1075,10 @@
       "public": false,
       "params": []
     },
+    "INVENTORY_REVISION_CONFLICT": {
+      "public": true,
+      "params": []
+    },
     "INVOICE_BRANDING_WRITER_DISABLED": {
       "public": true,
       "params": []
@@ -1397,6 +1413,18 @@
     },
     "NO_INSPECTION_RECORDS": {
       "public": false,
+      "params": []
+    },
+    "OPERATION_FENCED": {
+      "public": true,
+      "params": []
+    },
+    "OPERATION_UNRESOLVED": {
+      "public": true,
+      "params": []
+    },
+    "OUTCOME_UNAVAILABLE": {
+      "public": true,
       "params": []
     },
     "OUT_OF_SCOPE": {

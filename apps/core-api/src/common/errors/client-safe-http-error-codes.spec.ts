@@ -76,6 +76,20 @@ describe('client-safe HTTP error codes', () => {
     expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('NOT_A_CATALOG_LINE')).toBe(true);
   });
 
+  it('lists ADR-0037 guarded inventory price wire codes', () => {
+    for (const code of [
+      'GUARDED_REQUEST_INVALID',
+      'IDEMPOTENCY_KEY_EXPIRED',
+      'IDEMPOTENCY_KEY_REUSED',
+      'INVENTORY_REVISION_CONFLICT',
+      'OPERATION_FENCED',
+      'OPERATION_UNRESOLVED',
+      'OUTCOME_UNAVAILABLE',
+    ]) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
+
   it('lists LIST_CURSOR_INVALID for ADR-0035 cursor binding failures', () => {
     expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('LIST_CURSOR_INVALID')).toBe(true);
   });

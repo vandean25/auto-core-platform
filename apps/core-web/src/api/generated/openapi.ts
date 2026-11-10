@@ -5792,6 +5792,30 @@ export interface components {
         };
         CreateLocationDto: Record<string, never>;
         UpdateLocationDto: Record<string, never>;
+        GuardedInventoryPricePatchDto: {
+            retail_price: number;
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        GuardedPriceReceiptDto: {
+            id: string;
+            sku: string;
+            name: string;
+            cost_price?: string | null;
+            retail_price: string;
+            unit: string;
+            brand_id?: number | null;
+            revenue_group_id?: number | null;
+            /** Format: int64 */
+            revision: number;
+        };
+        GuardedPriceErrorDto: {
+            statusCode: number;
+            message: string;
+            error: string;
+            code: string;
+        };
+        UpdateInventoryItemDto: Record<string, never>;
         AvailabilityCheckResultDto: {
             sku: string;
             name: string;
@@ -5844,19 +5868,6 @@ export interface components {
         };
         ReceiveInventoryStockDto: Record<string, never>;
         AdjustInventoryStockDto: Record<string, never>;
-        UpdateInventoryItemDto: Record<string, never>;
-        CatalogItemResponseDto: {
-            id: string;
-            sku: string;
-            name: string;
-            cost_price?: string | null;
-            retail_price: string;
-            unit: string;
-            brand_id?: number | null;
-            revenue_group_id?: number | null;
-            /** Format: int64 */
-            revision: number;
-        };
         PaginationMetaDto: {
             total: number;
             page: number;
@@ -5882,6 +5893,18 @@ export interface components {
             revision: number;
         };
         CreateInventoryItemDto: Record<string, never>;
+        CatalogItemResponseDto: {
+            id: string;
+            sku: string;
+            name: string;
+            cost_price?: string | null;
+            retail_price: string;
+            unit: string;
+            brand_id?: number | null;
+            revenue_group_id?: number | null;
+            /** Format: int64 */
+            revision: number;
+        };
         AuditLogResponseDto: {
             /** @description Audit log unique identifier */
             id: string;
@@ -13175,8 +13198,15 @@ export interface operations {
     };
     InventoryController_updateItem: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                /** @description Fallback for Idempotency-Key when a proxy strips the header */
+                operationKey?: string;
+            };
+            header: {
+                "idempotency-key": string;
+                /** @description UUIDv7; required for guarded PATCH (expectedRevision present) */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 id: string;
             };
@@ -13184,16 +13214,49 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateInventoryItemDto"];
+                "application/json": components["schemas"]["UpdateInventoryItemDto"] | components["schemas"]["GuardedInventoryPricePatchDto"];
             };
         };
         responses: {
+            /** @description Guarded price receipt (retail_price + expectedRevision body) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CatalogItemResponseDto"];
+                    "application/json": components["schemas"]["CatalogItemResponseDto"] | components["schemas"]["GuardedPriceReceiptDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
+                };
+            };
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
                 };
             };
         };

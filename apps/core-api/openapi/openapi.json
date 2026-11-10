@@ -527,6 +527,32 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUIDv7; required for guarded PATCH (expectedRevision present)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operationKey",
+            "required": false,
+            "in": "query",
+            "description": "Fallback for Idempotency-Key when a proxy strips the header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -534,18 +560,72 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateInventoryItemDto"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateInventoryItemDto"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GuardedInventoryPricePatchDto"
+                  }
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
+            "description": "Guarded price receipt (retail_price + expectedRevision body)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/CatalogItemResponseDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GuardedPriceReceiptDto"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CatalogItemResponseDto"
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
                 }
               }
             }
@@ -18729,6 +18809,93 @@
         "type": "object",
         "properties": {}
       },
+      "GuardedInventoryPricePatchDto": {
+        "type": "object",
+        "properties": {
+          "retail_price": {
+            "type": "number"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "retail_price",
+          "expectedRevision"
+        ]
+      },
+      "GuardedPriceReceiptDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cost_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "retail_price": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "revenue_group_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "retail_price",
+          "unit",
+          "revision"
+        ]
+      },
+      "GuardedPriceErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number"
+          },
+          "message": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusCode",
+          "message",
+          "error",
+          "code"
+        ]
+      },
+      "UpdateInventoryItemDto": {
+        "type": "object",
+        "properties": {}
+      },
       "AvailabilityCheckResultDto": {
         "type": "object",
         "properties": {
@@ -18936,54 +19103,6 @@
         "type": "object",
         "properties": {}
       },
-      "UpdateInventoryItemDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "CatalogItemResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sku": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "cost_price": {
-            "type": "string",
-            "nullable": true
-          },
-          "retail_price": {
-            "type": "string"
-          },
-          "unit": {
-            "type": "string"
-          },
-          "brand_id": {
-            "type": "number",
-            "nullable": true
-          },
-          "revenue_group_id": {
-            "type": "number",
-            "nullable": true
-          },
-          "revision": {
-            "type": "integer",
-            "format": "int64"
-          }
-        },
-        "required": [
-          "id",
-          "sku",
-          "name",
-          "retail_price",
-          "unit",
-          "revision"
-        ]
-      },
       "PaginationMetaDto": {
         "type": "object",
         "properties": {
@@ -19081,6 +19200,50 @@
       "CreateInventoryItemDto": {
         "type": "object",
         "properties": {}
+      },
+      "CatalogItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cost_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "retail_price": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "revenue_group_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "retail_price",
+          "unit",
+          "revision"
+        ]
       },
       "AuditLogResponseDto": {
         "type": "object",

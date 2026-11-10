@@ -8,13 +8,18 @@ import { LocationController } from './location.controller.js';
 import { AtpService } from './atp.service.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
+import { GuardedPriceService } from './guarded-price/guarded-price.service.js';
+import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
+import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module.js';
 
 @Module({
-  imports: [PrismaModule, AuditModule],
+  imports: [PrismaModule, AuditModule, DashboardRealtimeModule],
   controllers: [LocationController, InventoryController],
   providers: [
     InventoryService,
     InventoryItemMutationsService,
+    GuardedPriceService,
+    InventoryPatchBodyPipe,
     LedgerService,
     LocationService,
     AtpService,
