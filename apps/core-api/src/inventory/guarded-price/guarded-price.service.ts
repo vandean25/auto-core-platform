@@ -3,10 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  InventoryPriceOperationState,
-  Prisma,
-} from '@prisma/client';
+import { InventoryPriceOperationState, Prisma } from '@prisma/client';
 import { AuditService } from '../../audit/audit.service.js';
 import { DashboardRealtimeService } from '../../dashboard-realtime/dashboard-realtime.service.js';
 import { DashboardRealtimeDeferStorage } from '../../dashboard-realtime/dashboard-realtime-defer.storage.js';

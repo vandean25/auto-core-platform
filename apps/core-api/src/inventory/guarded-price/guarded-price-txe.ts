@@ -42,7 +42,10 @@ async function lockAcceptedJournal(
   tx: Prisma.TransactionClient,
   ctx: GuardedPriceTxEContext,
 ): Promise<
-  | { kind: 'journal'; journal: Prisma.InventoryPriceOperationGetPayload<object> }
+  | {
+      kind: 'journal';
+      journal: Prisma.InventoryPriceOperationGetPayload<object>;
+    }
   | { kind: 'halt'; throw: () => never }
 > {
   const journal = await tx.inventoryPriceOperation.findFirst({
