@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useCancelFiscalReceipt,
@@ -15,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { FinanceLocaleGate } from '@/components/finance/FinanceLocaleGate'
 import { settlementState, settlementVisibility } from './invoice-settlement-state'
 import { useRecordSettlementForm } from './useRecordSettlementForm'
 import { useSettlementToasts } from './useSettlementToasts'
@@ -132,32 +131,31 @@ function CancelReceiptButton({ invoiceId, receiptId }: { invoiceId: string; rece
   )
 }
 
-export function InvoiceSettlementActions({
-  invoiceId,
-  invoiceStatus,
-  canManage,
-}: Props) {
+function SettlementFiscalOffNotice() {
   const { t } = useTranslation('finance')
-  useEffect(() => {
-    void ensureNamespaceLoaded('finance')
-  }, [])
+  return <p className="max-w-sm text-right text-xs text-muted-foreground">{t('settlement.fiscalOff')}</p>
+}
 
-  const { data } = useInvoiceSettlement(invoiceId)
-  const rksvMode = data?.rksvMode
-  const payment = data?.payment
-  const needsExternalReceipt = rksvMode === 'REQUIRED_EXTERNAL_KASSE'
-  const form = useRecordSettlementForm(invoiceId, needsExternalReceipt)
-  const { hasOpenReceipt, signedNormal, showRecord, showReconcile, showCancel } = settlementState(
-    invoiceStatus,
-    payment,
-  )
+type SettlementUiState = ReturnType<typeof settlementState>
 
-  const visibility = settlementVisibility(canManage, rksvMode, invoiceStatus)
-  if (visibility === 'hidden') return null
-  if (visibility === 'fiscalOff') {
-    return <p className="max-w-sm text-right text-xs text-muted-foreground">{t('settlement.fiscalOff')}</p>
-  }
+type InvoiceSettlementActionsBodyProps = {
+  invoiceId: string
+  needsExternalReceipt: boolean
+  form: ReturnType<typeof useRecordSettlementForm>
+  payment: Parameters<typeof settlementState>[1]
+} & SettlementUiState
 
+function InvoiceSettlementActionsBody({
+  invoiceId,
+  needsExternalReceipt,
+  form,
+  payment,
+  hasOpenReceipt,
+  signedNormal,
+  showRecord,
+  showReconcile,
+  showCancel,
+}: InvoiceSettlementActionsBodyProps) {
   return (
     <div className="flex flex-col items-end gap-2 max-sm:items-stretch">
       {needsExternalReceipt && showRecord ? (
@@ -170,13 +168,63 @@ export function InvoiceSettlementActions({
       ) : null}
       <div className="flex flex-wrap justify-end gap-2 max-sm:flex-col">
         {showRecord ? (
-          <RecordControls method={form.method} onMethodChange={form.setMethod} onRecord={form.submit} pending={form.isPending} />
+          <RecordControls
+            method={form.method}
+            onMethodChange={form.setMethod}
+            onRecord={form.submit}
+            pending={form.isPending}
+          />
         ) : null}
         {showReconcile ? (
-          <ReconcileButton invoiceId={invoiceId} idempotencyKey={hasOpenReceipt ? payment?.idempotencyKey : undefined} />
+          <ReconcileButton
+            invoiceId={invoiceId}
+            idempotencyKey={hasOpenReceipt ? payment?.idempotencyKey : undefined}
+          />
         ) : null}
         {showCancel && signedNormal ? <CancelReceiptButton invoiceId={invoiceId} receiptId={signedNormal.id} /> : null}
       </div>
     </div>
+  )
+}
+
+export function InvoiceSettlementActions(props: Props) {
+  return (
+    <FinanceLocaleGate>
+      <InvoiceSettlementActionsLoaded {...props} />
+    </FinanceLocaleGate>
+  )
+}
+
+function InvoiceSettlementActionsLoaded({
+  invoiceId,
+  invoiceStatus,
+  canManage,
+}: Props) {
+  const { data } = useInvoiceSettlement(invoiceId)
+  const rksvMode = data?.rksvMode
+  const payment = data?.payment
+  const needsExternalReceipt = rksvMode === 'REQUIRED_EXTERNAL_KASSE'
+  const form = useRecordSettlementForm(invoiceId, needsExternalReceipt)
+  const { hasOpenReceipt, signedNormal, showRecord, showReconcile, showCancel } = settlementState(
+    invoiceStatus,
+    payment,
+  )
+
+  const visibility = settlementVisibility(canManage, rksvMode, invoiceStatus)
+  if (visibility === 'hidden') return null
+  if (visibility === 'fiscalOff') return <SettlementFiscalOffNotice />
+
+  return (
+    <InvoiceSettlementActionsBody
+      invoiceId={invoiceId}
+      needsExternalReceipt={needsExternalReceipt}
+      form={form}
+      payment={payment}
+      hasOpenReceipt={hasOpenReceipt}
+      signedNormal={signedNormal}
+      showRecord={showRecord}
+      showReconcile={showReconcile}
+      showCancel={showCancel}
+    />
   )
 }

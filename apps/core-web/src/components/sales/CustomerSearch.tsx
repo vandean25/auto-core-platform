@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/popover"
 import { useCustomers } from "@/api/customers"
 import type { Customer } from "@/api/types"
+import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 
 interface CustomerSearchProps {
     value?: Customer | null
@@ -32,7 +33,15 @@ const getCustomerName = (customer: Customer) => {
     return `${customer.first_name} ${customer.last_name}`
 }
 
-export function CustomerSearch({ value, onChange, pending = false }: CustomerSearchProps) {
+export function CustomerSearch(props: CustomerSearchProps) {
+  return (
+    <LazyNamespaceContentGate namespaces={['customers']}>
+      <CustomerSearchLoaded {...props} />
+    </LazyNamespaceContentGate>
+  )
+}
+
+function CustomerSearchLoaded({ value, onChange, pending = false }: CustomerSearchProps) {
   const { t } = useTranslation('customers')
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")

@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { PageLoader } from '@/components/ui/PageLoader'
 
 const hrTabKeys = [
   { labelKey: 'layout.tabs.employees', to: 'employees' },
@@ -14,9 +14,14 @@ const hrTabKeys = [
 
 export default function HrLayout() {
   const { t } = useTranslation('hr')
-  useEffect(() => {
-    void ensureNamespaceLoaded('hr')
-  }, [])
+  const { status, retry } = useLazyNamespaceBundleReady(['hr'])
+
+  if (status === 'loading') {
+    return <PageLoader />
+  }
+  if (status === 'failed') {
+    return <LocaleBundleLoadFailed onRetry={retry} />
+  }
 
   return (
     <div className='space-y-6'>

@@ -1,11 +1,10 @@
-import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { FiscalReceiptSummary, SettlementPaymentSummary } from '@/api/useInvoiceSettlement'
 import { SettlementReceiptQr } from '@/components/finance/SettlementReceiptQr'
 import { formatCurrency, formatIsoDateTimeInZone } from '@/lib/format'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { FinanceLocaleGate } from '@/components/finance/FinanceLocaleGate'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 
 function formatRksvTimestamp(
@@ -55,16 +54,25 @@ type Props = {
   siteTimezone?: string
 }
 
-export function InvoiceSettlementPanel({
+export function InvoiceSettlementPanel(props: Props) {
+  if (props.rksvMode === 'OFF' || props.rksvMode === 'UNKNOWN') {
+    return null
+  }
+
+  return (
+    <FinanceLocaleGate>
+      <InvoiceSettlementPanelLoaded {...props} />
+    </FinanceLocaleGate>
+  )
+}
+
+function InvoiceSettlementPanelLoaded({
   totalGross,
   payment,
   rksvMode,
   siteTimezone = 'Europe/Vienna',
 }: Props) {
   const { t } = useTranslation('finance')
-  useEffect(() => {
-    void ensureNamespaceLoaded('finance')
-  }, [])
 
   const signedReceipt = payment?.fiscalReceipts.find(
     (receipt) => receipt.state === 'SIGNED' && receipt.qrCodeData,
@@ -72,10 +80,6 @@ export function InvoiceSettlementPanel({
   const openReceipt = payment?.fiscalReceipts.find(
     (receipt) => receipt.state === 'PENDING' || receipt.state === 'UNKNOWN',
   )
-
-  if (rksvMode === 'OFF' || rksvMode === 'UNKNOWN') {
-    return null
-  }
 
   return (
     <Card>
