@@ -43,7 +43,8 @@
     "agent-eval": "npm run agent-eval --workspace=core-api",
     "agent-eval:report": "npm run agent-eval:report --workspace=core-api",
     "ci": "npm run lint && npm test && npm run build",
-    "test:e2e:fullstack": "npm run test:e2e:fullstack --workspace=core-web"
+    "test:e2e:fullstack": "npm run test:e2e:fullstack --workspace=core-web",
+    "test:e2e:agent": "npm run test:e2e:agent --workspace=core-api"
   },
   "devDependencies": {
     "@typescript/native": "npm:typescript@~7.0.2",

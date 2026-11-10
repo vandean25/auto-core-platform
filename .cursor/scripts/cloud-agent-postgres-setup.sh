@@ -24,3 +24,8 @@ if ! sudo -u postgres psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'aut
 fi
 
 sudo -u postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE core_platform TO acp_cloud;"
+
+sudo -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
+ALTER SYSTEM SET max_connections = 200;
+ALTER SYSTEM SET synchronous_commit = 'off';
+SQL

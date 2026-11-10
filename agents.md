@@ -278,7 +278,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 
 ### Local checks before pushing (CI is the source of truth)
 - Locally, run only the checks for the workspace you touched: lint, typecheck/build, the unit tests of the files you changed, and only the Playwright/E2E spec files you added or changed.
-- The full frontend UI smoke suite, the fullstack e2e suite and the backend E2E suite run **only in CI** (`.github/workflows/build.yaml`, sharded). The CI result is the source of truth; do not re-run full suites locally before pushing.
+- The full frontend UI smoke suite, the fullstack e2e suite and the backend E2E suite run **only in CI** (`.github/workflows/build.yaml`, sharded). The CI result is the source of truth; do not re-run full suites locally before pushing. If a prompt still requires the full backend E2E suite before push, use `npm run test:e2e:agent` (CI-parity runner), not bare `npm run test:e2e`.
 - At most one local e2e attempt per change. No repeated full runs, no polling. If it fails for environment reasons (browser, ports, DB), push and let CI decide.
 - Never create or commit temporary Playwright configs. If the installed Chromium does not match `@playwright/test`, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an existing Chromium; both Playwright configs honor it (the Claude Code SessionStart hook in `.claude/` sets it automatically when the browser download fails).
 
@@ -537,6 +537,20 @@ The full backend E2E suite runs **only in CI** on every PR; locally run only a n
 DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
 DATABASE_URL="$ACP_E2E_DATABASE_URL" npm run test:e2e --workspace=core-api -- --ci --runInBand test/<your>.e2e-spec.ts
 ```
+
+If a prompt requires the **full** backend E2E suite (168 files) before push, do **not** run `npm run test:e2e` with default Jest workers. That path shares one database across parallel suites; several specs `TRUNCATE` invoices, stock, customers, and catalog tables globally, which is why a full local run fails while the 4 CI shards stay green.
+
+Reset and migrate `auto_core_test`, then run the CI-parity entrypoint (same runner, `--runInBand` batches, shards 1/4–4/4 in sequence on this VM):
+
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS auto_core_test WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE auto_core_test OWNER postgres;"
+DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
+npm run test:e2e:agent --workspace=core-api
+```
+
+`test:e2e:agent` forces `DATABASE_URL` to `ACP_E2E_DATABASE_URL` when that is set, and applies the same `INVOICE_BRANDING_WRITER_ENABLED` / `DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR` defaults as the `backend-e2e` job in CI. Do not point it at `core_platform`. Do not skip tests. CI shards remain the merge gate; this command exists so a required full pre-push run is actually comparable to CI.
 
 Jest sets `NODE_ENV=test` for e2e (local test JWTs; no Firebase required). Unit tests and frontend Playwright e2e do not need a seeded DB.
 
