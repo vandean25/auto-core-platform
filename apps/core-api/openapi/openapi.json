@@ -566,18 +566,11 @@
         },
         "responses": {
           "200": {
-            "description": "Guarded price receipt (retail_price + expectedRevision body)",
+            "description": "Updated catalog item (legacy full body or guarded price receipt)",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/CatalogItemResponseDto"
-                    },
-                    {
-                      "$ref": "#/components/schemas/GuardedPriceReceiptDto"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/CatalogItemResponseDto"
                 }
               }
             }
@@ -18815,7 +18808,8 @@
         "required": [
           "retail_price",
           "expectedRevision"
-        ]
+        ],
+        "additionalProperties": false
       },
       "GuardedPriceReceiptDto": {
         "type": "object",
@@ -18868,7 +18862,17 @@
             "type": "number"
           },
           "message": {
-            "type": "string"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
           },
           "error": {
             "type": "string"
@@ -18880,13 +18884,36 @@
         "required": [
           "statusCode",
           "message",
-          "error",
-          "code"
-        ]
+          "error"
+        ],
+        "additionalProperties": false
       },
       "UpdateInventoryItemDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cost_price": {
+            "type": "number"
+          },
+          "retail_price": {
+            "type": "number"
+          },
+          "brandId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sku",
+          "name",
+          "cost_price",
+          "retail_price"
+        ],
+        "additionalProperties": false
       },
       "AvailabilityCheckResultDto": {
         "type": "object",
@@ -19095,6 +19122,50 @@
         "type": "object",
         "properties": {}
       },
+      "CatalogItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cost_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "retail_price": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "revenue_group_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "retail_price",
+          "unit",
+          "revision"
+        ]
+      },
       "PaginationMetaDto": {
         "type": "object",
         "properties": {
@@ -19192,50 +19263,6 @@
       "CreateInventoryItemDto": {
         "type": "object",
         "properties": {}
-      },
-      "CatalogItemResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sku": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "cost_price": {
-            "type": "string",
-            "nullable": true
-          },
-          "retail_price": {
-            "type": "string"
-          },
-          "unit": {
-            "type": "string"
-          },
-          "brand_id": {
-            "type": "number",
-            "nullable": true
-          },
-          "revenue_group_id": {
-            "type": "number",
-            "nullable": true
-          },
-          "revision": {
-            "type": "integer",
-            "format": "int64"
-          }
-        },
-        "required": [
-          "id",
-          "sku",
-          "name",
-          "retail_price",
-          "unit",
-          "revision"
-        ]
       },
       "AuditLogResponseDto": {
         "type": "object",

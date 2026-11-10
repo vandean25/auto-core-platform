@@ -135,17 +135,9 @@ export class InventoryController {
     },
   })
   @ApiOkResponse({
-    schema: {
-      oneOf: [
-        { $ref: getSchemaPath(CatalogItemResponseDto) },
-        { $ref: getSchemaPath(GuardedPriceReceiptDto) },
-      ],
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    type: GuardedPriceReceiptDto,
-    description: 'Guarded price receipt (retail_price + expectedRevision body)',
+    type: CatalogItemResponseDto,
+    description:
+      'Updated catalog item (legacy full body or guarded price receipt)',
   })
   @ApiResponse({ status: 400, type: GuardedPriceErrorDto })
   @ApiResponse({ status: 409, type: GuardedPriceErrorDto })

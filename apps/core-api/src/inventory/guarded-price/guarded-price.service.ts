@@ -10,7 +10,6 @@ import { DashboardRealtimeDeferStorage } from '../../dashboard-realtime/dashboar
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { assertCanMutateInventoryStock } from '../inventory-access.guards.js';
-import { toCatalogItemResponseDto } from '../catalog-item-response.mapper.js';
 import type { GuardedPriceReceiptDto } from '../dto/guarded-inventory-price.dto.js';
 import {
   acquireGuardedPriceAdvisoryLock,
@@ -378,10 +377,10 @@ export class GuardedPriceService {
       this.dashboardRealtime.emitEntityUpdated(tenantId, {
         type: 'CATALOG_ITEM',
         action: 'UPDATED',
-        entityId: outcome.item.id,
+        entityId: outcome.entityId,
       });
 
-      return toCatalogItemResponseDto(outcome.item);
+      return outcome.receipt;
     } catch (error) {
       if (isLockTimeoutError(error)) {
         operationUnresolved(

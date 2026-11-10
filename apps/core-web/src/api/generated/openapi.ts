@@ -5811,11 +5811,17 @@ export interface components {
         };
         GuardedPriceErrorDto: {
             statusCode: number;
-            message: string;
+            message: string | string[];
             error: string;
-            code: string;
+            code?: string;
         };
-        UpdateInventoryItemDto: Record<string, never>;
+        UpdateInventoryItemDto: {
+            sku: string;
+            name: string;
+            cost_price: number;
+            retail_price: number;
+            brandId?: number;
+        };
         AvailabilityCheckResultDto: {
             sku: string;
             name: string;
@@ -5868,6 +5874,18 @@ export interface components {
         };
         ReceiveInventoryStockDto: Record<string, never>;
         AdjustInventoryStockDto: Record<string, never>;
+        CatalogItemResponseDto: {
+            id: string;
+            sku: string;
+            name: string;
+            cost_price?: string | null;
+            retail_price: string;
+            unit: string;
+            brand_id?: number | null;
+            revenue_group_id?: number | null;
+            /** Format: int64 */
+            revision: number;
+        };
         PaginationMetaDto: {
             total: number;
             page: number;
@@ -5893,18 +5911,6 @@ export interface components {
             revision: number;
         };
         CreateInventoryItemDto: Record<string, never>;
-        CatalogItemResponseDto: {
-            id: string;
-            sku: string;
-            name: string;
-            cost_price?: string | null;
-            retail_price: string;
-            unit: string;
-            brand_id?: number | null;
-            revenue_group_id?: number | null;
-            /** Format: int64 */
-            revision: number;
-        };
         AuditLogResponseDto: {
             /** @description Audit log unique identifier */
             id: string;
@@ -13217,13 +13223,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Guarded price receipt (retail_price + expectedRevision body) */
+            /** @description Updated catalog item (legacy full body or guarded price receipt) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CatalogItemResponseDto"] | components["schemas"]["GuardedPriceReceiptDto"];
+                    "application/json": components["schemas"]["CatalogItemResponseDto"];
                 };
             };
             400: {

@@ -95,7 +95,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
       { retail_price: 12.5, expectedRevision: revision },
     ).expect(200);
 
-    expect(Number(response.body.retail_price)).toBe(12.5);
+    expect(response.body.retail_price).toBe('12.50');
     expect(response.body.revision).toBeGreaterThan(revision);
 
     const row = await catalogRow(item.id);
@@ -161,7 +161,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
       expectedRevision: revision,
     }).expect(200);
 
-    expect(Number(replay.body.retail_price)).toBe(15);
+    expect(replay.body).toEqual(first.body);
     expect(replay.body.revision).toBe(storedRevision);
 
     const rows = await tenantPrisma().inventoryPriceOperation.findMany({
@@ -169,6 +169,42 @@ describe('inventory guarded price PATCH (e2e)', () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.state).toBe(InventoryPriceOperationState.APPLIED);
+  });
+
+  it('same key replays after legacy SKU change', async () => {
+    const item = await seedItem(10);
+    const revision = revisionFromDb(item.revision);
+    const key = operationKey('3a');
+
+    const first = await guardedPatch(item.id, key, {
+      retail_price: 15,
+      expectedRevision: revision,
+    }).expect(200);
+
+    const row = await catalogRow(item.id);
+    await request(app.getHttpServer())
+      .patch(`/api/inventory/${item.id}`)
+      .set('Authorization', `Bearer ${authTokenAdmin}`)
+      .send({
+        sku: 'GUARDED-SKU-REPLAY',
+        name: row.name,
+        cost_price: row.cost_price != null ? Number(row.cost_price) : 0,
+        retail_price: Number(row.retail_price),
+      })
+      .expect(200);
+
+    const replay = await guardedPatch(item.id, key, {
+      retail_price: 15,
+      expectedRevision: revision,
+    }).expect(200);
+
+    expect(replay.body.retail_price).toBe(first.body.retail_price);
+    expect(replay.body.revision).toBe(first.body.revision);
+    expect(replay.body.sku).toBe(first.body.sku);
+
+    const catalog = await catalogRow(item.id);
+    expect(Number(catalog.retail_price)).toBe(15);
+    expect(catalog.sku).toBe('GUARDED-SKU-REPLAY');
   });
 
   it('replay after item deletion returns OUTCOME_UNAVAILABLE', async () => {

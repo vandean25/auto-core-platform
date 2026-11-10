@@ -27,7 +27,7 @@ import { operationUnresolved } from './guarded-price.errors.js';
 import type { GuardedPriceReceiptDto } from '../dto/guarded-inventory-price.dto.js';
 
 export type GuardedPriceTxEOutcome =
-  | { kind: 'applied'; item: Prisma.CatalogItemGetPayload<object> }
+  | { kind: 'applied'; receipt: GuardedPriceReceiptDto; entityId: string }
   | { kind: 'replay'; receipt: GuardedPriceReceiptDto }
   | { kind: 'conflict' }
   | { kind: 'halt'; throw: () => never };
@@ -166,7 +166,7 @@ async function applyCatalogPrice(
   );
 
   const resultRevision = revisionFromDb(updated.revision);
-  await tx.inventoryPriceOperation.update({
+  const appliedJournal = await tx.inventoryPriceOperation.update({
     where: {
       tenant_id_id: { tenant_id: ctx.tenantId, id: journalId },
     },
@@ -177,7 +177,11 @@ async function applyCatalogPrice(
     },
   });
 
-  return { kind: 'applied', item: updated };
+  return {
+    kind: 'applied',
+    entityId: updated.id,
+    receipt: receiptFromAppliedJournal(appliedJournal, updated),
+  };
 }
 
 export async function executeGuardedPriceTxE(

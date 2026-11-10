@@ -12,19 +12,13 @@ export type GuardedPriceIntent = {
 export function frozenIntentMatchesRow(
   row: Pick<
     InventoryPriceOperation,
-    | 'item_id'
-    | 'expected_revision'
-    | 'target_minor'
-    | 'basis_minor'
-    | 'sku'
-    | 'kind'
+    'item_id' | 'expected_revision' | 'target_minor' | 'kind'
   >,
   intent: GuardedPriceIntent,
 ): boolean {
   return (
     row.item_id === intent.itemId &&
     row.kind === GUARDED_PRICE_KIND &&
-    row.sku === intent.sku &&
     row.expected_revision === BigInt(intent.expectedRevision) &&
     row.target_minor === intent.targetMinor
   );
