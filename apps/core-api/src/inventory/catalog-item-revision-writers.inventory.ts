@@ -15,6 +15,7 @@ export const REGISTERED_CATALOG_ITEM_WRITER_PATHS = [
   'import/import-undo-writer.ts',
   'import/import-undo.service.ts',
   'import/supplier-price-list-import.apply.ts',
+  'inventory/guarded-price/guarded-price-txe.ts',
   'inventory/inventory-item-mutations.service.ts',
   'inventory/inventory.service.ts',
   'prisma/fixtures/clean-db.ts',
