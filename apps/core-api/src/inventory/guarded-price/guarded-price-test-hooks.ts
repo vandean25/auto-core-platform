@@ -11,7 +11,10 @@ type GuardedPriceTestHookState = {
 const GLOBAL_HOOK_KEY = '__acpGuardedPriceTestHooks';
 
 function guardedPriceTestHookState(): GuardedPriceTestHookState {
-  const globalRef = globalThis as Record<string, GuardedPriceTestHookState>;
+  const globalRef = globalThis as unknown as Record<
+    string,
+    GuardedPriceTestHookState
+  >;
   if (!globalRef[GLOBAL_HOOK_KEY]) {
     globalRef[GLOBAL_HOOK_KEY] = {
       failTxEAfterJournalLock: false,
