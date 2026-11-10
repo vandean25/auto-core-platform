@@ -18,6 +18,10 @@ const RESERVED_VEHICLE_DETAIL_SEGMENTS = new Set([
   APP_ROUTE_PATHS.vehicleStockAlias.replace('/vehicles/', ''),
 ])
 
+const RESERVED_SALES_ORDER_DETAIL_SEGMENTS = new Set([
+  APP_ROUTE_PATHS.salesOrderNew.replace(`${APP_ROUTE_PATHS.salesOrders}/`, ''),
+])
+
 export function parseGlobalSearchRecordRef(
   pathname: string,
   focusedListRowId?: string | null,
@@ -57,8 +61,9 @@ export function parseGlobalSearchRecordRef(
   }
 
   const salesOrder = matchPath({ path: APP_ROUTE_PATHS.salesOrderDetail, end: true }, pathname)
-  if (salesOrder?.params.id) {
-    return { entity: 'sales_order', id: salesOrder.params.id }
+  const salesOrderId = salesOrder?.params.id
+  if (salesOrderId && !RESERVED_SALES_ORDER_DETAIL_SEGMENTS.has(salesOrderId)) {
+    return { entity: 'sales_order', id: salesOrderId }
   }
 
   return null

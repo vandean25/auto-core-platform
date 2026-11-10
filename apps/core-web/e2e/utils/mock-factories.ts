@@ -368,7 +368,8 @@ type MockSalesOrder = {
   order_number: string;
   status: string;
   customer: MockCustomer;
-  vehicle: MockVehicle;
+  vehicle: MockVehicle | null;
+  invoice: null;
   total_amount: string;
   createdAt: string;
   updatedAt: string;
@@ -382,6 +383,7 @@ export const createMockSalesOrder = (
   status: 'DRAFT',
   customer: createMockCustomer(),
   vehicle: createMockVehicle(),
+  invoice: null,
   total_amount: '0.00',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { useWorkOrderActionRunContext } from '@/features/actions/use-work-order-action-run-context'
 import { useCustomerDeleteHandler } from '@/pages/customers/use-customer-delete-handler'
@@ -14,7 +15,9 @@ export function usePaletteContextRunContexts() {
   const { t: tSales } = useTranslation('sales')
   const navigate = useNavigate()
   const handleCustomerDelete = useCustomerDeleteHandler()
-  const handleSalesOrderDelete = useSalesOrderDeleteHandler()
+  const handleSalesOrderDelete = useSalesOrderDeleteHandler({
+    onDeleted: () => navigate(APP_ROUTE_PATHS.salesOrders),
+  })
   const workshop = useWorkOrderActionRunContext()
   const creditNotePdf = usePdfDownload()
 
