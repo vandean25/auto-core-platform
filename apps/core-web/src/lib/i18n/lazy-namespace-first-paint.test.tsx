@@ -205,7 +205,8 @@ describe('lazy namespace first paint (AUT-945)', () => {
       </LazyNamespaceContentGate>,
     )
     expect(tyreContainer.textContent).not.toMatch(/tyreStorage\.summary/)
-    await screen.findByText('Laden…')
+    await screen.findByText(deInventory.tyreStorage.summary.loading)
+    expect(screen.queryByText('Laden…')).not.toBeInTheDocument()
     cleanup()
 
     render(<InvoiceSettlementActions invoiceId="inv-1" invoiceStatus="ISSUED" canManage />)
