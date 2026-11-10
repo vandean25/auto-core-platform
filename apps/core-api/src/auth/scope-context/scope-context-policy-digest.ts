@@ -1,14 +1,9 @@
 import { createHash } from 'node:crypto';
-import {
-  DEMO_MUTATION_ALLOWED_EXACT,
-  DEMO_MUTATION_ALLOWED_PREFIXES,
-  DEMO_MUTATION_BLOCKED_PREFIXES,
-  DEMO_MUTATION_BLOCKED_SUBSTRINGS,
-} from '../../landing-demo-access/demo-role-restrictions.js';
 import { PERMISSION_CATALOGUE_VERSION } from '../../permissions/permission-catalogue.js';
 import { OPERATION_TABLE } from '../../permissions/operation-table.js';
 import type { OperationEntry } from '../../permissions/operation-types.js';
 import { SCOPE_CONTEXT_POLICY_OPERATION_IDS } from './scope-context.constants.js';
+import { scopeContextDemoPolicyMask } from './scope-context-demo-policy-mask.js';
 
 function stableOperationRecord(entry: OperationEntry): Record<string, unknown> {
   if (entry.kind === 'protected') {
@@ -47,12 +42,7 @@ export function computeScopeContextPolicyDigest(): string {
     return { id, operation: stableOperationRecord(entry) };
   });
 
-  const demoMask = {
-    allowedExact: [...DEMO_MUTATION_ALLOWED_EXACT].sort(),
-    allowedPrefixes: [...DEMO_MUTATION_ALLOWED_PREFIXES].sort(),
-    blockedPrefixes: [...DEMO_MUTATION_BLOCKED_PREFIXES].sort(),
-    blockedSubstrings: [...DEMO_MUTATION_BLOCKED_SUBSTRINGS].sort(),
-  };
+  const demoMask = scopeContextDemoPolicyMask();
 
   const payload = {
     catalogueVersion: PERMISSION_CATALOGUE_VERSION,

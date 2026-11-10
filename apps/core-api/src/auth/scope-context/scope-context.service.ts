@@ -15,6 +15,7 @@ import {
   scopeContextDigest,
   verifyScopeContextToken,
 } from './scope-context-token.js';
+import { findValidatedActiveSiteIdForTenant } from './scope-context-active-site.js';
 import { EndedSessionLineageService } from './ended-session-lineage.service.js';
 import {
   SCOPE_CONTEXT_IDP_PORT,
@@ -60,18 +61,20 @@ export class ScopeContextService {
       verified.authTimeSeconds,
     );
 
-    if (
-      await this.endedLineages.isLineageEnded(
-        user.tenantId,
-        verified.sub,
-        verified.authTimeSeconds,
-      )
-    ) {
-      throw new UnauthorizedException('Session lineage has ended.');
-    }
+    await this.endedLineages.pruneExpiredRowsForTenant(user.tenantId);
 
     return this.prisma.$transaction(
       async (tx) => {
+        if (
+          await this.endedLineages.isLineageEnded(
+            user.tenantId,
+            verified.sub,
+            verified.authTimeSeconds,
+            tx,
+          )
+        ) {
+          throw new UnauthorizedException('Session lineage has ended.');
+        }
         const member = await tx.tenantMember.findFirst({
           where: {
             tenant_id: user.tenantId,
@@ -92,11 +95,11 @@ export class ScopeContextService {
           throw new UnauthorizedException('Tenant is not active.');
         }
 
-        const dbUser = await tx.user.findFirst({
-          where: { firebaseUid: user.userId },
-          select: { active_site_id: true },
-        });
-        const siteId = dbUser?.active_site_id;
+        const siteId = await findValidatedActiveSiteIdForTenant(
+          tx,
+          verified.sub,
+          user.tenantId,
+        );
         if (!siteId) {
           throw new UnprocessableEntityException({
             statusCode: 422,

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../../common/services/tenant-context.storage.js';
 import type { TenantAuthenticatedUser } from '../types/authenticated-user.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -61,10 +62,14 @@ export class EndedSessionLineageService {
     tenantId: string,
     principalSub: string,
     authTimeSeconds: number,
+    tx?: Prisma.TransactionClient,
   ): Promise<boolean> {
-    await this.pruneExpiredRows(tenantId);
+    if (!tx) {
+      await this.pruneExpiredRows(tenantId);
+    }
     const digests = continuityDigestCandidates(principalSub, authTimeSeconds);
-    const row = await this.prisma.endedSessionLineage.findFirst({
+    const client = tx ?? this.prisma;
+    const row = await client.endedSessionLineage.findFirst({
       where: {
         tenant_id: tenantId,
         continuity_digest: { in: [...digests] },
@@ -72,6 +77,10 @@ export class EndedSessionLineageService {
       select: { id: true },
     });
     return Boolean(row);
+  }
+
+  async pruneExpiredRowsForTenant(tenantId: string): Promise<void> {
+    await this.pruneExpiredRows(tenantId);
   }
 
   private async pruneExpiredRows(tenantId: string): Promise<void> {

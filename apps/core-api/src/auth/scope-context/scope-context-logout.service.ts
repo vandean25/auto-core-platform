@@ -1,8 +1,16 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { getFirebaseAdminAuth } from '../firebase-admin.js';
 import { SystemPrismaService } from '../../prisma/system-prisma.service.js';
 import type { TenantAuthenticatedUser } from '../types/authenticated-user.js';
+import { throwMappedFirebaseRevokeError } from './scope-context-idp-firebase-errors.js';
 import { buildContinuityDigest } from './scope-context-token.js';
+import { readScopeContextHmacSecrets } from './scope-context-secret.js';
+import { findValidatedActiveSiteIdForTenant } from './scope-context-active-site.js';
 import { EndedSessionLineageService } from './ended-session-lineage.service.js';
 import {
   SCOPE_CONTEXT_IDP_PORT,
@@ -22,6 +30,12 @@ export class ScopeContextLogoutService {
     user: TenantAuthenticatedUser,
     bearerToken: string,
   ): Promise<void> {
+    try {
+      readScopeContextHmacSecrets();
+    } catch {
+      throw new ServiceUnavailableException('Scope context is not configured.');
+    }
+
     const verified =
       await this.idpPort.verifyIdTokenWithRevocation(bearerToken);
 
@@ -31,13 +45,17 @@ export class ScopeContextLogoutService {
       );
     }
 
-    await getFirebaseAdminAuth().revokeRefreshTokens(verified.sub);
-    const refreshTokensRevokedAt = new Date();
-
     const continuityDigest = buildContinuityDigest(
       verified.sub,
       verified.authTimeSeconds,
     );
+
+    try {
+      await getFirebaseAdminAuth().revokeRefreshTokens(verified.sub);
+    } catch (error) {
+      throwMappedFirebaseRevokeError(error);
+    }
+    const refreshTokensRevokedAt = new Date();
 
     const memberships = await this.systemPrisma.tenantMember.findMany({
       where: {
@@ -46,7 +64,6 @@ export class ScopeContextLogoutService {
       },
       select: {
         tenant_id: true,
-        user: { select: { active_site_id: true } },
       },
     });
 
@@ -54,16 +71,24 @@ export class ScopeContextLogoutService {
       return;
     }
 
+    const membershipSites = await Promise.all(
+      memberships.map(async (row) => ({
+        tenantId: row.tenant_id,
+        siteId: await findValidatedActiveSiteIdForTenant(
+          this.systemPrisma,
+          verified.sub,
+          row.tenant_id,
+        ),
+      })),
+    );
+
     await this.endedLineages.recordEndedLineageForMemberships({
       sessionUser: user,
       principalSub: verified.sub,
       continuityDigest,
       authTimeSeconds: verified.authTimeSeconds,
       refreshTokensRevokedAt,
-      memberships: memberships.map((row) => ({
-        tenantId: row.tenant_id,
-        siteId: row.user.active_site_id,
-      })),
+      memberships: membershipSites,
     });
   }
 }

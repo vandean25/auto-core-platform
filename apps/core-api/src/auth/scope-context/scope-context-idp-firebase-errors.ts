@@ -23,6 +23,13 @@ export function throwMappedFirebaseVerifyError(error: unknown): never {
   throw new ServiceUnavailableException('Identity provider is unavailable.');
 }
 
+export function throwMappedFirebaseRevokeError(error: unknown): never {
+  if (isTransportFailure(error)) {
+    throw new ServiceUnavailableException('Identity provider is unavailable.');
+  }
+  throw new ServiceUnavailableException('Identity provider is unavailable.');
+}
+
 function isTransportFailure(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;

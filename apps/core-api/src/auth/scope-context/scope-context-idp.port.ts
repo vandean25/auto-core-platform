@@ -32,6 +32,9 @@ export class FirebaseScopeContextIdpAdapter implements ScopeContextIdpPort {
       );
       return mapDecodedIdpToken(decoded);
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throwMappedFirebaseVerifyError(error);
     }
   }
@@ -59,11 +62,10 @@ export class TestScopeContextIdpAdapter implements ScopeContextIdpPort {
       if (typeof payload.sub !== 'string') {
         throw new UnauthorizedException('Invalid test token subject.');
       }
-      const authTime =
-        typeof payload.auth_time === 'number'
-          ? payload.auth_time
-          : Math.floor(Date.now() / 1000);
-      return { sub: payload.sub, authTimeSeconds: authTime };
+      if (typeof payload.auth_time !== 'number') {
+        throw new UnauthorizedException('Token is missing auth_time.');
+      }
+      return { sub: payload.sub, authTimeSeconds: payload.auth_time };
     } catch {
       throw new UnauthorizedException('Invalid or revoked test token.');
     }
@@ -104,13 +106,12 @@ export class FakeScopeContextIdpAdapter implements ScopeContextIdpPort {
 }
 
 function mapDecodedIdpToken(decoded: DecodedIdToken): VerifiedIdpToken {
-  const authTime =
-    typeof decoded.auth_time === 'number'
-      ? decoded.auth_time
-      : Math.floor(Date.now() / 1000);
+  if (typeof decoded.auth_time !== 'number') {
+    throw new UnauthorizedException('Token is missing auth_time.');
+  }
   return {
     sub: decoded.uid,
-    authTimeSeconds: authTime,
+    authTimeSeconds: decoded.auth_time,
     email: decoded.email,
   };
 }

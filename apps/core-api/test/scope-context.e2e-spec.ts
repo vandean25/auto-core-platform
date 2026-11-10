@@ -18,17 +18,20 @@ import {
 } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  createTenantAwarePrisma,
   createTestTenant,
   resolveTestMainSiteId,
   seedTestTenantMember,
   type TestTenantResult,
 } from './tenant-test-utils.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { stubFirebaseAdminAuthForCustomClaimsE2e } from './helpers/firebase-auth-e2e-mocks.js';
 import {
   cleanupE2eTenantGraph,
   teardownTestApp,
 } from './test-lifecycle.js';
 import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
+import { TenantContextStorage } from '../src/common/services/tenant-context.storage.js';
 
 async function createE2eAppWithFakeIdp(): Promise<{
   app: INestApplication;
@@ -53,6 +56,8 @@ describe('scope context (AUT-937 e2e)', () => {
   let authService: AuthService;
   let idp: FakeScopeContextIdpAdapter;
   let tenant: TestTenantResult;
+  let systemPrisma: SystemPrismaService;
+  const extraTenantIds: string[] = [];
   const authTime = 1_700_000_000;
 
   beforeAll(async () => {
@@ -62,7 +67,22 @@ describe('scope context (AUT-937 e2e)', () => {
     idp = boot.idp;
     prisma = app.get(PrismaService);
     authService = app.get(AuthService);
+    systemPrisma = app.get(SystemPrismaService);
   });
+
+  async function readEndedLineages(tenantId: string, principalSub: string) {
+    return TenantContextStorage.run(async () => {
+      TenantContextStorage.setUser({
+        userId: principalSub,
+        email: 'e2e@example.com',
+        tenantId,
+        role: 'ADMIN',
+      });
+      return prisma.endedSessionLineage.findMany({
+        where: { principal_sub: principalSub },
+      });
+    });
+  }
 
   beforeEach(async () => {
     idp.reset();
@@ -72,6 +92,10 @@ describe('scope context (AUT-937 e2e)', () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
+    for (const tenantId of extraTenantIds) {
+      await cleanupE2eTenantGraph(prisma, tenantId);
+    }
+    extraTenantIds.length = 0;
     await cleanupE2eTenantGraph(prisma, tenant.tenantId);
   });
 
@@ -105,7 +129,9 @@ describe('scope context (AUT-937 e2e)', () => {
     const refreshA = ownerToken({ auth_time: authTime });
     const refreshB = ownerToken({ auth_time: authTime });
 
-    const first = await handshake(refreshA).expect(HttpStatus.OK);
+    const first = await handshake(refreshA)
+      .expect(HttpStatus.OK)
+      .expect('Cache-Control', 'private, no-store');
     const second = await handshake(refreshB).expect(HttpStatus.OK);
 
     expect(first.body.continuityDigest).toBe(second.body.continuityDigest);
@@ -143,7 +169,16 @@ describe('scope context (AUT-937 e2e)', () => {
       role: 'TECH',
     });
     const siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
-    await prisma.user.update({
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    await tenantPrisma.siteMembership.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        user_id: techUser.id,
+        site_id: siteId,
+        is_active: true,
+      },
+    });
+    await systemPrisma.user.update({
       where: { id: techUser.id },
       data: { active_site_id: siteId, active_tenant_id: tenant.tenantId },
     });
@@ -176,6 +211,75 @@ describe('scope context (AUT-937 e2e)', () => {
       .set('Authorization', `Bearer ${techToken}`)
       .set(SCOPE_CONTEXT_HEADER, scopeContext)
       .expect(HttpStatus.FORBIDDEN);
+  });
+
+  it('rejects handshake when site membership is inactive', async () => {
+    const siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
+    const owner = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+    });
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
+    await tenantPrisma.siteMembership.updateMany({
+      where: {
+        tenant_id: tenant.tenantId,
+        user_id: owner.id,
+        site_id: siteId,
+      },
+      data: { is_active: false },
+    });
+
+    const response = await handshake(ownerToken()).expect(HttpStatus.UNPROCESSABLE_ENTITY);
+    expect(response.body.code).toBe('ACTIVE_SITE_REQUIRED');
+  });
+
+  it('logout stores site_id only on the session tenant lineage row', async () => {
+    const secondTenant = await createTestTenant(prisma, 'scope-context-second');
+    extraTenantIds.push(secondTenant.tenantId);
+    const owner = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+    });
+    await seedTestTenantMember(prisma, {
+      tenantId: secondTenant.tenantId,
+      userId: owner.id,
+      role: 'ADMIN',
+    });
+    const sessionSiteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
+    await prisma.user.update({
+      where: { id: owner.id },
+      data: {
+        active_tenant_id: tenant.tenantId,
+        active_site_id: sessionSiteId,
+      },
+    });
+
+    await logout(ownerToken()).expect(HttpStatus.NO_CONTENT);
+
+    const sessionRows = await readEndedLineages(
+      tenant.tenantId,
+      tenant.firebaseUid,
+    );
+    const secondRows = await readEndedLineages(
+      secondTenant.tenantId,
+      tenant.firebaseUid,
+    );
+    expect(sessionRows).toHaveLength(1);
+    expect(secondRows).toHaveLength(1);
+    const sessionRow = sessionRows[0];
+    const otherRow = secondRows[0];
+    expect(sessionRow?.site_id).toBe(sessionSiteId);
+    expect(otherRow?.site_id).toBeNull();
+  });
+
+  it('logout returns 503 without recording lineage when revoke fails', async () => {
+    const token = ownerToken();
+    const revokeMock = getFirebaseAdminAuth().revokeRefreshTokens as jest.Mock;
+    revokeMock.mockImplementationOnce(() =>
+      Promise.reject(new Error('ETIMEDOUT')),
+    );
+
+    await logout(token).expect(HttpStatus.SERVICE_UNAVAILABLE);
+    const rows = await readEndedLineages(tenant.tenantId, tenant.firebaseUid);
+    expect(rows).toHaveLength(0);
   });
 
   it('echo without enforcement', async () => {
