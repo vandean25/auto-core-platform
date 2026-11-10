@@ -6,11 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport } from '@/api/workshop-kpi-reports'
-import { useDueTyreSets, useTyreSet, useTyreSets } from '@/api/tyre-storage'
+import { useDueTyreSets, useTyreSet, useTyreSets, useTyreSetsByCustomer, useTyreSetsByVehicle } from '@/api/tyre-storage'
 import { useLocations } from '@/api/locations'
 import * as purchaseApi from '@/api/usePurchaseInvoices'
 import { useVehicleStockListState } from '@/api/vehicle-stock-list'
-import { useTyreSetsByVehicle } from '@/api/tyre-storage'
 import { LazyNamespaceLayout } from '@/features/i18n/LazyNamespaceLayout'
 import TyreStorageListPage from '@/pages/tyre-storage/TyreStorageListPage'
 import WorkshopKpiReportsPage from '@/pages/reports/WorkshopKpiReportsPage'
@@ -18,8 +17,10 @@ import SettingsPage from '@/pages/SettingsPage'
 import VehicleStockList from '@/pages/vehicle-stock/VehicleStockList'
 import PurchaseBillsPage from '@/pages/purchase-bills/PurchaseBillsPage'
 import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
-import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import { InvoiceSettlementActions } from '@/components/finance/InvoiceSettlementActions'
+import { CustomerContactCard } from '@/pages/customers/CustomerContactCard'
+import { VehicleInfoCard } from '@/pages/vehicles/VehicleInfoCard'
+import { WorkshopOrderTyreSetsEmbed } from '@/pages/workshop/WorkshopOrderDetails'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { useInvoiceSettlement } from '@/api/useInvoiceSettlement'
 import * as customersApi from '@/api/customers'
@@ -30,7 +31,7 @@ import deFinance from '../../../../../locales/de/finance.json'
 import deWorkshop from '../../../../../locales/de/workshop.json'
 import { deCustomers } from '@/test/de-customers'
 import TyreSetDetailPage from '@/pages/tyre-storage/TyreSetDetailPage'
-import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
+import { changeUiLanguage, ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import * as initI18n from '@/lib/i18n/init-i18n'
 import { FinanceLocaleGate } from '@/components/finance/FinanceLocaleGate'
 import deCommon from '../../../../../locales/de/common.json'
@@ -38,7 +39,10 @@ import { stripLazyNamespacesForTest } from '@/test/lazy-namespace-test-helpers'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 
-vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
+vi.mock('@/api/auth-session', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/auth-session')>()
+  return { ...actual, useAuthSession: vi.fn() }
+})
 vi.mock('@/api/sites', () => ({ useMySites: vi.fn() }))
 vi.mock('@/api/workshop-kpi-reports', () => ({ useWorkshopKpiReport: vi.fn() }))
 vi.mock('@/api/tyre-storage', () => ({
@@ -52,6 +56,19 @@ vi.mock('@/api/tyre-storage', () => ({
   useUpdateTyreSet: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 vi.mock('@/api/customers')
+vi.mock('@/pages/vehicles/useVehicleDetailMutations', () => ({
+  useVehicleFieldSaves: () => ({
+    saveVehicleField: vi.fn(),
+    saveRegulatoryField: vi.fn(),
+    failures: [],
+    retry: vi.fn(),
+    dismiss: vi.fn(),
+  }),
+}))
+vi.mock('@/components/vehicles/VehiclePickerlSection', () => ({ VehiclePickerlSection: () => null }))
+vi.mock('@/components/vehicles/NovaPreviewPanel', () => ({ NovaPreviewPanel: () => null }))
+vi.mock('@/components/vehicles/VehicleRegulatorySection', () => ({ VehicleRegulatorySection: () => null }))
+vi.mock('@/components/vehicles/VehicleGewaehrleistungSection', () => ({ VehicleGewaehrleistungSection: () => null }))
 vi.mock('@/features/tyre-storage/TyreSetFormDialog', () => ({
   TyreSetFormDialog: () => null,
 }))
@@ -69,6 +86,36 @@ vi.mock('@/api/useInvoiceSettlement', () => ({
   SettlementMutationError: class extends Error {},
   settlementSuccessToastMessageKey: () => undefined,
 }))
+
+const EMBED_CUSTOMER = {
+  id: 'customer-1',
+  type: 'COMPANY',
+  legacy_ids: [],
+  company_name: 'Acme GmbH',
+  first_name: 'Max',
+  last_name: 'Muster',
+  email: 'max@example.test',
+  phone: '+43 660 1234567',
+  vat_id: 'ATU12345678',
+  address_street: 'Hauptstrasse 1',
+  address_zip: '1010',
+  address_city: 'Wien',
+  address_country: 'AT',
+} as const
+
+const EMBED_VEHICLE = {
+  id: 'veh-1',
+  year: 2020,
+  make: 'Audi',
+  model: 'A4',
+  vin: 'VIN123',
+  plate: 'W-12345',
+  engine_code: 'ABC',
+  legacy_ids: [],
+  customer: { id: 'customer-1' },
+  sales: [],
+  pickerl_due: null,
+} as const
 
 function renderWithProviders(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -253,25 +300,129 @@ describe('lazy namespace first paint (AUT-945)', () => {
     expect(await screen.findByRole('button', { name: deWorkshop.tyreReport.record })).toBeInTheDocument()
   })
 
-  it('embeds tyre summary and fiscal-off copy only after the finance/inventory bundle loads', async () => {
-    vi.mocked(useTyreSetsByVehicle).mockReturnValue({
-      data: { data: [] },
-      isLoading: true,
+  it('tyre set inspection dialog shows German title after the workshop bundle loads', async () => {
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeRole: 'ADMIN' } } as never)
+    vi.mocked(useTyreSet).mockReturnValue({
+      data: {
+        id: 'set-1',
+        customerId: 'customer-1',
+        vehicleId: 'vehicle-1',
+        siteId: 'site-1',
+        locationId: 'rack-1',
+        label: 'Winter',
+        season: 'WINTER',
+        tyreCount: 4,
+        rimType: 'NONE',
+        status: 'IN_STORAGE',
+        dotCodes: [],
+        events: [],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
     } as never)
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/workshop/tyre-storage/set-1?action=recordTyreMeasurement']}>
+        <Routes>
+          <Route path="/workshop/tyre-storage/:id" element={<TyreSetDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(document.body.textContent).not.toMatch(/tyreReport\./)
+    expect(await screen.findByRole('heading', { name: deWorkshop.tyreReport.record })).toBeInTheDocument()
+  })
+
+  it('rejected workshop bundle shows retry instead of the inspection dialog', async () => {
+    stripLazyNamespacesForTest()
+    const ensureActual = initI18n.ensureNamespaceLoaded.bind(initI18n)
+    await ensureActual('inventory')
+    for (const language of ['de', 'en'] as const) {
+      i18n.removeResourceBundle(language, 'workshop')
+    }
+    const rejectSpy = vi.spyOn(initI18n, 'ensureNamespaceLoaded').mockImplementation((namespace) =>
+      namespace === 'workshop' ? Promise.reject(new Error('chunk failed')) : ensureActual(namespace),
+    )
+
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeRole: 'ADMIN' } } as never)
+    vi.mocked(useLocations).mockReturnValue({ data: [] } as never)
+    vi.mocked(useTyreSet).mockReturnValue({
+      data: {
+        id: 'set-1',
+        customerId: 'customer-1',
+        vehicleId: 'vehicle-1',
+        siteId: 'site-1',
+        locationId: 'rack-1',
+        label: 'Winter',
+        season: 'WINTER',
+        tyreCount: 4,
+        rimType: 'NONE',
+        status: 'IN_STORAGE',
+        dotCodes: [],
+        events: [],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as never)
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/workshop/tyre-storage/set-1?action=recordTyreMeasurement']}>
+        <Routes>
+          <Route path="/workshop/tyre-storage/:id" element={<TyreSetDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    try {
+      expect((await screen.findAllByText(deCommon.localeBundle.loadFailed)).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('button', { name: deCommon.localeBundle.retry }).length).toBeGreaterThan(0)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(document.body.textContent).not.toMatch(/tyreReport\./)
+    } finally {
+      rejectSpy.mockRestore()
+    }
+  })
+
+  it('embeds tyre summary at call sites only after the inventory bundle loads', async () => {
+    const loadingQuery = { data: { data: [] }, isLoading: true } as never
+    vi.mocked(useTyreSetsByVehicle).mockReturnValue(loadingQuery)
+    vi.mocked(useTyreSetsByCustomer).mockReturnValue(loadingQuery)
+    vi.mocked(customersApi.useUpdateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never)
+
+    await ensureNamespaceLoaded('customers')
+    renderWithProviders(<CustomerContactCard customer={EMBED_CUSTOMER as never} />)
+    expect(document.body.textContent).not.toMatch(/tyreStorage\.summary/)
+    await screen.findByText(deInventory.tyreStorage.summary.loading)
+    cleanup()
+    stripLazyNamespacesForTest()
+
+    await ensureNamespaceLoaded('vehicles')
+    vi.mocked(useAuthSession).mockReturnValue({ data: { effectiveCapabilities: null } } as never)
+    renderWithProviders(
+      <MemoryRouter>
+        <VehicleInfoCard vehicle={EMBED_VEHICLE as never} onChangeCustomer={vi.fn()} />
+      </MemoryRouter>,
+    )
+    expect(document.body.textContent).not.toMatch(/tyreStorage\.summary/)
+    await screen.findByText(deInventory.tyreStorage.summary.loading)
+    cleanup()
+    stripLazyNamespacesForTest()
+
+    render(<WorkshopOrderTyreSetsEmbed vehicleId="veh-1" />)
+    expect(document.body.textContent).not.toMatch(/tyreStorage\.summary/)
+    await screen.findByText(deInventory.tyreStorage.summary.loading)
+    cleanup()
+    stripLazyNamespacesForTest()
+
     vi.mocked(useInvoiceSettlement).mockReturnValue({
       data: { rksvMode: 'OFF', payment: null },
       isLoading: false,
     } as never)
-
-    const { container: tyreContainer } = render(
-      <LazyNamespaceContentGate namespaces={['inventory']}>
-        <TyreSetsSummary vehicleId="veh-1" />
-      </LazyNamespaceContentGate>,
-    )
-    expect(tyreContainer.textContent).not.toMatch(/tyreStorage\.summary/)
-    await screen.findByText(deInventory.tyreStorage.summary.loading)
-    expect(screen.queryByText('Laden…')).not.toBeInTheDocument()
-    cleanup()
 
     render(<InvoiceSettlementActions invoiceId="inv-1" invoiceStatus="ISSUED" canManage />)
     expect(document.body.textContent).not.toMatch(/settlement\.fiscalOff/)

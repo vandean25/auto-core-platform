@@ -36,6 +36,14 @@ import { APP_ROUTE_PATHS } from "@/lib/app-route-paths";
 import { RecordPickerlDialog } from "@/components/vehicles/RecordPickerlDialog";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
+export function WorkshopOrderTyreSetsEmbed({ vehicleId }: { vehicleId: string }) {
+  return (
+    <LazyNamespaceContentGate namespaces={['inventory']}>
+      <TyreSetsSummary vehicleId={vehicleId} readOnly as="h2" />
+    </LazyNamespaceContentGate>
+  )
+}
+
 export function WorkshopOrderDetails() {
   const { id = "" } = useParams<{ id: string }>();
   const { data: order, isLoading } = useWorkshopOrder(id);
@@ -99,9 +107,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
         />
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />
-        <LazyNamespaceContentGate namespaces={['inventory']}>
-          <TyreSetsSummary vehicleId={order.vehicle.id} readOnly as="h2" />
-        </LazyNamespaceContentGate>
+        <WorkshopOrderTyreSetsEmbed vehicleId={order.vehicle.id} />
         <TyreMeasurementSection parent={{ kind: 'order', id: order.id }} orderId={order.id} />
         <div className="min-w-0">
           <WorkshopOrderMeasurementsSection orderId={order.id} />

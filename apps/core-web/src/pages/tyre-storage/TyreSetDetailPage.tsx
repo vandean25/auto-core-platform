@@ -224,18 +224,20 @@ function TyreSetActionDialogHost({
   if (!isAllowed) return null
 
   return (
-    <TyreSetActionDialog
-      key={action}
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-      tyreSetId={tyreSet.id}
-      action={action}
-      currentLocationId={tyreSet.locationId}
-      vehicleId={tyreSet.vehicleId}
-      initialMeasurement={tyreSet.latestMeasurement ?? undefined}
-    />
+    <LazyNamespaceContentGate namespaces={['workshop']}>
+      <TyreSetActionDialog
+        key={action}
+        open
+        onOpenChange={(open) => {
+          if (!open) onClose()
+        }}
+        tyreSetId={tyreSet.id}
+        action={action}
+        currentLocationId={tyreSet.locationId}
+        vehicleId={tyreSet.vehicleId}
+        initialMeasurement={tyreSet.latestMeasurement ?? undefined}
+      />
+    </LazyNamespaceContentGate>
   )
 }
 
