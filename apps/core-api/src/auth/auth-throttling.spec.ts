@@ -3,7 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import request from 'supertest';
 import { AuthController } from './auth.controller.js';
 import { AuthSessionService } from './auth-session.service.js';
@@ -110,8 +110,8 @@ describe('auth throttling integration', () => {
       imports: [AuthThrottlingTestModule],
     }).compile();
     app = moduleRef.createNestApplication();
-    app.use((req, _res, next) => {
-      (req as { user: unknown }).user = {
+    app.use((req: Request, _res: Response, next: NextFunction) => {
+      (req as Request & { user: unknown }).user = {
         userId: 'user-1',
         email: 'user@example.com',
         tenantId: 'tenant-1',

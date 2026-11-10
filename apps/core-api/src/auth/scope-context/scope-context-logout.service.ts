@@ -26,7 +26,9 @@ export class ScopeContextLogoutService {
       await this.idpPort.verifyIdTokenWithRevocation(bearerToken);
 
     if (verified.sub !== user.userId) {
-      throw new UnauthorizedException('Token subject does not match the session.');
+      throw new UnauthorizedException(
+        'Token subject does not match the session.',
+      );
     }
 
     await getFirebaseAdminAuth().revokeRefreshTokens(verified.sub);

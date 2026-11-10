@@ -123,7 +123,9 @@ export function continuityDigestCandidates(
   authTimeSeconds: number,
 ): readonly string[] {
   const { current, previous } = readScopeContextHmacSecrets();
-  const digests = [continuityDigestForSignIn(current, subject, authTimeSeconds)];
+  const digests = [
+    continuityDigestForSignIn(current, subject, authTimeSeconds),
+  ];
   if (previous) {
     const previousDigest = continuityDigestForSignIn(
       previous,

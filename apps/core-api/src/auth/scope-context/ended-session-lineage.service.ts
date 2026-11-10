@@ -77,12 +77,43 @@ export class EndedSessionLineageService {
   private async pruneExpiredRows(tenantId: string): Promise<void> {
     const lifetimeSeconds = SCOPE_CONTEXT_ID_TOKEN_LIFETIME_SECONDS;
     const cutoff = new Date(Date.now() - lifetimeSeconds * 1000);
-    await this.prisma.$executeRaw`
-      DELETE FROM ended_session_lineages
-      WHERE tenant_id = ${tenantId}
-        AND refresh_tokens_revoked_at IS NOT NULL
-        AND refresh_tokens_revoked_at <= ${cutoff}
-        AND auth_time_seconds <= EXTRACT(EPOCH FROM refresh_tokens_revoked_at)::bigint
-    `;
+    await TenantContextStorage.run(async () => {
+      TenantContextStorage.setUser({
+        userId: 'scope-context-prune',
+        email: 'scope-context-prune@internal',
+        tenantId,
+        role: 'ADMIN',
+      });
+
+      const staleRows = await this.prisma.endedSessionLineage.findMany({
+        where: {
+          refresh_tokens_revoked_at: { not: null, lte: cutoff },
+        },
+        select: {
+          id: true,
+          auth_time_seconds: true,
+          refresh_tokens_revoked_at: true,
+        },
+      });
+
+      const revokeConfirmedRowIds = staleRows
+        .filter((row) => {
+          const revokedAt = row.refresh_tokens_revoked_at;
+          if (!revokedAt) {
+            return false;
+          }
+          const revokedEpochSeconds = Math.floor(revokedAt.getTime() / 1000);
+          return row.auth_time_seconds <= BigInt(revokedEpochSeconds);
+        })
+        .map((row) => row.id);
+
+      if (revokeConfirmedRowIds.length === 0) {
+        return;
+      }
+
+      await this.prisma.endedSessionLineage.deleteMany({
+        where: { id: { in: revokeConfirmedRowIds } },
+      });
+    });
   }
 }
