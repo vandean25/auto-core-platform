@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthSession } from '@/api/auth-session'
@@ -414,6 +414,62 @@ describe('lazy namespace first paint (AUT-945)', () => {
       expect(screen.getAllByRole('button', { name: deCommon.localeBundle.retry }).length).toBeGreaterThan(0)
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(document.body.textContent).not.toMatch(/tyreReport\./)
+    } finally {
+      rejectSpy.mockRestore()
+    }
+  })
+
+  it('move dialog shows the inventory title when the workshop bundle rejects', async () => {
+    stripLazyNamespacesForTest()
+    const ensureActual = initI18n.ensureNamespaceLoaded.bind(initI18n)
+    await ensureActual('inventory')
+    for (const language of ['de', 'en'] as const) {
+      i18n.removeResourceBundle(language, 'workshop')
+    }
+    const rejectSpy = vi.spyOn(initI18n, 'ensureNamespaceLoaded').mockImplementation((namespace) =>
+      namespace === 'workshop' ? Promise.reject(new Error('chunk failed')) : ensureActual(namespace),
+    )
+
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeRole: 'ADMIN' } } as never)
+    vi.mocked(useLocations).mockReturnValue({
+      data: [{ id: 'rack-2', type: 'customer_storage', code: 'R2' }],
+    } as never)
+    vi.mocked(useTyreSet).mockReturnValue({
+      data: {
+        id: 'set-1',
+        customerId: 'customer-1',
+        vehicleId: 'vehicle-1',
+        siteId: 'site-1',
+        locationId: 'rack-1',
+        label: 'Winter',
+        season: 'WINTER',
+        tyreCount: 4,
+        rimType: 'NONE',
+        status: 'IN_STORAGE',
+        dotCodes: [],
+        events: [],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as never)
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/workshop/tyre-storage/set-1']}>
+        <Routes>
+          <Route path="/workshop/tyre-storage/:id" element={<TyreSetDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    try {
+      fireEvent.click(await screen.findByRole('button', { name: deInventory.actions.move }))
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: deInventory.tyreStorage.actionDialog.move }),
+      ).toBeInTheDocument()
+      expect(dialog).not.toHaveTextContent(deCommon.localeBundle.loadFailed)
     } finally {
       rejectSpy.mockRestore()
     }

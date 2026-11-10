@@ -212,6 +212,10 @@ type TyreSetActionDialogHostProps = {
   tyreSet: TyreSet
 }
 
+function tyreSetActionNeedsWorkshopLocale(action: ActionKind): boolean {
+  return action === 'check-in' || action === 'check-out' || action === 'inspect'
+}
+
 function TyreSetActionDialogHost({
   action,
   canInspect,
@@ -223,22 +227,26 @@ function TyreSetActionDialogHost({
   const isAllowed = action === 'inspect' ? canInspect : canWrite
   if (!isAllowed) return null
 
-  return (
-    <LazyNamespaceContentGate namespaces={['workshop']}>
-      <TyreSetActionDialog
-        key={action}
-        open
-        onOpenChange={(open) => {
-          if (!open) onClose()
-        }}
-        tyreSetId={tyreSet.id}
-        action={action}
-        currentLocationId={tyreSet.locationId}
-        vehicleId={tyreSet.vehicleId}
-        initialMeasurement={tyreSet.latestMeasurement ?? undefined}
-      />
-    </LazyNamespaceContentGate>
+  const dialog = (
+    <TyreSetActionDialog
+      key={action}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      tyreSetId={tyreSet.id}
+      action={action}
+      currentLocationId={tyreSet.locationId}
+      vehicleId={tyreSet.vehicleId}
+      initialMeasurement={tyreSet.latestMeasurement ?? undefined}
+    />
   )
+
+  if (tyreSetActionNeedsWorkshopLocale(action)) {
+    return <LazyNamespaceContentGate namespaces={['workshop']}>{dialog}</LazyNamespaceContentGate>
+  }
+
+  return dialog
 }
 
 function canWriteTyreSet(role: string | undefined): boolean {

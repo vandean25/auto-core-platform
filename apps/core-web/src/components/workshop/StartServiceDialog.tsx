@@ -48,11 +48,7 @@ function StartServiceDialogBody(props: Omit<StartServiceDialogProps, 'open'>) {
                 <p className="text-sm text-muted-foreground">{t('shell.loading')}</p>
             ) : null}
             {status === 'failed' ? (
-                <LocaleBundleLoadFailed
-                    onRetry={retry}
-                    className="py-8"
-                    retryButtonClassName="min-h-11"
-                />
+                <LocaleBundleLoadFailed onRetry={retry} className="py-8" />
             ) : null}
             {status === 'ready' ? <StartServiceDialogForm {...props} /> : null}
         </DialogContent>
