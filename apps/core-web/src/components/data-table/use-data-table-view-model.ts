@@ -48,12 +48,15 @@ export function useDataTableViewModel<TData extends object>({
   const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
   const hasUsableData = hasUsableDataProp ?? !isLoading
   const { rows, infiniteView } = useDataTableInfinite(infinite, data)
+  const listSnapshotResolved =
+    hasUsableData || infiniteView?.totalCount !== undefined || infinite?.totalCount !== undefined
   const basePresentation = useDataTablePresentation({
     isLoading,
     isFetching,
     isPlaceholderData,
     isError,
     hasUsableData,
+    listSnapshotResolved,
     bypassSkeleton,
   })
   // While page one of a restarted or refreshed list loads, the rows on screen are a locked preview (ADR-0035 §6-7).

@@ -156,6 +156,37 @@ describe('InvoiceListPage', () => {
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
   })
 
+  // AUT-946 scenario 1: capped count appears before page one — skeleton must not outlive the count.
+  it('AUT-946: WHEN the count is visible but page one is still pending THEN the table body does not keep skeleton rows', async () => {
+    let releaseList: () => void = () => undefined
+    const listBlocked = new Promise<void>((resolve) => {
+      releaseList = resolve
+    })
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const parsed = new URL(String(url), 'http://acp.test')
+      if (parsed.pathname.endsWith('/capped-count')) return jsonResponse({ count: 1, isCapped: false })
+      if (parsed.searchParams.get('pagination') === 'cursor') {
+        await listBlocked
+        return jsonResponse({
+          data: [makeInvoice()],
+          meta: { nextCursor: null, hasNextPage: false, limit: BLOCK },
+        })
+      }
+      return jsonResponse([])
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('data-table-count')).toHaveTextContent('1 Treffer'))
+    vi.useFakeTimers()
+    try {
+      act(() => vi.advanceTimersByTime(550))
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(document.querySelector('tbody .animate-pulse')).toBeNull()
+    releaseList()
+    await screen.findByText('RE-2026-0001')
+  })
+
   it('opens sales-order drafts on the edit route and finalized invoices on detail', async () => {
     serveInvoices(() => [
       makeInvoice({ id: 'inv-draft-so', status: 'DRAFT', sales_order_id: 'so-1', invoice_number: undefined }),

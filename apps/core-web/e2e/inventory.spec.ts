@@ -133,6 +133,46 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
     return requests;
   }
 
+  test('AUT-946: WHEN the count is visible before page one THEN parts rows are not lasting skeleton placeholders', async ({
+    page,
+  }) => {
+    const rows = items(9);
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/capped-count'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ count: 9, isCapped: false }),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('pagination') !== 'cursor') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(createMockListResponse(rows)),
+        });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: rows,
+          meta: { nextCursor: null, hasNextPage: false },
+        }),
+      });
+    });
+    await new AutoCorePage(page, 'Artikel').navigate('/inventory?sortField=sku&sortDirection=asc');
+    await expect(page.getByTestId('data-table-count')).toHaveText('9 Treffer');
+    await expect(page.locator('tbody .animate-pulse')).toHaveCount(0, { timeout: 350 });
+    await expect(page.getByText('SKU-0000')).toBeVisible({ timeout: 5_000 });
+  });
+
   // Scenario 2: the count is capped at 1,000 and says so; it follows the search, not the sort.
   test('WHEN a parts search matches more than 1,000 items THEN the counter shows "1.000+"', async ({ page }) => {
     const requests = await openParts(page, '/inventory?search=bremse', { count: { count: 1000, isCapped: true } });
