@@ -101,6 +101,56 @@ export function extractBuildStep(cloudBuild: string, stepId: string): string {
   return cloudBuild.slice(contentStart, contentEnd);
 }
 
+/** Substitution keys from the top-level `substitutions:` block (release-tag-deploy). */
+export function parseCloudBuildSubstitutions(
+  cloudBuild: string,
+): Map<string, string> {
+  const substitutions = new Map<string, string>();
+  const lines = cloudBuild.split('\n');
+  let inSubstitutions = false;
+
+  for (const line of lines) {
+    if (line === 'substitutions:') {
+      inSubstitutions = true;
+      continue;
+    }
+    if (!inSubstitutions) {
+      continue;
+    }
+    if (/^[a-zA-Z]/.test(line)) {
+      break;
+    }
+    const match = line.match(/^ {2}(_[A-Z0-9_]+):\s*(.*)$/);
+    if (!match) {
+      continue;
+    }
+    let value = match[2].trim();
+    if (value.startsWith('"') && value.endsWith('"')) {
+      value = value.slice(1, -1);
+    }
+    substitutions.set(match[1], value);
+  }
+
+  return substitutions;
+}
+
+export function resolveCloudBuildSubstitutionRefs(
+  environment: CloudRunDeployEnvironment,
+  substitutions: Map<string, string>,
+): CloudRunDeployEnvironment {
+  const resolved = new Map<string, string>();
+  for (const [key, value] of environment) {
+    resolved.set(
+      key,
+      value.replace(
+        /\$\{(_[A-Z0-9_]+)\}/g,
+        (full, subKey: string) => substitutions.get(subKey) ?? full,
+      ),
+    );
+  }
+  return resolved;
+}
+
 function parseDeployEnvironment(deployStep: string): CloudRunDeployEnvironment {
   const environment = new Map<string, string>();
   const setArguments = [...deployStep.matchAll(SET_ARGUMENT_PATTERN)];
