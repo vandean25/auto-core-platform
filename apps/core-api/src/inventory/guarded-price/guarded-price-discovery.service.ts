@@ -25,6 +25,70 @@ import { guardedRequestInvalid } from './guarded-price.errors.js';
 
 const DISCOVERY_RAW_BATCH_SIZE = GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1;
 
+type DiscoveryBatchPage = {
+  newSurvivors: InventoryPriceOperation[];
+  lastRawExamined: InventoryPriceOperation | null;
+  batchFullyConsumed: boolean;
+  endOfJournal: boolean;
+  exhausted: boolean;
+  stoppedBeforeTail: boolean;
+  remainderHasVisible: boolean;
+  batchLength: number;
+  batchTail: InventoryPriceOperation | null;
+};
+
+function discoveryFullPageExhausted(page: DiscoveryBatchPage): {
+  exhausted: boolean;
+  lastRawCursor: InventoryPriceOperation | null;
+} {
+  if (page.stoppedBeforeTail && !page.remainderHasVisible) {
+    if (page.batchLength < DISCOVERY_RAW_BATCH_SIZE) {
+      return { exhausted: true, lastRawCursor: null };
+    }
+    return { exhausted: false, lastRawCursor: page.batchTail };
+  }
+  return {
+    exhausted: page.batchFullyConsumed && page.endOfJournal,
+    lastRawCursor: null,
+  };
+}
+
+function batchRemainderHasVisible(
+  batch: InventoryPriceOperation[],
+  lastRawExamined: InventoryPriceOperation | null,
+  visibleById: Set<string>,
+): boolean {
+  if (!lastRawExamined) {
+    return false;
+  }
+  const resumeIndex =
+    batch.findIndex((row) => row.id === lastRawExamined.id) + 1;
+  return batch.slice(resumeIndex).some((row) => visibleById.has(row.id));
+}
+
+function collectVisibleSurvivorsInBatch(
+  batch: InventoryPriceOperation[],
+  visibleById: Set<string>,
+  remainingSlots: number,
+): {
+  newSurvivors: InventoryPriceOperation[];
+  lastRawExamined: InventoryPriceOperation | null;
+} {
+  const newSurvivors: InventoryPriceOperation[] = [];
+  let lastRawExamined: InventoryPriceOperation | null = null;
+  for (const row of batch) {
+    lastRawExamined = row;
+    if (!visibleById.has(row.id)) {
+      continue;
+    }
+    newSurvivors.push(row);
+    if (newSurvivors.length >= remainingSlots) {
+      break;
+    }
+  }
+  return { newSurvivors, lastRawExamined };
+}
+
 @Injectable()
 export class GuardedPriceDiscoveryService {
   constructor(
@@ -121,15 +185,10 @@ export class GuardedPriceDiscoveryService {
       lastRawExamined = page.lastRawExamined;
       survivors.push(...page.newSurvivors);
       if (survivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
-        if (page.stoppedBeforeTail && !page.remainderHasVisible) {
-          if (page.batchLength < DISCOVERY_RAW_BATCH_SIZE) {
-            exhausted = true;
-          } else {
-            lastRawExamined = page.batchTail;
-            exhausted = false;
-          }
-        } else {
-          exhausted = page.batchFullyConsumed && page.endOfJournal;
+        const fullPage = discoveryFullPageExhausted(page);
+        exhausted = fullPage.exhausted;
+        if (fullPage.lastRawCursor) {
+          lastRawExamined = fullPage.lastRawCursor;
         }
         break;
       }
@@ -158,17 +217,7 @@ export class GuardedPriceDiscoveryService {
     baseWhere: Prisma.InventoryPriceOperationWhereInput,
     scanAfter: PriceOperationDiscoveryCursor | null,
     remainingSlots: number,
-  ): Promise<{
-    newSurvivors: InventoryPriceOperation[];
-    lastRawExamined: InventoryPriceOperation | null;
-    batchFullyConsumed: boolean;
-    endOfJournal: boolean;
-    exhausted: boolean;
-    stoppedBeforeTail: boolean;
-    remainderHasVisible: boolean;
-    batchLength: number;
-    batchTail: InventoryPriceOperation;
-  }> {
+  ): Promise<DiscoveryBatchPage> {
     const keysetWhere = this.buildKeysetWhere(scanAfter);
     const batch = await this.prisma.inventoryPriceOperation.findMany({
       where: { AND: [baseWhere, keysetWhere] },
@@ -186,41 +235,25 @@ export class GuardedPriceDiscoveryService {
         stoppedBeforeTail: false,
         remainderHasVisible: false,
         batchLength: 0,
-        batchTail: null as unknown as InventoryPriceOperation,
+        batchTail: null,
       };
     }
 
     const visible = await this.filterVisibleRetainedRows(tenantId, batch);
     const visibleById = new Set(visible.map((row) => row.id));
-    const newSurvivors: InventoryPriceOperation[] = [];
-    let lastRawExamined: InventoryPriceOperation | null = null;
     const batchTail = batch[batch.length - 1];
-
-    for (const row of batch) {
-      lastRawExamined = row;
-      if (!visibleById.has(row.id)) {
-        continue;
-      }
-      newSurvivors.push(row);
-      if (newSurvivors.length >= remainingSlots) {
-        break;
-      }
-    }
+    const { newSurvivors, lastRawExamined } = collectVisibleSurvivorsInBatch(
+      batch,
+      visibleById,
+      remainingSlots,
+    );
 
     const batchFullyConsumed =
       lastRawExamined !== null && lastRawExamined.id === batchTail.id;
     const stoppedBeforeTail = !batchFullyConsumed;
-    let remainderHasVisible = false;
-    if (stoppedBeforeTail && lastRawExamined) {
-      const resumeIndex =
-        batch.findIndex((row) => row.id === lastRawExamined.id) + 1;
-      for (let index = resumeIndex; index < batch.length; index++) {
-        if (visibleById.has(batch[index].id)) {
-          remainderHasVisible = true;
-          break;
-        }
-      }
-    }
+    const remainderHasVisible = stoppedBeforeTail
+      ? batchRemainderHasVisible(batch, lastRawExamined, visibleById)
+      : false;
     const endOfJournal =
       batchFullyConsumed && batch.length < DISCOVERY_RAW_BATCH_SIZE;
     return {
