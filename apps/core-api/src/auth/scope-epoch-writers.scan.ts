@@ -103,47 +103,47 @@ function hasMembershipAccessWrite(bounded: string): boolean {
   );
 }
 
-/** ADR-0038 §2: tenant/site/legalEntity updates that assign is_active count as access writes. */
-function hasEntityIsActiveAccessWrite(bounded: string): boolean {
-  const hasEntityUpdate =
-    /\b(?:tx\.)?(?:tenant|site|legalEntity)\.(?:update|upsert)\(/.test(bounded);
-  const hasEntityUpdateMany =
-    /\b(?:tx\.)?(?:tenant|site|legalEntity)\.updateMany\(/.test(bounded);
+const ENTITY_UPDATE_UPSERT =
+  /\b(?:tx\.)?(?:tenant|site|legalEntity)\.(?:update|upsert)\(/;
+const ENTITY_UPDATE_MANY =
+  /\b(?:tx\.)?(?:tenant|site|legalEntity)\.updateMany\(/;
+const IS_ACTIVE_LITERAL = /is_active:\s*(?:true|false)/;
+const IS_ACTIVE_DTO_FIELD = /is_active:\s*dto\.isActive/;
+
+function entityBlockTouchesIsActive(bounded: string): boolean {
+  const hasEntityUpdate = ENTITY_UPDATE_UPSERT.test(bounded);
+  const hasEntityUpdateMany = ENTITY_UPDATE_MANY.test(bounded);
   if (!hasEntityUpdate && !hasEntityUpdateMany) {
     return false;
   }
-  if (hasEntityUpdateMany && !/is_active:\s*false/.test(bounded)) {
+  if (hasEntityUpdateMany && !hasEntityUpdate && !/is_active:\s*false/.test(bounded)) {
     // Row-lock no-ops use updateMany({ data: { is_active: true } }) without changing access.
-    if (!hasEntityUpdate) {
-      return false;
-    }
+    return false;
   }
-  if (/is_active:\s*(?:true|false)/.test(bounded)) {
+  return true;
+}
+
+function entityBlockAssignsIsActive(bounded: string): boolean {
+  if (IS_ACTIVE_LITERAL.test(bounded) || IS_ACTIVE_DTO_FIELD.test(bounded)) {
     return true;
   }
-  if (/is_active:\s*dto\.isActive/.test(bounded)) {
-    return true;
-  }
-  if (
+  const siteUpdateData =
     /\b(?:tx\.)?site\.update\(/.test(bounded) &&
     /updateData/.test(bounded) &&
-    /is_active/.test(bounded)
-  ) {
-    return true;
-  }
-  if (
+    /is_active/.test(bounded);
+  const legalEntityDto =
     /\b(?:tx\.)?legalEntity\.update\(/.test(bounded) &&
-    /dto\.isActive/.test(bounded)
-  ) {
-    return true;
-  }
-  if (
-    /\b(?:tx\.)?tenant\.update\(/.test(bounded) &&
-    /dto\.isActive/.test(bounded)
-  ) {
-    return true;
-  }
-  return false;
+    /dto\.isActive/.test(bounded);
+  const tenantDto =
+    /\b(?:tx\.)?tenant\.update\(/.test(bounded) && /dto\.isActive/.test(bounded);
+  return siteUpdateData || legalEntityDto || tenantDto;
+}
+
+/** ADR-0038 §2: tenant/site/legalEntity updates that assign is_active count as access writes. */
+function hasEntityIsActiveAccessWrite(bounded: string): boolean {
+  return (
+    entityBlockTouchesIsActive(bounded) && entityBlockAssignsIsActive(bounded)
+  );
 }
 
 function transactionBlockRequiresEpoch(bounded: string): boolean {

@@ -52,6 +52,16 @@ describe('scope epoch writers (AUT-934)', () => {
   const token = () => createTestAuthToken(authService, tenant);
   const tenantPrisma = () => createTenantAwarePrisma(prisma, tenant.tenantId);
 
+  async function mainSiteAdminUser() {
+    const user = await tenantPrisma().user.findFirstOrThrow({
+      where: { email: tenant.email },
+    });
+    const site = await tenantPrisma().site.findFirstOrThrow({
+      where: { tenant_id: tenant.tenantId, code: 'MAIN' },
+    });
+    return { user, site };
+  }
+
   async function memberEpoch(userId: string) {
     const row = await tenantPrisma().tenantMember.findFirstOrThrow({
       where: { tenant_id: tenant.tenantId, user_id: userId },
@@ -102,12 +112,7 @@ describe('scope epoch writers (AUT-934)', () => {
   });
 
   it('removeSiteMembership rolls back epoch and row on transaction failure', async () => {
-    const user = await tenantPrisma().user.findFirstOrThrow({
-      where: { email: tenant.email },
-    });
-    const site = await tenantPrisma().site.findFirstOrThrow({
-      where: { tenant_id: tenant.tenantId, code: 'MAIN' },
-    });
+    const { user, site } = await mainSiteAdminUser();
     const membership = await tenantPrisma().siteMembership.findFirstOrThrow({
       where: {
         tenant_id: tenant.tenantId,
@@ -155,12 +160,7 @@ describe('scope epoch writers (AUT-934)', () => {
   });
 
   it('removeSiteMembership commits epoch increment', async () => {
-    const user = await tenantPrisma().user.findFirstOrThrow({
-      where: { email: tenant.email },
-    });
-    const site = await tenantPrisma().site.findFirstOrThrow({
-      where: { tenant_id: tenant.tenantId, code: 'MAIN' },
-    });
+    const { user, site } = await mainSiteAdminUser();
     const beforeEpoch = await memberEpoch(user.id);
 
     await runWithTenantContext(tenant.tenantId, () =>
