@@ -3,9 +3,7 @@ import type { TFunction } from 'i18next'
 
 import type { WorkshopEstimateVersionDetail } from '@/api/workshop-estimates'
 import type { CreditNoteResponseDto } from '@/api/useCreditNotes'
-import type { Customer } from '@/api/types'
-import type { WorkshopOrder } from '@/api/types'
-import type { Vehicle } from '@/api/types'
+import type { Customer, SalesOrder, Vehicle, WorkshopOrder } from '@/api/types'
 import {
   executeEntityAction,
   filterEntityActions,
@@ -142,6 +140,18 @@ export function buildCustomerPaletteContextActions<TRunContext>(
 ): PaletteContextAction[] {
   return mapRegistryActionsToPalette(definitions, role, customer, runContext, () =>
     t('globalSearch.contextActions.customer'),
+  )
+}
+
+export function buildSalesOrderPaletteContextActions<TRunContext>(
+  definitions: EntityActionDefinition<SalesOrder, TRunContext>[],
+  role: string | undefined,
+  salesOrder: SalesOrder,
+  runContext: TRunContext,
+  t: TFunction<'nav'>,
+): PaletteContextAction[] {
+  return mapRegistryActionsToPalette(definitions, role, salesOrder, runContext, () =>
+    t('globalSearch.contextActions.salesOrder', { orderNo: salesOrder.order_number }),
   )
 }
 

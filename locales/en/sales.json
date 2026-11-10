@@ -119,6 +119,7 @@
       "newOrder": "New order",
       "searchPlaceholder": "Search orders...",
       "saveViewTitle": "Sales Orders",
+      "deleteConfirmTitle": "Delete sales order",
       "deleteConfirm": "Are you sure you want to delete this sales order?",
       "deleted": "Sales order deleted",
       "deleteFailed": "Failed to delete sales order",

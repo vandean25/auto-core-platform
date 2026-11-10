@@ -7,6 +7,8 @@ import {
   canManageWorkshopTasks,
   canCheckInWorkshopOrder,
   canDeleteCustomerFromList,
+  canDeleteSalesOrder,
+  isSalesOrderDraftDeletable,
   canGenerateWorkshopJobCardPdf,
   canOpenBackOfficeDetail,
   canOpenCustomer,
@@ -21,6 +23,14 @@ import {
 } from './action-role-predicates'
 
 describe('action-role-predicates', () => {
+  it('limits sales order delete to back-office roles and draft orders without an invoice', () => {
+    expect(canDeleteSalesOrder('SALES')).toBe(true)
+    expect(canDeleteSalesOrder('TECH')).toBe(false)
+    expect(isSalesOrderDraftDeletable({ status: 'DRAFT', invoice: null })).toBe(true)
+    expect(isSalesOrderDraftDeletable({ status: 'CONFIRMED', invoice: null })).toBe(false)
+    expect(isSalesOrderDraftDeletable({ status: 'DRAFT', invoice: { id: 'inv-1' } })).toBe(false)
+  })
+
   it('allows standard roles for customer, vehicle and workshop order actions', () => {
     expect(canOpenCustomer('ADMIN')).toBe(true)
     expect(canDeleteCustomerFromList('MECHANIC')).toBe(true)

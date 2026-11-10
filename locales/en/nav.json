@@ -137,7 +137,8 @@
       "vehicle": "Actions for {{vehicle}}",
       "workOrder": "Actions for {{orderNo}}",
       "estimate": "Actions for estimate {{number}} v{{version}}",
-      "creditNote": "Actions for credit note {{number}}"
+      "creditNote": "Actions for credit note {{number}}",
+      "salesOrder": "Actions for {{orderNo}}"
     },
     "savedViews": {
       "heading": "Saved views",

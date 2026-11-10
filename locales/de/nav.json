@@ -137,7 +137,8 @@
       "vehicle": "Aktionen für {{vehicle}}",
       "workOrder": "Aktionen für {{orderNo}}",
       "estimate": "Aktionen für Kostenvoranschlag {{number}} v{{version}}",
-      "creditNote": "Aktionen für Gutschrift {{number}}"
+      "creditNote": "Aktionen für Gutschrift {{number}}",
+      "salesOrder": "Aktionen für {{orderNo}}"
     },
     "savedViews": {
       "heading": "Gespeicherte Ansichten",

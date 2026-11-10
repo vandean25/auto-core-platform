@@ -8,6 +8,7 @@ export type GlobalSearchRecordRef =
   | { entity: 'vehicle'; id: string }
   | { entity: 'tyre_set'; id: string }
   | { entity: 'credit_note'; id: string }
+  | { entity: 'sales_order'; id: string }
   /** An estimate version of the estimates list, known only while its row has focus. */
   | { entity: 'estimate'; id: string }
 
@@ -23,6 +24,10 @@ export function parseGlobalSearchRecordRef(
 ): GlobalSearchRecordRef | null {
   if (focusedListRowId && matchPath({ path: APP_ROUTE_PATHS.workshopEstimates, end: true }, pathname)) {
     return { entity: 'estimate', id: focusedListRowId }
+  }
+
+  if (focusedListRowId && matchPath({ path: APP_ROUTE_PATHS.salesOrders, end: true }, pathname)) {
+    return { entity: 'sales_order', id: focusedListRowId }
   }
 
   const workshopOrder = matchPath({ path: APP_ROUTE_PATHS.workshopOrderDetail, end: true }, pathname)
@@ -49,6 +54,11 @@ export function parseGlobalSearchRecordRef(
   const creditNote = matchPath({ path: APP_ROUTE_PATHS.creditNoteDetail, end: true }, pathname)
   if (creditNote?.params.id) {
     return { entity: 'credit_note', id: creditNote.params.id }
+  }
+
+  const salesOrder = matchPath({ path: APP_ROUTE_PATHS.salesOrderDetail, end: true }, pathname)
+  if (salesOrder?.params.id) {
+    return { entity: 'sales_order', id: salesOrder.params.id }
   }
 
   return null

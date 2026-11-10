@@ -5,13 +5,16 @@ import { useNavigate } from 'react-router-dom'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { useWorkOrderActionRunContext } from '@/features/actions/use-work-order-action-run-context'
 import { useCustomerDeleteHandler } from '@/pages/customers/use-customer-delete-handler'
+import { useSalesOrderDeleteHandler } from '@/pages/sales-orders/use-sales-order-delete-handler'
 
 export function usePaletteContextRunContexts() {
   const { t: tCustomers } = useTranslation('customers')
   const { t: tVehicles } = useTranslation('vehicles')
   const { t: tFinance } = useTranslation('finance')
+  const { t: tSales } = useTranslation('sales')
   const navigate = useNavigate()
   const handleCustomerDelete = useCustomerDeleteHandler()
+  const handleSalesOrderDelete = useSalesOrderDeleteHandler()
   const workshop = useWorkOrderActionRunContext()
   const creditNotePdf = usePdfDownload()
 
@@ -27,6 +30,10 @@ export function usePaletteContextRunContexts() {
     () => ({ t: tFinance, generateAndDownload: creditNotePdf.download }),
     [creditNotePdf.download, tFinance],
   )
+  const salesOrder = useMemo(
+    () => ({ navigate, onDelete: handleSalesOrderDelete, t: tSales }),
+    [handleSalesOrderDelete, navigate, tSales],
+  )
 
-  return { workshop, customer, vehicle, estimate, tyreSet, creditNote }
+  return { workshop, customer, vehicle, estimate, tyreSet, creditNote, salesOrder }
 }

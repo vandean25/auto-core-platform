@@ -8,6 +8,7 @@ export type PaletteContextTranslations = {
   customers: TFunction<'customers'>
   vehicles: TFunction<'vehicles'>
   finance: TFunction<'finance'>
+  sales: TFunction<'sales'>
 }
 
 export function usePaletteContextTranslations(): PaletteContextTranslations {
@@ -16,9 +17,10 @@ export function usePaletteContextTranslations(): PaletteContextTranslations {
   const { t: customers } = useTranslation('customers')
   const { t: vehicles } = useTranslation('vehicles')
   const { t: finance } = useTranslation('finance')
+  const { t: sales } = useTranslation('sales')
 
   return useMemo(
-    () => ({ nav, workshop, customers, vehicles, finance }),
-    [nav, workshop, customers, vehicles, finance],
+    () => ({ nav, workshop, customers, vehicles, finance, sales }),
+    [nav, workshop, customers, vehicles, finance, sales],
   )
 }

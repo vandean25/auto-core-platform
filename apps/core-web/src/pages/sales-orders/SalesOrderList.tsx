@@ -1,22 +1,21 @@
 import { useEffect } from 'react'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useTranslation } from 'react-i18next'
-import { useDeleteSalesOrder, useSalesOrders } from '@/api/sales-orders'
+import { useSalesOrders } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { formatCurrency } from '@/lib/utils'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { SalesOrder } from '@/api/types'
-import { toast } from 'sonner'
 import { DASHBOARD_WIDGET_SOURCE_SALES_ORDERS } from '@/features/dashboard-widgets/sources'
-import { translateSalesApiError } from '@/features/sales/sales-api-error-i18n'
 import { formatDate } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
+import { useSalesOrderListRowBehaviour } from './useSalesOrderListRowBehaviour'
 
 function customerDisplayName(customer: SalesOrder['customer']): string {
   return customer.type === 'COMPANY'
@@ -33,23 +32,12 @@ export default function SalesOrderList() {
   useEffect(() => {
     void ensureNamespaceLoaded('sales')
   }, [])
-  const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useSalesOrders(queryParams)
-  const deleteMutation = useDeleteSalesOrder()
+  const rowBehaviour = useSalesOrderListRowBehaviour()
 
   const data: SalesOrder[] = Array.isArray(responseData) ? responseData : responseData?.data ?? []
   const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
-
-  const handleDelete = async (id: string) => {
-    if (!confirm(t('orders.list.deleteConfirm'))) return
-    try {
-      await deleteMutation.mutateAsync(id)
-      toast.success(t('orders.list.deleted'))
-    } catch (error: unknown) {
-      toast.error(translateSalesApiError(t, error, 'errors.generic'))
-    }
-  }
 
   const columns: ColumnDef<SalesOrder>[] = [
     {
@@ -126,19 +114,7 @@ export default function SalesOrderList() {
         isLoading={isLoading}
         searchColumn="order_number"
         searchPlaceholder={t('orders.list.searchPlaceholder')}
-        rowBehaviour={{
-          onRowClick: (row) => navigate(`/sales-orders/${row.id}`),
-          getRowContextActions: (row) =>
-            row.status === 'DRAFT'
-              ? [
-                  {
-                    label: t('shared.delete'),
-                    onClick: () => void handleDelete(row.id),
-                    destructive: true,
-                  },
-                ]
-              : [],
-        }}
+        rowBehaviour={rowBehaviour}
         {...tableState}
       />
     </>
