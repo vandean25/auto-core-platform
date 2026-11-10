@@ -40,6 +40,7 @@ import { retailMajorToMinorUnits } from './guarded-price.money.js';
 import { receiptFromAppliedJournal } from './guarded-price-receipt.js';
 import { revisionToDb } from './guarded-price.revision.js';
 import { executeGuardedPriceTxE } from './guarded-price-txe.js';
+import { waitForTxAReleaseIfHeld } from './guarded-price-test-hooks.js';
 
 @Injectable()
 export class GuardedPriceService {
@@ -228,6 +229,8 @@ export class GuardedPriceService {
               accepted_at: new Date(),
             },
           });
+
+          await waitForTxAReleaseIfHeld();
 
           return { kind: 'proceed' as const };
         },

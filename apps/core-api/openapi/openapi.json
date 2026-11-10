@@ -370,6 +370,150 @@
         ]
       }
     },
+    "/api/inventory/price-operations": {
+      "get": {
+        "operationId": "InventoryPriceOperationsController_list",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Keyset cursor (acceptedAt DESC, key)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryPriceOperationListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List own guarded price operations within retention (ADR-0037)",
+        "tags": [
+          "InventoryPriceOperations"
+        ]
+      }
+    },
+    "/api/inventory/price-operations/{key}": {
+      "get": {
+        "operationId": "InventoryPriceOperationsController_getOne",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryPriceOperationDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read one own guarded price operation by key",
+        "tags": [
+          "InventoryPriceOperations"
+        ]
+      }
+    },
+    "/api/inventory/price-operations/{key}/fence": {
+      "post": {
+        "operationId": "InventoryPriceOperationsController_fence",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserFenceInventoryPriceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryPriceOperationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardedPriceErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "User fence: mark a guarded price operation as not applied",
+        "tags": [
+          "InventoryPriceOperations"
+        ]
+      }
+    },
     "/api/inventory/availability/{sku}": {
       "get": {
         "operationId": "InventoryController_checkAvailability",
@@ -18794,6 +18938,165 @@
         "type": "object",
         "properties": {}
       },
+      "InventoryPriceOperationDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ACCEPTED",
+              "APPLIED",
+              "CONFLICT",
+              "FENCED"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "retail_price": {
+            "type": "string",
+            "description": "Target price in major units (decimal string)"
+          },
+          "basis_retail_price": {
+            "type": "string",
+            "description": "Original basis price in major units (decimal string)"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finalAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "itemId",
+          "sku",
+          "state",
+          "kind",
+          "expectedRevision",
+          "retail_price",
+          "basis_retail_price",
+          "acceptedAt",
+          "finalAt",
+          "errorCode"
+        ]
+      },
+      "ListCursorPageMetaDto": {
+        "type": "object",
+        "properties": {
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "nextCursor",
+          "hasNextPage",
+          "limit"
+        ]
+      },
+      "InventoryPriceOperationListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryPriceOperationDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ListCursorPageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "UserFenceInventoryPriceDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "retail_price": {
+            "type": "number"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "itemId",
+          "retail_price",
+          "expectedRevision"
+        ]
+      },
+      "GuardedPriceErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number"
+          },
+          "message": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusCode",
+          "message",
+          "error"
+        ],
+        "additionalProperties": false
+      },
       "GuardedInventoryPricePatchDto": {
         "type": "object",
         "properties": {
@@ -18854,39 +19157,6 @@
           "unit",
           "revision"
         ]
-      },
-      "GuardedPriceErrorDto": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number"
-          },
-          "message": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            ]
-          },
-          "error": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "statusCode",
-          "message",
-          "error"
-        ],
-        "additionalProperties": false
       },
       "UpdateInventoryItemDto": {
         "type": "object",
@@ -22087,27 +22357,6 @@
           "total_tax",
           "total_gross",
           "items"
-        ]
-      },
-      "ListCursorPageMetaDto": {
-        "type": "object",
-        "properties": {
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "hasNextPage": {
-            "type": "boolean"
-          },
-          "limit": {
-            "type": "number",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "nextCursor",
-          "hasNextPage",
-          "limit"
         ]
       },
       "InvoiceCursorPageResponseDto": {
