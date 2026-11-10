@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { Button } from '@/components/ui/button'
@@ -111,7 +112,9 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
           sourceLabel={(source) => t('detail.legacyNumberSource', { source })}
         />
         {vehicle.customer?.id ? (
-          <TyreSetsSummary vehicleId={vehicle.id} customerId={vehicle.customer.id} />
+          <LazyNamespaceContentGate namespaces={['inventory']}>
+            <TyreSetsSummary vehicleId={vehicle.id} customerId={vehicle.customer.id} />
+          </LazyNamespaceContentGate>
         ) : null}
         <div className='grid grid-cols-2 gap-3'>
           {editableFields.map(({ field, label, value, placeholder, emptyText, ariaLabel, wide }) => (

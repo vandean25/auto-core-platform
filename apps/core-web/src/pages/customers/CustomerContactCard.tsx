@@ -7,6 +7,7 @@ import { isCustomerUpdateOptimisticEligible } from '@/features/interaction/custo
 import { FieldSaveFailures, useOptimisticFieldSave } from '@/features/interaction/use-optimistic-field-save'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LegacyNumbers } from '@/components/LegacyNumbers'
+import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import type { CustomerDetailResponse } from './customer-detail-model'
 
@@ -132,7 +133,9 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
             phone
           />
         </div>
-        <TyreSetsSummary customerId={customer.id} />
+        <LazyNamespaceContentGate namespaces={['inventory']}>
+          <TyreSetsSummary customerId={customer.id} />
+        </LazyNamespaceContentGate>
         <div className='flex items-start gap-2'>
           <MapPin className='h-4 w-4 text-muted-foreground mt-1' />
           <div className='w-full space-y-1'>

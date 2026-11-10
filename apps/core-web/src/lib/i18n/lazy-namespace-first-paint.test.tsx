@@ -17,6 +17,7 @@ import WorkshopKpiReportsPage from '@/pages/reports/WorkshopKpiReportsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import VehicleStockList from '@/pages/vehicle-stock/VehicleStockList'
 import PurchaseBillsPage from '@/pages/purchase-bills/PurchaseBillsPage'
+import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import { InvoiceSettlementActions } from '@/components/finance/InvoiceSettlementActions'
 import { useInvoiceSettlement } from '@/api/useInvoiceSettlement'
@@ -198,7 +199,11 @@ describe('lazy namespace first paint (AUT-945)', () => {
       isLoading: false,
     } as never)
 
-    const { container: tyreContainer } = render(<TyreSetsSummary vehicleId="veh-1" />)
+    const { container: tyreContainer } = render(
+      <LazyNamespaceContentGate namespaces={['inventory']}>
+        <TyreSetsSummary vehicleId="veh-1" />
+      </LazyNamespaceContentGate>,
+    )
     expect(tyreContainer.textContent).not.toMatch(/tyreStorage\.summary/)
     await screen.findByText('Laden…')
     cleanup()

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
 import { InvoiceOverrunWarning } from "@/components/workshop/InvoiceOverrunWarning";
+import { LazyNamespaceContentGate } from "@/features/i18n/LazyNamespaceContentGate";
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import { WorkshopOrderMeasurementsSection } from "@/components/workshop/WorkshopOrderMeasurementsSection";
 import { TyreMeasurementSection } from "@/features/tyre-report/TyreMeasurementSection";
@@ -98,7 +99,9 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
         />
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />
-        <TyreSetsSummary vehicleId={order.vehicle.id} readOnly as="h2" />
+        <LazyNamespaceContentGate namespaces={['inventory']}>
+          <TyreSetsSummary vehicleId={order.vehicle.id} readOnly as="h2" />
+        </LazyNamespaceContentGate>
         <TyreMeasurementSection parent={{ kind: 'order', id: order.id }} orderId={order.id} />
         <div className="min-w-0">
           <WorkshopOrderMeasurementsSection orderId={order.id} />

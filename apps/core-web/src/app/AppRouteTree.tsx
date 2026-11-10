@@ -1,29 +1,18 @@
 import * as React from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
+import { Navigate, Route } from 'react-router-dom'
 import { APP_ROUTE_PATHS, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { PageLoader } from '@/components/ui/PageLoader'
 import * as Lazy from './lazy-app-pages'
+import { AnimatedRouteTreeShell } from './AnimatedRouteTreeShell'
 import { LazyNamespaceLayout } from '@/features/i18n/LazyNamespaceLayout'
 import { WorkshopNamespaceLayout } from '@/features/workshop/WorkshopNamespaceLayout'
 import { CapabilityGate } from '@/components/CapabilityGate'
 import { LightDocumentRoute } from '@/components/theme/LightDocumentRoute'
 
 export function AppRoutes() {
-  const location = useLocation()
-
   return (
-    <LayoutGroup id="app-routes">
-      <React.Suspense fallback={<PageLoader />}>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
-            exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
-          >
-            <Routes location={location}>
+    <AnimatedRouteTreeShell layoutGroupId="app-routes">
               <Route path={APP_ROUTE_PATHS.home} element={<Navigate to={APP_ROUTE_PATHS.inventory} replace />} />
               <Route
                 path={APP_ROUTE_PATHS.vehicleStockAlias}
@@ -158,26 +147,12 @@ export function AppRoutes() {
                 </Route>
               </Route>
               <Route path="*" element={<Lazy.NotFoundPage />} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
-      </React.Suspense>
-    </LayoutGroup>
+    </AnimatedRouteTreeShell>
   )
 }
 export function MechanicRoutes() {
-  const location = useLocation()
   return (
-    <LayoutGroup id="mechanic-routes">
-      <React.Suspense fallback={<PageLoader />}>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
-            exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
-          >
-            <Routes location={location}>
+    <AnimatedRouteTreeShell layoutGroupId="mechanic-routes">
               <Route element={<WorkshopNamespaceLayout />}>
                 <Route path={MECHANIC_ROUTE_PATHS.queue} element={<Lazy.MechanicQueuePage />} />
                 <Route path={MECHANIC_ROUTE_PATHS.taskDetail} element={<Lazy.MechanicTaskDetailPage />} />
@@ -186,10 +161,6 @@ export function MechanicRoutes() {
                 <Route path={APP_ROUTE_PATHS.tyreStorageDetail} element={<Lazy.TyreSetDetailPage />} />
               </Route>
               <Route path="*" element={<Lazy.NotFoundPage />} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
-      </React.Suspense>
-    </LayoutGroup>
+    </AnimatedRouteTreeShell>
   )
 }
