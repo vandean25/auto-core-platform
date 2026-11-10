@@ -21301,6 +21301,10 @@
           },
           "taxRate": {
             "type": "number"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [

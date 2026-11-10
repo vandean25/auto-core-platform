@@ -124,9 +124,7 @@ export class SalesService {
       where: { id, tenant_id: tenantId },
       include: {
         customer: true,
-        items: {
-          orderBy: [{ workshop_task_line_item_id: 'asc' }, { id: 'asc' }],
-        },
+        items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
         vehicle: true,
       },
     });

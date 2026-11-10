@@ -5,6 +5,7 @@ export const DEFAULT_INVOICE_DUE_DAYS = 14;
 
 export type InvoiceLineInput = {
   catalogItemId?: string;
+  workshopTaskLineItemId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -97,6 +98,7 @@ export async function buildFormattedInvoiceItems(
     formattedItems.push({
       tenant_id: tenantId,
       catalog_item_id: item.catalogItemId,
+      workshop_task_line_item_id: item.workshopTaskLineItemId ?? null,
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,

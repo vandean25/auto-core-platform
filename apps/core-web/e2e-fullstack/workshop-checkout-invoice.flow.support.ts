@@ -19,13 +19,36 @@ export function authHeaders(fixture: E2eFullstackFixture): ApiAuth {
   return { Authorization: `Bearer ${fixture.authToken}` }
 }
 
+type WorkshopLineSeed = {
+  type: 'LABOR' | 'FEE'
+  itemNo: string
+  description: string
+  qty: number
+  unitPrice: number
+}
+
 export async function createCompletedWorkshopOrder(
   request: APIRequestContext,
   fixture: E2eFullstackFixture,
-  options: { unitPrice?: number; description?: string } = {},
+  options: {
+    unitPrice?: number
+    description?: string
+    lineItems?: WorkshopLineSeed[]
+  } = {},
 ): Promise<CompletedWorkshopOrder> {
   const unitPrice = options.unitPrice ?? 90
   const description = options.description ?? 'Brake labor (AUT-965)'
+  const lineItems: WorkshopLineSeed[] =
+    options.lineItems ??
+    [
+      {
+        type: 'LABOR',
+        itemNo: 'LAB-965',
+        description,
+        qty: 1,
+        unitPrice,
+      },
+    ]
   const headers = authHeaders(fixture)
 
   const vehicleResponse = await request.post(`${apiBase()}/vehicles`, {
@@ -67,15 +90,7 @@ export async function createCompletedWorkshopOrder(
       headers,
       data: {
         expectedLineItemsVersion: 0,
-        items: [
-          {
-            type: 'LABOR',
-            itemNo: 'LAB-965',
-            description,
-            qty: 1,
-            unitPrice,
-          },
-        ],
+        items: lineItems,
       },
     },
   )

@@ -146,6 +146,7 @@ test.describe('Full-stack workshop checkout VAT (AUT-965)', () => {
         quantity: string
         unit_price: string
         catalog_item_id: string | null
+        workshop_task_line_item_id: string | null
       }>
     }
 
@@ -159,6 +160,9 @@ test.describe('Full-stack workshop checkout VAT (AUT-965)', () => {
           unitPrice: Number(item.unit_price),
           taxRate: 0,
           ...(item.catalog_item_id ? { catalogItemId: item.catalog_item_id } : {}),
+          ...(item.workshop_task_line_item_id
+            ? { workshopTaskLineItemId: item.workshop_task_line_item_id }
+            : {}),
         })),
       },
     })
@@ -176,6 +180,103 @@ test.describe('Full-stack workshop checkout VAT (AUT-965)', () => {
     )
     expect(vat).toMatch(/0,00/)
     expect(total).toMatch(/100,00/)
+  })
+
+  test('multi-line draft PATCH keeps per-line VAT after workshop link round-trip', async ({
+    page,
+    request,
+  }) => {
+    const fixture = loadE2eFullstackFixture()
+    const order = await createCompletedWorkshopOrder(request, fixture, {
+      lineItems: [
+        {
+          type: 'LABOR',
+          itemNo: 'LAB-A',
+          description: 'Labor taxable',
+          qty: 1,
+          unitPrice: 100,
+        },
+        {
+          type: 'FEE',
+          itemNo: 'FEE-B',
+          description: 'Fee exempt',
+          qty: 1,
+          unitPrice: 10,
+        },
+      ],
+    })
+    const headers = authHeaders(fixture)
+
+    const draftResponse = await request.post(`${apiBase()}/invoices/drafts`, {
+      headers,
+      data: { workshopOrderId: order.id },
+    })
+    expect(draftResponse.ok()).toBeTruthy()
+    const draft = (await draftResponse.json()) as {
+      id: string
+      customer_id: string
+      items: Array<{
+        id: string
+        description: string
+        quantity: string
+        unit_price: string
+        tax_rate: number
+        catalog_item_id: string | null
+        workshop_task_line_item_id: string | null
+      }>
+    }
+    expect(draft.items).toHaveLength(2)
+
+    const byWorkshopId = new Map(
+      draft.items.map((item) => [item.workshop_task_line_item_id, item] as const),
+    )
+    const exemptLine = [...byWorkshopId.values()].find((item) =>
+      item.description.includes('exempt'),
+    )
+    const taxableLine = [...byWorkshopId.values()].find((item) =>
+      item.description.includes('taxable'),
+    )
+    expect(exemptLine).toBeTruthy()
+    expect(taxableLine).toBeTruthy()
+
+    const patchItems = [
+      {
+        description: exemptLine!.description,
+        quantity: Number(exemptLine!.quantity),
+        unitPrice: Number(exemptLine!.unit_price),
+        taxRate: 0,
+        workshopTaskLineItemId: exemptLine!.workshop_task_line_item_id!,
+      },
+      {
+        description: taxableLine!.description,
+        quantity: Number(taxableLine!.quantity),
+        unitPrice: Number(taxableLine!.unit_price),
+        taxRate: 20,
+        workshopTaskLineItemId: taxableLine!.workshop_task_line_item_id!,
+      },
+    ]
+
+    await request.patch(`${apiBase()}/sales/invoices/${draft.id}`, {
+      headers,
+      data: {
+        customerId: draft.customer_id,
+        items: patchItems,
+      },
+    })
+
+    await gotoWithReadySession(page, '/dashboard')
+    await openWorkshopCheckout(page, order.id)
+
+    const vat = await readCheckoutSummaryAmount(
+      page,
+      DE_FULLSTACK_WORKSHOP.checkoutSummary.vat,
+    )
+    const total = await readCheckoutSummaryAmount(
+      page,
+      DE_FULLSTACK_WORKSHOP.checkoutSummary.total,
+    )
+    expect(vat).toMatch(/20,00/)
+    expect(total).toMatch(/130,00/)
   })
 
 })

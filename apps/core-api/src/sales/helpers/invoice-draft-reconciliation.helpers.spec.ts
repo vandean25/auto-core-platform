@@ -9,7 +9,6 @@ describe('invoice-draft-reconciliation.helpers', () => {
       findFirst: jest.fn(),
     },
     invoiceItem: {
-      findMany: jest.fn(),
       deleteMany: jest.fn(),
       createMany: jest.fn(),
     },
@@ -20,7 +19,6 @@ describe('invoice-draft-reconciliation.helpers', () => {
   });
 
   it('replaces draft invoice items atomically', async () => {
-    tx.invoiceItem.findMany.mockResolvedValue([]);
     tx.invoice.updateMany.mockResolvedValue({ count: 1 });
     tx.invoice.findFirst.mockResolvedValue({
       id: 'inv-1',
@@ -56,10 +54,7 @@ describe('invoice-draft-reconciliation.helpers', () => {
     expect(tx.invoiceItem.createMany).toHaveBeenCalled();
   });
 
-  it('preserves workshop line ids by index when updating draft items', async () => {
-    tx.invoiceItem.findMany.mockResolvedValue([
-      { workshop_task_line_item_id: 'wtl-99' },
-    ]);
+  it('keeps workshop line id on each row from the payload, independent of payload order', async () => {
     tx.invoice.updateMany.mockResolvedValue({ count: 1 });
     tx.invoice.findFirst.mockResolvedValue({
       id: 'inv-1',
@@ -72,17 +67,27 @@ describe('invoice-draft-reconciliation.helpers', () => {
       tenantId: 'tenant-1',
       headerData: {
         customer_id: 'customer-1',
-        total_net: 100,
-        total_tax: 0,
-        total_gross: 100,
+        total_net: 110,
+        total_tax: 20,
+        total_gross: 130,
       },
       formattedItems: [
         {
           tenant_id: 'tenant-1',
-          description: 'Labour',
+          description: 'Small exempt',
+          quantity: 1,
+          unit_price: 10,
+          tax_rate: 0,
+          workshop_task_line_item_id: 'wtl-small',
+          revenue_group_name: null,
+        },
+        {
+          tenant_id: 'tenant-1',
+          description: 'Taxable labor',
           quantity: 1,
           unit_price: 100,
-          tax_rate: 0,
+          tax_rate: 20,
+          workshop_task_line_item_id: 'wtl-large',
           revenue_group_name: null,
         },
       ],
@@ -91,15 +96,20 @@ describe('invoice-draft-reconciliation.helpers', () => {
     expect(tx.invoiceItem.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
-          workshop_task_line_item_id: 'wtl-99',
+          workshop_task_line_item_id: 'wtl-small',
           tax_rate: 0,
+          unit_price: 10,
+        }),
+        expect.objectContaining({
+          workshop_task_line_item_id: 'wtl-large',
+          tax_rate: 20,
+          unit_price: 100,
         }),
       ],
     });
   });
 
   it('rejects updates when invoice is no longer draft', async () => {
-    tx.invoiceItem.findMany.mockResolvedValue([]);
     tx.invoice.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
@@ -118,7 +128,6 @@ describe('invoice-draft-reconciliation.helpers', () => {
   });
 
   it('throws when refreshed invoice is missing', async () => {
-    tx.invoiceItem.findMany.mockResolvedValue([]);
     tx.invoice.updateMany.mockResolvedValue({ count: 1 });
     tx.invoice.findFirst.mockResolvedValue(null);
 

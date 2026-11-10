@@ -71,6 +71,25 @@ describe('invoice-line-items.helpers', () => {
     ]);
   });
 
+  it('passes workshopTaskLineItemId through to formatted invoice items', async () => {
+    const result = await buildFormattedInvoiceItems(scoped, 'tenant-1', [
+      {
+        workshopTaskLineItemId: 'wtl-abc',
+        description: 'Labor',
+        quantity: 1,
+        unitPrice: 100,
+        taxRate: 0,
+      },
+    ]);
+
+    expect(result.formattedItems[0]).toEqual(
+      expect.objectContaining({
+        workshop_task_line_item_id: 'wtl-abc',
+        tax_rate: 0,
+      }),
+    );
+  });
+
   it('rejects catalog items that are missing from the tenant', async () => {
     prisma.catalogItem.findMany.mockResolvedValue([]);
 

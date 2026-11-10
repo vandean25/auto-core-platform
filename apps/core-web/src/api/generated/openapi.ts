@@ -6574,6 +6574,8 @@ export interface components {
             quantity: number;
             unitPrice: number;
             taxRate: number;
+            /** Format: uuid */
+            workshopTaskLineItemId?: string;
         };
         CreateInvoiceDto: {
             /** Format: uuid */
