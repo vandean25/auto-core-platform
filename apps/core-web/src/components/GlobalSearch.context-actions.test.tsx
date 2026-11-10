@@ -183,7 +183,7 @@ describe('GlobalSearch context actions', () => {
     vi.mocked(salesOrdersApi.useSalesOrder).mockReturnValue({
       data: undefined,
       isLoading: false,
-    } as ReturnType<typeof salesOrdersApi.useSalesOrder>)
+    } as unknown as ReturnType<typeof salesOrdersApi.useSalesOrder>)
   })
 
   afterEach(() => {
@@ -226,7 +226,7 @@ describe('GlobalSearch context actions', () => {
     vi.mocked(salesOrdersApi.useSalesOrder).mockReturnValue({
       data: salesOrder,
       isLoading: false,
-    } as ReturnType<typeof salesOrdersApi.useSalesOrder>)
+    } as unknown as ReturnType<typeof salesOrdersApi.useSalesOrder>)
 
     const onOpenChange = vi.fn()
     renderOnRoute('/sales-orders/so-1', onOpenChange)
