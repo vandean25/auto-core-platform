@@ -5,18 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from '../dist/app.module.js';
 import { standardSchemaConverter } from '../dist/common/index.js';
-
-function stabilizeOpenApiParameterOrder(document) {
-  for (const pathItem of Object.values(document.paths ?? {})) {
-    if (!pathItem || typeof pathItem !== 'object') continue;
-    for (const operation of Object.values(pathItem)) {
-      if (!operation || typeof operation !== 'object' || !Array.isArray(operation.parameters)) {
-        continue;
-      }
-      operation.parameters.sort((left, right) => left.name.localeCompare(right.name));
-    }
-  }
-}
+import { stabilizeOpenApiParameterOrder } from './openapi-document-post-process.mjs';
 
 /**
  * Boots the compiled Nest app in-process and writes the current OpenAPI document

@@ -5,47 +5,10 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ApiRootModule } from '../dist/api-root.module.js';
 import { standardSchemaConverter } from '../dist/common/index.js';
-
-function closeGuardedInventoryPatchOpenApiSchemas(document) {
-  const schemas = document.components?.schemas;
-  if (!schemas) {
-    return;
-  }
-  for (const name of [
-    'UpdateInventoryItemDto',
-    'GuardedInventoryPricePatchDto',
-    'GuardedPriceErrorDto',
-  ]) {
-    const schema = schemas[name];
-    if (schema?.type === 'object') {
-      schema.additionalProperties = false;
-    }
-  }
-  const errorSchema = schemas.GuardedPriceErrorDto;
-  if (errorSchema?.properties?.message) {
-    errorSchema.properties.message = {
-      oneOf: [
-        { type: 'string' },
-        { type: 'array', items: { type: 'string' } },
-      ],
-    };
-    errorSchema.required = (errorSchema.required ?? []).filter(
-      (field) => field !== 'code',
-    );
-  }
-}
-
-function stabilizeOpenApiParameterOrder(document) {
-  for (const pathItem of Object.values(document.paths ?? {})) {
-    if (!pathItem || typeof pathItem !== 'object') continue;
-    for (const operation of Object.values(pathItem)) {
-      if (!operation || typeof operation !== 'object' || !Array.isArray(operation.parameters)) {
-        continue;
-      }
-      operation.parameters.sort((left, right) => left.name.localeCompare(right.name));
-    }
-  }
-}
+import {
+  closeGuardedInventoryPatchOpenApiSchemas,
+  stabilizeOpenApiParameterOrder,
+} from './openapi-document-post-process.mjs';
 
 /**
  * Boots ApiRootModule (AppModule + feature modules not wired in AppModule) for OpenAPI
