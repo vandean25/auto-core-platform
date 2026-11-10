@@ -390,17 +390,18 @@ export function buildDraftInvoiceLinesFromOrder(
   },
   tenantId: string,
 ): DraftInvoiceLinesResult {
-  const sortedTasks = [...(order.tasks ?? [])].sort(compareWorkshopTasksForInvoice);
-  const lineItems = sortedTasks
-    .flatMap((task) =>
-      [...(task.line_items ?? [])]
-        .filter(
-          (line) =>
-            line.part_execution_status !==
-            WorkshopPartLineExecutionStatus.CANCELLED,
-        )
-        .sort(compareWorkshopLineItemsForInvoice),
-    );
+  const sortedTasks = [...(order.tasks ?? [])].sort(
+    compareWorkshopTasksForInvoice,
+  );
+  const lineItems = sortedTasks.flatMap((task) =>
+    [...(task.line_items ?? [])]
+      .filter(
+        (line) =>
+          line.part_execution_status !==
+          WorkshopPartLineExecutionStatus.CANCELLED,
+      )
+      .sort(compareWorkshopLineItemsForInvoice),
+  );
 
   if (lineItems.length === 0) {
     throw new BadRequestException(

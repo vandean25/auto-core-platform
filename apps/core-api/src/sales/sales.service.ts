@@ -125,10 +125,7 @@ export class SalesService {
       include: {
         customer: true,
         items: {
-          orderBy: [
-            { workshop_task_line_item_id: 'asc' },
-            { id: 'asc' },
-          ],
+          orderBy: [{ workshop_task_line_item_id: 'asc' }, { id: 'asc' }],
         },
         vehicle: true,
       },

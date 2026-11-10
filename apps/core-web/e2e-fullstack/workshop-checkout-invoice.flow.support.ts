@@ -119,7 +119,7 @@ export async function createCheckoutDraftInvoice(page: Page) {
   const draftToastPrefix = DE_FULLSTACK_WORKSHOP.checkout.toast.draftInvoiceCreated.split(
     '{{number}}',
   )[0]
-  await expect(page.getByText(new RegExp(draftToastPrefix))).toBeVisible({
+  await expect(page.getByText(draftToastPrefix)).toBeVisible({
     timeout: 60_000,
   })
 }
@@ -144,7 +144,7 @@ export async function issueCheckoutDraftInvoice(page: Page) {
   const issuedToastPrefix = DE_FULLSTACK_WORKSHOP.checkout.toast.invoiceIssued.split(
     '{{number}}',
   )[0]
-  await expect(page.getByText(new RegExp(issuedToastPrefix))).toBeVisible()
+  await expect(page.getByText(issuedToastPrefix)).toBeVisible()
   return invoice
 }
 
