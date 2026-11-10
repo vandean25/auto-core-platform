@@ -49,6 +49,22 @@ export function resolveDataTableFetchErrorMessage(
   return undefined
 }
 
+/** ADR-0035: capped count may land before page one; that ends the first-load skeleton gate. */
+export function isInfiniteListSnapshotResolved(
+  hasUsableData: boolean,
+  resolvedTotalCount: { count: number; isCapped: boolean } | undefined,
+): boolean {
+  return hasUsableData || resolvedTotalCount !== undefined
+}
+
+export function mergeRefreshingInfinitePresentation(
+  base: DataTablePresentationState,
+  isRefreshing: boolean,
+): DataTablePresentationState {
+  if (!isRefreshing) return base
+  return { ...base, isStalePreview: true, ariaBusy: true }
+}
+
 export function usePresentationLatencyRef(
   presentationLatencyRef: MutableRefObject<number | null> | undefined,
   presentationLatencyMs: number | null,
