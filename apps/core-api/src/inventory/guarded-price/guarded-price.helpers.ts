@@ -15,6 +15,14 @@ export function isLockTimeoutError(error: unknown): boolean {
   );
 }
 
+export function isInteractiveTransactionExpired(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: string }).code === 'P2028'
+  );
+}
+
 export function isUniqueViolation(error: unknown): boolean {
   return (
     typeof error === 'object' &&

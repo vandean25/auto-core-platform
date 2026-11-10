@@ -321,4 +321,47 @@ describe('inventory guarded price PATCH (e2e)', () => {
     const row = await catalogRow(item.id);
     expect(Number(row.retail_price)).toBe(18);
   });
+
+  it('second key unresolved while first key ACCEPTED, then first key applies', async () => {
+    const item = await seedItem(10);
+    const revision = revisionFromDb(item.revision);
+    const keyA = operationKey('6');
+    const keyB = operationKey('7');
+    guardedPriceTestHooks.failTxEAfterJournalLock = true;
+
+    await guardedPatch(item.id, keyA, {
+      retail_price: 18,
+      expectedRevision: revision,
+    }).expect(500);
+
+    guardedPriceTestHooks.failTxEAfterJournalLock = false;
+
+    const blocked = await guardedPatch(item.id, keyB, {
+      retail_price: 18,
+      expectedRevision: revision,
+    }).expect(409);
+
+    expect(blocked.body.code).toBe('OPERATION_UNRESOLVED');
+
+    const rowMid = await catalogRow(item.id);
+    expect(Number(rowMid.retail_price)).toBe(10);
+
+    const journalB = await tenantPrisma().inventoryPriceOperation.findMany({
+      where: { key: keyB },
+    });
+    expect(journalB).toHaveLength(0);
+
+    const response = await guardedPatch(item.id, keyA, {
+      retail_price: 18,
+      expectedRevision: revision,
+    }).expect(200);
+
+    expect(Number(response.body.retail_price)).toBe(18);
+
+    const journalA =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key: keyA },
+      });
+    expect(journalA.state).toBe(InventoryPriceOperationState.APPLIED);
+  });
 });
