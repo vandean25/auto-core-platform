@@ -6,6 +6,8 @@ export const DEMO_MAGIC_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
 export const DEMO_MUTATION_ALLOWED_EXACT = new Set([
   '/api/auth/switch-tenant',
+  '/api/auth/scope-context',
+  '/api/auth/logout',
   '/api/auth/me/preferences',
   '/api/me/active-site',
 ]);
