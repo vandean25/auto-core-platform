@@ -695,6 +695,10 @@
       "public": true,
       "params": []
     },
+    "HTTP_412": {
+      "public": true,
+      "params": []
+    },
     "HTTP_413": {
       "public": true,
       "params": []
@@ -704,6 +708,10 @@
       "params": []
     },
     "HTTP_422": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_428": {
       "public": true,
       "params": []
     },

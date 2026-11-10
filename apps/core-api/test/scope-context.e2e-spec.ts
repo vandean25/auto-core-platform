@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { VehicleStockStatus } from '@prisma/client';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -70,6 +71,7 @@ describe('scope context (AUT-937 e2e)', () => {
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
     await cleanupE2eTenantGraph(prisma, tenant.tenantId);
   });
 
@@ -112,10 +114,12 @@ describe('scope context (AUT-937 e2e)', () => {
 
   it('ended lineage rejected', async () => {
     const token = ownerToken();
+    const revokeMock = getFirebaseAdminAuth().revokeRefreshTokens as jest.Mock;
     const before = await handshake(token).expect(HttpStatus.OK);
     expect(before.body.scopeContext).toEqual(expect.any(String));
 
     await logout(token).expect(HttpStatus.NO_CONTENT);
+    expect(revokeMock).toHaveBeenCalledWith(tenant.firebaseUid);
 
     const after = await handshake(token).expect(HttpStatus.UNAUTHORIZED);
     expect(after.body.code).toBe('HTTP_401');
@@ -151,12 +155,26 @@ describe('scope context (AUT-937 e2e)', () => {
       auth_time: authTime,
     });
 
-    await handshake(techToken).expect(HttpStatus.OK);
+    const handshakeRes = await handshake(techToken).expect(HttpStatus.OK);
+    const scopeContext = handshakeRes.body.scopeContext as string;
+
+    await request(app.getHttpServer())
+      .get('/api/inventory')
+      .query({ pagination: 'cursor', limit: '10' })
+      .set('Authorization', `Bearer ${scopeContext}`)
+      .expect(HttpStatus.UNAUTHORIZED);
 
     await request(app.getHttpServer())
       .get('/api/inventory')
       .query({ pagination: 'cursor', limit: '10' })
       .set('Authorization', `Bearer ${techToken}`)
+      .expect(HttpStatus.FORBIDDEN);
+
+    await request(app.getHttpServer())
+      .get('/api/inventory')
+      .query({ pagination: 'cursor', limit: '10' })
+      .set('Authorization', `Bearer ${techToken}`)
+      .set(SCOPE_CONTEXT_HEADER, scopeContext)
       .expect(HttpStatus.FORBIDDEN);
   });
 
@@ -166,33 +184,77 @@ describe('scope context (AUT-937 e2e)', () => {
     const scopeContext = handshakeRes.body.scopeContext as string;
     const expectedDigest = handshakeRes.body.scopeContextDigest as string;
 
-    const withoutHeader = await request(app.getHttpServer())
-      .get('/api/inventory')
-      .query({ pagination: 'cursor', limit: '10' })
-      .set('Authorization', `Bearer ${token}`)
-      .expect(HttpStatus.OK);
+    const echoTargets = [
+      {
+        path: '/api/inventory',
+        query: { pagination: 'cursor', limit: '10' },
+        digestKey: 'meta' as const,
+      },
+      {
+        path: '/api/inventory/capped-count',
+        query: {},
+        digestKey: 'root' as const,
+      },
+      {
+        path: '/api/sales/invoices',
+        query: { pagination: 'cursor', limit: '10' },
+        digestKey: 'meta' as const,
+      },
+      {
+        path: '/api/sales/invoices/capped-count',
+        query: {},
+        digestKey: 'root' as const,
+      },
+      {
+        path: '/api/vehicle-stock',
+        query: {
+          pagination: 'cursor',
+          limit: '10',
+          stock_status: VehicleStockStatus.IN_STOCK,
+        },
+        digestKey: 'meta' as const,
+      },
+      {
+        path: '/api/vehicle-stock/capped-count',
+        query: { stock_status: VehicleStockStatus.IN_STOCK },
+        digestKey: 'root' as const,
+      },
+    ];
 
-    expect(withoutHeader.body.meta.scopeContextDigest).toBeUndefined();
+    for (const target of echoTargets) {
+      const withoutHeader = await request(app.getHttpServer())
+        .get(target.path)
+        .query(target.query)
+        .set('Authorization', `Bearer ${token}`);
+      expect(withoutHeader.status).toBe(HttpStatus.OK);
 
-    const withValid = await request(app.getHttpServer())
-      .get('/api/inventory')
-      .query({ pagination: 'cursor', limit: '10' })
-      .set('Authorization', `Bearer ${token}`)
-      .set(SCOPE_CONTEXT_HEADER, scopeContext)
-      .expect(HttpStatus.OK);
+      if (target.digestKey === 'meta') {
+        expect(withoutHeader.body.meta?.scopeContextDigest).toBeUndefined();
+      } else {
+        expect(withoutHeader.body.scopeContextDigest).toBeUndefined();
+      }
 
-    expect(withValid.body.meta.scopeContextDigest).toBe(expectedDigest);
-    expect(withValid.body.data).toEqual(withoutHeader.body.data);
-    expect(withValid.body.meta.nextCursor).toEqual(withoutHeader.body.meta.nextCursor);
-    expect(withValid.body.meta.hasNextPage).toBe(
-      withoutHeader.body.meta.hasNextPage,
-    );
+      const withValid = await request(app.getHttpServer())
+        .get(target.path)
+        .query(target.query)
+        .set('Authorization', `Bearer ${token}`)
+        .set(SCOPE_CONTEXT_HEADER, scopeContext)
+        .expect(HttpStatus.OK);
 
-    await request(app.getHttpServer())
+      if (target.digestKey === 'meta') {
+        expect(withValid.body.meta.scopeContextDigest).toBe(expectedDigest);
+      } else {
+        expect(withValid.body.scopeContextDigest).toBe(expectedDigest);
+      }
+    }
+
+    const invalidEcho = await request(app.getHttpServer())
       .get('/api/inventory')
       .query({ pagination: 'cursor', limit: '10' })
       .set('Authorization', `Bearer ${token}`)
       .set(SCOPE_CONTEXT_HEADER, 'not-a-valid-scope-context')
       .expect(HttpStatus.OK);
+
+    expect(invalidEcho.body.meta.scopeContextDigest).toBeUndefined();
   });
 });

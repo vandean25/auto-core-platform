@@ -10,17 +10,13 @@ import {
   getHttpRequestResponse,
   passthroughUnlessHttpContext,
 } from '../../common/nest/http-execution-context.js';
-import { SCOPE_CONTEXT_HEADER } from './scope-context.constants.js';
+import {
+  SCOPE_CONTEXT_ECHO_PATHS,
+  SCOPE_CONTEXT_HEADER,
+} from './scope-context.constants.js';
 import { ScopeContextService } from './scope-context.service.js';
 
-const ECHO_PATHS = new Set([
-  '/api/inventory',
-  '/api/inventory/capped-count',
-  '/api/sales/invoices',
-  '/api/sales/invoices/capped-count',
-  '/api/vehicle-stock',
-  '/api/vehicle-stock/capped-count',
-]);
+const ECHO_PATHS = new Set<string>(SCOPE_CONTEXT_ECHO_PATHS);
 
 function normalizePath(request: Request): string {
   const path =

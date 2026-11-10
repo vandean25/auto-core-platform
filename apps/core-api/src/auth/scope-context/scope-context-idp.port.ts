@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { getFirebaseAdminAuth } from '../firebase-admin.js';
+import { throwMappedFirebaseVerifyError } from './scope-context-idp-firebase-errors.js';
 
 export type VerifiedIdpToken = {
   sub: string;
@@ -31,8 +32,7 @@ export class FirebaseScopeContextIdpAdapter implements ScopeContextIdpPort {
       );
       return mapDecodedIdpToken(decoded);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new UnauthorizedException(`Invalid or revoked token: ${message}`);
+      throwMappedFirebaseVerifyError(error);
     }
   }
 }

@@ -1,12 +1,14 @@
 import {
   Inject,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { TenantAuthenticatedUser } from '../types/authenticated-user.js';
 import { getScopeContextPolicyDigest } from './scope-context-policy-digest.js';
+import { readScopeContextHmacSecrets } from './scope-context-secret.js';
 import {
   buildContinuityDigest,
   mintScopeContextToken,
@@ -38,6 +40,12 @@ export class ScopeContextService {
     user: TenantAuthenticatedUser,
     bearerToken: string,
   ): Promise<ScopeContextHandshakeResult> {
+    try {
+      readScopeContextHmacSecrets();
+    } catch {
+      throw new ServiceUnavailableException('Scope context is not configured.');
+    }
+
     const verified =
       await this.idpPort.verifyIdTokenWithRevocation(bearerToken);
 
@@ -53,7 +61,11 @@ export class ScopeContextService {
     );
 
     if (
-      await this.endedLineages.isLineageEnded(user.tenantId, continuityDigest)
+      await this.endedLineages.isLineageEnded(
+        user.tenantId,
+        verified.sub,
+        verified.authTimeSeconds,
+      )
     ) {
       throw new UnauthorizedException('Session lineage has ended.');
     }

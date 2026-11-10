@@ -5,6 +5,15 @@ export const SCOPE_CONTEXT_ID_TOKEN_LIFETIME_SECONDS = 60 * 60;
 
 export const SCOPE_CONTEXT_TOKEN_VERSION = 1;
 
+export const SCOPE_CONTEXT_ECHO_PATHS = [
+  '/api/inventory',
+  '/api/inventory/capped-count',
+  '/api/sales/invoices',
+  '/api/sales/invoices/capped-count',
+  '/api/vehicle-stock',
+  '/api/vehicle-stock/capped-count',
+] as const;
+
 export const SCOPE_CONTEXT_POLICY_OPERATION_IDS = [
   'InventoryController.findAll',
   'InventoryController.cappedCount',

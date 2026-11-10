@@ -116,3 +116,23 @@ export function buildContinuityDigest(
   const { current } = readScopeContextHmacSecrets();
   return continuityDigestForSignIn(current, subject, authTimeSeconds);
 }
+
+/** Digests accepted for ended-lineage lookup while a previous HMAC key is still valid. */
+export function continuityDigestCandidates(
+  subject: string,
+  authTimeSeconds: number,
+): readonly string[] {
+  const { current, previous } = readScopeContextHmacSecrets();
+  const digests = [continuityDigestForSignIn(current, subject, authTimeSeconds)];
+  if (previous) {
+    const previousDigest = continuityDigestForSignIn(
+      previous,
+      subject,
+      authTimeSeconds,
+    );
+    if (previousDigest !== digests[0]) {
+      digests.push(previousDigest);
+    }
+  }
+  return digests;
+}

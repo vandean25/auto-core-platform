@@ -1,5 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { getFirebaseAdminAuth } from '../firebase-admin.js';
+import { SystemPrismaService } from '../../prisma/system-prisma.service.js';
 import type { TenantAuthenticatedUser } from '../types/authenticated-user.js';
 import { buildContinuityDigest } from './scope-context-token.js';
 import { EndedSessionLineageService } from './ended-session-lineage.service.js';
@@ -12,6 +13,7 @@ import {
 export class ScopeContextLogoutService {
   constructor(
     private readonly endedLineages: EndedSessionLineageService,
+    private readonly systemPrisma: SystemPrismaService,
     @Inject(SCOPE_CONTEXT_IDP_PORT)
     private readonly idpPort: ScopeContextIdpPort,
   ) {}
@@ -22,21 +24,44 @@ export class ScopeContextLogoutService {
   ): Promise<void> {
     const verified =
       await this.idpPort.verifyIdTokenWithRevocation(bearerToken);
+
+    if (verified.sub !== user.userId) {
+      throw new UnauthorizedException('Token subject does not match the session.');
+    }
+
+    await getFirebaseAdminAuth().revokeRefreshTokens(verified.sub);
+    const refreshTokensRevokedAt = new Date();
+
     const continuityDigest = buildContinuityDigest(
       verified.sub,
       verified.authTimeSeconds,
     );
-    const revokedAt = new Date();
 
-    await this.endedLineages.recordEndedLineage({
-      tenantId: user.tenantId,
+    const memberships = await this.systemPrisma.tenantMember.findMany({
+      where: {
+        is_active: true,
+        user: { firebaseUid: verified.sub },
+      },
+      select: {
+        tenant_id: true,
+        user: { select: { active_site_id: true } },
+      },
+    });
+
+    if (memberships.length === 0) {
+      return;
+    }
+
+    await this.endedLineages.recordEndedLineageForMemberships({
+      sessionUser: user,
       principalSub: verified.sub,
       continuityDigest,
       authTimeSeconds: verified.authTimeSeconds,
-      siteId: user.activeSiteId ?? null,
-      refreshTokensRevokedAt: revokedAt,
+      refreshTokensRevokedAt,
+      memberships: memberships.map((row) => ({
+        tenantId: row.tenant_id,
+        siteId: row.user.active_site_id,
+      })),
     });
-
-    await getFirebaseAdminAuth().revokeRefreshTokens(verified.sub);
   }
 }

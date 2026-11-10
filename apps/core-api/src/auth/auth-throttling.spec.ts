@@ -33,6 +33,18 @@ describe('auth throttling', () => {
     ).toBe(true);
     expect(
       shouldThrottleAuthRoute({
+        method: 'POST',
+        originalUrl: '/api/auth/scope-context',
+      } as Request),
+    ).toBe(true);
+    expect(
+      shouldThrottleAuthRoute({
+        method: 'POST',
+        originalUrl: '/api/auth/logout',
+      } as Request),
+    ).toBe(true);
+    expect(
+      shouldThrottleAuthRoute({
         method: 'GET',
         originalUrl: '/api/customers',
       } as Request),
@@ -69,7 +81,13 @@ class CustomersController {
     },
     {
       provide: ScopeContextService,
-      useValue: { handshake: jest.fn() },
+      useValue: {
+        handshake: jest.fn().mockResolvedValue({
+          scopeContext: 'sc',
+          scopeContextDigest: 'digest',
+          continuityDigest: 'lineage',
+        }),
+      },
     },
     {
       provide: ScopeContextLogoutService,
@@ -92,6 +110,15 @@ describe('auth throttling integration', () => {
       imports: [AuthThrottlingTestModule],
     }).compile();
     app = moduleRef.createNestApplication();
+    app.use((req, _res, next) => {
+      (req as { user: unknown }).user = {
+        userId: 'user-1',
+        email: 'user@example.com',
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+      };
+      next();
+    });
     await app.init();
   });
 
@@ -120,5 +147,16 @@ describe('auth throttling integration', () => {
     for (let attempt = 0; attempt < 11; attempt += 1) {
       await request(server).get('/customers').expect(200);
     }
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await request(server)
+        .post('/auth/scope-context')
+        .set('Authorization', 'Bearer test-token')
+        .expect(200);
+    }
+    await request(server)
+      .post('/auth/scope-context')
+      .set('Authorization', 'Bearer test-token')
+      .expect(429);
   });
 });

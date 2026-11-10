@@ -68,6 +68,7 @@ export class AuthController {
   }
 
   @Post('scope-context')
+  @Throttle({ default: AUTH_SWITCH_TENANT_RATE_LIMIT })
   @MechanicAccessible()
   @UseInterceptors(ScopeContextResponseHeadersInterceptor)
   @HttpCode(200)
@@ -87,6 +88,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @Throttle({ default: AUTH_SWITCH_TENANT_RATE_LIMIT })
   @MechanicAccessible()
   @UseInterceptors(ScopeContextResponseHeadersInterceptor)
   @HttpCode(204)
