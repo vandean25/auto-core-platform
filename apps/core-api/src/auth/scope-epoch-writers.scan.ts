@@ -116,7 +116,11 @@ function entityBlockTouchesIsActive(bounded: string): boolean {
   if (!hasEntityUpdate && !hasEntityUpdateMany) {
     return false;
   }
-  if (hasEntityUpdateMany && !hasEntityUpdate && !/is_active:\s*false/.test(bounded)) {
+  if (
+    hasEntityUpdateMany &&
+    !hasEntityUpdate &&
+    !/is_active:\s*false/.test(bounded)
+  ) {
     // Row-lock no-ops use updateMany({ data: { is_active: true } }) without changing access.
     return false;
   }
@@ -135,7 +139,8 @@ function entityBlockAssignsIsActive(bounded: string): boolean {
     /\b(?:tx\.)?legalEntity\.update\(/.test(bounded) &&
     /dto\.isActive/.test(bounded);
   const tenantDto =
-    /\b(?:tx\.)?tenant\.update\(/.test(bounded) && /dto\.isActive/.test(bounded);
+    /\b(?:tx\.)?tenant\.update\(/.test(bounded) &&
+    /dto\.isActive/.test(bounded);
   return siteUpdateData || legalEntityDto || tenantDto;
 }
 
