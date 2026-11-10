@@ -32,3 +32,8 @@ if ! pg_isready -q -p 5432; then
 fi
 
 bash "${ROOT}/.cursor/scripts/cloud-agent-postgres-setup.sh"
+
+maxConnections="$(sudo -u postgres psql -Atqc "SHOW max_connections;" 2>/dev/null || true)"
+if [[ -n "${maxConnections}" && "${maxConnections}" -lt 200 ]]; then
+  sudo pg_ctlcluster 17 main restart
+fi
