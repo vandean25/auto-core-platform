@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useCancelFiscalReceipt,
@@ -15,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { settlementState, settlementVisibility } from './invoice-settlement-state'
 import { useRecordSettlementForm } from './useRecordSettlementForm'
 import { useSettlementToasts } from './useSettlementToasts'
@@ -138,9 +137,7 @@ export function InvoiceSettlementActions({
   canManage,
 }: Props) {
   const { t } = useTranslation('finance')
-  useEffect(() => {
-    void ensureNamespaceLoaded('finance')
-  }, [])
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['finance'])
 
   const { data } = useInvoiceSettlement(invoiceId)
   const rksvMode = data?.rksvMode
@@ -153,6 +150,7 @@ export function InvoiceSettlementActions({
   )
 
   const visibility = settlementVisibility(canManage, rksvMode, invoiceStatus)
+  if (bundleStatus === 'loading') return null
   if (visibility === 'hidden') return null
   if (visibility === 'fiscalOff') {
     return <p className="max-w-sm text-right text-xs text-muted-foreground">{t('settlement.fiscalOff')}</p>

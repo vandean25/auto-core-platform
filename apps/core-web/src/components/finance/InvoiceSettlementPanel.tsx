@@ -1,11 +1,10 @@
-import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { FiscalReceiptSummary, SettlementPaymentSummary } from '@/api/useInvoiceSettlement'
 import { SettlementReceiptQr } from '@/components/finance/SettlementReceiptQr'
 import { formatCurrency, formatIsoDateTimeInZone } from '@/lib/format'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 
 function formatRksvTimestamp(
@@ -62,9 +61,7 @@ export function InvoiceSettlementPanel({
   siteTimezone = 'Europe/Vienna',
 }: Props) {
   const { t } = useTranslation('finance')
-  useEffect(() => {
-    void ensureNamespaceLoaded('finance')
-  }, [])
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['finance'])
 
   const signedReceipt = payment?.fiscalReceipts.find(
     (receipt) => receipt.state === 'SIGNED' && receipt.qrCodeData,
@@ -74,6 +71,9 @@ export function InvoiceSettlementPanel({
   )
 
   if (rksvMode === 'OFF' || rksvMode === 'UNKNOWN') {
+    return null
+  }
+  if (bundleStatus === 'loading') {
     return null
   }
 

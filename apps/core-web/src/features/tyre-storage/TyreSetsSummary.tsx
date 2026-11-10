@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
@@ -11,7 +11,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { formatTyreSetStatusLabel } from '@/lib/i18n/enum-labels'
 import { Button } from '@/components/ui/button'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { TyreSetFormDialog } from './TyreSetFormDialog'
 
 type Props = {
@@ -23,9 +23,8 @@ type Props = {
 
 export function TyreSetsSummary({ vehicleId, customerId, readOnly = false, as: Heading = 'h3' }: Props) {
   const { t } = useTranslation('inventory')
-  useEffect(() => {
-    void ensureNamespaceLoaded('inventory')
-  }, [])
+  const { t: tCommon } = useTranslation('common')
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['inventory'])
 
   const byVehicle = useTyreSetsByVehicle(vehicleId)
   const byCustomer = useTyreSetsByCustomer(customerId)
@@ -37,6 +36,9 @@ export function TyreSetsSummary({ vehicleId, customerId, readOnly = false, as: H
   const resolvedCustomerId = customerId ?? sets[0]?.customerId
 
   if (!vehicleId && !customerId) return null
+  if (bundleStatus === 'loading') {
+    return <p className="text-sm text-muted-foreground">{tCommon('shell.loading')}</p>
+  }
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">{t('tyreStorage.summary.loading')}</p>
   }
