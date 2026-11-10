@@ -23,6 +23,7 @@ import {
   validateSiteCreateInput,
   validateSiteUpdateInput,
 } from './site.validator.js';
+import { advanceScopeEpoch } from '../auth/scope-epoch.js';
 
 export class SiteLifecycleService {
   constructor(
@@ -113,9 +114,19 @@ export class SiteLifecycleService {
     );
     validateSiteUpdateInput(dto, existing, parentLegalEntityActive);
 
-    const site = await this.prisma.site.update({
-      where: { id: existing.id },
-      data: buildSiteUpdateData(dto, existing),
+    const updateData = buildSiteUpdateData(dto, existing);
+    const site = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.site.update({
+        where: { id: existing.id },
+        data: updateData,
+      });
+      if (updateData.is_active !== existing.is_active) {
+        await advanceScopeEpoch(tx, {
+          kind: 'tenantAuthorization',
+          tenantId,
+        });
+      }
+      return row;
     });
 
     await this.syncFiscalRegister(tenantId, id, existing.legal_entity_id, dto);

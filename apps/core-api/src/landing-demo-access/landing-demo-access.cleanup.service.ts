@@ -2,13 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenantMemberRole } from '@prisma/client';
 import { getFirebaseAdminAuth } from '../auth/firebase-admin.js';
+import { UserAccessStatusService } from '../auth/user-access-status.service.js';
+import { advanceScopeEpoch } from '../auth/scope-epoch.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 
 @Injectable()
 export class LandingDemoAccessCleanupService {
   private readonly logger = new Logger(LandingDemoAccessCleanupService.name);
 
-  constructor(private readonly systemPrisma: SystemPrismaService) {}
+  constructor(
+    private readonly systemPrisma: SystemPrismaService,
+    private readonly userAccessStatus: UserAccessStatusService,
+  ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
     name: 'landing-demo-access-cleanup',
@@ -47,9 +52,16 @@ export class LandingDemoAccessCleanupService {
 
     const firebaseAuth = getFirebaseAdminAuth();
     for (const membership of expired) {
-      await this.systemPrisma.tenantMember.update({
-        where: { id: membership.id },
-        data: { is_active: false },
+      await this.systemPrisma.$transaction(async (tx) => {
+        await tx.tenantMember.update({
+          where: { id: membership.id },
+          data: { is_active: false },
+        });
+        await advanceScopeEpoch(tx, {
+          kind: 'member',
+          tenantId: membership.tenant_id,
+          userId: membership.user.id,
+        });
       });
 
       const remainingActiveMemberships =
@@ -62,6 +74,9 @@ export class LandingDemoAccessCleanupService {
 
       const uid = membership.user.firebaseUid;
       if (uid && remainingActiveMemberships === 0) {
+        await this.userAccessStatus.advanceAllMembershipEpochs(
+          membership.user.id,
+        );
         try {
           await firebaseAuth.updateUser(uid, { disabled: true });
         } catch (error) {

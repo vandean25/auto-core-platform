@@ -5,6 +5,7 @@ import {
   TenantMemberRole,
 } from '@prisma/client';
 import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
+import { advanceScopeEpoch } from '../../auth/scope-epoch.js';
 
 export type DemoUserDefinition = {
   email: string;
@@ -149,23 +150,30 @@ export async function seedDemoUsers(
     }
 
     // 3. Tenant Member
-    await prisma.tenantMember.upsert({
-      where: {
-        tenant_id_user_id: {
+    await prisma.$transaction(async (tx) => {
+      await tx.tenantMember.upsert({
+        where: {
+          tenant_id_user_id: {
+            tenant_id: tenantId,
+            user_id: user.id,
+          },
+        },
+        update: {
+          role: def.tenantRole,
+          is_active: true,
+        },
+        create: {
           tenant_id: tenantId,
           user_id: user.id,
+          role: def.tenantRole,
+          is_active: true,
         },
-      },
-      update: {
-        role: def.tenantRole,
-        is_active: true,
-      },
-      create: {
-        tenant_id: tenantId,
-        user_id: user.id,
-        role: def.tenantRole,
-        is_active: true,
-      },
+      });
+      await advanceScopeEpoch(tx, {
+        kind: 'member',
+        tenantId,
+        userId: user.id,
+      });
     });
 
     /**

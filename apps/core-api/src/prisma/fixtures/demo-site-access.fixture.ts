@@ -1,4 +1,5 @@
 import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
+import { advanceScopeEpoch } from '../../auth/scope-epoch.js';
 
 const DEMO_QA_EMAILS = [
   'grok-bot@auto.core.at',
@@ -61,9 +62,16 @@ export async function seedDemoSiteAccess(
       });
 
       if (existing) {
-        await prisma.siteMembership.update({
-          where: { id: existing.id },
-          data: { is_active: true },
+        await prisma.$transaction(async (tx) => {
+          await tx.siteMembership.update({
+            where: { id: existing.id },
+            data: { is_active: true },
+          });
+          await advanceScopeEpoch(tx, {
+            kind: 'member',
+            tenantId,
+            userId,
+          });
         });
         continue;
       }
@@ -77,13 +85,20 @@ export async function seedDemoSiteAccess(
         continue;
       }
 
-      await prisma.siteMembership.create({
-        data: {
-          tenant_id: tenantId,
-          user_id: userId,
-          site_id: siteId,
-          is_active: true,
-        },
+      await prisma.$transaction(async (tx) => {
+        await tx.siteMembership.create({
+          data: {
+            tenant_id: tenantId,
+            user_id: userId,
+            site_id: siteId,
+            is_active: true,
+          },
+        });
+        await advanceScopeEpoch(tx, {
+          kind: 'member',
+          tenantId,
+          userId,
+        });
       });
     }
 

@@ -34,6 +34,7 @@ import {
   buildMembershipUpdateData,
   isSecuritySensitiveChange,
 } from './tenant-member.update.js';
+import { advanceScopeEpoch } from '../auth/scope-epoch.js';
 
 interface MembershipChange {
   securitySensitive: boolean;
@@ -96,24 +97,32 @@ export class TenantMemberService {
       existingUser,
     });
 
-    const membership = await this.systemPrisma.tenantMember.upsert({
-      where: {
-        tenant_id_user_id: {
+    const membership = await this.systemPrisma.$transaction(async (tx) => {
+      const row = await tx.tenantMember.upsert({
+        where: {
+          tenant_id_user_id: {
+            tenant_id: tenantId,
+            user_id: userId,
+          },
+        },
+        update: {
+          role: dto.role,
+          is_active: true,
+        },
+        create: {
           tenant_id: tenantId,
           user_id: userId,
+          role: dto.role,
+          is_active: true,
         },
-      },
-      update: {
-        role: dto.role,
-        is_active: true,
-      },
-      create: {
-        tenant_id: tenantId,
-        user_id: userId,
-        role: dto.role,
-        is_active: true,
-      },
-      include: { user: true },
+        include: { user: true },
+      });
+      await advanceScopeEpoch(tx, {
+        kind: 'member',
+        tenantId,
+        userId,
+      });
+      return row;
     });
 
     await this.syncUserClaims(userId);
@@ -138,11 +147,21 @@ export class TenantMemberService {
       throw new BadRequestException(`Tenant member ${id} not found.`);
     }
 
-    const updatedMembership = await this.systemPrisma.tenantMember.update({
-      where: { id },
-      data: buildMembershipUpdateData(dto),
-      include: { user: true },
-    });
+    const updatedMembership = await this.systemPrisma.$transaction(
+      async (tx) => {
+        const row = await tx.tenantMember.update({
+          where: { id },
+          data: buildMembershipUpdateData(dto),
+          include: { user: true },
+        });
+        await advanceScopeEpoch(tx, {
+          kind: 'member',
+          tenantId,
+          userId: row.user_id,
+        });
+        return row;
+      },
+    );
 
     const securitySensitive = isSecuritySensitiveChange(
       existingMembership.role,

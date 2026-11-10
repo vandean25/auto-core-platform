@@ -10,6 +10,7 @@ import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { seedPickerlInspectionTemplate } from '../prisma/fixtures/pickerl-inspection-template.fixture.js';
 import { seedAnnahmeCheckInspectionTemplate } from '../prisma/fixtures/annahme-check-inspection-template.fixture.js';
 import { seedVehicleEquipmentOptions } from '../vehicle/equipment/seed-vehicle-equipment-options.js';
+import { advanceScopeEpoch } from '../auth/scope-epoch.js';
 
 type PlatformTenantRecord = PrismaTypes.TenantGetPayload<{
   include: {
@@ -88,20 +89,29 @@ export class PlatformAdminService {
 
   async update(id: string, dto: UpdatePlatformTenantDto) {
     try {
-      const updatedTenant = await this.systemPrisma.tenant.update({
-        where: { id },
-        data: {
-          ...(dto.name !== undefined && { name: dto.name.trim() }),
-          ...(dto.slug !== undefined && {
-            slug: dto.slug.trim().toLowerCase(),
-          }),
-          ...(dto.isActive !== undefined && { is_active: dto.isActive }),
-        },
-        include: {
-          _count: {
-            select: { memberships: true },
+      const updatedTenant = await this.systemPrisma.$transaction(async (tx) => {
+        const row = await tx.tenant.update({
+          where: { id },
+          data: {
+            ...(dto.name !== undefined && { name: dto.name.trim() }),
+            ...(dto.slug !== undefined && {
+              slug: dto.slug.trim().toLowerCase(),
+            }),
+            ...(dto.isActive !== undefined && { is_active: dto.isActive }),
           },
-        },
+          include: {
+            _count: {
+              select: { memberships: true },
+            },
+          },
+        });
+        if (dto.isActive !== undefined) {
+          await advanceScopeEpoch(tx, {
+            kind: 'tenantAuthorization',
+            tenantId: id,
+          });
+        }
+        return row;
       });
 
       return this.mapTenant(updatedTenant);

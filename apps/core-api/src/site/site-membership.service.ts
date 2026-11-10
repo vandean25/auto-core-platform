@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateSiteMembershipDto } from './dto/site.dto.js';
 import { assertSiteInTenant, assertTenantAdmin } from './site.authorization.js';
 import { validateSiteMembershipCreateInput } from './site.validator.js';
+import { advanceScopeEpoch } from '../auth/scope-epoch.js';
 
 @Injectable()
 export class SiteMembershipService {
@@ -49,13 +50,21 @@ export class SiteMembershipService {
 
     validateSiteMembershipCreateInput(member, existing);
 
-    const membership = await this.prisma.siteMembership.create({
-      data: {
-        tenant_id: tenantId,
-        user_id: dto.userId,
-        site_id: siteId,
-        is_active: true,
-      },
+    const membership = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.siteMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: dto.userId,
+          site_id: siteId,
+          is_active: true,
+        },
+      });
+      await advanceScopeEpoch(tx, {
+        kind: 'member',
+        tenantId,
+        userId: dto.userId,
+      });
+      return row;
     });
     const user = await this.prisma.user.findFirst({
       where: { id: dto.userId },
@@ -81,6 +90,11 @@ export class SiteMembershipService {
 
     const user = await this.prisma.$transaction(async (tx) => {
       await tx.siteMembership.delete({ where: { id: membership.id } });
+      await advanceScopeEpoch(tx, {
+        kind: 'member',
+        tenantId,
+        userId,
+      });
       // Ruling 10: removing a membership that matches User.active_site_id
       // clears active_site_id atomically (null).
       await tx.user.updateMany({

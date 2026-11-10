@@ -22,6 +22,7 @@ import {
 import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { setActiveTenant } from '../common/services/user-active-tenant.js';
+import { advanceScopeEpoch } from '../auth/scope-epoch.js';
 import {
   readLandingDemoAccessConfig,
   type LandingDemoAccessConfig,
@@ -502,25 +503,32 @@ export class LandingDemoAccessService {
       );
     }
 
-    await this.systemPrisma.tenantMember.upsert({
-      where: {
-        tenant_id_user_id: {
+    await this.systemPrisma.$transaction(async (tx) => {
+      await tx.tenantMember.upsert({
+        where: {
+          tenant_id_user_id: {
+            tenant_id: input.demoTenantId,
+            user_id: user.id,
+          },
+        },
+        update: {
+          role: TenantMemberRole.DEMO,
+          is_active: true,
+          demo_access_expires_at: expiresAt,
+        },
+        create: {
           tenant_id: input.demoTenantId,
           user_id: user.id,
+          role: TenantMemberRole.DEMO,
+          is_active: true,
+          demo_access_expires_at: expiresAt,
         },
-      },
-      update: {
-        role: TenantMemberRole.DEMO,
-        is_active: true,
-        demo_access_expires_at: expiresAt,
-      },
-      create: {
-        tenant_id: input.demoTenantId,
-        user_id: user.id,
-        role: TenantMemberRole.DEMO,
-        is_active: true,
-        demo_access_expires_at: expiresAt,
-      },
+      });
+      await advanceScopeEpoch(tx, {
+        kind: 'member',
+        tenantId: input.demoTenantId,
+        userId: user.id,
+      });
     });
 
     const demoSite = await this.systemPrisma.site.findFirst({
@@ -530,21 +538,28 @@ export class LandingDemoAccessService {
     });
 
     if (demoSite && shouldSetActiveTenant) {
-      await this.systemPrisma.siteMembership.upsert({
-        where: {
-          tenant_id_user_id_site_id: {
+      await this.systemPrisma.$transaction(async (tx) => {
+        await tx.siteMembership.upsert({
+          where: {
+            tenant_id_user_id_site_id: {
+              tenant_id: input.demoTenantId,
+              user_id: user.id,
+              site_id: demoSite.id,
+            },
+          },
+          update: { is_active: true },
+          create: {
             tenant_id: input.demoTenantId,
             user_id: user.id,
             site_id: demoSite.id,
+            is_active: true,
           },
-        },
-        update: { is_active: true },
-        create: {
-          tenant_id: input.demoTenantId,
-          user_id: user.id,
-          site_id: demoSite.id,
-          is_active: true,
-        },
+        });
+        await advanceScopeEpoch(tx, {
+          kind: 'member',
+          tenantId: input.demoTenantId,
+          userId: user.id,
+        });
       });
       await this.systemPrisma.user.update({
         where: { id: user.id },
