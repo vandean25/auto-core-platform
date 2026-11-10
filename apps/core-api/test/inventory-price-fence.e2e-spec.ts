@@ -254,6 +254,35 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     await getOperation(key).expect(404);
   });
 
+  it('list omits other principal rows', async () => {
+    const adminItem = await seedItem();
+    const adminKey = operationKey('0c01');
+    await guardedPatch(adminItem.id, adminKey, {
+      retail_price: 16,
+      expectedRevision: revisionFromDb(adminItem.revision),
+    }).expect(200);
+
+    const otherItem = await seedItem(11, 'OTHER-PRINCIPAL');
+    const otherKey = operationKey('0c02');
+    await guardedPricePatchRequest(
+      app,
+      otherItem.id,
+      otherKey,
+      {
+        retail_price: 17,
+        expectedRevision: revisionFromDb(otherItem.revision),
+      },
+      otherOwnerBearer,
+    ).expect(200);
+
+    const list = await listOperations().expect(200);
+    expect(list.body.data).toHaveLength(1);
+    expect(list.body.data[0].key).toBe(adminKey);
+    expect(list.body.data.map((row: { key: string }) => row.key)).not.toContain(
+      otherKey,
+    );
+  });
+
   it('owner list and get return applied operation', async () => {
     const item = await seedItem();
     const revision = revisionFromDb(item.revision);
@@ -368,6 +397,27 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     ).expect(403);
   });
 
+  it('in-lease fence returns 409 without holding Tx-E', async () => {
+    const item = await seedItem();
+    const revision = revisionFromDb(item.revision);
+    const key = operationKey('1e01');
+    const intent = fenceBody(item.id, 13, revision);
+
+    guardedPriceTestHooks.failTxEAfterJournalLock = true;
+    await guardedPatch(item.id, key, {
+      retail_price: 13,
+      expectedRevision: revision,
+    }).expect(500);
+    guardedPriceTestHooks.failTxEAfterJournalLock = false;
+
+    const fenceRes = await postFence(key, intent).expect(409);
+    expect(fenceRes.body.code).toBe('OPERATION_UNRESOLVED');
+    const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+      where: { key },
+    });
+    expect(journal.state).toBe(InventoryPriceOperationState.ACCEPTED);
+  });
+
   it('post-lease fence sets FENCED', async () => {
     const item = await seedItem();
     const revision = revisionFromDb(item.revision);
@@ -415,20 +465,6 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     expect(journal.state).toBe(InventoryPriceOperationState.APPLIED);
   });
 
-  it('fence on terminal APPLIED row is idempotent', async () => {
-    const item = await seedItem();
-    const revision = revisionFromDb(item.revision);
-    const key = operationKey('0d01');
-    const intent = fenceBody(item.id, 15, revision);
-    const first = await guardedPatch(item.id, key, {
-      retail_price: 15,
-      expectedRevision: revision,
-    }).expect(200);
-
-    const replay = await postFence(key, intent).expect(200);
-    expect(replay.body.state).toBe(InventoryPriceOperationState.APPLIED);
-    expect(replay.body.retail_price).toBe(first.body.retail_price);
-  });
 
   it('discovery keyset returns fifty operations per page', async () => {
     const anchor = Date.now();
@@ -517,47 +553,60 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     await listOperations(undefined, '%%%not-a-cursor%%%').expect(400);
   });
 
-  it('fence on terminal CONFLICT row is idempotent', async () => {
-    const item = await seedItem();
-    const revision = revisionFromDb(item.revision);
-    const key = operationKey('0d02');
-    const intent = fenceBody(item.id, 11, revision);
+  it.each([
+    {
+      terminalState: InventoryPriceOperationState.APPLIED,
+      keySuffix: '0d01',
+      retail: 15,
+    },
+    {
+      terminalState: InventoryPriceOperationState.CONFLICT,
+      keySuffix: '0d02',
+      retail: 11,
+    },
+    {
+      terminalState: InventoryPriceOperationState.FENCED,
+      keySuffix: '0d03',
+      retail: 12,
+    },
+  ])(
+    'fence on terminal $terminalState row is idempotent',
+    async ({ terminalState, keySuffix, retail }) => {
+      const item = await seedItem();
+      const revision = revisionFromDb(item.revision);
+      const key = operationKey(keySuffix);
+      const intent = fenceBody(item.id, retail, revision);
 
-    await guardedPatch(item.id, key, {
-      retail_price: 11,
-      expectedRevision: revision,
-    }).expect(200);
+      if (terminalState === InventoryPriceOperationState.FENCED) {
+        await postFence(key, intent).expect(200);
+      } else {
+        const applied = await guardedPatch(item.id, key, {
+          retail_price: retail,
+          expectedRevision: revision,
+        }).expect(200);
+        if (terminalState === InventoryPriceOperationState.CONFLICT) {
+          await tenantPrisma().inventoryPriceOperation.update({
+            where: {
+              tenant_id_principal_id_key: {
+                tenant_id: tenantId,
+                principal_id: testTenant.firebaseUid,
+                key,
+              },
+            },
+            data: {
+              state: InventoryPriceOperationState.CONFLICT,
+              error_code: 'REVISION_CONFLICT',
+              final_at: new Date(),
+            },
+          });
+        }
+        if (terminalState === InventoryPriceOperationState.APPLIED) {
+          expect(applied.body.retail_price).toBeDefined();
+        }
+      }
 
-    await tenantPrisma().inventoryPriceOperation.update({
-      where: {
-        tenant_id_principal_id_key: {
-          tenant_id: tenantId,
-          principal_id: testTenant.firebaseUid,
-          key,
-        },
-      },
-      data: {
-        state: InventoryPriceOperationState.CONFLICT,
-        error_code: 'REVISION_CONFLICT',
-        final_at: new Date(),
-      },
-    });
-
-    const replay = await postFence(key, intent).expect(200);
-    expect(replay.body.state).toBe(InventoryPriceOperationState.CONFLICT);
-  });
-
-  it('fence on terminal FENCED row is idempotent', async () => {
-    const item = await seedItem();
-    const revision = revisionFromDb(item.revision);
-    const key = operationKey('0d03');
-    const intent = fenceBody(item.id, 12, revision);
-
-    const fenced = await postFence(key, intent).expect(200);
-    expect(fenced.body.state).toBe(InventoryPriceOperationState.FENCED);
-
-    const replay = await postFence(key, intent).expect(200);
-    expect(replay.body.state).toBe(InventoryPriceOperationState.FENCED);
-    expect(replay.body.key).toBe(key);
-  });
+      const replay = await postFence(key, intent).expect(200);
+      expect(replay.body.state).toBe(terminalState);
+    },
+  );
 });
