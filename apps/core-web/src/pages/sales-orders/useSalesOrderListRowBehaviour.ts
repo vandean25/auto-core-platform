@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
-import type { SalesOrder } from '@/api/types'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import {
   createSalesOrderRowActions,
