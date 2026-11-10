@@ -7,6 +7,9 @@ import type { Request } from 'express';
 import request from 'supertest';
 import { AuthController } from './auth.controller.js';
 import { AuthSessionService } from './auth-session.service.js';
+import { ScopeContextResponseHeadersInterceptor } from './scope-context/scope-context-response-headers.interceptor.js';
+import { ScopeContextLogoutService } from './scope-context/scope-context-logout.service.js';
+import { ScopeContextService } from './scope-context/scope-context.service.js';
 import {
   AUTH_ME_RATE_LIMIT,
   AUTH_SWITCH_TENANT_RATE_LIMIT,
@@ -64,6 +67,15 @@ class CustomersController {
         switchTenant: jest.fn().mockResolvedValue({}),
       },
     },
+    {
+      provide: ScopeContextService,
+      useValue: { handshake: jest.fn() },
+    },
+    {
+      provide: ScopeContextLogoutService,
+      useValue: { logout: jest.fn() },
+    },
+    ScopeContextResponseHeadersInterceptor,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
