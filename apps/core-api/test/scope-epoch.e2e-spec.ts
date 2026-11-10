@@ -1,8 +1,10 @@
 import { jest } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import type { UserRecord } from 'firebase-admin/auth';
 import { TenantMemberRole, type Prisma, type PrismaClient } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service.js';
+import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
 import { UserAccessStatusService } from '../src/auth/user-access-status.service.js';
@@ -78,6 +80,53 @@ describe('scope epoch writers (AUT-934)', () => {
     return row.authorization_epoch;
   }
 
+  it('tenant member invite bumps scope_epoch', async () => {
+    const firebaseAuth = getFirebaseAdminAuth();
+    const inviteEmail = `scope-epoch-invite-${Date.now()}@example.com`;
+    const inviteUid = `scope-epoch-invite-uid-${Date.now()}`;
+    jest
+      .spyOn(firebaseAuth, 'getUserByEmail')
+      .mockRejectedValue({ code: 'auth/user-not-found' });
+    jest.spyOn(firebaseAuth, 'createUser').mockResolvedValue({
+      uid: inviteUid,
+      email: inviteEmail,
+      emailVerified: true,
+    } as UserRecord);
+
+    const response = await request(app.getHttpServer())
+      .post('/api/tenant-members/invite')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ email: inviteEmail, role: TenantMemberRole.TECH })
+      .expect(201);
+
+    const userId = response.body.userId as string;
+    expect(await memberEpoch(userId)).toBe(1n);
+  });
+
+  it('addSiteMembership bumps scope_epoch', async () => {
+    const { site } = await mainSiteAdminUser();
+    const invitee = await tenantPrisma().user.create({
+      data: {
+        firebaseUid: `scope-epoch-sm-${Date.now()}`,
+        email: `scope-epoch-sm-${Date.now()}@example.com`,
+      },
+    });
+    await seedTestTenantMember(prisma, {
+      tenantId: tenant.tenantId,
+      userId: invitee.id,
+      role: 'TECH',
+    });
+    const before = await memberEpoch(invitee.id);
+
+    await request(app.getHttpServer())
+      .post(`/api/sites/${site.id}/memberships`)
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ userId: invitee.id })
+      .expect(201);
+
+    expect((await memberEpoch(invitee.id)) - before).toBe(1n);
+  });
+
   it('A→B→A advances twice', async () => {
     const tech = await tenantPrisma().user.create({
       data: {
@@ -144,13 +193,15 @@ describe('scope epoch writers (AUT-934)', () => {
       }, options)) as typeof innerClient.$transaction;
     innerClient.$transaction = failingTransaction;
 
-    await expect(
-      runWithTenantContext(tenant.tenantId, () =>
-        siteService.removeSiteMembership(site.id, user.id),
-      ),
-    ).rejects.toThrow('forced rollback');
-
-    innerClient.$transaction = originalTransaction;
+    try {
+      await expect(
+        runWithTenantContext(tenant.tenantId, () =>
+          siteService.removeSiteMembership(site.id, user.id),
+        ),
+      ).rejects.toThrow('forced rollback');
+    } finally {
+      innerClient.$transaction = originalTransaction;
+    }
 
     expect(await memberEpoch(user.id)).toBe(beforeEpoch);
     const stillThere = await tenantPrisma().siteMembership.findFirst({
@@ -195,6 +246,23 @@ describe('scope epoch writers (AUT-934)', () => {
     );
 
     expect(await tenantAuthorizationEpoch() - before).toBe(1n);
+  });
+
+  it('legal entity deactivation bumps authorization epoch', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/legal-entities')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ name: `Deact LE ${Date.now()}`, countryIso: 'AT' })
+      .expect(201);
+    const before = await tenantAuthorizationEpoch();
+
+    await request(app.getHttpServer())
+      .patch(`/api/legal-entities/${created.body.id}`)
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ isActive: false })
+      .expect(200);
+
+    expect((await tenantAuthorizationEpoch()) - before).toBe(1n);
   });
 
   it('legal entity isActive change bumps authorization epoch', async () => {

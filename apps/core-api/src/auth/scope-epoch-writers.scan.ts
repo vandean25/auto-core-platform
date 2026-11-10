@@ -27,17 +27,16 @@ const RAW_SITE_MEMBERSHIP_WRITE =
 const RAW_TENANT_ACTIVATION_WRITE =
   /\bUPDATE\s+["']?tenants["']?[\s\S]*?\bis_active\b/gi;
 
-const EPOCH_DELEGATE_CALLS = [
-  'ensureActiveSiteMembershipWithMemberEpoch',
+const TX_EPOCH_DELEGATE_CALLS = [
   'reactivateSiteMembershipWithMemberEpoch',
   'createActiveSiteMembershipWithMemberEpoch',
   'upsertActiveTenantMemberWithMemberEpoch',
 ] as const;
 
-const ATOMICITY_EXEMPT_PATHS = new Set([
-  'auth/scope-epoch-access-writes.ts',
-  'prisma/fixtures/clean-db.ts',
-]);
+const ATOMICITY_EXEMPT_PATHS = new Set(['prisma/fixtures/clean-db.ts']);
+
+const TRANSACTION_CALLBACK =
+  /\$transaction\s*\(\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{/g;
 
 export function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -157,21 +156,80 @@ function transactionBlockRequiresEpoch(bounded: string): boolean {
   );
 }
 
+function sliceBalancedBraces(
+  source: string,
+  openBraceIndex: number,
+): string | null {
+  let depth = 0;
+  let inString: '"' | "'" | '`' | null = null;
+  let escaped = false;
+  for (let i = openBraceIndex; i < source.length; i += 1) {
+    const ch = source[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      inString = ch;
+      continue;
+    }
+    if (ch === '{') {
+      depth += 1;
+    }
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(openBraceIndex + 1, i);
+      }
+    }
+  }
+  return null;
+}
+
+/** Extracts arrow-callback bodies for `prisma.$transaction(async (tx) => { ... })`. */
+export function extractTransactionCallbackBodies(source: string): string[] {
+  const bodies: string[] = [];
+  TRANSACTION_CALLBACK.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = TRANSACTION_CALLBACK.exec(source)) !== null) {
+    const openBraceIndex = match.index + match[0].length - 1;
+    const body = sliceBalancedBraces(source, openBraceIndex);
+    if (body !== null) {
+      bodies.push(body);
+    }
+  }
+  return bodies;
+}
+
+function callbackBumpsEpochOnSameTx(callbackBody: string): boolean {
+  if (/\badvanceScopeEpoch\s*\(\s*tx\b/.test(callbackBody)) {
+    return true;
+  }
+  return TX_EPOCH_DELEGATE_CALLS.some((name) =>
+    new RegExp(`\\b${name}\\s*\\(\\s*tx\\b`).test(callbackBody),
+  );
+}
+
 export function transactionBlocksMissingEpoch(source: string): string[] {
   const violations: string[] = [];
-  const parts = source.split('$transaction');
-  for (let index = 1; index < parts.length; index += 1) {
-    const block = parts[index] ?? '';
-    const bounded = block.slice(0, 4000);
+  const bodies = extractTransactionCallbackBodies(source);
+  for (let index = 0; index < bodies.length; index += 1) {
+    const bounded = bodies[index] ?? '';
     if (!transactionBlockRequiresEpoch(bounded)) {
       continue;
     }
-    const bumpsEpoch = bounded.includes('advanceScopeEpoch');
-    const delegatesEpoch = EPOCH_DELEGATE_CALLS.some((name) =>
-      bounded.includes(name),
-    );
-    if (!bumpsEpoch && !delegatesEpoch) {
-      violations.push(`$transaction block ${index}`);
+    if (!callbackBumpsEpochOnSameTx(bounded)) {
+      violations.push(`$transaction block ${index + 1}`);
     }
   }
   return violations;

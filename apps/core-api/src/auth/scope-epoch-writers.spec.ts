@@ -45,13 +45,46 @@ describe('scope-epoch-writers scan helpers', () => {
     expect(transactionBlocksMissingEpoch(withBump)).toEqual([]);
   });
 
-  it('accepts delegated epoch helpers inside transaction blocks', () => {
+  it('accepts tx-scoped epoch delegate helpers inside transaction blocks', () => {
     const source = `
+      await prisma.$transaction(async (tx) => {
+        await upsertActiveTenantMemberWithMemberEpoch(tx, {});
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(source)).toEqual([]);
+  });
+
+  it('does not count ensureActive helper that starts a nested transaction', () => {
+    const outerOnlyHelper = `
       await prisma.$transaction(async (tx) => {
         await ensureActiveSiteMembershipWithMemberEpoch(prisma, {});
       });
     `;
-    expect(transactionBlocksMissingEpoch(source)).toEqual([]);
+    expect(transactionBlocksMissingEpoch(outerOnlyHelper)).toEqual([]);
+
+    const outerWriteWithNestedHelper = `
+      await prisma.$transaction(async (tx) => {
+        await tx.siteMembership.create({ data: {} });
+        await ensureActiveSiteMembershipWithMemberEpoch(prisma, {});
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(outerWriteWithNestedHelper)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('does not attribute a later transaction bump to an earlier callback', () => {
+    const source = `
+      await prisma.$transaction(async (tx) => {
+        await tx.siteMembership.create({ data: {} });
+      });
+      await prisma.$transaction(async (tx) => {
+        await advanceScopeEpoch(tx, { kind: 'member' });
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(source)).toEqual([
+      '$transaction block 1',
+    ]);
   });
 
   it('flags legal entity is_active deactivation without epoch bump', () => {
