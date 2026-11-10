@@ -4,54 +4,45 @@ import type { buildLegalEntitySellerUpdateData } from './legal-entity-seller.val
 
 type SellerUpdate = ReturnType<typeof buildLegalEntitySellerUpdateData>;
 
+const SELLER_PROFILE_KEYS = [
+  'address_street',
+  'address_line2',
+  'address_zip',
+  'address_city',
+  'tax_number',
+  'vat_id',
+  'iban',
+  'bic',
+  'bank_name',
+  'email',
+  'phone',
+  'registration_number',
+  'registration_court',
+  'representatives',
+  'payment_terms_days',
+  'payment_terms_text',
+] as const satisfies readonly (keyof SellerUpdate)[];
+
 export function buildLegalEntityProfileUpdateData(
   existing: LegalEntity,
   dto: UpdateLegalEntityDto,
   sellerUpdate: SellerUpdate,
 ) {
-  return {
+  const data: Record<string, unknown> = {
     name: sellerUpdate.name ?? existing.name,
     is_active: dto.isActive ?? existing.is_active,
-    ...(sellerUpdate.address_street !== undefined
-      ? { address_street: sellerUpdate.address_street }
-      : {}),
-    ...(sellerUpdate.address_line2 !== undefined
-      ? { address_line2: sellerUpdate.address_line2 }
-      : {}),
-    ...(sellerUpdate.address_zip !== undefined
-      ? { address_zip: sellerUpdate.address_zip }
-      : {}),
-    ...(sellerUpdate.address_city !== undefined
-      ? { address_city: sellerUpdate.address_city }
-      : {}),
-    ...(sellerUpdate.tax_number !== undefined
-      ? { tax_number: sellerUpdate.tax_number }
-      : {}),
-    ...(sellerUpdate.vat_id !== undefined
-      ? { vat_id: sellerUpdate.vat_id }
-      : {}),
-    ...(sellerUpdate.iban !== undefined ? { iban: sellerUpdate.iban } : {}),
-    ...(sellerUpdate.bic !== undefined ? { bic: sellerUpdate.bic } : {}),
-    ...(sellerUpdate.bank_name !== undefined
-      ? { bank_name: sellerUpdate.bank_name }
-      : {}),
-    ...(sellerUpdate.email !== undefined ? { email: sellerUpdate.email } : {}),
-    ...(sellerUpdate.phone !== undefined ? { phone: sellerUpdate.phone } : {}),
-    ...(sellerUpdate.registration_number !== undefined
-      ? { registration_number: sellerUpdate.registration_number }
-      : {}),
-    ...(sellerUpdate.registration_court !== undefined
-      ? { registration_court: sellerUpdate.registration_court }
-      : {}),
-    ...(sellerUpdate.representatives !== undefined
-      ? { representatives: sellerUpdate.representatives }
-      : {}),
-    ...(sellerUpdate.payment_terms_days !== undefined
-      ? { payment_terms_days: sellerUpdate.payment_terms_days }
-      : {}),
-    ...(sellerUpdate.payment_terms_text !== undefined
-      ? { payment_terms_text: sellerUpdate.payment_terms_text }
-      : {}),
-    ...(dto.rksvMode !== undefined ? { rksv_mode: dto.rksvMode } : {}),
   };
+
+  for (const key of SELLER_PROFILE_KEYS) {
+    const value = sellerUpdate[key];
+    if (value !== undefined) {
+      data[key] = value;
+    }
+  }
+
+  if (dto.rksvMode !== undefined) {
+    data.rksv_mode = dto.rksvMode;
+  }
+
+  return data;
 }
