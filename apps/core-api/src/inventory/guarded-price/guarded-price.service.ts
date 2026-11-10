@@ -293,7 +293,7 @@ export class GuardedPriceService {
     row: Prisma.InventoryPriceOperationGetPayload<object>,
     intent: GuardedPriceIntent,
   ): Promise<
-    | { kind: 'proceed' }
+    | { kind: 'proceed'; journalKey?: string }
     | { kind: 'replay'; receipt: GuardedPriceReceiptDto }
     | { kind: 'halt'; throw: () => never }
   > {
