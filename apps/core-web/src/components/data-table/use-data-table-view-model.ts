@@ -7,6 +7,8 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useDataTableContextMenu } from './data-table-context-menu'
 import { useDataTableSelection } from './data-table-selection'
 import {
+  isInfiniteListSnapshotResolved,
+  mergeRefreshingInfinitePresentation,
   resolveDataTableFetchErrorMessage,
   useDataTablePresentation,
   usePresentationLatencyRef,
@@ -48,19 +50,18 @@ export function useDataTableViewModel<TData extends object>({
   const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
   const hasUsableData = hasUsableDataProp ?? !isLoading
   const { rows, infiniteView } = useDataTableInfinite(infinite, data)
+  const resolvedTotalCount = infiniteView?.totalCount ?? infinite?.totalCount
   const basePresentation = useDataTablePresentation({
     isLoading,
     isFetching,
     isPlaceholderData,
     isError,
     hasUsableData,
+    listSnapshotResolved: isInfiniteListSnapshotResolved(hasUsableData, resolvedTotalCount),
     bypassSkeleton,
   })
   // While page one of a restarted or refreshed list loads, the rows on screen are a locked preview (ADR-0035 §6-7).
-  const refreshingPreview = Boolean(infiniteView?.isRefreshing)
-  const presentation = refreshingPreview
-    ? { ...basePresentation, isStalePreview: true, ariaBusy: true }
-    : basePresentation
+  const presentation = mergeRefreshingInfinitePresentation(basePresentation, Boolean(infiniteView?.isRefreshing))
 
   // An infinite list has no pages: an old `?page=3` link starts at the top and drops the page from the URL (ADR-0035).
   // Keyed on the state object, not the index: the URL sync of the table state can put the old index back on mount.

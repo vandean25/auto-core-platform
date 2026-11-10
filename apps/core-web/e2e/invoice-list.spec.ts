@@ -86,12 +86,48 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     expect(requests.count).toHaveLength(0);
   });
 
+  test('AUT-946: WHEN the count is visible before page one THEN invoice rows are not lasting skeleton placeholders', async ({
+    page,
+  }) => {
+    const rows = invoiceRows.slice(0, 9);
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/capped-count'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ count: 9, isCapped: false }),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('pagination') !== 'cursor') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: rows,
+          meta: { nextCursor: null, hasNextPage: false },
+        }),
+      });
+    });
+    await openList(page, '?sortField=invoice_number&sortDirection=asc');
+    await expect(page.getByTestId('data-table-count')).toHaveText('9 Treffer');
+    await expect(page.locator('tbody .animate-pulse')).toHaveCount(0, { timeout: 350 });
+    await expect(page.getByText('RE-2026-0001')).toBeVisible({ timeout: 5_000 });
+  });
+
   test.describe('at 375px', () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
     test('WHEN the viewport is 375px THEN the invoice cards virtualize with variable heights and stay at least 44px tappable', async ({ page }) => {
       const requests = await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows, unpaged: 'array' });
       await openList(page, '?sortField=invoice_number&sortDirection=asc');
+
+      await expect(page.getByTestId('data-table-count')).toBeVisible();
+      await expect(page.locator('tbody .animate-pulse, li .animate-pulse')).toHaveCount(0, { timeout: 350 });
 
       const cards = page.locator('li[data-table-row="true"]');
       await expect(cards.first()).toBeVisible();

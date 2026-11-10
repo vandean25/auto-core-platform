@@ -104,6 +104,51 @@ describe('InventoryList row actions', () => {
 
   afterAll(settleVirtualizerTimers)
 
+  // AUT-946 scenario 2: capped count before rows — no lasting skeleton beside "N Treffer".
+  it('AUT-946: WHEN the count is visible but rows are still pending THEN the table body does not keep skeleton rows', async () => {
+    vi.useFakeTimers()
+    try {
+      asMock(inventoryApi.useInventoryCursorList).mockReturnValue({
+        rows: [],
+        tableProps: {
+          isLoading: true,
+          isFetching: true,
+          isPlaceholderData: false,
+          isError: false,
+          onRetry: vi.fn(),
+          hasUsableData: false,
+          infinite: {
+            queryKey: ['inventory', 'cursor-list', {}],
+            hasNextPage: true,
+            isFetchingNextPage: false,
+            isFetchNextPageError: false,
+            fetchNextPage: vi.fn(),
+            totalCount: { count: 3, isCapped: false },
+          },
+        },
+      })
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <SavedViewsProvider userKey="test-user">
+            <DashboardWidgetsProvider userKey="test-user">
+              <MemoryRouter>
+                <InventoryList />
+              </MemoryRouter>
+            </DashboardWidgetsProvider>
+          </SavedViewsProvider>
+        </QueryClientProvider>,
+      )
+      expect(screen.getByTestId('data-table-count')).toHaveTextContent('3 Treffer')
+      act(() => vi.advanceTimersByTime(550))
+      expect(document.querySelector('tbody .animate-pulse')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('does not expose Delete for catalog items', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

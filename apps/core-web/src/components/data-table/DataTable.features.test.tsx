@@ -678,6 +678,37 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(screen.getByText(text)).toBeInTheDocument()
   })
 
+  // AUT-946 scenario 3: cached rows on revisit use stale preview, not a lasting skeleton.
+  it('WHEN an infinite list opens with cached rows and a known count THEN rows render without skeleton rows', () => {
+    const client = createListClient()
+    seedLoadedPages(client, 1)
+    render(
+      <InfiniteListHarness client={client} fetchPage={respondWithPages()} totalCount={{ count: 9, isCapped: false }} />,
+    )
+
+    expect(screen.getByText('Zeile 0')).toBeInTheDocument()
+    expect(document.querySelector('tbody .animate-pulse')).toBeNull()
+  })
+
+  // AUT-946 scenario 1/2 (infinite lists): capped count often resolves before page one — skeleton must not outlive it.
+  it('WHEN the capped count is visible before the first page lands THEN the table body does not keep skeleton rows', async () => {
+    vi.useFakeTimers()
+    try {
+      const client = createListClient()
+      render(
+        <InfiniteListHarness client={client} fetchPage={neverResolves()} totalCount={{ count: 9, isCapped: false }} />,
+      )
+
+      expect(screen.getByTestId('data-table-count')).toHaveTextContent('9 Treffer')
+      act(() => {
+        vi.advanceTimersByTime(550)
+      })
+      expect(document.querySelector('tbody .animate-pulse')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   // Pilot check "Zähler": a failed count never blocks the rows; it offers a retry of the count only.
   it('WHEN only the count failed THEN the rows stay and "Anzahl nicht verfügbar" offers a retry', () => {
     const client = createListClient()
