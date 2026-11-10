@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { TenantMemberRole } from '@prisma/client';
+import { TenantMemberRole, type Prisma, type PrismaClient } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
@@ -115,24 +115,27 @@ describe('scope epoch writers (AUT-934)', () => {
     });
     const beforeEpoch = await memberEpoch(user.id);
 
-    const innerClient = prisma.client;
+    const innerClient: PrismaClient = prisma.client;
     const originalTransaction = innerClient.$transaction.bind(innerClient);
-    innerClient.$transaction = async (
-      fn: (tx: import('@prisma/client').Prisma.TransactionClient) => unknown,
-      options?: unknown,
+    type TransactionFn = Parameters<PrismaClient['$transaction']>[0];
+    type TransactionOptions = Parameters<PrismaClient['$transaction']>[1];
+    const failingTransaction = ((
+      fn: TransactionFn,
+      options?: TransactionOptions,
     ) =>
       originalTransaction(async (tx) => {
         const deleteMembership = tx.siteMembership.delete.bind(tx.siteMembership);
         const wrappedTx = Object.assign(tx, {
           siteMembership: Object.assign(tx.siteMembership, {
-            delete: async (args: { where: { id: string } }) => {
+            delete: async (args: Prisma.SiteMembershipDeleteArgs) => {
               await deleteMembership(args);
               throw new Error('forced rollback');
             },
           }),
         });
         return fn(wrappedTx);
-      }, options);
+      }, options)) as typeof innerClient.$transaction;
+    innerClient.$transaction = failingTransaction;
 
     await expect(
       runWithTenantContext(tenant.tenantId, () =>
