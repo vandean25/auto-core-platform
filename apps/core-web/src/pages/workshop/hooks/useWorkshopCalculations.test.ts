@@ -48,6 +48,8 @@ const singleTask: WorkshopTask = {
   lineItemsVersion: 0,
   status: "IN_PROGRESS",
   done: false,
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-01T00:00:00Z",
   lineItems: [partLine, laborLine],
 };
 
@@ -57,6 +59,8 @@ const brakeTask: WorkshopTask = {
   lineItemsVersion: 0,
   status: "DONE",
   done: true,
+  createdAt: "2026-01-02T00:00:00Z",
+  updatedAt: "2026-01-02T00:00:00Z",
   lineItems: [brakePads],
 };
 
@@ -407,6 +411,8 @@ describe("useWorkshopCalculations — tax calculation (AUT-965)", () => {
     lineItemsVersion: 0,
     status: "DONE",
     done: true,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
     lineItems: [
       {
         id: "wtl-90",
@@ -432,12 +438,13 @@ describe("useWorkshopCalculations — tax calculation (AUT-965)", () => {
     expect(result.current.checkoutGrossTotal).toBeCloseTo(108);
   });
 
-  it("reads tax from draft invoice lines matched by billable order when ids differ", () => {
+  it("reads tax from draft invoice lines linked by workshop_task_line_item_id", () => {
     const invoice = {
       id: "inv-draft",
       items: [
         {
           id: "inv-item-uuid",
+          workshop_task_line_item_id: "wtl-90",
           description: "Labor",
           quantity: 1,
           unit_price: 90,
@@ -472,6 +479,7 @@ describe("useWorkshopCalculations — tax calculation (AUT-965)", () => {
       items: [
         {
           id: "inv-exempt-line",
+          workshop_task_line_item_id: "wtl-90",
           description: "Exempt",
           quantity: 1,
           unit_price: 100,
@@ -489,6 +497,86 @@ describe("useWorkshopCalculations — tax calculation (AUT-965)", () => {
     );
     expect(result.current.checkoutTaxTotal).toBe(0);
     expect(result.current.checkoutGrossTotal).toBe(100);
+  });
+
+  it("excludes cancelled parts from checkout net and VAT totals", () => {
+    const taskWithCancelledPart: WorkshopTask = {
+      id: "task-cancel",
+      title: "Mixed",
+      lineItemsVersion: 0,
+      status: "DONE",
+      done: true,
+      createdAt: "2026-01-03T00:00:00Z",
+      updatedAt: "2026-01-03T00:00:00Z",
+      lineItems: [
+        {
+          id: "part-cancelled",
+          type: "PART",
+          itemNo: "P-C",
+          description: "Cancelled part",
+          qty: 1,
+          unitPrice: 200,
+          partExecutionStatus: "CANCELLED",
+        },
+        {
+          id: "labor-active",
+          type: "LABOR",
+          itemNo: "L-1",
+          description: "Labor",
+          qty: 1,
+          unitPrice: 90,
+        },
+      ],
+    };
+
+    const { result } = renderHook(() =>
+      useWorkshopCalculations({
+        ...defaultInput,
+        isCheckoutView: true,
+        orderTasks: [taskWithCancelledPart],
+        fetchedInvoice: null,
+      }),
+    );
+
+    expect(result.current.checkoutNetTotal).toBe(90);
+    expect(result.current.checkoutTaxTotal).toBe(18);
+    expect(result.current.checkoutGrossTotal).toBe(108);
+  });
+
+  it("sums VAT like invoice totals for two fractional-net lines at 20%", () => {
+    const fractionalTask: WorkshopTask = {
+      ...taxableLaborOnly,
+      lineItems: [
+        {
+          id: "line-a",
+          type: "LABOR",
+          itemNo: "A",
+          description: "Line A",
+          qty: 1,
+          unitPrice: 10.02,
+        },
+        {
+          id: "line-b",
+          type: "LABOR",
+          itemNo: "B",
+          description: "Line B",
+          qty: 1,
+          unitPrice: 10.02,
+        },
+      ],
+    };
+
+    const { result } = renderHook(() =>
+      useWorkshopCalculations({
+        ...defaultInput,
+        orderTasks: [fractionalTask],
+        fetchedInvoice: null,
+      }),
+    );
+
+    expect(result.current.checkoutNetTotal).toBeCloseTo(20.04);
+    expect(result.current.checkoutTaxTotal).toBe(4.01);
+    expect(result.current.checkoutGrossTotal).toBeCloseTo(24.05);
   });
 
   it("computes tax from invoice item tax_rate", () => {

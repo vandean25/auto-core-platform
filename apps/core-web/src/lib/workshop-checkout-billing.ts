@@ -1,4 +1,4 @@
-import type { InvoiceItem, WorkshopTaskLineItem } from '@/api/types'
+import type { InvoiceItem, WorkshopTask, WorkshopTaskLineItem } from '@/api/types'
 
 /** Matches `DEFAULT_VAT_RATE` in `invoice-creation.helpers.ts` (server default). */
 export const WORKSHOP_CHECKOUT_DEFAULT_VAT_RATE = 20
@@ -7,13 +7,59 @@ export function roundMoneyHalfUp(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
-export function computeCheckoutLineTax(lineNet: number, taxRatePercent: number): number {
+/** Unrounded line tax (same formula as server `calculateInvoiceTotals`). */
+export function computeUnroundedLineTax(lineNet: number, taxRatePercent: number): number {
   if (lineNet <= 0 || taxRatePercent <= 0) return 0
-  return roundMoneyHalfUp(lineNet * (taxRatePercent / 100))
+  return lineNet * (taxRatePercent / 100)
+}
+
+/** Round half-up once on the summed unrounded line taxes (matches invoice `total_tax`). */
+export function computeCheckoutInvoiceTaxTotal(
+  lines: Array<{ lineNet: number; taxRatePercent: number }>,
+): number {
+  const unroundedSum = lines.reduce(
+    (sum, line) => sum + computeUnroundedLineTax(line.lineNet, line.taxRatePercent),
+    0,
+  )
+  return roundMoneyHalfUp(unroundedSum)
 }
 
 export function isBillableWorkshopCheckoutLine(lineItem: WorkshopTaskLineItem): boolean {
   return lineItem.partExecutionStatus !== 'CANCELLED'
+}
+
+export function compareWorkshopTasksForBilling(a: WorkshopTask, b: WorkshopTask): number {
+  const aCreated = a.createdAt ? Date.parse(a.createdAt) : 0
+  const bCreated = b.createdAt ? Date.parse(b.createdAt) : 0
+  if (aCreated !== bCreated) return aCreated - bCreated
+  return a.id.localeCompare(b.id)
+}
+
+export function compareWorkshopLineItemsForBilling(
+  a: WorkshopTaskLineItem,
+  b: WorkshopTaskLineItem,
+): number {
+  return a.id.localeCompare(b.id)
+}
+
+export interface CheckoutLineRow {
+  rowKey: string
+  taskId: string
+  lineItem: WorkshopTaskLineItem
+}
+
+export function buildBillableCheckoutLineRows(tasks: WorkshopTask[]): CheckoutLineRow[] {
+  const sortedTasks = [...tasks].sort(compareWorkshopTasksForBilling)
+  return sortedTasks.flatMap((task) =>
+    [...(task.lineItems ?? [])]
+      .filter(isBillableWorkshopCheckoutLine)
+      .sort(compareWorkshopLineItemsForBilling)
+      .map((lineItem, index) => ({
+        rowKey: `${task.id}:${lineItem.id ?? `idx-${index}`}`,
+        taskId: task.id,
+        lineItem,
+      })),
+  )
 }
 
 export function findInvoiceItemByLineItemId(
@@ -23,27 +69,15 @@ export function findInvoiceItemByLineItemId(
   return invoiceItems.find((item) => item.id === lineItemId)
 }
 
-/**
- * Resolves the invoice draft line that bills a workshop checkout row. Invoice item
- * IDs are new UUIDs at draft creation, so match by stable billable line order (same
- * as `buildDraftInvoiceLinesFromOrder` on the server) and keep id equality for tests.
- */
-export function findInvoiceItemForCheckoutRow(
+export function findInvoiceItemForWorkshopLine(
   invoiceItems: InvoiceItem[],
-  checkoutLineRows: Array<{ lineItem: WorkshopTaskLineItem }>,
-  rowIndex: number,
+  workshopLineId: string,
 ): InvoiceItem | undefined {
-  const row = checkoutLineRows[rowIndex]
-  if (!row || !isBillableWorkshopCheckoutLine(row.lineItem)) return undefined
-
-  const byId = findInvoiceItemByLineItemId(invoiceItems, row.lineItem.id)
-  if (byId) return byId
-
-  const billableBeforeRow = checkoutLineRows
-    .slice(0, rowIndex + 1)
-    .filter((entry) => isBillableWorkshopCheckoutLine(entry.lineItem)).length - 1
-
-  return invoiceItems[billableBeforeRow]
+  const byWorkshopLine = invoiceItems.find(
+    (item) => item.workshop_task_line_item_id === workshopLineId,
+  )
+  if (byWorkshopLine) return byWorkshopLine
+  return findInvoiceItemByLineItemId(invoiceItems, workshopLineId)
 }
 
 export function resolveCheckoutLineTaxRate(

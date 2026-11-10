@@ -18,8 +18,7 @@ import {
   useWorkshopCalculations,
   EMPTY_DISCOUNT_STATE,
 } from './useWorkshopCalculations'
-import { findInvoiceItemForCheckoutRow } from '@/lib/workshop-checkout-billing'
-import type { WorkshopTaskLineItem } from '@/api/types'
+import { findInvoiceItemForWorkshopLine } from '@/lib/workshop-checkout-billing'
 import type { DiscountState } from './useWorkshopCalculations'
 import type { CheckoutFooterProps } from '../components/CheckoutFooter'
 import { i18n } from '@/lib/i18n'
@@ -33,7 +32,6 @@ export interface InvoiceLineDiscountUpdate {
 
 export function buildInvoiceLineDiscountUpdates(
   lineDiscountOverrides: Record<string, DiscountState>,
-  checkoutLineRows: Array<{ rowKey: string; lineItem: WorkshopTaskLineItem }>,
   checkoutLineRowByRowKey: Map<string, { lineItem: { id: string } }>,
   invoiceItems: Invoice['items'],
 ): InvoiceLineDiscountUpdate[] {
@@ -43,13 +41,9 @@ export function buildInvoiceLineDiscountUpdates(
     const lineRow = checkoutLineRowByRowKey.get(rowKey)
     if (!lineRow) continue
 
-    const rowIndex = checkoutLineRows.findIndex((row) => row.rowKey === rowKey)
-    if (rowIndex < 0) continue
-
-    const invoiceItem = findInvoiceItemForCheckoutRow(
+    const invoiceItem = findInvoiceItemForWorkshopLine(
       invoiceItems,
-      checkoutLineRows,
-      rowIndex,
+      lineRow.lineItem.id,
     )
     if (!invoiceItem) continue
 
@@ -185,7 +179,6 @@ export async function executeIssueInvoiceWithDiscounts(params: {
   activeInvoiceId: string
   fetchedInvoice: Invoice | null | undefined
   lineDiscountOverrides: Record<string, DiscountState>
-  checkoutLineRows: Array<{ rowKey: string; lineItem: WorkshopTaskLineItem }>
   checkoutLineRowByRowKey: Map<string, { lineItem: { id: string } }>
   updateInvoiceDiscount: {
     mutateAsync: (args: {
@@ -199,7 +192,6 @@ export async function executeIssueInvoiceWithDiscounts(params: {
     activeInvoiceId,
     fetchedInvoice,
     lineDiscountOverrides,
-    checkoutLineRows,
     checkoutLineRowByRowKey,
     updateInvoiceDiscount,
     issueInvoice,
@@ -209,7 +201,6 @@ export async function executeIssueInvoiceWithDiscounts(params: {
     if (fetchedInvoice && Object.keys(lineDiscountOverrides).length > 0) {
       const lineItems = buildInvoiceLineDiscountUpdates(
         lineDiscountOverrides,
-        checkoutLineRows,
         checkoutLineRowByRowKey,
         fetchedInvoice.items,
       )
@@ -332,7 +323,6 @@ export function useWorkshopCheckout({
       activeInvoiceId,
       fetchedInvoice,
       lineDiscountOverrides,
-      checkoutLineRows,
       checkoutLineRowByRowKey,
       updateInvoiceDiscount,
       issueInvoice,
@@ -391,8 +381,11 @@ export function useWorkshopCheckout({
 
   const closeCheckout = () => setIsCheckoutOpen(false)
 
-  const checkoutFooterTotal =
-    activeInvoiceId && fetchedInvoice ? checkoutGrossTotal : orderGrandTotal
+  const checkoutFooterTotal = isCheckoutOpen
+    ? checkoutGrossTotal
+    : activeInvoiceId && fetchedInvoice
+      ? checkoutGrossTotal
+      : orderGrandTotal
 
   const footerProps = buildCheckoutFooterProps({
     checkoutFooterTotal,

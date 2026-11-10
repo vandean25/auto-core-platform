@@ -6758,6 +6758,7 @@ export interface components {
         InvoiceItemResponseDto: {
             id: string;
             catalog_item_id?: string | null;
+            workshop_task_line_item_id?: string | null;
             description: string;
             /** @example 1.00 */
             quantity: string;

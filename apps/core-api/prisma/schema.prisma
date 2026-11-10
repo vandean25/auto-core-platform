@@ -3360,6 +3360,9 @@ model InvoiceItem {
   catalog_item_id String?
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
 
+  workshop_task_line_item_id String?
+  workshop_task_line_item    WorkshopTaskLineItem? @relation(fields: [workshop_task_line_item_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
   description         String
   quantity            Decimal       @db.Decimal(10, 3)
   unit_price          Decimal       @db.Decimal(10, 2)
@@ -3378,6 +3381,7 @@ model InvoiceItem {
   @@unique([tenant_id, id])
   @@index([tenant_id])
   @@index([catalog_item_id])
+  @@index([workshop_task_line_item_id])
   @@map("invoice_items")
 }
 
@@ -4694,6 +4698,7 @@ model WorkshopTaskLineItem {
   deferred_part_reservation Boolean                          @default(false)
   parts_reservations        PartsReservation[]
   warranty_claim_lines      WarrantyClaimLine[]
+  invoice_items             InvoiceItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

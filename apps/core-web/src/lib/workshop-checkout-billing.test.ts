@@ -1,82 +1,106 @@
 import { describe, it, expect } from 'vitest'
-import type { InvoiceItem, WorkshopTaskLineItem } from '@/api/types'
+import type { InvoiceItem, WorkshopTask, WorkshopTaskLineItem } from '@/api/types'
 import {
-  computeCheckoutLineTax,
-  findInvoiceItemForCheckoutRow,
+  buildBillableCheckoutLineRows,
+  computeCheckoutInvoiceTaxTotal,
+  computeUnroundedLineTax,
+  findInvoiceItemForWorkshopLine,
   resolveCheckoutLineTaxRate,
   WORKSHOP_CHECKOUT_DEFAULT_VAT_RATE,
 } from './workshop-checkout-billing'
 
-const laborRow = (id: string): { lineItem: WorkshopTaskLineItem } => ({
-  lineItem: {
-    id,
-    type: 'LABOR',
-    itemNo: 'LAB-1',
-    description: 'Labor',
-    qty: 1,
-    unitPrice: 90,
-  },
+const laborLine = (
+  id: string,
+  unitPrice = 90,
+): WorkshopTaskLineItem => ({
+  id,
+  type: 'LABOR',
+  itemNo: 'LAB-1',
+  description: 'Labor',
+  qty: 1,
+  unitPrice,
 })
 
-const partRow = (id: string, partExecutionStatus?: WorkshopTaskLineItem['partExecutionStatus']) => ({
-  lineItem: {
-    id,
-    type: 'PART' as const,
-    itemNo: 'P-1',
-    description: 'Part',
-    qty: 1,
-    unitPrice: 50,
-    ...(partExecutionStatus ? { partExecutionStatus } : {}),
-  },
+const partLine = (
+  id: string,
+  partExecutionStatus?: WorkshopTaskLineItem['partExecutionStatus'],
+): WorkshopTaskLineItem => ({
+  id,
+  type: 'PART',
+  itemNo: 'P-1',
+  description: 'Part',
+  qty: 1,
+  unitPrice: 50,
+  ...(partExecutionStatus ? { partExecutionStatus } : {}),
 })
 
 describe('workshop-checkout-billing', () => {
-  describe('computeCheckoutLineTax', () => {
-    it('computes 20% VAT rounded half-up', () => {
-      expect(computeCheckoutLineTax(90, 20)).toBe(18)
-      expect(computeCheckoutLineTax(15, 21)).toBeCloseTo(3.15)
+  describe('computeCheckoutInvoiceTaxTotal', () => {
+    it('rounds summed unrounded line tax once (invoice total_tax parity)', () => {
+      expect(
+        computeCheckoutInvoiceTaxTotal([
+          { lineNet: 10.02, taxRatePercent: 20 },
+          { lineNet: 10.02, taxRatePercent: 20 },
+        ]),
+      ).toBe(4.01)
     })
 
-    it('returns 0 for zero net or zero rate', () => {
-      expect(computeCheckoutLineTax(0, 20)).toBe(0)
-      expect(computeCheckoutLineTax(90, 0)).toBe(0)
+    it('computes 20% VAT for a single line', () => {
+      expect(computeUnroundedLineTax(90, 20)).toBe(18)
+      expect(computeCheckoutInvoiceTaxTotal([{ lineNet: 90, taxRatePercent: 20 }])).toBe(18)
     })
   })
 
-  describe('findInvoiceItemForCheckoutRow', () => {
-    const invoiceItems = [
-      {
-        id: 'draft-line-aaa',
-        description: 'Labor',
-        quantity: '1',
-        unit_price: '90',
-        tax_rate: 20,
-      },
-    ] as InvoiceItem[]
+  describe('buildBillableCheckoutLineRows', () => {
+    it('omits cancelled part lines', () => {
+      const tasks = [
+        {
+          id: 'task-1',
+          title: 'T',
+          lineItemsVersion: 0,
+          status: 'DONE' as const,
+          done: true,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          lineItems: [partLine('p-cancel', 'CANCELLED'), laborLine('l-1')],
+        },
+      ] as WorkshopTask[]
+      const rows = buildBillableCheckoutLineRows(tasks)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].lineItem.id).toBe('l-1')
+    })
+  })
 
-    it('matches by billable row order when workshop and invoice ids differ', () => {
-      const rows = [laborRow('workshop-line-111')]
-      expect(findInvoiceItemForCheckoutRow(invoiceItems, rows, 0)?.tax_rate).toBe(20)
+  describe('findInvoiceItemForWorkshopLine', () => {
+    it('matches by workshop_task_line_item_id when invoice ids differ', () => {
+      const invoiceItems = [
+        {
+          id: 'draft-line-aaa',
+          workshop_task_line_item_id: 'workshop-line-111',
+          description: 'Labor',
+          quantity: '1',
+          unit_price: '90',
+          tax_rate: 20,
+        },
+        {
+          id: 'draft-line-bbb',
+          workshop_task_line_item_id: 'workshop-line-222',
+          description: 'Labor 2',
+          quantity: '1',
+          unit_price: '40',
+          tax_rate: 0,
+        },
+      ] as InvoiceItem[]
+
+      expect(findInvoiceItemForWorkshopLine(invoiceItems, 'workshop-line-111')?.tax_rate).toBe(20)
+      expect(findInvoiceItemForWorkshopLine(invoiceItems, 'workshop-line-222')?.tax_rate).toBe(0)
     })
 
-    it('still matches by equal ids for legacy callers', () => {
+    it('falls back to equal invoice item id for legacy fixtures', () => {
       const legacyItems = [
-        { ...invoiceItems[0], id: 'line-1' },
+        { id: 'line-1', description: 'x', quantity: '1', unit_price: '1', tax_rate: 20 },
       ] as InvoiceItem[]
-      const rows = [laborRow('line-1')]
-      expect(findInvoiceItemForCheckoutRow(legacyItems, rows, 0)?.id).toBe('line-1')
-    })
-
-    it('skips cancelled part lines for positional alignment', () => {
-      const laborOnlyInvoice = [
-        { id: 'i-2', description: 'Labor', quantity: '1', unit_price: '90', tax_rate: 20 },
-      ] as InvoiceItem[]
-      const rows = [
-        partRow('p-cancel', 'CANCELLED'),
-        laborRow('l-1'),
-      ]
-      expect(findInvoiceItemForCheckoutRow(laborOnlyInvoice, rows, 0)).toBeUndefined()
-      expect(findInvoiceItemForCheckoutRow(laborOnlyInvoice, rows, 1)?.description).toBe('Labor')
+      expect(findInvoiceItemForWorkshopLine(legacyItems, 'line-1')?.id).toBe('line-1')
     })
   })
 

@@ -45,6 +45,7 @@ export interface InvoiceCustomerAddressSnapshot {
 }
 
 export interface DraftInvoiceLineItemInput {
+  id?: string;
   catalog_item_id?: string | null;
   catalogItemId?: string | null;
   description: string;
@@ -164,6 +165,7 @@ export function buildDraftInvoiceLineItem(
 
   return {
     tenant_id: tenantId ?? item.tenant_id ?? '',
+    workshop_task_line_item_id: item.id ?? null,
     catalog_item_id: item.catalog_item_id ?? item.catalogItemId ?? null,
     description: item.description,
     quantity,
@@ -361,20 +363,43 @@ export interface DraftInvoiceLinesResult {
   totals: InvoiceTotals;
 }
 
+function compareWorkshopTasksForInvoice(
+  a: { id: string; createdAt?: Date },
+  b: { id: string; createdAt?: Date },
+): number {
+  const aCreated = a.createdAt?.getTime() ?? 0;
+  const bCreated = b.createdAt?.getTime() ?? 0;
+  if (aCreated !== bCreated) return aCreated - bCreated;
+  return a.id.localeCompare(b.id);
+}
+
+function compareWorkshopLineItemsForInvoice(
+  a: { id: string },
+  b: { id: string },
+): number {
+  return a.id.localeCompare(b.id);
+}
+
 export function buildDraftInvoiceLinesFromOrder(
   order: {
     tasks?: Array<{
-      line_items?: Array<DraftInvoiceLineItemInput>;
+      id: string;
+      createdAt?: Date;
+      line_items?: Array<DraftInvoiceLineItemInput & { id: string }>;
     }>;
   },
   tenantId: string,
 ): DraftInvoiceLinesResult {
-  const lineItems = (order.tasks ?? [])
-    .flatMap((task) => task.line_items ?? [])
-    .filter(
-      (line) =>
-        line.part_execution_status !==
-        WorkshopPartLineExecutionStatus.CANCELLED,
+  const sortedTasks = [...(order.tasks ?? [])].sort(compareWorkshopTasksForInvoice);
+  const lineItems = sortedTasks
+    .flatMap((task) =>
+      [...(task.line_items ?? [])]
+        .filter(
+          (line) =>
+            line.part_execution_status !==
+            WorkshopPartLineExecutionStatus.CANCELLED,
+        )
+        .sort(compareWorkshopLineItemsForInvoice),
     );
 
   if (lineItems.length === 0) {

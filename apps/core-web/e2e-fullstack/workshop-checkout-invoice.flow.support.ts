@@ -116,7 +116,10 @@ export async function createCheckoutDraftInvoice(page: Page) {
   await page
     .getByRole('button', { name: DE_FULLSTACK_WORKSHOP.checkoutSummary.createDraft })
     .click()
-  await expect(page.getByText(/Rechnungsentwurf erstellt/)).toBeVisible({
+  const draftToastPrefix = DE_FULLSTACK_WORKSHOP.checkout.toast.draftInvoiceCreated.split(
+    '{{number}}',
+  )[0]
+  await expect(page.getByText(new RegExp(draftToastPrefix))).toBeVisible({
     timeout: 60_000,
   })
 }
@@ -138,7 +141,10 @@ export async function issueCheckoutDraftInvoice(page: Page) {
     total_tax: string
     total_gross: string
   }
-  await expect(page.getByText(/Rechnung ausgestellt/)).toBeVisible()
+  const issuedToastPrefix = DE_FULLSTACK_WORKSHOP.checkout.toast.invoiceIssued.split(
+    '{{number}}',
+  )[0]
+  await expect(page.getByText(new RegExp(issuedToastPrefix))).toBeVisible()
   return invoice
 }
 

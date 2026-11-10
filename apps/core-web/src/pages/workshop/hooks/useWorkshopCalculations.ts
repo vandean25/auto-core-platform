@@ -7,8 +7,10 @@ import type {
 } from '@/api/types'
 import type { Invoice } from '@/api/types'
 import {
-  computeCheckoutLineTax,
-  findInvoiceItemForCheckoutRow,
+  buildBillableCheckoutLineRows,
+  computeCheckoutInvoiceTaxTotal,
+  computeUnroundedLineTax,
+  findInvoiceItemForWorkshopLine,
   resolveCheckoutLineTaxRate,
 } from '@/lib/workshop-checkout-billing'
 
@@ -29,6 +31,7 @@ export interface CheckoutLineSummary {
   baseAmount: number
   discountAmount: number
   lineNet: number
+  lineTaxRate: number
   taxAmount: number
 }
 
@@ -119,8 +122,6 @@ export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
 
 export function createCheckoutLineSummary(
   row: { rowKey: string; taskId: string; lineItem: WorkshopTaskLineItem },
-  rowIndex: number,
-  checkoutLineRows: Array<{ lineItem: WorkshopTaskLineItem }>,
   lineDiscountOverrides: Record<string, DiscountState>,
   discountSeedFromInvoice: Record<string, DiscountState>,
   fetchedInvoice?: Invoice | null,
@@ -138,14 +139,10 @@ export function createCheckoutLineSummary(
   )
   const lineNet = Math.max(0, baseAmount - discountAmount)
   const invoiceItem = fetchedInvoice
-    ? findInvoiceItemForCheckoutRow(
-        fetchedInvoice.items,
-        checkoutLineRows,
-        rowIndex,
-      )
+    ? findInvoiceItemForWorkshopLine(fetchedInvoice.items, lineItem.id)
     : undefined
   const lineTaxRate = resolveCheckoutLineTaxRate(invoiceItem)
-  const taxAmount = computeCheckoutLineTax(lineNet, lineTaxRate)
+  const taxAmount = computeUnroundedLineTax(lineNet, lineTaxRate)
   return {
     rowKey,
     taskId,
@@ -154,6 +151,7 @@ export function createCheckoutLineSummary(
     baseAmount,
     discountAmount,
     lineNet,
+    lineTaxRate,
     taxAmount,
   }
 }
@@ -194,7 +192,12 @@ export function aggregateCheckoutSummaries(checkoutLineSummaries: CheckoutLineSu
   const checkoutSubtotal = checkoutLineSummaries.reduce((sum, l) => sum + l.baseAmount, 0)
   const checkoutDiscountTotal = checkoutLineSummaries.reduce((sum, l) => sum + l.discountAmount, 0)
   const checkoutNetTotal = checkoutLineSummaries.reduce((sum, l) => sum + l.lineNet, 0)
-  const checkoutTaxTotal = checkoutLineSummaries.reduce((sum, l) => sum + l.taxAmount, 0)
+  const checkoutTaxTotal = computeCheckoutInvoiceTaxTotal(
+    checkoutLineSummaries.map((line) => ({
+      lineNet: line.lineNet,
+      taxRatePercent: line.lineTaxRate,
+    })),
+  )
   const checkoutGrossTotal = checkoutNetTotal + checkoutTaxTotal
 
   return {
@@ -267,28 +270,17 @@ export function useWorkshopCalculations({
   )
 
   // ── Flat list of checkout line rows ───────────────────────────────────
-  const checkoutLineRows = useMemo(
-    () =>
-      tasks.flatMap((task) =>
-        (task.lineItems ?? []).map((lineItem, index) => ({
-          rowKey: buildTaskLineRowKey(task.id, lineItem.id, index),
-          taskId: task.id,
-          lineItem,
-        })),
-      ),
-    [tasks],
-  )
+  const checkoutLineRows = useMemo(() => buildBillableCheckoutLineRows(tasks), [tasks])
 
   // ── Discount seed from existing invoice ───────────────────────────────
   const discountSeedFromInvoice = useMemo(() => {
     const seed: Record<string, DiscountState> = {}
     if (!fetchedInvoice) return seed
 
-    checkoutLineRows.forEach((lineRow, rowIndex) => {
-      const invoiceItem = findInvoiceItemForCheckoutRow(
+    checkoutLineRows.forEach((lineRow) => {
+      const invoiceItem = findInvoiceItemForWorkshopLine(
         fetchedInvoice.items,
-        checkoutLineRows,
-        rowIndex,
+        lineRow.lineItem.id,
       )
       if (!invoiceItem) return
       seed[lineRow.rowKey] = {
@@ -307,11 +299,9 @@ export function useWorkshopCalculations({
   // ── Per-line summaries (base, discount, net, tax) ─────────────────────
   const checkoutLineSummaries = useMemo<CheckoutLineSummary[]>(
     () =>
-      checkoutLineRows.map((row, rowIndex) =>
+      checkoutLineRows.map((row) =>
         createCheckoutLineSummary(
           row,
-          rowIndex,
-          checkoutLineRows,
           lineDiscountOverrides,
           discountSeedFromInvoice,
           fetchedInvoice,

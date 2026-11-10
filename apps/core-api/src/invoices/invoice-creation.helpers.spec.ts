@@ -181,6 +181,20 @@ describe('invoice-creation.helpers', () => {
   });
 
   describe('buildDraftInvoiceLineItem', () => {
+    it('stores workshop task line id when provided', () => {
+      const line = buildDraftInvoiceLineItem(
+        {
+          id: 'wtl-abc',
+          description: 'Labor',
+          quantity: 1,
+          unit_price: 90,
+        },
+        0,
+        'tenant-123',
+      );
+      expect(line.workshop_task_line_item_id).toBe('wtl-abc');
+    });
+
     it('snapshots unit price, description, and tax rate', () => {
       const line = buildDraftInvoiceLineItem(
         {
@@ -195,6 +209,7 @@ describe('invoice-creation.helpers', () => {
       );
 
       expect(line.tenant_id).toBe('tenant-123');
+      expect(line.workshop_task_line_item_id).toBeNull();
       expect(line.catalog_item_id).toBe('cat-1');
       expect(line.description).toBe('Brake Fluid Flush');
       expect(line.quantity).toEqual(new Prisma.Decimal(2));

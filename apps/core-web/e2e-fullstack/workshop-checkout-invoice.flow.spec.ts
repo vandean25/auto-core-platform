@@ -48,22 +48,36 @@ test.describe('Full-stack workshop checkout VAT (AUT-965)', () => {
     await gotoWithReadySession(page, '/dashboard')
     await openWorkshopCheckout(page, order.id)
 
-    const panelVat = await readCheckoutSummaryAmount(
+    const panelVatBefore = await readCheckoutSummaryAmount(
       page,
       DE_FULLSTACK_WORKSHOP.checkoutSummary.vat,
     )
-    const panelTotal = await readCheckoutSummaryAmount(
+    const panelTotalBefore = await readCheckoutSummaryAmount(
       page,
       DE_FULLSTACK_WORKSHOP.checkoutSummary.total,
     )
+    expect(panelVatBefore).toMatch(/18,00/)
+    expect(panelTotalBefore).toMatch(/108,00/)
 
     await createCheckoutDraftInvoice(page)
+
+    const panelVatAfterDraft = await readCheckoutSummaryAmount(
+      page,
+      DE_FULLSTACK_WORKSHOP.checkoutSummary.vat,
+    )
+    const panelTotalAfterDraft = await readCheckoutSummaryAmount(
+      page,
+      DE_FULLSTACK_WORKSHOP.checkoutSummary.total,
+    )
+    expect(panelVatAfterDraft).toMatch(/18,00/)
+    expect(panelTotalAfterDraft).toMatch(/108,00/)
+
     const issued = await issueCheckoutDraftInvoice(page)
 
     expect(Number(issued.total_tax)).toBeCloseTo(18)
     expect(Number(issued.total_gross)).toBeCloseTo(108)
-    expect(panelVat).toMatch(/18,00/)
-    expect(panelTotal).toMatch(/108,00/)
+    expect(panelVatAfterDraft).toMatch(/18,00/)
+    expect(panelTotalAfterDraft).toMatch(/108,00/)
   })
 
   test('375px viewport keeps USt and Gesamt visible and correct', async ({ page, request }) => {

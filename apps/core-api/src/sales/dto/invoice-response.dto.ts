@@ -11,6 +11,9 @@ export class InvoiceItemResponseDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   catalog_item_id?: string | null;
 
+  @ApiProperty({ type: String, required: false, nullable: true })
+  workshop_task_line_item_id?: string | null;
+
   @ApiProperty()
   description!: string;
 
