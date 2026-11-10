@@ -44,10 +44,7 @@ export class TestScopeContextIdpAdapter implements ScopeContextIdpPort {
   async verifyIdTokenWithRevocation(
     bearerToken: string,
   ): Promise<VerifiedIdpToken> {
-    const testSecret =
-      process.env.NODE_ENV === 'test'
-        ? process.env.TEST_JWT_SECRET?.trim()
-        : undefined;
+    const testSecret = process.env.TEST_JWT_SECRET?.trim();
     if (!testSecret) {
       return new FirebaseScopeContextIdpAdapter().verifyIdTokenWithRevocation(
         bearerToken,

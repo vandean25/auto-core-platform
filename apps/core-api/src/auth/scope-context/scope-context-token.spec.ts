@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { beforeAll, describe, expect, it } from '@jest/globals';
 import {
   mintScopeContextToken,
   scopeContextDigest,
@@ -6,6 +6,10 @@ import {
 } from './scope-context-token.js';
 
 describe('scope context token (AUT-937)', () => {
+  beforeAll(() => {
+    process.env.SCOPE_CONTEXT_HMAC_SECRET = 'unit-test-scope-context-hmac-secret';
+  });
+
   const base = {
     principalSub: 'user-subject',
     continuityDigest: 'abcd'.repeat(16),

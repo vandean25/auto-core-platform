@@ -69,8 +69,3 @@ export function getScopeContextPolicyDigest(): string {
   cachedPolicyDigest ??= computeScopeContextPolicyDigest();
   return cachedPolicyDigest;
 }
-
-/** Test helper to reset the boot-time cache. */
-export function resetScopeContextPolicyDigestCacheForTests(): void {
-  cachedPolicyDigest = undefined;
-}

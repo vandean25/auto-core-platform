@@ -3,6 +3,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { getFirebaseAdminAuth } from './firebase-admin.js';
+import { extractBearerTokenFromHeader } from './bearer-authorization.js';
 import { AuthSessionService } from './auth-session.service.js';
 import type {
   AuthenticatedUser,
@@ -47,7 +48,7 @@ export class AuthService {
     authorizationHeader?: string,
     options: AuthenticateBearerTokenOptions = {},
   ): Promise<AuthenticatedUser> {
-    const token = this.extractBearerToken(authorizationHeader);
+    const token = extractBearerTokenFromHeader(authorizationHeader);
     const claims = await this.verifyToken(token);
     const tenantUser = await this.authSessionService.resolveTenantUser(claims);
 
@@ -87,20 +88,6 @@ export class AuthService {
       },
       { secret: this.testJwtSecret },
     );
-  }
-
-  private extractBearerToken(authorizationHeader?: string): string {
-    if (!authorizationHeader) {
-      throw new UnauthorizedException('Missing Authorization header.');
-    }
-
-    const [scheme, token] = authorizationHeader.split(' ');
-
-    if (scheme !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Invalid Authorization header.');
-    }
-
-    return token;
   }
 
   private async verifyToken(token: string): Promise<AuthClaims> {

@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { type Observable, map } from 'rxjs';
+import {
+  getHttpRequestResponse,
+  passthroughUnlessHttpContext,
+} from '../../common/nest/http-execution-context.js';
 import { SCOPE_CONTEXT_HEADER } from './scope-context.constants.js';
 import { ScopeContextService } from './scope-context.service.js';
 
@@ -34,13 +38,12 @@ export class ScopeContextEchoInterceptor implements NestInterceptor {
   constructor(private readonly scopeContext: ScopeContextService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    if (context.getType() !== 'http') {
-      return next.handle();
+    const nonHttp = passthroughUnlessHttpContext(context, next);
+    if (nonHttp) {
+      return nonHttp;
     }
 
-    const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
-    const response = http.getResponse<Response>();
+    const { request, response } = getHttpRequestResponse(context);
     const path = normalizePath(request);
 
     if (request.method !== 'GET' || !ECHO_PATHS.has(path)) {
