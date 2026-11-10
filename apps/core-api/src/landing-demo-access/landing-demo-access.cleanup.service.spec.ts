@@ -51,8 +51,8 @@ describe('LandingDemoAccessCleanupService', () => {
       .fn<(...args: unknown[]) => Promise<unknown>>()
       .mockResolvedValue({ count: 1 });
     const $transaction = jest
-      .fn<(...args: unknown[]) => Promise<unknown>>()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      .fn<(fn: (tx: unknown) => unknown) => Promise<unknown>>()
+      .mockImplementation(async (fn) =>
         fn({
           tenantMember: {
             update: tenantMemberUpdate,

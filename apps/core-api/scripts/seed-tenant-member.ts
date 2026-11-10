@@ -9,7 +9,10 @@ import { isDirectRun } from './is-direct-run.mjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
-import { advanceScopeEpoch } from '../src/auth/scope-epoch.js';
+import {
+  ensureActiveSiteMembershipWithMemberEpoch,
+  upsertActiveTenantMemberWithMemberEpoch,
+} from '../src/auth/scope-epoch-access-writes.js';
 
 type FirebaseUserRecord = {
   uid: string;
@@ -257,32 +260,13 @@ export async function seedTenantMember(
         },
       });
 
-  const membership = await dependencies.prisma.$transaction(async (tx) => {
-    const row = await tx.tenantMember.upsert({
-      where: {
-        tenant_id_user_id: {
-          tenant_id: tenant.id,
-          user_id: user.id,
-        },
-      },
-      update: {
-        role: options.role,
-        is_active: true,
-      },
-      create: {
-        tenant_id: tenant.id,
-        user_id: user.id,
-        role: options.role,
-        is_active: true,
-      },
-    });
-    await advanceScopeEpoch(tx, {
-      kind: 'member',
+  const membership = await dependencies.prisma.$transaction(async (tx) =>
+    upsertActiveTenantMemberWithMemberEpoch(tx, {
       tenantId: tenant.id,
       userId: user.id,
-    });
-    return row;
-  });
+      role: options.role,
+    }),
+  );
 
   if (dependencies.grantSiteMemberships) {
     await dependencies.grantSiteMemberships(tenant.id, user.id);
@@ -500,44 +484,10 @@ export async function grantTenantSiteMemberships(
   });
 
   for (const site of sites) {
-    const existing = await prisma.siteMembership.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-        site_id: site.id,
-      },
-      select: { id: true },
-    });
-
-    if (existing) {
-      await prisma.$transaction(async (tx) => {
-        await tx.siteMembership.update({
-          where: { id: existing.id },
-          data: { is_active: true },
-        });
-        await advanceScopeEpoch(tx, {
-          kind: 'member',
-          tenantId,
-          userId,
-        });
-      });
-      continue;
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.siteMembership.create({
-        data: {
-          tenant_id: tenantId,
-          user_id: userId,
-          site_id: site.id,
-          is_active: true,
-        },
-      });
-      await advanceScopeEpoch(tx, {
-        kind: 'member',
-        tenantId,
-        userId,
-      });
+    await ensureActiveSiteMembershipWithMemberEpoch(prisma, {
+      tenantId,
+      userId,
+      siteId: site.id,
     });
   }
 

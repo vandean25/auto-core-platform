@@ -21,7 +21,7 @@ function createSeedStatePrisma(): {
   let nextId = 0;
   const nextRowId = (prefix: string) => `${prefix}-${++nextId}`;
 
-  const prisma = {
+  const prisma: any = {
     user: {
       findUnique: jest.fn(({ where }: any) => {
         const found =
@@ -50,9 +50,6 @@ function createSeedStatePrisma(): {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     siteMembership: { upsert: jest.fn().mockResolvedValue({}) },
-    $transaction: jest.fn((work: (tx: typeof prisma) => unknown) =>
-      work(prisma),
-    ),
     employee: {
       findFirst: jest.fn(({ where }: any) => {
         const found = employees.find(
@@ -82,6 +79,7 @@ function createSeedStatePrisma(): {
       }),
     },
   };
+  prisma.$transaction = jest.fn((work: (tx: unknown) => unknown) => work(prisma));
 
   return { prisma, users, employees };
 }
@@ -118,7 +116,7 @@ describe('seedDemoUsers', () => {
         create: jest.fn().mockResolvedValue({ id: 'emp-1' }),
         update: jest.fn().mockResolvedValue({ id: 'emp-1' }),
       },
-      $transaction: jest.fn((work: (tx: typeof mock) => unknown) => work(mock)),
+      $transaction: jest.fn((work) => work(mock)),
     };
     return mock;
   }

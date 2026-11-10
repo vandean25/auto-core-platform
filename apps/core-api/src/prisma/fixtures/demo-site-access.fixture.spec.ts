@@ -36,9 +36,7 @@ describe('seedDemoSiteAccess', () => {
         update: jest.fn().mockResolvedValue({}),
         create: jest.fn().mockResolvedValue({ id: 'sm-1' }),
       },
-      $transaction: jest.fn((work: (tx: typeof mockPrisma) => unknown) =>
-        work(mockPrisma),
-      ),
+      $transaction: jest.fn((work) => work(mockPrisma)),
     };
 
     await seedDemoSiteAccess(mockPrisma, foundation);

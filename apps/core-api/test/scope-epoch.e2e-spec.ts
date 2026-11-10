@@ -1,7 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { TenantMemberRole } from '@prisma/client';
-import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
@@ -9,7 +8,6 @@ import { UserAccessStatusService } from '../src/auth/user-access-status.service.
 import { advanceScopeEpoch } from '../src/auth/scope-epoch.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
-  cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -17,7 +15,8 @@ import {
   seedTestTenantMember,
   type TestTenantResult,
 } from './tenant-test-utils.js';
-import { teardownTestApp } from './test-lifecycle.js';
+import { stubFirebaseAdminAuthForCustomClaimsE2e } from './helpers/firebase-auth-e2e-mocks.js';
+import { cleanupE2eTenantGraph, teardownTestApp } from './test-lifecycle.js';
 
 describe('scope epoch writers (AUT-934)', () => {
   let app: INestApplication;
@@ -28,13 +27,7 @@ describe('scope epoch writers (AUT-934)', () => {
   let tenant: TestTenantResult;
 
   beforeAll(async () => {
-    const firebaseAuth = getFirebaseAdminAuth();
-    jest
-      .spyOn(firebaseAuth, 'getUser')
-      .mockResolvedValue({ customClaims: {} });
-    jest.spyOn(firebaseAuth, 'setCustomUserClaims').mockResolvedValue(undefined);
-    jest.spyOn(firebaseAuth, 'revokeRefreshTokens').mockResolvedValue(undefined);
-
+    stubFirebaseAdminAuthForCustomClaimsE2e();
     app = await createE2eApp();
     prisma = app.get(PrismaService);
     authService = app.get(AuthService);
@@ -47,7 +40,7 @@ describe('scope epoch writers (AUT-934)', () => {
   });
 
   afterEach(async () => {
-    await cleanupTestTenantGraph(prisma, tenant.tenantId).catch(() => undefined);
+    await cleanupE2eTenantGraph(prisma, tenant.tenantId);
   });
 
   afterAll(async () => {
@@ -186,7 +179,7 @@ describe('scope epoch writers (AUT-934)', () => {
     expect((await readEpoch(tenant.tenantId, sharedUser.id)) - beforeA).toBe(1n);
     expect((await readEpoch(other.tenantId, sharedUser.id)) - beforeB).toBe(1n);
 
-    await cleanupTestTenantGraph(prisma, other.tenantId).catch(() => undefined);
+    await cleanupE2eTenantGraph(prisma, other.tenantId);
   });
 
   async function readEpoch(tenantId: string, userId: string) {
