@@ -63,6 +63,7 @@ model Tenant {
   vendors                          Vendor[]
   purchaseOrders                   PurchaseOrder[]
   purchaseOrderItems               PurchaseOrderItem[]
+  purchaseOrderSequences           PurchaseOrderSequence[]
   customers                        Customer[]
   customerContactPoints            CustomerContactPoint[]
   customerConsents                 CustomerConsent[]
@@ -1588,6 +1589,19 @@ model PurchaseOrder {
   @@index([tenant_id, site_id])
   @@index([order_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "purchase_orders_order_number_trgm_idx")
   @@map("purchase_orders")
+}
+
+/// PO-YYYY-NNNN counter per tenant and calendar year (invoice / KV estimate pattern).
+model PurchaseOrderSequence {
+  id        String @id @default(uuid())
+  tenant_id String
+  tenant    Tenant @relation(fields: [tenant_id], references: [id])
+  year      Int
+  current   Int    @default(0)
+
+  @@unique([tenant_id, year])
+  @@index([tenant_id])
+  @@map("purchase_order_sequences")
 }
 
 model PurchaseOrderItem {

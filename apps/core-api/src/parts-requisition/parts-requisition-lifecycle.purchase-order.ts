@@ -9,7 +9,8 @@ import {
   PurchaseOrderStatus,
 } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util.js';
-import { generatePurchaseOrderNumber } from '../purchase/purchase-order-number.util.js';
+import { allocatePurchaseOrderNumber } from '../purchase/purchase-order-number.util.js';
+import { withConflictHandling } from '../labor/labor-shared.helpers.js';
 import type { PurchaseOrderWithRelations } from '../purchase/purchase.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import type { CreateRequisitionPurchaseOrderDto } from './dto/create-requisition-purchase-order.dto.js';
@@ -37,16 +38,21 @@ export async function executeCreateRequisitionPurchaseOrder(
     reservations.map((reservation) => [reservation.id, reservation]),
   );
 
-  const purchaseOrder = await tx.purchaseOrder.create({
-    data: {
-      tenant_id: tenantId,
-      site_id: siteId,
-      vendor_id: dto.vendorId,
-      order_number: generatePurchaseOrderNumber(),
-      status: PurchaseOrderStatus.DRAFT,
-    },
-    select: { id: true },
-  });
+  const orderNumber = await allocatePurchaseOrderNumber(tx, tenantId);
+  const purchaseOrder = await withConflictHandling(
+    () =>
+      tx.purchaseOrder.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          vendor_id: dto.vendorId,
+          order_number: orderNumber,
+          status: PurchaseOrderStatus.DRAFT,
+        },
+        select: { id: true },
+      }),
+    'A purchase order with this number already exists for the tenant.',
+  );
 
   await chunkedPromiseAll(dto.items, async (item) => {
     const reservation = reservationById.get(item.reservationId);
