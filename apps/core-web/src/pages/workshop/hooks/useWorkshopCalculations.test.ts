@@ -273,11 +273,12 @@ describe("useWorkshopCalculations — checkoutLineSummaries (no discounts)", () 
     expect(summaries[0].baseAmount).toBe(15);
     expect(summaries[0].discountAmount).toBe(0);
     expect(summaries[0].lineNet).toBe(15);
-    expect(summaries[0].taxAmount).toBe(0); // no invoice → tax_rate=0
+    expect(summaries[0].taxAmount).toBeCloseTo(3); // 15 net @ 20% default VAT
 
     // Labor: 0.5 * 80 = 40
     expect(summaries[1].baseAmount).toBe(40);
     expect(summaries[1].lineNet).toBe(40);
+    expect(summaries[1].taxAmount).toBeCloseTo(8);
   });
 });
 
@@ -399,7 +400,97 @@ describe("useWorkshopCalculations — checkoutLineSummaries (with discounts)", (
 // Hook: tax calculation
 // ---------------------------------------------------------------------------
 
-describe("useWorkshopCalculations — tax calculation", () => {
+describe("useWorkshopCalculations — tax calculation (AUT-965)", () => {
+  const taxableLaborOnly: WorkshopTask = {
+    id: "task-tax",
+    title: "Service",
+    lineItemsVersion: 0,
+    status: "DONE",
+    done: true,
+    lineItems: [
+      {
+        id: "wtl-90",
+        type: "LABOR",
+        itemNo: "LAB-90",
+        description: "Labor",
+        qty: 1,
+        unitPrice: 90,
+      },
+    ],
+  };
+
+  it("applies default VAT before a draft invoice exists", () => {
+    const { result } = renderHook(() =>
+      useWorkshopCalculations({
+        ...defaultInput,
+        orderTasks: [taxableLaborOnly],
+        fetchedInvoice: null,
+      }),
+    );
+    expect(result.current.checkoutNetTotal).toBe(90);
+    expect(result.current.checkoutTaxTotal).toBeCloseTo(18);
+    expect(result.current.checkoutGrossTotal).toBeCloseTo(108);
+  });
+
+  it("reads tax from draft invoice lines matched by billable order when ids differ", () => {
+    const invoice = {
+      id: "inv-draft",
+      items: [
+        {
+          id: "inv-item-uuid",
+          description: "Labor",
+          quantity: 1,
+          unit_price: 90,
+          tax_rate: 20,
+        },
+      ],
+    } as unknown as Invoice;
+
+    const { result } = renderHook(() =>
+      useWorkshopCalculations({
+        ...defaultInput,
+        orderTasks: [taxableLaborOnly],
+        fetchedInvoice: invoice,
+      }),
+    );
+    expect(result.current.checkoutTaxTotal).toBeCloseTo(18);
+    expect(result.current.checkoutGrossTotal).toBeCloseTo(108);
+  });
+
+  it("shows zero VAT for invoice lines with 0% tax rate", () => {
+    const exemptTask: WorkshopTask = {
+      ...taxableLaborOnly,
+      lineItems: [
+        {
+          ...taxableLaborOnly.lineItems![0],
+          unitPrice: 100,
+        },
+      ],
+    };
+    const invoice = {
+      id: "inv-exempt",
+      items: [
+        {
+          id: "inv-exempt-line",
+          description: "Exempt",
+          quantity: 1,
+          unit_price: 100,
+          tax_rate: 0,
+        },
+      ],
+    } as unknown as Invoice;
+
+    const { result } = renderHook(() =>
+      useWorkshopCalculations({
+        ...defaultInput,
+        orderTasks: [exemptTask],
+        fetchedInvoice: invoice,
+      }),
+    );
+    expect(result.current.checkoutTaxTotal).toBe(0);
+    expect(result.current.checkoutGrossTotal).toBe(100);
+  });
+
   it("computes tax from invoice item tax_rate", () => {
     const invoice = {
       id: "inv-1",

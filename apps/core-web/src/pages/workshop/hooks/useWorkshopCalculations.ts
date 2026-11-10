@@ -2,11 +2,20 @@ import { useMemo } from 'react'
 import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import type {
   DiscountType,
-  InvoiceItem,
   WorkshopTask,
   WorkshopTaskLineItem,
 } from '@/api/types'
 import type { Invoice } from '@/api/types'
+import {
+  computeCheckoutLineTax,
+  findInvoiceItemForCheckoutRow,
+  resolveCheckoutLineTaxRate,
+} from '@/lib/workshop-checkout-billing'
+
+export {
+  findInvoiceItemByLineItemId,
+  findInvoiceItemForCheckoutRow,
+} from '@/lib/workshop-checkout-billing'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,13 +83,6 @@ export function buildTaskLineRowKey(
   return `${taskId}:${lineItemId ?? `idx-${index}`}`
 }
 
-export function findInvoiceItemByLineItemId(
-  invoiceItems: InvoiceItem[],
-  lineItemId: string,
-): InvoiceItem | undefined {
-  return invoiceItems.find((item) => item.id === lineItemId)
-}
-
 export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
   const lineItems = task.lineItems ?? []
   const partsLines = lineItems.filter((li) => li.type === 'PART')
@@ -122,6 +124,8 @@ export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
 
 export function createCheckoutLineSummary(
   row: { rowKey: string; taskId: string; lineItem: WorkshopTaskLineItem },
+  rowIndex: number,
+  checkoutLineRows: Array<{ lineItem: WorkshopTaskLineItem }>,
   lineDiscountOverrides: Record<string, DiscountState>,
   discountSeedFromInvoice: Record<string, DiscountState>,
   fetchedInvoice?: Invoice | null,
@@ -139,10 +143,14 @@ export function createCheckoutLineSummary(
   )
   const lineNet = Math.max(0, baseAmount - discountAmount)
   const invoiceItem = fetchedInvoice
-    ? findInvoiceItemByLineItemId(fetchedInvoice.items, lineItem.id)
+    ? findInvoiceItemForCheckoutRow(
+        fetchedInvoice.items,
+        checkoutLineRows,
+        rowIndex,
+      )
     : undefined
-  const lineTaxRate = Number(invoiceItem?.tax_rate ?? 0)
-  const taxAmount = lineNet * (lineTaxRate / 100)
+  const lineTaxRate = resolveCheckoutLineTaxRate(invoiceItem)
+  const taxAmount = computeCheckoutLineTax(lineNet, lineTaxRate)
   return {
     rowKey,
     taskId,
@@ -281,8 +289,12 @@ export function useWorkshopCalculations({
     const seed: Record<string, DiscountState> = {}
     if (!fetchedInvoice) return seed
 
-    checkoutLineRows.forEach((lineRow) => {
-      const invoiceItem = findInvoiceItemByLineItemId(fetchedInvoice.items, lineRow.lineItem.id)
+    checkoutLineRows.forEach((lineRow, rowIndex) => {
+      const invoiceItem = findInvoiceItemForCheckoutRow(
+        fetchedInvoice.items,
+        checkoutLineRows,
+        rowIndex,
+      )
       if (!invoiceItem) return
       seed[lineRow.rowKey] = {
         type: invoiceItem.line_discount_type ?? null,
@@ -300,9 +312,11 @@ export function useWorkshopCalculations({
   // ── Per-line summaries (base, discount, net, tax) ─────────────────────
   const checkoutLineSummaries = useMemo<CheckoutLineSummary[]>(
     () =>
-      checkoutLineRows.map((row) =>
+      checkoutLineRows.map((row, rowIndex) =>
         createCheckoutLineSummary(
           row,
+          rowIndex,
+          checkoutLineRows,
           lineDiscountOverrides,
           discountSeedFromInvoice,
           fetchedInvoice,

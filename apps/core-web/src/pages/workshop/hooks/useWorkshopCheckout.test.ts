@@ -57,7 +57,7 @@ describe('useWorkshopCheckout', () => {
 
   describe('buildInvoiceLineDiscountUpdates', () => {
     it('returns empty array when overrides are empty', () => {
-      const result = buildInvoiceLineDiscountUpdates({}, new Map(), [])
+      const result = buildInvoiceLineDiscountUpdates({}, [], new Map(), [])
       expect(result).toEqual([])
     })
 
@@ -66,6 +66,31 @@ describe('useWorkshopCheckout', () => {
         'task-1:line-1': { type: 'PERCENTAGE', value: '10' },
         'task-1:line-2': { type: null, value: '' },
       }
+
+      const checkoutLineRows = [
+        {
+          rowKey: 'task-1:line-1',
+          lineItem: {
+            id: 'line-1',
+            type: 'PART' as const,
+            itemNo: 'P-1',
+            description: 'Part 1',
+            qty: 1,
+            unitPrice: 100,
+          },
+        },
+        {
+          rowKey: 'task-1:line-2',
+          lineItem: {
+            id: 'line-2',
+            type: 'PART' as const,
+            itemNo: 'P-2',
+            description: 'Part 2',
+            qty: 1,
+            unitPrice: 50,
+          },
+        },
+      ]
 
       const rowMap = new Map([
         ['task-1:line-1', { lineItem: { id: 'line-1' } }],
@@ -91,6 +116,7 @@ describe('useWorkshopCheckout', () => {
 
       const updates = buildInvoiceLineDiscountUpdates(
         overrides,
+        checkoutLineRows,
         rowMap,
         invoiceItems,
       )
@@ -111,7 +137,7 @@ describe('useWorkshopCheckout', () => {
       const overrides: Record<string, DiscountState> = {
         'task-1:missing': { type: 'PERCENTAGE', value: '10' },
       }
-      const updates = buildInvoiceLineDiscountUpdates(overrides, new Map(), [])
+      const updates = buildInvoiceLineDiscountUpdates(overrides, [], new Map(), [])
       expect(updates).toEqual([])
     })
   })
