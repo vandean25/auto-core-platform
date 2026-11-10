@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
-type ScopeContextSiteReader = {
+export type ScopeContextSiteReader = {
   user: {
     findFirst: (args: Prisma.UserFindFirstArgs) => Promise<{
       active_tenant_id: string | null;
