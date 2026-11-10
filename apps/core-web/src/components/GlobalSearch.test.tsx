@@ -56,6 +56,13 @@ vi.mock('@/api/useCreditNotes', async () => {
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => vi.fn(),
 }))
+vi.mock('@/pages/sales-orders/use-sales-order-delete-handler', () => ({
+  useSalesOrderDeleteHandler: () => vi.fn(),
+}))
+vi.mock('@/api/sales-orders', async () => {
+  const actual = await vi.importActual<typeof import('@/api/sales-orders')>('@/api/sales-orders')
+  return { ...actual, useSalesOrder: () => ({ data: undefined, isLoading: false }) }
+})
 
 const PLACEHOLDER = 'Search parts, customers, vehicles, jobs…'
 const customer = {
