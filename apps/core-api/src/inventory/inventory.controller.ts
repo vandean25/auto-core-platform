@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -166,13 +165,13 @@ export class InventoryController {
   async updateItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request,
-    @Headers('idempotency-key') idempotencyKey?: string,
     @Query('operationKey') operationKey?: string,
   ) {
-    const body = this.inventoryPatchBodyPipe.transform(req.body, {
+    const body = await this.inventoryPatchBodyPipe.transform(req.body, {
       type: 'body',
       metatype: Object,
     });
+    const idempotencyKey = readOptionalRequestHeader(req, 'idempotency-key');
     if (body.mode === 'guarded') {
       return await this.guardedPrice.patchGuardedPrice(
         id,
@@ -257,4 +256,15 @@ export class InventoryController {
   async createItem(@Body() createInventoryItemDto: CreateInventoryItemDto) {
     return await this.inventoryService.createItem(createInventoryItemDto);
   }
+}
+
+function readOptionalRequestHeader(
+  req: Request,
+  headerName: string,
+): string | undefined {
+  const value = req.headers[headerName.toLowerCase()];
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
 }

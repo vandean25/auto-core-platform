@@ -13202,8 +13202,7 @@ export interface operations {
                 /** @description Fallback for Idempotency-Key when a proxy strips the header */
                 operationKey?: string;
             };
-            header: {
-                "idempotency-key": string;
+            header?: {
                 /** @description UUIDv7; required for guarded PATCH (expectedRevision present) */
                 "Idempotency-Key"?: string;
             };

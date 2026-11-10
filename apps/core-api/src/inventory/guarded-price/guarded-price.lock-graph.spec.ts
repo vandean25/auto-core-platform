@@ -9,12 +9,16 @@ describe('guarded price lock graph (AUT-929)', () => {
     expect(order).not.toContain('catalog_items FOR UPDATE');
   });
 
-  it('documents Tx-E order: journal FOR UPDATE, then catalog_item FOR UPDATE', () => {
-    const txE = ['inventory_price_operations FOR UPDATE', 'catalog_items FOR UPDATE'];
-    expect(txE).toEqual([
+  it('documents Tx-E order: journal FOR UPDATE, re-read, catalog_item FOR UPDATE, re-read', () => {
+    const txE = [
       'inventory_price_operations FOR UPDATE',
+      'journal re-read (state)',
       'catalog_items FOR UPDATE',
-    ]);
+      'catalog_item re-read (revision)',
+      'catalogItem.update with revision predicate',
+    ];
+    expect(txE[0]).toContain('inventory_price_operations');
+    expect(txE[3]).toContain('re-read');
   });
 
   it('documents cron pg_advisory_lock(int,int) as separate from hashtextextended key space', () => {

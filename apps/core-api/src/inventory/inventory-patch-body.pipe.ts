@@ -4,9 +4,8 @@ import {
   Injectable,
   PipeTransform,
 } from '@nestjs/common';
-import { plainToInstance } from 'class-transformer';
-import { validateSync } from 'class-validator';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
+import { createGlobalValidationPipe } from '../common/validation.pipe.js';
 import { guardedRequestInvalid } from './guarded-price/guarded-price.errors.js';
 import { parseExpectedRevision } from './guarded-price/guarded-price.revision.js';
 import { retailMajorToMinorUnits } from './guarded-price/guarded-price.money.js';
@@ -32,7 +31,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 @Injectable()
 export class InventoryPatchBodyPipe implements PipeTransform {
-  transform(value: unknown, metadata: ArgumentMetadata): InventoryPatchBody {
+  private readonly legacyValidationPipe = createGlobalValidationPipe();
+  async transform(
+    value: unknown,
+    metadata: ArgumentMetadata,
+  ): Promise<InventoryPatchBody> {
     void metadata;
     if (!isRecord(value)) {
       throw new BadRequestException('Request body must be a JSON object.');
@@ -42,7 +45,7 @@ export class InventoryPatchBodyPipe implements PipeTransform {
       return this.parseGuardedBody(value);
     }
 
-    return this.parseLegacyBody(value);
+    return await this.parseLegacyBody(value);
   }
 
   private parseGuardedBody(
@@ -71,18 +74,13 @@ export class InventoryPatchBodyPipe implements PipeTransform {
     };
   }
 
-  private parseLegacyBody(
+  private async parseLegacyBody(
     raw: Record<string, unknown>,
-  ): LegacyInventoryPatchBody {
-    const dto = plainToInstance(UpdateInventoryItemDto, raw);
-    const errors = validateSync(dto);
-    if (errors.length > 0) {
-      throw new BadRequestException(
-        errors
-          .map((issue) => Object.values(issue.constraints ?? {}).join(', '))
-          .join('; '),
-      );
-    }
+  ): Promise<LegacyInventoryPatchBody> {
+    const dto = (await this.legacyValidationPipe.transform(raw, {
+      type: 'body',
+      metatype: UpdateInventoryItemDto,
+    })) as UpdateInventoryItemDto;
     return { mode: 'legacy', dto };
   }
 }

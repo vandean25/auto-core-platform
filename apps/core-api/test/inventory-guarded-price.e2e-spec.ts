@@ -13,10 +13,9 @@ import {
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { testUuidV7At } from '../src/inventory/guarded-price/guarded-price.test-keys.js';
-import {
-  guardedPriceTestHooks,
-} from '../src/inventory/guarded-price/guarded-price.service.js';
+import { guardedPriceTestHooks } from '../src/inventory/guarded-price/guarded-price.service.js';
 import { revisionFromDb } from '../src/inventory/guarded-price/guarded-price.revision.js';
+import { DashboardRealtimeService } from '../src/dashboard-realtime/dashboard-realtime.service.js';
 
 describe('inventory guarded price PATCH (e2e)', () => {
   let app: INestApplication;
@@ -27,6 +26,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
   beforeEach(async () => {
     guardedPriceTestHooks.failTxEAfterJournalLock = false;
+    guardedPriceTestHooks.failTxEAfterCatalogUpdate = false;
     app = await createE2eApp(undefined, { productionErrorFilter: true });
     prisma = app.get(PrismaService);
     testTenant = await createTestTenant(prisma, 'guarded-price');
@@ -36,6 +36,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
   afterEach(async () => {
     guardedPriceTestHooks.failTxEAfterJournalLock = false;
+    guardedPriceTestHooks.failTxEAfterCatalogUpdate = false;
     if (tenantId) {
       await cleanupTestTenantGraph(prisma, tenantId);
       tenantId = '';
@@ -139,10 +140,18 @@ describe('inventory guarded price PATCH (e2e)', () => {
     const revision = revisionFromDb(item.revision);
     const key = operationKey('3');
 
-    await guardedPatch(item.id, key, {
+    const first = await guardedPatch(item.id, key, {
       retail_price: 15,
       expectedRevision: revision,
     }).expect(200);
+
+    const storedRevision = first.body.revision;
+
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    await tenantPrisma.catalogItem.update({
+      where: { id: item.id },
+      data: { retail_price: 99 },
+    });
 
     const replay = await guardedPatch(item.id, key, {
       retail_price: 15,
@@ -150,13 +159,116 @@ describe('inventory guarded price PATCH (e2e)', () => {
     }).expect(200);
 
     expect(Number(replay.body.retail_price)).toBe(15);
+    expect(replay.body.revision).toBe(storedRevision);
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
     const rows = await tenantPrisma.inventoryPriceOperation.findMany({
       where: { key },
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.state).toBe(InventoryPriceOperationState.APPLIED);
+  });
+
+  it('replay after item deletion returns OUTCOME_UNAVAILABLE', async () => {
+    const item = await seedItem(10);
+    const revision = revisionFromDb(item.revision);
+    const key = operationKey('3b');
+
+    await guardedPatch(item.id, key, {
+      retail_price: 15,
+      expectedRevision: revision,
+    }).expect(200);
+
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    await tenantPrisma.catalogItem.delete({ where: { id: item.id } });
+
+    const replay = await guardedPatch(item.id, key, {
+      retail_price: 15,
+      expectedRevision: revision,
+    }).expect(410);
+
+    expect(replay.body.code).toBe('OUTCOME_UNAVAILABLE');
+  });
+
+  it('overlapping guarded updates: one APPLIED, one CONFLICT, first price kept', async () => {
+    const item = await seedItem(10);
+    const revision = revisionFromDb(item.revision);
+    const keyA = operationKey('9');
+    const keyB = operationKey('8');
+
+    await guardedPatch(item.id, keyA, {
+      retail_price: 11,
+      expectedRevision: revision,
+    }).expect(200);
+
+    const second = await guardedPatch(item.id, keyB, {
+      retail_price: 12,
+      expectedRevision: revision,
+    }).expect(409);
+
+    expect(second.body.code).toBe('INVENTORY_REVISION_CONFLICT');
+
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    const row = await tenantPrisma.catalogItem.findFirstOrThrow({
+      where: { id: item.id },
+    });
+    expect(Number(row.retail_price)).toBe(11);
+
+    const journals = await tenantPrisma.inventoryPriceOperation.findMany({
+      where: { item_id: item.id },
+    });
+    expect(journals).toHaveLength(2);
+    const states = new Set(journals.map((j) => j.state));
+    expect(states.has(InventoryPriceOperationState.APPLIED)).toBe(true);
+    expect(states.has(InventoryPriceOperationState.CONFLICT)).toBe(true);
+  });
+
+  it('successful apply emits one realtime update', async () => {
+    const realtime = app.get(DashboardRealtimeService);
+    const emitSpy = jest.spyOn(realtime, 'emitEntityUpdated');
+
+    const item = await seedItem(10);
+    const revision = revisionFromDb(item.revision);
+    const key = operationKey('6');
+
+    emitSpy.mockClear();
+    await guardedPatch(item.id, key, {
+      retail_price: 14,
+      expectedRevision: revision,
+    }).expect(200);
+
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+    expect(emitSpy).toHaveBeenCalledWith(
+      tenantId,
+      expect.objectContaining({
+        type: 'CATALOG_ITEM',
+        action: 'UPDATED',
+        entityId: item.id,
+      }),
+    );
+  });
+
+  it('rollback after catalog update emits no realtime event', async () => {
+    const realtime = app.get(DashboardRealtimeService);
+    const emitSpy = jest.spyOn(realtime, 'emitEntityUpdated');
+    guardedPriceTestHooks.failTxEAfterCatalogUpdate = true;
+
+    const item = await seedItem(10);
+    const revision = revisionFromDb(item.revision);
+    const key = operationKey('7');
+
+    emitSpy.mockClear();
+    await guardedPatch(item.id, key, {
+      retail_price: 16,
+      expectedRevision: revision,
+    }).expect(500);
+
+    expect(emitSpy).not.toHaveBeenCalled();
+
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    const row = await tenantPrisma.catalogItem.findFirstOrThrow({
+      where: { id: item.id },
+    });
+    expect(Number(row.retail_price)).toBe(10);
   });
 
   it('unauthorized writes nothing', async () => {

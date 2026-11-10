@@ -5,6 +5,7 @@ import type {
   DashboardEntityAction,
   DashboardEntityType,
 } from '../dashboard-realtime/dashboard-events.types.js';
+import { DashboardRealtimeDeferStorage } from '../dashboard-realtime/dashboard-realtime-defer.storage.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import {
   extractEntityId,
@@ -64,6 +65,9 @@ export function emitRealtimeForOperation(
   actionOverride?: DashboardEntityAction,
 ) {
   const action = actionOverride ?? operationToAction(operation);
+  if (DashboardRealtimeDeferStorage.isDeferred()) {
+    return;
+  }
   if (SideEffectGuard.isDryRun()) {
     recordDryRunChange(model, result, action);
     return;

@@ -33,3 +33,7 @@ export function idempotencyKeyReused(message: string): never {
 export function idempotencyKeyExpired(message: string): never {
   throw new GoneException({ code: 'IDEMPOTENCY_KEY_EXPIRED', message });
 }
+
+export function outcomeUnavailable(message: string): never {
+  throw new GoneException({ code: 'OUTCOME_UNAVAILABLE', message });
+}
