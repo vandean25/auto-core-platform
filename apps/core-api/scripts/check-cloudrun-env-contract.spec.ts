@@ -4,10 +4,23 @@ import {
   getIncorrectEnvironmentValues,
   parseCloudBuildDeployContracts,
   parseCloudBuildDeployStep,
+  parseCloudBuildSubstitutions,
+  resolveCloudBuildSubstitutionRefs,
   REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
   REQUIRED_CORE_API_PRODUCTION_ENV_VALUES,
   REQUIRED_PDF_WORKER_BOOT_ENV_KEYS,
 } from './check-cloudrun-env-contract.js';
+
+const QA_ESTIMATE_SEND_ENV = {
+  CUSTOMER_ESTIMATE_SEND_ENABLED: 'true',
+  ESTIMATE_APPROVAL_BASE_URL: 'https://auto-core-platform-vande.web.app',
+} as const;
+
+function resolvedCoreApiEnv(source: string) {
+  const substitutions = parseCloudBuildSubstitutions(source);
+  const coreApi = parseCloudBuildDeployStep(source, 'deploy-cloud-run');
+  return resolveCloudBuildSubstitutionRefs(coreApi, substitutions);
+}
 
 const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
 const cloudBuildStagingPath = join(
@@ -82,6 +95,52 @@ describe('Cloud Run environment contract', () => {
         REQUIRED_CORE_API_PRODUCTION_ENV_VALUES,
       ),
     ).toEqual([]);
+  });
+
+  it('sets QA customer estimate-send flags on tag-triggered core-api deploy', () => {
+    const source = readFileSync(cloudBuildPath, 'utf8');
+    const coreApi = resolvedCoreApiEnv(source);
+
+    expect(coreApi.get('CUSTOMER_ESTIMATE_SEND_ENABLED')).toBe(
+      QA_ESTIMATE_SEND_ENV.CUSTOMER_ESTIMATE_SEND_ENABLED,
+    );
+    expect(coreApi.get('ESTIMATE_APPROVAL_BASE_URL')).toBe(
+      QA_ESTIMATE_SEND_ENV.ESTIMATE_APPROVAL_BASE_URL,
+    );
+  });
+
+  it('keeps customer estimate-send flags off staging core-api and the pdf worker', () => {
+    const releaseBuild = readFileSync(cloudBuildPath, 'utf8');
+    const stagingBuild = readFileSync(cloudBuildStagingPath, 'utf8');
+    const { pdfWorker } = parseCloudBuildDeployContracts(releaseBuild);
+    const stagingCoreApi = parseCloudBuildDeployStep(
+      stagingBuild,
+      'deploy-staging-cloud-run',
+    );
+
+    for (const key of Object.keys(QA_ESTIMATE_SEND_ENV)) {
+      expect(pdfWorker.has(key)).toBe(false);
+      expect(stagingCoreApi.has(key)).toBe(false);
+    }
+  });
+
+  it('does not source customer estimate-send settings from Secret Manager', () => {
+    const source = readFileSync(cloudBuildPath, 'utf8');
+    const estimateKeys = Object.keys(QA_ESTIMATE_SEND_ENV);
+    const availableSecrets = source.slice(
+      source.indexOf('availableSecrets:'),
+      source.indexOf('\nsteps:'),
+    );
+    const secretEnvKeys = [
+      ...source.matchAll(/--set-secrets\s+"([^"]+)"/g),
+    ].flatMap((match) =>
+      match[1].split(',').map((entry) => entry.slice(0, entry.indexOf('='))),
+    );
+
+    for (const key of estimateKeys) {
+      expect(availableSecrets).not.toMatch(new RegExp(`env:\\s*${key}\\b`));
+      expect(secretEnvKeys).not.toContain(key);
+    }
   });
 
   it('flags missing or disabled INVOICE_BRANDING_WRITER_ENABLED', () => {
