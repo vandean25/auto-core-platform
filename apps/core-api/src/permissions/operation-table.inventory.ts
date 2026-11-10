@@ -61,6 +61,21 @@ export const INVENTORY_OPERATIONS: OperationTable = {
     'fiscal_lock',
   ]),
   'InventoryController.updateItem': op('stock.item.update', ADMINS, 'site'),
+  'InventoryPriceOperationsController.list': op(
+    'stock.item.update',
+    ADMINS,
+    'site',
+  ),
+  'InventoryPriceOperationsController.getOne': op(
+    'stock.item.update',
+    ADMINS,
+    'site',
+  ),
+  'InventoryPriceOperationsController.fence': op(
+    'stock.item.update',
+    ADMINS,
+    'site',
+  ),
   'InventoryController.findAll': op('stock.read', BACK_OFFICE_DEMO, 'site'),
   'InventoryController.cappedCount': op('stock.read', BACK_OFFICE_DEMO, 'site'),
   'InventoryController.createItem': op(
