@@ -415,7 +415,7 @@ describe('invoice-creation.helpers', () => {
 
       expect(() =>
         buildDraftInvoiceLinesFromOrder(
-          { tasks: [{ line_items: [] }] },
+          { tasks: [{ id: 'task-1', line_items: [] }] },
           'tenant-1',
         ),
       ).toThrow(BadRequestException);
@@ -427,8 +427,10 @@ describe('invoice-creation.helpers', () => {
           {
             tasks: [
               {
+                id: 'task-cancelled-only',
                 line_items: [
                   {
+                    id: 'line-cancelled',
                     description: 'Cancelled part',
                     quantity: 1,
                     unit_price: 50,
@@ -449,8 +451,10 @@ describe('invoice-creation.helpers', () => {
         {
           tasks: [
             {
+              id: 'task-mixed',
               line_items: [
                 {
+                  id: 'line-active',
                   description: 'Active Labor',
                   quantity: 2,
                   unit_price: 50,
@@ -459,6 +463,7 @@ describe('invoice-creation.helpers', () => {
                     WorkshopPartLineExecutionStatus.CONSUMED,
                 },
                 {
+                  id: 'line-cancelled-2',
                   description: 'Cancelled Part',
                   quantity: 1,
                   unit_price: 100,
@@ -488,8 +493,10 @@ describe('invoice-creation.helpers', () => {
         {
           tasks: [
             {
+              id: 'task-fee',
               line_items: [
                 {
+                  id: 'line-fee',
                   description: 'Leihwagen',
                   quantity: 2,
                   unit_price: 30,

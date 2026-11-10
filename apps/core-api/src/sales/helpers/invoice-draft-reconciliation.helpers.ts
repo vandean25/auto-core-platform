@@ -31,14 +31,30 @@ export async function reconcileDraftInvoiceItems(
     throw new BadRequestException('Only DRAFT invoices can be updated');
   }
 
+  const existingItems = await tx.invoiceItem.findMany({
+    where: { invoice_id: params.invoiceId, tenant_id: params.tenantId },
+    orderBy: { id: 'asc' },
+    select: { workshop_task_line_item_id: true },
+  });
+
+  const itemsToCreate = params.formattedItems.map((item, index) => {
+    const priorWorkshopLineId =
+      existingItems[index]?.workshop_task_line_item_id;
+    const workshopTaskLineItemId =
+      item.workshop_task_line_item_id ?? priorWorkshopLineId ?? null;
+
+    return {
+      ...item,
+      workshop_task_line_item_id: workshopTaskLineItemId,
+      invoice_id: params.invoiceId,
+    };
+  });
+
   await tx.invoiceItem.deleteMany({
     where: { invoice_id: params.invoiceId, tenant_id: params.tenantId },
   });
   await tx.invoiceItem.createMany({
-    data: params.formattedItems.map((item) => ({
-      ...item,
-      invoice_id: params.invoiceId,
-    })),
+    data: itemsToCreate,
   });
 
   const updated = await tx.invoice.findFirst({
