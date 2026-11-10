@@ -3,8 +3,8 @@ import { describe, it, expect } from "vitest";
 import {
   useWorkshopCalculations,
   buildTaskLineRowKey,
-  findInvoiceItemByLineItemId,
 } from "./useWorkshopCalculations";
+import { findInvoiceItemByLineItemId } from "@/lib/workshop-checkout-billing";
 import type { Invoice, InvoiceItem, WorkshopTask } from "@/api/types";
 import type { DiscountState } from "./useWorkshopCalculations";
 

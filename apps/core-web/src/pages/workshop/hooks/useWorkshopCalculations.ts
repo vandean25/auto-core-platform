@@ -12,11 +12,6 @@ import {
   resolveCheckoutLineTaxRate,
 } from '@/lib/workshop-checkout-billing'
 
-export {
-  findInvoiceItemByLineItemId,
-  findInvoiceItemForCheckoutRow,
-} from '@/lib/workshop-checkout-billing'
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
