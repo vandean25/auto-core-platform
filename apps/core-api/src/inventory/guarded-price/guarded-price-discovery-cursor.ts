@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { isUuidV7 } from './guarded-price.uuid.js';
 
 export type PriceOperationDiscoveryCursor = {
   acceptedAt: string;
@@ -31,6 +32,9 @@ export function parsePriceOperationDiscoveryCursor(
     const acceptedAt = new Date(decoded.acceptedAt);
     if (Number.isNaN(acceptedAt.getTime())) {
       throw new Error('invalid acceptedAt');
+    }
+    if (!isUuidV7(decoded.key)) {
+      throw new Error('invalid key');
     }
     return { acceptedAt: acceptedAt.toISOString(), key: decoded.key };
   } catch {

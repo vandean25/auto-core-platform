@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InventoryPriceOperationState, Prisma } from '@prisma/client';
+import {
+  InventoryPriceOperation,
+  InventoryPriceOperationState,
+  Prisma,
+} from '@prisma/client';
 import { ListCursorPageMetaDto } from '../../common/dto/list-cursor-response.dto.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -12,11 +16,14 @@ import { GUARDED_PRICE_DISCOVERY_PAGE_SIZE } from './guarded-price.constants.js'
 import {
   encodePriceOperationDiscoveryCursor,
   parsePriceOperationDiscoveryCursor,
+  type PriceOperationDiscoveryCursor,
 } from './guarded-price-discovery-cursor.js';
 import { mapInventoryPriceOperation } from './guarded-price-operation.mapper.js';
 import { rowWithinRetention } from './guarded-price-retention.js';
 import { isUuidV7 } from './guarded-price.uuid.js';
 import { guardedRequestInvalid } from './guarded-price.errors.js';
+
+const DISCOVERY_RAW_BATCH_SIZE = GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1;
 
 @Injectable()
 export class GuardedPriceDiscoveryService {
@@ -32,9 +39,24 @@ export class GuardedPriceDiscoveryService {
     const tenantId = await this.tenantContext.getTenantId();
     const principalId = this.requirePrincipalId();
     const decodedCursor = parsePriceOperationDiscoveryCursor(cursor);
-    const take = GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1;
 
-    const baseWhere: Prisma.InventoryPriceOperationWhereInput = {
+    const scan = await this.scanVisibleOperationsPage(
+      tenantId,
+      this.discoveryListBaseWhere(tenantId, principalId),
+      decodedCursor,
+    );
+
+    return {
+      data: scan.survivors.map(mapInventoryPriceOperation),
+      meta: this.buildDiscoveryListMeta(scan),
+    };
+  }
+
+  private discoveryListBaseWhere(
+    tenantId: string,
+    principalId: string,
+  ): Prisma.InventoryPriceOperationWhereInput {
+    return {
       tenant_id: tenantId,
       principal_id: principalId,
       state: {
@@ -46,48 +68,130 @@ export class GuardedPriceDiscoveryService {
         ],
       },
     };
+  }
 
-    const keysetWhere: Prisma.InventoryPriceOperationWhereInput = decodedCursor
-      ? {
-          OR: [
-            { accepted_at: { lt: new Date(decodedCursor.acceptedAt) } },
-            {
-              AND: [
-                { accepted_at: new Date(decodedCursor.acceptedAt) },
-                { key: { lt: decodedCursor.key } },
-              ],
-            },
-          ],
-        }
-      : {};
-
-    const rows = await this.prisma.inventoryPriceOperation.findMany({
-      where: { AND: [baseWhere, keysetWhere] },
-      orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
-      take,
-    });
-
-    const accessible = await this.filterAccessibleRows(tenantId, rows);
-    const retained = accessible.filter((row) => rowWithinRetention(row));
-    const hasNextPage = rows.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE;
-    const pageRows = retained.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
-
+  private buildDiscoveryListMeta(scan: {
+    survivors: InventoryPriceOperation[];
+    lastRawExamined: InventoryPriceOperation | null;
+    exhausted: boolean;
+  }): ListCursorPageMetaDto {
+    const hasNextPage = !scan.exhausted && scan.lastRawExamined !== null;
     const meta: ListCursorPageMetaDto = {
       limit: GUARDED_PRICE_DISCOVERY_PAGE_SIZE,
       hasNextPage,
       nextCursor: null,
     };
-    if (hasNextPage && pageRows.length > 0) {
-      const last = pageRows[pageRows.length - 1];
+    if (hasNextPage && scan.lastRawExamined) {
       meta.nextCursor = encodePriceOperationDiscoveryCursor({
-        acceptedAt: last.accepted_at.toISOString(),
-        key: last.key,
+        acceptedAt: scan.lastRawExamined.accepted_at.toISOString(),
+        key: scan.lastRawExamined.key,
       });
+    }
+    return meta;
+  }
+
+  private async scanVisibleOperationsPage(
+    tenantId: string,
+    baseWhere: Prisma.InventoryPriceOperationWhereInput,
+    decodedCursor: PriceOperationDiscoveryCursor | null,
+  ): Promise<{
+    survivors: InventoryPriceOperation[];
+    lastRawExamined: InventoryPriceOperation | null;
+    exhausted: boolean;
+  }> {
+    const survivors: InventoryPriceOperation[] = [];
+    let scanAfter: PriceOperationDiscoveryCursor | null = decodedCursor;
+    let lastRawExamined: InventoryPriceOperation | null = null;
+    let exhausted = false;
+
+    while (survivors.length < GUARDED_PRICE_DISCOVERY_PAGE_SIZE && !exhausted) {
+      const page = await this.scanDiscoveryBatch(
+        tenantId,
+        baseWhere,
+        scanAfter,
+      );
+      if (page.exhausted) {
+        exhausted = true;
+        break;
+      }
+
+      lastRawExamined = page.lastRawExamined;
+      survivors.push(...page.newSurvivors);
+      if (
+        survivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE ||
+        page.endOfRaw
+      ) {
+        if (page.endOfRaw) {
+          exhausted = true;
+        }
+        break;
+      }
+
+      scanAfter = page.nextScanAfter;
     }
 
     return {
-      data: pageRows.map(mapInventoryPriceOperation),
-      meta,
+      survivors: survivors.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE),
+      lastRawExamined,
+      exhausted,
+    };
+  }
+
+  private async scanDiscoveryBatch(
+    tenantId: string,
+    baseWhere: Prisma.InventoryPriceOperationWhereInput,
+    scanAfter: PriceOperationDiscoveryCursor | null,
+  ): Promise<{
+    newSurvivors: InventoryPriceOperation[];
+    lastRawExamined: InventoryPriceOperation | null;
+    nextScanAfter: PriceOperationDiscoveryCursor | null;
+    endOfRaw: boolean;
+    exhausted: boolean;
+  }> {
+    const keysetWhere = this.buildKeysetWhere(scanAfter);
+    const batch = await this.prisma.inventoryPriceOperation.findMany({
+      where: { AND: [baseWhere, keysetWhere] },
+      orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
+      take: DISCOVERY_RAW_BATCH_SIZE,
+    });
+
+    if (batch.length === 0) {
+      return {
+        newSurvivors: [],
+        lastRawExamined: null,
+        nextScanAfter: null,
+        endOfRaw: true,
+        exhausted: true,
+      };
+    }
+
+    const visible = await this.filterVisibleRetainedRows(tenantId, batch);
+    const visibleById = new Set(visible.map((row) => row.id));
+    const newSurvivors: InventoryPriceOperation[] = [];
+    let lastRawExamined: InventoryPriceOperation | null = null;
+
+    for (const row of batch) {
+      lastRawExamined = row;
+      if (!visibleById.has(row.id)) {
+        continue;
+      }
+      newSurvivors.push(row);
+      if (newSurvivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
+        break;
+      }
+    }
+
+    const endOfRaw = batch.length < DISCOVERY_RAW_BATCH_SIZE;
+    const tail = batch[batch.length - 1];
+    return {
+      newSurvivors,
+      lastRawExamined,
+      nextScanAfter: {
+        acceptedAt: tail.accepted_at.toISOString(),
+        key: tail.key,
+      },
+      endOfRaw,
+      exhausted: false,
     };
   }
 
@@ -106,12 +210,39 @@ export class GuardedPriceDiscoveryService {
       throw new NotFoundException(`Price operation ${key} not found`);
     }
 
-    const accessible = await this.filterAccessibleRows(tenantId, [row]);
-    if (accessible.length === 0) {
+    const visible = await this.filterVisibleRetainedRows(tenantId, [row]);
+    if (visible.length === 0) {
       throw new NotFoundException(`Price operation ${key} not found`);
     }
 
-    return mapInventoryPriceOperation(accessible[0]);
+    return mapInventoryPriceOperation(visible[0]);
+  }
+
+  private buildKeysetWhere(
+    cursor: PriceOperationDiscoveryCursor | null,
+  ): Prisma.InventoryPriceOperationWhereInput {
+    if (!cursor) {
+      return {};
+    }
+    return {
+      OR: [
+        { accepted_at: { lt: new Date(cursor.acceptedAt) } },
+        {
+          AND: [
+            { accepted_at: new Date(cursor.acceptedAt) },
+            { key: { lt: cursor.key } },
+          ],
+        },
+      ],
+    };
+  }
+
+  private async filterVisibleRetainedRows(
+    tenantId: string,
+    rows: InventoryPriceOperation[],
+  ): Promise<InventoryPriceOperation[]> {
+    const retained = rows.filter((row) => rowWithinRetention(row));
+    return this.filterAccessibleRows(tenantId, retained);
   }
 
   private async filterAccessibleRows<T extends { item_id: string }>(
