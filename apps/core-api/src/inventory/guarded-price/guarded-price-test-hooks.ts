@@ -44,7 +44,10 @@ export function shouldFailTxEAfterCatalogUpdate(): boolean {
 }
 
 export function shouldHoldTxEOpenAfterJournalLock(): boolean {
-  return guardedPriceTestHooks.holdTxEOpenAfterJournalLock;
+  return (
+    process.env.JEST_WORKER_ID !== undefined &&
+    guardedPriceTestHooks.holdTxEOpenAfterJournalLock
+  );
 }
 
 export async function waitForTxEReleaseIfHeld(): Promise<void> {

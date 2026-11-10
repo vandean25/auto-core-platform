@@ -459,6 +459,64 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     expect(keys).toContain(page2.body.data[0].key);
   });
 
+  it('discovery keyset returns every visible row across batch overflow pages', async () => {
+    const anchor = Date.now();
+    const principal = testTenant.firebaseUid;
+    const visibleKeys: string[] = [];
+
+    for (let i = 0; i < 48; i++) {
+      const ghost = await seedItem(10, `OF-${i}`);
+      await tenantPrisma().inventoryPriceOperation.create({
+        data: {
+          tenant_id: tenantId,
+          principal_id: principal,
+          key: operationKeyAt(anchor - i * 1000, String(i).padStart(4, '0')),
+          item_id: ghost.id,
+          sku: ghost.sku,
+          kind: GUARDED_PRICE_KIND,
+          expected_revision: BigInt(1),
+          target_minor: BigInt(1500),
+          basis_minor: BigInt(1000),
+          state: InventoryPriceOperationState.APPLIED,
+          accepted_at: new Date(anchor - i * 1000),
+          final_at: new Date(anchor - i * 1000),
+        },
+      });
+      await tenantPrisma().catalogItem.delete({ where: { id: ghost.id } });
+    }
+
+    for (let i = 48; i < 114; i++) {
+      const item = await seedItem(10, `VIS-${i}`);
+      const key = operationKeyAt(anchor - i * 1000, String(i).padStart(4, '0'));
+      visibleKeys.push(key);
+      await guardedPatch(item.id, key, {
+        retail_price: 10 + (i % 5),
+        expectedRevision: revisionFromDb(item.revision),
+      }).expect(200);
+    }
+
+    const page1 = await listOperations().expect(200);
+    expect(page1.body.data).toHaveLength(50);
+    expect(page1.body.meta.hasNextPage).toBe(true);
+
+    const page2 = await listOperations(
+      undefined,
+      page1.body.meta.nextCursor,
+    ).expect(200);
+    expect(page2.body.data).toHaveLength(16);
+    expect(page2.body.meta.hasNextPage).toBe(false);
+
+    const listedKeys = [
+      ...page1.body.data.map((row: { key: string }) => row.key),
+      ...page2.body.data.map((row: { key: string }) => row.key),
+    ].sort();
+    expect(listedKeys).toEqual([...visibleKeys].sort());
+  });
+
+  it('rejects invalid discovery cursor with 400', async () => {
+    await listOperations(undefined, '%%%not-a-cursor%%%').expect(400);
+  });
+
   it('fence on terminal CONFLICT row is idempotent', async () => {
     const item = await seedItem();
     const revision = revisionFromDb(item.revision);

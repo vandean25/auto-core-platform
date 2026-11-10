@@ -105,10 +105,13 @@ export class GuardedPriceDiscoveryService {
     let exhausted = false;
 
     while (survivors.length < GUARDED_PRICE_DISCOVERY_PAGE_SIZE && !exhausted) {
+      const remainingSlots =
+        GUARDED_PRICE_DISCOVERY_PAGE_SIZE - survivors.length;
       const page = await this.scanDiscoveryBatch(
         tenantId,
         baseWhere,
         scanAfter,
+        remainingSlots,
       );
       if (page.exhausted) {
         exhausted = true;
@@ -117,21 +120,25 @@ export class GuardedPriceDiscoveryService {
 
       lastRawExamined = page.lastRawExamined;
       survivors.push(...page.newSurvivors);
-      if (
-        survivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE ||
-        page.endOfRaw
-      ) {
-        if (page.endOfRaw) {
-          exhausted = true;
-        }
+      if (survivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
+        exhausted = page.batchFullyConsumed && page.endOfJournal;
+        break;
+      }
+      if (page.endOfJournal) {
+        exhausted = true;
         break;
       }
 
-      scanAfter = page.nextScanAfter;
+      if (page.lastRawExamined) {
+        scanAfter = {
+          acceptedAt: page.lastRawExamined.accepted_at.toISOString(),
+          key: page.lastRawExamined.key,
+        };
+      }
     }
 
     return {
-      survivors: survivors.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE),
+      survivors,
       lastRawExamined,
       exhausted,
     };
@@ -141,11 +148,12 @@ export class GuardedPriceDiscoveryService {
     tenantId: string,
     baseWhere: Prisma.InventoryPriceOperationWhereInput,
     scanAfter: PriceOperationDiscoveryCursor | null,
+    remainingSlots: number,
   ): Promise<{
     newSurvivors: InventoryPriceOperation[];
     lastRawExamined: InventoryPriceOperation | null;
-    nextScanAfter: PriceOperationDiscoveryCursor | null;
-    endOfRaw: boolean;
+    batchFullyConsumed: boolean;
+    endOfJournal: boolean;
     exhausted: boolean;
   }> {
     const keysetWhere = this.buildKeysetWhere(scanAfter);
@@ -159,8 +167,8 @@ export class GuardedPriceDiscoveryService {
       return {
         newSurvivors: [],
         lastRawExamined: null,
-        nextScanAfter: null,
-        endOfRaw: true,
+        batchFullyConsumed: true,
+        endOfJournal: true,
         exhausted: true,
       };
     }
@@ -169,6 +177,7 @@ export class GuardedPriceDiscoveryService {
     const visibleById = new Set(visible.map((row) => row.id));
     const newSurvivors: InventoryPriceOperation[] = [];
     let lastRawExamined: InventoryPriceOperation | null = null;
+    let stoppedEarly = false;
 
     for (const row of batch) {
       lastRawExamined = row;
@@ -176,21 +185,20 @@ export class GuardedPriceDiscoveryService {
         continue;
       }
       newSurvivors.push(row);
-      if (newSurvivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
+      if (newSurvivors.length >= remainingSlots) {
+        stoppedEarly = true;
         break;
       }
     }
 
-    const endOfRaw = batch.length < DISCOVERY_RAW_BATCH_SIZE;
-    const tail = batch[batch.length - 1];
+    const batchFullyConsumed = !stoppedEarly;
+    const endOfJournal =
+      batchFullyConsumed && batch.length < DISCOVERY_RAW_BATCH_SIZE;
     return {
       newSurvivors,
       lastRawExamined,
-      nextScanAfter: {
-        acceptedAt: tail.accepted_at.toISOString(),
-        key: tail.key,
-      },
-      endOfRaw,
+      batchFullyConsumed,
+      endOfJournal,
       exhausted: false,
     };
   }

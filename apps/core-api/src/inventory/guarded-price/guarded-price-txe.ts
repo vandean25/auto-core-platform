@@ -72,7 +72,9 @@ async function lockAcceptedJournal(
   }
 
   await lockGuardedPriceJournalRow(tx, ctx.tenantId, journal.id);
-  guardedPriceTestHooks.onTxEJournalLocked?.();
+  if (process.env.JEST_WORKER_ID !== undefined) {
+    guardedPriceTestHooks.onTxEJournalLocked?.();
+  }
   await waitForTxEReleaseIfHeld();
 
   if (shouldFailTxEAfterJournalLock()) {
