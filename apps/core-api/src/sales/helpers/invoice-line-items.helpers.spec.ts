@@ -12,11 +12,17 @@ describe('invoice-line-items.helpers', () => {
     catalogItem: {
       findMany: jest.fn(),
     },
+    workshopTaskLineItem: {
+      findMany: jest.fn(),
+    },
   };
-  const scoped = fakePrisma<Pick<PrismaService, 'catalogItem'>>(prisma);
+  const scoped = fakePrisma<
+    Pick<PrismaService, 'catalogItem' | 'workshopTaskLineItem'>
+  >(prisma);
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.workshopTaskLineItem.findMany.mockResolvedValue([]);
   });
 
   it('rejects empty item lists', () => {
@@ -72,6 +78,8 @@ describe('invoice-line-items.helpers', () => {
   });
 
   it('passes workshopTaskLineItemId through to formatted invoice items', async () => {
+    prisma.workshopTaskLineItem.findMany.mockResolvedValue([{ id: 'wtl-abc' }]);
+
     const result = await buildFormattedInvoiceItems(scoped, 'tenant-1', [
       {
         workshopTaskLineItemId: 'wtl-abc',
@@ -88,6 +96,40 @@ describe('invoice-line-items.helpers', () => {
         tax_rate: 0,
       }),
     );
+  });
+
+  it('rejects an unknown workshop line id', async () => {
+    prisma.workshopTaskLineItem.findMany.mockResolvedValue([]);
+
+    await expect(
+      buildFormattedInvoiceItems(scoped, 'tenant-1', [
+        {
+          workshopTaskLineItemId: 'wtl-unknown',
+          description: 'Labor',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 0,
+        },
+      ]),
+    ).rejects.toThrow(
+      'Workshop line item wtl-unknown not found or belongs to another tenant',
+    );
+  });
+
+  it('rejects a workshop line id that belongs to another tenant', async () => {
+    prisma.workshopTaskLineItem.findMany.mockResolvedValue([]);
+
+    await expect(
+      buildFormattedInvoiceItems(scoped, 'tenant-1', [
+        {
+          workshopTaskLineItemId: '00000000-0000-4000-8000-00000000f0re',
+          description: 'Labor',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 0,
+        },
+      ]),
+    ).rejects.toThrow(/not found or belongs to another tenant/);
   });
 
   it('rejects catalog items that are missing from the tenant', async () => {

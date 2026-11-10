@@ -49,6 +49,7 @@ export function useInvoiceDraftAutosave({
       tempId: item.id,
       id: item.id,
       catalog_item_id: item.catalog_item_id ?? undefined,
+      workshop_task_line_item_id: item.workshop_task_line_item_id ?? undefined,
       description: item.description,
       quantity: Number(item.quantity),
       unit_price: Number(item.unit_price),
@@ -66,6 +67,9 @@ export function useInvoiceDraftAutosave({
           customerId: invoice.customer.id,
           items: items.map((item) => ({
             catalogItemId: item.catalog_item_id,
+            ...(item.workshop_task_line_item_id
+              ? { workshopTaskLineItemId: item.workshop_task_line_item_id }
+              : {}),
             description: item.description,
             quantity: item.quantity,
             unitPrice: item.unit_price,

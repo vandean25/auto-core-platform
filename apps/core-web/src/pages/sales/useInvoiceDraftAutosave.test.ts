@@ -23,6 +23,7 @@ const invoice = {
     {
       id: 'line-1',
       catalog_item_id: null,
+      workshop_task_line_item_id: 'wtl-workshop-1',
       description: 'Brake pads',
       quantity: '1',
       unit_price: '1',
@@ -76,6 +77,7 @@ describe('useInvoiceDraftAutosave', () => {
         items: [
           expect.objectContaining({
             id: 'line-1',
+            workshop_task_line_item_id: 'wtl-workshop-1',
             description: 'Brake pads',
             quantity: 1,
             unit_price: 1,

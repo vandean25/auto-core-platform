@@ -43,6 +43,7 @@ export interface CreateInvoicePayload {
     vehicleId?: string
     items: {
         catalogItemId?: string
+        workshopTaskLineItemId?: string
         description: string
         quantity: number
         unitPrice: number

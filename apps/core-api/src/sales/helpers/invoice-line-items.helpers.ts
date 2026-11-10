@@ -42,7 +42,7 @@ export function assertInvoiceHasItems(items: InvoiceLineInput[]): void {
 }
 
 export async function buildFormattedInvoiceItems(
-  prisma: Pick<PrismaService, 'catalogItem'>,
+  prisma: Pick<PrismaService, 'catalogItem' | 'workshopTaskLineItem'>,
   tenantId: string,
   items: InvoiceLineInput[],
 ): Promise<InvoiceLineTotals> {
@@ -67,6 +67,34 @@ export async function buildFormattedInvoiceItems(
       orderBy: { id: 'asc' },
     });
     catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
+  }
+
+  const uniqueWorkshopLineIds = [
+    ...new Set(
+      items
+        .map((item) => item.workshopTaskLineItemId)
+        .filter(
+          (workshopLineId): workshopLineId is string =>
+            typeof workshopLineId === 'string',
+        ),
+    ),
+  ];
+
+  const workshopLineIdSet = new Set<string>();
+  if (uniqueWorkshopLineIds.length > 0) {
+    const workshopLines = await prisma.workshopTaskLineItem.findMany({
+      where: { tenant_id: tenantId, id: { in: uniqueWorkshopLineIds } },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    workshopLines.forEach((line) => workshopLineIdSet.add(line.id));
+    for (const workshopLineId of uniqueWorkshopLineIds) {
+      if (!workshopLineIdSet.has(workshopLineId)) {
+        throw new BadRequestException(
+          `Workshop line item ${workshopLineId} not found or belongs to another tenant`,
+        );
+      }
+    }
   }
 
   let totalNet = 0;

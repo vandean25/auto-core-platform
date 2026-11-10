@@ -61,6 +61,9 @@ export default function InvoiceDraftEditPage() {
       customerId: editor.customer.id,
       items: editor.items.map((item) => ({
         catalogItemId: item.catalog_item_id,
+        ...(item.workshop_task_line_item_id
+          ? { workshopTaskLineItemId: item.workshop_task_line_item_id }
+          : {}),
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unit_price,
