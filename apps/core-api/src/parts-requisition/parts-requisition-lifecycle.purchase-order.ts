@@ -17,6 +17,7 @@ import { recomputeRequisitionStatus } from './parts-requisition.helpers.js';
 import { lockRequisitionReservations } from './parts-requisition-lifecycle.locking.js';
 import { REQUISITION_SLICE_STATUSES } from './parts-requisition-lifecycle.types.js';
 import { validateRequisitionPoItems } from './parts-requisition-lifecycle.validation.js';
+import { mapNestedCatalogItemsForHttp } from '../inventory/catalog-item-response.mapper.js';
 
 export async function executeCreateRequisitionPurchaseOrder(
   tx: Prisma.TransactionClient,
@@ -95,7 +96,7 @@ export async function executeCreateRequisitionPurchaseOrder(
   if (!created) {
     throw new NotFoundException('Purchase order not found');
   }
-  return created;
+  return mapNestedCatalogItemsForHttp(created);
 }
 
 export async function executeCreatePurchaseOrderForRequisition(

@@ -16,6 +16,7 @@ function buildPendingItem(localId: string, payload: CreateInventoryItemInput): I
     status: 'IN_STOCK',
     quantity_available: 0,
     warehouse_location: '',
+    revision: 0,
   }
 }
 

@@ -54,6 +54,7 @@ model Tenant {
   voiceTranslationSettings         VoiceTranslationSettings?
   brands                           Brand[]
   catalogItems                     CatalogItem[]
+  inventoryPriceOperations         InventoryPriceOperation[]
   storageLocations                 StorageLocation[]
   inventoryStocks                  InventoryStock[]
   inventoryTransactions            InventoryTransaction[]
@@ -1107,6 +1108,39 @@ model VehicleMakeAlias {
 // Catalog & Inventory
 // ============================================================================
 
+enum InventoryPriceOperationState {
+  ACCEPTED
+  APPLIED
+  CONFLICT
+  FENCED
+}
+
+/// ADR-0037 guarded price operation journal (AUT-928 storage slice). Partial unique index
+/// `inventory_price_operations_one_accepted_per_principal_item` is migration SQL only.
+model InventoryPriceOperation {
+  id                 String                        @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant                        @relation(fields: [tenant_id], references: [id])
+  principal_id       String
+  key                String                        @db.Uuid
+  item_id            String
+  sku                String
+  kind               String
+  expected_revision  BigInt
+  target_minor       BigInt
+  basis_minor        BigInt
+  state              InventoryPriceOperationState
+  accepted_at        DateTime
+  final_at           DateTime?
+  result_revision    BigInt?
+  error_code         String?
+
+  @@unique([tenant_id, principal_id, key])
+  @@unique([tenant_id, id])
+  @@index([state, accepted_at])
+  @@map("inventory_price_operations")
+}
+
 model CatalogItem {
   id                       String                 @id @default(uuid())
   tenant_id                String
@@ -1137,6 +1171,7 @@ model CatalogItem {
   stock_transfer_lines     StockTransferLine[]
   vendorArticles           VendorArticle[]
   catalogPriceHistories    CatalogPriceHistory[]
+  revision                 BigInt                 @default(0)
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
 

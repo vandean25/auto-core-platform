@@ -146,6 +146,9 @@ describe('InventoryItemMutationsService', () => {
       cost_price: 3,
       retail_price: 4,
       brand_id: null,
+      revision: BigInt(7),
+      unit: 'pcs',
+      revenue_group_id: null,
     });
 
     await service.updateItem('item-1', {

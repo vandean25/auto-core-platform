@@ -268,6 +268,10 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'workshop_task_line_items',
     clean: (p) => p.workshopTaskLineItem.deleteMany(),
   },
+  {
+    table: 'inventory_price_operations',
+    clean: (p) => p.inventoryPriceOperation.deleteMany(),
+  },
   { table: 'catalog_items', clean: (p) => p.catalogItem.deleteMany() },
   {
     table: 'workshop_opening_hours',

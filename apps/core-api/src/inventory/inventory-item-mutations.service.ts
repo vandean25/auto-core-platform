@@ -12,6 +12,7 @@ import { LedgerService } from './ledger.service.js';
 import { AdjustInventoryStockDto } from './dto/adjust-inventory-stock.dto.js';
 import { ReceiveInventoryStockDto } from './dto/receive-inventory-stock.dto.js';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
+import { toCatalogItemResponseDto } from './catalog-item-response.mapper.js';
 
 const MANUAL_RECEIPT_REFERENCE = 'manual-receipt';
 const MANUAL_ADJUSTMENT_REFERENCE = 'manual-adjustment';
@@ -187,7 +188,7 @@ export class InventoryItemMutationsService {
         tx,
       );
 
-      return updated;
+      return toCatalogItemResponseDto(updated);
     });
   }
 

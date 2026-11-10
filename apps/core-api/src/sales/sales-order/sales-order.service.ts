@@ -40,6 +40,7 @@ import {
   reconcileSalesOrderItems,
   sumSalesOrderItemTotals,
 } from '../helpers/sales-order-update.helpers.js';
+import { mapNestedCatalogItemsForHttp } from '../../inventory/catalog-item-response.mapper.js';
 
 @Injectable()
 export class SalesOrderService {
@@ -177,11 +178,12 @@ export class SalesOrderService {
       },
     });
     if (!order) throw new NotFoundException(`Sales Order ${id} not found`);
+    const orderForResponse = mapNestedCatalogItemsForHttp(order);
     return {
-      ...order,
-      vehicle: order.vehicle
-        ? stripVehicleIdentityResolutionState(order.vehicle)
-        : order.vehicle,
+      ...orderForResponse,
+      vehicle: orderForResponse.vehicle
+        ? stripVehicleIdentityResolutionState(orderForResponse.vehicle)
+        : orderForResponse.vehicle,
     };
   }
 

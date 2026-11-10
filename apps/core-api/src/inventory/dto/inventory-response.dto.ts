@@ -57,6 +57,9 @@ export class InventoryItemResponseDto {
 
   @ApiProperty()
   warehouse_location!: string;
+
+  @ApiProperty({ type: 'integer', format: 'int64' })
+  revision!: number;
 }
 
 export class InventoryItemDetailResponseDto extends InventoryItemResponseDto {
@@ -127,4 +130,7 @@ export class CatalogItemResponseDto {
 
   @ApiProperty({ type: Number, required: false, nullable: true })
   revenue_group_id?: number | null;
+
+  @ApiProperty({ type: 'integer', format: 'int64' })
+  revision!: number;
 }
