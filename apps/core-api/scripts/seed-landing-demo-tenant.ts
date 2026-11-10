@@ -13,6 +13,7 @@ import {
 } from '../src/prisma/fixtures/index.js';
 import { DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS } from '../src/prisma/fixtures/demo-legal-entity-seller.fixture.js';
 import { loadSeedMasterCopy } from '../src/prisma/fixtures/seed-master-copy.js';
+import { advanceScopeEpoch } from '../src/auth/scope-epoch.js';
 
 const DEMO_TENANT_SLUG =
   process.env.LANDING_DEMO_TENANT_SLUG?.trim() || 'selbstservice-demo';
@@ -78,34 +79,48 @@ async function seedLandingDemoEnglishUser(tenantId: string, siteId: string) {
     },
   });
 
-  await prisma.tenantMember.upsert({
-    where: {
-      tenant_id_user_id: { tenant_id: tenantId, user_id: user.id },
-    },
-    update: { role: TenantMemberRole.DEMO, is_active: true },
-    create: {
-      tenant_id: tenantId,
-      user_id: user.id,
-      role: TenantMemberRole.DEMO,
-      is_active: true,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.tenantMember.upsert({
+      where: {
+        tenant_id_user_id: { tenant_id: tenantId, user_id: user.id },
+      },
+      update: { role: TenantMemberRole.DEMO, is_active: true },
+      create: {
+        tenant_id: tenantId,
+        user_id: user.id,
+        role: TenantMemberRole.DEMO,
+        is_active: true,
+      },
+    });
+    await advanceScopeEpoch(tx, {
+      kind: 'member',
+      tenantId,
+      userId: user.id,
+    });
   });
 
-  await prisma.siteMembership.upsert({
-    where: {
-      tenant_id_user_id_site_id: {
+  await prisma.$transaction(async (tx) => {
+    await tx.siteMembership.upsert({
+      where: {
+        tenant_id_user_id_site_id: {
+          tenant_id: tenantId,
+          user_id: user.id,
+          site_id: siteId,
+        },
+      },
+      update: { is_active: true },
+      create: {
         tenant_id: tenantId,
         user_id: user.id,
         site_id: siteId,
+        is_active: true,
       },
-    },
-    update: { is_active: true },
-    create: {
-      tenant_id: tenantId,
-      user_id: user.id,
-      site_id: siteId,
-      is_active: true,
-    },
+    });
+    await advanceScopeEpoch(tx, {
+      kind: 'member',
+      tenantId,
+      userId: user.id,
+    });
   });
 }
 
@@ -116,20 +131,27 @@ async function main() {
 
   const master = loadSeedMasterCopy(LANDING_DEMO_LANGUAGE);
 
-  const tenant = await prisma.tenant.upsert({
-    where: { slug: DEMO_TENANT_SLUG },
-    update: {
-      is_landing_demo_tenant: true,
-      is_active: true,
-      name: master.landingDemo.tenantName,
-      default_locale: LANDING_DEMO_LANGUAGE,
-    },
-    create: {
-      name: master.landingDemo.tenantName,
-      slug: DEMO_TENANT_SLUG,
-      is_landing_demo_tenant: true,
-      default_locale: LANDING_DEMO_LANGUAGE,
-    },
+  const tenant = await prisma.$transaction(async (tx) => {
+    const row = await tx.tenant.upsert({
+      where: { slug: DEMO_TENANT_SLUG },
+      update: {
+        is_landing_demo_tenant: true,
+        is_active: true,
+        name: master.landingDemo.tenantName,
+        default_locale: LANDING_DEMO_LANGUAGE,
+      },
+      create: {
+        name: master.landingDemo.tenantName,
+        slug: DEMO_TENANT_SLUG,
+        is_landing_demo_tenant: true,
+        default_locale: LANDING_DEMO_LANGUAGE,
+      },
+    });
+    await advanceScopeEpoch(tx, {
+      kind: 'tenantAuthorization',
+      tenantId: row.id,
+    });
+    return row;
   });
 
   let legalEntity = await prisma.legalEntity.findFirst({

@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
+import { cleanupTestTenantGraph } from './tenant-test-utils.js';
 
 /**
  * Gracefully shuts down a NestJS test application and disconnects Prisma.
@@ -11,6 +12,14 @@ import type { PrismaService } from '../src/prisma/prisma.service.js';
  * If `prisma` is not provided (e.g. the spec uses a file-only test fixture),
  * only `app.close()` is called.
  */
+/** Per-spec tenant graph cleanup for isolated e2e tenants (AUT-466+). */
+export async function cleanupE2eTenantGraph(
+  prisma: PrismaService,
+  tenantId: string,
+): Promise<void> {
+  await cleanupTestTenantGraph(prisma, tenantId).catch(() => undefined);
+}
+
 export async function teardownTestApp(
   app: INestApplication,
   prisma?: PrismaService | { $disconnect: () => Promise<void> },

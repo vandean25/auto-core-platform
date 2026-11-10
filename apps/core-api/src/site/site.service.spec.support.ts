@@ -36,8 +36,12 @@ export function createPrismaMock() {
       create: jest.fn(),
       delete: jest.fn(),
     },
+    tenant: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     tenantMember: {
       findFirst: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     storageLocation: {
       create: jest.fn(),

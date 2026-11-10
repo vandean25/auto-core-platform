@@ -38,6 +38,8 @@ model Tenant {
   created_at                DateTime        @default(now())
   updated_at                DateTime        @updatedAt
   is_active                 Boolean         @default(true)
+  /// ADR-0038 §2: advances with tenant, legal-entity and site activation changes.
+  authorization_epoch       BigInt          @default(0)
   /// AUT-547 dedicated tenant for self-service landing demos (isolated from QA seed data).
   is_landing_demo_tenant    Boolean         @default(false)
   /// AUT-413 tenant opt-out for decision live-apply. Only `shadow` is valid; NULL inherits the environment.
@@ -343,6 +345,8 @@ model TenantMember {
   user                   User             @relation(fields: [user_id], references: [id])
   role                   TenantMemberRole
   is_active              Boolean          @default(true)
+  /// ADR-0038 §2: advances with membership, role and site-scope writers.
+  scope_epoch            BigInt           @default(0)
   /// AUT-547 self-service demo memberships expire automatically (enforced in auth session).
   demo_access_expires_at DateTime?
   createdAt              DateTime         @default(now())

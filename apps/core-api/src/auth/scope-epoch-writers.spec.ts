@@ -1,0 +1,197 @@
+import { REGISTERED_SCOPE_EPOCH_WRITER_PATHS } from './scope-epoch-writers.inventory.js';
+import {
+  countAccessWrites,
+  extractTransactionCallbackBodies,
+  isScannedSourcePath,
+  listDetectedScopeEpochWriters,
+  listScopeEpochAtomicityViolations,
+  sliceBalancedBraces,
+  transactionBlocksMissingEpoch,
+} from './scope-epoch-writers.scan.js';
+
+describe('scope-epoch-writers scan helpers', () => {
+  it('sliceBalancedBraces returns inner content for a simple block', () => {
+    const source = 'prefix { alpha: 1 } suffix';
+    const open = source.indexOf('{');
+    expect(sliceBalancedBraces(source, open)).toBe(' alpha: 1 ');
+  });
+
+  it('sliceBalancedBraces respects nested braces', () => {
+    const source = '{ outer { inner: 1 } tail }';
+    expect(sliceBalancedBraces(source, 0)).toBe(' outer { inner: 1 } tail ');
+  });
+
+  it('sliceBalancedBraces ignores braces inside string literals', () => {
+    const source = "{ ok: '{ not a brace }', end: true }";
+    expect(sliceBalancedBraces(source, 0)).toBe(
+      " ok: '{ not a brace }', end: true ",
+    );
+  });
+
+  it('sliceBalancedBraces handles escaped quotes and backticks', () => {
+    const source = '{ a: "line \\"x\\"", b: `t { brace }` }';
+    expect(sliceBalancedBraces(source, 0)).toBe(' a: "line \\"x\\"", b: `t { brace }` ');
+  });
+
+  it('sliceBalancedBraces returns null when braces never balance', () => {
+    expect(sliceBalancedBraces('{ open only', 0)).toBeNull();
+  });
+
+  it('extractTransactionCallbackBodies pulls each arrow callback body', () => {
+    const source = `
+      await prisma.$transaction(async (tx) => { first(); });
+      await prisma.$transaction(async (tx) => { second(); });
+    `;
+    expect(extractTransactionCallbackBodies(source)).toEqual([
+      ' first(); ',
+      ' second(); ',
+    ]);
+  });
+
+  it('excludes specs and inventory from source scan paths', () => {
+    expect(isScannedSourcePath('auth/scope-epoch-writers.spec.ts')).toBe(false);
+    expect(isScannedSourcePath('auth/scope-epoch-writers.scan.ts')).toBe(false);
+    expect(isScannedSourcePath('tenant-member/tenant-member.service.ts')).toBe(
+      true,
+    );
+  });
+
+  it('counts tenant upsert reactivation as an activation write', () => {
+    const source = `
+      await tx.tenant.upsert({
+        update: { is_active: true },
+        create: { name: 'x' },
+      });
+    `;
+    expect(countAccessWrites(source)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('flags membership transaction blocks without epoch bumps', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.siteMembership.create({ data: {} });
+      });
+    `;
+    const withBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.siteMembership.create({ data: {} });
+        await advanceScopeEpoch(tx, { kind: 'member' });
+      });
+    `;
+
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+    expect(transactionBlocksMissingEpoch(withBump)).toEqual([]);
+  });
+
+  it('accepts tx-scoped epoch delegate helpers inside transaction blocks', () => {
+    const source = `
+      await prisma.$transaction(async (tx) => {
+        await upsertActiveTenantMemberWithMemberEpoch(tx, {});
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(source)).toEqual([]);
+  });
+
+  it('does not count ensureActive helper that starts a nested transaction', () => {
+    const outerOnlyHelper = `
+      await prisma.$transaction(async (tx) => {
+        await ensureActiveSiteMembershipWithMemberEpoch(prisma, {});
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(outerOnlyHelper)).toEqual([]);
+
+    const outerWriteWithNestedHelper = `
+      await prisma.$transaction(async (tx) => {
+        await tx.siteMembership.create({ data: {} });
+        await ensureActiveSiteMembershipWithMemberEpoch(prisma, {});
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(outerWriteWithNestedHelper)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('does not attribute a later transaction bump to an earlier callback', () => {
+    const source = `
+      await prisma.$transaction(async (tx) => {
+        await tx.siteMembership.create({ data: {} });
+      });
+      await prisma.$transaction(async (tx) => {
+        await advanceScopeEpoch(tx, { kind: 'member' });
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(source)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('flags legal entity is_active deactivation without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.legalEntity.update({
+          where: { id },
+          data: { is_active: false },
+        });
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('flags legal entity dto.isActive updates without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.legalEntity.update({ where: { id }, data: profile });
+        if (dto.isActive !== undefined && dto.isActive !== existing.is_active) {
+        }
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('flags site updateData is_active changes without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        const row = await tx.site.update({ where: { id }, data: updateData });
+        if (updateData.is_active !== existing.is_active) {
+        }
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('flags platform tenant dto.isActive updates without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.tenant.update({
+          where: { id },
+          data: { ...(dto.isActive !== undefined && { is_active: dto.isActive }) },
+        });
+        if (dto.isActive !== undefined) {
+        }
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+});
+
+describe('scope-epoch-writers inventory', () => {
+  it('unregistered writer fails', () => {
+    expect(listDetectedScopeEpochWriters()).toEqual(
+      [...REGISTERED_SCOPE_EPOCH_WRITER_PATHS].sort(),
+    );
+  });
+
+  it('access writes bump epoch in the same transaction', () => {
+    expect(listScopeEpochAtomicityViolations()).toEqual([]);
+  });
+});

@@ -22,6 +22,10 @@ describe('seedDemoSiteAccess', () => {
           },
         ]),
         findFirst: jest.fn().mockResolvedValue({ id: 'tm-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      tenant: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       user: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -32,6 +36,7 @@ describe('seedDemoSiteAccess', () => {
         update: jest.fn().mockResolvedValue({}),
         create: jest.fn().mockResolvedValue({ id: 'sm-1' }),
       },
+      $transaction: jest.fn((work) => work(mockPrisma)),
     };
 
     await seedDemoSiteAccess(mockPrisma, foundation);

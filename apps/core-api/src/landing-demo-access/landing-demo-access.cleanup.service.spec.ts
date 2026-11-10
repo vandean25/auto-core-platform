@@ -38,13 +38,29 @@ describe('LandingDemoAccessCleanupService', () => {
       .mockResolvedValue([
         {
           id: 'm-1',
+          tenant_id: 'tenant-1',
           user: { id: 'u-1', firebaseUid: 'fb-1' },
         },
         {
           id: 'm-2',
+          tenant_id: 'tenant-1',
           user: { id: 'u-2', firebaseUid: 'fb-2' },
         },
       ]);
+    const tenantMemberUpdateMany = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue({ count: 1 });
+    const $transaction = jest
+      .fn<(fn: (tx: unknown) => unknown) => Promise<unknown>>()
+      .mockImplementation(async (fn) =>
+        fn({
+          tenantMember: {
+            update: tenantMemberUpdate,
+            updateMany: tenantMemberUpdateMany,
+          },
+          tenant: { updateMany: jest.fn() },
+        }),
+      );
 
     const systemPrisma = {
       tenantMember: {
@@ -53,6 +69,7 @@ describe('LandingDemoAccessCleanupService', () => {
         count: tenantMemberCount,
       },
       publicRateLimitCounter: { deleteMany },
+      $transaction,
       ...cronJobLockTestStub(),
     } as unknown as SystemPrismaService;
 
@@ -64,6 +81,7 @@ describe('LandingDemoAccessCleanupService', () => {
         where: expect.objectContaining({ role: TenantMemberRole.DEMO }),
       }),
     );
+    expect($transaction).toHaveBeenCalledTimes(3);
     expect(tenantMemberUpdate).toHaveBeenCalledTimes(2);
     expect(updateUser).toHaveBeenCalledTimes(1);
     expect(updateUser).toHaveBeenCalledWith('fb-2', { disabled: true });

@@ -11,6 +11,7 @@ const mockSystemPrisma = {
     findMany: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -46,6 +47,10 @@ describe('PlatformAdminService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSystemPrisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mockSystemPrisma) => Promise<unknown>) =>
+        fn(mockSystemPrisma),
+    );
     service = new PlatformAdminService(
       mockSystemPrisma as unknown as SystemPrismaService,
     );

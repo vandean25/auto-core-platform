@@ -1,4 +1,5 @@
 import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
+import { ensureActiveSiteMembershipWithMemberEpoch } from '../../auth/scope-epoch-access-writes.js';
 
 const DEMO_QA_EMAILS = [
   'grok-bot@auto.core.at',
@@ -55,35 +56,11 @@ export async function seedDemoSiteAccess(
 
   for (const userId of userIds) {
     for (const siteId of siteIds) {
-      const existing = await prisma.siteMembership.findFirst({
-        where: { tenant_id: tenantId, user_id: userId, site_id: siteId },
-        select: { id: true },
-      });
-
-      if (existing) {
-        await prisma.siteMembership.update({
-          where: { id: existing.id },
-          data: { is_active: true },
-        });
-        continue;
-      }
-
-      const tenantMember = await prisma.tenantMember.findFirst({
-        where: { tenant_id: tenantId, user_id: userId, is_active: true },
-        select: { id: true },
-      });
-
-      if (!tenantMember) {
-        continue;
-      }
-
-      await prisma.siteMembership.create({
-        data: {
-          tenant_id: tenantId,
-          user_id: userId,
-          site_id: siteId,
-          is_active: true,
-        },
+      await ensureActiveSiteMembershipWithMemberEpoch(prisma, {
+        tenantId,
+        userId,
+        siteId,
+        requireActiveTenantMember: true,
       });
     }
 

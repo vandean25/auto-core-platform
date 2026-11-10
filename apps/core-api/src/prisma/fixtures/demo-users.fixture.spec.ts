@@ -21,7 +21,7 @@ function createSeedStatePrisma(): {
   let nextId = 0;
   const nextRowId = (prefix: string) => `${prefix}-${++nextId}`;
 
-  const prisma = {
+  const prisma: any = {
     user: {
       findUnique: jest.fn(({ where }: any) => {
         const found =
@@ -42,8 +42,19 @@ function createSeedStatePrisma(): {
       }),
     },
     platformAdmin: { upsert: jest.fn().mockResolvedValue({}) },
-    tenantMember: { upsert: jest.fn().mockResolvedValue({}) },
-    siteMembership: { upsert: jest.fn().mockResolvedValue({}) },
+    tenantMember: {
+      upsert: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    tenant: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    siteMembership: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'sm-1' }),
+      update: jest.fn().mockResolvedValue({ id: 'sm-1' }),
+      upsert: jest.fn().mockResolvedValue({}),
+    },
     employee: {
       findFirst: jest.fn(({ where }: any) => {
         const found = employees.find(
@@ -73,13 +84,14 @@ function createSeedStatePrisma(): {
       }),
     },
   };
+  prisma.$transaction = jest.fn((work: (tx: unknown) => unknown) => work(prisma));
 
   return { prisma, users, employees };
 }
 
 describe('seedDemoUsers', () => {
   function createMockPrisma(): any {
-    return {
+    const mock: any = {
       user: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockImplementation(({ data }) =>
@@ -96,8 +108,15 @@ describe('seedDemoUsers', () => {
         upsert: jest.fn().mockImplementation(({ create }) =>
           Promise.resolve({ id: `tm-${create.user_id}`, ...create })
         ),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      tenant: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       siteMembership: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'sm-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'sm-1' }),
         upsert: jest.fn().mockResolvedValue({ id: 'sm-1' }),
       },
       employee: {
@@ -105,7 +124,9 @@ describe('seedDemoUsers', () => {
         create: jest.fn().mockResolvedValue({ id: 'emp-1' }),
         update: jest.fn().mockResolvedValue({ id: 'emp-1' }),
       },
+      $transaction: jest.fn((work) => work(mock)),
     };
+    return mock;
   }
 
   it('seeds bootstrap admin email with SUPER_ADMIN, OWNER, and both demo site memberships when provided', async () => {
@@ -177,46 +198,35 @@ describe('seedDemoUsers', () => {
       })
     );
 
-    // Verify site memberships on MAIN and GRZ
-    expect(mockPrisma.siteMembership.upsert).toHaveBeenCalledWith(
+  // Verify site memberships on MAIN and GRZ (epoch bump in same transaction)
+    expect(mockPrisma.siteMembership.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          tenant_id_user_id_site_id: {
-            tenant_id: 'tenant-1',
-            user_id: 'user-bootstrap-owner@example.com',
-            site_id: 'site-main',
-          },
-        },
-        create: expect.objectContaining({
+        data: expect.objectContaining({
           tenant_id: 'tenant-1',
           site_id: 'site-main',
           user_id: 'user-bootstrap-owner@example.com',
           is_active: true,
         }),
-        update: expect.objectContaining({
-          is_active: true,
-        }),
-      })
+      }),
     );
-    expect(mockPrisma.siteMembership.upsert).toHaveBeenCalledWith(
+    expect(mockPrisma.siteMembership.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          tenant_id_user_id_site_id: {
-            tenant_id: 'tenant-1',
-            user_id: 'user-bootstrap-owner@example.com',
-            site_id: 'site-grz',
-          },
-        },
-        create: expect.objectContaining({
+        data: expect.objectContaining({
           tenant_id: 'tenant-1',
           site_id: 'site-grz',
           user_id: 'user-bootstrap-owner@example.com',
           is_active: true,
         }),
-        update: expect.objectContaining({
-          is_active: true,
-        }),
-      })
+      }),
+    );
+    expect(mockPrisma.tenantMember.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenant_id: 'tenant-1',
+          user_id: 'user-bootstrap-owner@example.com',
+        },
+        data: { scope_epoch: { increment: 1 } },
+      }),
     );
 
     // Verify Firebase claims synced

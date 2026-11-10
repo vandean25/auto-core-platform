@@ -40,6 +40,10 @@ function createPrismaMock() {
     },
     tenantMember: {
       findFirst: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    tenant: {
+      updateMany: jest.fn(),
     },
     user: {
       findFirst: jest.fn(),
@@ -176,11 +180,13 @@ describe('SiteMembershipService', () => {
       });
       prisma.siteMembership.findFirst.mockResolvedValue(null);
       prisma.siteMembership.create.mockResolvedValue({ id: 'sm-new' });
+      prisma.$transaction.mockClear();
 
       const result = await service.addSiteMembership('site-1', {
         userId: 'user-1',
       });
       expect(result).toEqual({ id: 'sm-new' });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(prisma.siteMembership.create).toHaveBeenCalledWith({
         data: {
           tenant_id: TENANT_ID,

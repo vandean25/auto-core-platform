@@ -17,12 +17,17 @@ const mockSystemPrisma = {
     upsert: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  tenant: {
+    updateMany: jest.fn(),
   },
   user: {
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   },
+  $transaction: jest.fn(),
 };
 
 const mockTenantContext = {
@@ -66,6 +71,11 @@ describe('TenantMemberService', () => {
     mockSystemPrisma.user.findFirst.mockReset();
     mockSystemPrisma.user.create.mockReset();
     mockSystemPrisma.user.update.mockReset();
+    mockSystemPrisma.$transaction.mockReset();
+    mockSystemPrisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mockSystemPrisma) => Promise<unknown>) =>
+        fn(mockSystemPrisma),
+    );
 
     mockDashboardRealtime = {
       emitClaimsUpdated: jest.fn(),

@@ -47,6 +47,7 @@ import { EmployeeModule } from './employee/employee.module.js';
 import { BayModule } from './bay/bay.module.js';
 import { SiteModule } from './site/site.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { ScopeEpochModule } from './auth/scope-epoch.module.js';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module.js';
 import { TenantMemberModule } from './tenant-member/tenant-member.module.js';
 import { TenantModule } from './tenant/tenant.module.js';
@@ -120,6 +121,7 @@ import { SchedulerModule } from './scheduler/scheduler.module.js';
     SiteModule,
     StockTransferModule,
     AuthModule,
+    ScopeEpochModule,
     PlatformAdminModule,
     TenantMemberModule,
     TenantModule,
