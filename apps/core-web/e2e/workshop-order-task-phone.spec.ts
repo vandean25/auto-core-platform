@@ -205,4 +205,53 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
     await undoButton.click()
     await expect(page.getByText(deWorkshop.orderDetail.toast.notesUndoSuccess)).toBeVisible()
   })
+
+  test('at 1400×900 the undo toast clears the sticky Abrechnung action and both stay tappable (AUT-948)', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000)
+    await page.setViewportSize({ width: 1400, height: 900 })
+    const corePage = new AutoCorePage(page, 'Order')
+    await corePage.navigate(`/workshop/orders/${orderId}`)
+
+    await expect(page.getByRole('heading', { name: deWorkshop.taskList.repairTasks, exact: true })).toBeVisible()
+
+    const notesText = page.getByText('Original internal note', { exact: true })
+    await notesText.scrollIntoViewIfNeeded()
+    await notesText.click()
+    const notesField = page.getByLabel(deWorkshop.taskList.internalNotesAria)
+    await notesField.fill('Edited internal note')
+    await notesField.blur()
+
+    await expect
+      .poll(
+        () => page.evaluate(() => document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')),
+        { timeout: 15_000 },
+      )
+      .not.toBe('')
+
+    const checkoutAction = page
+      .locator('[data-sticky-bottom-chrome]')
+      .getByRole('button', { name: deWorkshop.checkout.primaryAction, exact: true })
+    await expect(checkoutAction).toBeVisible()
+
+    const undoButton = page.getByRole('button', { name: undoAction }).last()
+    await expect(undoButton).toBeVisible()
+
+    const footer = page.locator('[data-sticky-bottom-chrome]').first()
+    const footerBox = await footer.boundingBox()
+    const toastBox = await page.locator('[data-sonner-toast]').last().boundingBox()
+    const undoBox = await undoButton.boundingBox()
+    expect(footerBox).not.toBeNull()
+    expect(toastBox).not.toBeNull()
+    expect(undoBox).not.toBeNull()
+    expect(toastBox!.y + toastBox!.height).toBeLessThanOrEqual(footerBox!.y + 2)
+    expect(undoBox!.y + undoBox!.height).toBeLessThanOrEqual(footerBox!.y + 2)
+
+    await checkoutAction.click()
+    await expect(page.getByRole('heading', { name: deWorkshop.checkout.title, exact: true })).toBeVisible()
+
+    await undoButton.click()
+    await expect(page.getByText(deWorkshop.orderDetail.toast.notesUndoSuccess)).toBeVisible()
+  })
 })

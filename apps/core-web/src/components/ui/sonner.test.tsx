@@ -53,6 +53,27 @@ function MobileWorkshopChrome() {
   )
 }
 
+function DesktopWorkshopStickyBar() {
+  const chromeRef = useStickyBottomChromeHeight<HTMLDivElement>()
+  return (
+    <section
+      data-sticky-bottom-chrome=""
+      data-testid="sticky-checkout-footer"
+      className="sticky bottom-0"
+    >
+      <div
+        ref={chromeRef}
+        data-sticky-bottom-chrome-measure=""
+        className="flex items-center justify-between px-6 py-4"
+        style={{ height: STICKY_CHROME_PX }}
+      >
+        <span>Grand total</span>
+        <button type="button">Abrechnung</button>
+      </div>
+    </section>
+  )
+}
+
 function toasterStyleAttribute() {
   return document.querySelector('[data-sonner-toaster]')?.getAttribute('style') ?? ''
 }
@@ -215,7 +236,7 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
       expect(runServerRestore).toHaveBeenCalledTimes(1)
   })
 
-  it('WHEN the Undo toast appears on desktop without the mobile sticky stack THEN sticky chrome height stays cleared and Undo still runs', async () => {
+  it('WHEN the Undo toast appears on desktop without sticky checkout chrome THEN offset uses phone-nav only and Undo still runs', async () => {
     setViewport(1280)
     render(
       <AppThemeProvider>
@@ -299,5 +320,113 @@ describe('Toaster mobile undo above sticky chrome (AUT-919)', () => {
     expect(toast).not.toBeNull()
     expect(toast!.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
     expect(toasterStyleAttribute()).toContain('var(--sticky-bottom-chrome-h)')
+  })
+})
+
+describe('Toaster desktop undo above sticky checkout (AUT-948)', () => {
+  let rectSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    act(() => {
+      toast.dismiss()
+    })
+    rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.hasAttribute('data-sticky-bottom-chrome-measure')) {
+        return {
+          height: STICKY_CHROME_PX,
+          width: 1400,
+          top: 812,
+          bottom: 900,
+          left: 0,
+          right: 1400,
+          x: 0,
+          y: 812,
+          toJSON: () => ({}),
+        } as DOMRect
+      }
+      return {
+        height: 0,
+        width: 0,
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect
+    })
+  })
+
+  afterEach(() => {
+    rectSpy.mockRestore()
+  })
+
+  const renderDesktopUndoStack = (viewportWidth: number) => {
+    setViewport(viewportWidth)
+    render(
+      <AppThemeProvider>
+        <DesktopWorkshopStickyBar />
+        <Toaster />
+      </AppThemeProvider>,
+    )
+  }
+
+  it('WHEN Interne Notizen are saved on a work-order detail at desktop ~1400 THEN the Undo toast does not overlap Abrechnung and Abrechnung remains clickable', async () => {
+    renderDesktopUndoStack(1400)
+
+    await waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe(
+        `112px`,
+      ),
+    )
+
+    act(() => {
+      toastSuccessWithUndo('Interne Notizen gespeichert', 'Rückgängig', vi.fn())
+    })
+
+    await waitFor(() => expect(document.querySelector('[data-sonner-toast]')).not.toBeNull())
+    expect(toasterStyleAttribute()).toContain('var(--sticky-bottom-chrome-h)')
+
+    const abrechnung = screen.getByRole('button', { name: 'Abrechnung' })
+    fireEvent.click(abrechnung)
+    expect(abrechnung).toBeInTheDocument()
+  })
+
+  it('WHEN the user clicks Undo on that desktop toast THEN the existing server restore still runs', async () => {
+    renderDesktopUndoStack(1400)
+    await waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).not.toBe(''),
+    )
+
+    const runServerRestore = vi.fn()
+    act(() => {
+      toastSuccessWithUndo('Interne Notizen gespeichert', 'Rückgängig', runServerRestore)
+    })
+
+    const undoAction = await screen.findByRole('button', { name: 'Rückgängig' })
+    fireEvent.click(undoAction)
+    expect(runServerRestore).toHaveBeenCalledTimes(1)
+  })
+
+  it('WHEN the toast is shown in EN on desktop THEN the translated toast also clears the sticky actions', async () => {
+    renderDesktopUndoStack(1400)
+    await waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).not.toBe(''),
+    )
+
+    act(() => {
+      toastSuccessWithUndo('Internal notes saved', 'Undo', vi.fn())
+    })
+
+    await waitFor(() => expect(document.querySelector('[data-sonner-toast]')).not.toBeNull())
+    expect(toasterStyleAttribute()).toContain('var(--sticky-bottom-chrome-h)')
+
+    const openInvoice = screen.getByRole('button', { name: 'Abrechnung' })
+    fireEvent.click(openInvoice)
+    expect(openInvoice).toBeInTheDocument()
+    await screen.findByRole('button', { name: 'Undo' })
   })
 })

@@ -15,9 +15,9 @@ describe('toast stack offset (AUT-919)', () => {
     }
   })
 
-  it('defines a mobile sticky chrome floor while checkout footer is on screen', () => {
+  it('defines a sticky chrome floor while checkout footer is on screen (mobile and desktop, AUT-948)', () => {
     expect(indexCss).toMatch(
-      /@media[^{]*max-width:\s*767\.98px\)[\s\S]*:root:has\(\[data-sticky-bottom-chrome\]\)\s*\{[^}]*--sticky-bottom-chrome-floor:\s*7rem/,
+      /:root:has\(\[data-sticky-bottom-chrome\]\)\s*\{[^}]*--sticky-bottom-chrome-floor:\s*7rem/,
     )
   })
 })

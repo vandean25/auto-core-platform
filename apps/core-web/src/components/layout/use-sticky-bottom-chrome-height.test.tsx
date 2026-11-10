@@ -136,7 +136,7 @@ describe('useStickyBottomChromeHeight (AUT-919)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('publishes footer height on phone layout and clears it on desktop and unmount', async () => {
+  it('publishes footer height on phone layout and keeps publishing on desktop until unmount (AUT-948)', async () => {
     setViewport(375)
     const view = render(<StickyChromeProbe />)
 
@@ -144,10 +144,10 @@ describe('useStickyBottomChromeHeight (AUT-919)', () => {
       expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('112px')
     })
 
-    setViewport(1280)
+    setViewport(1400)
     window.dispatchEvent(new Event('resize'))
     await waitFor(() => {
-      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('')
+      expect(document.documentElement.style.getPropertyValue('--sticky-bottom-chrome-h')).toBe('112px')
     })
 
     view.unmount()
