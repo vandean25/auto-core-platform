@@ -13,7 +13,7 @@ import {
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { testUuidV7At } from '../src/inventory/guarded-price/guarded-price.test-keys.js';
-import { guardedPriceTestHooks } from '../src/inventory/guarded-price/guarded-price.service.js';
+import { guardedPriceTestHooks } from '../src/inventory/guarded-price/guarded-price-test-hooks.js';
 import { revisionFromDb } from '../src/inventory/guarded-price/guarded-price.revision.js';
 import { DashboardRealtimeService } from '../src/dashboard-realtime/dashboard-realtime.service.js';
 
@@ -61,6 +61,16 @@ describe('inventory guarded price PATCH (e2e)', () => {
     return testUuidV7At(Date.now()).replace(/0001$/, suffix.padStart(4, '0'));
   }
 
+  function tenantPrisma() {
+    return createTenantAwarePrisma(prisma, tenantId);
+  }
+
+  async function catalogRow(itemId: string) {
+    return tenantPrisma().catalogItem.findFirstOrThrow({
+      where: { id: itemId },
+    });
+  }
+
   function guardedPatch(
     itemId: string,
     key: string,
@@ -88,19 +98,16 @@ describe('inventory guarded price PATCH (e2e)', () => {
     expect(Number(response.body.retail_price)).toBe(12.5);
     expect(response.body.revision).toBeGreaterThan(revision);
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    const row = await tenantPrisma.catalogItem.findFirstOrThrow({
-      where: { id: item.id },
-    });
+    const row = await catalogRow(item.id);
     expect(Number(row.retail_price)).toBe(12.5);
 
-    const audits = await tenantPrisma.auditLog.findMany({
+    const audits = await tenantPrisma().auditLog.findMany({
       where: { entity_id: item.id, source: 'inventory.guarded_price' },
     });
     expect(audits).toHaveLength(1);
     expect(audits[0]?.action).toBe(AuditLogAction.UPDATE);
 
-    const journal = await tenantPrisma.inventoryPriceOperation.findFirst({
+    const journal = await tenantPrisma().inventoryPriceOperation.findFirst({
       where: { key, state: InventoryPriceOperationState.APPLIED },
     });
     expect(journal).toBeTruthy();
@@ -118,18 +125,15 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
     expect(stale.body.code).toBe('INVENTORY_REVISION_CONFLICT');
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    const row = await tenantPrisma.catalogItem.findFirstOrThrow({
-      where: { id: item.id },
-    });
+    const row = await catalogRow(item.id);
     expect(Number(row.retail_price)).toBe(10);
 
-    const audits = await tenantPrisma.auditLog.findMany({
+    const audits = await tenantPrisma().auditLog.findMany({
       where: { entity_id: item.id, source: 'inventory.guarded_price' },
     });
     expect(audits).toHaveLength(0);
 
-    const journal = await tenantPrisma.inventoryPriceOperation.findFirstOrThrow({
+    const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
       where: { key },
     });
     expect(journal.state).toBe(InventoryPriceOperationState.CONFLICT);
@@ -147,8 +151,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
     const storedRevision = first.body.revision;
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    await tenantPrisma.catalogItem.update({
+    await tenantPrisma().catalogItem.update({
       where: { id: item.id },
       data: { retail_price: 99 },
     });
@@ -161,7 +164,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
     expect(Number(replay.body.retail_price)).toBe(15);
     expect(replay.body.revision).toBe(storedRevision);
 
-    const rows = await tenantPrisma.inventoryPriceOperation.findMany({
+    const rows = await tenantPrisma().inventoryPriceOperation.findMany({
       where: { key },
     });
     expect(rows).toHaveLength(1);
@@ -178,8 +181,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
       expectedRevision: revision,
     }).expect(200);
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    await tenantPrisma.catalogItem.delete({ where: { id: item.id } });
+    await tenantPrisma().catalogItem.delete({ where: { id: item.id } });
 
     const replay = await guardedPatch(item.id, key, {
       retail_price: 15,
@@ -207,13 +209,10 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
     expect(second.body.code).toBe('INVENTORY_REVISION_CONFLICT');
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    const row = await tenantPrisma.catalogItem.findFirstOrThrow({
-      where: { id: item.id },
-    });
+    const row = await catalogRow(item.id);
     expect(Number(row.retail_price)).toBe(11);
 
-    const journals = await tenantPrisma.inventoryPriceOperation.findMany({
+    const journals = await tenantPrisma().inventoryPriceOperation.findMany({
       where: { item_id: item.id },
     });
     expect(journals).toHaveLength(2);
@@ -264,10 +263,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
     expect(emitSpy).not.toHaveBeenCalled();
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    const row = await tenantPrisma.catalogItem.findFirstOrThrow({
-      where: { id: item.id },
-    });
+    const row = await catalogRow(item.id);
     expect(Number(row.retail_price)).toBe(10);
   });
 
@@ -291,8 +287,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
     expect(response.body.message).toMatch(/OWNER|ADMIN/i);
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    const journal = await tenantPrisma.inventoryPriceOperation.findMany({
+    const journal = await tenantPrisma().inventoryPriceOperation.findMany({
       where: { key },
     });
     expect(journal).toHaveLength(0);
@@ -316,8 +311,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
 
     expect(unresolved.body.code).toBe('OPERATION_UNRESOLVED');
 
-    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
-    const journal = await tenantPrisma.inventoryPriceOperation.findFirstOrThrow({
+    const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
       where: { key },
     });
     expect(journal.state).toBe(InventoryPriceOperationState.ACCEPTED);

@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  AuditLogAction,
   InventoryPriceOperationState,
   Prisma,
 } from '@prisma/client';
@@ -18,10 +17,8 @@ import { toCatalogItemResponseDto } from '../catalog-item-response.mapper.js';
 import type { GuardedPriceReceiptDto } from '../dto/guarded-inventory-price.dto.js';
 import {
   acquireGuardedPriceAdvisoryLock,
-  lockGuardedPriceCatalogItem,
   lockGuardedPriceJournalRow,
   setGuardedPriceTxALockTimeout,
-  setGuardedPriceTxELockTimeout,
 } from '../guarded-price-operation-locks.js';
 import {
   assertKeyAdmissionOnNoRowInsert,
@@ -31,81 +28,21 @@ import {
   GUARDED_PRICE_KIND,
   idempotencyKeyReused,
   inventoryRevisionConflict,
-  operationFenced,
   operationUnresolved,
 } from './guarded-price.errors.js';
+import {
+  haltForFinalJournalState,
+  isLockTimeoutError,
+  isUniqueViolation,
+} from './guarded-price.helpers.js';
 import {
   frozenIntentMatchesRow,
   type GuardedPriceIntent,
 } from './guarded-price-intent.js';
-import {
-  minorUnitsToDecimalString,
-  retailMajorToMinorUnits,
-} from './guarded-price.money.js';
+import { retailMajorToMinorUnits } from './guarded-price.money.js';
 import { receiptFromAppliedJournal } from './guarded-price-receipt.js';
-import { revisionFromDb, revisionToDb } from './guarded-price.revision.js';
-
-const guardedPriceTestHooksAllowed = process.env.JEST_WORKER_ID !== undefined;
-
-/** Test-only flags (honored only when NODE_ENV=test). */
-export const guardedPriceTestHooks = {
-  failTxEAfterJournalLock: false,
-  failTxEAfterCatalogUpdate: false,
-};
-
-function isLockTimeoutError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') {
-    return false;
-  }
-  const code = (error as { code?: string }).code;
-  const message = String((error as { message?: string }).message ?? '');
-  return (
-    code === 'P2034' || code === '55P03' || message.includes('lock timeout')
-  );
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as { code?: string }).code === 'P2002'
-  );
-}
-
-function isRecordNotFound(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as { code?: string }).code === 'P2025'
-  );
-}
-
-function haltForFinalJournalState(
-  state: InventoryPriceOperationState,
-): { kind: 'halt'; throw: () => never } | null {
-  if (state === InventoryPriceOperationState.ACCEPTED) {
-    return {
-      kind: 'halt',
-      throw: () =>
-        operationUnresolved('Guarded operation is still in progress.'),
-    };
-  }
-  if (state === InventoryPriceOperationState.FENCED) {
-    return {
-      kind: 'halt',
-      throw: () =>
-        operationFenced('Guarded operation was fenced as not applied.'),
-    };
-  }
-  if (state === InventoryPriceOperationState.CONFLICT) {
-    return {
-      kind: 'halt',
-      throw: () =>
-        inventoryRevisionConflict('Catalog item revision no longer matches.'),
-    };
-  }
-  return null;
-}
+import { revisionToDb } from './guarded-price.revision.js';
+import { executeGuardedPriceTxE } from './guarded-price-txe.js';
 
 @Injectable()
 export class GuardedPriceService {
@@ -133,42 +70,22 @@ export class GuardedPriceService {
     );
     const targetMinor = retailMajorToMinorUnits(retailPrice);
 
+    const replayReceipt = await this.tryReplayWithoutCatalogItem(
+      itemId,
+      tenantId,
+      principalId,
+      operationKey,
+      expectedRevision,
+      targetMinor,
+    );
+    if (replayReceipt) {
+      return replayReceipt;
+    }
+
     const item = await this.prisma.catalogItem.findFirst({
       where: { id: itemId, tenant_id: tenantId },
     });
-    const priorJournal = await this.prisma.inventoryPriceOperation.findFirst({
-      where: {
-        tenant_id: tenantId,
-        principal_id: principalId,
-        key: operationKey,
-        item_id: itemId,
-      },
-    });
-
     if (!item) {
-      if (
-        priorJournal &&
-        priorJournal.state === InventoryPriceOperationState.APPLIED &&
-        priorJournal.expected_revision === revisionToDb(expectedRevision) &&
-        priorJournal.target_minor === targetMinor
-      ) {
-        const intent: GuardedPriceIntent = {
-          itemId,
-          expectedRevision,
-          targetMinor,
-          basisMinor: priorJournal.basis_minor,
-          sku: priorJournal.sku,
-        };
-        const txAResult = await this.runTxA(
-          tenantId,
-          principalId,
-          operationKey,
-          intent,
-        );
-        if (txAResult.kind === 'replay') {
-          return txAResult.receipt;
-        }
-      }
       throw new NotFoundException(`Catalog item ${itemId} not found`);
     }
 
@@ -194,6 +111,57 @@ export class GuardedPriceService {
     }
 
     return await this.runTxE(tenantId, principalId, operationKey, intent);
+  }
+
+  private async tryReplayWithoutCatalogItem(
+    itemId: string,
+    tenantId: string,
+    principalId: string,
+    operationKey: string,
+    expectedRevision: number,
+    targetMinor: bigint,
+  ): Promise<GuardedPriceReceiptDto | null> {
+    const priorJournal = await this.prisma.inventoryPriceOperation.findFirst({
+      where: {
+        tenant_id: tenantId,
+        principal_id: principalId,
+        key: operationKey,
+        item_id: itemId,
+      },
+    });
+    if (
+      !priorJournal ||
+      priorJournal.state !== InventoryPriceOperationState.APPLIED ||
+      priorJournal.expected_revision !== revisionToDb(expectedRevision) ||
+      priorJournal.target_minor !== targetMinor
+    ) {
+      return null;
+    }
+
+    const item = await this.prisma.catalogItem.findFirst({
+      where: { id: itemId, tenant_id: tenantId },
+    });
+    if (item) {
+      return null;
+    }
+
+    const intent: GuardedPriceIntent = {
+      itemId,
+      expectedRevision,
+      targetMinor,
+      basisMinor: priorJournal.basis_minor,
+      sku: priorJournal.sku,
+    };
+    const txAResult = await this.runTxA(
+      tenantId,
+      principalId,
+      operationKey,
+      intent,
+    );
+    if (txAResult.kind === 'replay') {
+      return txAResult.receipt;
+    }
+    return null;
   }
 
   private requirePrincipalId(): string {
@@ -344,163 +312,18 @@ export class GuardedPriceService {
     intent: GuardedPriceIntent,
   ): Promise<GuardedPriceReceiptDto> {
     try {
+      const role = this.tenantContext.getAuthenticatedUser()?.role;
       const outcome = await DashboardRealtimeDeferStorage.runDeferred(() =>
         this.prisma.$transaction(
-          async (tx): Promise<
-            | { kind: 'applied'; item: Prisma.CatalogItemGetPayload<object> }
-            | { kind: 'conflict' }
-            | { kind: 'halt'; throw: () => never }
-          > => {
-            await setGuardedPriceTxELockTimeout(tx);
-            assertCanMutateInventoryStock(
-              this.tenantContext.getAuthenticatedUser()?.role,
-            );
-
-            const journal = await tx.inventoryPriceOperation.findFirst({
-              where: {
-                tenant_id: tenantId,
-                principal_id: principalId,
-                key: operationKey,
-              },
-            });
-            if (!journal) {
-              return {
-                kind: 'halt',
-                throw: () =>
-                  operationUnresolved(
-                    'Guarded acceptance row is not available for execution.',
-                  ),
-              };
-            }
-
-            await lockGuardedPriceJournalRow(tx, tenantId, journal.id);
-
-            if (
-              guardedPriceTestHooksAllowed &&
-              guardedPriceTestHooks.failTxEAfterJournalLock
-            ) {
-              throw new Error('GUARDED_PRICE_TEST_TX_E_FAIL');
-            }
-
-            const lockedJournal =
-              await tx.inventoryPriceOperation.findFirstOrThrow({
-                where: { tenant_id: tenantId, id: journal.id },
-              });
-
-            if (lockedJournal.state !== InventoryPriceOperationState.ACCEPTED) {
-              const halt = haltForFinalJournalState(lockedJournal.state);
-              if (halt) {
-                return halt;
-              }
-              return {
-                kind: 'halt',
-                throw: () =>
-                  operationUnresolved(
-                    'Guarded acceptance row is not available for execution.',
-                  ),
-              };
-            }
-
-            await lockGuardedPriceCatalogItem(tx, tenantId, intent.itemId);
-
-            const item = await tx.catalogItem.findFirst({
-              where: { id: intent.itemId, tenant_id: tenantId },
-            });
-            if (!item) {
-              await tx.inventoryPriceOperation.update({
-                where: {
-                  tenant_id_id: { tenant_id: tenantId, id: lockedJournal.id },
-                },
-                data: {
-                  state: InventoryPriceOperationState.CONFLICT,
-                  final_at: new Date(),
-                  error_code: 'INVENTORY_REVISION_CONFLICT',
-                },
-              });
-              return { kind: 'conflict' as const };
-            }
-
-            const currentRevision = revisionFromDb(item.revision);
-            if (currentRevision !== intent.expectedRevision) {
-              await tx.inventoryPriceOperation.update({
-                where: {
-                  tenant_id_id: { tenant_id: tenantId, id: lockedJournal.id },
-                },
-                data: {
-                  state: InventoryPriceOperationState.CONFLICT,
-                  final_at: new Date(),
-                  error_code: 'INVENTORY_REVISION_CONFLICT',
-                },
-              });
-              return { kind: 'conflict' as const };
-            }
-
-            const beforePrice = item.retail_price.toString();
-            let updated: Prisma.CatalogItemGetPayload<object>;
-            try {
-              updated = await tx.catalogItem.update({
-                where: {
-                  id: intent.itemId,
-                  tenant_id: tenantId,
-                  revision: revisionToDb(intent.expectedRevision),
-                },
-                data: {
-                  retail_price: minorUnitsToDecimalString(intent.targetMinor),
-                },
-              });
-            } catch (error) {
-              if (isRecordNotFound(error)) {
-                await tx.inventoryPriceOperation.update({
-                  where: {
-                    tenant_id_id: {
-                      tenant_id: tenantId,
-                      id: lockedJournal.id,
-                    },
-                  },
-                  data: {
-                    state: InventoryPriceOperationState.CONFLICT,
-                    final_at: new Date(),
-                    error_code: 'INVENTORY_REVISION_CONFLICT',
-                  },
-                });
-                return { kind: 'conflict' as const };
-              }
-              throw error;
-            }
-
-            if (
-              guardedPriceTestHooksAllowed &&
-              guardedPriceTestHooks.failTxEAfterCatalogUpdate
-            ) {
-              throw new Error('GUARDED_PRICE_TEST_TX_E_AFTER_CATALOG');
-            }
-
-            await this.auditService.recordTenantMutation(
-              {
-                entityType: 'CATALOG_ITEM',
-                entityId: intent.itemId,
-                action: AuditLogAction.UPDATE,
-                source: 'inventory.guarded_price',
-                before: { retail_price: beforePrice },
-                after: { retail_price: updated.retail_price.toString() },
-              },
-              tx,
-            );
-
-            const resultRevision = revisionFromDb(updated.revision);
-            await tx.inventoryPriceOperation.update({
-              where: {
-                tenant_id_id: { tenant_id: tenantId, id: lockedJournal.id },
-              },
-              data: {
-                state: InventoryPriceOperationState.APPLIED,
-                final_at: new Date(),
-                result_revision: revisionToDb(resultRevision),
-              },
-            });
-
-            return { kind: 'applied' as const, item: updated };
-          },
+          (tx) =>
+            executeGuardedPriceTxE(tx, {
+              tenantId,
+              principalId,
+              operationKey,
+              intent,
+              role,
+              auditService: this.auditService,
+            }),
           {
             timeout: 30_000,
             isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
@@ -535,3 +358,6 @@ export class GuardedPriceService {
     }
   }
 }
+
+// Re-export for e2e tests (hook flags live in guarded-price-test-hooks.ts).
+export { guardedPriceTestHooks } from './guarded-price-test-hooks.js';
