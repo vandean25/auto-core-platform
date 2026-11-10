@@ -1,5 +1,7 @@
-import { useParams, Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuthSession } from '@/api/auth-session'
 import { useSalesOrder } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,7 +32,11 @@ import {
   SalesOrderNotesCard,
   SalesOrderVehicleCard,
 } from './sales-order-detail-sections'
+import { RegistryActionButton } from '@/features/actions/RegistryActionButton'
+import { createSalesOrderRowActions } from '@/features/actions/sales-order-row-actions'
+import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import { useSalesLocaleReady, useSalesOrderActions } from './useSalesOrderActions'
+import { useSalesOrderDeleteHandler } from './use-sales-order-delete-handler'
 
 /** Top-right header actions: create the invoice draft, or the disabled "invoiced" marker. */
 export function SalesOrderHeaderActions({
@@ -79,6 +85,33 @@ export function SalesOrderHeaderActions({
   )
 }
 
+function SalesOrderDeleteHeaderButton({ order }: { order: SalesOrder }) {
+  const { t } = useTranslation('sales')
+  const navigate = useNavigate()
+  const role = useAuthSession().data?.activeRole
+  const handleDelete = useSalesOrderDeleteHandler({
+    onDeleted: () => navigate(APP_ROUTE_PATHS.salesOrders),
+  })
+  const deleteAction = useMemo(
+    () => createSalesOrderRowActions(t).find((action) => action.id === ENTITY_ACTION_IDS.salesOrderDelete)!,
+    [t],
+  )
+  const runContext = useMemo(
+    () => ({ navigate, onDelete: handleDelete, t }),
+    [handleDelete, navigate, t],
+  )
+
+  return (
+    <RegistryActionButton
+      action={deleteAction}
+      record={order}
+      runContext={runContext}
+      role={role}
+      className="max-sm:min-h-11"
+    />
+  )
+}
+
 export default function SalesOrderDetail() {
   const { t } = useTranslation('sales')
   const salesLocaleReady = useSalesLocaleReady()
@@ -124,11 +157,14 @@ export default function SalesOrderDetail() {
         }
         description={t('orders.detail.createdOn', { date: formatDate(order.createdAt) })}
         actions={
-          <SalesOrderHeaderActions
-            status={order.status}
-            pending={handingOffInvoice}
-            onCreateInvoice={() => createInvoice(order)}
-          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <SalesOrderDeleteHeaderButton order={order} />
+            <SalesOrderHeaderActions
+              status={order.status}
+              pending={handingOffInvoice}
+              onCreateInvoice={() => createInvoice(order)}
+            />
+          </div>
         }
       />
 

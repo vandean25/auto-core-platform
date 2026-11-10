@@ -135,8 +135,6 @@
     "api/push.ts::useUpdatePushPreferences::missing-mutation-key",
     "api/sales-orders.ts::useCreateSalesOrder::missing-inventory-entry",
     "api/sales-orders.ts::useCreateSalesOrder::missing-mutation-key",
-    "api/sales-orders.ts::useDeleteSalesOrder::missing-inventory-entry",
-    "api/sales-orders.ts::useDeleteSalesOrder::missing-mutation-key",
     "api/sales-orders.ts::useUpdateSalesOrder::missing-inventory-entry",
     "api/sales-orders.ts::useUpdateSalesOrder::missing-mutation-key",
     "api/site-admin.ts::useAddSiteMembership::missing-inventory-entry",

@@ -127,14 +127,12 @@ export function useDeleteSalesOrder() {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: [...salesOrderKeys.all, 'delete'],
         mutationFn: async (id: string) => {
             const response = await fetchWithAuth(`/api/sales-orders/${id}`, {
                 method: 'DELETE',
             })
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({ message: 'Failed to delete sales order' }))
-                throw new Error(error.message || 'Failed to delete sales order')
-            }
+            await throwIfSalesResponseNotOk(response, 'Failed to delete sales order')
             return id
         },
         onSuccess: () => {

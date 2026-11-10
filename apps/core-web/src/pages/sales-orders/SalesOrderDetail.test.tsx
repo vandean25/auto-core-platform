@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SalesOrderDetail from './SalesOrderDetail'
 import { deSales } from '@/test/de-sales'
 import * as salesOrdersApi from '@/api/sales-orders'
+import * as authSession from '@/api/auth-session'
+import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { takeQueuedInvoiceDraftCreate } from '@/pages/sales/useInvoicePendingCreate'
 import type { SalesOrder } from '@/api/types'
 import { useSalesOrderActions } from './useSalesOrderActions'
@@ -12,6 +14,10 @@ import { useSalesOrderActions } from './useSalesOrderActions'
 const mockNavigate = vi.fn()
 
 vi.mock('@/api/sales-orders')
+vi.mock('@/api/auth-session', async (original) => ({
+  ...(await original<typeof import('@/api/auth-session')>()),
+  useAuthSession: vi.fn(),
+}))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return {
@@ -48,6 +54,7 @@ const baseOrder = {
     address_country: 'AT',
   },
   items: [],
+  invoice: null,
 }
 
 describe('SalesOrderDetail create invoice', () => {
@@ -58,6 +65,9 @@ describe('SalesOrderDetail create invoice', () => {
   beforeEach(() => {
     takeQueuedInvoiceDraftCreate()
     vi.clearAllMocks()
+    vi.mocked(authSession.useAuthSession).mockReturnValue({
+      data: { activeRole: 'ADMIN' },
+    } as ReturnType<typeof authSession.useAuthSession>)
     asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
       data: baseOrder,
       isLoading: false,
@@ -171,6 +181,9 @@ describe('SalesOrderDetail states (AUT-659)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(authSession.useAuthSession).mockReturnValue({
+      data: { activeRole: 'ADMIN' },
+    } as ReturnType<typeof authSession.useAuthSession>)
     asMock(salesOrdersApi.useUpdateSalesOrder).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
     asMock(salesOrdersApi.useCreateInvoiceFromOrder).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
   })
@@ -194,6 +207,62 @@ describe('SalesOrderDetail states (AUT-659)', () => {
   })
 })
 
+describe('SalesOrderDetail delete header', () => {
+  afterEach(cleanup)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(authSession.useAuthSession).mockReturnValue({
+      data: { activeRole: 'ADMIN' },
+    } as ReturnType<typeof authSession.useAuthSession>)
+    asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
+      data: baseOrder,
+      isLoading: false,
+    })
+    asMock(salesOrdersApi.useUpdateSalesOrder).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+    asMock(salesOrdersApi.useCreateInvoiceFromOrder).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+    const mutateAsync = vi.fn().mockResolvedValue('so-1')
+    asMock(salesOrdersApi.useDeleteSalesOrder).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    })
+  })
+
+  it('confirms delete from the header and returns to the list', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/sales-orders/so-1']}>
+          <Routes>
+            <Route
+              path="/sales-orders/:id"
+              element={
+                <>
+                  <SalesOrderDetail />
+                  <EntityActionConfirmHost />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: deSales.shared.delete }))
+    const alert = await screen.findByRole('alertdialog')
+    fireEvent.click(within(alert).getByRole('button', { name: deSales.shared.delete }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/sales-orders')
+    })
+  })
+})
+
 describe('SalesOrderDetail header navigation', () => {
   afterEach(() => {
     cleanup()
@@ -201,6 +270,9 @@ describe('SalesOrderDetail header navigation', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(authSession.useAuthSession).mockReturnValue({
+      data: { activeRole: 'ADMIN' },
+    } as ReturnType<typeof authSession.useAuthSession>)
     asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
       data: baseOrder,
       isLoading: false,

@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useEffect, useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
@@ -12,9 +13,11 @@ import * as workshopApi from '@/api/workshop'
 import * as customersApi from '@/api/customers'
 import * as vehiclesApi from '@/api/vehicles'
 import * as estimatesApi from '@/api/workshop-estimates'
+import * as salesOrdersApi from '@/api/sales-orders'
 
 const mockNavigate = vi.fn()
 const mockCustomerDelete = vi.fn()
+const mockSalesOrderDelete = vi.fn()
 const authState = vi.hoisted(() => ({ role: 'ADMIN' }))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -63,6 +66,18 @@ vi.mock('@/api/useCreditNotes', async () => {
 vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
   useCustomerDeleteHandler: () => mockCustomerDelete,
 }))
+vi.mock('@/pages/sales-orders/use-sales-order-delete-handler', () => ({
+  useSalesOrderDeleteHandler: (options?: { onDeleted?: () => void }) => {
+    return async (id: string) => {
+      await mockSalesOrderDelete(id)
+      options?.onDeleted?.()
+    }
+  },
+}))
+vi.mock('@/api/sales-orders', async () => {
+  const actual = await vi.importActual<typeof import('@/api/sales-orders')>('@/api/sales-orders')
+  return { ...actual, useSalesOrder: vi.fn() }
+})
 
 const PLACEHOLDER = 'Search parts, customers, vehicles, jobs…'
 
@@ -110,6 +125,15 @@ function renderOnRoute(path: string, onOpenChange = vi.fn()) {
           }
         />
         <Route
+          path="/sales-orders/:id"
+          element={
+            <>
+              <GlobalSearch open={true} onOpenChange={onOpenChange} />
+              <EntityActionConfirmHost />
+            </>
+          }
+        />
+        <Route
           path="/vehicles/:id"
           element={
             <>
@@ -127,6 +151,22 @@ function renderOnRoute(path: string, onOpenChange = vi.fn()) {
             </>
           }
         />
+        <Route
+          path="/sales-orders"
+          element={
+            <>
+              <table>
+                <tbody>
+                  <tr data-table-row="true" data-row-id="so-2" tabIndex={-1}>
+                    <td>SO-2026-0002</td>
+                  </tr>
+                </tbody>
+              </table>
+              <GlobalSearch open={true} onOpenChange={onOpenChange} />
+              <EntityActionConfirmHost />
+            </>
+          }
+        />
       </Routes>
     </MemoryRouter>,
   )
@@ -137,6 +177,7 @@ describe('GlobalSearch context actions', () => {
     await changeUiLanguage('en')
     await ensureNamespaceLoaded('settings')
     await ensureNamespaceLoaded('customers')
+    await ensureNamespaceLoaded('sales')
     vi.clearAllMocks()
     authState.role = 'ADMIN'
     mockSession()
@@ -161,6 +202,10 @@ describe('GlobalSearch context actions', () => {
       data: undefined,
       isLoading: false,
     } as unknown as ReturnType<typeof estimatesApi.useWorkshopEstimateVersion>)
+    vi.mocked(salesOrdersApi.useSalesOrder).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as unknown as ReturnType<typeof salesOrdersApi.useSalesOrder>)
   })
 
   afterEach(() => {
@@ -177,6 +222,117 @@ describe('GlobalSearch context actions', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-1/check-in')
     expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('sales order delete via Cmd+K', async () => {
+    await changeUiLanguage('de')
+    const salesOrder = {
+      id: 'so-1',
+      order_number: 'SO-2026-0001',
+      status: 'DRAFT' as const,
+      customer_id: 'cust-1',
+      customer: {
+        id: 'cust-1',
+        type: 'COMPANY' as const,
+        company_name: 'Example GmbH',
+        first_name: 'Erika',
+        last_name: 'Example',
+        email: 'contact@example.test',
+      },
+      vehicle: null,
+      total_amount: '0.00',
+      items: [],
+      invoice: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }
+    vi.mocked(salesOrdersApi.useSalesOrder).mockReturnValue({
+      data: salesOrder,
+      isLoading: false,
+    } as unknown as ReturnType<typeof salesOrdersApi.useSalesOrder>)
+
+    const onOpenChange = vi.fn()
+    renderOnRoute('/sales-orders/so-1', onOpenChange)
+
+    fireEvent.click(screen.getByText('Löschen'))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(mockSalesOrderDelete).not.toHaveBeenCalled()
+
+    const alert = screen.getByRole('alertdialog')
+    fireEvent.click(within(alert).getByRole('button', { name: 'Löschen' }))
+    expect(mockSalesOrderDelete).toHaveBeenCalledWith('so-1')
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/sales-orders'))
+  })
+
+  it('sales order delete via Cmd+K on a focused list row', async () => {
+    await changeUiLanguage('de')
+    const salesOrder = {
+      id: 'so-2',
+      order_number: 'SO-2026-0002',
+      status: 'DRAFT' as const,
+      customer_id: 'cust-1',
+      customer: {
+        id: 'cust-1',
+        type: 'COMPANY' as const,
+        company_name: 'Example GmbH',
+        first_name: 'Erika',
+        last_name: 'Example',
+        email: 'contact@example.test',
+      },
+      vehicle: null,
+      total_amount: '0.00',
+      items: [],
+      invoice: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }
+    vi.mocked(salesOrdersApi.useSalesOrder).mockReturnValue({
+      data: salesOrder,
+      isLoading: false,
+    } as unknown as ReturnType<typeof salesOrdersApi.useSalesOrder>)
+
+    function ListWithPalette({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
+      const [open, setOpen] = useState(false)
+      useEffect(() => {
+        const row = document.querySelector('[data-row-id="so-2"]') as HTMLElement | null
+        row?.focus()
+        setOpen(true)
+      }, [])
+      return (
+        <>
+          <table>
+            <tbody>
+              <tr data-table-row="true" data-row-id="so-2" tabIndex={-1}>
+                <td>SO-2026-0002</td>
+              </tr>
+            </tbody>
+          </table>
+          <GlobalSearch
+            open={open}
+            onOpenChange={(next) => {
+              setOpen(next)
+              onOpenChange(next)
+            }}
+          />
+          <EntityActionConfirmHost />
+        </>
+      )
+    }
+
+    const onOpenChange = vi.fn()
+    render(
+      <MemoryRouter initialEntries={['/sales-orders']}>
+        <Routes>
+          <Route path="/sales-orders" element={<ListWithPalette onOpenChange={onOpenChange} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(screen.getByText('Löschen')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Löschen'))
+    const alert = screen.getByRole('alertdialog')
+    fireEvent.click(within(alert).getByRole('button', { name: 'Löschen' }))
+    expect(mockSalesOrderDelete).toHaveBeenCalledWith('so-2')
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/sales-orders'))
   })
 
   it('confirms customer delete through the shared AlertDialog host from the palette', () => {

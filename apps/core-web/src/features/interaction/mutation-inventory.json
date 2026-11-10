@@ -361,6 +361,13 @@
       "serverConfirmedReason": "The server copies prices and assigns the draft identity from the sales order. There is no deduplication contract. The list shows a pending row without a number or a price."
     },
     {
+      "operationId": "sales.order.delete",
+      "owningHook": "useDeleteSalesOrder",
+      "sourceFile": "api/sales-orders.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deletion is DRAFT-only and invoice-guarded on the server; the client cannot predict authorization or business-state rejection."
+    },
+    {
       "operationId": "invoice.settlement.record",
       "owningHook": "useRecordSettlement",
       "sourceFile": "api/useInvoiceSettlement.ts",

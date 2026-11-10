@@ -119,6 +119,7 @@
       "newOrder": "Neuer Auftrag",
       "searchPlaceholder": "Aufträge durchsuchen…",
       "saveViewTitle": "Kundenaufträge",
+      "deleteConfirmTitle": "Kundenauftrag löschen",
       "deleteConfirm": "Diesen Kundenauftrag wirklich löschen?",
       "deleted": "Kundenauftrag gelöscht",
       "deleteFailed": "Kundenauftrag konnte nicht gelöscht werden",

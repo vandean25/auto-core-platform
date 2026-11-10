@@ -73,11 +73,17 @@ export function EntityActionConfirmHost() {
             <AlertDialogDescription>{pending.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setActiveConfirmRequest(null)}>
+            <AlertDialogCancel
+              className="max-sm:min-h-11"
+              onClick={() => setActiveConfirmRequest(null)}
+            >
               {pending.cancelLabel ?? t('actions.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
-              className={cn(pending.destructive && buttonVariants({ variant: 'destructive' }))}
+              className={cn(
+                'max-sm:min-h-11',
+                pending.destructive && buttonVariants({ variant: 'destructive' }),
+              )}
               onClick={handleConfirm}
             >
               {pending.confirmLabel ?? t('actions.confirm')}

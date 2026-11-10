@@ -5,9 +5,11 @@ import type { Vehicle } from '@/api/types'
 import type { WorkshopEstimateVersionDetail } from '@/api/workshop-estimates'
 import type { EstimateRowActionContext } from '@/features/actions/estimate-row-actions'
 import { createEstimateRowActions } from '@/features/actions/estimate-row-actions'
-import type { WorkshopOrder } from '@/api/types'
+import type { SalesOrder, WorkshopOrder } from '@/api/types'
 import type { CustomerRowActionContext } from '@/features/actions/customer-row-actions'
 import { createCustomerRowActions } from '@/features/actions/customer-row-actions'
+import type { SalesOrderRowActionContext } from '@/features/actions/sales-order-row-actions'
+import { createSalesOrderRowActions } from '@/features/actions/sales-order-row-actions'
 import type { VehicleRowActionContext } from '@/features/actions/vehicle-row-actions'
 import { createVehicleRowActions } from '@/features/actions/vehicle-row-actions'
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
@@ -20,6 +22,7 @@ import { createCreditNotePrintAction, type CreditNoteRowActionContext } from '@/
 import {
   buildCreditNotePaletteContextActions,
   buildCustomerPaletteContextActions,
+  buildSalesOrderPaletteContextActions,
   buildEstimatePaletteContextActions,
   buildVehiclePaletteContextActions,
   buildWorkshopOrderPaletteContextActions,
@@ -38,6 +41,7 @@ type PaletteContextRunContexts = {
   estimate: EstimateRowActionContext
   tyreSet: TyreSetRowActionContext
   creditNote: CreditNoteRowActionContext
+  salesOrder: SalesOrderRowActionContext
 }
 
 type PaletteRecords = {
@@ -47,6 +51,7 @@ type PaletteRecords = {
   estimate?: WorkshopEstimateVersionDetail
   tyreSet?: TyreSet
   creditNote?: CreditNoteResponseDto
+  salesOrder?: SalesOrder
 }
 
 type PaletteSectionInput = {
@@ -166,6 +171,18 @@ function creditNoteItems(input: PaletteSectionInput): PaletteContextAction[] {
   )
 }
 
+function salesOrderItems(input: PaletteSectionInput): PaletteContextAction[] {
+  const salesOrder = input.records.salesOrder
+  if (!salesOrder) return []
+  return buildSalesOrderPaletteContextActions(
+    createSalesOrderRowActions(input.translations.sales),
+    input.role,
+    salesOrder,
+    input.runContexts.salesOrder,
+    input.translations.nav,
+  )
+}
+
 const PALETTE_ITEMS: Record<
   GlobalSearchRecordRef['entity'],
   (input: PaletteSectionInput) => PaletteContextAction[]
@@ -176,6 +193,7 @@ const PALETTE_ITEMS: Record<
   estimate: estimateItems,
   tyre_set: tyreSetItems,
   credit_note: creditNoteItems,
+  sales_order: salesOrderItems,
 }
 
 function paletteItems(input: PaletteSectionInput): PaletteContextAction[] {

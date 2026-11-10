@@ -8,6 +8,7 @@ export type GlobalSearchRecordRef =
   | { entity: 'vehicle'; id: string }
   | { entity: 'tyre_set'; id: string }
   | { entity: 'credit_note'; id: string }
+  | { entity: 'sales_order'; id: string }
   /** An estimate version of the estimates list, known only while its row has focus. */
   | { entity: 'estimate'; id: string }
 
@@ -17,12 +18,20 @@ const RESERVED_VEHICLE_DETAIL_SEGMENTS = new Set([
   APP_ROUTE_PATHS.vehicleStockAlias.replace('/vehicles/', ''),
 ])
 
+const RESERVED_SALES_ORDER_DETAIL_SEGMENTS = new Set([
+  APP_ROUTE_PATHS.salesOrderNew.replace(`${APP_ROUTE_PATHS.salesOrders}/`, ''),
+])
+
 export function parseGlobalSearchRecordRef(
   pathname: string,
   focusedListRowId?: string | null,
 ): GlobalSearchRecordRef | null {
   if (focusedListRowId && matchPath({ path: APP_ROUTE_PATHS.workshopEstimates, end: true }, pathname)) {
     return { entity: 'estimate', id: focusedListRowId }
+  }
+
+  if (focusedListRowId && matchPath({ path: APP_ROUTE_PATHS.salesOrders, end: true }, pathname)) {
+    return { entity: 'sales_order', id: focusedListRowId }
   }
 
   const workshopOrder = matchPath({ path: APP_ROUTE_PATHS.workshopOrderDetail, end: true }, pathname)
@@ -49,6 +58,12 @@ export function parseGlobalSearchRecordRef(
   const creditNote = matchPath({ path: APP_ROUTE_PATHS.creditNoteDetail, end: true }, pathname)
   if (creditNote?.params.id) {
     return { entity: 'credit_note', id: creditNote.params.id }
+  }
+
+  const salesOrder = matchPath({ path: APP_ROUTE_PATHS.salesOrderDetail, end: true }, pathname)
+  const salesOrderId = salesOrder?.params.id
+  if (salesOrderId && !RESERVED_SALES_ORDER_DETAIL_SEGMENTS.has(salesOrderId)) {
+    return { entity: 'sales_order', id: salesOrderId }
   }
 
   return null

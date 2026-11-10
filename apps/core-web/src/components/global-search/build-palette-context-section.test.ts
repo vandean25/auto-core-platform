@@ -51,6 +51,7 @@ const translations = {
   customers: i18n.getFixedT('de', 'customers') as TFunction<'customers'>,
   vehicles: i18n.getFixedT('de', 'vehicles') as TFunction<'vehicles'>,
   finance: i18n.getFixedT('de', 'finance') as TFunction<'finance'>,
+  sales: i18n.getFixedT('de', 'sales') as TFunction<'sales'>,
 }
 
 function buildSection(role: string | undefined, record: TyreSet = tyreSet, query = '') {
@@ -68,6 +69,7 @@ function buildSection(role: string | undefined, record: TyreSet = tyreSet, query
       estimate: { navigate },
       tyreSet: { navigate },
       creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+      salesOrder: { navigate, onDelete: vi.fn(), t: translations.sales },
     },
   )
   return { section, navigate }
@@ -151,6 +153,7 @@ describe('work order measurement page and palette parity', () => {
           estimate: { navigate },
           tyreSet: { navigate },
           creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+        salesOrder: { navigate, onDelete: vi.fn(), t: translations.sales },
         },
       )
       const action = section?.items.find((item) => item.id === 'workOrder.recordTyreMeasurement')
@@ -226,6 +229,7 @@ describe('work order notes undo palette context', () => {
         estimate: { navigate },
         tyreSet: { navigate },
         creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+        salesOrder: { navigate, onDelete: vi.fn(), t: translations.sales },
       },
     )
     const item = section?.items.find((entry) => entry.id === ENTITY_ACTION_IDS.workOrderUndoNotes)
@@ -263,6 +267,7 @@ describe('work order notes undo palette context', () => {
         estimate: { navigate },
         tyreSet: { navigate },
         creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+        salesOrder: { navigate, onDelete: vi.fn(), t: translations.sales },
       },
     )
     expect(
@@ -323,6 +328,7 @@ describe('work order reschedule and task status in Cmd+K', () => {
         estimate: { navigate },
         tyreSet: { navigate },
         creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+        salesOrder: { navigate, onDelete: vi.fn(), t: translations.sales },
       },
     )
     return { section, updateTaskStatus, reschedule }
@@ -381,6 +387,7 @@ describe('work order reschedule and task status in Cmd+K', () => {
         estimate: { navigate: vi.fn() },
         tyreSet: { navigate: vi.fn() },
         creditNote: { t: translations.finance, generateAndDownload: vi.fn() },
+        salesOrder: { navigate: vi.fn(), onDelete: vi.fn(), t: translations.sales },
       },
     )
     expect(section?.items.map((item) => item.id)).toContain(ENTITY_ACTION_IDS.workOrderReschedule)
@@ -424,6 +431,7 @@ describe('credit note print page and palette parity', () => {
         estimate: { navigate },
         tyreSet: { navigate },
         creditNote: { t: translations.finance, generateAndDownload },
+        salesOrder: { navigate, onDelete: vi.fn(), t: translations.sales },
       },
     )
     return { section, generateAndDownload }

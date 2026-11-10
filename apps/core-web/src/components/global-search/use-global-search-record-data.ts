@@ -1,4 +1,5 @@
 import { useCustomer } from '@/api/customers'
+import { useSalesOrder } from '@/api/sales-orders'
 import { useTyreSet } from '@/api/tyre-storage'
 import { useCreditNote } from '@/api/useCreditNotes'
 import { useVehicle } from '@/api/vehicles'
@@ -18,6 +19,7 @@ export function useGlobalSearchRecordData(recordRef: GlobalSearchRecordRef | nul
   const estimateQuery = useWorkshopEstimateVersion(idOfEntity(recordRef, 'estimate', enabled) || null)
   const tyreSetQuery = useTyreSet(idOfEntity(recordRef, 'tyre_set', enabled))
   const creditNoteQuery = useCreditNote(idOfEntity(recordRef, 'credit_note', enabled))
+  const salesOrderQuery = useSalesOrder(idOfEntity(recordRef, 'sales_order', enabled))
 
   const loadingByEntity: Record<GlobalSearchRecordRef['entity'], boolean> = {
     workshop_order: workshopOrderQuery.isLoading,
@@ -26,6 +28,7 @@ export function useGlobalSearchRecordData(recordRef: GlobalSearchRecordRef | nul
     estimate: estimateQuery.isLoading,
     tyre_set: tyreSetQuery.isLoading,
     credit_note: creditNoteQuery.isLoading,
+    sales_order: salesOrderQuery.isLoading,
   }
 
   return {
@@ -35,6 +38,7 @@ export function useGlobalSearchRecordData(recordRef: GlobalSearchRecordRef | nul
     estimate: estimateQuery.data,
     tyreSet: tyreSetQuery.data,
     creditNote: creditNoteQuery.data,
+    salesOrder: salesOrderQuery.data,
     isLoadingContext: enabled && Boolean(recordRef && loadingByEntity[recordRef.entity]),
   }
 }

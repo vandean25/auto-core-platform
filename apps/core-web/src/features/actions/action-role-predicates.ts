@@ -3,6 +3,7 @@
  * and page/row-behaviour components. Backend authorization remains authoritative.
  */
 
+import type { SalesOrder } from '@/api/types'
 import { canManageWorkshopEstimates } from '@/features/workshop/workshop-estimate-permissions'
 import { canReadCreditNotes } from '@/lib/credit-note-quantity'
 
@@ -34,6 +35,17 @@ export function canOpenCustomer(role: string | null | undefined): boolean {
 /** Mirrors list delete access: any signed-in role that can open the customer list. */
 export function canDeleteCustomerFromList(role: string | null | undefined): boolean {
   return role !== ''
+}
+
+/** Mirrors backend `sales.order.delete` (BACK_OFFICE: OWNER, ADMIN, SALES). */
+export function canDeleteSalesOrder(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+}
+
+export function isSalesOrderDraftDeletable(
+  order: Pick<SalesOrder, 'status' | 'invoice'>,
+): boolean {
+  return order.status === 'DRAFT' && !order.invoice
 }
 
 /** Mirrors the backend `assertCanMutateInventoryStock`: only OWNER/ADMIN edit catalog items (the server still decides per record). */

@@ -41,6 +41,19 @@ describe('parseGlobalSearchRecordRef', () => {
     expect(parseGlobalSearchRecordRef('/finance/credit-notes')).toBeNull()
   })
 
+  it('reads sales order detail and focused list rows but not create or list-only paths', () => {
+    expect(parseGlobalSearchRecordRef('/sales-orders/so-1')).toEqual({
+      entity: 'sales_order',
+      id: 'so-1',
+    })
+    expect(parseGlobalSearchRecordRef('/sales-orders', 'so-2')).toEqual({
+      entity: 'sales_order',
+      id: 'so-2',
+    })
+    expect(parseGlobalSearchRecordRef('/sales-orders/new')).toBeNull()
+    expect(parseGlobalSearchRecordRef('/sales-orders')).toBeNull()
+  })
+
   it('ignores list routes and nested workshop paths', () => {
     expect(parseGlobalSearchRecordRef('/workshop/orders')).toBeNull()
     expect(parseGlobalSearchRecordRef('/workshop/orders/order-1/check-in')).toBeNull()
