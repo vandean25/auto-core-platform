@@ -219,7 +219,15 @@ describe('seedDemoUsers', () => {
         }),
       }),
     );
-    expect(mockPrisma.tenantMember.updateMany).toHaveBeenCalled();
+    expect(mockPrisma.tenantMember.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenant_id: 'tenant-1',
+          user_id: 'user-bootstrap-owner@example.com',
+        },
+        data: { scope_epoch: { increment: 1 } },
+      }),
+    );
 
     // Verify Firebase claims synced
     expect(mockFirebaseAuth.setCustomUserClaims).toHaveBeenCalledWith(

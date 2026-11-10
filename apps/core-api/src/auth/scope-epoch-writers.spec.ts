@@ -53,6 +53,62 @@ describe('scope-epoch-writers scan helpers', () => {
     `;
     expect(transactionBlocksMissingEpoch(source)).toEqual([]);
   });
+
+  it('flags legal entity is_active deactivation without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.legalEntity.update({
+          where: { id },
+          data: { is_active: false },
+        });
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('flags legal entity dto.isActive updates without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.legalEntity.update({ where: { id }, data: profile });
+        if (dto.isActive !== undefined && dto.isActive !== existing.is_active) {
+        }
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('flags site updateData is_active changes without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        const row = await tx.site.update({ where: { id }, data: updateData });
+        if (updateData.is_active !== existing.is_active) {
+        }
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
+
+  it('flags platform tenant dto.isActive updates without epoch bump', () => {
+    const missingBump = `
+      await prisma.$transaction(async (tx) => {
+        await tx.tenant.update({
+          where: { id },
+          data: { ...(dto.isActive !== undefined && { is_active: dto.isActive }) },
+        });
+        if (dto.isActive !== undefined) {
+        }
+      });
+    `;
+    expect(transactionBlocksMissingEpoch(missingBump)).toEqual([
+      '$transaction block 1',
+    ]);
+  });
 });
 
 describe('scope-epoch-writers inventory', () => {

@@ -97,20 +97,68 @@ export function countAccessWrites(source: string): number {
   return memberWrites + rawWrites + activationWrites;
 }
 
+function hasMembershipAccessWrite(bounded: string): boolean {
+  return /\b(?:tx\.)?(?:tenantMember|siteMembership)\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\(/.test(
+    bounded,
+  );
+}
+
+/** ADR-0038 §2: tenant/site/legalEntity updates that assign is_active count as access writes. */
+function hasEntityIsActiveAccessWrite(bounded: string): boolean {
+  const hasEntityUpdate =
+    /\b(?:tx\.)?(?:tenant|site|legalEntity)\.(?:update|upsert)\(/.test(bounded);
+  const hasEntityUpdateMany =
+    /\b(?:tx\.)?(?:tenant|site|legalEntity)\.updateMany\(/.test(bounded);
+  if (!hasEntityUpdate && !hasEntityUpdateMany) {
+    return false;
+  }
+  if (hasEntityUpdateMany && !/is_active:\s*false/.test(bounded)) {
+    // Row-lock no-ops use updateMany({ data: { is_active: true } }) without changing access.
+    if (!hasEntityUpdate) {
+      return false;
+    }
+  }
+  if (/is_active:\s*(?:true|false)/.test(bounded)) {
+    return true;
+  }
+  if (/is_active:\s*dto\.isActive/.test(bounded)) {
+    return true;
+  }
+  if (
+    /\b(?:tx\.)?site\.update\(/.test(bounded) &&
+    /updateData/.test(bounded) &&
+    /is_active/.test(bounded)
+  ) {
+    return true;
+  }
+  if (
+    /\b(?:tx\.)?legalEntity\.update\(/.test(bounded) &&
+    /dto\.isActive/.test(bounded)
+  ) {
+    return true;
+  }
+  if (
+    /\b(?:tx\.)?tenant\.update\(/.test(bounded) &&
+    /dto\.isActive/.test(bounded)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function transactionBlockRequiresEpoch(bounded: string): boolean {
+  return (
+    hasMembershipAccessWrite(bounded) || hasEntityIsActiveAccessWrite(bounded)
+  );
+}
+
 export function transactionBlocksMissingEpoch(source: string): string[] {
   const violations: string[] = [];
   const parts = source.split('$transaction');
   for (let index = 1; index < parts.length; index += 1) {
     const block = parts[index] ?? '';
     const bounded = block.slice(0, 4000);
-    const hasMembershipWrite =
-      /\b(?:tx\.)?(?:tenantMember|siteMembership)\.(?:create|update|updateMany|upsert|delete|deleteMany)\(/.test(
-        bounded,
-      );
-    const hasTenantActivation =
-      /\b(?:tx\.)?tenant\.(?:update|updateMany|upsert)\(/.test(bounded) &&
-      /is_active:\s*true/.test(bounded);
-    if (!hasMembershipWrite && !hasTenantActivation) {
+    if (!transactionBlockRequiresEpoch(bounded)) {
       continue;
     }
     const bumpsEpoch = bounded.includes('advanceScopeEpoch');

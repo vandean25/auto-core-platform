@@ -8,8 +8,10 @@ import { SiteService } from '../src/site/site.service.js';
 import { UserAccessStatusService } from '../src/auth/user-access-status.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
+  cleanupTestUsers,
   createTenantAwarePrisma,
   createTestAuthToken,
+  createTestPlatformAdmin,
   createTestTenant,
   runWithTenantContext,
   seedTestTenantMember,
@@ -193,6 +195,54 @@ describe('scope epoch writers (AUT-934)', () => {
     );
 
     expect(await tenantAuthorizationEpoch() - before).toBe(1n);
+  });
+
+  it('legal entity isActive change bumps authorization epoch', async () => {
+    const inactiveEntity = await tenantPrisma().legalEntity.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        name: `Scope epoch inactive LE ${Date.now()}`,
+        country_iso: 'AT',
+        is_active: false,
+      },
+    });
+    const before = await tenantAuthorizationEpoch();
+
+    await request(app.getHttpServer())
+      .patch(`/api/legal-entities/${inactiveEntity.id}`)
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ isActive: true })
+      .expect(200);
+
+    expect(await tenantAuthorizationEpoch() - before).toBe(1n);
+  });
+
+  it('platform tenant isActive change bumps authorization epoch', async () => {
+    const platformAdmin = await createTestPlatformAdmin(prisma);
+    try {
+      const before = await tenantAuthorizationEpoch();
+      const platformToken = authService.createTestToken({
+        sub: platformAdmin.firebaseUid,
+        email: platformAdmin.email,
+        platformRole: 'SUPER_ADMIN',
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/api/platform/tenants/${tenant.tenantId}`)
+        .set('Authorization', `Bearer ${platformToken}`)
+        .send({ isActive: false })
+        .expect(200);
+
+      expect(await tenantAuthorizationEpoch() - before).toBe(1n);
+
+      await request(app.getHttpServer())
+        .patch(`/api/platform/tenants/${tenant.tenantId}`)
+        .set('Authorization', `Bearer ${platformToken}`)
+        .send({ isActive: true })
+        .expect(200);
+    } finally {
+      await cleanupTestUsers(prisma, [platformAdmin.userId]);
+    }
   });
 
   it('user status advances all memberships', async () => {
