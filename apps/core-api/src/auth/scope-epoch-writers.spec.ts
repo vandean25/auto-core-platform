@@ -1,13 +1,53 @@
 import { REGISTERED_SCOPE_EPOCH_WRITER_PATHS } from './scope-epoch-writers.inventory.js';
 import {
   countAccessWrites,
+  extractTransactionCallbackBodies,
   isScannedSourcePath,
   listDetectedScopeEpochWriters,
   listScopeEpochAtomicityViolations,
+  sliceBalancedBraces,
   transactionBlocksMissingEpoch,
 } from './scope-epoch-writers.scan.js';
 
 describe('scope-epoch-writers scan helpers', () => {
+  it('sliceBalancedBraces returns inner content for a simple block', () => {
+    const source = 'prefix { alpha: 1 } suffix';
+    const open = source.indexOf('{');
+    expect(sliceBalancedBraces(source, open)).toBe(' alpha: 1 ');
+  });
+
+  it('sliceBalancedBraces respects nested braces', () => {
+    const source = '{ outer { inner: 1 } tail }';
+    expect(sliceBalancedBraces(source, 0)).toBe(' outer { inner: 1 } tail ');
+  });
+
+  it('sliceBalancedBraces ignores braces inside string literals', () => {
+    const source = "{ ok: '{ not a brace }', end: true }";
+    expect(sliceBalancedBraces(source, 0)).toBe(
+      " ok: '{ not a brace }', end: true ",
+    );
+  });
+
+  it('sliceBalancedBraces handles escaped quotes and backticks', () => {
+    const source = '{ a: "line \\"x\\"", b: `t { brace }` }';
+    expect(sliceBalancedBraces(source, 0)).toBe(' a: "line \\"x\\"", b: `t { brace }` ');
+  });
+
+  it('sliceBalancedBraces returns null when braces never balance', () => {
+    expect(sliceBalancedBraces('{ open only', 0)).toBeNull();
+  });
+
+  it('extractTransactionCallbackBodies pulls each arrow callback body', () => {
+    const source = `
+      await prisma.$transaction(async (tx) => { first(); });
+      await prisma.$transaction(async (tx) => { second(); });
+    `;
+    expect(extractTransactionCallbackBodies(source)).toEqual([
+      ' first(); ',
+      ' second(); ',
+    ]);
+  });
+
   it('excludes specs and inventory from source scan paths', () => {
     expect(isScannedSourcePath('auth/scope-epoch-writers.spec.ts')).toBe(false);
     expect(isScannedSourcePath('auth/scope-epoch-writers.scan.ts')).toBe(false);

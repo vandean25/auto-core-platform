@@ -156,35 +156,49 @@ function transactionBlockRequiresEpoch(bounded: string): boolean {
   );
 }
 
-function sliceBalancedBraces(
+type StringLiteralState = {
+  quote: '"' | "'" | '`' | null;
+  escaped: boolean;
+};
+
+function isStringQuote(ch: string): ch is '"' | "'" | '`' {
+  return ch === '"' || ch === "'" || ch === '`';
+}
+
+function consumeStringChar(state: StringLiteralState, ch: string): void {
+  if (state.escaped) {
+    state.escaped = false;
+    return;
+  }
+  if (ch === '\\') {
+    state.escaped = true;
+    return;
+  }
+  if (ch === state.quote) {
+    state.quote = null;
+  }
+}
+
+/** Returns the inside of the `{` at `openBraceIndex`, ignoring braces inside strings. */
+export function sliceBalancedBraces(
   source: string,
   openBraceIndex: number,
 ): string | null {
+  const stringState: StringLiteralState = { quote: null, escaped: false };
   let depth = 0;
-  let inString: '"' | "'" | '`' | null = null;
-  let escaped = false;
   for (let i = openBraceIndex; i < source.length; i += 1) {
     const ch = source[i];
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (ch === '\\') {
-        escaped = true;
-        continue;
-      }
-      if (ch === inString) {
-        inString = null;
-      }
+    if (stringState.quote) {
+      consumeStringChar(stringState, ch);
       continue;
     }
-    if (ch === '"' || ch === "'" || ch === '`') {
-      inString = ch;
+    if (isStringQuote(ch)) {
+      stringState.quote = ch;
       continue;
     }
     if (ch === '{') {
       depth += 1;
+      continue;
     }
     if (ch === '}') {
       depth -= 1;
