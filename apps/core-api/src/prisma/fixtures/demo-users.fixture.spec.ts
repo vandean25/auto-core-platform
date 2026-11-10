@@ -42,8 +42,17 @@ function createSeedStatePrisma(): {
       }),
     },
     platformAdmin: { upsert: jest.fn().mockResolvedValue({}) },
-    tenantMember: { upsert: jest.fn().mockResolvedValue({}) },
+    tenantMember: {
+      upsert: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    tenant: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     siteMembership: { upsert: jest.fn().mockResolvedValue({}) },
+    $transaction: jest.fn((work: (tx: typeof prisma) => unknown) =>
+      work(prisma),
+    ),
     employee: {
       findFirst: jest.fn(({ where }: any) => {
         const found = employees.find(
@@ -79,7 +88,7 @@ function createSeedStatePrisma(): {
 
 describe('seedDemoUsers', () => {
   function createMockPrisma(): any {
-    return {
+    const mock: any = {
       user: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockImplementation(({ data }) =>
@@ -96,6 +105,10 @@ describe('seedDemoUsers', () => {
         upsert: jest.fn().mockImplementation(({ create }) =>
           Promise.resolve({ id: `tm-${create.user_id}`, ...create })
         ),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      tenant: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       siteMembership: {
         upsert: jest.fn().mockResolvedValue({ id: 'sm-1' }),
@@ -105,7 +118,9 @@ describe('seedDemoUsers', () => {
         create: jest.fn().mockResolvedValue({ id: 'emp-1' }),
         update: jest.fn().mockResolvedValue({ id: 'emp-1' }),
       },
+      $transaction: jest.fn((work: (tx: typeof mock) => unknown) => work(mock)),
     };
+    return mock;
   }
 
   it('seeds bootstrap admin email with SUPER_ADMIN, OWNER, and both demo site memberships when provided', async () => {

@@ -64,9 +64,33 @@ describe('pickPreferredActiveSite', () => {
   });
 });
 
+function prismaWithScopeEpochTransaction<T extends Record<string, unknown>>(
+  base: T,
+): T & {
+  $transaction: jest.Mock;
+  tenantMember: { updateMany: jest.Mock };
+} {
+  const enriched = {
+    ...base,
+    tenantMember: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      ...(typeof base.tenantMember === 'object' && base.tenantMember !== null
+        ? base.tenantMember
+        : {}),
+    },
+    $transaction: jest.fn((callback: (tx: typeof enriched) => unknown) =>
+      callback(enriched),
+    ),
+  };
+  return enriched as T & {
+    $transaction: jest.Mock;
+    tenantMember: { updateMany: jest.Mock };
+  };
+}
+
 describe('grantTenantSiteMemberships', () => {
   it('sets active_site_id to MAIN when the user has no active site', async () => {
-    const prisma = {
+    const prisma = prismaWithScopeEpochTransaction({
       site: {
         findMany: jest.fn().mockResolvedValue([
           { id: 'site-grz', code: 'GRZ' },
@@ -85,7 +109,7 @@ describe('grantTenantSiteMemberships', () => {
         }),
         update: jest.fn().mockResolvedValue({}),
       },
-    };
+    });
 
     await grantTenantSiteMemberships('tenant-1', 'user-1', prisma as never);
 
@@ -182,7 +206,7 @@ describe('grantTechnicianEmployeeLink', () => {
 
 describe('seedTenantMember', () => {
   it('creates membership and syncs claims for an existing user', async () => {
-    const prisma = {
+    const prisma = prismaWithScopeEpochTransaction({
       tenant: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'tenant-1',
@@ -248,7 +272,7 @@ describe('seedTenantMember', () => {
             },
           ],
         }),
-    };
+    });
     const firebaseAuth = {
       getUserByEmail: jest.fn().mockResolvedValue({
         uid: 'firebase-uid-1',
@@ -317,7 +341,7 @@ describe('seedTenantMember', () => {
   });
 
   it('links a mechanic employee when seeding a TECH tenant member', async () => {
-    const prisma = {
+    const prisma = prismaWithScopeEpochTransaction({
       tenant: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'tenant-1',
@@ -374,7 +398,7 @@ describe('seedTenantMember', () => {
             },
           ],
         }),
-    };
+    });
     const firebaseAuth = {
       getUserByEmail: jest.fn().mockResolvedValue({
         uid: 'firebase-tech',
