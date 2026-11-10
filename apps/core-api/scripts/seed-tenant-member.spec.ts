@@ -310,6 +310,7 @@ describe('seedTenantMember', () => {
         role: TenantMemberRole.OWNER,
         is_active: true,
       },
+      select: { id: true, role: true },
     });
 
     expect(prisma.user.update).toHaveBeenCalledWith({
