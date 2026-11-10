@@ -117,7 +117,10 @@ describe('scope epoch writers (AUT-934)', () => {
 
     const innerClient = prisma.client;
     const originalTransaction = innerClient.$transaction.bind(innerClient);
-    innerClient.$transaction = async (fn, options) =>
+    innerClient.$transaction = async (
+      fn: (tx: import('@prisma/client').Prisma.TransactionClient) => unknown,
+      options?: unknown,
+    ) =>
       originalTransaction(async (tx) => {
         const deleteMembership = tx.siteMembership.delete.bind(tx.siteMembership);
         const wrappedTx = Object.assign(tx, {
