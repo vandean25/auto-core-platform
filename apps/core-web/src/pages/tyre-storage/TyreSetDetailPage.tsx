@@ -14,6 +14,8 @@ import { TyreReport } from '@/features/tyre-report/TyreReport'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateTime, formatIsoDateOnly } from '@/lib/format'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
+import { canRecordTyreMeasurement } from '@/features/actions/action-role-predicates'
 import { TyreSetActionDialog } from '@/features/tyre-storage/TyreSetActionDialog'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
 import { PageLoader } from '@/components/ui/PageLoader'
@@ -61,12 +63,35 @@ function StorageMovementActions({ tyreSet, canWrite, setAction }: StorageMovemen
 
 type TyreSetHeaderProps = StorageMovementActionsProps & {
   role: string | undefined
-  inspectionAction: ReturnType<typeof createTyreSetTyreMeasurementAction>
   runContext: TyreSetRowActionContext
   setEditOpen: (open: boolean) => void
 }
 
-function TyreSetHeader({ tyreSet, canWrite, role, inspectionAction, runContext, setEditOpen, setAction }: TyreSetHeaderProps) {
+function TyreSetInspectionAction({
+  tyreSet,
+  role,
+  runContext,
+}: {
+  tyreSet: TyreSet
+  role: string | undefined
+  runContext: TyreSetRowActionContext
+}) {
+  const { t } = useTranslation('workshop')
+  const inspectionAction = createTyreSetTyreMeasurementAction(t)
+  if (!canInspectTyreSet(inspectionAction, role, tyreSet)) return null
+
+  return (
+    <RegistryActionButton
+      action={inspectionAction}
+      record={tyreSet}
+      runContext={runContext}
+      role={role}
+      className="min-h-11"
+    />
+  )
+}
+
+function TyreSetHeader({ tyreSet, canWrite, role, runContext, setEditOpen, setAction }: TyreSetHeaderProps) {
   const { t } = useTranslation('inventory')
   const printLabel = () => window.print()
 
@@ -96,8 +121,9 @@ function TyreSetHeader({ tyreSet, canWrite, role, inspectionAction, runContext, 
             {t('actions.edit')}
           </Button>
         ) : null}
-        <RegistryActionButton action={inspectionAction} record={tyreSet}
-          runContext={runContext} role={role} className="min-h-11" />
+        <LazyNamespaceContentGate namespaces={['workshop']}>
+          <TyreSetInspectionAction tyreSet={tyreSet} role={role} runContext={runContext} />
+        </LazyNamespaceContentGate>
         <Button variant="outline" className="min-h-11" onClick={printLabel}>
           <Printer className="mr-2 h-4 w-4" />
           {t('actions.printTag')}
@@ -225,55 +251,68 @@ function canInspectTyreSet(
   return action.isAllowedForRole(role) && Boolean(tyreSet && action.isEnabled(tyreSet))
 }
 
-export default function TyreSetDetailPage() {
-  const { t } = useTranslation(['inventory', 'workshop', 'errors', 'common'])
-  const [inventoryLocaleReady, setInventoryLocaleReady] = useState(() =>
-    i18n.hasResourceBundle(i18n.language, 'inventory'),
-  )
+function useInventoryLocaleReady(): boolean {
+  const [ready, setReady] = useState(() => i18n.hasResourceBundle(i18n.language, 'inventory'))
   useEffect(() => {
-    if (inventoryLocaleReady) return
-    void ensureNamespaceLoaded('inventory').then(() => setInventoryLocaleReady(true))
-  }, [inventoryLocaleReady])
+    if (ready) return
+    void ensureNamespaceLoaded('inventory').then(() => setReady(true))
+  }, [ready])
+  return ready
+}
 
-  const { id } = useParams<{ id: string }>()
-  const { data: tyreSet, isLoading, isError, refetch } = useTyreSet(id)
-  const printRef = useRef<HTMLDivElement>(null)
-  const [action, setAction] = useState<ActionKind | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
-  const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const { t: tWorkshop } = useTranslation('workshop')
-  const role = useAuthSession().data?.activeRole
-  const canWrite = canWriteTyreSet(role)
-  const inspectionAction = createTyreSetTyreMeasurementAction(tWorkshop)
-  const canInspect = canInspectTyreSet(inspectionAction, role, tyreSet)
-  const isInspectionUrl = searchParams.get('action') === 'recordTyreMeasurement'
-  const activeAction = isInspectionUrl && canInspect ? 'inspect' : action
-  const closeAction = () => {
-    setAction(null)
-    if (isInspectionUrl) {
-      setSearchParams((previous) => {
-        const next = new URLSearchParams(previous)
-        next.delete('action')
-        return next
-      }, { replace: true })
-    }
-  }
+function TyreSetDetailLoading() {
+  const { t } = useTranslation('inventory')
+  return <p className="text-muted-foreground">{t('tyreStorage.detail.loading')}</p>
+}
 
-  if (!inventoryLocaleReady) {
-    return <PageLoader />
-  }
-
-  if (isLoading) {
-    return <p className="text-muted-foreground">{t('tyreStorage.detail.loading')}</p>
-  }
-
-  if (isError || !tyreSet) {
-    return <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void refetch() }}>
-      <p role="alert" className="text-sm text-destructive">{t('errors:generic.unexpected')}</p>
-      <Button type="submit" variant="outline">{t('common:actions.retry')}</Button>
+function TyreSetDetailLoadError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation(['errors', 'common'])
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onRetry()
+      }}
+    >
+      <p role="alert" className="text-sm text-destructive">
+        {t('errors:generic.unexpected')}
+      </p>
+      <Button type="submit" variant="outline">
+        {t('common:actions.retry')}
+      </Button>
     </form>
-  }
+  )
+}
+
+type TyreSetDetailViewProps = {
+  tyreSet: TyreSet
+  role: string | undefined
+  canWrite: boolean
+  canInspect: boolean
+  activeAction: ActionKind | null
+  onCloseAction: () => void
+  editOpen: boolean
+  setEditOpen: (open: boolean) => void
+  setAction: (action: ActionKind) => void
+  navigate: ReturnType<typeof useNavigate>
+  currentSearch: string
+}
+
+function TyreSetDetailView({
+  tyreSet,
+  role,
+  canWrite,
+  canInspect,
+  activeAction,
+  onCloseAction,
+  editOpen,
+  setEditOpen,
+  setAction,
+  navigate,
+  currentSearch,
+}: TyreSetDetailViewProps) {
+  const printRef = useRef<HTMLDivElement>(null)
 
   return (
     <div className="space-y-6 tyre-set-detail">
@@ -298,13 +337,14 @@ export default function TyreSetDetailPage() {
         tyreSet={tyreSet}
         canWrite={canWrite}
         role={role}
-        inspectionAction={inspectionAction}
-        runContext={{ navigate, currentSearch: searchParams.toString() }}
+        runContext={{ navigate, currentSearch }}
         setEditOpen={setEditOpen}
         setAction={setAction}
       />
 
-      <LatestTyreReport measurement={tyreSet.latestMeasurement} />
+      <LazyNamespaceContentGate namespaces={['workshop']}>
+        <LatestTyreReport measurement={tyreSet.latestMeasurement} />
+      </LazyNamespaceContentGate>
       <TyreSetStorageDetails tyreSet={tyreSet} />
 
       <div ref={printRef} className="tyre-set-print-tag">
@@ -319,17 +359,67 @@ export default function TyreSetDetailPage() {
         action={activeAction}
         canInspect={canInspect}
         canWrite={canWrite}
-        onClose={closeAction}
+        onClose={onCloseAction}
         tyreSet={tyreSet}
       />
 
-      {canWrite && <TyreSetFormDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        customerId={tyreSet.customerId}
-        vehicleId={tyreSet.vehicleId}
-        existing={tyreSet}
-      />}
+      {canWrite ? (
+        <TyreSetFormDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          customerId={tyreSet.customerId}
+          vehicleId={tyreSet.vehicleId}
+          existing={tyreSet}
+        />
+      ) : null}
     </div>
+  )
+}
+
+export default function TyreSetDetailPage() {
+  const inventoryLocaleReady = useInventoryLocaleReady()
+  const { id } = useParams<{ id: string }>()
+  const { data: tyreSet, isLoading, isError, refetch } = useTyreSet(id)
+  const [action, setAction] = useState<ActionKind | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const role = useAuthSession().data?.activeRole
+  const canWrite = canWriteTyreSet(role)
+  const canInspect = canRecordTyreMeasurement(role) && Boolean(tyreSet?.vehicleId)
+  const isInspectionUrl = searchParams.get('action') === 'recordTyreMeasurement'
+  const activeAction = isInspectionUrl && canInspect ? 'inspect' : action
+  const closeAction = () => {
+    setAction(null)
+    if (isInspectionUrl) {
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous)
+          next.delete('action')
+          return next
+        },
+        { replace: true },
+      )
+    }
+  }
+
+  if (!inventoryLocaleReady) return <PageLoader />
+  if (isLoading) return <TyreSetDetailLoading />
+  if (isError || !tyreSet) return <TyreSetDetailLoadError onRetry={() => void refetch()} />
+
+  return (
+    <TyreSetDetailView
+      tyreSet={tyreSet}
+      role={role}
+      canWrite={canWrite}
+      canInspect={canInspect}
+      activeAction={activeAction}
+      onCloseAction={closeAction}
+      editOpen={editOpen}
+      setEditOpen={setEditOpen}
+      setAction={setAction}
+      navigate={navigate}
+      currentSearch={searchParams.toString()}
+    />
   )
 }

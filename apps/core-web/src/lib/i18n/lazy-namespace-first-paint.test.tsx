@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport } from '@/api/workshop-kpi-reports'
-import { useDueTyreSets, useTyreSets } from '@/api/tyre-storage'
+import { useDueTyreSets, useTyreSet, useTyreSets } from '@/api/tyre-storage'
 import { useLocations } from '@/api/locations'
 import * as purchaseApi from '@/api/usePurchaseInvoices'
 import { useVehicleStockListState } from '@/api/vehicle-stock-list'
@@ -20,11 +20,16 @@ import PurchaseBillsPage from '@/pages/purchase-bills/PurchaseBillsPage'
 import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import { InvoiceSettlementActions } from '@/components/finance/InvoiceSettlementActions'
+import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { useInvoiceSettlement } from '@/api/useInvoiceSettlement'
+import * as customersApi from '@/api/customers'
 import deInventory from '../../../../../locales/de/inventory.json'
 import deReports from '../../../../../locales/de/reports.json'
 import deSettings from '../../../../../locales/de/settings.json'
 import deFinance from '../../../../../locales/de/finance.json'
+import deWorkshop from '../../../../../locales/de/workshop.json'
+import { deCustomers } from '@/test/de-customers'
+import TyreSetDetailPage from '@/pages/tyre-storage/TyreSetDetailPage'
 import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
 import { stripLazyNamespacesForTest } from '@/test/lazy-namespace-test-helpers'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
@@ -36,11 +41,14 @@ vi.mock('@/api/workshop-kpi-reports', () => ({ useWorkshopKpiReport: vi.fn() }))
 vi.mock('@/api/tyre-storage', () => ({
   useTyreSets: vi.fn(),
   useDueTyreSets: vi.fn(),
+  useTyreSet: vi.fn(),
   useTyreSetsByVehicle: vi.fn(),
   useTyreSetsByCustomer: vi.fn(),
+  useTyreSetAction: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateTyreSet: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateTyreSet: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
+vi.mock('@/api/customers')
 vi.mock('@/features/tyre-storage/TyreSetFormDialog', () => ({
   TyreSetFormDialog: () => null,
 }))
@@ -77,6 +85,10 @@ afterEach(() => {
 describe('lazy namespace first paint (AUT-945)', () => {
   beforeEach(() => {
     stripLazyNamespacesForTest()
+    vi.mocked(customersApi.useCustomers).mockReturnValue({
+      data: { data: [] },
+      isLoading: false,
+    } as never)
   })
 
   afterEach(async () => {
@@ -86,6 +98,8 @@ describe('lazy namespace first paint (AUT-945)', () => {
     await ensureNamespaceLoaded('settings')
     await ensureNamespaceLoaded('vehicleStock')
     await ensureNamespaceLoaded('finance')
+    await ensureNamespaceLoaded('customers')
+    await ensureNamespaceLoaded('workshop')
   })
 
   it('hard-reloads tyre storage with German copy, not raw inventory keys', async () => {
@@ -187,6 +201,53 @@ describe('lazy namespace first paint (AUT-945)', () => {
 
     expect(document.body.textContent).not.toMatch(/purchaseBills\./)
     expect(await screen.findByText('Purchase bills')).toBeInTheDocument()
+  })
+
+  it('shows German customer search placeholder after the customers bundle loads', async () => {
+    vi.mocked(customersApi.useCustomers).mockReturnValue({
+      data: { data: [] },
+      isLoading: false,
+    } as never)
+
+    renderWithProviders(<CustomerSearch value={null} onChange={vi.fn()} />)
+
+    expect(document.body.textContent).not.toMatch(/search\.selectPlaceholder/)
+    expect(await screen.findByText(deCustomers.search.selectPlaceholder)).toBeInTheDocument()
+  })
+
+  it('tyre set detail shows German workshop copy after the workshop bundle loads', async () => {
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeRole: 'ADMIN' } } as never)
+    vi.mocked(useTyreSet).mockReturnValue({
+      data: {
+        id: 'set-1',
+        customerId: 'customer-1',
+        vehicleId: 'vehicle-1',
+        siteId: 'site-1',
+        locationId: 'rack-1',
+        label: 'Winter',
+        season: 'WINTER',
+        tyreCount: 4,
+        rimType: 'NONE',
+        status: 'IN_STORAGE',
+        dotCodes: [],
+        events: [],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as never)
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/workshop/tyre-storage/set-1']}>
+        <Routes>
+          <Route path="/workshop/tyre-storage/:id" element={<TyreSetDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(document.body.textContent).not.toMatch(/tyreReport\./)
+    expect(await screen.findByText(deWorkshop.tyreReport.empty)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: deWorkshop.tyreReport.record })).toBeInTheDocument()
   })
 
   it('embeds tyre summary and fiscal-off copy only after the finance/inventory bundle loads', async () => {

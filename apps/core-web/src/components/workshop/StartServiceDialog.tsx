@@ -7,6 +7,7 @@ import { Label } from '../ui/label'
 import { useCreateWorkshopOrder } from '../../api/workshop'
 import type { CreateWorkshopOrderPayload } from '../../api/types'
 import { toast } from 'sonner'
+import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 
 interface StartServiceDialogProps {
     open?: boolean
@@ -17,7 +18,15 @@ interface StartServiceDialogProps {
     onCreated?: (order: { id: string }) => void
 }
 
-export function StartServiceDialog({
+export function StartServiceDialog(props: StartServiceDialogProps) {
+    return (
+        <LazyNamespaceContentGate namespaces={['workshop']}>
+            <StartServiceDialogLoaded {...props} />
+        </LazyNamespaceContentGate>
+    )
+}
+
+function StartServiceDialogLoaded({
     open = true,
     onOpenChange,
     customerId,
