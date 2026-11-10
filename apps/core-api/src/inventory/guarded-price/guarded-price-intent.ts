@@ -12,12 +12,12 @@ export type GuardedPriceIntent = {
 export function frozenIntentMatchesRow(
   row: Pick<
     InventoryPriceOperation,
-  | 'item_id'
-  | 'expected_revision'
-  | 'target_minor'
-  | 'basis_minor'
-  | 'sku'
-  | 'kind'
+    | 'item_id'
+    | 'expected_revision'
+    | 'target_minor'
+    | 'basis_minor'
+    | 'sku'
+    | 'kind'
   >,
   intent: GuardedPriceIntent,
 ): boolean {

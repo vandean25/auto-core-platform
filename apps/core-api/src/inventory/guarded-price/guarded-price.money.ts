@@ -22,7 +22,7 @@ function convertMajorTextToMinor(text: string): bigint {
     guardedRequestInvalid('retail_price has more than two decimal places.');
   }
   const sign = text.startsWith('-') ? -1n : 1n;
-  const whole = BigInt(match[1]!.replace(/^-/, ''));
+  const whole = BigInt(match[1].replace(/^-/, ''));
   const fractionPadded = `${fraction}${'0'.repeat(Math.max(0, 2 - fraction.length))}`;
   const minor = whole * 100n + (fractionPadded ? BigInt(fractionPadded) : 0n);
   const signed = sign * minor;

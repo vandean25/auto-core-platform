@@ -38,6 +38,15 @@ async function lockTenantRows(
   `;
 }
 
+export async function lockSingleTenantTableRow(
+  tx: Prisma.TransactionClient,
+  tableName: string,
+  tenantId: string,
+  id: string,
+): Promise<void> {
+  await lockTenantRows(tx, tableName, tenantId, [id]);
+}
+
 export async function lockWorkshopTasks(
   tx: Prisma.TransactionClient,
   tenantId: string,

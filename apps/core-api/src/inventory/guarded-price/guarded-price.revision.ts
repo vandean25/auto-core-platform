@@ -9,7 +9,9 @@ export function parseExpectedRevision(value: unknown): number {
     guardedRequestInvalid('expectedRevision must be a safe JSON integer.');
   }
   if (value > Number.MAX_SAFE_INTEGER || value < Number.MIN_SAFE_INTEGER) {
-    guardedRequestInvalid('expectedRevision is outside the safe integer range.');
+    guardedRequestInvalid(
+      'expectedRevision is outside the safe integer range.',
+    );
   }
   return value;
 }

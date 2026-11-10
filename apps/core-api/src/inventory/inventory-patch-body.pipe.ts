@@ -24,20 +24,16 @@ export type GuardedInventoryPatchBody = {
 };
 
 export type InventoryPatchBody =
-  | LegacyInventoryPatchBody
-  | GuardedInventoryPatchBody;
+  LegacyInventoryPatchBody | GuardedInventoryPatchBody;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function formatValidationErrors(errors: { property: string }[]): string {
-  return errors.map((issue) => issue.property).join(', ');
-}
-
 @Injectable()
 export class InventoryPatchBodyPipe implements PipeTransform {
-  transform(value: unknown, _metadata: ArgumentMetadata): InventoryPatchBody {
+  transform(value: unknown, metadata: ArgumentMetadata): InventoryPatchBody {
+    void metadata;
     if (!isRecord(value)) {
       throw new BadRequestException('Request body must be a JSON object.');
     }
@@ -49,14 +45,20 @@ export class InventoryPatchBodyPipe implements PipeTransform {
     return this.parseLegacyBody(value);
   }
 
-  private parseGuardedBody(raw: Record<string, unknown>): GuardedInventoryPatchBody {
+  private parseGuardedBody(
+    raw: Record<string, unknown>,
+  ): GuardedInventoryPatchBody {
     const keys = Object.keys(raw);
-    if (keys.length !== 2 || !keys.includes('retail_price') || !keys.includes('expectedRevision')) {
+    if (
+      keys.length !== 2 ||
+      !keys.includes('retail_price') ||
+      !keys.includes('expectedRevision')
+    ) {
       guardedRequestInvalid(
         'Guarded PATCH body must contain exactly retail_price and expectedRevision.',
       );
     }
-  const expectedRevision = parseExpectedRevision(raw.expectedRevision);
+    const expectedRevision = parseExpectedRevision(raw.expectedRevision);
     if (typeof raw.retail_price !== 'number') {
       guardedRequestInvalid('retail_price must be a number.');
     }
@@ -69,12 +71,16 @@ export class InventoryPatchBodyPipe implements PipeTransform {
     };
   }
 
-  private parseLegacyBody(raw: Record<string, unknown>): LegacyInventoryPatchBody {
+  private parseLegacyBody(
+    raw: Record<string, unknown>,
+  ): LegacyInventoryPatchBody {
     const dto = plainToInstance(UpdateInventoryItemDto, raw);
     const errors = validateSync(dto);
     if (errors.length > 0) {
       throw new BadRequestException(
-        errors.map((issue) => Object.values(issue.constraints ?? {}).join(', ')).join('; '),
+        errors
+          .map((issue) => Object.values(issue.constraints ?? {}).join(', '))
+          .join('; '),
       );
     }
     return { mode: 'legacy', dto };

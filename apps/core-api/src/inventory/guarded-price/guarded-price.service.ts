@@ -17,10 +17,15 @@ import { toCatalogItemResponseDto } from '../catalog-item-response.mapper.js';
 import type { GuardedPriceReceiptDto } from '../dto/guarded-inventory-price.dto.js';
 import {
   acquireGuardedPriceAdvisoryLock,
-  setTxLockTimeout10s,
-  setTxLockTimeout5s,
-} from './guarded-price-advisory-lock.js';
-import { assertKeyAdmissionOnNoRowInsert, resolveOperationKey } from './guarded-price-admission.js';
+  lockGuardedPriceCatalogItem,
+  lockGuardedPriceJournalRow,
+  setGuardedPriceTxALockTimeout,
+  setGuardedPriceTxELockTimeout,
+} from '../guarded-price-operation-locks.js';
+import {
+  assertKeyAdmissionOnNoRowInsert,
+  resolveOperationKey,
+} from './guarded-price-admission.js';
 import {
   GUARDED_PRICE_KIND,
   idempotencyKeyReused,
@@ -28,8 +33,14 @@ import {
   operationFenced,
   operationUnresolved,
 } from './guarded-price.errors.js';
-import { frozenIntentMatchesRow, type GuardedPriceIntent } from './guarded-price-intent.js';
-import { minorUnitsToDecimalString, retailMajorToMinorUnits } from './guarded-price.money.js';
+import {
+  frozenIntentMatchesRow,
+  type GuardedPriceIntent,
+} from './guarded-price-intent.js';
+import {
+  minorUnitsToDecimalString,
+  retailMajorToMinorUnits,
+} from './guarded-price.money.js';
 import { revisionFromDb, revisionToDb } from './guarded-price.revision.js';
 
 /** Test-only: when true, Tx-E throws after locking the journal row (AUT-929 scenario 6). */
@@ -43,7 +54,9 @@ function isLockTimeoutError(error: unknown): boolean {
   }
   const code = (error as { code?: string }).code;
   const message = String((error as { message?: string }).message ?? '');
-  return code === 'P2034' || code === '55P03' || message.includes('lock timeout');
+  return (
+    code === 'P2034' || code === '55P03' || message.includes('lock timeout')
+  );
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -74,7 +87,10 @@ export class GuardedPriceService {
     assertCanMutateInventoryStock(role);
     const principalId = this.requirePrincipalId();
     const tenantId = await this.tenantContext.getTenantId();
-    const operationKey = resolveOperationKey(idempotencyHeader, operationKeyQuery);
+    const operationKey = resolveOperationKey(
+      idempotencyHeader,
+      operationKeyQuery,
+    );
     const targetMinor = retailMajorToMinorUnits(retailPrice);
 
     const item = await this.prisma.catalogItem.findFirst({
@@ -92,7 +108,12 @@ export class GuardedPriceService {
       sku: item.sku,
     };
 
-    const txAResult = await this.runTxA(tenantId, principalId, operationKey, intent);
+    const txAResult = await this.runTxA(
+      tenantId,
+      principalId,
+      operationKey,
+      intent,
+    );
     if (txAResult.kind === 'replay') {
       return txAResult.receipt;
     }
@@ -124,8 +145,13 @@ export class GuardedPriceService {
     try {
       return await this.prisma.$transaction(
         async (tx) => {
-          await setTxLockTimeout5s(tx);
-          await acquireGuardedPriceAdvisoryLock(tx, tenantId, principalId, operationKey);
+          await setGuardedPriceTxALockTimeout(tx);
+          await acquireGuardedPriceAdvisoryLock(
+            tx,
+            tenantId,
+            principalId,
+            operationKey,
+          );
 
           const existing = await tx.inventoryPriceOperation.findFirst({
             where: {
@@ -136,7 +162,12 @@ export class GuardedPriceService {
           });
 
           if (existing) {
-            return await this.handleExistingJournalRow(tx, tenantId, existing, intent);
+            return await this.handleExistingJournalRow(
+              tx,
+              tenantId,
+              existing,
+              intent,
+            );
           }
 
           assertKeyAdmissionOnNoRowInsert(operationKey);
@@ -167,7 +198,12 @@ export class GuardedPriceService {
                 },
               });
               if (raced) {
-                return await this.handleExistingJournalRow(tx, tenantId, raced, intent);
+                return await this.handleExistingJournalRow(
+                  tx,
+                  tenantId,
+                  raced,
+                  intent,
+                );
               }
               operationUnresolved(
                 'Another guarded operation is still in progress for this item.',
@@ -182,7 +218,9 @@ export class GuardedPriceService {
       );
     } catch (error) {
       if (isLockTimeoutError(error) || isUniqueViolation(error)) {
-        operationUnresolved('Could not acquire the guarded operation lock in time.');
+        operationUnresolved(
+          'Could not acquire the guarded operation lock in time.',
+        );
       }
       throw error;
     }
@@ -199,26 +237,44 @@ export class GuardedPriceService {
     | { kind: 'halt'; throw: () => never }
   > {
     if (!frozenIntentMatchesRow(row, intent)) {
-      idempotencyKeyReused('Operation key was already used with a different intent.');
+      idempotencyKeyReused(
+        'Operation key was already used with a different intent.',
+      );
     }
 
-    await lockJournalRow(tx, tenantId, row.id);
+    await lockGuardedPriceJournalRow(tx, tenantId, row.id);
 
     const fresh = await tx.inventoryPriceOperation.findFirstOrThrow({
       where: { tenant_id: tenantId, id: row.id },
     });
 
     if (fresh.state === InventoryPriceOperationState.ACCEPTED) {
-      return { kind: 'halt', throw: () => operationUnresolved('Guarded operation is still in progress.') };
+      return {
+        kind: 'halt',
+        throw: () =>
+          operationUnresolved('Guarded operation is still in progress.'),
+      };
     }
     if (fresh.state === InventoryPriceOperationState.FENCED) {
-      return { kind: 'halt', throw: () => operationFenced('Guarded operation was fenced as not applied.') };
+      return {
+        kind: 'halt',
+        throw: () =>
+          operationFenced('Guarded operation was fenced as not applied.'),
+      };
     }
     if (fresh.state === InventoryPriceOperationState.CONFLICT) {
-      return { kind: 'halt', throw: () => inventoryRevisionConflict('Catalog item revision no longer matches.') };
+      return {
+        kind: 'halt',
+        throw: () =>
+          inventoryRevisionConflict('Catalog item revision no longer matches.'),
+      };
     }
     if (fresh.state === InventoryPriceOperationState.APPLIED) {
-      const item = await this.requireAuthorizedItem(tx, tenantId, fresh.item_id);
+      const item = await this.requireAuthorizedItem(
+        tx,
+        tenantId,
+        fresh.item_id,
+      );
       return { kind: 'replay', receipt: toCatalogItemResponseDto(item) };
     }
 
@@ -234,8 +290,10 @@ export class GuardedPriceService {
     try {
       const outcome = await this.prisma.$transaction(
         async (tx) => {
-          await setTxLockTimeout10s(tx);
-          assertCanMutateInventoryStock(this.tenantContext.getAuthenticatedUser()?.role);
+          await setGuardedPriceTxELockTimeout(tx);
+          assertCanMutateInventoryStock(
+            this.tenantContext.getAuthenticatedUser()?.role,
+          );
 
           const journal = await tx.inventoryPriceOperation.findFirst({
             where: {
@@ -244,18 +302,27 @@ export class GuardedPriceService {
               key: operationKey,
             },
           });
-          if (!journal || journal.state !== InventoryPriceOperationState.ACCEPTED) {
-            operationUnresolved('Guarded acceptance row is not available for execution.');
+          if (
+            !journal ||
+            journal.state !== InventoryPriceOperationState.ACCEPTED
+          ) {
+            operationUnresolved(
+              'Guarded acceptance row is not available for execution.',
+            );
           }
 
-          await lockJournalRow(tx, tenantId, journal.id);
+          await lockGuardedPriceJournalRow(tx, tenantId, journal.id);
 
           if (guardedPriceTestHooks.failTxEAfterJournalLock) {
             throw new Error('GUARDED_PRICE_TEST_TX_E_FAIL');
           }
 
-          const item = await this.requireAuthorizedItem(tx, tenantId, intent.itemId);
-          await lockCatalogItem(tx, tenantId, intent.itemId);
+          const item = await this.requireAuthorizedItem(
+            tx,
+            tenantId,
+            intent.itemId,
+          );
+          await lockGuardedPriceCatalogItem(tx, tenantId, intent.itemId);
 
           const currentRevision = revisionFromDb(item.revision);
           if (currentRevision !== intent.expectedRevision) {
@@ -302,7 +369,10 @@ export class GuardedPriceService {
 
           return { kind: 'applied' as const, item: updated };
         },
-        { timeout: 30_000, isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+        {
+          timeout: 30_000,
+          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+        },
       );
 
       if (outcome.kind === 'conflict') {
@@ -318,7 +388,9 @@ export class GuardedPriceService {
       return toCatalogItemResponseDto(outcome.item);
     } catch (error) {
       if (isLockTimeoutError(error)) {
-        operationUnresolved('Guarded execution could not acquire row locks in time.');
+        operationUnresolved(
+          'Guarded execution could not acquire row locks in time.',
+        );
       }
       throw error;
     }
@@ -329,7 +401,9 @@ export class GuardedPriceService {
     tenantId: string,
     itemId: string,
   ) {
-    assertCanMutateInventoryStock(this.tenantContext.getAuthenticatedUser()?.role);
+    assertCanMutateInventoryStock(
+      this.tenantContext.getAuthenticatedUser()?.role,
+    );
     const item = await tx.catalogItem.findFirst({
       where: { id: itemId, tenant_id: tenantId },
     });
@@ -338,32 +412,4 @@ export class GuardedPriceService {
     }
     return item;
   }
-}
-
-async function lockJournalRow(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  journalId: string,
-): Promise<void> {
-  await tx.$queryRaw`
-    SELECT id
-    FROM inventory_price_operations
-    WHERE tenant_id = ${tenantId}
-      AND id = ${journalId}
-    FOR UPDATE
-  `;
-}
-
-async function lockCatalogItem(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  itemId: string,
-): Promise<void> {
-  await tx.$queryRaw`
-    SELECT id
-    FROM catalog_items
-    WHERE tenant_id = ${tenantId}
-      AND id = ${itemId}
-    FOR UPDATE
-  `;
 }

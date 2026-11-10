@@ -1,4 +1,7 @@
-import { guardedRequestInvalid, idempotencyKeyExpired } from './guarded-price.errors.js';
+import {
+  guardedRequestInvalid,
+  idempotencyKeyExpired,
+} from './guarded-price.errors.js';
 import { isUuidV7, uuidV7TimestampMillis } from './guarded-price.uuid.js';
 
 const ADMISSION_PAST_MS = 24 * 60 * 60 * 1000;
@@ -10,7 +13,9 @@ export function resolveOperationKey(
 ): string {
   const raw = headerValue?.trim() || queryOperationKey?.trim() || '';
   if (!raw) {
-    guardedRequestInvalid('A UUIDv7 Idempotency-Key header or operationKey query is required.');
+    guardedRequestInvalid(
+      'A UUIDv7 Idempotency-Key header or operationKey query is required.',
+    );
   }
   if (!isUuidV7(raw)) {
     guardedRequestInvalid('Operation key must be a UUIDv7.');
@@ -18,7 +23,10 @@ export function resolveOperationKey(
   return raw;
 }
 
-export function assertKeyAdmissionOnNoRowInsert(key: string, now = Date.now()): void {
+export function assertKeyAdmissionOnNoRowInsert(
+  key: string,
+  now = Date.now(),
+): void {
   const keyTime = uuidV7TimestampMillis(key);
   if (keyTime === null) {
     guardedRequestInvalid('Operation key must be a UUIDv7.');

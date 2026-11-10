@@ -143,13 +143,26 @@ export class InventoryController {
       ],
     },
   })
-  @ApiResponse({ status: 200, type: GuardedPriceReceiptDto, description: 'Guarded price receipt (retail_price + expectedRevision body)' })
+  @ApiResponse({
+    status: 200,
+    type: GuardedPriceReceiptDto,
+    description: 'Guarded price receipt (retail_price + expectedRevision body)',
+  })
   @ApiResponse({ status: 400, type: GuardedPriceErrorDto })
   @ApiResponse({ status: 409, type: GuardedPriceErrorDto })
   @ApiResponse({ status: 410, type: GuardedPriceErrorDto })
   @ApiResponse({ status: 422, type: GuardedPriceErrorDto })
-  @ApiHeader({ name: 'Idempotency-Key', required: false, description: 'UUIDv7; required for guarded PATCH (expectedRevision present)' })
-  @ApiQuery({ name: 'operationKey', required: false, description: 'Fallback for Idempotency-Key when a proxy strips the header' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      'UUIDv7; required for guarded PATCH (expectedRevision present)',
+  })
+  @ApiQuery({
+    name: 'operationKey',
+    required: false,
+    description: 'Fallback for Idempotency-Key when a proxy strips the header',
+  })
   async updateItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request,
