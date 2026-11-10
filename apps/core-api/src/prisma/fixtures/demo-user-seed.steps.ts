@@ -32,7 +32,11 @@ export async function resolveOrCreateDemoUser(
   foundation: TenantFoundationContext,
   tenantId: string,
   def: DemoUserDefinition,
-): Promise<{ id: string; firebaseUid: string | null; active_site_id: string | null }> {
+): Promise<{
+  id: string;
+  firebaseUid: string | null;
+  active_site_id: string | null;
+}> {
   const email = def.email.toLowerCase().trim();
 
   let user = def.firebaseUid
