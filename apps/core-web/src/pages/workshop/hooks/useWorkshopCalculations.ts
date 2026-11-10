@@ -120,6 +120,29 @@ export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
   }
 }
 
+export function buildDiscountSeedFromInvoice(
+  checkoutLineRows: Array<{ rowKey: string; lineItem: WorkshopTaskLineItem }>,
+  fetchedInvoice: Invoice,
+): Record<string, DiscountState> {
+  const seed: Record<string, DiscountState> = {}
+  checkoutLineRows.forEach((lineRow) => {
+    const invoiceItem = findInvoiceItemForWorkshopLine(
+      fetchedInvoice.items,
+      lineRow.lineItem.id,
+    )
+    if (!invoiceItem) return
+    seed[lineRow.rowKey] = {
+      type: invoiceItem.line_discount_type ?? null,
+      value:
+        invoiceItem.line_discount_value !== null &&
+        invoiceItem.line_discount_value !== undefined
+          ? String(invoiceItem.line_discount_value)
+          : '',
+    }
+  })
+  return seed
+}
+
 export function createCheckoutLineSummary(
   row: { rowKey: string; taskId: string; lineItem: WorkshopTaskLineItem },
   lineDiscountOverrides: Record<string, DiscountState>,
@@ -243,58 +266,31 @@ export function useWorkshopCalculations({
     [tasks],
   )
 
-  // ── Base order totals (pre-discount) ──────────────────────────────────
-  const baseOrderPartsTotal = useMemo(
-    () => Array.from(rawTaskTotals.values()).reduce((sum, t) => sum + t.parts, 0),
-    [rawTaskTotals],
-  )
-  const baseOrderFeesTotal = useMemo(
-    () => Array.from(rawTaskTotals.values()).reduce((sum, t) => sum + t.fees, 0),
-    [rawTaskTotals],
-  )
-  const baseOrderLaborTotal = useMemo(
-    () => Array.from(rawTaskTotals.values()).reduce((sum, t) => sum + t.labor, 0),
-    [rawTaskTotals],
-  )
-  const baseOrderLaborInternalCostTotal = useMemo(
-    () =>
-      Array.from(rawTaskTotals.values()).reduce(
-        (sum, t) => sum + t.laborInternalCost,
+  const baseOrderTotals = useMemo(() => {
+    const values = Array.from(rawTaskTotals.values())
+    return {
+      parts: values.reduce((sum, taskTotals) => sum + taskTotals.parts, 0),
+      fees: values.reduce((sum, taskTotals) => sum + taskTotals.fees, 0),
+      labor: values.reduce((sum, taskTotals) => sum + taskTotals.labor, 0),
+      laborInternalCost: values.reduce(
+        (sum, taskTotals) => sum + taskTotals.laborInternalCost,
         0,
       ),
-    [rawTaskTotals],
-  )
-  const hasOrderLaborCostData = useMemo(
-    () => Array.from(rawTaskTotals.values()).some((t) => t.hasLaborCostData),
-    [rawTaskTotals],
-  )
+      hasLaborCostData: values.some((taskTotals) => taskTotals.hasLaborCostData),
+    }
+  }, [rawTaskTotals])
 
   // ── Flat list of checkout line rows ───────────────────────────────────
   const checkoutLineRows = useMemo(() => buildBillableCheckoutLineRows(tasks), [tasks])
 
   // ── Discount seed from existing invoice ───────────────────────────────
-  const discountSeedFromInvoice = useMemo(() => {
-    const seed: Record<string, DiscountState> = {}
-    if (!fetchedInvoice) return seed
-
-    checkoutLineRows.forEach((lineRow) => {
-      const invoiceItem = findInvoiceItemForWorkshopLine(
-        fetchedInvoice.items,
-        lineRow.lineItem.id,
-      )
-      if (!invoiceItem) return
-      seed[lineRow.rowKey] = {
-        type: invoiceItem.line_discount_type ?? null,
-        value:
-          invoiceItem.line_discount_value !== null &&
-          invoiceItem.line_discount_value !== undefined
-            ? String(invoiceItem.line_discount_value)
-            : '',
-      }
-    })
-
-    return seed
-  }, [checkoutLineRows, fetchedInvoice])
+  const discountSeedFromInvoice = useMemo(
+    () =>
+      fetchedInvoice
+        ? buildDiscountSeedFromInvoice(checkoutLineRows, fetchedInvoice)
+        : {},
+    [checkoutLineRows, fetchedInvoice],
+  )
 
   // ── Per-line summaries (base, discount, net, tax) ─────────────────────
   const checkoutLineSummaries = useMemo<CheckoutLineSummary[]>(
@@ -342,14 +338,14 @@ export function useWorkshopCalculations({
   )
 
   // ── View-aware order totals ───────────────────────────────────────────
-  const orderPartsTotal = isCheckoutView ? checkoutPartsTotal : baseOrderPartsTotal
-  const orderFeesTotal = isCheckoutView ? checkoutFeesTotal : baseOrderFeesTotal
-  const orderLaborTotal = isCheckoutView ? checkoutLaborTotal : baseOrderLaborTotal
+  const orderPartsTotal = isCheckoutView ? checkoutPartsTotal : baseOrderTotals.parts
+  const orderFeesTotal = isCheckoutView ? checkoutFeesTotal : baseOrderTotals.fees
+  const orderLaborTotal = isCheckoutView ? checkoutLaborTotal : baseOrderTotals.labor
   const orderGrandTotal = orderPartsTotal + orderFeesTotal + orderLaborTotal
   const orderLaborRevenue = orderLaborTotal
-  const orderLaborInternalCostTotal = baseOrderLaborInternalCostTotal
+  const orderLaborInternalCostTotal = baseOrderTotals.laborInternalCost
   const orderLaborMarginPercent =
-    hasOrderLaborCostData && orderLaborRevenue > 0
+    baseOrderTotals.hasLaborCostData && orderLaborRevenue > 0
       ? ((orderLaborRevenue - orderLaborInternalCostTotal) / orderLaborRevenue) * 100
       : null
 
@@ -359,9 +355,9 @@ export function useWorkshopCalculations({
     // Per-task raw totals
     rawTaskTotals,
     // Base order totals
-    baseOrderPartsTotal,
-    baseOrderFeesTotal,
-    baseOrderLaborTotal,
+    baseOrderPartsTotal: baseOrderTotals.parts,
+    baseOrderFeesTotal: baseOrderTotals.fees,
+    baseOrderLaborTotal: baseOrderTotals.labor,
     // Checkout structures
     checkoutLineRows,
     checkoutLineSummaries,
@@ -387,6 +383,6 @@ export function useWorkshopCalculations({
     orderLaborRevenue,
     orderLaborInternalCostTotal,
     orderLaborMarginPercent,
-    hasOrderLaborCostData,
+    hasOrderLaborCostData: baseOrderTotals.hasLaborCostData,
   }
 }

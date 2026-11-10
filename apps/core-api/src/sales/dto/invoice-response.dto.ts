@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DiscountType, InvoiceStatus, InvoiceTaxMode } from '@prisma/client';
-import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
-import { VehicleResponseDto } from '../../vehicle/dto/vehicle-response.dto.js';
 import { ListCursorPageMetaDto } from '../../common/dto/list-cursor-response.dto.js';
+import { CustomerVehicleReferenceDto } from './customer-vehicle-reference.dto.js';
 
 export class InvoiceItemResponseDto {
   @ApiProperty()
@@ -44,7 +43,7 @@ export class InvoiceItemResponseDto {
   revenue_group_name?: string | null;
 }
 
-export class InvoiceResponseDto {
+export class InvoiceResponseDto extends CustomerVehicleReferenceDto {
   @ApiProperty()
   id!: string;
 
@@ -53,22 +52,6 @@ export class InvoiceResponseDto {
 
   @ApiProperty({ enum: InvoiceStatus, enumName: 'InvoiceStatus' })
   status!: InvoiceStatus;
-
-  @ApiProperty()
-  customer_id!: string;
-
-  @ApiProperty({ type: () => CustomerResponseDto })
-  customer!: CustomerResponseDto;
-
-  @ApiProperty({ type: String, required: false, nullable: true })
-  vehicle_id?: string | null;
-
-  @ApiProperty({
-    type: () => VehicleResponseDto,
-    required: false,
-    nullable: true,
-  })
-  vehicle?: VehicleResponseDto | null;
 
   @ApiProperty({ type: String, required: false, nullable: true })
   sales_order_id?: string | null;

@@ -382,6 +382,7 @@ VALUES
   ('invoice_items', 'catalog_items', 'catalog_item_id', 'id', 'SET NULL', 'CASCADE'),
   ('invoice_items', 'invoices', 'invoice_id', 'id', 'CASCADE', 'CASCADE'),
   ('invoice_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('invoice_items', 'workshop_task_line_items', 'workshop_task_line_item_id', 'id', 'SET NULL', 'CASCADE'),
   ('invoice_sequences', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('invoices', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
   ('invoices', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),

@@ -6584,8 +6584,6 @@ export interface components {
             internalNotes?: string;
             items: components["schemas"]["CreateInvoiceItemDto"][];
         };
-        /** @enum {string} */
-        InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
         WouldChangeItemDto: {
             /**
              * @description The entity/model name that would change
@@ -6752,6 +6750,8 @@ export interface components {
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
         };
         /** @enum {string} */
+        InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
+        /** @enum {string} */
         InvoiceTaxMode: "STANDARD" | "MARGIN_SCHEME";
         /** @enum {string} */
         DiscountType: "PERCENTAGE" | "FLAT_AMOUNT";
@@ -6771,13 +6771,13 @@ export interface components {
             revenue_group_name?: string | null;
         };
         InvoiceResponseDto: {
-            id: string;
-            invoice_number?: string | null;
-            status: components["schemas"]["InvoiceStatus"];
             customer_id: string;
             customer: components["schemas"]["CustomerResponseDto"];
             vehicle_id?: string | null;
             vehicle?: components["schemas"]["VehicleResponseDto"] | null;
+            id: string;
+            invoice_number?: string | null;
+            status: components["schemas"]["InvoiceStatus"];
             sales_order_id?: string | null;
             workshop_order_id?: string | null;
             /** Format: date-time */
@@ -7414,12 +7414,12 @@ export interface components {
             invoice_number?: string | null;
         };
         SalesOrderResponseDto: {
-            id: string;
-            order_number: string;
             customer_id: string;
             customer: components["schemas"]["CustomerResponseDto"];
             vehicle_id?: string | null;
             vehicle?: components["schemas"]["VehicleResponseDto"] | null;
+            id: string;
+            order_number: string;
             status: components["schemas"]["SalesOrderStatus"];
             /** @example 100.00 */
             total_amount: string;

@@ -1,9 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  useWorkshopCheckout,
-  buildInvoiceLineDiscountUpdates,
-} from './useWorkshopCheckout'
+import { useWorkshopCheckout } from './useWorkshopCheckout'
+import { buildInvoiceLineDiscountUpdates } from './useWorkshopCheckout.logic'
 import * as salesApi from '@/api/sales'
 import * as invoicesApi from '@/api/invoices'
 import { toast } from 'sonner'

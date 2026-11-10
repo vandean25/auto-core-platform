@@ -89,3 +89,13 @@ export function resolveCheckoutLineTaxRate(
   }
   return WORKSHOP_CHECKOUT_DEFAULT_VAT_RATE
 }
+
+export function resolveCheckoutFooterTotal(
+  isCheckoutOpen: boolean,
+  hasLoadedInvoice: boolean,
+  checkoutGrossTotal: number,
+  orderGrandTotal: number,
+): number {
+  if (isCheckoutOpen || hasLoadedInvoice) return checkoutGrossTotal
+  return orderGrandTotal
+}

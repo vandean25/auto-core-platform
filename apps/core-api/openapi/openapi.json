@@ -21339,16 +21339,6 @@
           "items"
         ]
       },
-      "InvoiceStatus": {
-        "type": "string",
-        "enum": [
-          "DRAFT",
-          "FINALIZED",
-          "ISSUED",
-          "PAID",
-          "CANCELLED"
-        ]
-      },
       "WouldChangeItemDto": {
         "type": "object",
         "properties": {
@@ -21898,6 +21888,16 @@
           "year"
         ]
       },
+      "InvoiceStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "FINALIZED",
+          "ISSUED",
+          "PAID",
+          "CANCELLED"
+        ]
+      },
       "InvoiceTaxMode": {
         "type": "string",
         "enum": [
@@ -21972,20 +21972,6 @@
       "InvoiceResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "invoice_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "status": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/InvoiceStatus"
-              }
-            ]
-          },
           "customer_id": {
             "type": "string"
           },
@@ -22002,6 +21988,20 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/VehicleResponseDto"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "invoice_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvoiceStatus"
               }
             ]
           },
@@ -22081,10 +22081,10 @@
           }
         },
         "required": [
-          "id",
-          "status",
           "customer_id",
           "customer",
+          "id",
+          "status",
           "date",
           "due_date",
           "total_net",
@@ -24525,12 +24525,6 @@
       "SalesOrderResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "order_number": {
-            "type": "string"
-          },
           "customer_id": {
             "type": "string"
           },
@@ -24549,6 +24543,12 @@
                 "$ref": "#/components/schemas/VehicleResponseDto"
               }
             ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "order_number": {
+            "type": "string"
           },
           "status": {
             "allOf": [
@@ -24586,10 +24586,10 @@
           }
         },
         "required": [
-          "id",
-          "order_number",
           "customer_id",
           "customer",
+          "id",
+          "order_number",
           "status",
           "total_amount",
           "items",
