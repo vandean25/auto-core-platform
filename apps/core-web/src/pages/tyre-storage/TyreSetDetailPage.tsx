@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, LogIn, LogOut, MoveRight, Pencil, Printer, Trash2 } from 'lucide-react'
@@ -13,7 +13,7 @@ import { createTyreSetTyreMeasurementAction, type TyreSetRowActionContext } from
 import { TyreReport } from '@/features/tyre-report/TyreReport'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateTime, formatIsoDateOnly } from '@/lib/format'
-import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 import { canRecordTyreMeasurement } from '@/features/actions/action-role-predicates'
 import { TyreSetActionDialog } from '@/features/tyre-storage/TyreSetActionDialog'
@@ -251,15 +251,6 @@ function canInspectTyreSet(
   return action.isAllowedForRole(role) && Boolean(tyreSet && action.isEnabled(tyreSet))
 }
 
-function useInventoryLocaleReady(): boolean {
-  const [ready, setReady] = useState(() => i18n.hasResourceBundle(i18n.language, 'inventory'))
-  useEffect(() => {
-    if (ready) return
-    void ensureNamespaceLoaded('inventory').then(() => setReady(true))
-  }, [ready])
-  return ready
-}
-
 function TyreSetDetailLoading() {
   const { t } = useTranslation('inventory')
   return <p className="text-muted-foreground">{t('tyreStorage.detail.loading')}</p>
@@ -377,7 +368,8 @@ function TyreSetDetailView({
 }
 
 export default function TyreSetDetailPage() {
-  const inventoryLocaleReady = useInventoryLocaleReady()
+  const { status: inventoryLocaleStatus, retry: retryInventoryLocale } =
+    useLazyNamespaceBundleReady(['inventory'])
   const { id } = useParams<{ id: string }>()
   const { data: tyreSet, isLoading, isError, refetch } = useTyreSet(id)
   const [action, setAction] = useState<ActionKind | null>(null)
@@ -403,7 +395,10 @@ export default function TyreSetDetailPage() {
     }
   }
 
-  if (!inventoryLocaleReady) return <PageLoader />
+  if (inventoryLocaleStatus === 'loading') return <PageLoader />
+  if (inventoryLocaleStatus === 'failed') {
+    return <LocaleBundleLoadFailed onRetry={retryInventoryLocale} />
+  }
   if (isLoading) return <TyreSetDetailLoading />
   if (isError || !tyreSet) return <TyreSetDetailLoadError onRetry={() => void refetch()} />
 

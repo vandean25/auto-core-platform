@@ -31,6 +31,9 @@ import deWorkshop from '../../../../../locales/de/workshop.json'
 import { deCustomers } from '@/test/de-customers'
 import TyreSetDetailPage from '@/pages/tyre-storage/TyreSetDetailPage'
 import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
+import * as initI18n from '@/lib/i18n/init-i18n'
+import { FinanceLocaleGate } from '@/components/finance/FinanceLocaleGate'
+import deCommon from '../../../../../locales/de/common.json'
 import { stripLazyNamespacesForTest } from '@/test/lazy-namespace-test-helpers'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
@@ -273,5 +276,76 @@ describe('lazy namespace first paint (AUT-945)', () => {
     render(<InvoiceSettlementActions invoiceId="inv-1" invoiceStatus="ISSUED" canManage />)
     expect(document.body.textContent).not.toMatch(/settlement\.fiscalOff/)
     expect(await screen.findByText(deFinance.settlement.fiscalOff)).toBeInTheDocument()
+  })
+
+  describe('lazy namespace chunk load failure', () => {
+    let loadSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      loadSpy = vi.spyOn(initI18n, 'ensureNamespaceLoaded').mockRejectedValue(new Error('chunk failed'))
+    })
+
+    afterEach(() => {
+      loadSpy.mockRestore()
+    })
+
+    async function expectBundleFailureUi() {
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent(deCommon.localeBundle.loadFailed)
+      expect(screen.getByRole('button', { name: deCommon.localeBundle.retry })).toBeInTheDocument()
+    }
+
+    it('LazyNamespaceLayout surfaces bundle failure and retry', async () => {
+      renderWithProviders(
+        <MemoryRouter>
+          <Routes>
+            <Route element={<LazyNamespaceLayout namespaces={['inventory']} />}>
+              <Route path="/" element={<span>ready child</span>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>,
+      )
+      await expectBundleFailureUi()
+      expect(screen.queryByText('ready child')).not.toBeInTheDocument()
+    })
+
+    it('LazyNamespaceContentGate surfaces bundle failure and retry', async () => {
+      render(
+        <LazyNamespaceContentGate namespaces={['customers']}>
+          <span>gated child</span>
+        </LazyNamespaceContentGate>,
+      )
+      await expectBundleFailureUi()
+      expect(screen.queryByText('gated child')).not.toBeInTheDocument()
+    })
+
+    it('FinanceLocaleGate surfaces bundle failure and retry', async () => {
+      render(
+        <FinanceLocaleGate>
+          <span>finance child</span>
+        </FinanceLocaleGate>,
+      )
+      await expectBundleFailureUi()
+      expect(screen.queryByText('finance child')).not.toBeInTheDocument()
+    })
+
+    it('TyreSetDetailPage surfaces inventory bundle failure and retry', async () => {
+      vi.mocked(useAuthSession).mockReturnValue({ data: { activeRole: 'ADMIN' } } as never)
+      vi.mocked(useTyreSet).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        refetch: vi.fn(),
+      } as never)
+
+      renderWithProviders(
+        <MemoryRouter initialEntries={['/workshop/tyre-storage/set-1']}>
+          <Routes>
+            <Route path="/workshop/tyre-storage/:id" element={<TyreSetDetailPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+      await expectBundleFailureUi()
+    })
   })
 })

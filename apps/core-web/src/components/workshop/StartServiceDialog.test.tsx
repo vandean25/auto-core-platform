@@ -1,9 +1,12 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, it, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StartServiceDialog } from './StartServiceDialog'
 import * as workshopApi from '@/api/workshop'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
 import { deWorkshop } from '@/test/de-workshop'
+import deCommon from '../../../../../locales/de/common.json'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { stripLazyNamespacesForTest } from '@/test/lazy-namespace-test-helpers'
 
 const ss = deWorkshop.startService
 
@@ -18,6 +21,7 @@ vi.mock('sonner', () => ({
 describe('StartServiceDialog', () => {
   afterEach(() => {
     cleanup()
+    void ensureNamespaceLoaded('workshop')
   })
 
   beforeEach(() => {
@@ -64,5 +68,22 @@ describe('StartServiceDialog', () => {
     await screen.findByText(ss.fuelRange)
     expectFieldErrorLinked(screen.getByLabelText(ss.fuelLevel), ss.fuelRange)
     expectFieldValid(screen.getByLabelText(ss.odometer))
+  })
+
+  it('renders no bundle gate copy while the dialog stays closed', () => {
+    stripLazyNamespacesForTest()
+    render(
+      <StartServiceDialog
+        open={false}
+        onOpenChange={vi.fn()}
+        customerId="customer-1"
+        vehicleId="vehicle-1"
+        vehicleDescription="VW Golf"
+      />,
+    )
+
+    expect(screen.queryByText(deCommon.shell.loading)).not.toBeInTheDocument()
+    expect(screen.queryByText(deCommon.localeBundle.loadFailed)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
