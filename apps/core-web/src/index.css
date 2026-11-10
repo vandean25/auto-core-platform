@@ -202,13 +202,13 @@
   --sticky-bottom-chrome-h: 0px;
 }
 
+/* Collapsed workshop checkout footer floor until ResizeObserver publishes live height (AUT-919, AUT-948). */
+:root:has([data-sticky-bottom-chrome]) {
+  --sticky-bottom-chrome-floor: 7rem;
+}
+
 @media (max-width: 767.98px) {
   :root:has([data-phone-nav]) {
     --phone-nav-h: calc(3.5rem + 1px + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* Collapsed workshop checkout footer floor until ResizeObserver publishes live height (AUT-919). */
-  :root:has([data-sticky-bottom-chrome]) {
-    --sticky-bottom-chrome-floor: 7rem;
   }
 }

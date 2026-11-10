@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
 
 const CSS_VAR = '--sticky-bottom-chrome-h'
-const PHONE_LAYOUT_MAX_PX = 767.98
-/** Matches index.css floor until ResizeObserver reports a taller collapsed footer (AUT-919). */
+/** Matches index.css floor until ResizeObserver reports a taller collapsed footer (AUT-919, AUT-948). */
 const STICKY_CHROME_FLOOR_PX = 112
 
 function setStickyBottomChromeHeight(root: HTMLElement, heightPx: number) {
@@ -13,7 +12,7 @@ function clearStickyBottomChromeHeight(root: HTMLElement) {
   root.style.removeProperty(CSS_VAR)
 }
 
-/** Publishes sticky checkout/totals chrome height for mobile toast and action-bar offsets. */
+/** Publishes sticky checkout/totals chrome height for toast and action-bar offsets. */
 export function useStickyBottomChromeHeight<T extends HTMLElement>() {
   const ref = useRef<T>(null)
 
@@ -25,10 +24,6 @@ export function useStickyBottomChromeHeight<T extends HTMLElement>() {
 
     const update = () => {
       if (!el.isConnected) {
-        return
-      }
-      if (window.innerWidth > PHONE_LAYOUT_MAX_PX) {
-        clearStickyBottomChromeHeight(root)
         return
       }
       const measured = Math.max(el.offsetHeight, el.getBoundingClientRect().height)
