@@ -248,6 +248,17 @@ These rules apply when `VehicleValuationSnapshot` exists. This spec PR does not 
 
 The snapshot does not reference `VehiclePurchase` or `VehicleSale`, because this feature does not write those prices.
 
+## ADR-0039 — Server-side saved views (AUT-885)
+
+These rules are defined by [ADR-0039](internal/01-ADR/2026-11-09-server-side-saved-views.md). This documentation change creates no tables or endpoints; the rules apply when the schema ships.
+
+| Entity | Delete | Rule |
+|---|---|---|
+| `saved_views` (PERSONAL) | Owner | Hard delete by the row's `owner_user_id` only. Membership removal deletes the member's PERSONAL rows in the removal transaction. |
+| `saved_views` (TENANT) | Authorized manager | Hard delete and unshare (non-null owner) only with `views.shared.manage`. Copy from TENANT with non-null owner uses §7 (`list_path` read). Orphan TENANT rows: managers may edit or hard-delete in place; unshare forbidden; **claim** only (ADR-0039 §17) requires `list_path` read and `views.shared.manage`, copies into the caller’s PERSONAL views, leaves the TENANT row orphaned. |
+| `saved_views` | Tenant purge | Cascade delete all rows with the tenant. |
+| `saved_view_imports` | No | One marker per `(tenant_id, user_id)`; retained across membership removal so rejoin cannot re-import. Removed only on tenant purge (cascade). |
+
 ## ADR-0034 — Custom tenant roles (proposed)
 
 These rules are proposed by [ADR-0034](internal/01-ADR/2026-11-02-custom-tenant-roles.md). This documentation change creates no tables or endpoints; the rules become enforced requirements with the corresponding implementation.
