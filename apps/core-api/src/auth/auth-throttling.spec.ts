@@ -3,10 +3,13 @@ import type { INestApplication } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import request from 'supertest';
 import { AuthController } from './auth.controller.js';
 import { AuthSessionService } from './auth-session.service.js';
+import { ScopeContextResponseHeadersInterceptor } from './scope-context/scope-context-response-headers.interceptor.js';
+import { ScopeContextLogoutService } from './scope-context/scope-context-logout.service.js';
+import { ScopeContextService } from './scope-context/scope-context.service.js';
 import {
   AUTH_ME_RATE_LIMIT,
   AUTH_SWITCH_TENANT_RATE_LIMIT,
@@ -26,6 +29,18 @@ describe('auth throttling', () => {
       shouldThrottleAuthRoute({
         method: 'POST',
         originalUrl: '/api/auth/switch-tenant',
+      } as Request),
+    ).toBe(true);
+    expect(
+      shouldThrottleAuthRoute({
+        method: 'POST',
+        originalUrl: '/api/auth/scope-context',
+      } as Request),
+    ).toBe(true);
+    expect(
+      shouldThrottleAuthRoute({
+        method: 'POST',
+        originalUrl: '/api/auth/logout',
       } as Request),
     ).toBe(true);
     expect(
@@ -65,6 +80,21 @@ class CustomersController {
       },
     },
     {
+      provide: ScopeContextService,
+      useValue: {
+        handshake: jest.fn().mockResolvedValue({
+          scopeContext: 'sc',
+          scopeContextDigest: 'digest',
+          continuityDigest: 'lineage',
+        }),
+      },
+    },
+    {
+      provide: ScopeContextLogoutService,
+      useValue: { logout: jest.fn() },
+    },
+    ScopeContextResponseHeadersInterceptor,
+    {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
@@ -80,6 +110,15 @@ describe('auth throttling integration', () => {
       imports: [AuthThrottlingTestModule],
     }).compile();
     app = moduleRef.createNestApplication();
+    app.use((req: Request, _res: Response, next: NextFunction) => {
+      (req as Request & { user: unknown }).user = {
+        userId: 'user-1',
+        email: 'user@example.com',
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+      };
+      next();
+    });
     await app.init();
   });
 
@@ -108,5 +147,16 @@ describe('auth throttling integration', () => {
     for (let attempt = 0; attempt < 11; attempt += 1) {
       await request(server).get('/customers').expect(200);
     }
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await request(server)
+        .post('/auth/scope-context')
+        .set('Authorization', 'Bearer test-token')
+        .expect(200);
+    }
+    await request(server)
+      .post('/auth/scope-context')
+      .set('Authorization', 'Bearer test-token')
+      .expect(429);
   });
 });

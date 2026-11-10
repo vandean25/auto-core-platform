@@ -8,6 +8,10 @@ import {
 import { Reflector } from '@nestjs/core';
 import { type Observable, from, firstValueFrom } from 'rxjs';
 import type { Request, Response } from 'express';
+import {
+  getHttpRequestResponse,
+  passthroughUnlessHttpContext,
+} from '../common/nest/http-execution-context.js';
 import { DryRunService } from './dry-run.service.js';
 import {
   DRY_RUN_SUPPORTED_KEY,
@@ -29,12 +33,12 @@ export class DryRunInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    if (context.getType() !== 'http') {
-      return next.handle();
+    const nonHttp = passthroughUnlessHttpContext(context, next);
+    if (nonHttp) {
+      return nonHttp;
     }
 
-    const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
+    const { request } = getHttpRequestResponse(context);
 
     const isDryRunRequested = this.isDryRunRequested(request);
 

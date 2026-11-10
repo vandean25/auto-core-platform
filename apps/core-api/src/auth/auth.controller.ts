@@ -1,8 +1,22 @@
-import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseInterceptors,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOkResponse } from '@nestjs/swagger';
+import {
+  ApiHeader,
+  ApiNoContentResponse,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator.js';
+import { ScopeContextResponseHeadersInterceptor } from './scope-context/scope-context-response-headers.interceptor.js';
 import {
   AuthSessionService,
   type AuthSession,
@@ -11,15 +25,26 @@ import {
   AuthSessionResponseDto,
   SwitchTenantDto,
 } from './dto/auth-session.dto.js';
-import type { AuthenticatedUser } from './types/authenticated-user.js';
+import { extractBearerTokenFromHeader } from './bearer-authorization.js';
+import type {
+  AuthenticatedUser,
+  TenantAuthenticatedUser,
+} from './types/authenticated-user.js';
 import {
   AUTH_ME_RATE_LIMIT,
   AUTH_SWITCH_TENANT_RATE_LIMIT,
 } from './auth-throttling.js';
+import { ScopeContextHandshakeResponseDto } from './scope-context/dto/scope-context-response.dto.js';
+import { ScopeContextLogoutService } from './scope-context/scope-context-logout.service.js';
+import { ScopeContextService } from './scope-context/scope-context.service.js';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authSessionService: AuthSessionService) {}
+  constructor(
+    private readonly authSessionService: AuthSessionService,
+    private readonly scopeContextService: ScopeContextService,
+    private readonly scopeContextLogoutService: ScopeContextLogoutService,
+  ) {}
 
   @Get('me')
   @Throttle({ default: AUTH_ME_RATE_LIMIT })
@@ -40,5 +65,45 @@ export class AuthController {
     @Body() dto: SwitchTenantDto,
   ): Promise<AuthSession> {
     return this.authSessionService.switchTenant(request.user, dto.tenantId);
+  }
+
+  @Post('scope-context')
+  @Throttle({ default: AUTH_SWITCH_TENANT_RATE_LIMIT })
+  @MechanicAccessible()
+  @UseInterceptors(ScopeContextResponseHeadersInterceptor)
+  @HttpCode(200)
+  @ApiHeader({ name: 'Authorization', required: true })
+  @ApiOkResponse({ type: ScopeContextHandshakeResponseDto })
+  async scopeContext(
+    @Req() request: Request & { user: AuthenticatedUser },
+  ): Promise<ScopeContextHandshakeResponseDto> {
+    if (!request.user.tenantId) {
+      throw new UnauthorizedException('Tenant session required.');
+    }
+    const token = extractBearerTokenFromHeader(request.headers.authorization);
+    return this.scopeContextService.handshake(
+      request.user as TenantAuthenticatedUser,
+      token,
+    );
+  }
+
+  @Post('logout')
+  @Throttle({ default: AUTH_SWITCH_TENANT_RATE_LIMIT })
+  @MechanicAccessible()
+  @UseInterceptors(ScopeContextResponseHeadersInterceptor)
+  @HttpCode(204)
+  @ApiHeader({ name: 'Authorization', required: true })
+  @ApiNoContentResponse({ description: 'Session lineage ended.' })
+  async logout(
+    @Req() request: Request & { user: AuthenticatedUser },
+  ): Promise<void> {
+    if (!request.user.tenantId) {
+      throw new UnauthorizedException('Tenant session required.');
+    }
+    const token = extractBearerTokenFromHeader(request.headers.authorization);
+    await this.scopeContextLogoutService.logout(
+      request.user as TenantAuthenticatedUser,
+      token,
+    );
   }
 }

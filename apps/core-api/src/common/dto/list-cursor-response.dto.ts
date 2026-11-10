@@ -6,6 +6,13 @@ export class CappedListCountResponseDto {
 
   @ApiProperty()
   isCapped!: boolean;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8).',
+  })
+  scopeContextDigest?: string;
 }
 
 export class ListCursorPageMetaDto {
@@ -17,4 +24,11 @@ export class ListCursorPageMetaDto {
 
   @ApiProperty({ minimum: 1 })
   limit!: number;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8).',
+  })
+  scopeContextDigest?: string;
 }

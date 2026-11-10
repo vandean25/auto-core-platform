@@ -4,13 +4,15 @@ import { isSingleLineText } from '../notifications/email/header-text.js';
 export const DEMO_ACCESS_DURATION_DAYS = 14;
 export const DEMO_MAGIC_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
-const DEMO_MUTATION_ALLOWED_EXACT = new Set([
+export const DEMO_MUTATION_ALLOWED_EXACT = new Set([
   '/api/auth/switch-tenant',
+  '/api/auth/scope-context',
+  '/api/auth/logout',
   '/api/auth/me/preferences',
   '/api/me/active-site',
 ]);
 
-const DEMO_MUTATION_ALLOWED_PREFIXES = [
+export const DEMO_MUTATION_ALLOWED_PREFIXES = [
   '/api/customers',
   '/api/vehicles',
   '/api/workshop/orders',
@@ -28,7 +30,7 @@ const DEMO_MUTATION_ALLOWED_PREFIXES = [
   '/api/parts-requisitions',
 ] as const;
 
-const DEMO_MUTATION_BLOCKED_PREFIXES = [
+export const DEMO_MUTATION_BLOCKED_PREFIXES = [
   '/api/settings',
   '/api/platform-admin',
   '/api/platform/',
@@ -63,7 +65,7 @@ const DEMO_MUTATION_BLOCKED_PREFIXES = [
   '/api/workshop/holidays',
 ] as const;
 
-const DEMO_MUTATION_BLOCKED_SUBSTRINGS = [
+export const DEMO_MUTATION_BLOCKED_SUBSTRINGS = [
   '/send',
   '/finalize',
   '/pay',

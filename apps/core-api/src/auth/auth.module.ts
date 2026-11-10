@@ -11,12 +11,14 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { SuperAdminGuard } from './super-admin.guard.js';
 import { AUTH_SERVICE_TOKEN } from './auth.tokens.js';
 import { LandingDemoSignInGrantModule } from '../landing-demo-access/landing-demo-sign-in-grant.module.js';
+import { ScopeContextModule } from './scope-context/scope-context.module.js';
 
 @Module({
   imports: [
     JwtModule.register({}),
     forwardRef(() => PrismaModule),
     LandingDemoSignInGrantModule,
+    ScopeContextModule,
   ],
   controllers: [AuthController, AuthLocalePreferencesController],
   providers: [

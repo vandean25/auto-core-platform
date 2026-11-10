@@ -125,6 +125,59 @@
         ]
       }
     },
+    "/api/auth/scope-context": {
+      "post": {
+        "operationId": "AuthController_scopeContext",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeContextHandshakeResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Session lineage ended."
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/auth/me/preferences": {
       "get": {
         "operationId": "AuthLocalePreferencesController_getPreferences",
@@ -18567,6 +18620,28 @@
           "tenantId"
         ]
       },
+      "ScopeContextHandshakeResponseDto": {
+        "type": "object",
+        "properties": {
+          "scopeContext": {
+            "type": "string",
+            "description": "Opaque HMAC-signed scope context token (X-ACP-Scope-Context)."
+          },
+          "scopeContextDigest": {
+            "type": "string",
+            "description": "SHA-256 digest of the scope context token for cache keys."
+          },
+          "continuityDigest": {
+            "type": "string",
+            "description": "HMAC continuity digest for this sign-in lineage (subject + auth_time)."
+          }
+        },
+        "required": [
+          "scopeContext",
+          "scopeContextDigest",
+          "continuityDigest"
+        ]
+      },
       "UserLocalePreferencesResponseDto": {
         "type": "object",
         "properties": {
@@ -18968,6 +19043,10 @@
           },
           "isCapped": {
             "type": "boolean"
+          },
+          "scopeContextDigest": {
+            "type": "string",
+            "description": "Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8)."
           }
         },
         "required": [
@@ -22110,6 +22189,10 @@
           "limit": {
             "type": "number",
             "minimum": 1
+          },
+          "scopeContextDigest": {
+            "type": "string",
+            "description": "Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8)."
           }
         },
         "required": [
