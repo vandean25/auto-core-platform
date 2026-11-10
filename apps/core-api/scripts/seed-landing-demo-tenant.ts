@@ -131,20 +131,27 @@ async function main() {
 
   const master = loadSeedMasterCopy(LANDING_DEMO_LANGUAGE);
 
-  const tenant = await prisma.tenant.upsert({
-    where: { slug: DEMO_TENANT_SLUG },
-    update: {
-      is_landing_demo_tenant: true,
-      is_active: true,
-      name: master.landingDemo.tenantName,
-      default_locale: LANDING_DEMO_LANGUAGE,
-    },
-    create: {
-      name: master.landingDemo.tenantName,
-      slug: DEMO_TENANT_SLUG,
-      is_landing_demo_tenant: true,
-      default_locale: LANDING_DEMO_LANGUAGE,
-    },
+  const tenant = await prisma.$transaction(async (tx) => {
+    const row = await tx.tenant.upsert({
+      where: { slug: DEMO_TENANT_SLUG },
+      update: {
+        is_landing_demo_tenant: true,
+        is_active: true,
+        name: master.landingDemo.tenantName,
+        default_locale: LANDING_DEMO_LANGUAGE,
+      },
+      create: {
+        name: master.landingDemo.tenantName,
+        slug: DEMO_TENANT_SLUG,
+        is_landing_demo_tenant: true,
+        default_locale: LANDING_DEMO_LANGUAGE,
+      },
+    });
+    await advanceScopeEpoch(tx, {
+      kind: 'tenantAuthorization',
+      tenantId: row.id,
+    });
+    return row;
   });
 
   let legalEntity = await prisma.legalEntity.findFirst({

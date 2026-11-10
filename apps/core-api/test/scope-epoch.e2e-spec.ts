@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { TenantMemberRole } from '@prisma/client';
@@ -5,7 +6,6 @@ import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
 import { UserAccessStatusService } from '../src/auth/user-access-status.service.js';
-import { advanceScopeEpoch } from '../src/auth/scope-epoch.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   createTenantAwarePrisma,
@@ -99,7 +99,54 @@ describe('scope epoch writers (AUT-934)', () => {
     expect(after - before).toBe(2n);
   });
 
-  it('epoch atomic with writer', async () => {
+  it('removeSiteMembership rolls back epoch and row on transaction failure', async () => {
+    const user = await tenantPrisma().user.findFirstOrThrow({
+      where: { email: tenant.email },
+    });
+    const site = await tenantPrisma().site.findFirstOrThrow({
+      where: { tenant_id: tenant.tenantId, code: 'MAIN' },
+    });
+    const membership = await tenantPrisma().siteMembership.findFirstOrThrow({
+      where: {
+        tenant_id: tenant.tenantId,
+        site_id: site.id,
+        user_id: user.id,
+      },
+    });
+    const beforeEpoch = await memberEpoch(user.id);
+
+    const innerClient = prisma.client;
+    const originalTransaction = innerClient.$transaction.bind(innerClient);
+    innerClient.$transaction = async (fn, options) =>
+      originalTransaction(async (tx) => {
+        const deleteMembership = tx.siteMembership.delete.bind(tx.siteMembership);
+        const wrappedTx = Object.assign(tx, {
+          siteMembership: Object.assign(tx.siteMembership, {
+            delete: async (args: { where: { id: string } }) => {
+              await deleteMembership(args);
+              throw new Error('forced rollback');
+            },
+          }),
+        });
+        return fn(wrappedTx);
+      }, options);
+
+    await expect(
+      runWithTenantContext(tenant.tenantId, () =>
+        siteService.removeSiteMembership(site.id, user.id),
+      ),
+    ).rejects.toThrow('forced rollback');
+
+    innerClient.$transaction = originalTransaction;
+
+    expect(await memberEpoch(user.id)).toBe(beforeEpoch);
+    const stillThere = await tenantPrisma().siteMembership.findFirst({
+      where: { id: membership.id },
+    });
+    expect(stillThere).not.toBeNull();
+  });
+
+  it('removeSiteMembership commits epoch increment', async () => {
     const user = await tenantPrisma().user.findFirstOrThrow({
       where: { email: tenant.email },
     });
@@ -108,28 +155,20 @@ describe('scope epoch writers (AUT-934)', () => {
     });
     const beforeEpoch = await memberEpoch(user.id);
 
-    await expect(
-      runWithTenantContext(tenant.tenantId, () =>
-        prisma.$transaction(async (tx) => {
-          const membership = await tx.siteMembership.findFirstOrThrow({
-            where: {
-              tenant_id: tenant.tenantId,
-              site_id: site.id,
-              user_id: user.id,
-            },
-          });
-          await tx.siteMembership.delete({ where: { id: membership.id } });
-          await advanceScopeEpoch(tx, {
-            kind: 'member',
-            tenantId: tenant.tenantId,
-            userId: user.id,
-          });
-          throw new Error('rollback');
-        }),
-      ),
-    ).rejects.toThrow('rollback');
+    await runWithTenantContext(tenant.tenantId, () =>
+      siteService.removeSiteMembership(site.id, user.id),
+    );
 
-    expect(await memberEpoch(user.id)).toBe(beforeEpoch);
+    expect((await memberEpoch(user.id)) - beforeEpoch).toBe(1n);
+    await expect(
+      tenantPrisma().siteMembership.findFirstOrThrow({
+        where: {
+          tenant_id: tenant.tenantId,
+          site_id: site.id,
+          user_id: user.id,
+        },
+      }),
+    ).rejects.toThrow();
   });
 
   it('tenant epoch on activation', async () => {

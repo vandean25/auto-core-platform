@@ -8,7 +8,6 @@ export const REGISTERED_SCOPE_EPOCH_WRITER_PATHS = [
   'landing-demo-access/landing-demo-access.service.ts',
   'platform-admin/platform-admin.service.ts',
   'prisma/fixtures/clean-db.ts',
-  'prisma/fixtures/demo-user-seed.steps.ts',
   'scripts/seed-landing-demo-tenant.ts',
   'site/legal-entity.service.ts',
   'site/site-lifecycle.service.ts',

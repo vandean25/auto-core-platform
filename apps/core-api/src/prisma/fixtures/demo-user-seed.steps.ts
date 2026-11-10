@@ -4,7 +4,10 @@ import {
   PlatformAdminRole,
   TenantMemberRole,
 } from '@prisma/client';
-import { upsertActiveTenantMemberWithMemberEpoch } from '../../auth/scope-epoch-access-writes.js';
+import {
+  ensureActiveSiteMembershipWithMemberEpoch,
+  upsertActiveTenantMemberWithMemberEpoch,
+} from '../../auth/scope-epoch-access-writes.js';
 import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
 
 export type DemoUserDefinition = {
@@ -120,21 +123,10 @@ export async function upsertDemoSiteMemberships(
   siteIds: string[],
 ): Promise<void> {
   for (const siteId of siteIds) {
-    await prisma.siteMembership.upsert({
-      where: {
-        tenant_id_user_id_site_id: {
-          tenant_id: tenantId,
-          user_id: userId,
-          site_id: siteId,
-        },
-      },
-      update: { is_active: true },
-      create: {
-        tenant_id: tenantId,
-        user_id: userId,
-        site_id: siteId,
-        is_active: true,
-      },
+    await ensureActiveSiteMembershipWithMemberEpoch(prisma, {
+      tenantId,
+      userId,
+      siteId,
     });
   }
 }
