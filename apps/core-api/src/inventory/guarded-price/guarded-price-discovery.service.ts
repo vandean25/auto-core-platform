@@ -25,7 +25,9 @@ export class GuardedPriceDiscoveryService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  async listOperations(cursor?: string): Promise<InventoryPriceOperationListResponseDto> {
+  async listOperations(
+    cursor?: string,
+  ): Promise<InventoryPriceOperationListResponseDto> {
     this.assertInventoryPriceRole();
     const tenantId = await this.tenantContext.getTenantId();
     const principalId = this.requirePrincipalId();
@@ -112,9 +114,10 @@ export class GuardedPriceDiscoveryService {
     return mapInventoryPriceOperation(accessible[0]);
   }
 
-  private async filterAccessibleRows<
-    T extends { item_id: string },
-  >(tenantId: string, rows: T[]): Promise<T[]> {
+  private async filterAccessibleRows<T extends { item_id: string }>(
+    tenantId: string,
+    rows: T[],
+  ): Promise<T[]> {
     if (rows.length === 0) {
       return [];
     }

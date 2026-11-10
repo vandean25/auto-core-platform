@@ -12,6 +12,7 @@ import {
   createTenantAwarePrisma,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import { guardedPricePatchRequest } from './helpers/guarded-price-patch-request.js';
 import { testUuidV7At } from '../src/inventory/guarded-price/guarded-price.test-keys.js';
 import { guardedPriceTestHooks } from '../src/inventory/guarded-price/guarded-price-test-hooks.js';
 import { revisionFromDb } from '../src/inventory/guarded-price/guarded-price.revision.js';
@@ -77,11 +78,7 @@ describe('inventory guarded price PATCH (e2e)', () => {
     body: { retail_price: number; expectedRevision: number },
     auth = `Bearer ${authTokenAdmin}`,
   ) {
-    return request(app.getHttpServer())
-      .patch(`/api/inventory/${itemId}`)
-      .set('Authorization', auth)
-      .set('Idempotency-Key', key)
-      .send(body);
+    return guardedPricePatchRequest(app, itemId, key, body, auth);
   }
 
   it('applied atomically', async () => {

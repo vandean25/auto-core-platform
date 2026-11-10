@@ -36,7 +36,10 @@ export function assertKeyNotTooFarFuture(key: string, now = Date.now()): void {
   }
 }
 
-export function isKeyInsideAdmissionWindow(key: string, now = Date.now()): boolean {
+export function isKeyInsideAdmissionWindow(
+  key: string,
+  now = Date.now(),
+): boolean {
   const keyTime = uuidV7TimestampMillis(key);
   if (keyTime === null) {
     return false;

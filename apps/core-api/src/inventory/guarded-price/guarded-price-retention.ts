@@ -14,7 +14,10 @@ export function retentionAnchorMs(row: RetentionRow): number {
   return Math.max(finalMs, keyTime);
 }
 
-export function rowWithinRetention(row: RetentionRow, now = Date.now()): boolean {
+export function rowWithinRetention(
+  row: RetentionRow,
+  now = Date.now(),
+): boolean {
   if (row.state === InventoryPriceOperationState.ACCEPTED) {
     return true;
   }

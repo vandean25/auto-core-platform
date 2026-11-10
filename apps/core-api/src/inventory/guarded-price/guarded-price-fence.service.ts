@@ -63,12 +63,13 @@ export class GuardedPriceFenceService {
 
     try {
       return await this.prisma.$transaction(
-        async (tx) => await this.runFenceTx(tx, {
-          tenantId,
-          principalId,
-          operationKey,
-          intent,
-        }),
+        async (tx) =>
+          await this.runFenceTx(tx, {
+            tenantId,
+            principalId,
+            operationKey,
+            intent,
+          }),
         {
           timeout: 10_000,
           isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
@@ -221,7 +222,9 @@ export class GuardedPriceFenceService {
 
     const leaseEnd = row.accepted_at.getTime() + GUARDED_PRICE_LEASE_MS;
     if (Date.now() < leaseEnd) {
-      operationUnresolved('Guarded operation acceptance is still within lease.');
+      operationUnresolved(
+        'Guarded operation acceptance is still within lease.',
+      );
     }
 
     const updated = await tx.inventoryPriceOperation.update({
