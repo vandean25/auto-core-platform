@@ -8,17 +8,11 @@ const { skeletonDelayMs, skeletonMinVisibleMs } = INTERACTION_LOADING_TIMINGS
  * First-load skeleton gate: 200 ms delay, then at least 350 ms visible once shown.
  * Bypass clears immediately (errors and context resets).
  */
-export function useFirstLoadSkeletonGate(
-  isFirstLoadActive: boolean,
-  bypass = false,
-  /** Once the query payload is ready, do not re-arm the skeleton on later pending/fetch flicker (AUT-971). */
-  payloadReady = false,
-): boolean {
+export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = false): boolean {
   const [visible, setVisible] = useState(false)
   const visibleSinceRef = useRef<number | null>(null)
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const payloadReadyLatchRef = useRef(false)
 
   useEffect(() => {
     const clearDelayTimer = () => {
@@ -42,17 +36,7 @@ export function useFirstLoadSkeletonGate(
       return
     }
 
-    const latchAfterPayload = () => {
-      if (payloadReady) payloadReadyLatchRef.current = true
-    }
-
     if (isFirstLoadActive) {
-      if (payloadReadyLatchRef.current) {
-        clearDelayTimer()
-        clearHoldTimer()
-        setVisible(false)
-        return
-      }
       clearHoldTimer()
       if (visibleSinceRef.current !== null) {
         setVisible(true)
@@ -70,7 +54,6 @@ export function useFirstLoadSkeletonGate(
     clearDelayTimer()
     if (visibleSinceRef.current === null) {
       setVisible(false)
-      latchAfterPayload()
       return
     }
 
@@ -79,7 +62,6 @@ export function useFirstLoadSkeletonGate(
     if (remaining <= 0) {
       visibleSinceRef.current = null
       setVisible(false)
-      latchAfterPayload()
       return
     }
 
@@ -88,11 +70,10 @@ export function useFirstLoadSkeletonGate(
       holdTimerRef.current = null
       visibleSinceRef.current = null
       setVisible(false)
-      latchAfterPayload()
     }, remaining)
 
     return () => clearHoldTimer()
-  }, [bypass, isFirstLoadActive, payloadReady])
+  }, [bypass, isFirstLoadActive])
 
   return visible
 }

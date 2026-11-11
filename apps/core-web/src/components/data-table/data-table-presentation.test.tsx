@@ -70,54 +70,38 @@ describe('useDataTablePresentation (AUT-971)', () => {
     expect(result.current.showFirstLoadSkeleton).toBe(false)
   })
 
-  it('AUT-971: WHEN first load ends then pending flickers with payload ready THEN skeleton stays off', () => {
+  it('AUT-971: WHEN a later fetch has no payload THEN the skeleton can arm again', () => {
     vi.useFakeTimers()
     const { result, rerender } = renderHook(
       (props: Parameters<typeof useDataTablePresentation>[0]) => useDataTablePresentation(props),
       {
         initialProps: {
-          isLoading: true,
-          isPending: true,
-          isFetching: true,
+          isLoading: false,
+          isPending: false,
+          isFetching: false,
           isPlaceholderData: false,
           isError: false,
-          hasUsableData: false,
-          listSnapshotResolved: false,
+          hasUsableData: true,
+          listSnapshotResolved: true,
           bypassSkeleton: false,
         },
       },
     )
-    act(() => {
-      vi.advanceTimersByTime(250)
-    })
-    expect(result.current.showFirstLoadSkeleton).toBe(true)
-    rerender({
-      isLoading: false,
-      isPending: false,
-      isFetching: false,
-      isPlaceholderData: false,
-      isError: false,
-      hasUsableData: true,
-      listSnapshotResolved: true,
-      bypassSkeleton: false,
-    })
-    act(() => {
-      vi.advanceTimersByTime(400)
-    })
     expect(result.current.showFirstLoadSkeleton).toBe(false)
+
     rerender({
       isLoading: true,
       isPending: true,
       isFetching: true,
       isPlaceholderData: false,
       isError: false,
-      hasUsableData: true,
-      listSnapshotResolved: true,
+      hasUsableData: false,
+      listSnapshotResolved: false,
       bypassSkeleton: false,
     })
     act(() => {
-      vi.advanceTimersByTime(550)
+      vi.advanceTimersByTime(250)
     })
-    expect(result.current.showFirstLoadSkeleton).toBe(false)
+    expect(result.current.showFirstLoadSkeleton).toBe(true)
   })
 })

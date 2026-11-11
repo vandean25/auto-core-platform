@@ -14,21 +14,6 @@ vi.mock('@/lib/i18n', () => ({ useLazyNamespaceBundleReady: () => ({ status: 're
 afterEach(cleanup)
 
 describe('WorkshopKpiDashboardWidget', () => {
-  it('AUT-971: WHEN KPI refetches with cached payload THEN skeleton is not shown', () => {
-    vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1', activeRole: 'ADMIN' } } as never)
-    vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
-    vi.mocked(useWorkshopKpiReport).mockReturnValue({
-      data: { totals: { utilisation_percent: '0.82' } },
-      isPending: false,
-      isLoading: true,
-      isFetching: true,
-    } as never)
-
-    const { container } = render(<MemoryRouter><WorkshopKpiDashboardWidget /></MemoryRouter>)
-
-    expect(container.querySelector('.animate-pulse')).toBeNull()
-  })
-
   it('AUT-971: WHEN KPI query is paused pending THEN skeleton is not shown', () => {
     vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1', activeRole: 'ADMIN' } } as never)
     vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)

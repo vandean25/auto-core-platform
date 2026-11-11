@@ -70,7 +70,7 @@ export function useCursorList<TRow extends { id: string }>({
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.data) ?? [], [list.data])
   const settled = list.data !== undefined
   const tableProps = {
-    isLoading: list.isPending,
+    isLoading: list.isPending && list.isFetching,
     isPending: list.isPending,
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,

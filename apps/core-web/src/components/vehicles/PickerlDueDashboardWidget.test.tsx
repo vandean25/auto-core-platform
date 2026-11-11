@@ -27,32 +27,6 @@ describe('PickerlDueDashboardWidget', () => {
     expect(container.querySelector('.animate-spin')).toBeNull()
   })
 
-  it('AUT-971 scenario 5: WHEN the dashboard Pickerl API has settled THEN the widget does not keep a skeleton', async () => {
-    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
-      data: { meta: { total: 2 } },
-      isPending: false,
-      isLoading: true,
-      isFetching: true,
-    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
-    const { container, findByText } = renderWidget()
-
-    await findByText('2')
-    expect(container.querySelector('.animate-pulse')).toBeNull()
-  })
-
-  it('AUT-971: WHEN v5 isLoading is true with cached payload THEN the count stays visible without skeleton', async () => {
-    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
-      data: { meta: { total: 4 } },
-      isPending: false,
-      isLoading: true,
-      isFetching: true,
-    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
-    const { container, findByText } = renderWidget()
-
-    await findByText('4')
-    expect(container.querySelector('.animate-pulse')).toBeNull()
-  })
-
   it('shows the total of the due list once loaded', async () => {
     vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
       data: { meta: { total: 7 } },

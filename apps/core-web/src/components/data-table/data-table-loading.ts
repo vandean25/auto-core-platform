@@ -154,20 +154,16 @@ export function isDataTableFirstLoadActive(
     Partial<Pick<DataTablePresentationInput, 'isPending' | 'isFetching'>>,
 ): boolean {
   const isPending = input.isPending ?? input.isLoading
-  // Legacy callers pass only `isLoading` (v4 semantics); explicit `isFetching: false` is paused pending.
-  const isActivelyFetching = input.isFetching ?? input.isLoading
+  // Legacy callers pass only `isLoading`. With `isPending`, missing `isFetching` means still fetching; `isFetching: false` is paused.
+  const isActivelyFetching =
+    input.isFetching ?? (input.isPending !== undefined ? true : input.isLoading)
   const payloadReady = input.hasUsableData || Boolean(input.listSnapshotResolved)
   return isAwaitingFirstQueryPayload(isPending, payloadReady, isActivelyFetching)
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
   const firstLoadActive = isDataTableFirstLoadActive(input)
-  const payloadReady = input.hasUsableData || Boolean(input.listSnapshotResolved)
-  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(
-    firstLoadActive,
-    input.bypassSkeleton || input.isError,
-    payloadReady,
-  )
+  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(firstLoadActive, input.bypassSkeleton || input.isError)
 
   const isStalePreview =
     !showFirstLoadSkeleton &&

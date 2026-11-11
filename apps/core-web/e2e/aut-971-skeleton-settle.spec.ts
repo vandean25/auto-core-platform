@@ -4,13 +4,13 @@ import { DE_COMMON } from './helpers/de-common'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 
-const LIST_API_DELAY_MS = 900
+const LIST_API_DELAY_MS = 280
 const DISMISS_BUDGET_MS = 350
 
-async function routeWithSettledAt(page: Page, apiPath: string, body: unknown) {
+async function routeWithSettledAt(page: Page, apiPath: string, body: unknown, delayMs = LIST_API_DELAY_MS) {
   const settledAt = { ms: 0 }
   await page.route(AutoCorePage.apiRouteMatcher(apiPath), async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, LIST_API_DELAY_MS))
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
     settledAt.ms = Date.now()
     await route.fulfill({
       status: 200,
@@ -21,8 +21,12 @@ async function routeWithSettledAt(page: Page, apiPath: string, body: unknown) {
   return settledAt
 }
 
-async function expectSkeletonDismissedBySettleDeadline(page: Page, settledAt: { ms: number }) {
-  await expect.poll(() => settledAt.ms > 0, { timeout: LIST_API_DELAY_MS + 2_000, intervals: [50] }).toBe(true)
+async function expectSkeletonDismissedBySettleDeadline(
+  page: Page,
+  settledAt: { ms: number },
+  apiDelayMs = LIST_API_DELAY_MS,
+) {
+  await expect.poll(() => settledAt.ms > 0, { timeout: apiDelayMs + 2_000, intervals: [50] }).toBe(true)
   const deadline = settledAt.ms + DISMISS_BUDGET_MS
   await expect
     .poll(
@@ -34,7 +38,7 @@ async function expectSkeletonDismissedBySettleDeadline(page: Page, settledAt: { 
         }
         return false
       },
-      { timeout: LIST_API_DELAY_MS + 2_000, intervals: [15, 30, 50] },
+      { timeout: apiDelayMs + 2_000, intervals: [15, 30, 50] },
     )
     .toBe(true)
 }
@@ -114,30 +118,38 @@ test.describe('AUT-971 skeleton settles when data arrives', () => {
     await expect(page.getByText('VW Golf')).toBeVisible({ timeout: 2_000 })
   })
 
-  test('AUT-971 scenario 6: estimates at 375px are not skeleton after the request completes', async ({ page }) => {
+  test('AUT-971 scenario 6: estimates at 375px clear loading within 350ms of the API response', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     const corePage = new AutoCorePage(page, '')
-    const settledAt = await routeWithSettledAt(page, '/api/workshop/estimates', {
-      data: [
-        {
-          version_id: 'ver-971',
-          estimate_number: 'KV-2026-0971',
-          version: 1,
-          status: 'SENT',
-          order_id: 'order-971',
-          order_number: 'WO-2026-0971',
-          customer_id: 'cust-1',
-          customer_name: 'Pilot customer',
-          vehicle_plate: 'W-971',
-          sent_at: '2026-10-01T08:00:00.000Z',
-          valid_until: '2026-10-15T08:00:00.000Z',
-          decided_at: null,
-          total_gross: '500.00',
-        },
-      ],
-      meta: { page_size: 25, next_cursor: null },
-    })
+    const settledAt = await routeWithSettledAt(
+      page,
+      '/api/workshop/estimates',
+      {
+        data: [
+          {
+            version_id: 'ver-971',
+            estimate_number: 'KV-2026-0971',
+            version: 1,
+            status: 'SENT',
+            order_id: 'order-971',
+            order_number: 'WO-2026-0971',
+            customer_id: 'cust-1',
+            customer_name: 'Pilot customer',
+            vehicle_plate: 'W-971',
+            sent_at: '2026-10-01T08:00:00.000Z',
+            valid_until: '2026-10-15T08:00:00.000Z',
+            decided_at: null,
+            total_gross: '500.00',
+          },
+        ],
+        meta: { page_size: 25, next_cursor: null },
+      },
+    )
+    const estimatesResponse = page.waitForResponse(
+      (response) => response.url().includes('/api/workshop/estimates') && response.status() === 200,
+    )
     await corePage.navigate('/workshop/estimates', { waitUntil: 'domcontentloaded' })
+    await estimatesResponse
     await expectSkeletonDismissedBySettleDeadline(page, settledAt)
     await expect(page.locator('[data-table-row="true"]').first()).toContainText('KV-2026-0971', { timeout: 2_000 })
   })

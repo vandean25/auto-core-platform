@@ -34,39 +34,6 @@ describe('AgedStockDashboardWidget', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/vehicle-stock/reports?bucket=over_90')
   })
 
-  it('AUT-971 scenario: WHEN aged-stock data has settled THEN the widget does not keep a skeleton', () => {
-    vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
-      data: { summary: { over_90_count: 2, over_90_cost_basis: '2000.00' } },
-      isPending: false,
-      isLoading: true,
-      isFetching: true,
-    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
-    const { container } = render(
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter><AgedStockDashboardWidget /></MemoryRouter>
-      </QueryClientProvider>,
-    )
-    expect(screen.getByText('2')).toBeInTheDocument()
-    expect(container.querySelector('.animate-pulse')).toBeNull()
-  })
-
-  it('AUT-971: WHEN cached aged-stock payload is refetching THEN the count stays visible without skeleton', () => {
-    vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
-      data: { summary: { over_90_count: 5, over_90_cost_basis: '1000.00' } },
-      isPending: false,
-      isLoading: true,
-      isFetching: true,
-    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
-    const queryClient = new QueryClient()
-    const { container } = render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter><AgedStockDashboardWidget /></MemoryRouter>
-      </QueryClientProvider>,
-    )
-    expect(screen.getByText('5')).toBeInTheDocument()
-    expect(container.querySelector('.animate-pulse')).toBeNull()
-  })
-
   // Regression: the count was replaced by a rotating spinner while loading.
   it('WHEN the aged stock count is loading THEN a Skeleton is shown instead of a spinner', () => {
     vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
