@@ -1147,6 +1147,7 @@ model InventoryPriceOperation {
   principal_id       String
   key                String                        @db.Uuid
   item_id            String
+  catalog_item       CatalogItem                   @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   sku                String
   kind               String
   expected_revision  BigInt
@@ -1195,6 +1196,7 @@ model CatalogItem {
   stock_transfer_lines     StockTransferLine[]
   vendorArticles           VendorArticle[]
   catalogPriceHistories    CatalogPriceHistory[]
+  inventory_price_operations InventoryPriceOperation[]
   revision                 BigInt                 @default(0)
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt

@@ -42,8 +42,11 @@ export async function syncPurchaseOrderSequenceForYear(
   const rows = await tx.purchaseOrder.findMany({
     where: {
       tenant_id: tenantId,
-      site_id: { in: sites.map((site) => site.id) },
       order_number: { startsWith: prefix },
+      OR: [
+        { site_id: { in: sites.map((site) => site.id) } },
+        { site_id: null },
+      ],
     },
     select: { order_number: true },
   });
@@ -62,13 +65,14 @@ export async function syncPurchaseOrderSequenceForYear(
     where: { tenant_id: tenantId, year },
     select: { current: true },
   });
+  const nextCurrent = Math.max(existing?.current ?? 0, maxSuffix);
   if (existing && existing.current >= maxSuffix) {
     return;
   }
 
   await tx.purchaseOrderSequence.upsert({
     where: { tenant_id_year: { tenant_id: tenantId, year } },
-    update: { current: maxSuffix },
+    update: { current: nextCurrent },
     create: { tenant_id: tenantId, year, current: maxSuffix },
   });
 }
@@ -130,7 +134,13 @@ export function isPurchaseOrderNumberConflict(error: unknown): boolean {
     return false;
   }
   const target = error.meta?.target;
-  return Array.isArray(target) && target.includes('order_number');
+  if (Array.isArray(target)) {
+    return target.includes('order_number');
+  }
+  if (typeof target === 'string') {
+    return target.includes('order_number');
+  }
+  return false;
 }
 
 /**

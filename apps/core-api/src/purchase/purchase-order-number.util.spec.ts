@@ -32,7 +32,11 @@ describe('purchase order number helpers', () => {
     );
 
     expect(number).toBe('PO-2026-0042');
-    expect(upsert).toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledWith({
+      where: { tenant_id_year: { tenant_id: 'tenant-1', year: 2026 } },
+      update: { current: { increment: 1 } },
+      create: { tenant_id: 'tenant-1', year: 2026, current: 1 },
+    });
   });
 
   it('syncs the sequence to the max existing PO suffix for the year', async () => {

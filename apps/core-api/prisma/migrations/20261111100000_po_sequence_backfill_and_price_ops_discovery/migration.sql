@@ -4,7 +4,7 @@ SELECT
   gen_random_uuid()::text,
   tenant_id,
   CAST(SUBSTRING(order_number FROM 4 FOR 4) AS INTEGER) AS year,
-  MAX(CAST(SUBSTRING(order_number FROM 10 FOR 4) AS INTEGER)) AS current
+  MAX(CAST(SUBSTRING(order_number FROM 9 FOR 4) AS INTEGER)) AS current
 FROM "purchase_orders"
 WHERE order_number ~ '^PO-[0-9]{4}-[0-9]{4}$'
 GROUP BY tenant_id, CAST(SUBSTRING(order_number FROM 4 FOR 4) AS INTEGER)

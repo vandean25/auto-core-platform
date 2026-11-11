@@ -38,21 +38,16 @@ export class GuardedPriceDiscoveryService {
     const principalId = this.requirePrincipalId();
     const decodedCursor = parsePriceOperationDiscoveryCursor(cursor);
 
-    const catalogItemIds = await this.loadCatalogItemIds(tenantId);
-    const where = this.discoveryListWhere(
-      tenantId,
-      principalId,
-      decodedCursor,
-      catalogItemIds,
-    );
+    const where = this.discoveryListWhere(tenantId, principalId, decodedCursor);
     const batch = await this.prisma.inventoryPriceOperation.findMany({
       where,
       orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
       take: GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
     });
 
+    const visible = batch.filter((row) => rowWithinRetention(row));
     const hasNextPage = batch.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE;
-    const page = batch.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
+    const page = visible.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
 
     return {
       data: page.map(mapInventoryPriceOperation),
@@ -78,25 +73,16 @@ export class GuardedPriceDiscoveryService {
     };
   }
 
-  private async loadCatalogItemIds(tenantId: string): Promise<string[]> {
-    const items = await this.prisma.catalogItem.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true },
-    });
-    return items.map((item) => item.id);
-  }
-
   private discoveryListWhere(
     tenantId: string,
     principalId: string,
     decodedCursor: PriceOperationDiscoveryCursor | null,
-    catalogItemIds: string[],
   ): Prisma.InventoryPriceOperationWhereInput {
     return {
       AND: [
         this.discoveryListBaseWhere(tenantId, principalId),
         discoveryRetentionWhere(),
-        discoveryCatalogExistsWhere(catalogItemIds),
+        discoveryCatalogExistsWhere(tenantId),
         this.buildKeysetWhere(decodedCursor),
       ],
     };
@@ -129,13 +115,12 @@ export class GuardedPriceDiscoveryService {
     const tenantId = await this.tenantContext.getTenantId();
     const principalId = this.requirePrincipalId();
 
-    const catalogItemIds = await this.loadCatalogItemIds(tenantId);
     const row = await this.prisma.inventoryPriceOperation.findFirst({
       where: {
         AND: [
           { tenant_id: tenantId, principal_id: principalId, key },
           discoveryRetentionWhere(),
-          discoveryCatalogExistsWhere(catalogItemIds),
+          discoveryCatalogExistsWhere(tenantId),
         ],
       },
     });

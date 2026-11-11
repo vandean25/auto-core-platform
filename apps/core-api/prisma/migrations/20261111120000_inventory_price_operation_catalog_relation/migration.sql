@@ -1,0 +1,2 @@
+-- Prisma relation InventoryPriceOperation.catalog_item is for EXISTS-style joins in discovery queries.
+-- Intentionally no FOREIGN KEY: catalog items may be hard-deleted while journal rows remain (discovery omits them).
