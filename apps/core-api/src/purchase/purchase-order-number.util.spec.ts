@@ -20,7 +20,8 @@ describe('purchase order number helpers', () => {
   it('formats PO-YYYY-NNNN from the tenant/year sequence counter', async () => {
     const upsert = jest.fn().mockResolvedValue({ current: 42 });
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([]),
+      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
+      purchaseOrder: { findMany: jest.fn().mockResolvedValue([]) },
       purchaseOrderSequence: { upsert, findFirst: jest.fn() },
     };
 
@@ -37,11 +38,14 @@ describe('purchase order number helpers', () => {
   it('syncs the sequence to the max existing PO suffix for the year', async () => {
     const upsert = jest.fn().mockResolvedValue({});
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([
-        { order_number: 'PO-2026-0001' },
-        { order_number: 'PO-2026-7834' },
-        { order_number: 'PO-2025-9999' },
-      ]),
+      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
+      purchaseOrder: {
+        findMany: jest.fn().mockResolvedValue([
+          { order_number: 'PO-2026-0001' },
+          { order_number: 'PO-2026-7834' },
+          { order_number: 'PO-2025-9999' },
+        ]),
+      },
       purchaseOrderSequence: {
         upsert,
         findFirst: jest.fn().mockResolvedValue({ current: 0 }),
@@ -61,6 +65,12 @@ describe('purchase order number helpers', () => {
     const used = new Set<string>();
     let current = 7834;
     const purchaseOrder = {
+      findMany: jest
+        .fn()
+        .mockResolvedValue([
+          { order_number: 'PO-2026-0001' },
+          { order_number: 'PO-2026-7834' },
+        ]),
       create: jest.fn(({ data }: { data: { order_number: string } }) => {
         if (used.has(data.order_number)) {
           throw new Prisma.PrismaClientKnownRequestError('Unique', {
@@ -87,10 +97,7 @@ describe('purchase order number helpers', () => {
       }),
     };
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([
-        { order_number: 'PO-2026-0001' },
-        { order_number: 'PO-2026-7834' },
-      ]),
+      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder,
       purchaseOrderSequence,
     };

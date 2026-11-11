@@ -16,7 +16,10 @@ export function parsePurchaseOrderNumberSuffix(
   return { year: Number(match[1]), suffix: Number(match[2]) };
 }
 
-export function formatPurchaseOrderNumber(year: number, suffix: number): string {
+export function formatPurchaseOrderNumber(
+  year: number,
+  suffix: number,
+): string {
   return `PO-${year}-${suffix.toString().padStart(4, '0')}`;
 }
 
@@ -29,12 +32,21 @@ export async function syncPurchaseOrderSequenceForYear(
   year: number,
 ): Promise<void> {
   const prefix = `PO-${year}-`;
-  const rows = await tx.$queryRaw<{ order_number: string }[]>`
-    SELECT order_number
-    FROM purchase_orders
-    WHERE tenant_id = ${tenantId}
-      AND order_number LIKE ${`${prefix}%`}
-  `;
+  const sites = await tx.site.findMany({
+    where: { tenant_id: tenantId },
+    select: { id: true },
+  });
+  if (sites.length === 0) {
+    return;
+  }
+  const rows = await tx.purchaseOrder.findMany({
+    where: {
+      tenant_id: tenantId,
+      site_id: { in: sites.map((site) => site.id) },
+      order_number: { startsWith: prefix },
+    },
+    select: { order_number: true },
+  });
   let maxSuffix = 0;
   for (const row of rows) {
     const parsed = parsePurchaseOrderNumberSuffix(row.order_number);
@@ -131,7 +143,11 @@ export async function createPurchaseOrderWithAllocatedNumber<T>(
   now: Date,
   create: (orderNumber: string) => Promise<T>,
 ): Promise<T> {
-  for (let attempt = 0; attempt < MAX_ORDER_NUMBER_ALLOCATION_ATTEMPTS; attempt++) {
+  for (
+    let attempt = 0;
+    attempt < MAX_ORDER_NUMBER_ALLOCATION_ATTEMPTS;
+    attempt++
+  ) {
     const orderNumber = await allocatePurchaseOrderNumber(tx, tenantId, now);
     try {
       return await create(orderNumber);

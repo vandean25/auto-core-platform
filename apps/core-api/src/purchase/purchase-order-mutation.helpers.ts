@@ -188,22 +188,26 @@ export async function executeCreatePurchaseOrder(
   return prisma.$transaction(async (tx) => {
     await lockSitesAndAssertActive(tx, tenantId, [siteId]);
 
-    return createPurchaseOrderWithAllocatedNumber(tx, tenantId, new Date(), (orderNumber) =>
-      tx.purchaseOrder.create({
-        data: {
-          tenant_id: tenantId,
-          site_id: siteId,
-          vendor_id: vendorId,
-          order_number: orderNumber,
-          status: PurchaseOrderStatus.DRAFT,
-          items: {
-            create: items.map((i) =>
-              toPurchaseOrderItemNestedCreateData(tenantId, i),
-            ),
+    return createPurchaseOrderWithAllocatedNumber(
+      tx,
+      tenantId,
+      new Date(),
+      (orderNumber) =>
+        tx.purchaseOrder.create({
+          data: {
+            tenant_id: tenantId,
+            site_id: siteId,
+            vendor_id: vendorId,
+            order_number: orderNumber,
+            status: PurchaseOrderStatus.DRAFT,
+            items: {
+              create: items.map((i) =>
+                toPurchaseOrderItemNestedCreateData(tenantId, i),
+              ),
+            },
           },
-        },
-        include: { items: true },
-      }),
+          include: { items: true },
+        }),
     );
   });
 }
