@@ -3,6 +3,21 @@ import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 describe('InvoicePdfRenderer', () => {
+  const mockPdfPage = (
+    overrides: Partial<{
+      route: jest.Mock;
+      setContent: jest.Mock;
+      pdf: jest.Mock;
+      close: jest.Mock;
+    }> = {},
+  ) => ({
+    route: jest.fn().mockResolvedValue(undefined),
+    setContent: jest.fn().mockResolvedValue(undefined),
+    pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+    close: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
+  });
+
   const createSnapshot = (): InvoiceSnapshot => ({
     id: 'invoice-1',
     invoice_number: 'RE-2026-0001',
@@ -43,10 +58,9 @@ describe('InvoicePdfRenderer', () => {
   });
 
   it('requests the browser lazily and closes the page when rendering fails', async () => {
-    const page = {
+    const page = mockPdfPage({
       setContent: jest.fn().mockRejectedValue(new Error('setContent failed')),
-      close: jest.fn().mockResolvedValue(undefined),
-    };
+    });
     const browser = {
       newPage: jest.fn().mockResolvedValue(page),
     };
@@ -66,11 +80,7 @@ describe('InvoicePdfRenderer', () => {
   });
 
   it('includes Differenzbesteuerung legal line for margin-scheme invoices', async () => {
-    const page = {
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
-      close: jest.fn().mockResolvedValue(undefined),
-    };
+    const page = mockPdfPage();
     const browser = {
       newPage: jest.fn().mockResolvedValue(page),
     };
@@ -113,11 +123,7 @@ describe('InvoicePdfRenderer', () => {
   });
 
   it('renders DACH Rechnung content for v2 snapshots', async () => {
-    const page = {
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
-      close: jest.fn().mockResolvedValue(undefined),
-    };
+    const page = mockPdfPage();
     const browser = {
       newPage: jest.fn().mockResolvedValue(page),
     };
@@ -165,12 +171,7 @@ describe('InvoicePdfRenderer', () => {
   });
 
   it('renders invoice-brand-v1 chrome from frozen branding and exact logo bytes', async () => {
-    const page = {
-      route: jest.fn().mockResolvedValue(undefined),
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
-      close: jest.fn().mockResolvedValue(undefined),
-    };
+    const page = mockPdfPage();
     const browser = { newPage: jest.fn().mockResolvedValue(page) };
     const browserService = {
       getBrowser: jest.fn().mockResolvedValue(browser),
@@ -234,23 +235,28 @@ describe('InvoicePdfRenderer', () => {
     expect(pdfOptions.footerTemplate).toContain('Vienna');
   });
 
-  it('aborts external requests during branded rendering', async () => {
+  it('installs the shared request guard before setContent', async () => {
     let registeredHandler:
-      | ((route: { abort: () => Promise<void> }) => Promise<void>)
+      | ((route: {
+          request: () => { url: () => string };
+          abort: () => Promise<void>;
+          continue: () => Promise<void>;
+        }) => Promise<void>)
       | undefined;
-    const page = {
+    const page = mockPdfPage({
       route: jest.fn(
         async (
-          _url: RegExp,
-          handler: (route: { abort: () => Promise<void> }) => Promise<void>,
+          _pattern: string,
+          handler: (route: {
+            request: () => { url: () => string };
+            abort: () => Promise<void>;
+            continue: () => Promise<void>;
+          }) => Promise<void>,
         ) => {
           registeredHandler = handler;
         },
       ),
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
-      close: jest.fn().mockResolvedValue(undefined),
-    };
+    });
     const browser = { newPage: jest.fn().mockResolvedValue(page) };
     const browserService = {
       getBrowser: jest.fn().mockResolvedValue(browser),
@@ -283,26 +289,34 @@ describe('InvoicePdfRenderer', () => {
     });
 
     expect(page.route).toHaveBeenCalledTimes(1);
-    expect(page.route).toHaveBeenCalledWith(
-      /^https?:\/\//,
-      expect.any(Function),
-    );
+    expect(page.route).toHaveBeenCalledWith('**/*', expect.any(Function));
     expect(page.route.mock.invocationCallOrder[0]).toBeLessThan(
       page.setContent.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
     );
 
     const abort = jest.fn().mockResolvedValue(undefined);
-    await registeredHandler?.({ abort });
-
+    const cont = jest.fn().mockResolvedValue(undefined);
+    await registeredHandler?.({
+      request: () => ({ url: () => 'https://attacker.example/logo.png' }),
+      abort,
+      continue: cont,
+    });
     expect(abort).toHaveBeenCalledTimes(1);
+    expect(cont).not.toHaveBeenCalled();
+
+    abort.mockClear();
+    cont.mockClear();
+    await registeredHandler?.({
+      request: () => ({ url: () => 'data:image/png;base64,AAAA' }),
+      abort,
+      continue: cont,
+    });
+    expect(cont).toHaveBeenCalledTimes(1);
+    expect(abort).not.toHaveBeenCalled();
   });
 
   it('renders VAT rate buckets for v2 standard snapshots', async () => {
-    const page = {
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
-      close: jest.fn().mockResolvedValue(undefined),
-    };
+    const page = mockPdfPage();
     const browser = {
       newPage: jest.fn().mockResolvedValue(page),
     };
@@ -352,11 +366,7 @@ describe('InvoicePdfRenderer', () => {
   });
 
   it('omits the margin legal line for standard invoices', async () => {
-    const page = {
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
-      close: jest.fn().mockResolvedValue(undefined),
-    };
+    const page = mockPdfPage();
     const browser = {
       newPage: jest.fn().mockResolvedValue(page),
     };

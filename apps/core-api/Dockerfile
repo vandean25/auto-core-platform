@@ -24,12 +24,28 @@ RUN npm run build
 RUN test -d dist/locales
 RUN test -f dist/locales/de/seedMaster.json
 
-# Pinned by digest: the v1.64.1-noble tag was re-published with Node 26; this digest is the Node 24 build, verified by the Node guard below at build time.
-FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea AS worker
+# Pinned by digest: v1.65.0-noble ships Node 26 upstream; replace it with exact Node 24.22.2 (AUT-673).
+FROM mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d AS worker
 
-RUN apt-get update && apt-get install -y --only-upgrade nodejs && rm -rf /var/lib/apt/lists/*
+ARG PDF_WORKER_NODE_VERSION=24.22.2
+ENV PDF_WORKER_NODE_VERSION=${PDF_WORKER_NODE_VERSION}
 
-RUN node -e "const [a,b,c]=process.versions.node.split('.').map(Number); if (a!==24 || b<22 || (b===22 && c<1)) { console.error('Node ' + process.version + ' is below 24.22.1 or not 24.x'); process.exit(1) }"
+# Drop Playwright base Node 26 without apt (AUT-981).
+RUN rm -f /etc/apt/sources.list.d/nodesource.list \
+    && rm -f /usr/bin/node /usr/bin/npm /usr/bin/npx /usr/bin/corepack \
+    && rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    && rm -rf /usr/lib/node_modules
+
+# Exact Node 24.22.2 runtime from the digest-pinned builder stage (node:24.22.2-slim).
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+COPY --from=builder /usr/local/include/ /usr/local/include/
+COPY --from=builder /usr/local/lib/ /usr/local/lib/
+
+ENV PATH="/usr/local/bin:${PATH}"
+
+COPY apps/core-api/scripts/verify-pdf-worker-node.sh /usr/local/bin/verify-pdf-worker-node.sh
+RUN chmod +x /usr/local/bin/verify-pdf-worker-node.sh \
+    && verify-pdf-worker-node.sh
 
 WORKDIR /usr/src/app
 
@@ -45,8 +61,11 @@ RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --omit=dev --workspace=core-api --
 COPY --from=builder /usr/src/app/apps/core-api/dist ./apps/core-api/dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /usr/src/app/apps/core-api/prisma ./apps/core-api/prisma
+COPY apps/core-api/scripts/pdf-worker-image-smoke.mjs ./apps/core-api/scripts/pdf-worker-image-smoke.mjs
 
 WORKDIR /usr/src/app/apps/core-api
+
+RUN verify-pdf-worker-node.sh
 
 EXPOSE 3000
 
