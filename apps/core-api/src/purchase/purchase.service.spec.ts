@@ -30,6 +30,9 @@ describe('PurchaseService', () => {
       .fn()
       .mockImplementation((cb: (tx: any) => any) => cb(mockPrismaService)),
     $queryRaw: jest.fn().mockResolvedValue([{ id: 'site-1', is_active: true }]),
+    site: {
+      findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]),
+    },
     vendor: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -47,6 +50,7 @@ describe('PurchaseService', () => {
       count: jest.fn(),
     },
     purchaseOrderSequence: {
+      findFirst: jest.fn(),
       upsert: jest.fn().mockResolvedValue({ current: 1 }),
     },
     purchaseOrderItem: {

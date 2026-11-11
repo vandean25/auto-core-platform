@@ -28,6 +28,9 @@ const vendorId = 'vendor-1';
 function buildTransactionClient() {
   return {
     $queryRaw: jest.fn(),
+    site: {
+      findMany: jest.fn().mockResolvedValue([{ id: siteId }]),
+    },
     brand: {
       findFirst: jest.fn(),
     },
@@ -43,6 +46,7 @@ function buildTransactionClient() {
       findMany: jest.fn().mockResolvedValue([]),
     },
     purchaseOrderSequence: {
+      findFirst: jest.fn(),
       upsert: jest.fn().mockResolvedValue({ current: 1 }),
     },
     purchaseOrderItem: {
