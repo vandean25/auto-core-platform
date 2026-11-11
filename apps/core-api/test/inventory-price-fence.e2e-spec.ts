@@ -416,6 +416,40 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     expect(list.body.meta.hasNextPage).toBe(false);
   });
 
+  it('discovery list issues one journal query when many expired rows exist', async () => {
+    const item = await seedItem();
+    const principal = testTenant.firebaseUid;
+    const visibleKey = operationKey('b001');
+    await guardedPatch(item.id, visibleKey, {
+      retail_price: 12,
+      expectedRevision: revisionFromDb(item.revision),
+    }).expect(200);
+
+    const oldMs = Date.now() - GUARDED_PRICE_RETENTION_MS - 60_000;
+    const findManySpy = jest.spyOn(prisma.inventoryPriceOperation, 'findMany');
+    const bulk = Array.from({ length: 120 }, (_, i) => ({
+      tenant_id: tenantId,
+      principal_id: principal,
+      key: operationKeyAt(oldMs - i * 1000, String(i).padStart(4, '0')),
+      item_id: item.id,
+      sku: item.sku,
+      kind: GUARDED_PRICE_KIND,
+      expected_revision: BigInt(1),
+      target_minor: BigInt(1500),
+      basis_minor: BigInt(1000),
+      state: InventoryPriceOperationState.APPLIED,
+      accepted_at: new Date(oldMs - i * 1000),
+      final_at: new Date(oldMs - i * 1000),
+    }));
+    await tenantPrisma().inventoryPriceOperation.createMany({ data: bulk });
+
+    const list = await listOperations().expect(200);
+    expect(list.body.data).toHaveLength(1);
+    expect(list.body.data[0].key).toBe(visibleKey);
+    expect(findManySpy).toHaveBeenCalledTimes(1);
+    findManySpy.mockRestore();
+  });
+
   it('discovery omits final rows past retention', async () => {
     const item = await seedItem();
     const oldMs = Date.now() - GUARDED_PRICE_RETENTION_MS - 60_000;

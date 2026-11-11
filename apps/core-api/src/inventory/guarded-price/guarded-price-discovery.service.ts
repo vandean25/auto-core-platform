@@ -1,9 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import {
-  InventoryPriceOperation,
-  InventoryPriceOperationState,
-  Prisma,
-} from '@prisma/client';
+import { InventoryPriceOperationState, Prisma } from '@prisma/client';
 import { ListCursorPageMetaDto } from '../../common/dto/list-cursor-response.dto.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -18,76 +14,14 @@ import {
   parsePriceOperationDiscoveryCursor,
   type PriceOperationDiscoveryCursor,
 } from './guarded-price-discovery-cursor.js';
+import {
+  discoveryCatalogExistsWhere,
+  discoveryRetentionWhere,
+} from './guarded-price-discovery-query.js';
 import { mapInventoryPriceOperation } from './guarded-price-operation.mapper.js';
 import { rowWithinRetention } from './guarded-price-retention.js';
 import { isUuidV7 } from './guarded-price.uuid.js';
 import { guardedRequestInvalid } from './guarded-price.errors.js';
-
-const DISCOVERY_RAW_BATCH_SIZE = GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1;
-
-type DiscoveryBatchPage = {
-  newSurvivors: InventoryPriceOperation[];
-  lastRawExamined: InventoryPriceOperation | null;
-  batchFullyConsumed: boolean;
-  endOfJournal: boolean;
-  exhausted: boolean;
-  stoppedBeforeTail: boolean;
-  remainderHasVisible: boolean;
-  batchLength: number;
-  batchTail: InventoryPriceOperation | null;
-};
-
-function discoveryFullPageExhausted(page: DiscoveryBatchPage): {
-  exhausted: boolean;
-  lastRawCursor: InventoryPriceOperation | null;
-} {
-  if (page.stoppedBeforeTail && !page.remainderHasVisible) {
-    if (page.batchLength < DISCOVERY_RAW_BATCH_SIZE) {
-      return { exhausted: true, lastRawCursor: null };
-    }
-    return { exhausted: false, lastRawCursor: page.batchTail };
-  }
-  return {
-    exhausted: page.batchFullyConsumed && page.endOfJournal,
-    lastRawCursor: null,
-  };
-}
-
-function batchRemainderHasVisible(
-  batch: InventoryPriceOperation[],
-  lastRawExamined: InventoryPriceOperation | null,
-  visibleById: Set<string>,
-): boolean {
-  if (!lastRawExamined) {
-    return false;
-  }
-  const resumeIndex =
-    batch.findIndex((row) => row.id === lastRawExamined.id) + 1;
-  return batch.slice(resumeIndex).some((row) => visibleById.has(row.id));
-}
-
-function collectVisibleSurvivorsInBatch(
-  batch: InventoryPriceOperation[],
-  visibleById: Set<string>,
-  remainingSlots: number,
-): {
-  newSurvivors: InventoryPriceOperation[];
-  lastRawExamined: InventoryPriceOperation | null;
-} {
-  const newSurvivors: InventoryPriceOperation[] = [];
-  let lastRawExamined: InventoryPriceOperation | null = null;
-  for (const row of batch) {
-    lastRawExamined = row;
-    if (!visibleById.has(row.id)) {
-      continue;
-    }
-    newSurvivors.push(row);
-    if (newSurvivors.length >= remainingSlots) {
-      break;
-    }
-  }
-  return { newSurvivors, lastRawExamined };
-}
 
 @Injectable()
 export class GuardedPriceDiscoveryService {
@@ -104,15 +38,25 @@ export class GuardedPriceDiscoveryService {
     const principalId = this.requirePrincipalId();
     const decodedCursor = parsePriceOperationDiscoveryCursor(cursor);
 
-    const scan = await this.scanVisibleOperationsPage(
+    const catalogItemIds = await this.loadCatalogItemIds(tenantId);
+    const where = this.discoveryListWhere(
       tenantId,
-      this.discoveryListBaseWhere(tenantId, principalId),
+      principalId,
       decodedCursor,
+      catalogItemIds,
     );
+    const batch = await this.prisma.inventoryPriceOperation.findMany({
+      where,
+      orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
+      take: GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
+    });
+
+    const hasNextPage = batch.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE;
+    const page = batch.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
 
     return {
-      data: scan.survivors.map(mapInventoryPriceOperation),
-      meta: this.buildDiscoveryListMeta(scan),
+      data: page.map(mapInventoryPriceOperation),
+      meta: this.buildDiscoveryListMeta(page, hasNextPage),
     };
   }
 
@@ -134,139 +78,47 @@ export class GuardedPriceDiscoveryService {
     };
   }
 
-  private buildDiscoveryListMeta(scan: {
-    survivors: InventoryPriceOperation[];
-    lastRawExamined: InventoryPriceOperation | null;
-    exhausted: boolean;
-  }): ListCursorPageMetaDto {
-    const hasNextPage = !scan.exhausted && scan.lastRawExamined !== null;
+  private async loadCatalogItemIds(tenantId: string): Promise<string[]> {
+    const items = await this.prisma.catalogItem.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true },
+    });
+    return items.map((item) => item.id);
+  }
+
+  private discoveryListWhere(
+    tenantId: string,
+    principalId: string,
+    decodedCursor: PriceOperationDiscoveryCursor | null,
+    catalogItemIds: string[],
+  ): Prisma.InventoryPriceOperationWhereInput {
+    return {
+      AND: [
+        this.discoveryListBaseWhere(tenantId, principalId),
+        discoveryRetentionWhere(),
+        discoveryCatalogExistsWhere(catalogItemIds),
+        this.buildKeysetWhere(decodedCursor),
+      ],
+    };
+  }
+
+  private buildDiscoveryListMeta(
+    page: { accepted_at: Date; key: string }[],
+    hasNextPage: boolean,
+  ): ListCursorPageMetaDto {
     const meta: ListCursorPageMetaDto = {
       limit: GUARDED_PRICE_DISCOVERY_PAGE_SIZE,
       hasNextPage,
       nextCursor: null,
     };
-    if (hasNextPage && scan.lastRawExamined) {
+    if (hasNextPage && page.length > 0) {
+      const tail = page[page.length - 1];
       meta.nextCursor = encodePriceOperationDiscoveryCursor({
-        acceptedAt: scan.lastRawExamined.accepted_at.toISOString(),
-        key: scan.lastRawExamined.key,
+        acceptedAt: tail.accepted_at.toISOString(),
+        key: tail.key,
       });
     }
     return meta;
-  }
-
-  private async scanVisibleOperationsPage(
-    tenantId: string,
-    baseWhere: Prisma.InventoryPriceOperationWhereInput,
-    decodedCursor: PriceOperationDiscoveryCursor | null,
-  ): Promise<{
-    survivors: InventoryPriceOperation[];
-    lastRawExamined: InventoryPriceOperation | null;
-    exhausted: boolean;
-  }> {
-    const survivors: InventoryPriceOperation[] = [];
-    let scanAfter: PriceOperationDiscoveryCursor | null = decodedCursor;
-    let lastRawExamined: InventoryPriceOperation | null = null;
-    let exhausted = false;
-
-    while (survivors.length < GUARDED_PRICE_DISCOVERY_PAGE_SIZE && !exhausted) {
-      const remainingSlots =
-        GUARDED_PRICE_DISCOVERY_PAGE_SIZE - survivors.length;
-      const page = await this.scanDiscoveryBatch(
-        tenantId,
-        baseWhere,
-        scanAfter,
-        remainingSlots,
-      );
-      if (page.exhausted) {
-        exhausted = true;
-        break;
-      }
-
-      lastRawExamined = page.lastRawExamined;
-      survivors.push(...page.newSurvivors);
-      if (survivors.length >= GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
-        const fullPage = discoveryFullPageExhausted(page);
-        exhausted = fullPage.exhausted;
-        if (fullPage.lastRawCursor) {
-          lastRawExamined = fullPage.lastRawCursor;
-        }
-        break;
-      }
-      if (page.endOfJournal) {
-        exhausted = true;
-        break;
-      }
-
-      if (page.lastRawExamined) {
-        scanAfter = {
-          acceptedAt: page.lastRawExamined.accepted_at.toISOString(),
-          key: page.lastRawExamined.key,
-        };
-      }
-    }
-
-    return {
-      survivors,
-      lastRawExamined,
-      exhausted,
-    };
-  }
-
-  private async scanDiscoveryBatch(
-    tenantId: string,
-    baseWhere: Prisma.InventoryPriceOperationWhereInput,
-    scanAfter: PriceOperationDiscoveryCursor | null,
-    remainingSlots: number,
-  ): Promise<DiscoveryBatchPage> {
-    const keysetWhere = this.buildKeysetWhere(scanAfter);
-    const batch = await this.prisma.inventoryPriceOperation.findMany({
-      where: { AND: [baseWhere, keysetWhere] },
-      orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
-      take: DISCOVERY_RAW_BATCH_SIZE,
-    });
-
-    if (batch.length === 0) {
-      return {
-        newSurvivors: [],
-        lastRawExamined: null,
-        batchFullyConsumed: true,
-        endOfJournal: true,
-        exhausted: true,
-        stoppedBeforeTail: false,
-        remainderHasVisible: false,
-        batchLength: 0,
-        batchTail: null,
-      };
-    }
-
-    const visible = await this.filterVisibleRetainedRows(tenantId, batch);
-    const visibleById = new Set(visible.map((row) => row.id));
-    const batchTail = batch[batch.length - 1];
-    const { newSurvivors, lastRawExamined } = collectVisibleSurvivorsInBatch(
-      batch,
-      visibleById,
-      remainingSlots,
-    );
-
-    const batchFullyConsumed =
-      lastRawExamined !== null && lastRawExamined.id === batchTail.id;
-    const stoppedBeforeTail = !batchFullyConsumed;
-    const remainderHasVisible = stoppedBeforeTail
-      ? batchRemainderHasVisible(batch, lastRawExamined, visibleById)
-      : false;
-    const endOfJournal =
-      batchFullyConsumed && batch.length < DISCOVERY_RAW_BATCH_SIZE;
-    return {
-      newSurvivors,
-      lastRawExamined,
-      batchFullyConsumed,
-      endOfJournal,
-      exhausted: false,
-      stoppedBeforeTail,
-      remainderHasVisible,
-      batchLength: batch.length,
-      batchTail,
-    };
   }
 
   async getOperation(key: string): Promise<InventoryPriceOperationDto> {
@@ -277,19 +129,21 @@ export class GuardedPriceDiscoveryService {
     const tenantId = await this.tenantContext.getTenantId();
     const principalId = this.requirePrincipalId();
 
+    const catalogItemIds = await this.loadCatalogItemIds(tenantId);
     const row = await this.prisma.inventoryPriceOperation.findFirst({
-      where: { tenant_id: tenantId, principal_id: principalId, key },
+      where: {
+        AND: [
+          { tenant_id: tenantId, principal_id: principalId, key },
+          discoveryRetentionWhere(),
+          discoveryCatalogExistsWhere(catalogItemIds),
+        ],
+      },
     });
     if (!row || !rowWithinRetention(row)) {
       throw new NotFoundException(`Price operation ${key} not found`);
     }
 
-    const visible = await this.filterVisibleRetainedRows(tenantId, [row]);
-    if (visible.length === 0) {
-      throw new NotFoundException(`Price operation ${key} not found`);
-    }
-
-    return mapInventoryPriceOperation(visible[0]);
+    return mapInventoryPriceOperation(row);
   }
 
   private buildKeysetWhere(
@@ -309,30 +163,6 @@ export class GuardedPriceDiscoveryService {
         },
       ],
     };
-  }
-
-  private async filterVisibleRetainedRows(
-    tenantId: string,
-    rows: InventoryPriceOperation[],
-  ): Promise<InventoryPriceOperation[]> {
-    const retained = rows.filter((row) => rowWithinRetention(row));
-    return this.filterAccessibleRows(tenantId, retained);
-  }
-
-  private async filterAccessibleRows<T extends { item_id: string }>(
-    tenantId: string,
-    rows: T[],
-  ): Promise<T[]> {
-    if (rows.length === 0) {
-      return [];
-    }
-    const itemIds = [...new Set(rows.map((row) => row.item_id))];
-    const items = await this.prisma.catalogItem.findMany({
-      where: { tenant_id: tenantId, id: { in: itemIds } },
-      select: { id: true },
-    });
-    const visible = new Set(items.map((item) => item.id));
-    return rows.filter((row) => visible.has(row.item_id));
   }
 
   private assertInventoryPriceRole(): void {

@@ -1161,6 +1161,7 @@ model InventoryPriceOperation {
   @@unique([tenant_id, principal_id, key])
   @@unique([tenant_id, id])
   @@index([state, accepted_at])
+  @@index([tenant_id, principal_id, accepted_at(sort: Desc), key(sort: Desc)], map: "inventory_price_operations_discovery_idx")
   @@map("inventory_price_operations")
 }
 
