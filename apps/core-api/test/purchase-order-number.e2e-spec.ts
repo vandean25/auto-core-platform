@@ -12,6 +12,11 @@ import {
   createPurchaseOrderWithAllocatedNumber,
   formatPurchaseOrderNumber,
 } from '../src/purchase/purchase-order-number.util.js';
+import {
+  passThroughPurchaseOrderCreateSavepoint,
+  resetPurchaseOrderCreateSavepointPortForTests,
+  setPurchaseOrderCreateSavepointPortForTests,
+} from '../src/purchase/purchase-order-create-savepoint.js';
 
 describe('Purchase order number allocation (e2e)', () => {
   let app: INestApplication;
@@ -41,6 +46,49 @@ describe('Purchase order number allocation (e2e)', () => {
 
   afterAll(async () => {
     await teardownTestApp(app);
+  });
+
+  it('fails the same transaction when savepoint retry is disabled', async () => {
+    const year = new Date().getFullYear();
+    const takenNumber = formatPurchaseOrderNumber(year, 5);
+    setPurchaseOrderCreateSavepointPortForTests(passThroughPurchaseOrderCreateSavepoint);
+    try {
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.purchaseOrder.create({
+            data: {
+              tenant_id: tenantId,
+              site_id: siteId,
+              vendor_id: vendorId,
+              order_number: takenNumber,
+              status: PurchaseOrderStatus.DRAFT,
+            },
+          });
+          await tx.purchaseOrderSequence.upsert({
+            where: { tenant_id_year: { tenant_id: tenantId, year } },
+            update: { current: 4 },
+            create: { tenant_id: tenantId, year, current: 4 },
+          });
+          return createPurchaseOrderWithAllocatedNumber(
+            tx,
+            tenantId,
+            new Date(),
+            (orderNumber) =>
+              tx.purchaseOrder.create({
+                data: {
+                  tenant_id: tenantId,
+                  site_id: siteId,
+                  vendor_id: vendorId,
+                  order_number: orderNumber,
+                  status: PurchaseOrderStatus.DRAFT,
+                },
+              }),
+          );
+        }),
+      ).rejects.toThrow();
+    } finally {
+      resetPurchaseOrderCreateSavepointPortForTests();
+    }
   });
 
   it('retries after order_number unique violation in the same transaction', async () => {

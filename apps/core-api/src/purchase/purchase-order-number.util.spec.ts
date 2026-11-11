@@ -3,9 +3,9 @@ import {
   allocatePurchaseOrderNumber,
   bumpPurchaseOrderSequencePastNumber,
   createPurchaseOrderWithAllocatedNumber,
+  ensurePurchaseOrderSequenceRowForYear,
   formatPurchaseOrderNumber,
   parsePurchaseOrderNumberSuffix,
-  syncPurchaseOrderSequenceForYear,
 } from './purchase-order-number.util.js';
 import {
   passThroughPurchaseOrderCreateSavepoint,
@@ -34,9 +34,10 @@ describe('purchase order number helpers', () => {
   it('formats PO-YYYY-NNNN from the tenant/year sequence counter', async () => {
     const upsert = jest.fn().mockResolvedValue({ current: 42 });
     const tx = {
-      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
-      purchaseOrder: { findMany: jest.fn().mockResolvedValue([]) },
-      purchaseOrderSequence: { upsert, findFirst: jest.fn() },
+      purchaseOrderSequence: {
+        upsert,
+        findFirst: jest.fn().mockResolvedValue({ id: 'seq-1' }),
+      },
     };
 
     const number = await allocatePurchaseOrderNumber(
@@ -53,42 +54,44 @@ describe('purchase order number helpers', () => {
     });
   });
 
-  it('syncs the sequence to the max existing PO suffix for the year', async () => {
-    const upsert = jest.fn().mockResolvedValue({});
+  it('seeds the sequence from the latest order suffix when the row is missing', async () => {
+    const create = jest.fn().mockResolvedValue({});
     const tx = {
-      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder: {
-        findMany: jest.fn().mockResolvedValue([
-          { order_number: 'PO-2026-0001' },
-          { order_number: 'PO-2026-7834' },
-          { order_number: 'PO-2025-9999' },
-        ]),
+        findFirst: jest.fn().mockResolvedValue({ order_number: 'PO-2026-7834' }),
       },
       purchaseOrderSequence: {
-        upsert,
-        findFirst: jest.fn().mockResolvedValue({ current: 0 }),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create,
       },
     };
 
-    await syncPurchaseOrderSequenceForYear(tx as never, 'tenant-1', 2026);
+    await ensurePurchaseOrderSequenceRowForYear(tx as never, 'tenant-1', 2026);
 
-    expect(upsert).toHaveBeenCalledWith({
-      where: { tenant_id_year: { tenant_id: 'tenant-1', year: 2026 } },
-      update: { current: 7834 },
-      create: { tenant_id: 'tenant-1', year: 2026, current: 7834 },
+    expect(create).toHaveBeenCalledWith({
+      data: { tenant_id: 'tenant-1', year: 2026, current: 7834 },
     });
   });
 
-  it('creates with numbers above seeded legacy suffixes and skips a collision', async () => {
-    const used = new Set<string>();
-    let current = 7834;
+  it('does not read purchase orders when the sequence row already exists', async () => {
+    const findFirstOrder = jest.fn();
+    const tx = {
+      purchaseOrder: { findFirst: findFirstOrder },
+      purchaseOrderSequence: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'seq-1' }),
+      },
+    };
+
+    await ensurePurchaseOrderSequenceRowForYear(tx as never, 'tenant-1', 2026);
+
+    expect(findFirstOrder).not.toHaveBeenCalled();
+  });
+
+  it('retries after P2002 on order_number and commits the next suffix', async () => {
+    const taken = 'PO-2026-0005';
+    const used = new Set<string>([taken]);
+    let current = 4;
     const purchaseOrder = {
-      findMany: jest
-        .fn()
-        .mockResolvedValue([
-          { order_number: 'PO-2026-0001' },
-          { order_number: 'PO-2026-7834' },
-        ]),
       create: jest.fn(({ data }: { data: { order_number: string } }) => {
         if (used.has(data.order_number)) {
           throw new Prisma.PrismaClientKnownRequestError('Unique', {
@@ -98,38 +101,33 @@ describe('purchase order number helpers', () => {
           });
         }
         used.add(data.order_number);
-        return Promise.resolve({ id: 'po-1', order_number: data.order_number });
+        return Promise.resolve({ id: 'po-new', order_number: data.order_number });
       }),
     };
     const purchaseOrderSequence = {
       findFirst: jest.fn().mockImplementation(async () => ({ current })),
-      upsert: jest.fn().mockImplementation(async (args: { update?: { current?: number | { increment: number } }; create?: { current: number } }) => {
-        if (args.update?.current && typeof args.update.current === 'object') {
-          current += args.update.current.increment;
-        } else if (typeof args.update?.current === 'number') {
-          current = args.update.current;
-        } else if (args.create) {
-          current = args.create.current;
-        }
-        return { current };
-      }),
+      upsert: jest.fn().mockImplementation(
+        async (args: {
+          update?: { current?: number | { increment: number } };
+          create?: { current: number };
+        }) => {
+          if (args.update?.current && typeof args.update.current === 'object') {
+            current += args.update.current.increment;
+          } else if (typeof args.update?.current === 'number') {
+            current = args.update.current;
+          } else if (args.create) {
+            current = args.create.current;
+          }
+          return { current };
+        },
+      ),
     };
     const tx = {
-      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder,
       purchaseOrderSequence,
     };
 
-    const first = await createPurchaseOrderWithAllocatedNumber(
-      tx as never,
-      'tenant-1',
-      new Date('2026-01-01T00:00:00Z'),
-      (orderNumber) =>
-        tx.purchaseOrder.create({ data: { order_number: orderNumber } }),
-    );
-    used.add(formatPurchaseOrderNumber(2026, 7834));
-
-    const second = await createPurchaseOrderWithAllocatedNumber(
+    const created = await createPurchaseOrderWithAllocatedNumber(
       tx as never,
       'tenant-1',
       new Date('2026-01-01T00:00:00Z'),
@@ -137,9 +135,12 @@ describe('purchase order number helpers', () => {
         tx.purchaseOrder.create({ data: { order_number: orderNumber } }),
     );
 
-    expect(first.order_number).toBe('PO-2026-7835');
-    expect(second.order_number).toBe('PO-2026-7836');
-    expect(used.size).toBe(3);
+    expect(created.order_number).toBe('PO-2026-0006');
+    expect(purchaseOrder.create).toHaveBeenCalledTimes(2);
+    expect(purchaseOrder.create.mock.calls[0][0].data.order_number).toBe(
+      taken,
+    );
+    expect(used).toContain('PO-2026-0006');
   });
 
   it('bumps the sequence past a colliding order number', async () => {

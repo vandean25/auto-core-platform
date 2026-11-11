@@ -24,58 +24,71 @@ export function formatPurchaseOrderNumber(
   return `PO-${year}-${suffix.toString().padStart(4, '0')}`;
 }
 
+function isPurchaseOrderSequenceKeyConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
+}
+
+async function maxPurchaseOrderSuffixForYear(
+  tx: PrismaTypes.TransactionClient,
+  tenantId: string,
+  year: number,
+): Promise<number> {
+  const prefix = `PO-${year}-`;
+  const latest = await tx.purchaseOrder.findFirst({
+    where: {
+      tenant_id: tenantId,
+      order_number: { startsWith: prefix },
+    },
+    orderBy: { order_number: 'desc' },
+    select: { order_number: true },
+  });
+  const parsed = latest
+    ? parsePurchaseOrderNumberSuffix(latest.order_number)
+    : null;
+  return parsed?.year === year ? parsed.suffix : 0;
+}
+
 /**
- * Raises the tenant/year sequence to at least the max `PO-YYYY-NNNN` suffix already stored.
+ * When no sequence row exists, seeds it from the highest PO-YYYY-NNNN suffix (one row)
+ * without lowering an existing counter.
  */
-export async function syncPurchaseOrderSequenceForYear(
+export async function ensurePurchaseOrderSequenceRowForYear(
   tx: PrismaTypes.TransactionClient,
   tenantId: string,
   year: number,
 ): Promise<void> {
-  const prefix = `PO-${year}-`;
-  const sites = await tx.site.findMany({
-    where: { tenant_id: tenantId },
-    select: { id: true },
-  });
-  if (sites.length === 0) {
-    return;
-  }
-  const rows = await tx.purchaseOrder.findMany({
-    where: {
-      tenant_id: tenantId,
-      order_number: { startsWith: prefix },
-      OR: [
-        { site_id: { in: sites.map((site) => site.id) } },
-        { site_id: null },
-      ],
-    },
-    select: { order_number: true },
-  });
-  let maxSuffix = 0;
-  for (const row of rows) {
-    const parsed = parsePurchaseOrderNumberSuffix(row.order_number);
-    if (parsed?.year === year) {
-      maxSuffix = Math.max(maxSuffix, parsed.suffix);
-    }
-  }
-  if (maxSuffix <= 0) {
-    return;
-  }
-
   const existing = await tx.purchaseOrderSequence.findFirst({
     where: { tenant_id: tenantId, year },
-    select: { current: true },
+    select: { id: true },
   });
-  const nextCurrent = Math.max(existing?.current ?? 0, maxSuffix);
-  if (existing && existing.current >= maxSuffix) {
+  if (existing) {
     return;
   }
 
-  await tx.purchaseOrderSequence.upsert({
-    where: { tenant_id_year: { tenant_id: tenantId, year } },
-    update: { current: nextCurrent },
-    create: { tenant_id: tenantId, year, current: maxSuffix },
-  });
+  const maxSuffix = await maxPurchaseOrderSuffixForYear(tx, tenantId, year);
+
+  try {
+    await tx.purchaseOrderSequence.create({
+      data: { tenant_id: tenantId, year, current: maxSuffix },
+    });
+  } catch (error) {
+    if (!isPurchaseOrderSequenceKeyConflict(error)) {
+      throw error;
+    }
+    const raced = await tx.purchaseOrderSequence.findFirst({
+      where: { tenant_id: tenantId, year },
+      select: { current: true },
+    });
+    if (raced && maxSuffix > raced.current) {
+      await tx.purchaseOrderSequence.update({
+        where: { tenant_id_year: { tenant_id: tenantId, year } },
+        data: { current: maxSuffix },
+      });
+    }
+  }
 }
 
 async function nextPurchaseOrderSuffix(
@@ -92,8 +105,8 @@ async function nextPurchaseOrderSuffix(
 }
 
 /**
- * PO-YYYY-NNNN from the tenant/year counter. Syncs with existing orders, then
- * increments atomically. Retries on order_number unique collisions.
+ * PO-YYYY-NNNN from the tenant/year counter. Seeds the sequence row once when missing,
+ * then increments atomically. Retries on order_number unique collisions.
  */
 export async function allocatePurchaseOrderNumber(
   tx: PrismaTypes.TransactionClient,
@@ -101,7 +114,7 @@ export async function allocatePurchaseOrderNumber(
   now: Date = new Date(),
 ): Promise<string> {
   const year = now.getFullYear();
-  await syncPurchaseOrderSequenceForYear(tx, tenantId, year);
+  await ensurePurchaseOrderSequenceRowForYear(tx, tenantId, year);
   const suffix = await nextPurchaseOrderSuffix(tx, tenantId, year);
   return formatPurchaseOrderNumber(year, suffix);
 }
@@ -134,14 +147,25 @@ export function isPurchaseOrderNumberConflict(error: unknown): boolean {
   ) {
     return false;
   }
-  const target = error.meta?.target;
+  const meta = error.meta ?? {};
+  const target = meta.target;
   if (Array.isArray(target)) {
-    return target.includes('order_number');
+    return target.some(
+      (field) =>
+        field === 'order_number' ||
+        (typeof field === 'string' && field.includes('order_number')),
+    );
   }
   if (typeof target === 'string') {
     return target.includes('order_number');
   }
-  return false;
+  if (
+    typeof meta.constraint === 'string' &&
+    meta.constraint.includes('order_number')
+  ) {
+    return true;
+  }
+  return meta.modelName === 'PurchaseOrder';
 }
 
 /**
