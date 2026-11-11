@@ -205,13 +205,16 @@ describe('Production image version pins (AUT-167)', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
     expect(dockerfile).toMatch(/ARG PDF_WORKER_NODE_VERSION=24\.22\.2/);
-    const shaArg = dockerfile.match(/^ARG PDF_WORKER_NODE_SHA256=([a-f0-9]{64})$/m);
-    expect(shaArg).not.toBeNull();
-    expect(shaArg?.[1]).toHaveLength(64);
-    expect(dockerfile).toMatch(/sha256sum -c -/);
+    expect(dockerfile).toMatch(/^FROM node:24\.22\.2-slim AS builder$/m);
+    expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/bin\//);
+    expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/include\//);
+    expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/lib\//);
     expect(dockerfile).toMatch(/verify-pdf-worker-node\.sh/);
-    expect(dockerfile).toMatch(/node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar\.xz/);
     expect(dockerfile).not.toMatch(/setup_24\.x/);
+    const workerStage = dockerfile.slice(dockerfile.indexOf('AS worker'));
+    expect(workerStage).not.toMatch(/apt-get/);
+    expect(workerStage).not.toMatch(/sha256sum -c -/);
+    expect(workerStage).not.toMatch(/node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar/);
     const verifyScript = fs.readFileSync(
       path.join(CORE_API_ROOT, 'scripts', 'verify-pdf-worker-node.sh'),
       'utf8',
