@@ -103,9 +103,3 @@ export function resolveDashboardWidgetDisplayName(
   const titleKey = builtInTitleKey(variant, widget)
   return t(titleKey, { sourceLabel: t(source.labelKey) })
 }
-
-export function isBuiltInWidgetDisplayName(name: string, sourceKey: string, storedSourceLabel: string): boolean {
-  const trimmed = name.trim()
-  const labels = labelCandidates(sourceKey, storedSourceLabel)
-  return BUILTIN_SUFFIX_RULES.some((rule) => nameMatchesRule(trimmed, labels, rule))
-}

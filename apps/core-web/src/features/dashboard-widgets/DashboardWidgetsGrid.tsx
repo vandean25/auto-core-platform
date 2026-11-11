@@ -69,10 +69,7 @@ function DashboardWidgetCard({
   const { data, isLoading, error } = useWidgetRows(widget)
   const rows = useMemo(() => data?.rows ?? [], [data])
   const hasRows = !isLoading && !error && rows.length > 0
-  const displayName = useMemo(
-    () => resolveDashboardWidgetDisplayName(widget, source, t),
-    [widget, source, t],
-  )
+  const displayName = resolveDashboardWidgetDisplayName(widget, source, t)
 
   return (
     <Card className="h-full">
