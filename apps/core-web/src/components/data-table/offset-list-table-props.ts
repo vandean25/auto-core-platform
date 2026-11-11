@@ -6,7 +6,10 @@ type PagedMeta = { pageCount: number }
 
 /** Shared offset-list loading props for DataTable (AUT-971 paginated lists). */
 export function offsetListTableProps<TData extends { meta: PagedMeta }>(
-  query: Pick<UseQueryResult<TData>, 'data' | 'isPending' | 'isFetching' | 'isPlaceholderData' | 'isError'>,
+  query: Pick<
+    UseQueryResult<TData>,
+    'data' | 'isPending' | 'isFetching' | 'isPlaceholderData' | 'isError' | 'refetch'
+  >,
 ) {
   const payloadReady = query.data !== undefined
   const offsetMetaResolved = payloadReady || !query.isPending
@@ -20,5 +23,6 @@ export function offsetListTableProps<TData extends { meta: PagedMeta }>(
     isError: query.isError,
     hasUsableData,
     listSnapshotResolved: isOffsetListSnapshotResolved(hasUsableData, offsetMetaResolved),
+    onRetry: () => void query.refetch(),
   }
 }

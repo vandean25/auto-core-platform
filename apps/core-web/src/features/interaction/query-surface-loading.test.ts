@@ -24,6 +24,7 @@ describe('offsetPaginatedQueryTableProps', () => {
       isFetching: false,
       isPlaceholderData: false,
       isError: false,
+      refetch: async () => ({ data: undefined }),
     })
     expect(props.isLoading).toBe(false)
     expect(props.hasUsableData).toBe(true)

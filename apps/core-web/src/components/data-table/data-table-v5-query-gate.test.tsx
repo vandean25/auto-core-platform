@@ -125,6 +125,7 @@ describe('AUT-971 TanStack Query v5 first-load gate', () => {
       isFetching: listResult.current.isFetching,
       isPlaceholderData: listResult.current.isPlaceholderData,
       isError: listResult.current.isError,
+      refetch: listResult.current.refetch,
     })
     const miswiredLoading = countResult.current.isPending && countResult.current.isFetching
     expect(
