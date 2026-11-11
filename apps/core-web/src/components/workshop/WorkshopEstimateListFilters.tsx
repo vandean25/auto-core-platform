@@ -48,7 +48,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             onChange={(customer) => onChange({ customerId: customer?.id ?? '', customerName: customer?.name ?? '' })}
           />
         </div>
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex w-full min-w-[10.5rem] flex-col gap-1">
           <Label htmlFor="estimate-sent-from">{t('estimateList.filters.sentFrom')}</Label>
           <DateField
             id="estimate-sent-from"
@@ -57,7 +57,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             data-testid="estimate-sent-from"
           />
         </div>
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex w-full min-w-[10.5rem] flex-col gap-1">
           <Label htmlFor="estimate-sent-to">{t('estimateList.filters.sentTo')}</Label>
           <DateField
             id="estimate-sent-to"

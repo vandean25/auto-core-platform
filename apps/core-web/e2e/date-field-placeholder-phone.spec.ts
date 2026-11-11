@@ -11,9 +11,9 @@ const PAGES = [
   ['Exportbereitschaft', '/finance/accounting-export-readiness'],
 ] as const
 
-type FieldFit = { index: number; inputWidth: number; textWidth: number; needed: number }
+type FieldFit = { index: number; textAreaWidth: number; textWidth: number }
 
-/** Width the placeholder text needs against the width the input offers it (inside its padding). */
+/** Placeholder text must fit in the input content box (calendar icon overlays right padding on phones). */
 async function dateFieldFits(page: Page): Promise<FieldFit[]> {
   return page.evaluate((placeholder) => {
     return Array.from(
@@ -30,14 +30,10 @@ async function dateFieldFits(page: Page): Promise<FieldFit[]> {
       document.body.appendChild(probe)
       const textWidth = probe.getBoundingClientRect().width
       probe.remove()
-      const padding =
-        parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
-      return {
-        index,
-        inputWidth: input.clientWidth,
-        textWidth,
-        needed: textWidth + padding,
-      }
+      const paddingLeft = parseFloat(style.paddingLeft)
+      const paddingRight = parseFloat(style.paddingRight)
+      const textAreaWidth = input.clientWidth - paddingLeft - paddingRight
+      return { index, textAreaWidth, textWidth }
     })
   }, PLACEHOLDER)
 }
@@ -55,7 +51,10 @@ test.describe('Date filter placeholders on a phone (AUT-791)', () => {
         const fits = await dateFieldFits(page)
         expect(fits.length, 'date fields on the page').toBeGreaterThan(0)
         for (const fit of fits) {
-          expect(fit.inputWidth, `date field ${fit.index}: ${Math.ceil(fit.needed)}px needed`).toBeGreaterThanOrEqual(fit.needed)
+          expect(
+            fit.textAreaWidth,
+            `date field ${fit.index}: ${Math.ceil(fit.textWidth)}px placeholder text`,
+          ).toBeGreaterThanOrEqual(fit.textWidth)
         }
         await expectNoPageScroll(page)
       })

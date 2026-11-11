@@ -95,7 +95,7 @@ export function DateField({
 
   return (
     // On a phone the calendar button sits inside the field, so the date text keeps the whole width of a half-width filter.
-    <div className="relative flex w-full min-w-0 items-center gap-1">
+    <div className="relative flex w-full min-w-[10.5rem] items-center gap-1">
       <Input
         ref={inputRef}
         id={id}
