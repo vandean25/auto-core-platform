@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_COMMON } from './helpers/de-common'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
+import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 test.describe('AUT-971 skeleton settles when data arrives', () => {
   test('AUT-971 scenario 1: work-order list at 375px shows rows within 350ms of pager visibility', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
-    const corePage = new AutoCorePage(page, 'Order')
+    const corePage = new AutoCorePage(page, deWorkshop.orders.list.newOrder)
     const order = createMockWorkshopOrder({ id: 'wo-aut-971', order_number: 'WO-971-01' })
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
@@ -16,8 +18,11 @@ test.describe('AUT-971 skeleton settles when data arrives', () => {
     })
 
     await corePage.navigate('/workshop/orders')
-    await expect(page.getByText(/Seite\s+1/)).toBeVisible()
-    await expect(page.locator('tbody .animate-pulse')).toHaveCount(0, { timeout: 350 })
+    await expect(page.locator('[data-table-list="true"]')).toBeVisible()
+    const pagerNext = page.getByRole('button', { name: DE_COMMON.dataTable.next, exact: true })
+    await pagerNext.scrollIntoViewIfNeeded()
+    await expect(pagerNext).toBeVisible()
+    await expect(page.locator('.animate-pulse')).toHaveCount(0, { timeout: 350 })
     await expect(page.getByText('WO-971-01')).toBeVisible()
   })
 
