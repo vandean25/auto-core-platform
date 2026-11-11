@@ -47,7 +47,16 @@ describe('data-table loading snapshot helpers', () => {
         hasUsableData: false,
         listSnapshotResolved: false,
       }),
-    ).toBe(true)
+    ).toBe(false)
+    expect(
+      isDataTableFirstLoadActive({
+        isLoading: true,
+        isPending: true,
+        isFetching: true,
+        hasUsableData: false,
+        listSnapshotResolved: true,
+      }),
+    ).toBe(false)
   })
 
   it('combines infinite count and offset meta resolution', () => {
