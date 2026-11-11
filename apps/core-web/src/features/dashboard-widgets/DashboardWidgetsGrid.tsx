@@ -92,7 +92,7 @@ function DashboardWidgetCard({
       <CardContent>
         {showLoading ? <p className="text-sm text-muted-foreground">{t('dashboard.loadingWidget')}</p> : null}
         {error ? <p className="text-sm text-destructive">{t('dashboard.loadWidgetFailed')}</p> : null}
-        {!isPending && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
+        {!showLoading && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
 
         {hasRows && data ? <WidgetBody widget={widget} source={source} data={data} /> : null}
         {hasRows && data && isPartialResult(widget, data) ? (

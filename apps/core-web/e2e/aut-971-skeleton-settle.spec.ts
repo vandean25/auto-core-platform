@@ -5,33 +5,54 @@ import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-fa
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 
 const LIST_API_DELAY_MS = 900
+const DISMISS_BUDGET_MS = 350
 
-async function fulfillAfterDelay(page: Page, apiPath: string, body: unknown) {
+async function routeWithSettledAt(page: Page, apiPath: string, body: unknown) {
+  const settledAt = { ms: 0 }
   await page.route(AutoCorePage.apiRouteMatcher(apiPath), async (route) => {
     await new Promise((resolve) => setTimeout(resolve, LIST_API_DELAY_MS))
+    settledAt.ms = Date.now()
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(body),
     })
   })
+  return settledAt
+}
+
+async function expectSkeletonDismissedBySettleDeadline(page: Page, settledAt: { ms: number }) {
+  await expect.poll(() => settledAt.ms > 0, { timeout: LIST_API_DELAY_MS + 2_000, intervals: [50] }).toBe(true)
+  const deadline = settledAt.ms + DISMISS_BUDGET_MS
+  await expect
+    .poll(
+      async () => {
+        const pulseCount = await page.locator('.animate-pulse').count()
+        if (pulseCount === 0) return true
+        if (Date.now() > deadline) {
+          throw new Error(`skeleton pulse count ${pulseCount} still visible ${Date.now() - settledAt.ms}ms after API settle`)
+        }
+        return false
+      },
+      { timeout: LIST_API_DELAY_MS + 2_000, intervals: [15, 30, 50] },
+    )
+    .toBe(true)
 }
 
 test.describe('AUT-971 skeleton settles when data arrives', () => {
-  test('AUT-971 scenario 1: work-order list at 375px shows rows within 350ms of pager visibility', async ({ page }) => {
+  test('AUT-971 scenario 1: work-order list at 375px dismisses skeleton within 350ms of the API response', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     const corePage = new AutoCorePage(page, deWorkshop.orders.list.newOrder)
     const order = createMockWorkshopOrder({ id: 'wo-aut-971', order_number: 'WO-971-01' })
-
-    await fulfillAfterDelay(page, '/api/workshop/orders', createMockListResponse([order]))
+    const settledAt = await routeWithSettledAt(page, '/api/workshop/orders', createMockListResponse([order]))
 
     await corePage.navigate('/workshop/orders', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('.animate-pulse').first()).toBeVisible({ timeout: 2_000 })
+    await expectSkeletonDismissedBySettleDeadline(page, settledAt)
     await expect(page.getByText('WO-971-01')).toBeVisible({ timeout: 2_000 })
     const pagerNext = page.getByRole('button', { name: DE_COMMON.dataTable.next, exact: true })
     await pagerNext.scrollIntoViewIfNeeded()
     await expect(pagerNext).toBeVisible()
-    await expect(page.locator('.animate-pulse')).toHaveCount(0, { timeout: 350 })
   })
 
   test('AUT-971 scenario 4: planner at 375px clears skeleton within 350ms of planner data', async ({ page }) => {
@@ -52,7 +73,7 @@ test.describe('AUT-971 skeleton settles when data arrives', () => {
       })
     })
 
-    await fulfillAfterDelay(page, '/api/workshop/planner', {
+    const settledAt = await routeWithSettledAt(page, '/api/workshop/planner', {
       timezone: 'Europe/Vienna',
       slotMinutes: 30,
       bays: [{ id: 'bay-1', name: 'Bay 1', isActive: true, sortOrder: 1 }],
@@ -64,35 +85,39 @@ test.describe('AUT-971 skeleton settles when data arrives', () => {
 
     await corePage.navigate('/workshop/planner', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('.animate-pulse').first()).toBeVisible({ timeout: 2_000 })
+    await expectSkeletonDismissedBySettleDeadline(page, settledAt)
     await expect(page.getByText('Bay 1')).toBeVisible({ timeout: 2_000 })
-    await expect(page.locator('.animate-pulse')).toHaveCount(0, { timeout: 350 })
   })
 
   test('AUT-971 scenario 3: vehicles at 375px replace skeleton within 350ms of the API response', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     const corePage = new AutoCorePage(page, 'Vehicle')
 
-    await fulfillAfterDelay(page, '/api/vehicles', createMockListResponse([
-      {
-        id: 'veh-aut-971',
-        make: 'VW',
-        model: 'Golf',
-        year: 2020,
-        vin: 'VIN971',
-        plate: 'W-971',
-      },
-    ]))
+    const settledAt = await routeWithSettledAt(
+      page,
+      '/api/vehicles',
+      createMockListResponse([
+        {
+          id: 'veh-aut-971',
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          vin: 'VIN971',
+          plate: 'W-971',
+        },
+      ]),
+    )
 
     await corePage.navigate('/vehicles', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('.animate-pulse').first()).toBeVisible({ timeout: 2_000 })
+    await expectSkeletonDismissedBySettleDeadline(page, settledAt)
     await expect(page.getByText('VW Golf')).toBeVisible({ timeout: 2_000 })
-    await expect(page.locator('.animate-pulse')).toHaveCount(0, { timeout: 350 })
   })
 
   test('AUT-971 scenario 6: estimates at 375px are not skeleton after the request completes', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     const corePage = new AutoCorePage(page, '')
-    await fulfillAfterDelay(page, '/api/workshop/estimates', {
+    const settledAt = await routeWithSettledAt(page, '/api/workshop/estimates', {
       data: [
         {
           version_id: 'ver-971',
@@ -113,7 +138,7 @@ test.describe('AUT-971 skeleton settles when data arrives', () => {
       meta: { page_size: 25, next_cursor: null },
     })
     await corePage.navigate('/workshop/estimates', { waitUntil: 'domcontentloaded' })
-    await expect(page.locator('[data-table-row="true"]').first()).toContainText('KV-2026-0971', { timeout: 2_500 })
-    await expect(page.locator('.animate-pulse')).toHaveCount(0, { timeout: 350 })
+    await expectSkeletonDismissedBySettleDeadline(page, settledAt)
+    await expect(page.locator('[data-table-row="true"]').first()).toContainText('KV-2026-0971', { timeout: 2_000 })
   })
 })

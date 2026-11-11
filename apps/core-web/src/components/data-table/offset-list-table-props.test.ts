@@ -17,6 +17,18 @@ describe('offsetListTableProps', () => {
     expect(props.isLoading).toBe(false)
   })
 
+  it('AUT-971: resolves list snapshot when the query is no longer pending', () => {
+    const props = offsetListTableProps({
+      data: undefined,
+      isPending: false,
+      isFetching: false,
+      isPlaceholderData: false,
+      isError: true,
+    })
+    expect(props.listSnapshotResolved).toBe(true)
+    expect(props.hasUsableData).toBe(false)
+  })
+
   it('AUT-971: maps TanStack isLoading to pending and actively fetching', () => {
     const paused = offsetListTableProps({
       data: undefined,

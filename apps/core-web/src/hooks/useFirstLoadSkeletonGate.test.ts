@@ -21,4 +21,20 @@ describe('useFirstLoadSkeletonGate', () => {
     rerender({ active: true, bypass: true })
     expect(result.current).toBe(false)
   })
+
+  it('AUT-971: does not re-arm after payloadReady even when first-load becomes active again', () => {
+    const { result, rerender } = renderHook(
+      ({ active, bypass, ready }) => useFirstLoadSkeletonGate(active, bypass, ready),
+      { initialProps: { active: true, bypass: false, ready: false } },
+    )
+
+    act(() => vi.advanceTimersByTime(skeletonDelayMs))
+    expect(result.current).toBe(true)
+    rerender({ active: false, bypass: false, ready: true })
+    act(() => vi.advanceTimersByTime(500))
+    expect(result.current).toBe(false)
+    rerender({ active: true, bypass: false, ready: true })
+    act(() => vi.advanceTimersByTime(skeletonDelayMs))
+    expect(result.current).toBe(false)
+  })
 })

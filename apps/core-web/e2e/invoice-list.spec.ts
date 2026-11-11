@@ -91,6 +91,7 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     const rows = invoiceRows.slice(0, 5)
+    const settledAt = { ms: 0 }
     await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
       const url = new URL(route.request().url())
       if (url.searchParams.get('pagination') === 'cursor') {
@@ -98,14 +99,29 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
         return
       }
       await new Promise((resolve) => setTimeout(resolve, 900))
+      settledAt.ms = Date.now()
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) })
     })
     await new AutoCorePage(page, DE_SALES.invoices.list.newInvoice).navigate(
       '/sales/invoices?sortField=customer&sortDirection=asc',
       { waitUntil: 'domcontentloaded' },
     )
+    await expect.poll(() => settledAt.ms > 0, { timeout: 2_500, intervals: [50] }).toBe(true)
+    const deadline = settledAt.ms + 350
+    await expect
+      .poll(
+        async () => {
+          const pulseCount = await page.locator('tbody .animate-pulse').count()
+          if (pulseCount === 0) return true
+          if (Date.now() > deadline) {
+            throw new Error(`invoice list skeleton still visible ${Date.now() - settledAt.ms}ms after API settle`)
+          }
+          return false
+        },
+        { timeout: 2_500, intervals: [15, 30, 50] },
+      )
+      .toBe(true)
     await expect(page.getByText('RE-2026-0001')).toBeVisible({ timeout: 2_500 })
-    await expect(page.locator('tbody .animate-pulse')).toHaveCount(0, { timeout: 350 })
     await expect(pageButtons(page)).toBeVisible()
   })
 

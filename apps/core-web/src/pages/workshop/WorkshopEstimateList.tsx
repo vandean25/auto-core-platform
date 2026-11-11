@@ -47,8 +47,9 @@ export default function WorkshopEstimateList() {
           <DataTable
             columns={columns}
             data={rows}
-            isLoading={query.isPending}
+            isLoading={query.isPending && query.isFetching}
             isPending={query.isPending}
+            isFetching={query.isFetching}
             hasUsableData={listSettled}
             listSnapshotResolved={listSettled}
             enableCsvExport={false}

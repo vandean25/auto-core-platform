@@ -8,8 +8,9 @@ type PagedMeta = { pageCount: number }
 export function offsetListTableProps<TData extends { meta: PagedMeta }>(
   query: Pick<UseQueryResult<TData>, 'data' | 'isPending' | 'isFetching' | 'isPlaceholderData' | 'isError'>,
 ) {
-  const offsetMetaResolved = query.data !== undefined
-  const hasUsableData = offsetMetaResolved
+  const payloadReady = query.data !== undefined
+  const offsetMetaResolved = payloadReady || !query.isPending
+  const hasUsableData = payloadReady
   return {
     pageCount: query.data?.meta.pageCount ?? 1,
     isLoading: query.isPending && query.isFetching,

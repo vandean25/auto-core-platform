@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import { useDelayedFlag } from '@/hooks/useDelayedFlag'
 import { useFirstLoadSkeletonGate } from '@/hooks/useFirstLoadSkeletonGate'
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
+import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 
 export type DataTablePendingRowMeta = {
   __dataTablePending: true
@@ -147,20 +148,26 @@ export function shouldUseMobileDataTableList(
   return isMobile && !showFirstLoadSkeleton && bodyRowCount > 0
 }
 
-/** TanStack Query v5 `isLoading` is `isPending && isFetching` — do not keep skeleton on paused pending. */
+/** True while the list still awaits its first renderable payload (v5 isLoading semantics, not paused pending). */
 export function isDataTableFirstLoadActive(
   input: Pick<DataTablePresentationInput, 'isLoading' | 'hasUsableData' | 'listSnapshotResolved'> &
     Partial<Pick<DataTablePresentationInput, 'isPending' | 'isFetching'>>,
 ): boolean {
   const isPending = input.isPending ?? input.isLoading
-  // Legacy `isLoading`-only callers omit isFetching; explicit `false` means paused pending (v5).
-  const isActivelyFetching = input.isFetching === undefined ? isPending : input.isFetching
-  return isPending && isActivelyFetching && !input.hasUsableData && !input.listSnapshotResolved
+  // Legacy callers pass only `isLoading` (v4 semantics); explicit `isFetching: false` is paused pending.
+  const isActivelyFetching = input.isFetching ?? input.isLoading
+  const payloadReady = input.hasUsableData || Boolean(input.listSnapshotResolved)
+  return isAwaitingFirstQueryPayload(isPending, payloadReady, isActivelyFetching)
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
   const firstLoadActive = isDataTableFirstLoadActive(input)
-  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(firstLoadActive, input.bypassSkeleton || input.isError)
+  const payloadReady = input.hasUsableData || Boolean(input.listSnapshotResolved)
+  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(
+    firstLoadActive,
+    input.bypassSkeleton || input.isError,
+    payloadReady,
+  )
 
   const isStalePreview =
     !showFirstLoadSkeleton &&

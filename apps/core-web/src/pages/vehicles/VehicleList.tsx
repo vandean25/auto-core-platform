@@ -190,7 +190,7 @@ export default function VehicleList() {
         dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
         pageCount={responseData?.meta?.pageCount ?? 1}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
-        isLoading={vehiclesQuery.isPending}
+        isLoading={vehiclesQuery.isPending && vehiclesQuery.isFetching}
         isPending={vehiclesQuery.isPending}
         isFetching={vehiclesQuery.isFetching}
         hasUsableData={listSettled}

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useDevQuerySkeletonDiagnostic } from '@/features/interaction/use-dev-query-skeleton-diagnostic'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -36,6 +37,12 @@ export default function WorkshopOrderList() {
     peek.openPeek,
     rows.loadedRows,
   )
+  useDevQuerySkeletonDiagnostic({
+    screen: 'workshop-orders',
+    query: ordersQuery,
+    hasUsableData: rows.visibleResponse !== undefined,
+    listSnapshotResolved: ordersQuery.data !== undefined,
+  })
 
   return (
     <div className='space-y-6'>
@@ -62,7 +69,7 @@ export default function WorkshopOrderList() {
         saveViewTitle={t('orders.list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
         pageCount={rows.visibleResponse?.meta?.pageCount ?? 1}
-        isLoading={ordersQuery.isPending}
+        isLoading={ordersQuery.isPending && ordersQuery.isFetching}
         isPending={ordersQuery.isPending}
         isFetching={ordersQuery.isFetching}
         isPlaceholderData={ordersQuery.isPlaceholderData || rows.showingStaleError}

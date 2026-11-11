@@ -31,7 +31,8 @@ describe('PickerlDueDashboardWidget', () => {
     vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
       data: { meta: { total: 2 } },
       isPending: false,
-      isFetching: false,
+      isLoading: true,
+      isFetching: true,
     } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
     const { container, findByText } = renderWidget()
 
@@ -39,10 +40,11 @@ describe('PickerlDueDashboardWidget', () => {
     expect(container.querySelector('.animate-pulse')).toBeNull()
   })
 
-  it('AUT-971: WHEN the query refetches with cached payload THEN the count stays visible without skeleton', async () => {
+  it('AUT-971: WHEN v5 isLoading is true with cached payload THEN the count stays visible without skeleton', async () => {
     vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
       data: { meta: { total: 4 } },
       isPending: false,
+      isLoading: true,
       isFetching: true,
     } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
     const { container, findByText } = renderWidget()

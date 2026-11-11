@@ -8,11 +8,18 @@ const { skeletonDelayMs, skeletonMinVisibleMs } = INTERACTION_LOADING_TIMINGS
  * First-load skeleton gate: 200 ms delay, then at least 350 ms visible once shown.
  * Bypass clears immediately (errors and context resets).
  */
-export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = false): boolean {
+export function useFirstLoadSkeletonGate(
+  isFirstLoadActive: boolean,
+  bypass = false,
+  /** Once the query payload is ready, do not re-arm the skeleton on later pending/fetch flicker (AUT-971). */
+  payloadReady = false,
+): boolean {
   const [visible, setVisible] = useState(false)
   const visibleSinceRef = useRef<number | null>(null)
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const payloadReadyLatchRef = useRef(false)
+  if (payloadReady) payloadReadyLatchRef.current = true
 
   useEffect(() => {
     const clearDelayTimer = () => {
@@ -29,6 +36,14 @@ export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = fa
     }
 
     if (bypass) {
+      clearDelayTimer()
+      clearHoldTimer()
+      visibleSinceRef.current = null
+      setVisible(false)
+      return
+    }
+
+    if (payloadReadyLatchRef.current) {
       clearDelayTimer()
       clearHoldTimer()
       visibleSinceRef.current = null
@@ -73,7 +88,7 @@ export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = fa
     }, remaining)
 
     return () => clearHoldTimer()
-  }, [bypass, isFirstLoadActive])
+  }, [bypass, isFirstLoadActive, payloadReady])
 
   return visible
 }

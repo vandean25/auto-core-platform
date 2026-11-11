@@ -20,6 +20,7 @@ describe('WorkshopKpiDashboardWidget', () => {
     vi.mocked(useWorkshopKpiReport).mockReturnValue({
       data: { totals: { utilisation_percent: '0.82' } },
       isPending: false,
+      isLoading: true,
       isFetching: true,
     } as never)
 
