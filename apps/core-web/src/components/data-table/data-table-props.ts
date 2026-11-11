@@ -40,15 +40,12 @@ export type DataTableCoreProps<TData extends object> = {
   data: TData[]
   pageCount?: number
   isLoading?: boolean
-  isPending?: boolean
   isFetching?: boolean
   isPlaceholderData?: boolean
   isError?: boolean
   onRetry?: () => void
   bypassSkeleton?: boolean
   hasUsableData?: boolean
-  /** Paginated or offset list: server page meta arrived — end the first-load skeleton gate. */
-  listSnapshotResolved?: boolean
   fetchErrorMessage?: string
   presentationLatencyRef?: MutableRefObject<number | null>
   saveViewTitle?: string

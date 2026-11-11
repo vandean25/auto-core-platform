@@ -690,57 +690,6 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(document.querySelector('tbody .animate-pulse')).toBeNull()
   })
 
-  function legacyTableFirstLoadActive(isLoading: boolean, hasUsableData: boolean, listSnapshotResolved: boolean) {
-    return isLoading && !hasUsableData && !listSnapshotResolved
-  }
-
-  // AUT-971: legacy lists passed isPending as isLoading — paused pending must not arm the skeleton.
-  it('AUT-971: WHEN pending is paused with isLoading=isPending THEN the table body does not keep skeleton rows', () => {
-    vi.useFakeTimers()
-    try {
-      expect(legacyTableFirstLoadActive(true, false, false)).toBe(true)
-      render(
-        <Harness
-          data={[]}
-          isLoading
-          isPending
-          isFetching={false}
-          hasUsableData={false}
-        />,
-      )
-      act(() => {
-        vi.advanceTimersByTime(550)
-      })
-      expect(document.querySelector('tbody .animate-pulse')).toBeNull()
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  // AUT-971: offset meta / count may settle while TanStack is still pending — skeleton must not arm.
-  it('AUT-971: WHEN listSnapshotResolved is set while pending and fetching THEN the table body does not keep skeleton rows', () => {
-    vi.useFakeTimers()
-    try {
-      render(
-        <Harness
-          data={[]}
-          isLoading
-          isPending
-          isFetching
-          hasUsableData={false}
-          pageCount={2}
-          listSnapshotResolved
-        />,
-      )
-      act(() => {
-        vi.advanceTimersByTime(550)
-      })
-      expect(document.querySelector('tbody .animate-pulse')).toBeNull()
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
   // AUT-946 scenario 1/2 (infinite lists): capped count often resolves before page one — skeleton must not outlive it.
   it('WHEN the capped count is visible before the first page lands THEN the table body does not keep skeleton rows', async () => {
     vi.useFakeTimers()

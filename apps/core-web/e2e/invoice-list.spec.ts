@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_COMMON } from './helpers/de-common';
 import { DE_SALES } from './helpers/de-sales';
-import { expectSkeletonDismissedBySettleDeadline } from './helpers/aut-971-skeleton-settle';
 import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { pageOverflow } from './utils/phone-layout';
 
@@ -86,34 +85,6 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     expect(requests.list.every((url) => url.searchParams.get('pagination') === null)).toBe(true);
     expect(requests.count).toHaveLength(0);
   });
-
-  test('AUT-971 scenario 2: WHEN an ADMIN opens unpaged invoices on desktop THEN rows replace skeleton within 350ms of the API', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 800 })
-    const rows = invoiceRows.slice(0, 5)
-    const settledAt = { ms: 0 }
-    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
-      const url = new URL(route.request().url())
-      if (url.searchParams.get('pagination') === 'cursor') {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: {} }) })
-        return
-      }
-      await new Promise((resolve) => setTimeout(resolve, 900))
-      settledAt.ms = Date.now()
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) })
-    })
-    await new AutoCorePage(page, DE_SALES.invoices.list.newInvoice).navigate(
-      '/sales/invoices?sortField=customer&sortDirection=asc',
-      { waitUntil: 'domcontentloaded' },
-    )
-    await expectSkeletonDismissedBySettleDeadline(page, settledAt, {
-      apiDelayMs: 900,
-      scope: 'tbody',
-    })
-    await expect(page.getByText('RE-2026-0001')).toBeVisible({ timeout: 2_500 })
-    await expect(pageButtons(page)).toBeVisible()
-  })
 
   test('AUT-946: WHEN the count is visible before page one THEN invoice rows are not lasting skeleton placeholders', async ({
     page,

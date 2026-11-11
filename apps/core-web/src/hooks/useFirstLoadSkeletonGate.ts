@@ -7,8 +7,13 @@ const { skeletonDelayMs, skeletonMinVisibleMs } = INTERACTION_LOADING_TIMINGS
 /**
  * First-load skeleton gate: 200 ms delay, then at least 350 ms visible once shown.
  * Bypass clears immediately (errors and context resets).
+ * When `payloadSettled` is true and first load ends, dismiss immediately (AUT-971 post-GET gap).
  */
-export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = false): boolean {
+export function useFirstLoadSkeletonGate(
+  isFirstLoadActive: boolean,
+  bypass = false,
+  payloadSettled = false,
+): boolean {
   const [visible, setVisible] = useState(false)
   const visibleSinceRef = useRef<number | null>(null)
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -52,7 +57,9 @@ export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = fa
     }
 
     clearDelayTimer()
-    if (visibleSinceRef.current === null) {
+    if (payloadSettled || visibleSinceRef.current === null) {
+      clearHoldTimer()
+      visibleSinceRef.current = null
       setVisible(false)
       return
     }
@@ -73,7 +80,7 @@ export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = fa
     }, remaining)
 
     return () => clearHoldTimer()
-  }, [bypass, isFirstLoadActive])
+  }, [bypass, isFirstLoadActive, payloadSettled])
 
   return visible
 }

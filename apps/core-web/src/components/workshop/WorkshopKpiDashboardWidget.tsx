@@ -8,7 +8,6 @@ import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport } from '@/api/workshop-kpi-reports'
 import { formatPercent } from '@/lib/format'
 import { useLazyNamespaceBundleReady } from '@/lib/i18n'
-import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 
 const REPORT_ROLES = ['OWNER', 'ADMIN', 'SALES']
 
@@ -44,7 +43,7 @@ export function WorkshopKpiDashboardWidget() {
         <CardTitle>{t('kpi.title')}</CardTitle>
       </CardHeader>
       <CardContent>
-        {isAwaitingFirstQueryPayload(current.isPending, current.data !== undefined, current.isFetching) ? (
+        {current.isLoading ? (
           <div className="grid grid-cols-2 gap-3">
             <span className="sr-only">{t('kpi.loading')}</span>
             <Skeleton className="h-10 w-full" />

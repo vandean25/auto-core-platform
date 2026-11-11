@@ -31,7 +31,6 @@ export default function WorkshopEstimateList() {
 
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
   const { query, rows } = useEstimateListData(view, queryParams)
-  const listSettled = query.data !== undefined
   const rowBehaviour = useEstimateListRowBehaviour(rows)
   const columns = useMemo(() => createEstimateListColumns(t), [t])
   // Search and sort only see the loaded pages, which matters while there are more.
@@ -47,11 +46,7 @@ export default function WorkshopEstimateList() {
           <DataTable
             columns={columns}
             data={rows}
-            isLoading={query.isPending && query.isFetching}
-            isPending={query.isPending}
-            isFetching={query.isFetching}
-            hasUsableData={listSettled}
-            listSnapshotResolved={listSettled}
+            isLoading={query.isLoading}
             enableCsvExport={false}
             searchPlaceholder={t('estimateList.searchPlaceholder')}
             emptyState={query.isError ? undefined : { message: t('estimateList.empty') }}

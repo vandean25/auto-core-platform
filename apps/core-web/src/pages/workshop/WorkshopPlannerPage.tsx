@@ -20,6 +20,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   buildSlots,
   buildDayWindow,
@@ -46,8 +47,6 @@ import { PlannerViewToggle, type PlannerViewMode } from '@/components/workshop/p
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PlannerCreateUrlOpener } from '@/components/workshop/planner/PlannerCreateUrlOpener'
 import { useTranslation } from 'react-i18next'
-import { showQuerySurfaceSkeleton } from '@/features/interaction/query-surface-loading'
-import { PlannerFirstLoadSkeleton } from '@/components/workshop/planner/PlannerFirstLoadSkeleton'
 
 const VIEW_MODE_KEY = 'workshop-planner-view'
 
@@ -138,10 +137,7 @@ export default function WorkshopPlannerPage() {
     viewMode === 'day' ? addLocalDays(anchorDate, 1) : addLocalDays(weekStart, 7)
   const queryRange = localDateRangeToUtc(rangeFromDate, rangeToDate, timezone)
 
-  const { data: plannerData, isPending: plannerPending, isFetching: plannerFetching } = useWorkshopPlanner(
-    queryRange.from,
-    queryRange.to,
-  )
+  const { data: plannerData, isLoading } = useWorkshopPlanner(queryRange.from, queryRange.to)
   const plannerTimezone = plannerData?.timezone ?? timezone
   const slotMinutes = plannerData?.slotMinutes ?? 30
   const bays = plannerData?.bays ?? []
@@ -330,8 +326,11 @@ export default function WorkshopPlannerPage() {
         }
       />
 
-      {showQuerySurfaceSkeleton(plannerPending, plannerData, plannerFetching) ? (
-        <PlannerFirstLoadSkeleton />
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
       ) : bays.length === 0 ? (
         <PlannerEmptyState
           icon={<Wrench aria-hidden />}

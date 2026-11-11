@@ -1,5 +1,4 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { offsetListTableProps } from '@/components/data-table/offset-list-table-props'
 import { isInventoryCursorSort, useInventory, useInventoryCursorList } from './inventory'
 
 /**
@@ -17,6 +16,6 @@ export function useInventoryListState(queryParams: DataTableQueryParams, filters
   return {
     rows: offsetList.data?.data ?? [],
     dataUpdatedAt: offsetList.dataUpdatedAt,
-    tableProps: offsetListTableProps(offsetList),
+    tableProps: { pageCount: offsetList.data?.meta.pageCount ?? 1, isLoading: offsetList.isLoading },
   }
 }

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { useDevQuerySkeletonDiagnostic } from '@/features/interaction/use-dev-query-skeleton-diagnostic'
 import { useCreateWorkshopOrder, useWorkshopOrders } from '@/api/workshop'
 import {
   createPendingWorkshopOrder,
@@ -15,18 +14,11 @@ import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
 import { useRetainedQueryData } from '@/hooks/useRetainedQueryData'
 import { formatDate } from '@/lib/format'
 
-type OrdersQuery = ReturnType<typeof useWorkshopOrders>
+type OrdersPage = ReturnType<typeof useWorkshopOrders>['data']
 
-export function useWorkshopOrderListRows(ordersQuery: OrdersQuery) {
-  const { data: responseData, isError, dataUpdatedAt } = ordersQuery
+export function useWorkshopOrderListRows(responseData: OrdersPage, isError: boolean, dataUpdatedAt = 0) {
   const retained = useRetainedQueryData(responseData)
   const visibleResponse = retained.data
-  useDevQuerySkeletonDiagnostic({
-    screen: 'workshop-orders',
-    query: ordersQuery,
-    hasUsableData: visibleResponse !== undefined,
-    listSnapshotResolved: responseData !== undefined,
-  })
   const loadedRows = useMemo<WorkshopOrderListRow[]>(() => {
     const source = visibleResponse?.data ?? []
     return source.map((order) => ({

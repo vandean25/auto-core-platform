@@ -16,24 +16,6 @@ import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
 import { useWorkshopOrderListColumns } from './useWorkshopOrderListColumns'
 import { useWorkshopOrderListRows } from './useWorkshopOrderListPendingRows'
-import type { TFunction } from 'i18next'
-
-function workshopOrderListEmptyState(
-  t: TFunction<'workshop'>,
-  isError: boolean,
-  setCreateOpen: (open: boolean) => void,
-) {
-  if (isError) return undefined
-  return {
-    message: t('orders.list.empty'),
-    action: (
-      <Button onClick={() => setCreateOpen(true)}>
-        <Plus className='h-4 w-4 mr-2' />
-        {t('orders.list.emptyAction')}
-      </Button>
-    ),
-  }
-}
 
 export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')
@@ -45,7 +27,7 @@ export default function WorkshopOrderList() {
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const ordersQuery = useWorkshopOrders(queryParams)
   const peek = usePeekSearchParam()
-  const rows = useWorkshopOrderListRows(ordersQuery)
+  const rows = useWorkshopOrderListRows(ordersQuery.data, ordersQuery.isError, ordersQuery.dataUpdatedAt)
   const columns = useWorkshopOrderListColumns(t, tCommon, rows.pendingActions)
   const rowBehaviour = useWorkshopOrderListRowBehaviour(
     t,
@@ -54,6 +36,7 @@ export default function WorkshopOrderList() {
     peek.openPeek,
     rows.loadedRows,
   )
+
   return (
     <div className='space-y-6'>
       <PageHeader
@@ -79,17 +62,23 @@ export default function WorkshopOrderList() {
         saveViewTitle={t('orders.list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
         pageCount={rows.visibleResponse?.meta?.pageCount ?? 1}
-        isLoading={ordersQuery.isPending && ordersQuery.isFetching}
-        isPending={ordersQuery.isPending}
+        isLoading={ordersQuery.isLoading}
         isFetching={ordersQuery.isFetching}
         isPlaceholderData={ordersQuery.isPlaceholderData || rows.showingStaleError}
         isError={ordersQuery.isError}
         onRetry={() => void ordersQuery.refetch()}
         hasUsableData={rows.visibleResponse !== undefined}
-        listSnapshotResolved={ordersQuery.data !== undefined}
         presentationLatencyRef={presentationLatencyRef}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
-        emptyState={workshopOrderListEmptyState(t, ordersQuery.isError, setCreateOpen)}
+        emptyState={ordersQuery.isError ? undefined : {
+          message: t('orders.list.empty'),
+          action: (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className='h-4 w-4 mr-2' />
+              {t('orders.list.emptyAction')}
+            </Button>
+          ),
+        }}
         rowBehaviour={rowBehaviour}
         {...tableState}
       />

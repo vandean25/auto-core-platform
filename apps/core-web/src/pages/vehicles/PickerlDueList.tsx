@@ -6,7 +6,6 @@ import { ensureNamespaceLoaded } from "@/lib/i18n";
 import type { LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import type { ColumnFiltersState } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { offsetPaginatedQueryTableProps } from "@/features/interaction/query-surface-loading";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from '@/components/layout/PageHeader'
+import { offsetListTableProps } from '@/components/data-table/offset-list-table-props'
 
 type PickerlDueRow = {
   id: string;
@@ -107,8 +107,7 @@ export default function PickerlDueList() {
   }
 
   const pickerlQuery = usePickerlDueList(queryParams);
-  const responseData = pickerlQuery.data;
-  const pickerlTableLoading = offsetPaginatedQueryTableProps(pickerlQuery);
+  const { data: responseData, isLoading } = pickerlQuery;
 
   const [recordPickerlVehicleId, setRecordPickerlVehicleId] = useState<
     string | null
@@ -366,7 +365,8 @@ export default function PickerlDueList() {
       <DataTable
         columns={columns}
         data={filteredRows}
-        {...pickerlTableLoading}
+        isLoading={isLoading}
+        {...offsetListTableProps(pickerlQuery)}
         pageCount={responseData?.meta.pageCount ?? 0}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
         enableCsvExport={false}

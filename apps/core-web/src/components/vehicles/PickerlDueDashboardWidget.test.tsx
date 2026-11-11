@@ -17,8 +17,7 @@ describe('PickerlDueDashboardWidget', () => {
   it('WHEN the Pickerl due count is loading THEN a Skeleton is shown instead of a spinner', async () => {
     vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
       data: undefined,
-      isPending: true,
-      isFetching: true,
+      isLoading: true,
     } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
     const { container, findByText } = renderWidget()
 
@@ -30,7 +29,7 @@ describe('PickerlDueDashboardWidget', () => {
   it('shows the total of the due list once loaded', async () => {
     vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
       data: { meta: { total: 7 } },
-      isPending: false,
+      isLoading: false,
     } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
     const { container, findByText } = renderWidget()
 

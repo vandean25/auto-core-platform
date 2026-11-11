@@ -4,7 +4,6 @@ import type { TFunction } from 'i18next'
 import { useDelayedFlag } from '@/hooks/useDelayedFlag'
 import { useFirstLoadSkeletonGate } from '@/hooks/useFirstLoadSkeletonGate'
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
-import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 
 export type DataTablePendingRowMeta = {
   __dataTablePending: true
@@ -16,9 +15,7 @@ export function isDataTablePendingRow(row: object): row is object & DataTablePen
 
 export type DataTablePresentationInput = {
   isLoading: boolean
-  /** Prefer `isPending` when wired: first-load ends once the query has settled, even if `isFetching` continues. */
-  isPending?: boolean
-  isFetching?: boolean
+  isFetching: boolean
   isPlaceholderData: boolean
   isError: boolean
   hasUsableData: boolean
@@ -58,54 +55,6 @@ export function isInfiniteListSnapshotResolved(
   resolvedTotalCount: { count: number; isCapped: boolean } | undefined,
 ): boolean {
   return hasUsableData || resolvedTotalCount !== undefined
-}
-
-/** Offset lists: API meta (page count / pager) can settle before row cells are painted. */
-export function isOffsetListSnapshotResolved(hasUsableData: boolean, offsetMetaResolved: boolean): boolean {
-  return hasUsableData || offsetMetaResolved
-}
-
-export function isListSnapshotResolved(
-  hasUsableData: boolean,
-  resolvedTotalCount: { count: number; isCapped: boolean } | undefined,
-  offsetMetaResolved: boolean,
-): boolean {
-  return isInfiniteListSnapshotResolved(hasUsableData, resolvedTotalCount) || offsetMetaResolved
-}
-
-export function resolveDataTableListSnapshot(
-  hasUsableData: boolean,
-  resolvedTotalCount: { count: number; isCapped: boolean } | undefined,
-  offsetMetaResolved: boolean,
-): boolean {
-  return isListSnapshotResolved(hasUsableData, resolvedTotalCount, offsetMetaResolved)
-}
-
-export function buildDataTablePresentationInput(input: {
-  isLoading: boolean
-  isPending?: boolean
-  isFetching?: boolean
-  isPlaceholderData: boolean
-  isError: boolean
-  hasUsableData: boolean
-  resolvedTotalCount: { count: number; isCapped: boolean } | undefined
-  listSnapshotResolvedProp?: boolean
-  bypassSkeleton: boolean
-}): DataTablePresentationInput {
-  return {
-    isLoading: input.isLoading,
-    isPending: input.isPending,
-    isFetching: input.isFetching,
-    isPlaceholderData: input.isPlaceholderData,
-    isError: input.isError,
-    hasUsableData: input.hasUsableData,
-    listSnapshotResolved: resolveDataTableListSnapshot(
-      input.hasUsableData,
-      input.resolvedTotalCount,
-      input.listSnapshotResolvedProp ?? false,
-    ),
-    bypassSkeleton: input.bypassSkeleton,
-  }
 }
 
 export function mergeRefreshingInfinitePresentation(
@@ -148,31 +97,21 @@ export function shouldUseMobileDataTableList(
   return isMobile && !showFirstLoadSkeleton && bodyRowCount > 0
 }
 
-/** True while the list still awaits its first renderable payload (v5 isLoading semantics, not paused pending). */
-export function isDataTableFirstLoadActive(
-  input: Pick<DataTablePresentationInput, 'isLoading' | 'hasUsableData' | 'listSnapshotResolved'> &
-    Partial<Pick<DataTablePresentationInput, 'isPending' | 'isFetching'>>,
-): boolean {
-  const payloadReady = input.hasUsableData || Boolean(input.listSnapshotResolved)
-  // Settled list/widget payload: a slower sibling (count, settings, namespace) must not keep the skeleton.
-  if (payloadReady) return false
-
-  const isPending = input.isPending ?? input.isLoading
-  // Legacy callers pass only `isLoading`. Modern call sites pass `isPending` and `isFetching` explicitly.
-  const isActivelyFetching =
-    input.isFetching ?? (input.isPending !== undefined ? false : input.isLoading)
-  return isAwaitingFirstQueryPayload(isPending, false, isActivelyFetching)
-}
-
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
-  const firstLoadActive = isDataTableFirstLoadActive(input)
-  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(firstLoadActive, input.bypassSkeleton || input.isError)
+  const listSnapshotResolved = Boolean(input.listSnapshotResolved)
+  const payloadSettled = input.hasUsableData || listSnapshotResolved
+  const firstLoadActive = input.isLoading && !payloadSettled
+  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(
+    firstLoadActive,
+    input.bypassSkeleton || input.isError,
+    payloadSettled,
+  )
 
   const isStalePreview =
     !showFirstLoadSkeleton &&
     input.hasUsableData &&
     input.isPlaceholderData &&
-    Boolean(input.isFetching)
+    input.isFetching
 
   const staleFetchFailed =
     input.hasUsableData && input.isPlaceholderData && input.isError && !input.isFetching
@@ -184,12 +123,8 @@ export function useDataTablePresentation(input: DataTablePresentationInput): Dat
 
   const presentationLatencyMs = useMemo(() => {
     if (showFirstLoadSkeleton || !input.hasUsableData || firstLoadActive) return null
-    if (!input.isLoading && input.hasUsableData) {
-      // Data became usable while the skeleton gate was still holding visibility.
-      return INTERACTION_LOADING_TIMINGS.skeletonDelayMs + INTERACTION_LOADING_TIMINGS.skeletonMinVisibleMs
-    }
     return null
-  }, [firstLoadActive, input.hasUsableData, input.isLoading, showFirstLoadSkeleton])
+  }, [firstLoadActive, input.hasUsableData, showFirstLoadSkeleton])
 
   const ariaBusy = showFirstLoadSkeleton || (isStalePreview && !staleFetchFailed)
 

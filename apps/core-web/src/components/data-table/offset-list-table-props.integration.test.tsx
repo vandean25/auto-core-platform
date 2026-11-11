@@ -1,4 +1,4 @@
-import type { ColumnDef } from '@tanstack/react-table/legacy'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -15,16 +15,26 @@ describe('offsetListTableProps on failed first load', () => {
     const refetch = vi.fn()
     const props = offsetListTableProps({
       data: undefined,
-      isPending: false,
-      isFetching: false,
-      isPlaceholderData: false,
-      isError: true,
       refetch: refetch as never,
     })
 
     render(
       <MemoryRouter>
-        <DataTable columns={columns} data={[]} columnFilters={[]} setColumnFilters={vi.fn()} {...props} />
+        <DataTable
+          columns={columns}
+          data={[]}
+          columnFilters={[]}
+          setColumnFilters={vi.fn()}
+          sorting={[]}
+          setSorting={vi.fn()}
+          pagination={{ pageIndex: 0, pageSize: 10 }}
+          setPagination={vi.fn()}
+          isLoading={false}
+          isFetching={false}
+          isError
+          hasUsableData={false}
+          {...props}
+        />
       </MemoryRouter>,
     )
 
