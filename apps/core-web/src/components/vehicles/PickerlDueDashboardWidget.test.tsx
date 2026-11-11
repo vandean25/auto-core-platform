@@ -26,6 +26,17 @@ describe('PickerlDueDashboardWidget', () => {
     expect(container.querySelector('.animate-spin')).toBeNull()
   })
 
+  it('AUT-971 scenario 5: WHEN the dashboard Pickerl API has settled THEN the widget does not keep a skeleton', async () => {
+    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
+      data: { meta: { total: 2 } },
+      isPending: false,
+    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
+    const { container, findByText } = renderWidget()
+
+    await findByText('2')
+    expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
+
   it('shows the total of the due list once loaded', async () => {
     vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
       data: { meta: { total: 7 } },

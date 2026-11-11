@@ -86,6 +86,17 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     expect(requests.count).toHaveLength(0);
   });
 
+  test('AUT-971 scenario 2: WHEN an ADMIN opens invoices on desktop THEN rows replace skeleton within 350ms of the API', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 5), unpaged: 'array' })
+    await openList(page, '?sortField=invoice_number&sortDirection=asc')
+    await expect(page.getByTestId('data-table-count')).toHaveText('5 Treffer')
+    await expect(page.locator('tbody .animate-pulse')).toHaveCount(0, { timeout: 350 })
+    await expect(page.getByText('RE-2026-0001')).toBeVisible()
+  })
+
   test('AUT-946: WHEN the count is visible before page one THEN invoice rows are not lasting skeleton placeholders', async ({
     page,
   }) => {
