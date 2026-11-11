@@ -16,6 +16,11 @@ import {
 } from '@prisma/client';
 import { AtpService } from '../inventory/atp.service.js';
 import { PartsRequisitionService } from './parts-requisition.service.js';
+import {
+  passThroughPurchaseOrderCreateSavepoint,
+  resetPurchaseOrderCreateSavepointPortForTests,
+  setPurchaseOrderCreateSavepointPortForTests,
+} from '../purchase/purchase-order-create-savepoint.js';
 
 const tenantId = 'tenant-1';
 const siteId = 'site-1';
@@ -134,6 +139,16 @@ function buildReservation(overrides: Record<string, unknown> = {}) {
 }
 
 describe('PartsRequisitionService', () => {
+  beforeAll(() => {
+    setPurchaseOrderCreateSavepointPortForTests(
+      passThroughPurchaseOrderCreateSavepoint,
+    );
+  });
+
+  afterAll(() => {
+    resetPurchaseOrderCreateSavepointPortForTests();
+  });
+
   const tenantContext = {
     getTenantId: jest.fn(),
     getAuthenticatedUser: jest.fn(),

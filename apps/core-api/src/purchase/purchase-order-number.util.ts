@@ -2,26 +2,10 @@ import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 import { ConflictException } from '@nestjs/common';
 import { rethrowAsConflict } from '../labor/labor-shared.helpers.js';
+import { runPurchaseOrderCreateInSavepoint } from './purchase-order-create-savepoint.js';
 
 const PO_NUMBER_PATTERN = /^PO-(\d{4})-(\d{4})$/;
 const MAX_ORDER_NUMBER_ALLOCATION_ATTEMPTS = 12;
-
-async function runPurchaseOrderCreateInSavepoint<T>(
-  tx: PrismaTypes.TransactionClient,
-  attempt: number,
-  create: () => Promise<T>,
-): Promise<T> {
-  const savepoint = `po_number_alloc_${attempt}`;
-  // eslint-disable-next-line no-restricted-syntax -- AUT-930: P2002 on order_number aborts the interactive transaction unless the failed INSERT is rolled back to a SAVEPOINT.
-  await tx.$executeRawUnsafe(`SAVEPOINT ${savepoint}`);
-  try {
-    return await create();
-  } catch (error) {
-    // eslint-disable-next-line no-restricted-syntax -- AUT-930: release failed insert so sequence bump and retry stay in the same transaction.
-    await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-    throw error;
-  }
-}
 
 export function parsePurchaseOrderNumberSuffix(
   orderNumber: string,

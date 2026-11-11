@@ -39,26 +39,84 @@ export class GuardedPriceDiscoveryService {
     const principalId = this.requirePrincipalId();
     const decodedCursor = parsePriceOperationDiscoveryCursor(cursor);
 
-    const where = this.discoveryListWhere(tenantId, principalId, decodedCursor);
-    const batch = await this.prisma.inventoryPriceOperation.findMany({
-      where,
-      orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
-      take: GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
-    });
-
-    const retentionVisible = batch.filter((row) => rowWithinRetention(row));
-    const withCatalog = await filterDiscoveryRowsWithExistingCatalog(
-      this.prisma,
+    const { page, hasNextPage } = await this.loadDiscoveryPage(
       tenantId,
-      retentionVisible,
+      principalId,
+      decodedCursor,
     );
-    const hasNextPage = batch.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE;
-    const page = withCatalog.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
 
     return {
       data: page.map(mapInventoryPriceOperation),
       meta: this.buildDiscoveryListMeta(page, hasNextPage),
     };
+  }
+
+  private async loadDiscoveryPage(
+    tenantId: string,
+    principalId: string,
+    decodedCursor: PriceOperationDiscoveryCursor | null,
+  ): Promise<{
+    page: Awaited<
+      ReturnType<PrismaService['inventoryPriceOperation']['findMany']>
+    >;
+    hasNextPage: boolean;
+  }> {
+    const collected: Awaited<
+      ReturnType<PrismaService['inventoryPriceOperation']['findMany']>
+    > = [];
+    let scanCursor = decodedCursor;
+    let journalBatchWasFull = false;
+    const maxScans = 32;
+
+    for (let scan = 0; scan < maxScans; scan++) {
+      const batch = await this.prisma.inventoryPriceOperation.findMany({
+        where: this.discoveryListWhere(tenantId, principalId, scanCursor),
+        orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
+        take: GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
+      });
+
+      if (batch.length === 0) {
+        journalBatchWasFull = false;
+        break;
+      }
+
+      journalBatchWasFull = batch.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE;
+
+      const retentionVisible = batch.filter((row) => rowWithinRetention(row));
+      const withCatalog = await filterDiscoveryRowsWithExistingCatalog(
+        this.prisma,
+        tenantId,
+        retentionVisible,
+      );
+
+      for (const row of withCatalog) {
+        collected.push(row);
+        if (collected.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
+          break;
+        }
+      }
+
+      if (collected.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE) {
+        break;
+      }
+      if (!journalBatchWasFull) {
+        break;
+      }
+
+      const tail = batch[batch.length - 1];
+      scanCursor = {
+        acceptedAt: tail.accepted_at.toISOString(),
+        key: tail.key,
+      };
+    }
+
+    const hasNextPage =
+      collected.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE ||
+      (collected.length === GUARDED_PRICE_DISCOVERY_PAGE_SIZE &&
+        journalBatchWasFull);
+    const page = collected.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
+
+    return { page, hasNextPage };
   }
 
   private discoveryListBaseWhere(

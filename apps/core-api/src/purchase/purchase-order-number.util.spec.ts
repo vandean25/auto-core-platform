@@ -7,8 +7,22 @@ import {
   parsePurchaseOrderNumberSuffix,
   syncPurchaseOrderSequenceForYear,
 } from './purchase-order-number.util.js';
+import {
+  passThroughPurchaseOrderCreateSavepoint,
+  resetPurchaseOrderCreateSavepointPortForTests,
+  setPurchaseOrderCreateSavepointPortForTests,
+} from './purchase-order-create-savepoint.js';
 
 describe('purchase order number helpers', () => {
+  beforeAll(() => {
+    setPurchaseOrderCreateSavepointPortForTests(
+      passThroughPurchaseOrderCreateSavepoint,
+    );
+  });
+
+  afterAll(() => {
+    resetPurchaseOrderCreateSavepointPortForTests();
+  });
   it('parses PO-YYYY-NNNN suffixes', () => {
     expect(parsePurchaseOrderNumberSuffix('PO-2026-0042')).toEqual({
       year: 2026,
@@ -101,7 +115,6 @@ describe('purchase order number helpers', () => {
       }),
     };
     const tx = {
-      $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
       site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder,
       purchaseOrderSequence,

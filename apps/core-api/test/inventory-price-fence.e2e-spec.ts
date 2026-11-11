@@ -22,6 +22,11 @@ import {
 import { revisionFromDb } from '../src/inventory/guarded-price/guarded-price.revision.js';
 import { GUARDED_PRICE_RETENTION_MS } from '../src/inventory/guarded-price/guarded-price.constants.js';
 import { encodePriceOperationDiscoveryCursor } from '../src/inventory/guarded-price/guarded-price-discovery-cursor.js';
+import {
+  seedGhostsWithDeletedCatalog,
+  updatePriceOperationAcceptedAt,
+  type PriceFenceDiscoveryE2EContext,
+} from './helpers/inventory-price-fence-discovery.e2e-helpers.js';
 import { GUARDED_PRICE_KIND } from '../src/inventory/guarded-price/guarded-price.errors.js';
 
 describe('inventory price-operations discovery and fence (e2e)', () => {
@@ -89,6 +94,16 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
 
   function tenantPrisma() {
     return createTenantAwarePrisma(prisma, tenantId);
+  }
+
+  function discoveryCtx(): PriceFenceDiscoveryE2EContext {
+    return {
+      tenantId,
+      principalId: testTenant.firebaseUid,
+      tenantPrisma,
+      seedItem,
+      operationKeyAt,
+    };
   }
 
   function guardedPatch(
@@ -188,17 +203,11 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     }).expect(500);
     guardedPriceTestHooks.failTxEAfterJournalLock = false;
 
-    const acceptedAt = new Date(Date.now() - 3 * 60 * 1000);
-    await tenantPrisma().inventoryPriceOperation.update({
-      where: {
-        tenant_id_principal_id_key: {
-          tenant_id: tenantId,
-          principal_id: testTenant.firebaseUid,
-          key,
-        },
-      },
-      data: { accepted_at: acceptedAt },
-    });
+    await updatePriceOperationAcceptedAt(
+      discoveryCtx(),
+      key,
+      new Date(Date.now() - 3 * 60 * 1000),
+    );
 
     guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate = true;
     const catalogHeld = new Promise<void>((resolve) => {
@@ -372,43 +381,18 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     const visibleKey = operationKeyAt(anchor - 500_000, '0001');
     const visibleRevision = revisionFromDb(visibleItem.revision);
 
-    const principal = testTenant.firebaseUid;
-    for (let i = 0; i < 51; i++) {
-      const ghost = await seedItem(10, `OMIT-${i}`);
-      await tenantPrisma().inventoryPriceOperation.create({
-        data: {
-          tenant_id: tenantId,
-          principal_id: principal,
-          key: operationKeyAt(anchor - i * 1000, String(i).padStart(4, '0')),
-          item_id: ghost.id,
-          sku: ghost.sku,
-          kind: GUARDED_PRICE_KIND,
-          expected_revision: BigInt(1),
-          target_minor: BigInt(1500),
-          basis_minor: BigInt(1000),
-          state: InventoryPriceOperationState.APPLIED,
-          accepted_at: new Date(anchor - i * 1000),
-          final_at: new Date(anchor - i * 1000),
-        },
-      });
-      await tenantPrisma().catalogItem.delete({ where: { id: ghost.id } });
-    }
+    await seedGhostsWithDeletedCatalog(discoveryCtx(), anchor, 51, 'OMIT');
 
     await guardedPatch(visibleItem.id, visibleKey, {
       retail_price: 11,
       expectedRevision: visibleRevision,
     }).expect(200);
 
-    await tenantPrisma().inventoryPriceOperation.update({
-      where: {
-        tenant_id_principal_id_key: {
-          tenant_id: tenantId,
-          principal_id: principal,
-          key: visibleKey,
-        },
-      },
-      data: { accepted_at: new Date(anchor - 500_000) },
-    });
+    await updatePriceOperationAcceptedAt(
+      discoveryCtx(),
+      visibleKey,
+      new Date(anchor - 500_000),
+    );
 
     const list = await listOperations().expect(200);
     expect(list.body.data).toHaveLength(1);
@@ -528,17 +512,11 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     }).expect(500);
     guardedPriceTestHooks.failTxEAfterJournalLock = false;
 
-    const acceptedAt = new Date(Date.now() - 3 * 60 * 1000);
-    await tenantPrisma().inventoryPriceOperation.update({
-      where: {
-        tenant_id_principal_id_key: {
-          tenant_id: tenantId,
-          principal_id: testTenant.firebaseUid,
-          key,
-        },
-      },
-      data: { accepted_at: acceptedAt },
-    });
+    await updatePriceOperationAcceptedAt(
+      discoveryCtx(),
+      key,
+      new Date(Date.now() - 3 * 60 * 1000),
+    );
 
     const fenceRes = await postFence(key, fenceBody(item.id, 13, revision)).expect(
       200,
@@ -612,29 +590,9 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
 
   it('discovery keyset returns every visible row across batch overflow pages', async () => {
     const anchor = Date.now();
-    const principal = testTenant.firebaseUid;
     const visibleKeys: string[] = [];
 
-    for (let i = 0; i < 48; i++) {
-      const ghost = await seedItem(10, `OF-${i}`);
-      await tenantPrisma().inventoryPriceOperation.create({
-        data: {
-          tenant_id: tenantId,
-          principal_id: principal,
-          key: operationKeyAt(anchor - i * 1000, String(i).padStart(4, '0')),
-          item_id: ghost.id,
-          sku: ghost.sku,
-          kind: GUARDED_PRICE_KIND,
-          expected_revision: BigInt(1),
-          target_minor: BigInt(1500),
-          basis_minor: BigInt(1000),
-          state: InventoryPriceOperationState.APPLIED,
-          accepted_at: new Date(anchor - i * 1000),
-          final_at: new Date(anchor - i * 1000),
-        },
-      });
-      await tenantPrisma().catalogItem.delete({ where: { id: ghost.id } });
-    }
+    await seedGhostsWithDeletedCatalog(discoveryCtx(), anchor, 48, 'OF');
 
     for (let i = 48; i < 114; i++) {
       const item = await seedItem(10, `VIS-${i}`);

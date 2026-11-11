@@ -1,8 +1,11 @@
-import { Prisma, type InventoryPriceOperation } from '@prisma/client';
+import type { InventoryPriceOperation } from '@prisma/client';
 
 type CatalogExistsClient = {
-  $queryRaw: <T>(query: Prisma.Sql) => Promise<T>;
   catalogItem: {
+    findMany: (args: {
+      where: { tenant_id: string; id: { in: string[] } };
+      select: { id: true };
+    }) => Promise<{ id: string }[]>;
     findFirst: (args: {
       where: { tenant_id: string; id: string };
       select: { id: true };
@@ -10,38 +13,20 @@ type CatalogExistsClient = {
   };
 };
 
-/** Catalog ids that still exist for this tenant (bounded batch, not full-catalog load). */
-export async function catalogItemIdsExistingInTenant(
-  prisma: CatalogExistsClient,
-  tenantId: string,
-  itemIds: readonly string[],
-): Promise<Set<string>> {
-  const uniqueIds = [...new Set(itemIds)];
-  if (uniqueIds.length === 0) {
-    return new Set();
-  }
-  // eslint-disable-next-line no-restricted-syntax -- AUT-930: FK-free journal→catalog semi-join; Prisma cannot express EXISTS without a DB FK; tenant_id bound, ids via Prisma.join.
-  const rows = await prisma.$queryRaw<{ id: string }[]>(
-    Prisma.sql`
-      SELECT id
-      FROM catalog_items
-      WHERE tenant_id = ${tenantId}
-        AND id IN (${Prisma.join(uniqueIds)})
-    `,
-  );
-  return new Set(rows.map((row) => row.id));
-}
-
 export async function filterDiscoveryRowsWithExistingCatalog(
   prisma: CatalogExistsClient,
   tenantId: string,
   rows: readonly InventoryPriceOperation[],
 ): Promise<InventoryPriceOperation[]> {
-  const existingIds = await catalogItemIdsExistingInTenant(
-    prisma,
-    tenantId,
-    rows.map((row) => row.item_id),
-  );
+  const itemIds = [...new Set(rows.map((row) => row.item_id))];
+  if (itemIds.length === 0) {
+    return [];
+  }
+  const existing = await prisma.catalogItem.findMany({
+    where: { tenant_id: tenantId, id: { in: itemIds } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((row) => row.id));
   return rows.filter((row) => existingIds.has(row.item_id));
 }
 

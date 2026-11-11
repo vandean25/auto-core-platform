@@ -40,24 +40,15 @@ function guardedPriceTestHookState(): GuardedPriceTestHookState {
 export const guardedPriceTestHooks = guardedPriceTestHookState();
 
 export function shouldFailTxEAfterJournalLock(): boolean {
-  return (
-    process.env.JEST_WORKER_ID !== undefined &&
-    guardedPriceTestHooks.failTxEAfterJournalLock
-  );
+  return guardedPriceTestHooks.failTxEAfterJournalLock;
 }
 
 export function shouldFailTxEAfterCatalogUpdate(): boolean {
-  return (
-    process.env.JEST_WORKER_ID !== undefined &&
-    guardedPriceTestHooks.failTxEAfterCatalogUpdate
-  );
+  return guardedPriceTestHooks.failTxEAfterCatalogUpdate;
 }
 
 export function shouldHoldTxEOpenAfterJournalLock(): boolean {
-  return (
-    process.env.JEST_WORKER_ID !== undefined &&
-    guardedPriceTestHooks.holdTxEOpenAfterJournalLock
-  );
+  return guardedPriceTestHooks.holdTxEOpenAfterJournalLock;
 }
 
 export async function waitForTxEReleaseIfHeld(): Promise<void> {
@@ -70,10 +61,7 @@ export async function waitForTxEReleaseIfHeld(): Promise<void> {
 }
 
 export function shouldHoldTxEOpenAfterCatalogUpdate(): boolean {
-  return (
-    process.env.JEST_WORKER_ID !== undefined &&
-    guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate
-  );
+  return guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate;
 }
 
 export async function waitForTxECatalogReleaseIfHeld(): Promise<void> {

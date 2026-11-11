@@ -19,11 +19,26 @@ import {
 } from '@prisma/client';
 import { PurchaseReceiptService } from './purchase-receipt.service.js';
 import { PurchaseProposeDraftService } from './purchase-propose-draft.service.js';
+import {
+  passThroughPurchaseOrderCreateSavepoint,
+  resetPurchaseOrderCreateSavepointPortForTests,
+  setPurchaseOrderCreateSavepointPortForTests,
+} from './purchase-order-create-savepoint.js';
 
 import Decimal = Prisma.Decimal;
 
 describe('PurchaseService', () => {
   let service: PurchaseService;
+
+  beforeAll(() => {
+    setPurchaseOrderCreateSavepointPortForTests(
+      passThroughPurchaseOrderCreateSavepoint,
+    );
+  });
+
+  afterAll(() => {
+    resetPurchaseOrderCreateSavepointPortForTests();
+  });
 
   const mockPrismaService = {
     $transaction: jest
