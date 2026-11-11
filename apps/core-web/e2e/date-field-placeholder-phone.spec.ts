@@ -16,13 +16,28 @@ type FieldFit = { index: number; inputWidth: number; textWidth: number; needed: 
 /** Width the placeholder text needs against the width the input offers it (inside its padding). */
 async function dateFieldFits(page: Page): Promise<FieldFit[]> {
   return page.evaluate((placeholder) => {
-    const canvas = document.createElement('canvas').getContext('2d')!
-    return Array.from(document.querySelectorAll<HTMLInputElement>(`input[placeholder="${placeholder}"]`)).map((input, index) => {
+    return Array.from(
+      document.querySelectorAll<HTMLInputElement>(`input[placeholder="${placeholder}"]`),
+    ).map((input, index) => {
       const style = getComputedStyle(input)
-      canvas.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
-      const textWidth = canvas.measureText(placeholder).width
-      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
-      return { index, inputWidth: input.clientWidth, textWidth, needed: textWidth + padding }
+      const probe = document.createElement('span')
+      probe.textContent = placeholder
+      probe.style.cssText =
+        'position:absolute;left:-9999px;visibility:hidden;white-space:nowrap;'
+      probe.style.font = style.font
+      probe.style.letterSpacing = style.letterSpacing
+      probe.style.textTransform = style.textTransform
+      document.body.appendChild(probe)
+      const textWidth = probe.getBoundingClientRect().width
+      probe.remove()
+      const padding =
+        parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+      return {
+        index,
+        inputWidth: input.clientWidth,
+        textWidth,
+        needed: textWidth + padding,
+      }
     })
   }, PLACEHOLDER)
 }
