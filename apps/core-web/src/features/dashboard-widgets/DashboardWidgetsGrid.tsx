@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { selectEffectiveCapabilities, useAuthSession } from '@/api/auth-session'
 import { Info, X } from 'lucide-react'
@@ -12,6 +13,22 @@ const PICKERL_DUE_SOURCE_KEY = 'pickerl-due'
 
 type DashboardWidgetsGridProps = {
   sourcesByKey: Record<string, DashboardWidgetTableSource>
+}
+
+function DashboardWidgetRemoveButton({
+  onRemove,
+  name,
+  t,
+}: {
+  onRemove: () => void
+  name: string
+  t: TFunction<'common'>
+}) {
+  return (
+    <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name })}>
+      <X className="h-4 w-4" />
+    </Button>
+  )
 }
 
 export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps) {
@@ -77,7 +94,13 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
             key={widget.id}
             widget={widget}
             source={source}
-            onRemove={() => removeWidget(widget.id)}
+            removeControl={
+              <DashboardWidgetRemoveButton
+                onRemove={() => removeWidget(widget.id)}
+                name={widget.name}
+                t={t}
+              />
+            }
           />
         )
       })}

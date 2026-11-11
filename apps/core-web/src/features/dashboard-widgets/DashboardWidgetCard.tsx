@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { showQuerySurfaceSkeleton } from '@/features/interaction/query-surface-loading'
 import { WidgetBody, WidgetEmptyMessage } from '@/features/dashboard-widgets/DashboardWidgetBodies'
@@ -13,7 +12,7 @@ import { useWidgetRows } from './use-widget-rows'
 type DashboardWidgetCardProps = {
   widget: DashboardWidget
   source: DashboardWidgetTableSource
-  onRemove: () => void
+  removeControl: ReactNode
 }
 
 function DashboardWidgetCardBody({
@@ -56,7 +55,7 @@ function DashboardWidgetCardBody({
   )
 }
 
-export function DashboardWidgetCard({ widget, source, onRemove }: DashboardWidgetCardProps) {
+export function DashboardWidgetCard({ widget, source, removeControl }: DashboardWidgetCardProps) {
   const { t } = useTranslation('common')
   const navigate = useNavigate()
   const { data, isPending, isFetching, error } = useWidgetRows(widget)
@@ -77,9 +76,7 @@ export function DashboardWidgetCard({ widget, source, onRemove }: DashboardWidge
           </button>
           <p className="text-xs text-muted-foreground mt-1">{t(source.labelKey)}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}>
-          <X className="h-4 w-4" />
-        </Button>
+        {removeControl}
       </CardHeader>
       <CardContent>
         <DashboardWidgetCardBody

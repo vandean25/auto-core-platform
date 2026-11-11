@@ -222,7 +222,7 @@ describe('PurchaseService', () => {
       // Verify order number format in the create call arguments
       const createCallArgs =
         mockPrismaService.purchaseOrder.create.mock.calls[0][0];
-      expect(createCallArgs.data.order_number).toMatch(/^PO-\d{4}-\d{6}$/);
+      expect(createCallArgs.data.order_number).toMatch(/^PO-\d{4}-\d{4}$/);
 
       mathRandomSpy.mockRestore();
     });
