@@ -20,8 +20,8 @@ describe('purchase order number helpers', () => {
   it('formats PO-YYYY-NNNN from the tenant/year sequence counter', async () => {
     const upsert = jest.fn().mockResolvedValue({ current: 42 });
     const tx = {
-      purchaseOrder: { findMany: jest.fn().mockResolvedValue([]) },
-      purchaseOrderSequence: { upsert, findUnique: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      purchaseOrderSequence: { upsert, findFirst: jest.fn() },
     };
 
     const number = await allocatePurchaseOrderNumber(
@@ -37,16 +37,14 @@ describe('purchase order number helpers', () => {
   it('syncs the sequence to the max existing PO suffix for the year', async () => {
     const upsert = jest.fn().mockResolvedValue({});
     const tx = {
-      purchaseOrder: {
-        findMany: jest.fn().mockResolvedValue([
-          { order_number: 'PO-2026-0001' },
-          { order_number: 'PO-2026-7834' },
-          { order_number: 'PO-2025-9999' },
-        ]),
-      },
+      $queryRaw: jest.fn().mockResolvedValue([
+        { order_number: 'PO-2026-0001' },
+        { order_number: 'PO-2026-7834' },
+        { order_number: 'PO-2025-9999' },
+      ]),
       purchaseOrderSequence: {
         upsert,
-        findUnique: jest.fn().mockResolvedValue({ current: 0 }),
+        findFirst: jest.fn().mockResolvedValue({ current: 0 }),
       },
     };
 
@@ -63,12 +61,6 @@ describe('purchase order number helpers', () => {
     const used = new Set<string>();
     let current = 7834;
     const purchaseOrder = {
-      findMany: jest
-        .fn()
-        .mockResolvedValue([
-          { order_number: 'PO-2026-0001' },
-          { order_number: 'PO-2026-7834' },
-        ]),
       create: jest.fn(({ data }: { data: { order_number: string } }) => {
         if (used.has(data.order_number)) {
           throw new Prisma.PrismaClientKnownRequestError('Unique', {
@@ -82,7 +74,7 @@ describe('purchase order number helpers', () => {
       }),
     };
     const purchaseOrderSequence = {
-      findUnique: jest.fn().mockImplementation(async () => ({ current })),
+      findFirst: jest.fn().mockImplementation(async () => ({ current })),
       upsert: jest.fn().mockImplementation(async (args: { update?: { current?: number | { increment: number } }; create?: { current: number } }) => {
         if (args.update?.current && typeof args.update.current === 'object') {
           current += args.update.current.increment;
@@ -94,7 +86,14 @@ describe('purchase order number helpers', () => {
         return { current };
       }),
     };
-    const tx = { purchaseOrder, purchaseOrderSequence };
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([
+        { order_number: 'PO-2026-0001' },
+        { order_number: 'PO-2026-7834' },
+      ]),
+      purchaseOrder,
+      purchaseOrderSequence,
+    };
 
     const first = await createPurchaseOrderWithAllocatedNumber(
       tx as never,
@@ -122,7 +121,7 @@ describe('purchase order number helpers', () => {
     const upsert = jest.fn().mockResolvedValue({ current: 99 });
     const tx = {
       purchaseOrderSequence: {
-        findUnique: jest.fn().mockResolvedValue({ current: 1 }),
+        findFirst: jest.fn().mockResolvedValue({ current: 1 }),
         upsert,
       },
     };

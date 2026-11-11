@@ -29,10 +29,12 @@ export async function syncPurchaseOrderSequenceForYear(
   year: number,
 ): Promise<void> {
   const prefix = `PO-${year}-`;
-  const rows = await tx.purchaseOrder.findMany({
-    where: { tenant_id: tenantId, order_number: { startsWith: prefix } },
-    select: { order_number: true },
-  });
+  const rows = await tx.$queryRaw<{ order_number: string }[]>`
+    SELECT order_number
+    FROM purchase_orders
+    WHERE tenant_id = ${tenantId}
+      AND order_number LIKE ${`${prefix}%`}
+  `;
   let maxSuffix = 0;
   for (const row of rows) {
     const parsed = parsePurchaseOrderNumberSuffix(row.order_number);
@@ -44,8 +46,8 @@ export async function syncPurchaseOrderSequenceForYear(
     return;
   }
 
-  const existing = await tx.purchaseOrderSequence.findUnique({
-    where: { tenant_id_year: { tenant_id: tenantId, year } },
+  const existing = await tx.purchaseOrderSequence.findFirst({
+    where: { tenant_id: tenantId, year },
     select: { current: true },
   });
   if (existing && existing.current >= maxSuffix) {
@@ -96,10 +98,8 @@ export async function bumpPurchaseOrderSequencePastNumber(
   if (!parsed) {
     return;
   }
-  const existing = await tx.purchaseOrderSequence.findUnique({
-    where: {
-      tenant_id_year: { tenant_id: tenantId, year: parsed.year },
-    },
+  const existing = await tx.purchaseOrderSequence.findFirst({
+    where: { tenant_id: tenantId, year: parsed.year },
     select: { current: true },
   });
   const next = Math.max(existing?.current ?? 0, parsed.suffix);
@@ -111,11 +111,14 @@ export async function bumpPurchaseOrderSequencePastNumber(
 }
 
 export function isPurchaseOrderNumberConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002' &&
-    (error.meta?.target as string[] | undefined)?.includes('order_number')
-  );
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2002'
+  ) {
+    return false;
+  }
+  const target = error.meta?.target;
+  return Array.isArray(target) && target.includes('order_number');
 }
 
 /**
