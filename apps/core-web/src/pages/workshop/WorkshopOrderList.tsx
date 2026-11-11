@@ -18,12 +18,16 @@ import { useWorkshopOrderListColumns } from './useWorkshopOrderListColumns'
 import { useWorkshopOrderListRows } from './useWorkshopOrderListPendingRows'
 import type { TFunction } from 'i18next'
 
-function workshopOrderListEmptyState(t: TFunction<'workshop'>, isError: boolean, openCreate: () => void) {
+function workshopOrderListEmptyState(
+  t: TFunction<'workshop'>,
+  isError: boolean,
+  setCreateOpen: (open: boolean) => void,
+) {
   if (isError) return undefined
   return {
     message: t('orders.list.empty'),
     action: (
-      <Button onClick={openCreate}>
+      <Button onClick={() => setCreateOpen(true)}>
         <Plus className='h-4 w-4 mr-2' />
         {t('orders.list.emptyAction')}
       </Button>
@@ -37,7 +41,6 @@ export default function WorkshopOrderList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
-  const openCreate = () => setCreateOpen(true)
   const presentationLatencyRef = useRef<number | null>(null)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const ordersQuery = useWorkshopOrders(queryParams)
@@ -63,7 +66,7 @@ export default function WorkshopOrderList() {
                 {t('orders.list.partsPickQueue')}
               </Button>
             </TooltipHint>
-            <Button onClick={openCreate}>
+            <Button onClick={() => setCreateOpen(true)}>
               <Plus className='h-4 w-4 mr-2' />
               {t('orders.list.newOrder')}
             </Button>
@@ -86,7 +89,7 @@ export default function WorkshopOrderList() {
         listSnapshotResolved={ordersQuery.data !== undefined}
         presentationLatencyRef={presentationLatencyRef}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
-        emptyState={workshopOrderListEmptyState(t, ordersQuery.isError, openCreate)}
+        emptyState={workshopOrderListEmptyState(t, ordersQuery.isError, setCreateOpen)}
         rowBehaviour={rowBehaviour}
         {...tableState}
       />

@@ -21,8 +21,6 @@ export function useFirstLoadSkeletonGate(
   const payloadReadyLatchRef = useRef(false)
 
   useEffect(() => {
-    if (payloadReady) payloadReadyLatchRef.current = true
-
     const clearDelayTimer = () => {
       if (delayTimerRef.current) {
         clearTimeout(delayTimerRef.current)
@@ -44,15 +42,17 @@ export function useFirstLoadSkeletonGate(
       return
     }
 
-    if (payloadReadyLatchRef.current) {
-      clearDelayTimer()
-      clearHoldTimer()
-      visibleSinceRef.current = null
-      setVisible(false)
-      return
+    const latchAfterPayload = () => {
+      if (payloadReady) payloadReadyLatchRef.current = true
     }
 
     if (isFirstLoadActive) {
+      if (payloadReadyLatchRef.current) {
+        clearDelayTimer()
+        clearHoldTimer()
+        setVisible(false)
+        return
+      }
       clearHoldTimer()
       if (visibleSinceRef.current !== null) {
         setVisible(true)
@@ -70,6 +70,7 @@ export function useFirstLoadSkeletonGate(
     clearDelayTimer()
     if (visibleSinceRef.current === null) {
       setVisible(false)
+      latchAfterPayload()
       return
     }
 
@@ -78,6 +79,7 @@ export function useFirstLoadSkeletonGate(
     if (remaining <= 0) {
       visibleSinceRef.current = null
       setVisible(false)
+      latchAfterPayload()
       return
     }
 
@@ -86,6 +88,7 @@ export function useFirstLoadSkeletonGate(
       holdTimerRef.current = null
       visibleSinceRef.current = null
       setVisible(false)
+      latchAfterPayload()
     }, remaining)
 
     return () => clearHoldTimer()
