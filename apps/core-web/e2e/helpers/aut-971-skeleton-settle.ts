@@ -33,11 +33,12 @@ export async function expectSkeletonDismissedBySettleDeadline(
     scope?: 'page' | 'tbody'
   } = {},
 ) {
+  const apiDelayMs = options.apiDelayMs ?? AUT_971_LIST_API_DELAY_MS
   const dismissBudgetMs = options.dismissBudgetMs ?? AUT_971_DISMISS_BUDGET_MS
   const pulseLocator =
     options.scope === 'tbody' ? page.locator('tbody .animate-pulse') : page.locator('.animate-pulse')
 
-  await expect.poll(() => settledAt.ms > 0, { timeout: 2_000, intervals: [50] }).toBe(true)
+  await expect.poll(() => settledAt.ms > 0, { timeout: apiDelayMs + 2_000, intervals: [50] }).toBe(true)
   const deadline = settledAt.ms + dismissBudgetMs
   const firstClearAt = { ms: 0 }
 
@@ -61,7 +62,7 @@ export async function expectSkeletonDismissedBySettleDeadline(
         }
         return false
       },
-      { timeout: dismissBudgetMs + 500, intervals: [10, 20, 30, 50] },
+      { timeout: apiDelayMs + dismissBudgetMs + 500, intervals: [10, 20, 30, 50] },
     )
     .toBe(true)
 }

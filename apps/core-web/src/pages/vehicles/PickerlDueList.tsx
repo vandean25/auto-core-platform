@@ -105,7 +105,9 @@ export default function PickerlDueList() {
     queryParams.status = statusFilter.value as string;
   }
 
-  const { data: responseData, isLoading } = usePickerlDueList(queryParams);
+  const pickerlQuery = usePickerlDueList(queryParams);
+  const { data: responseData } = pickerlQuery;
+  const listSettled = responseData !== undefined;
 
   const [recordPickerlVehicleId, setRecordPickerlVehicleId] = useState<
     string | null
@@ -363,7 +365,11 @@ export default function PickerlDueList() {
       <DataTable
         columns={columns}
         data={filteredRows}
-        isLoading={isLoading}
+        isLoading={pickerlQuery.isPending && pickerlQuery.isFetching}
+        isPending={pickerlQuery.isPending}
+        isFetching={pickerlQuery.isFetching}
+        hasUsableData={listSettled}
+        listSnapshotResolved={listSettled}
         pageCount={responseData?.meta.pageCount ?? 0}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
         enableCsvExport={false}

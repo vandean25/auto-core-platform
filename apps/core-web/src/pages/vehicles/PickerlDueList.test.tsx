@@ -14,6 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as vehiclesApi from "@/api/vehicles";
 import * as authApi from "@/api/auth-session";
 import { fetchWithAuth } from "@/api/client";
+import { isDataTableFirstLoadActive } from "@/components/data-table/data-table-loading";
 
 vi.mock("@/api/vehicles");
 vi.mock("@/api/auth-session");
@@ -243,5 +244,55 @@ describe("PickerlDueList", () => {
     expect(
       screen.queryByRole("button", { name: "§57a-Auftrag anlegen" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("AUT-971 scenario 5: WHEN query is paused pending THEN table skeleton does not arm (legacy isPending-as-isLoading would)", () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
+        data: undefined,
+        isPending: true,
+        isFetching: false,
+        isLoading: false,
+      } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>);
+      renderList();
+      vi.advanceTimersByTime(550);
+      expect(document.querySelector("tbody .animate-pulse")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("AUT-971 scenario 5: WHEN response data is set THEN first-load gate is off and rows render", async () => {
+    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
+      data: {
+        data: [{ id: "v1", plate: "W-1", make: "VW", model: "Golf", year: 2020, pickerl_due: { status: "OK" } }],
+        meta: { total: 1, page: 1, pageSize: 25, pageCount: 1 },
+      },
+      isPending: false,
+      isFetching: false,
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>);
+    renderList();
+    await waitFor(() => expect(screen.getByText("W-1")).toBeInTheDocument());
+    expect(document.querySelector("tbody .animate-pulse")).toBeNull();
+    expect(
+      isDataTableFirstLoadActive({
+        isLoading: false,
+        isPending: false,
+        isFetching: false,
+        hasUsableData: true,
+        listSnapshotResolved: true,
+      }),
+    ).toBe(false);
+    expect(
+      isDataTableFirstLoadActive({
+        isLoading: true,
+        isPending: true,
+        isFetching: false,
+        hasUsableData: false,
+        listSnapshotResolved: false,
+      }),
+    ).toBe(false);
   });
 });

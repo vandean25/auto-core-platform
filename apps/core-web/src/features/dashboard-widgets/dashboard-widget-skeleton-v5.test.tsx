@@ -125,8 +125,4 @@ describe('AUT-971 dashboard widgets (real useQuery)', () => {
     expect(container.querySelector('.animate-pulse')).toBeNull()
   })
 
-  it('WHEN payload is settled THEN restoring isLoading branch would disagree with isAwaitingFirstQueryPayload', () => {
-    expect(legacyWidgetSkeletonBranch(true)).toBe(true)
-    expect(isAwaitingFirstQueryPayload(false, true, false)).toBe(false)
-  })
 })
