@@ -33,16 +33,3 @@ export function discoveryRetentionWhere(
     ],
   };
 }
-
-/** Rows whose catalog item still exists for the tenant (semi-join via Prisma relation). */
-export function discoveryCatalogExistsWhere(
-  tenantId: string,
-): Prisma.InventoryPriceOperationWhereInput {
-  return {
-    catalog_item: {
-      is: {
-        tenant_id: tenantId,
-      },
-    },
-  };
-}

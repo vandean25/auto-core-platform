@@ -6,6 +6,23 @@ import { rethrowAsConflict } from '../labor/labor-shared.helpers.js';
 const PO_NUMBER_PATTERN = /^PO-(\d{4})-(\d{4})$/;
 const MAX_ORDER_NUMBER_ALLOCATION_ATTEMPTS = 12;
 
+async function runPurchaseOrderCreateInSavepoint<T>(
+  tx: PrismaTypes.TransactionClient,
+  attempt: number,
+  create: () => Promise<T>,
+): Promise<T> {
+  const savepoint = `po_number_alloc_${attempt}`;
+  // eslint-disable-next-line no-restricted-syntax -- AUT-930: P2002 on order_number aborts the interactive transaction unless the failed INSERT is rolled back to a SAVEPOINT.
+  await tx.$executeRawUnsafe(`SAVEPOINT ${savepoint}`);
+  try {
+    return await create();
+  } catch (error) {
+    // eslint-disable-next-line no-restricted-syntax -- AUT-930: release failed insert so sequence bump and retry stay in the same transaction.
+    await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+    throw error;
+  }
+}
+
 export function parsePurchaseOrderNumberSuffix(
   orderNumber: string,
 ): { year: number; suffix: number } | null {
@@ -160,7 +177,9 @@ export async function createPurchaseOrderWithAllocatedNumber<T>(
   ) {
     const orderNumber = await allocatePurchaseOrderNumber(tx, tenantId, now);
     try {
-      return await create(orderNumber);
+      return await runPurchaseOrderCreateInSavepoint(tx, attempt, () =>
+        create(orderNumber),
+      );
     } catch (error) {
       if (isPurchaseOrderNumberConflict(error)) {
         await bumpPurchaseOrderSequencePastNumber(tx, tenantId, orderNumber);

@@ -14,10 +14,11 @@ import {
   parsePriceOperationDiscoveryCursor,
   type PriceOperationDiscoveryCursor,
 } from './guarded-price-discovery-cursor.js';
+import { discoveryRetentionWhere } from './guarded-price-discovery-query.js';
 import {
-  discoveryCatalogExistsWhere,
-  discoveryRetentionWhere,
-} from './guarded-price-discovery-query.js';
+  discoveryCatalogItemExists,
+  filterDiscoveryRowsWithExistingCatalog,
+} from './guarded-price-discovery-catalog-exists.js';
 import { mapInventoryPriceOperation } from './guarded-price-operation.mapper.js';
 import { rowWithinRetention } from './guarded-price-retention.js';
 import { isUuidV7 } from './guarded-price.uuid.js';
@@ -45,9 +46,14 @@ export class GuardedPriceDiscoveryService {
       take: GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
     });
 
-    const visible = batch.filter((row) => rowWithinRetention(row));
+    const retentionVisible = batch.filter((row) => rowWithinRetention(row));
+    const withCatalog = await filterDiscoveryRowsWithExistingCatalog(
+      this.prisma,
+      tenantId,
+      retentionVisible,
+    );
     const hasNextPage = batch.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE;
-    const page = visible.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
+    const page = withCatalog.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
 
     return {
       data: page.map(mapInventoryPriceOperation),
@@ -82,7 +88,6 @@ export class GuardedPriceDiscoveryService {
       AND: [
         this.discoveryListBaseWhere(tenantId, principalId),
         discoveryRetentionWhere(),
-        discoveryCatalogExistsWhere(tenantId),
         this.buildKeysetWhere(decodedCursor),
       ],
     };
@@ -120,11 +125,14 @@ export class GuardedPriceDiscoveryService {
         AND: [
           { tenant_id: tenantId, principal_id: principalId, key },
           discoveryRetentionWhere(),
-          discoveryCatalogExistsWhere(tenantId),
         ],
       },
     });
-    if (!row || !rowWithinRetention(row)) {
+    if (
+      !row ||
+      !rowWithinRetention(row) ||
+      !(await discoveryCatalogItemExists(this.prisma, tenantId, row.item_id))
+    ) {
       throw new NotFoundException(`Price operation ${key} not found`);
     }
 

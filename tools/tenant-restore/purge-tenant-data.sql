@@ -38,6 +38,7 @@ VALUES
   ('import_sources'),
   ('inspection_catalogue_versions'),
   ('inspection_templates'),
+  ('inventory_price_operations'),
   ('invoice_sequences'),
   ('labor_categories'),
   ('labor_price_groups'),
@@ -92,7 +93,6 @@ VALUES
   ('inspection_source_connections'),
   ('inspection_support_events'),
   ('inspector_evidence_revisions'),
-  ('inventory_price_operations'),
   ('labor_fitments'),
   ('parts_requisition_lines'),
   ('purchase_orders'),
@@ -369,7 +369,6 @@ VALUES
   ('inspector_evidence_revisions', 'inspector_evidence_revisions', 'tenant_id,predecessor_revision_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inspector_evidence_revisions', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inspector_evidence_revisions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
-  ('inventory_price_operations', 'catalog_items', 'item_id', 'id', 'NOACTION', 'NOACTION'),
   ('inventory_price_operations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'catalog_items', 'catalog_item_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
@@ -1041,8 +1040,6 @@ DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_fitments" AS child
 WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
-DELETE FROM public."inventory_price_operations"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspector_evidence_revisions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_support_events"
@@ -1151,6 +1148,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_categories"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoice_sequences"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inventory_price_operations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_templates"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

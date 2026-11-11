@@ -101,6 +101,7 @@ describe('purchase order number helpers', () => {
       }),
     };
     const tx = {
+      $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
       site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder,
       purchaseOrderSequence,
