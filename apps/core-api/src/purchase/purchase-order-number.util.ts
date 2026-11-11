@@ -36,11 +36,20 @@ async function maxPurchaseOrderSuffixForYear(
   tenantId: string,
   year: number,
 ): Promise<number> {
+  const sites = await tx.site.findMany({
+    where: { tenant_id: tenantId },
+    select: { id: true },
+  });
+  if (sites.length === 0) {
+    return 0;
+  }
+  const siteIds = sites.map((site) => site.id);
   const prefix = `PO-${year}-`;
   const latest = await tx.purchaseOrder.findFirst({
     where: {
       tenant_id: tenantId,
       order_number: { startsWith: prefix },
+      OR: [{ site_id: { in: siteIds } }, { site_id: null }],
     },
     orderBy: { order_number: 'desc' },
     select: { order_number: true },

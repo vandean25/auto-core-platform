@@ -57,6 +57,7 @@ describe('purchase order number helpers', () => {
   it('seeds the sequence from the latest order suffix when the row is missing', async () => {
     const create = jest.fn().mockResolvedValue({});
     const tx = {
+      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder: {
         findFirst: jest.fn().mockResolvedValue({ order_number: 'PO-2026-7834' }),
       },
@@ -123,6 +124,7 @@ describe('purchase order number helpers', () => {
       ),
     };
     const tx = {
+      site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder,
       purchaseOrderSequence,
     };

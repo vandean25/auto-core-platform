@@ -51,7 +51,8 @@ function buildTransactionClient() {
       findMany: jest.fn().mockResolvedValue([]),
     },
     purchaseOrderSequence: {
-      findFirst: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue({ id: 'seq-1', current: 0 }),
+      create: jest.fn().mockResolvedValue({}),
       upsert: jest.fn().mockResolvedValue({ current: 1 }),
     },
     purchaseOrderItem: {
