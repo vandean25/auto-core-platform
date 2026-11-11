@@ -690,8 +690,8 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(document.querySelector('tbody .animate-pulse')).toBeNull()
   })
 
-  // AUT-971 scenario 1: paginated pager can show while offset meta is settled before rows paint.
-  it('AUT-971: WHEN listSnapshotResolved is set while isPending THEN the table body does not keep skeleton rows', () => {
+  // AUT-971: offset meta / count may settle while TanStack is still pending — skeleton must not arm.
+  it('AUT-971: WHEN listSnapshotResolved is set while pending and fetching THEN the table body does not keep skeleton rows', () => {
     vi.useFakeTimers()
     try {
       render(
@@ -699,8 +699,9 @@ describe('DataTable infinite mode (AUT-889)', () => {
           data={[]}
           isLoading
           isPending
+          isFetching
           hasUsableData={false}
-          pageCount={1}
+          pageCount={2}
           listSnapshotResolved
         />,
       )

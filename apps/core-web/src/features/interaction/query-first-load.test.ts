@@ -8,4 +8,8 @@ describe('isAwaitingFirstQueryPayload', () => {
     expect(isAwaitingFirstQueryPayload(true, true)).toBe(false)
     expect(isAwaitingFirstQueryPayload(false, false)).toBe(false)
   })
+
+  it('AUT-971: is false for paused pending (not actively fetching)', () => {
+    expect(isAwaitingFirstQueryPayload(true, false, false)).toBe(false)
+  })
 })

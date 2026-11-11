@@ -147,9 +147,17 @@ export function shouldUseMobileDataTableList(
   return isMobile && !showFirstLoadSkeleton && bodyRowCount > 0
 }
 
-export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
+/** TanStack Query v5 `isLoading` is `isPending && isFetching` — do not keep skeleton on paused pending. */
+export function isDataTableFirstLoadActive(
+  input: Pick<DataTablePresentationInput, 'isLoading' | 'isPending' | 'isFetching' | 'hasUsableData' | 'listSnapshotResolved'>,
+): boolean {
   const isPending = input.isPending ?? input.isLoading
-  const firstLoadActive = isPending && !input.hasUsableData && !input.listSnapshotResolved
+  const isFetching = input.isFetching !== false
+  return isPending && isFetching && !input.hasUsableData && !input.listSnapshotResolved
+}
+
+export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
+  const firstLoadActive = isDataTableFirstLoadActive(input)
   const showFirstLoadSkeleton = useFirstLoadSkeletonGate(firstLoadActive, input.bypassSkeleton || input.isError)
 
   const isStalePreview =

@@ -66,10 +66,10 @@ function DashboardWidgetCard({
 }) {
   const { t } = useTranslation('common')
   const navigate = useNavigate()
-  const { data, isPending, error } = useWidgetRows(widget)
+  const { data, isPending, isFetching, error } = useWidgetRows(widget)
   const rows = useMemo(() => data?.rows ?? [], [data])
   const hasRows = !isPending && !error && rows.length > 0
-  const showLoading = isAwaitingFirstQueryPayload(isPending, data !== undefined)
+  const showLoading = isAwaitingFirstQueryPayload(isPending, data !== undefined, isFetching)
 
   return (
     <Card className="h-full">

@@ -138,8 +138,11 @@ export default function WorkshopPlannerPage() {
     viewMode === 'day' ? addLocalDays(anchorDate, 1) : addLocalDays(weekStart, 7)
   const queryRange = localDateRangeToUtc(rangeFromDate, rangeToDate, timezone)
 
-  const { data: plannerData, isPending: plannerPending } = useWorkshopPlanner(queryRange.from, queryRange.to)
-  const showPlannerSkeleton = isAwaitingFirstQueryPayload(plannerPending, plannerData !== undefined)
+  const { data: plannerData, isPending: plannerPending, isFetching: plannerFetching } = useWorkshopPlanner(
+    queryRange.from,
+    queryRange.to,
+  )
+  const showPlannerSkeleton = isAwaitingFirstQueryPayload(plannerPending, plannerData !== undefined, plannerFetching)
   const plannerTimezone = plannerData?.timezone ?? timezone
   const slotMinutes = plannerData?.slotMinutes ?? 30
   const bays = plannerData?.bays ?? []

@@ -5,11 +5,12 @@ import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useVehicleStockAgeReport } from '@/api/vehicle-stock'
 import { Skeleton } from '@/components/ui/skeleton'
+import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 
 function AgedStockDashboardWidgetContent() {
   const { t } = useTranslation('vehicles')
   const navigate = useNavigate()
-  const { data, isPending } = useVehicleStockAgeReport({ bucket: 'over_90', page: 1, limit: 1 })
+  const { data, isPending, isFetching } = useVehicleStockAgeReport({ bucket: 'over_90', page: 1, limit: 1 })
 
   return (
     <Card
@@ -26,7 +27,11 @@ function AgedStockDashboardWidgetContent() {
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold">
-          {isPending && data === undefined ? <Skeleton className="h-9 w-12" /> : data?.summary.over_90_count ?? 0}
+          {isAwaitingFirstQueryPayload(isPending, data !== undefined, isFetching) ? (
+            <Skeleton className="h-9 w-12" />
+          ) : (
+            data?.summary.over_90_count ?? 0
+          )}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('dashboardWidgets.agedStockCostBasis', { amount: formatCurrency(data?.summary.over_90_cost_basis ?? '0.00') })}

@@ -4,11 +4,12 @@ import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePickerlDueList } from '@/api/vehicles'
 import { Skeleton } from '@/components/ui/skeleton'
+import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 
 function PickerlDueDashboardWidgetContent({ window }: { window: 30 | 60 | 90 }) {
   const { t } = useTranslation('vehicles')
   const navigate = useNavigate()
-  const { data, isPending } = usePickerlDueList({ window, page: 1, pageSize: 1 })
+  const { data, isPending, isFetching } = usePickerlDueList({ window, page: 1, pageSize: 1 })
 
   return (
     <Card
@@ -22,7 +23,7 @@ function PickerlDueDashboardWidgetContent({ window }: { window: 30 | 60 | 90 }) 
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold">
-          {isPending && data === undefined ? (
+          {isAwaitingFirstQueryPayload(isPending, data !== undefined, isFetching) ? (
             <Skeleton className="h-9 w-12" />
           ) : (
             data?.meta?.total ?? 0

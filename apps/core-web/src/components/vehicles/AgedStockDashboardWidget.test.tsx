@@ -39,6 +39,7 @@ describe('AgedStockDashboardWidget', () => {
     vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
       data: undefined,
       isPending: true,
+      isFetching: true,
     } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
     const { container } = render(
       <QueryClientProvider client={new QueryClient()}>

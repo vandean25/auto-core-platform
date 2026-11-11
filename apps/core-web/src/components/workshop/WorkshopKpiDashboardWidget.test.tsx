@@ -9,10 +9,39 @@ import { WorkshopKpiDashboardWidget } from './WorkshopKpiDashboardWidget'
 vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
 vi.mock('@/api/sites', () => ({ useMySites: vi.fn() }))
 vi.mock('@/api/workshop-kpi-reports', () => ({ useWorkshopKpiReport: vi.fn() }))
+vi.mock('@/lib/i18n', () => ({ useLazyNamespaceBundleReady: () => ({ status: 'ready' as const }) }))
 
 afterEach(cleanup)
 
 describe('WorkshopKpiDashboardWidget', () => {
+  it('AUT-971: WHEN KPI refetches with cached payload THEN skeleton is not shown', () => {
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1', activeRole: 'ADMIN' } } as never)
+    vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
+    vi.mocked(useWorkshopKpiReport).mockReturnValue({
+      data: { totals: { utilisation_percent: '0.82' } },
+      isPending: false,
+      isFetching: true,
+    } as never)
+
+    const { container } = render(<MemoryRouter><WorkshopKpiDashboardWidget /></MemoryRouter>)
+
+    expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
+
+  it('AUT-971: WHEN KPI query is paused pending THEN skeleton is not shown', () => {
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1', activeRole: 'ADMIN' } } as never)
+    vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
+    vi.mocked(useWorkshopKpiReport).mockReturnValue({
+      data: undefined,
+      isPending: true,
+      isFetching: false,
+    } as never)
+
+    const { container } = render(<MemoryRouter><WorkshopKpiDashboardWidget /></MemoryRouter>)
+
+    expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
+
   it('renders a safe empty state when there are no report rows', () => {
     vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1', activeRole: 'ADMIN' } } as never)
     vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)

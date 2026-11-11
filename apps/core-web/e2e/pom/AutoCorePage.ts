@@ -53,7 +53,7 @@ export class AutoCorePage {
    * Navigate to a path and wait until the network is idle so that mocked routes
    * are served before any assertions are made.
    */
-  async navigate(path: string) {
+  async installSessionMock() {
     await this.page.route(
       AutoCorePage.apiRouteMatcher("/api/auth/session"),
       async (route) => {
@@ -73,8 +73,19 @@ export class AutoCorePage {
         });
       },
     );
-    await this.page.goto(path);
-    await this.page.waitForLoadState("networkidle");
+  }
+
+  /**
+   * Navigate to a path. For AUT-971 skeleton timing checks, pass `waitUntil: 'domcontentloaded'`
+   * so the route can be fulfilled after the skeleton arms instead of after networkidle.
+   */
+  async navigate(path: string, options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" }) {
+    await this.installSessionMock();
+    const waitUntil = options?.waitUntil ?? "networkidle";
+    await this.page.goto(path, { waitUntil: waitUntil === "networkidle" ? "load" : waitUntil });
+    if (waitUntil === "networkidle") {
+      await this.page.waitForLoadState("networkidle");
+    }
   }
 
   /**

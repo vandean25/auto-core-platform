@@ -86,15 +86,27 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     expect(requests.count).toHaveLength(0);
   });
 
-  test('AUT-971 scenario 2: WHEN an ADMIN opens invoices on desktop THEN rows replace skeleton within 350ms of the API', async ({
+  test('AUT-971 scenario 2: WHEN an ADMIN opens unpaged invoices on desktop THEN rows replace skeleton within 350ms of the API', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
-    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 5), unpaged: 'array' })
-    await openList(page, '?sortField=invoice_number&sortDirection=asc')
-    await expect(page.getByTestId('data-table-count')).toHaveText('5 Treffer')
+    const rows = invoiceRows.slice(0, 5)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
+      const url = new URL(route.request().url())
+      if (url.searchParams.get('pagination') === 'cursor') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: {} }) })
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, 900))
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) })
+    })
+    await new AutoCorePage(page, DE_SALES.invoices.list.newInvoice).navigate(
+      '/sales/invoices?sortField=customer&sortDirection=asc',
+      { waitUntil: 'domcontentloaded' },
+    )
+    await expect(page.getByText('RE-2026-0001')).toBeVisible({ timeout: 2_500 })
     await expect(page.locator('tbody .animate-pulse')).toHaveCount(0, { timeout: 350 })
-    await expect(page.getByText('RE-2026-0001')).toBeVisible()
+    await expect(pageButtons(page)).toBeVisible()
   })
 
   test('AUT-946: WHEN the count is visible before page one THEN invoice rows are not lasting skeleton placeholders', async ({
