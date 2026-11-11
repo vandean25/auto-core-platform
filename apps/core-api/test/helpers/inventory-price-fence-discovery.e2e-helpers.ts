@@ -1,21 +1,11 @@
 import { InventoryPriceOperationState } from '@prisma/client';
 import { GUARDED_PRICE_KIND } from '../../src/inventory/guarded-price/guarded-price.errors.js';
-
-type FenceTenantPrisma = {
-  catalogItem: {
-    create: (args: unknown) => Promise<{ id: string; sku: string }>;
-    delete: (args: unknown) => Promise<unknown>;
-  };
-  inventoryPriceOperation: {
-    create: (args: unknown) => Promise<unknown>;
-    update: (args: unknown) => Promise<unknown>;
-  };
-};
+import type { PrismaService } from '../../src/prisma/prisma.service.js';
 
 export type PriceFenceDiscoveryE2EContext = {
   tenantId: string;
   principalId: string;
-  tenantPrisma: () => FenceTenantPrisma;
+  tenantPrisma: () => PrismaService;
   seedItem: (retail?: number, sku?: string) => Promise<{ id: string; sku: string }>;
   operationKeyAt: (ms: number, suffix?: string) => string;
 };
