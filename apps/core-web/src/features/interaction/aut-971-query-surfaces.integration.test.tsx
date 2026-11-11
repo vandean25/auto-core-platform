@@ -6,14 +6,9 @@ import { offsetListTableProps } from '@/components/data-table/offset-list-table-
 import { isDataTableFirstLoadActive, useDataTablePresentation } from '@/components/data-table/data-table-loading'
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 
-/** Pre-AUT-971: list pages passed `isPending` as the DataTable `isLoading` prop. */
-function legacyMiswiredListFirstLoadActive(isPending: boolean, hasUsableData: boolean, listSnapshotResolved: boolean) {
-  return isPending && !hasUsableData && !listSnapshotResolved
-}
-
-/** Pre-AUT-971 dashboard widgets branched on `isLoading` from the hook. */
-function legacyWidgetSkeletonVisible(isLoading: boolean) {
-  return isLoading
+/** Pre-AUT-971 `useDataTablePresentation` first-load flag. */
+function legacyTableFirstLoadActive(isLoading: boolean, hasUsableData: boolean, listSnapshotResolved: boolean) {
+  return isLoading && !hasUsableData && !listSnapshotResolved
 }
 
 function wrapper(queryClient: QueryClient) {
@@ -22,46 +17,90 @@ function wrapper(queryClient: QueryClient) {
   }
 }
 
-/** v5 paused pending (no payload, not fetching) — offline tabs and cancelled fetches emit this shape. */
-const PAUSED_V5_LIST_QUERY = {
-  data: undefined,
-  isPending: true,
-  isFetching: false,
-  isPlaceholderData: false,
-  isError: false,
-} as const
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
 
 describe('AUT-971 query surfaces (real TanStack Query)', () => {
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it('WHEN a list query is paused pending (v5) THEN legacy miswire keeps first-load active but offsetListTableProps does not', () => {
-    const wired = offsetListTableProps(PAUSED_V5_LIST_QUERY)
+  it('WHEN list payload is settled but a sibling count query is still fetching THEN skeleton stays off (legacy branch stuck without snapshot flags)', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const listPayload = { data: [{ id: 'v1' }], meta: { pageCount: 1 } }
+    const countDeferred = createDeferred<{ count: number }>()
 
-    expect(wired.isLoading).toBe(false)
-    expect(legacyMiswiredListFirstLoadActive(PAUSED_V5_LIST_QUERY.isPending, wired.hasUsableData, wired.listSnapshotResolved)).toBe(
-      true,
+    const { result: listResult } = renderHook(
+      () =>
+        useQuery({
+          queryKey: ['aut-971', 'list'],
+          queryFn: async () => listPayload,
+        }),
+      { wrapper: wrapper(queryClient) },
     )
+
+    const { result: countResult } = renderHook(
+      () =>
+        useQuery({
+          queryKey: ['aut-971', 'count'],
+          queryFn: () => countDeferred.promise,
+        }),
+      { wrapper: wrapper(queryClient) },
+    )
+
+    await waitFor(() => expect(listResult.current.data).toBeDefined())
+    await waitFor(() => expect(countResult.current.isFetching).toBe(true))
+
+    const wired = offsetListTableProps({
+      data: listResult.current.data,
+      isPending: listResult.current.isPending,
+      isFetching: listResult.current.isFetching,
+      isPlaceholderData: listResult.current.isPlaceholderData,
+      isError: listResult.current.isError,
+    })
+
+    const miswiredLoading = countResult.current.isPending && countResult.current.isFetching
+    expect(miswiredLoading).toBe(true)
+
     expect(
       isDataTableFirstLoadActive({
-        isLoading: wired.isLoading,
-        isPending: wired.isPending,
-        isFetching: wired.isFetching,
+        isLoading: miswiredLoading,
+        isPending: countResult.current.isPending,
+        isFetching: countResult.current.isFetching,
         hasUsableData: wired.hasUsableData,
         listSnapshotResolved: wired.listSnapshotResolved,
       }),
     ).toBe(false)
 
-    // Pre-fix list pages passed `isPending` as `isLoading` and omitted `isFetching`, so paused pending looked “active”.
+    expect(
+      legacyTableFirstLoadActive(miswiredLoading, wired.hasUsableData, wired.listSnapshotResolved),
+    ).toBe(false)
+
+    // Pre-fix: list GET stored but snapshot flags missing while a sibling kept `isLoading` true.
     expect(
       isDataTableFirstLoadActive({
-        isLoading: PAUSED_V5_LIST_QUERY.isPending,
-        isPending: PAUSED_V5_LIST_QUERY.isPending,
-        hasUsableData: wired.hasUsableData,
-        listSnapshotResolved: wired.listSnapshotResolved,
+        isLoading: miswiredLoading,
+        isPending: countResult.current.isPending,
+        isFetching: countResult.current.isFetching,
+        hasUsableData: false,
+        listSnapshotResolved: false,
       }),
     ).toBe(true)
+    expect(legacyTableFirstLoadActive(miswiredLoading, false, false)).toBe(true)
+    expect(
+      isDataTableFirstLoadActive({
+        isLoading: miswiredLoading,
+        isPending: countResult.current.isPending,
+        isFetching: countResult.current.isFetching,
+        hasUsableData: false,
+        listSnapshotResolved: true,
+      }),
+    ).toBe(false)
   })
 
   it('WHEN useQuery resolves THEN offset props and presentation skeleton clear within 350ms', async () => {
@@ -117,15 +156,6 @@ describe('AUT-971 query surfaces (real TanStack Query)', () => {
     expect(presentationResult.current.showFirstLoadSkeleton).toBe(true)
 
     rerender({ tableProps: wiredSettled })
-
-    expect(
-      legacyMiswiredListFirstLoadActive(
-        queryResult.current.isPending,
-        wiredSettled.hasUsableData,
-        wiredSettled.listSnapshotResolved,
-      ),
-    ).toBe(false)
-    expect(legacyWidgetSkeletonVisible(queryResult.current.isLoading)).toBe(false)
 
     act(() => {
       vi.advanceTimersByTime(INTERACTION_LOADING_TIMINGS.skeletonMinVisibleMs)

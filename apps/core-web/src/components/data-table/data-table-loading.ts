@@ -153,12 +153,15 @@ export function isDataTableFirstLoadActive(
   input: Pick<DataTablePresentationInput, 'isLoading' | 'hasUsableData' | 'listSnapshotResolved'> &
     Partial<Pick<DataTablePresentationInput, 'isPending' | 'isFetching'>>,
 ): boolean {
-  const isPending = input.isPending ?? input.isLoading
-  // Legacy callers pass only `isLoading`. With `isPending`, missing `isFetching` means still fetching; `isFetching: false` is paused.
-  const isActivelyFetching =
-    input.isFetching ?? (input.isPending !== undefined ? true : input.isLoading)
   const payloadReady = input.hasUsableData || Boolean(input.listSnapshotResolved)
-  return isAwaitingFirstQueryPayload(isPending, payloadReady, isActivelyFetching)
+  // Settled list/widget payload: a slower sibling (count, settings, namespace) must not keep the skeleton.
+  if (payloadReady) return false
+
+  const isPending = input.isPending ?? input.isLoading
+  // Legacy callers pass only `isLoading`. Modern call sites pass `isPending` and `isFetching` explicitly.
+  const isActivelyFetching =
+    input.isFetching ?? (input.isPending !== undefined ? false : input.isLoading)
+  return isAwaitingFirstQueryPayload(isPending, false, isActivelyFetching)
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {

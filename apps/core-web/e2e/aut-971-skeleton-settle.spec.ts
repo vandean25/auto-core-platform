@@ -80,6 +80,28 @@ test.describe('AUT-971 skeleton settles when data arrives', () => {
     await expect(page.getByText('VW Golf')).toBeVisible({ timeout: 2_000 })
   })
 
+  test('AUT-971 scenario 5: Pickerl due list at 375px dismisses skeleton within 350ms of the API response', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const corePage = new AutoCorePage(page, '')
+    const settledAt = await routeWithSettledAt(page, '/api/vehicles/pickerl-due', {
+      data: [
+        {
+          id: 'veh-p971',
+          make: 'VW',
+          model: 'Golf',
+          plate: 'W-P971',
+          year: 2020,
+          pickerl_due: { status: 'DUE_SOON', due_month: '2026-11' },
+        },
+      ],
+      meta: { total: 1, pageCount: 1 },
+    })
+    await corePage.navigate('/vehicles/pickerl-due?filter_window=30', { waitUntil: 'domcontentloaded' })
+    await expect(page.locator('.animate-pulse').first()).toBeVisible({ timeout: 2_000 })
+    await expectSkeletonDismissedBySettleDeadline(page, settledAt)
+    await expect(page.getByText('W-P971')).toBeVisible({ timeout: 2_000 })
+  })
+
   test('AUT-971 scenario 6: estimates at 375px clear loading within 350ms of the API response', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     const corePage = new AutoCorePage(page, '')

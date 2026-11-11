@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
 import { useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
+import { PickerlDueDashboardWidget } from '@/components/vehicles/PickerlDueDashboardWidget'
 import { WorkshopKpiDashboardWidget } from '@/components/workshop/WorkshopKpiDashboardWidget'
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
@@ -19,7 +20,9 @@ const KPI_BODY = {
   rows: [],
 } as const
 
-function legacyWidgetSkeletonFromHook(isLoading: boolean) {
+const PICKERL_BODY = { data: [], meta: { total: 2 } } as const
+
+function legacyWidgetSkeletonBranch(isLoading: boolean) {
   return isLoading
 }
 
@@ -69,7 +72,7 @@ describe('AUT-971 dashboard widgets (real useQuery)', () => {
     const cache = queryClient.getQueryCache().findAll({ queryKey: ['workshop-kpi-reports'] })
     expect(cache.length).toBeGreaterThan(0)
     const state = cache[0].state
-    expect(legacyWidgetSkeletonFromHook(state.data !== undefined ? false : state.status === 'pending')).toBe(false)
+    expect(legacyWidgetSkeletonBranch(state.data !== undefined ? false : state.status === 'pending')).toBe(false)
     expect(isAwaitingFirstQueryPayload(state.status === 'pending', state.data !== undefined, state.fetchStatus === 'fetching')).toBe(
       false,
     )
@@ -79,5 +82,51 @@ describe('AUT-971 dashboard widgets (real useQuery)', () => {
     })
     expect(container.querySelector('.animate-pulse')).toBeNull()
     expect(screen.getAllByText(/0,8 %/).length).toBeGreaterThan(0)
+  })
+
+  it('WHEN Pickerl scenario 5 fetch resolves THEN skeleton clears within 350ms', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let finish!: () => void
+    const hang = new Promise<void>((done) => {
+      finish = () => done()
+    })
+
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (String(url).includes('pickerl-due')) {
+        await hang
+        return new Response(JSON.stringify(PICKERL_BODY), { status: 200 })
+      }
+      return new Response('{}', { status: 200 })
+    })
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <PickerlDueDashboardWidget window={30} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(INTERACTION_LOADING_TIMINGS.skeletonDelayMs + 20)
+    })
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+
+    finish()
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync()
+    })
+    await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument())
+
+    act(() => {
+      vi.advanceTimersByTime(INTERACTION_LOADING_TIMINGS.skeletonMinVisibleMs)
+    })
+    expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
+
+  it('WHEN payload is settled THEN restoring isLoading branch would disagree with isAwaitingFirstQueryPayload', () => {
+    expect(legacyWidgetSkeletonBranch(true)).toBe(true)
+    expect(isAwaitingFirstQueryPayload(false, true, false)).toBe(false)
   })
 })

@@ -33,26 +33,35 @@ export async function expectSkeletonDismissedBySettleDeadline(
     scope?: 'page' | 'tbody'
   } = {},
 ) {
-  const apiDelayMs = options.apiDelayMs ?? AUT_971_LIST_API_DELAY_MS
   const dismissBudgetMs = options.dismissBudgetMs ?? AUT_971_DISMISS_BUDGET_MS
   const pulseLocator =
     options.scope === 'tbody' ? page.locator('tbody .animate-pulse') : page.locator('.animate-pulse')
 
-  await expect.poll(() => settledAt.ms > 0, { timeout: apiDelayMs + 2_000, intervals: [50] }).toBe(true)
+  await expect.poll(() => settledAt.ms > 0, { timeout: 2_000, intervals: [50] }).toBe(true)
   const deadline = settledAt.ms + dismissBudgetMs
+  const firstClearAt = { ms: 0 }
+
   await expect
     .poll(
       async () => {
         const pulseCount = await pulseLocator.count()
-        if (pulseCount === 0) return true
-        if (Date.now() > deadline) {
-          throw new Error(
-            `skeleton pulse count ${pulseCount} still visible ${Date.now() - settledAt.ms}ms after API settle`,
-          )
+        const now = Date.now()
+        if (pulseCount === 0) {
+          if (firstClearAt.ms === 0) firstClearAt.ms = now
+          const elapsed = firstClearAt.ms - settledAt.ms
+          if (elapsed > dismissBudgetMs) {
+            throw new Error(
+              `skeleton cleared ${elapsed}ms after API settle (budget ${dismissBudgetMs}ms)`,
+            )
+          }
+          return true
+        }
+        if (now > deadline) {
+          throw new Error(`skeleton pulse count ${pulseCount} still visible ${now - settledAt.ms}ms after API settle`)
         }
         return false
       },
-      { timeout: apiDelayMs + 2_000, intervals: [15, 30, 50] },
+      { timeout: dismissBudgetMs + 500, intervals: [10, 20, 30, 50] },
     )
     .toBe(true)
 }
