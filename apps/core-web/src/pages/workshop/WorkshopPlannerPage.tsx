@@ -20,7 +20,6 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   buildSlots,
   buildDayWindow,
@@ -47,7 +46,8 @@ import { PlannerViewToggle, type PlannerViewMode } from '@/components/workshop/p
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PlannerCreateUrlOpener } from '@/components/workshop/planner/PlannerCreateUrlOpener'
 import { useTranslation } from 'react-i18next'
-import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
+import { showQuerySurfaceSkeleton } from '@/features/interaction/query-surface-loading'
+import { PlannerFirstLoadSkeleton } from '@/components/workshop/planner/PlannerFirstLoadSkeleton'
 
 const VIEW_MODE_KEY = 'workshop-planner-view'
 
@@ -142,7 +142,6 @@ export default function WorkshopPlannerPage() {
     queryRange.from,
     queryRange.to,
   )
-  const showPlannerSkeleton = isAwaitingFirstQueryPayload(plannerPending, plannerData !== undefined, plannerFetching)
   const plannerTimezone = plannerData?.timezone ?? timezone
   const slotMinutes = plannerData?.slotMinutes ?? 30
   const bays = plannerData?.bays ?? []
@@ -331,11 +330,8 @@ export default function WorkshopPlannerPage() {
         }
       />
 
-      {showPlannerSkeleton ? (
-        <div className="space-y-3">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
+      {showQuerySurfaceSkeleton(plannerPending, plannerData, plannerFetching) ? (
+        <PlannerFirstLoadSkeleton />
       ) : bays.length === 0 ? (
         <PlannerEmptyState
           icon={<Wrench aria-hidden />}
