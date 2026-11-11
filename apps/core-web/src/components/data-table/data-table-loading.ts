@@ -15,6 +15,8 @@ export function isDataTablePendingRow(row: object): row is object & DataTablePen
 
 export type DataTablePresentationInput = {
   isLoading: boolean
+  /** Prefer `isPending` when wired: first-load ends once the query has settled, even if `isFetching` continues. */
+  isPending?: boolean
   isFetching: boolean
   isPlaceholderData: boolean
   isError: boolean
@@ -55,6 +57,27 @@ export function isInfiniteListSnapshotResolved(
   resolvedTotalCount: { count: number; isCapped: boolean } | undefined,
 ): boolean {
   return hasUsableData || resolvedTotalCount !== undefined
+}
+
+/** Offset lists: API meta (page count / pager) can settle before row cells are painted. */
+export function isOffsetListSnapshotResolved(hasUsableData: boolean, offsetMetaResolved: boolean): boolean {
+  return hasUsableData || offsetMetaResolved
+}
+
+export function isListSnapshotResolved(
+  hasUsableData: boolean,
+  resolvedTotalCount: { count: number; isCapped: boolean } | undefined,
+  offsetMetaResolved: boolean,
+): boolean {
+  return isInfiniteListSnapshotResolved(hasUsableData, resolvedTotalCount) || offsetMetaResolved
+}
+
+export function resolveDataTableListSnapshot(
+  hasUsableData: boolean,
+  resolvedTotalCount: { count: number; isCapped: boolean } | undefined,
+  offsetMetaResolved: boolean,
+): boolean {
+  return isListSnapshotResolved(hasUsableData, resolvedTotalCount, offsetMetaResolved)
 }
 
 export function mergeRefreshingInfinitePresentation(
@@ -98,7 +121,8 @@ export function shouldUseMobileDataTableList(
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
-  const firstLoadActive = input.isLoading && !input.hasUsableData && !input.listSnapshotResolved
+  const isPending = input.isPending ?? input.isLoading
+  const firstLoadActive = isPending && !input.hasUsableData && !input.listSnapshotResolved
   const showFirstLoadSkeleton = useFirstLoadSkeletonGate(firstLoadActive, input.bypassSkeleton || input.isError)
 
   const isStalePreview =

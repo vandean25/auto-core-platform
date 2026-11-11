@@ -1,4 +1,5 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { offsetListTableProps } from '@/components/data-table/offset-list-table-props'
 import { isVehicleStockCursorMode, useVehicleStock, useVehicleStockCursorList } from './vehicle-stock'
 
 /**
@@ -14,6 +15,6 @@ export function useVehicleStockListState(queryParams: DataTableQueryParams) {
   if (infiniteMode) return cursorList
   return {
     rows: offsetList.data?.data ?? [],
-    tableProps: { pageCount: offsetList.data?.meta?.pageCount ?? 1, isLoading: offsetList.isLoading },
+    tableProps: offsetListTableProps(offsetList),
   }
 }

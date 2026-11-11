@@ -20,7 +20,8 @@ function sortValue(invoice: Invoice, field: string) {
 
 /** The unpaged list for the sorts the cursor API does not approve: search, sort and paging happen in the browser. */
 function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boolean) {
-  const { data: invoices = [], isLoading, dataUpdatedAt } = useInvoices({ enabled })
+  const invoiceQuery = useInvoices({ enabled })
+  const { data: invoices = [], isLoading, dataUpdatedAt } = invoiceQuery
   const { search, sortField, sortDirection, page, pageSize } = queryParams
   return useMemo(() => {
     const needle = search?.trim().toLowerCase()
@@ -30,12 +31,19 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
       rows = rows.sort((left, right) => sortValue(left, sortField).localeCompare(sortValue(right, sortField), undefined, { numeric: true }) * direction)
     }
     const start = (page - 1) * pageSize
+    const settled = invoiceQuery.data !== undefined
     return {
       rows: rows.slice(start, start + pageSize),
       dataUpdatedAt,
-      tableProps: { pageCount: Math.max(1, Math.ceil(rows.length / pageSize)), isLoading },
+      tableProps: {
+        pageCount: Math.max(1, Math.ceil(rows.length / pageSize)),
+        isLoading,
+        isPending: invoiceQuery.isPending,
+        hasUsableData: settled,
+        listSnapshotResolved: settled,
+      },
     }
-  }, [dataUpdatedAt, invoices, isLoading, search, sortField, sortDirection, page, pageSize])
+  }, [dataUpdatedAt, invoiceQuery.data, invoiceQuery.isPending, invoices, isLoading, search, sortField, sortDirection, page, pageSize])
 }
 
 /**

@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 function AgedStockDashboardWidgetContent() {
   const { t } = useTranslation('vehicles')
   const navigate = useNavigate()
-  const { data, isLoading } = useVehicleStockAgeReport({ bucket: 'over_90', page: 1, limit: 1 })
+  const { data, isPending } = useVehicleStockAgeReport({ bucket: 'over_90', page: 1, limit: 1 })
 
   return (
     <Card
@@ -26,7 +26,7 @@ function AgedStockDashboardWidgetContent() {
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold">
-          {isLoading ? <Skeleton className="h-9 w-12" /> : data?.summary.over_90_count ?? 0}
+          {isPending && data === undefined ? <Skeleton className="h-9 w-12" /> : data?.summary.over_90_count ?? 0}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('dashboardWidgets.agedStockCostBasis', { amount: formatCurrency(data?.summary.over_90_cost_basis ?? '0.00') })}

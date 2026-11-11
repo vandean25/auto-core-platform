@@ -690,6 +690,29 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(document.querySelector('tbody .animate-pulse')).toBeNull()
   })
 
+  // AUT-971 scenario 1: paginated pager can show while offset meta is settled before rows paint.
+  it('AUT-971: WHEN listSnapshotResolved is set while isPending THEN the table body does not keep skeleton rows', () => {
+    vi.useFakeTimers()
+    try {
+      render(
+        <Harness
+          data={[]}
+          isLoading
+          isPending
+          hasUsableData={false}
+          pageCount={1}
+          listSnapshotResolved
+        />,
+      )
+      act(() => {
+        vi.advanceTimersByTime(550)
+      })
+      expect(document.querySelector('tbody .animate-pulse')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   // AUT-946 scenario 1/2 (infinite lists): capped count often resolves before page one — skeleton must not outlive it.
   it('WHEN the capped count is visible before the first page lands THEN the table body does not keep skeleton rows', async () => {
     vi.useFakeTimers()

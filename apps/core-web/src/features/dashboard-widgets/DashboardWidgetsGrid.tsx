@@ -65,9 +65,9 @@ function DashboardWidgetCard({
 }) {
   const { t } = useTranslation('common')
   const navigate = useNavigate()
-  const { data, isLoading, error } = useWidgetRows(widget)
+  const { data, isPending, error } = useWidgetRows(widget)
   const rows = useMemo(() => data?.rows ?? [], [data])
-  const hasRows = !isLoading && !error && rows.length > 0
+  const hasRows = !isPending && !error && rows.length > 0
 
   return (
     <Card className="h-full">
@@ -88,9 +88,11 @@ function DashboardWidgetCard({
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? <p className="text-sm text-muted-foreground">{t('dashboard.loadingWidget')}</p> : null}
+        {isPending && data === undefined ? (
+          <p className="text-sm text-muted-foreground">{t('dashboard.loadingWidget')}</p>
+        ) : null}
         {error ? <p className="text-sm text-destructive">{t('dashboard.loadWidgetFailed')}</p> : null}
-        {!isLoading && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
+        {!isPending && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
 
         {hasRows && data ? <WidgetBody widget={widget} source={source} data={data} /> : null}
         {hasRows && data && isPartialResult(widget, data) ? (

@@ -17,7 +17,7 @@ describe('AgedStockDashboardWidget', () => {
   it('shows aged vehicle count and basis, and opens the over-90 report filter', () => {
     vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
       data: { summary: { over_90_count: 3, over_90_cost_basis: '45000.00' } },
-      isLoading: false,
+      isPending: false,
     } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
     const queryClient = new QueryClient()
     render(
@@ -38,7 +38,7 @@ describe('AgedStockDashboardWidget', () => {
   it('WHEN the aged stock count is loading THEN a Skeleton is shown instead of a spinner', () => {
     vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
       data: undefined,
-      isLoading: true,
+      isPending: true,
     } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
     const { container } = render(
       <QueryClientProvider client={new QueryClient()}>

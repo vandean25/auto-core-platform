@@ -68,13 +68,16 @@ export function useCursorList<TRow extends { id: string }>({
   })
 
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.data) ?? [], [list.data])
+  const settled = list.data !== undefined
   const tableProps = {
-    isLoading: list.isLoading,
+    isLoading: list.isPending,
+    isPending: list.isPending,
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,
     isError: list.isError && !list.isFetchNextPageError,
     onRetry: () => void list.refetch(),
-    hasUsableData: rows.length > 0,
+    hasUsableData: settled,
+    listSnapshotResolved: settled || count.data !== undefined,
     infinite: {
       queryKey: listKey,
       hasNextPage: list.hasNextPage,

@@ -43,7 +43,7 @@ export function WorkshopKpiDashboardWidget() {
         <CardTitle>{t('kpi.title')}</CardTitle>
       </CardHeader>
       <CardContent>
-        {current.isLoading ? (
+        {current.isPending && current.data === undefined ? (
           <div className="grid grid-cols-2 gap-3">
             <span className="sr-only">{t('kpi.loading')}</span>
             <Skeleton className="h-10 w-full" />

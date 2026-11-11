@@ -41,7 +41,8 @@ export default function InvoiceListPage() {
 
   const { rows: data, dataUpdatedAt, tableProps } = useInvoiceListState(queryParams)
   const pending = useInvoicePendingCreate(data, dataUpdatedAt)
-  const listLoading = Boolean(tableProps.isLoading) && pending.rows.length === data.length
+  const listPending = Boolean(tableProps.isPending ?? tableProps.isLoading)
+  const listLoading = listPending && pending.rows.length === data.length
 
   const columns: ColumnDef<Invoice>[] = [
     {

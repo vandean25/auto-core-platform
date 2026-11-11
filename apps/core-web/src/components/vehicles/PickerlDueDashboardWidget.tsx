@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 function PickerlDueDashboardWidgetContent({ window }: { window: 30 | 60 | 90 }) {
   const { t } = useTranslation('vehicles')
   const navigate = useNavigate()
-  const { data, isLoading } = usePickerlDueList({ window, page: 1, pageSize: 1 })
+  const { data, isPending } = usePickerlDueList({ window, page: 1, pageSize: 1 })
 
   return (
     <Card
@@ -22,7 +22,7 @@ function PickerlDueDashboardWidgetContent({ window }: { window: 30 | 60 | 90 }) 
       </CardHeader>
       <CardContent>
         <div className="text-3xl font-bold">
-          {isLoading ? (
+          {isPending && data === undefined ? (
             <Skeleton className="h-9 w-12" />
           ) : (
             data?.meta?.total ?? 0

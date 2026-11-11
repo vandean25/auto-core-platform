@@ -62,12 +62,14 @@ export default function WorkshopOrderList() {
         saveViewTitle={t('orders.list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
         pageCount={rows.visibleResponse?.meta?.pageCount ?? 1}
-        isLoading={ordersQuery.isLoading}
+        isLoading={ordersQuery.isPending}
+        isPending={ordersQuery.isPending}
         isFetching={ordersQuery.isFetching}
         isPlaceholderData={ordersQuery.isPlaceholderData || rows.showingStaleError}
         isError={ordersQuery.isError}
         onRetry={() => void ordersQuery.refetch()}
         hasUsableData={rows.visibleResponse !== undefined}
+        listSnapshotResolved={ordersQuery.data !== undefined}
         presentationLatencyRef={presentationLatencyRef}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
         emptyState={ordersQuery.isError ? undefined : {

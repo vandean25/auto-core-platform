@@ -60,7 +60,9 @@ export default function VehicleList() {
   }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10, maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE })
-  const { data: responseData, isLoading, dataUpdatedAt } = useVehicles(queryParams)
+  const vehiclesQuery = useVehicles(queryParams)
+  const { data: responseData, dataUpdatedAt } = vehiclesQuery
+  const listSettled = vehiclesQuery.data !== undefined
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const rows = useMemo<VehicleRow[]>(() => {
@@ -188,7 +190,11 @@ export default function VehicleList() {
         dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
         pageCount={responseData?.meta?.pageCount ?? 1}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
-        isLoading={isLoading}
+        isLoading={vehiclesQuery.isPending}
+        isPending={vehiclesQuery.isPending}
+        isFetching={vehiclesQuery.isFetching}
+        hasUsableData={listSettled}
+        listSnapshotResolved={listSettled}
         searchPlaceholder={t('list.searchPlaceholder')}
         rowBehaviour={rowBehaviour}
         {...tableState}
