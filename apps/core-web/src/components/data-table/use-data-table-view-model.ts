@@ -7,7 +7,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useDataTableContextMenu } from './data-table-context-menu'
 import { useDataTableSelection } from './data-table-selection'
 import {
-  resolveDataTableListSnapshot,
+  buildDataTablePresentationInput,
   mergeRefreshingInfinitePresentation,
   resolveDataTableFetchErrorMessage,
   useDataTablePresentation,
@@ -53,20 +53,19 @@ export function useDataTableViewModel<TData extends object>({
   const hasUsableData = hasUsableDataProp ?? !isLoading
   const { rows, infiniteView } = useDataTableInfinite(infinite, data)
   const resolvedTotalCount = infiniteView?.totalCount ?? infinite?.totalCount
-  const basePresentation = useDataTablePresentation({
-    isLoading,
-    isPending: isPendingProp,
-    isFetching,
-    isPlaceholderData,
-    isError,
-    hasUsableData,
-    listSnapshotResolved: resolveDataTableListSnapshot(
+  const basePresentation = useDataTablePresentation(
+    buildDataTablePresentationInput({
+      isLoading,
+      isPending: isPendingProp,
+      isFetching,
+      isPlaceholderData,
+      isError,
       hasUsableData,
       resolvedTotalCount,
-      listSnapshotResolvedProp ?? false,
-    ),
-    bypassSkeleton,
-  })
+      listSnapshotResolvedProp,
+      bypassSkeleton,
+    }),
+  )
   // While page one of a restarted or refreshed list loads, the rows on screen are a locked preview (ADR-0035 §6-7).
   const presentation = mergeRefreshingInfinitePresentation(basePresentation, Boolean(infiniteView?.isRefreshing))
 

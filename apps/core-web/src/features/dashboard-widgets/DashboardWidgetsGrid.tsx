@@ -18,6 +18,7 @@ import { useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidge
 import type { DashboardWidget, DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
 import { WidgetBody, WidgetEmptyMessage } from '@/features/dashboard-widgets/DashboardWidgetBodies'
 import { isPartialResult, type WidgetData } from '@/features/dashboard-widgets/widget-totals'
+import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 import { hasUtcDayChanged } from '@/lib/date-utils'
 
 const PICKERL_DUE_SOURCE_KEY = 'pickerl-due'
@@ -68,6 +69,7 @@ function DashboardWidgetCard({
   const { data, isPending, error } = useWidgetRows(widget)
   const rows = useMemo(() => data?.rows ?? [], [data])
   const hasRows = !isPending && !error && rows.length > 0
+  const showLoading = isAwaitingFirstQueryPayload(isPending, data !== undefined)
 
   return (
     <Card className="h-full">
@@ -88,9 +90,7 @@ function DashboardWidgetCard({
         </Button>
       </CardHeader>
       <CardContent>
-        {isPending && data === undefined ? (
-          <p className="text-sm text-muted-foreground">{t('dashboard.loadingWidget')}</p>
-        ) : null}
+        {showLoading ? <p className="text-sm text-muted-foreground">{t('dashboard.loadingWidget')}</p> : null}
         {error ? <p className="text-sm text-destructive">{t('dashboard.loadWidgetFailed')}</p> : null}
         {!isPending && !error && rows.length === 0 ? <WidgetEmptyMessage data={data} /> : null}
 

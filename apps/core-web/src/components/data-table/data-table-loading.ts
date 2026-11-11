@@ -80,6 +80,33 @@ export function resolveDataTableListSnapshot(
   return isListSnapshotResolved(hasUsableData, resolvedTotalCount, offsetMetaResolved)
 }
 
+export function buildDataTablePresentationInput(input: {
+  isLoading: boolean
+  isPending?: boolean
+  isFetching: boolean
+  isPlaceholderData: boolean
+  isError: boolean
+  hasUsableData: boolean
+  resolvedTotalCount: { count: number; isCapped: boolean } | undefined
+  listSnapshotResolvedProp?: boolean
+  bypassSkeleton: boolean
+}): DataTablePresentationInput {
+  return {
+    isLoading: input.isLoading,
+    isPending: input.isPending,
+    isFetching: input.isFetching,
+    isPlaceholderData: input.isPlaceholderData,
+    isError: input.isError,
+    hasUsableData: input.hasUsableData,
+    listSnapshotResolved: resolveDataTableListSnapshot(
+      input.hasUsableData,
+      input.resolvedTotalCount,
+      input.listSnapshotResolvedProp ?? false,
+    ),
+    bypassSkeleton: input.bypassSkeleton,
+  }
+}
+
 export function mergeRefreshingInfinitePresentation(
   base: DataTablePresentationState,
   isRefreshing: boolean,

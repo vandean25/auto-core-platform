@@ -47,6 +47,7 @@ import { PlannerViewToggle, type PlannerViewMode } from '@/components/workshop/p
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PlannerCreateUrlOpener } from '@/components/workshop/planner/PlannerCreateUrlOpener'
 import { useTranslation } from 'react-i18next'
+import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 
 const VIEW_MODE_KEY = 'workshop-planner-view'
 
@@ -138,6 +139,7 @@ export default function WorkshopPlannerPage() {
   const queryRange = localDateRangeToUtc(rangeFromDate, rangeToDate, timezone)
 
   const { data: plannerData, isPending: plannerPending } = useWorkshopPlanner(queryRange.from, queryRange.to)
+  const showPlannerSkeleton = isAwaitingFirstQueryPayload(plannerPending, plannerData !== undefined)
   const plannerTimezone = plannerData?.timezone ?? timezone
   const slotMinutes = plannerData?.slotMinutes ?? 30
   const bays = plannerData?.bays ?? []
@@ -326,7 +328,7 @@ export default function WorkshopPlannerPage() {
         }
       />
 
-      {plannerPending && plannerData === undefined ? (
+      {showPlannerSkeleton ? (
         <div className="space-y-3">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-48 w-full" />
