@@ -47,7 +47,7 @@ function readPlaywrightVersionFromLockfile(): string {
 function readPlaywrightDockerTag(): string {
   const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
   const match = dockerfile.match(
-    /^FROM mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble(@sha256:[a-f0-9]{64})? AS worker$/m,
+    /^FROM mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble(@sha256:[a-f0-9]{64}) AS worker$/m,
   );
   if (!match) {
     throw new Error(
@@ -55,6 +55,53 @@ function readPlaywrightDockerTag(): string {
     );
   }
   return match[1];
+}
+
+function readBundledChromiumVersion(playwrightVersion: string): string {
+  const browsersPath = path.join(
+    REPO_ROOT,
+    'node_modules',
+    'playwright-core',
+    'browsers.json',
+  );
+  if (!fs.existsSync(browsersPath)) {
+    throw new Error(
+      `Missing ${browsersPath}; run npm ci before check-playwright-docker-version tests.`,
+    );
+  }
+  const manifest = readJsonFile<{
+    browsers: Array<{ name: string; browserVersion?: string }>;
+  }>(browsersPath);
+  const chromium = manifest.browsers.find((entry) => entry.name === 'chromium');
+  if (!chromium?.browserVersion) {
+    throw new Error('Could not read bundled Chromium version from browsers.json');
+  }
+  if (playwrightVersion !== readPlaywrightVersionFromLockfile()) {
+    throw new Error('Playwright version drifted while reading browsers.json');
+  }
+  return chromium.browserVersion;
+}
+
+function parseChromiumVersion(version: string): number[] {
+  return version.split('.').map((part) => Number(part));
+}
+
+function isChromiumAtLeast(
+  version: string,
+  minimum: readonly [number, number, number, number],
+): boolean {
+  const parts = parseChromiumVersion(version);
+  for (let index = 0; index < minimum.length; index += 1) {
+    const current = parts[index] ?? 0;
+    const min = minimum[index] ?? 0;
+    if (current > min) {
+      return true;
+    }
+    if (current < min) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function readEngineVersion(manifestPath: string): string {
@@ -71,6 +118,12 @@ describe('Production image version pins (AUT-167)', () => {
     const packageVersion = readPlaywrightVersionFromLockfile();
     const dockerTagVersion = readPlaywrightDockerTag();
     expect(dockerTagVersion).toBe(packageVersion);
+  });
+
+  it('bundles Chromium at or above 157.0.8103.50 (CVE-2026-125350)', () => {
+    const packageVersion = readPlaywrightVersionFromLockfile();
+    const chromiumVersion = readBundledChromiumVersion(packageVersion);
+    expect(isChromiumAtLeast(chromiumVersion, [157, 0, 8103, 50])).toBe(true);
   });
 
   it('pins every Playwright CI job container to the lockfile version', () => {

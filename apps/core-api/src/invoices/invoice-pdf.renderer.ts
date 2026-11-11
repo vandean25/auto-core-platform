@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import * as Sentry from '@sentry/node';
 import type { Page } from 'playwright';
 import { PlaywrightBrowserService } from '../common/index.js';
+import { installPdfRendererRequestGuard } from '../common/pdf/pdf-page-request-guard.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import { createInvoicePdfDateFormatter } from './invoice-pdf-date-format.helpers.js';
 import { buildInvoiceHtmlDocumentForSnapshot } from './invoice-pdf-localized.layout.js';
@@ -73,9 +74,7 @@ export class InvoicePdfRenderer {
     { snapshot, branded, fontFaceCss, logoDataUrl }: RenderPageInput,
   ): Promise<Buffer> {
     const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
-    if (branded) {
-      await page.route(/^https?:\/\//, (route) => route.abort());
-    }
+    await installPdfRendererRequestGuard(page);
 
     const formatDate = createInvoicePdfDateFormatter(snapshot);
     const html = buildInvoiceHtmlDocumentForSnapshot(

@@ -367,7 +367,7 @@ jobs:
     # convenient: test/invoice-branding-render.e2e-spec.ts launches chromium through
     # PlaywrightBrowserService, and check-playwright-docker-version.spec.ts pins this container.
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --ipc=host
     defaults:
       run:
@@ -560,7 +560,7 @@ jobs:
     # runs apt-get (the Azure apt mirror stalled shards for ~10 min). The tag must match the
     # playwright version in package-lock.json (enforced by check-playwright-docker-version.spec.ts).
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --ipc=host
     defaults:
       run:
