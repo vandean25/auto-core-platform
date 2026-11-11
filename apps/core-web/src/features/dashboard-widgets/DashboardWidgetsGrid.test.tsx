@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { registerGermanUiForTests } from '@/test/german-ui'
+import { isAwaitingFirstQueryPayload } from '@/features/interaction/query-first-load'
 import { dashboardWidgetKeys } from './dashboard-widget-keys'
 import { DashboardWidgetsGrid } from './DashboardWidgetsGrid'
 import { dashboardWidgetSourcesByKey } from './sources'
@@ -79,6 +80,35 @@ describe('DashboardWidgetsGrid data fetching (AUT-776)', () => {
 
     expect(screen.queryByText('Widget pickerl')).not.toBeInTheDocument()
     expect(requestedUrls()).toEqual([])
+  })
+
+  it('AUT-971: hides the widget loading line within 350ms after the fetch settles', async () => {
+    const settledAt = { ms: 0 }
+    mocks.fetchWithAuth.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 280))
+      settledAt.ms = Date.now()
+      return new Response(JSON.stringify({ data: VEHICLES, meta: { total: 2 } }))
+    })
+    mocks.widgets = [widget('settle', '/vehicles')]
+
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('Widget wird geladen…')).toBeInTheDocument())
+    await waitFor(() => expect(settledAt.ms).toBeGreaterThan(0))
+    const deadline = settledAt.ms + 350
+    await waitFor(
+      () => {
+        expect(screen.queryByText('Widget wird geladen…')).not.toBeInTheDocument()
+        expect(Date.now()).toBeLessThanOrEqual(deadline + 100)
+      },
+      { timeout: 600 },
+    )
+    await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument())
+  })
+
+  it('AUT-971: paused pending does not count as widget loading (legacy isLoading would on lists)', () => {
+    expect(isAwaitingFirstQueryPayload(true, false, false)).toBe(false)
+    expect(isAwaitingFirstQueryPayload(true, false, true)).toBe(true)
   })
 
   it('makes one request for widgets that need the same API URL', async () => {

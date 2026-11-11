@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_COMMON } from './helpers/de-common';
 import { DE_SALES } from './helpers/de-sales';
+import { expectSkeletonDismissedBySettleDeadline } from './helpers/aut-971-skeleton-settle';
 import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { pageOverflow } from './utils/phone-layout';
 
@@ -106,21 +107,10 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
       '/sales/invoices?sortField=customer&sortDirection=asc',
       { waitUntil: 'domcontentloaded' },
     )
-    await expect.poll(() => settledAt.ms > 0, { timeout: 2_500, intervals: [50] }).toBe(true)
-    const deadline = settledAt.ms + 350
-    await expect
-      .poll(
-        async () => {
-          const pulseCount = await page.locator('tbody .animate-pulse').count()
-          if (pulseCount === 0) return true
-          if (Date.now() > deadline) {
-            throw new Error(`invoice list skeleton still visible ${Date.now() - settledAt.ms}ms after API settle`)
-          }
-          return false
-        },
-        { timeout: 2_500, intervals: [15, 30, 50] },
-      )
-      .toBe(true)
+    await expectSkeletonDismissedBySettleDeadline(page, settledAt, {
+      apiDelayMs: 900,
+      scope: 'tbody',
+    })
     await expect(page.getByText('RE-2026-0001')).toBeVisible({ timeout: 2_500 })
     await expect(pageButtons(page)).toBeVisible()
   })

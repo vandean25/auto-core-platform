@@ -1,47 +1,13 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_COMMON } from './helpers/de-common'
+import {
+  AUT_971_LIST_API_DELAY_MS,
+  expectSkeletonDismissedBySettleDeadline,
+  routeWithSettledAt,
+} from './helpers/aut-971-skeleton-settle'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
-
-const LIST_API_DELAY_MS = 280
-const DISMISS_BUDGET_MS = 350
-
-async function routeWithSettledAt(page: Page, apiPath: string, body: unknown, delayMs = LIST_API_DELAY_MS) {
-  const settledAt = { ms: 0 }
-  await page.route(AutoCorePage.apiRouteMatcher(apiPath), async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, delayMs))
-    settledAt.ms = Date.now()
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(body),
-    })
-  })
-  return settledAt
-}
-
-async function expectSkeletonDismissedBySettleDeadline(
-  page: Page,
-  settledAt: { ms: number },
-  apiDelayMs = LIST_API_DELAY_MS,
-) {
-  await expect.poll(() => settledAt.ms > 0, { timeout: apiDelayMs + 2_000, intervals: [50] }).toBe(true)
-  const deadline = settledAt.ms + DISMISS_BUDGET_MS
-  await expect
-    .poll(
-      async () => {
-        const pulseCount = await page.locator('.animate-pulse').count()
-        if (pulseCount === 0) return true
-        if (Date.now() > deadline) {
-          throw new Error(`skeleton pulse count ${pulseCount} still visible ${Date.now() - settledAt.ms}ms after API settle`)
-        }
-        return false
-      },
-      { timeout: apiDelayMs + 2_000, intervals: [15, 30, 50] },
-    )
-    .toBe(true)
-}
 
 test.describe('AUT-971 skeleton settles when data arrives', () => {
   test('AUT-971 scenario 1: work-order list at 375px dismisses skeleton within 350ms of the API response', async ({ page }) => {

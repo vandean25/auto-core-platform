@@ -18,7 +18,8 @@ vi.mock('@/api/sites', () => ({ useMySites: vi.fn() }))
 vi.mock('@/api/workshop-kpi-reports', () => ({ useWorkshopKpiReport: vi.fn() }))
 vi.mock('@/lib/i18n', () => ({ useLazyNamespaceBundleReady: () => ({ status: 'ready' as const }) }))
 
-describe('AUT-971 dashboard widgets (v5 refetch)', () => {
+/** Reverting to `isLoading ? skeleton` would fail these: payload is shown even when a stale `isLoading` flag stays true. */
+describe('AUT-971 dashboard widgets (stale isLoading)', () => {
   it.each([
     {
       name: 'Pickerl scenario 5',
@@ -26,7 +27,8 @@ describe('AUT-971 dashboard widgets (v5 refetch)', () => {
         vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
           data: { meta: { total: 2 } },
           isPending: false,
-          isFetching: true,
+          isFetching: false,
+          isLoading: true,
         } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>)
       },
       renderUi: () =>
@@ -45,7 +47,8 @@ describe('AUT-971 dashboard widgets (v5 refetch)', () => {
         vi.mocked(vehicleStockApi.useVehicleStockAgeReport).mockReturnValue({
           data: { summary: { over_90_count: 5, over_90_cost_basis: '1000.00' } },
           isPending: false,
-          isFetching: true,
+          isFetching: false,
+          isLoading: true,
         } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
       },
       renderUi: () =>
@@ -68,7 +71,8 @@ describe('AUT-971 dashboard widgets (v5 refetch)', () => {
         vi.mocked(useWorkshopKpiReport).mockReturnValue({
           data: { totals: { utilisation_percent: '0.82', productivity_percent: '0.71' } },
           isPending: false,
-          isFetching: true,
+          isFetching: false,
+          isLoading: true,
         } as never)
       },
       renderUi: () =>
@@ -81,7 +85,7 @@ describe('AUT-971 dashboard widgets (v5 refetch)', () => {
         expect(screen.getAllByText(/0,8 %/).length).toBeGreaterThan(0)
       },
     },
-  ])('WHEN $name refetches with payload THEN skeleton is not shown', ({ setup, renderUi, assertContent }) => {
+  ])('WHEN $name has payload but stale isLoading THEN skeleton is not shown', ({ setup, renderUi, assertContent }) => {
     setup()
     const { container } = renderUi()
     assertContent()

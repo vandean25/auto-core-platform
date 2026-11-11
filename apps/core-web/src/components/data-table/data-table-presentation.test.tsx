@@ -70,6 +70,68 @@ describe('useDataTablePresentation (AUT-971)', () => {
     expect(result.current.showFirstLoadSkeleton).toBe(false)
   })
 
+  it('AUT-971: legacy isLoading=isPending keeps the gate armed on paused pending but presentation does not', () => {
+    vi.useFakeTimers()
+    const legacyFirstLoadActive = (isLoading: boolean, hasUsableData: boolean, listSnapshotResolved: boolean) =>
+      isLoading && !hasUsableData && !listSnapshotResolved
+    const pausedPending = {
+      isLoading: true,
+      isPending: true,
+      isFetching: false,
+      isPlaceholderData: false,
+      isError: false,
+      hasUsableData: false,
+      listSnapshotResolved: false,
+      bypassSkeleton: false,
+    }
+    expect(legacyFirstLoadActive(pausedPending.isLoading, pausedPending.hasUsableData, pausedPending.listSnapshotResolved)).toBe(
+      true,
+    )
+    const { result } = renderHook(() => useDataTablePresentation(pausedPending))
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(result.current.showFirstLoadSkeleton).toBe(false)
+  })
+
+  it('AUT-971: WHEN a settled v5 trace arrives THEN skeleton clears within 350ms', () => {
+    vi.useFakeTimers()
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useDataTablePresentation>[0]) => useDataTablePresentation(props),
+      {
+        initialProps: {
+          isLoading: true,
+          isPending: true,
+          isFetching: true,
+          isPlaceholderData: false,
+          isError: false,
+          hasUsableData: false,
+          listSnapshotResolved: false,
+          bypassSkeleton: false,
+        },
+      },
+    )
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.showFirstLoadSkeleton).toBe(true)
+
+    rerender({
+      isLoading: false,
+      isPending: false,
+      isFetching: false,
+      isPlaceholderData: false,
+      isError: false,
+      hasUsableData: true,
+      listSnapshotResolved: true,
+      bypassSkeleton: false,
+    })
+    act(() => {
+      vi.advanceTimersByTime(350)
+    })
+    expect(result.current.showFirstLoadSkeleton).toBe(false)
+  })
+
   it('AUT-971: WHEN a later fetch has no payload THEN the skeleton can arm again', () => {
     vi.useFakeTimers()
     const { result, rerender } = renderHook(
