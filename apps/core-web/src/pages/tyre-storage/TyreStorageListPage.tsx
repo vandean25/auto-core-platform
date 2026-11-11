@@ -254,7 +254,7 @@ export default function TyreStorageListPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-full min-w-[10.5rem] space-y-1">
+          <div className="col-span-2 w-full space-y-1 sm:col-span-1 sm:min-w-[10.5rem]">
             <Label>{t('tyreStorage.list.filters.dueFrom')}</Label>
             <DateField
               aria-label={t('tyreStorage.list.filters.dueFrom')}
@@ -264,7 +264,7 @@ export default function TyreStorageListPage() {
               disabled={viewMode === 'due'}
             />
           </div>
-          <div className="w-full min-w-[10.5rem] space-y-1">
+          <div className="col-span-2 w-full space-y-1 sm:col-span-1 sm:min-w-[10.5rem]">
             <Label>{t('tyreStorage.list.filters.dueTo')}</Label>
             <DateField
               aria-label={t('tyreStorage.list.filters.dueTo')}
