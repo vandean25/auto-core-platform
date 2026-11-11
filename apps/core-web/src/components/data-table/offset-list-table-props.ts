@@ -7,7 +7,7 @@ export function offsetListTableProps<TData extends { meta: PagedMeta }>(
   query: Pick<UseQueryResult<TData>, 'data' | 'refetch'>,
 ) {
   return {
-    pageCount: query.data?.meta.pageCount ?? 1,
+    pageCount: query.data?.meta.pageCount ?? 0,
     onRetry: () => void query.refetch(),
   }
 }

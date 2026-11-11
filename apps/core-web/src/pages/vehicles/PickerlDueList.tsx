@@ -366,6 +366,9 @@ export default function PickerlDueList() {
         columns={columns}
         data={filteredRows}
         isLoading={isLoading}
+        isFetching={pickerlQuery.isFetching}
+        isError={pickerlQuery.isError}
+        hasUsableData={responseData !== undefined}
         {...offsetListTableProps(pickerlQuery)}
         pageCount={responseData?.meta.pageCount ?? 0}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}

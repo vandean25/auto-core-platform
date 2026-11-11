@@ -118,6 +118,7 @@ export function useDataTablePresentation(input: DataTablePresentationInput): Dat
   const presentationLatencyMs = useMemo(() => {
     if (showFirstLoadSkeleton || !input.hasUsableData || firstLoadActive) return null
     if (!input.isLoading && input.hasUsableData) {
+      // Pilot: cap is delay + min-visible (ADR-0036); actual gap after payload is often less.
       return INTERACTION_LOADING_TIMINGS.skeletonDelayMs + INTERACTION_LOADING_TIMINGS.skeletonMinVisibleMs
     }
     return null

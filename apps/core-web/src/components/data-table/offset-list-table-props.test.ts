@@ -10,7 +10,7 @@ describe('offsetListTableProps', () => {
       data: undefined,
       refetch: refetch as unknown as UseQueryResult<{ meta: { pageCount: number } }>['refetch'],
     })
-    expect(props.pageCount).toBe(1)
+    expect(props.pageCount).toBe(0)
     expect(props.onRetry).toBeTypeOf('function')
     props.onRetry()
     expect(refetch).toHaveBeenCalledTimes(1)
