@@ -6,6 +6,7 @@ import { ensureNamespaceLoaded } from "@/lib/i18n";
 import type { LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import type { ColumnFiltersState } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { useDevQuerySkeletonDiagnostic } from "@/features/interaction/use-dev-query-skeleton-diagnostic";
 import { offsetPaginatedQueryTableProps } from "@/features/interaction/query-surface-loading";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
@@ -109,6 +110,12 @@ export default function PickerlDueList() {
   const pickerlQuery = usePickerlDueList(queryParams);
   const responseData = pickerlQuery.data;
   const pickerlTableLoading = offsetPaginatedQueryTableProps(pickerlQuery);
+  useDevQuerySkeletonDiagnostic({
+    screen: "vehicles/pickerl-due",
+    query: pickerlQuery,
+    hasUsableData: pickerlTableLoading.hasUsableData,
+    listSnapshotResolved: pickerlTableLoading.listSnapshotResolved,
+  });
 
   const [recordPickerlVehicleId, setRecordPickerlVehicleId] = useState<
     string | null

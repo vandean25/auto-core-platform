@@ -94,6 +94,10 @@ describe('useDataTablePresentation (AUT-971)', () => {
     expect(result.current.showFirstLoadSkeleton).toBe(false)
   })
 
+  function legacyPresentationFirstLoad(isLoading: boolean, hasUsableData: boolean, listSnapshotResolved: boolean) {
+    return isLoading && !hasUsableData && !listSnapshotResolved
+  }
+
   it('AUT-971: WHEN a settled v5 trace arrives THEN skeleton clears within 350ms', () => {
     vi.useFakeTimers()
     const { result, rerender } = renderHook(
@@ -116,7 +120,7 @@ describe('useDataTablePresentation (AUT-971)', () => {
     })
     expect(result.current.showFirstLoadSkeleton).toBe(true)
 
-    rerender({
+    const settledProps = {
       isLoading: false,
       isPending: false,
       isFetching: false,
@@ -125,7 +129,12 @@ describe('useDataTablePresentation (AUT-971)', () => {
       hasUsableData: true,
       listSnapshotResolved: true,
       bypassSkeleton: false,
-    })
+    }
+    expect(legacyPresentationFirstLoad(settledProps.isLoading, settledProps.hasUsableData, settledProps.listSnapshotResolved)).toBe(
+      false,
+    )
+    expect(isDataTableFirstLoadActive(settledProps)).toBe(false)
+    rerender(settledProps)
     act(() => {
       vi.advanceTimersByTime(350)
     })

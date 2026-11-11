@@ -129,12 +129,9 @@ test.describe('AUT-971 skeleton settles when data arrives', () => {
         meta: { page_size: 25, next_cursor: null },
       },
     )
-    const estimatesResponse = page.waitForResponse(
-      (response) => response.url().includes('/api/workshop/estimates') && response.status() === 200,
-    )
     await corePage.navigate('/workshop/estimates', { waitUntil: 'domcontentloaded' })
-    await estimatesResponse
-    await expectSkeletonDismissedBySettleDeadline(page, settledAt)
+    await expect(page.locator('tbody .animate-pulse').first()).toBeVisible({ timeout: 2_000 })
+    await expectSkeletonDismissedBySettleDeadline(page, settledAt, { scope: 'tbody' })
     await expect(page.locator('[data-table-row="true"]').first()).toContainText('KV-2026-0971', { timeout: 2_000 })
   })
 })

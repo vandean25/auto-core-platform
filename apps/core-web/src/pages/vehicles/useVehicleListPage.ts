@@ -11,6 +11,7 @@ import { MAX_VEHICLE_LIST_PAGE_SIZE } from '@/lib/list-page-size'
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { describePendingCreateError, useListPendingCreate } from '@/features/interaction/use-list-pending-create'
+import { useDevQuerySkeletonDiagnostic } from '@/features/interaction/use-dev-query-skeleton-diagnostic'
 import { useVehicleListRowBehaviour } from './useVehicleListRowBehaviour'
 import { useVehicleListColumns, type VehicleListColumnRow } from './useVehicleListColumns'
 
@@ -41,6 +42,12 @@ export function useVehicleListPage() {
   const vehiclesQuery = useVehicles(queryParams)
   const { data: responseData, dataUpdatedAt } = vehiclesQuery
   const listSettled = vehiclesQuery.data !== undefined
+  useDevQuerySkeletonDiagnostic({
+    screen: 'vehicles',
+    query: vehiclesQuery,
+    hasUsableData: listSettled,
+    listSnapshotResolved: listSettled,
+  })
 
   const rows = useMemo<VehicleListPageRow[]>(() => {
     return (responseData?.data ?? []).map((vehicle) => ({

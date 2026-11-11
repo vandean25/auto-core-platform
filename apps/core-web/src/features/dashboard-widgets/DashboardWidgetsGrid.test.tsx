@@ -99,8 +99,9 @@ describe('DashboardWidgetsGrid data fetching (AUT-776)', () => {
 
     const entry = queryClient.getQueryCache().findAll({ queryKey: dashboardWidgetKeys.source('vehicles') })[0]
     expect(entry.state.data).toBeDefined()
-    expect(isAwaitingFirstQueryPayload(false, true, false)).toBe(false)
-    expect(entry.state.status === 'pending').toBe(false)
+    expect(entry.state.status).toBe('success')
+    expect(entry.state.fetchStatus).toBe('idle')
+    expect(screen.queryByText('Widget wird geladen…')).not.toBeInTheDocument()
   })
 
   it('AUT-971: hides the widget loading line within 350ms after the fetch settles', async () => {

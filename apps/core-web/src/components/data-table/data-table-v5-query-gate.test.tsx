@@ -68,6 +68,18 @@ describe('AUT-971 TanStack Query v5 first-load gate', () => {
     ).toBe(false)
   })
 
+  it('WHEN query is v5-shaped at settle THEN legacy and modern first-load gates agree', () => {
+    const inputs = {
+      isLoading: false,
+      isPending: false,
+      isFetching: false,
+      hasUsableData: true,
+      listSnapshotResolved: true,
+    }
+    expect(legacyTableFirstLoadActive(inputs.isLoading, inputs.hasUsableData, inputs.listSnapshotResolved)).toBe(false)
+    expect(isDataTableFirstLoadActive(inputs)).toBe(false)
+  })
+
   it('WHEN isPending is wired as isLoading without isFetching THEN paused pending kept the legacy gate active', () => {
     const legacyGateActive = (isLoading: boolean, hasUsableData: boolean) => isLoading && !hasUsableData
     const pausedPending = {
