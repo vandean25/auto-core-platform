@@ -17,7 +17,7 @@ export type DataTablePresentationInput = {
   isLoading: boolean
   /** Prefer `isPending` when wired: first-load ends once the query has settled, even if `isFetching` continues. */
   isPending?: boolean
-  isFetching: boolean
+  isFetching?: boolean
   isPlaceholderData: boolean
   isError: boolean
   hasUsableData: boolean
@@ -83,7 +83,7 @@ export function resolveDataTableListSnapshot(
 export function buildDataTablePresentationInput(input: {
   isLoading: boolean
   isPending?: boolean
-  isFetching: boolean
+  isFetching?: boolean
   isPlaceholderData: boolean
   isError: boolean
   hasUsableData: boolean
@@ -149,7 +149,8 @@ export function shouldUseMobileDataTableList(
 
 /** TanStack Query v5 `isLoading` is `isPending && isFetching` — do not keep skeleton on paused pending. */
 export function isDataTableFirstLoadActive(
-  input: Pick<DataTablePresentationInput, 'isLoading' | 'isPending' | 'isFetching' | 'hasUsableData' | 'listSnapshotResolved'>,
+  input: Pick<DataTablePresentationInput, 'isLoading' | 'hasUsableData' | 'listSnapshotResolved'> &
+    Partial<Pick<DataTablePresentationInput, 'isPending' | 'isFetching'>>,
 ): boolean {
   const isPending = input.isPending ?? input.isLoading
   // Legacy `isLoading`-only callers omit isFetching; explicit `false` means paused pending (v5).
