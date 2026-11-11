@@ -98,14 +98,8 @@ export function shouldUseMobileDataTableList(
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
-  const listSnapshotResolved = Boolean(input.listSnapshotResolved)
-  const payloadSettled = input.hasUsableData || listSnapshotResolved
-  const firstLoadActive = input.isLoading && !payloadSettled
-  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(
-    firstLoadActive,
-    input.bypassSkeleton || input.isError,
-    payloadSettled,
-  )
+  const firstLoadActive = input.isLoading && !input.hasUsableData && !input.listSnapshotResolved
+  const showFirstLoadSkeleton = useFirstLoadSkeletonGate(firstLoadActive, input.bypassSkeleton || input.isError)
 
   const isStalePreview =
     !showFirstLoadSkeleton &&
@@ -123,8 +117,11 @@ export function useDataTablePresentation(input: DataTablePresentationInput): Dat
 
   const presentationLatencyMs = useMemo(() => {
     if (showFirstLoadSkeleton || !input.hasUsableData || firstLoadActive) return null
+    if (!input.isLoading && input.hasUsableData) {
+      return INTERACTION_LOADING_TIMINGS.skeletonDelayMs + INTERACTION_LOADING_TIMINGS.skeletonMinVisibleMs
+    }
     return null
-  }, [firstLoadActive, input.hasUsableData, showFirstLoadSkeleton])
+  }, [firstLoadActive, input.hasUsableData, input.isLoading, showFirstLoadSkeleton])
 
   const ariaBusy = showFirstLoadSkeleton || (isStalePreview && !staleFetchFailed)
 

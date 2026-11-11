@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
+import { skeletonMinVisibleHoldRemainingMs } from '@/hooks/useFirstLoadSkeletonGate'
 import { useDataTablePresentation } from './data-table-loading'
 
 const { skeletonDelayMs, skeletonMinVisibleMs } = INTERACTION_LOADING_TIMINGS
@@ -44,8 +45,13 @@ describe('AUT-971 skeleton dismiss after list payload (vehicles)', () => {
     expect(result.current.data).toBeDefined()
   })
 
-  it('dismisses skeleton immediately when presentation receives settled v5 fields (origin/main held minVisibleMs)', () => {
+  it('ADR-0036: post-payload gap is only the remaining minimum-visible hold (not an extra timer tick)', () => {
     vi.useFakeTimers()
+    const visibleSince = skeletonDelayMs
+    const dataArrivedAt = skeletonDelayMs + 50
+    const holdAfterPayload = skeletonMinVisibleHoldRemainingMs(visibleSince, dataArrivedAt)
+    expect(holdAfterPayload).toBe(skeletonMinVisibleMs - 50)
+
     const { result, rerender } = renderHook((props: Parameters<typeof useDataTablePresentation>[0]) => useDataTablePresentation(props), {
       initialProps: {
         isLoading: true,
@@ -59,10 +65,13 @@ describe('AUT-971 skeleton dismiss after list payload (vehicles)', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(skeletonDelayMs + 50)
+      vi.advanceTimersByTime(skeletonDelayMs)
     })
     expect(result.current.showFirstLoadSkeleton).toBe(true)
 
+    act(() => {
+      vi.advanceTimersByTime(50)
+    })
     rerender({
       isLoading: false,
       isFetching: false,
@@ -73,10 +82,13 @@ describe('AUT-971 skeleton dismiss after list payload (vehicles)', () => {
       bypassSkeleton: false,
     })
 
-    expect(result.current.showFirstLoadSkeleton).toBe(false)
+    act(() => {
+      vi.advanceTimersByTime(holdAfterPayload - 1)
+    })
+    expect(result.current.showFirstLoadSkeleton).toBe(true)
 
     act(() => {
-      vi.advanceTimersByTime(skeletonMinVisibleMs)
+      vi.advanceTimersByTime(1)
     })
     expect(result.current.showFirstLoadSkeleton).toBe(false)
   })

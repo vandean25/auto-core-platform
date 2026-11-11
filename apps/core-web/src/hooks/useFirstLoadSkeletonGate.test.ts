@@ -2,9 +2,19 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
-import { useFirstLoadSkeletonGate } from './useFirstLoadSkeletonGate'
+import { skeletonMinVisibleHoldRemainingMs, useFirstLoadSkeletonGate } from './useFirstLoadSkeletonGate'
 
 const { skeletonDelayMs, skeletonMinVisibleMs } = INTERACTION_LOADING_TIMINGS
+
+describe('skeletonMinVisibleHoldRemainingMs', () => {
+  it('returns the full minimum when the skeleton just became visible', () => {
+    expect(skeletonMinVisibleHoldRemainingMs(1000, 1000)).toBe(skeletonMinVisibleMs)
+  })
+
+  it('returns zero when the minimum visible window has elapsed', () => {
+    expect(skeletonMinVisibleHoldRemainingMs(1000, 1000 + skeletonMinVisibleMs)).toBe(0)
+  })
+})
 
 describe('useFirstLoadSkeletonGate', () => {
   beforeEach(() => vi.useFakeTimers())
@@ -22,33 +32,34 @@ describe('useFirstLoadSkeletonGate', () => {
     expect(result.current).toBe(false)
   })
 
-  it('AUT-971: clears immediately when the load ends and payload is settled', () => {
+  it('keeps minimum visible time after first load ends', () => {
     const { result, rerender } = renderHook(
-      ({ active, payloadSettled }) => useFirstLoadSkeletonGate(active, false, payloadSettled),
-      { initialProps: { active: true, payloadSettled: false } },
+      ({ active }) => useFirstLoadSkeletonGate(active, false),
+      { initialProps: { active: true } },
     )
 
     act(() => vi.advanceTimersByTime(skeletonDelayMs))
     expect(result.current).toBe(true)
 
-    rerender({ active: false, payloadSettled: true })
+    rerender({ active: false })
+    act(() => vi.advanceTimersByTime(skeletonMinVisibleMs - 1))
+    expect(result.current).toBe(true)
+
+    act(() => vi.advanceTimersByTime(1))
     expect(result.current).toBe(false)
   })
 
-  it('keeps minimum visible time when load ends before payload is settled', () => {
+  it('does not arm the skeleton when first load ends within the show delay', () => {
     const { result, rerender } = renderHook(
-      ({ active, payloadSettled }) => useFirstLoadSkeletonGate(active, false, payloadSettled),
-      { initialProps: { active: true, payloadSettled: false } },
+      ({ active }) => useFirstLoadSkeletonGate(active, false),
+      { initialProps: { active: true } },
     )
 
-    act(() => vi.advanceTimersByTime(skeletonDelayMs))
-    expect(result.current).toBe(true)
+    act(() => vi.advanceTimersByTime(skeletonDelayMs - 1))
+    expect(result.current).toBe(false)
 
-    rerender({ active: false, payloadSettled: false })
-    act(() => vi.advanceTimersByTime(50))
-    expect(result.current).toBe(true)
-
-    act(() => vi.advanceTimersByTime(skeletonMinVisibleMs))
+    rerender({ active: false })
+    act(() => vi.advanceTimersByTime(10))
     expect(result.current).toBe(false)
   })
 })

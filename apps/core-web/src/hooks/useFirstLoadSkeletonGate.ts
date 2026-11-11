@@ -1,25 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 
 const { skeletonDelayMs, skeletonMinVisibleMs } = INTERACTION_LOADING_TIMINGS
 
+/** Milliseconds left in the minimum-visible hold once the skeleton is on screen; 0 means it can clear now. */
+export function skeletonMinVisibleHoldRemainingMs(
+  visibleSinceMs: number | null,
+  nowMs = Date.now(),
+): number {
+  if (visibleSinceMs === null) return 0
+  return Math.max(0, skeletonMinVisibleMs - (nowMs - visibleSinceMs))
+}
+
 /**
  * First-load skeleton gate: 200 ms delay, then at least 350 ms visible once shown.
  * Bypass clears immediately (errors and context resets).
- * When `payloadSettled` is true and first load ends, dismiss immediately (AUT-971 post-GET gap).
  */
-export function useFirstLoadSkeletonGate(
-  isFirstLoadActive: boolean,
-  bypass = false,
-  payloadSettled = false,
-): boolean {
+export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = false): boolean {
   const [visible, setVisible] = useState(false)
   const visibleSinceRef = useRef<number | null>(null)
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const clearDelayTimer = () => {
       if (delayTimerRef.current) {
         clearTimeout(delayTimerRef.current)
@@ -57,15 +61,12 @@ export function useFirstLoadSkeletonGate(
     }
 
     clearDelayTimer()
-    if (payloadSettled || visibleSinceRef.current === null) {
-      clearHoldTimer()
-      visibleSinceRef.current = null
+    if (visibleSinceRef.current === null) {
       setVisible(false)
       return
     }
 
-    const elapsed = Date.now() - visibleSinceRef.current
-    const remaining = skeletonMinVisibleMs - elapsed
+    const remaining = skeletonMinVisibleHoldRemainingMs(visibleSinceRef.current)
     if (remaining <= 0) {
       visibleSinceRef.current = null
       setVisible(false)
@@ -80,7 +81,7 @@ export function useFirstLoadSkeletonGate(
     }, remaining)
 
     return () => clearHoldTimer()
-  }, [bypass, isFirstLoadActive, payloadSettled])
+  }, [bypass, isFirstLoadActive])
 
   return visible
 }
