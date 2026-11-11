@@ -23,7 +23,6 @@ export function useWorkshopOrderListRows(ordersQuery: OrdersQuery) {
   const visibleResponse = retained.data
   useDevQuerySkeletonDiagnostic({
     screen: 'workshop-orders',
-    queryKey: ordersQuery.queryKey,
     query: ordersQuery,
     hasUsableData: visibleResponse !== undefined,
     listSnapshotResolved: responseData !== undefined,
