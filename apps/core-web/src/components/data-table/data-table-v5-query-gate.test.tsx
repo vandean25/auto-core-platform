@@ -2,7 +2,18 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
+import { offsetListTableProps } from './offset-list-table-props'
 import { isDataTableFirstLoadActive } from './data-table-loading'
+
+function legacyTableFirstLoadActive(isLoading: boolean, hasUsableData: boolean, listSnapshotResolved: boolean) {
+  return isLoading && !hasUsableData && !listSnapshotResolved
+}
+
+function queryClientWrapper(queryClient: QueryClient) {
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  )
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -69,5 +80,60 @@ describe('AUT-971 TanStack Query v5 first-load gate', () => {
 
     expect(legacyGateActive(pausedPending.isLoading, pausedPending.hasUsableData)).toBe(true)
     expect(isDataTableFirstLoadActive(pausedPending)).toBe(false)
+  })
+
+  it('WHEN list payload is settled but a sibling count fetch is active THEN snapshot flags end first load (legacy stuck without them)', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { promise: countPromise } = createDeferred<{ count: number }>()
+    const listPayload = { data: [{ id: 'v1' }], meta: { pageCount: 1 } }
+
+    const { result: listResult } = renderHook(
+      () =>
+        useQuery({
+          queryKey: ['aut-971', 'list-sibling'],
+          queryFn: async () => listPayload,
+        }),
+      { wrapper: queryClientWrapper(queryClient) },
+    )
+    const { result: countResult } = renderHook(
+      () =>
+        useQuery({
+          queryKey: ['aut-971', 'count-sibling'],
+          queryFn: () => countPromise,
+        }),
+      { wrapper: queryClientWrapper(queryClient) },
+    )
+
+    await waitFor(() => expect(listResult.current.data).toBeDefined())
+    await waitFor(() => expect(countResult.current.isFetching).toBe(true))
+
+    const wired = offsetListTableProps({
+      data: listResult.current.data,
+      isPending: listResult.current.isPending,
+      isFetching: listResult.current.isFetching,
+      isPlaceholderData: listResult.current.isPlaceholderData,
+      isError: listResult.current.isError,
+    })
+    const miswiredLoading = countResult.current.isPending && countResult.current.isFetching
+    expect(
+      isDataTableFirstLoadActive({
+        isLoading: miswiredLoading,
+        isPending: countResult.current.isPending,
+        isFetching: countResult.current.isFetching,
+        hasUsableData: wired.hasUsableData,
+        listSnapshotResolved: wired.listSnapshotResolved,
+      }),
+    ).toBe(false)
+    expect(legacyTableFirstLoadActive(miswiredLoading, wired.hasUsableData, wired.listSnapshotResolved)).toBe(false)
+    expect(legacyTableFirstLoadActive(miswiredLoading, false, false)).toBe(true)
+    expect(
+      isDataTableFirstLoadActive({
+        isLoading: miswiredLoading,
+        isPending: countResult.current.isPending,
+        isFetching: countResult.current.isFetching,
+        hasUsableData: false,
+        listSnapshotResolved: true,
+      }),
+    ).toBe(false)
   })
 })
