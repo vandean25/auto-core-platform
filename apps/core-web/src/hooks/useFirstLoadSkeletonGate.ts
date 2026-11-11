@@ -19,9 +19,10 @@ export function useFirstLoadSkeletonGate(
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const payloadReadyLatchRef = useRef(false)
-  if (payloadReady) payloadReadyLatchRef.current = true
 
   useEffect(() => {
+    if (payloadReady) payloadReadyLatchRef.current = true
+
     const clearDelayTimer = () => {
       if (delayTimerRef.current) {
         clearTimeout(delayTimerRef.current)

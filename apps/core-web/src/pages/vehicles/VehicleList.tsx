@@ -4,15 +4,8 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import type { components } from '@/api/generated/openapi'
-import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { CarFront, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
-import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import {
-  DataTablePendingIcon,
-  InteractionErrorMarker,
-  isDataTablePendingRow,
-} from '@/components/data-table/data-table-states'
 import { useCreateVehicle, useVehicles } from '@/api/vehicles'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
@@ -23,20 +16,12 @@ import { MAX_VEHICLE_LIST_PAGE_SIZE, VEHICLE_LIST_PAGE_SIZE_OPTIONS } from '@/li
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
 import { VehiclePeekSheet } from '@/features/peek/VehiclePeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
-import {
-  describePendingCreateError,
-  useListPendingCreate,
-  type PendingCreateRow,
-} from '@/features/interaction/use-list-pending-create'
+import { describePendingCreateError, useListPendingCreate } from '@/features/interaction/use-list-pending-create'
 import { useVehicleListRowBehaviour } from './useVehicleListRowBehaviour'
+import { useVehicleListColumns, type VehicleListColumnRow } from './useVehicleListColumns'
 import { PAGE_HEADER_ROW } from '@/lib/page-header'
 
-type VehicleRow = VehicleListRow & {
-  year: number
-  vin: string
-  plate: string
-  customer: string
-}
+type VehicleRow = VehicleListRow & VehicleListColumnRow
 
 function getCustomerLabel(
   t: TFunction<'vehicles'>,
@@ -102,72 +87,7 @@ export default function VehicleList() {
   const peek = usePeekSearchParam()
   const rowBehaviour = useVehicleListRowBehaviour(t, navigate, peek.openPeek, rows)
 
-  const columns = useMemo<ColumnDef<VehicleRow>[]>(
-    () => [
-      {
-        id: 'icon',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="" className="w-[50px]" />
-        ),
-        cell: ({ row }) => (
-          <div className="w-[50px]">
-            {isDataTablePendingRow(row.original) ? (
-              <DataTablePendingIcon label={tCommon('dataTable.loading.pendingRow')} />
-            ) : (
-              <CarFront className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-        ),
-        enableSorting: false,
-        enableHiding: false,
-      },
-      {
-        accessorKey: 'vehicle',
-        meta: { rowLink: true, mobile: 'title' },
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('list.columns.makeModel')} />
-        ),
-        cell: ({ row }) => {
-          const failure = (row.original as PendingCreateRow<VehicleRow>).pendingFailure
-          if (!failure) return row.original.vehicle
-          return (
-            <div className="space-y-2">
-              <div>{row.original.vehicle}</div>
-              <InteractionErrorMarker message={failure} onDismiss={() => dismissPending(row.original.id)} />
-            </div>
-          )
-        },
-      },
-      {
-        accessorKey: 'year',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('list.columns.year')} />
-        ),
-      },
-      {
-        accessorKey: 'vin',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('list.columns.vin')} />
-        ),
-        cell: ({ row }) => <span className="text-xs">{row.original.vin}</span>,
-      },
-      {
-        accessorKey: 'plate',
-        meta: { mobile: 'trailing' },
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('list.columns.plate')} />
-        ),
-      },
-      {
-        accessorKey: 'customer',
-        meta: { mobile: 'subtitle' },
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('list.columns.customer')} />
-        ),
-      },
-    ],
-    [dismissPending, t, tCommon],
-  )
+  const columns = useVehicleListColumns(t, tCommon, dismissPending)
 
   return (
     <>

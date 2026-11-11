@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react'
-import { useDevQuerySkeletonDiagnostic } from '@/features/interaction/use-dev-query-skeleton-diagnostic'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,6 +16,20 @@ import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
 import { useWorkshopOrderListColumns } from './useWorkshopOrderListColumns'
 import { useWorkshopOrderListRows } from './useWorkshopOrderListPendingRows'
+import type { TFunction } from 'i18next'
+
+function workshopOrderListEmptyState(t: TFunction<'workshop'>, isError: boolean, openCreate: () => void) {
+  if (isError) return undefined
+  return {
+    message: t('orders.list.empty'),
+    action: (
+      <Button onClick={openCreate}>
+        <Plus className='h-4 w-4 mr-2' />
+        {t('orders.list.emptyAction')}
+      </Button>
+    ),
+  }
+}
 
 export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')
@@ -24,11 +37,12 @@ export default function WorkshopOrderList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
+  const openCreate = () => setCreateOpen(true)
   const presentationLatencyRef = useRef<number | null>(null)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const ordersQuery = useWorkshopOrders(queryParams)
   const peek = usePeekSearchParam()
-  const rows = useWorkshopOrderListRows(ordersQuery.data, ordersQuery.isError, ordersQuery.dataUpdatedAt)
+  const rows = useWorkshopOrderListRows(ordersQuery)
   const columns = useWorkshopOrderListColumns(t, tCommon, rows.pendingActions)
   const rowBehaviour = useWorkshopOrderListRowBehaviour(
     t,
@@ -37,13 +51,6 @@ export default function WorkshopOrderList() {
     peek.openPeek,
     rows.loadedRows,
   )
-  useDevQuerySkeletonDiagnostic({
-    screen: 'workshop-orders',
-    query: ordersQuery,
-    hasUsableData: rows.visibleResponse !== undefined,
-    listSnapshotResolved: ordersQuery.data !== undefined,
-  })
-
   return (
     <div className='space-y-6'>
       <PageHeader
@@ -56,7 +63,7 @@ export default function WorkshopOrderList() {
                 {t('orders.list.partsPickQueue')}
               </Button>
             </TooltipHint>
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={openCreate}>
               <Plus className='h-4 w-4 mr-2' />
               {t('orders.list.newOrder')}
             </Button>
@@ -79,15 +86,7 @@ export default function WorkshopOrderList() {
         listSnapshotResolved={ordersQuery.data !== undefined}
         presentationLatencyRef={presentationLatencyRef}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
-        emptyState={ordersQuery.isError ? undefined : {
-          message: t('orders.list.empty'),
-          action: (
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className='h-4 w-4 mr-2' />
-              {t('orders.list.emptyAction')}
-            </Button>
-          ),
-        }}
+        emptyState={workshopOrderListEmptyState(t, ordersQuery.isError, openCreate)}
         rowBehaviour={rowBehaviour}
         {...tableState}
       />
