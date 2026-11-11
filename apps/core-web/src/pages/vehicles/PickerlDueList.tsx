@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from '@/components/layout/PageHeader'
+import { offsetListTableProps } from '@/components/data-table/offset-list-table-props'
 
 type PickerlDueRow = {
   id: string;
@@ -105,7 +106,8 @@ export default function PickerlDueList() {
     queryParams.status = statusFilter.value as string;
   }
 
-  const { data: responseData, isLoading } = usePickerlDueList(queryParams);
+  const pickerlQuery = usePickerlDueList(queryParams);
+  const { data: responseData, isLoading } = pickerlQuery;
 
   const [recordPickerlVehicleId, setRecordPickerlVehicleId] = useState<
     string | null
@@ -364,6 +366,10 @@ export default function PickerlDueList() {
         columns={columns}
         data={filteredRows}
         isLoading={isLoading}
+        isFetching={pickerlQuery.isFetching}
+        isError={pickerlQuery.isError}
+        hasUsableData={responseData !== undefined}
+        {...offsetListTableProps(pickerlQuery)}
         pageCount={responseData?.meta.pageCount ?? 0}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
         enableCsvExport={false}

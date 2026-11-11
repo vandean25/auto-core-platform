@@ -1,8 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import { INTERACTION_LOADING_TIMINGS } from '@/features/interaction/loading-timings'
 
 const { skeletonDelayMs, skeletonMinVisibleMs } = INTERACTION_LOADING_TIMINGS
+
+/** Milliseconds left in the minimum-visible hold once the skeleton is on screen; 0 means it can clear now. */
+export function skeletonMinVisibleHoldRemainingMs(
+  visibleSinceMs: number | null,
+  nowMs = Date.now(),
+): number {
+  if (visibleSinceMs === null) return 0
+  return Math.max(0, skeletonMinVisibleMs - (nowMs - visibleSinceMs))
+}
 
 /**
  * First-load skeleton gate: 200 ms delay, then at least 350 ms visible once shown.
@@ -14,7 +23,7 @@ export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = fa
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const clearDelayTimer = () => {
       if (delayTimerRef.current) {
         clearTimeout(delayTimerRef.current)
@@ -57,8 +66,7 @@ export function useFirstLoadSkeletonGate(isFirstLoadActive: boolean, bypass = fa
       return
     }
 
-    const elapsed = Date.now() - visibleSinceRef.current
-    const remaining = skeletonMinVisibleMs - elapsed
+    const remaining = skeletonMinVisibleHoldRemainingMs(visibleSinceRef.current)
     if (remaining <= 0) {
       visibleSinceRef.current = null
       setVisible(false)

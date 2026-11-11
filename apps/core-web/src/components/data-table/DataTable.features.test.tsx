@@ -186,6 +186,38 @@ describe('DataTable states', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument()
   })
 
+  it('AUT-971: WHEN payload settles as skeleton arms THEN tbody skeleton clears within 350 ms of settle', () => {
+    const { container, rerender } = render(<Harness data={[]} isLoading isFetching hasUsableData={false} />)
+    act(() => vi.advanceTimersByTime(200))
+    expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
+
+    rerender(<Harness data={rows} isLoading={false} isFetching={false} hasUsableData />)
+    act(() => vi.advanceTimersByTime(349))
+    expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(container.querySelector('tbody .animate-pulse')).toBeNull()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+  })
+
+  it('AUT-971: WHEN payload settles after skeleton is visible THEN skeleton does not linger past 350 ms after settle', () => {
+    const { container, rerender } = render(<Harness data={[]} isLoading isFetching hasUsableData={false} />)
+    act(() => vi.advanceTimersByTime(200))
+    expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
+
+    act(() => vi.advanceTimersByTime(50))
+    rerender(<Harness data={rows} isLoading={false} isFetching={false} hasUsableData />)
+
+    const remainingHoldMs = 300
+    expect(remainingHoldMs).toBeLessThanOrEqual(350)
+
+    act(() => vi.advanceTimersByTime(remainingHoldMs - 1))
+    expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(container.querySelector('tbody .animate-pulse')).toBeNull()
+  })
+
   it('WHEN a skeleton has appeared THEN it stays at least 350 ms unless bypassed', () => {
     const { container, rerender } = render(<Harness data={[]} isLoading />)
     act(() => vi.advanceTimersByTime(200))

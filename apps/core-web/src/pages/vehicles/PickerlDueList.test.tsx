@@ -64,6 +64,24 @@ describe("PickerlDueList", () => {
 
   afterEach(() => cleanup());
 
+  it("shows Retry and calls refetch when the pickerl query failed without data", () => {
+    const refetch = vi.fn();
+    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      isPending: false,
+      isError: true,
+      refetch,
+    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>);
+
+    renderList();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(deCommon.dataTable.loading.loadFailed);
+    fireEvent.click(screen.getByRole("button", { name: deCommon.dataTable.loading.retry }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the page header", () => {
     renderList();
     expect(screen.getByText(deVehicles.pickerlDue.title)).toBeInTheDocument();
