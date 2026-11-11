@@ -28,6 +28,8 @@ RUN test -f dist/locales/de/seedMaster.json
 FROM mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d AS worker
 
 ARG PDF_WORKER_NODE_VERSION=24.22.2
+# From https://nodejs.org/dist/v24.22.2/SHASUMS256.txt (node-v24.22.2-linux-x64.tar.xz)
+ARG PDF_WORKER_NODE_SHA256=48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75
 ENV PDF_WORKER_NODE_VERSION=${PDF_WORKER_NODE_VERSION}
 
 RUN apt-get update \
@@ -35,8 +37,10 @@ RUN apt-get update \
     && rm -f /etc/apt/sources.list.d/nodesource.list \
     && apt-get autoremove -y \
     && apt-get install -y --no-install-recommends curl ca-certificates xz-utils \
-    && curl -fsSL "https://nodejs.org/dist/v${PDF_WORKER_NODE_VERSION}/node-v${PDF_WORKER_NODE_VERSION}-linux-x64.tar.xz" \
-      | tar -xJ -C /usr/local --strip-components=1 \
+    && curl -fsSL "https://nodejs.org/dist/v${PDF_WORKER_NODE_VERSION}/node-v${PDF_WORKER_NODE_VERSION}-linux-x64.tar.xz" -o node.tar.xz \
+    && echo "${PDF_WORKER_NODE_SHA256}  node.tar.xz" | sha256sum -c - \
+    && tar -xJf node.tar.xz -C /usr/local --strip-components=1 \
+    && rm -f node.tar.xz \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/usr/local/bin:${PATH}"

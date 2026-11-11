@@ -39,6 +39,10 @@ test('verify-pdf-worker-node.sh passes on the pinned Node runtime', () => {
 
 test('Dockerfile pins exact Node 24.22.2 and runs verify-pdf-worker-node.sh', () => {
   assert.match(dockerfile, /ARG PDF_WORKER_NODE_VERSION=24\.22\.2/);
+  const shaArg = dockerfile.match(/^ARG PDF_WORKER_NODE_SHA256=([a-f0-9]{64})$/m);
+  assert.ok(shaArg);
+  assert.equal(shaArg[1].length, 64);
+  assert.match(dockerfile, /sha256sum -c -/);
   assert.match(
     dockerfile,
     /node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar\.xz/,

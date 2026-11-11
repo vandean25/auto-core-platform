@@ -205,6 +205,10 @@ describe('Production image version pins (AUT-167)', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
     expect(dockerfile).toMatch(/ARG PDF_WORKER_NODE_VERSION=24\.22\.2/);
+    const shaArg = dockerfile.match(/^ARG PDF_WORKER_NODE_SHA256=([a-f0-9]{64})$/m);
+    expect(shaArg).not.toBeNull();
+    expect(shaArg?.[1]).toHaveLength(64);
+    expect(dockerfile).toMatch(/sha256sum -c -/);
     expect(dockerfile).toMatch(/verify-pdf-worker-node\.sh/);
     expect(dockerfile).toMatch(/node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar\.xz/);
     expect(dockerfile).not.toMatch(/setup_24\.x/);
