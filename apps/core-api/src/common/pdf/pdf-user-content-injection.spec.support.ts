@@ -16,18 +16,8 @@ import {
 import { escapeHtml } from './pdf-layout.js';
 import {
   PDF_SCRIPT_INJECTION_PAYLOAD,
-  PDF_USER_CONTENT_INJECTION_PAYLOADS,
   PDF_XML_INJECTION_PAYLOAD,
 } from './pdf-user-content-injection.fixture.js';
-
-export function expectPdfInjectionEscaped(html: string): void {
-  for (const payload of PDF_USER_CONTENT_INJECTION_PAYLOADS) {
-    expect(html).toContain(escapeHtml(payload));
-    expect(html).not.toContain(payload);
-  }
-  expect(html).not.toMatch(/<script[\s>]/i);
-  expect(html).not.toMatch(/<\?xml/i);
-}
 
 const KAUFVERTRAG_INJECTION_BASE: KaufvertragSnapshotInput = {
   sale: {
